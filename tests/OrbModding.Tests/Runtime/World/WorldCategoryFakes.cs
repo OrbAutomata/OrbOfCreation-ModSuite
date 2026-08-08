@@ -1187,6 +1187,9 @@ internal sealed class FakeSpell
     public int CanRemoveCalls { get; private set; }
     public List<FakeGlyph> augmentGlyphs = new();
 
+    /// <summary>The game's own manual-cast counter, read as the field <c>Spell.numCasts</c> is.</summary>
+    public int numCasts;
+
     public FakeSpellRecipe? get_reference() => spellReference;
     public Guid GetId() => guidContainer.Identity;
 
