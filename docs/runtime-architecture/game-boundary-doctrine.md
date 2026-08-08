@@ -52,6 +52,26 @@ only for the request that names them. See
   is published as stale-capable and no action may be authorized by it. "Works when the screen
   is open" is never an accepted state.
 
+### The modifier fold runs on the Unity thread, and that is the accepted trade
+
+Owned math belongs off the Unity thread. `NativeModifierRecordAccess.Fold` is the one named
+exception, and it is settled rather than open: it runs inside the compiled accessor, so its
+arithmetic happens on the main thread during capture, roughly five thousand records per pass.
+
+Two facts make that the cheaper side of the trade, and both are load-bearing together:
+
+- **The dirty flag is read first.** A clean record costs one boolean read and one field read and
+  skips the arithmetic entirely, and most records in a live save are clean. The fold is paid for
+  only where the game itself would also have recomputed.
+- **Moving it off-thread means allocating.** Each dirty record's modifier set is variable-length and
+  is copied into one reused scratch array. Carrying it across the thread boundary means per-record
+  storage on the frame — an allocation per dirty record, which is exactly the cost the scratch
+  buffer exists to avoid. Trading bounded main-thread arithmetic for unbounded per-pass allocation
+  is a worse frame, not a better one.
+
+This is recorded so it is not re-litigated. A future reviewer proposing to move it is proposing the
+allocation, and has to answer for that instead of for the arithmetic.
+
 ### Live entity identity catalog
 
 `RuntimeIdentityRegistryBinding` is the one Common-owned binding for
