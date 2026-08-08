@@ -4341,7 +4341,7 @@ internal static class GameMcpWorldQuery
                 {
                     reasonCode = "component_unavailable";
                     reason = "Component " +
-                        EntityIdentityFormatter.Format(component.Uuid, world.EntityIdentities) +
+                        EntityIdentityFormatter.PlayerName(component.Uuid, world.EntityIdentities) +
                         (isGlyph
                             ? " is ambiguous between glyph and resource categories."
                             : " is not a published glyph or resource in this world.");
@@ -4353,7 +4353,7 @@ internal static class GameMcpWorldQuery
                     {
                         reasonCode = "component_unavailable";
                         reason = "Glyph " +
-                            EntityIdentityFormatter.Format(component.Uuid, world.EntityIdentities) +
+                            EntityIdentityFormatter.PlayerName(component.Uuid, world.EntityIdentities) +
                             " permits " + glyph.MaximumUsages + " usable selections, not " +
                             component.Count + ".";
                         return false;
@@ -4526,14 +4526,14 @@ internal static class GameMcpWorldQuery
                 glyph.AugmentsSpells || !glyph.Learned)
             {
                 reason = "Component " +
-                    EntityIdentityFormatter.Format(component.Uuid, world.EntityIdentities) +
+                    EntityIdentityFormatter.PlayerName(component.Uuid, world.EntityIdentities) +
                     " is not an available core glyph in this world.";
                 return false;
             }
             if (component.Count > glyph.MaximumUsages)
             {
                 reason = "Component " +
-                    EntityIdentityFormatter.Format(component.Uuid, world.EntityIdentities) +
+                    EntityIdentityFormatter.PlayerName(component.Uuid, world.EntityIdentities) +
                     " requests " + component.Count + " uses, but only " +
                     glyph.MaximumUsages + " are usable.";
                 return false;

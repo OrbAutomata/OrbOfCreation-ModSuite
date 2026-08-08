@@ -63,6 +63,39 @@ public sealed class ProductionSourceAuditTests
             string.Join(", ", offenders));
     }
 
+    /// <summary>
+    /// The MCP surface names entities the way a player does, everywhere and without exception.
+    /// </summary>
+    /// <remarks>
+    /// <c>Format</c> renders the diagnostic <c>Name [AssetName] (uuid)</c> triple, which is what a
+    /// log wants and what a sentence does not: the same response already carries the asset name and
+    /// the UUID as fields. Sweeping the sites named in one review left seventeen more behind, so the
+    /// rule is enforced over the whole surface rather than over a list somebody has to keep current.
+    /// </remarks>
+    [Fact]
+    public void TheMcpSurfaceNamesEntitiesTheWayAPlayerDoes()
+    {
+        var surfaceRoot = Path.Combine(
+            FindRepositoryRoot(), "src", "Automata", "Runtime", "GameMcp");
+        var offenders = new List<string>();
+        foreach (var path in Directory.EnumerateFiles(
+                     surfaceRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            var lineNumber = 0;
+            foreach (var line in File.ReadLines(path))
+            {
+                lineNumber++;
+                if (line.Contains("EntityIdentityFormatter.Format(", StringComparison.Ordinal))
+                    offenders.Add(Path.GetFileName(path) + ":" + lineNumber);
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "MCP prose names entities with EntityIdentityFormatter.PlayerName; Format is the " +
+            "diagnostic triple for logs: " + string.Join(", ", offenders));
+    }
+
     private static string FindRepositoryRoot()
     {
         foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })

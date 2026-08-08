@@ -225,9 +225,9 @@ internal static class GameMcpEntityCapabilityMap
             return true;
         }
         reason = matches == 0
-            ? "Identity " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            ? "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
               " is absent from published level-list categories"
-            : "Identity " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            : "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
               " is ambiguous across " + matches + " level-list categories";
         nativeType = string.Empty;
         return false;
@@ -278,9 +278,9 @@ internal static class GameMcpEntityCapabilityMap
             return true;
         }
         reason = matches == 0
-            ? "Identity " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            ? "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
               " is absent from published generic-discoverable categories"
-            : "Identity " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            : "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
               " is ambiguous across " + matches + " generic-discoverable categories";
         nativeType = string.Empty;
         return false;
@@ -308,7 +308,7 @@ internal static class GameMcpEntityCapabilityMap
             if (candidates[index].StructureId == target) matches++;
         if (matches == 1) { reason = string.Empty; return true; }
         reason = matches == 0
-            ? "StructureSO target " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            ? "StructureSO target " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
               " is absent from the published eligible-target set"
             : "StructureSO target is ambiguous in the published eligible-target set";
         return false;
@@ -335,9 +335,9 @@ internal static class GameMcpEntityCapabilityMap
             return true;
         }
         reason = matches == 0
-            ? "runtime Spell identity " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            ? "runtime Spell identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
               " is absent from published equipped spell instances"
-            : "runtime Spell identity " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            : "runtime Spell identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
               " is ambiguous across " + matches + " equipped instances";
         return false;
     }
@@ -368,9 +368,9 @@ internal static class GameMcpEntityCapabilityMap
             return true;
         }
         reason = matches == 0
-            ? "runtime Spell identity " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            ? "runtime Spell identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
               " is absent from published equipped spell instances"
-            : "runtime Spell identity " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            : "runtime Spell identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
               " is ambiguous across " + matches + " equipped instances";
         return false;
     }
@@ -426,9 +426,9 @@ internal static class GameMcpEntityCapabilityMap
             return true;
         }
         reason = structure
-            ? "Identity " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            ? "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
               " ambiguously identifies both a structure and an upgrade"
-            : "Identity " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            : "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
               " is absent from published structures and upgrades";
         return false;
     }
@@ -442,7 +442,7 @@ internal static class GameMcpEntityCapabilityMap
         }
         if (!WorldLookup.TryFind(world.PlotNodes, target, out _))
         {
-            reason = "Identity " + EntityIdentityFormatter.Format(target, world.EntityIdentities) +
+            reason = "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
                 " is absent from published category plot-nodes";
             return false;
         }
@@ -469,7 +469,7 @@ internal static class GameMcpEntityCapabilityMap
             reason = string.Empty;
             return true;
         }
-        reason = "Identity " + EntityIdentityFormatter.Format(target, identities) +
+        reason = "Identity " + EntityIdentityFormatter.PlayerName(target, identities) +
             " is absent from published category " + category;
         return false;
     }
