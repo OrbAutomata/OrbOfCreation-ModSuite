@@ -285,7 +285,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             if (command.Kind == GameMcpCommandKind.Prestige)
                 return ExecutePrestige(command, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.Research)
-                return ExecuteResearch(command, lifecycle, configuration.Generation.Value);
+                return ExecuteResearch(
+                    command, world.Snapshot, lifecycle, configuration.Generation.Value);
             var service = ServiceForGameMcp(command.Kind);
             var context = CreateGameMcpContext(
                 registry,
@@ -939,6 +940,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
 
     private GameMcpCommandResult ExecuteResearch(
         GameMcpCommand command,
+        GameWorldState world,
         long lifecycle,
         ulong configurationGeneration)
     {
@@ -960,8 +962,16 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.ExpectedLifecycleGeneration);
         var submission = _research.Submit(in action);
         var result = ResearchActionResultMapper.Map(in submission);
+
+        // The read block and this refusal answer the same gate, so they say the same sentence.
+        // The GameAction sees an affordability verdict and no cost rows; the published world holds
+        // the rows, so the sentence naming them is composed here, where both surfaces reach it.
+        var reason = submission.Preflight == ResearchPreflight.Unaffordable &&
+            WorldLookup.TryFind(world.Research, command.TargetId, out var research)
+                ? GameMcpWorldQuery.ShortfallReason(world, research.Decision.DevelopmentCosts)
+                : submission.Reason;
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason,
+            configurationGeneration, reason,
             GameMcpResearchProjection.Project(in submission));
     }
 
@@ -1116,7 +1126,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         if (shortfalls.Count == 0) return null;
         return GameMcpCommandResult.Rejected(
             "unaffordable",
-            GameMcpWorldQuery.ShortfallSentence(shortfalls),
+            GameMcpDecisionReason.Shortfall(shortfalls),
             lifecycle,
             configurationGeneration);
     }

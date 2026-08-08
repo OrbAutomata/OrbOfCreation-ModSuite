@@ -432,7 +432,14 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         var parity = result["requirements"]!["nativeParity"]!;
         Assert.Equal("Met", (string?)parity["suiteVerdict"]);
         Assert.Equal("Unmet", (string?)parity["nativeVerdict"]);
-        Assert.Equal("native_verdict_disagrees", (string?)parity["reasonCode"]);
+
+        // One condition, one name: the parity block and the envelope answered the same failure
+        // with two different codes, and the sentence was computed for the envelope only.
+        Assert.Equal("native_verdict_mismatch", (string?)parity["reasonCode"]);
+        Assert.Equal(
+            "The suite reads this requirement as Met where the game reads it as Unmet.",
+            (string?)parity["reason"]);
+        Assert.Equal((string?)result["reason"], (string?)parity["reason"]);
 
         var noCollectionEvidence = new GameWorldState
         {

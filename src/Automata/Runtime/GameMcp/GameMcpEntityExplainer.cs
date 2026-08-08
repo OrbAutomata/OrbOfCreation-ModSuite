@@ -365,45 +365,56 @@ internal static class GameMcpEntityExplainer
         if (!GameMcpWorldQuery.TryCategoryAvailability(
                 world, "requirement-native-verdicts", out var categoryFailure))
         {
-            parity["status"] = "not_available";
-            parity["reasonCode"] = "requirement_collection_incomplete";
-            parityFailure = categoryFailure;
             parityFailureCode = "requirement_collection_incomplete";
+            parityFailure = categoryFailure;
+            parity["status"] = "not_available";
+            parity["reasonCode"] = parityFailureCode;
+            parity["reason"] = parityFailure;
         }
         else if (!WorldRequirementNativeVerdictLookup.TryFind(
                 world.RequirementNativeVerdicts, id, out var native))
         {
-            parity["status"] = "not_available";
-            parity["reasonCode"] = "native_parameterized_verdict_not_published";
-            parityFailure = "the same-generation native parameterized prerequisite verdict is absent";
             parityFailureCode = "native_verdict_unavailable";
+            parityFailure =
+                "The game's own prerequisite verdict for this generation is not published, " +
+                "so the suite's verdict has nothing to be checked against.";
+            parity["status"] = "not_available";
+            parity["reasonCode"] = parityFailureCode;
+            parity["reason"] = parityFailure;
         }
         else if (native.OwnerKind != ownerKind || native.CheckLevel != checkLevel)
         {
+            parityFailureCode = "native_verdict_input_mismatch";
+            parityFailure =
+                "The game's prerequisite verdict was captured for a different owner or level, " +
+                "so it does not answer the same question.";
             parity["status"] = "not_available";
-            parity["reasonCode"] = "native_verdict_input_mismatch";
+            parity["reasonCode"] = parityFailureCode;
+            parity["reason"] = parityFailure;
             parity["nativeOwnerKind"] = native.OwnerKind.ToString();
             parity["nativeCheckLevel"] = native.CheckLevel;
-            parityFailure = "the native prerequisite oracle was captured for a different owner or level";
-            parityFailureCode = "native_verdict_input_mismatch";
         }
         else
         {
             parity["nativeVerdict"] = native.Met ? "Met" : "Unmet";
             if (suite == WorldRequirementVerdict.Unevaluable)
             {
-                parity["status"] = "not_available";
-                parity["reasonCode"] = "suite_verdict_unevaluable";
-                parityFailure = "the suite could not evaluate a requirement the native oracle answered";
                 parityFailureCode = "suite_verdict_unevaluable";
+                parityFailure =
+                    "The suite could not evaluate a requirement the game answered, " +
+                    "so the two verdicts cannot be compared.";
+                parity["status"] = "not_available";
+                parity["reasonCode"] = parityFailureCode;
+                parity["reason"] = parityFailure;
             }
             else if ((suite == WorldRequirementVerdict.Met) != native.Met)
             {
-                parity["status"] = "mismatch";
-                parity["reasonCode"] = "native_verdict_disagrees";
-                parityFailure = "suite requirement verdict " + suite +
-                    " disagrees with native verdict " + (native.Met ? "Met" : "Unmet");
                 parityFailureCode = "native_verdict_mismatch";
+                parityFailure = "The suite reads this requirement as " + suite +
+                    " where the game reads it as " + (native.Met ? "Met" : "Unmet") + ".";
+                parity["status"] = "mismatch";
+                parity["reasonCode"] = parityFailureCode;
+                parity["reason"] = parityFailure;
             }
             else
             {

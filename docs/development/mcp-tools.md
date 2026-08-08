@@ -316,8 +316,10 @@ The same detailed row is the complete pre-decision surface for `game_research`. 
 omits `maximumLevel` rather than serializing the game's zero sentinel. It names the immediate or
 queue route, live multi-buy maximum, exact number of levels the native cumulative loop will accept,
 and ordered named costs paired with each resource's canonical `spendableAmount`. `develop.affordable`
-appears only where the price is what decides: an available decision, or a refusal whose `reasonCode`
-is `unaffordable`. While development is active it includes elapsed/required/remaining progress and,
+and `develop.costs` appear exactly where the price is what decides: an available decision, or a
+refusal whose `reasonCode` is `unaffordable` — a row refused for its price publishes the price that
+refused it, rather than naming the blocking resource only inside the sentence.
+While development is active it includes elapsed/required/remaining progress and,
 per resource, the drain that pays for the research already in flight: `invested` and `required` are
 the native fill bar, `remainingCost` is what that bar still owes in the units the player spends, and
 `spendableAmount` is what the player actually holds. Associated
@@ -962,6 +964,13 @@ verbosity option.
 blocked sub-decision follows the same rule as a mutation's refusal. A refusal whose sentence names a
 ceiling also carries that ceiling as `maximumAmount`, read from the same admission capture the
 sentence was written from, so the two can never disagree.
+
+One generator writes those sentences and the wire pass every response already crosses reaches it, so
+a code that arrives without prose leaves with it. A producer holding the numbers writes the better
+sentence itself and keeps it: a shortfall names the resource, the price, and the holding, where the
+code alone can only say that something was short. A read block and the refusal of the mutation it
+guards therefore answer one gate in one sentence — `game_research develop` says
+`Needs 4 Orb Advancement (have 0).` whether it is asked or attempted.
 
 ### Refusal vocabulary
 

@@ -105,7 +105,15 @@ internal static class GameMcpEntityWireNormalizer
             item.Remove("code");
         }
         if (item["reasonCode"] is JValue reasonCode)
-            item["reasonCode"] = CanonicalCode(Snake((string?)reasonCode ?? string.Empty));
+        {
+            var code = CanonicalCode(Snake((string?)reasonCode ?? string.Empty));
+            item["reasonCode"] = code;
+
+            // A code without a sentence taught callers to fire the mutation just to read the
+            // sentence. Producers that hold the numbers write the better sentence themselves and
+            // keep it; every other code is answered here, so no surface can ship a bare one.
+            if (item["reason"] is null) item["reason"] = GameMcpDecisionReason.For(code);
+        }
         if (item["kind"] is JValue { Type: JTokenType.String } kind)
             item["kind"] = Snake((string?)kind ?? string.Empty);
         NormalizeCode(item, "outcome");

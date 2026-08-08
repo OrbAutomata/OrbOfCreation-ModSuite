@@ -3525,6 +3525,7 @@ internal static class GameMcpWorldQuery
             develop["maximumBatch"] = Number(Math.Min(decision.MultiBuy, queueRoom));
         develop["levels"] = Number(decision.LevelsAvailable);
         if (developAvailable) develop["affordable"] = decision.DevelopmentCostAffordable;
+        var blockedOnPrice = false;
         if (!developAvailable)
         {
             // The queue-mode gates come first because they are about the batch, not the level.
@@ -3552,23 +3553,22 @@ internal static class GameMcpWorldQuery
                                             ? "develop_range_refused"
                                             : "native_develop_refused";
             develop["reasonCode"] = reasonCode;
+            blockedOnPrice = reasonCode == "unaffordable";
 
             // The cost verdict is published exactly when the cost is what decides. A row refused
             // for being maxed, queued out, or short of requirements has no next price to afford.
-            if (reasonCode == "unaffordable")
+            if (blockedOnPrice)
             {
                 develop["affordable"] = decision.DevelopmentCostAffordable;
                 develop["reason"] = ShortfallReason(world, decision.DevelopmentCosts);
             }
-            else
-            {
-                develop["reason"] = reasonCode == "already_maxed"
-                    ? "This research is already maxed."
-                    : "This research cannot be developed right now: " +
-                      reasonCode.Replace('_', ' ') + ".";
-            }
         }
+
+        // A row refused for its price still owes the price. Only the open develop gates published
+        // it, so an unaffordable row named its shortfall in prose while its own `costs` were
+        // withheld and `investment` — the native fill bar — named no resource that was short.
         var developmentCostsInformNextDecision =
+            blockedOnPrice ||
             !research.Complete &&
             research.Available &&
             research.MeetsLevelRequirements &&
@@ -4705,31 +4705,7 @@ internal static class GameMcpWorldQuery
         return WorldResourceCoordinate.PlayerFacingCost(in resource, nominalCost);
     }
 
-    /// <summary>
-    /// The one have/need sentence on every surface. Each entry names a resource that is genuinely
-    /// short, the price it asks, and what the player holds, both in the player's own units. A
-    /// caller that fixes the first named resource is not blocked by a second one nobody mentioned.
-    /// </summary>
-    internal static string ShortfallSentence(
-        IEnumerable<(string Resource, BigDouble Needed, BigDouble Held)> rows)
-    {
-        var text = new StringBuilder("Needs ");
-        var written = 0;
-        foreach (var row in rows)
-        {
-            if (written > 0) text.Append("; ");
-            written++;
-            text.Append(GameMcpNumberFormatter.Format(row.Needed))
-                .Append(' ')
-                .Append(row.Resource)
-                .Append(" (have ")
-                .Append(GameMcpNumberFormatter.Format(row.Held))
-                .Append(')');
-        }
-        return written == 0 ? string.Empty : text.Append('.').ToString();
-    }
-
-    private static string ShortfallReason(
+    internal static string ShortfallReason(
         GameWorldState world,
         PublicationTable<WorldResearchCost> costs)
     {
@@ -4745,9 +4721,9 @@ internal static class GameMcpWorldQuery
                 PlayerFacingCost(world, value.ResourceId, value.Cost),
                 SpendableAmount(world, value.ResourceId, value.Amount)));
         }
-        var sentence = ShortfallSentence(rows);
+        var sentence = GameMcpDecisionReason.Shortfall(rows);
         return sentence.Length == 0
-            ? "This research cannot be developed right now: unaffordable."
+            ? GameMcpDecisionReason.For("unaffordable")
             : sentence;
     }
 

@@ -4,6 +4,8 @@ using Newtonsoft.Json.Linq;
 using OrbAutomata;
 using OrbAutomata.GameMcp;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 using Xunit;
@@ -154,6 +156,34 @@ public sealed class GameMcpResearchTests
 
         Assert.Equal("60", (string?)investment["remainingCost"]);
         Assert.Null(investment["spendableAmount"]);
+    }
+
+    /// <remarks>
+    /// The game shuts its own develop gate once the price is out of reach, and that gate was what
+    /// published <c>costs</c>. A row observed in play said "Needs 4 Orb Advancement (have 0)" while
+    /// publishing no cost row at all, and <c>investment</c> — the native fill bar — named only
+    /// resources that were not short. The sentence was the only place the blocking resource
+    /// appeared, so the numbers behind it could not be read.
+    /// </remarks>
+    [Fact]
+    public void A_row_refused_for_its_price_publishes_the_price_that_refused_it()
+    {
+        var world = World(
+            developmentCostAffordable: false,
+            withinDevelopRange: false,
+            spendableAmount: 1,
+            heldAmount: 1);
+        var response = Json(GameMcpWorldQuery.GetRow(Pinned(world, 2807),
+            "research", ResearchId.ToString("D")).Freeze(), world);
+        var develop = response["row"]!["develop"]!;
+
+        Assert.Equal("unaffordable", (string?)develop["reasonCode"]);
+        Assert.Equal("Needs 20 Arcana (have 1).", (string?)develop["reason"]);
+        var cost = Assert.Single(develop["costs"]!).Value<JObject>()!;
+        Assert.Equal("Arcana", (string?)cost["resource"]!["name"]);
+        Assert.Equal("20", (string?)cost["cost"]);
+        Assert.Equal("1", (string?)cost["spendableAmount"]);
+        Assert.False((bool)cost["affordable"]!);
     }
 
     [Fact]
@@ -325,7 +355,8 @@ public sealed class GameMcpResearchTests
         bool complete = false,
         double? heldAmount = null,
         int queuedLevels = 3,
-        int totalLevel = 1)
+        int totalLevel = 1,
+        bool withinDevelopRange = true)
     {
         var decision = new WorldResearchDecision(
             queueMode,
@@ -354,7 +385,8 @@ public sealed class GameMcpResearchTests
         var modifiers = new RawResearchModifiers(BigDouble.Zero, BigDouble.Zero,
             new BigDouble(100), BigDouble.Zero, BigDouble.Zero);
         var research = new WorldResearch(ResearchId, 1, 2, 0, 0, 10, 60,
-            isDeveloping, true, false, true, true, complete, true, true, true, true, true, true,
+            isDeveloping, true, false, true, true, complete, true, withinDevelopRange,
+            true, true, true, true,
             1, 1, 0, totalLevel, 10, false, 2, 1, new BigDouble(60), 1, 1,
             PublicationTable<WorldResearchRequirementAdjustment>.Empty, in modifiers, in decision);
         var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
@@ -418,6 +450,18 @@ public sealed class GameMcpResearchTests
             in rateInputs, in traits, in modifiers);
         return new WorldResource(
             in reading, true, BigDouble.Zero, 0d, false, held, BigDouble.Zero);
+    }
+
+    /// <summary>
+    /// A frame pinned to the world's own identity catalog, the way a live frame is. The shared
+    /// harness swaps in its own, which leaves a sentence composed at read time naming a UUID the
+    /// normalizer then resolves for every other field.
+    /// </summary>
+    private static GameMcpFrameContext Pinned(GameWorldState world, ulong generation)
+    {
+        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(generation));
+        return GameMcpTestHarness.Context(publisher.ReadLatest());
     }
 
     private static JObject Json(GameMcpValue value, GameWorldState world) =>
