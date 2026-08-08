@@ -112,6 +112,33 @@ internal static class GameMcpConfigurationValuePolicy
     }
 
     /// <summary>
+    /// The refused write restated as facts: which setting, what it was asked to become, and the
+    /// domain that refused it. A caller retrying does not have to parse the sentence back apart.
+    /// A range states both ends in the type its setting accepts, so an integer setting's ceiling is
+    /// a JSON integer rather than the double the bound happens to be carried in.
+    /// </summary>
+    internal static GameMcpValue RefusalFacts(
+        GameMcpCommand command,
+        in GameMcpConfigurationBound bound)
+    {
+        var setting = new GameMcpObjectBuilder
+        {
+            ["section"] = command.Mode,
+            ["key"] = command.PayloadKey,
+            ["requestedValue"] = command.PayloadValue,
+        };
+        if (bound.HasRange)
+        {
+            setting["minimum"] = Bounded(bound.Minimum!.Value, bound.Integral);
+            setting["maximum"] = Bounded(bound.Maximum!.Value, bound.Integral);
+        }
+        return new GameMcpObjectBuilder { ["setting"] = setting }.Freeze();
+    }
+
+    private static object Bounded(double value, bool integral) =>
+        integral ? (object)(long)value : value;
+
+    /// <summary>
     /// The declared range, read off the acceptable-value object itself rather than off its own
     /// prose. Every writable entry that declares a domain declares it as a range; nothing here
     /// invents one for a shape the suite does not bind.
@@ -122,9 +149,15 @@ internal static class GameMcpConfigurationValuePolicy
         var minimum = ReadDouble(type, acceptable, "MinValue");
         var maximum = ReadDouble(type, acceptable, "MaxValue");
         return minimum.HasValue && maximum.HasValue
-            ? new GameMcpConfigurationBound(minimum, maximum)
+            ? new GameMcpConfigurationBound(minimum, maximum, IsIntegral(acceptable.ValueType))
             : GameMcpConfigurationBound.None;
     }
+
+    private static bool IsIntegral(Type valueType) =>
+        (Nullable.GetUnderlyingType(valueType) ?? valueType) is var type &&
+        (type == typeof(byte) || type == typeof(sbyte) || type == typeof(short) ||
+            type == typeof(ushort) || type == typeof(int) || type == typeof(uint) ||
+            type == typeof(long) || type == typeof(ulong));
 
     private static double? ReadDouble(Type type, object instance, string property)
     {
@@ -193,17 +226,21 @@ internal static class GameMcpConfigurationValuePolicy
 /// <summary>
 /// The declared domain of one writable setting, in machine facts. A refusal whose sentence names a
 /// range carries the same range as fields, so a caller need not parse the sentence to retry.
+/// <c>Integral</c> is the setting's own value type, so an integer setting's ceiling ships as a JSON
+/// integer rather than as the double this struct happens to hold it in.
 /// </summary>
 internal readonly struct GameMcpConfigurationBound
 {
-    internal GameMcpConfigurationBound(double? minimum, double? maximum)
+    internal GameMcpConfigurationBound(double? minimum, double? maximum, bool integral = false)
     {
         Minimum = minimum;
         Maximum = maximum;
+        Integral = integral;
     }
 
     internal double? Minimum { get; }
     internal double? Maximum { get; }
+    internal bool Integral { get; }
     internal bool HasRange => Minimum.HasValue && Maximum.HasValue;
 
     internal static GameMcpConfigurationBound None => new(null, null);

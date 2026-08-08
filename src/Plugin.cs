@@ -2399,7 +2399,7 @@ public sealed class Plugin : BaseUnityPlugin
                     reason,
                     observedConfigurationGeneration:
                         _configurationStore.CurrentGeneration.Value,
-                    details: ConfigurationRefusalFacts(command, in bound));
+                    details: GameMcpConfigurationValuePolicy.RefusalFacts(command, in bound));
             }
             return GameMcpCommandResult.Committed(
                 "configuration_committed",
@@ -2508,28 +2508,6 @@ public sealed class Plugin : BaseUnityPlugin
             {
                 ["emergencyStopEngaged"] = _configurationStore.Current.Safety.EmergencyDisable,
             }.Freeze());
-    }
-
-    /// <summary>
-    /// The refused write restated as facts: which setting, what it was asked to become, and the
-    /// domain that refused it. A caller retrying does not have to parse the sentence back apart.
-    /// </summary>
-    private static GameMcpValue ConfigurationRefusalFacts(
-        GameMcpCommand command,
-        in GameMcpConfigurationBound bound)
-    {
-        var setting = new GameMcpObjectBuilder
-        {
-            ["section"] = command.Mode,
-            ["key"] = command.PayloadKey,
-            ["requestedValue"] = command.PayloadValue,
-        };
-        if (bound.HasRange)
-        {
-            setting["minimum"] = bound.Minimum!.Value;
-            setting["maximum"] = bound.Maximum!.Value;
-        }
-        return new GameMcpObjectBuilder { ["setting"] = setting }.Freeze();
     }
 
     private bool TryExecuteGameMcpGadget(

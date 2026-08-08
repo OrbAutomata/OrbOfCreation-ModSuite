@@ -1143,7 +1143,12 @@ to know the shape of `amount`. A key that can only ever carry a bounded cardinal
 a stack, an instance count, a per-call admission ceiling — is a JSON number on every surface. A
 ceiling follows the value it caps, so `maximumCarry` is a string beside `amount` while
 `maximumAmount` is a number beside `minimumAmount`, and a range never states its two ends two ways.
-`maximumAmount: "240"` beside `minimumAmount: 1` was that defect and is gone.
+`maximumAmount: "240"` beside `minimumAmount: 1` was that defect and is gone. A ceiling therefore
+also takes the *name* of the magnitude it caps rather than the bare bound name: `game_equipment`'s
+weight budget publishes `maximumCarry` beside `used`, because `maximum` is spoken as a number
+everywhere else and one key cannot be both. Where a declared domain does ship as `minimum`/`maximum`
+— a native dial, a writable setting — it states both ends in the setting's own type, so an integer
+setting's range is two integers.
 
 ### Presence semantics
 

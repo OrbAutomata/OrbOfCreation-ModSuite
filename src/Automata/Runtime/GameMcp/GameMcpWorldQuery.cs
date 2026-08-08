@@ -5114,10 +5114,13 @@ internal static class GameMcpWorldQuery
                         costRow["affordable"] = affordable;
                         if (resource.Reading.Traits.BandwidthResource)
                         {
+                            // The ceiling follows the value it caps: this one bounds a carried
+                            // weight, so it is the magnitude-shaped `maximumCarry`, never the
+                            // `maximum` every argument bound on the surface ships as a number.
                             result["weightBudget"] = new JObject
                             {
                                 ["used"] = new GameMcpDomainValue(resource.Reading.Quantity),
-                                ["maximum"] = new GameMcpDomainValue(resource.Reading.Capacity),
+                                ["maximumCarry"] = new GameMcpDomainValue(resource.Reading.Capacity),
                                 ["itemWeight"] = new GameMcpDomainValue(playerCost),
                                 ["fits"] = affordable,
                             };
