@@ -17,7 +17,9 @@ internal readonly struct WorldSpellWorkbench
     /// shape the floor lives in — <c>SetClamp(min, max)</c> stores <c>minValue</c> and
     /// <c>Decrement()</c> is <c>Math.Max(value - change, minValue)</c> — and the evidence for the
     /// value is circumstantial: every call site passing a literal passes 1, and the only computed
-    /// one (<c>UIBrewingStation</c>) reads <c>CraftingStructure.GetMinSelectedLevel()</c>.
+    /// one (<c>UIBrewingStation</c>) reads <c>CraftingStructure.GetMinSelectedLevel()</c>. Nothing
+    /// here reflects on that control, so the dependency is declared as the mirrored contracts
+    /// <c>ui.value-select-button.clamp</c> and <c>ui.value-select-button.minimum</c>.
     /// </summary>
     internal const int MinimumDialLevel = 1;
 

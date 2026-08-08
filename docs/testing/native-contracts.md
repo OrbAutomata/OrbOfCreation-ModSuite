@@ -9,6 +9,19 @@ compatibility boundary for reflection and Harmony. It admits complete
 target's exact metadata, owner, use, source tokens, and place: `capture`,
 `action`, or `patch`.
 
+`usages` says how the suite depends on the member. `reflection`, `harmony`, and
+`direct` all touch it. **`mirrored` does not**: it is a member-shape dependency
+the suite relies on *without* reaching for the member — a suite constant whose
+value is only correct because of what that member holds. The published ritual
+starting-level floor and both casting-dial floors are the literal `1` because
+`UIValueSelectButton.SetClamp` stores it in `minValue` and the control's
+decrement never goes below it. Nothing reflects on either member, so before
+`mirrored` existed the dependency could only be written as a comment — and a
+comment does not fail when a game update changes the member's shape. A mirrored
+row is deliberately excluded from the source audit's declared-target set: it
+says nobody selects this, so it must not let a selector elsewhere pass
+unaudited, and a test fails if any audited source does select it.
+
 The manifest proves native shape, not runtime behavior. Adapters still resolve
 and validate their complete binding sets and fail closed. The source audit asks
 whether every literal selector is declared somewhere; it intentionally does not
@@ -16,13 +29,21 @@ couple contracts to source-file paths. Exact-path exemptions are reserved for
 generic framework or UI-navigation reflection with a reason, never mixed
 gameplay adapters.
 
+The ledger records the grab set, not the math. A suite formula that reproduces a
+game formula is proved by the in-game parity checker, which runs both answers
+against the live game; a manifest row would claim metadata proves a computation,
+which it cannot. Formulas therefore stay out of this file — the members they read
+are declared, the arithmetic over them is not.
+
 ## Add or change a native target
 
 1. Inspect the installed assembly and record the exact declaring type, member
    kind, overload, visibility, staticness, return/value type, inheritance, and
    ordered parameters.
-2. Change the manifest with the source. Record all owners, reflection or Harmony
-   use, boundary place, and every literal source token.
+2. Change the manifest with the source. Record all owners, how the suite depends
+   on the member, boundary place, and every literal source token. A mirrored row
+   has no source token by definition; its `owners` name the suite value that
+   copies the member instead.
 3. Use an exemption only when the selector is deliberately framework-generic;
    keep it to one exact path and explain why it is not gameplay authority.
 4. Run the contract project without `OOC_GAME_DIR` to prove schema and source
@@ -43,8 +64,11 @@ Treat the update as a reviewed manifest diff:
 2. Run the installed audit even when the hash is unknown so identity and all
    structural differences appear together.
 3. Update changed signatures in place, add genuinely new targets, and remove
-   contracts no supported selector names. Reconcile source exemptions and
-   boundary places in both directions.
+   contracts nothing depends on any more. "No selector names it" is not that
+   test: a mirrored row is named by no selector on the day it is written, and
+   deleting it would silently retire the only check on a value the suite
+   publishes. Remove one only when the suite value that mirrors the member is
+   gone too. Reconcile source exemptions and boundary places in both directions.
 4. Compile against the candidate references, then validate affected behavior in
    the game. Hash acceptance does not replace adapter validation or verified
    postconditions.

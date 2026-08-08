@@ -14400,6 +14400,48 @@
       "place": "capture"
     },
     {
+      "id": "ui.value-select-button.clamp",
+      "assembly": "assembly-csharp",
+      "type": "UIValueSelectButton",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "SetClamp",
+      "visibility": "public",
+      "static": false,
+      "returnType": "UIValueSelectButton",
+      "parameters": [
+        "System.Int32",
+        "System.Int32"
+      ],
+      "owners": [
+        "Common Ritual decision world collection",
+        "Common world collection"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "ui.value-select-button.minimum",
+      "assembly": "assembly-csharp",
+      "type": "UIValueSelectButton",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "minValue",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Common Ritual decision world collection",
+        "Common world collection"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
       "id": "ui.content-area.canvas",
       "assembly": "assembly-csharp",
       "type": "UIContentArea",

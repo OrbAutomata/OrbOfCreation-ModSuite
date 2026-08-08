@@ -234,7 +234,9 @@ internal readonly struct WorldRitualDecision
     /// decrement is <c>Math.Max(value - change, minValue)</c>, so 1 is the lowest starting level
     /// the game offers. The data-layer setter <c>RitualSO.ChangeStartingLevel</c> clamps to
     /// <c>Math.Min(max, Math.Max(value, 0))</c> and therefore accepts 0 — which is why this bound
-    /// has to come from the control the player presses, not from the setter behind it.
+    /// has to come from the control the player presses, not from the setter behind it. Nothing
+    /// here reflects on that control, so the dependency is declared as the mirrored contracts
+    /// <c>ui.value-select-button.clamp</c> and <c>ui.value-select-button.minimum</c>.
     /// </summary>
     internal const int NativeMinimumStartingLevel = 1;
 

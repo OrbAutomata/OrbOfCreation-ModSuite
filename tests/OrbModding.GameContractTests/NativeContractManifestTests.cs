@@ -124,6 +124,22 @@ public sealed class NativeContractManifestTests
     private static readonly string[] LivePlaces = { "capture", "action", "patch" };
 
     /// <summary>
+    /// How the suite depends on a native member. The first three touch it; <c>mirrored</c> does not.
+    /// </summary>
+    /// <remarks>
+    /// A mirrored contract is a member-shape dependency the suite relies on <em>without</em>
+    /// reflecting on, patching, or calling it: a suite constant whose value is only correct because
+    /// of what that member holds. The ritual starting-level floor and the two casting-dial floors
+    /// are all the literal <c>1</c> because <c>UIValueSelectButton.SetClamp</c> stores it in
+    /// <c>minValue</c> and the control's decrement never goes below it. Nothing reflects on either
+    /// member, so before this value existed the dependency could only be written as a comment —
+    /// and a comment does not fail when a game update changes the member's shape. Declaring it
+    /// makes the audit answer for it like any other contract.
+    /// </remarks>
+    private static readonly string[] DeclarableUsages =
+        { "direct", "reflection", "harmony", "mirrored" };
+
+    /// <summary>
     /// Every contract is either owned by a live place — collected into the world snapshot, read at
     /// an action boundary, or Harmony-patched — or is named debt of a service that has not migrated.
     /// </summary>
@@ -243,7 +259,7 @@ public sealed class NativeContractManifestTests
             Assert.NotEmpty(contract.Owners);
             Assert.All(contract.Owners, owner => Assert.False(string.IsNullOrWhiteSpace(owner)));
             Assert.NotEmpty(contract.Usages);
-            Assert.All(contract.Usages, usage => Assert.Contains(usage, new[] { "direct", "reflection", "harmony" }));
+            Assert.All(contract.Usages, usage => Assert.Contains(usage, DeclarableUsages));
             Assert.Contains(contract.Place, LivePlaces.Append("legacy"));
 
             if (contract.Kind == "field")
@@ -381,8 +397,12 @@ public sealed class NativeContractManifestTests
             StringComparer.OrdinalIgnoreCase);
         Assert.All(exemptions.Values, exemption => Assert.False(string.IsNullOrWhiteSpace(exemption.Reason)));
 
+        // A mirrored contract declares a member the suite deliberately does not touch, so it must
+        // not widen what the source audit accepts. Counting it would let a literal selector pass
+        // against a row that says nobody selects anything — the audit would answer for a
+        // dependency of the wrong kind.
         var declaredTargets = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var contract in manifest.Contracts)
+        foreach (var contract in manifest.Contracts.Where(IsTouched))
         {
             declaredTargets.Add(contract.Type);
             if (contract.Member is not null)
@@ -440,6 +460,66 @@ public sealed class NativeContractManifestTests
 
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
+
+    /// <summary>
+    /// A <c>mirrored</c> contract names a member no audited source selects.
+    /// </summary>
+    /// <remarks>
+    /// That is the whole content of the word: the suite copies what the member holds without ever
+    /// reaching for it. The day someone does reach for it the dependency changed kind — the row
+    /// has to say <c>reflection</c> and start widening the source audit again — and this is what
+    /// says so, rather than leaving a row that quietly under-describes a live selector.
+    /// </remarks>
+    [Fact]
+    public void EveryMirroredContractNamesAMemberNoSourceSelects()
+    {
+        var manifest = NativeContractManifest.Load();
+        var repositoryRoot = RepositoryPaths.RequireRoot();
+        var mirrored = manifest.Contracts.Where(contract => !IsTouched(contract)).ToArray();
+        Assert.NotEmpty(mirrored);
+
+        var forbidden = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var contract in mirrored)
+        {
+            if (contract.Member is not null) forbidden.Add(contract.Member);
+        }
+        foreach (var contract in manifest.Contracts.Where(IsTouched))
+        {
+            if (contract.Member is not null) forbidden.Remove(contract.Member);
+            foreach (var token in contract.SourceTokens) forbidden.Remove(token);
+        }
+
+        var failures = new List<string>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var root in manifest.SourceAudit.Roots)
+        {
+            var absoluteRoot = Path.Combine(repositoryRoot, root.Replace('/', Path.DirectorySeparatorChar));
+            foreach (var sourcePath in Directory.EnumerateFiles(absoluteRoot, "*.cs", SearchOption.AllDirectories))
+            {
+                var relativePath = NormalizePath(Path.GetRelativePath(repositoryRoot, sourcePath));
+                if (!visited.Add(relativePath)) continue;
+
+                var source = File.ReadAllText(sourcePath);
+                if (!ReflectionUsePattern.IsMatch(source)) continue;
+
+                foreach (var candidate in FindLiteralTargets(source).Distinct(StringComparer.Ordinal))
+                {
+                    if (forbidden.Contains(candidate))
+                    {
+                        failures.Add(
+                            $"{relativePath}: selects '{candidate}', which the manifest declares as "
+                                + "mirrored — a member nothing touches. Change that contract's usage "
+                                + "to the one that describes the selector.");
+                    }
+                }
+            }
+        }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
+
+    private static bool IsTouched(NativeContractEntry contract) =>
+        contract.Usages.Any(usage => !string.Equals(usage, "mirrored", StringComparison.Ordinal));
 
     /// <summary>
     /// The installed assemblies are one of the audited baseline pairs, byte for byte.
