@@ -1964,8 +1964,28 @@ public sealed class Plugin : BaseUnityPlugin
         };
         // Both of these silence every feature that reads as on, so a list that omitted them would
         // be answering a different question than the caller asked.
-        if (config.Safety.EmergencyDisable) result["emergencyStop"] = true;
-        if (!config.General.Enabled) result["automationEnabled"] = false;
+        GameMcpAutomationFeatures.AddSuiteOverrides(result, config);
+        return result.Freeze();
+    }
+
+    internal static GameMcpValue ProjectGameMcpAutomationCommit(
+        GameMcpAutomationFeature feature,
+        bool wasOn,
+        SuiteRuntimeConfiguration settled)
+    {
+        var result = new GameMcpObjectBuilder
+        {
+            ["feature"] = feature.Name,
+            ["name"] = feature.DisplayName,
+            ["on"] = new GameMcpObjectBuilder
+            {
+                ["before"] = wasOn,
+                ["after"] = feature.IsOn(settled),
+            },
+        };
+        // A caller who turns a feature on under an engaged stop has to read that here, in the
+        // answer to the write, not on a later list call.
+        GameMcpAutomationFeatures.AddSuiteOverrides(result, settled);
         return result.Freeze();
     }
 
@@ -2460,16 +2480,10 @@ public sealed class Plugin : BaseUnityPlugin
                 observedLifecycleGeneration: _lifecycleGeneration,
                 observedConfigurationGeneration:
                     _configurationStore.CurrentGeneration.Value,
-                details: new GameMcpObjectBuilder
-                {
-                    ["feature"] = feature.Name,
-                    ["name"] = feature.DisplayName,
-                    ["on"] = new GameMcpObjectBuilder
-                    {
-                        ["before"] = wasOn,
-                        ["after"] = feature.IsOn(_configurationStore.Current),
-                    },
-                }.Freeze());
+                details: ProjectGameMcpAutomationCommit(
+                    feature,
+                    wasOn,
+                    _configurationStore.Current));
         }
 
         var engage = command.Mode == "engage";

@@ -1494,7 +1494,9 @@ feature as `{feature, name, on}` and takes nothing else; it also carries `emerge
 because a list of on buttons would otherwise answer a different question than the caller asked.
 `mode="set"` takes exactly one `feature` and one `on`, writes through the same
 `AutomataConfigurationStore` path `suite_config_set` uses, and returns the named feature with its
-`on` before/after. Setting a feature to the state it already holds is refused as
+`on` before/after plus those same two override keys under the same condition — a caller who turns a
+feature on under an engaged stop reads it in the answer to the write, not on a later `list`.
+Setting a feature to the state it already holds is refused as
 `already_in_requested_state` rather than committing nothing. Everything else these features can be
 configured with — thresholds, roles, allowlists, reserves — stays on `suite_config_set`, which
 writes the same entries the same way, and `suite_emergency_stop` still overrides all seven at once.

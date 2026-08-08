@@ -104,6 +104,18 @@ internal static class GameMcpAutomationFeatures
         return names;
     }
 
+    /// <summary>
+    /// The two suite-wide switches that silence every feature at once. Every answer about what is
+    /// on carries them under the same condition, whether it lists the buttons or commits a flip.
+    /// </summary>
+    internal static void AddSuiteOverrides(
+        GameMcpObjectBuilder target,
+        SuiteRuntimeConfiguration configuration)
+    {
+        if (configuration.Safety.EmergencyDisable) target["emergencyStop"] = true;
+        if (!configuration.General.Enabled) target["automationEnabled"] = false;
+    }
+
     internal static bool TryGet(string name, out GameMcpAutomationFeature feature)
     {
         for (var index = 0; index < All.Length; index++)

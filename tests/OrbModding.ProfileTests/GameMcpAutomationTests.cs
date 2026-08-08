@@ -82,6 +82,35 @@ public sealed class GameMcpAutomationTests
     }
 
     [Fact]
+    public void A_flip_committed_under_an_engaged_stop_says_so_in_the_same_answer()
+    {
+        Assert.True(GameMcpAutomationFeatures.TryGet("auto_buy", out var feature));
+
+        var quiet = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+            feature,
+            wasOn: false,
+            Configuration(autoBuy: true) with
+            {
+                General = new SuiteGeneralConfiguration { Enabled = false },
+                Safety = new SuiteSafetyConfiguration { EmergencyDisable = true },
+            }));
+
+        Assert.Equal("auto_buy", (string?)quiet["feature"]);
+        Assert.False((bool)quiet["on"]!["before"]!);
+        Assert.True((bool)quiet["on"]!["after"]!);
+        Assert.True((bool)quiet["emergencyStop"]!);
+        Assert.False((bool)quiet["automationEnabled"]!);
+
+        // A running suite says neither, exactly as the list does not.
+        var ordinary = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+            feature,
+            wasOn: false,
+            Configuration(autoBuy: true)));
+        Assert.Null(ordinary["emergencyStop"]);
+        Assert.Null(ordinary["automationEnabled"]);
+    }
+
+    [Fact]
     public void Every_listed_feature_names_a_setting_the_committed_write_path_accepts()
     {
         Assert.All(GameMcpAutomationFeatures.All, feature =>
