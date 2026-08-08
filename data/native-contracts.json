@@ -17219,6 +17219,28 @@
       "place": "action"
     },
     {
+      "id": "scribe-relations.target-structure.get-random-list",
+      "assembly": "assembly-csharp",
+      "type": "Targeting.TargetStructure",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetRandomList",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Collections.Generic.List`1<Targeting.ITargetable>",
+      "parameters": [
+        "ScalingInfo"
+      ],
+      "owners": [
+        "Common world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "enumerating", "cadence": "per-pass", "derivable": true, "sideEffects": ["latches Prerequisites.Container.available through StructureSO.IsVisible() for every structure it filters"], "justification": "Filters the whole structure registry against one enchantment role, eight roles per pass, and every candidate's visibility test latches. Leaves when the visible-structure set, the authored condition and the enchantment matcher are published and the ordering is derived off-thread.", "evidence": "GetRandomList(scaling) -> GetStructures(scaling).Cast<ITargetable>().ToList(); GetStructures -> (containingStructures ?? StructureSO.All).FindAll(s => MatchesConditions(s, scaling)); MatchesConditions -> s.IsVisible() && condition.IsValid(s) && enchantmentMatcher.CanUpgrade(s, scaling)"}
+    },
+    {
       "id": "auto-items.consumable.strongest",
       "assembly": "assembly-csharp",
       "type": "ConsumableSO",

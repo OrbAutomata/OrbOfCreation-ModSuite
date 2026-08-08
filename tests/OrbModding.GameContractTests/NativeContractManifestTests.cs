@@ -821,12 +821,12 @@ public sealed class NativeContractManifestTests
     /// replacing suite math has a parity pass proving it, never before.
     /// </para>
     /// <para>
-    /// Pinned as an exact set rather than a ceiling: a thirteenth arrival fails here, and so does a
+    /// Pinned as an exact set rather than a ceiling: a fourteenth arrival fails here, and so does a
     /// departure that forgets to strike its line. The rule the doctrine actually wants — no
     /// per-pass capture contract writes at all — is this list being empty.
     /// </para>
     /// <para>
-    /// Nine of the twelve are one family. <c>Prerequisites.Container.Check()</c> latches
+    /// Nine of the thirteen are one family. <c>Prerequisites.Container.Check()</c> latches
     /// <c>available</c>, and every whole-entity availability or visibility predicate reaches it:
     /// <c>StructureSO</c>, <c>UpgradeSO</c>, <c>ViewSO</c>, <c>RecipeBookSO</c>,
     /// <c>CraftingRecipeSO</c>, and <c>GlyphSO</c> call it directly, <c>ResearchSO</c> through two
@@ -835,10 +835,17 @@ public sealed class NativeContractManifestTests
     /// whole-entity container is published and the evaluator answers for it.
     /// </para>
     /// <para>
-    /// The other three are <c>ResourceCostList.HasEnough()</c>, which reaches
-    /// <c>ValueModifierRecord</c>'s memo through <c>ResourceSO.GetTrueSpend</c>. The replacing port
-    /// exists — <c>WorldResourceCoordinate.HasAmount</c> — and the spell-level affordability parity
-    /// pass already compares it against this very call.
+    /// Three are <c>ResourceCostList.HasEnough()</c>, which reaches <c>ValueModifierRecord</c>'s memo
+    /// through <c>ResourceSO.GetTrueSpend</c>. The replacing port exists —
+    /// <c>WorldResourceCoordinate.HasAmount</c> — and the spell-level affordability parity pass
+    /// already compares it against this very call.
+    /// </para>
+    /// <para>
+    /// The last is the enchantment-target sweep, which is the same latch reached transitively and at
+    /// the widest scope: <c>GetRandomList</c> filters the entire structure registry through
+    /// <c>StructureSO.IsVisible()</c>, once per enchantment role, per pass. Nothing in the sweep
+    /// itself is random or cached — the name is the game's, not a description — so it leaves with the
+    /// availability family rather than needing an answer of its own.
     /// </para>
     /// </remarks>
     private static readonly string[] PerPassCaptureWrites =
@@ -851,6 +858,7 @@ public sealed class NativeContractManifestTests
         "recipe-book.is-available",
         "research.is-available",
         "research.is-visible",
+        "scribe-relations.target-structure.get-random-list",
         "spell-composition.glyph-is-available-capture",
         "structure.is-available",
         "upgrade.is-available",
