@@ -126,6 +126,13 @@ and eligibility verdict against `GetPurchaseCost()` and `HasEnough()`, every res
 coordinate and capacity verdict, the ritual/consumable/resource predicates, reference edges,
 identities, and cache staleness.
 
+Two of those comparisons exist because a reading left capture and the rule is that the replacing math
+is proved before the call is deleted. The composed `canFire` verdict is compared against native
+`ConsumableSO.CanFire()` — a call that writes while it answers, which is why the oracle lives here and
+not in the pass. And every cost reader that used to hand a scalar to `ResourceCostList.Multiply` now
+multiplies each entry as it walks it, so the check scales a live authored cost list both ways and
+compares entry for entry.
+
 A passing suite is not a proof that everything published is right, and the gaps are named here so
 that nobody has to infer them from a comparison count:
 

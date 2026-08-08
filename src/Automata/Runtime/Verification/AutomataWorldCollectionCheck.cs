@@ -279,12 +279,22 @@ internal sealed class AutomataWorldCollectionCheck
         });
 
         // Stock is the member reading the save record hid. GetQuantity() is what the inventory shows.
+        //
+        // CanFire is the composite that left capture: the deriver composes it from cooldown, both
+        // affordability verdicts and stock, and this is the oracle that proves the composition. The
+        // native call writes while it answers, which is exactly why it belongs here rather than in
+        // the pass. CompareCostScaling proves the other deleted reading — the cost readers scale
+        // each entry as they walk it now, and these lists are where that arithmetic can be put
+        // beside the game's own ResourceCostList.Multiply over live data.
         CompareEach(world.Consumables, "ConsumableSO", (row, entity, type) =>
         {
             CompareInt("ConsumableSO.GetQuantity", entity, type, "GetQuantity", row.Quantity);
             CompareInt("ConsumableSO.GetQueued", entity, type, "GetQueued", row.QueuedQuantity);
             CompareInt("ConsumableSO.GetGainedSince", entity, type, "GetGainedSince", row.GainedSince);
             CompareBool("ConsumableSO.IsVisible", entity, type, "IsVisible", row.Visible);
+            CompareBool("ConsumableSO.CanFire", entity, type, "CanFire", row.CanFire);
+            CompareCostScaling(entity, type, "consumeCost");
+            CompareCostScaling(entity, type, "usageCost");
         });
 
         CompareEach(world.Resources, "ResourceSO", (row, entity, type) =>
@@ -1907,6 +1917,73 @@ internal sealed class AutomataWorldCollectionCheck
 
         var theirs = call(entity);
         Record(label, ours, theirs, ours == theirs);
+    }
+
+    /// <summary>
+    /// Scaling a cost list, against the method it replaced. Every cost reader used to call
+    /// <c>ResourceCostList.Multiply(BigDouble)</c> — which allocates a whole second list to hold one
+    /// scalar product per entry — and now multiplies each entry as it walks it. This puts both
+    /// answers side by side over a live authored list, entry for entry.
+    /// </summary>
+    /// <remarks>
+    /// The factor is the shape a drain modifier takes, a percentage that is neither one nor zero, so
+    /// an implementation that dropped the multiply or applied it once for the whole list disagrees
+    /// rather than coincidentally matching. Both sides are pure: <c>Multiply</c> is
+    /// <c>new ResourceCostList(costs.Select(c =&gt; c.NewValue(c.GetValue() * value)).ToList())</c>
+    /// and <c>ResourceTuple.GetValue()</c> is <c>return valueBig;</c>.
+    /// </remarks>
+    private void CompareCostScaling(object entity, Type type, string field)
+    {
+        var label = $"ResourceCostList.Multiply({type.Name}.{field})";
+        var list = type.GetField(field, Instance)?.GetValue(entity);
+        var entries = ReadCostEntries(list);
+        if (list is null || entries is null)
+        {
+            NoteMissingOracle(label);
+            return;
+        }
+        if (entries.Count == 0) return;
+
+        var multiply = list.GetType().GetMethod(
+            "Multiply", Instance, null, new[] { typeof(BigDouble) }, null);
+        if (multiply is null || multiply.ReturnType != list.GetType())
+        {
+            NoteMissingOracle(label);
+            return;
+        }
+
+        var factor = new BigDouble(0.9);
+        var theirEntries = ReadCostEntries(multiply.Invoke(list, new object[] { factor }));
+        if (theirEntries is null || theirEntries.Count != entries.Count)
+        {
+            Disagree($"{label}: ours={entries.Count} entries theirs={theirEntries?.Count.ToString() ?? "[unreadable]"}");
+            return;
+        }
+
+        for (var index = 0; index < entries.Count; index++)
+        {
+            if (!TryReadCostValue(entries[index], out var authored) ||
+                !TryReadCostValue(theirEntries[index], out var theirs))
+            {
+                NoteMissingOracle(label);
+                return;
+            }
+            var ours = authored * factor;
+            Record(label, ours, theirs, ours == theirs);
+        }
+    }
+
+    private static IList? ReadCostEntries(object? list) =>
+        list?.GetType().GetField("costs", Instance)?.GetValue(list) as IList;
+
+    private static bool TryReadCostValue(object? entry, out BigDouble value)
+    {
+        value = default;
+        if (entry is null) return false;
+        var read = FindNoArg(entry.GetType(), "GetValue")?.Invoke(entry, null);
+        if (read is not BigDouble amount) return false;
+        value = amount;
+        return true;
     }
 
     /// <summary>

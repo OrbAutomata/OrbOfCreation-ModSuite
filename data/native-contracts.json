@@ -16697,7 +16697,8 @@
       "static": false,
       "valueType": "ResourceCostList",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata world-collection verification"
       ],
       "usages": [
         "reflection"
@@ -16716,7 +16717,8 @@
       "static": false,
       "valueType": "ResourceCostList",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata world-collection verification"
       ],
       "usages": [
         "reflection"
@@ -16966,7 +16968,8 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata world-collection verification"
       ],
       "usages": [
         "reflection"
@@ -25218,7 +25221,7 @@
     },
     {
       "id": "loadout.cost-multiply-action", "assembly": "assembly-csharp", "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "Multiply",
-      "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": ["BigDouble"], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": ["BigDouble"], "owners": ["Automata player loadout GameAction", "Automata world-collection verification"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.cost-enough-action", "assembly": "assembly-csharp", "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "HasEnough",

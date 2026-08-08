@@ -297,9 +297,10 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         var baseCost = _instanceBaseCost!(prototype);
         var scaling = _instanceScaling!(prototype, Math.Max(count, 1));
         if (baseCost is null || scaling is null) return;
-        // The drain modifier is applied here rather than by ResourceCostList.Multiply, which builds
-        // a whole second list to hold one scalar product per entry. GameCostMath.Multiply is that
-        // product, and the cost parity pass is what proves the two agree.
+        // The drain modifier is applied entry by entry here rather than by ResourceCostList.Multiply,
+        // which builds a whole second list to hold one scalar product per entry. That the two forms
+        // agree is what the collection check's ResourceCostList.Multiply comparison proves, over
+        // live authored cost lists. What a harvest element cost composes to is still a named gap.
         AppendCosts(
             elementId,
             actionId,
