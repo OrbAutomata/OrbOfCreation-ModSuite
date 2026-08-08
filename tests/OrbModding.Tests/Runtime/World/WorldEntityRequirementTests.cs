@@ -5,20 +5,13 @@ using Xunit;
 
 namespace OrbModding.Tests.Runtime.World;
 
-/// <summary>
-/// The per-level prerequisite container becomes published rows and one same-generation native verdict.
-/// </summary>
+/// <summary>The per-level prerequisite container becomes published rows.</summary>
 /// <remarks>
-/// <para>
 /// The game gates each level of a purchase on <c>prerequisitesPerLevel.Check(level)</c>, which takes
 /// the level being bought and so cannot be published as a latched boolean the way the whole-entity
-/// gate is. The collector publishes both the container's contents and the result of the native,
-/// parameterized <c>Check(ConditionInfo)</c> call for the exact level the game would check next.
-/// </para>
-/// <para>
-/// The native result is a differential oracle, not a replacement evaluator. Worker code still
-/// evaluates the immutable rows, then compares its answer with this same-generation native verdict.
-/// </para>
+/// gate is. What collection publishes is the container's contents; the native verdict for a given
+/// level is asked at request time, by the explainer's probe and by the requirement passes, and is a
+/// differential oracle rather than a replacement evaluator.
 /// </remarks>
 public sealed class WorldEntityRequirementTests : IDisposable
 {

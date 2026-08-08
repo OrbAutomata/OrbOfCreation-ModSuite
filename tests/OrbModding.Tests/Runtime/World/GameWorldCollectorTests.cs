@@ -563,8 +563,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         // per-entity state for, the harvest elements' own resources — which are not in the resource
         // registry and would otherwise be reachable from nothing — the structure and upgrade cost
         // lists, the authored effects, each plot's authoring and each action's completion blocks,
-        // each purchasable entity's lifecycle-authored per-level conditions plus their separately
-        // refreshed live native verdicts, prerequisite links' volatile native gates, and crafting
+        // each purchasable entity's lifecycle-authored per-level conditions,
+        // prerequisite links' volatile native gates, and crafting
         // recipes' separately refreshed live state and player-action decisions, which are second
         // walks of cached lifecycle bindings rather than registries of their own, the challenge
         // decision context captured from its managers in the same frame, the

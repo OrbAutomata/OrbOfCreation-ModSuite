@@ -115,6 +115,36 @@ made removing the call legitimate. `IsAvailable()` has not, and remains a genuin
 exactly that reason, since stacking a second unverified transcription on an unverified first would
 leave no way to attribute a differential failure to either.
 
+### What the differential passes prove, and what they do not
+
+`AutomataDifferentialVerificationControl.RunEverything()` is the list, and it is the whole list: the
+world collection check, then one pass per ported chain — Concept drain, spell level cost, spell level
+affordability, structure cost, the upgrade cost curve, resource rate, requirement verdicts for
+upgrades, structures, research and prerequisite-link tiers, Concept usage prerequisites, and the two
+plot-node quantities. The world collection check additionally compares every published purchase price
+and eligibility verdict against `GetPurchaseCost()` and `HasEnough()`, every resource's display
+coordinate and capacity verdict, the ritual/consumable/resource predicates, reference edges,
+identities, and cache staleness.
+
+A passing suite is not a proof that everything published is right, and the gaps are named here so
+that nobody has to infer them from a comparison count:
+
+- **`WorldExactCostMath.TryCombinedExactCost`** has nothing to compare against. It sums the game's own
+  captured amounts, and the native answer *is* the per-row amount it adds.
+- **The clamped end of the upgrade curve.** The upgrade pass samples only levels the game would price
+  without clamping, because reproducing `maxLevel - 1` to decide what to expect would put one
+  transcription on both sides of the comparison.
+- **The grouped multi-level structure projection.** Grouped amounts price several successive levels by
+  advancing the committed quantity, and the game answers only for the level the structure stands on.
+- **Plot and harvest action element costs** — `WorldPlotAction.TryComputeElementCost`.
+- **Derived level facts** — `committedLevel`, `effectiveLevel`, `developmentProgress`, `isBounded`,
+  `isExhausted`, `remainingLevels`, `isDeveloping` — and the derived capacity facts other than the two
+  the collection check now pins.
+- **Crafting worker enrichment, purchase-view route admission, and each decision reader's derived
+  half.** These compose published facts under suite policy rather than transcribing a native chain, so
+  there is no single member to disagree with; portable tests and the reason codes each verdict carries
+  are what cover them.
+
 ## D17 — World collection is derived from the runtime type, never from the save record
 
 Every entity category has two shapes: the `ScriptableObject` it is at runtime, and the
@@ -304,12 +334,12 @@ worth knowing:
   Its list is `[SerializeReference]`, so accessors compile per concrete condition class on first sight,
   and a class that does not bind yields a row of kind `Unknown` rather than none — an unmodelled
   condition must be visible as a requirement nobody can evaluate rather than as an entity with no
-  requirements ([W58](world-collection-decisions.md)). Beside the authored graph, one non-identity
-  table carries the native parameterized `Check(ConditionInfo)` verdict and its exact input level for
-  every upgrade, structure, and research entry — a same-generation differential oracle, never a
-  replacement for the graph and never an admission result; the explainer fails loud if its graph
-  verdict disagrees. How that overload differs from the parameterless latch is recorded in
-  [requirements](../reverse-engineering/requirements.md).
+  requirements ([W58](world-collection-decisions.md)). The native parameterized `Check(ConditionInfo)`
+  verdict is not published: it is asked at request time by `WorldRequirementNativeVerdictProbe` for the
+  one entity being explained, and by the requirement passes for the registry they walk. It is a
+  differential oracle, never a replacement for the graph and never an admission result; the explainer
+  fails loud if its graph verdict disagrees. How that overload differs from the parameterless latch is
+  recorded in [requirements](../reverse-engineering/requirements.md).
 - **Spell slots and costs.** `WorldSpellSlot.cs` publishes the equipped loadout and `WorldSpellCost.cs`
   what casting out of it costs, both from one reader, because a slot's price is only answerable from the
   same equipped instance the slot was read from. Neither is identity-keyed: a position may be unfilled
