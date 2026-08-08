@@ -189,6 +189,21 @@ public sealed class GameMcpChallengeTests
         Assert.Empty(committed.Properties());
     }
 
+    /// <remarks>
+    /// The reroll budget is the one axis a spent-budget refusal turns on, so it ships as the number
+    /// the refusal read rather than as a sentence a planner has to parse.
+    /// </remarks>
+    [Fact]
+    public void A_spent_reroll_budget_is_refused_with_the_budget_it_read()
+    {
+        var refusal = ChallengeSubmission.RerollsExhausted("No challenge rerolls remain.", 0);
+
+        var refused = Json(GameMcpChallengeProjection.Project(in refusal), World());
+
+        Assert.Equal(0, (int?)refused["rerollsLeft"]);
+        Assert.Single(refused.Properties());
+    }
+
     private static GameWorldState World(
         bool selected = true,
         int rerollsLeft = 2,

@@ -71,7 +71,9 @@ internal sealed class ChallengeGameAction : IDisposable
             var before = CaptureAdmission(action.Kind, native, in context, target);
             var preflight = Preflight(action.Kind, native, in context, target, in before, out var reason);
             if (preflight != ChallengePreflight.Proceeded)
-                return ChallengeSubmission.Reject(preflight, reason);
+                return preflight == ChallengePreflight.NoRerolls
+                    ? ChallengeSubmission.RerollsExhausted(reason, before.RerollsLeft)
+                    : ChallengeSubmission.Reject(preflight, reason);
             if (!_tryCaptureMutationPermit())
                 return ChallengeSubmission.Reject(ChallengePreflight.MutationPermitUnavailable,
                     _readOwnershipFailure());

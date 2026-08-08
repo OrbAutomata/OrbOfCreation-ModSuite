@@ -11,6 +11,10 @@ internal static class GameMcpDiscoveryTreeOfferProjection
     {
         if (submission.Verified) return new JObject().Freeze();
         var result = new JObject();
+
+        // The refusal names the one axis that failed and hands over the number its sentence read,
+        // so a planner learns the live budget instead of a hand-written rule that can drift.
+        if (submission.RerollsLeft >= 0) result["rerollsLeft"] = submission.RerollsLeft;
         if (submission.CallOutcome.MutationAttempts > 0)
         {
             result["missingOutcome"] = kind switch

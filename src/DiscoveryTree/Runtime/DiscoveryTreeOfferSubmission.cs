@@ -41,7 +41,8 @@ internal readonly struct DiscoveryTreeOfferSubmission
         DiscoveryTreeOfferNativeStage stage,
         NativeMutationOutcome outcome,
         NativeMutationCallOutcome callOutcome,
-        string reason)
+        string reason,
+        int rerollsLeft = -1)
     {
         if (preflight != DiscoveryTreeOfferPreflight.Proceeded && string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("A Discovery Tree offer failure requires an exact reason.", nameof(reason));
@@ -50,6 +51,7 @@ internal readonly struct DiscoveryTreeOfferSubmission
         Outcome = outcome;
         CallOutcome = callOutcome;
         Reason = reason ?? string.Empty;
+        RerollsLeft = rerollsLeft;
     }
 
     internal DiscoveryTreeOfferPreflight Preflight { get; }
@@ -57,6 +59,12 @@ internal readonly struct DiscoveryTreeOfferSubmission
     internal NativeMutationOutcome Outcome { get; }
     internal NativeMutationCallOutcome CallOutcome { get; }
     internal string Reason { get; }
+
+    /// <summary>
+    /// The reroll budget the refusal's sentence was written from, or -1 when the budget is not the
+    /// axis that failed.
+    /// </summary>
+    internal int RerollsLeft { get; }
     internal bool Verified =>
         Preflight == DiscoveryTreeOfferPreflight.Proceeded &&
         Outcome == NativeMutationOutcome.Verified;
@@ -66,4 +74,8 @@ internal readonly struct DiscoveryTreeOfferSubmission
         string reason) =>
         new(preflight, DiscoveryTreeOfferNativeStage.None,
             NativeMutationOutcome.BeforeCaptureFailed, default, reason);
+
+    internal static DiscoveryTreeOfferSubmission RerollsExhausted(string reason, int rerollsLeft) =>
+        new(DiscoveryTreeOfferPreflight.RerollUnavailable, DiscoveryTreeOfferNativeStage.None,
+            NativeMutationOutcome.BeforeCaptureFailed, default, reason, rerollsLeft);
 }

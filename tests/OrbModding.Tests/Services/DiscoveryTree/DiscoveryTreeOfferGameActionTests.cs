@@ -254,6 +254,28 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         Assert.Equal(2, result.CallOutcome.NativeCallsAttempted);
     }
 
+    /// <remarks>
+    /// The refusal used to recite the rule it believed it enforced, and two of its three clauses
+    /// were false — a planner that cached the sentence learned never to reroll from a mode that
+    /// rerolls fine. It now names the one axis that failed and carries the number it read.
+    /// </remarks>
+    [Fact]
+    public void Reroll_without_budget_refuses_on_the_one_axis_that_failed()
+    {
+        var (tree, _) = ChoiceTree();
+        tree.rerollsLeft = 0;
+        using var action = Action();
+
+        var result = action.Submit(new DiscoveryTreeOfferAction(
+            DiscoveryTreeOfferActionKind.Reroll, tree.GetGuid(), Guid.Empty, Epoch));
+
+        Assert.False(result.Verified);
+        Assert.Equal(DiscoveryTreeOfferPreflight.RerollUnavailable, result.Preflight);
+        Assert.Equal("No rerolls are left on this tree.", result.Reason);
+        Assert.Equal(0, result.RerollsLeft);
+        Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
+    }
+
     [Fact]
     public void Reroll_accounting_and_cleanup_drift_is_evidence_not_a_gate()
     {

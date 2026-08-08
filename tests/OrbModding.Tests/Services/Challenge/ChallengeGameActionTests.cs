@@ -147,7 +147,9 @@ public sealed class ChallengeGameActionTests : IDisposable
         var incomplete = Submit(boundary, ChallengeActionKind.FetchPrestige);
 
         Assert.Equal(ChallengePreflight.NoRerolls, noRerolls.Preflight);
+        Assert.Equal(0, noRerolls.RerollsLeft);
         Assert.Equal(ChallengePreflight.FetchUnavailable, incomplete.Preflight);
+        Assert.Equal(-1, incomplete.RerollsLeft);
         Assert.Equal(0, ChallengeManager.instance.FetchCalls);
         Assert.Equal(0, PersistentResetManager.instance.FetchCalls);
     }

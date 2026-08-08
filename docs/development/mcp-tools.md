@@ -1241,8 +1241,10 @@ very large `BigDouble` amount: an unchanged amount cannot disprove a transition 
 performed. On success, payment is presumed and completely omitted. Initiate/reroll wait for the
 ordinary collector to publish the Crafting state their press produces; the offer list is filled by
 the tree's own timed increment three seconds of game time later and is therefore outside any settle
-budget. Select returns the selected state; confirm returns Idle plus the next initiate costs. Failures
-name only the failed admission or missing transition and the fact that explains it.
+budget. Select returns the selected state; confirm returns Idle plus the next initiate costs.
+Failures name only the failed admission or missing transition and the fact that explains it: a
+reroll refused for a spent budget names that one axis and carries `rerollsLeft`, never a recital of
+the preconditions the code believes it enforces.
 
 `game_cast` uses the visible spell button's native route. `fire` starts a ready spell, `release`
 lets go of the suite's charge hold, and `toggle_off` presses an already-active toggle spell again.
@@ -1366,8 +1368,10 @@ decision blocks ride on `challengeState`, which every challenge read carries. Ea
 carries `costsReroll`, so what the next press would cost is readable without pressing it. The first
 press verifies the game's fetched flag; later presses verify that the reroll count decreased, and
 both publish `rerollsLeft` and `challengesFetched` as `{before, after}` pairs whether or not they
-moved. Offer contents, rewards, effects, and other accounting are neither success gates nor response
-data. A reroll also returns the new named offer state because it is the next decision; target modes
+moved. A refusal instead turns on one axis and carries that axis as the number it read — a spent
+budget answers `rerollsLeft: 0`, the plain integer the read publishes, because nothing moved for a
+pair to record. Offer contents, rewards, effects, and other accounting are neither success gates nor
+response data. A reroll also returns the new named offer state because it is the next decision; target modes
 return the changed challenge state. No success receipt or follow-up read is required.
 
 `game_prestige` requires `confirm:true`. The boundary rereads the reset manager's world-cycle

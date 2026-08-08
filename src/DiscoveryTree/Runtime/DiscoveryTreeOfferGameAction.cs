@@ -216,12 +216,13 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                 "The immediate-required discovery path does not expose reroll in the native UI.");
         var offers = native.ReadCurrentChoices(tree);
         var rerolls = native.ReadRerolls(tree);
-        if (rerolls <= 0 || offers.Count == 0)
+        if (rerolls <= 0)
+            return DiscoveryTreeOfferSubmission.RerollsExhausted(
+                "No rerolls are left on this tree.", rerolls);
+        if (offers.Count == 0)
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.RerollUnavailable,
-                rerolls <= 0
-                    ? "No rerolls are left on this tree."
-                    : "This tree is showing no offers to reroll.");
+                "This tree is showing no offers to reroll.");
         if (!TryCapturePermit(out var reason))
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.MutationPermitUnavailable, reason);

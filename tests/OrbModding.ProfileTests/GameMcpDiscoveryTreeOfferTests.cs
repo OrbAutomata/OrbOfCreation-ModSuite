@@ -113,6 +113,25 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.Null(projected["quarantined"]);
     }
 
+    /// <remarks>
+    /// A precondition list written by hand drifts from the code that enforces it; the number the
+    /// refusal actually read cannot.
+    /// </remarks>
+    [Fact]
+    public void A_spent_reroll_budget_is_refused_with_the_budget_it_read()
+    {
+        var submission = DiscoveryTreeOfferSubmission.RerollsExhausted(
+            "No rerolls are left on this tree.", 0);
+
+        var projected = GameMcpTestHarness.Json(
+            GameMcpDiscoveryTreeOfferProjection.Project(
+                DiscoveryTreeOfferActionKind.Reroll,
+                in submission));
+
+        Assert.Equal(0, (int?)projected["rerollsLeft"]);
+        Assert.Single(projected.Properties());
+    }
+
     [Fact]
     public void FaultNamesOnlyTheMissingOutcome()
     {

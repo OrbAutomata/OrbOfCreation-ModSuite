@@ -59,13 +59,14 @@ internal readonly struct ChallengeSubmission
 {
     internal ChallengeSubmission(ChallengePreflight preflight, ChallengeNativeStage stage,
         NativeMutationOutcome outcome, NativeMutationCallOutcome callOutcome,
-        string reason)
+        string reason, int rerollsLeft = -1)
     {
         Preflight = preflight;
         Stage = stage;
         Outcome = outcome;
         CallOutcome = callOutcome;
         Reason = reason ?? string.Empty;
+        RerollsLeft = rerollsLeft;
     }
 
     internal ChallengePreflight Preflight { get; }
@@ -73,10 +74,20 @@ internal readonly struct ChallengeSubmission
     internal NativeMutationOutcome Outcome { get; }
     internal NativeMutationCallOutcome CallOutcome { get; }
     internal string Reason { get; }
+
+    /// <summary>
+    /// The reroll budget the refusal's sentence was written from, or -1 when the budget is not the
+    /// axis that failed.
+    /// </summary>
+    internal int RerollsLeft { get; }
     internal bool Verified => Preflight == ChallengePreflight.Proceeded &&
         Outcome == NativeMutationOutcome.Verified;
 
     internal static ChallengeSubmission Reject(ChallengePreflight preflight, string reason) =>
         new(preflight, ChallengeNativeStage.None, NativeMutationOutcome.BeforeCaptureFailed,
             default, reason);
+
+    internal static ChallengeSubmission RerollsExhausted(string reason, int rerollsLeft) =>
+        new(ChallengePreflight.NoRerolls, ChallengeNativeStage.None,
+            NativeMutationOutcome.BeforeCaptureFailed, default, reason, rerollsLeft);
 }
