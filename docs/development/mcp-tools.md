@@ -153,7 +153,7 @@ there is no `tools/list_changed` notification. The rows below are in `tools/list
 | `game_modal` | Dismiss the one unambiguous open native modal through its close control |
 | `game_screen_catalog` | Read the live screens with the active screen and its subtab strips marked |
 | `game_navigate` | Navigate a catalog screen/subtab and optional published plot UUID |
-| `game_tooltips` | Page through active tooltip-bearing elements by exact indexed path |
+| `game_tooltips` | Page through active tooltip-bearing elements by indexed path |
 | `game_tooltip` | Read compact plain screen text, including nested/computed and inspected content |
 | `game_probe` | Read one fixed native fact not carried by `WORLD` |
 
@@ -1549,13 +1549,19 @@ Main-scene navigation capture can be several megabytes even though it contains o
 The current game build makes the exploration loop feasible. Active `HoverTooltip` components carry
 an `ITooltipable`, core name/type/description methods, and a private authored `subTooltips` list;
 `OpenTooltip` renders the selected element. `game_tooltips` pages through current-screen elements by
-an exact native hierarchy path whose sibling indices disambiguate repeated Unity clone rows. Its
+a native hierarchy path whose sibling indices disambiguate repeated Unity clone rows. Its
 scope is what the player can hover: the screen's own controls, the persistent chrome that outlives
 navigation, and any open modal. Closing a modal only drops its canvas group's alpha and raycasts, so
 every panel the session ever opened stays active in the hierarchy — the catalog reads the game's own
 `UIModal.IsOpen()` up each element's ancestry and lists none of them, and `total` therefore counts
 hoverable elements rather than instantiated ones.
-`game_tooltip` requires one exact path and returns the tooltip as compact plain screen text. The
+A screen's elements descend from one canvas, so the catalog says the shared leading path once as
+`pathPrefix` and each row carries only what that prefix does not already say. `pathPrefix` is
+present exactly when the listed paths share leading segments, is the same on every page of one
+screen, and always leaves the shortest listed path one segment of its own. `game_tooltip` takes a
+row's path as handed out — it derives the same prefix from the same live screen — and accepts a
+whole path as well; a refusal that has a prefix names it. The reply is compact plain screen text.
+The
 catalog includes the owning UUID when the assigned tooltip item is itself an identity-bearing game
 entity; control-only rows retain the volatile current-screen path and name. The
 reader walks the native node, linked-tooltip, nested-tooltip, and currently inspected-panel graph
@@ -1567,7 +1573,7 @@ node, renders a panel, or captures the framebuffer.
 
 ```sh
 tools/game-mcp-client.py tooltips --limit 25
-tools/game-mcp-client.py tooltip 'EXACT/PATH/FROM/CATALOG'
+tools/game-mcp-client.py tooltip 'PATH/FROM/CATALOG/ROW'
 ```
 
 The audited manifest covers the native tooltip carrier/open/nesting shape, while the real-reference

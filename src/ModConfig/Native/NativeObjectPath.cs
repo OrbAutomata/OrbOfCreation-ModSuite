@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
@@ -61,4 +62,44 @@ internal static class NativeObjectPath
         segments.Reverse();
         return string.Join("/", segments);
     }
+
+    /// <summary>
+    /// The leading segments every listed path shares, held to a proper prefix so each path keeps at
+    /// least one segment of its own. A screen's selectors descend from one canvas, so this is the
+    /// part a page would otherwise repeat verbatim on every row.
+    /// </summary>
+    public static string CommonPrefix(IReadOnlyList<string> paths)
+    {
+        if (paths is null || paths.Count == 0) return string.Empty;
+
+        var shared = paths[0].Split('/');
+        var common = shared.Length;
+        var shortest = shared.Length;
+        for (var index = 1; index < paths.Count; index++)
+        {
+            var candidate = paths[index].Split('/');
+            if (candidate.Length < shortest) shortest = candidate.Length;
+            if (candidate.Length < common) common = candidate.Length;
+            for (var segment = 0; segment < common; segment++)
+            {
+                if (string.Equals(shared[segment], candidate[segment], StringComparison.Ordinal))
+                    continue;
+                common = segment;
+                break;
+            }
+            if (common == 0) return string.Empty;
+        }
+
+        if (common >= shortest) common = shortest - 1;
+        return common <= 0 ? string.Empty : string.Join("/", shared, 0, common);
+    }
+
+    /// <summary>
+    /// The part of a path a shared prefix does not already say.
+    /// </summary>
+    public static string Relative(string path, string prefix) =>
+        prefix.Length > 0 && path.Length > prefix.Length &&
+        path.StartsWith(prefix, StringComparison.Ordinal) && path[prefix.Length] == '/'
+            ? path.Substring(prefix.Length + 1)
+            : path;
 }

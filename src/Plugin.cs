@@ -3410,6 +3410,7 @@ public sealed class Plugin : BaseUnityPlugin
                 "tooltip_offset_invalid",
                 "the immutable tooltip catalog offset could not be decoded");
         }
+        var prefix = TooltipPathPrefix(entries);
         var projected = new GameMcpArrayBuilder();
         var end = (int)Math.Min(entries.Length, (long)offset + command.Amount);
         for (var index = offset; index < end; index++)
@@ -3424,7 +3425,9 @@ public sealed class Plugin : BaseUnityPlugin
             }
             var tooltip = new GameMcpObjectBuilder
             {
-                ["path"] = NativeObjectPath.BuildIndexed(hover),
+                ["path"] = NativeObjectPath.Relative(
+                    NativeObjectPath.BuildIndexed(hover),
+                    prefix),
                 ["name"] = item.GetName(),
             };
             AddTooltipIdentity(tooltip, item);
@@ -3436,6 +3439,7 @@ public sealed class Plugin : BaseUnityPlugin
             ["total"] = entries.Length,
             ["rows"] = projected,
         };
+        if (prefix.Length > 0) details["pathPrefix"] = prefix;
         if (end < entries.Length) details["nextOffset"] = end;
         return GadgetCommitted(
             "tooltip_catalog_read",
@@ -3445,18 +3449,31 @@ public sealed class Plugin : BaseUnityPlugin
     private GameMcpCommandResult ReadTooltipGameMcp(GameMcpCommand command)
     {
         var requestedPath = command.PayloadValue;
-        var matches = CaptureActiveHoverTooltips()
-            .Where(hover => string.Equals(
-                NativeObjectPath.BuildIndexed(hover),
-                requestedPath,
-                StringComparison.Ordinal))
+        var active = CaptureActiveHoverTooltips();
+
+        // The catalog hands out the part of the path its shared prefix does not already say, and
+        // the prefix is derived from the same live screen on both sides, so a row's path resolves
+        // as given without the caller re-assembling it.
+        var prefix = TooltipPathPrefix(
+            active.Where(static entry => entry.tooltipItem is not null).ToArray());
+        var qualified = prefix.Length > 0 ? prefix + "/" + requestedPath : requestedPath;
+        var matches = active
+            .Where(hover =>
+            {
+                var path = NativeObjectPath.BuildIndexed(hover);
+                return string.Equals(path, requestedPath, StringComparison.Ordinal) ||
+                    string.Equals(path, qualified, StringComparison.Ordinal);
+            })
             .ToArray();
         if (matches.Length != 1)
         {
             return GadgetRejected(
                 "tooltip_match_failed",
-                "exact tooltip path '" + requestedPath + "' matched " +
-                matches.Length + " active current-screen elements");
+                "tooltip path '" + requestedPath + "' matched " +
+                matches.Length + " active current-screen elements" +
+                (prefix.Length > 0
+                    ? "; paths read relative to pathPrefix '" + prefix + "'"
+                    : string.Empty));
         }
         var hover = matches[0];
         if (hover.tooltipItem is null)
@@ -3513,6 +3530,10 @@ public sealed class Plugin : BaseUnityPlugin
                 GameMcpTooltipNativeAccess.OnScreen(hover))
             .OrderBy(hover => ScreenOrderKey(hover.transform), StringComparer.Ordinal)
             .ToArray();
+
+    private static string TooltipPathPrefix(IReadOnlyList<HoverTooltip> entries) =>
+        NativeObjectPath.CommonPrefix(
+            entries.Select(static hover => NativeObjectPath.BuildIndexed(hover)).ToArray());
 
     private static void AddTooltipIdentity(
         GameMcpObjectBuilder result,
