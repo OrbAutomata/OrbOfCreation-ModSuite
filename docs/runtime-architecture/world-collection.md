@@ -13,7 +13,7 @@ configuration, world state and strategy and nothing else — is stated in
 ## The pipeline
 
 ```
-55 category readers over the game's registries
+61 category readers over the game's registries
         │  Unity thread, once per 250 ms
         ▼
 GameWorldCollector ──fills──► GameWorldCycleFrame
@@ -109,9 +109,11 @@ act on**, which makes this an exact reading rather than a tolerated stale one.
 
 What makes owning the derived math tolerable is the gate, not the speed: the four conditions in
 [goals and invariants](goals-and-invariants.md) are load-bearing together. Porting proceeds one layer at
-a time, each proven before the next begins — `GetTrueRate()` and `IsAvailable()` remain genuine game
-calls for exactly that reason, since stacking a second unverified transcription on an unverified first
-would leave no way to attribute a differential failure to either.
+a time, each proven before the next begins. `GetTrueRate()` has been through that door: the rate
+chain is `GameResourceRateMath.GetTrueRate` over published inputs, and the rate parity pass is what
+made removing the call legitimate. `IsAvailable()` has not, and remains a genuine game call for
+exactly that reason, since stacking a second unverified transcription on an unverified first would
+leave no way to attribute a differential failure to either.
 
 ## D17 — World collection is derived from the runtime type, never from the save record
 
@@ -259,12 +261,12 @@ freezes the generation for the same reason and with the same effect.
 One file per category under `src/Common/Runtime/World/Categories/`, each holding that category's row
 struct and its binder. The machinery lives one directory up: `WorldCategoryMachinery.cs` (buffers,
 readers, derivers), `NativeAccessorBinder.cs` (member binding), `GameWorldCollector.cs` (the pass, and
-owner of the 45-reader array), `GameWorldStateDeriver.cs` (the four derived row kinds — resource,
+owner of the 61-reader array), `GameWorldStateDeriver.cs` (the four derived row kinds — resource,
 structure, upgrade, plot node).
 
-Seven readers are **structural**: plot authoring, effect blocks, entity requirement graphs, crafting
-recipe types, crafting recipe authored edges, structure costs, and upgrade costs describe what the
-game's authors wrote rather than what the player has done, so they re-read only when the frame
+Nine readers are **structural**: plot authoring, effect blocks, spell authoring, entity requirement
+graphs, purchase view relations, crafting recipe types, crafting recipe authored edges, structure
+costs, and upgrade costs describe what the game's authors wrote rather than what the player has done, so they re-read only when the frame
 arrives under a lifecycle epoch this collector has not already read for. Immutable output tables are
 still derived on the worker for every publication — only the repeated Unity/native traversal is
 skipped. Their paired live facts remain ordinary 250-millisecond collection: prerequisite-link and
@@ -280,7 +282,7 @@ its registry and fallback rules are normative in the
 
 Most tables are one row per entity and are walked by the identity check. Which tables the walk skips is
 stated in exactly one place — `NotIdentityTables` in
-`tests/OrbModding.Tests/Runtime/Verification/WorldIdentityWalkTests.cs`, currently 29 names — because
+`tests/OrbModding.Tests/Runtime/Verification/WorldIdentityWalkTests.cs`, currently 41 names — because
 every second reading of an entity another table already claims lands there. Five exclusions have reasons
 worth knowing:
 

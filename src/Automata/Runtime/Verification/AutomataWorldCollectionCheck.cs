@@ -117,9 +117,9 @@ internal sealed class AutomataWorldCollectionCheck
         _disagreements = 0;
         _firstDisagreement = string.Empty;
 
-        // Taken before anything else runs, and reported last. Collection reads GetTrueRate(), which
-        // resolves the rate chain and so recalculates whatever it found dirty — measuring the cache
-        // after that would be measuring this check's own footprint rather than the game's.
+        // Taken before anything else runs, and reported last. Collection folds modifier records and
+        // calls IsAvailable(), both of which recalculate whatever they found dirty — measuring the
+        // cache after that would be measuring this check's own footprint rather than the game's.
         var staleness = SurveyCacheStaleness();
 
         // Binding compiles an accessor per member per category, once. It is a startup cost rather
@@ -1569,8 +1569,8 @@ internal sealed class AutomataWorldCollectionCheck
     /// </para>
     /// <para>
     /// Runs before anything else in this check, because several things downstream resolve records as
-    /// a side effect — collection itself calls <c>GetTrueRate()</c> — and a survey taken after them
-    /// would report their work rather than the game's.
+    /// a side effect — collection itself folds modifier records and calls <c>IsAvailable()</c> — and a
+    /// survey taken after them would report their work rather than the game's.
     /// </para>
     /// </remarks>
     private string SurveyCacheStaleness()
