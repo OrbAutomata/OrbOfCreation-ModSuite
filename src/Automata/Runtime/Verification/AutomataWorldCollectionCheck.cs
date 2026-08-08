@@ -99,6 +99,8 @@ internal sealed class AutomataWorldCollectionCheck
     private int _agreements;
     private int _disagreements;
     private string _firstDisagreement = string.Empty;
+    private int _invertedCounters;
+    private int _invertedCapacityDivergences;
 
     internal AutomataWorldCollectionCheck()
         : this(WorldNativeTypes.Resolve)
@@ -116,6 +118,8 @@ internal sealed class AutomataWorldCollectionCheck
         _agreements = 0;
         _disagreements = 0;
         _firstDisagreement = string.Empty;
+        _invertedCounters = 0;
+        _invertedCapacityDivergences = 0;
 
         // Taken before anything else runs, and reported last. Collection folds modifier records and
         // calls IsAvailable(), both of which recalculate whatever they found dirty — measuring the
@@ -301,7 +305,88 @@ internal sealed class AutomataWorldCollectionCheck
                 entity, type, "rateLifetimePercent", reading.RateInputs.RateLifetimePercentModifiers);
 
             CompareTrueQuantity(entity, type, row.TrueQuantity);
+            CompareDisplayedCapacity(entity, type, row);
         });
+    }
+
+    /// <summary>
+    /// The published display coordinate against <c>GetDisplayQuantity()</c>, and the capacity verdict
+    /// that reads it against the game's own ceiling.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The display mirror had no oracle at all: <c>WorldResourceCoordinate.DisplayAmount</c> decides
+    /// which of two numbers a player-facing surface shows, and picking the wrong one is invisible to
+    /// every other check here because both numbers are collected correctly.
+    /// </para>
+    /// <para>
+    /// The capacity verdict is the deliberate disagreement. <c>IsAtMax()</c> compares the
+    /// <em>stored</em> quantity with the ceiling and has no callers of its own; the published
+    /// <c>isAtCapacity</c> compares the <em>displayed</em> quantity, so an inverted counter reads
+    /// full when the thing it counts is maxed rather than when its tolerance is untouched. For every
+    /// other resource the two questions coincide and are compared. For an inverted one the
+    /// divergence is the design, so it is counted and reported rather than recorded as a failure —
+    /// and the verdict is pinned instead against the game's own displayed number and ceiling, which
+    /// is the comparison that would catch the branch being dropped.
+    /// </para>
+    /// <para>
+    /// Both native calls reach <c>maxQuantity</c> through the record's conversion, which settles it
+    /// when dirty. Compared only while it is already clean, on the same bargain
+    /// <see cref="CompareTrueQuantity"/> strikes.
+    /// </para>
+    /// </remarks>
+    private void CompareDisplayedCapacity(object entity, Type type, WorldResource row)
+    {
+        if (!IsClean(entity, type, "maxQuantity")) return;
+
+        var display = NativeAccessorBinder.Call<BigDouble>(type, "GetDisplayQuantity");
+        var atMax = NativeAccessorBinder.Call<bool>(type, "IsAtMax");
+        if (display is null || atMax is null)
+        {
+            NoteMissingOracle(display is null ? "ResourceSO.GetDisplayQuantity" : "ResourceSO.IsAtMax");
+            return;
+        }
+
+        var ourDisplay = WorldResourceCoordinate.DisplayAmount(in row);
+        var theirDisplay = display(entity);
+        Record("ResourceSO.GetDisplayQuantity", ourDisplay, theirDisplay, ourDisplay == theirDisplay);
+
+        var theirAtMax = atMax(entity);
+        if (!row.Reading.Traits.InvertedResource)
+        {
+            Record("ResourceSO.IsAtMax", row.IsAtCapacity, theirAtMax, row.IsAtCapacity == theirAtMax);
+            return;
+        }
+
+        _invertedCounters++;
+        if (row.IsAtCapacity != theirAtMax) _invertedCapacityDivergences++;
+
+        var ceiling = ReadRecordValue(entity, type, "maxQuantity");
+        if (ceiling is not { } theirCeiling)
+        {
+            NoteMissingOracle("ResourceSO.maxQuantity");
+            return;
+        }
+
+        var displayedIsFull = row.IsCapped && theirDisplay.CompareTo(theirCeiling) >= 0;
+        Record(
+            "ResourceSO.GetDisplayQuantity at ceiling",
+            row.IsAtCapacity,
+            displayedIsFull,
+            row.IsAtCapacity == displayedIsFull);
+    }
+
+    /// <summary>
+    /// A modifier record's own value, read the way the game reads it. Only sound on a clean record,
+    /// which every caller here has already established.
+    /// </summary>
+    private static BigDouble? ReadRecordValue(object entity, Type type, string fieldName)
+    {
+        var record = type.GetField(fieldName, Instance)?.GetValue(entity);
+        var getValue = record?.GetType().GetMethod("GetValue", Instance, null, Type.EmptyTypes, null);
+        if (getValue is null || getValue.ReturnType != typeof(BigDouble)) return null;
+
+        return (BigDouble)getValue.Invoke(record, null)!;
     }
 
     /// <summary>
@@ -1529,6 +1614,16 @@ internal sealed class AutomataWorldCollectionCheck
                     ? $"  Accessor parity: {_agreements} comparisons, all agree."
                     : $"  ACCESSOR PARITY FAILED: {_disagreements} of " +
                       $"{_agreements + _disagreements} disagree — first {_firstDisagreement}");
+        }
+
+        // Named rather than silent: this is the one place the suite answers a question differently
+        // from a member of the game it can name, and a run where the count fell to zero would mean
+        // either that no inverted counter was loaded or that the branch stopped being taken.
+        if (_invertedCounters > 0)
+        {
+            _lines.Add(
+                $"  Inverted counters: {_invertedCounters}, of which " +
+                $"{_invertedCapacityDivergences} answer isAtCapacity against IsAtMax() by design.");
         }
 
         // An oracle that did not resolve makes this check weaker without making it fail, so the gap
