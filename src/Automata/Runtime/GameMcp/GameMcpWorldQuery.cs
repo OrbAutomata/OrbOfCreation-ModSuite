@@ -912,8 +912,31 @@ internal static class GameMcpWorldQuery
             GameMcpCommandKind.StructureLifecycle => ProjectStructureLifecycleDelta(state, command),
             GameMcpCommandKind.Research => ProjectResearchDelta(state, command),
             GameMcpCommandKind.GenericDiscovery => ProjectDiscoveryDelta(state, command),
+            GameMcpCommandKind.DiscoveryTreeOffer when string.Equals(
+                command.Mode,
+                "select",
+                StringComparison.Ordinal) => WithoutOffers(
+                    ProjectPostState(state, PostStateCategory(command), command.TargetId)),
             _ => ProjectPostState(state, PostStateCategory(command), command.TargetId),
         };
+
+    /// <summary>
+    /// A selection changes which offer is selected, not what is on offer. The settled tree still
+    /// says its mode, its budget, and the offer it now holds by name; the list the caller just
+    /// picked from is the one thing it already has.
+    /// </summary>
+    private static GameMcpValue WithoutOffers(GameMcpValue projected)
+    {
+        if (projected is not GameMcpObject row) return projected;
+        var result = new JObject();
+        for (var index = 0; index < row.Properties.Count; index++)
+        {
+            var property = row.Properties[index];
+            if (string.Equals(property.Name, "offers", StringComparison.Ordinal)) continue;
+            result[property.Name] = property.Value;
+        }
+        return result.Freeze();
+    }
 
     private static GameWorldState? Before(GameMcpCommand command) =>
         command.FrameContext?.World?.Snapshot;
@@ -2719,20 +2742,31 @@ internal static class GameMcpWorldQuery
             ["skipped"] = skippedRows,
         };
         if (unavailable.Count > 0) result["unavailableCategories"] = unavailable;
-        if (TryLocalizedRequirementFailures(world, out var implicated, out _))
+        if (TryLocalizedRequirementFailures(world, out var implicated, out _) &&
+            implicated.Length > 0)
         {
-            var skipped = new JArray();
+            // The overview is read every few calls and this evidence is the same bytes every time:
+            // which condition classes the collector cannot localize is a fact of the build. The
+            // summary says how many and of what, names the entities that carry them, and points at
+            // the read that holds every leaf — world_get on an implicated owner answers
+            // entity_data_incomplete with the full implicatedSkippedRows.
+            var owners = new JArray();
+            var seenOwners = new HashSet<Guid>();
+            var nativeTypes = new JArray();
+            var seenTypes = new HashSet<string>(StringComparer.Ordinal);
             for (var index = 0; index < implicated.Length; index++)
             {
                 var leaf = implicated[index];
-                skipped.Add(new JObject
-                {
-                    ["ownerId"] = leaf.OwnerId.ToString("D"),
-                    ["ordinal"] = leaf.Ordinal,
-                    ["nativeType"] = leaf.ConditionTypeName,
-                });
+                if (seenOwners.Add(leaf.OwnerId)) owners.Add(leaf.OwnerId.ToString("D"));
+                if (seenTypes.Add(leaf.ConditionTypeName)) nativeTypes.Add(leaf.ConditionTypeName);
             }
-            if (skipped.Count > 0) result["skippedEntities"] = skipped;
+            result["skippedEntities"] = new JObject
+            {
+                ["count"] = implicated.Length,
+                ["nativeTypes"] = nativeTypes,
+                ["owners"] = owners,
+                ["readWith"] = new JObject { ["tool"] = "world_get" },
+            };
         }
         return result;
     }
@@ -5423,19 +5457,20 @@ internal static class GameMcpWorldQuery
             ["available"] = selected && !ritual.ForceLevel && !anyBattleActive,
             ["current"] = ritual.SelectedLevel,
         };
-        if (selected && !ritual.ForceLevel)
+        if (ritual.ForceLevel)
+            level["reasonCode"] = "level_locked";
+        else
         {
             // Both bounds, from the same native control: the jump-start selector is clamped to
             // 1..RitualSO.GetMaxSelectedLevel(), and a caller that only ever saw the ceiling had no
-            // way to discover that 0 is not a starting level the game offers.
+            // way to discover that 0 is not a starting level the game offers. One presence rule —
+            // the bounds ride on every ritual whose starting level is the caller's to choose, so
+            // selecting one is not how a caller finds out the range exists.
             level["minimum"] = WorldRitualDecision.NativeMinimumStartingLevel;
             level["maximum"] = ritual.Decision.MaximumStartingLevel;
-            if (anyBattleActive) level["reasonCode"] = "ritual_battle_active";
+            if (!selected) level["reasonCode"] = "not_selected";
+            else if (anyBattleActive) level["reasonCode"] = "ritual_battle_active";
         }
-        else if (ritual.ForceLevel)
-            level["reasonCode"] = "level_locked";
-        else
-            level["reasonCode"] = "not_selected";
         result["setLevel"] = level;
 
         var activateAvailable = ritual.Discovered && selected && !anyBattleActive &&

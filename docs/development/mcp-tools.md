@@ -184,6 +184,11 @@ row comes from the same pinned publication; the server does not issue a
 generation or retain a snapshot token across calls.
 Localized collection gaps mark only the implicated list/search/get row unavailable and attach the
 partial row plus exact evidence there; unaffected rows in the same call remain ordinary results.
+`world_overview` therefore summarises those gaps rather than restating them:
+`collection.skippedEntities` carries `count`, the distinct condition `nativeTypes` the collector
+cannot localize, the named `owners` that carry them, and `readWith`. The per-leaf evidence is the
+same bytes on every call for a given build and already lives on the owner's own `world_get`, as
+`implicatedSkippedRows`.
 
 Every paged read — `world_list`, `world_search`, `entity_catalog`, and `game_tooltips` — pages one
 way. Each takes `offset` and `limit`
@@ -388,8 +393,8 @@ lifecycle lives inside the one discovery tool instead of a permanent tool of its
 In Idle mode, `initiate` reports `available`, a stable false `reasonCode` when needed, and each exact
 cost line as a named `resource` plus `cost`, canonical `spendableAmount`, and `affordable`. In
 Choice mode, `offers` contains named UUID/category/native-type references in native order.
-`selectedOfferUuid` appears only after selection. `rerollAvailable` appears only in Choice mode. An
-empty offer set omits `offers`.
+`selectedOffer` — the named reference every `…Uuid` becomes on the wire — appears only after
+selection. `rerollAvailable` appears only in Choice mode. An empty offer set omits `offers`.
 
 These values are copied during the shared 250-millisecond world capture from lifecycle-bound
 delegates for native visibility, immediate-required state, current choices, exact next cost,
@@ -476,7 +481,10 @@ Only the selected row carries activation and completion prices in the same
 player-facing units as the Ritual panel and the eventual resource spend;
 unselected rows do not publish a speculative ledger. `setLevel`, `activate`, and
 `cancelDuration` each carry only the binding availability or refusal reason that affects the next
-decision.
+decision. `setLevel` has one presence rule for its bounds: every ritual whose starting level is the
+caller's to choose publishes `minimum` and `maximum`, selected or not, because the ceiling is a fact
+of the ritual and the player rather than of the selection. Only a `level_locked` ritual — one the
+game runs at an authored level — publishes none, because there is no range to choose from.
 
 `game_ritual(mode="select"|"deselect"|"activate"|"end"|"cancel_duration", uuid=...)` reproduces the
 corresponding visible Ritual control. `mode="set_level"` also requires the `level` the Ritual
@@ -497,7 +505,11 @@ included. Both are settled reads and not pre-mutation copies: `RitualSO.End()` w
 `wavesCompleted` nor `currentSpoils`, and the next `Initiate()` is what clears them, so the run's
 record outlives the transition that ends it — which is why the row can still report it as `lastRun`
 long afterwards. An `activate` reports no verdict: it is the mode that clears the record, and
-`wavesCompleted < 5` is true of a run that is just starting.
+`wavesCompleted < 5` is true of a run that is just starting. The two modes therefore read their
+shared `wavesCompleted` pair in opposite directions — `end` reports the waves the finished run
+reached, while `activate` reports the previous run's total falling to `0`, the reset the new battle
+starts from. Both are the same settled `{before, after}` observation of the same field; which one a
+response is saying is the mode it answers, never the shape of the pair.
 Selection, level, battle, and duration activity each use one game-written outcome sentinel
 and never a resource ledger.
 
@@ -686,7 +698,9 @@ The MCP-only offer sequence is seven calls when two offers need explanations:
    settled the same way.
 4. Call `explain_entity` for the candidates that require comparison. No catalog name joins are
    needed because every reference already carries its name.
-5. Call `offer_select` with that `offerUuid`; its terminal response includes the selected offer.
+5. Call `offer_select` with that `offerUuid`; its terminal response is the settled tree naming
+   `selectedOffer`. It omits `offers`: a selection changes which offer is held, not what is
+   offered, and the caller just picked from that list.
 6. Call `offer_confirm` with the same UUID; its terminal response is the Idle tree plus the next
    initiate costs. There are no post-mutation `world_get` calls, snapshot tokens, or receipt polls.
 
@@ -1099,6 +1113,13 @@ for another:
 | `minimumSlot` / `maximumSlot` | the `slot` index the live list holds | every `game_loadout` snapshot mode |
 | `maximumDestination` | the `destination` index a move accepts | `game_alchemy` and `game_spell_loadout`, read and refusal alike |
 | `maximumAdditional` | the game's remaining-instance headroom, never clamped by a schema cap | agromancy and harvest reads and post-states |
+
+A decision block carries a bound exactly when the verb it decides takes the input that bound caps.
+`game_consumable discard` publishes `maximumAmount` because `discard` takes an `amount`; its sibling
+`use` publishes none because `use` takes none — one call, one consumable. Which arguments a mode
+accepts is declared once, in that tool's `inputSchema` mode rules, and `use` lists `amount` as
+forbidden there; a decision block is where the game's live answer lives, never a second copy of the
+call signature.
 
 Two shapes were retired rather than joined: a bound named only in an English sentence, and a
 JSON-RPC `-32602` text quoting an `int.MaxValue` placeholder as if it were the game's limit. A

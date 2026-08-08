@@ -1220,6 +1220,21 @@ public sealed class GameMcpWorldEnvelopeTests
             requirementRow["implicatedSkippedRows"]!.Values<JObject>())!;
         Assert.Equal(affectedId.ToString("D"), (string?)requirementFailure["owner"]!["uuid"]);
         Assert.Equal("ListRequirement", (string?)requirementFailure["conditionTypeName"]);
+
+        // Which conditions this build authors that the suite cannot model does not change between
+        // calls, and the overview is read far more often than the rows are. It says how many, of
+        // what, on whom, and which read holds the leaves themselves.
+        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(state));
+        var skippedEntities = overview["collection"]!["skippedEntities"]!;
+        Assert.Equal(1, (int)skippedEntities["count"]!);
+        Assert.Equal(
+            "ListRequirement",
+            (string?)Assert.Single(skippedEntities["nativeTypes"]!.Values<string>()));
+        Assert.Equal(
+            affectedId.ToString("D"),
+            (string?)Assert.Single(skippedEntities["owners"]!.Values<JObject>())!["uuid"]);
+        Assert.Equal("world_get", (string?)skippedEntities["readWith"]!["tool"]);
+        Assert.Null(skippedEntities["ordinal"]);
     }
 
     [Fact]

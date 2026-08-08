@@ -794,9 +794,15 @@ internal sealed class WorldRitualDecisionBinding
         var selectedVariable = _selectedVariable!(manager) ??
             throw new InvalidOperationException("RitualManager.selectedRitual was unavailable");
         var selected = _isSelected!(selectedVariable, ritual);
+
+        // GetMaxSelectedLevel() is Math.Max(reachedLevel + 1, Player.GetCeremonialLevel()) — a fact
+        // of the ritual and the player, not of the selection. Reading it only for the selected
+        // ritual made the starting-level ceiling something a caller had to select a ritual to
+        // discover.
+        var maximumStartingLevel = _maximumStartingLevel!(ritual);
         if (!selected)
             return new WorldRitualDecision(
-                false, 0, false, false,
+                false, maximumStartingLevel, false, false,
                 PublicationTable<WorldRitualCost>.Empty,
                 PublicationTable<WorldRitualCost>.Empty);
 
@@ -804,7 +810,7 @@ internal sealed class WorldRitualDecisionBinding
             throw new InvalidOperationException("RitualSO.GetActivationCost returned null");
         return new WorldRitualDecision(
             true,
-            _maximumStartingLevel!(ritual),
+            maximumStartingLevel,
             _usageRequirementsMet!(ritual),
             _hasEnough!(activation),
             ReadCosts(activation),

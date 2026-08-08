@@ -143,6 +143,26 @@ public sealed class GameMcpRitualLifecycleTests
         Assert.True((bool)row["cancelDuration"]!["available"]!);
     }
 
+    /// <remarks>
+    /// One presence rule for one block: the ceiling is Math.Max(reachedLevel + 1, ceremonial level),
+    /// which the ritual and the player answer whether or not anything is selected. Publishing it
+    /// only for the selected ritual made selecting one the way to discover the range exists.
+    /// </remarks>
+    [Fact]
+    public void The_starting_level_bounds_do_not_wait_for_a_selection()
+    {
+        var world = World(selected: false, level: 0, activeInstances: 0);
+        var response = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 804),
+            "rituals", RitualId.ToString("D")).Freeze(), world);
+
+        var setLevel = response["row"]!["setLevel"]!;
+        Assert.False((bool)setLevel["available"]!);
+        Assert.Equal("not_selected", (string?)setLevel["reasonCode"]);
+        Assert.Equal(1, (int)setLevel["minimum"]!);
+        Assert.Equal(8, (int)setLevel["maximum"]!);
+    }
+
     [Fact]
     public void Unselected_ritual_has_no_speculative_price_ledger()
     {

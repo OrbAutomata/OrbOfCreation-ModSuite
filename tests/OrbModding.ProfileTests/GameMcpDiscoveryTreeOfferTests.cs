@@ -183,6 +183,41 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.Null(response["offers"]);
     }
 
+    /// <remarks>
+    /// A selection changes which offer is held, not what is offered, and the caller picked from the
+    /// list it is being handed back. The settled tree still names the selection and the budget.
+    /// </remarks>
+    [Fact]
+    public void Selecting_an_offer_does_not_re_send_the_list_it_was_picked_from()
+    {
+        var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+        var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
+        var selected = new WorldDiscoveryTree(
+            treeId, true, 2, BigDouble.Zero, 1, false, offerId,
+            new[] { offerId }, false, true, Array.Empty<WorldDiscoveryTreeCost>(),
+            Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, true, true, false);
+        var world = DiscoveryWorld(
+            selected,
+            timeRunes: new[]
+            {
+                new WorldTimeRune(
+                    offerId, false, 0, 1, BigDouble.Zero, 0, false, false,
+                    BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero),
+            });
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "select", treeId, offerId,
+            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false, false);
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(world, generation: 806),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.Null(delta["offers"]);
+        Assert.Equal(offerId.ToString("D"), (string?)delta["selectedOffer"]!["uuid"]);
+        Assert.Equal(1, (int)delta["rerollsLeft"]!);
+    }
+
     private static GameWorldState Tree(
         Guid treeId,
         int actionMode,
