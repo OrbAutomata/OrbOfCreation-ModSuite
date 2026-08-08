@@ -928,9 +928,21 @@ names both modes `reroll_*` and publishes `challengesFetched` and `rerollsLeft` 
 press. `StaticallyVerified` against the audited build.
 
 Both native fetchers call `ChallengeListVariable.CycleOut` (`0x06001634`) before `Instantiate`
-(`0x06001631`), and `Instantiate` calls `ChallengeSO.QueueActivation` (`0x06000935`). A landed fetch
-therefore has an observable shape: the requested offer list is non-empty and every materialized offer
-is in `QueuedStart`. A list counter alone does not prove it.
+(`0x06001631`); `CycleOut` calls `ChallengeSO.EmptyState()` on every outgoing offer and
+`Instantiate` calls `ChallengeSO.QueueActivation` (`0x06000935`) on every incoming one, so a
+materialized offer is in `QueuedStart`.
+
+### A redraw is not promised to be different
+
+`ChallengeManager.LoadNewActiveChallenges` fills the list from `GenerateNewChallengeList`, which
+draws from `challengesByType` through two `WeightedTable` picks seeded by `challengeRandom`, blocks
+only `ChallengeSO.incompatibleChallenges` and types flagged `restrictedInstances`, and finishes with
+`List.Sort(SortChallenges)`. Nothing in that body excludes the challenges currently on offer, and the
+final sort makes the ordering deterministic — so drawing the same challenges in the same order is an
+ordinary outcome, not a failed press. (`DiscoveryTreeSO.RerollChoices` is the contrast: it *does*
+copy the current offers into `nextExcludedIds` first.) A press therefore lands on its own settled
+bookkeeping — the UI flag on the first press, the reroll decrement on every later one — and the offer
+identity says only whether the redraw moved. `StaticallyVerified` against the audited build.
 
 Neither fetch needs its screen rendered; the UI methods are only the flag-and-reroll wrapper around
 the manager pipeline.

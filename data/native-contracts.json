@@ -6145,8 +6145,7 @@
       "owners": [
         "Automata Auto Buy refusal diagnostics",
         "Automata Auto Buy destination-capacity admission",
-        "Automata spell workbench GameAction",
-        "Automata challenge GameAction"
+        "Automata spell workbench GameAction"
       ],
       "usages": [
         "reflection"
@@ -22600,7 +22599,7 @@
       "id": "challenge.list-values-action", "assembly": "assembly-csharp",
       "type": "AbstractListVariable`1", "typeVisibility": "public", "kind": "field", "member": "value",
       "visibility": "public", "static": false, "valueType": "System.Collections.Generic.List`1<!0>",
-      "owners": ["Automata challenge GameAction", "Common challenge world collection"], "usages": ["reflection"], "place": "action"
+      "owners": ["Common challenge world collection"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "challenge.list-empty-spot-action", "assembly": "assembly-csharp",

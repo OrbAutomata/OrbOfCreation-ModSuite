@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Linq.Expressions;
 using System.Reflection;
 using OrbModding.Common;
@@ -21,14 +20,13 @@ internal sealed class ChallengeNativeBindings
         "challenge.manager-preferred-action", "challenge.manager-active-action",
         "challenge.reset-active-action", "challenge.reset-rerolls-left-action",
         "challenge.reset-cycle-complete-action", "challenge.reset-fetched-action",
-        "challenge.list-values-action", "challenge.list-empty-spot-action",
+        "challenge.list-empty-spot-action",
         "challenge.list-contains-action", "challenge.list-toggle-action",
         "challenge.list-restricted-action", "challenge.challenge-state-action",
         "challenge.challenge-toggle-queue-action", "challenge.challenge-abandon-action",
         "challenge.int-as-int-action", "challenge.int-set-action",
         "challenge.bool-get-action", "challenge.bool-set-action",
         "challenge.manager-fetch-action", "challenge.reset-fetch-action",
-        "id-scriptable-object.get-guid-action",
     };
 
     private ChallengeNativeBindings(Type challengeType, Type challengeManagerType,
@@ -36,13 +34,11 @@ internal sealed class ChallengeNativeBindings
         Func<object, object?> preferred, Func<object, object?> timeOffers,
         Func<object, object?> prestigeOffers, Func<object, object?> rerollsLeft,
         Func<object, object?> cycleComplete, Func<object, object?> fetched,
-        Func<object, IList?> values,
         Func<object, bool> hasEmptySpot, Func<object, object, bool> contains,
         Action<object, object> toggle, Func<object, object, bool> restricted,
         Func<object, int> state, Action<object> toggleQueue, Action<object> abandon,
         Func<object, int> asInt, Action<object, int> setInt, Func<object, bool> getBool,
-        Action<object, bool> setBool, Action<object> fetchTime, Action<object> fetchPrestige,
-        Func<object, Guid> identity)
+        Action<object, bool> setBool, Action<object> fetchTime, Action<object> fetchPrestige)
     {
         ChallengeType = challengeType;
         ChallengeManagerType = challengeManagerType;
@@ -55,7 +51,6 @@ internal sealed class ChallengeNativeBindings
         RerollsLeft = rerollsLeft;
         CycleComplete = cycleComplete;
         Fetched = fetched;
-        Values = values;
         HasEmptySpot = hasEmptySpot;
         Contains = contains;
         Toggle = toggle;
@@ -69,7 +64,6 @@ internal sealed class ChallengeNativeBindings
         SetBool = setBool;
         FetchTime = fetchTime;
         FetchPrestige = fetchPrestige;
-        Identity = identity;
     }
 
     internal Type ChallengeType { get; }
@@ -83,7 +77,6 @@ internal sealed class ChallengeNativeBindings
     internal Func<object, object?> RerollsLeft { get; }
     internal Func<object, object?> CycleComplete { get; }
     internal Func<object, object?> Fetched { get; }
-    internal Func<object, IList?> Values { get; }
     internal Func<object, bool> HasEmptySpot { get; }
     internal Func<object, object, bool> Contains { get; }
     internal Action<object, object> Toggle { get; }
@@ -97,7 +90,6 @@ internal sealed class ChallengeNativeBindings
     internal Action<object, bool> SetBool { get; }
     internal Action<object> FetchTime { get; }
     internal Action<object> FetchPrestige { get; }
-    internal Func<object, Guid> Identity { get; }
 
     internal static bool TryCreate(out ChallengeNativeBindings? bindings, out string reason,
         Func<string, Type?>? resolveType = null, Func<string, bool>? includeContract = null)
@@ -118,9 +110,6 @@ internal sealed class ChallengeNativeBindings
             var list = T(3, "ChallengeListVariable");
             var integer = T(4, "IntVariable");
             var boolean = T(5, "BoolVariable");
-            Require(ContractIds[28], includeContract);
-            var identityType = resolveType("IdScriptableObject") ??
-                throw new InvalidOperationException("IdScriptableObject was unavailable");
             var challengeState = challenge.GetNestedType("ChallengeState", BindingFlags.Public | BindingFlags.NonPublic) ??
                 throw new InvalidOperationException("ChallengeSO.ChallengeState was unavailable");
 
@@ -133,21 +122,19 @@ internal sealed class ChallengeNativeBindings
                 ObjectField(Field(11, reset, "challengeRerollsLeft", integer, includeContract)),
                 ObjectField(Field(12, reset, "hasCompleteWorldCycle", boolean, includeContract)),
                 ObjectField(Field(13, reset, "hasFetchedChallenges", boolean, includeContract)),
-                ListField(Field(14, list, "value", typeof(System.Collections.Generic.List<>).MakeGenericType(challenge), includeContract)),
-                Func<bool>(Method(15, list, "HasEmptySpot", typeof(bool), includeContract)),
-                Func2<bool>(Method(16, list, "Contains", typeof(bool), includeContract, challenge)),
-                Action2(Method(17, list, "Toggle", typeof(void), includeContract, challenge)),
-                Func2<bool>(Method(18, list, "IsChallengeRestricted", typeof(bool), includeContract, challenge)),
-                EnumField(Field(19, challenge, "state", challengeState, includeContract)),
-                Action1(Method(20, challenge, "ToggleQueueActivation", typeof(void), includeContract)),
-                Action1(Method(21, challenge, "AbandonChallenge", typeof(void), includeContract)),
-                Func<int>(Method(22, integer, "AsInt", typeof(int), includeContract)),
-                ActionValue<int>(Method(23, integer, "SetValue", typeof(void), includeContract, typeof(int))),
-                Func<bool>(Method(24, boolean, "GetValue", typeof(bool), includeContract)),
-                ActionValue<bool>(Method(25, boolean, "SetValue", typeof(void), includeContract, typeof(bool))),
-                Action1(Method(26, manager, "LoadNewActiveChallenges", typeof(void), includeContract)),
-                Action1(Method(27, reset, "FetchNewChallenges", typeof(void), includeContract)),
-                Func<Guid>(Method(28, identityType, "GetGuid", typeof(Guid), includeContract)));
+                Func<bool>(Method(14, list, "HasEmptySpot", typeof(bool), includeContract)),
+                Func2<bool>(Method(15, list, "Contains", typeof(bool), includeContract, challenge)),
+                Action2(Method(16, list, "Toggle", typeof(void), includeContract, challenge)),
+                Func2<bool>(Method(17, list, "IsChallengeRestricted", typeof(bool), includeContract, challenge)),
+                EnumField(Field(18, challenge, "state", challengeState, includeContract)),
+                Action1(Method(19, challenge, "ToggleQueueActivation", typeof(void), includeContract)),
+                Action1(Method(20, challenge, "AbandonChallenge", typeof(void), includeContract)),
+                Func<int>(Method(21, integer, "AsInt", typeof(int), includeContract)),
+                ActionValue<int>(Method(22, integer, "SetValue", typeof(void), includeContract, typeof(int))),
+                Func<bool>(Method(23, boolean, "GetValue", typeof(bool), includeContract)),
+                ActionValue<bool>(Method(24, boolean, "SetValue", typeof(void), includeContract, typeof(bool))),
+                Action1(Method(25, manager, "LoadNewActiveChallenges", typeof(void), includeContract)),
+                Action1(Method(26, reset, "FetchNewChallenges", typeof(void), includeContract)));
             reason = string.Empty;
             return true;
         }
@@ -246,10 +233,4 @@ internal sealed class ChallengeNativeBindings
             Expression.Field(Expression.Convert(target, field.DeclaringType!), field), typeof(object)), target).Compile();
     }
 
-    private static Func<object, IList?> ListField(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, IList?>>(Expression.Convert(
-            Expression.Field(Expression.Convert(target, field.DeclaringType!), field), typeof(IList)), target).Compile();
-    }
 }

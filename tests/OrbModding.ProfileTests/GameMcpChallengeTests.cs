@@ -159,6 +159,44 @@ public sealed class GameMcpChallengeTests
         Assert.Null(paid["fetchTimeChallenges"]);
     }
 
+    /// <summary>
+    /// The game promises the spend, not a different set of offers: a pool small enough to redraw
+    /// itself is a legitimate outcome of a press that landed. The delta says which happened, so
+    /// neither the caller nor the boundary treats an identical redraw as a failure.
+    /// </summary>
+    [Fact]
+    public void An_identical_redraw_is_a_landed_press_that_says_the_offers_did_not_move()
+    {
+        var identical = Reroll(
+            before: World(rerollsLeft: 3),
+            after: World(rerollsLeft: 2));
+        var redrawn = Reroll(
+            before: World(rerollsLeft: 3),
+            after: World(rerollsLeft: 2, timeOffers: new[] { Third, First }));
+
+        Assert.False((bool)identical["changed"]!);
+        Assert.Equal(3, (int)identical["rerollsLeft"]!["before"]!);
+        Assert.Equal(2, (int)identical["rerollsLeft"]!["after"]!);
+        Assert.True((bool)redrawn["changed"]!);
+    }
+
+    /// <summary>
+    /// A press that was attempted spent before it asked for offers, so its failure carries the same
+    /// settled pair a commit does rather than leaving the budget to be inferred from silence.
+    /// </summary>
+    [Fact]
+    public void A_failed_press_refuses_with_the_budget_on_both_sides()
+    {
+        var faulted = new ChallengeSubmission(ChallengePreflight.PostCommitFault,
+            ChallengeNativeStage.DecisionCommit, NativeMutationOutcome.ExecutionThrew,
+            new NativeMutationCallOutcome(1, 1, 0), "the native pipeline threw", 3, 3);
+
+        var refused = Json(GameMcpChallengeProjection.Project(in faulted), World());
+
+        Assert.Equal(3, (int)refused["rerollsLeft"]!["before"]!);
+        Assert.Equal(3, (int)refused["rerollsLeft"]!["after"]!);
+    }
+
     private static JObject Reroll(GameWorldState before, GameWorldState after)
     {
         var command = new GameMcpCommand(
@@ -207,8 +245,10 @@ public sealed class GameMcpChallengeTests
     private static GameWorldState World(
         bool selected = true,
         int rerollsLeft = 2,
-        bool challengesFetched = true)
+        bool challengesFetched = true,
+        Guid[]? timeOffers = null)
     {
+        timeOffers ??= new[] { First, Second };
         var rows = new[]
         {
             new WorldChallenge(First, 1, 1, true, false, 5, 10, 12, 30,
@@ -238,11 +278,8 @@ public sealed class GameMcpChallengeTests
                         new WorldChallengeReference(0, First),
                     })
                     : PublicationTable<WorldChallengeReference>.Empty,
-                PublicationTable<WorldChallengeReference>.Create(new[]
-                {
-                    new WorldChallengeReference(0, First),
-                    new WorldChallengeReference(1, Second),
-                }),
+                PublicationTable<WorldChallengeReference>.Create(
+                    timeOffers.Select((id, index) => new WorldChallengeReference(index, id)).ToArray()),
                 PublicationTable<WorldChallengeReference>.Create(new[]
                 {
                     new WorldChallengeReference(0, Third),

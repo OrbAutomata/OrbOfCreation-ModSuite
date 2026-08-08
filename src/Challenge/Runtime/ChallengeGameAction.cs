@@ -68,7 +68,7 @@ internal sealed class ChallengeGameAction : IDisposable
 
             if (!TryContext(native, out var context, out var contextFailure))
                 return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable, contextFailure);
-            var before = CaptureAdmission(action.Kind, native, in context, target);
+            var before = CaptureAdmission(native, in context, target);
             var preflight = Preflight(action.Kind, native, in context, target, in before, out var reason);
             if (preflight != ChallengePreflight.Proceeded)
                 return preflight == ChallengePreflight.NoRerolls
@@ -137,7 +137,8 @@ internal sealed class ChallengeGameAction : IDisposable
                 ? Verified()
                 : Fault(in action, ChallengePreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
-                    "The requested challenge identity/outcome transition was not observable.");
+                    "The requested challenge identity/outcome transition was not observable.",
+                    SettledBudget(action.Kind, native, in context, in before));
         }
         catch (Exception exception) when (IsExpected(exception))
         {
@@ -146,7 +147,26 @@ internal sealed class ChallengeGameAction : IDisposable
             return Fault(in action, ChallengePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 "The native challenge pipeline threw before the requested outcome was observable: " +
-                exception.GetBaseException().Message);
+                exception.GetBaseException().Message,
+                SettledBudget(action.Kind, native, in context, in before));
+        }
+    }
+
+    /// <summary>
+    /// The reroll budget on both sides of a press that was attempted. The game's own button spends
+    /// before it asks for offers, so a press that then failed still has to say where the scarce
+    /// budget landed: a caller must never infer that from an absent key. Both numbers are the
+    /// sentinel's own readings, so nothing is collected here that verification did not already read.
+    /// </summary>
+    private static ChallengeBudget SettledBudget(ChallengeActionKind kind,
+        ChallengeNativeBindings native, in NativeContext context, in ChallengeAdmissionState before)
+    {
+        if (kind is not (ChallengeActionKind.FetchTime or ChallengeActionKind.FetchPrestige))
+            return ChallengeBudget.NotTheAxis;
+        try { return new ChallengeBudget(before.RerollsLeft, native.AsInt(context.RerollsLeft)); }
+        catch (Exception exception) when (IsExpected(exception))
+        {
+            return new ChallengeBudget(before.RerollsLeft, -1);
         }
     }
 
@@ -186,7 +206,7 @@ internal sealed class ChallengeGameAction : IDisposable
         return ChallengePreflight.Proceeded;
     }
 
-    private static ChallengeAdmissionState CaptureAdmission(ChallengeActionKind kind,
+    private static ChallengeAdmissionState CaptureAdmission(
         ChallengeNativeBindings native, in NativeContext context, object? target)
     {
         var selected = target is not null && native.Contains(context.Preferred, target);
@@ -194,15 +214,18 @@ internal sealed class ChallengeGameAction : IDisposable
         var prestige = target is not null && native.Contains(context.PrestigeOffers, target);
         return new ChallengeAdmissionState(target is null ? -1 : native.State(target), selected, time, prestige,
             native.GetBool(context.CycleComplete), native.GetBool(context.Fetched),
-            native.AsInt(context.RerollsLeft),
-            kind switch
-            {
-                ChallengeActionKind.FetchTime => CaptureOfferIds(native, context.TimeOffers),
-                ChallengeActionKind.FetchPrestige => CaptureOfferIds(native, context.PrestigeOffers),
-                _ => Array.Empty<Guid>(),
-            });
+            native.AsInt(context.RerollsLeft));
     }
 
+    /// <summary>
+    /// One press of the offer button is bookkeeping the game's own UI performs: the first press of a
+    /// world cycle sets <c>hasFetchedChallenges</c>, every later press decrements
+    /// <c>challengeRerollsLeft</c>, and only then does either callback ask for offers. That
+    /// bookkeeping write is therefore the press's settled postcondition. What comes back is not: the
+    /// eligible pool can be small enough that an honest redraw returns the same offers in the same
+    /// order, so an unchanged offer set is an outcome of the press, never evidence it did not
+    /// happen. The caller learns whether the offers moved from <c>changed</c> on the settled delta.
+    /// </summary>
     private static bool OutcomeLanded(ChallengeActionKind kind,
         ChallengeNativeBindings native, in NativeContext context, object? target,
         in ChallengeAdmissionState before) => kind switch
@@ -212,36 +235,11 @@ internal sealed class ChallengeGameAction : IDisposable
             ? native.State(target!) == 1
             : before.TargetState == 1 && native.State(target!) == 0,
         ChallengeActionKind.Abandon => native.State(target!) == 4,
-        ChallengeActionKind.FetchTime => !SameOffers(
-            before.Offers, CaptureOfferIds(native, context.TimeOffers)),
-        ChallengeActionKind.FetchPrestige => !SameOffers(
-            before.Offers, CaptureOfferIds(native, context.PrestigeOffers)),
+        ChallengeActionKind.FetchTime or ChallengeActionKind.FetchPrestige => before.ChallengesFetched
+            ? native.AsInt(context.RerollsLeft) == before.RerollsLeft - 1
+            : native.GetBool(context.Fetched),
         _ => false,
     };
-
-    private static Guid[] CaptureOfferIds(ChallengeNativeBindings native, object list)
-    {
-        var values = native.Values(list) ??
-            throw new InvalidOperationException("The native challenge offer list was unavailable.");
-        var result = new Guid[values.Count];
-        for (var index = 0; index < values.Count; index++)
-        {
-            var value = values[index] ??
-                throw new InvalidOperationException("A native challenge offer was null.");
-            if (value.GetType() != native.ChallengeType)
-                throw new InvalidOperationException("A native challenge offer had the wrong type.");
-            result[index] = native.Identity(value);
-        }
-        return result;
-    }
-
-    private static bool SameOffers(Guid[] before, Guid[] after)
-    {
-        if (before.Length != after.Length) return false;
-        for (var index = 0; index < before.Length; index++)
-            if (before[index] != after[index]) return false;
-        return true;
-    }
 
     private static bool OutcomeLandedBestEffort(ChallengeActionKind kind,
         ChallengeNativeBindings native, in NativeContext context, object? target,
@@ -258,12 +256,12 @@ internal sealed class ChallengeGameAction : IDisposable
 
     private static ChallengeSubmission Fault(in ChallengeAction action,
         ChallengePreflight preflight, ChallengeNativeStage stage, NativeMutationOutcome outcome,
-        string reason)
+        string reason, ChallengeBudget budget)
     {
         var target = action.HasTarget ? EntityIdentityFormatter.PlayerName(action.TargetId) : action.Kind.ToString();
         var exactReason = "Challenge action " + stage + " failed on " + target + ": " + reason;
         return new ChallengeSubmission(preflight, stage, outcome,
-            new NativeMutationCallOutcome(1, 1, 0), exactReason);
+            new NativeMutationCallOutcome(1, 1, 0), exactReason, budget.Before, budget.After);
     }
 
     private static bool TryContext(ChallengeNativeBindings native, out NativeContext context, out string reason)

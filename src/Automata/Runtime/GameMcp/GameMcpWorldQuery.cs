@@ -2333,7 +2333,7 @@ internal static class GameMcpWorldQuery
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         var world = state.World.Snapshot;
         if (command.TargetId == Guid.Empty)
-            return ProjectChallengeRerollDelta(world, Before(command));
+            return ProjectChallengeRerollDelta(world, Before(command), command.Mode);
         if (!WorldLookup.TryFind(world.Challenges, command.TargetId, out var current))
             return PostStateUnavailable(
                 "post_state_not_published",
@@ -2363,15 +2363,19 @@ internal static class GameMcpWorldQuery
     /// What one press of the challenge-offer button spent. The game's own button decrements
     /// <c>challengeRerollsLeft</c> when <c>hasFetchedChallenges</c> is already set and otherwise sets
     /// that flag, so both facts ship as pairs on every commit: a caller must never have to infer
-    /// from an absent key whether a scarce reroll left the budget.
+    /// from an absent key whether a scarce reroll left the budget. <c>changed</c> answers the other
+    /// question a press asks — whether the redraw moved the offers — because the game promises the
+    /// spend, not a different set: a pool small enough to redraw itself is a legitimate outcome, and
+    /// the caller reads it here instead of diffing two offer lists itself.
     /// </summary>
     private static GameMcpValue ProjectChallengeRerollDelta(
         GameWorldState world,
-        GameWorldState? before)
+        GameWorldState? before,
+        string mode)
     {
         var after = world.ChallengeContext;
         var prior = before?.ChallengeContext;
-        return new JObject
+        var result = new JObject
         {
             ["rerollsLeft"] = new JObject
             {
@@ -2383,8 +2387,23 @@ internal static class GameMcpWorldQuery
                 ["before"] = prior is { Available: true } ? prior.Value.ChallengesFetched : (bool?)null,
                 ["after"] = after.ChallengesFetched,
             },
-            ["challengeState"] = ProjectChallengeState(world),
-        }.Freeze();
+        };
+        if (prior is { Available: true } settled && after.Available)
+            result["changed"] = !SameChallengeOffers(
+                mode == "reroll_prestige_challenges" ? settled.PrestigeOffers : settled.TimeOffers,
+                mode == "reroll_prestige_challenges" ? after.PrestigeOffers : after.TimeOffers);
+        result["challengeState"] = ProjectChallengeState(world);
+        return result.Freeze();
+    }
+
+    private static bool SameChallengeOffers(
+        PublicationTable<WorldChallengeReference> before,
+        PublicationTable<WorldChallengeReference> after)
+    {
+        if (before.Count != after.Count) return false;
+        for (var index = 0; index < before.Count; index++)
+            if (before[index].ChallengeId != after[index].ChallengeId) return false;
+        return true;
     }
 
     private static bool ChallengeSelected(GameWorldState world, Guid challengeId)

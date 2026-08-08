@@ -119,20 +119,48 @@ public sealed class ChallengeGameActionTests : IDisposable
         Assert.NotEqual(ChallengeSO.ChallengeState.QueuedStart, target.state);
     }
 
+    /// <summary>
+    /// The eligible pool can be small enough that an honest redraw hands back the same offers in
+    /// the same order. The press still spent, so it committed: the budget decrement the game's own
+    /// button performs is the postcondition, and the offer set is not a promise the game makes.
+    /// </summary>
     [Fact]
-    public void FetchFailsVerificationWhenTheNativeOfferListDoesNotChange()
+    public void An_identical_redraw_commits_because_the_budget_moved()
     {
+        PersistentResetManager.instance.hasFetchedChallenges.value = true;
         var target = Register(Challenge());
+        ChallengeManager.instance.activeChallenges.value.Add(target);
         ChallengeManager.instance.NextChallenges.Add(target);
-        ChallengeManager.instance.SuppressFetch = true;
         using var boundary = Boundary();
 
         var result = Submit(boundary, ChallengeActionKind.FetchTime);
 
-        Assert.Equal(ChallengePreflight.VerificationFailed, result.Preflight);
-        Assert.True(PersistentResetManager.instance.hasFetchedChallenges.value);
-        Assert.Empty(ChallengeManager.instance.activeChallenges.value);
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(1, PersistentResetManager.instance.challengeRerollsLeft.AsInt());
+        Assert.Equal(new[] { target }, ChallengeManager.instance.activeChallenges.value);
         Assert.Equal(1, ChallengeManager.instance.FetchCalls);
+    }
+
+    /// <summary>
+    /// A press that failed still has to say where the scarce budget landed, so the failure hands
+    /// over the settled budget on both sides instead of leaving the caller to infer a spend from an
+    /// absent key.
+    /// </summary>
+    [Fact]
+    public void A_failed_press_publishes_the_budget_on_both_sides()
+    {
+        PersistentResetManager.instance.hasFetchedChallenges.value = true;
+        PersistentResetManager.instance.challengeRerollsLeft.ThrowBeforeWriteFor = 1;
+        var target = Register(Challenge());
+        ChallengeManager.instance.NextChallenges.Add(target);
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, ChallengeActionKind.FetchTime);
+
+        Assert.Equal(ChallengePreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(2, result.RerollsLeft);
+        Assert.Equal(2, result.RerollsLeftAfter);
+        Assert.Equal(0, ChallengeManager.instance.FetchCalls);
     }
 
     [Fact]

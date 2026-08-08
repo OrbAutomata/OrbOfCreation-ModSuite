@@ -678,7 +678,8 @@ The MCP-only sequence is:
    target.
 4. Only when a different offer set is wanted, call `reroll_time_challenges` or
    `reroll_prestige_challenges` without a UUID. The terminal response returns what the press cost
-   (`rerollsLeft` and `challengesFetched` as `{before, after}`) plus the complete replacement named
+   (`rerollsLeft` and `challengesFetched` as `{before, after}`), whether the offers moved
+   (`changed`), plus the complete replacement named
    offer lists and remaining next decisions; no read-back is required. The current offers are
    already on `challengeState` in step 1, so nothing has to spend to read them.
 5. When the prestige decision is available, call `game_prestige(confirm=true)`. Success waits for a
@@ -1397,8 +1398,13 @@ decision blocks ride on `challengeState`, which every challenge read carries. Ea
 carries `costsReroll`, so what the next press would cost is readable without pressing it. The first
 press verifies the game's fetched flag; later presses verify that the reroll count decreased, and
 both publish `rerollsLeft` and `challengesFetched` as `{before, after}` pairs whether or not they
-moved. A refusal instead turns on one axis and carries that axis as the number it read — a spent
-budget answers `rerollsLeft: 0`, the plain integer the read publishes, because nothing moved for a
+moved. What the press hands back is not a gate: the eligible pool can be small enough that an honest
+redraw returns the same offers in the same order, so `changed` says whether the offer list moved and
+an identical redraw is a landed press rather than a failure. A press that was attempted and then
+failed carries that same `rerollsLeft` pair, because the game's button spends before it asks for
+offers and a caller must never infer a spend from an absent key. A refusal that never pressed
+instead turns on one axis and carries that axis as the number it read — a spent budget answers
+`rerollsLeft: 0`, the plain integer the read publishes, because nothing moved for a
 pair to record. Offer contents, rewards, effects, and other accounting are neither success gates nor
 response data. A reroll also returns the new named offer state because it is the next decision; target modes
 return the changed challenge state. No success receipt or follow-up read is required.
