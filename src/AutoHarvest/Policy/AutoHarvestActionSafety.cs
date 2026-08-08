@@ -98,8 +98,10 @@ internal static class AutoHarvestActionSafety
     // The world binder hands these axes over as their raw ordinals, so the ordinals live here.
     // Nothing selects the enum members behind them, which is why they are declared as the mirrored
     // contracts auto-harvest.action-cost-type.exit-phase, auto-harvest.phase.*, timer-type.*, and
-    // auto-harvest.filter-type.white-list: a build that drops one fails the manifest audit instead
-    // of quietly failing every safety comparison closed.
+    // auto-harvest.filter-type.white-list. A build that drops or renames one fails the manifest
+    // audit, and one that renumbers a member fails HarvestSafetyEnumContractTests — because every
+    // comparison here is fail-closed, the symptom would otherwise be Auto Harvest quietly
+    // declining to act rather than anything that looks like a defect.
     private const int CostTypeExitPhase = 1;
     private const int PlotPhaseIdle = 0;
     private const int PlotPhaseGrowing = 1;
