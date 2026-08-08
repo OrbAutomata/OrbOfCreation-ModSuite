@@ -31,6 +31,13 @@ twenty-six per-pass readings that never happen into the very census the
 discipline exists to make trustworthy. A row that both mirrors and touches keeps
 the touching place: its mirrored half is a second obligation, not a second place.
 
+What a mirrored row cannot prove on its own is the **value**. The manifest proves
+the member still exists with that shape, and the shape is not what a copied
+constant depends on — so each mirrored value is pinned by a contract test that
+reads the number out of the audited assembly: the harvest discriminants by their
+enum ordinals, and `PlotNodeActionInstance.GetMaximumInstances` by the literal
+its body returns.
+
 The manifest proves native shape, not runtime behavior. Adapters still resolve
 and validate their complete binding sets and fail closed. The source audit asks
 whether every literal selector is declared somewhere; it intentionally does not
@@ -74,7 +81,8 @@ choosing its own place. Four tests then hold the boundary to this:
 
 1. every capture contract declares all six, and nothing else declares any;
 2. every native member a capture root selects is named by a capture contract,
-   with the dual-place selectors pinned in a list that only shrinks;
+   with the dual-place selectors pinned in a list reconciled as an exact set, so
+   it only shrinks by test rather than by intention;
 3. no `per-pass` capture contract writes, except the nineteen pinned in a list
    that names each one — and each of those must claim `derivable`;
 4. the manifest's epoch-scoped reader list is the collector's own marking.

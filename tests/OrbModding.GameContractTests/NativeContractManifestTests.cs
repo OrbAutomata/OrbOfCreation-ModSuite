@@ -894,8 +894,10 @@ public sealed class NativeContractManifestTests
     /// </para>
     /// <para>
     /// Pinned rather than waved through: this is what a dual-place binding costs today, and the fix
-    /// is a schema that lets one contract name both places rather than a longer list here. A new
-    /// arrival fails until someone decides which it is.
+    /// is a schema that lets one contract name both places rather than a longer list here. The list
+    /// is reconciled as an exact set, so a new arrival fails until someone decides which it is, and
+    /// a name that stops being selected dual-place fails until it is deleted from here. A list that
+    /// only forgives is a list that grows quietly.
     /// </para>
     /// </remarks>
     private static readonly string[] CaptureRootActionSelectors =
@@ -1100,6 +1102,7 @@ public sealed class NativeContractManifestTests
                 : new[] { contract.Type, contract.Member! })
             .ToHashSet(StringComparer.Ordinal);
         var allowed = CaptureRootActionSelectors.ToHashSet(StringComparer.Ordinal);
+        var selectedDualPlace = new HashSet<string>(StringComparer.Ordinal);
 
         var failures = new List<string>();
         var walked = 0;
@@ -1120,8 +1123,14 @@ public sealed class NativeContractManifestTests
             walked++;
             foreach (var literal in FindLiteralTargets(source).Distinct(StringComparer.Ordinal))
             {
-                if (capturing.Contains(literal) || allowed.Contains(literal)) continue;
+                if (capturing.Contains(literal)) continue;
                 if (!declared.Contains(literal)) continue;
+                if (allowed.Contains(literal))
+                {
+                    selectedDualPlace.Add(literal);
+                    continue;
+                }
+
                 failures.Add(
                     $"{NormalizePath(Path.GetRelativePath(repositoryRoot, file))}: " +
                     $"'{literal}' is selected by a capture root but no capture contract names it");
@@ -1132,6 +1141,12 @@ public sealed class NativeContractManifestTests
         // clean sweep. The count is the difference.
         Assert.True(walked > 50, $"Only {walked} files were walked for capture roots.");
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+
+        // Documented as shrink-only, so it is reconciled as an exact set: a name whose dual-place
+        // selection is gone has to leave the list, or the list quietly outlives what it forgives.
+        Assert.Equal(
+            CaptureRootActionSelectors.OrderBy(name => name, StringComparer.Ordinal),
+            selectedDualPlace.OrderBy(name => name, StringComparer.Ordinal));
     }
 
     private static IEnumerable<string> FindLiteralTargets(string source)
