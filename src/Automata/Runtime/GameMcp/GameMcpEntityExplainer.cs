@@ -38,6 +38,28 @@ internal static class GameMcpEntityExplainer
         if (!TryResolve(world, uuid, out var kind, out var row, out var nativeType))
         {
             var known = world.EntityIdentities.TryGet(uuid, out var identity);
+
+            // A runtime instance is not a loaded asset, so the asset catalog does not know it —
+            // but the world published it minutes earlier inside a composite row. Answering
+            // "nothing in this process knows this UUID" was wrong about the process and pointed at
+            // a registry that could never resolve it.
+            if (!known && TryOwningList(world, uuid, out var owningCategory))
+            {
+                return GameMcpWorldQuery.WithEnvelope(state, new JObject
+                {
+                    ["status"] = "not_available",
+                    ["code"] = "not_world_projected",
+                    ["reason"] =
+                        "this is a runtime member of a published row rather than an entity of " +
+                        "its own; read the row that owns it",
+                    ["uuid"] = uuid.ToString("D"),
+                    ["readWith"] = new JObject
+                    {
+                        ["tool"] = "world_list",
+                        ["category"] = owningCategory,
+                    },
+                });
+            }
             var code = known ? "not_world_projected" : "uuid_unknown";
             var reason = known
                 ? "this entity exists but has no detailed explanation; read its published category with world_get"
@@ -91,6 +113,23 @@ internal static class GameMcpEntityExplainer
             result["reason"] = parityFailure;
         }
         return GameMcpWorldQuery.WithEnvelope(state, result);
+    }
+
+    /// <summary>
+    /// The published list whose rows carry this UUID as a member rather than as their own identity.
+    /// Equipped spell instances are the one such member the world publishes; nothing here guesses
+    /// at a category that does not actually name the UUID it was handed.
+    /// </summary>
+    private static bool TryOwningList(GameWorldState world, Guid uuid, out string category)
+    {
+        for (var index = 0; index < world.SpellSlots.Count; index++)
+        {
+            if (world.SpellSlots[index].SpellInstanceId != uuid) continue;
+            category = "spell-slots";
+            return true;
+        }
+        category = string.Empty;
+        return false;
     }
 
     private static string TryReadNativeDescription(Guid uuid, string nativeType)

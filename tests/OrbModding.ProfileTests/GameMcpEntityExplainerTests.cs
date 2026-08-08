@@ -177,6 +177,37 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         Assert.Null(unknownResult["nameEvidence"]);
     }
 
+    /// <remarks>
+    /// An equipped spell instance is a runtime object, not a loaded asset, so the asset catalog
+    /// does not know it — and the explanation answered "nothing in this process knows this UUID"
+    /// and pointed at that same catalog. The world had published the UUID inside a spell-slot row,
+    /// so both the claim and the remedy were wrong.
+    /// </remarks>
+    [Fact]
+    public void A_runtime_member_of_a_published_row_is_answered_with_the_row_that_owns_it()
+    {
+        var instance = Guid.Parse("4e551da3-262b-4bee-9f92-904cb81bf25a");
+        var world = new GameWorldState
+        {
+            CollectedAtEpoch = 1,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+            SpellSlots = PublicationTable<WorldSpellSlot>.Create(new[]
+            {
+                new WorldSpellSlot(
+                    0, instance, Guid.Empty, true, false, false, false, false,
+                    false, false, false, false, false, 0, 0, BigDouble.Zero),
+            }),
+        };
+
+        var result = GameMcpTestHarness.Json(GameMcpEntityExplainer.Explain(
+            GameMcpTestHarness.Context(world, generation: 913),
+            instance.ToString("D")));
+
+        Assert.Equal("not_world_projected", (string?)result["reasonCode"]);
+        Assert.Equal("world_list", (string?)result["readWith"]!["tool"]);
+        Assert.Equal("spell-slots", (string?)result["readWith"]!["category"]);
+    }
+
     [Fact]
     public void RequirementsExpandOrderedLinkTiersAndPreserveAndOrGroups()
     {
