@@ -275,14 +275,15 @@ internal sealed class GameMcpCommandResult
         string code,
         string reason,
         long observedLifecycleGeneration = 0,
-        ulong observedConfigurationGeneration = 0) =>
+        ulong observedConfigurationGeneration = 0,
+        GameMcpValue? details = null) =>
         new(
             "refused",
             code,
             reason,
             observedLifecycleGeneration,
             observedConfigurationGeneration,
-            null,
+            details,
             false,
             default,
             null);

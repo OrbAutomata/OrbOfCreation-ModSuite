@@ -158,7 +158,7 @@ public sealed class GameMcpSpellCompositionTests
             9,
             3,
             submission.Reason,
-            GameMcpSpellCompositionProjection.Project(in submission));
+            GameMcpSpellCompositionProjection.Project(in submission, "output"));
         terminal = terminal.WithDetails(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(World(outputLevel: 5)), command, terminal));
 
@@ -191,11 +191,32 @@ public sealed class GameMcpSpellCompositionTests
             "the requested composition was not observable");
 
         var failure = GameMcpTestHarness.Json(
-            GameMcpSpellCompositionProjection.Project(in submission));
+            GameMcpSpellCompositionProjection.Project(in submission, "output"));
 
+        // Two dials share one tool. A refusal that named neither left the caller to remember
+        // which one it had asked for.
+        Assert.Equal("output", (string?)failure["dial"]);
         Assert.Equal("requested dial value", (string?)failure["missingOutcome"]);
-        Assert.Single(failure.Properties());
+        Assert.Equal(2, failure.Properties().Count());
         Assert.DoesNotContain("payment", failure.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <remarks>
+    /// The commit publishes the live range beside the value it moved. The out-of-range refusal
+    /// named that same range in prose only, so the one caller who most needed the numbers — the one
+    /// who just guessed wrong — was the one who had to parse them back out of a sentence.
+    /// </remarks>
+    [Fact]
+    public void An_out_of_range_dial_carries_the_range_its_own_sentence_names()
+    {
+        var refused = GameMcpTestHarness.Json(GameMcpSpellCompositionProjection.Project(
+            SpellCompositionSubmission.OutOfRange(
+                "Requested Output Level 20 is outside the live native range 1..12.", 1, 12),
+            "output"));
+
+        Assert.Equal("output", (string?)refused["dial"]);
+        Assert.Equal(1, (int)refused["minimum"]!);
+        Assert.Equal(12, (int)refused["maximum"]!);
     }
 
     [Fact]

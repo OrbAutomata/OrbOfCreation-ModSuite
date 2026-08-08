@@ -192,8 +192,10 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
                     return Reject(AlchemyLoadoutPreflight.AlreadyInRequestedState,
                         "The recipe is not active in the Alchemy loadout.");
                 if (action.Destination < 0 || action.Destination >= values.Count)
-                    return Reject(AlchemyLoadoutPreflight.DestinationOutOfRange,
-                        "The Alchemy destination must be between 0 and " + Math.Max(values.Count - 1, 0) + ".");
+                    return AlchemyLoadoutSubmission.DestinationOutOfRange(
+                        "The Alchemy destination must be between 0 and " +
+                        Math.Max(values.Count - 1, 0) + ".",
+                        Math.Max(values.Count - 1, 0));
                 if (action.Destination == beforeIndex)
                     return Reject(AlchemyLoadoutPreflight.AlreadyInRequestedState,
                         "The recipe is already in Alchemy slot " + beforeIndex + ".");

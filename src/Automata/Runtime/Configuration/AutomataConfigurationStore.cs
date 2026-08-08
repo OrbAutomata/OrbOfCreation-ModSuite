@@ -2,6 +2,9 @@ using System;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbMentor;
+#if SERVICE_CYCLE_PROFILE
+using OrbAutomata.GameMcp;
+#endif
 
 namespace OrbAutomata;
 
@@ -135,8 +138,10 @@ internal sealed class AutomataConfigurationStore
         string key,
         string serializedValue,
         ConfigGeneration expectedGeneration,
-        out string reason)
+        out string reason,
+        out GameMcpConfigurationBound bound)
     {
+        bound = GameMcpConfigurationBound.None;
         if (expectedGeneration != CurrentGeneration)
         {
             reason =
@@ -144,7 +149,8 @@ internal sealed class AutomataConfigurationStore
                 ", current " + CurrentGeneration.Value;
             return false;
         }
-        if (!_configuration.TrySetGameMcpSetting(section, key, serializedValue, out reason))
+        if (!_configuration.TrySetGameMcpSetting(
+                section, key, serializedValue, out reason, out bound))
             return false;
         if (!TryPublishPending())
         {

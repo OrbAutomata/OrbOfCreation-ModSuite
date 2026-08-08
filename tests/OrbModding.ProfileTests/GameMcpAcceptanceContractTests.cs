@@ -741,14 +741,40 @@ public sealed class GameMcpConfigurationTests
             configuration.AutoCastMode.Definition.Key,
             "Active",
             before,
+            out _,
             out _));
         Assert.False(store.TrySetGameMcp(
             configuration.AutoCastMode.Definition.Section,
             configuration.AutoCastMode.Definition.Key,
             "Disabled",
             before,
+            out _,
             out _));
         Assert.Equal(1, publications);
+    }
+
+    /// <remarks>
+    /// BepInEx writes its own domain for a config-file comment, and splicing that text into a
+    /// refusal made the surface say "must be From 0 to 60" — the game's file format leaking into a
+    /// player-facing sentence, with no machine field a caller could retry against.
+    /// </remarks>
+    [Fact]
+    public void A_write_outside_the_declared_domain_answers_with_the_domain_as_numbers()
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        Assert.False(store.TrySetGameMcp(
+            "AutoCast",
+            "ManualPauseSeconds",
+            "600",
+            store.CurrentGeneration,
+            out var reason,
+            out var bound));
+
+        Assert.Equal("AutoCast/ManualPauseSeconds must be from 0 to 60", reason);
+        Assert.Equal(0d, bound.Minimum);
+        Assert.Equal(60d, bound.Maximum);
     }
 }
 

@@ -2382,18 +2382,24 @@ public sealed class Plugin : BaseUnityPlugin
 
         if (command.Kind == GameMcpCommandKind.ConfigurationSet)
         {
+            var priorValue = GameMcpConfigurationSchema.SerializePublishedValue(
+                _configurationStore.Current,
+                command.Mode,
+                command.PayloadKey);
             if (!_configurationStore.TrySetGameMcp(
                     command.Mode,
                     command.PayloadKey,
                     command.PayloadValue,
                     before,
-                    out var reason))
+                    out var reason,
+                    out var bound))
             {
                 return GameMcpCommandResult.Rejected(
                     "configuration_write_rejected",
                     reason,
                     observedConfigurationGeneration:
-                        _configurationStore.CurrentGeneration.Value);
+                        _configurationStore.CurrentGeneration.Value,
+                    details: ConfigurationRefusalFacts(command, in bound));
             }
             return GameMcpCommandResult.Committed(
                 "configuration_committed",
@@ -2406,10 +2412,17 @@ public sealed class Plugin : BaseUnityPlugin
                     {
                         ["section"] = command.Mode,
                         ["key"] = command.PayloadKey,
-                        ["value"] = GameMcpConfigurationSchema.SerializePublishedValue(
-                            _configurationStore.Current,
-                            command.Mode,
-                            command.PayloadKey),
+
+                        // What a write changed is the pair, not the endpoint. A caller that reads
+                        // only `value` cannot tell a committed change from a no-op it repeated.
+                        ["value"] = new GameMcpObjectBuilder
+                        {
+                            ["before"] = priorValue,
+                            ["after"] = GameMcpConfigurationSchema.SerializePublishedValue(
+                                _configurationStore.Current,
+                                command.Mode,
+                                command.PayloadKey),
+                        },
                     },
                 }.Freeze());
         }
@@ -2433,7 +2446,8 @@ public sealed class Plugin : BaseUnityPlugin
                     feature.Key,
                     command.PayloadValue,
                     before,
-                    out var automationReason))
+                    out var automationReason,
+                    out _))
             {
                 return GameMcpCommandResult.Rejected(
                     "configuration_write_rejected",
@@ -2494,6 +2508,28 @@ public sealed class Plugin : BaseUnityPlugin
             {
                 ["emergencyStopEngaged"] = _configurationStore.Current.Safety.EmergencyDisable,
             }.Freeze());
+    }
+
+    /// <summary>
+    /// The refused write restated as facts: which setting, what it was asked to become, and the
+    /// domain that refused it. A caller retrying does not have to parse the sentence back apart.
+    /// </summary>
+    private static GameMcpValue ConfigurationRefusalFacts(
+        GameMcpCommand command,
+        in GameMcpConfigurationBound bound)
+    {
+        var setting = new GameMcpObjectBuilder
+        {
+            ["section"] = command.Mode,
+            ["key"] = command.PayloadKey,
+            ["requestedValue"] = command.PayloadValue,
+        };
+        if (bound.HasRange)
+        {
+            setting["minimum"] = bound.Minimum!.Value;
+            setting["maximum"] = bound.Maximum!.Value;
+        }
+        return new GameMcpObjectBuilder { ["setting"] = setting }.Freeze();
     }
 
     private bool TryExecuteGameMcpGadget(

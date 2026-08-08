@@ -104,10 +104,11 @@ internal sealed class SpellCompositionGameAction : IDisposable
         var maximum = native.ReadInt(ReadMaximumVariable(native, player, action.Dial));
         var minimum = WorldSpellWorkbench.MinimumDialLevel;
         if (action.Value < minimum || action.Value > maximum)
-            return SpellCompositionSubmission.Reject(
-                SpellCompositionPreflight.LevelOutOfRange,
+            return SpellCompositionSubmission.OutOfRange(
                 "Requested " + Name(action.Dial) + " " + action.Value +
-                " is outside the live native range " + minimum + ".." + maximum + ".");
+                " is outside the live native range " + minimum + ".." + maximum + ".",
+                minimum,
+                maximum);
         if (current == action.Value)
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.AlreadyInRequestedState,

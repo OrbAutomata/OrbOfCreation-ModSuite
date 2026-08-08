@@ -55,13 +55,17 @@ internal readonly struct SpellCompositionSubmission
         SpellCompositionNativeStage stage,
         NativeMutationOutcome outcome,
         NativeMutationCallOutcome callOutcome,
-        string reason)
+        string reason,
+        int minimum = -1,
+        int maximum = -1)
     {
         Preflight = preflight;
         Stage = stage;
         Outcome = outcome;
         CallOutcome = callOutcome;
         Reason = reason ?? string.Empty;
+        Minimum = minimum;
+        Maximum = maximum;
     }
 
     internal SpellCompositionPreflight Preflight { get; }
@@ -69,6 +73,13 @@ internal readonly struct SpellCompositionSubmission
     internal NativeMutationOutcome Outcome { get; }
     internal NativeMutationCallOutcome CallOutcome { get; }
     internal string Reason { get; }
+
+    /// <summary>
+    /// The live native range this dial admits, read from the same capture the refusal sentence was
+    /// written from. Negative where the refusal never read one, so nothing invents a range.
+    /// </summary>
+    internal int Minimum { get; }
+    internal int Maximum { get; }
     internal bool Verified => Preflight == SpellCompositionPreflight.Proceeded &&
         Outcome == NativeMutationOutcome.Verified;
 
@@ -81,6 +92,19 @@ internal readonly struct SpellCompositionSubmission
             default,
             default,
             reason);
+
+    internal static SpellCompositionSubmission OutOfRange(
+        string reason,
+        int minimum,
+        int maximum) =>
+        new(
+            SpellCompositionPreflight.LevelOutOfRange,
+            SpellCompositionNativeStage.None,
+            default,
+            default,
+            reason,
+            minimum,
+            maximum);
 }
 
 internal static class SpellCompositionActionResultCodes

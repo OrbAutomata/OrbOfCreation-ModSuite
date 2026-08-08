@@ -13,6 +13,8 @@ internal static class GameMcpAlchemyLoadoutProjection
         // A refusal whose sentence names a ceiling carries that same ceiling as a number, read from
         // the admission capture the sentence was written from.
         if (submission.MaximumAmount >= 0) result["maximumAmount"] = submission.MaximumAmount;
+        if (submission.MaximumDestination >= 0)
+            result["maximumDestination"] = submission.MaximumDestination;
         return result.Freeze();
     }
 }

@@ -222,8 +222,10 @@ internal sealed class BepInExAutomataConfiguration
         string section,
         string key,
         string serializedValue,
-        out string reason)
+        out string reason,
+        out GameMcpConfigurationBound bound)
     {
+        bound = GameMcpConfigurationBound.None;
         var entries = GameMcpWritableEntries();
         ConfigEntryBase? selected = null;
         for (var index = 0; index < entries.Length; index++)
@@ -246,7 +248,8 @@ internal sealed class BepInExAutomataConfiguration
         if (!GameMcpConfigurationValuePolicy.TryValidate(
                 selected,
                 serializedValue,
-                out reason))
+                out reason,
+                out bound))
             return false;
 
         try

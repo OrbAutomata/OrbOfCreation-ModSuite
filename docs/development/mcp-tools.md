@@ -1066,7 +1066,7 @@ for another:
 
 | Name | What it bounds | Where it appears |
 | --- | --- | --- |
-| `minimum` / `maximum` | a native control's live range | the read, the commit, **and** the refusal, in the same object as the value they bound |
+| `minimum` / `maximum` | a control's live range — a native dial, or a writable setting's declared domain | the read, the commit, **and** the refusal, in the same object as the value they bound |
 | `minimumAmount` / `maximumAmount` | the `amount` this one call admits | refusals and read-side decision blocks |
 | `minimumSlot` / `maximumSlot` | the `slot` index the live list holds | every `game_loadout` snapshot mode |
 | `maximumDestination` | the `destination` index a move accepts | `game_alchemy` and `game_spell_loadout`, read and refusal alike |
@@ -1400,7 +1400,12 @@ runtime configuration record or exposes compiler metadata and internal nested po
 `suite_config_set` commits through `AutomataConfigurationStore`, the same single publication path
 as the in-game controls. BepInEx
 parse/domain validation runs before publication. Compatibility acknowledgements, shortcuts, and
-STOP are not generic writable settings.
+STOP are not generic writable settings. A commit returns `setting.value` as a `{before, after}`
+pair, the same shape `suite_automation` returns `on` in, because what a write changed is the pair
+and not the endpoint. A write refused for its domain returns the setting, the `requestedValue`, and
+the declared range as `minimum` and `maximum` read off the entry itself — BepInEx's own
+config-file wording is never spliced into the sentence, so the surface no longer says
+"must be From 0 to 60".
 
 `suite_automation` is the seven green/gray automation buttons as booleans, because that is what
 they are: `auto_buy`, `auto_cast`, `auto_concept`, `auto_harvest`, `auto_items`, `auto_scribe`, and

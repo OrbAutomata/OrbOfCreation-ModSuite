@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using OrbAutomata;
 using OrbAutomata.GameMcp;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -125,6 +126,22 @@ public sealed class GameMcpAlchemyLoadoutTests
         Assert.Equal("Catalyze", (string?)instance["recipe"]!["name"]);
         Assert.Equal(2, (int)instance["activeCount"]!);
         Assert.Equal(2, (int)instance["queuedCount"]!);
+    }
+
+    /// <remarks>
+    /// The read decision publishes <c>maximumDestination</c>, and the refusal that names the same
+    /// ceiling in prose used to publish nothing — so learning the ceiling from a refusal meant
+    /// reading a sentence apart. A destination is not an amount, and it does not borrow that name.
+    /// </remarks>
+    [Fact]
+    public void A_move_refused_for_its_destination_carries_the_same_ceiling_the_read_publishes()
+    {
+        var refused = GameMcpTestHarness.Json(GameMcpAlchemyLoadoutProjection.Project(
+            AlchemyLoadoutSubmission.DestinationOutOfRange(
+                "The Alchemy destination must be between 0 and 3.", 3)));
+
+        Assert.Equal(3, (int)refused["maximumDestination"]!);
+        Assert.Null(refused["maximumAmount"]);
     }
 
     [Fact]

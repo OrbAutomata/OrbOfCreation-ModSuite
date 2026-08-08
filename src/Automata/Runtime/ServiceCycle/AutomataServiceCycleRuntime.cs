@@ -412,7 +412,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             lifecycle,
             configurationGeneration,
             submission.Reason,
-            GameMcpSpellCompositionProjection.Project(in submission));
+            GameMcpSpellCompositionProjection.Project(in submission, command.PayloadKey));
     }
 
     private GameMcpCommandResult ExecuteSpellLoadout(
