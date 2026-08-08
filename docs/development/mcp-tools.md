@@ -1474,6 +1474,36 @@ because a list of on buttons would otherwise answer a different question than th
 configured with — thresholds, roles, allowlists, reserves — stays on `suite_config_set`, which
 writes the same entries the same way, and `suite_emergency_stop` still overrides all seven at once.
 
+## Shapes that must not regress
+
+Every live round ends with a fresh-context critic reading the raw wire, and each one names the
+shapes that earned their keep as well as the defects. Those survivors are a standing contract: a
+change that would undo one is a regression even when it is locally tidier, and the round that wants
+to touch one argues for it first. Each line names where the shape is specified.
+
+1. `{before, after}` settled-delta pairs as the single mutation sentinel — *Inline action results*.
+2. The `next {…}` affordance block on a commit, so no read-back is needed — *Inline action results*.
+3. Every entity reference named inline, so no caller ever joins a UUID to a name — *Presence
+   semantics*.
+4. The `cost` / `spendableAmount` / `affordable` triplet in the screen's own spend units — *Where a
+   bound comes from*.
+5. The terminal discovery loop: initiate → read → select → confirm, each returning the settled tree
+   — *Discovery decision loop*.
+6. `nextOffset` present exactly when more rows remain, and nothing else — *Tool surface*.
+7. Refusals that name the responsible **game** setting rather than a suite number — *Refusal
+   vocabulary*.
+8. Refusals that name the fix, not only the fault — *Refusal vocabulary*.
+9. Fail-closed reads that name the tool which can answer (`checkWith`, `readWith`) — *Presence
+   semantics*.
+10. Honest, named collection gaps rather than silent under-reporting — *Tool surface*.
+11. `game_navigate` returning the arrived screen's nested strips, inner to outer and byte-identical
+    on a repeat — *Screenshots and navigation*.
+12. Schema-level guards on irreversible or run-killing inputs (`confirm must be true`, the ritual
+    `level` floor), which make a dangerous call unreachable rather than merely refused — *Where a
+    bound comes from*.
+13. `game_tooltips` scope discipline: a dismissed modal leaves the catalog, and `total` is stable
+    across repeated calls on an unchanged screen — *Tooltip explorer*.
+
 ## Screenshots and navigation
 
 `game_screenshot` has no required parameters and returns an MCP `image` content block with
