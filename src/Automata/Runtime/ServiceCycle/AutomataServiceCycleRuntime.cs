@@ -642,8 +642,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             "select" => ChallengeActionKind.Select,
             "activate" => ChallengeActionKind.Queue,
             "abandon" => ChallengeActionKind.Abandon,
-            "fetch_time" => ChallengeActionKind.FetchTime,
-            "fetch_prestige" => ChallengeActionKind.FetchPrestige,
+            "reroll_time_challenges" => ChallengeActionKind.FetchTime,
+            "reroll_prestige_challenges" => ChallengeActionKind.FetchPrestige,
             _ => throw new ArgumentException("unsupported challenge mode " + command.Mode),
         };
         var action = new ChallengeAction(kind, command.TargetId,

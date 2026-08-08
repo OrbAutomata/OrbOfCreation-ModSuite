@@ -896,6 +896,13 @@ Both UI fetch methods set `hasFetchedChallenges` on the first fetch, or decremen
 `challengeRerollsLeft` on later ones, **before** calling their native offer callback. The manager
 pipelines contain no such bookkeeping, so re-driving a manager alone silently hands out free fetches.
 
+`UITimeScreenManager.RenderNewChallengeButton` reads that same flag and relabels the one button:
+`newChallengesAttr` while `hasFetchedChallenges` is false, `rerollChallengesAttr` after. The player
+concept is therefore a single control whose first press per world cycle is free and whose every
+later press spends a reroll — there is no separate free-fetch control to model, which is why the MCP
+names both modes `reroll_*` and publishes `challengesFetched` and `rerollsLeft` as pairs on every
+press. `StaticallyVerified` against the audited build.
+
 Both native fetchers call `ChallengeListVariable.CycleOut` (`0x06001634`) before `Instantiate`
 (`0x06001631`), and `Instantiate` calls `ChallengeSO.QueueActivation` (`0x06000935`). A landed fetch
 therefore has an observable shape: the requested offer list is non-empty and every materialized offer

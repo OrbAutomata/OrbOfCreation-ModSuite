@@ -2119,7 +2119,7 @@ internal static class GameMcpWorldQuery
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         var world = state.World.Snapshot;
         if (command.TargetId == Guid.Empty)
-            return new JObject { ["challengeState"] = ProjectChallengeState(world) }.Freeze();
+            return ProjectChallengeRerollDelta(world, Before(command));
         if (!WorldLookup.TryFind(world.Challenges, command.TargetId, out var current))
             return PostStateUnavailable(
                 "post_state_not_published",
@@ -2143,6 +2143,36 @@ internal static class GameMcpWorldQuery
             beforeState,
             ChallengeState(current.State),
             "state");
+    }
+
+    /// <summary>
+    /// What one press of the challenge-offer button spent. The game's own button decrements
+    /// <c>challengeRerollsLeft</c> when <c>hasFetchedChallenges</c> is already set and otherwise sets
+    /// that flag, so both facts ship as pairs on every commit: a caller must never have to infer
+    /// from an absent key whether a scarce reroll left the budget.
+    /// </summary>
+    private static GameMcpValue ProjectChallengeRerollDelta(
+        GameWorldState world,
+        GameWorldState? before)
+    {
+        var after = world.ChallengeContext;
+        var prior = before?.ChallengeContext;
+        return new JObject
+        {
+            ["rerollsLeft"] = new JObject
+            {
+                ["before"] = prior is { Available: true }
+                    ? new GameMcpDomainValue(new BigDouble(prior.Value.RerollsLeft))
+                    : null,
+                ["after"] = new GameMcpDomainValue(new BigDouble(after.RerollsLeft)),
+            },
+            ["challengesFetched"] = new JObject
+            {
+                ["before"] = prior is { Available: true } ? prior.Value.ChallengesFetched : (bool?)null,
+                ["after"] = after.ChallengesFetched,
+            },
+            ["challengeState"] = ProjectChallengeState(world),
+        }.Freeze();
     }
 
     private static bool ChallengeSelected(GameWorldState world, Guid challengeId)
@@ -4839,8 +4869,8 @@ internal static class GameMcpWorldQuery
             ["selected"] = ChallengeReferences(context.Selected),
             ["timeOffers"] = ChallengeReferences(context.TimeOffers),
             ["prestigeOffers"] = ChallengeReferences(context.PrestigeOffers),
-            ["fetchTimeChallenges"] = FetchDecision(fetchAvailable, context),
-            ["fetchPrestigeChallenges"] = FetchDecision(fetchAvailable, context),
+            ["rerollTimeChallenges"] = RerollDecision(fetchAvailable, context),
+            ["rerollPrestigeChallenges"] = RerollDecision(fetchAvailable, context),
             ["prestige"] = ProjectPrestigeState(world),
         };
         return result.Freeze();
@@ -4913,9 +4943,18 @@ internal static class GameMcpWorldQuery
         return result;
     }
 
-    private static JObject FetchDecision(bool available, in WorldChallengeContext context)
+    /// <summary>
+    /// Whether the challenge-offer button can be pressed, and what it costs. The game relabels one
+    /// button: the first press is free and sets the fetched flag, every later press spends a reroll,
+    /// so the decision block says which of the two this press would be.
+    /// </summary>
+    private static JObject RerollDecision(bool available, in WorldChallengeContext context)
     {
-        var result = new JObject { ["available"] = available };
+        var result = new JObject
+        {
+            ["available"] = available,
+            ["costsReroll"] = context.ChallengesFetched,
+        };
         if (!available)
             result["reasonCode"] = !context.WorldCycleComplete
                 ? "world_cycle_incomplete"

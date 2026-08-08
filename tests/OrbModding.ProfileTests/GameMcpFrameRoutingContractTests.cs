@@ -229,7 +229,7 @@ public sealed class GameMcpFrameRoutingContractTests
         },
         "game_challenge" => new JObject
         {
-            ["mode"] = "fetch_time",
+            ["mode"] = "reroll_time_challenges",
         },
         "game_prestige" => new JObject
         {

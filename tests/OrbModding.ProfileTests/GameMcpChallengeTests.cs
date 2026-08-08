@@ -24,7 +24,7 @@ public sealed class GameMcpChallengeTests
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
         var schema = tool["inputSchema"]!;
         Assert.Equal(new[] { "mode" }, schema["required"]!.Values<string>());
-        Assert.Equal(new[] { "select", "activate", "abandon", "fetch_time", "fetch_prestige" },
+        Assert.Equal(new[] { "select", "activate", "abandon", "reroll_time_challenges", "reroll_prestige_challenges" },
             schema["properties"]!["mode"]!["enum"]!.Values<string>());
         Assert.NotNull(schema["properties"]!["uuid"]);
         Assert.Null(schema["properties"]!["worldGeneration"]);
@@ -46,7 +46,7 @@ public sealed class GameMcpChallengeTests
                 ["name"] = "game_challenge",
                 ["arguments"] = new JObject
                 {
-                    ["mode"] = "fetch_time",
+                    ["mode"] = "reroll_time_challenges",
                     ["uuid"] = First.ToString("D"),
                 },
             }));
@@ -87,7 +87,7 @@ public sealed class GameMcpChallengeTests
     }
 
     [Fact]
-    public void Committed_poststate_eliminates_name_joins_and_readbacks_for_target_and_fetch_modes()
+    public void Committed_poststate_eliminates_name_joins_and_readbacks_for_target_and_reroll_modes()
     {
         var world = World();
         var context = GameMcpTestHarness.Context(world, generation: 2502);
@@ -96,12 +96,12 @@ public sealed class GameMcpChallengeTests
             1, GameMcpCommandKind.Challenge, 9, 3, "select", First, Guid.Empty,
             "ChallengeSO", 1, string.Empty, string.Empty, false, false,
             frameContext: GameMcpTestHarness.Context(before));
-        var fetchCommand = new GameMcpCommand(
-            2, GameMcpCommandKind.Challenge, 9, 3, "fetch_time", Guid.Empty, Guid.Empty,
+        var rerollCommand = new GameMcpCommand(
+            2, GameMcpCommandKind.Challenge, 9, 3, "reroll_time_challenges", Guid.Empty, Guid.Empty,
             "ChallengeSO", 1, string.Empty, string.Empty, false, false,
             frameContext: GameMcpTestHarness.Context(before));
         var target = Json(GameMcpWorldQuery.ProjectChallengePostState(context, selectCommand), world);
-        var fetch = Json(GameMcpWorldQuery.ProjectChallengePostState(context, fetchCommand), world);
+        var fetch = Json(GameMcpWorldQuery.ProjectChallengePostState(context, rerollCommand), world);
 
         Assert.Equal("Prismatic Trial", (string?)target["name"]);
         Assert.False((bool)target["selected"]!["before"]!);
@@ -111,6 +111,64 @@ public sealed class GameMcpChallengeTests
         Assert.NotNull(fetch["challengeState"]);
         Assert.Equal("Expanding Trial",
             (string?)fetch["challengeState"]!["timeOffers"]![1]!["name"]);
+        Assert.Equal("2", (string?)fetch["rerollsLeft"]!["before"]);
+        Assert.Equal("2", (string?)fetch["rerollsLeft"]!["after"]);
+        Assert.True((bool)fetch["challengesFetched"]!["before"]!);
+        Assert.True((bool)fetch["challengesFetched"]!["after"]!);
+    }
+
+    /// <summary>
+    /// The game relabels one button: the first press of a world cycle sets hasFetchedChallenges and
+    /// is free, every later press decrements challengeRerollsLeft. Both presses publish both facts,
+    /// so a caller never has to infer a spend from an absent key.
+    /// </summary>
+    [Fact]
+    public void A_reroll_publishes_what_it_spent_and_a_free_first_press_publishes_that_it_spent_nothing()
+    {
+        var firstPress = Reroll(
+            before: World(challengesFetched: false, rerollsLeft: 3),
+            after: World(challengesFetched: true, rerollsLeft: 3));
+        var laterPress = Reroll(
+            before: World(challengesFetched: true, rerollsLeft: 3),
+            after: World(challengesFetched: true, rerollsLeft: 2));
+
+        Assert.False((bool)firstPress["challengesFetched"]!["before"]!);
+        Assert.True((bool)firstPress["challengesFetched"]!["after"]!);
+        Assert.Equal("3", (string?)firstPress["rerollsLeft"]!["before"]);
+        Assert.Equal("3", (string?)firstPress["rerollsLeft"]!["after"]);
+
+        Assert.True((bool)laterPress["challengesFetched"]!["before"]!);
+        Assert.Equal("3", (string?)laterPress["rerollsLeft"]!["before"]);
+        Assert.Equal("2", (string?)laterPress["rerollsLeft"]!["after"]);
+    }
+
+    /// <summary>
+    /// The read block names the verb that acts on it and says which of the two presses this would
+    /// be, so nothing has to be attempted to learn the price.
+    /// </summary>
+    [Fact]
+    public void The_read_block_names_the_reroll_verb_and_whether_the_next_press_costs_one()
+    {
+        var free = Json(GameMcpWorldQuery.ProjectChallengeState(
+            World(challengesFetched: false, rerollsLeft: 3)), World());
+        var paid = Json(GameMcpWorldQuery.ProjectChallengeState(World()), World());
+
+        Assert.False((bool)free["rerollTimeChallenges"]!["costsReroll"]!);
+        Assert.True((bool)paid["rerollTimeChallenges"]!["costsReroll"]!);
+        Assert.True((bool)paid["rerollPrestigeChallenges"]!["costsReroll"]!);
+        Assert.Null(paid["fetchTimeChallenges"]);
+    }
+
+    private static JObject Reroll(GameWorldState before, GameWorldState after)
+    {
+        var command = new GameMcpCommand(
+            3, GameMcpCommandKind.Challenge, 9, 3, "reroll_time_challenges", Guid.Empty, Guid.Empty,
+            "ChallengeSO", 1, string.Empty, string.Empty, false, false,
+            frameContext: GameMcpTestHarness.Context(before));
+        return Json(
+            GameMcpWorldQuery.ProjectChallengePostState(
+                GameMcpTestHarness.Context(after, generation: 2503), command),
+            after);
     }
 
     [Fact]
@@ -131,7 +189,10 @@ public sealed class GameMcpChallengeTests
         Assert.Empty(committed.Properties());
     }
 
-    private static GameWorldState World(bool selected = true)
+    private static GameWorldState World(
+        bool selected = true,
+        int rerollsLeft = 2,
+        bool challengesFetched = true)
     {
         var rows = new[]
         {
@@ -154,7 +215,8 @@ public sealed class GameMcpChallengeTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
             EntityIdentities = EntityIdentityCatalogSnapshot.Bound(21, identities),
             Challenges = PublicationTable<WorldChallenge>.Create(rows),
-            ChallengeContext = new WorldChallengeContext(true, string.Empty, true, true, 2, 3, 3,
+            ChallengeContext = new WorldChallengeContext(
+                true, string.Empty, true, challengesFetched, rerollsLeft, 3, 3,
                 selected
                     ? PublicationTable<WorldChallengeReference>.Create(new[]
                     {

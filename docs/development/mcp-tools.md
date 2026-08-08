@@ -627,8 +627,11 @@ The MCP-only sequence is:
    state.
 3. Call `activate` to toggle an offered target's activation state, or `abandon` for an active
    target.
-4. Call `fetch_time` or `fetch_prestige` without a UUID. The terminal response returns the complete
-   replacement named offer lists and remaining next decisions; no read-back is required.
+4. Only when a different offer set is wanted, call `reroll_time_challenges` or
+   `reroll_prestige_challenges` without a UUID. The terminal response returns what the press cost
+   (`rerollsLeft` and `challengesFetched` as `{before, after}`) plus the complete replacement named
+   offer lists and remaining next decisions; no read-back is required. The current offers are
+   already on `challengeState` in step 1, so nothing has to spend to read them.
 5. When the prestige decision is available, call `game_prestige(confirm=true)`. Success waits for a
    newer world after the native scene reload and returns the new scene, `prestigeState`, and
    `challengeState` inline. The explicit boolean prevents an empty or accidental call from
@@ -1248,19 +1251,26 @@ Success is only the exact requested target-stack transition. It returns the targ
 before and after, with no receipt or payment/usage stanza. A missing transition
 faults that attempt; a throw after the exact transition commits.
 
-`game_challenge` requires one of `select`, `activate`, `abandon`, `fetch_time`, or
-`fetch_prestige`. The three target modes require a published `ChallengeSO` `uuid`; both fetch modes
-reject it. `activate` is the player-facing name for the native queue toggle, which is why no `queue`
-mode exists on the wire. The boundary rereads the exact manager/list graph and target state on
-Unity's main thread, checks offer membership, selection room/restrictions, active/queued state,
-world-cycle completion, and rerolls, then captures the `ChallengeLifecycle` permit last. Select
-verifies exact membership inversion; activate verifies the exact idle/queued toggle; abandon
-verifies the exact
-target becomes failed. The first fetch verifies the game's fetched flag; later fetches verify that
-the reroll count decreased. Offer contents, rewards, effects, and other accounting are neither
-success gates nor response data. Fetch returns the new named offer state because it is the next
-decision; target modes return the changed challenge state. No success receipt or follow-up read is
-required.
+`game_challenge` requires one of `select`, `activate`, `abandon`, `reroll_time_challenges`, or
+`reroll_prestige_challenges`. The three target modes require a published `ChallengeSO` `uuid`; both
+reroll modes reject it. `activate` is the player-facing name for the native queue toggle, which is
+why no `queue` mode exists on the wire. The boundary rereads the exact manager/list graph and target
+state on Unity's main thread, checks offer membership, selection room/restrictions, active/queued
+state, world-cycle completion, and rerolls, then captures the `ChallengeLifecycle` permit last.
+Select verifies exact membership inversion; activate verifies the exact idle/queued toggle; abandon
+verifies the exact target becomes failed.
+
+The two reroll modes press the game's own new-challenges button, which is one control with two
+labels: the first press of a world cycle sets the fetched flag and is free, and every press after
+that spends one of the limited rerolls. There is no free read mode, because none is needed — the
+current offers, the reroll budget, and both `rerollTimeChallenges` and `rerollPrestigeChallenges`
+decision blocks ride on `challengeState`, which every challenge read carries. Each decision block
+carries `costsReroll`, so what the next press would cost is readable without pressing it. The first
+press verifies the game's fetched flag; later presses verify that the reroll count decreased, and
+both publish `rerollsLeft` and `challengesFetched` as `{before, after}` pairs whether or not they
+moved. Offer contents, rewards, effects, and other accounting are neither success gates nor response
+data. A reroll also returns the new named offer state because it is the next decision; target modes
+return the changed challenge state. No success receipt or follow-up read is required.
 
 `game_prestige` requires `confirm:true`. The boundary rereads the reset manager's world-cycle
 completion and challenge-fetch flags plus the persistent reset count on Unity's main

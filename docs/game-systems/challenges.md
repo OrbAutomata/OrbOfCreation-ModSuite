@@ -10,6 +10,8 @@ shape and deliberately not the numbers — treat specifics as unknown rather tha
   count and how slots unlock are unrecorded.
 - **Fetching is free once, then costs a reroll.** The first fetch of a run is free; every later one
   spends one of a limited number of challenge rerolls, and a fetch replaces the whole offer list.
+  It is one button that renames itself: **New Challenges** until the first fetch, **Reroll
+  Challenges** after.
 - **There are two offer lists.** The Time > Challenges screen and the reset modal each fetch their
   own, so what the reset modal offers is not the Time screen's list refreshed.
 - Any active challenge can be **abandoned**, and a completed one shows a **Passed** state.

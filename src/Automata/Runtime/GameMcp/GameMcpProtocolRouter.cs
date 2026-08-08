@@ -408,11 +408,11 @@ internal sealed class GameMcpProtocolRouter
                 break;
             case "game_challenge":
                 builder.Mode = RequireOneOf(arguments, "mode",
-                    "select", "activate", "abandon", "fetch_time", "fetch_prestige");
+                    "select", "activate", "abandon", "reroll_time_challenges", "reroll_prestige_challenges");
                 builder.Uuid = OptionalUuid(arguments, "uuid");
                 if (builder.Mode is "select" or "activate" or "abandon" && builder.Uuid == Guid.Empty)
                     throw new GameMcpInvalidParamsException("uuid is required for " + builder.Mode);
-                if (builder.Mode is "fetch_time" or "fetch_prestige" && builder.Uuid != Guid.Empty)
+                if (builder.Mode is "reroll_time_challenges" or "reroll_prestige_challenges" && builder.Uuid != Guid.Empty)
                     throw new GameMcpInvalidParamsException(
                         "uuid is accepted only for select, activate, or abandon");
                 break;
@@ -935,20 +935,20 @@ internal sealed class GameMcpProtocolRouter
                 idempotent: false),
             Tool(
                 "game_challenge",
-                "Select, queue, abandon, or fetch challenges",
-                "Drive one exact native challenge decision. Target modes return the changed state; fetch modes return the named offers needed for the next decision.",
+                "Select, queue, abandon, or reroll challenges",
+                "Drive one exact native challenge decision. Target modes return the changed state. The two reroll modes press the game's own new-challenges button, which is free once per world cycle and spends one of the limited rerolls every time after that; both return rerollsLeft and challengesFetched as before/after pairs. Read the current offers and the reroll budget from the world instead: challengeState rides on the challenge reads.",
                 ModeSchema(ActionSchema(
                     new JObject
                     {
-                        ["mode"] = EnumSchema("select", "activate", "abandon", "fetch_time", "fetch_prestige"),
+                        ["mode"] = EnumSchema("select", "activate", "abandon", "reroll_time_challenges", "reroll_prestige_challenges"),
                         ["uuid"] = StringSchema("Required for select, activate, and abandon; a published ChallengeSO UUID."),
                     },
                     "mode"),
                     ModeRule("select", new[] { "uuid" }),
                     ModeRule("activate", new[] { "uuid" }),
                     ModeRule("abandon", new[] { "uuid" }),
-                    ModeRule("fetch_time", forbidden: new[] { "uuid" }),
-                    ModeRule("fetch_prestige", forbidden: new[] { "uuid" })),
+                    ModeRule("reroll_time_challenges", forbidden: new[] { "uuid" }),
+                    ModeRule("reroll_prestige_challenges", forbidden: new[] { "uuid" })),
                 readOnly: false,
                 idempotent: false),
             Tool(
@@ -1209,7 +1209,7 @@ internal sealed class GameMcpProtocolRouter
             if (mode is "select" or "activate" or "abandon" && !hasUuid)
                 errors.Add(ValidationError("missing_required", "uuid",
                     "required field 'uuid' is missing for mode '" + mode + "'"));
-            else if (mode is "fetch_time" or "fetch_prestige" && hasUuid)
+            else if (mode is "reroll_time_challenges" or "reroll_prestige_challenges" && hasUuid)
                 errors.Add(ValidationError("unexpected_for_mode", "uuid",
                     "field 'uuid' is not accepted for mode '" + mode + "'"));
         }
