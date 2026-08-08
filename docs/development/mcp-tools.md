@@ -1069,9 +1069,11 @@ A **schema bound** is the range the JSON input schema declares, and it is the su
 what is worth sending in one call — not a native fact. `game_purchase` and `game_level` cap `amount`
 at 1,000, `game_concept` at 1,000,000, and `game_agromancy` at 10,000; the paging tools cap `limit`
 at 200 and `game_screenshot` caps `maxWidth` at 4,096 for response size; every other `amount`,
-`slot`, `offset`, and dial `value` — `game_alchemy` and `game_equipment` among them — declares
-`int.MaxValue` because the suite has no opinion there and the native bound decides. None of those
-four ceilings is read from the game, none of them is a
+`slot`, `offset`, and dial `value` — `game_alchemy` and `game_equipment` among them — declares no
+ceiling at all, because the suite has no opinion there and the native bound decides. Where the suite
+has no ceiling it publishes none: the schema omits `maximum`, and a below-floor value is refused
+with "must be N or greater" rather than with an `int.MaxValue` placeholder printed in the shape of a
+bound the game never chose. None of the declared ceilings is read from the game, none of them is a
 running budget, and none of them appears in any response. A value inside the schema bound is
 therefore not admitted yet: the action boundary re-reads the native bound and refuses with
 `amount_unavailable` and the live `maximumAmount` when the two disagree.
@@ -1099,9 +1101,10 @@ for another:
 | `maximumAdditional` | the game's remaining-instance headroom, never clamped by a schema cap | agromancy and harvest reads and post-states |
 
 Two shapes were retired rather than joined: a bound named only in an English sentence, and a
-JSON-RPC `-32602` text quoting a suite constant as if it were the game's limit. A sentence that
-names a ceiling now ships that ceiling in one of the five fields above, and a schema message says
-that the game decides instead of naming a number the game never chose.
+JSON-RPC `-32602` text quoting an `int.MaxValue` placeholder as if it were the game's limit. A
+sentence that names a ceiling now ships that ceiling in one of the five fields above, and a schema
+message states only the floor it actually declares, leaving the ceiling to the game and to the
+refusal that names it.
 
 **One quantity, one JSON type.** A key that can carry a `BigDouble` — a resource amount, a price, a
 rate, a stored capacity — is the game's Scientific string on every surface, even where one category

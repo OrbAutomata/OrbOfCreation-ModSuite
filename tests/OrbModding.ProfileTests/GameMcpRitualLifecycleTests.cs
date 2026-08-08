@@ -91,10 +91,18 @@ public sealed class GameMcpRitualLifecycleTests
                 },
             }));
 
+        // The floor is real and is stated. The ceiling was int.MaxValue - 1, and printing it beside
+        // the floor published 2147483646 as if the game had chosen it; the game's own ceiling on
+        // this dial was 240.
         Assert.Contains(
-            "level must be between 1 and",
+            "level must be 1 or greater",
             response.Body!["error"]!.ToString(),
             StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "2147483646",
+            response.Body!["error"]!.ToString(),
+            StringComparison.Ordinal);
+        Assert.Null(tool["inputSchema"]!["properties"]!["level"]!["maximum"]);
     }
 
     [Fact]

@@ -1618,12 +1618,20 @@ internal sealed class GameMcpProtocolRouter
         ["maxItems"] = maximum,
     };
 
-    private static JObject IntegerSchema(int minimum, int maximum) => new()
+    /// <summary>
+    /// A declared ceiling is published; an int.MaxValue placeholder is not. Publishing the
+    /// placeholder put a number in the shape of a bound that no part of the game ever chose.
+    /// </summary>
+    private static JObject IntegerSchema(int minimum, int maximum)
     {
-        ["type"] = "integer",
-        ["minimum"] = minimum,
-        ["maximum"] = maximum,
-    };
+        var schema = new JObject
+        {
+            ["type"] = "integer",
+            ["minimum"] = minimum,
+        };
+        if (DeclaresCeiling(maximum)) schema["maximum"] = maximum;
+        return schema;
+    }
 
     private static JObject UlongSchema(string description) => new()
     {
@@ -1745,10 +1753,21 @@ internal sealed class GameMcpProtocolRouter
             throw new GameMcpInvalidParamsException(name + " is outside the supported integer range");
         }
         if (value < minimum || value > maximum)
+        {
+            // A floor this schema declares is a real bound. A ceiling of int.MaxValue is not one,
+            // and printing it beside the floor published a number that is neither a native limit
+            // nor a policy — 2147483647 where the game's own ceiling was 259. Where the schema
+            // knows no ceiling it says so, and the game's refusal names the real one.
             throw new GameMcpInvalidParamsException(
-                name + " must be between " + minimum + " and " + maximum);
+                DeclaresCeiling(maximum)
+                    ? name + " must be between " + minimum + " and " + maximum
+                    : name + " must be " + minimum + " or greater; the game decides how high " +
+                      "it may go and names that limit when it refuses");
+        }
         return value;
     }
+
+    private static bool DeclaresCeiling(int maximum) => maximum < int.MaxValue - 1;
 
     private static int OptionalIntInRange(
         JObject source,
