@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "auditedAt": "2026-08-01",
   "gameBuild": "Orb of Creation through v1.0.5-2 / Unity 6000.0.70 / audited Windows and macOS Steam managed builds",
   "provenance": "Metadata and selected IL audited from installed Steam builds with read-only PE tooling; no game binary was modified.",
@@ -1936,8 +1936,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field PlotNodeActionSO+CostType"}
+      "place": "mirrored"
     },
     {
       "id": "auto-harvest.action.base-time",
@@ -2412,8 +2411,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field FilterEffectMod+FilterType"}
+      "place": "mirrored"
     },
     {
       "id": "auto-harvest.filter.contents",
@@ -2730,8 +2728,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field PlotNodeSO+PlotNodePhases"}
+      "place": "mirrored"
     },
     {
       "id": "auto-harvest.phase.idle",
@@ -2749,8 +2746,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field PlotNodeSO+PlotNodePhases"}
+      "place": "mirrored"
     },
     {
       "id": "auto-harvest.phase.resting",
@@ -2768,8 +2764,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field PlotNodeSO+PlotNodePhases"}
+      "place": "mirrored"
     },
     {
       "id": "auto-harvest.plot.auto-action",
@@ -8025,8 +8020,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.UpgradeRequirementType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.upgrade.max-level",
@@ -8044,8 +8038,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.UpgradeRequirementType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.upgrade.at-least",
@@ -8063,8 +8056,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.UpgradeRequirementType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.structure.quantity",
@@ -8082,8 +8074,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.StructureRequirementType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.spell.discovered",
@@ -8101,8 +8092,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.SpellRequirementType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.spell.spell-level",
@@ -8120,8 +8110,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.SpellRequirementType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.spell.mastery-level",
@@ -8139,8 +8128,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.SpellRequirementType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.alchemy.discovered",
@@ -8158,8 +8146,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.AlchemyRecipeType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.alchemy.recipe-level",
@@ -8177,8 +8164,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.AlchemyRecipeType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.alchemy.mastery-level",
@@ -8196,8 +8182,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.AlchemyRecipeType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.alchemy.advancement-level",
@@ -8215,8 +8200,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.AlchemyRecipeType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.ritual.discovered",
@@ -8234,8 +8218,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.RitualRequirementType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.ritual.reached-level",
@@ -8253,8 +8236,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.RitualRequirementType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.number.value",
@@ -8272,8 +8254,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.NumberRequirementType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.generic.level",
@@ -8291,8 +8272,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.GenericRequirementType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.prerequisite-link.base",
@@ -8310,8 +8290,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.PrerequisiteLinkType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-type.prerequisite-link.tier",
@@ -8329,8 +8308,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Requirements.PrerequisiteLinkType"}
+      "place": "mirrored"
     },
     {
       "id": "requirement-condition-info.type",
@@ -15394,8 +15372,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field TimerList+TimerType"}
+      "place": "mirrored"
     },
     {
       "id": "timer-type.single",
@@ -15413,8 +15390,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field TimerList+TimerType"}
+      "place": "mirrored"
     },
     {
       "id": "tooltipable-object.get-icon",
@@ -15632,8 +15608,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game builds an aggregate the reader then walks; the walk is what the suite wants, and the aggregate is how the game hands it over.", "evidence": "kind:method returning UIValueSelectButton; classified from its signature, no IL body audit"}
+      "place": "mirrored"
     },
     {
       "id": "ui.value-select-button.minimum",
@@ -15652,8 +15627,7 @@
       "usages": [
         "mirrored"
       ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+      "place": "mirrored"
     },
     {
       "id": "ui.content-area.canvas",

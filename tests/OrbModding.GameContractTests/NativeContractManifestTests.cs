@@ -126,7 +126,13 @@ public sealed class NativeContractManifestTests
     private static readonly string[] LegacyBoundaryExceptions = Array.Empty<string>();
 
     /// <summary>The places a contract may sit in once its service is on ServiceCycle.</summary>
-    private static readonly string[] LivePlaces = { "capture", "action", "patch" };
+    /// <remarks>
+    /// The first three are where the suite touches the member. <c>mirrored</c> is where a contract
+    /// sits when the suite touches it nowhere: the row exists to make a copied value answer for the
+    /// member it copies, and filing it under one of the touching places made the capture census
+    /// count sweeps that never run.
+    /// </remarks>
+    private static readonly string[] LivePlaces = { "capture", "action", "patch", "mirrored" };
 
     /// <summary>
     /// How the suite depends on a native member. The first three touch it; <c>mirrored</c> does not.
@@ -202,7 +208,7 @@ public sealed class NativeContractManifestTests
         var manifest = NativeContractManifest.Load();
         var repositoryRoot = RepositoryPaths.RequireRoot();
 
-        Assert.Equal(4, manifest.SchemaVersion);
+        Assert.Equal(5, manifest.SchemaVersion);
 
         // Reconciled against the file, never pinned to a number. A literal is a second place to
         // remember when a contract lands, and it silently drifted for nine of them; what has to
@@ -901,6 +907,42 @@ public sealed class NativeContractManifestTests
         "GetRemainingMaxUsageSlots", "GetTooltipable", "HasMaxLevel", "IsActive", "IsAtMax",
         "IsLoaded", "MaximumCostTimes", "MaximumNumberInstances", "ingredientLists",
     };
+
+    /// <summary>
+    /// A row the suite never touches sits at <c>mirrored</c>, and only such a row does.
+    /// </summary>
+    /// <remarks>
+    /// The census of what capture costs the game is the artifact this whole discipline exists to
+    /// make trustworthy, and twenty-six rows nothing reflects on, patches, or calls were filed at
+    /// <c>capture</c> — so each declared a per-pass reading, with generated prose asserting a touch
+    /// that never happens. The place a row sits in is now decided by its usages rather than left to
+    /// whoever wrote it: mirrored-only means mirrored, and any touching usage means a real place.
+    /// </remarks>
+    [Fact]
+    public void OnlyAnUntouchedContractSitsInTheMirroredPlace()
+    {
+        var manifest = NativeContractManifest.Load();
+        var failures = new List<string>();
+
+        foreach (var contract in manifest.Contracts)
+        {
+            var untouched = contract.Usages.Count == 1 && contract.Usages[0] == "mirrored";
+            if (untouched && contract.Place != "mirrored")
+            {
+                failures.Add(
+                    $"{contract.Id}: nothing touches this member, so it belongs at place 'mirrored' "
+                        + $"rather than '{contract.Place}'");
+            }
+            else if (!untouched && contract.Place == "mirrored")
+            {
+                failures.Add(
+                    $"{contract.Id}: place 'mirrored' claims nothing touches this member, but it "
+                        + $"declares {string.Join(", ", contract.Usages)}");
+            }
+        }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
 
     /// <summary>
     /// Every capture contract says what it makes the game do, how often, and on what evidence.

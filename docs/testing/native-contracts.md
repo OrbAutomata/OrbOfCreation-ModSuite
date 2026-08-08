@@ -7,7 +7,7 @@
 compatibility boundary for reflection and Harmony. It admits complete
 `Assembly-CSharp.dll`/`Assembly-CSharp-firstpass.dll` hash pairs and records each
 target's exact metadata, owner, use, source tokens, and place: `capture`,
-`action`, or `patch`.
+`action`, `patch`, or `mirrored`.
 
 `usages` says how the suite depends on the member. `reflection`, `harmony`, and
 `direct` all touch it. **`mirrored` does not**: it is a member-shape dependency
@@ -21,6 +21,15 @@ comment does not fail when a game update changes the member's shape. A mirrored
 row is deliberately excluded from the source audit's declared-target set: it
 says nobody selects this, so it must not let a selector elsewhere pass
 unaudited, and a test fails if any audited source does select it.
+
+The first three places are where the suite touches the member. `mirrored` is the
+place a row sits in when it touches it nowhere, and the two agree by test:
+mirrored-only usages means `place: "mirrored"`, and any touching usage means one
+of the other three. A row that copies a value pays no capture cost, so it
+carries no `capture` block — filing twenty-six of them under `capture` put
+twenty-six per-pass readings that never happen into the very census the
+discipline exists to make trustworthy. A row that both mirrors and touches keeps
+the touching place: its mirrored half is a second obligation, not a second place.
 
 The manifest proves native shape, not runtime behavior. Adapters still resolve
 and validate their complete binding sets and fail closed. The source audit asks
@@ -39,8 +48,9 @@ are declared, the arithmetic over them is not.
 
 Shape is not cost. A per-pass sweep over the whole registry and a single field
 load looked identical in this manifest, which is how both came to live in
-capture unremarked. Every `place: "capture"` contract therefore also answers six
-questions, in a `capture` block:
+capture unremarked. Every `place: "capture"` contract — every row the suite
+actually reads during collection — therefore also answers six questions, in a
+`capture` block:
 
 - **`class`** — `grab` reads a stored value, `computes` makes the game run a
   formula, `composite` makes it build an aggregate, `enumerating` makes it walk
@@ -57,8 +67,10 @@ questions, in a `capture` block:
   acceptable answer at `per-pass`.
 
 `captureRoots` names the namespaces whose reflection is capture;
-`captureStructuralReaders` names the collector fields it runs once per epoch.
-Four tests hold the boundary to this:
+`captureStructuralReaders` names the collector fields it runs once per epoch. A
+further test decides membership before any of them run: a mirrored-only row sits
+at `mirrored` and a touched row never does, so nothing enters the census by
+choosing its own place. Four tests then hold the boundary to this:
 
 1. every capture contract declares all six, and nothing else declares any;
 2. every native member a capture root selects is named by a capture contract,
@@ -93,7 +105,8 @@ intention that cannot.
 2. Change the manifest with the source. Record all owners, how the suite depends
    on the member, boundary place, and every literal source token. A mirrored row
    has no source token by definition; its `owners` name the suite value that
-   copies the member instead.
+   copies the member instead, and its place is `mirrored` with no `capture`
+   block, because nothing reads it on any pass.
 3. Use an exemption only when the selector is deliberately framework-generic;
    keep it to one exact path and explain why it is not gameplay authority.
 4. Run the contract project without `OOC_GAME_DIR` to prove schema and source
