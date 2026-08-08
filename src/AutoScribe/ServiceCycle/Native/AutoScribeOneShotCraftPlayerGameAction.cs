@@ -53,7 +53,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 return CraftingPlayerSubmission.Reject(
                     in action,
                     CraftingPlayerPreflight.NotVisible,
-                    "CraftingRecipeSO.IsVisible() refused the exact UUID-resolved recipe.");
+                    "The game is not showing this recipe yet.");
             if (!TryFindPage(native, recipe, out var page, out var pageReason))
                 return CraftingPlayerSubmission.Reject(
                     in action,
@@ -92,7 +92,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.Unaffordable,
-                "CraftingRecipeSO.CanBuy() refused the exact direct-craft recipe.");
+                "The game refuses this craft right now.");
         var revisionBefore = native.RecipeEffectRevision(recipe);
         if (!TryPlayerCraftingPermit(in action, out var permitFailure)) return permitFailure;
 
@@ -179,7 +179,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.Unaffordable,
-                "CraftingRecipeSO.CanBuyAt(previous + purchase) refused the exact queued recipe.");
+                "The game refuses to queue another of this craft right now.");
         var totalCost = native.RecipeTotalCost(recipe, previous, purchase);
         if (!native.CostHasEnough(totalCost))
             return CraftingPlayerSubmission.Reject(
@@ -496,7 +496,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         string reason)
     {
         var exactReason = "One-shot crafting " + stage + " failed on " +
-            EntityIdentityFormatter.Format(action.RecipeId) + ": " + reason;
+            EntityIdentityFormatter.PlayerName(action.RecipeId) + ": " + reason;
         return new CraftingPlayerSubmission(
             action.RecipeId,
             preflight,

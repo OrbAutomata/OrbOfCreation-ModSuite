@@ -75,7 +75,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
             var ritual = resolution.Value!;
             if (!native.IsDiscovered(ritual))
                 return Reject(RitualLifecyclePreflight.NotDiscovered,
-                    EntityIdentityFormatter.Format(action.RitualId) +
+                    EntityIdentityFormatter.PlayerName(action.RitualId) +
                     " has not been discovered.");
 
             var manager = native.Manager();
@@ -97,7 +97,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
                 var activeRitual = native.ActiveRitual(battle);
                 if (activeRitual is null || !native.IsSelected(activeRitual, ritual))
                     return Reject(RitualLifecyclePreflight.WrongActiveRitual,
-                        EntityIdentityFormatter.Format(action.RitualId) +
+                        EntityIdentityFormatter.PlayerName(action.RitualId) +
                         " is not the ritual currently in battle.");
             }
             else if (inCombat)
@@ -233,7 +233,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
                 var activeRitual = native.ActiveRitual(battle);
                 if (activeRitual is null || !native.IsSelected(activeRitual, ritual))
                     return Reject(RitualLifecyclePreflight.WrongActiveRitual,
-                        EntityIdentityFormatter.Format(action.RitualId) +
+                        EntityIdentityFormatter.PlayerName(action.RitualId) +
                         " is no longer the ritual in battle.");
                 native.EndRitual(battle);
             }
@@ -293,7 +293,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
             var amount = native.CostValue(row);
             if (!native.HasResourceAmount(resource, amount))
                 return Reject(RitualLifecyclePreflight.Unaffordable,
-                    EntityIdentityFormatter.Format(native.ResourceGuid(resource)) +
+                    EntityIdentityFormatter.PlayerName(native.ResourceGuid(resource)) +
                     " is short for this ritual activation.");
         }
         return Reject(RitualLifecyclePreflight.ContractUnavailable,
@@ -319,7 +319,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
         string reason) =>
         new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
             "Ritual " + stage + " failed on " +
-            EntityIdentityFormatter.Format(action.RitualId) + ": " + reason);
+            EntityIdentityFormatter.PlayerName(action.RitualId) + ": " + reason);
 
     private void BindLifecycle()
     {

@@ -86,8 +86,8 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
                 prototype = FindPrototype(native, element!, actionObject!);
                 if (prototype is null)
                     return Reject(HarvestLifecyclePreflight.ActionUnavailable,
-                        EntityIdentityFormatter.Format(action.ActionId) +
-                        " is not offered for " + EntityIdentityFormatter.Format(action.ElementId) + ".");
+                        EntityIdentityFormatter.PlayerName(action.ActionId) +
+                        " is not offered for " + EntityIdentityFormatter.PlayerName(action.ElementId) + ".");
                 active = native.FindAction(actionList!, prototype);
                 if (active is not null && active.GetType() != native.InstanceType)
                     return Reject(HarvestLifecyclePreflight.ContractUnavailable,
@@ -133,12 +133,12 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
     {
         if (!native.ElementVisible(element) || !native.ElementAvailable(element))
             return Reject(HarvestLifecyclePreflight.NotVisible,
-                EntityIdentityFormatter.Format(action.ElementId) + " is not available yet.");
+                EntityIdentityFormatter.PlayerName(action.ElementId) + " is not available yet.");
         if (action.Kind == HarvestLifecycleActionKind.RemoveElement)
             return action.Amount <= current
                 ? null
                 : Reject(HarvestLifecyclePreflight.AmountUnavailable,
-                    EntityIdentityFormatter.Format(action.ElementId) + " has only " + current +
+                    EntityIdentityFormatter.PlayerName(action.ElementId) + " has only " + current +
                     " active " + Plural(current, "instance", "instances") + ".");
         if (current == 0 && !native.ElementListHasRoom(list))
             return Reject(HarvestLifecyclePreflight.ElementListFull,
@@ -147,14 +147,14 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         if (cost is null || !native.CostHasEnough(cost))
             return Reject(HarvestLifecyclePreflight.ElementUsageUnavailable,
                 "There is not enough free resource capacity to activate " +
-                EntityIdentityFormatter.Format(action.ElementId) + ".");
+                EntityIdentityFormatter.PlayerName(action.ElementId) + ".");
         var maximum = native.ElementMaximumInstances(element).ToInt();
         return action.Amount <= maximum
             ? null
             : Reject(HarvestLifecyclePreflight.AmountUnavailable,
                 "The current resource capacity allows at most " + maximum + " more " +
                 Plural(maximum, "instance", "instances") + " of " +
-                EntityIdentityFormatter.Format(action.ElementId) + ".",
+                EntityIdentityFormatter.PlayerName(action.ElementId) + ".",
                 maximum);
     }
 
@@ -168,15 +168,15 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
     {
         if (!native.InstanceVisible(prototype))
             return Reject(HarvestLifecyclePreflight.ActionUnavailable,
-                EntityIdentityFormatter.Format(action.ActionId) + " is not available for " +
-                EntityIdentityFormatter.Format(action.ElementId) + " yet.");
+                EntityIdentityFormatter.PlayerName(action.ActionId) + " is not available for " +
+                EntityIdentityFormatter.PlayerName(action.ElementId) + " yet.");
         if (action.Kind == HarvestLifecycleActionKind.RemoveAction)
             return active is not null && action.Amount <= current
                 ? null
                 : Reject(HarvestLifecyclePreflight.AmountUnavailable,
-                    EntityIdentityFormatter.Format(action.ActionId) + " has only " + current +
+                    EntityIdentityFormatter.PlayerName(action.ActionId) + " has only " + current +
                     " active " + Plural(current, "instance", "instances") + " on " +
-                    EntityIdentityFormatter.Format(action.ElementId) + ".",
+                    EntityIdentityFormatter.PlayerName(action.ElementId) + ".",
                     current);
         if (active is null && !native.ActionListHasRoom(list))
             return Reject(HarvestLifecyclePreflight.ActionListFull,
@@ -185,9 +185,9 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         return current + action.Amount <= maximum
             ? null
             : Reject(HarvestLifecyclePreflight.AmountUnavailable,
-                EntityIdentityFormatter.Format(action.ActionId) + " allows at most " + maximum +
+                EntityIdentityFormatter.PlayerName(action.ActionId) + " allows at most " + maximum +
                 " active " + Plural(maximum, "instance", "instances") + " on " +
-                EntityIdentityFormatter.Format(action.ElementId) + ".",
+                EntityIdentityFormatter.PlayerName(action.ElementId) + ".",
                 maximum);
     }
 
@@ -290,7 +290,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         {
             value = null;
             reason = resolution.IsResolved
-                ? EntityIdentityFormatter.Format(id) + " became stale."
+                ? EntityIdentityFormatter.PlayerName(id) + " became stale."
                 : resolution.Reason;
             return false;
         }
@@ -323,7 +323,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         string reason) =>
         new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
             "Harvest " + stage + " failed on " +
-            EntityIdentityFormatter.Format(action.ElementId) + ": " + reason);
+            EntityIdentityFormatter.PlayerName(action.ElementId) + ": " + reason);
 
     private void BindLifecycle()
     {

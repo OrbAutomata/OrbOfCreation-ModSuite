@@ -72,19 +72,19 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
             !ReferenceEquals(resolution.Value, candidate))
         {
-            reason = EntityIdentityFormatter.Format(id.Value) +
+            reason = EntityIdentityFormatter.PlayerName(id.Value) +
                 " is not the current artifact instance.";
             return false;
         }
         if (!native.IsCreated(candidate))
         {
-            reason = EntityIdentityFormatter.Format(id.Value) + " has not been created.";
+            reason = EntityIdentityFormatter.PlayerName(id.Value) + " has not been created.";
             return false;
         }
         var maximum = Math.Max(native.MaximumStacks(candidate), 0);
         if (quantity <= 0 || quantity > maximum)
         {
-            reason = EntityIdentityFormatter.Format(id.Value) + " stores " + quantity +
+            reason = EntityIdentityFormatter.PlayerName(id.Value) + " stores " + quantity +
                 " stacks, but the live maximum is " + maximum + ".";
             return false;
         }
@@ -127,7 +127,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
             var target = resolution.Value!;
             if (!native.IsCreated(target))
                 return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.NotCreated,
-                    EntityIdentityFormatter.Format(action.TargetId) + " has not been created.");
+                    EntityIdentityFormatter.PlayerName(action.TargetId) + " has not been created.");
             var manager = native.Manager();
             if (manager is null || manager.GetType() != native.ManagerType)
                 return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
@@ -269,7 +269,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
         NativeMutationOutcome outcome, string reason)
     {
         var exactReason = "Equipment loadout " + stage + " failed on " +
-            EntityIdentityFormatter.Format(action.TargetId) + ": " + reason;
+            EntityIdentityFormatter.PlayerName(action.TargetId) + ": " + reason;
         return new EquipmentLoadoutSubmission(preflight, stage, outcome,
             new NativeMutationCallOutcome(1, 1, 0), exactReason);
     }

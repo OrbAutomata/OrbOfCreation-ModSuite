@@ -317,7 +317,7 @@ internal sealed class ResearchGameAction : IDisposable
         string reason)
     {
         var exactReason = "Research " + stage + " failed on " +
-            EntityIdentityFormatter.Format(action.TargetId) + ": " + reason;
+            EntityIdentityFormatter.PlayerName(action.TargetId) + ": " + reason;
         return new ResearchSubmission(preflight, stage, outcome,
             new NativeMutationCallOutcome(1, 1, 0), exactReason);
     }

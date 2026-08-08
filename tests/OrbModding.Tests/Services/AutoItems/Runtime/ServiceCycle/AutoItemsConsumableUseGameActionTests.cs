@@ -308,7 +308,12 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var result = gameAction.Submit(in action);
 
         Assert.Equal(AutoItemsPreflight.CanFireRefused, result.Preflight);
-        Assert.Contains("ConsumableSO.CanFire()", result.Reason);
+
+        // The player is told the game refuses, not which native predicate said so. The code
+        // carries that distinction; the sentence carries what a player can act on.
+        Assert.Equal(
+            "The game refuses to use " + scroll.GetGuid().ToString("D") + " right now.",
+            result.Reason);
         Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
     }
 

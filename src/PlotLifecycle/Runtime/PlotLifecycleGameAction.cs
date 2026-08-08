@@ -68,12 +68,12 @@ internal sealed class PlotLifecycleGameAction : IDisposable
                 return Reject(PlotLifecyclePreflight.ContractUnavailable, reason);
             if (!native.PlotVisible(plot!))
                 return Reject(PlotLifecyclePreflight.PlotUnavailable,
-                    EntityIdentityFormatter.Format(action.PlotId) + " is not visible yet.");
+                    EntityIdentityFormatter.PlayerName(action.PlotId) + " is not visible yet.");
             var prototype = FindPrototype(native, plot!, actionObject!);
             if (prototype is null)
                 return Reject(PlotLifecyclePreflight.ActionUnavailable,
-                    EntityIdentityFormatter.Format(action.ActionId) + " is not offered for " +
-                    EntityIdentityFormatter.Format(action.PlotId) + ".");
+                    EntityIdentityFormatter.PlayerName(action.ActionId) + " is not offered for " +
+                    EntityIdentityFormatter.PlayerName(action.PlotId) + ".");
             var current = native.FindInstance(list!, prototype);
             if (current is not null && current.GetType() != native.InstanceType)
                 return Reject(PlotLifecyclePreflight.ContractUnavailable,
@@ -118,23 +118,23 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         {
             if (current is null || before <= 0)
                 return Reject(PlotLifecyclePreflight.QuantityUnavailable,
-                    EntityIdentityFormatter.Format(action.ActionId) + " is not active on " +
-                    EntityIdentityFormatter.Format(action.PlotId) + ".");
+                    EntityIdentityFormatter.PlayerName(action.ActionId) + " is not active on " +
+                    EntityIdentityFormatter.PlayerName(action.PlotId) + ".");
             if (action.Amount > before)
                 return Reject(PlotLifecyclePreflight.QuantityUnavailable,
-                    EntityIdentityFormatter.Format(action.ActionId) + " has only " + before +
+                    EntityIdentityFormatter.PlayerName(action.ActionId) + " has only " + before +
                     " active " + (before == 1 ? "instance" : "instances") + " on " +
-                    EntityIdentityFormatter.Format(action.PlotId) + ".");
+                    EntityIdentityFormatter.PlayerName(action.PlotId) + ".");
             return null;
         }
 
         if (!native.InstanceVisible(prototype))
             return Reject(PlotLifecyclePreflight.ActionUnavailable,
-                EntityIdentityFormatter.Format(action.ActionId) + " is not available for " +
-                EntityIdentityFormatter.Format(action.PlotId) + " yet.");
+                EntityIdentityFormatter.PlayerName(action.ActionId) + " is not available for " +
+                EntityIdentityFormatter.PlayerName(action.PlotId) + " yet.");
         if (!native.InstanceAffordable(prototype))
             return Reject(PlotLifecyclePreflight.QuantityUnavailable,
-                EntityIdentityFormatter.Format(action.PlotId) +
+                EntityIdentityFormatter.PlayerName(action.PlotId) +
                 " does not have enough remaining quantity for that action.");
         var maximumRemaining = native.InstanceMaximumRemaining(prototype);
         var maximum = native.InstanceMaximum(prototype);
@@ -143,7 +143,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
             var remaining = Math.Max(Math.Min(maximumRemaining, maximum - before), 0);
             return Reject(PlotLifecyclePreflight.QuantityUnavailable,
                 "The plot currently allows at most " + remaining +
-                " more active instances of " + EntityIdentityFormatter.Format(action.ActionId) + ".",
+                " more active instances of " + EntityIdentityFormatter.PlayerName(action.ActionId) + ".",
                 remaining);
         }
         if ((current is null || before <= 0) && !native.ListHasRoom(list))
@@ -225,7 +225,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         {
             value = null;
             reason = resolution.IsResolved
-                ? EntityIdentityFormatter.Format(id) + " became stale."
+                ? EntityIdentityFormatter.PlayerName(id) + " became stale."
                 : resolution.Reason;
             return false;
         }
@@ -252,7 +252,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         NativeMutationOutcome outcome,
         string reason) =>
         new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
-            "Plot " + stage + " failed on " + EntityIdentityFormatter.Format(action.PlotId) +
+            "Plot " + stage + " failed on " + EntityIdentityFormatter.PlayerName(action.PlotId) +
             ": " + reason);
 
     private void BindLifecycle()

@@ -72,7 +72,8 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             if (!native.IsVisible(tree))
                 return DiscoveryTreeOfferSubmission.Reject(
                     DiscoveryTreeOfferPreflight.TreeUnavailable,
-                    $"DiscoveryTreeSO.IsVisible() refused tree {EntityIdentityFormatter.Format(action.TreeId)}.");
+                    "The game is not showing " +
+                    EntityIdentityFormatter.PlayerName(action.TreeId) + " yet.");
 
             return action.Kind switch
             {
@@ -125,7 +126,9 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         if (!native.HasEnough(cost))
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.Unaffordable,
-                $"GetNextItemCost().HasEnough() refused tree {EntityIdentityFormatter.Format(action.TreeId)}.");
+                "The next discovery on " +
+                EntityIdentityFormatter.PlayerName(action.TreeId) +
+                " costs more than is held.");
         if (!TryCapturePermit(out var reason))
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.MutationPermitUnavailable, reason);
@@ -183,7 +186,14 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         if (selected != action.OfferId)
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.OfferUnavailable,
-                $"Confirm target {EntityIdentityFormatter.Format(action.OfferId)} is not the native selected offer {EntityIdentityFormatter.Format(selected)}.");
+
+                // An empty selection is no selection. Rendering the all-zeros GUID as if it named
+                // an offer told a caller to go look for an entity that does not exist.
+                selected == Guid.Empty
+                    ? "No offer is selected, so there is nothing to confirm."
+                    : EntityIdentityFormatter.PlayerName(selected) +
+                      " is the selected offer, not " +
+                      EntityIdentityFormatter.PlayerName(action.OfferId) + ".");
         if (!TryCapturePermit(out reason))
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.MutationPermitUnavailable, reason);
@@ -209,7 +219,9 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         if (rerolls <= 0 || offers.Count == 0)
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.RerollUnavailable,
-                $"Reroll requires Choice mode, at least one offer, and rerollsLeft > 0; observed offers={offers.Count}, rerolls={rerolls}.");
+                rerolls <= 0
+                    ? "No rerolls are left on this tree."
+                    : "This tree is showing no offers to reroll.");
         if (!TryCapturePermit(out var reason))
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.MutationPermitUnavailable, reason);
@@ -296,7 +308,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         string reason) =>
         new(preflight, stage, outcome,
             new NativeMutationCallOutcome(Math.Max(1, nativeCalls), 1, 0),
-            $"Discovery Tree offer {stage} failed on tree {EntityIdentityFormatter.Format(action.TreeId)}: {reason}");
+            $"Discovery Tree offer {stage} failed on tree {EntityIdentityFormatter.PlayerName(action.TreeId)}: {reason}");
 
     private static DiscoveryTreeOfferSubmission WrongMode(
         DiscoveryTreeOfferActionKind kind,
@@ -326,8 +338,8 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             return true;
         }
         reason = matches == 0
-            ? $"No exact DiscoveryTreeSO with identity {EntityIdentityFormatter.Format(treeId)} exists in the live registry."
-            : $"DiscoveryTreeSO identity {EntityIdentityFormatter.Format(treeId)} is ambiguous across {matches} exact live instances.";
+            ? $"No exact DiscoveryTreeSO with identity {EntityIdentityFormatter.PlayerName(treeId)} exists in the live registry."
+            : $"DiscoveryTreeSO identity {EntityIdentityFormatter.PlayerName(treeId)} is ambiguous across {matches} exact live instances.";
         return false;
     }
 
@@ -342,7 +354,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         item = null!;
         if (!Contains(native, native.ReadCurrentChoices(tree), offerId))
         {
-            reason = $"Identity {EntityIdentityFormatter.Format(offerId)} is not in the tree's current native offer set.";
+            reason = $"Identity {EntityIdentityFormatter.PlayerName(offerId)} is not in the tree's current native offer set.";
             rejection = DiscoveryTreeOfferPreflight.OfferUnavailable;
             return false;
         }
@@ -350,13 +362,13 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         if (resolved is null || !native.ItemType.IsInstanceOfType(resolved) ||
             native.ReadItemIdentity(resolved) != offerId)
         {
-            reason = $"Current offer {EntityIdentityFormatter.Format(offerId)} did not resolve to one exact IDiscoverable identity.";
+            reason = $"Current offer {EntityIdentityFormatter.PlayerName(offerId)} did not resolve to one exact IDiscoverable identity.";
             rejection = DiscoveryTreeOfferPreflight.IdentityUnavailable;
             return false;
         }
         if (native.IsItemDiscovered(resolved))
         {
-            reason = $"Current offer {EntityIdentityFormatter.Format(offerId)} is already discovered.";
+            reason = $"Current offer {EntityIdentityFormatter.PlayerName(offerId)} is already discovered.";
             rejection = DiscoveryTreeOfferPreflight.AlreadyDiscovered;
             return false;
         }

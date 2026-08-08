@@ -118,16 +118,16 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
             if (native.IsDiscovered(target))
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.AlreadyDiscovered,
-                    EntityIdentityFormatter.Format(action.TargetId) + " is already discovered.");
+                    EntityIdentityFormatter.PlayerName(action.TargetId) + " is already discovered.");
             if (!native.IsVisible(target))
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.NotVisible,
-                    EntityIdentityFormatter.Format(action.TargetId) +
+                    EntityIdentityFormatter.PlayerName(action.TargetId) +
                     " is not visible on its discovery screen.");
             if (!native.CanDiscover(target))
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.DiscoveryUnavailable,
-                    EntityIdentityFormatter.Format(action.TargetId) +
+                    EntityIdentityFormatter.PlayerName(action.TargetId) +
                     " cannot be discovered right now.");
 
             var cost = native.GetCost(target);
@@ -138,7 +138,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
             if (!native.HasEnough(cost))
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.Unaffordable,
-                    EntityIdentityFormatter.Format(action.TargetId) +
+                    EntityIdentityFormatter.PlayerName(action.TargetId) +
                     " has a discovery cost you cannot afford.");
             if (!TryCapturePermit(out var permitReason))
                 return GenericDiscoverySubmission.Reject(
@@ -228,7 +228,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         string reason)
     {
         var exactReason = "Generic discovery " + stage + " failed on " +
-            EntityIdentityFormatter.Format(action.TargetId) + ": " + reason;
+            EntityIdentityFormatter.PlayerName(action.TargetId) + ": " + reason;
         return new GenericDiscoverySubmission(
             preflight,
             stage,
@@ -291,9 +291,9 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
                 if (isGlyph == isResource)
                 {
                     reason = isGlyph
-                        ? "Component " + EntityIdentityFormatter.Format(component.ComponentId) +
+                        ? "Component " + EntityIdentityFormatter.PlayerName(component.ComponentId) +
                           " resolved as both GlyphSO and ResourceSO."
-                        : "Component " + EntityIdentityFormatter.Format(component.ComponentId) +
+                        : "Component " + EntityIdentityFormatter.PlayerName(component.ComponentId) +
                           " is no longer a live GlyphSO or ResourceSO.";
                     return false;
                 }
@@ -321,14 +321,14 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
             if (!nativeGlyphs.Contains(glyphs[index].Value))
             {
                 reason = "The live native glyph recipe no longer contains " +
-                    EntityIdentityFormatter.Format(glyphs[index].Identity) + ".";
+                    EntityIdentityFormatter.PlayerName(glyphs[index].Identity) + ".";
                 return false;
             }
         for (var index = 0; index < resources.Count; index++)
             if (!nativeResources.Contains(resources[index].Value))
             {
                 reason = "The live native resource recipe no longer contains " +
-                    EntityIdentityFormatter.Format(resources[index].Identity) + ".";
+                    EntityIdentityFormatter.PlayerName(resources[index].Identity) + ".";
                 return false;
             }
         reason = string.Empty;

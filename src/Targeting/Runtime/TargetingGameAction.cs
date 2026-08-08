@@ -94,7 +94,7 @@ internal sealed class TargetingGameAction : IDisposable
                 "Target UUID is absent from the live eligible-target set.");
         if (!native.CheckTarget(link, candidate))
             return TargetingSubmission.Reject(TargetingPreflight.NativeTargetRefused,
-                "TargetLink.CheckTarget refused the exact UUID-resolved StructureSO.");
+                "The game refuses this target.");
         if (!TryPermit(out var reason))
             return TargetingSubmission.Reject(TargetingPreflight.MutationPermitUnavailable, reason);
         return MutateSubmit(in action, native, link, candidate, TargetingNativeStage.Submit);

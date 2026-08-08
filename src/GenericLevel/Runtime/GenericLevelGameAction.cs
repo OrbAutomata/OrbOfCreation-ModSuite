@@ -228,7 +228,7 @@ internal sealed class GenericLevelGameAction : IDisposable
             var amount = native.CostValue(row);
             if (!native.HasResourceAmount(resource, amount))
                 return Reject(GenericLevelPreflight.Unaffordable,
-                    EntityIdentityFormatter.Format(native.ResourceGuid(resource)) +
+                    EntityIdentityFormatter.PlayerName(native.ResourceGuid(resource)) +
                     " is short for this " + label + ".");
         }
         return Reject(GenericLevelPreflight.ContractUnavailable,
@@ -258,7 +258,7 @@ internal sealed class GenericLevelGameAction : IDisposable
         string reason) =>
         new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
             "Level " + stage + " failed on " +
-            EntityIdentityFormatter.Format(action.TargetId) + ": " + reason);
+            EntityIdentityFormatter.PlayerName(action.TargetId) + ": " + reason);
 
     private void BindLifecycle()
     {

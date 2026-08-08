@@ -64,17 +64,17 @@ internal sealed class StructureLifecycleGameAction : IDisposable
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
                 return Reject(StructureLifecyclePreflight.IdentityUnavailable,
                     resolution.IsResolved
-                        ? EntityIdentityFormatter.Format(action.StructureId) + " became stale."
+                        ? EntityIdentityFormatter.PlayerName(action.StructureId) + " became stale."
                         : resolution.Reason);
             var structure = resolution.Value!;
             if (!native.Available(structure))
                 return Reject(StructureLifecyclePreflight.NotAvailable,
-                    EntityIdentityFormatter.Format(action.StructureId) + " is not available yet.");
+                    EntityIdentityFormatter.PlayerName(action.StructureId) + " is not available yet.");
             var beforeDisabled = native.Disabled(structure);
             var expectedDisabled = action.Kind == StructureLifecycleActionKind.Disable;
             if (beforeDisabled == expectedDisabled)
                 return Reject(StructureLifecyclePreflight.AlreadyInState,
-                    EntityIdentityFormatter.Format(action.StructureId) + " is already " +
+                    EntityIdentityFormatter.PlayerName(action.StructureId) + " is already " +
                     (expectedDisabled ? "disabled." : "enabled."));
             if (!_tryCaptureMutationPermit())
                 return Reject(StructureLifecyclePreflight.MutationPermitUnavailable,
@@ -146,7 +146,7 @@ internal sealed class StructureLifecycleGameAction : IDisposable
         string reason) =>
         new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
             "Structure " + stage + " failed on " +
-            EntityIdentityFormatter.Format(action.StructureId) + ": " + reason);
+            EntityIdentityFormatter.PlayerName(action.StructureId) + ": " + reason);
 
     private void BindLifecycle()
     {

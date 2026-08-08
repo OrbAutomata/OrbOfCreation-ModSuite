@@ -73,7 +73,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
             !ReferenceEquals(resolution.Value, candidate))
         {
-            reason = EntityIdentityFormatter.Format(id.Value) +
+            reason = EntityIdentityFormatter.PlayerName(id.Value) +
                 " is not the current Alchemy recipe instance.";
             return false;
         }
@@ -82,19 +82,19 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         if (!classification.IsMutationGrade ||
             classification.Domain != AlchemyGameplayDomain.OrdinaryAlchemy)
         {
-            reason = EntityIdentityFormatter.Format(id.Value) +
+            reason = EntityIdentityFormatter.PlayerName(id.Value) +
                 " is not an ordinary Alchemy loadout recipe.";
             return false;
         }
         if (!native.Discovered(candidate))
         {
-            reason = EntityIdentityFormatter.Format(id.Value) + " has not been discovered.";
+            reason = EntityIdentityFormatter.PlayerName(id.Value) + " has not been discovered.";
             return false;
         }
         var maximum = Math.Max(native.MaximumUses(candidate), 0);
         if (quantity <= 0 || quantity > maximum)
         {
-            reason = EntityIdentityFormatter.Format(id.Value) + " stores " + quantity +
+            reason = EntityIdentityFormatter.PlayerName(id.Value) + " stores " + quantity +
                 " uses, but the live maximum is " + maximum + ".";
             return false;
         }
@@ -157,7 +157,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
             {
                 if (!native.Discovered(recipe))
                     return Reject(AlchemyLoadoutPreflight.NotDiscovered,
-                        EntityIdentityFormatter.Format(action.RecipeId) + " has not been discovered.");
+                        EntityIdentityFormatter.PlayerName(action.RecipeId) + " has not been discovered.");
                 if (!native.CanAdd(list, recipe))
                     return Reject(AlchemyLoadoutPreflight.LoadoutFull,
                         "The Alchemy loadout has no compatible open slot for this recipe.");
@@ -302,7 +302,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         NativeMutationOutcome outcome, string reason) =>
         new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
             "Alchemy loadout " + stage + " failed on " +
-            EntityIdentityFormatter.Format(action.RecipeId) + ": " + reason);
+            EntityIdentityFormatter.PlayerName(action.RecipeId) + ": " + reason);
 
     private void BindLifecycle()
     {

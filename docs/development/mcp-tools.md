@@ -965,6 +965,14 @@ blocked sub-decision follows the same rule as a mutation's refusal. A refusal wh
 ceiling also carries that ceiling as `maximumAmount`, read from the same admission capture the
 sentence was written from, so the two can never disagree.
 
+A sentence names entities the way a player does — display name only. The asset name, the UUID, and
+the native member that decided are identity and evidence, and the same response already carries them
+as fields, so repeating them inside prose only made the sentence harder to read. Two exceptions stay
+deliberate: a sentence falls back to the UUID for an entity with no known name, because naming the
+only handle there is beats naming nothing; and a `contract_unavailable` or faulted result still names
+the native member it could not read, because that result is a defect report and the member is its
+subject.
+
 One generator writes those sentences and the wire pass every response already crosses reaches it, so
 a code that arrives without prose leaves with it. A producer holding the numbers writes the better
 sentence itself and keeps it: a shortfall names the resource, the price, and the holding, where the

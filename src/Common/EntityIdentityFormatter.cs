@@ -146,6 +146,31 @@ internal static class EntityIdentityFormatter
         }
     }
 
+    /// <summary>
+    /// The name a player-facing sentence uses. It is the display name alone: the asset name and the
+    /// UUID are identity, and every response that carries a sentence already carries them as its
+    /// own fields, where a caller can read them without parsing prose.
+    /// </summary>
+    /// <remarks>
+    /// An entity with no known name falls back to its UUID, because a sentence that names nothing
+    /// at all is worse than one that names the only handle there is. <see cref="Format"/> keeps the
+    /// full diagnostic form for logs and traces, which are read by whoever is debugging the suite.
+    /// </remarks>
+    internal static string PlayerName(
+        Guid uuid,
+        EntityIdentityCatalogSnapshot? snapshot = null)
+    {
+        try
+        {
+            var description = Describe(uuid, snapshot);
+            return description.HasName ? description.Name : uuid.ToString("D");
+        }
+        catch (Exception)
+        {
+            return uuid.ToString("D");
+        }
+    }
+
     internal static void ReportCatalogFailure(string message)
     {
         try

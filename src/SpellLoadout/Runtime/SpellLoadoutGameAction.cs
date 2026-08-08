@@ -110,7 +110,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.NativeRemoveRefused,
                 "Native Spell.CanRemove() refused runtime spell " +
-                EntityIdentityFormatter.Format(action.SpellInstanceId) + ".");
+                EntityIdentityFormatter.PlayerName(action.SpellInstanceId) + ".");
         if (!TryCapturePermit(out reason))
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.MutationPermitUnavailable,
@@ -162,7 +162,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (sourceSlot == action.DestinationSlot)
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.AlreadyInRequestedState,
-                "Runtime spell " + EntityIdentityFormatter.Format(action.SpellInstanceId) +
+                "Runtime spell " + EntityIdentityFormatter.PlayerName(action.SpellInstanceId) +
                 " is already in slot " + sourceSlot + ".");
         if (!TryCapturePermit(out reason))
             return SpellLoadoutSubmission.Reject(
@@ -251,8 +251,8 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         }
         reason = matches == 0
             ? "No exact equipped Spell with runtime identity " +
-              EntityIdentityFormatter.Format(targetId) + " exists."
-            : "Runtime Spell identity " + EntityIdentityFormatter.Format(targetId) +
+              EntityIdentityFormatter.PlayerName(targetId) + " exists."
+            : "Runtime Spell identity " + EntityIdentityFormatter.PlayerName(targetId) +
               " is ambiguous across " + matches + " exact instances.";
         return false;
     }
@@ -339,7 +339,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         string reason)
     {
         var exactReason = "Spell loadout " + stage + " failed on " +
-            EntityIdentityFormatter.Format(action.SpellInstanceId) + ": " + reason;
+            EntityIdentityFormatter.PlayerName(action.SpellInstanceId) + ": " + reason;
         return new SpellLoadoutSubmission(
             preflight,
             stage,

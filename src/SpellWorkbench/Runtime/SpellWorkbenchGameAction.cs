@@ -170,13 +170,13 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
             !ReferenceEquals(resolution.Value, recipe))
         {
-            reason = EntityIdentityFormatter.Format(recipeId) +
+            reason = EntityIdentityFormatter.PlayerName(recipeId) +
                 " is not the current spell recipe instance.";
             return false;
         }
         if (!native.IsDiscovered(recipe))
         {
-            reason = EntityIdentityFormatter.Format(recipeId) + " has not been discovered.";
+            reason = EntityIdentityFormatter.PlayerName(recipeId) + " has not been discovered.";
             return false;
         }
 
@@ -242,7 +242,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         }
         if (native.IsGlyphAugment(glyph) != expectAugment)
         {
-            reason = EntityIdentityFormatter.Format(glyphId) +
+            reason = EntityIdentityFormatter.PlayerName(glyphId) +
                 " has the wrong core/augment role in the saved spell.";
             return false;
         }
@@ -261,7 +261,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         count++;
         if (count > native.GetGlyphMaximumUsages(glyph))
         {
-            reason = EntityIdentityFormatter.Format(id) +
+            reason = EntityIdentityFormatter.PlayerName(id) +
                 " exceeds its live usable count in the saved spell.";
             return false;
         }
@@ -682,7 +682,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 SpellWorkbenchPreflight.Unaffordable,
                 shortResourceId == Guid.Empty
                     ? "The requested spell layout is not affordable with the current resources."
-                    : EntityIdentityFormatter.Format(shortResourceId) +
+                    : EntityIdentityFormatter.PlayerName(shortResourceId) +
                         " is short for this spell layout.",
                 out refusal,
                 out reason);
@@ -819,7 +819,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             if (requested > maximum)
             {
                 reason = "Requested " + requested + " uses of " +
-                    EntityIdentityFormatter.Format(glyphId) +
+                    EntityIdentityFormatter.PlayerName(glyphId) +
                     ", but the live usable count is " + maximum + ".";
                 return false;
             }
@@ -849,7 +849,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         }
         if (native.IsGlyphAugment(glyph) != expectAugment)
         {
-            reason = EntityIdentityFormatter.Format(glyphId) +
+            reason = EntityIdentityFormatter.PlayerName(glyphId) +
                 (expectAugment
                     ? " is not a spell augment."
                     : " is an augment and cannot be a core discovery component.");
@@ -857,13 +857,13 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         }
         if (!native.IsGlyphAvailable(glyph))
         {
-            reason = EntityIdentityFormatter.Format(glyphId) +
+            reason = EntityIdentityFormatter.PlayerName(glyphId) +
                 " is not available for this spell layout.";
             return false;
         }
         if (native.ReadGlyphLevel(glyph) <= 0)
         {
-            reason = EntityIdentityFormatter.Format(glyphId) +
+            reason = EntityIdentityFormatter.PlayerName(glyphId) +
                 " is not owned; spell glyphs require an owned level above zero.";
             return false;
         }
@@ -1172,8 +1172,8 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         }
         if (matches == 1) { reason = string.Empty; return true; }
         reason = matches == 0
-            ? $"No exact SpellRecipeSO with identity {EntityIdentityFormatter.Format(id)} exists in the live registry."
-            : $"SpellRecipeSO identity {EntityIdentityFormatter.Format(id)} is ambiguous across {matches} exact instances.";
+            ? $"No exact SpellRecipeSO with identity {EntityIdentityFormatter.PlayerName(id)} exists in the live registry."
+            : $"SpellRecipeSO identity {EntityIdentityFormatter.PlayerName(id)} is ambiguous across {matches} exact instances.";
         return false;
     }
 
@@ -1190,7 +1190,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         NativeMutationOutcome outcome, int nativeCalls, string reason)
     {
         var exactReason = $"Spell workbench action faulted after {stage} on " +
-            $"recipe {EntityIdentityFormatter.Format(action.SpellRecipeId)}: {reason}";
+            $"recipe {EntityIdentityFormatter.PlayerName(action.SpellRecipeId)}: {reason}";
         return new SpellWorkbenchSubmission(preflight, stage, outcome,
             new NativeMutationCallOutcome(nativeCalls, 1, 0), exactReason);
     }

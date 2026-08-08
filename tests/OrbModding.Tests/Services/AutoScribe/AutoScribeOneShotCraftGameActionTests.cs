@@ -269,7 +269,16 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         var result = Submit(actionBoundary, fixture.Action);
 
         Assert.Equal(AutoScribePreflight.CompetingSupply, result.Preflight);
-        Assert.Contains(KnownEntities.AutoScribeInstances.Uuid.ToString("D"), result.Reason);
+
+        // The sentence names the queue; the UUID is identity and travels as a field, not as prose.
+        Assert.Contains(
+            EntityIdentityFormatter.PlayerName(KnownEntities.AutoScribeInstances.Uuid),
+            result.Reason,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            KnownEntities.AutoScribeInstances.Uuid.ToString("D"),
+            result.Reason,
+            StringComparison.Ordinal);
         Assert.Equal(0, fixture.Recipe.PurchaseCalls);
     }
 

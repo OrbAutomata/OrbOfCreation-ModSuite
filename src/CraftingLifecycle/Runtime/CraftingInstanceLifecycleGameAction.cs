@@ -368,7 +368,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
         CraftingInstanceLifecycleSideEffect sideEffect) =>
         new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
             "Crafting " + stage + " failed on " +
-            EntityIdentityFormatter.Format(action.RecipeId) + ": " + reason,
+            EntityIdentityFormatter.PlayerName(action.RecipeId) + ": " + reason,
             sideEffect);
 
     private void BindLifecycle()

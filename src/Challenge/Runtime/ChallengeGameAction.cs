@@ -258,7 +258,7 @@ internal sealed class ChallengeGameAction : IDisposable
         ChallengePreflight preflight, ChallengeNativeStage stage, NativeMutationOutcome outcome,
         string reason)
     {
-        var target = action.HasTarget ? EntityIdentityFormatter.Format(action.TargetId) : action.Kind.ToString();
+        var target = action.HasTarget ? EntityIdentityFormatter.PlayerName(action.TargetId) : action.Kind.ToString();
         var exactReason = "Challenge action " + stage + " failed on " + target + ": " + reason;
         return new ChallengeSubmission(preflight, stage, outcome,
             new NativeMutationCallOutcome(1, 1, 0), exactReason);

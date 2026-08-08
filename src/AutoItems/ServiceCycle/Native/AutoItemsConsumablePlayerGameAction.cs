@@ -69,7 +69,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         if (!native.IsVisible(item))
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.NotVisible,
-                EntityIdentityFormatter.Format(action.ConsumableId) +
+                EntityIdentityFormatter.PlayerName(action.ConsumableId) +
                 " is not visible or owned right now.");
         if (native.IsTargeting())
             return ConsumablePlayerSubmission.Reject(
@@ -82,7 +82,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         if (!native.CanFire(item))
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.CanFireRefused,
-                EntityIdentityFormatter.Format(action.ConsumableId) +
+                EntityIdentityFormatter.PlayerName(action.ConsumableId) +
                 " cannot be used right now.");
         var beforeQueued = native.GetQueued(item);
         if (!TryPlayerPermit(in action, out var permitFailure)) return permitFailure;
@@ -173,7 +173,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         if (!native.CanBeRandomized(item))
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.RandomizationUnavailable,
-                "ConsumableSO.canBeRandomized is false for the exact UUID-resolved item.");
+                "The game never offers randomization for this item.");
         var requested = action.Randomized;
         if (native.IsRandomized(item) == requested)
             return ConsumablePlayerSubmission.Reject(
