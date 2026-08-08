@@ -31,7 +31,8 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
     [Fact]
     public void AnUnresolvableContractMakesTheVerifierUnavailableRatherThanPassing()
     {
-        Assert.False(new AutomataRequirementVerifier(typeof(object), isUpgrade: true).IsAvailable);
+        Assert.False(new AutomataRequirementVerifier(
+            typeof(object), RequirementOwnerShape.UpgradeQueuedLevel).IsAvailable);
     }
 
     /// <summary>
@@ -41,16 +42,18 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
     [Fact]
     public void AShapeWithOnlyTheLatchingOverloadIsRefused()
     {
-        Assert.False(new AutomataRequirementVerifier(typeof(LatchingOnlyOwner), isUpgrade: true).IsAvailable);
+        Assert.False(new AutomataRequirementVerifier(
+            typeof(LatchingOnlyOwner), RequirementOwnerShape.UpgradeQueuedLevel).IsAvailable);
     }
 
     [Fact]
     public void AnUnavailableVerifierRefusesToVerifyAndSaysWhy()
     {
-        var verifier = new AutomataRequirementVerifier(typeof(object), isUpgrade: true);
+        var verifier = new AutomataRequirementVerifier(
+            typeof(object), RequirementOwnerShape.UpgradeQueuedLevel);
         var run = new DifferentialRun();
 
-        var verified = verifier.TryVerify(new object(), TestWorlds.Empty, run, out var failure);
+        var verified = verifier.TryVerify(new object(), TestWorlds.Empty, run, Session(), out var failure);
 
         Assert.False(verified);
         Assert.NotEmpty(failure);
@@ -69,11 +72,12 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         var upgrade = new global::UpgradeSO { maxLevel = -1, level = 2, queuedLevels = 1 };
         global::UpgradeSO.All.Add(upgrade);
 
-        var verifier = new AutomataRequirementVerifier(typeof(global::UpgradeSO), isUpgrade: true);
+        var verifier = new AutomataRequirementVerifier(
+            typeof(global::UpgradeSO), RequirementOwnerShape.UpgradeQueuedLevel);
         Assert.True(verifier.IsAvailable);
 
         var run = new DifferentialRun("Upgrade requirement");
-        Assert.True(verifier.TryVerify(upgrade, Collect(), run, out var failure));
+        Assert.True(verifier.TryVerify(upgrade, Collect(), run, Session(), out var failure));
 
         Assert.Empty(failure);
         Assert.Equal(1, run.Compared);
@@ -92,13 +96,71 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         global::UpgradeSO.All.Add(upgrade);
         upgrade.prerequisitesPerLevel.prerequisites.Add(new Requirements.OpaqueRequirement());
 
-        var verifier = new AutomataRequirementVerifier(typeof(global::UpgradeSO), isUpgrade: true);
+        var verifier = new AutomataRequirementVerifier(
+            typeof(global::UpgradeSO), RequirementOwnerShape.UpgradeQueuedLevel);
         var run = new DifferentialRun("Upgrade requirement");
 
-        Assert.False(verifier.TryVerify(upgrade, Collect(), run, out var failure));
+        Assert.False(verifier.TryVerify(upgrade, Collect(), run, Session(), out var failure));
 
         Assert.Contains("OpaqueRequirement", failure, StringComparison.Ordinal);
         Assert.Equal(0, run.Compared);
+    }
+
+    /// <summary>
+    /// A research whose requirement level is negative is skipped rather than compared.
+    /// </summary>
+    /// <remarks>
+    /// <c>MeetsLevelRequirements()</c> answers true outright below zero and never reaches its
+    /// container, so there is no answer of the game's own to disagree with. Comparing anyway would
+    /// pad the pass with a tautology and hide how much of the registry it really covered.
+    /// </remarks>
+    [Fact]
+    public void AResearchTheGameNeverAsksAboutIsSkippedRatherThanComparedAgainstItself()
+    {
+        var research = new global::ResearchSO { maxLevel = -1, level = -4 };
+        global::ResearchSO.All.Add(research);
+
+        var verifier = new AutomataRequirementVerifier(
+            typeof(global::ResearchSO), RequirementOwnerShape.ResearchRequirementLevel);
+        Assert.True(verifier.IsAvailable);
+
+        var session = Session();
+        var run = session.Run;
+        Assert.True(verifier.TryVerify(research, Collect(), run, session, out var failure));
+        session.RecordVerified();
+
+        Assert.Empty(failure);
+        Assert.Equal(0, run.Compared);
+        Assert.Equal(1, session.ExpectedSkips);
+        Assert.Equal(0, session.EntitiesVerified);
+    }
+
+    /// <summary>
+    /// A tiered link is compared once per tier, at level zero, against that tier's own container.
+    /// </summary>
+    /// <remarks>
+    /// One verdict for the whole link would fold tiers the game keeps apart, and would leave the
+    /// tier the planner actually consulted unnamed when the two sides disagreed.
+    /// </remarks>
+    [Fact]
+    public void ATieredLinkIsComparedOncePerTier()
+    {
+        var link = new global::PrerequisiteLinkSO();
+        link.linkTiers.Add(new global::PrerequisiteLinkSO.LinkDefinition());
+        link.linkTiers.Add(new global::PrerequisiteLinkSO.LinkDefinition());
+        global::PrerequisiteLinkSO.All.Add(link);
+
+        var verifier = new AutomataRequirementVerifier(
+            typeof(global::PrerequisiteLinkSO), RequirementOwnerShape.PrerequisiteLinkTier);
+        Assert.True(verifier.IsAvailable);
+
+        var session = Session();
+        var run = session.Run;
+        Assert.True(verifier.TryVerify(link, Collect(), run, session, out var failure));
+
+        Assert.Empty(failure);
+        Assert.Equal(2, run.Compared);
+        Assert.True(run.Passed);
     }
 
     [Fact]
@@ -141,10 +203,19 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         return collector.Build();
     }
 
+    private static DifferentialVerificationSession Session()
+    {
+        var session = new DifferentialVerificationSession(
+            "Requirement", tickBudget: 1, entityBudget: int.MaxValue);
+        session.Start();
+        return session;
+    }
+
     private static void ClearRegistries()
     {
         global::UpgradeSO.All.Clear();
         global::StructureSO.All.Clear();
+        global::ResearchSO.All.Clear();
         global::PrerequisiteLinkSO.All.Clear();
         global::GameManager.currentFrame = 0;
         global::AlchemyRecipeSO.All.Clear();

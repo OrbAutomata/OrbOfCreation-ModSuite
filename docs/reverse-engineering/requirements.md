@@ -87,9 +87,30 @@ only on their intrinsic conditions. `ScribeTiers/Base` is the exceptional multi-
 Scroll and Scribism Scrolls II through V are all owners, so all five participate in the AND gate in
 addition to the tier's intrinsic Scribism condition.
 
+A tier's own conditions are checked at **level zero**, whatever the level of the entity consulting
+it — `StaticallyVerified`. `LinkDefinition.CheckPassivesEnabled()` reaches them through the
+no-argument `Container.Check()`:
+
+```text
+LinkDefinition.IsEnabled()            → isActiveEnabled && CheckPassivesEnabled()
+LinkDefinition.CheckPassivesEnabled() → isPassiveEnabled || currentFrame == GameManager.currentFrame
+                                          ? isPassiveEnabled
+                                          : (isPassiveEnabled = prerequisites.Check(),
+                                             currentFrame  = GameManager.currentFrame)
+Prerequisites.Container.Check()       → available ||
+                                        every condition IsValid(
+                                            ConditionInfo.Adjust(adjustValue, 0L))
+```
+
+A tier has no level of its own, so a per-level threshold authored on one scales by nothing. Passing
+the asking entity's level instead would scale the tier's thresholds by a number the game never
+applies there.
+
 The serialized `available` and `gameId` fields inside prerequisite containers are runtime cache
 state, not authored conditions. Static analysis reads `prerequisites`; a running-game probe owns any
-claim about the current cache value.
+claim about the current cache value. The container's `adjustValue` shifts every threshold the
+no-argument `Check()` evaluates; the parameterized overload used as a differential oracle builds its
+`ConditionInfo` from the level alone, so neither side of that comparison sees an authored adjustment.
 
 The committed progression graph preserves exact operators, grouping, link tiers, owners, and
 consumers. Query it with `cd tools && uv run orb-gamedata query`, or regenerate the exhaustive local

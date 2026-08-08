@@ -589,6 +589,38 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
             WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
     }
 
+    /// <summary>
+    /// A link tier is evaluated at level zero however high the asking entity's level is.
+    /// </summary>
+    /// <remarks>
+    /// <c>LinkDefinition.CheckPassivesEnabled()</c> reaches the tier through the no-argument
+    /// <c>Container.Check()</c>, which walks at <c>ConditionInfo.Adjust(adjustValue, 0L)</c>. A tier
+    /// has no level of its own, so forwarding the asker's would scale the tier's thresholds by a
+    /// number the game never applies there — and that is invisible until a tier authors scaling.
+    /// </remarks>
+    [Fact]
+    public void APrerequisiteLinkTierIsCheckedAtLevelZeroNotTheAskingEntitysLevel()
+    {
+        var scribing = Research();
+        scribing.level = 1;
+        var link = LinkWithTier(new Requirements.ResearchRequirement
+        {
+            item = scribing,
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+            value = new Requirements.LeveledValue
+            {
+                baseValue = 1d,
+                perLevel = new ValueModifier(ValueModifier.ValueModifierType.Raw, new BigDouble(1d)),
+            },
+        });
+        var gated = Upgrade();
+        gated.prerequisitesPerLevel.prerequisites.Add(LinkTo(link));
+
+        // The tier's threshold is one at level zero and six at level five; the research holds one.
+        Assert.Equal(WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 5));
+    }
+
     [Fact]
     public void APrerequisiteLinkCycleFailsClosed()
     {

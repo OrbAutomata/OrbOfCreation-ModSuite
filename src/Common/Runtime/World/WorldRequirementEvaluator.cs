@@ -209,6 +209,28 @@ internal static class WorldRequirementEvaluator
         return verdict;
     }
 
+    /// <summary>
+    /// Whether one numbered container on <paramref name="ownerId"/> holds at
+    /// <paramref name="level"/>.
+    /// </summary>
+    /// <remarks>
+    /// An owner holding several containers — a prerequisite link holds one per tier — is not one
+    /// requirement set, and the whole-owner overload would fold its tiers into an answer the game
+    /// never asks for. Containers are published as a parent-and-child graph rather than as the flat
+    /// groups an entity's own per-level container gets, so this is a different walk and not an
+    /// alternative spelling of the same one.
+    /// </remarks>
+    internal static WorldRequirementVerdict EvaluateContainer(
+        GameWorldState world,
+        Guid ownerId,
+        int containerIndex,
+        long level)
+    {
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        Span<RequirementContainerKey> trail = stackalloc RequirementContainerKey[MaximumExpansionDepth];
+        return EvaluateContainer(world, ownerId, containerIndex, level, trail, trailDepth: 0);
+    }
+
     /// <summary>One condition, at the level being bought.</summary>
     internal static WorldRequirementVerdict Evaluate(
         GameWorldState world,
@@ -497,16 +519,25 @@ internal static class WorldRequirementEvaluator
             WorldRequirementConditionKind.Number => Number(world, in row, threshold),
             WorldRequirementConditionKind.Generic => Generic(world, in row, whole),
             WorldRequirementConditionKind.PrerequisiteLink => PrerequisiteLink(
-                world, in row, whole, level, trail, trailDepth),
+                world, in row, whole, trail, trailDepth),
             _ => WorldRequirementVerdict.Unevaluable,
         };
     }
 
+    /// <summary>
+    /// A tier's own gate, at the level the game asks it at.
+    /// </summary>
+    /// <remarks>
+    /// The tier is evaluated at level zero, not at the level of whatever entity is consulting it.
+    /// <c>LinkDefinition.CheckPassivesEnabled()</c> reaches the tier through the no-argument
+    /// <c>Container.Check()</c>, which walks its conditions at <c>ConditionInfo.Adjust(adjustValue,
+    /// 0L)</c> — a link tier has no level of its own to scale by, and forwarding the asking entity's
+    /// would scale the tier's thresholds by a number the game never applies there.
+    /// </remarks>
     private static WorldRequirementVerdict PrerequisiteLink(
         GameWorldState world,
         in WorldEntityRequirement row,
         long threshold,
-        long level,
         Span<RequirementContainerKey> trail,
         int trailDepth)
     {
@@ -530,7 +561,7 @@ internal static class WorldRequirementEvaluator
         {
             return WorldRequirementVerdict.Unevaluable;
         }
-        return EvaluateContainer(world, row.TargetId, (int)tier, level, trail, trailDepth);
+        return EvaluateContainer(world, row.TargetId, (int)tier, level: 0L, trail, trailDepth);
     }
 
     private readonly struct RequirementContainerKey : IEquatable<RequirementContainerKey>

@@ -93,8 +93,16 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         RunPass(new SpellLevelPass(compareAffordability: true));
         RunPass(new CostPass());
         RunPass(new RatePass());
-        RunPass(new RequirementPass("Upgrade requirement", "UpgradeSO", isUpgrade: true));
-        RunPass(new RequirementPass("Structure requirement", "StructureSO", isUpgrade: false));
+        RunPass(new RequirementPass(
+            "Upgrade requirement", "UpgradeSO", RequirementOwnerShape.UpgradeQueuedLevel));
+        RunPass(new RequirementPass(
+            "Structure requirement", "StructureSO", RequirementOwnerShape.StructureQuantity));
+        RunPass(new RequirementPass(
+            "Research requirement", "ResearchSO", RequirementOwnerShape.ResearchRequirementLevel));
+        RunPass(new RequirementPass(
+            "Prerequisite link tier",
+            "PrerequisiteLinkSO",
+            RequirementOwnerShape.PrerequisiteLinkTier));
         RunPass(new UsagePrerequisitePass());
 
         whole.Stop();
@@ -394,9 +402,9 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
     /// one kind of owner.
     /// </summary>
     /// <remarks>
-    /// Two passes rather than one because the two owner kinds are checked at different levels and a
-    /// combined verdict would hide which of the two disagreed — and because the level expressions are
-    /// the likeliest thing to be wrong.
+    /// One pass per owner kind rather than one combined, because each kind is checked at a level of
+    /// its own and a combined verdict would hide which of them disagreed — and because the level
+    /// expressions are the likeliest thing to be wrong.
     /// <para>
     /// Its own collector, deliberately. The requirement rows are read once per lifecycle epoch, so a
     /// collector that has already run would skip the read this pass exists to check; a fresh one reads
@@ -406,15 +414,15 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
     private sealed class RequirementPass : IVerificationPass
     {
         private readonly string _typeName;
-        private readonly bool _isUpgrade;
+        private readonly RequirementOwnerShape _shape;
         private AutomataRequirementVerifier? _verifier;
         private GameWorldState? _world;
 
-        internal RequirementPass(string subject, string typeName, bool isUpgrade)
+        internal RequirementPass(string subject, string typeName, RequirementOwnerShape shape)
         {
             Subject = subject;
             _typeName = typeName;
-            _isUpgrade = isUpgrade;
+            _shape = shape;
         }
 
         public string Subject { get; }
@@ -430,10 +438,10 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            _verifier = new AutomataRequirementVerifier(ownerType, _isUpgrade);
+            _verifier = new AutomataRequirementVerifier(ownerType, _shape);
             if (!_verifier.IsAvailable)
             {
-                failure = "this build does not expose the expected per-level prerequisite contract.";
+                failure = "this build does not expose the expected prerequisite contract.";
                 return false;
             }
 
@@ -465,7 +473,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            return _verifier.TryVerify(entity, _world, run, out failure);
+            return _verifier.TryVerify(entity, _world, run, session, out failure);
         }
     }
 
