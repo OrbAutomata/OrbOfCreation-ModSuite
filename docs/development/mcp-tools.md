@@ -109,7 +109,7 @@ does not refresh it by hidden navigation.
 
 ## Tool surface
 
-The registry is exactly 41 tools. It is built once per lifecycle and never changes mid-session, so
+The registry is exactly 42 tools. It is built once per lifecycle and never changes mid-session, so
 there is no `tools/list_changed` notification. The rows below are in `tools/list` order.
 
 | Tool | Purpose |
@@ -141,9 +141,10 @@ there is no `tools/list_changed` notification. The rows below are in `tools/list
 | `game_ritual` | Select a Ritual, set its starting level, activate or end its battle, or cancel its duration reward |
 | `game_level` | Buy an explicit amount of paid or bonus levels from an ordinary level-list control |
 | `game_loadout` | Switch or edit the active player loadout, or save/load/clear an Equipment or Alchemy snapshot slot |
-| `game_challenge` | Select, activate, abandon, or fetch the Time/prestige challenge offers |
+| `game_challenge` | Select, activate, abandon, or reroll the Time/prestige challenge offers |
 | `game_prestige` | Confirm and perform the irreversible persistent reset |
 | `game_research` | Develop/queue levels (`amount` defaults to 1), pause, resume, cancel, or apply a free research bonus level |
+| `suite_automation` | Read the seven automation on/off buttons, or flip exactly one |
 | `suite_config_set` | Commit one allowlisted setting through the configuration store |
 | `suite_emergency_stop` | Engage or resume the suite's shared emergency stop |
 | `game_screenshot` | Return the framebuffer as inline MCP image content |
@@ -1336,6 +1337,19 @@ runtime configuration record or exposes compiler metadata and internal nested po
 as the in-game controls. BepInEx
 parse/domain validation runs before publication. Compatibility acknowledgements, shortcuts, and
 STOP are not generic writable settings.
+
+`suite_automation` is the seven green/gray automation buttons as booleans, because that is what
+they are: `auto_buy`, `auto_cast`, `auto_concept`, `auto_harvest`, `auto_items`, `auto_scribe`, and
+`mentor` are each a `{Disabled, Active}` setting with no third state. `mode="list"` returns every
+feature as `{feature, name, on}` and takes nothing else; it also carries `emergencyStop` or
+`automationEnabled: false` exactly when one of the two suite-wide switches is silencing all seven,
+because a list of on buttons would otherwise answer a different question than the caller asked.
+`mode="set"` takes exactly one `feature` and one `on`, writes through the same
+`AutomataConfigurationStore` path `suite_config_set` uses, and returns the named feature with its
+`on` before/after. Setting a feature to the state it already holds is refused as
+`already_in_requested_state` rather than committing nothing. Everything else these features can be
+configured with — thresholds, roles, allowlists, reserves — stays on `suite_config_set`, which
+writes the same entries the same way, and `suite_emergency_stop` still overrides all seven at once.
 
 ## Screenshots and navigation
 

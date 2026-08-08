@@ -1591,6 +1591,10 @@ public sealed class Plugin : BaseUnityPlugin
             case "suite_configuration":
                 execution = GameMcpToolExecution.Read(ProjectGameMcpConfiguration(context));
                 return true;
+            case "suite_automation" when request.Mode == "list":
+                execution = GameMcpToolExecution.Read(
+                    ProjectGameMcpAutomationFeatures(context));
+                return true;
             case "trace_health":
                 execution = GameMcpToolExecution.Text(ProjectGameMcpTraceHealthText(context));
                 return true;
@@ -1649,7 +1653,7 @@ public sealed class Plugin : BaseUnityPlugin
         }
 
         if (command.Kind is GameMcpCommandKind.ConfigurationSet or
-            GameMcpCommandKind.EmergencyStop)
+            GameMcpCommandKind.AutomationSet or GameMcpCommandKind.EmergencyStop)
         {
             execution = ProjectGameMcpCommand(
                 command,
@@ -1939,6 +1943,28 @@ public sealed class Plugin : BaseUnityPlugin
         return result.Freeze();
     }
 
+    internal static GameMcpValue ProjectGameMcpAutomationFeatures(GameMcpFrameContext context)
+    {
+        var config = context.Configuration.Snapshot;
+        var features = new GameMcpArrayBuilder();
+        foreach (var feature in GameMcpAutomationFeatures.All)
+            features.Add(new GameMcpObjectBuilder
+            {
+                ["feature"] = feature.Name,
+                ["name"] = feature.DisplayName,
+                ["on"] = feature.IsOn(config),
+            });
+        var result = new GameMcpObjectBuilder
+        {
+            ["features"] = features,
+        };
+        // Both of these silence every feature that reads as on, so a list that omitted them would
+        // be answering a different question than the caller asked.
+        if (config.Safety.EmergencyDisable) result["emergencyStop"] = true;
+        if (!config.General.Enabled) result["automationEnabled"] = false;
+        return result.Freeze();
+    }
+
     private static string CanonicalConfigurationValue(string value, string settingType) =>
         string.Equals(settingType, "Boolean", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(settingType, "bool", StringComparison.OrdinalIgnoreCase)
@@ -2192,6 +2218,12 @@ public sealed class Plugin : BaseUnityPlugin
             payloadKey = request.Key;
             payloadValue = request.SerializedValue;
         }
+        else if (kind == GameMcpCommandKind.AutomationSet)
+        {
+            mode = request.Mode;
+            payloadKey = request.Key;
+            payloadValue = request.SerializedValue;
+        }
         else if (kind == GameMcpCommandKind.EmergencyStop)
             mode = request.Mode;
         else if (kind == GameMcpCommandKind.Screenshot)
@@ -2374,6 +2406,50 @@ public sealed class Plugin : BaseUnityPlugin
                             _configurationStore.Current,
                             command.Mode,
                             command.PayloadKey),
+                    },
+                }.Freeze());
+        }
+
+        if (command.Kind == GameMcpCommandKind.AutomationSet)
+        {
+            if (!GameMcpAutomationFeatures.TryGet(command.PayloadKey, out var feature))
+                return GameMcpCommandResult.Rejected(
+                    "automation_feature_unknown",
+                    "no automation feature is registered as " + command.PayloadKey);
+            var requested = command.PayloadValue == "Active";
+            var wasOn = feature.IsOn(_configurationStore.Current);
+            if (wasOn == requested)
+                return GameMcpCommandResult.Rejected(
+                    "already_in_requested_state",
+                    feature.DisplayName + " is already " + (requested ? "on" : "off"),
+                    observedLifecycleGeneration: _lifecycleGeneration,
+                    observedConfigurationGeneration: before.Value);
+            if (!_configurationStore.TrySetGameMcp(
+                    feature.Section,
+                    feature.Key,
+                    command.PayloadValue,
+                    before,
+                    out var automationReason))
+            {
+                return GameMcpCommandResult.Rejected(
+                    "configuration_write_rejected",
+                    automationReason,
+                    observedConfigurationGeneration:
+                        _configurationStore.CurrentGeneration.Value);
+            }
+            return GameMcpCommandResult.Committed(
+                "automation_committed",
+                observedLifecycleGeneration: _lifecycleGeneration,
+                observedConfigurationGeneration:
+                    _configurationStore.CurrentGeneration.Value,
+                details: new GameMcpObjectBuilder
+                {
+                    ["feature"] = feature.Name,
+                    ["name"] = feature.DisplayName,
+                    ["on"] = new GameMcpObjectBuilder
+                    {
+                        ["before"] = wasOn,
+                        ["after"] = feature.IsOn(_configurationStore.Current),
                     },
                 }.Freeze());
         }

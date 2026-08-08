@@ -21,6 +21,7 @@ internal static class GameMcpConfigurationSchema
         object value = (section, key) switch
         {
             ("General", "Enabled") => configuration.General.Enabled,
+            ("General", "Mode") => configuration.Mentor.Mode,
             ("AutoBuy", "Mode") => configuration.AutoBuy.Mode,
             ("AutoBuy", "AffordabilityMode") => configuration.AutoBuy.StructureAffordability,
             ("AutoBuy", "UpgradeAffordabilityMode") => configuration.AutoBuy.UpgradeAffordability,

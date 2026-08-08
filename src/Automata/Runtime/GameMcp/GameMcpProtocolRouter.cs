@@ -435,6 +435,15 @@ internal sealed class GameMcpProtocolRouter
                 builder.Key = RequireString(arguments, "key");
                 builder.SerializedValue = RequireRawString(arguments, "serializedValue");
                 break;
+            case "suite_automation":
+                builder.Mode = RequireOneOf(arguments, "mode", "list", "set");
+                if (builder.Mode == "set")
+                {
+                    builder.Key = RequireOneOf(
+                        arguments, "feature", GameMcpAutomationFeatures.Names());
+                    builder.SerializedValue = RequireBool(arguments, "on") ? "Active" : "Disabled";
+                }
+                break;
             case "suite_emergency_stop":
                 builder.Mode = RequireOneOf(arguments, "mode", "engage", "resume");
                 break;
@@ -515,6 +524,8 @@ internal sealed class GameMcpProtocolRouter
         // not the caller also asks for it on disk. One classification keeps one status word.
         "game_screenshot" or "suite_config_set" or "suite_emergency_stop" =>
             GameMcpOperationClass.SuiteAdministration,
+        "suite_automation" when request.Mode == "set" =>
+            GameMcpOperationClass.SuiteAdministration,
         _ => GameMcpOperationClass.ReadOnly,
     };
 
@@ -531,7 +542,7 @@ internal sealed class GameMcpProtocolRouter
         "suite_configuration" or "suite_config_set" =>
             GameMcpFrameData.Configuration | GameMcpFrameData.WritableConfiguration,
         "trace_health" => GameMcpFrameData.TraceWriterHealth,
-        "suite_emergency_stop" => GameMcpFrameData.Configuration,
+        "suite_emergency_stop" or "suite_automation" => GameMcpFrameData.Configuration,
         "game_spell_loadout" when request?.Mode == "staged" => GameMcpFrameData.None,
         "game_purchase" or "game_cast" or "game_concept" or "game_agromancy" or
             "game_structure" or "game_return_to_menu" or
@@ -997,6 +1008,31 @@ internal sealed class GameMcpProtocolRouter
                 readOnly: false,
                 idempotent: false),
             Tool(
+                "suite_automation",
+                "Read or flip the automation on/off buttons",
+                "The suite's seven green/gray automation buttons as booleans. list returns every "
+                    + "feature and whether it is on; set flips exactly one and returns its on "
+                    + "before/after. auto_buy buys affordable structures and upgrades. auto_cast "
+                    + "fires equipped spells. auto_concept trains the lowest-mastery Scholar "
+                    + "concepts. auto_harvest collects ready fruit and treasure trees. auto_items "
+                    + "uses eligible Scrolls, Relics, and approved temporary items. auto_scribe "
+                    + "writes Scrolls at the Scribe. mentor shares mastery experience with lagging "
+                    + "spells, artifacts, and recipes. Everything else a feature can be configured "
+                    + "with — thresholds, roles, allowlists — is suite_config_set, and "
+                    + "suite_emergency_stop still overrides all seven at once.",
+                ModeSchema(ObjectSchema(
+                    new JObject
+                    {
+                        ["mode"] = EnumSchema("list", "set"),
+                        ["feature"] = EnumSchema(GameMcpAutomationFeatures.Names()),
+                        ["on"] = BooleanSchema("Required for set: true turns the feature on."),
+                    },
+                    "mode"),
+                    ModeRule("list", forbidden: new[] { "feature", "on" }),
+                    ModeRule("set", new[] { "feature", "on" })),
+                readOnly: false,
+                idempotent: false),
+            Tool(
                 "suite_emergency_stop",
                 "Engage or resume suite emergency stop",
                 "Commit STOP or RESUME through the same safety configuration authority used in game.",
@@ -1212,6 +1248,28 @@ internal sealed class GameMcpProtocolRouter
             else if (mode is "reroll_time_challenges" or "reroll_prestige_challenges" && hasUuid)
                 errors.Add(ValidationError("unexpected_for_mode", "uuid",
                     "field 'uuid' is not accepted for mode '" + mode + "'"));
+        }
+
+        if (string.Equals(name, "suite_automation", StringComparison.Ordinal) &&
+            arguments["mode"]?.Type == JTokenType.String)
+        {
+            var mode = (string?)arguments["mode"];
+            var hasFeature = arguments.ContainsKey("feature");
+            var hasOn = arguments.ContainsKey("on");
+            if (mode == "set")
+            {
+                if (!hasFeature) errors.Add(ValidationError("missing_required", "feature",
+                    "required field 'feature' is missing for mode 'set'"));
+                if (!hasOn) errors.Add(ValidationError("missing_required", "on",
+                    "required field 'on' is missing for mode 'set'"));
+            }
+            else
+            {
+                if (hasFeature) errors.Add(ValidationError("unexpected_for_mode", "feature",
+                    "field 'feature' is accepted only for mode 'set'"));
+                if (hasOn) errors.Add(ValidationError("unexpected_for_mode", "on",
+                    "field 'on' is accepted only for mode 'set'"));
+            }
         }
 
         if (string.Equals(name, "game_alchemy", StringComparison.Ordinal) &&
@@ -1702,6 +1760,15 @@ internal sealed class GameMcpProtocolRouter
     private static bool OptionalBool(JObject source, string name, bool fallback)
     {
         if (!source.TryGetValue(name, out var token)) return fallback;
+        if (token.Type != JTokenType.Boolean)
+            throw new GameMcpInvalidParamsException(name + " must be a boolean");
+        return token.Value<bool>();
+    }
+
+    private static bool RequireBool(JObject source, string name)
+    {
+        if (!source.TryGetValue(name, out var token))
+            throw new GameMcpInvalidParamsException(name + " is required");
         if (token.Type != JTokenType.Boolean)
             throw new GameMcpInvalidParamsException(name + " must be a boolean");
         return token.Value<bool>();

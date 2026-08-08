@@ -44,6 +44,7 @@ internal enum GameMcpCommandKind
     StructureLifecycle = 33,
     ReturnToMenu = 34,
     Modal = 35,
+    AutomationSet = 36,
 }
 
 internal static class GameMcpCommandKinds
@@ -92,6 +93,7 @@ internal static class GameMcpCommandKinds
         "game_return_to_menu" => GameMcpCommandKind.ReturnToMenu,
         "game_modal" => GameMcpCommandKind.Modal,
         "suite_config_set" => GameMcpCommandKind.ConfigurationSet,
+        "suite_automation" => GameMcpCommandKind.AutomationSet,
         "suite_emergency_stop" => GameMcpCommandKind.EmergencyStop,
         "game_screenshot" => GameMcpCommandKind.Screenshot,
         "game_navigate" => GameMcpCommandKind.Navigation,
@@ -183,7 +185,8 @@ internal sealed class GameMcpCommand
         var nativeAction = GameMcpCommandKinds.IsGameplayAction(kind);
         if (nativeAction && expectedLifecycleGeneration <= 0)
             throw new ArgumentOutOfRangeException(nameof(expectedLifecycleGeneration));
-        if ((nativeAction || kind is GameMcpCommandKind.ConfigurationSet or GameMcpCommandKind.EmergencyStop) &&
+        if ((nativeAction || kind is GameMcpCommandKind.ConfigurationSet or
+                GameMcpCommandKind.AutomationSet or GameMcpCommandKind.EmergencyStop) &&
             expectedConfigurationGeneration == 0)
             throw new ArgumentOutOfRangeException(nameof(expectedConfigurationGeneration));
         if (string.IsNullOrWhiteSpace(mode)) throw new ArgumentException("A mode is required.", nameof(mode));

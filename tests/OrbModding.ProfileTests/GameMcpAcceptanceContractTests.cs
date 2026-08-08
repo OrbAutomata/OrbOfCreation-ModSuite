@@ -589,9 +589,14 @@ public sealed class GameMcpProtocolSurfaceTests
             "runtime reason: the ServiceCycle runtime has not been created in this session yet",
             withoutRuntime,
             StringComparison.Ordinal);
+        // A collected world always carries the moment it was read; health answers published exactly
+        // when the world readers do, so the fixture has to be a world they would serve.
         var withWorld = Plugin.ProjectGameMcpHealthText(
-            GameMcpTestHarness.Context(new GameWorldState(), generation: 1207));
-        Assert.Contains("world: generation 1207, lifecycle 9", withWorld, StringComparison.Ordinal);
+            GameMcpTestHarness.Context(
+                new GameWorldState { CollectedAtUtcTicks = DateTime.UtcNow.Ticks },
+                generation: 1207));
+        Assert.Contains("lifecycle: Playing, generation 9", withWorld, StringComparison.Ordinal);
+        Assert.Contains("world: generation 1207", withWorld, StringComparison.Ordinal);
 
         var tool = Assert.Single(
             GameMcpAcceptanceFixture.Tools(),

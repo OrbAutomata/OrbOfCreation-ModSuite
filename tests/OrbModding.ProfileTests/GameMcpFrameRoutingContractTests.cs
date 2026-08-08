@@ -12,7 +12,7 @@ public sealed class GameMcpFrameRoutingContractTests
     public void EveryAdvertisedToolBuildsOneImmutableOperationForTheSoleInbox()
     {
         var tools = GameMcpAcceptanceFixture.Tools();
-        Assert.Equal(41, tools.Count);
+        Assert.Equal(42, tools.Count);
         var inbox = new GameMcpFrameInbox();
         var operations = tools
             .Select(tool => GameMcpProtocolRouter.BuildOperation(
@@ -269,6 +269,12 @@ public sealed class GameMcpFrameRoutingContractTests
             ["section"] = "AutoCast",
             ["key"] = "Mode",
             ["serializedValue"] = "Disabled",
+        },
+        "suite_automation" => new JObject
+        {
+            ["mode"] = "set",
+            ["feature"] = "auto_cast",
+            ["on"] = false,
         },
         "suite_emergency_stop" => new JObject
         {

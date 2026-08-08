@@ -283,7 +283,16 @@ internal sealed class BepInExAutomataConfiguration
         return result;
     }
 
-    private ConfigEntryBase[] GameMcpWritableEntries() =>
+    private ConfigEntryBase[] GameMcpWritableEntries()
+    {
+        var entries = new System.Collections.Generic.List<ConfigEntryBase>(SuiteWritableEntries());
+        // Orb Mentor is one of the same seven on/off buttons and belongs on the same writable
+        // surface; it lives on the attached mentor binding rather than on this one.
+        if (_mentor is not null) entries.Add(_mentor.Mode);
+        return entries.ToArray();
+    }
+
+    private ConfigEntryBase[] SuiteWritableEntries() =>
         new ConfigEntryBase[]
         {
             Enabled,

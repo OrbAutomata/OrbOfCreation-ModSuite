@@ -43,14 +43,14 @@ public sealed class GameMcpEntityCapabilityMapTests
             .Select(tool => (string)tool["name"]!)
             .Where(name =>
                 name.StartsWith("game_", StringComparison.Ordinal) ||
-                name is "suite_config_set" or "suite_emergency_stop")
+                name is "suite_config_set" or "suite_automation" or "suite_emergency_stop")
             .ToArray();
         var mappings = commandTools
             .Select(name => (Name: name, Kind: GameMcpCommandKinds.FromToolName(name)))
             .ToArray();
 
-        Assert.Equal(31, mappings.Length);
-        Assert.Equal(31, mappings.Select(mapping => mapping.Kind).Distinct().Count());
+        Assert.Equal(32, mappings.Length);
+        Assert.Equal(32, mappings.Select(mapping => mapping.Kind).Distinct().Count());
         Assert.Equal(
             new[]
             {
