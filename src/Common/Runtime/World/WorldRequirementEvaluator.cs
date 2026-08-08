@@ -117,12 +117,14 @@ internal static class WorldRequirementEvaluator
     /// <c>HasMetLevelRequirements()</c>.
     /// </summary>
     /// <remarks>
-    /// The game passes <c>quantity</c> here, not one more than it — a structure's own check is
-    /// off-by-one against an upgrade's, and reproducing it as <c>quantity + 1</c> would read as the
-    /// obvious symmetry and be wrong.
+    /// The game passes the owned count here, not one more than it — a structure's own check is
+    /// off-by-one against an upgrade's, and reproducing it as one more would read as the obvious
+    /// symmetry and be wrong. <c>HasMetLevelRequirements()</c> passes <c>quantity</c> and
+    /// <c>GetPurchaseLevel()</c> is a two-hop return of that same field, so the published level is
+    /// that number and the world captures it once.
     /// </remarks>
     internal static long StructureCheckLevel(in WorldStructure structure) =>
-        structure.Reading.Quantity;
+        structure.Reading.Level.ToLong();
 
     /// <summary>
     /// Whether every condition on <paramref name="ownerId"/>'s next purchase holds at
@@ -276,7 +278,7 @@ internal static class WorldRequirementEvaluator
             case WorldRequirementConditionKind.Structure
                 when WorldLookup.TryFind(world.Structures, row.TargetId, out var structure):
                 selected = "purchased_quantity";
-                current = new BigDouble(structure.Reading.Quantity);
+                current = structure.Reading.Level;
                 supported = row.ReqType == StructureQuantity;
                 break;
             case WorldRequirementConditionKind.Spell
@@ -651,7 +653,7 @@ internal static class WorldRequirementEvaluator
 
         return row.ReqType switch
         {
-            StructureQuantity => Verdict(structure.Reading.Quantity >= threshold),
+            StructureQuantity => Verdict(structure.Reading.Level.ToLong() >= threshold),
 
             // Available: item.IsAvailable(), which walks the whole-entity gate and writes.
             _ => WorldRequirementVerdict.Unevaluable,

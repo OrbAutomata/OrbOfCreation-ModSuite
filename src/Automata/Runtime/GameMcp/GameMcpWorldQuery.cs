@@ -1044,8 +1044,8 @@ internal static class GameMcpWorldQuery
                 WorldLookup.TryFind(before.Structures, command.TargetId, out oldStructure);
             return PurchaseChange(
                 command.TargetId,
-                hadStructure ? oldStructure.Reading.Quantity : null,
-                afterStructure.Reading.Quantity,
+                hadStructure ? oldStructure.Reading.Level.ToInt() : null,
+                afterStructure.Reading.Level.ToInt(),
                 hadStructure ? oldStructure.Reading.QueuedLevels.ToInt() : null,
                 afterStructure.Reading.QueuedLevels.ToInt());
         }

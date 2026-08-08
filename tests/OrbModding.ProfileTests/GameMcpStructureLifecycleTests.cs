@@ -104,7 +104,7 @@ public sealed class GameMcpStructureLifecycleTests
             BigDouble.Zero);
         var reading = new RawStructureSample(
             StructureId, Guid.Empty, new BigDouble(2), BigDouble.Zero, available,
-            0, 0, 0, BigDouble.Zero, BigDouble.Zero, false, 0, 0f, 2,
+            0, 0, 0, BigDouble.Zero, BigDouble.Zero, false, 0, 0f,
             false, disabled, 0, false, 0, Guid.Empty, in modifiers);
         var structure = new WorldStructure(
             in reading, new BigDouble(2), false, new BigDouble(2), 0d);

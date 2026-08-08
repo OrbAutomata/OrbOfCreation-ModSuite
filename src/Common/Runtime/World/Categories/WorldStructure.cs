@@ -22,7 +22,6 @@ internal readonly struct RawStructureSample : IWorldEntity
         bool flagged,
         int baseLevel,
         float queueTimeTotal,
-        int quantity,
         bool debugStructure,
         bool disabled,
         int observableId,
@@ -44,7 +43,6 @@ internal readonly struct RawStructureSample : IWorldEntity
         Flagged = flagged;
         BaseLevel = baseLevel;
         QueueTimeTotal = queueTimeTotal;
-        Quantity = quantity;
         DebugStructure = debugStructure;
         Disabled = disabled;
         ObservableId = observableId;
@@ -68,8 +66,8 @@ internal readonly struct RawStructureSample : IWorldEntity
     /// <summary>
     /// Levels already owned, from <c>StructureSO.GetPurchaseLevel()</c> — the accessor that
     /// forwards to <c>GetBaseLevel()</c>, which is the number the attribute's badge draws and the
-    /// count the purchase-cost chain scales by. Every published level reads this, never the
-    /// <see cref="Quantity"/> field behind it.
+    /// count the purchase-cost chain scales by. The accessor is the contract; the <c>quantity</c>
+    /// field it returns is not grabbed a second time.
     /// </summary>
     internal BigDouble Level { get; }
 
@@ -108,12 +106,6 @@ internal readonly struct RawStructureSample : IWorldEntity
     /// level actually takes, which is why progress is measured against the latter.
     /// </summary>
     internal float QueueTimeTotal { get; }
-
-    /// <summary>
-    /// The persisted <c>quantity</c> field. <see cref="Level"/> is what the accessor over it
-    /// returns, and only the accessor is a contract; nothing published reads this directly.
-    /// </summary>
-    internal int Quantity { get; }
 
     /// <summary>The game's own debug flag for this entry.</summary>
     internal bool DebugStructure { get; }
@@ -273,7 +265,6 @@ internal sealed class WorldStructureBinder : WorldRowBinder<RawStructureSample, 
     private Func<object, bool>? _unlocked;
     private Func<object, int>? _baseLevel;
     private Func<object, float>? _queueTimeTotal;
-    private Func<object, int>? _quantity;
     private Func<object, bool>? _debugStructure;
     private Func<object, bool>? _disabled;
     private Func<object, int>? _observableId;
@@ -317,7 +308,6 @@ internal sealed class WorldStructureBinder : WorldRowBinder<RawStructureSample, 
         _unlocked = bind.Call<bool>("IsAvailable");
         _baseLevel = bind.Field<int>("baseLevel");
         _queueTimeTotal = bind.Field<float>("queueTimeTotal");
-        _quantity = bind.Field<int>("quantity");
         _debugStructure = bind.Field<bool>("debugStructure");
         _disabled = bind.Field<bool>("disabled");
         _observableId = bind.Field<int>("observableId");
@@ -368,7 +358,6 @@ internal sealed class WorldStructureBinder : WorldRowBinder<RawStructureSample, 
             _flagged!(entity),
             _baseLevel!(entity),
             _queueTimeTotal!(entity),
-            _quantity!(entity),
             _debugStructure!(entity),
             _disabled!(entity),
             _observableId!(entity),

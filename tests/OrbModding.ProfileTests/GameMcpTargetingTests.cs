@@ -198,7 +198,7 @@ public sealed class GameMcpTargetingTests
             BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero);
         var raw = new RawStructureSample(
             id, Guid.Empty, new BigDouble(committed), BigDouble.Zero, true,
-            0, 0, 0, BigDouble.Zero, BigDouble.Zero, false, 0, 0f, committed,
+            0, 0, 0, BigDouble.Zero, BigDouble.Zero, false, 0, 0f,
             false, false, 0, false, 0, Guid.Empty, in modifiers);
         return new WorldStructure(in raw, new BigDouble(committed), false,
             new BigDouble(effective), 0d);

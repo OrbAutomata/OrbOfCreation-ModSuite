@@ -1079,45 +1079,6 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.Equal((int?)exhausted["maxLevel"], (int?)rows[1]!["maxLevel"]);
     }
 
-    /// <summary>
-    /// Every published structure level reads the accessor the level table names, never the raw
-    /// field behind it.
-    /// </summary>
-    /// <remarks>
-    /// <c>StructureSO.GetPurchaseLevel()</c> forwards to <c>GetBaseLevel()</c>, which returns
-    /// <c>quantity</c>, so the two agree in the audited build and no fixture built from the game
-    /// stub can tell which one a surface reads. The world captures them as two separate facts, so
-    /// this one gives them different values: only a wire bound to the accessor answers 700.
-    /// </remarks>
-    [Fact]
-    public void EveryStructureSurfaceReadsThePurchaseLevelAccessorAndNotTheRawField()
-    {
-        var id = Guid.Parse("f2000000-0000-0000-0000-000000000013");
-        var world = new GameWorldState
-        {
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(id, level: 700, quantity: 41),
-            }),
-            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
-            {
-                new WorldCollectionCategoryStatus(
-                    "structures", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
-            }),
-            CollectedAtEpoch = 42,
-            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-        };
-        var context = GameMcpTestHarness.Context(world, 2103);
-
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
-            context, "structures", id.ToString("D")))["row"]!;
-        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
-            context, "structures", 0, 10))["rows"]!.Values<JObject>().Single()!;
-
-        Assert.Equal(700, (int)row["level"]!);
-        Assert.Equal(700, (int)listed["level"]!);
-    }
-
     [Fact]
     public void ActionFailureProjectionCarriesOnlyStableCodeAndActionableReason()
     {
@@ -1176,7 +1137,7 @@ public sealed class GameMcpCorrectnessCoreTests
             developmentTime: 0d,
             cachedCostLevel: level));
 
-    private static WorldStructure Structure(Guid id, int level, int queued = 0, int? quantity = null)
+    private static WorldStructure Structure(Guid id, int level, int queued = 0)
     {
         var modifiers = new RawStructureModifiers(
             BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
@@ -1197,7 +1158,6 @@ public sealed class GameMcpCorrectnessCoreTests
             flagged: false,
             baseLevel: 0,
             queueTimeTotal: 0,
-            quantity: quantity ?? level,
             debugStructure: false,
             disabled: false,
             observableId: 0,

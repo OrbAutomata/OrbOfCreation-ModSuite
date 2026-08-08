@@ -142,7 +142,6 @@ public sealed class GameMcpAffordabilityTests
             flagged: false,
             baseLevel: 0,
             queueTimeTotal: 0,
-            quantity: 1,
             debugStructure: false,
             disabled: false,
             observableId: 0,
