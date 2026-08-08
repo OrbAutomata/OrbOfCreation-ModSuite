@@ -239,6 +239,12 @@ resource traits, rate inputs, and modifier structs stay out of world rows. `expl
 deeper evaluated evidence. Purchase-cost rows are composite and therefore remain a `world_list`
 surface.
 
+One fact has one name and one shape across every read that carries it. A scan row is a narrower
+row, never a differently spelled one: `crafting-recipes` says `startingAmount` in the list exactly
+as it does in the detail row, and `discovery-trees` says the named `mode` — `idle`, `crafting`, or
+`choice` — rather than the native integer behind it. Whether a decision can be taken is `available`
+everywhere it is known.
+
 A `structures` row publishes `level` as the number the attribute's own badge shows, the game's
 persisted `GetBaseLevel()`, and names work still in flight separately as `queuedLevels`, which is
 always present because zero levels in flight is an answer; neither
@@ -510,9 +516,12 @@ on `game_research` and `game_spell_level`, respectively.
 Every `agromancy-elements` detail row joins the exact active-element count, the next visible
 add/remove decision, its stored output and rate, and the element's offered harvest actions. An available element add includes
 its named standing usage costs and current spendable amounts. Each offered action reports its
-active/maximum count, add/remove availability, and the named resource drain for the **next**
-instance. An unavailable control carries only the reason that binds the next decision; no priced
-ledger is computed for an action the screen cannot run.
+active/maximum count, its `add.available` and `remove.available` booleans, and the named resource
+drain for the **next** instance. An unavailable control carries only the reason that binds the next
+decision; no priced ledger is computed for an action the screen cannot run. One plot-action
+prerequisite is not readable at all — the game latches it only when the action is attempted — so
+that `add` is an unavailable read rather than a false one: it carries `status: "unavailable"`,
+`reasonCode: "prerequisite_unverified"`, and `checkWith`, and never claims `available: false`.
 
 Call `game_agromancy(mode="add_element"|"remove_element", uuid=..., amount=...)` for one exact
 `HarvestElementSO`. The `add_element_action` and `remove_element_action` modes additionally require

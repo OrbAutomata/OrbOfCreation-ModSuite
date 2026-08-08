@@ -256,6 +256,14 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.True(GameMcpEntityCapabilityMap.Supports(
             "discovery-trees",
             GameMcpCommandKind.DiscoveryTreeOffer));
+
+        // The scan row used to fall through to the reflected projector and publish the raw native
+        // actionMode integer, so the same fact had two names and two shapes across two reads.
+        var listed = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            context, "discovery-trees", 0, 10).Freeze())["rows"]!.Values<JObject>())!;
+        Assert.Equal("idle", (string?)listed["mode"]);
+        Assert.Null(listed["actionMode"]);
+        Assert.Equal(treeId.ToString("D"), (string?)listed["uuid"]);
     }
 
     [Fact]

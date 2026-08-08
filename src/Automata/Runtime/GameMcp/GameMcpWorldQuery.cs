@@ -366,6 +366,23 @@ internal static class GameMcpWorldQuery
                 ["slots"] = snapshotLoadout.Slots,
             }.Freeze();
         }
+        // Scan rows that fall through to the reflected projector below inherit raw native property
+        // paths and raw native values, which is how one fact ended up with two names and two
+        // shapes: a list said reading.startingQuantity and actionMode where the detail row said
+        // startingAmount and a named mode. These two say what the detail row says.
+        if (row is WorldCraftingRecipe listedRecipe)
+            return new JObject
+            {
+                ["entityId"] = listedRecipe.EntityId.ToString("D"),
+                ["startingAmount"] =
+                    new GameMcpDomainValue(listedRecipe.Reading.StartingQuantity),
+            }.Freeze();
+        if (row is WorldDiscoveryTree listedTree)
+            return new JObject
+            {
+                ["entityId"] = listedTree.EntityId.ToString("D"),
+                ["mode"] = DiscoveryMode(listedTree.ActionMode),
+            }.Freeze();
         if (row is WorldResource resource)
             return ProjectResource(world, in resource);
         if (row is WorldAlchemyInstance alchemyInstance)
@@ -462,13 +479,11 @@ internal static class GameMcpWorldQuery
         "equipment" => new[] { "entityId", "equippedLevel" },
         "glyphs" => new[] { "entityId", "level" },
         "consumables" => new[] { "entityId", "quantity" },
-        "crafting-recipes" => new[] { "entityId", "reading.startingQuantity" },
         "crafting-queue-entries" => new[]
         {
             "queueId", "slot", "recipeId", "amount", "automatic", "repetitions",
         },
         "plot-nodes" => new[] { "entityId", "reading.masteryLevel" },
-        "discovery-trees" => new[] { "entityId", "actionMode" },
         "challenges" => new[] { "entityId", "level", "state" },
         _ => FirstDecisionFields(category),
     };
@@ -3110,7 +3125,15 @@ internal static class GameMcpWorldQuery
         else if (action.Reading.PrerequisiteEvidence !=
                  PlotActionPrerequisiteEvidence.NativeLatchedTrue)
         {
-            result["availability"] = "unknown";
+            // Not "unavailable": the game latches this prerequisite only when the action is
+            // attempted, so the read itself is what is missing. Said with the suite's one word for
+            // a fact it cannot supply, next to the one word every other decision uses for the fact
+            // it can.
+            result["status"] = "not_available";
+            result["code"] = "prerequisite_unverified";
+            result["reason"] =
+                "the game latches this action's prerequisite only when the action is attempted, " +
+                "so whether it can be added is not readable from the published world";
             result["checkWith"] = "game_agromancy add_plot_action";
             return result.Freeze();
         }
@@ -3132,7 +3155,7 @@ internal static class GameMcpWorldQuery
             available = false;
             reason = "plot_action_list_full";
         }
-        result["availability"] = available ? "available" : "unavailable";
+        result["available"] = available;
         if (!available)
         {
             result["reasonCode"] = reason;

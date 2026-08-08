@@ -489,7 +489,7 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.False(string.IsNullOrWhiteSpace((string?)active["plot"]!["name"]));
         Assert.Equal(actionId.ToString("D"), (string?)active["action"]!["uuid"]);
         Assert.False(string.IsNullOrWhiteSpace((string?)active["action"]!["name"]));
-        Assert.Equal("available", (string?)active["next"]!["availability"]);
+        Assert.True((bool)active["next"]!["available"]!);
 
         var fastActionDetails = new GameMcpObjectBuilder
         {

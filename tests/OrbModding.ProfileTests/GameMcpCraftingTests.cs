@@ -128,6 +128,20 @@ public sealed class GameMcpCraftingTests
     }
 
     [Fact]
+    public void The_scan_row_names_the_starting_amount_the_detail_row_names()
+    {
+        // The scan row used to fall through to the reflected projector and publish the raw native
+        // path reading.startingQuantity, so the same fact had two names and two shapes.
+        var listed = Assert.Single(Json(GameMcpWorldQuery.ListRows(
+            Context(), "crafting-recipes", 0, 10).Freeze())["rows"]!.Values<JObject>())!;
+        var detail = Json(GameMcpWorldQuery.GetRow(
+            Context(), "crafting-recipes", RecipeId.ToString("D")))["row"]!;
+
+        Assert.Equal((string?)detail["startingAmount"], (string?)listed["startingAmount"]);
+        Assert.Null(listed["reading"]);
+    }
+
+    [Fact]
     public void BlockedAutomationPutsTheCodeInReasonCodeAndProseInReason()
     {
         var row = Json(GameMcpWorldQuery.GetRow(

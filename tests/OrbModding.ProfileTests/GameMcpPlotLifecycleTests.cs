@@ -51,7 +51,7 @@ public sealed class GameMcpPlotLifecycleTests
         Assert.Equal("Moon Garden", (string?)row["plot"]!["name"]);
         Assert.Equal("Plant Moondust", (string?)row["action"]!["name"]);
         Assert.Equal(2, (int)row["active"]!);
-        Assert.Equal("available", (string?)row["add"]!["availability"]);
+        Assert.True((bool)row["add"]!["available"]!);
         Assert.Equal(3, (int)row["add"]!["plotQuantityCost"]!);
         Assert.True((bool)row["remove"]!["available"]!);
 
@@ -68,9 +68,12 @@ public sealed class GameMcpPlotLifecycleTests
         var blocked = Assert.Single(Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(blockedWorld, generation: 912),
             "agromancy-plot-actions", 0, 10).Freeze(), blockedWorld)["rows"]!.Values<JObject>());
-        Assert.Equal("unknown", (string?)blocked["add"]!["availability"]);
+        // The prerequisite is not readable, which is a missing read rather than a refusal, so the
+        // row says so in the same words every other unreadable fact uses and never claims false.
+        Assert.Equal("unavailable", (string?)blocked["add"]!["status"]);
+        Assert.Equal("prerequisite_unverified", (string?)blocked["add"]!["reasonCode"]);
+        Assert.Null(blocked["add"]!["available"]);
         Assert.Equal("game_agromancy add_plot_action", (string?)blocked["add"]!["checkWith"]);
-        Assert.Null(blocked["add"]!["reasonCode"]);
         Assert.Null(blocked["add"]!["plotQuantityCost"]);
     }
 
