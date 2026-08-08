@@ -20376,21 +20376,6 @@
       "place": "capture"
     },
     {
-      "id": "consumable.can-fire-capture",
-      "assembly": "assembly-csharp",
-      "type": "ConsumableSO",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "CanFire",
-      "visibility": "public",
-      "static": false,
-      "returnType": "System.Boolean",
-      "parameters": [],
-      "owners": ["Automata consumable world collection"],
-      "usages": ["reflection"],
-      "place": "capture"
-    },
-    {
       "id": "consumable.cost-has-enough-capture",
       "assembly": "assembly-csharp",
       "type": "ResourceCostList",

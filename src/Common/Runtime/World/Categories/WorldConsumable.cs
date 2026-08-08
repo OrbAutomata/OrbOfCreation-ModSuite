@@ -22,8 +22,7 @@ internal readonly struct RawConsumableSample : IWorldEntity
         bool canBeRandomized,
         bool hasDuration,
         double durationBase,
-        bool queueOnStart,
-        bool canFire)
+        bool queueOnStart)
     {
         ConsumableId = consumableId;
         Visible = visible;
@@ -41,7 +40,6 @@ internal readonly struct RawConsumableSample : IWorldEntity
         HasDuration = hasDuration;
         DurationBase = durationBase;
         QueueOnStart = queueOnStart;
-        CanFire = canFire;
     }
 
     public Guid EntityId => ConsumableId;
@@ -61,7 +59,6 @@ internal readonly struct RawConsumableSample : IWorldEntity
     internal bool HasDuration { get; }
     internal double DurationBase { get; }
     internal bool QueueOnStart { get; }
-    internal bool CanFire { get; }
 }
 
 /// <summary>
@@ -224,7 +221,6 @@ internal sealed class WorldConsumableBinder : WorldRowBinder<RawConsumableSample
     private Func<object, bool>? _hasDuration;
     private Func<object, double>? _durationBase;
     private Func<object, bool>? _queueOnStart;
-    private Func<object, bool>? _canFire;
 
     internal override string Category => "consumables";
 
@@ -253,7 +249,6 @@ internal sealed class WorldConsumableBinder : WorldRowBinder<RawConsumableSample
         _hasDuration = bind.Field<bool>("hasDuration");
         _durationBase = bind.Field<double>("durationBase");
         _queueOnStart = bind.Field<bool>("queueOnStart");
-        _canFire = bind.Call<bool>("CanFire");
         return bind.Failure;
     }
 
@@ -279,8 +274,7 @@ internal sealed class WorldConsumableBinder : WorldRowBinder<RawConsumableSample
             _canBeRandomized!(entity),
             _hasDuration!(entity),
             _durationBase!(entity),
-            _queueOnStart!(entity),
-            _canFire!(entity));
+            _queueOnStart!(entity));
 }
 
 internal sealed class WorldConsumableDeriver : WorldRowDeriver<RawConsumableSample, WorldConsumable>
@@ -299,9 +293,47 @@ internal sealed class WorldConsumableDeriver : WorldRowDeriver<RawConsumableSamp
         _resources = resources;
     }
 
+    /// <summary>
+    /// Composes <c>ConsumableSO.CanFire()</c> from the terms the world already publishes rather
+    /// than asking the game for the verdict.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The original is a four-term conjunction and every term is a fact this snapshot holds:
+    /// </para>
+    /// <code>
+    /// CanFire() =&gt; !IsOnCooldown() &amp;&amp; HasEnoughUsage() &amp;&amp; HasEnoughCost() &amp;&amp; quantity &gt; 0
+    ///   IsOnCooldown()   =&gt; currentCooldown &gt; 0
+    ///   HasEnoughUsage() =&gt; usageCost.HasEnough()
+    ///   HasEnoughCost()  =&gt; consumeCost.HasEnough()
+    /// </code>
+    /// <para>
+    /// Calling it during capture cost more than the composition: <c>ResourceCostList.HasEnough()</c>
+    /// reaches <c>ResourceSO.HasAmount</c>, which for every non-bandwidth resource divides the cost
+    /// by <c>quality.AsPercent()</c> — and that is <c>ValueModifierRecord.GetValue()</c>, the
+    /// accessor that writes four fields on read and that
+    /// <see cref="NativeModifierRecordAccess"/> exists to avoid. Twice per consumable per pass.
+    /// </para>
+    /// <para>
+    /// The two affordability terms are the suite's own answer over the published cost rows, and
+    /// that math is what the differential verifier's spell-level affordability pass compares
+    /// against native <c>HasEnough()</c> for every spell recipe on a live save.
+    /// </para>
+    /// </remarks>
+    private static bool CanFire(
+        in RawConsumableSample sample,
+        bool usageAffordable,
+        bool consumeAffordable) =>
+        sample.CurrentCooldown <= BigDouble.Zero &&
+        usageAffordable &&
+        consumeAffordable &&
+        sample.Quantity > 0;
+
     internal override WorldConsumable Derive(in RawConsumableSample sample)
     {
         var modifiers = sample.Modifiers;
+        var consumeAffordable = Affordable(sample.ConsumableId, WorldConsumableCostKind.Consume);
+        var usageAffordable = Affordable(sample.ConsumableId, WorldConsumableCostKind.Usage);
         return new WorldConsumable(
             sample.ConsumableId,
             sample.Visible,
@@ -320,9 +352,9 @@ internal sealed class WorldConsumableDeriver : WorldRowDeriver<RawConsumableSamp
             sample.HasDuration,
             sample.DurationBase,
             sample.QueueOnStart,
-            sample.CanFire,
-            Affordable(sample.ConsumableId, WorldConsumableCostKind.Consume),
-            Affordable(sample.ConsumableId, WorldConsumableCostKind.Usage));
+            CanFire(in sample, usageAffordable, consumeAffordable),
+            consumeAffordable,
+            usageAffordable);
     }
 
     private bool Affordable(Guid consumableId, WorldConsumableCostKind kind)

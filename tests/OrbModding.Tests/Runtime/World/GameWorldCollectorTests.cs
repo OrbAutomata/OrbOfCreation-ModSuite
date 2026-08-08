@@ -2750,6 +2750,61 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(3, world.ConsumableCounts[countStart].FreeQuantity);
     }
 
+    /// <summary>
+    /// Whether an item can be fired is composed from the four terms the world already holds, not
+    /// asked of the game.
+    /// </summary>
+    /// <remarks>
+    /// <c>ConsumableSO.CanFire()</c> is
+    /// <c>!IsOnCooldown() &amp;&amp; HasEnoughUsage() &amp;&amp; HasEnoughCost() &amp;&amp; quantity &gt; 0</c>, and each
+    /// case here holds three of those terms and breaks the fourth, so a composition that dropped
+    /// any one of them would publish the wrong verdict for exactly one case.
+    /// </remarks>
+    [Theory]
+    [InlineData(1, 0d, 500d, 500d, true)]
+    [InlineData(0, 0d, 500d, 500d, false)]
+    [InlineData(1, 4d, 500d, 500d, false)]
+    [InlineData(1, 0d, 1d, 500d, false)]
+    [InlineData(1, 0d, 500d, 1d, false)]
+    public void WhetherAnItemCanFireIsComposedFromTheTermsTheWorldAlreadyHolds(
+        int quantity,
+        double cooldown,
+        double consumeStock,
+        double usageStock,
+        bool expected)
+    {
+        var item = Guid.NewGuid();
+        var consumeResource = Guid.NewGuid();
+        var usageResource = Guid.NewGuid();
+        FakeResource.All.Add(new FakeResource
+        {
+            Identity = consumeResource,
+            Quantity = new BigDouble(consumeStock),
+        });
+        FakeResource.All.Add(new FakeResource
+        {
+            Identity = usageResource,
+            Quantity = new BigDouble(usageStock),
+        });
+        var consumable = new FakeConsumable
+        {
+            Identity = item,
+            quantity = quantity,
+            currentCooldown = new BigDouble(cooldown),
+        };
+        consumable.consumeCost.costs.Add(new FakeConsumableCost(consumeResource, 250d));
+        consumable.usageCost.costs.Add(new FakeConsumableCost(usageResource, 250d));
+        FakeConsumable.All.Add(consumable);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLookup.TryFind(world.Consumables, item, out var published));
+        Assert.Equal(expected, published.CanFire);
+    }
+
     [Fact]
     public void AnUnreadableConsumableRelationSkipsTheWholeItem()
     {

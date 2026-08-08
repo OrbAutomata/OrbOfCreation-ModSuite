@@ -151,12 +151,44 @@ exact public `ConditionInfo(long)` constructor. An ambiguously resolved member i
 withhold the whole comparison, because a mis-shaped call returns a confident wrong verdict instead
 of an error.
 
-**`CanPurchase` and `CanFire` are not oracles.** `StructureSO.CanPurchase`, `UpgradeSO.CanPurchase`
-and `ConsumableSO.CanFire` are action-admission surfaces with much larger unpublished dependency
-surfaces, and nothing static proves them free of side effects under a read pass. Their component
-terms are readable separately — see
-[native-action-surfaces.md](native-action-surfaces.md) — so a reader reports the composite as
-absent (`native_can_purchase_not_published`, `native_can_fire_not_published`) rather than calling it.
+**`CanPurchase` is not an oracle.** `StructureSO.CanPurchase` and `UpgradeSO.CanPurchase` are
+action-admission surfaces with much larger unpublished dependency surfaces, and nothing static
+proves them free of side effects under a read pass. Their component terms are readable separately —
+see [native-action-surfaces.md](native-action-surfaces.md) — so a reader composes the verdict from
+those terms rather than calling the composite.
+
+### `ConsumableSO.CanFire()` — a conjunction, and it writes — `StaticallyVerified`
+
+`CanFire` was in the same paragraph until its body was read. It is not opaque:
+
+```text
+ConsumableSO.CanFire() =>
+  !IsOnCooldown() && HasEnoughUsage() && HasEnoughCost() && quantity > 0
+    IsOnCooldown()   => currentCooldown > 0
+    HasEnoughUsage() => usageCost.HasEnough()
+    HasEnoughCost()  => consumeCost.HasEnough()
+```
+
+Every term is a fact a snapshot can hold, so the composite is derivable rather than absent — and it
+has to be, because **calling it writes**:
+
+```text
+ResourceCostList.HasEnough() => every tuple: tuple.resource.HasAmount(tuple.valueBig)
+ResourceSO.HasAmount(cost)   => bandwidthResource ? HasUsageMissing(cost)
+                              : GameManager.DEBUG || quantity >= GetTrueSpend(cost)
+ResourceSO.GetTrueSpend(c)   => c / quality.AsPercent()
+ValueModifierRecord.AsPercent() => GetValue().AsPercent()
+```
+
+`ValueModifierRecord.GetValue()` is the accessor that recalculates and re-stamps its observable —
+the one `NativeModifierRecordAccess` exists to route around. So every `ResourceCostList.HasEnough()`
+is a write-on-read for each non-bandwidth resource in the list, and that is true of the eight other
+`HasEnough()` call sites as well, not only of `CanFire`.
+
+Two further notes for anyone porting the comparison. `HasEnough()` tests each tuple **independently**
+and never sums duplicates. And `HasAmount` short-circuits to `true` under `GameManager.DEBUG`, which
+a port deliberately does not reproduce: a shipped build never takes that branch, and reproducing it
+would make affordability unconditionally true wherever it did.
 
 ## Challenges modify requirements
 
