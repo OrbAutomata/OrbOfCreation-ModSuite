@@ -825,6 +825,30 @@ public class UpgradeSO : IdScriptableObject, IActionable
     public int GetPurchaseLevel() => level;
     public int GetQueuedPurchaseLevel() => level + queuedLevels;
     public bool HasFiniteLevels() => maxLevel > 0;
+
+    /// <summary>
+    /// The curve accessor, modelled by its two observable behaviours: which level a given offset
+    /// resolves to, and that the answer is memoised against that level.
+    /// </summary>
+    /// <remarks>
+    /// The prices themselves come from <see cref="LeveledCosts"/> rather than from a reimplementation
+    /// of <c>SetToLevel</c>. Recomputing them here would put the arithmetic under test on both sides
+    /// of the differential comparison, which is the one thing that comparison exists to avoid. What a
+    /// fixture can pin is the clamp, the level asked for, and where the cache is left afterwards.
+    /// </remarks>
+    public readonly List<int> LeveledCostLevelsAsked = new List<int>();
+    public readonly Dictionary<int, ResourceCostList> LeveledCosts = new Dictionary<int, ResourceCostList>();
+    public int CachedCostLevel => cachedCostLevel;
+
+    public ResourceCostList GetLeveledCostList(int addedLevels)
+    {
+        var priced = Math.Min(
+            level + queuedLevels + addedLevels,
+            HasFiniteLevels() ? maxLevel - 1 : int.MaxValue);
+        LeveledCostLevelsAsked.Add(priced);
+        cachedCostLevel = priced;
+        return LeveledCosts.TryGetValue(priced, out var list) ? list : resourceCost;
+    }
     public bool IsMaxLevel() => HasFiniteLevels() && level >= maxLevel;
     public bool IsMaxQueuedLevel() => HasFiniteLevels() && level + queuedLevels >= maxLevel;
     public bool HasMetQueuedLevelRequirements() =>
@@ -2191,6 +2215,9 @@ public sealed class ValueModifierRecord
     /// arithmetic under test, and agreeing with it would prove nothing.
     /// </summary>
     public BigDouble GetValue() => calculatedValue;
+
+    /// <summary>The whole-number reading, which the game defines as <c>GetValue().ToInt()</c>.</summary>
+    public int AsInt() => GetValue().ToInt();
 
     public bool HasActiveElements() => activeModifiers.Count > 0;
 }

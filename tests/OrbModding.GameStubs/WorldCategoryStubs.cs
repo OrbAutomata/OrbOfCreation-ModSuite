@@ -1753,7 +1753,39 @@ public sealed class PlotNodeSO : IdScriptableObject
     public List<PlotNodeActionSO> availableActions = new List<PlotNodeActionSO>();
     private List<PlotNodeActionInstance> actionInstances = new List<PlotNodeActionInstance>();
 
+    /// <summary>
+    /// The two answers the differential pass compares its ports against, held as fixture values.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not recomputed here. A stub that evaluated the same expression as the port would
+    /// agree with it by construction, and the pass would report a clean run for arithmetic nobody
+    /// checked. What offline can prove is the wiring — which members are bound, which inputs are fed
+    /// into the port, and that a disagreement surfaces as one.
+    /// </remarks>
+    public int RemainingQuantityAnswer;
+
+    public int RemainingTotalQuantityAnswer;
+
     public bool IsVisible() => visible;
+
+    public int GetQuantity(PlotNodePhases phase)
+    {
+        var total = 0;
+        foreach (var instance in phaseInstances)
+            if (instance.phase == phase) total += instance.timers.q;
+        return total;
+    }
+
+    public int GetTotalQuantity()
+    {
+        var total = 0;
+        foreach (var instance in phaseInstances) total += instance.timers.q;
+        return total;
+    }
+
+    public int GetRemainingQuantity() => RemainingQuantityAnswer;
+
+    public int GetRemainingTotalQuantity() => RemainingTotalQuantityAnswer;
 
     public List<PlotNodeActionInstance> GetActionInstances() => actionInstances;
 

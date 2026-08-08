@@ -94,6 +94,19 @@ internal static class GameWorldStateDeriver
                 total: sample.CurrentBuildTime));
     }
 
+    internal static WorldPlotNode Derive(in RawPlotNodeSample sample) =>
+        new(
+            in sample,
+            RemainingQuantity(
+                sample.IdleQuantity,
+                sample.TotalQuantity,
+                sample.ActionQuantityUsageMain.ToInt(),
+                sample.ActionQuantityUsageAny.ToInt()),
+            RemainingTotalQuantity(
+                sample.TotalQuantity,
+                sample.ActionQuantityUsageMain.ToInt(),
+                sample.ActionQuantityUsageAny.ToInt()));
+
     /// <summary>
     /// Ported from <c>PlotNodeSO.GetRemainingQuantity()</c> — how many of a node an action may still
     /// be started on.
@@ -104,17 +117,22 @@ internal static class GameWorldStateDeriver
     /// bites the idle count once that runs out. The result is allowed to go negative, also as
     /// written — the game's own callers compare it against zero rather than clamping it, and clamping
     /// here would quietly disagree with them.
+    /// <para>
+    /// Named apart from <see cref="Derive(in RawPlotNodeSample)"/> so the differential pass can run
+    /// the published expression against <c>PlotNodeSO.GetRemainingQuantity()</c> on inputs it read
+    /// itself. A verifier that had to build a whole sample to reach this would be comparing a
+    /// second transcription rather than the one that ships.
+    /// </para>
     /// </remarks>
-    internal static WorldPlotNode Derive(in RawPlotNodeSample sample)
-    {
-        var busy = sample.TotalQuantity - sample.IdleQuantity;
-        var anyOverflow = Math.Max(sample.ActionQuantityUsageAny.ToInt() - busy, 0);
-        var usageMain = sample.ActionQuantityUsageMain.ToInt();
-        return new WorldPlotNode(
-            in sample,
-            sample.IdleQuantity - usageMain - anyOverflow,
-            sample.TotalQuantity - sample.ActionQuantityUsageAny.ToInt() - usageMain);
-    }
+    internal static int RemainingQuantity(int idle, int total, int usageMain, int usageAny) =>
+        idle - usageMain - Math.Max(usageAny - (total - idle), 0);
+
+    /// <summary>
+    /// Ported from <c>PlotNodeSO.GetRemainingTotalQuantity()</c> — the same question asked of every
+    /// phase, with both usage terms coming off the total flat.
+    /// </summary>
+    internal static int RemainingTotalQuantity(int total, int usageMain, int usageAny) =>
+        total - usageAny - usageMain;
 
     internal static WorldUpgrade Derive(in RawUpgradeSample sample)
     {

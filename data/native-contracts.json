@@ -2851,6 +2851,84 @@
       "place": "action"
     },
     {
+      "id": "plot-quantity.remaining-total",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetRemainingTotalQuantity",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
+      "parameters": [],
+      "owners": [
+        "Automata plot quantity verification"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "plot-quantity.remaining",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetRemainingQuantity",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
+      "parameters": [],
+      "owners": [
+        "Automata plot quantity verification"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "plot-quantity.total",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetTotalQuantity",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
+      "parameters": [],
+      "owners": [
+        "Automata plot quantity verification"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "plot-quantity.phase-quantity",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetQuantity",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
+      "parameters": [
+        "PlotNodeSO+PlotNodePhases"
+      ],
+      "owners": [
+        "Automata plot quantity verification"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "auto-harvest.plot.type",
       "assembly": "assembly-csharp",
       "type": "PlotNodeSO",
@@ -15788,6 +15866,27 @@
       "owners": [
         "Automata world-collection verification",
         "Automata Auto Buy refusal diagnostics"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "upgrade.get-leveled-cost-list",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetLeveledCostList",
+      "visibility": "public",
+      "static": false,
+      "returnType": "ResourceCostList",
+      "parameters": [
+        "System.Int32"
+      ],
+      "owners": [
+        "Automata upgrade cost verification"
       ],
       "usages": [
         "reflection"

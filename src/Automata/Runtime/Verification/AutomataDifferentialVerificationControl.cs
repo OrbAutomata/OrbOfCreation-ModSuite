@@ -92,7 +92,9 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         RunPass(new SpellLevelPass(compareAffordability: false));
         RunPass(new SpellLevelPass(compareAffordability: true));
         RunPass(new CostPass());
+        RunPass(new UpgradeCostPass());
         RunPass(new RatePass());
+        RunPass(new PlotQuantityPass());
         RunPass(new RequirementPass(
             "Upgrade requirement", "UpgradeSO", RequirementOwnerShape.UpgradeQueuedLevel));
         RunPass(new RequirementPass(
@@ -230,6 +232,119 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
             }
 
             return _verifier.TryVerify(entity, run, session, out failure);
+        }
+    }
+
+    /// <summary>
+    /// The upgrade half of the purchase curve, sampled at levels the upgrade is not standing on.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="CostPass"/> because the two populations do not share a chain:
+    /// structures grow by a single per-quantity modifier, upgrades by a modifier list with exponents.
+    /// Folding them into one verdict would leave "cost failed" ambiguous between two ports.
+    /// </remarks>
+    private sealed class UpgradeCostPass : IVerificationPass
+    {
+        private AutomataUpgradeCostVerifier? _verifier;
+
+        public string Subject => "Upgrade cost curve";
+
+        public bool TryBegin(out IList entities, out string failure)
+        {
+            entities = Array.Empty<object>();
+
+            var upgradeType = FindType("UpgradeSO");
+            if (upgradeType is null)
+            {
+                failure = "the UpgradeSO type could not be resolved.";
+                return false;
+            }
+
+            _verifier = new AutomataUpgradeCostVerifier(upgradeType);
+            if (!_verifier.IsAvailable)
+            {
+                failure = "this build does not expose the expected upgrade cost contract.";
+                return false;
+            }
+
+            var all = ReadStaticList(upgradeType, "All");
+            if (all is null || all.Count == 0)
+            {
+                failure = "no upgrades were available. Load a save first.";
+                return false;
+            }
+
+            entities = all;
+            failure = string.Empty;
+            return true;
+        }
+
+        public bool TryVerify(
+            object entity,
+            DifferentialRun run,
+            DifferentialVerificationSession session,
+            out string failure)
+        {
+            if (_verifier is null)
+            {
+                failure = "the upgrade cost verifier was not started.";
+                return false;
+            }
+
+            return _verifier.TryVerify(entity, run, session, out failure);
+        }
+    }
+
+    /// <summary>Checks the two plot-node quantity ports against the game's own answers.</summary>
+    private sealed class PlotQuantityPass : IVerificationPass
+    {
+        private AutomataPlotQuantityVerifier? _verifier;
+
+        public string Subject => "Plot node quantity";
+
+        public bool TryBegin(out IList entities, out string failure)
+        {
+            entities = Array.Empty<object>();
+
+            var plotNodeType = FindType("PlotNodeSO");
+            if (plotNodeType is null)
+            {
+                failure = "the PlotNodeSO type could not be resolved.";
+                return false;
+            }
+
+            _verifier = new AutomataPlotQuantityVerifier(plotNodeType);
+            if (!_verifier.IsAvailable)
+            {
+                failure = "this build does not expose the expected plot quantity contract.";
+                return false;
+            }
+
+            var all = ReadStaticList(plotNodeType, "All");
+            if (all is null || all.Count == 0)
+            {
+                failure = "no plot nodes were available. Load a save first.";
+                return false;
+            }
+
+            entities = all;
+            failure = string.Empty;
+            return true;
+        }
+
+        public bool TryVerify(
+            object entity,
+            DifferentialRun run,
+            DifferentialVerificationSession session,
+            out string failure) =>
+            _verifier is not null
+                ? _verifier.TryVerify(entity, run, out failure)
+                : Unavailable(out failure);
+
+        private static bool Unavailable(out string failure)
+        {
+            failure = "the plot quantity verifier was not started.";
+            return false;
         }
     }
 
