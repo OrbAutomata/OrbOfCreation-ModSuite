@@ -1556,7 +1556,11 @@ public sealed class Plugin : BaseUnityPlugin
                 return true;
             case "world_list":
                 execution = GameMcpToolExecution.Read(GameMcpWorldQuery.ListRows(
-                    context, request.Category, request.Offset, request.Limit).Freeze());
+                    context,
+                    request.Category,
+                    request.Offset,
+                    request.Limit,
+                    request.AffordableOnly).Freeze());
                 return true;
             case "world_get":
                 execution = GameMcpToolExecution.Read(

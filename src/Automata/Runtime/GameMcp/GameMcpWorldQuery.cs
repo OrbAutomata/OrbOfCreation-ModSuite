@@ -36,6 +36,7 @@ internal static class GameMcpWorldQuery
         {
             ["resourceRows"] = world.Resources.Count,
             ["unlockedStructures"] = CountUnlockedStructures(world),
+            ["affordableStructures"] = CountAffordableStructures(world),
             ["affordableUpgrades"] = CountAffordableUpgrades(world),
         };
         result["progression"] = new JObject
@@ -100,12 +101,21 @@ internal static class GameMcpWorldQuery
         GameMcpFrameContext state,
         string categoryName,
         int offset,
-        int limit)
+        int limit,
+        bool affordableOnly = false)
     {
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
         if (!TryCategory(categoryName, out var category, out var reason))
             return NotAvailable(publication, "unknown_category", reason);
+        if (affordableOnly && !SupportsAffordableFilter(category))
+        {
+            return NotAvailable(
+                publication,
+                "filter_not_supported",
+                "category " + category.Name + " has no price, so affordable does not apply to " +
+                "it; the priced categories are " + string.Join(", ", PricedCategories));
+        }
         if (offset < 0)
             return NotAvailable(publication, "invalid_offset", "offset must be zero or greater");
         if (limit <= 0 || limit > MaximumPageSize)
@@ -134,16 +144,25 @@ internal static class GameMcpWorldQuery
         var world = publication.Snapshot;
         var count = category.Count(world);
         var rows = new JArray();
-        var requestedEnd = Math.Min(count, checked(offset + limit));
-        var end = offset;
+        var total = 0;
+        var full = false;
         var estimatedBytes = 128;
-        for (var index = offset; index < requestedEnd; index++)
+        for (var index = 0; index < count; index++)
         {
             var row = category.Row(world, index);
+            if (affordableOnly && !IsAffordableRow(world, category, row)) continue;
+
+            // The ordinal counts matching rows, so offset and nextOffset mean the same thing on a
+            // filtered page as on an unfiltered one, and total is what the filter actually matched.
+            var ordinal = total++;
+            if (ordinal < offset || rows.Count >= limit || full) continue;
             var projected = ProjectListRow(world, category, row);
             var rowBytes = EstimateListRowBytes(world, category, row, projected);
             if (rows.Count > 0 && estimatedBytes + rowBytes > MaximumListResponseBytes)
-                break;
+            {
+                full = true;
+                continue;
+            }
             var identity = category.TryIdentity(row, out var stableIdentity)
                 ? stableIdentity
                 : row is WorldEntityRequirement requirement
@@ -179,7 +198,6 @@ internal static class GameMcpWorldQuery
                 rows.Add(incompleteRow);
             }
             estimatedBytes += rowBytes;
-            end = index + 1;
         }
 
         // One pagination rule: nextOffset present means more rows remain and names where to
@@ -187,8 +205,9 @@ internal static class GameMcpWorldQuery
         // shorter than the limit without one is the end of the category.
         var result = Envelope(publication);
         result["rows"] = rows;
-        result["total"] = count;
-        if (end < count) result["nextOffset"] = end;
+        result["total"] = total;
+        var end = checked(offset + rows.Count);
+        if (end < total) result["nextOffset"] = end;
         if (string.Equals(category.Name, "challenges", StringComparison.Ordinal))
             result["challengeState"] = ProjectChallengeState(world);
         return result;
@@ -375,6 +394,42 @@ internal static class GameMcpWorldQuery
         };
         if (entry.Automatic) result["repetitions"] = entry.Repetitions;
         return result.Freeze();
+    }
+
+    /// <summary>The categories whose rows publish a price, and therefore an affordability.</summary>
+    private static readonly string[] PricedCategories = { "structures", "upgrades" };
+
+    private static bool SupportsAffordableFilter(GameMcpWorldCategory category)
+    {
+        for (var index = 0; index < PricedCategories.Length; index++)
+            if (string.Equals(category.Name, PricedCategories[index], StringComparison.Ordinal))
+                return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Whether one priced row can be bought right now, read exactly as its own list row reads it —
+    /// an exhausted upgrade has no next level and so has no price to be short of.
+    /// </summary>
+    private static bool IsAffordableRow(
+        GameWorldState world,
+        GameMcpWorldCategory category,
+        object row)
+    {
+        if (row is WorldStructure structure)
+        {
+            return structure.Reading.Unlocked &&
+                TryPurchaseAffordability(world, structure.EntityId, out var affordable) &&
+                affordable;
+        }
+        if (row is WorldUpgrade upgrade)
+        {
+            return !upgrade.IsExhausted && upgrade.Reading.Available &&
+                TryPurchaseAffordability(world, upgrade.EntityId, out var affordable) &&
+                affordable;
+        }
+        throw new InvalidOperationException(
+            "category " + category.Name + " accepted the affordable filter without a priced row");
     }
 
     private static bool TryPurchaseAffordability(
@@ -2606,6 +2661,25 @@ internal static class GameMcpWorldQuery
         var count = 0;
         for (var index = 0; index < world.Structures.Count; index++)
             if (world.Structures[index].Reading.Unlocked) count++;
+        return count;
+    }
+
+    /// <summary>
+    /// Structures whose price is met right now, read the same way the structure rows read it.
+    /// Without this the overview named a number of unlocked structures and left the only question a
+    /// caller had — how many can I buy — answerable only by paging the whole category.
+    /// </summary>
+    private static int CountAffordableStructures(GameWorldState world)
+    {
+        var count = 0;
+        for (var index = 0; index < world.Structures.Count; index++)
+        {
+            var structure = world.Structures[index];
+            if (structure.Reading.Unlocked &&
+                TryPurchaseAffordability(world, structure.EntityId, out var affordable) &&
+                affordable)
+                count++;
+        }
         return count;
     }
 

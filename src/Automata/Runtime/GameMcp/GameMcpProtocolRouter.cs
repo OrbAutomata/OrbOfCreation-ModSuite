@@ -232,6 +232,7 @@ internal sealed class GameMcpProtocolRouter
                 builder.Offset = OptionalInt(arguments, "offset", 0);
                 builder.Limit = OptionalInt(
                     arguments, "limit", GameMcpWorldQuery.DefaultLimit);
+                builder.AffordableOnly = OptionalBool(arguments, "affordable", false);
                 break;
             case "world_get":
                 builder.Category = RequireString(arguments, "category");
@@ -578,13 +579,16 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "world_list",
                 "List exact world rows",
-                "Page through one discoverable category from one immutable published world. limit is an upper bound: a page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from.",
+                "Page through one discoverable category from one immutable published world. limit is an upper bound: a page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from. Set affordable=true on a category whose rows carry a price to page only the rows you can buy right now.",
                 ObjectSchema(
                     new JObject
                     {
                         ["category"] = StringSchema("Exact name returned by world_categories."),
                         ["offset"] = IntegerSchema(0, int.MaxValue),
                         ["limit"] = IntegerSchema(1, 200),
+                        ["affordable"] = BooleanSchema(
+                            "Return only rows whose price is met right now. Accepted on priced "
+                                + "categories; other categories refuse it rather than ignore it."),
                     },
                     "category")),
             Tool(

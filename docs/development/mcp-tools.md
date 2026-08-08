@@ -160,9 +160,14 @@ there is no `tools/list_changed` notification. The rows below are in `tools/list
 `world_overview` deliberately contains only facts a strategist normally wants before choosing a
 detailed read: collection completeness with total successfully read and skipped row counts,
 unavailable categories, resource-row count, unlocked
-structure count, affordable-upgrade count, discovered/mastery-ready recipe
+structure count, affordable-structure and affordable-upgrade counts, discovered/mastery-ready recipe
 counts, available views, visible plots, current action/spell/concept/plot occupancy, and the two
 global casting dials with their purchased maximums. Exact rows remain in list/get/search.
+
+The two affordable counts have a matching read: `world_list(category="structures", affordable=true)`
+and the same on `upgrades` page only the rows whose price is met right now, so the count and the
+rows agree and the offset, `total`, and `nextOffset` all speak in matching rows. `affordable` is
+refused as `filter_not_supported` on a category with no price rather than quietly ignored.
 
 `world_categories` is the authoritative inventory. Each row reports `category`, native type,
 identity mode, row count, and exact availability. Internal world-property and row-type names are
