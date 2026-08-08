@@ -406,13 +406,14 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
         if (matchedPage is null)
         {
             var amount = _purchaseAmount!(recipe, BigDouble.One);
+            var timeToComplete = _timeToComplete!(recipe);
             var canStart = visible && amount > BigDouble.Zero &&
-                _timeToComplete!(recipe) <= 0d && _canBuy!(recipe);
+                timeToComplete <= 0d && _canBuy!(recipe);
             var reason = !visible
                 ? "hidden_or_undiscovered"
                 : amount <= BigDouble.Zero
                     ? "invalid_purchase_amount"
-                    : _timeToComplete!(recipe) > 0d
+                    : timeToComplete > 0d
                         ? "crafting_page_not_loaded"
                         : canStart ? "ready" : "native_purchase_refused";
             if (amount > BigDouble.Zero)
@@ -424,7 +425,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
             }
             frame.CraftingDecisions.Append(new WorldCraftingDecision(
                 recipeId,
-                _timeToComplete!(recipe) > 0d
+                timeToComplete > 0d
                     ? WorldCraftingPipeline.Unknown
                     : WorldCraftingPipeline.Direct,
                 amount,
