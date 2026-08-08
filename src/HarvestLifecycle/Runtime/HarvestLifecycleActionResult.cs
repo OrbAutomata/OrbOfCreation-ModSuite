@@ -17,6 +17,7 @@ internal static class HarvestLifecycleActionResultCodes
     internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(2065);
     internal static readonly ServiceActionResultCode PostCommitFault = new(2066);
     internal static readonly ServiceActionResultCode VerificationFailed = new(2067);
+    internal static readonly ServiceActionResultCode NotActive = new(2078);
 }
 
 internal static class HarvestLifecycleActionResultMapper
@@ -48,6 +49,7 @@ internal static class HarvestLifecycleActionResultMapper
             HarvestLifecyclePreflight.ActionUnavailable => HarvestLifecycleActionResultCodes.ActionUnavailable,
             HarvestLifecyclePreflight.ActionListFull => HarvestLifecycleActionResultCodes.ActionListFull,
             HarvestLifecyclePreflight.AmountUnavailable => HarvestLifecycleActionResultCodes.AmountUnavailable,
+            HarvestLifecyclePreflight.NotActive => HarvestLifecycleActionResultCodes.NotActive,
             HarvestLifecyclePreflight.MutationPermitUnavailable => HarvestLifecycleActionResultCodes.MutationPermitUnavailable,
             HarvestLifecyclePreflight.PostCommitFault => HarvestLifecycleActionResultCodes.PostCommitFault,
             HarvestLifecyclePreflight.VerificationFailed => HarvestLifecycleActionResultCodes.VerificationFailed,

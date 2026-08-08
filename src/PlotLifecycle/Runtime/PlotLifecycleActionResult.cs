@@ -15,6 +15,7 @@ internal static class PlotLifecycleActionResultCodes
     internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(2075);
     internal static readonly ServiceActionResultCode PostCommitFault = new(2076);
     internal static readonly ServiceActionResultCode VerificationFailed = new(2077);
+    internal static readonly ServiceActionResultCode NotActive = new(2078);
 }
 
 internal static class PlotLifecycleActionResultMapper
@@ -44,6 +45,7 @@ internal static class PlotLifecycleActionResultMapper
             PlotLifecyclePreflight.ActionUnavailable => PlotLifecycleActionResultCodes.ActionUnavailable,
             PlotLifecyclePreflight.ActionListFull => PlotLifecycleActionResultCodes.ActionListFull,
             PlotLifecyclePreflight.QuantityUnavailable => PlotLifecycleActionResultCodes.QuantityUnavailable,
+            PlotLifecyclePreflight.NotActive => PlotLifecycleActionResultCodes.NotActive,
             PlotLifecyclePreflight.MutationPermitUnavailable => PlotLifecycleActionResultCodes.MutationPermitUnavailable,
             PlotLifecyclePreflight.PostCommitFault => PlotLifecycleActionResultCodes.PostCommitFault,
             PlotLifecyclePreflight.VerificationFailed => PlotLifecycleActionResultCodes.VerificationFailed,

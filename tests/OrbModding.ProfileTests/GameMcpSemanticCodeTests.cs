@@ -21,6 +21,12 @@ public sealed class GameMcpSemanticCodeTests
             (GameMcpCommandKind.HarvestLifecycle, HarvestLifecycleActionResultCodes.AmountUnavailable, "amount_unavailable"),
             (GameMcpCommandKind.Harvest, PlotLifecycleActionResultCodes.ActionUnavailable, "action_not_available"),
             (GameMcpCommandKind.Harvest, PlotLifecycleActionResultCodes.QuantityUnavailable, "amount_unavailable"),
+
+            // A target with nothing active is not an amount problem: it is the one case where
+            // retrying with a smaller amount is guaranteed useless, and it had the same code as
+            // three refusals a smaller amount does fix.
+            (GameMcpCommandKind.Harvest, PlotLifecycleActionResultCodes.NotActive, "not_active"),
+            (GameMcpCommandKind.HarvestLifecycle, HarvestLifecycleActionResultCodes.NotActive, "not_active"),
             (GameMcpCommandKind.Research, ResearchActionResultCodes.AmountUnavailable, "amount_unavailable"),
             (GameMcpCommandKind.Concept, AutoConceptActionResultCodes.AmountUnavailable, "amount_unavailable"),
 

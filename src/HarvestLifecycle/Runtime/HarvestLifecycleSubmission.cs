@@ -15,6 +15,7 @@ internal enum HarvestLifecyclePreflight
     ActionUnavailable,
     ActionListFull,
     AmountUnavailable,
+    NotActive,
     MutationPermitUnavailable,
     PostCommitFault,
     VerificationFailed,

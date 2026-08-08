@@ -135,11 +135,18 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
             return Reject(HarvestLifecyclePreflight.NotVisible,
                 EntityIdentityFormatter.PlayerName(action.ElementId) + " is not available yet.");
         if (action.Kind == HarvestLifecycleActionKind.RemoveElement)
+        {
+            // Nothing active is a wrong target, not a wrong amount: no smaller ask succeeds.
+            if (current <= 0)
+                return Reject(HarvestLifecyclePreflight.NotActive,
+                    EntityIdentityFormatter.PlayerName(action.ElementId) + " is not active.");
             return action.Amount <= current
                 ? null
                 : Reject(HarvestLifecyclePreflight.AmountUnavailable,
                     EntityIdentityFormatter.PlayerName(action.ElementId) + " has only " + current +
-                    " active " + Plural(current, "instance", "instances") + ".");
+                    " active " + Plural(current, "instance", "instances") + ".",
+                    current);
+        }
         if (current == 0 && !native.ElementListHasRoom(list))
             return Reject(HarvestLifecyclePreflight.ElementListFull,
                 "The active harvest element list has no empty slot.");
@@ -171,13 +178,19 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
                 EntityIdentityFormatter.PlayerName(action.ActionId) + " is not available for " +
                 EntityIdentityFormatter.PlayerName(action.ElementId) + " yet.");
         if (action.Kind == HarvestLifecycleActionKind.RemoveAction)
-            return active is not null && action.Amount <= current
+        {
+            if (active is null || current <= 0)
+                return Reject(HarvestLifecyclePreflight.NotActive,
+                    EntityIdentityFormatter.PlayerName(action.ActionId) + " is not active on " +
+                    EntityIdentityFormatter.PlayerName(action.ElementId) + ".");
+            return action.Amount <= current
                 ? null
                 : Reject(HarvestLifecyclePreflight.AmountUnavailable,
                     EntityIdentityFormatter.PlayerName(action.ActionId) + " has only " + current +
                     " active " + Plural(current, "instance", "instances") + " on " +
                     EntityIdentityFormatter.PlayerName(action.ElementId) + ".",
                     current);
+        }
         if (active is null && !native.ActionListHasRoom(list))
             return Reject(HarvestLifecyclePreflight.ActionListFull,
                 "The active harvest action list has no empty slot.");

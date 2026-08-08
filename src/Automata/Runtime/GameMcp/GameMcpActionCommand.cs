@@ -884,11 +884,13 @@ internal static class GameMcpActionResultCodeNames
             if (code == HarvestLifecycleActionResultCodes.ElementUsageUnavailable) return "element_capacity_unavailable";
             if (code == HarvestLifecycleActionResultCodes.ActionUnavailable) return "action_not_available";
             if (code == HarvestLifecycleActionResultCodes.AmountUnavailable) return "amount_unavailable";
+            if (code == HarvestLifecycleActionResultCodes.NotActive) return "not_active";
         }
         if (commandKind == GameMcpCommandKind.Harvest)
         {
             if (code == PlotLifecycleActionResultCodes.ActionUnavailable) return "action_not_available";
             if (code == PlotLifecycleActionResultCodes.QuantityUnavailable) return "amount_unavailable";
+            if (code == PlotLifecycleActionResultCodes.NotActive) return "not_active";
         }
         if (code == AutoCastActionResultCodes.ChargeHoldRefused)
             return "charge_hold_refused";

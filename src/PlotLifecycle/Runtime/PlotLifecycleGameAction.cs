@@ -116,8 +116,10 @@ internal sealed class PlotLifecycleGameAction : IDisposable
     {
         if (action.Kind == PlotLifecycleActionKind.Remove)
         {
+            // Not an amount problem in any sense, and the one case where retrying with a smaller
+            // amount is guaranteed useless: the pair is not active at all.
             if (current is null || before <= 0)
-                return Reject(PlotLifecyclePreflight.QuantityUnavailable,
+                return Reject(PlotLifecyclePreflight.NotActive,
                     EntityIdentityFormatter.PlayerName(action.ActionId) + " is not active on " +
                     EntityIdentityFormatter.PlayerName(action.PlotId) + ".");
             if (action.Amount > before)

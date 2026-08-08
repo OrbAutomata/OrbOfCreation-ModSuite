@@ -13,6 +13,7 @@ internal enum PlotLifecyclePreflight
     ActionUnavailable,
     ActionListFull,
     QuantityUnavailable,
+    NotActive,
     MutationPermitUnavailable,
     PostCommitFault,
     VerificationFailed,
