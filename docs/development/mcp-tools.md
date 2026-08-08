@@ -533,8 +533,9 @@ count out.
 It also names the price, because two verbs buy levels and a silent one reads as an omission rather
 than as a semantic. A single-level call carries `paid[]` — the named cost rows the bought level
 asked, read from the pre-state row — and every call carries `costPerLevel[]`, the rows the next
-level asks in the settled world. A multi-level call publishes only `costPerLevel`: the sum of the
-prices it actually paid is accounting this surface does not keep. A route whose cost table is empty
+level asks in the settled world, each with its `affordable` verdict. This is the same shape
+`game_purchase` publishes, key for key. A multi-level call publishes only `costPerLevel`: the sum of
+the prices it actually paid is accounting this surface does not keep. A route whose cost table is empty
 on both sides says `free: true` rather than staying quiet. The paid route
 checks the game's persistent usage cost but does not perform a one-time payment; the concrete
 native level callback applies its own usage/effects. Research development and spell mastery stay
@@ -1185,32 +1186,37 @@ shows and hid which of the two the purchase actually did.
 
 A committed purchase reports what it was priced at: `game_purchase` carries `paid[]`, and a mutation
 that was never admitted against a price — the free `game_structure` toggle on the same priced
-attribute — does not. Per resource the price named, `paid[]` carries the `resource` identity,
-`costPerLevel`, and `remaining`.
+attribute — does not. `game_purchase` and `game_level` publish one shape, because two verbs buy
+levels and a planner that had to know which one it called to read a price was reading two dialects:
+`paid[]` is what the call was **charged**, `costPerLevel[]` at the top level is what the **next**
+level asks in the settled world, and each row of either carries the `resource` identity, `cost`, and
+`spendableAmount`.
 
-`costPerLevel` is **one level's** price — the admission capture's next-level amount, the same number
-that resource's cost row showed. It is not the total a call charged, and multiplying it by the
-levels committed is wrong in the other direction: the cost curve rises with every level, so an
-`amount=25` call charges twenty-five successively higher prices. The suite does not publish their
+`cost` on a `paid[]` row is **one level's** price — the admission capture's next-level amount, the
+same number that resource's cost row showed. It is not the total a call charged, and multiplying it
+by the levels committed is wrong in the other direction: the cost curve rises with every level, so
+an `amount=25` call charges twenty-five successively higher prices. The suite does not publish their
 sum, because it does not hold one: the world's grouped pricing is computed for the game's own
 multi-buy setting at capture time, not for the count this call turned out to commit, and a total
 assembled any other way would be suite arithmetic wearing a transaction's name. `level
-{before, after}` is what says how many levels were actually bought, and re-reading the row's cost
-after the commit is what prices the next one.
+{before, after}` is what says how many levels were actually bought, and `costPerLevel[]` is what
+prices the next one — with `affordable` on the row, so the answer the screen gives with colour is
+not two Scientific strings the caller has to compare. A `paid[]` row carries no `affordable`,
+because it was.
 
-`remaining` is read from the settled world in the same spendable coordinate every cost row's
-`spendableAmount` uses. It does not have to equal the same resource's `amount` on a `resources` row,
-and where the two differ it is not drift: `remaining` is spendable amount, which a **bandwidth**
+`spendableAmount` is read from the settled world in the same spendable coordinate every cost row
+uses. It does not have to equal the same resource's `amount` on a `resources` row, and where the two
+differ it is not drift: `spendableAmount` is spendable amount, which a **bandwidth**
 resource reports as the headroom left rather than the stock held, while a row's `amount` is the
 displayed quantity, which an **inverted** resource reports counting down from its cap. The two
 traits are independent, so either key can be the larger one depending on which traits the resource
 carries. When the settled world publishes no row for that resource the key is absent and
-`remainingUnavailable` names the reason, because zero is a balance and "not collected" is not.
+`spendableAmountUnavailable` names the reason, because zero is a balance and "not collected" is not.
 
 There is no delta field: the difference between two worlds also contains every income stream and
 every other spender in that window, so it is not a price and is not computed. On a volatile resource
-`remaining` will not reconcile with any price against a balance read at another instant, and that is
-the resource moving, not the field drifting.
+`spendableAmount` will not reconcile with any price against a balance read at another instant, and
+that is the resource moving, not the field drifting.
 
 JSON tool data is emitted once in `structuredContent`; `content` appears only for actual inline media
 such as screenshots, and success omits the false `isError` default. The server does not repeat the

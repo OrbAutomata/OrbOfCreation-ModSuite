@@ -696,10 +696,14 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.Equal(633, (int)delta["level"]!["after"]!);
         var paid = Assert.IsType<JObject>(Assert.Single(delta["paid"]!.Values<JObject>()));
         Assert.Equal("Glyph Upgrades", (string?)paid["resource"]!["name"]);
-        Assert.Equal("2", (string?)paid["costPerLevel"]);
-        Assert.Equal("108", (string?)paid["remaining"]);
+        Assert.Equal("2", (string?)paid["cost"]);
+        Assert.Equal("108", (string?)paid["spendableAmount"]);
         Assert.Null(paid["amount"]);
-        Assert.Null(paid["cost"]);
+        Assert.Null(paid["costPerLevel"]);
+        Assert.Null(paid["affordable"]);
+        var next = Assert.IsType<JObject>(Assert.Single(delta["costPerLevel"]!.Values<JObject>()));
+        Assert.Equal("2", (string?)next["cost"]);
+        Assert.Equal("108", (string?)next["spendableAmount"]);
     }
 
     /// <summary>
@@ -769,8 +773,8 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.Equal(100, (int)delta["level"]!["before"]!);
         Assert.Equal(125, (int)delta["level"]!["after"]!);
         var paid = Assert.IsType<JObject>(Assert.Single(delta["paid"]!.Values<JObject>()));
-        Assert.Equal("2", (string?)paid["costPerLevel"]);
-        Assert.Null(paid["cost"]);
+        Assert.Equal("2", (string?)paid["cost"]);
+        Assert.Null(paid["costPerLevel"]);
     }
 
     [Fact]
@@ -823,10 +827,10 @@ public sealed class GameMcpCorrectnessCoreTests
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
         var paid = Assert.IsType<JObject>(Assert.Single(delta["paid"]!.Values<JObject>()));
-        Assert.Null(paid["remaining"]);
+        Assert.Null(paid["spendableAmount"]);
         Assert.Equal(
             "resource_not_published",
-            (string?)paid["remainingUnavailable"]!["reasonCode"]);
+            (string?)paid["spendableAmountUnavailable"]!["reasonCode"]);
     }
 
     /// <summary>
@@ -886,8 +890,8 @@ public sealed class GameMcpCorrectnessCoreTests
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
         var paid = Assert.IsType<JObject>(Assert.Single(delta["paid"]!.Values<JObject>()));
-        Assert.Equal("2", (string?)paid["costPerLevel"]);
-        Assert.Equal("130", (string?)paid["remaining"]);
+        Assert.Equal("2", (string?)paid["cost"]);
+        Assert.Equal("130", (string?)paid["spendableAmount"]);
     }
 
     /// <summary>

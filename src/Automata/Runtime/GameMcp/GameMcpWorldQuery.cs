@@ -815,16 +815,48 @@ internal static class GameMcpWorldQuery
         WithPaid(state, command, ProjectChangedFact(state, command, committed));
 
     /// <summary>
-    /// What a committed purchase was priced at and what the settled world leaves.
-    /// <c>costPerLevel</c> is the admission capture's next-level price — the same number the
-    /// caller's cost row and the unaffordable sentence read — and it is per level on purpose: a
-    /// call may commit up to its whole requested amount, and the price rises with every level it
-    /// takes. The capture prices the levels the game's own multi-buy variable was set to, never the
-    /// count this call ended up committing, so the sum for that count is not a number the suite
-    /// holds; <c>level {before, after}</c> is what says how many levels were bought.
-    /// <c>remaining</c> is read from the settled world. Neither is derived by subtracting one world
-    /// from another: an income stream or a second spender in the same window would land in that
-    /// difference.
+    /// One priced row, spelled the same by every verb that buys a level. <c>cost</c> is what this
+    /// row asks in the player's own units and <c>spendableAmount</c> is what the settled world
+    /// leaves to pay it with — never a difference between two worlds, because an income stream or a
+    /// second spender in the same window would land in that subtraction. A price the caller has not
+    /// paid yet carries the settled affordability verdict beside it, so nothing has to compare two
+    /// Scientific strings to learn whether the next level is reachable; a price already charged
+    /// carries none, because it was.
+    /// </summary>
+    private static JObject PricedRow(
+        GameWorldState settled,
+        Guid resourceId,
+        BigDouble playerCost,
+        bool? affordable)
+    {
+        var row = new JObject
+        {
+            ["resource"] = resourceId.ToString("D"),
+            ["cost"] = new GameMcpDomainValue(playerCost),
+        };
+
+        // Zero is a balance. A settled world that carries no row for this resource has not told us
+        // the player is broke, so the absence is named instead of spent as a number.
+        if (TryFindResource(settled, resourceId, out var resource))
+            row["spendableAmount"] = new GameMcpDomainValue(
+                WorldResourceCoordinate.SpendableAmount(in resource));
+        else
+            row["spendableAmountUnavailable"] = new JObject
+            {
+                ["reasonCode"] = "resource_not_published",
+                ["reason"] = "the settled world carries no row for this resource",
+            };
+        if (affordable.HasValue) row["affordable"] = affordable.Value;
+        return row;
+    }
+
+    /// <summary>
+    /// What a committed purchase was charged and what the next level asks. <c>paid[]</c> prices the
+    /// levels the game's own multi-buy variable was set to, from the admission capture — the same
+    /// number the caller's cost row and the unaffordable sentence read — and never the count this
+    /// call ended up committing, so no sum for that count appears; <c>level {before, after}</c> is
+    /// what says how many levels were bought. <c>costPerLevel[]</c> is the *next* level's price off
+    /// the settled world, which is the same thing it means on <c>game_level</c>.
     /// </summary>
     private static GameMcpValue WithPaid(
         GameMcpFrameContext state,
@@ -844,30 +876,29 @@ internal static class GameMcpWorldQuery
         for (var index = start; index < start + count; index++)
         {
             var cost = before.PurchaseCosts[index];
-            var row = new JObject
-            {
-                ["resource"] = cost.ResourceId.ToString("D"),
-                ["costPerLevel"] = new GameMcpDomainValue(AdmittedCost(before, in cost)),
-            };
-
-            // Zero is a balance. A settled world that carries no row for this resource has not told
-            // us the player is broke, so the absence is named instead of spent as a number.
-            if (TryFindResource(after, cost.ResourceId, out var settled))
-                row["remaining"] = new GameMcpDomainValue(
-                    WorldResourceCoordinate.SpendableAmount(in settled));
-            else
-                row["remainingUnavailable"] = new JObject
-                {
-                    ["reasonCode"] = "resource_not_published",
-                    ["reason"] = "the settled world carries no row for this resource",
-                };
-            paid.Add(row);
+            paid.Add(PricedRow(after, cost.ResourceId, AdmittedCost(before, in cost), null));
         }
         if (paid.Count == 0) return projected;
         var result = new JObject();
         if (projected is GameMcpObject existing) result.CopyFrom(existing);
         else result["result"] = projected;
         result["paid"] = paid;
+        if (WorldPurchaseCostLookup.TryFindRange(
+                after.PurchaseCosts, command.TargetId, out var nextStart, out var nextCount) &&
+            nextCount > 0)
+        {
+            var next = new JArray();
+            for (var index = nextStart; index < nextStart + nextCount; index++)
+            {
+                var cost = after.PurchaseCosts[index];
+                next.Add(PricedRow(
+                    after,
+                    cost.ResourceId,
+                    AdmittedCost(after, in cost),
+                    cost.AffordabilityEvaluated ? cost.ResourceAffordable : (bool?)null));
+            }
+            result["costPerLevel"] = next;
+        }
         return result.Freeze();
     }
 
@@ -1358,10 +1389,11 @@ internal static class GameMcpWorldQuery
         {
             var paidPrice = bonus ? previous.BonusCosts : previous.PaidCosts;
             if (paidPrice.Count > 0)
-                result["paid"] = PriceRows(state.World.Snapshot, paidPrice);
+                result["paid"] = PriceRows(state.World.Snapshot, paidPrice, withVerdict: false);
         }
         if (settledPrice.Count > 0)
-            result["costPerLevel"] = PriceRows(state.World.Snapshot, settledPrice);
+            result["costPerLevel"] = PriceRows(
+                state.World.Snapshot, settledPrice, withVerdict: true);
         else if (hadBefore && (bonus ? previous.BonusCosts : previous.PaidCosts).Count == 0)
             result["free"] = true;
 
@@ -1384,22 +1416,20 @@ internal static class GameMcpWorldQuery
 
     private static JArray PriceRows(
         GameWorldState world,
-        PublicationTable<WorldLevelableCost> costs)
+        PublicationTable<WorldLevelableCost> costs,
+        bool withVerdict)
     {
         var rows = new JArray();
         for (var index = 0; index < costs.Count; index++)
         {
             var cost = costs[index];
-            var row = new JObject
-            {
-                ["resourceId"] = cost.ResourceId.ToString("D"),
-                ["cost"] = new GameMcpDomainValue(
-                    PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
-            };
-            if (WorldLookup.TryFind(world.Resources, cost.ResourceId, out var resource))
-                row["spendableAmount"] = new GameMcpDomainValue(
-                    SpendableAmount(world, cost.ResourceId, resource.Reading.Quantity));
-            rows.Add(row);
+            rows.Add(PricedRow(
+                world,
+                cost.ResourceId,
+                PlayerFacingCost(world, cost.ResourceId, cost.Amount),
+                withVerdict
+                    ? CanAfford(world, cost.ResourceId, cost.Amount, BigDouble.Zero)
+                    : (bool?)null));
         }
         return rows;
     }
