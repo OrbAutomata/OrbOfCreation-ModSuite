@@ -81,6 +81,20 @@ public sealed class GameMcpDecisionReasonTests
         Assert.Equal(
             "Needs 20 Arcana (have 1).",
             (string?)Assert.IsType<JObject>(encoded)["reason"]);
+
+        // The ceiling codes are where producers most often hold the number, so the override has to
+        // hold there too: the generic headroom sentence must not displace the live maximum.
+        var bounded = GameMcpDocumentJsonEncoder.Encode(new GameMcpObjectBuilder
+        {
+            ["available"] = false,
+            ["reasonCode"] = "amount_unavailable",
+            ["reason"] = "The plot allows fewer than that.",
+            ["maximumAmount"] = 3,
+        }.Freeze(), GameMcpTestHarness.EntityCatalog);
+
+        Assert.Equal(
+            "The plot allows fewer than that.",
+            (string?)Assert.IsType<JObject>(bounded)["reason"]);
     }
 
     /// <remarks>
@@ -90,6 +104,9 @@ public sealed class GameMcpDecisionReasonTests
     [Theory]
     [InlineData("not_available", "The game has not unlocked this yet.")]
     [InlineData("unaffordable", "The named resources fall short of the price.")]
+    [InlineData(
+        "amount_unavailable",
+        "The game's own headroom for this is below what the call asked for.")]
     [InlineData("a_code_no_table_knows", "A code no table knows.")]
     [InlineData("", "The game does not admit this right now.")]
     public void Every_code_reads_as_a_sentence(string reasonCode, string expected) =>

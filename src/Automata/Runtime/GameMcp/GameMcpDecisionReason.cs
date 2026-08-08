@@ -83,6 +83,8 @@ internal static class GameMcpDecisionReason
         "plot_action_list_full" => "The plot-action list has no empty slot.",
         "research_queue_full" => "The research queue has no room for another level.",
         "capacity_exhausted" => "The element's capacity is already full.",
+        "amount_unavailable" =>
+            "The game's own headroom for this is below what the call asked for.",
         "equipment_type_full" => "Every slot this artifact type may occupy is in use.",
         "maximum_stacks" => "This artifact is already equipped to its stack limit.",
         "not_equipped" => "None of this artifact is equipped.",
