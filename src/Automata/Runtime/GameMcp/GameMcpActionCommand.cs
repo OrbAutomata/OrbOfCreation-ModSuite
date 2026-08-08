@@ -407,18 +407,42 @@ internal sealed class GameMcpCommandResult
             ["status"] = status,
         };
         var succeeded = status is "committed" or "available";
+        var pair = command.SecondaryId != Guid.Empty && command.TargetId != Guid.Empty;
+        var role = SecondaryRole(command.Kind);
         if (!succeeded)
         {
             projected["reasonCode"] = stableCode;
             projected["reason"] = Reason;
             if (command.TargetId != Guid.Empty)
                 projected["uuid"] = command.TargetId.ToString("D");
+
+            // The pair's second half is a field on the refusal too. It used to appear only inside
+            // the sentence, which left it unreadable to anything but a human.
+            if (pair && role.Length > 0)
+                projected[role + "Uuid"] = command.SecondaryId.ToString("D");
         }
         if (Details is GameMcpObject details) projected.CopyFrom(details);
         else if (Details is not null) projected["result"] = Details;
+
+        // A two-entity request keeps its own identity at the top on the commit as well. The delta
+        // names both entities in their own blocks, and one of those was being promoted over the
+        // one the caller actually asked about — so the same request shape echoed the plot when it
+        // refused and the action when it committed, mis-filing half of a caller's correlation.
+        if (succeeded && pair)
+            projected["uuid"] = command.TargetId.ToString("D");
         return projected.Freeze();
     }
 
+    /// <summary>
+    /// What the second entity of a two-entity request is to the first. The pair's second half is
+    /// named on the refusal too, where it used to appear only inside the sentence.
+    /// </summary>
+    private static string SecondaryRole(GameMcpCommandKind kind) => kind switch
+    {
+        GameMcpCommandKind.Harvest or GameMcpCommandKind.HarvestLifecycle => "action",
+        GameMcpCommandKind.DiscoveryTreeOffer => "offer",
+        _ => string.Empty,
+    };
 }
 
 

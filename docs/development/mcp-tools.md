@@ -970,6 +970,11 @@ blocked sub-decision follows the same rule as a mutation's refusal. A refusal wh
 ceiling also carries that ceiling as `maximumAmount`, read from the same admission capture the
 sentence was written from, so the two can never disagree.
 
+A request that names two entities keeps the one it addressed at the top of its response, on the
+refusal and the commit alike, and names the second in its own block (`game_agromancy` addresses a
+plot or element and carries the action as `action`). The same request shape never answers with one
+entity's identity when it refuses and the other's when it commits.
+
 A sentence names entities the way a player does — display name only. The asset name, the UUID, and
 the native member that decided are identity and evidence, and the same response already carries them
 as fields, so repeating them inside prose only made the sentence harder to read. Two exceptions stay

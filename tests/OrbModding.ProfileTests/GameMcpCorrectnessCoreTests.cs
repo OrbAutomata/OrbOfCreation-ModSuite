@@ -513,6 +513,23 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.Equal(actionId.ToString("D"), (string?)fastAction["action"]!["uuid"]);
         Assert.False(string.IsNullOrWhiteSpace((string?)fastAction["action"]!["name"]));
         Assert.Null(fastAction["postStateUnavailable"]);
+
+        // One request shape, two answers, one identity. The commit's delta names both entities in
+        // their own blocks, and the plot's was being promoted on one path and the action's on the
+        // other, so a caller correlating by uuid mis-filed half of its calls.
+        var commitProjection = GameMcpTestHarness.Json(
+            GameMcpCommandResult.Committed("committed", 9, 3)
+                .WithDetails(GameMcpWorldQuery.ProjectGameplayPostState(
+                    GameMcpTestHarness.Context(activeWorld), command, committed))
+                .Project(command));
+        var refusalProjection = GameMcpTestHarness.Json(
+            GameMcpCommandResult.Rejected("amount_unavailable", "The plot allows fewer than that.")
+                .Project(command));
+
+        Assert.Equal(plotId.ToString("D"), (string?)commitProjection["uuid"]);
+        Assert.Equal(plotId.ToString("D"), (string?)refusalProjection["uuid"]);
+        Assert.Equal(actionId.ToString("D"), (string?)commitProjection["action"]!["uuid"]);
+        Assert.Equal(actionId.ToString("D"), (string?)refusalProjection["action"]!["uuid"]);
     }
 
     [Fact]
