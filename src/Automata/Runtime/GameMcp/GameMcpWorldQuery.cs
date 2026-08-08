@@ -2326,17 +2326,66 @@ internal static class GameMcpWorldQuery
             ["status"] = "not_available",
             ["code"] = code,
             ["reason"] = reason,
+            ["lifecycleState"] = state.LifecycleState.ToString(),
         };
         return result;
     }
 
+    /// <summary>
+    /// The code and sentence for a world read with no live world behind it. A lifecycle that is not
+    /// playing is the answer whenever it applies: it names the state <c>game_probe</c> reports, so a
+    /// caller comparing the two tools sees one fact rather than two beliefs.
+    /// </summary>
+    private static void WorldUnavailable(
+        GameMcpFrameContext state,
+        out string code,
+        out string reason)
+    {
+        switch (state.LifecycleState)
+        {
+            case GameLifecycleState.NoGame:
+                code = "lifecycle_no_game";
+                reason = "no save is loaded, so there is no world to read.";
+                return;
+            case GameLifecycleState.Initializing:
+                code = "lifecycle_initializing";
+                reason = "the save is still loading, so no world has been collected yet.";
+                return;
+            case GameLifecycleState.Resetting:
+                code = "lifecycle_resetting";
+                reason =
+                    "a save load, reset, or new game plus is replacing the run, so the previous " +
+                    "world was dropped and the next one has not been collected yet.";
+                return;
+            case GameLifecycleState.SceneExit:
+                code = "lifecycle_scene_exit";
+                reason = "the play scene is unloading, so the world it was read from is gone.";
+                return;
+            default:
+                code = "world_not_published";
+                reason = state.RuntimeNotAvailableReason.Length == 0
+                    ? "the world collector has not published a captured world yet"
+                    : state.RuntimeNotAvailableReason;
+                return;
+        }
+    }
+
+    /// <summary>
+    /// Whether the pinned publication is a reading of a live run. Generation 1 with no collection
+    /// timestamp is the flushed state a lifecycle boundary leaves behind, and it is the same shape
+    /// the publisher is constructed in, so "before the first run" and "after the run ended" answer
+    /// identically.
+    /// </summary>
+    internal static bool IsWorldPublished(GameMcpFrameContext state) =>
+        state.World is not null &&
+        state.World.Generation.Value > 1 &&
+        state.World.Snapshot.CollectedAtUtcTicks > 0;
+
     internal static JObject WithEnvelope(GameMcpFrameContext state, JObject payload)
     {
-        if (state.World is not null &&
-            state.World.Generation.Value > 1 &&
-            state.World.Snapshot.CollectedAtUtcTicks > 0)
+        if (IsWorldPublished(state))
         {
-            var envelope = Envelope(state.World);
+            var envelope = Envelope(state.World!);
             envelope.CopyFrom(payload);
             return envelope;
         }
@@ -2360,22 +2409,16 @@ internal static class GameMcpWorldQuery
         out WorldPublication<GameWorldState> publication,
         out JObject unavailable)
     {
-        if (state.World is not null &&
-            state.World.Generation.Value > 1 &&
-            state.World.Snapshot.CollectedAtUtcTicks > 0)
+        if (IsWorldPublished(state))
         {
-            publication = state.World;
+            publication = state.World!;
             unavailable = null!;
             return true;
         }
 
         publication = null!;
-        unavailable = NotAvailableWithoutWorld(
-            state,
-            "world_not_published",
-            state.RuntimeNotAvailableReason.Length == 0
-                ? "the world collector has not published a captured world yet"
-                : state.RuntimeNotAvailableReason);
+        WorldUnavailable(state, out var code, out var reason);
+        unavailable = NotAvailableWithoutWorld(state, code, reason);
         return false;
     }
 

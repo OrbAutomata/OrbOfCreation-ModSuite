@@ -1534,7 +1534,8 @@ public sealed class Plugin : BaseUnityPlugin
             writable,
             _modalDismissGameAction?.BindingsAvailable == true,
             _modalDismissGameAction?.BindingFailure ??
-                "the modal action boundary was not composed");
+                "the modal action boundary was not composed",
+            GameLifecycleMonitor.Shared.Current.State);
     }
 
     private bool TryExecuteGameMcpFrameOperation(
@@ -1825,14 +1826,19 @@ public sealed class Plugin : BaseUnityPlugin
             .AppendLine(GameMcpDllSha256)
             .Append("scene: ").AppendLine(GameMcpTextFormatter.Plain(context.SceneName))
             .Append("runtime: ").AppendLine(context.RuntimeAvailable ? "available" : "unavailable")
+            // The same lifecycle fact game_probe reports and the world reads refuse on, so the three
+            // cannot hold three beliefs about whether a game exists.
+            .Append("lifecycle: ").Append(context.LifecycleState.ToString())
+            .Append(", generation ")
+            .AppendLine(context.LifecycleGeneration.ToString(CultureInfo.InvariantCulture))
             // The scene name alone cannot tell a caller which run a verdict describes: the runtime
             // outlives every scene change, so the same scene answered both ways across one session.
-            // The world and lifecycle generations are what actually move, so they are published.
-            .Append("world: ").AppendLine(context.World is { } published
+            // The world generation is what actually moves, so it is published — and a lifecycle
+            // boundary flushes the publication, so this reads "not published" again once the run
+            // it described is gone.
+            .Append("world: ").AppendLine(GameMcpWorldQuery.IsWorldPublished(context)
                 ? "generation " +
-                    published.Generation.Value.ToString(CultureInfo.InvariantCulture) +
-                    ", lifecycle " +
-                    context.LifecycleGeneration.ToString(CultureInfo.InvariantCulture)
+                    context.World!.Generation.Value.ToString(CultureInfo.InvariantCulture)
                 : "not published")
             .Append("native contracts: ").AppendLine(
                 context.NativeContractsAvailable ? "available" : "unavailable")

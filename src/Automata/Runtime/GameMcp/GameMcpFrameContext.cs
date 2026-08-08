@@ -43,12 +43,14 @@ internal sealed class GameMcpFrameContext
         long traceWriterRevision,
         GameMcpWritableSettingDescriptor[] writableConfiguration,
         bool modalDismissAvailable = false,
-        string modalDismissUnavailableReason = "the modal action boundary was not composed")
+        string modalDismissUnavailableReason = "the modal action boundary was not composed",
+        GameLifecycleState lifecycleState = GameLifecycleState.Playing)
     {
         World = world;
         Runtime = runtime;
         Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         LifecycleGeneration = lifecycleGeneration;
+        LifecycleState = lifecycleState;
         SceneName = sceneName ?? string.Empty;
         NativeContractsAvailable = nativeContractsAvailable;
         FeatureStatuses = featureStatuses ?? Array.Empty<FeatureStatusSnapshot>();
@@ -65,6 +67,15 @@ internal sealed class GameMcpFrameContext
     internal ConfigurationPublication Configuration { get; }
     internal ConfigGeneration ConfigurationGeneration => Configuration.Generation;
     internal long LifecycleGeneration { get; }
+
+    /// <summary>
+    /// The lifecycle state the probe reports, carried on every frame context so the world reads and
+    /// the health text answer "is there a game" from the same fact rather than from three
+    /// independently retained beliefs.
+    /// </summary>
+    internal GameLifecycleState LifecycleState { get; }
+
+    internal bool GameplayReady => LifecycleState == GameLifecycleState.Playing;
     internal string SceneName { get; }
     internal bool NativeContractsAvailable { get; }
     internal FeatureStatusSnapshot[] FeatureStatuses { get; }

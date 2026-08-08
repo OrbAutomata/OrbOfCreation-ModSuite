@@ -73,6 +73,13 @@ last changed it" and get the right answer.
 from the lifecycle monitor's generation. A generation says *when*; only the epoch can say the run
 itself was replaced ([W55](world-collection-decisions.md)).
 
+**A lifecycle boundary trashes the publication.** Every accepted lifecycle replacement — scene change,
+save load, reset, new game plus — flushes the shared world publication back to the state it was
+constructed in: generation 1, the empty world, no collection timestamp. A snapshot reads objects the
+boundary destroys, so keeping it answers for a run that no longer exists. Loading a save starts from
+nothing, and "before the first run" and "after the run ended" are the same reading. The flush lives
+in the registry's own lifecycle request, so no caller can forget it.
+
 **A missing member degrades one category, not the pass.** Binding failures are reported per category in
 `WorldCollectionReport` with the member that could not be found, and a build that renamed one field
 still publishes the other fifty-four. Degradation is per-term and never neutral-by-default

@@ -55,7 +55,9 @@ internal static class GameMcpTestHarness
         FeatureStatusSnapshot[]? features = null,
         DecisionJournalStatus? trace = null,
         GameMcpWritableSettingDescriptor[]? writable = null,
-        SuiteRuntimeConfiguration? configuration = null)
+        SuiteRuntimeConfiguration? configuration = null,
+        GameLifecycleState lifecycleState = GameLifecycleState.Playing,
+        string sceneName = "Main")
     {
         return new GameMcpFrameContext(
             world,
@@ -64,12 +66,15 @@ internal static class GameMcpTestHarness
                 new ConfigGeneration(configurationGeneration),
                 configuration ?? new SuiteRuntimeConfiguration()),
             lifecycleGeneration,
-            "Main",
+            sceneName,
             nativeContractsAvailable: true,
             features ?? Array.Empty<FeatureStatusSnapshot>(),
             trace ?? DecisionJournalStatus.Unavailable,
             traceWriterRevision: 0,
-            writable ?? Array.Empty<GameMcpWritableSettingDescriptor>());
+            writable ?? Array.Empty<GameMcpWritableSettingDescriptor>(),
+            modalDismissAvailable: false,
+            modalDismissUnavailableReason: "the modal action boundary was not composed",
+            lifecycleState: lifecycleState);
     }
 
     internal static GameMcpFrameContext Context(

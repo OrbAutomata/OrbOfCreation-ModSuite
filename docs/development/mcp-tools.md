@@ -864,8 +864,8 @@ sentence says so: the screen change is a committed effect the caller can see in 
 never authorizes a gameplay or save mutation.
 
 `suite_health` has no arguments or detail mode. It is compact text: scene, runtime availability,
-world publication, native-contract availability, the direct-craft plus crafting-instance binding
-health claimed by
+lifecycle state and generation, world publication, native-contract availability, the direct-craft
+plus crafting-instance binding health claimed by
 `game_craft`, modal-dismiss binding health, emergency STOP, then feature and service names grouped
 by state and reason code. Seven identical NotReady features therefore occupy one line, not seven objects. It
 returns no structured payload because none of those labels is a handle for another call. It reads
@@ -875,9 +875,20 @@ queue internals.
 Runtime availability is a fact about the session, not about the scene, and the report says so.
 The ServiceCycle runtime is created once, on the first frame the host admits it, and released only
 when the plugin is destroyed, so the same scene answers `unavailable` before that frame and
-`available` ever after; the reason names the session, never a scene property. Whether a world is
-published is the separate question, and the `world:` line answers it: the current publication's
-generation and lifecycle, or `not published`.
+`available` ever after; the reason names the session, never a scene property. The same holds for
+the `game_craft` and `game_modal` lines, which state whether this build resolved those bindings at
+all. Whether a game exists is the `lifecycle:` line — the same state and generation `game_probe`
+reports — and whether a world is published is the `world:` line: the live publication's generation,
+or `not published`.
+
+A lifecycle boundary trashes the published world, so `world:` returns to `not published` the moment
+the run it described ends, and the Start-menu reading before a run and after one are identical. On a
+lifecycle that is not `Playing`, every world-backed read answers `status: unavailable` with a
+`reasonCode` naming that state — `lifecycle_no_game`, `lifecycle_initializing`, `lifecycle_resetting`,
+`lifecycle_scene_exit` — instead of serving the destroyed run. Those payloads, and
+`world_not_published` for a playing run whose first collection has not landed, all carry
+`lifecycleState`, so `suite_health`, the world readers, and `game_probe` cannot hold three beliefs
+about whether a game exists.
 
 An empty clean category means the save has no rows. A skipped native row normally makes exact
 queries for the whole category unavailable. The deliberate exception is an unmodeled entity
