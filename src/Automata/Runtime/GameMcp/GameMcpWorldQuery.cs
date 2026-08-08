@@ -2308,10 +2308,8 @@ internal static class GameMcpWorldQuery
         {
             ["rerollsLeft"] = new JObject
             {
-                ["before"] = prior is { Available: true }
-                    ? new GameMcpDomainValue(new BigDouble(prior.Value.RerollsLeft))
-                    : null,
-                ["after"] = new GameMcpDomainValue(new BigDouble(after.RerollsLeft)),
+                ["before"] = prior is { Available: true } ? Number(prior.Value.RerollsLeft) : (int?)null,
+                ["after"] = Number(after.RerollsLeft),
             },
             ["challengesFetched"] = new JObject
             {
@@ -5051,9 +5049,9 @@ internal static class GameMcpWorldQuery
             ["available"] = true,
             ["worldCycleComplete"] = context.WorldCycleComplete,
             ["challengesFetched"] = context.ChallengesFetched,
-            ["rerollsLeft"] = new GameMcpDomainValue(new BigDouble(context.RerollsLeft)),
-            ["rerollsMaximum"] = new GameMcpDomainValue(new BigDouble(context.RerollsMaximum)),
-            ["selectionMaximum"] = new GameMcpDomainValue(new BigDouble(context.SelectionMaximum)),
+            ["rerollsLeft"] = Number(context.RerollsLeft),
+            ["rerollsMaximum"] = Number(context.RerollsMaximum),
+            ["selectionMaximum"] = Number(context.SelectionMaximum),
             ["selected"] = ChallengeReferences(context.Selected),
             ["timeOffers"] = ChallengeReferences(context.TimeOffers),
             ["prestigeOffers"] = ChallengeReferences(context.PrestigeOffers),
@@ -5200,7 +5198,12 @@ internal static class GameMcpWorldQuery
             ["nativeType"] = "EquipmentTypeSO",
             ["baseUsage"] = equipmentType.BaseUsage,
             ["masteryLevel"] = new GameMcpDomainValue(equipmentType.MasteryLevel),
-            ["maximumSlots"] = new GameMcpDomainValue(equipmentType.MaxTypeSlots),
+
+            // The game's own answer for this quantity is an integer: GetMaxTypeSlots() is
+            // maxTypeSlots.AsInt(), which is GetValue().ToInt() over the very record this row
+            // holds. Publishing the raw record put one key on the wire in two JSON types, because
+            // the loadout block's typeMaximumSlots reads that method.
+            ["maximumSlots"] = Number(equipmentType.MaxTypeSlots.ToInt()),
         };
         AddLevelDecision(world, result, equipmentType.LevelDecision);
         return result.Freeze();

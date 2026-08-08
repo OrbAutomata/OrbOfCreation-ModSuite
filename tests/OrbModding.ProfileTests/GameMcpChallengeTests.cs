@@ -111,8 +111,8 @@ public sealed class GameMcpChallengeTests
         Assert.NotNull(fetch["challengeState"]);
         Assert.Equal("Expanding Trial",
             (string?)fetch["challengeState"]!["timeOffers"]![1]!["name"]);
-        Assert.Equal("2", (string?)fetch["rerollsLeft"]!["before"]);
-        Assert.Equal("2", (string?)fetch["rerollsLeft"]!["after"]);
+        Assert.Equal(2, (int)fetch["rerollsLeft"]!["before"]!);
+        Assert.Equal(2, (int)fetch["rerollsLeft"]!["after"]!);
         Assert.True((bool)fetch["challengesFetched"]!["before"]!);
         Assert.True((bool)fetch["challengesFetched"]!["after"]!);
     }
@@ -134,12 +134,12 @@ public sealed class GameMcpChallengeTests
 
         Assert.False((bool)firstPress["challengesFetched"]!["before"]!);
         Assert.True((bool)firstPress["challengesFetched"]!["after"]!);
-        Assert.Equal("3", (string?)firstPress["rerollsLeft"]!["before"]);
-        Assert.Equal("3", (string?)firstPress["rerollsLeft"]!["after"]);
+        Assert.Equal(3, (int)firstPress["rerollsLeft"]!["before"]!);
+        Assert.Equal(3, (int)firstPress["rerollsLeft"]!["after"]!);
 
         Assert.True((bool)laterPress["challengesFetched"]!["before"]!);
-        Assert.Equal("3", (string?)laterPress["rerollsLeft"]!["before"]);
-        Assert.Equal("2", (string?)laterPress["rerollsLeft"]!["after"]);
+        Assert.Equal(3, (int)laterPress["rerollsLeft"]!["before"]!);
+        Assert.Equal(2, (int)laterPress["rerollsLeft"]!["after"]!);
     }
 
     /// <summary>

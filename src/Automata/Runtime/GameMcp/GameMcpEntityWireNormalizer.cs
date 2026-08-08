@@ -377,12 +377,25 @@ internal static class GameMcpEntityWireNormalizer
         item.AddFirst(status);
     }
 
+    /// <summary>
+    /// Keys that carry a quantity of stuff the player holds, spends, or gains. The game renders
+    /// these in its Scientific style, so they ship as that string on every surface even where one
+    /// category happens to hold the value in an <c>int</c> — a caller must not have to learn which
+    /// category it is reading to know the shape of <c>amount</c>.
+    /// </summary>
+    /// <remarks>
+    /// <c>maximumAmount</c> was here and is not a magnitude: it is the ceiling on the integer
+    /// <c>amount</c> argument a tool accepts, it is an <c>int</c> at every one of its nine
+    /// producers, and quoting it as a string put one range on the wire in two JSON types
+    /// (<c>minimumAmount: 1</c> beside <c>maximumAmount: "240"</c>). <c>maximumCarry</c> stays,
+    /// because it caps <c>amount</c> itself rather than an argument.
+    /// </remarks>
     private static bool IsPlayerMagnitude(string field) => field switch
     {
         "amount" or
         "baseCost" or "effectiveCost" or "groupCost" or "totalCost" or "cost" or
         "capacity" or "netRatePerSecond" or "yield" or
-        "startingAmount" or "maximumAmount" or "maximumCarry" or
+        "startingAmount" or "maximumCarry" or
         "developmentProgress" => true,
         _ => false,
     };

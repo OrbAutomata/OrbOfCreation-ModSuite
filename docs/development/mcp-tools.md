@@ -1050,6 +1050,33 @@ a busy plot can advertise a `maximumAdditional` above `game_agromancy`'s 10,000 
 over-ask is refused at schema validation rather than admitted and then refused natively. Send the
 smaller of the two and call again.
 
+#### The bound vocabulary, and its one JSON type
+
+Five bound names exist and no more. Each answers a different question, so none of them is a synonym
+for another:
+
+| Name | What it bounds | Where it appears |
+| --- | --- | --- |
+| `minimum` / `maximum` | a native control's live range | the read, the commit, **and** the refusal, in the same object as the value they bound |
+| `minimumAmount` / `maximumAmount` | the `amount` this one call admits | refusals and read-side decision blocks |
+| `minimumSlot` / `maximumSlot` | the `slot` index the live list holds | every `game_loadout` snapshot mode |
+| `maximumDestination` | the `destination` index a move accepts | `game_alchemy` and `game_spell_loadout`, read and refusal alike |
+| `maximumAdditional` | the game's remaining-instance headroom, never clamped by a schema cap | agromancy and harvest reads and post-states |
+
+Two shapes were retired rather than joined: a bound named only in an English sentence, and a
+JSON-RPC `-32602` text quoting a suite constant as if it were the game's limit. A sentence that
+names a ceiling now ships that ceiling in one of the five fields above, and a schema message says
+that the game decides instead of naming a number the game never chose.
+
+**One quantity, one JSON type.** A key that can carry a `BigDouble` — a resource amount, a price, a
+rate, a stored capacity — is the game's Scientific string on every surface, even where one category
+happens to hold that value in an `int`: a caller must not have to know which category it is reading
+to know the shape of `amount`. A key that can only ever carry a bounded cardinal — a level, a slot,
+a stack, an instance count, a per-call admission ceiling — is a JSON number on every surface. A
+ceiling follows the value it caps, so `maximumCarry` is a string beside `amount` while
+`maximumAmount` is a number beside `minimumAmount`, and a range never states its two ends two ways.
+`maximumAmount: "240"` beside `minimumAmount: 1` was that defect and is gone.
+
 ### Presence semantics
 
 A field or collection is absent when the suite did not collect it, and the response says so with a
