@@ -1113,8 +1113,8 @@ smaller of the two and call again.
 
 #### The bound vocabulary, and its one JSON type
 
-Five bound names exist and no more. Each answers a different question, so none of them is a synonym
-for another:
+The table below is the whole vocabulary and no name outside it exists. Each answers a different
+question, so none of them is a synonym for another:
 
 | Name | What it bounds | Where it appears |
 | --- | --- | --- |
@@ -1123,6 +1123,7 @@ for another:
 | `minimumSlot` / `maximumSlot` | the `slot` index the live list holds | every `game_loadout` snapshot mode |
 | `maximumDestination` | the `destination` index a move accepts | `game_alchemy` and `game_spell_loadout`, read and refusal alike |
 | `maximumAdditional` | the game's remaining-instance headroom, never clamped by a schema cap | agromancy and harvest reads and post-states |
+| `maximumBatch` | how many levels one queued develop would take, the multi-buy target clamped by the queue's own room | `game_research`'s develop block, queue route only |
 
 A decision block carries a bound exactly when the verb it decides takes the input that bound caps.
 `game_consumable discard` publishes `maximumAmount` because `discard` takes an `amount`; its sibling
@@ -1133,7 +1134,7 @@ call signature.
 
 Two shapes were retired rather than joined: a bound named only in an English sentence, and a
 JSON-RPC `-32602` text quoting an `int.MaxValue` placeholder as if it were the game's limit. A
-sentence that names a ceiling now ships that ceiling in one of the five fields above, and a schema
+sentence that names a ceiling now ships that ceiling in one of the fields above, and a schema
 message states only the floor it actually declares, leaving the ceiling to the game and to the
 refusal that names it.
 

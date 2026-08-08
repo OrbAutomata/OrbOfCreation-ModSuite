@@ -123,8 +123,6 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldPurchaseViewRelation> PurchaseViewRelations { get; } = new();
     internal WorldRelationBuffer<WorldPurchaseViewRoute> PurchaseViewRoutes { get; } = new();
 
-    /// <summary>The safe native parameterized verdict for each structure and upgrade.</summary>
-
     /// <summary>The volatile active/passive gates around the structural prerequisite-link graph.</summary>
     internal WorldPrerequisiteLinkTierBuffer PrerequisiteLinkTiers { get; } = new();
     internal WorldSampleBuffer<WorldAlchemyRecipe, WorldAlchemyRecipe> AlchemyRecipes { get; } = new();
