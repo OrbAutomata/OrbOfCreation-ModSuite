@@ -526,65 +526,6 @@ internal readonly struct WorldRequirementNativeVerdict
     internal bool Met { get; }
 }
 
-internal static class WorldRequirementNativeVerdictLookup
-{
-    internal static bool TryFind(
-        PublicationTable<WorldRequirementNativeVerdict> table,
-        Guid entityId,
-        out WorldRequirementNativeVerdict row)
-    {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].EntityId.CompareTo(entityId);
-            if (comparison == 0)
-            {
-                row = rows[middle];
-                return true;
-            }
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        row = default;
-        return false;
-    }
-}
-
-internal sealed class WorldRequirementNativeVerdictBuffer
-{
-    private WorldRequirementNativeVerdict[] _samples = new WorldRequirementNativeVerdict[256];
-    private int _count;
-
-    internal int Count => _count;
-    internal ref readonly WorldRequirementNativeVerdict this[int index] => ref _samples[index];
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldRequirementNativeVerdict sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-internal static class WorldRequirementNativeVerdictDeriver
-{
-    internal static PublicationTable<WorldRequirementNativeVerdict> Build(
-        WorldRequirementNativeVerdictBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldRequirementNativeVerdict>.Empty;
-
-        var rows = new WorldRequirementNativeVerdict[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
-        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
-        return PublicationTable<WorldRequirementNativeVerdict>.Create(rows, rows.Length);
-    }
-}
-
 /// <summary>
 /// Reads the live active and passive cache gates around prerequisite-link tiers without calling the
 /// native <c>IsEnabled()</c>, whose passive branch can latch prerequisite state.
@@ -701,12 +642,12 @@ internal sealed class WorldPrerequisiteLinkTierReader : IWorldCategoryReader
 /// visible as a requirement nobody can evaluate instead of as an entity with no requirements.
 /// </para>
 /// <para>
-/// Authored graph reads are field loads performed once per lifecycle. The paired
-/// <see cref="WorldRequirementNativeVerdictReader"/> invokes exactly the parameterized
-/// <c>Container.Check(ConditionInfo)</c> overload on every world capture as a same-generation
-/// differential oracle. It neither stamps nor latches. The no-argument <c>Check()</c>, and
-/// whole-entity visibility or availability predicates which can reach it, remain forbidden here
-/// because they write cached prerequisite state. See W58.
+/// Authored graph reads are field loads performed once per lifecycle. This reader calls no container
+/// predicate at all: the game's own verdict is asked for one entity at a time by
+/// <see cref="WorldRequirementNativeVerdictProbe"/> when a request wants it, and compared wholesale
+/// by the differential checker's requirement passes. The no-argument <c>Check()</c>, and whole-entity
+/// visibility or availability predicates which can reach it, remain forbidden here because they write
+/// cached prerequisite state. See W58.
 /// </para>
 /// </remarks>
 internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
@@ -722,19 +663,14 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
 
     private readonly Func<object, Guid>? _upgradeId;
     private readonly Func<object, object?>? _upgradeContainer;
-    private readonly Func<object, int>? _upgradeLevel;
-    private readonly Func<object, int>? _upgradeQueuedLevels;
     private readonly Func<object, Guid>? _structureId;
     private readonly Func<object, object?>? _structureContainer;
-    private readonly Func<object, int>? _structureQuantity;
     private readonly Func<object, Guid>? _researchId;
     private readonly Func<object, object?>? _researchContainer;
-    private readonly Func<object, int>? _researchRequirementLevel;
     private readonly Func<object, Guid>? _prerequisiteLinkId;
     private readonly Func<object, IList?>? _prerequisiteLinkTiers;
     private readonly Func<object, object?>? _prerequisiteLinkTierContainer;
     private readonly Func<object, IList?>? _conditions;
-    private readonly Func<object, long, bool>? _nativeCheck;
     private readonly Func<object, object?>? _alchemyUsageContainer;
     private readonly Func<object, IList?>? _alchemyConditions;
 
@@ -743,7 +679,6 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     /// delegates, and a frame crosses to a worker.
     /// </summary>
     private readonly Dictionary<Type, ConditionAccessors> _accessors = new();
-    private readonly List<NativeVerdictSource> _nativeVerdictSources = new();
 
     internal WorldEntityRequirementReader(
         Type? upgradeType,
@@ -775,19 +710,15 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         var upgrade = new WorldMemberBinding(upgradeType, "UpgradeSO");
         _upgradeId = upgrade.Call<Guid>("GetGuid");
         _upgradeContainer = NativeAccessorBinder.Reference(upgradeType, "prerequisitesPerLevel");
-        _upgradeLevel = upgrade.Call<int>("GetPurchaseLevel");
-        _upgradeQueuedLevels = NativeAccessorBinder.Field<int>(upgradeType, "queuedLevels");
 
         var structure = new WorldMemberBinding(structureType, "StructureSO");
         _structureId = structure.Call<Guid>("GetGuid");
         _structureContainer = NativeAccessorBinder.Reference(structureType, "prerequisitesPerLevel");
-        _structureQuantity = NativeAccessorBinder.Field<int>(structureType, "quantity");
         _alchemyUsageContainer = NativeAccessorBinder.Reference(alchemyType, "usagePrerequisites");
 
         var research = new WorldMemberBinding(researchType, "ResearchSO");
         _researchId = research.Call<Guid>("GetGuid");
         _researchContainer = NativeAccessorBinder.Reference(researchType, "levelPrerequisites");
-        _researchRequirementLevel = research.Call<int>("GetRequirementLevel");
 
         var link = new WorldMemberBinding(prerequisiteLinkType, "PrerequisiteLinkSO");
         _prerequisiteLinkId = link.Call<Guid>("GetGuid");
@@ -801,19 +732,12 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         // is bound once against whichever owner declared it rather than once per native surface.
         var containerType = ContainerTypeOf(upgradeType) ?? ContainerTypeOf(structureType);
         _conditions = NativeAccessorBinder.CollectionField(containerType, "prerequisites");
-        _nativeCheck = NativeAccessorBinder.CallWithConstructedLongArgument<bool>(
-            containerType,
-            "Check",
-            "Requirements.ConditionInfo");
 
         var alchemyContainerType = alchemyType.GetField("usagePrerequisites", Instance)?.FieldType;
         _alchemyConditions = NativeAccessorBinder.CollectionField(alchemyContainerType, "prerequisites");
 
         if (_upgradeContainer is null || _structureContainer is null ||
-            _upgradeLevel is null || _upgradeQueuedLevels is null ||
-            _structureQuantity is null ||
             _researchId is null || _researchContainer is null ||
-            _researchRequirementLevel is null ||
             _prerequisiteLinkId is null || _prerequisiteLinkTiers is null ||
             _prerequisiteLinkTierContainer is null || _conditions is null ||
             _alchemyUsageContainer is null || _alchemyConditions is null)
@@ -823,13 +747,6 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                 "expose the complete prerequisite graph on this build";
             return;
         }
-        if (_nativeCheck is null)
-        {
-            _unavailable = "Prerequisites.Container.Check(Requirements.ConditionInfo) or its " +
-                "exact Int64 constructor was unavailable on this build";
-            return;
-        }
-
         _unavailable = upgrade.Failure.Length > 0
             ? upgrade.Failure
             : structure.Failure.Length > 0
@@ -851,7 +768,6 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     {
         var buffer = frame.EntityRequirements;
         buffer.Reset();
-        _nativeVerdictSources.Clear();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
         var sampled = 0;
@@ -909,56 +825,6 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         // run of the game rather than one per pass.
         return new WorldCategoryReport(
             Category, WorldCategoryOutcome.Collected, sampled, unmodelled, firstFailure);
-    }
-
-    internal WorldCategoryReport CollectNativeVerdicts(
-        HashSet<Guid> claimed,
-        GameWorldCycleFrame frame)
-    {
-        var destination = frame.RequirementNativeVerdicts;
-        destination.Reset();
-        if (!IsAvailable)
-            return WorldCategoryReport.Missing("requirement native verdicts", _unavailable);
-
-        var sampled = 0;
-        var skipped = 0;
-        var firstFailure = string.Empty;
-        for (var index = 0; index < _nativeVerdictSources.Count; index++)
-        {
-            var source = _nativeVerdictSources[index];
-            try
-            {
-                var level = source.OwnerKind switch
-                {
-                    WorldRequirementOwnerKind.Upgrade =>
-                        checked((long)_upgradeLevel!(source.Owner) +
-                            _upgradeQueuedLevels!(source.Owner) + 1L),
-                    WorldRequirementOwnerKind.Research =>
-                        _researchRequirementLevel!(source.Owner),
-                    _ => _structureQuantity!(source.Owner),
-                };
-                var row = new WorldRequirementNativeVerdict(
-                    source.EntityId,
-                    source.OwnerKind,
-                    level,
-                    _nativeCheck!(source.Container, level));
-                destination.Append(in row);
-                sampled++;
-            }
-            catch (Exception exception)
-            {
-                skipped++;
-                if (firstFailure.Length == 0)
-                    firstFailure = "reading a live parameterized prerequisite verdict threw: " +
-                        exception.GetBaseException().Message;
-            }
-        }
-        return new WorldCategoryReport(
-            "requirement native verdicts",
-            WorldCategoryOutcome.Collected,
-            sampled,
-            skipped,
-            firstFailure);
     }
 
     private void WalkPrerequisiteLinks(
@@ -1073,31 +939,9 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
 
         var held = container(owner);
         if (held is null) return 0;
-        _nativeVerdictSources.Add(new NativeVerdictSource(ownerId, kind, owner, held));
-
         var conditions = _conditions!(held);
         return AppendConditions(
             ownerId, kind, program, conditions, buffer, ref unmodelled, ref firstFailure);
-    }
-
-    private readonly struct NativeVerdictSource
-    {
-        internal NativeVerdictSource(
-            Guid entityId,
-            WorldRequirementOwnerKind ownerKind,
-            object owner,
-            object container)
-        {
-            EntityId = entityId;
-            OwnerKind = ownerKind;
-            Owner = owner;
-            Container = container;
-        }
-
-        internal Guid EntityId { get; }
-        internal WorldRequirementOwnerKind OwnerKind { get; }
-        internal object Owner { get; }
-        internal object Container { get; }
     }
 
     private int ReadContainer(
@@ -1703,20 +1547,205 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
 }
 
 /// <summary>
-/// Refreshes only the played-state verdicts for the lifecycle-cached requirement owners. It never
-/// traverses the authored requirement graph; the paired structural reader owns that traversal and the
-/// owner/container references are invalidated by the same lifecycle epoch that refreshes the graph.
+/// Asks the game its own prerequisite verdict for one entity, when something asks.
 /// </summary>
-internal sealed class WorldRequirementNativeVerdictReader : IWorldCategoryReader
+/// <remarks>
+/// <para>
+/// Not a category reader, deliberately. This was a per-pass sweep that invoked
+/// <c>Container.Check(ConditionInfo)</c> once for every upgrade, structure, and research four times
+/// a second, and published a table whose only consumer was one diagnostic answering about one entity
+/// at a time. Capture grabs facts; a verdict the game computes on demand is not a fact lying around,
+/// and the differential checker — which now covers upgrades, structures, research, and
+/// prerequisite-link tiers — is where the two sides are compared wholesale.
+/// </para>
+/// <para>
+/// <b>Safe to call.</b> Only the parameterised overload is bound; the no-argument one latches
+/// <c>available</c> and stamps a game id. The parameter type is taken from the overload rather than
+/// resolved by name, so a same-named type elsewhere in the domain cannot be bound by mistake.
+/// </para>
+/// <para>
+/// The registry scan is linear, and that is the right cost here: one request asks about one entity,
+/// and an index would have to be maintained by the pass this type exists to delete.
+/// </para>
+/// </remarks>
+internal sealed class WorldRequirementNativeVerdictProbe
 {
-    private readonly WorldEntityRequirementReader _authoring;
+    private readonly OwnerProbe[] _owners;
+    private readonly string _unavailable;
 
-    internal WorldRequirementNativeVerdictReader(WorldEntityRequirementReader authoring) =>
-        _authoring = authoring ?? throw new ArgumentNullException(nameof(authoring));
+    internal WorldRequirementNativeVerdictProbe()
+        : this(WorldNativeTypes.Resolve)
+    {
+    }
 
-    public string Category => "requirement native verdicts";
-    public bool IsAvailable => _authoring.IsAvailable;
+    internal WorldRequirementNativeVerdictProbe(Func<string, Type?> resolveType)
+    {
+        if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
 
-    public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame) =>
-        _authoring.CollectNativeVerdicts(claimed, frame);
+        var upgrade = OwnerProbe.TryBind(
+            resolveType("UpgradeSO"),
+            WorldRequirementOwnerKind.Upgrade,
+            "prerequisitesPerLevel");
+        var structure = OwnerProbe.TryBind(
+            resolveType("StructureSO"),
+            WorldRequirementOwnerKind.Structure,
+            "prerequisitesPerLevel");
+        var research = OwnerProbe.TryBind(
+            resolveType("ResearchSO"),
+            WorldRequirementOwnerKind.Research,
+            "levelPrerequisites");
+
+        if (upgrade is null || structure is null || research is null)
+        {
+            _owners = Array.Empty<OwnerProbe>();
+            _unavailable = upgrade is null
+                ? "UpgradeSO did not expose its per-level prerequisite container on this build"
+                : structure is null
+                    ? "StructureSO did not expose its per-level prerequisite container on this build"
+                    : "ResearchSO did not expose its level prerequisite container on this build";
+            return;
+        }
+
+        _owners = new[] { upgrade, structure, research };
+        _unavailable = string.Empty;
+    }
+
+    internal bool IsAvailable => _unavailable.Length == 0;
+
+    /// <summary>
+    /// The game's answer for <paramref name="entityId"/>, or why there is none.
+    /// </summary>
+    internal bool TryRead(
+        Guid entityId,
+        out WorldRequirementNativeVerdict verdict,
+        out string failure)
+    {
+        verdict = default;
+        if (!IsAvailable)
+        {
+            failure = _unavailable;
+            return false;
+        }
+
+        for (var index = 0; index < _owners.Length; index++)
+        {
+            if (_owners[index].TryRead(entityId, out verdict, out failure)) return true;
+            if (failure.Length > 0) return false;
+        }
+
+        failure = "no upgrade, structure, or research in this session carries that identity";
+        return false;
+    }
+
+    private sealed class OwnerProbe
+    {
+        private const BindingFlags Instance =
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+
+        private readonly Type _ownerType;
+        private readonly WorldRequirementOwnerKind _kind;
+        private readonly Func<object, Guid> _identity;
+        private readonly Func<object, object?> _container;
+        private readonly Func<object, long> _level;
+        private readonly Func<object, long, bool> _check;
+
+        private OwnerProbe(
+            Type ownerType,
+            WorldRequirementOwnerKind kind,
+            Func<object, Guid> identity,
+            Func<object, object?> container,
+            Func<object, long> level,
+            Func<object, long, bool> check)
+        {
+            _ownerType = ownerType;
+            _kind = kind;
+            _identity = identity;
+            _container = container;
+            _level = level;
+            _check = check;
+        }
+
+        internal static OwnerProbe? TryBind(
+            Type? ownerType,
+            WorldRequirementOwnerKind kind,
+            string containerField)
+        {
+            if (ownerType is null) return null;
+
+            var binding = new WorldMemberBinding(ownerType, ownerType.Name);
+            var identity = binding.Call<Guid>("GetGuid");
+            var container = NativeAccessorBinder.Reference(ownerType, containerField);
+            var level = LevelAccessor(ownerType, kind, binding);
+            var containerType = ownerType.GetField(containerField, Instance)?.FieldType;
+            var check = NativeAccessorBinder.CallWithConstructedLongArgument<bool>(
+                containerType, "Check", "Requirements.ConditionInfo");
+
+            return identity is null || container is null || level is null || check is null ||
+                binding.Failure.Length > 0
+                ? null
+                : new OwnerProbe(ownerType, kind, identity, container, level, check);
+        }
+
+        /// <summary>
+        /// Each owner's own level expression, as the game writes it:
+        /// <c>level + queuedLevels + 1</c> for <c>UpgradeSO.HasMetQueuedLevelRequirements()</c>,
+        /// <c>quantity</c> for <c>StructureSO.HasMetLevelRequirements()</c>, and
+        /// <c>GetRequirementLevel()</c> for <c>ResearchSO.MeetsLevelRequirements()</c>.
+        /// </summary>
+        private static Func<object, long>? LevelAccessor(
+            Type ownerType,
+            WorldRequirementOwnerKind kind,
+            WorldMemberBinding binding)
+        {
+            switch (kind)
+            {
+                case WorldRequirementOwnerKind.Upgrade:
+                    var level = NativeAccessorBinder.Field<int>(ownerType, "level");
+                    var queued = NativeAccessorBinder.Field<int>(ownerType, "queuedLevels");
+                    return level is null || queued is null
+                        ? null
+                        : owner => level(owner) + queued(owner) + 1L;
+                case WorldRequirementOwnerKind.Structure:
+                    var quantity = NativeAccessorBinder.Field<int>(ownerType, "quantity");
+                    return quantity is null ? null : owner => quantity(owner);
+                default:
+                    var requirementLevel = binding.Call<int>("GetRequirementLevel");
+                    return requirementLevel is null ? null : owner => requirementLevel(owner);
+            }
+        }
+
+        internal bool TryRead(
+            Guid entityId,
+            out WorldRequirementNativeVerdict verdict,
+            out string failure)
+        {
+            verdict = default;
+            failure = string.Empty;
+            var all = NativeAccessorBinder.StaticList(_ownerType, "All");
+            if (all is null) return false;
+
+            for (var index = 0; index < all.Count; index++)
+            {
+                var owner = all[index];
+                if (owner is null) continue;
+                try
+                {
+                    if (_identity(owner) != entityId) continue;
+                    var container = _container(owner);
+                    var level = _level(owner);
+                    verdict = new WorldRequirementNativeVerdict(
+                        entityId, _kind, level, container is null || _check(container, level));
+                    return true;
+                }
+                catch (Exception exception)
+                {
+                    failure = "reading the live prerequisite verdict threw: " +
+                        exception.GetBaseException().Message;
+                    return false;
+                }
+            }
+
+            return false;
+        }
+    }
 }

@@ -414,22 +414,6 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         var world = new GameWorldState
         {
             Research = PublicationTable<WorldResearch>.Create(new[] { research }),
-            RequirementNativeVerdicts = PublicationTable<WorldRequirementNativeVerdict>.Create(
-                new[]
-                {
-                    new WorldRequirementNativeVerdict(
-                        id, WorldRequirementOwnerKind.Research, checkLevel: 1, met: true),
-                }),
-            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
-                new[]
-                {
-                    new WorldCollectionCategoryStatus(
-                        "requirement native verdicts",
-                        WorldCategoryOutcome.Collected,
-                        sampled: 1,
-                        skipped: 0,
-                        firstFailure: string.Empty),
-                }),
             CollectedAtEpoch = 77,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
@@ -471,19 +455,6 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
             "The suite reads this requirement as Met where the game reads it as Unmet.",
             (string?)parity["reason"]);
         Assert.Equal((string?)result["reason"], (string?)parity["reason"]);
-
-        var noCollectionEvidence = new GameWorldState
-        {
-            Upgrades = collected.Upgrades,
-            Research = collected.Research,
-            EntityRequirements = collected.EntityRequirements,
-            RequirementNativeVerdicts = collected.RequirementNativeVerdicts,
-            CollectedAtEpoch = 1,
-            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-        };
-        var incomplete = Explain(noCollectionEvidence, owner.GetGuid(), 922);
-        Assert.Equal("unavailable", (string?)incomplete["status"]);
-        Assert.Equal("requirement_collection_incomplete", (string?)incomplete["reasonCode"]);
     }
 
     [Fact]
@@ -601,21 +572,6 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
                     hasEmptySlot: false,
                     consistent: true),
             }),
-            RequirementNativeVerdicts = PublicationTable<WorldRequirementNativeVerdict>.Create(
-                new[]
-                {
-                    new WorldRequirementNativeVerdict(
-                        upgradeId, WorldRequirementOwnerKind.Upgrade, checkLevel: 2, met: true),
-                }),
-            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
-            {
-                new WorldCollectionCategoryStatus(
-                    "requirement native verdicts",
-                    WorldCategoryOutcome.Collected,
-                    sampled: 0,
-                    skipped: 0,
-                    firstFailure: string.Empty),
-            }),
             CollectedAtEpoch = 41,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
@@ -628,7 +584,11 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         var craftingResult = GameMcpTestHarness.Json(
             GameMcpEntityExplainer.Explain(state, ReadyCraftingId.ToString("D")));
 
-        Assert.Null(upgradeResult["requirements"]!["nativeParity"]);
+        // This world is assembled by hand, so no live entity carries the identity and the game has
+        // no answer to compare against. The parity block says which, rather than going missing.
+        Assert.Equal(
+            "native_verdict_unavailable",
+            (string?)upgradeResult["requirements"]!["nativeParity"]!["reasonCode"]);
         Assert.False((bool)upgradeResult["predicates"]!["canPurchase"]!["value"]!);
         Assert.Equal("already_maxed",
             (string?)upgradeResult["predicates"]!["canPurchase"]!["reasonCode"]);

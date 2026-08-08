@@ -211,8 +211,16 @@ public sealed class WorldStructuralEpochTests : IDisposable
         Assert.Equal(1, secondTier.CollectedFrame);
     }
 
+    /// <summary>
+    /// The requirement graph is read once an epoch, and no pass asks the game for a verdict.
+    /// </summary>
+    /// <remarks>
+    /// The authored list is deliberately destroyed between the two passes: a second traversal would
+    /// publish the emptied one. The verdict half used to refresh here and no longer exists — the
+    /// game's own answer is asked for one entity at a time, by request.
+    /// </remarks>
     [Fact]
-    public void RequirementGraphStaysStructuralWhileTheExactNativeCheckLevelRefreshes()
+    public void RequirementGraphStaysStructuralAndNoPassAsksTheGame()
     {
         Author();
         var upgrade = global::UpgradeSO.All[0];
@@ -222,13 +230,7 @@ public sealed class WorldStructuralEpochTests : IDisposable
         collector.Collect(frame);
         var first = GameWorldFrameDeriver.Build(frame);
         Assert.Equal(1, first.EntityRequirements.Count);
-        Assert.True(WorldRequirementNativeVerdictLookup.TryFind(
-            first.RequirementNativeVerdicts, upgrade.GetGuid(), out var firstVerdict));
-        Assert.Equal(1L, firstVerdict.CheckLevel);
-        Assert.Equal(1, upgrade.prerequisitesPerLevel.ParameterizedCheckCalls);
 
-        // Both sides move. The authored list is deliberately destroyed, while the played level moves
-        // to the exact next level the game would evaluate. Only the latter may affect pass two.
         upgrade.prerequisitesPerLevel.prerequisites.Clear();
         upgrade.level = 3;
         upgrade.queuedLevels = 2;
@@ -236,11 +238,8 @@ public sealed class WorldStructuralEpochTests : IDisposable
         var second = GameWorldFrameDeriver.Build(frame);
 
         Assert.Equal(1, second.EntityRequirements.Count);
-        Assert.True(WorldRequirementNativeVerdictLookup.TryFind(
-            second.RequirementNativeVerdicts, upgrade.GetGuid(), out var secondVerdict));
-        Assert.Equal(6L, secondVerdict.CheckLevel);
-        Assert.True(secondVerdict.Met);
-        Assert.Equal(2, upgrade.prerequisitesPerLevel.ParameterizedCheckCalls);
+        Assert.Equal(0, upgrade.prerequisitesPerLevel.ParameterizedCheckCalls);
+        Assert.Equal(0, upgrade.prerequisitesPerLevel.CheckCalls);
     }
 
     [Fact]

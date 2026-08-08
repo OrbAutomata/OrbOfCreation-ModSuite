@@ -78,7 +78,6 @@ internal sealed class GameWorldCollector
     private readonly WorldEffectBlockReader _effectBlocks;
     private readonly WorldEntityRequirementReader _entityRequirements;
     private readonly WorldPurchaseViewRelationReader _purchaseViewRelations;
-    private readonly WorldRequirementNativeVerdictReader _requirementNativeVerdicts;
     private readonly WorldPrerequisiteLinkTierReader _prerequisiteLinkTiers;
     private readonly IWorldMasteryExperienceSource _masteryExperience;
     private readonly WorldCategoryReader<WorldAlchemyRecipe, WorldAlchemyRecipe> _alchemyRecipes;
@@ -299,8 +298,6 @@ internal sealed class GameWorldCollector
         _purchaseViewRelations = new WorldPurchaseViewRelationReader(
             resolveType,
             productionPurchaseTopology);
-        _requirementNativeVerdicts = new WorldRequirementNativeVerdictReader(
-            _entityRequirements);
         _prerequisiteLinkTiers = new WorldPrerequisiteLinkTierReader(
             resolveType("PrerequisiteLinkSO"),
             resolveType("GameManager"));
@@ -326,7 +323,7 @@ internal sealed class GameWorldCollector
             _targeting,
             _actionQueues, _spellSlots, _alchemyInstances, _alchemyLoadout,
             _plotAuthoring, _effectBlocks,
-            _entityRequirements, _purchaseViewRelations, _requirementNativeVerdicts,
+            _entityRequirements, _purchaseViewRelations,
             _prerequisiteLinkTiers,
         };
 

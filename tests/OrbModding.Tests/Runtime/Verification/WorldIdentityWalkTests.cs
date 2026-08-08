@@ -138,7 +138,6 @@ public sealed class WorldIdentityWalkTests
         "PlotPhaseDescriptors",
         "EffectBlocks",
         "EntityRequirements",
-        "RequirementNativeVerdicts",
         "PrerequisiteLinkTiers",
         "CraftingStationOptions",
         "CraftingStationDrains",

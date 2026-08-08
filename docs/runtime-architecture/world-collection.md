@@ -13,7 +13,7 @@ configuration, world state and strategy and nothing else — is stated in
 ## The pipeline
 
 ```
-61 category readers over the game's registries
+60 category readers over the game's registries
         │  Unity thread, once per 250 ms
         ▼
 GameWorldCollector ──fills──► GameWorldCycleFrame
@@ -261,7 +261,7 @@ freezes the generation for the same reason and with the same effect.
 One file per category under `src/Common/Runtime/World/Categories/`, each holding that category's row
 struct and its binder. The machinery lives one directory up: `WorldCategoryMachinery.cs` (buffers,
 readers, derivers), `NativeAccessorBinder.cs` (member binding), `GameWorldCollector.cs` (the pass, and
-owner of the 61-reader array), `GameWorldStateDeriver.cs` (the four derived row kinds — resource,
+owner of the 60-reader array), `GameWorldStateDeriver.cs` (the four derived row kinds — resource,
 structure, upgrade, plot node).
 
 Nine readers are **structural**: plot authoring, effect blocks, spell authoring, entity requirement

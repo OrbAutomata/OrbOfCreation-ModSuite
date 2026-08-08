@@ -6322,9 +6322,6 @@ internal static class GameMcpWorldQuery
             Composite(nameof(GameWorldState.PlotPhaseDescriptors), world => world.PlotPhaseDescriptors),
             Composite(nameof(GameWorldState.EffectBlocks), world => world.EffectBlocks),
             Composite(nameof(GameWorldState.EntityRequirements), world => world.EntityRequirements),
-            Composite(
-                nameof(GameWorldState.RequirementNativeVerdicts),
-                world => world.RequirementNativeVerdicts),
             Entity(nameof(GameWorldState.TreasurePools), world => world.TreasurePools),
         };
         Array.Sort(result, static (left, right) =>
@@ -6421,7 +6418,6 @@ internal static class GameMcpWorldQuery
             "snapshot-slots" or "snapshot-entries" => new[] { "loadouts" },
         "harvest-element-controls" or "harvest-action-controls" or
             "harvest-lifecycle-costs" => new[] { "harvest-lifecycle" },
-        "requirement-native-verdicts" => new[] { "requirement-native-verdicts" },
         "consumables" => new[] { "consumables", "consumable-inventory" },
         _ => new[] { category },
     };
@@ -6697,10 +6693,6 @@ internal static class GameMcpWorldQuery
         {
             "ownerId", "ownerKind", "ordinal", "kind", "conditionTypeName",
             "targetId", "reqType", "baseValue",
-        },
-        "requirement-native-verdicts" => new[]
-        {
-            "entityId", "ownerKind", "checkLevel", "met",
         },
         "treasure-pools" => new[]
         {

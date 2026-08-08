@@ -124,7 +124,6 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldPurchaseViewRoute> PurchaseViewRoutes { get; } = new();
 
     /// <summary>The safe native parameterized verdict for each structure and upgrade.</summary>
-    internal WorldRequirementNativeVerdictBuffer RequirementNativeVerdicts { get; } = new();
 
     /// <summary>The volatile active/passive gates around the structural prerequisite-link graph.</summary>
     internal WorldPrerequisiteLinkTierBuffer PrerequisiteLinkTiers { get; } = new();
@@ -511,8 +510,6 @@ internal static class GameWorldFrameDeriver
                 WorldPlotPhaseDescriptorDeriver.Build(frame.PlotPhaseDescriptors),
             EffectBlocks = WorldEffectBlockDeriver.Build(frame.EffectBlocks),
             EntityRequirements = WorldEntityRequirementDeriver.Build(frame.EntityRequirements),
-            RequirementNativeVerdicts =
-                WorldRequirementNativeVerdictDeriver.Build(frame.RequirementNativeVerdicts),
             PrerequisiteLinkTiers =
                 WorldPrerequisiteLinkTierDeriver.Build(frame.PrerequisiteLinkTiers),
             TreasurePools = frame.TreasurePools.Build(WorldIdentityDeriver<WorldTreasurePool>.Shared),

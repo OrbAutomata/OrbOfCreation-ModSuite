@@ -428,14 +428,6 @@ public sealed record GameWorldState
         PublicationTable<WorldEntityRequirement>.Empty;
 
     /// <summary>
-    /// Native parameterized prerequisite verdicts captured on the Unity thread at the exact check
-    /// level recorded in each row. These are differential oracles for worker-owned evaluation, not
-    /// whole-entity availability latches.
-    /// </summary>
-    internal PublicationTable<WorldRequirementNativeVerdict> RequirementNativeVerdicts { get; init; } =
-        PublicationTable<WorldRequirementNativeVerdict>.Empty;
-
-    /// <summary>
     /// The live active-link and passive-cache gates for every authored prerequisite-link tier.
     /// </summary>
     internal PublicationTable<WorldPrerequisiteLinkTier> PrerequisiteLinkTiers { get; init; } =

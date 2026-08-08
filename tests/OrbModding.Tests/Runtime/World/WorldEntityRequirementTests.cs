@@ -98,8 +98,16 @@ public sealed class WorldEntityRequirementTests : IDisposable
             world.EntityRequirements, global::UpgradeSO.All[0].GetGuid(), out _, out _));
     }
 
+    /// <summary>
+    /// The game's own verdict is asked for one entity, at that owner's own check level, when asked.
+    /// </summary>
+    /// <remarks>
+    /// It used to be a table the capture pass filled for every upgrade, structure, and research four
+    /// times a second, of which one row was ever read. The level expressions the probe reproduces are
+    /// the game's own and are not the same shape, which is the half most worth pinning.
+    /// </remarks>
     [Fact]
-    public void NativeParameterizedVerdictsUseTheExactUpgradeAndStructureCheckLevels()
+    public void TheNativeVerdictProbeAsksAtTheOwnersOwnCheckLevel()
     {
         var emptyUpgrade = Author(new global::UpgradeSO
         {
@@ -118,44 +126,80 @@ public sealed class WorldEntityRequirementTests : IDisposable
         var structure = new global::StructureSO { quantity = 7, queuedQuantity = 3 };
         global::StructureSO.All.Add(structure);
 
-        var world = Collect();
+        var probe = new WorldRequirementNativeVerdictProbe();
+        Assert.True(probe.IsAvailable);
 
-        Assert.True(WorldRequirementNativeVerdictLookup.TryFind(
-            world.RequirementNativeVerdicts, emptyUpgrade.GetGuid(), out var empty));
+        Assert.True(probe.TryRead(emptyUpgrade.GetGuid(), out var empty, out _));
         Assert.Equal(WorldRequirementOwnerKind.Upgrade, empty.OwnerKind);
         Assert.Equal(4L, empty.CheckLevel);
         Assert.True(empty.Met);
 
-        Assert.True(WorldRequirementNativeVerdictLookup.TryFind(
-            world.RequirementNativeVerdicts, gatedUpgrade.GetGuid(), out var gated));
+        Assert.True(probe.TryRead(gatedUpgrade.GetGuid(), out var gated, out _));
         Assert.Equal(7L, gated.CheckLevel);
         Assert.False(gated.Met);
 
-        Assert.True(WorldRequirementNativeVerdictLookup.TryFind(
-            world.RequirementNativeVerdicts, structure.GetGuid(), out var structureVerdict));
+        Assert.True(probe.TryRead(structure.GetGuid(), out var structureVerdict, out _));
         Assert.Equal(WorldRequirementOwnerKind.Structure, structureVerdict.OwnerKind);
         Assert.Equal(7L, structureVerdict.CheckLevel);
         Assert.True(structureVerdict.Met);
     }
 
+    /// <summary>
+    /// An identity no owner registry carries is named as unreadable rather than answered.
+    /// </summary>
     [Fact]
-    public void MissingParameterizedCheckMakesTheCategoryUnavailableBeforeCollection()
+    public void TheNativeVerdictProbeRefusesAnIdentityNoOwnerCarries()
+    {
+        var probe = new WorldRequirementNativeVerdictProbe();
+
+        Assert.False(probe.TryRead(Guid.NewGuid(), out _, out var failure));
+        Assert.NotEmpty(failure);
+    }
+
+    /// <summary>
+    /// Collecting the authored graph calls no container predicate at all.
+    /// </summary>
+    /// <remarks>
+    /// The parameterised <c>Check</c> neither stamps nor latches, so this is a cost rule rather than
+    /// a safety one — but a capture pass that computes a verdict the game would compute on demand is
+    /// exactly what capture is not for.
+    /// </remarks>
+    [Fact]
+    public void CollectingTheAuthoredGraphAsksTheGameNothing()
+    {
+        var gated = Author(new global::UpgradeSO { level = 4, maxLevel = -1 });
+        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.UnsupportedRequirement());
+
+        Collect();
+
+        Assert.Equal(0, gated.prerequisitesPerLevel.ParameterizedCheckCalls);
+        Assert.Equal(0, gated.prerequisitesPerLevel.CheckCalls);
+    }
+
+    /// <summary>
+    /// A build without the parameterised <c>Check</c> leaves the probe unavailable, and the
+    /// parameterless overload is never reached for.
+    /// </summary>
+    /// <remarks>
+    /// Picking <c>Check</c> by name alone would bind the overload that latches <c>available</c> and
+    /// stamps a game id, turning a diagnostic into a mutation of the state it reports on.
+    /// </remarks>
+    [Fact]
+    public void MissingParameterizedCheckMakesTheProbeUnavailableRatherThanLatching()
     {
         MissingCheckContainer.ParameterlessCalls = 0;
-        var reader = new WorldEntityRequirementReader(
-            typeof(MissingCheckUpgrade),
-            typeof(MissingCheckStructure),
-            typeof(global::ResearchSO),
-            typeof(MissingCheckLink),
-            typeof(global::AlchemyRecipeSO));
+        var probe = new WorldRequirementNativeVerdictProbe(name => name switch
+        {
+            "UpgradeSO" => typeof(MissingCheckUpgrade),
+            "StructureSO" => typeof(MissingCheckStructure),
+            "ResearchSO" => typeof(global::ResearchSO),
+            _ => null,
+        });
 
-        Assert.False(reader.IsAvailable);
-        var report = reader.Collect(
-            new HashSet<Guid>(),
-            new GameWorldCycleFrame { CollectedAtEpoch = 1 });
+        Assert.False(probe.IsAvailable);
+        Assert.False(probe.TryRead(Guid.NewGuid(), out _, out var failure));
 
-        Assert.Equal(WorldCategoryOutcome.Unavailable, report.Outcome);
-        Assert.Contains("Check(Requirements.ConditionInfo)", report.FirstFailure);
+        Assert.Contains("UpgradeSO", failure);
         Assert.Equal(0, MissingCheckContainer.ParameterlessCalls);
     }
 

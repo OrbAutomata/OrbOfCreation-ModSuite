@@ -13,6 +13,15 @@ internal static class GameMcpEntityExplainer
 {
     private const int MaximumRequirementExpansionDepth = 32;
 
+    /// <summary>
+    /// Bound on first use and kept, because binding is the expensive half and every request that
+    /// reaches it runs on the same Unity thread inside a frame operation.
+    /// </summary>
+    private static WorldRequirementNativeVerdictProbe? _nativeVerdicts;
+
+    private static WorldRequirementNativeVerdictProbe NativeVerdicts =>
+        _nativeVerdicts ??= new WorldRequirementNativeVerdictProbe();
+
     internal static JObject Explain(GameMcpFrameContext state, string uuidText)
     {
         if (!Guid.TryParseExact(uuidText ?? string.Empty, "D", out var uuid) || uuid == Guid.Empty)
@@ -401,22 +410,15 @@ internal static class GameMcpEntityExplainer
         {
             ["suiteVerdict"] = suite.ToString(),
         };
-        if (!GameMcpWorldQuery.TryCategoryAvailability(
-                world, "requirement-native-verdicts", out var categoryFailure))
-        {
-            parityFailureCode = "requirement_collection_incomplete";
-            parityFailure = categoryFailure;
-            parity["status"] = "not_available";
-            parity["reasonCode"] = parityFailureCode;
-            parity["reason"] = parityFailure;
-        }
-        else if (!WorldRequirementNativeVerdictLookup.TryFind(
-                world.RequirementNativeVerdicts, id, out var native))
+        // Asked here, on the Unity thread, for this one entity. It used to be a table the world
+        // capture filled for every upgrade, structure, and research four times a second, of which
+        // one row was ever read.
+        if (!NativeVerdicts.TryRead(id, out var native, out var probeFailure))
         {
             parityFailureCode = "native_verdict_unavailable";
             parityFailure =
-                "The game's own prerequisite verdict for this generation is not published, " +
-                "so the suite's verdict has nothing to be checked against.";
+                "The game's own prerequisite verdict could not be read for this entity: " +
+                probeFailure + ".";
             parity["status"] = "not_available";
             parity["reasonCode"] = parityFailureCode;
             parity["reason"] = parityFailure;
@@ -425,7 +427,7 @@ internal static class GameMcpEntityExplainer
         {
             parityFailureCode = "native_verdict_input_mismatch";
             parityFailure =
-                "The game's prerequisite verdict was captured for a different owner or level, " +
+                "The game's prerequisite verdict answers about a different owner or level, " +
                 "so it does not answer the same question.";
             parity["status"] = "not_available";
             parity["reasonCode"] = parityFailureCode;

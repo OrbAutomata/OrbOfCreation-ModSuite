@@ -118,7 +118,6 @@ public sealed class ConsumablePlayerContractTests
             "consumable-inventory.list-value-capture",
             "consumable-inventory.list-get-max-capture",
             "consumable-inventory.can-use-capture",
-            "consumable.can-fire-capture",
             "consumable.cost-has-enough-capture",
             "consumable.cost-value-capture",
         };

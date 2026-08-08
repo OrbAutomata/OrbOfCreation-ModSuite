@@ -171,10 +171,10 @@ public sealed class GameWorldCollectorTests : IDisposable
         var world = collector.Build();
 
         Assert.True(report.IsComplete, report.Describe());
-        // Five primary entities, two purchase-view relations, three live prerequisite-verdict
-        // rows, two Scribe queues, eight complete zero-candidate Scroll-target evidence rows,
-        // one frame-local challenge-decision context row, and the two empty snapshot-list owners.
-        Assert.Equal(23, report.TotalSampled);
+        // Five primary entities, two purchase-view relations, two Scribe queues, eight complete
+        // zero-candidate Scroll-target evidence rows, one frame-local challenge-decision context
+        // row, and the two empty snapshot-list owners.
+        Assert.Equal(20, report.TotalSampled);
 
         Assert.True(WorldLookup.TryFind(world.Resources, mana, out var resource));
         Assert.Equal(60d, resource.Reading.Quantity.ToDouble());
@@ -577,13 +577,13 @@ public sealed class GameWorldCollectorTests : IDisposable
         // up only as a consumer finding nothing where there was something.
         var report = Collector().Collect();
 
-        Assert.Equal(61, report.Categories.Length);
+        Assert.Equal(60, report.Categories.Length);
         Assert.True(report.IsComplete, report.Describe());
 
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a
         // levelled grouping type.
         foreach (var category in
-                 new[] { "resources", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "requirement native verdicts", "prerequisite link states" })
+                 new[] { "resources", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "prerequisite link states" })
         {
             Assert.Equal(WorldCategoryOutcome.Collected, report.For(category).Outcome);
         }

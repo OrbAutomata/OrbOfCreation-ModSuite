@@ -562,7 +562,6 @@ internal static class GameMcpEntityCapabilityMap
         D("plot-phase-descriptors", "PlotNodeSO"),
         D("effect-blocks", "EffectSO"),
         D("entity-requirements", "EntitySO"),
-        D("requirement-native-verdicts", "StructureSO|UpgradeSO"),
         D("treasure-pools", "TreasurePoolSO"),
     };
 
