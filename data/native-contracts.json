@@ -8626,27 +8626,6 @@
       "place": "action"
     },
     {
-      "id": "resource-cost-list.multiply",
-      "assembly": "assembly-csharp",
-      "type": "ResourceCostList",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "Multiply",
-      "visibility": "public",
-      "static": false,
-      "returnType": "ResourceCostList",
-      "parameters": [
-        "BigDouble"
-      ],
-      "owners": [
-        "Automata world collection"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "capture"
-    },
-    {
       "id": "resource-drain.current",
       "assembly": "assembly-csharp",
       "type": "ResourceDrain",
@@ -21230,21 +21209,6 @@
       "static": false,
       "returnType": "CraftingRecipeTypeSO",
       "parameters": [],
-      "owners": ["Common crafting decision world collection"],
-      "usages": ["reflection"],
-      "place": "capture"
-    },
-    {
-      "id": "crafting-decision.cost-multiply-capture",
-      "assembly": "assembly-csharp",
-      "type": "ResourceCostList",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "Multiply",
-      "visibility": "public",
-      "static": false,
-      "returnType": "ResourceCostList",
-      "parameters": ["BigDouble"],
       "owners": ["Common crafting decision world collection"],
       "usages": ["reflection"],
       "place": "capture"

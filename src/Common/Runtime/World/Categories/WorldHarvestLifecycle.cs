@@ -118,7 +118,6 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
     private readonly Func<object, object?>? _instanceBaseCost;
     private readonly Func<object, int, object?>? _instanceScaling;
     private readonly Func<object, BigDouble>? _drainCostMod;
-    private readonly Func<object, BigDouble, object?>? _multiplyCost;
     private readonly Func<object, IList?>? _costEntries;
     private readonly Func<object, Guid>? _costResource;
     private readonly Func<object, BigDouble>? _costAmount;
@@ -161,7 +160,6 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
             _instanceType, "ComputeResourceCost", costType);
         _instanceScaling = BindBoxedCall<int>(_instanceType, "GetScalingInfo", scalingType);
         _drainCostMod = NativeAccessorBinder.Call<BigDouble>(scalingType, "GetDrainCostMod");
-        _multiplyCost = NativeAccessorBinder.CallObject<BigDouble>(costType, "Multiply", costType);
         _costEntries = NativeAccessorBinder.CallList(costType, "GetEntries", tupleType);
         _costResource = NativeAccessorBinder.ReferenceGuid(tupleType, "resource");
         _costAmount = NativeAccessorBinder.Call<BigDouble>(tupleType, "GetValue");
@@ -299,15 +297,25 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         var baseCost = _instanceBaseCost!(prototype);
         var scaling = _instanceScaling!(prototype, Math.Max(count, 1));
         if (baseCost is null || scaling is null) return;
-        var modifier = OrbGameMath.AsPercent(_drainCostMod!(scaling));
-        var effective = _multiplyCost!(baseCost, modifier);
-        if (effective is not null)
-            AppendCosts(elementId, actionId,
-                WorldHarvestLifecycleCostKind.NextActionDrain, effective, destination);
+        // The drain modifier is applied here rather than by ResourceCostList.Multiply, which builds
+        // a whole second list to hold one scalar product per entry. GameCostMath.Multiply is that
+        // product, and the cost parity pass is what proves the two agree.
+        AppendCosts(
+            elementId,
+            actionId,
+            WorldHarvestLifecycleCostKind.NextActionDrain,
+            baseCost,
+            OrbGameMath.AsPercent(_drainCostMod!(scaling)),
+            destination);
     }
 
     private void AppendCosts(Guid elementId, Guid actionId,
         WorldHarvestLifecycleCostKind kind, object cost,
+        WorldRelationBuffer<WorldHarvestLifecycleCost> destination) =>
+        AppendCosts(elementId, actionId, kind, cost, BigDouble.One, destination);
+
+    private void AppendCosts(Guid elementId, Guid actionId,
+        WorldHarvestLifecycleCostKind kind, object cost, BigDouble factor,
         WorldRelationBuffer<WorldHarvestLifecycleCost> destination)
     {
         var entries = _costEntries!(cost);
@@ -318,7 +326,8 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
             var resourceId = _costResource!(entry);
             if (resourceId != Guid.Empty)
                 destination.Append(new WorldHarvestLifecycleCost(
-                    elementId, actionId, kind, resourceId, _costAmount!(entry)));
+                    elementId, actionId, kind, resourceId,
+                    _costAmount!(entry) * factor));
         }
     }
 
@@ -332,7 +341,7 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         _instanceElementId is not null && _instanceVisible is not null &&
         _instanceMaximum is not null && _instanceCount is not null &&
         _instanceBaseCost is not null && _instanceScaling is not null &&
-        _drainCostMod is not null && _multiplyCost is not null && _costEntries is not null &&
+        _drainCostMod is not null && _costEntries is not null &&
         _costResource is not null && _costAmount is not null && _costEnough is not null;
 
     private static Func<object, TArgument, object?>? BindBoxedCall<TArgument>(

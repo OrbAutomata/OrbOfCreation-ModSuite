@@ -232,7 +232,6 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
     private readonly Func<object, bool>? _instanceIsAuto;
     private readonly Func<object, int>? _modeValue;
     private readonly Func<object, bool>? _costHasEnough;
-    private readonly Func<object, BigDouble, object?>? _costMultiply;
     private readonly Func<object, IList?>? _costEntries;
     private readonly Func<object, object?>? _costResource;
     private readonly Func<object, BigDouble>? _costValue;
@@ -298,7 +297,6 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
 
         var cost = new WorldMemberBinding(costType!, "ResourceCostList");
         _costHasEnough = cost.Call<bool>("HasEnough");
-        _costMultiply = cost.CallObject<BigDouble>("Multiply", costType);
         var entriesMethod = costType?.GetMethod("GetEntries");
         var entriesType = entriesMethod?.ReturnType;
         var tupleType = entriesType is { IsGenericType: true }
@@ -420,8 +418,9 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
             {
                 var baseCost = _recipeCost!(recipe) ??
                     throw new InvalidOperationException("recipeCost was null");
-                var totalCost = _costMultiply!(baseCost, amount);
-                if (totalCost is not null) AppendCosts(recipeId, totalCost, frame);
+                // Scaled here rather than by ResourceCostList.Multiply, whose whole body is
+                // NewValue(GetValue() * value) per tuple wrapped in a second list allocation.
+                AppendCosts(recipeId, baseCost, amount, frame);
             }
             frame.CraftingDecisions.Append(new WorldCraftingDecision(
                 recipeId,
@@ -573,7 +572,14 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
         }
     }
 
-    private void AppendCosts(Guid recipeId, object cost, GameWorldCycleFrame frame)
+    private void AppendCosts(Guid recipeId, object cost, GameWorldCycleFrame frame) =>
+        AppendCosts(recipeId, cost, BigDouble.One, frame);
+
+    private void AppendCosts(
+        Guid recipeId,
+        object cost,
+        BigDouble factor,
+        GameWorldCycleFrame frame)
     {
         var entries = _costEntries!(cost) ??
             throw new InvalidOperationException("ResourceCostList.GetEntries returned null");
@@ -589,7 +595,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
             frame.CraftingDecisionCosts.Append(new WorldCraftingDecisionCost(
                 recipeId,
                 resourceId,
-                _costValue!(tuple),
+                _costValue!(tuple) * factor,
                 _resourceAmount!(resource)));
         }
     }
