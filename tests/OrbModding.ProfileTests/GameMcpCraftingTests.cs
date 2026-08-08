@@ -343,6 +343,11 @@ public sealed class GameMcpCraftingTests
             (string?)postState["postStateUnavailable"]!["reason"]);
         Assert.Contains("still shows 4 queued",
             (string?)postState["postStateUnavailable"]!["reason"]);
+
+        // Honest about the unobserved queue, and still saying what it acted on. Without these two
+        // facts, two commits on two different recipes were byte-identical.
+        Assert.Equal(RecipeId.ToString("D"), (string?)postState["uuid"]);
+        Assert.Equal(1, (int)postState["requestedAmount"]!);
     }
 
     [Fact]

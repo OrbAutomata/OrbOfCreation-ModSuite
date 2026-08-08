@@ -85,6 +85,15 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal(3, (int)paidDelta["usableCount"]!["before"]!);
         Assert.Equal(4, (int)paidDelta["usableCount"]!["after"]!);
         Assert.Equal(4, (int)bonusDelta["usableCount"]!["after"]!);
+
+        // Two verbs buy levels; this one used to admit no price at all, so what a level cost had
+        // to be read off the screen. Both prices are published native rows, neither is summed.
+        var paid = Assert.Single(paidDelta["paid"]!.Values<JObject>())!;
+        Assert.Equal("Knowledge", (string?)paid["resource"]!["name"]);
+        Assert.Equal("5", (string?)paid["cost"]);
+        var next = Assert.Single(paidDelta["costPerLevel"]!.Values<JObject>())!;
+        Assert.Equal("Knowledge", (string?)next["resource"]!["name"]);
+        Assert.Null(paidDelta["free"]);
     }
 
     [Fact]

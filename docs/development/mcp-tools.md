@@ -516,7 +516,14 @@ the published category, repeats the visible button's live admission on Unity's m
 returns only the settled paid- or bonus-level change plus the resulting total. A glyph target also
 returns `usableCount {before, after}`, because that is the number the glyph screen draws — levels buy
 uses through the mastery requirement, and a response that named only levels left the screen's own
-count out. The paid route
+count out.
+
+It also names the price, because two verbs buy levels and a silent one reads as an omission rather
+than as a semantic. A single-level call carries `paid[]` — the named cost rows the bought level
+asked, read from the pre-state row — and every call carries `costPerLevel[]`, the rows the next
+level asks in the settled world. A multi-level call publishes only `costPerLevel`: the sum of the
+prices it actually paid is accounting this surface does not keep. A route whose cost table is empty
+on both sides says `free: true` rather than staying quiet. The paid route
 checks the game's persistent usage cost but does not perform a one-time payment; the concrete
 native level callback applies its own usage/effects. Research development and spell mastery stay
 on `game_research` and `game_spell_level`, respectively.

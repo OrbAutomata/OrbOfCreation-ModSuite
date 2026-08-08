@@ -1324,6 +1324,24 @@ internal static class GameMcpWorldQuery
             ["after"] = current.TotalLevel,
         };
 
+        // Two verbs buy levels and only one admitted a price, so learning what a level cost meant
+        // reading a counter off the screen. The price is a published native fact on both worlds:
+        // what the bought level asked is the pre-state row, what the next one asks is the settled
+        // row. Neither is summed — a multi-level call publishes only the next price, because the
+        // sum of the prices it actually paid is accounting this surface does not keep.
+        var bonus = command.Mode == "bonus";
+        var settledPrice = bonus ? current.BonusCosts : current.PaidCosts;
+        if (hadBefore && command.Amount == 1)
+        {
+            var paidPrice = bonus ? previous.BonusCosts : previous.PaidCosts;
+            if (paidPrice.Count > 0)
+                result["paid"] = PriceRows(state.World.Snapshot, paidPrice);
+        }
+        if (settledPrice.Count > 0)
+            result["costPerLevel"] = PriceRows(state.World.Snapshot, settledPrice);
+        else if (hadBefore && (bonus ? previous.BonusCosts : previous.PaidCosts).Count == 0)
+            result["free"] = true;
+
         // A glyph screen counts uses, not levels — levels buy uses through the mastery requirement,
         // so the number the player watched move is the one the row already publishes as usableCount.
         if (command.DerivedNativeType == "GlyphSO" &&
@@ -1339,6 +1357,28 @@ internal static class GameMcpWorldQuery
             };
         }
         return result.Freeze();
+    }
+
+    private static JArray PriceRows(
+        GameWorldState world,
+        PublicationTable<WorldLevelableCost> costs)
+    {
+        var rows = new JArray();
+        for (var index = 0; index < costs.Count; index++)
+        {
+            var cost = costs[index];
+            var row = new JObject
+            {
+                ["resourceId"] = cost.ResourceId.ToString("D"),
+                ["cost"] = new GameMcpDomainValue(
+                    PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
+            };
+            if (WorldLookup.TryFind(world.Resources, cost.ResourceId, out var resource))
+                row["spendableAmount"] = new GameMcpDomainValue(
+                    SpendableAmount(world, cost.ResourceId, resource.Reading.Quantity));
+            rows.Add(row);
+        }
+        return rows;
     }
 
     private static GameMcpValue ProjectCraftingStationDelta(
@@ -2042,6 +2082,8 @@ internal static class GameMcpWorldQuery
                 command.TargetId,
                 out var current))
             return PostStateUnavailable(
+                command.TargetId,
+                command.Amount,
                 "post_state_not_published",
                 "the settled world has no crafting decision for the committed recipe");
         if (command.Mode is "automate" or "cancel_automation")
@@ -2092,6 +2134,8 @@ internal static class GameMcpWorldQuery
         // An unmoved queue count is the same number before and after the craft, which proves
         // nothing about it. Say what the settled world shows instead of publishing the pre-state.
         return PostStateUnavailable(
+            command.TargetId,
+            command.Amount,
             "post_state_not_observed",
             GameMcpCraftingProjection.ProvedQueueEntry(committed.Details)
                 ? "the craft entered the game's crafting queue, but the settled queue still shows " +
@@ -2389,6 +2433,30 @@ internal static class GameMcpWorldQuery
                 ["reason"] = reason,
             },
         }.Freeze();
+
+    /// <summary>
+    /// An unobservable post-state still names what was acted on and how much was asked for. Being
+    /// honest that the settled world proves nothing is right; dropping the identity with it made
+    /// two commits on two different recipes byte-identical.
+    /// </summary>
+    private static GameMcpValue PostStateUnavailable(
+        Guid uuid,
+        int requestedAmount,
+        string reasonCode,
+        string reason)
+    {
+        var result = new JObject
+        {
+            ["uuid"] = uuid.ToString("D"),
+            ["postStateUnavailable"] = new JObject
+            {
+                ["reasonCode"] = reasonCode,
+                ["reason"] = reason,
+            },
+        };
+        if (requestedAmount > 0) result["requestedAmount"] = requestedAmount;
+        return result.Freeze();
+    }
 
     internal static JObject Search(
         GameMcpFrameContext state,
