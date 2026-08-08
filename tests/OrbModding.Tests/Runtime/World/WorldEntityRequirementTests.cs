@@ -150,6 +150,26 @@ public sealed class WorldEntityRequirementTests : IDisposable
     }
 
     /// <summary>
+    /// An owner the game holds no container for is named as unreadable, not answered "met".
+    /// </summary>
+    /// <remarks>
+    /// The probe is the suite's one native oracle for these verdicts. Reading a missing container as
+    /// a passing check would make it agree with the suite on an entity neither of them evaluated,
+    /// which is the shape of agreement a differential pass exists to rule out.
+    /// </remarks>
+    [Fact]
+    public void TheNativeVerdictProbeRefusesAnOwnerWithNoContainer()
+    {
+        var upgrade = Author(new global::UpgradeSO { level = 4, maxLevel = -1 });
+        upgrade.prerequisitesPerLevel = null!;
+
+        var probe = new WorldRequirementNativeVerdictProbe();
+
+        Assert.False(probe.TryRead(upgrade.GetGuid(), out _, out var failure));
+        Assert.NotEmpty(failure);
+    }
+
+    /// <summary>
     /// Collecting the authored graph calls no container predicate at all.
     /// </summary>
     /// <remarks>

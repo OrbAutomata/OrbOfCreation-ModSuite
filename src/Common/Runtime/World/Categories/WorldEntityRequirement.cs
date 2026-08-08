@@ -1732,9 +1732,19 @@ internal sealed class WorldRequirementNativeVerdictProbe
                 {
                     if (_identity(owner) != entityId) continue;
                     var container = _container(owner);
+                    if (container is null)
+                    {
+                        // The one native oracle answers what the game answered. With no container
+                        // there is no game answer, and inventing "met" would make the oracle agree
+                        // with the suite for a reason neither of them checked.
+                        failure = "the game holds no prerequisite container for that entity, " +
+                            "so it published no verdict to read";
+                        return false;
+                    }
+
                     var level = _level(owner);
                     verdict = new WorldRequirementNativeVerdict(
-                        entityId, _kind, level, container is null || _check(container, level));
+                        entityId, _kind, level, _check(container, level));
                     return true;
                 }
                 catch (Exception exception)
