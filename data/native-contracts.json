@@ -11033,6 +11033,25 @@
       "place": "capture"
     },
     {
+      "id": "ritual.required-waves",
+      "assembly": "assembly-csharp",
+      "type": "RitualSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetRequiredWaves",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
+      "parameters": [],
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture"
+    },
+    {
       "id": "ritual.is-failed-run",
       "assembly": "assembly-csharp",
       "type": "RitualSO",

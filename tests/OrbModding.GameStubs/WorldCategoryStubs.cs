@@ -1036,6 +1036,7 @@ public sealed class RitualSO : IdScriptableObject, IDiscoverable
     public int forceLevelValue;
     public int baseWaves;
     public int maxWaves;
+    public int wavesPerLevel;
     public double baseWeight;
     public int minimumEffectLevel;
 
@@ -1043,6 +1044,10 @@ public sealed class RitualSO : IdScriptableObject, IDiscoverable
     public List<SpoilsRecordEntry> currentSpoils = new List<SpoilsRecordEntry>();
 
     public bool IsFailedRun() => wavesCompleted < 5;
+    public int GetCurrentLevel() => forceLevel ? forceLevelValue : selectedLevel;
+    public int GetRequiredWaves() => Math.Min(
+        baseWaves + (wavesPerLevel * GetCurrentLevel()),
+        maxWaves > 0 ? maxWaves : int.MaxValue);
 }
 
 public sealed class SpoilsRecordEntry

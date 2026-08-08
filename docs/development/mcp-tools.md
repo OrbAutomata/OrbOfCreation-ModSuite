@@ -463,7 +463,14 @@ read or changed.
 Ritual discovery remains `game_discover(surface="devote")`. Once discovered, a `rituals` detail
 row reports the selected Ritual, the reached level, the starting-level control as `current` with
 both its `minimum` and `maximum`, battle state, and active
-duration-reward state. Only the selected row carries activation and completion prices in the same
+duration-reward state. It also carries `waveTotal`, the wave count a run at the staged level has to
+clear, read from `RitualSO.GetRequiredWaves()` rather than derived from the ritual's own bounds.
+How far a run got is reported in the tense the game's own fields are in: while `inBattle` the row
+carries the running battle's `wavesCompleted` and, once it has banked anything, its `spoils`;
+afterwards those same two fields are the finished run's and appear as `lastRun`, with the verdict
+`result` beside them. A cleared wave count and no spoils is exactly the state a ritual nobody has
+played is in, so such a row reports no `lastRun` at all rather than an empty one.
+Only the selected row carries activation and completion prices in the same
 player-facing units as the Ritual panel and the eventual resource spend;
 unselected rows do not publish a speculative ledger. `setLevel`, `activate`, and
 `cancelDuration` each carry only the binding availability or refusal reason that affects the next
@@ -486,9 +493,10 @@ the two facts the game's own results modal shows: `result` as `succeeded` or `fa
 `RitualSO.IsFailedRun()`, and the `spoils` the run banked as named resource rows, empty array
 included. Both are settled reads and not pre-mutation copies: `RitualSO.End()` writes neither
 `wavesCompleted` nor `currentSpoils`, and the next `Initiate()` is what clears them, so the run's
-record outlives the transition that ends it. Only `end` reports them — a `rituals` row and an
-`activate` carry neither, because `wavesCompleted < 5` is also true of every ritual nobody has
-played. Selection, level, battle, and duration activity each use one game-written outcome sentinel
+record outlives the transition that ends it — which is why the row can still report it as `lastRun`
+long afterwards. An `activate` reports no verdict: it is the mode that clears the record, and
+`wavesCompleted < 5` is true of a run that is just starting.
+Selection, level, battle, and duration activity each use one game-written outcome sentinel
 and never a resource ledger.
 
 ### Unified level controls
@@ -1061,7 +1069,8 @@ Absence therefore never doubles as a value. Every key that once used it to mean 
 | `discover` | nothing: every glyph carries the block | `available:false` with the reason, including `native_not_discoverable` for a glyph the game never offers |
 | `maxLevel` / `remainingLevels` | the entity is uncapped — a negative native maximum — on `world_list` and `world_get` alike | a real ceiling and the distance left to it |
 | `queuedLevels` | nothing: every level-bearing row carries it | `0`: nothing is in flight |
-| `spoils` / `result` | on a `rituals` read row, that a run's verdict and its banked resources belong to the `end` that produced them: `RitualSO.IsFailedRun()` is `wavesCompleted < 5`, so a row-level verdict would report a failure for every ritual nobody has played. `game_ritual end` always carries both | `[]`: the run banked nothing |
+| `lastRun` | the game retains no record of a run: a cleared `wavesCompleted` with no spoils is the state a ritual nobody has played is in, and `RitualSO.IsFailedRun()` is `wavesCompleted < 5`, so an unconditional verdict would call every untouched ritual a failure | a finished run's `result`, `wavesCompleted` and `spoils` |
+| `spoils` | on a row that is `inBattle`, that the running battle has banked nothing yet. On one that is not, see `lastRun` | `[]` on `game_ritual end`: the run banked nothing |
 | `openModals` | **deliberate progressive disclosure**: no modal is covering the board. `openModalsUnavailable` with a reason appears when the read itself failed, so silence is never a failed read | the game-written title of every open `UIModal` |
 
 `openModals` is the one key whose absence is still a value, and it is a documented choice rather

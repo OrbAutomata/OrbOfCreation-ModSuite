@@ -37,6 +37,7 @@ internal readonly struct WorldRitual : IWorldEntity
         int forceLevelValue,
         int baseWaves,
         int maxWaves,
+        int requiredWaves,
         double baseWeight,
         int minimumEffectLevel,
         bool failedRun,
@@ -66,6 +67,7 @@ internal readonly struct WorldRitual : IWorldEntity
         ForceLevelValue = forceLevelValue;
         BaseWaves = baseWaves;
         MaxWaves = maxWaves;
+        RequiredWaves = requiredWaves;
         BaseWeight = baseWeight;
         MinimumEffectLevel = minimumEffectLevel;
         FailedRun = failedRun;
@@ -105,7 +107,11 @@ internal readonly struct WorldRitual : IWorldEntity
 
     internal int SelectedLevel { get; }
 
-    /// <summary>Waves cleared in the run in progress.</summary>
+    /// <summary>
+    /// Waves cleared by the run in progress, or — once <see cref="InBattle"/> is false — by the run
+    /// that last finished. <c>Initiate()</c> is the only thing that clears it, so the finished run's
+    /// count stands until the next activation.
+    /// </summary>
     internal int WavesCompleted { get; }
 
     internal int DiscoveryRarityLevel { get; }
@@ -148,6 +154,15 @@ internal readonly struct WorldRitual : IWorldEntity
 
     internal int MaxWaves { get; }
 
+    /// <summary>
+    /// How many waves a run at the currently staged level has to clear: <c>GetRequiredWaves()</c>,
+    /// which adjusts <see cref="BaseWaves"/> by the authored <c>wavesPerLevel</c> modifier scaled to
+    /// <c>GetCurrentLevel()</c> and clamps the result to <see cref="MaxWaves"/> when that is
+    /// positive. Captured rather than derived: <c>wavesPerLevel</c> is a <c>ValueModifier</c> the
+    /// suite does not reimplement.
+    /// </summary>
+    internal int RequiredWaves { get; }
+
     internal double BaseWeight { get; }
 
     internal int MinimumEffectLevel { get; }
@@ -179,8 +194,9 @@ internal readonly struct WorldRitual : IWorldEntity
             RitualId, Discovered, InBattle, ActiveInstances, ReachedLevel, LastReachedLevel,
             SelectedLevel, WavesCompleted, DiscoveryRarityLevel, CritLevel, EchoLevel, ChainLevel,
             DurationRewardBlocks, BattleTotalWeight, in modifiers, HideEndScreenResults,
-            IsDiscoverRequired, ForceLevel, ForceLevelValue, BaseWaves, MaxWaves, BaseWeight,
-            MinimumEffectLevel, FailedRun, spoils, Discovery, decision, CompletionFormula);
+            IsDiscoverRequired, ForceLevel, ForceLevelValue, BaseWaves, MaxWaves, RequiredWaves,
+            BaseWeight, MinimumEffectLevel, FailedRun, spoils, Discovery, decision,
+            CompletionFormula);
     }
 }
 
@@ -428,6 +444,7 @@ internal sealed class WorldRitualBinder : WorldPlainBinder<WorldRitual>
     private Func<object, int>? _forceLevelValue;
     private Func<object, int>? _baseWaves;
     private Func<object, int>? _maxWaves;
+    private Func<object, int>? _requiredWaves;
     private Func<object, double>? _baseWeight;
     private Func<object, int>? _minimumEffectLevel;
     private Func<object, bool>? _failedRun;
@@ -488,6 +505,10 @@ internal sealed class WorldRitualBinder : WorldPlainBinder<WorldRitual>
         _forceLevelValue = bind.Field<int>("forceLevelValue");
         _baseWaves = bind.Field<int>("baseWaves");
         _maxWaves = bind.Field<int>("maxWaves");
+
+        // The wave count a run has to clear scales the authored wavesPerLevel modifier by the
+        // staged level, so the game's own answer is captured instead of recomputed from the bounds.
+        _requiredWaves = bind.Call<int>("GetRequiredWaves");
         _baseWeight = bind.Field<double>("baseWeight");
         _minimumEffectLevel = bind.Field<int>("minimumEffectLevel");
 
@@ -546,6 +567,7 @@ internal sealed class WorldRitualBinder : WorldPlainBinder<WorldRitual>
             _forceLevelValue!(entity),
             _baseWaves!(entity),
             _maxWaves!(entity),
+            _requiredWaves!(entity),
             _baseWeight!(entity),
             _minimumEffectLevel!(entity),
             _failedRun!(entity),

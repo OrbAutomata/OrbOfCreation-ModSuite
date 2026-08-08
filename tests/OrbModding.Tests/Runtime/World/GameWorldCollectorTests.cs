@@ -2540,6 +2540,9 @@ public sealed class GameWorldCollectorTests : IDisposable
             chainLevel = 3,
             battleTotalWeight = new BigDouble(4200d),
             wavesCompleted = 3,
+            baseWaves = 5,
+            wavesPerLevel = 2,
+            maxWaves = 30,
             ritualInstances = new List<object> { new(), new() },
             durationRewardBlocks = { new object() },
             currentSpoils =
@@ -2588,6 +2591,10 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(1, running.EchoLevel);
         Assert.Equal(3, running.ChainLevel);
         Assert.Equal(4200d, running.BattleTotalWeight.ToDouble());
+
+        // How far the run has to go is the game's own GetRequiredWaves(), which scales the ritual's
+        // base by the staged level: the published bounds alone cannot answer it.
+        Assert.Equal(19, running.RequiredWaves);
 
         // The results screen's own two facts. A run that has ended leaves no other record of the
         // verdict End() showed or of what it banked, and neither is derivable from a wave count.

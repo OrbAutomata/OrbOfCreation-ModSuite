@@ -152,6 +152,59 @@ public sealed class GameMcpRitualLifecycleTests
     }
 
     [Fact]
+    public void Finished_run_leaves_its_record_on_the_row_the_next_read_returns()
+    {
+        // The results modal is gone the moment it is dismissed, and the record behind it survives
+        // until the next activation. A caller that reads the ritual afterwards asked "how did that
+        // go", and the row answered with nothing at all.
+        var world = World(
+            selected: true, level: 4, activeInstances: 1, inBattle: false, wavesCompleted: 7,
+            spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(12)) });
+        var row = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 804),
+            "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
+
+        Assert.Equal(13, (int)row["waveTotal"]!);
+        Assert.Equal("succeeded", (string?)row["lastRun"]!["result"]);
+        Assert.Equal(7, (int)row["lastRun"]!["wavesCompleted"]!);
+        var spoil = Assert.Single(row["lastRun"]!["spoils"]!.Values<JObject>());
+        Assert.Equal("Knowledge", (string?)spoil!["resource"]!["name"]);
+        Assert.Equal("12", (string?)spoil["amount"]);
+        Assert.Null(row["wavesCompleted"]);
+    }
+
+    [Fact]
+    public void Ritual_nobody_has_played_reports_no_run_rather_than_a_failed_one()
+    {
+        // IsFailedRun() is wavesCompleted < 5, so an unconditional verdict calls every untouched
+        // ritual a failure. A cleared count with no spoils is exactly the never-run state.
+        var world = World(selected: false, level: 0, activeInstances: 0);
+        var row = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 805),
+            "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
+
+        Assert.Null(row["lastRun"]);
+        Assert.Null(row["wavesCompleted"]);
+        Assert.Equal(1, (int)row["waveTotal"]!);
+    }
+
+    [Fact]
+    public void Run_in_progress_reports_its_own_progress_and_never_a_verdict()
+    {
+        var world = World(
+            selected: true, level: 4, activeInstances: 0, inBattle: true, wavesCompleted: 3,
+            spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(4)) });
+        var row = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 806),
+            "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
+
+        Assert.Equal(3, (int)row["wavesCompleted"]!);
+        Assert.Equal(13, (int)row["waveTotal"]!);
+        Assert.Equal("4", (string?)Assert.Single(row["spoils"]!.Values<JObject>())!["amount"]);
+        Assert.Null(row["lastRun"]);
+    }
+
+    [Fact]
     public void Settled_select_delta_uses_the_new_world_and_returns_the_next_decision()
     {
         var before = World(selected: false, level: 0, activeInstances: 0);
@@ -294,9 +347,18 @@ public sealed class GameMcpRitualLifecycleTests
         var decision = new WorldRitualDecision(selected, 8, true, true,
             activation, completion);
         var modifiers = default(RawRitualModifiers);
+
+        // GetRequiredWaves() scales the ritual's own base by the staged level and clamps to the
+        // maximum, so the fixture derives it too rather than publishing a wave total that the
+        // bounds beside it contradict.
+        const int baseWaves = 1;
+        const int maxWaves = 20;
+        const int wavesPerLevel = 3;
+        var requiredWaves = Math.Min(baseWaves + (wavesPerLevel * level), maxWaves);
         var ritual = new WorldRitual(RitualId, true, inBattle, activeInstances,
             6, 5, level, wavesCompleted, 0, 0, 0, 0, 1, BigDouble.Zero, in modifiers,
-            false, false, false, 0, 1, 20, 1d, 0, failedRun, spoils, decision: decision);
+            false, false, false, 0, baseWaves, maxWaves, requiredWaves, 1d, 0, failedRun, spoils,
+            decision: decision);
         var rateInputs = default(RawResourceRateInputs);
         var traits = default(RawResourceTraits);
         var resourceModifiers = default(RawResourceModifiers);

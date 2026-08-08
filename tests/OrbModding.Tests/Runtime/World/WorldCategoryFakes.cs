@@ -2047,6 +2047,7 @@ internal sealed class FakeRitual : global::IDiscoverable
     public int forceLevelValue;
     public int baseWaves;
     public int maxWaves;
+    public int wavesPerLevel;
     public double baseWeight;
     public int minimumEffectLevel;
     public int maximumSelectedLevel = 1;
@@ -2065,6 +2066,10 @@ internal sealed class FakeRitual : global::IDiscoverable
     public List<FakeSpoilsRecordEntry> currentSpoils = new();
 
     public bool IsFailedRun() => wavesCompleted < 5;
+    public int GetCurrentLevel() => forceLevel ? forceLevelValue : selectedLevel;
+    public int GetRequiredWaves() => Math.Min(
+        baseWaves + (wavesPerLevel * GetCurrentLevel()),
+        maxWaves > 0 ? maxWaves : int.MaxValue);
 }
 
 internal sealed class FakeSpoilsRecordEntry

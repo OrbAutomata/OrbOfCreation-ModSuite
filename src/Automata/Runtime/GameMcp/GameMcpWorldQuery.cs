@@ -5234,10 +5234,40 @@ internal static class GameMcpWorldQuery
             ["activeInstances"] = ritual.ActiveInstances,
             ["reachedLevel"] = ritual.ReachedLevel,
             ["selectedLevel"] = ritual.SelectedLevel,
+            ["waveTotal"] = ritual.RequiredWaves,
         };
+        AddRitualRun(result, in ritual);
         AddRitualDecision(world, result, in ritual);
         AddDiscoveryDecision(world, result, ritual.Discovery);
         return result.Freeze();
+    }
+
+    /// <summary>
+    /// The run record the game retains, in the tense its own fields are in. <c>wavesCompleted</c>
+    /// and <c>currentSpoils</c> are one record that <c>Initiate()</c> clears and nothing else does,
+    /// so while a battle runs they describe that battle and afterwards they are the finished run's.
+    /// A verdict exists only for a finished run — <c>IsFailedRun()</c> is <c>wavesCompleted &lt; 5</c>,
+    /// which reads "failed" for a battle still on its second wave and for a ritual nobody has
+    /// played, so neither gets one.
+    /// </summary>
+    private static void AddRitualRun(JObject result, in WorldRitual ritual)
+    {
+        if (ritual.InBattle)
+        {
+            result["wavesCompleted"] = ritual.WavesCompleted;
+            if (ritual.Spoils.Count > 0) result["spoils"] = ProjectRitualSpoils(ritual.Spoils);
+            return;
+        }
+
+        // A cleared count and no spoils is exactly the state a ritual that has never run is in, so
+        // there is no record to report rather than a run that banked nothing.
+        if (ritual.WavesCompleted == 0 && ritual.Spoils.Count == 0) return;
+        result["lastRun"] = new JObject
+        {
+            ["result"] = ritual.FailedRun ? "failed" : "succeeded",
+            ["wavesCompleted"] = ritual.WavesCompleted,
+            ["spoils"] = ProjectRitualSpoils(ritual.Spoils),
+        };
     }
 
     private static GameMcpValue ProjectCraftingStation(

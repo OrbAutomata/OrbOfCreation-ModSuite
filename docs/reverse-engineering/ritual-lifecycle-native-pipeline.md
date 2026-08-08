@@ -69,6 +69,18 @@ the `ritualInstances` list, ends each duration effect, and republishes the activ
 It does **not** cancel an in-progress battle. The MCP verb is therefore named `cancel_duration`,
 and its sentinel is the game-written duration-active predicate becoming false.
 
+How much of a duration reward is left is readable, but only for one instance and only through an
+unguarded dereference. `GetCurrentDuration()`, `GetCurrentDurationMax()` and
+`GetCurrentDurationRatio()` all return zero when `ritualInstances` is empty and otherwise forward to
+`ritualInstances[0]` — the oldest instance, not the newest or an aggregate — and they read
+`ritualInstances.Count` without a null check, exactly as `HasActiveInstances()` does. The suite
+publishes the instance count and the authored duration-reward block count, which is what the
+re-run decision turns on, and does not capture the remaining time: a per-instance clock is not
+what a single ritual row means by "how long left", and binding an unguarded native call on a field
+the build may leave null before first use is not a contract this dossier can settle from IL alone.
+What the reward *does* is not readable at all: `durationRewardBlocks` holds authored
+`PersistentEffectBlock` objects whose player-facing text exists only as rendered tooltip nodes.
+
 ## Ending an active battle
 
 The battle screen's **End Ritual** control invokes `BattleManager.EndRitual()` directly. The
@@ -111,10 +123,32 @@ by `Initiate()` (a fresh list), `ResetData()` and save load. `Initiate()` runs f
 clears them. World collection reads both, so `end` publishes the verdict and the spoils from the
 settled world rather than from a waves count or from a pre-mutation copy.
 
-That is also why ordinary `rituals` read rows carry neither: on a ritual that has never run,
-`wavesCompleted` is `0` and `IsFailedRun()` therefore reads true, so a row-level verdict would
-report a failure for every ritual nobody has played. The verdict belongs to the transition that
-produced it, and only `end` reports one.
+Both survive a save as well: `RitualSO.RitualSaveData` carries `wavesCompleted` and `currentSpoils`
+alongside `inBattle`, `reachedLevel` and `lastReachedLevel`, so the record a run leaves behind is
+durable game state rather than a session artefact. Ordinary `rituals` read rows therefore report it
+too, but only in the tense the fields are in: while `inBattle` they belong to the running battle,
+and afterwards to the finished one. A verdict is reported only for a finished run, and only when a
+record exists at all — `IsFailedRun()` is `wavesCompleted < 5`, which reads true both for a ritual
+nobody has played and for a battle still on its second wave. A cleared count with no spoils is
+exactly the never-run state, and there is nothing in the build that separates it from a run that
+banked nothing, so it is reported as no record rather than as a failure.
+
+## How far a run has to go
+
+`RitualSO.GetRequiredWaves()` is the wave count a run must clear, and it is not derivable from the
+ritual's authored bounds alone:
+
+```
+RitualSO.GetRequiredWaves() : int
+  wavesPerLevel.MultiplyScalar(GetCurrentLevel())   // ValueModifier, scaled by the staged level
+    .Adjust(baseWaves).ToInt()
+  → Math.Min(that, maxWaves > 0 ? maxWaves : int.MaxValue)
+```
+
+`GetCurrentLevel()` is `forceLevel ? forceLevelValue : selectedLevel`. The scaling input
+`wavesPerLevel` is a bare `ValueModifier` rather than one of the `ValueModifierRecord`s the world
+already captures, so world collection binds the method and publishes the game's own answer instead
+of reimplementing `ValueModifier.Adjust`.
 
 ## Preconditions and risk
 
