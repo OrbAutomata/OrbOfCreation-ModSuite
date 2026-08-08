@@ -79,6 +79,11 @@ public sealed class NativeContractManifestTests
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>The game type each category walks, as its binder declares it.</summary>
+    /// <summary>The namespace a source file declares, which is how a capture root finds it.</summary>
+    private static readonly Regex NamespacePattern = new(
+        "^\\s*namespace\\s+(?<name>[A-Za-z_][A-Za-z0-9_.]*)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Multiline);
+
     private static readonly Regex TypeNamePattern = new(
         "TypeName\\s*=>\\s*\"(?<type>[A-Za-z_][A-Za-z0-9_]*)\"",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -197,7 +202,7 @@ public sealed class NativeContractManifestTests
         var manifest = NativeContractManifest.Load();
         var repositoryRoot = RepositoryPaths.RequireRoot();
 
-        Assert.Equal(3, manifest.SchemaVersion);
+        Assert.Equal(4, manifest.SchemaVersion);
 
         // Reconciled against the file, never pinned to a number. A literal is a second place to
         // remember when a contract lands, and it silently drifted for nine of them; what has to
@@ -795,6 +800,277 @@ public sealed class NativeContractManifestTests
         {
             failures.Add($"{expected.Id}: {exception.Message}");
         }
+    }
+
+    /// <summary>The capture classes a contract may declare.</summary>
+    private static readonly string[] CaptureClasses =
+        { "grab", "computes", "composite", "enumerating" };
+
+    /// <summary>How often a capture touch happens.</summary>
+    private static readonly string[] CaptureCadences =
+        { "per-pass", "per-epoch", "request-time" };
+
+    /// <summary>
+    /// Capture touches that write while answering, on the pass that runs four times a second.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This list only ever shrinks.</b> Every entry is a reading the collector takes by making the
+    /// game recalculate and cache something, which is a mutation of the state the snapshot claims to
+    /// observe. Each is derivable — the manifest says so on the row — and each leaves when the
+    /// replacing suite math has a parity pass proving it, never before.
+    /// </para>
+    /// <para>
+    /// Pinned as an exact set rather than a ceiling: a thirteenth arrival fails here, and so does a
+    /// departure that forgets to strike its line. The rule the doctrine actually wants — no
+    /// per-pass capture contract writes at all — is this list being empty.
+    /// </para>
+    /// <para>
+    /// Nine of the twelve are one family. <c>Prerequisites.Container.Check()</c> latches
+    /// <c>available</c>, and every whole-entity availability or visibility predicate reaches it:
+    /// <c>StructureSO</c>, <c>UpgradeSO</c>, <c>ViewSO</c>, <c>RecipeBookSO</c>,
+    /// <c>CraftingRecipeSO</c>, and <c>GlyphSO</c> call it directly, <c>ResearchSO</c> through two
+    /// visibility containers, and <c>DiscoveryTreeSO.IsVisible()</c> through
+    /// <c>viewLocation.All(view =&gt; view.IsAvailable())</c>. They leave together, when the
+    /// whole-entity container is published and the evaluator answers for it.
+    /// </para>
+    /// <para>
+    /// The other three are <c>ResourceCostList.HasEnough()</c>, which reaches
+    /// <c>ValueModifierRecord</c>'s memo through <c>ResourceSO.GetTrueSpend</c>. The replacing port
+    /// exists — <c>WorldResourceCoordinate.HasAmount</c> — and the spell-level affordability parity
+    /// pass already compares it against this very call.
+    /// </para>
+    /// </remarks>
+    private static readonly string[] PerPassCaptureWrites =
+    {
+        "consumable.cost-has-enough-capture",
+        "crafting-recipe.visible",
+        "discovery-tree-reader.cost-has-enough",
+        "discovery-tree-reader.is-visible",
+        "generic-discovery.cost-enough-capture",
+        "recipe-book.is-available",
+        "research.is-available",
+        "research.is-visible",
+        "spell-composition.glyph-is-available-capture",
+        "structure.is-available",
+        "upgrade.is-available",
+        "view.is-available",
+    };
+
+    /// <summary>
+    /// Members a capture-root file selects whose only contract is an action.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>place</c> holds one value, and each of these members is genuinely read by world collection
+    /// <em>and</em> used by a GameAction — their <c>owners</c> lists say so. The contract is filed
+    /// under the transaction because that is the boundary with the stronger obligations, which
+    /// leaves the capture-root walk seeing a selector with no capture row behind it.
+    /// </para>
+    /// <para>
+    /// Pinned rather than waved through: this is what a dual-place binding costs today, and the fix
+    /// is a schema that lets one contract name both places rather than a longer list here. A new
+    /// arrival fails until someone decides which it is.
+    /// </para>
+    /// </remarks>
+    private static readonly string[] CaptureRootActionSelectors =
+    {
+        "AllResourcesVisible", "CanAddInstance", "CanApplyBonusLevels", "CanCastASpell",
+        "CanLevel", "Check", "GetFreeBonusLevelsLeft", "GetFreeLevels", "GetFreeUsageSlots",
+        "GetMaxLevel", "GetMaxSelectedLevel", "GetMaxTypeSlots", "GetMaximumInstances",
+        "GetMinSelectedLevel", "GetQueuedLevels", "GetRemainingFreeUsageSlots",
+        "GetRemainingMaxUsageSlots", "GetTooltipable", "HasMaxLevel", "IsActive", "IsAtMax",
+        "IsLoaded", "MaximumCostTimes", "MaximumNumberInstances", "ingredientLists",
+    };
+
+    /// <summary>
+    /// Every capture contract says what it makes the game do, how often, and on what evidence.
+    /// </summary>
+    /// <remarks>
+    /// The manifest proved shape and nothing else, so a per-pass sweep over the whole registry and a
+    /// single field load were indistinguishable in it — which is how both came to live in capture
+    /// unremarked. These six answers are what tells them apart, and they are required rather than
+    /// optional so that a new capture contract cannot arrive without someone having thought about
+    /// its cost.
+    /// </remarks>
+    [Fact]
+    public void EveryCaptureContractDeclaresWhatItCostsTheGame()
+    {
+        var manifest = NativeContractManifest.Load();
+        var failures = new List<string>();
+
+        foreach (var contract in manifest.Contracts)
+        {
+            if (contract.Place != "capture")
+            {
+                if (contract.Capture is not null)
+                {
+                    failures.Add($"{contract.Id}: only a capture contract may declare capture discipline");
+                }
+                continue;
+            }
+
+            var capture = contract.Capture;
+            if (capture is null)
+            {
+                failures.Add($"{contract.Id}: declares no capture discipline");
+                continue;
+            }
+
+            if (!CaptureClasses.Contains(capture.Class))
+                failures.Add($"{contract.Id}: capture class '{capture.Class}' is not one of the four");
+            if (!CaptureCadences.Contains(capture.Cadence))
+                failures.Add($"{contract.Id}: capture cadence '{capture.Cadence}' is not one of the three");
+            if (string.IsNullOrWhiteSpace(capture.Justification))
+                failures.Add($"{contract.Id}: capture justification is empty");
+            if (string.IsNullOrWhiteSpace(capture.Evidence))
+                failures.Add($"{contract.Id}: capture evidence is empty");
+            foreach (var effect in capture.SideEffects)
+            {
+                if (string.IsNullOrWhiteSpace(effect))
+                    failures.Add($"{contract.Id}: a side effect is named by an empty string");
+            }
+        }
+
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
+
+    /// <summary>
+    /// Nothing writes on the pass that runs four times a second, except what is written down.
+    /// </summary>
+    /// <remarks>
+    /// This is the one rule the capture manifest exists to make enforceable. See
+    /// <see cref="PerPassCaptureWrites"/> for why the list is not yet empty and what empties it.
+    /// </remarks>
+    [Fact]
+    public void NoPerPassCaptureWritesExceptTheOnesStillOwed()
+    {
+        var manifest = NativeContractManifest.Load();
+
+        var writing = manifest.Contracts
+            .Where(contract => contract.Place == "capture" &&
+                contract.Capture?.Cadence == "per-pass" &&
+                contract.Capture.SideEffects.Count > 0)
+            .Select(contract => contract.Id)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(PerPassCaptureWrites.OrderBy(id => id, StringComparer.Ordinal), writing);
+
+        // A write the suite cannot yet replace is debt, and debt that is not derivable is a
+        // permanent exception nobody signed off on.
+        Assert.All(
+            manifest.Contracts.Where(contract => writing.Contains(contract.Id)),
+            contract => Assert.True(
+                contract.Capture!.Derivable,
+                $"{contract.Id}: writes on a capture pass and claims it cannot be derived"));
+    }
+
+    /// <summary>
+    /// The readers the manifest calls epoch-scoped are the ones the collector runs that way.
+    /// </summary>
+    /// <remarks>
+    /// A cadence nobody reconciles is a wish. The collector marks its structural readers by object
+    /// identity at construction so that reordering the array cannot reclassify one; this reads that
+    /// same marking out of its source and holds the manifest to it. The marking is on the fields, so
+    /// the fields are what the manifest names — one of the nine is a closed generic shared with
+    /// several per-pass categories, and its type name would say nothing about which reader was meant.
+    /// </remarks>
+    [Fact]
+    public void TheManifestsEpochScopedReadersAreTheCollectorsOwn()
+    {
+        var manifest = NativeContractManifest.Load();
+        var collector = Path.Combine(
+            RepositoryPaths.RequireRoot(),
+            "src", "Common", "Runtime", "World", "GameWorldCollector.cs");
+        Assert.True(File.Exists(collector), $"The collector was not found at {collector}");
+
+        var marked = Regex
+            .Matches(
+                File.ReadAllText(collector),
+                @"ReferenceEquals\(_readers\[index\], (?<field>_[A-Za-z0-9_]+)\)")
+            .Select(match => match.Groups["field"].Value)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.NotEmpty(marked);
+        Assert.Equal(
+            manifest.CaptureStructuralReaders.OrderBy(name => name, StringComparer.Ordinal),
+            marked);
+    }
+
+    /// <summary>
+    /// Every native member a capture root selects is declared as a capture contract.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The union is on the member name rather than on the exact contract, because one literal in one
+    /// binder call can be satisfied by any contract naming that member — the walk reads source text
+    /// and cannot resolve which overload on which type a call meant. That is coarse on purpose for a
+    /// first cut: it catches a capture root reaching for something the manifest files as a
+    /// transaction, which is the failure that matters.
+    /// </para>
+    /// <para>
+    /// <b>It under-reports, and knowing by how much is the point of saying so here.</b> The walk sees
+    /// the reflection APIs and the world binder's own helpers; it does not see a feature binding's
+    /// private <c>Method(...)</c> and <c>Field(...)</c> wrappers, so
+    /// <c>LoadoutNativeBindings</c> — which sits inside a capture root and binds a transaction —
+    /// passes without being looked at. Splitting that file into its reading and mutating halves is
+    /// what lets the walk see it, and until then it is a named gap rather than a silent one.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EveryCaptureRootSelectorNamesACaptureContract()
+    {
+        var manifest = NativeContractManifest.Load();
+        var repositoryRoot = RepositoryPaths.RequireRoot();
+        Assert.NotEmpty(manifest.CaptureRoots);
+
+        var capturing = manifest.Contracts
+            .Where(contract => contract.Place == "capture")
+            .SelectMany(contract => contract.Kind == "type"
+                ? new[] { contract.Type }
+                : new[] { contract.Type, contract.Member! })
+            .ToHashSet(StringComparer.Ordinal);
+        var declared = manifest.Contracts
+            .SelectMany(contract => contract.Kind == "type"
+                ? new[] { contract.Type }
+                : new[] { contract.Type, contract.Member! })
+            .ToHashSet(StringComparer.Ordinal);
+        var allowed = CaptureRootActionSelectors.ToHashSet(StringComparer.Ordinal);
+
+        var failures = new List<string>();
+        var walked = 0;
+        foreach (var file in Directory.EnumerateFiles(
+                     Path.Combine(repositoryRoot, "src"), "*.cs", SearchOption.AllDirectories))
+        {
+            var source = File.ReadAllText(file);
+            var declaration = NamespacePattern.Match(source);
+            if (!declaration.Success) continue;
+
+            var space = declaration.Groups["name"].Value;
+            if (!manifest.CaptureRoots.Any(root =>
+                    space == root || space.StartsWith(root + ".", StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            walked++;
+            foreach (var literal in FindLiteralTargets(source).Distinct(StringComparer.Ordinal))
+            {
+                if (capturing.Contains(literal) || allowed.Contains(literal)) continue;
+                if (!declared.Contains(literal)) continue;
+                failures.Add(
+                    $"{NormalizePath(Path.GetRelativePath(repositoryRoot, file))}: " +
+                    $"'{literal}' is selected by a capture root but no capture contract names it");
+            }
+        }
+
+        // A namespace that moved would walk nothing and report nothing, which reads exactly like a
+        // clean sweep. The count is the difference.
+        Assert.True(walked > 50, $"Only {walked} files were walked for capture roots.");
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
     private static IEnumerable<string> FindLiteralTargets(string source)

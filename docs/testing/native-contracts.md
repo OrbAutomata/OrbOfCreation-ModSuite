@@ -35,6 +35,48 @@ against the live game; a manifest row would claim metadata proves a computation,
 which it cannot. Formulas therefore stay out of this file — the members they read
 are declared, the arithmetic over them is not.
 
+## The capture block
+
+Shape is not cost. A per-pass sweep over the whole registry and a single field
+load looked identical in this manifest, which is how both came to live in
+capture unremarked. Every `place: "capture"` contract therefore also answers six
+questions, in a `capture` block:
+
+- **`class`** — `grab` reads a stored value, `computes` makes the game run a
+  formula, `composite` makes it build an aggregate, `enumerating` makes it walk
+  a collection.
+- **`cadence`** — `per-pass` (four times a second), `per-epoch` (once per
+  lifecycle), or `request-time` (only when something asks).
+- **`justification`** — why the suite takes the reading rather than deriving it.
+- **`evidence`** — what the classification rests on: a quoted IL body, or the
+  signature alone. A method classified from its signature says so, which is how
+  the un-audited ones stay visible.
+- **`derivable`** — whether the suite could answer this from facts it already
+  publishes. True is debt, and it is counted.
+- **`sideEffects`** — what the game writes while answering. Empty is the only
+  acceptable answer at `per-pass`.
+
+`captureRoots` names the namespaces whose reflection is capture;
+`captureStructuralReaders` names the collector fields it runs once per epoch.
+Four tests hold the boundary to this:
+
+1. every capture contract declares all six, and nothing else declares any;
+2. every native member a capture root selects is named by a capture contract,
+   with the dual-place selectors pinned in a list that only shrinks;
+3. no `per-pass` capture contract writes, except the twelve pinned in a list
+   that only shrinks — and each of those must claim `derivable`;
+4. the manifest's epoch-scoped reader list is the collector's own marking.
+
+The second walk under-reports and says so: it sees the reflection APIs and the
+world binder's helpers, not a feature binding's private `Method(...)` wrapper.
+Splitting `LoadoutNativeBindings` into its reading and mutating halves is what
+lets it see that file.
+
+**A reading leaves capture only after the replacing suite math has a parity pass
+proving it.** Port, prove, then delete — never the other order. Until then it is
+a `derivable: true` row, which is a debt that can be counted rather than an
+intention that cannot.
+
 ## Add or change a native target
 
 1. Inspect the installed assembly and record the exact declaring type, member
