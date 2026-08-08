@@ -719,6 +719,14 @@ that is actually wrong with the core glyph — `recipe_has_no_core_glyph`, `core
 `core_glyphs_unavailable` covered all five under one word. There is no selection step and no
 target-first `create`: the game exposes neither.
 
+A detailed row also carries the recipe's authored half, which is what the spell is before any
+modifier touches it: `casting` (cast type, recharge seconds and multiplier, recharge processor type,
+and — only where the recipe has them — maximum channel seconds and repeat effect rate),
+`authoredCosts` split into `cast` / `upkeep` / `hold` with each named resource and its unmodified
+price, and `belongsTo` naming the recipe's `spellTypes`, `coreGlyphs`, and `recipeBooks`. These are
+authored facts, so they do not move within a run; the live price a cast will actually pay is the
+`castCosts` on the equipped instance, not `authoredCosts`.
+
 The MCP-only base-recipe sequence is:
 
 1. Page or search `spell-recipes`; compare names, core-glyph holdings, discovery costs, and

@@ -27,6 +27,8 @@ public sealed class GameMcpSpellCompositionTests
         Guid.Parse("eda26ca0-afcc-4fc3-9d8a-eb279123353d");
     private static readonly Guid SpellInstanceId =
         Guid.Parse("13b37dd5-44f7-4eb5-af6b-168454578466");
+    private static readonly Guid SpellTypeId =
+        Guid.Parse("4f2b9f27-9c22-4a24-9c9c-3b52b2b1e0a1");
 
     [Fact]
     public void ToolIsOneGlobalCastingDialWithoutPerSpellAugmentMutation()
@@ -264,6 +266,47 @@ public sealed class GameMcpSpellCompositionTests
         false,
         frameContext: frameContext);
 
+    /// <summary>
+    /// The authored half of a spell — how it casts, its unmodified price, and what it belongs to —
+    /// is readable from the row that names the spell.
+    /// </summary>
+    /// <remarks>
+    /// The world has captured all three of these tables since the spell graph reader landed and
+    /// nothing anywhere read any of them. The publication was right and the missing reader was the
+    /// defect, so they ride on the detail row rather than being deleted.
+    /// </remarks>
+    [Fact]
+    public void The_authored_half_of_a_spell_is_readable_from_its_own_row()
+    {
+        var context = GameMcpTestHarness.Context(World());
+
+        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            context, "spell-recipes", RecipeId.ToString("D")))["row"]!;
+
+        Assert.Equal(2, (int)row["casting"]!["castType"]!);
+        Assert.Equal(12d, (double)row["casting"]!["rechargeSeconds"]!);
+        Assert.Equal(1.5d, (double)row["casting"]!["rechargeMultiplier"]!);
+        Assert.Equal(30d, (double)row["casting"]!["maximumChannelSeconds"]!);
+        Assert.Null(row["casting"]!["repeatEffectRate"]);
+
+        var cast = Assert.Single(row["authoredCosts"]!["cast"]!.Values<JObject>())!;
+        Assert.Equal("Knowledge", (string?)cast["name"]);
+        Assert.Equal("4.4e3", (string?)cast["cost"]);
+        var hold = Assert.Single(row["authoredCosts"]!["hold"]!.Values<JObject>())!;
+        Assert.Equal("250", (string?)hold["cost"]);
+        Assert.Null(row["authoredCosts"]!["upkeep"]);
+
+        Assert.Equal(
+            new[] { SpellTypeId.ToString("D") },
+            row["belongsTo"]!["spellTypes"]!.Values<JObject>()
+                .Select(entry => (string?)entry!["uuid"]));
+        Assert.Equal(
+            new[] { FirstCoreGlyphId.ToString("D"), SecondCoreGlyphId.ToString("D") },
+            row["belongsTo"]!["coreGlyphs"]!.Values<JObject>()
+                .Select(entry => (string?)entry!["uuid"]));
+        Assert.Null(row["belongsTo"]!["recipeBooks"]);
+    }
+
     private static GameWorldState World(int outputLevel = 4)
     {
         var recipeGlyphs = PublicationTable<WorldSpellRecipeGlyph>.Create(new[]
@@ -362,6 +405,28 @@ public sealed class GameMcpSpellCompositionTests
                 new WorldSpellCost(0, WorldSpellCostKind.Drain, ResourceId, new BigDouble(2.5d, 2)),
             }),
             Resources = PublicationTable<WorldResource>.Create(new[] { Resource() }),
+            SpellRecipeAuthoring = PublicationTable<WorldSpellRecipeAuthoring>.Create(new[]
+            {
+                new WorldSpellRecipeAuthoring(RecipeId, 2, 12d, 1.5d, 1, 30d, 0d),
+            }),
+            SpellAuthoredCosts = PublicationTable<WorldSpellAuthoredCost>.Create(new[]
+            {
+                new WorldSpellAuthoredCost(
+                    RecipeId, WorldSpellAuthoredCostKind.Immediate, 0, ResourceId,
+                    new BigDouble(4.4d, 3)),
+                new WorldSpellAuthoredCost(
+                    RecipeId, WorldSpellAuthoredCostKind.HoldDrain, 0, ResourceId,
+                    new BigDouble(2.5d, 2)),
+            }),
+            SpellRelations = PublicationTable<WorldSpellRelation>.Create(new[]
+            {
+                new WorldSpellRelation(
+                    RecipeId, WorldSpellRelationKind.SpellType, 0, SpellTypeId),
+                new WorldSpellRelation(
+                    RecipeId, WorldSpellRelationKind.CoreGlyph, 0, FirstCoreGlyphId),
+                new WorldSpellRelation(
+                    RecipeId, WorldSpellRelationKind.CoreGlyph, 1, SecondCoreGlyphId),
+            }),
         };
     }
 

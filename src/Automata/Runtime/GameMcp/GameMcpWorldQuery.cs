@@ -4050,7 +4050,92 @@ internal static class GameMcpWorldQuery
             next["components"] = ProjectComponentReferences(recipe.CoreGlyphs);
         }
         result[recipe.Discovered ? "loadoutAdd" : "discover"] = next;
+        AddAuthoredSpellGraph(world, recipe.EntityId, result);
         return result.Freeze();
+    }
+
+    /// <summary>
+    /// The authored half of a spell — how it casts, what it is priced at before any modifier, and
+    /// which type, glyph, and recipe book it belongs to.
+    /// </summary>
+    /// <remarks>
+    /// The world has captured this since the spell graph reader landed and nothing read it, which
+    /// is a defect in the reader rather than in the publication: it is structural, so it costs one
+    /// pass per run of the game, and a caller asking "what is this spell" wants it. It rides on the
+    /// detail row rather than becoming three categories of its own, because it is three facets of
+    /// one entity the surface already names.
+    /// </remarks>
+    private static void AddAuthoredSpellGraph(
+        GameWorldState world,
+        Guid recipeId,
+        JObject result)
+    {
+        if (WorldSpellGraphLookup.TryFindAuthoring(
+                world.SpellRecipeAuthoring, recipeId, out var authoring))
+        {
+            var casting = new JObject
+            {
+                ["castType"] = authoring.CastType,
+                ["rechargeSeconds"] = authoring.RechargeDuration,
+                ["rechargeMultiplier"] = authoring.RechargeMultiplier,
+                ["rechargeProcessorType"] = authoring.RechargeProcessorType,
+            };
+            if (authoring.MaximumChannelBase != 0d)
+                casting["maximumChannelSeconds"] = authoring.MaximumChannelBase;
+            if (authoring.RepeatInstantEffectRateBase != 0d)
+                casting["repeatEffectRate"] = authoring.RepeatInstantEffectRateBase;
+            result["casting"] = casting;
+        }
+
+        if (WorldSpellGraphLookup.TryFindCosts(
+                world.SpellAuthoredCosts, recipeId, out var costStart, out var costCount))
+        {
+            var costs = new JObject();
+            for (var index = costStart; index < costStart + costCount; index++)
+            {
+                var cost = world.SpellAuthoredCosts[index];
+                var key = cost.Kind switch
+                {
+                    WorldSpellAuthoredCostKind.Immediate => "cast",
+                    WorldSpellAuthoredCostKind.Usage => "upkeep",
+                    _ => "hold",
+                };
+                if (costs[key] is not JArray rows) costs[key] = rows = new JArray();
+                var row = new JObject
+                {
+                    ["resourceId"] = cost.ResourceId.ToString("D"),
+                    ["name"] = EntityIdentityFormatter.PlayerName(
+                        cost.ResourceId, world.EntityIdentities),
+                    ["cost"] = new GameMcpDomainValue(cost.Amount),
+                };
+                rows.Add(row);
+            }
+            if (costs.Count > 0) result["authoredCosts"] = costs;
+        }
+
+        if (WorldSpellGraphLookup.TryFindRelations(
+                world.SpellRelations, recipeId, out var relationStart, out var relationCount))
+        {
+            var belongsTo = new JObject();
+            for (var index = relationStart; index < relationStart + relationCount; index++)
+            {
+                var relation = world.SpellRelations[index];
+                var key = relation.Kind switch
+                {
+                    WorldSpellRelationKind.SpellType => "spellTypes",
+                    WorldSpellRelationKind.CoreGlyph => "coreGlyphs",
+                    _ => "recipeBooks",
+                };
+                if (belongsTo[key] is not JArray rows) belongsTo[key] = rows = new JArray();
+                rows.Add(new JObject
+                {
+                    ["uuid"] = relation.TargetId.ToString("D"),
+                    ["name"] = EntityIdentityFormatter.PlayerName(
+                        relation.TargetId, world.EntityIdentities),
+                });
+            }
+            if (belongsTo.Count > 0) result["belongsTo"] = belongsTo;
+        }
     }
 
     internal static GameMcpValue ProjectDiscoveryPreview(

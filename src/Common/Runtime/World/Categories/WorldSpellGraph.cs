@@ -243,6 +243,71 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
         _costEntries is not null && _costResource is not null && _costAmount is not null;
 }
 
+/// <summary>
+/// Range lookups over the authored spell graph. Every table is sorted by recipe first, so one
+/// recipe's rows are contiguous and a reader takes a slice rather than a scan per row.
+/// </summary>
+internal static class WorldSpellGraphLookup
+{
+    internal static bool TryFindAuthoring(
+        PublicationTable<WorldSpellRecipeAuthoring> table,
+        Guid recipeId,
+        out WorldSpellRecipeAuthoring authoring)
+    {
+        var rows = table.AsSpan();
+        var start = LowerBound(rows, recipeId, static (in WorldSpellRecipeAuthoring row) => row.RecipeId);
+        if (start < rows.Length && rows[start].RecipeId == recipeId)
+        {
+            authoring = rows[start];
+            return true;
+        }
+        authoring = default;
+        return false;
+    }
+
+    internal static bool TryFindCosts(
+        PublicationTable<WorldSpellAuthoredCost> table,
+        Guid recipeId,
+        out int start,
+        out int count)
+    {
+        var rows = table.AsSpan();
+        start = LowerBound(rows, recipeId, static (in WorldSpellAuthoredCost row) => row.RecipeId);
+        count = 0;
+        while (start + count < rows.Length && rows[start + count].RecipeId == recipeId) count++;
+        return count > 0;
+    }
+
+    internal static bool TryFindRelations(
+        PublicationTable<WorldSpellRelation> table,
+        Guid recipeId,
+        out int start,
+        out int count)
+    {
+        var rows = table.AsSpan();
+        start = LowerBound(rows, recipeId, static (in WorldSpellRelation row) => row.RecipeId);
+        count = 0;
+        while (start + count < rows.Length && rows[start + count].RecipeId == recipeId) count++;
+        return count > 0;
+    }
+
+    private delegate Guid RecipeOf<T>(in T row) where T : struct;
+
+    private static int LowerBound<T>(ReadOnlySpan<T> rows, Guid recipeId, RecipeOf<T> recipeOf)
+        where T : struct
+    {
+        var low = 0;
+        var high = rows.Length - 1;
+        while (low <= high)
+        {
+            var middle = low + ((high - low) / 2);
+            if (recipeOf(in rows[middle]).CompareTo(recipeId) < 0) low = middle + 1;
+            else high = middle - 1;
+        }
+        return low;
+    }
+}
+
 internal static class WorldSpellGraphDeriver
 {
     internal static PublicationTable<T> Build<T>(WorldRelationBuffer<T> buffer, Comparison<T> comparison)
