@@ -1840,6 +1840,24 @@
       "place": "capture"
     },
     {
+      "id": "auto-harvest.action-cost-type.exit-phase",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeActionSO+CostType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "ExitPhase",
+      "visibility": "public",
+      "static": true,
+      "valueType": "PlotNodeActionSO+CostType",
+      "owners": [
+        "Automata Auto Harvest preservation audit"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
       "id": "auto-harvest.action.base-time",
       "assembly": "assembly-csharp",
       "type": "PlotNodeActionSO",
@@ -2275,6 +2293,24 @@
       "place": "capture"
     },
     {
+      "id": "auto-harvest.filter-type.white-list",
+      "assembly": "assembly-csharp",
+      "type": "FilterEffectMod+FilterType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "WhiteList",
+      "visibility": "public",
+      "static": true,
+      "valueType": "FilterEffectMod+FilterType",
+      "owners": [
+        "Automata Auto Harvest preservation audit"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
       "id": "auto-harvest.filter.contents",
       "assembly": "assembly-csharp",
       "type": "FilterEffectMod",
@@ -2558,6 +2594,60 @@
       ],
       "usages": [
         "reflection"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "auto-harvest.phase.growing",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeSO+PlotNodePhases",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Growing",
+      "visibility": "public",
+      "static": true,
+      "valueType": "PlotNodeSO+PlotNodePhases",
+      "owners": [
+        "Automata Auto Harvest phase-cycle audit"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "auto-harvest.phase.idle",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeSO+PlotNodePhases",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Idle",
+      "visibility": "public",
+      "static": true,
+      "valueType": "PlotNodeSO+PlotNodePhases",
+      "owners": [
+        "Automata Auto Harvest phase-cycle audit"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "auto-harvest.phase.resting",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeSO+PlotNodePhases",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Resting",
+      "visibility": "public",
+      "static": true,
+      "valueType": "PlotNodeSO+PlotNodePhases",
+      "owners": [
+        "Automata Auto Harvest phase-cycle audit"
+      ],
+      "usages": [
+        "mirrored"
       ],
       "place": "capture"
     },
@@ -14517,6 +14607,42 @@
       ],
       "usages": [
         "reflection"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "timer-type.parallel",
+      "assembly": "assembly-csharp",
+      "type": "TimerList+TimerType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Parallel",
+      "visibility": "public",
+      "static": true,
+      "valueType": "TimerList+TimerType",
+      "owners": [
+        "Automata Auto Harvest phase-cycle audit"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "timer-type.single",
+      "assembly": "assembly-csharp",
+      "type": "TimerList+TimerType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Single",
+      "visibility": "public",
+      "static": true,
+      "valueType": "TimerList+TimerType",
+      "owners": [
+        "Automata Auto Harvest phase-cycle audit"
+      ],
+      "usages": [
+        "mirrored"
       ],
       "place": "capture"
     },

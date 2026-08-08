@@ -284,7 +284,12 @@ internal static class WorldExactCostMath
     }
 }
 
-/// <summary>The shared bound and lookup for native purchase-group counts.</summary>
+/// <summary>
+/// The shared lookup for the game's own purchase-group count, and the suite's own cap on how many
+/// levels one action asks for. The cap mirrors no native member — it is suite policy, like a schema
+/// ceiling — and it cannot mis-price: a group the game priced for more levels than the cap allows
+/// fails <see cref="WorldExactCostMath.TryCombinedExactCost{TRow,TKey}"/> instead of being repriced.
+/// </summary>
 internal static class WorldPurchaseGrouping
 {
     internal const int MaximumLevels = 100;
