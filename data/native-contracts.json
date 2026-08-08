@@ -7482,6 +7482,312 @@
       "place": "capture"
     },
     {
+      "id": "requirement-type.upgrade.one-level",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.UpgradeRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "OneLevel",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.UpgradeRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.upgrade.max-level",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.UpgradeRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "MaxLevel",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.UpgradeRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.upgrade.at-least",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.UpgradeRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "AtLeast",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.UpgradeRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.structure.quantity",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.StructureRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Quantity",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.StructureRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.spell.discovered",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.SpellRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Discovered",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.SpellRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.spell.spell-level",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.SpellRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "SpellLevel",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.SpellRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.spell.mastery-level",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.SpellRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "MasteryLevel",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.SpellRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.alchemy.discovered",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.AlchemyRecipeType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Discovered",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.AlchemyRecipeType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.alchemy.recipe-level",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.AlchemyRecipeType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "RecipeLevel",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.AlchemyRecipeType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.alchemy.mastery-level",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.AlchemyRecipeType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "MasteryLevel",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.AlchemyRecipeType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.alchemy.advancement-level",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.AlchemyRecipeType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "AdvLevel",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.AlchemyRecipeType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.ritual.discovered",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.RitualRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Discovered",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.RitualRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.ritual.reached-level",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.RitualRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "ReachedLevel",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.RitualRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.number.value",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.NumberRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Value",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.NumberRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.generic.level",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.GenericRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Level",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.GenericRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.prerequisite-link.base",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.PrerequisiteLinkType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Base",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.PrerequisiteLinkType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
+      "id": "requirement-type.prerequisite-link.tier",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.PrerequisiteLinkType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Tier",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.PrerequisiteLinkType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "capture"
+    },
+    {
       "id": "requirement-condition-info.type",
       "assembly": "assembly-csharp",
       "type": "Requirements.ConditionInfo",
@@ -23832,7 +24138,7 @@
     },
     {
       "id": "plot-lifecycle.instance-maximum-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "GetMaximumInstances",
-      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata plot lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata plot lifecycle GameAction", "Common world collection"], "usages": ["reflection", "mirrored"], "place": "action"
     },
     {
       "id": "plot-lifecycle.instance-quantity-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "GetActualQuantity",

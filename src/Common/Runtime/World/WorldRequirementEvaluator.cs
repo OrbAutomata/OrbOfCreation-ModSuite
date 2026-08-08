@@ -84,7 +84,9 @@ internal static class WorldRequirementEvaluator
 {
     // The game's own enum members, as the integers the rows carry. Named here rather than mirrored as
     // types, because a mirrored enum would keep compiling while a build renumbered it — and this is
-    // the one place where naming a member is what the code is actually about.
+    // the one place where naming a member is what the code is actually about. Each is declared in
+    // the contract manifest under `requirement-type.*` as a mirrored member, and
+    // RequirementEnumContractTests pins the number, which no manifest row can.
     private const int UpgradeOneLevel = 0;
     private const int UpgradeMaxLevel = 1;
     private const int UpgradeAtLeast = 2;
