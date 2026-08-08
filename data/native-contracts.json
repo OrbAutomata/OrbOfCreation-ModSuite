@@ -12661,6 +12661,24 @@
       "place": "capture"
     },
     {
+      "id": "spell.num-casts",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "numCasts",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture"
+    },
+    {
       "id": "spell.fire",
       "assembly": "assembly-csharp",
       "type": "Spell",

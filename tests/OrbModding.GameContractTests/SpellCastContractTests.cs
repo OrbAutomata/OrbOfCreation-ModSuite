@@ -17,6 +17,16 @@ public sealed class SpellCastContractTests
         Assert.True(assembly.MethodReferencesMethod("Spell", "Fire", "Spell", "EndCasting"));
     }
 
+    [GameAssemblyFact]
+    public void TheManualCastCounterIsWrittenOnlyByTheGamesOwnCastExecution()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+        Assert.Equal("System.Int32", assembly.GetFieldType("Spell", "numCasts"));
+        Assert.True(assembly.MethodReferencesField("Spell", "ExecuteSpell", "Spell", "numCasts"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "Spell", "ExecuteSpell", "Spell+SpellCastData", "IsManual"));
+    }
+
     [Fact]
     public void ManifestNamesEveryNewToggleOffActionAndCaptureTouch()
     {
@@ -28,6 +38,7 @@ public sealed class SpellCastContractTests
             "auto-cast.spell-is-toggled-action",
             "auto-cast.settings-can-cancel-action",
             "auto-cast.settings-can-cancel-capture",
+            "spell.num-casts",
         };
         Assert.All(expected, id => Assert.Single(
             manifest.Contracts,

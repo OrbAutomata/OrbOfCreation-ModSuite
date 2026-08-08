@@ -96,13 +96,14 @@ public sealed class GameMcpCastTests
     public void Fire_returns_the_published_price_and_observed_slot_change()
     {
         var resourceId = Guid.Parse("19999999-9999-4999-8999-999999999999");
-        var before = World(casting: false, cancellationEnabled: true, charges: 2);
+        var before = World(casting: false, cancellationEnabled: true, charges: 2, castCount: 7);
         var after = World(
             casting: true,
             cancellationEnabled: true,
             charges: 1,
             immediateCostResource: resourceId,
-            immediateCost: new BigDouble(25));
+            immediateCost: new BigDouble(25),
+            castCount: 8);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
             "SpellRecipeSO", 1, string.Empty, string.Empty, false, false,
@@ -118,6 +119,44 @@ public sealed class GameMcpCastTests
         Assert.True((bool)delta["active"]!["after"]!);
         Assert.Equal(2, (int)delta["charges"]!["before"]!);
         Assert.Equal(1, (int)delta["charges"]!["after"]!);
+        Assert.Equal(7, (int)delta["casts"]!["before"]!);
+        Assert.Equal(8, (int)delta["casts"]!["after"]!);
+    }
+
+    [Fact]
+    public void Every_fire_carries_the_game_written_cast_counter_even_when_nothing_else_moved()
+    {
+        // Spell.ExecuteSpell() increments numCasts for every manual cast, which is the cast type
+        // Spell.Cast() creates. Six byte-identical fire responses in a row are a firing loop with
+        // no feedback; the counter is the one fact the game itself writes per press, so it is
+        // published whether or not it moved.
+        var before = World(casting: true, cancellationEnabled: true, charges: 2, castCount: 12);
+        var refused = World(casting: true, cancellationEnabled: true, charges: 2, castCount: 12);
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
+            "SpellRecipeSO", 1, string.Empty, string.Empty, false, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 59));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(refused, generation: 60),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.Equal(12, (int)delta["casts"]!["before"]!);
+        Assert.Equal(12, (int)delta["casts"]!["after"]!);
+    }
+
+    [Fact]
+    public void A_spell_slot_row_reads_the_same_cast_counter_the_fire_response_moves()
+    {
+        var world = World(casting: false, cancellationEnabled: true, castCount: 4);
+
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
+            world,
+            "spell-slots",
+            world.SpellSlots[0]));
+
+        Assert.Equal(4, (int)row["casts"]!);
     }
 
     [Fact]
@@ -203,7 +242,8 @@ public sealed class GameMcpCastTests
         int charges = 1,
         Guid immediateCostResource = default,
         BigDouble immediateCost = default,
-        bool toggled = true) => new()
+        bool toggled = true,
+        int castCount = 0) => new()
     {
         CollectedAtEpoch = 9,
         CollectedAtUtcTicks = collectedAtUtcTicks,
@@ -234,7 +274,8 @@ public sealed class GameMcpCastTests
                 durationSpell: true,
                 usageRequirementsMet: true,
                 augmentGlyphs: PublicationTable<WorldSpellSlotGlyph>.Empty,
-                cancellationEnabled: cancellationEnabled),
+                cancellationEnabled: cancellationEnabled,
+                castCount: castCount),
         }),
         SpellCosts = immediateCostResource == Guid.Empty
             ? PublicationTable<WorldSpellCost>.Empty

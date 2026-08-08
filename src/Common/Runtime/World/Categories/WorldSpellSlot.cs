@@ -211,8 +211,10 @@ internal readonly struct WorldSpellSlot
         bool usageRequirementsMet,
         PublicationTable<WorldSpellSlotGlyph> augmentGlyphs,
         bool cancellationEnabled = false,
-        bool casterAvailable = true)
+        bool casterAvailable = true,
+        int castCount = 0)
     {
+        CastCount = castCount;
         SlotIndex = slotIndex;
         SpellInstanceId = spellInstanceId;
         SpellRecipeId = spellRecipeId;
@@ -251,6 +253,18 @@ internal readonly struct WorldSpellSlot
     /// could not read, and a plan that fired the table's index would fire the wrong spell.
     /// </remarks>
     internal int SlotIndex { get; }
+
+    /// <summary>
+    /// How many times the game has counted this spell instance as manually cast.
+    /// </summary>
+    /// <remarks>
+    /// The game's own counter: <c>Spell.ExecuteSpell()</c> adds one to <c>numCasts</c> on every cast
+    /// whose data is <c>Manual</c>, which is the cast type <c>Spell.Cast()</c> creates and therefore
+    /// the one a player press or an MCP fire produces. It is the single fact a firing loop can
+    /// compare across two readings to learn whether anything fired — every other published slot fact
+    /// either returns to its resting value within a frame or never moves for an instant spell.
+    /// </remarks>
+    internal int CastCount { get; }
 
     /// <summary>The runtime spell instance identity, distinct from its authored recipe identity.</summary>
     internal Guid SpellInstanceId { get; }
@@ -467,6 +481,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
     private readonly Func<object, bool>? _canRemove;
     private readonly Func<object, bool>? _hasEnoughResources;
     private readonly Func<object, int>? _currentCharges;
+    private readonly Func<object, int>? _castCount;
     private readonly Func<object, int>? _maximumCharges;
     private readonly Func<object, BigDouble>? _cooldown;
     private readonly Func<object, Guid>? _recipeId;
@@ -527,6 +542,9 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         _canRemove = spell.Call<bool>("CanRemove");
         _hasEnoughResources = spell.Call<bool>("HasEnoughResources");
         _currentCharges = spell.Call<int>("GetCurrSpellCharges");
+        // The game's own per-cast counter, read as the field it is. No accessor exists, and the
+        // increment lives in Spell.ExecuteSpell() rather than in anything callable.
+        _castCount = spell.Field<int>("numCasts");
         _maximumCharges = spell.Call<int>("GetMaxSpellCharges");
         _cooldown = spell.Call<BigDouble>("GetCooldownTimeRemaining");
         _recipeId = spell.CallReferenceGuid("get_reference");
@@ -708,7 +726,8 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             _usageRequirementsMet!(spell),
             glyphs,
             cancellationEnabled,
-            casterAvailable));
+            casterAvailable,
+            _castCount!(spell)));
 
         Append(spell, index, WorldSpellCostKind.Immediate, _getCost!, costs);
         Append(spell, index, WorldSpellCostKind.Drain, _getDrainCost!, costs);
@@ -744,6 +763,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         _costEntries is not null && _entryResource is not null && _entryValue is not null;
 
     private bool IsCompositionBound() =>
+        _castCount is not null &&
         _outputLevel is not null && _effectiveLevel is not null &&
         _requiredMasteryLevel is not null && _recipeMasteryLevel is not null &&
         _durationSpell is not null && _usageRequirementsMet is not null &&

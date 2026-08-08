@@ -811,6 +811,15 @@ internal static class GameMcpWorldQuery
             var costs = ProjectEquippedSpellCosts(
                 state.World.Snapshot, slotIndex, WorldSpellCostKind.Immediate);
             if (costs.Count > 0) result["costs"] = costs;
+            // The one game-written fact a cast always moves, present whether or not it moved. Six of
+            // seven fires in round 6 returned byte-identical payloads because every other fact here
+            // is either back at rest by the time the world settles or never applies to that spell,
+            // and an absent key cannot be told apart from "nothing happened".
+            result["casts"] = new JObject
+            {
+                ["before"] = hasBefore ? prior.CastCount : (int?)null,
+                ["after"] = after.CastCount,
+            };
         }
         // A toggle spell always says whether it is running: publishing the pair only when it moved
         // meant a second fire on an already-running spell said nothing, and silence there is
@@ -4291,6 +4300,9 @@ internal static class GameMcpWorldQuery
             ["duration"] = slot.DurationSpell,
             ["toggleable"] = slot.Toggled,
             ["usageRequirementsMet"] = slot.UsageRequirementsMet,
+            // The game's own manual-cast counter. It is what a firing loop compares to learn whether
+            // anything fired, so it is present whether or not it has ever moved.
+            ["casts"] = slot.CastCount,
         };
         if (slot.Casting) result["casting"] = true;
         if (slot.ReadyingCast) result["readyingCast"] = true;

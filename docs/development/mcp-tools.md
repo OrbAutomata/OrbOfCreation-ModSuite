@@ -1158,7 +1158,11 @@ player's Cancellable Spells setting to allow the press. Its one outcome sentinel
 casting state changing from active to inactive. The settled response is only the named recipe,
 slot, and observed `active` before/after change; a refusal names the binding setting or live spell
 state. Detailed `spell-slots` rows expose `toggleOff.available` so the setting never has to be
-learned by attempting the action. `fire` on a toggle spell reports the same `active` pair whether
+learned by attempting the action, and carry `casts`, the game's own per-spell manual cast counter.
+Every settled `fire` carries that counter as a `casts` before/after pair whether or not it moved,
+because it is the one fact the game itself writes per press: without it a repeated fire returns a
+byte-identical response and the caller cannot tell a firing loop from a no-op. `fire` on a toggle
+spell reports the same `active` pair whether
 or not the press moved it: whether a toggle is running is the fact that mode is about, and a pair
 that appears only on change cannot distinguish a spell that was already on from one that never
 started. A non-toggle spell reports the pair exactly when its casting state moved, and carries no

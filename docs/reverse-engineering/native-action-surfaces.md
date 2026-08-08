@@ -33,6 +33,30 @@ Installed contracts pin the UI and indexed-wrapper calls to `CanFire`/`Fire`, an
 
 ---
 
+## The game counts manual casts per spell
+
+`Spell.numCasts` is a private `System.Int32` on the runtime spell instance. `Spell.ExecuteSpell()`
+is the only body that writes it: after the cast sound, it reads `Spell.activeData`, calls
+`Spell.SpellCastData.IsManual()`, and on true loads `Spell.numCasts`, adds one, and stores it back
+before granting casting experience through `Player.GetCastingExperience()` and mastery through
+`SpellRecipeSO.GainMasteryExp(BigDouble)`. The unconditional counter next to it is global, not
+per-spell: `ExecuteSpell` also calls `Player.GetSpellsCasted()` and `NumberVariable.Add(1)` for
+every execution regardless of who triggered it.
+
+`Spell.SpellCastData.IsManual()` compares the instance's cast-type field against zero, and
+`Spell.Cast()` builds its data through `CreateCastData` with that same zero constant. So the cast
+type the visible spell button produces is exactly the one `numCasts` counts, and every press that
+reaches `Cast()` → `ExecuteSpell()` adds exactly one. Echoes and delayed repeats do not: they come
+from `Spell.AddNewCastData(System.Double, ScalingInfo)`, which builds its data with cast type `2`,
+and `Spell.Increment(System.Single, BigDouble)` loads those through `Spell.LoadSpellData` before the
+execution that replays them.
+
+That makes `numCasts` the per-press fact the game itself writes, which is why the world capture
+reads it and `game_cast fire` publishes it as a before/after pair. It is a capture-only field: no
+action writes it, and the toggle-off outcome above still turns on `IsCasting` alone.
+
+---
+
 ## Two routers sit above several families
 
 `UICostButton.OnClick` (`0x06002204`) is the paid-action router. It checks

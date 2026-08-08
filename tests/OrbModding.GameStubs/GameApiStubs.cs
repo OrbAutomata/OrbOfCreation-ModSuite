@@ -1227,6 +1227,19 @@ public class Spell
     public bool ThrowAfterAugmentMutation { get; set; }
     public int SetAugmentCalls { get; private set; }
 
+    /// <summary>
+    /// The game's own manual-cast counter, named and shaped exactly as <c>Spell.numCasts</c> is,
+    /// because the world reader binds it as a private field. <c>Spell.ExecuteSpell()</c> adds one
+    /// per manual cast, so the stub's fire path does too.
+    /// </summary>
+    private int numCasts;
+
+    public int NumCasts
+    {
+        get => numCasts;
+        set => numCasts = value;
+    }
+
     public Spell()
     {
     }
@@ -1309,6 +1322,7 @@ public class Spell
                 NativeCasting = false;
             return;
         }
+        numCasts++;
         TargetingManager.OpenRequests += RequestsOnFire;
     }
 }
