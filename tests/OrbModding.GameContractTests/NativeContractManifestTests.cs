@@ -815,30 +815,35 @@ public sealed class NativeContractManifestTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>This list only ever shrinks.</b> Every entry is a reading the collector takes by making the
-    /// game recalculate and cache something, which is a mutation of the state the snapshot claims to
-    /// observe. Each is derivable — the manifest says so on the row — and each leaves when the
+    /// <b>Every entry is a defect, not a design.</b> Each is a reading the collector takes by making
+    /// the game recalculate and cache something, which is a mutation of the state the snapshot claims
+    /// to observe. Each is derivable — the manifest says so on the row — and each leaves when the
     /// replacing suite math has a parity pass proving it, never before.
     /// </para>
     /// <para>
-    /// Pinned as an exact set rather than a ceiling: a fourteenth arrival fails here, and so does a
-    /// departure that forgets to strike its line. The rule the doctrine actually wants — no
-    /// per-pass capture contract writes at all — is this list being empty.
+    /// Pinned as an exact set rather than a ceiling: an arrival fails here, and so does a departure
+    /// that forgets to strike its line. The list grew from twelve to nineteen when the census was
+    /// taken by call site rather than by member name — the same <c>HasEnough()</c> was reached from
+    /// six more readers than the manifest had rows for, because a member-name reconciliation cannot
+    /// see a second site. Growth of that kind is the census improving; the rule the doctrine actually
+    /// wants is this list being empty.
     /// </para>
     /// <para>
-    /// Nine of the thirteen are one family. <c>Prerequisites.Container.Check()</c> latches
-    /// <c>available</c>, and every whole-entity availability or visibility predicate reaches it:
-    /// <c>StructureSO</c>, <c>UpgradeSO</c>, <c>ViewSO</c>, <c>RecipeBookSO</c>,
-    /// <c>CraftingRecipeSO</c>, and <c>GlyphSO</c> call it directly, <c>ResearchSO</c> through two
-    /// visibility containers, and <c>DiscoveryTreeSO.IsVisible()</c> through
-    /// <c>viewLocation.All(view =&gt; view.IsAvailable())</c>. They leave together, when the
-    /// whole-entity container is published and the evaluator answers for it.
+    /// Nine are one family. <c>Prerequisites.Container.Check()</c> latches <c>available</c>, and every
+    /// whole-entity availability or visibility predicate reaches it: <c>StructureSO</c>,
+    /// <c>UpgradeSO</c>, <c>ViewSO</c>, <c>RecipeBookSO</c>, <c>CraftingRecipeSO</c>, and
+    /// <c>GlyphSO</c> call it directly, <c>ResearchSO</c> through two visibility containers, and
+    /// <c>DiscoveryTreeSO.IsVisible()</c> through <c>viewLocation.All(view =&gt; view.IsAvailable())</c>.
+    /// They leave together, when the whole-entity container is published and the evaluator answers
+    /// for it.
     /// </para>
     /// <para>
-    /// Three are <c>ResourceCostList.HasEnough()</c>, which reaches <c>ValueModifierRecord</c>'s memo
-    /// through <c>ResourceSO.GetTrueSpend</c>. The replacing port exists —
-    /// <c>WorldResourceCoordinate.HasAmount</c> — and the spell-level affordability parity pass
-    /// already compares it against this very call.
+    /// Nine more are <c>ResourceCostList.HasEnough()</c>, one per reader that asks it, plus
+    /// <c>Spell.HasEnoughResources()</c> which is a one-line call to it. All reach
+    /// <c>ValueModifierRecord</c>'s memo through <c>ResourceSO.GetTrueSpend</c>. This family is the
+    /// one whose replacement is already proven — <c>WorldResourceCoordinate.HasAmount</c>, compared
+    /// against this very call by the spell-level affordability pass — so what these rows are waiting
+    /// on is each reader publishing its cost rows for a deriver, not more evidence.
     /// </para>
     /// <para>
     /// The last is the enchantment-target sweep, which is the same latch reached transitively and at
@@ -851,15 +856,21 @@ public sealed class NativeContractManifestTests
     private static readonly string[] PerPassCaptureWrites =
     {
         "consumable.cost-has-enough-capture",
+        "crafting-decision.cost-has-enough-capture",
         "crafting-recipe.visible",
         "discovery-tree-reader.cost-has-enough",
         "discovery-tree-reader.is-visible",
         "generic-discovery.cost-enough-capture",
+        "generic-level.cost-has-enough-capture",
+        "harvest-lifecycle.cost-has-enough-capture",
         "recipe-book.is-available",
+        "research.cost-has-enough-capture",
         "research.is-available",
         "research.is-visible",
+        "ritual-lifecycle.cost-has-enough-capture",
         "scribe-relations.target-structure.get-random-list",
         "spell-composition.glyph-is-available-capture",
+        "spell.has-enough-resources",
         "structure.is-available",
         "upgrade.is-available",
         "view.is-available",

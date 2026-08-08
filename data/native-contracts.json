@@ -13943,7 +13943,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The port exists and the spell-level affordability pass proves it against this very call, so the reading is owed a deletion rather than an explanation.", "evidence": "IL: Spell.HasEnoughResources() -> GetCost().HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
     },
     {
       "id": "spell.is-attuning",
@@ -19439,7 +19439,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "IL: ResourceCostList.HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The port exists and the spell-level affordability pass proves it against this very call, so the reading is owed a deletion rather than an explanation.", "evidence": "IL: ResourceCostList.HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
     },
     {
       "id": "discovery-tree-reader.cost-value",
@@ -21372,7 +21372,7 @@
       "owners": ["Automata consumable world collection"],
       "usages": ["reflection"],
       "place": "capture",
-      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "IL: ResourceCostList.HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The port exists and the spell-level affordability pass proves it against this very call, so the reading is owed a deletion rather than an explanation.", "evidence": "IL: ResourceCostList.HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
     },
     {
       "id": "consumable.cost-value-capture",
@@ -21575,7 +21575,27 @@
       "owners": ["Common generic discovery world publication"],
       "usages": ["reflection"],
       "place": "capture",
-      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "IL: ResourceCostList.HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The port exists and the spell-level affordability pass proves it against this very call, so the reading is owed a deletion rather than an explanation.", "evidence": "IL: ResourceCostList.HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
+    },
+    {
+      "id": "crafting-decision.cost-has-enough-capture",
+      "assembly": "assembly-csharp",
+      "type": "ResourceCostList",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "HasEnough",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata crafting decision world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The port exists and the spell-level affordability pass proves it against this very call, so the reading is owed a deletion rather than an explanation.", "evidence": "IL: ResourceCostList.HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
     },
     {
       "id": "generic-discovery.entry-resource-capture",
@@ -23059,6 +23079,26 @@
       "place": "action"
     },
     {
+      "id": "research.cost-has-enough-capture",
+      "assembly": "assembly-csharp",
+      "type": "ResourceCostList",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "HasEnough",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata research world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The port exists and the spell-level affordability pass proves it against this very call, so the reading is owed a deletion rather than an explanation.", "evidence": "IL: ResourceCostList.HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
+    },
+    {
       "id": "research-action.queue-mode-action",
       "assembly": "assembly-csharp",
       "type": "SettingsManager",
@@ -24097,6 +24137,26 @@
       "usages": ["reflection"], "place": "action"
     },
     {
+      "id": "ritual-lifecycle.cost-has-enough-capture",
+      "assembly": "assembly-csharp",
+      "type": "ResourceCostList",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "HasEnough",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata ritual world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The port exists and the spell-level affordability pass proves it against this very call, so the reading is owed a deletion rather than an explanation.", "evidence": "IL: ResourceCostList.HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
+    },
+    {
       "id": "ritual-lifecycle.cost-perform-action", "assembly": "assembly-csharp",
       "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "PerformCost",
       "visibility": "public", "static": false, "returnType": "System.Void", "parameters": [],
@@ -24414,6 +24474,26 @@
       "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "HasEnough",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
       "owners": ["Automata unified level GameAction", "Common level decision world collection"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "generic-level.cost-has-enough-capture",
+      "assembly": "assembly-csharp",
+      "type": "ResourceCostList",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "HasEnough",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata levelable decision world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The port exists and the spell-level affordability pass proves it against this very call, so the reading is owed a deletion rather than an explanation.", "evidence": "IL: ResourceCostList.HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
     },
     {
       "id": "generic-level.cost-resources-visible-action", "assembly": "assembly-csharp",
@@ -25240,6 +25320,26 @@
     {
       "id": "harvest-lifecycle.cost-has-enough-action", "assembly": "assembly-csharp", "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "HasEnough",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata harvest lifecycle GameAction", "Common harvest lifecycle world collection"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "harvest-lifecycle.cost-has-enough-capture",
+      "assembly": "assembly-csharp",
+      "type": "ResourceCostList",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "HasEnough",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata harvest lifecycle world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["resolves ValueModifierRecord memos through ResourceSO.GetTrueSpend -> quality.AsPercent()"], "justification": "The port exists and the spell-level affordability pass proves it against this very call, so the reading is owed a deletion rather than an explanation.", "evidence": "IL: ResourceCostList.HasEnough() -> ResourceSO.HasAmount -> GetTrueSpend -> quality.AsPercent()"}
     },
     {
       "id": "harvest-lifecycle.action-base-cost-capture", "assembly": "assembly-csharp", "type": "HarvestActionInstance", "typeVisibility": "public", "kind": "method", "member": "ComputeResourceCost",

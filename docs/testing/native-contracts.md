@@ -63,14 +63,22 @@ Four tests hold the boundary to this:
 1. every capture contract declares all six, and nothing else declares any;
 2. every native member a capture root selects is named by a capture contract,
    with the dual-place selectors pinned in a list that only shrinks;
-3. no `per-pass` capture contract writes, except the twelve pinned in a list
-   that only shrinks — and each of those must claim `derivable`;
+3. no `per-pass` capture contract writes, except the nineteen pinned in a list
+   that names each one — and each of those must claim `derivable`;
 4. the manifest's epoch-scoped reader list is the collector's own marking.
 
 The second walk under-reports and says so: it sees the reflection APIs and the
 world binder's helpers, not a feature binding's private `Method(...)` wrapper.
 Splitting `LoadoutNativeBindings` into its reading and mutating halves is what
 lets it see that file.
+
+It also reconciles by **member name**, so a member already carrying one capture
+row satisfies it from every other site selecting that member. That is how
+`ResourceCostList.HasEnough()` came to be recorded three times while nine readers
+called it. Closing a gap of that kind takes a walk of call sites rather than of
+names, and it is why rule 3's list is allowed to grow when someone walks them: a
+list that could only shrink would price honesty as a regression. What may never
+grow is the set of writes themselves.
 
 **A reading leaves capture only after the replacing suite math has a parity pass
 proving it.** Port, prove, then delete — never the other order. Until then it is
