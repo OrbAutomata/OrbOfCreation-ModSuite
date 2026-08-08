@@ -189,6 +189,8 @@ rows actually delivered, so `nextOffset` present means "resume here" and `nextOf
 of the three world-backed readers may be shorter than `limit` because the response is bounded at
 12 KB, which each of those tool descriptions states;
 a short page with a `nextOffset` is that bound, and a short page without one is the end of the set.
+The bound is charged against each row as it is built, so a full page is a real 12 KB page rather
+than a fraction of one.
 `game_tooltips` pages the screen's live hover elements rather than a published table, so `limit` is
 its only page bound.
 `world_search` deduplicates by entity identity before paging, so one entity that matches in two
@@ -356,7 +358,10 @@ authoritative empty entity result; `world_list(entity-requirements)` retains the
 owner, ordinal, and runtime type evidence. If a searchable entity row itself is returned and that
 entity owns an unmodeled leaf, the search result is explicitly incomplete for that entity. Its
 `total` counts only stable-identity matches that the response can actually return, counted after
-identity deduplication so the total and the pages agree.
+identity deduplication so the total and the pages agree. A match is the same row
+`world_list(category=...)` returns for that entity — named, scanned, and carrying its category and
+native type — rather than a bare pointer that costs a second call to learn anything about what was
+just found.
 
 ### Discovery decision loop
 

@@ -339,9 +339,12 @@ public sealed class GameMcpWorldQueryTests
             GameMcpAcceptanceFixture.SpellId.ToString("D"),
             0,
             5));
-        Assert.Single(search["rows"]!.Values<JObject>());
-        Assert.Equal(124, System.Text.Encoding.UTF8.GetByteCount(
-            search.ToString(Newtonsoft.Json.Formatting.None)));
+        // A match is the row the list would have returned, so search costs one call rather than a
+        // pointer plus a follow-up read.
+        var match = Assert.Single(search["rows"]!.Values<JObject>())!;
+        Assert.Equal(
+            scan.ToString(Newtonsoft.Json.Formatting.None),
+            match.ToString(Newtonsoft.Json.Formatting.None));
 
         var exact = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             state,

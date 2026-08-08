@@ -140,10 +140,10 @@ internal static class GameMcpWorldQuery
         for (var index = offset; index < requestedEnd; index++)
         {
             var row = category.Row(world, index);
-            var rowBytes = EstimateListRowBytes(world, category, row);
+            var projected = ProjectListRow(world, category, row);
+            var rowBytes = EstimateListRowBytes(world, category, row, projected);
             if (rows.Count > 0 && estimatedBytes + rowBytes > MaximumListResponseBytes)
                 break;
-            var projected = ProjectListRow(world, category, row);
             var identity = category.TryIdentity(row, out var stableIdentity)
                 ? stableIdentity
                 : row is WorldEntityRequirement requirement
@@ -428,15 +428,83 @@ internal static class GameMcpWorldQuery
         return result;
     }
 
+    /// <summary>
+    /// What one built row will weigh on the wire, measured from the row itself.
+    /// </summary>
+    /// <remarks>
+    /// The estimate used to be a flat 512 bytes plus 64 per declared field, which is roughly three
+    /// times what a row actually encodes to, so every page stopped at about a quarter of the byte
+    /// budget and callers paged four times for one page's worth of rows. The document is already
+    /// built when this runs, so the fields it really carries are countable; only the two things the
+    /// transport adds later are charged as constants — the named-entity expansion the wire
+    /// normalizer performs, and the large-magnitude values the JSON encoder renders.
+    /// </remarks>
     private static int EstimateListRowBytes(
         GameWorldState world,
         GameMcpWorldCategory category,
-        object row)
+        object row,
+        GameMcpValue projected)
     {
-        var bytes = 512 + 64 * ListFields(category).Length;
+        var bytes = MeasureDocumentBytes(projected);
         if (!category.TryIdentity(row, out var identity)) return bytes;
         var name = EntityIdentityFormatter.Describe(identity, world.EntityIdentities).Name;
-        return checked(bytes + Encoding.UTF8.GetByteCount(name));
+
+        // The row's own entity reference becomes a uuid, a display name, and an internal name. The
+        // display name is charged twice on purpose: the internal name sits beside it and is about
+        // as long.
+        return checked(bytes + NamedEntityExpansionBytes + 2 * Encoding.UTF8.GetByteCount(name));
+    }
+
+    /// <summary>The keys and quotes an entity reference gains when it is named on the wire.</summary>
+    private const int NamedEntityExpansionBytes = 40;
+
+    /// <summary>One large-magnitude value, which renders as a short scientific string.</summary>
+    private const int DomainValueBytes = 10;
+
+    /// <summary>One path copied out of a reflected row: its key, its punctuation, and its value.</summary>
+    private const int ProjectedPathBytes = 48;
+
+    /// <summary>A whole reflected row, whose shape is not known until the transport projects it.</summary>
+    private const int UnprojectedRowBytes = 512;
+
+    private static int MeasureDocumentBytes(GameMcpValue value)
+    {
+        switch (value)
+        {
+            case GameMcpObject item:
+            {
+                var bytes = 2;
+                for (var index = 0; index < item.Properties.Count; index++)
+                {
+                    var property = item.Properties[index];
+                    bytes += Encoding.UTF8.GetByteCount(property.Name) + 4;
+                    bytes += MeasureDocumentBytes(property.Value);
+                }
+                return bytes;
+            }
+            case GameMcpArray array:
+            {
+                var bytes = 2;
+                for (var index = 0; index < array.Items.Count; index++)
+                    bytes += MeasureDocumentBytes(array.Items[index]) + 1;
+                return bytes;
+            }
+            case GameMcpScalar scalar:
+                return scalar.Value switch
+                {
+                    string text => Encoding.UTF8.GetByteCount(text) + 2,
+                    bool boolean => boolean ? 4 : 5,
+                    _ => 20,
+                };
+            case GameMcpProjectedDomainValue projection:
+                return projection.Paths.Length == 0
+                    ? UnprojectedRowBytes
+                    : checked(2 + projection.Paths.Length * ProjectedPathBytes);
+            case GameMcpDomainValue:
+                return DomainValueBytes;
+            default:
+                return 4;
+        }
     }
 
     internal static JObject GetRow(
@@ -2317,29 +2385,40 @@ internal static class GameMcpWorldQuery
                 totalMatches++;
                 scanned++;
                 if (scanned <= offset || rows.Count >= limit || byteBudgetReached) continue;
-                var match = new JObject
-                {
-                    ["uuid"] = identity.ToString("D"),
-                    ["category"] = category.Name,
-                    ["nativeType"] = category.ExpectedNativeType,
-                };
+                // A match is the same row world_list would have returned for that category, named
+                // and scanned. A bare uuid and category cost the caller a second call to learn
+                // anything about what it had just found.
+                var projected = ProjectListRow(publication.Snapshot, category, row);
                 var local = LocalizedRequirementImplications(
                     publication.Snapshot, new HashSet<Guid> { identity });
                 var localOffers = LocalizedDiscoveryOfferImplications(
                     publication.Snapshot, new HashSet<Guid> { identity });
-                if (local.Count > 0 || localOffers.Count > 0)
+                var matchBytes = EstimateListRowBytes(
+                    publication.Snapshot, category, row, projected);
+                GameMcpValue match;
+                if (local.Count == 0 && localOffers.Count == 0)
                 {
-                    match["status"] = "not_available";
-                    match["code"] = local.Count > 0
-                        ? "entity_data_incomplete"
-                        : "discovery_offer_read_incomplete";
-                    match["reason"] = local.Count > 0
-                        ? "this match has incomplete published requirement evidence"
-                        : "this discovery tree has an offer absent from the published entity rows";
-                    if (local.Count > 0) match["implicatedSkippedRows"] = local;
-                    if (localOffers.Count > 0) match["implicatedOffers"] = localOffers;
+                    match = projected;
                 }
-                var matchBytes = 192 + local.Count * 128 + localOffers.Count * 128;
+                else
+                {
+                    var incomplete = new JObject
+                    {
+                        ["status"] = "not_available",
+                        ["code"] = local.Count > 0
+                            ? "entity_data_incomplete"
+                            : "discovery_offer_read_incomplete",
+                        ["reason"] = local.Count > 0
+                            ? "this match has incomplete published requirement evidence"
+                            : "this discovery tree has an offer absent from the published entity rows",
+                        ["partialRow"] = projected,
+                    };
+                    if (local.Count > 0) incomplete["implicatedSkippedRows"] = local;
+                    if (localOffers.Count > 0) incomplete["implicatedOffers"] = localOffers;
+                    match = incomplete.Freeze();
+                    matchBytes = checked(
+                        matchBytes + 192 + local.Count * 128 + localOffers.Count * 128);
+                }
                 if (rows.Count > 0 && estimatedBytes + matchBytes > MaximumListResponseBytes)
                 {
                     byteBudgetReached = true;
