@@ -3398,7 +3398,7 @@ public sealed class Plugin : BaseUnityPlugin
                 _gameMcpTooltipContractFailure);
         }
         var entries = CaptureActiveHoverTooltips()
-            .Where(static entry => entry.tooltipItem is not null)
+            .Where(static entry => entry.Hover.tooltipItem is not null)
             .ToArray();
         if (!int.TryParse(
                 command.PayloadValue,
@@ -3415,7 +3415,8 @@ public sealed class Plugin : BaseUnityPlugin
         var end = (int)Math.Min(entries.Length, (long)offset + command.Amount);
         for (var index = offset; index < end; index++)
         {
-            var hover = entries[index];
+            var entry = entries[index];
+            var hover = entry.Hover;
             var item = hover.tooltipItem!;
             if (!nativeAccess.TryReadSubTooltips(hover, out var children, out var readFailure))
             {
@@ -3425,9 +3426,7 @@ public sealed class Plugin : BaseUnityPlugin
             }
             var tooltip = new GameMcpObjectBuilder
             {
-                ["path"] = NativeObjectPath.Relative(
-                    NativeObjectPath.BuildIndexed(hover),
-                    prefix),
+                ["path"] = NativeObjectPath.Relative(entry.Path, prefix),
                 ["name"] = item.GetName(),
             };
             AddTooltipIdentity(tooltip, item);
@@ -3455,15 +3454,12 @@ public sealed class Plugin : BaseUnityPlugin
         // the prefix is derived from the same live screen on both sides, so a row's path resolves
         // as given without the caller re-assembling it.
         var prefix = TooltipPathPrefix(
-            active.Where(static entry => entry.tooltipItem is not null).ToArray());
+            active.Where(static entry => entry.Hover.tooltipItem is not null).ToArray());
         var qualified = prefix.Length > 0 ? prefix + "/" + requestedPath : requestedPath;
         var matches = active
-            .Where(hover =>
-            {
-                var path = NativeObjectPath.BuildIndexed(hover);
-                return string.Equals(path, requestedPath, StringComparison.Ordinal) ||
-                    string.Equals(path, qualified, StringComparison.Ordinal);
-            })
+            .Where(entry =>
+                string.Equals(entry.Path, requestedPath, StringComparison.Ordinal) ||
+                string.Equals(entry.Path, qualified, StringComparison.Ordinal))
             .ToArray();
         if (matches.Length != 1)
         {
@@ -3475,7 +3471,7 @@ public sealed class Plugin : BaseUnityPlugin
                     ? "; paths read relative to pathPrefix '" + prefix + "'"
                     : string.Empty));
         }
-        var hover = matches[0];
+        var hover = matches[0].Hover;
         if (hover.tooltipItem is null)
         {
             return GadgetRejected(
@@ -3521,19 +3517,42 @@ public sealed class Plugin : BaseUnityPlugin
         return result;
     }
 
-    private static IReadOnlyList<HoverTooltip> CaptureActiveHoverTooltips() =>
+    /// <summary>One live hover element with the hierarchy keys already read off it.</summary>
+    private readonly struct TooltipElement
+    {
+        internal TooltipElement(HoverTooltip hover, NativeObjectPath.Placement placement)
+        {
+            Hover = hover;
+            Placement = placement;
+        }
+
+        internal HoverTooltip Hover { get; }
+        internal NativeObjectPath.Placement Placement { get; }
+        internal string Path => Placement.Path;
+    }
+
+    /// <summary>
+    /// Every hover element the player can currently see, in screen order, each carrying its own
+    /// hierarchy path.
+    /// </summary>
+    /// <remarks>
+    /// The ancestry is walked once per element. Sorting, the shared prefix, and each row's printed
+    /// path all read that one result, where they previously walked the same chain three times over.
+    /// </remarks>
+    private static IReadOnlyList<TooltipElement> CaptureActiveHoverTooltips() =>
         Resources.FindObjectsOfTypeAll(typeof(HoverTooltip))
             .OfType<HoverTooltip>()
             .Where(hover =>
                 hover.enabled &&
                 hover.gameObject.activeInHierarchy &&
                 GameMcpTooltipNativeAccess.OnScreen(hover))
-            .OrderBy(hover => ScreenOrderKey(hover.transform), StringComparer.Ordinal)
+            .Select(static hover => new TooltipElement(hover, NativeObjectPath.Locate(hover)))
+            .OrderBy(static entry => entry.Placement.OrderKey, StringComparer.Ordinal)
             .ToArray();
 
-    private static string TooltipPathPrefix(IReadOnlyList<HoverTooltip> entries) =>
+    private static string TooltipPathPrefix(IReadOnlyList<TooltipElement> entries) =>
         NativeObjectPath.CommonPrefix(
-            entries.Select(static hover => NativeObjectPath.BuildIndexed(hover)).ToArray());
+            entries.Select(static entry => entry.Path).ToArray());
 
     private static void AddTooltipIdentity(
         GameMcpObjectBuilder result,
@@ -3542,15 +3561,6 @@ public sealed class Plugin : BaseUnityPlugin
         if (item is not IdScriptableObject entity) return;
         var uuid = entity.GetGuid();
         if (uuid != Guid.Empty) result["uuid"] = uuid.ToString("D");
-    }
-
-    private static string ScreenOrderKey(Transform transform)
-    {
-        var segments = new Stack<int>();
-        for (var current = transform; current is not null; current = current.parent)
-            segments.Push(current.GetSiblingIndex());
-        return string.Join("/", segments.Select(
-            index => index.ToString("D6", CultureInfo.InvariantCulture)));
     }
 
     private GameMcpCommandResult ProbeGameMcp(GameMcpCommand command)

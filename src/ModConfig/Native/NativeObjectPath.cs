@@ -64,6 +64,63 @@ internal static class NativeObjectPath
     }
 
     /// <summary>
+    /// One element's indexed selector and its screen-order key, from a single walk of the ancestry.
+    /// </summary>
+    /// <remarks>
+    /// The two strings answer different questions — which element this is, and where on the screen
+    /// it sits — and a catalog needs both for every element it lists. Built separately they cost two
+    /// walks of the same chain each time, and a caller that then rebuilds the path to print it costs
+    /// a third. The walk is the expensive part, so it happens once and hands back both.
+    /// </remarks>
+    public readonly struct Placement
+    {
+        internal Placement(string path, string orderKey)
+        {
+            Path = path;
+            OrderKey = orderKey;
+        }
+
+        /// <summary>The indexed selector <see cref="BuildIndexed"/> would return.</summary>
+        public string Path { get; }
+
+        /// <summary>
+        /// The sibling-index key screen order sorts on. Zero-padded per segment so an ordinal
+        /// comparison orders numerically, which is what a screen reads like top to bottom.
+        /// </summary>
+        public string OrderKey { get; }
+    }
+
+    /// <summary>Both hierarchy keys for one element, from one walk of its ancestry.</summary>
+    public static Placement Locate(UnityEngine.Object instance)
+    {
+        if (instance is null) return new Placement(string.Empty, string.Empty);
+
+        var transform = instance switch
+        {
+            GameObject gameObject => gameObject.transform,
+            Component component => component.transform,
+            _ => null,
+        };
+        if (transform is null)
+            return new Placement(instance.name ?? instance.GetType().Name, string.Empty);
+
+        var segments = new List<string>(8);
+        var order = new List<string>(8);
+        for (var current = transform; current is not null; current = current.parent)
+        {
+            order.Add(current.GetSiblingIndex().ToString("D6", CultureInfo.InvariantCulture));
+            if (segments.Count >= 64 || string.IsNullOrWhiteSpace(current.name)) continue;
+            segments.Add(
+                current.name + "[" +
+                current.GetSiblingIndex().ToString(CultureInfo.InvariantCulture) + "]");
+        }
+
+        segments.Reverse();
+        order.Reverse();
+        return new Placement(string.Join("/", segments), string.Join("/", order));
+    }
+
+    /// <summary>
     /// The leading segments every listed path shares, held to a proper prefix so each path keeps at
     /// least one segment of its own. A screen's selectors descend from one canvas, so this is the
     /// part a page would otherwise repeat verbatim on every row.

@@ -1,4 +1,5 @@
 using OrbModConfig;
+using UnityEngine;
 using Xunit;
 
 namespace OrbModding.ProfileTests;
@@ -80,4 +81,43 @@ public sealed class NativeObjectPathTests
     [Fact]
     public void An_empty_screen_has_no_prefix() =>
         Assert.Equal(string.Empty, NativeObjectPath.CommonPrefix(System.Array.Empty<string>()));
+
+    /// <summary>
+    /// One walk of an element's ancestry answers both questions the tooltip catalog asks of it.
+    /// </summary>
+    /// <remarks>
+    /// The catalog used to walk the same chain three times per element — once to sort, once to
+    /// find the shared prefix, once to print the row. This pins that the single walk still returns
+    /// the selector <see cref="NativeObjectPath.BuildIndexed"/> returns, and an order key that
+    /// sorts by sibling index rather than by name.
+    /// </remarks>
+    [Fact]
+    public void One_walk_answers_both_the_selector_and_the_screen_order()
+    {
+        var canvas = new GameObject("Canvas");
+        var zulu = Child(canvas, "Zulu");
+        var alpha = Child(canvas, "Alpha");
+
+        var first = NativeObjectPath.Locate(zulu);
+        var second = NativeObjectPath.Locate(alpha);
+
+        Assert.Equal(NativeObjectPath.BuildIndexed(zulu), first.Path);
+        Assert.Equal(NativeObjectPath.BuildIndexed(alpha), second.Path);
+        Assert.Equal("Canvas[0]/Zulu[0]", first.Path);
+        Assert.Equal("Canvas[0]/Alpha[1]", second.Path);
+
+        // Screen order is where the element sits, not how it is spelled: Zulu is the first child
+        // and sorts first, which an ordinal sort of the two paths would get backwards.
+        Assert.True(
+            string.CompareOrdinal(first.OrderKey, second.OrderKey) < 0,
+            $"{first.OrderKey} should sort before {second.OrderKey}");
+        Assert.True(string.CompareOrdinal(first.Path, second.Path) > 0);
+    }
+
+    private static GameObject Child(GameObject parent, string name)
+    {
+        var child = new GameObject(name);
+        child.transform.SetParent(parent.transform, worldPositionStays: false);
+        return child;
+    }
 }
