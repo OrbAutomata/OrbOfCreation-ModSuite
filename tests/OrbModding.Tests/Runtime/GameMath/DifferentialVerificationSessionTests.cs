@@ -116,7 +116,7 @@ public sealed class DifferentialVerificationSessionTests
     }
 
     [Fact]
-    public void ExpectedUninstantiatedSkipsStayVisibleWithoutDowngradingAPass()
+    public void ExpectedSkipsStayVisibleWithoutDowngradingAPass()
     {
         var session = new DifferentialVerificationSession("Concept drain");
         session.Start();
@@ -129,7 +129,7 @@ public sealed class DifferentialVerificationSessionTests
         var verdict = session.Complete();
 
         Assert.Contains("PASSED", verdict, StringComparison.Ordinal);
-        Assert.Contains("[1 entities, 1 uninstantiated]", verdict, StringComparison.Ordinal);
+        Assert.Contains("[1 entities, 1 expected skips]", verdict, StringComparison.Ordinal);
         Assert.DoesNotContain("INCOMPLETE", verdict, StringComparison.Ordinal);
     }
 

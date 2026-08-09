@@ -133,7 +133,7 @@ internal sealed class DifferentialVerificationSession
         {
             var reason = FirstUnverifiableReason.Length == 0
                 ? ExpectedSkips > 0
-                    ? $"{ExpectedSkips} entities were uninstantiated."
+                    ? $"{ExpectedSkips} entities were expected skips."
                     : "no entities were available to check."
                 : FirstUnverifiableReason;
             return $"{Subject} verification INCONCLUSIVE: nothing could be verified — {reason}";
@@ -142,7 +142,7 @@ internal sealed class DifferentialVerificationSession
         var summary = Run.Summarize();
         var detail = $" [{EntitiesVerified} entities";
         if (Unverifiable > 0) detail += $", {Unverifiable} unreadable";
-        if (ExpectedSkips > 0) detail += $", {ExpectedSkips} uninstantiated";
+        if (ExpectedSkips > 0) detail += $", {ExpectedSkips} expected skips";
 
         // Stated only when the run actually spanned frames. A single-frame run always spent exactly
         // one tick, so reporting it says nothing and invites the reader to ask what the others were.

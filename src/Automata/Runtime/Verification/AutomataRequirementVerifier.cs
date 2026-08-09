@@ -132,10 +132,26 @@ internal sealed class AutomataRequirementVerifier
         }
 
         var containers = contract.CountContainers(entity);
+        var recordedSkip = false;
         for (var containerIndex = 0; containerIndex < containers; containerIndex++)
         {
             var level = contract.ReadCheckLevel(entity);
-            if (!TryNameUnevaluable(contract, world, entityId, containerIndex, level, out var name))
+            var reading = ReadContainer(
+                contract, world, entityId, containerIndex, level, out var name);
+            if (reading == ContainerReading.Unauthored)
+            {
+                // The game authored no reference for this condition, so its own Check would
+                // dereference nothing and there is no verdict to compare against. Recorded as an
+                // expected skip once per entity, the way an owner the game never asks is.
+                if (!recordedSkip)
+                {
+                    session.RecordExpectedSkip();
+                    recordedSkip = true;
+                }
+                continue;
+            }
+
+            if (reading == ContainerReading.Unmodelled)
             {
                 failure = $"the {name} condition on {entityId} is not modelled.";
                 return false;
@@ -155,16 +171,39 @@ internal sealed class AutomataRequirementVerifier
         return true;
     }
 
+    /// <summary>Why one container cannot be compared, if it cannot.</summary>
+    private enum ContainerReading
+    {
+        Comparable = 0,
+
+        /// <summary>A condition of a modelled class whose target the game never authored.</summary>
+        Unauthored = 1,
+
+        /// <summary>A condition this suite cannot evaluate. A gap in the suite, not in the game.</summary>
+        Unmodelled = 2,
+    }
+
     /// <summary>
-    /// Whether every published condition in this container could be evaluated, naming the first that
-    /// could not.
+    /// Whether every published condition in this container could be evaluated, and if not, whether
+    /// the shortfall is the suite's or the game's — naming the class either way.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Walked here rather than inside the evaluator so that the evaluator stays a predicate. What a
     /// consumer needs is the verdict; what an operator reading this pass needs is the class name that
     /// produced it, and only the verifier needs both.
+    /// </para>
+    /// <para>
+    /// A condition of a modelled class whose target is the empty identity is a reference the game's
+    /// author never filled in. Both sides refuse it — the suite because nothing can satisfy an
+    /// entity that does not exist, the game because its own comparison reads a field off the missing
+    /// reference — so the pass declines to compare the container rather than reporting a modelling
+    /// gap it does not have. It declines the whole container even where an earlier condition would
+    /// have short-circuited the game's own walk: not reaching into an oracle that can throw is worth
+    /// more than the one comparison it would buy.
+    /// </para>
     /// </remarks>
-    private static bool TryNameUnevaluable(
+    private static ContainerReading ReadContainer(
         RequirementContract contract,
         GameWorldState world,
         Guid ownerId,
@@ -175,15 +214,26 @@ internal sealed class AutomataRequirementVerifier
         conditionTypeName = string.Empty;
         if (!contract.TryFindRows(world, ownerId, containerIndex, out var start, out var count))
         {
-            return true;
-        }
-        if (contract.Evaluate(world, ownerId, containerIndex, level) !=
-            WorldRequirementVerdict.Unevaluable)
-        {
-            return true;
+            return ContainerReading.Comparable;
         }
 
         var rows = world.EntityRequirements.AsSpan();
+        for (var offset = 0; offset < count; offset++)
+        {
+            ref readonly var row = ref rows[start + offset];
+            if (row.NodeKind == WorldRequirementNodeKind.Group) continue;
+            if (!NamesNothing(in row)) continue;
+
+            conditionTypeName = Name(in row);
+            return ContainerReading.Unauthored;
+        }
+
+        if (contract.Evaluate(world, ownerId, containerIndex, level) !=
+            WorldRequirementVerdict.Unevaluable)
+        {
+            return ContainerReading.Comparable;
+        }
+
         for (var offset = 0; offset < count; offset++)
         {
             ref readonly var row = ref rows[start + offset];
@@ -194,12 +244,24 @@ internal sealed class AutomataRequirementVerifier
                 continue;
             }
 
-            conditionTypeName = row.ConditionTypeName.Length == 0 ? "unnamed" : row.ConditionTypeName;
-            return false;
+            conditionTypeName = Name(in row);
+            return ContainerReading.Unmodelled;
         }
 
-        return true;
+        return ContainerReading.Comparable;
     }
+
+    /// <summary>
+    /// A modelled comparison pointed at nothing. The two classes that carry no target of their own —
+    /// an unmodelled class and an authored empty composite — are not this.
+    /// </summary>
+    private static bool NamesNothing(in WorldEntityRequirement row) =>
+        row.TargetId == Guid.Empty &&
+        row.Kind != WorldRequirementConditionKind.Unknown &&
+        row.Kind != WorldRequirementConditionKind.Literal;
+
+    private static string Name(in WorldEntityRequirement row) =>
+        row.ConditionTypeName.Length == 0 ? "unnamed" : row.ConditionTypeName;
 
     /// <summary>
     /// The reflected members needed to ask the game its own answer, for one owner shape. Resolved

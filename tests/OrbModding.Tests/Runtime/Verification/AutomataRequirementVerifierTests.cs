@@ -163,6 +163,41 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         Assert.True(run.Passed);
     }
 
+    /// <summary>
+    /// A tier whose condition points at nothing is an unfilled authored reference, not a class the
+    /// suite cannot read. Neither side has a verdict there — the game's own comparison would read a
+    /// field off the missing reference — so the tier is an expected skip and the tier beside it is
+    /// still compared.
+    /// </summary>
+    [Fact]
+    public void ATierWhoseConditionNamesNothingIsSkippedRatherThanCalledUnreadable()
+    {
+        var link = new global::PrerequisiteLinkSO();
+        link.linkTiers.Add(new global::PrerequisiteLinkSO.LinkDefinition());
+        var broken = new global::PrerequisiteLinkSO.LinkDefinition();
+        broken.prerequisites.prerequisites.Add(new Requirements.UpgradeRequirement
+        {
+            item = null!,
+            reqType = Requirements.UpgradeRequirementType.OneLevel,
+            value = new Requirements.LeveledValue(),
+        });
+        link.linkTiers.Add(broken);
+        global::PrerequisiteLinkSO.All.Add(link);
+
+        var verifier = new AutomataRequirementVerifier(
+            typeof(global::PrerequisiteLinkSO), RequirementOwnerShape.PrerequisiteLinkTier);
+        var session = Session();
+
+        Assert.True(verifier.TryVerify(link, Collect(), session.Run, session, out var failure));
+
+        Assert.Empty(failure);
+        Assert.Equal(1, session.Run.Compared);
+        Assert.True(session.Run.Passed);
+        Assert.Equal(1, session.ExpectedSkips);
+        Assert.Equal(0, broken.prerequisites.ParameterizedCheckCalls);
+        Assert.Equal(0, broken.prerequisites.CheckCalls);
+    }
+
     [Fact]
     public void AnEmptyUsageProgramAgreesWithTheNativeOracle()
     {
