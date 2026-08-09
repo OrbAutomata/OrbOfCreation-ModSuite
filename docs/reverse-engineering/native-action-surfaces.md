@@ -914,6 +914,15 @@ challenge.
 queues and its active branch abandons. Unselecting stays available when the selection list is full or
 the target would now conflict — those gates admit the selecting direction only.
 
+`IsChallengeRestricted` asks about the list as it stands, not about the challenge. It calls
+`GetRestrictedTypes()`, which rebuilds `restrictedTypes` through an `ObservingCache` over the list
+itself whenever the list changed, and `BuildRestrictedTypes()` enumerates that list's own members,
+adding every `challengeTypes` entry whose `ChallengeTypeSO.IsLimitedToOneInstance()` is true. The
+answer is then `target.challengeTypes.Any(restricted.Contains)`, and an empty restricted set answers
+false without reading the target at all. A row leaving the list therefore takes its restriction with
+it, which is why the screen's two-press swap can select a row conflicting with the one given up: the
+give-up press lands first, and the conflict is asked of what remains.
+
 ### The fetch bookkeeping lives in the UI, not the manager
 
 Both UI fetch methods set `hasFetchedChallenges` on the first fetch, or decrement

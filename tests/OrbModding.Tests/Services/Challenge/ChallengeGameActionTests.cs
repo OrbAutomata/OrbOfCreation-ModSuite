@@ -31,19 +31,69 @@ public sealed class ChallengeGameActionTests : IDisposable
     [Fact]
     public void Select_toggles_the_exact_offered_identity_and_respects_native_restrictions()
     {
-        var target = Register(Challenge());
+        var unique = LimitedType();
+        var target = Register(Challenge(unique));
+        var conflicting = Register(Challenge(unique));
         ChallengeManager.instance.activeChallenges.value.Add(target);
+        ChallengeManager.instance.preferredChallenges.Maximum = 2;
         using var boundary = Boundary();
 
         var selected = Submit(boundary, ChallengeActionKind.Select, target);
         var unselected = Submit(boundary, ChallengeActionKind.Select, target);
-        ChallengeManager.instance.preferredChallenges.RestrictedChallenges.Add(target);
+        ChallengeManager.instance.preferredChallenges.value.Add(conflicting);
         var restricted = Submit(boundary, ChallengeActionKind.Select, target);
 
         Assert.True(selected.Verified, selected.Reason);
         Assert.True(unselected.Verified, unselected.Reason);
         Assert.Equal(ChallengePreflight.SelectionRestricted, restricted.Preflight);
         Assert.Equal(2, ChallengeManager.instance.preferredChallenges.ToggleCalls);
+    }
+
+    /// <summary>
+    /// The game reads a type conflict off the selection as it stands, so the row being given up is
+    /// still counted until its press lands. Asked before that press, the conflict refuses exactly
+    /// the swap the screen performs: give up the one holding the type, then take the one that wants
+    /// it.
+    /// </summary>
+    [Fact]
+    public void A_swap_asks_the_type_conflict_of_the_selection_the_give_up_press_leaves_behind()
+    {
+        var unique = LimitedType();
+        var held = Register(Challenge(unique));
+        var wanted = Register(Challenge(unique));
+        ChallengeManager.instance.activeChallenges.value.Add(wanted);
+        ChallengeManager.instance.preferredChallenges.Maximum = 1;
+        ChallengeManager.instance.preferredChallenges.value.Add(held);
+        using var boundary = Boundary();
+
+        var swapped = Submit(boundary, ChallengeActionKind.Select, wanted, held);
+
+        Assert.True(swapped.Verified, swapped.Reason);
+        Assert.Equal(new[] { wanted }, ChallengeManager.instance.preferredChallenges.value);
+    }
+
+    /// <summary>
+    /// A conflict the give-up does not clear still refuses, and the row offered up comes back: a
+    /// caller that asked for a swap and was told no must not be left one selection poorer.
+    /// </summary>
+    [Fact]
+    public void A_conflict_the_give_up_does_not_clear_refuses_and_puts_the_given_up_row_back()
+    {
+        var unique = LimitedType();
+        var held = Register(Challenge());
+        var blocking = Register(Challenge(unique));
+        var wanted = Register(Challenge(unique));
+        ChallengeManager.instance.activeChallenges.value.Add(wanted);
+        ChallengeManager.instance.preferredChallenges.Maximum = 2;
+        ChallengeManager.instance.preferredChallenges.value.Add(held);
+        ChallengeManager.instance.preferredChallenges.value.Add(blocking);
+        using var boundary = Boundary();
+
+        var refused = Submit(boundary, ChallengeActionKind.Select, wanted, held);
+
+        Assert.Equal(ChallengePreflight.SelectionRestricted, refused.Preflight);
+        Assert.Equal(new[] { blocking, held }, ChallengeManager.instance.preferredChallenges.value);
+        Assert.Equal(0, refused.CallOutcome.MutationsCommitted);
     }
 
     /// <summary>
@@ -285,10 +335,18 @@ public sealed class ChallengeGameActionTests : IDisposable
         return target;
     }
 
-    private static ChallengeSO Challenge()
+    private static ChallengeSO Challenge(params ChallengeTypeSO[] types)
     {
         var challenge = new ChallengeSO { maxLevel = 10, difficulty = 12, baseReward = 30 };
         challenge.SetGuid(Guid.NewGuid());
+        challenge.challengeTypes.AddRange(types);
         return challenge;
+    }
+
+    private static ChallengeTypeSO LimitedType()
+    {
+        var type = new ChallengeTypeSO { limitedToOneInstance = true };
+        type.SetGuid(Guid.NewGuid());
+        return type;
     }
 }

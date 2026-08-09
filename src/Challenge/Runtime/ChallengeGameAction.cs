@@ -7,6 +7,9 @@ namespace OrbAutomata;
 /// <summary>Lifecycle-scoped Unity-main-thread boundary for every player challenge decision.</summary>
 internal sealed class ChallengeGameAction : IDisposable
 {
+    private const string RestrictedReason =
+        "The challenge conflicts with the selected challenge types.";
+
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<bool> _tryCaptureMutationPermit;
     private readonly Func<string> _readOwnershipFailure;
@@ -122,7 +125,27 @@ internal sealed class ChallengeGameAction : IDisposable
                 case ChallengeActionKind.Select:
                     // The screen's own two presses, in the order a player makes them: free the row
                     // this one takes over, then pick this one.
-                    if (replaced is not null) native.Toggle(context.Preferred, replaced);
+                    if (replaced is not null)
+                    {
+                        native.Toggle(context.Preferred, replaced);
+                        // The type conflict is the game's question about the list as it stands, and
+                        // the row just given up is no longer in it. Asked one press earlier it
+                        // answers for a list nobody is selecting into, and refuses the swap the
+                        // screen performs — so it is asked here, and a no puts the row back.
+                        if (!before.Selected && native.Restricted(context.Preferred, target!))
+                        {
+                            stage = ChallengeNativeStage.Verification;
+                            native.Toggle(context.Preferred, replaced);
+                            return native.Contains(context.Preferred, replaced)
+                                ? ChallengeSubmission.Reject(
+                                    ChallengePreflight.SelectionRestricted, RestrictedReason)
+                                : Fault(in action, ChallengePreflight.PostCommitFault, stage,
+                                    NativeMutationOutcome.PostconditionFailed,
+                                    "The row given up to make room was not restored after the " +
+                                    "type conflict refused the swap.",
+                                    SettledBudget(action.Kind, native, in context, in before));
+                        }
+                    }
                     native.Toggle(context.Preferred, target!);
                     break;
                 case ChallengeActionKind.Queue:
@@ -204,8 +227,12 @@ internal sealed class ChallengeGameAction : IDisposable
                     return ChallengePreflight.SelectionFull;
                 }
             }
-            if (!before.Selected && native.Restricted(context.Preferred, target!))
-            { reason = "The challenge conflicts with the selected challenge types."; return ChallengePreflight.SelectionRestricted; }
+            // A swap's conflict cannot be settled here: the game reads it off the selection as it
+            // stands, and the give-up press has not happened. Execute asks it in the state the
+            // press leaves behind.
+            if (!before.Selected && replaced is null &&
+                native.Restricted(context.Preferred, target!))
+            { reason = RestrictedReason; return ChallengePreflight.SelectionRestricted; }
             return ChallengePreflight.Proceeded;
         }
         if (kind == ChallengeActionKind.Queue)

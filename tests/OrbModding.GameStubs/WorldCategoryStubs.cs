@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 public sealed class StructureTypeSO : UpgradeableObject
 {
@@ -1218,6 +1219,7 @@ public sealed class ChallengeSO : IdScriptableObject
     }
 
     public static List<ChallengeSO> All = new List<ChallengeSO>();
+    public List<ChallengeTypeSO> challengeTypes = new List<ChallengeTypeSO>();
     public int level;
     public ChallengeState state;
     public bool hasBeenSeen;
@@ -1264,10 +1266,32 @@ public sealed class ChallengeSO : IdScriptableObject
     }
 }
 
+public sealed class ChallengeTypeSO : IdScriptableObject
+{
+    public bool limitedToOneInstance;
+    public bool IsLimitedToOneInstance() => limitedToOneInstance;
+}
+
 public sealed class ChallengeListVariable : GenericListVariable<ChallengeSO>
 {
-    public HashSet<ChallengeSO> RestrictedChallenges { get; } = new HashSet<ChallengeSO>();
-    public bool IsChallengeRestricted(ChallengeSO challenge) => RestrictedChallenges.Contains(challenge);
+    /// <summary>
+    /// The restricted set is built from the types held by the challenges <em>currently in this
+    /// list</em>, so a row leaving the list takes its restriction with it. A fixed answer could not
+    /// tell a conflict from a swap whose give-up press clears the conflict.
+    /// </summary>
+    public bool IsChallengeRestricted(ChallengeSO challenge)
+    {
+        var restricted = new HashSet<ChallengeTypeSO>();
+        foreach (var held in value)
+        {
+            foreach (var type in held.challengeTypes)
+            {
+                if (type.IsLimitedToOneInstance()) restricted.Add(type);
+            }
+        }
+        return restricted.Count > 0 && challenge.challengeTypes.Any(restricted.Contains);
+    }
+
     public void CycleOut()
     {
         foreach (var challenge in value) challenge.EmptyState();

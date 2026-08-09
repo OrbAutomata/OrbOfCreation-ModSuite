@@ -1539,7 +1539,10 @@ Selecting past a full list is two presses on the game's own screen — give up a
 one you want — so `select` performs the first press itself when exactly one selection is held, and
 verifies both halves: the row asked for is held and the row it took over is not. When more than one
 is held, which to give up is the caller's choice, and the refusal says that rather than reporting a
-full list the caller cannot act on.
+full list the caller cannot act on. The type conflict is a question about the selection as it
+stands, so on a swap it is asked between the two presses, exactly where the screen asks it: a row
+whose one-instance type the given-up row was holding is selectable, and a conflict the give-up does
+not clear refuses with the given-up row pressed back, so a refused swap costs the caller nothing.
 
 `reroll` presses the game's one new-challenges button. The Time screen and the Reset modal are two
 labels on the same control — one budget, one asset, one list — so there is one reroll mode rather
