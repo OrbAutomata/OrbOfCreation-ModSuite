@@ -5271,6 +5271,16 @@ internal static class GameMcpWorldQuery
         return result.Freeze();
     }
 
+    /// <summary>
+    /// The reset decision, in the numbers the Reset screen itself shows.
+    /// </summary>
+    /// <remarks>
+    /// The screen says "Starting Time Advancements: 94" and "20 more than last time", and both are
+    /// the same subtraction: what a reset would start with, less what the previous one started with.
+    /// This block used to publish the game's third figure under the screen's label and subtract the
+    /// wrong pair from it, so the one number that decides whether to reset arrived negative when the
+    /// screen showed a gain — a stall an unattended caller had nothing to catch it with.
+    /// </remarks>
     internal static GameMcpValue ProjectPrestigeState(GameWorldState world)
     {
         if (world is null) throw new ArgumentNullException(nameof(world));
@@ -5294,10 +5304,12 @@ internal static class GameMcpWorldQuery
                 : "challenges_not_fetched";
         var result = new JObject
         {
-            ["currentTimeAdvancements"] = context.PersistenceCurrent,
-            ["startingTimeAdvancements"] = context.PersistenceProjected,
-            ["previousStartingTimeAdvancements"] = context.PersistencePrevious,
-            ["changeFromPrevious"] = context.PersistenceProjected - context.PersistencePrevious,
+            ["timeAdvancements"] = new JObject
+            {
+                ["atStart"] = context.PersistenceCurrent,
+                ["previousStart"] = context.PersistencePrevious,
+                ["change"] = context.PersistenceCurrent - context.PersistencePrevious,
+            },
             ["resetCount"] = context.ResetCount,
             ["survivingChallengeSelections"] = PrestigeChallenges(world, queuedRewards: false),
             ["survivingChallengeRewards"] = PrestigeChallenges(world, queuedRewards: true),

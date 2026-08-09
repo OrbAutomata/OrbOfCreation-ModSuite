@@ -57,16 +57,37 @@ public sealed class GameMcpPrestigeTests
 
         Assert.True(response["challengeState"] is not null, response.ToString());
         var prestige = response["challengeState"]!["prestige"]!;
-        Assert.Equal(7, (int)prestige["currentTimeAdvancements"]!);
-        Assert.Equal(11, (int)prestige["startingTimeAdvancements"]!);
-        Assert.Equal(5, (int)prestige["previousStartingTimeAdvancements"]!);
-        Assert.Equal(6, (int)prestige["changeFromPrevious"]!);
+        var advancements = prestige["timeAdvancements"]!;
+        Assert.Equal(7, (int)advancements["atStart"]!);
+        Assert.Equal(5, (int)advancements["previousStart"]!);
+        Assert.Equal(2, (int)advancements["change"]!);
         Assert.Equal(4, (int)prestige["resetCount"]!);
         Assert.Equal("Persistent Light", (string?)prestige["persistentResource"]!["resource"]!["name"]);
         Assert.Equal("80", (string?)prestige["persistentResource"]!["amount"]);
         Assert.Equal("Prismatic Trial", (string?)prestige["survivingChallengeSelections"]![0]!["name"]);
         Assert.Equal("Reward Trial", (string?)prestige["survivingChallengeRewards"]![0]!["name"]);
         Assert.True((bool)prestige["reset"]!["available"]!);
+    }
+
+    /// <summary>
+    /// The fixture holds three figures on purpose: the game's projected 11, the 7 a reset would
+    /// start with, and the 5 the last one started with. Only the screen's own subtraction (7 - 5)
+    /// may reach a caller, because the other one (11 - 5) is the number that told a live round each
+    /// reset was worse than the last.
+    /// </summary>
+    [Fact]
+    public void Reset_gain_is_the_screen_subtraction_and_reads_as_one_line()
+    {
+        var world = World();
+        var prestige = Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
+
+        Assert.Null(prestige["currentTimeAdvancements"]);
+        Assert.Null(prestige["startingTimeAdvancements"]);
+        Assert.Null(prestige["previousStartingTimeAdvancements"]);
+        Assert.Null(prestige["changeFromPrevious"]);
+        Assert.Contains(
+            "timeAdvancements: atStart=7, previousStart=5, change=2",
+            GameMcpTextPage.Render(prestige).Split('\n'));
     }
 
     [Fact]
