@@ -562,6 +562,11 @@ public sealed class GameMcpProtocolSurfaceTests
         var context = GameMcpTestHarness.Context(features: new[] { feature, mentor });
         var compact = Plugin.ProjectGameMcpHealthText(context);
         Assert.StartsWith("available\n", compact, StringComparison.Ordinal);
+        // The fingerprint answers "same DLL or not", which twelve hex characters settle as well as
+        // sixty-four did — and this is a line every health call pays for.
+        Assert.Matches(
+            @"(?m)^build: \S+ dll sha256 [0-9a-f]{12}$",
+            compact);
         Assert.Contains("features configuration_disabled: Auto Buy", compact, StringComparison.Ordinal);
         Assert.Contains("features operational: Mentor", compact, StringComparison.Ordinal);
         Assert.Contains("game_craft: unavailable", compact, StringComparison.Ordinal);
@@ -582,7 +587,10 @@ public sealed class GameMcpProtocolSurfaceTests
             writableConfiguration: Array.Empty<GameMcpWritableSettingDescriptor>(),
             modalDismissAvailable: true);
         var withoutRuntime = Plugin.ProjectGameMcpHealthText(modalAvailable);
-        Assert.Contains("game_modal: available", withoutRuntime, StringComparison.Ordinal);
+        // Health names exceptions, the way it already does for features and services. A capability
+        // that works is covered by the leading verdict, so it costs no line at all.
+        Assert.DoesNotContain("game_modal", withoutRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("native contracts", withoutRuntime, StringComparison.Ordinal);
 
         // The runtime outlives every scene change, so a scene name alone answered the same question
         // both ways in one session. The absent runtime is named as a session fact, and the world the

@@ -1834,7 +1834,6 @@ public sealed class Plugin : BaseUnityPlugin
             .Append("build: ").Append(PluginIds.Version).Append(" dll sha256 ")
             .AppendLine(GameMcpDllSha256)
             .Append("scene: ").AppendLine(GameMcpTextFormatter.Plain(context.SceneName))
-            .Append("runtime: ").AppendLine(context.RuntimeAvailable ? "available" : "unavailable")
             // The same lifecycle fact game_probe reports and the world reads refuse on, so the three
             // cannot hold three beliefs about whether a game exists.
             .Append("lifecycle: ").Append(context.LifecycleState.ToString())
@@ -1849,15 +1848,16 @@ public sealed class Plugin : BaseUnityPlugin
                 ? "generation " +
                     context.World!.Generation.Value.ToString(CultureInfo.InvariantCulture)
                 : "not published")
-            .Append("native contracts: ").AppendLine(
-                context.NativeContractsAvailable ? "available" : "unavailable")
-            .Append("game_craft: ").AppendLine(
-                context.Runtime is { PlayerCraftingAvailable: true, CraftingInstancesAvailable: true }
-                    ? "available"
-                    : "unavailable")
-            .Append("game_modal: ").AppendLine(
-                context.ModalDismissAvailable ? "available" : "unavailable")
             .Append("emergency stop: ").AppendLine(stopped ? "engaged" : "clear");
+        // Health is exception-shaped, the way it already is for features and services: a capability
+        // that works says nothing, so every line on the page is a thing the caller has to act on.
+        // The page leads with "available", which is the standing answer for everything unlisted.
+        if (!context.RuntimeAvailable) result.AppendLine("runtime: unavailable");
+        if (!context.NativeContractsAvailable) result.AppendLine("native contracts: unavailable");
+        if (context.Runtime is not
+            { PlayerCraftingAvailable: true, CraftingInstancesAvailable: true })
+            result.AppendLine("game_craft: unavailable");
+        if (!context.ModalDismissAvailable) result.AppendLine("game_modal: unavailable");
         if (!context.RuntimeAvailable && context.RuntimeNotAvailableReason.Length > 0)
             result.Append("runtime reason: ").AppendLine(
                 GameMcpTextFormatter.Plain(context.RuntimeNotAvailableReason));
@@ -2082,7 +2082,9 @@ public sealed class Plugin : BaseUnityPlugin
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return "unavailable";
             using var stream = File.OpenRead(path);
             using var sha = SHA256.Create();
-            return string.Concat(sha.ComputeHash(stream).Select(
+            // A build fingerprint answers one question: same DLL or not. Six bytes settle it; the
+            // remaining twenty-six were a constant sixty-four-character tax on every health call.
+            return string.Concat(sha.ComputeHash(stream).Take(6).Select(
                 value => value.ToString("x2", CultureInfo.InvariantCulture)));
         }
         catch (Exception)
