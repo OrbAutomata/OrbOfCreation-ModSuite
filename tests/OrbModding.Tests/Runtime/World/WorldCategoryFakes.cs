@@ -2343,6 +2343,11 @@ internal sealed class FakeDiscoveryTree
     public bool debugMode;
     public int totalDiscoveredCount;
     public int poolDiscoveredCount;
+
+    // The two lists the game counts discovered items out of. Their sizes are the denominators, so a
+    // fake that omitted them modelled a tree whose progress nobody could read.
+    public List<object> allDiscoverableItems = new();
+    public List<object> mainDiscoverableItemPool = new();
     public bool hasRequiredDiscovery;
     public bool hasRemainingDiscovery;
     public bool hasCompletedAllDiscoveries;

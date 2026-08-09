@@ -31,6 +31,8 @@ internal readonly struct WorldDiscoveryTree : IWorldEntity
         bool debugMode,
         int totalDiscoveredCount,
         int poolDiscoveredCount,
+        int totalDiscoverableCount,
+        int poolDiscoverableCount,
         bool hasRequiredDiscovery,
         bool hasRemainingDiscovery,
         bool hasCompletedAllDiscoveries)
@@ -57,6 +59,8 @@ internal readonly struct WorldDiscoveryTree : IWorldEntity
         DebugMode = debugMode;
         TotalDiscoveredCount = totalDiscoveredCount;
         PoolDiscoveredCount = poolDiscoveredCount;
+        TotalDiscoverableCount = totalDiscoverableCount;
+        PoolDiscoverableCount = poolDiscoverableCount;
         HasRequiredDiscovery = hasRequiredDiscovery;
         HasRemainingDiscovery = hasRemainingDiscovery;
         HasCompletedAllDiscoveries = hasCompletedAllDiscoveries;
@@ -115,6 +119,15 @@ internal readonly struct WorldDiscoveryTree : IWorldEntity
 
     internal int PoolDiscoveredCount { get; }
 
+    /// <summary>
+    /// What the two cached counts are counts <em>of</em>: the sizes of the two lists
+    /// <c>CountDiscoveredItems()</c> walks. A numerator with no denominator left every progress
+    /// question — how far into this tree am I, is this the last one — unanswerable from the wire.
+    /// </summary>
+    internal int TotalDiscoverableCount { get; }
+
+    internal int PoolDiscoverableCount { get; }
+
     internal bool HasRequiredDiscovery { get; }
 
     internal bool HasRemainingDiscovery { get; }
@@ -162,6 +175,8 @@ internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscovery
     private Func<object, bool>? _debugMode;
     private Func<object, int>? _totalDiscoveredCount;
     private Func<object, int>? _poolDiscoveredCount;
+    private Func<object, IList?>? _allDiscoverableItems;
+    private Func<object, IList?>? _mainDiscoverableItemPool;
     private Func<object, bool>? _hasRequiredDiscovery;
     private Func<object, bool>? _hasRemainingDiscovery;
     private Func<object, bool>? _hasCompletedAllDiscoveries;
@@ -224,6 +239,11 @@ internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscovery
         _debugMode = bind.Field<bool>("debugMode");
         _totalDiscoveredCount = bind.Field<int>("totalDiscoveredCount");
         _poolDiscoveredCount = bind.Field<int>("poolDiscoveredCount");
+        // The two counts the game caches are numerators over exactly these two lists —
+        // CountDiscoveredItems() is Count(discovered) over each — so the denominators come from the
+        // same two fields rather than from a second walk this suite invented.
+        _allDiscoverableItems = bind.CollectionField("allDiscoverableItems");
+        _mainDiscoverableItemPool = bind.CollectionField("mainDiscoverableItemPool");
         _hasRequiredDiscovery = bind.Field<bool>("hasRequiredDiscovery");
         _hasRemainingDiscovery = bind.Field<bool>("hasRemainingDiscovery");
         _hasCompletedAllDiscoveries = bind.Field<bool>("hasCompletedAllDiscoveries");
@@ -265,10 +285,16 @@ internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscovery
             _debugMode!(entity),
             _totalDiscoveredCount!(entity),
             _poolDiscoveredCount!(entity),
+            Size(_allDiscoverableItems!(entity), "allDiscoverableItems"),
+            Size(_mainDiscoverableItemPool!(entity), "mainDiscoverableItemPool"),
             _hasRequiredDiscovery!(entity),
             _hasRemainingDiscovery!(entity),
             _hasCompletedAllDiscoveries!(entity));
     }
+
+    private static int Size(IList? source, string name) =>
+        source?.Count ??
+        throw new InvalidOperationException("DiscoveryTreeSO." + name + " was null");
 
     private Guid[] ReadOffers(object entity)
     {

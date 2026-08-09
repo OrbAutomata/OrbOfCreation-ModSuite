@@ -1575,6 +1575,7 @@ public sealed class DiscoveryTreeSO : IdScriptableObject
 
     public ResourceCostList nextItemCost = new ResourceCostList();
     public List<IDiscoverable> allDiscoverableItems = new List<IDiscoverable>();
+    public List<IDiscoverable> mainDiscoverableItemPool = new List<IDiscoverable>();
     public int maximumRerolls = 1;
     public bool visible = true;
     public bool immediateRequired;

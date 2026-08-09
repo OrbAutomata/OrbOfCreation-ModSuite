@@ -829,19 +829,22 @@ public sealed class NativeContractManifestTests
     /// <para>
     /// Pinned as an exact set rather than a ceiling: an arrival fails here, and so does a departure
     /// that forgets to strike its line. The list grew from twelve to nineteen when the census was
-    /// taken by call site rather than by member name — the same <c>HasEnough()</c> was reached from
+    /// taken by call site rather than by member name, and to twenty when a row that had been
+    /// classified from its signature had its body read — the same <c>HasEnough()</c> was reached from
     /// six more readers than the manifest had rows for, because a member-name reconciliation cannot
     /// see a second site. Growth of that kind is the census improving; the rule the doctrine actually
     /// wants is this list being empty.
     /// </para>
     /// <para>
-    /// Nine are one family. <c>Prerequisites.Container.Check()</c> latches <c>available</c>, and every
+    /// Ten are one family. <c>Prerequisites.Container.Check()</c> latches <c>available</c>, and every
     /// whole-entity availability or visibility predicate reaches it: <c>StructureSO</c>,
     /// <c>UpgradeSO</c>, <c>ViewSO</c>, <c>RecipeBookSO</c>, <c>CraftingRecipeSO</c>, and
-    /// <c>GlyphSO</c> call it directly, <c>ResearchSO</c> through two visibility containers, and
+    /// <c>GlyphSO</c> call it directly, <c>ResearchSO</c> through two visibility containers,
+    /// <c>RitualSO.HasMetUsageRequirements()</c> through its own <c>usageRequirements</c>, and
     /// <c>DiscoveryTreeSO.IsVisible()</c> through <c>viewLocation.All(view =&gt; view.IsAvailable())</c>.
     /// They leave together, when the whole-entity container is published and the evaluator answers
-    /// for it.
+    /// for it. The ritual row was the one that had been classified from its signature alone and read
+    /// <c>sideEffects: []</c> until its body was audited.
     /// </para>
     /// <para>
     /// Nine more are <c>ResourceCostList.HasEnough()</c>, one per reader that asks it, plus
@@ -874,6 +877,7 @@ public sealed class NativeContractManifestTests
         "research.is-available",
         "research.is-visible",
         "ritual-lifecycle.cost-has-enough-capture",
+        "ritual-lifecycle.ritual-usage-requirements-capture",
         "scribe-relations.target-structure.get-random-list",
         "spell-composition.glyph-is-available-capture",
         "spell.has-enough-resources",

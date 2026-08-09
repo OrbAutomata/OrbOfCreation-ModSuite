@@ -4511,6 +4511,44 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
+      "id": "discovery-tree.all-discoverable-items",
+      "assembly": "assembly-csharp",
+      "type": "DiscoveryTreeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "allDiscoverableItems",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<IDiscoverable>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the stored list's own size, which is what CountDiscoveredItems() counts discovered items out of; nothing is computed on the game's side.", "evidence": "IL: DiscoveryTreeSO.CountDiscoveredItems() stores Enumerable.Count(allDiscoverableItems, discovered) into totalDiscoveredCount"}
+    },
+    {
+      "id": "discovery-tree.main-discoverable-item-pool",
+      "assembly": "assembly-csharp",
+      "type": "DiscoveryTreeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "mainDiscoverableItemPool",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<IDiscoverable>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the stored list's own size, which is what CountDiscoveredItems() counts discovered items out of; nothing is computed on the game's side.", "evidence": "IL: DiscoveryTreeSO.CountDiscoveredItems() stores Enumerable.Count(mainDiscoverableItemPool, discovered) into poolDiscoveredCount"}
+    },
+    {
       "id": "discovery-tree.used-rerolls-last-discover",
       "assembly": "assembly-csharp",
       "type": "DiscoveryTreeSO",
@@ -24351,7 +24389,7 @@
       "type": "RitualSO", "typeVisibility": "public", "kind": "method", "member": "HasMetUsageRequirements",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
       "owners": ["Common Ritual decision world collection"], "usages": ["reflection"], "place": "capture",
-      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": ["latches Prerequisites.Container.available through prerequisites.Check()"], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "IL: ldfld RitualSO.usageRequirements then callvirt Prerequisites.Container.Check(), whose all-pass exit stores 1 into Prerequisites.Container.available"}
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": ["latches Prerequisites.Container.available through prerequisites.Check()"], "justification": "One more whole-entity prerequisite container, taken rather than derived only until the container is published for the requirement evaluator; it leaves with that family.", "evidence": "IL: ldfld RitualSO.usageRequirements then callvirt Prerequisites.Container.Check(), whose all-pass exit stores 1 into Prerequisites.Container.available"}
     },
     {
       "id": "generic-level.levelable.type-action", "assembly": "assembly-csharp",

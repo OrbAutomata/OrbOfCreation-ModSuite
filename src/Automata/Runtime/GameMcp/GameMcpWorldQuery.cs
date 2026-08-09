@@ -972,6 +972,9 @@ internal static class GameMcpWorldQuery
                 ["before"] = hadBefore ? previous.TotalDiscoveredCount : (int?)null,
                 ["after"] = after.TotalDiscoveredCount,
             },
+            // The count that just moved means nothing on its own: what a caller asked by confirming
+            // is how much of this tree is left, and one number cannot say.
+            ["discoverableCount"] = after.TotalDiscoverableCount,
             ["mode"] = new JObject
             {
                 ["before"] = hadBefore ? DiscoveryMode(previous.ActionMode) : null,
@@ -3598,6 +3601,9 @@ internal static class GameMcpWorldQuery
             ["mode"] = DiscoveryMode(tree.ActionMode),
             ["rerollsLeft"] = tree.RerollsLeft,
             ["discoveredCount"] = tree.TotalDiscoveredCount,
+            // The count the game caches is a count of the tree's own discoverable list, and without
+            // that list's size no caller could tell an early tree from a nearly finished one.
+            ["discoverableCount"] = tree.TotalDiscoverableCount,
             ["hasRemainingDiscoveries"] = tree.HasRemainingDiscovery ||
                 tree.HasImmediateRequiredDiscovery,
         };

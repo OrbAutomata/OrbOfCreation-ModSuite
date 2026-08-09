@@ -1419,7 +1419,11 @@ ordinary collector to publish the Crafting state their press produces; the offer
 the tree's own timed increment three seconds of game time later and is therefore outside any settle
 budget. Select returns the selected state. Confirm permanently spends a discovery choice, so it
 names the discovery it took — the identity the caller passed as `offerUuid` — and moves
-`discoveredCount` and `mode` as pairs, with whether the tree still has discoveries left. It does not
+`discoveredCount` and `mode` as pairs, with whether the tree still has discoveries left. The count
+travels with the `discoverableCount` it is a count out of, on the tree row and on the confirmation
+alike: the two are the game's own cached `totalDiscoveredCount` and the size of the very list
+`CountDiscoveredItems()` counts it from, so `3` and `3 of 40` are not the same answer to how far
+into a tree a caller is. It does not
 re-send the next initiate price: the tree answers that when a caller asks to initiate again.
 Failures name only the failed admission or missing transition and the fact that explains it: a
 reroll refused for a spent budget names that one axis and carries `rerollsLeft`, never a recital of

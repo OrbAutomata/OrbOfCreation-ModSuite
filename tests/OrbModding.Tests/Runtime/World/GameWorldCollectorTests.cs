@@ -2447,6 +2447,9 @@ public sealed class GameWorldCollectorTests : IDisposable
             rerollsLeft = 1,
             hasRemainingDiscovery = true,
             nextItemCost = new FakeDiscoveryCostList { affordable = true },
+            totalDiscoveredCount = 3,
+            allDiscoverableItems = { new object(), new object(), new object(), new object() },
+            mainDiscoverableItemPool = { new object(), new object() },
         };
         idle.nextItemCost.costs.Add(
             new FakeDiscoveryCost(currency, new BigDouble(11, 23)));
@@ -2476,6 +2479,12 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(currency.Identity, idleRow.NextItemCosts[0].ResourceId);
         Assert.Equal(new BigDouble(11, 23), idleRow.NextItemCosts[0].Amount);
         Assert.Equal(new BigDouble(563, 22), idleRow.NextItemCosts[0].AvailableAmount);
+
+        // The cached count is a count of the tree's own list, so the list's size travels with it:
+        // three of four is progress a caller can read, three on its own is not.
+        Assert.Equal(3, idleRow.TotalDiscoveredCount);
+        Assert.Equal(4, idleRow.TotalDiscoverableCount);
+        Assert.Equal(2, idleRow.PoolDiscoverableCount);
 
         Assert.True(WorldLookup.TryFind(world.DiscoveryTrees, choice.Identity, out var choiceRow));
         Assert.Equal(2, choiceRow.CurrentOfferIds.Count);
