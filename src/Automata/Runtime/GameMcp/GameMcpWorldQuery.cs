@@ -343,10 +343,12 @@ internal static class GameMcpWorldQuery
         }
         if (row is WorldCraftingQueueEntry queueEntry)
             return ProjectCraftingQueueEntry(in queueEntry);
+        // A loadout and a snapshot list are live objects the asset catalog never publishes, so their
+        // ids resolve for nobody: printing one hands the caller an address every tool refuses. The
+        // name is what the screen says, and the position is what the verbs take.
         if (row is WorldPlayerLoadout playerLoadout)
             return new JObject
             {
-                ["uuid"] = playerLoadout.EntityId.ToString("D"),
                 ["name"] = playerLoadout.Name,
                 ["selected"] = playerLoadout.Selected,
             }.Freeze();
@@ -356,7 +358,6 @@ internal static class GameMcpWorldQuery
                 snapshotLoadout.EntityId, world.EntityIdentities);
             return new JObject
             {
-                ["uuid"] = snapshotLoadout.EntityId.ToString("D"),
                 ["name"] = identity.HasName
                     ? identity.Name
                     : SnapshotKind(snapshotLoadout.Kind) + " snapshots",
@@ -1546,7 +1547,6 @@ internal static class GameMcpWorldQuery
         };
         var result = new JObject
         {
-            ["uuid"] = loadout.EntityId.ToString("D"),
             ["name"] = loadout.Name,
             ["category"] = "player-loadouts",
             ["selected"] = loadout.Selected,
@@ -1580,7 +1580,6 @@ internal static class GameMcpWorldQuery
         }
         var result = new JObject
         {
-            ["uuid"] = owner.EntityId.ToString("D"),
             ["name"] = SnapshotOwnerName(world, in owner),
             ["category"] = "snapshot-loadouts",
             ["kind"] = SnapshotKind(owner.Kind),
@@ -4750,17 +4749,12 @@ internal static class GameMcpWorldQuery
         GameWorldState world,
         in WorldSpellSlot slot)
     {
-        var recipe = EntityIdentityFormatter.Describe(
-            slot.SpellRecipeId,
-            world.EntityIdentities);
-        var instance = new JObject
-        {
-            ["uuid"] = slot.SpellInstanceId.ToString("D"),
-            ["name"] = recipe.HasName ? recipe.Name : "Equipped spell",
-        };
+        // The equipped spell is a runtime instance, so its id is in no catalog and resolves for
+        // nobody. Its recipe does, and carries the same name the instance was printed under, so the
+        // row names the spell once — by the identity a caller can look up. The slot is the address
+        // every spell verb takes, and it is already here.
         var result = new JObject
         {
-            ["spellInstance"] = instance,
             ["spellRecipeId"] = slot.SpellRecipeId.ToString("D"),
             ["slot"] = GameMcpSlotNumbering.Wire(slot.SlotIndex),
             ["effectiveLevel"] = slot.EffectiveLevel,
@@ -6808,7 +6802,7 @@ internal static class GameMcpWorldQuery
         },
         "spell-slots" => new[]
         {
-            "slotIndex", "spellInstanceId", "spellRecipeId", "occupied",
+            "slotIndex", "spellRecipeId", "occupied",
             "casting", "readyingCast", "attuning", "toggled", "castReady",
             "chargeAvailable", "resourcesCovered", "currentCharges",
             "maximumCharges", "cooldownRemaining",

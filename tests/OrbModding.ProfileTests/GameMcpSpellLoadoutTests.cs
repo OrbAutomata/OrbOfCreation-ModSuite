@@ -187,7 +187,7 @@ public sealed class GameMcpSpellLoadoutTests
     }
 
     [Fact]
-    public void SpellSlotListIsLeanAndRetainsTheActionableRuntimeHandle()
+    public void SpellSlotListIsLeanAndPrintsNoIdNobodyCanResolve()
     {
         var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(World()),
@@ -205,7 +205,9 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Null(firstSummary["uuid"]);
         Assert.False((bool)firstSummary["addressable"]!);
         Assert.Equal("spell-slots", (string?)firstSummary["category"]);
-        Assert.Equal(GameMcpTestHarness.Handle(FirstInstanceId), (string?)firstSummary["spellInstance"]!["uuid"]);
+        // Neither is the runtime instance it holds an address: that handle is in no catalog, so
+        // every tool refused it. The recipe names the spell and does resolve.
+        Assert.Null(firstSummary["spellInstance"]);
         Assert.Equal("Gather Knowledge", (string?)firstSummary["spellRecipe"]!["name"]);
         Assert.True((bool)firstSummary["occupied"]!);
         Assert.Null(firstSummary["remove"]);
