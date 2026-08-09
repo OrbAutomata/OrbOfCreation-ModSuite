@@ -84,14 +84,14 @@ public sealed class GameMcpLoadoutTests
         var player = Assert.IsType<JObject>(playerResponse["row"]);
         var snapshot = Assert.IsType<JObject>(snapshotResponse["row"]);
 
-        Assert.Equal(PlayerId.ToString("D"), (string?)player["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(PlayerId), (string?)player["uuid"]);
         Assert.Null(player["entityId"]);
         Assert.Equal("Boss setup", (string?)player["name"]);
         Assert.Equal("Beam Burst", (string?)player["sections"]!["spells"]![0]!["spell"]!["name"]);
         Assert.Equal("Aegis", (string?)player["sections"]!["equipment"]!["entries"]![0]!["name"]);
         Assert.Equal(2, (int)player["sections"]!["equipment"]!["entries"]![0]!["amount"]!);
         Assert.Equal("Clarity", (string?)player["sections"]!["alchemy"]!["entries"]![0]!["name"]);
-        Assert.Equal(SnapshotId.ToString("D"), (string?)snapshot["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(SnapshotId), (string?)snapshot["uuid"]);
         Assert.True((bool)snapshot["slots"]![0]!["populated"]!);
         Assert.Equal("Aegis", (string?)snapshot["slots"]![0]!["entries"]![0]!["name"]);
     }
@@ -132,7 +132,7 @@ public sealed class GameMcpLoadoutTests
 
         Assert.False((bool)selected["selected"]!["before"]!);
         Assert.True((bool)selected["selected"]!["after"]!);
-        Assert.Equal(PlayerId.ToString("D"), (string?)selected["loadout"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(PlayerId), (string?)selected["loadout"]!["uuid"]);
         Assert.Equal(0, (int)cleared["snapshot"]!["slot"]!);
         Assert.False((bool)cleared["snapshot"]!["populated"]!);
         Assert.Null(cleared["snapshot"]!["entries"]);

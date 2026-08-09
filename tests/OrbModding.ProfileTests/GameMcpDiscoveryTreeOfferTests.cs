@@ -214,7 +214,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
         Assert.Null(delta["offers"]);
-        Assert.Equal(offerId.ToString("D"), (string?)delta["selectedOffer"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(offerId), (string?)delta["selectedOffer"]!["uuid"]);
         Assert.Equal(1, (int)delta["rerollsLeft"]!);
     }
 
@@ -291,7 +291,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.Equal("available", (string?)read["status"]);
         Assert.Null(read["expectedNativeType"]);
         Assert.Equal("idle", (string?)read["row"]!["mode"]);
-        Assert.Equal("DiscoveryTreeSO", (string?)read["row"]!["nativeType"]);
         Assert.Equal("Glyph Discoveries", (string?)read["row"]!["name"]);
         Assert.Null(read["row"]!["treeId"]);
         Assert.Null(read["row"]!["debugMode"]);
@@ -317,7 +316,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             context, "discovery-trees", 0, 10).Freeze())["rows"]!.Values<JObject>())!;
         Assert.Equal("idle", (string?)listed["mode"]);
         Assert.Null(listed["actionMode"]);
-        Assert.Equal(treeId.ToString("D"), (string?)listed["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(treeId), (string?)listed["uuid"]);
     }
 
     [Fact]
@@ -344,12 +343,12 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var row = (JObject)response["row"]!;
 
         Assert.Equal("Glyph Discoveries", (string?)row["name"]);
-        Assert.Equal(treeId.ToString("D"), (string?)row["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(treeId), (string?)row["uuid"]);
         Assert.Equal("idle", (string?)row["mode"]);
         Assert.True((bool)row["initiate"]!["available"]!);
         Assert.Null(row["initiate"]!["affordable"]);
         var cost = Assert.Single(row["initiate"]!["costs"]!).Value<JObject>()!;
-        Assert.Equal(currencyId.ToString("D"), (string?)cost["resource"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(currencyId), (string?)cost["resource"]!["uuid"]);
         Assert.NotNull(cost["resource"]!["name"]);
         Assert.Equal("1.1e24", (string?)cost["cost"]);
         Assert.Equal("5.63e24", (string?)cost["spendableAmount"]);
@@ -376,8 +375,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             "discovery-trees",
             treeId.ToString("D")));
         Assert.False((bool)unaffordable["row"]!["initiate"]!["available"]!);
-        Assert.Equal("unaffordable",
-            (string?)unaffordable["row"]!["initiate"]!["reasonCode"]);
+        Assert.Equal("ERR_UNAFFORDABLE", (string?)unaffordable["row"]!["initiate"]!["reasonCode"]);
         Assert.Equal("1.1e24",
             (string?)unaffordable["row"]!["initiate"]!["costs"]![0]!["cost"]);
         Assert.Equal("100",
@@ -414,12 +412,14 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var treeRead = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             context, "discovery-trees", treeId.ToString("D")));
         var offers = treeRead["row"]!["offers"]!.Values<JObject>().ToArray();
-        Assert.Equal(new[] { runeId.ToString("D"), glyphId.ToString("D") },
+        Assert.Equal(
+            new[]
+            {
+                GameMcpTestHarness.Handle(runeId), GameMcpTestHarness.Handle(glyphId),
+            },
             offers.Select(offer => (string?)offer!["uuid"]));
-        Assert.Equal(new[] { "time-runes", "glyphs" },
-            offers.Select(offer => (string?)offer!["category"]));
         Assert.All(offers, offer => Assert.NotNull(offer!["name"]));
-        Assert.True((bool)treeRead["row"]!["rerollAvailable"]!);
+        Assert.True((bool)treeRead["row"]!["reroll"]!["available"]!);
 
         var runeRead = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             context, "time-runes", runeId.ToString("D")));
@@ -450,27 +450,30 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             treeId.ToString("D")));
 
         Assert.Equal("unavailable", (string?)response["status"]);
-        Assert.Equal("discovery_offer_read_incomplete", (string?)response["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)response["reasonCode"]);
         var implicated = Assert.Single(response["implicatedOffers"]!).Value<JObject>()!;
-        Assert.Equal(treeId.ToString("D"), (string?)implicated["tree"]!["uuid"]);
-        Assert.Equal(missing.ToString("D"), (string?)implicated["offer"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(treeId), (string?)implicated["tree"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(missing), (string?)implicated["offer"]!["uuid"]);
         Assert.Null(implicated["offer"]!["nameEvidence"]);
         Assert.Equal(0, (int)implicated["ordinal"]!);
     }
 
     [Theory]
-    [InlineData(false, 2, false, 1, "tree_unavailable")]
-    [InlineData(true, 0, false, 1, "not_in_choice")]
-    [InlineData(true, 2, true, 1, "immediate_required_discovery")]
-    [InlineData(true, 2, false, 0, "no_current_offers")]
-    [InlineData(true, 2, false, -1, "already_used")]
-    [InlineData(true, 2, false, -2, "no_rerolls_left")]
+    [InlineData(false, 2, false, 1, "ERR_NOT_FOUND", "The game is not showing this discovery tree.")]
+    [InlineData(true, 0, false, 1, null, null)]
+    [InlineData(true, 2, true, 1, "ERR_STATE",
+        "This tree has a discovery to take first, so its offers cannot be rerolled.")]
+    [InlineData(true, 2, false, 0, "ERR_NOT_FOUND", "This tree is showing no offers to reroll.")]
+    [InlineData(true, 2, false, -1, "ERR_STATE",
+        "A reroll was already spent on this discovery, so no further reroll is offered.")]
+    [InlineData(true, 2, false, -2, "ERR_LIMIT", "No rerolls are left this cycle.")]
     public void RerollReadNamesEveryUnavailableState(
         bool visible,
         int mode,
         bool immediateRequired,
         int offerState,
-        string reasonCode)
+        string? reasonCode,
+        string? reason)
     {
         var treeId = Guid.NewGuid();
         var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
@@ -496,10 +499,16 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             treeId.ToString("D")));
 
         if (mode == 2)
-            Assert.False((bool)response["row"]!["rerollAvailable"]!);
+        {
+            var reroll = response["row"]!["reroll"]!;
+            Assert.False((bool)reroll["available"]!);
+            Assert.Equal(reasonCode, (string?)reroll["reasonCode"]);
+            Assert.Equal(reason, (string?)reroll["reason"]);
+        }
         else
-            Assert.Null(response["row"]!["rerollAvailable"]);
-        Assert.DoesNotContain(reasonCode, response.ToString(), StringComparison.Ordinal);
+        {
+            Assert.Null(response["row"]!["reroll"]);
+        }
         if (offers.Length == 0) Assert.Null(response["row"]!["offers"]);
     }
 
@@ -545,7 +554,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             calls++;
             Assert.True((bool)idleRead["row"]!["initiate"]!["available"]!);
             Assert.NotNull(idleRead["row"]!["name"]);
-            var readTreeId = Guid.Parse((string)idleRead["row"]!["uuid"]!);
+            var readTreeId = GameMcpTestHarness.ResolveHandle((string)idleRead["row"]!["uuid"]!);
 
             var initiated = action.Submit(new DiscoveryTreeOfferAction(
                 DiscoveryTreeOfferActionKind.Initiate,
@@ -586,7 +595,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     choiceContext, "discovery-trees", readTreeId));
             var readOffers = initiatedResponse["offers"]!
                 .Values<JObject>()
-                .Select(offer => Guid.Parse((string)offer!["uuid"]!))
+                .Select(offer => GameMcpTestHarness.ResolveHandle((string)offer!["uuid"]!))
                 .ToArray();
             Assert.Equal(new[] { firstId, secondId }, readOffers);
             Assert.All(initiatedResponse["offers"]!.Values<JObject>(), offer =>
@@ -617,7 +626,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 GameMcpWorldQuery.ProjectPostState(
                     rerollContext, "discovery-trees", readTreeId));
             Assert.Equal("choice", (string?)rerollResponse["mode"]);
-            Assert.False((bool)rerollResponse["rerollAvailable"]!);
+            Assert.False((bool)rerollResponse["reroll"]!["available"]!);
 
             foreach (var readOffer in readOffers)
             {
@@ -630,8 +639,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     readOffer == secondId,
                     !(bool)explanation["predicates"]!["available"]!["value"]!);
                 if (readOffer == secondId)
-                    Assert.Equal("not_discovered",
-                        (string?)explanation["predicates"]!["available"]!["reasonCode"]);
+                    Assert.Equal("ERR_LOCKED", (string?)explanation["predicates"]!["available"]!["reasonCode"]);
             }
 
             var selected = action.Submit(new DiscoveryTreeOfferAction(
@@ -654,21 +662,19 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     GameMcpTestHarness.Context(selectedWorld, generation: 93),
                     "discovery-trees",
                     readTreeId));
-            var selectedOffer = Guid.Parse(
+            var selectedOffer = GameMcpTestHarness.ResolveHandle(
                 (string)selectedResponse["selectedOffer"]!["uuid"]!);
             Assert.Equal(firstId.ToString("D"), selectedOffer.ToString("D"));
 
-            // One entity spells its identity one way: the reference under selectedOffer carries the
-            // same name and internal name the offer's own row carries.
+            // One entity spells its identity one way: the reference under selectedOffer says the
+            // same handle and the same name the offer's own row says.
             var selectedRow = selectedResponse["offers"]!.Values<JObject>()
-                .Single(offer => (string?)offer!["uuid"] == firstId.ToString("D"))!;
+                .Single(offer =>
+                    (string?)offer!["uuid"] == GameMcpTestHarness.Handle(firstId))!;
+            Assert.NotNull(selectedRow["name"]);
             Assert.Equal(
                 (string?)selectedRow["name"],
                 (string?)selectedResponse["selectedOffer"]!["name"]);
-            Assert.NotNull(selectedRow["internalName"]);
-            Assert.Equal(
-                (string?)selectedRow["internalName"],
-                (string?)selectedResponse["selectedOffer"]!["internalName"]);
 
             var confirmed = action.Submit(new DiscoveryTreeOfferAction(
                 DiscoveryTreeOfferActionKind.Confirm,
@@ -712,7 +718,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     response.ToString(Newtonsoft.Json.Formatting.None));
             }
             Assert.Equal(
-                new[] { 573, 698, 450 },
+                new[] { 404, 463, 323 },
                 new[]
                 {
                     CommittedBytes(rerollResponse),
@@ -801,7 +807,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.True(responseBytes < 1719);
         Assert.Equal(new[]
             {
-                "status", "uuid", "name", "internalName", "category", "nativeType",
+                "status", "uuid", "name", "category",
                 "mode", "rerollsLeft", "discoveredCount", "hasRemainingDiscoveries",
                 "initiate",
             },
@@ -874,9 +880,9 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.True(responseBytes < 4096);
         Assert.Equal(new[]
             {
-                "status", "uuid", "name", "internalName", "category", "nativeType",
+                "status", "uuid", "name", "category",
                 "mode", "rerollsLeft", "discoveredCount", "hasRemainingDiscoveries",
-                "offers", "rerollAvailable",
+                "offers", "reroll",
             },
             projected.Properties().Select(property => property.Name));
         Assert.Null(projected["code"]);
@@ -884,7 +890,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.Equal(
             new[] { "Weak", "Magnified" },
             projected["offers"]!.Values<JObject>().Select(offer => (string?)offer!["name"]));
-        Assert.True((bool)projected["rerollAvailable"]!);
+        Assert.True((bool)projected["reroll"]!["available"]!);
         Assert.Null(projected["payment"]);
         Assert.Null(projected["reason"]);
         Assert.Null(projected["nativeCallsAttempted"]);

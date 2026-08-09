@@ -76,8 +76,7 @@ public sealed class GameMcpPrestigeTests
         var response = Json(GameMcpWorldQuery.ProjectPrestigePostState(Context(world, 2602)), world);
 
         Assert.Equal("Main", (string?)response["scene"]);
-        Assert.Equal("world_cycle_incomplete",
-            (string?)response["prestigeState"]!["reset"]!["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)response["prestigeState"]!["reset"]!["reasonCode"]);
         Assert.NotNull(response["challengeState"]);
         Assert.Null(response["receipt"]);
         Assert.Null(response["payment"]);
@@ -100,8 +99,7 @@ public sealed class GameMcpPrestigeTests
 
         Assert.Equal("Prismatic Trial", (string?)response["challengeState"]!["prestigeOffers"]![0]!["name"]);
         Assert.False((bool)response["challengeState"]!["prestige"]!["available"]!);
-        Assert.Equal("prestige_state_was_not_captured",
-            (string?)response["challengeState"]!["prestige"]!["reasonCode"]);
+        Assert.Equal("ERR_REFUSED", (string?)response["challengeState"]!["prestige"]!["reasonCode"]);
     }
 
     [Fact]

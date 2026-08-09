@@ -24,6 +24,24 @@ internal static class GameMcpTestHarness
 
     internal static EntityIdentityCatalogSnapshot EntityCatalog => Identities.Value;
 
+    /// <summary>
+    /// The wire spelling of an id. Identity stays the whole UUID inside the suite; a response says
+    /// it in the one constant-width handle every emission site uses.
+    /// </summary>
+    internal static string Handle(Guid uuid) => GameMcpEntityHandle.Format(uuid);
+
+    /// <summary>
+    /// The caller's half of the handle contract: what a response said, read back as an id argument
+    /// through the same resolver the tool boundary uses.
+    /// </summary>
+    internal static Guid ResolveHandle(string handle)
+    {
+        Assert.Equal(
+            GameMcpEntityHandle.ResolutionOutcome.Resolved,
+            GameMcpEntityHandle.Resolve(handle, EntityCatalog, out var uuid, out _));
+        return uuid;
+    }
+
     internal static WorldResource BandwidthResource(
         Guid resourceId,
         BigDouble quantity,

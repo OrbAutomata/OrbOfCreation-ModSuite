@@ -48,7 +48,7 @@ public sealed class GameMcpStructureLifecycleTests
         Assert.True((bool)enabled["toggle"]!["available"]!);
         Assert.Equal("disable", (string?)enabled["toggle"]!["next"]);
         Assert.False((bool)unavailable["toggle"]!["available"]!);
-        Assert.Equal("not_available", (string?)unavailable["toggle"]!["reasonCode"]);
+        Assert.Equal("ERR_LOCKED", (string?)unavailable["toggle"]!["reasonCode"]);
         Assert.Null(unavailable["toggle"]!["next"]);
     }
 

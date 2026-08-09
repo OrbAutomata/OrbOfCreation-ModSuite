@@ -128,12 +128,12 @@ public sealed class GameMcpGenericDiscoveryTests
         Assert.Equal("available", (string?)row["status"]);
         Assert.Null(row["worldGeneration"]);
         var glyph = row["row"]!;
-        Assert.Equal(GlyphId.ToString("D"), (string?)glyph["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(GlyphId), (string?)glyph["uuid"]);
         Assert.Equal("Amplify", (string?)glyph["name"]);
         Assert.True((bool)glyph["discover"]!["available"]!);
         Assert.True((bool)glyph["discover"]!["required"]!);
         var cost = Assert.Single(glyph["discover"]!["costs"]!).Value<JObject>()!;
-        Assert.Equal(ResourceId.ToString("D"), (string?)cost["resource"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(ResourceId), (string?)cost["resource"]!["uuid"]);
         Assert.Equal("Arcane Dust", (string?)cost["resource"]!["name"]);
         Assert.Equal("5", (string?)cost["cost"]);
         Assert.Equal("8", (string?)cost["spendableAmount"]);
@@ -162,7 +162,7 @@ public sealed class GameMcpGenericDiscoveryTests
         Assert.Equal("glyphcraft", (string?)preview["surface"]);
         Assert.Null(preview["components"]);
         var output = preview["output"]!;
-        Assert.Equal(GlyphId.ToString("D"), (string?)output["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(GlyphId), (string?)output["uuid"]);
         Assert.Equal("Amplify", (string?)output["name"]);
         Assert.True((bool)output["discover"]!["available"]!);
         Assert.NotNull(output["discover"]!["costs"]);
@@ -181,7 +181,7 @@ public sealed class GameMcpGenericDiscoveryTests
             }));
 
         Assert.Equal("unavailable", (string?)preview["status"]);
-        Assert.Equal("discovery_recipe_ambiguous", (string?)preview["reasonCode"]);
+        Assert.Equal("ERR_INPUT", (string?)preview["reasonCode"]);
         Assert.Contains("2 published glyphs", (string?)preview["reason"]);
         Assert.Null(preview["output"]);
     }

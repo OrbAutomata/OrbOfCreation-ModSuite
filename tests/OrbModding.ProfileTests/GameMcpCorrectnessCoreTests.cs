@@ -375,7 +375,7 @@ public sealed class GameMcpCorrectnessCoreTests
             latest: null);
 
         Assert.Equal(
-            "{\"postStateUnavailable\":{\"reasonCode\":\"post_state_timeout\",\"reason\":\"no world captured after the action exposed its committed post-state within one second\"}}",
+            "{\"postStateUnavailable\":{\"reasonCode\":\"ERR_UNAVAILABLE\",\"reason\":\"no world captured after the action exposed its committed post-state within one second\"}}",
             GameMcpTestHarness.Json(value).ToString(Newtonsoft.Json.Formatting.None));
     }
 
@@ -427,8 +427,7 @@ public sealed class GameMcpCorrectnessCoreTests
 
         var timeout = GameMcpTestHarness.Json(GameMcpPostStateSettlement.TimedOut(
             command, GameMcpTestHarness.Context(queuedOnly, generation: 42)));
-        Assert.Equal("requested_state_not_reached",
-            (string?)timeout["postStateUnavailable"]!["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
         Assert.Contains("active count is 440",
             (string?)timeout["postStateUnavailable"]!["reason"]);
     }
@@ -485,9 +484,9 @@ public sealed class GameMcpCorrectnessCoreTests
             GameMcpTestHarness.Context(activeWorld), command, committed));
         Assert.Equal(2, (int)active["active"]!["before"]!);
         Assert.Equal(3, (int)active["active"]!["after"]!);
-        Assert.Equal(plotId.ToString("D"), (string?)active["plot"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(plotId), (string?)active["plot"]!["uuid"]);
         Assert.False(string.IsNullOrWhiteSpace((string?)active["plot"]!["name"]));
-        Assert.Equal(actionId.ToString("D"), (string?)active["action"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(actionId), (string?)active["action"]!["uuid"]);
         Assert.False(string.IsNullOrWhiteSpace((string?)active["action"]!["name"]));
         Assert.True((bool)active["next"]!["available"]!);
 
@@ -508,9 +507,9 @@ public sealed class GameMcpCorrectnessCoreTests
             GameMcpCommandResult.Committed("committed", 9, 3, fastActionDetails)));
         Assert.Equal(0, (int)fastAction["active"]!["before"]!);
         Assert.Equal(1, (int)fastAction["active"]!["after"]!);
-        Assert.Equal(plotId.ToString("D"), (string?)fastAction["plot"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(plotId), (string?)fastAction["plot"]!["uuid"]);
         Assert.False(string.IsNullOrWhiteSpace((string?)fastAction["plot"]!["name"]));
-        Assert.Equal(actionId.ToString("D"), (string?)fastAction["action"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(actionId), (string?)fastAction["action"]!["uuid"]);
         Assert.False(string.IsNullOrWhiteSpace((string?)fastAction["action"]!["name"]));
         Assert.Null(fastAction["postStateUnavailable"]);
 
@@ -526,10 +525,10 @@ public sealed class GameMcpCorrectnessCoreTests
             GameMcpCommandResult.Rejected("amount_unavailable", "The plot allows fewer than that.")
                 .Project(command));
 
-        Assert.Equal(plotId.ToString("D"), (string?)commitProjection["uuid"]);
-        Assert.Equal(plotId.ToString("D"), (string?)refusalProjection["uuid"]);
-        Assert.Equal(actionId.ToString("D"), (string?)commitProjection["action"]!["uuid"]);
-        Assert.Equal(actionId.ToString("D"), (string?)refusalProjection["action"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(plotId), (string?)commitProjection["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(plotId), (string?)refusalProjection["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(actionId), (string?)commitProjection["action"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(actionId), (string?)refusalProjection["action"]!["uuid"]);
     }
 
     [Fact]
@@ -577,12 +576,13 @@ public sealed class GameMcpCorrectnessCoreTests
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
-        Assert.Equal(attributeId.ToString("D"), (string?)delta["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(attributeId), (string?)delta["uuid"]);
         Assert.Equal(632, (int)delta["level"]!["before"]!);
         Assert.Equal(633, (int)delta["level"]!["after"]!);
         Assert.Equal(0, (int)delta["queuedLevels"]!["before"]!);
         Assert.Equal(0, (int)delta["queuedLevels"]!["after"]!);
-        Assert.Equal(3, delta.Count);
+        Assert.NotNull(delta["name"]);
+        Assert.Equal(4, delta.Count);
     }
 
     /// <summary>
@@ -828,9 +828,7 @@ public sealed class GameMcpCorrectnessCoreTests
 
         var paid = Assert.IsType<JObject>(Assert.Single(delta["paid"]!.Values<JObject>()));
         Assert.Null(paid["spendableAmount"]);
-        Assert.Equal(
-            "resource_not_published",
-            (string?)paid["spendableAmountUnavailable"]!["reasonCode"]);
+        Assert.Equal("ERR_NOT_FOUND", (string?)paid["spendableAmountUnavailable"]!["reasonCode"]);
     }
 
     /// <summary>
@@ -1064,7 +1062,7 @@ public sealed class GameMcpCorrectnessCoreTests
             context, "upgrades", exhaustedId.ToString("D")))["row"]!;
         Assert.Equal(10, (int)exhausted["maxLevel"]!);
         Assert.Equal(0, (int)exhausted["remainingLevels"]!);
-        Assert.Equal("already_maxed", (string?)exhausted["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)exhausted["reasonCode"]);
         Assert.False((bool)exhausted["available"]!);
 
         var listed = GameMcpTestHarness.Json(
@@ -1074,7 +1072,7 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.Null(rows[0]!["remainingLevels"]);
         Assert.Equal(10, (int)rows[1]!["maxLevel"]!);
         Assert.Equal(0, (int)rows[1]!["remainingLevels"]!);
-        Assert.Equal("already_maxed", (string?)rows[1]!["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)rows[1]!["reasonCode"]);
         Assert.Null(rows[1]!["affordable"]);
 
         // A caller paging the list must read the ceiling the same way a get would: absent on
@@ -1120,10 +1118,15 @@ public sealed class GameMcpCorrectnessCoreTests
             observedConfigurationGeneration: 0).Project(command));
 
         Assert.Equal("refused", (string?)response["status"]);
-        Assert.Equal("native_rejected", (string?)response["reasonCode"]);
+        Assert.Equal("ERR_REFUSED", (string?)response["reasonCode"]);
         Assert.Equal("live native admission refused", (string?)response["reason"]);
-        Assert.Equal(command.TargetId.ToString("D"), (string?)response["uuid"]);
-        Assert.Equal(4, response.Count);
+        Assert.Equal(GameMcpTestHarness.Handle(command.TargetId), (string?)response["uuid"]);
+        // The refusal names what it refused about. Nothing in this fixture's catalog answers for
+        // that id, and a refusal that shows a bare id reads as a refusal about a row named in hex.
+        Assert.Equal(
+            "(unnamed " + GameMcpTestHarness.Handle(command.TargetId) + ")",
+            (string?)response["name"]);
+        Assert.Equal(5, response.Count);
         Assert.Null(response["worldGeneration"]);
         Assert.Null(response["readWith"]);
         Assert.Null(response["lifecycleGenerationMismatch"]);

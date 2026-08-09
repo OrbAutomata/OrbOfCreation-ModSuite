@@ -31,12 +31,14 @@ public sealed class GameMcpCastTests
     }
 
     [Theory]
-    [InlineData(true, true, null)]
-    [InlineData(false, false, "cancellable_spells_disabled")]
+    [InlineData(true, true, null, null)]
+    [InlineData(false, false, "ERR_STATE",
+        "Cancellable spells are switched off, so this cast cannot be toggled off.")]
     public void ActiveToggleRowsPublishWhetherThePlayersSettingAllowsTheNextPress(
         bool cancellationEnabled,
         bool available,
-        string? reasonCode)
+        string? reasonCode,
+        string? reason)
     {
         var world = World(casting: true, cancellationEnabled);
 
@@ -47,6 +49,7 @@ public sealed class GameMcpCastTests
 
         Assert.Equal(available, (bool)row["toggleOff"]!["available"]!);
         Assert.Equal(reasonCode, (string?)row["toggleOff"]!["reasonCode"]);
+        Assert.Equal(reason, (string?)row["toggleOff"]!["reason"]);
     }
 
     [Fact]
@@ -74,7 +77,7 @@ public sealed class GameMcpCastTests
             settled,
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
-        Assert.Equal(RecipeId.ToString("D"), (string?)delta["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(RecipeId), (string?)delta["uuid"]);
         Assert.Equal(0, (int)delta["slot"]!);
         Assert.True((bool)delta["active"]!["before"]!);
         Assert.False((bool)delta["active"]!["after"]!);

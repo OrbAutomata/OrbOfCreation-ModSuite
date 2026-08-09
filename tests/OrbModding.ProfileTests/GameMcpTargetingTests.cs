@@ -57,7 +57,8 @@ public sealed class GameMcpTargetingTests
         Assert.True((bool)row["pending"]!);
         Assert.Equal("Targeted effect", (string?)row["owner"]);
         var candidates = row["candidates"]!.OfType<JObject>().ToArray();
-        Assert.Equal(new[] { First.ToString("D"), Second.ToString("D") },
+        Assert.Equal(
+            new[] { GameMcpTestHarness.Handle(First), GameMcpTestHarness.Handle(Second) },
             candidates.Select(candidate => (string?)candidate["uuid"]));
         Assert.Equal(new[] { "Alchemic Ability", "Alchemic Command" },
             candidates.Select(candidate => (string?)candidate["name"]));

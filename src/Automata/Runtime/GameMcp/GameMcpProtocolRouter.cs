@@ -237,7 +237,7 @@ internal sealed class GameMcpProtocolRouter
             case "world_get":
                 builder.Category = RequireString(arguments, "category");
                 if (arguments.ContainsKey("uuids"))
-                    builder.Uuids = RequireStringArray(
+                    builder.Uuids = ReadEntityIdArray(
                         arguments, "uuids", GameMcpWorldQuery.MaximumBatchSize);
                 else
                     builder.Uuids = new[] { RequireUuid(arguments, "uuid").ToString("D") };
@@ -1694,6 +1694,23 @@ internal sealed class GameMcpProtocolRouter
         return result;
     }
 
+    /// <summary>
+    /// The batch form of <see cref="ReadEntityId"/>. A caller pages a list, reads its handles, and
+    /// hands them straight back; an entry the resolver cannot place is named where it stands rather
+    /// than reaching the world reader as a UUID nothing published.
+    /// </summary>
+    private static string[] ReadEntityIdArray(JObject source, string name, int maximum)
+    {
+        var text = RequireStringArray(source, name, maximum);
+        var result = new string[text.Length];
+        for (var index = 0; index < text.Length; index++)
+        {
+            result[index] = ReadEntityId(text[index], name + "[" + index + "]")
+                .ToString("D");
+        }
+        return result;
+    }
+
     private static GameMcpUuidCount[] RequireUuidCountArray(
         JObject source,
         string name,
@@ -1838,10 +1855,39 @@ internal sealed class GameMcpProtocolRouter
     private static Guid OptionalUuid(JObject source, string name)
     {
         if (!source.TryGetValue(name, out _)) return Guid.Empty;
-        var text = RequireString(source, name);
-        if (!Guid.TryParseExact(text, "D", out var uuid) || uuid == Guid.Empty)
+        return ReadEntityId(RequireString(source, name), name);
+    }
+
+    /// <summary>
+    /// One reader for every id argument: the full canonical UUID the suite calls identity, or the
+    /// handle the wire hands out — any prefix that names exactly one published id.
+    /// </summary>
+    private static Guid ReadEntityId(string text, string name)
+    {
+        var outcome = GameMcpEntityHandle.Resolve(
+            text, EntityIdentityCatalogPublication.Current, out var uuid, out var candidates);
+        if (outcome == GameMcpEntityHandle.ResolutionOutcome.Ambiguous)
+        {
+            var catalog = EntityIdentityCatalogPublication.Current;
+            var written = new System.Text.StringBuilder();
+            for (var index = 0; index < candidates.Count; index++)
+            {
+                if (index > 0) written.Append(", ");
+                written.Append(GameMcpEntityHandle.Name(candidates[index], catalog))
+                    .Append(' ')
+                    .Append(candidates[index].ToString("D"));
+            }
             throw new GameMcpInvalidParamsException(
-                name + " must be a non-empty canonical D-format UUID");
+                "refused (" + GameMcpDecisionReason.ClassInput + "): the id " + text + " given for " +
+                name + " names more than one published entity — " + written +
+                "; send more characters or the whole UUID");
+        }
+        if (outcome == GameMcpEntityHandle.ResolutionOutcome.NotFound || uuid == Guid.Empty)
+        {
+            throw new GameMcpInvalidParamsException(
+                "refused (" + GameMcpDecisionReason.ClassInput + "): " + name +
+                " must be a whole canonical UUID or an id handle that names one published entity");
+        }
         return uuid;
     }
 

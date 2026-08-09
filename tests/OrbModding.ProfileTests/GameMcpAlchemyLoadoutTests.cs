@@ -122,7 +122,7 @@ public sealed class GameMcpAlchemyLoadoutTests
         Assert.Null(instance["uuid"]);
         Assert.False((bool)instance["addressable"]!);
         Assert.Equal("alchemy-instances", (string?)instance["category"]);
-        Assert.Equal(RecipeId.ToString("D"), (string?)instance["recipe"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(RecipeId), (string?)instance["recipe"]!["uuid"]);
         Assert.Equal("Catalyze", (string?)instance["recipe"]!["name"]);
         Assert.Equal(2, (int)instance["activeCount"]!);
         Assert.Equal(2, (int)instance["queuedCount"]!);

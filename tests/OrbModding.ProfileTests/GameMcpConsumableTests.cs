@@ -83,7 +83,7 @@ public sealed class GameMcpConsumableTests
         var row = response["row"]!;
 
         Assert.Equal("Swift Thread", (string?)row["name"]);
-        Assert.Equal(ConsumableId.ToString("D"), (string?)row["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(ConsumableId), (string?)row["uuid"]);
         Assert.Equal("3", (string?)row["amount"]);
         Assert.Equal(1, (int)row["queued"]!);
         Assert.True((bool)row["use"]!["available"]!);
@@ -132,7 +132,7 @@ public sealed class GameMcpConsumableTests
         var randomizationPostState = Json(randomization.Project(randomizationCommand));
         Assert.False((bool)randomizationPostState["randomized"]!["before"]!);
         Assert.True((bool)randomizationPostState["randomized"]!["after"]!);
-        Assert.Equal(215, System.Text.Encoding.UTF8.GetByteCount(
+        Assert.Equal(103, System.Text.Encoding.UTF8.GetByteCount(
             randomizationPostState.ToString(Newtonsoft.Json.Formatting.None)));
     }
 

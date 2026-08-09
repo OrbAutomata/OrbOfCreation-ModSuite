@@ -140,9 +140,9 @@ public sealed class GameMcpGenericLevelTests
 
         Assert.False((bool)glyph["available"]!);
         Assert.False((bool)glyph["purchase"]!["available"]!);
-        Assert.Equal("not_available", (string?)glyph["purchase"]!["reasonCode"]);
+        Assert.Equal("ERR_LOCKED", (string?)glyph["purchase"]!["reasonCode"]);
         Assert.False((bool)resourceType["purchase"]!["available"]!);
-        Assert.Equal("hidden", (string?)resourceType["purchase"]!["reasonCode"]);
+        Assert.Equal("ERR_LOCKED", (string?)resourceType["purchase"]!["reasonCode"]);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public sealed class GameMcpGenericLevelTests
         // An absent block read as "not discovered yet", the opposite of the truth here: this glyph
         // is owned already and the game never routes it through discovery at all.
         Assert.False((bool)glyph["discover"]!["available"]!);
-        Assert.Equal("native_not_discoverable", (string?)glyph["discover"]!["reasonCode"]);
+        Assert.Equal("ERR_LOCKED", (string?)glyph["discover"]!["reasonCode"]);
         Assert.Null(glyph["discover"]!["costs"]);
     }
 
@@ -178,7 +178,7 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal(5, (int)row["totalLevel"]!);
         Assert.False((bool)row["purchase"]!["available"]!);
         Assert.False((bool)row["purchase"]!["affordable"]!);
-        Assert.Equal("unaffordable", (string?)row["purchase"]!["reasonCode"]);
+        Assert.Equal("ERR_UNAFFORDABLE", (string?)row["purchase"]!["reasonCode"]);
         if (supportsBonus)
         {
             Assert.Equal(2, (int)row["bonusLevel"]!);

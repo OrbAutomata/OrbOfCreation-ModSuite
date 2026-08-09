@@ -3215,7 +3215,6 @@ public sealed class Plugin : BaseUnityPlugin
             new GameMcpObjectBuilder
             {
                 ["plotUuid"] = stableUuid.ToString("D"),
-                ["nativeType"] = plotNativeType,
                 ["nativeMethod"] = "UIPlotNodeList.OnNodeClick",
                 ["sceneBefore"] = scene,
             });

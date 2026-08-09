@@ -519,14 +519,17 @@ internal static class GameMcpWorldQuery
         if (!category.TryIdentity(row, out var identity)) return bytes;
         var name = EntityIdentityFormatter.Describe(identity, world.EntityIdentities).Name;
 
-        // The row's own entity reference becomes a uuid, a display name, and an internal name. The
-        // display name is charged twice on purpose: the internal name sits beside it and is about
-        // as long.
-        return checked(bytes + NamedEntityExpansionBytes + 2 * Encoding.UTF8.GetByteCount(name));
+        // The row's own id shortens to its handle and gains the player's name for it; the asset name
+        // and the runtime type it used to carry no longer ride any identity.
+        return checked(
+            bytes + NameFieldBytes + Encoding.UTF8.GetByteCount(name) - HandleSavingBytes);
     }
 
-    /// <summary>The keys and quotes an entity reference gains when it is named on the wire.</summary>
-    private const int NamedEntityExpansionBytes = 40;
+    /// <summary>The key, quotes, and comma one <c>name</c> field costs beside an id.</summary>
+    private const int NameFieldBytes = 10;
+
+    /// <summary>What a canonical UUID gives back when the wire says it as a handle.</summary>
+    private const int HandleSavingBytes = 36 - GameMcpEntityHandle.Length;
 
     /// <summary>One large-magnitude value, which renders as a short scientific string.</summary>
     private const int DomainValueBytes = 10;
@@ -1588,8 +1591,6 @@ internal static class GameMcpWorldQuery
             ["kind"] = SnapshotKind(owner.Kind),
             ["snapshot"] = snapshot,
         };
-        var internalName = SnapshotOwnerInternalName(world, in owner);
-        if (internalName.Length > 0) response["internalName"] = internalName;
         if (command.Mode == "snapshot_load")
             response["active"] = ProjectActiveLoadoutSection(world, owner.Kind);
         return response.Freeze();
@@ -1640,7 +1641,6 @@ internal static class GameMcpWorldQuery
             ["uuid"] = loadout.EntityId.ToString("D"),
             ["name"] = loadout.Name,
             ["category"] = "player-loadouts",
-            ["nativeType"] = "PlayerLoadout",
             ["selected"] = loadout.Selected,
             ["sections"] = sections,
             ["label"] = new JObject
@@ -1675,14 +1675,9 @@ internal static class GameMcpWorldQuery
             ["uuid"] = owner.EntityId.ToString("D"),
             ["name"] = SnapshotOwnerName(world, in owner),
             ["category"] = "snapshot-loadouts",
-            ["nativeType"] = owner.Kind == WorldSnapshotLoadoutKind.Alchemy
-                ? "AlchemySnapshotListVariable"
-                : "EquipmentSnapshotListVariable",
             ["kind"] = SnapshotKind(owner.Kind),
             ["slots"] = slots,
         };
-        var internalName = SnapshotOwnerInternalName(world, in owner);
-        if (internalName.Length > 0) result["internalName"] = internalName;
         return result.Freeze();
     }
 
@@ -1754,14 +1749,8 @@ internal static class GameMcpWorldQuery
         int quantity = 0)
     {
         var identity = EntityIdentityFormatter.Describe(id, world.EntityIdentities);
-        var result = new JObject
-        {
-            ["uuid"] = id.ToString("D"),
-            ["name"] = identity.HasName ? identity.Name : id.ToString("D"),
-        };
-        if (identity.AssetName.Length > 0 &&
-            !string.Equals(identity.AssetName, identity.Name, StringComparison.Ordinal))
-            result["internalName"] = identity.AssetName;
+        var result = new JObject { ["uuid"] = id.ToString("D") };
+        if (identity.HasName) result["name"] = identity.Name;
         if (quantity > 0) result["amount"] = quantity;
         return result.Freeze();
     }
@@ -1775,16 +1764,6 @@ internal static class GameMcpWorldQuery
             EntityIdentityNameSource.KnownEntityBootstrap
             ? identity.Name
             : SnapshotKind(owner.Kind) + " snapshots";
-    }
-
-    private static string SnapshotOwnerInternalName(
-        GameWorldState world,
-        in WorldSnapshotLoadout owner)
-    {
-        var identity = EntityIdentityFormatter.Describe(owner.EntityId, world.EntityIdentities);
-        return identity.Source == EntityIdentityNameSource.LiveAssetName
-            ? identity.Name
-            : identity.AssetName;
     }
 
     private static string SnapshotKind(WorldSnapshotLoadoutKind kind) =>
@@ -2921,7 +2900,6 @@ internal static class GameMcpWorldQuery
         var result = new JObject
         {
             ["category"] = category.Name,
-            ["nativeType"] = category.ExpectedNativeType,
             ["count"] = category.Count(world),
             ["available"] = availability.Available,
         };
@@ -3093,7 +3071,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = upgrade.EntityId.ToString("D"),
             ["category"] = "upgrades",
-            ["nativeType"] = "UpgradeSO",
             ["available"] = upgrade.Reading.Available && !upgrade.IsExhausted,
             ["level"] = upgrade.Reading.Level,
         };
@@ -3126,7 +3103,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = structure.EntityId.ToString("D"),
             ["category"] = "structures",
-            ["nativeType"] = "StructureSO",
 
             // The badge UIStructureItem renders is Utils.BeautifyInt(StructureSO.GetBaseLevel()),
             // which is what Reading.Level captures through GetPurchaseLevel; while levels are
@@ -3151,7 +3127,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = element.EntityId.ToString("D"),
             ["category"] = "agromancy-elements",
-            ["nativeType"] = "HarvestElementSO",
             ["masteryLevel"] = element.MasteryLevel,
             ["masteryXp"] = new GameMcpDomainValue(element.MasteryXp),
         };
@@ -3179,10 +3154,7 @@ internal static class GameMcpWorldQuery
             return result.Freeze();
         result["active"] = control.Active;
         result["addElement"] = ProjectHarvestElementDecision(world, in control);
-        result["removeElement"] = new JObject
-        {
-            ["available"] = control.RemoveAvailable,
-        };
+        result["removeElement"] = RemoveElementDecision(in control);
 
         var actions = new JArray();
         for (var index = 0; index < world.HarvestActionControls.Count; index++)
@@ -3193,23 +3165,10 @@ internal static class GameMcpWorldQuery
             {
                 ["uuid"] = action.ActionId.ToString("D"),
                 ["active"] = action.Active,
-                ["maximum"] = action.Maximum,
-                ["addAvailable"] = action.AddAvailable,
-                ["removeAvailable"] = action.RemoveAvailable,
+                ["maximumAmount"] = action.Maximum,
+                ["add"] = HarvestActionAddDecision(world, in action),
+                ["remove"] = HarvestActionRemoveDecision(in action),
             };
-            if (action.AddAvailable)
-            {
-                var costs = ProjectHarvestLifecycleCosts(
-                    world, action.ElementId, action.ActionId,
-                    WorldHarvestLifecycleCostKind.NextActionDrain);
-                if (costs.Count > 0) row["nextDrain"] = costs;
-            }
-            else
-            {
-                row["addReasonCode"] = action.Active >= action.Maximum
-                    ? "mastery_cap_reached"
-                    : "harvest_action_list_full";
-            }
             actions.Add(row);
         }
         if (actions.Count > 0) result["actions"] = actions;
@@ -3314,7 +3273,7 @@ internal static class GameMcpWorldQuery
         // per-call ceiling in here produced a third number that was neither bound: with the list
         // nearly full it under-reported what the game admits, and the schema's ceiling is a
         // per-call limit rather than a running budget in the first place.
-        result["maximumAdditional"] = action.MaximumRemainingInstances;
+        result["maximumAmount"] = action.MaximumRemainingInstances;
         result["plotQuantityCost"] = action.ElementCost;
         return result.Freeze();
     }
@@ -3338,7 +3297,7 @@ internal static class GameMcpWorldQuery
                         : "unaffordable";
             return result;
         }
-        result["maximumAdditional"] = control.MaximumAdditional;
+        result["maximumAmount"] = control.MaximumAdditional;
         result["affordable"] = true;
         var costs = ProjectHarvestLifecycleCosts(
             world, control.ElementId, Guid.Empty,
@@ -3349,25 +3308,50 @@ internal static class GameMcpWorldQuery
 
     private static JObject ProjectHarvestActionDecision(
         GameWorldState world,
+        in WorldHarvestActionControl action) =>
+        new()
+        {
+            ["maximumAmount"] = action.Maximum,
+            ["add"] = HarvestActionAddDecision(world, in action),
+            ["remove"] = HarvestActionRemoveDecision(in action),
+        };
+
+    /// <summary>
+    /// A false availability is a decision, not a flag. `addAvailable: false` beside nothing left a
+    /// caller with no axis to branch on and no way to tell a temporary no from a permanent one,
+    /// which is the stall the sentence rule exists to prevent.
+    /// </summary>
+    private static JObject HarvestActionAddDecision(
+        GameWorldState world,
         in WorldHarvestActionControl action)
     {
-        var result = new JObject
-        {
-            ["addAvailable"] = action.AddAvailable,
-            ["removeAvailable"] = action.RemoveAvailable,
-            ["maximum"] = action.Maximum,
-        };
+        var result = new JObject { ["available"] = action.AddAvailable };
         if (!action.AddAvailable)
         {
-            result["addReasonCode"] = action.Active >= action.Maximum
-                ? "mastery_cap_reached"
-                : "harvest_action_list_full";
+            result["reasonCode"] = action.Active >= action.Maximum
+                ? "capacity_exhausted"
+                : "harvest_list_full";
             return result;
         }
         var costs = ProjectHarvestLifecycleCosts(
             world, action.ElementId, action.ActionId,
             WorldHarvestLifecycleCostKind.NextActionDrain);
         if (costs.Count > 0) result["nextDrain"] = costs;
+        return result;
+    }
+
+    private static JObject HarvestActionRemoveDecision(in WorldHarvestActionControl action)
+    {
+        var result = new JObject { ["available"] = action.RemoveAvailable };
+        if (!action.RemoveAvailable) result["reasonCode"] = "not_active";
+        return result;
+    }
+
+    private static JObject RemoveElementDecision(in WorldHarvestElementControl control)
+    {
+        var result = new JObject { ["available"] = control.RemoveAvailable };
+        if (!control.RemoveAvailable)
+            result["reasonCode"] = control.Active > 0 ? "not_available" : "not_active";
         return result;
     }
 
@@ -3459,7 +3443,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = tree.EntityId.ToString("D"),
             ["category"] = "discovery-trees",
-            ["nativeType"] = "DiscoveryTreeSO",
             ["mode"] = DiscoveryMode(tree.ActionMode),
             ["rerollsLeft"] = tree.RerollsLeft,
             ["discoveredCount"] = tree.TotalDiscoveredCount,
@@ -3527,10 +3510,9 @@ internal static class GameMcpWorldQuery
                         ["uuid"] = id.ToString("D"),
                     };
                     if (GameMcpEntityExplainer.TryDescribePublishedEntity(
-                            world, id, out var category, out var nativeType, out _))
+                            world, id, out var category, out _, out _))
                     {
                         offer["category"] = category;
-                        offer["nativeType"] = nativeType;
                     }
                     offers.Add(offer);
                 }
@@ -3539,10 +3521,29 @@ internal static class GameMcpWorldQuery
 
         }
         if (tree.ActionMode == 2)
-            result["rerollAvailable"] = tree.Visible &&
+        {
+            // The challenge surface answers the same question as a decision block with a code and a
+            // sentence. A naked `rerollAvailable: false` beside `rerollsLeft: 0` said the same
+            // thing to a machine and nothing at all to the caller that had to act on it.
+            var rerollAvailable = tree.Visible &&
                 !tree.HasImmediateRequiredDiscovery &&
                 tree.RerollsLeft > 0 && tree.CurrentOfferIds.Count > 0 &&
                 !tree.UsedRerollsLastDiscover;
+            var reroll = new JObject { ["available"] = rerollAvailable };
+            if (!rerollAvailable)
+            {
+                reroll["reasonCode"] = !tree.Visible
+                    ? "tree_unavailable"
+                    : tree.HasImmediateRequiredDiscovery
+                        ? "immediate_required_discovery"
+                        : tree.UsedRerollsLastDiscover
+                            ? "reroll_already_used"
+                            : tree.RerollsLeft <= 0
+                                ? "no_rerolls"
+                                : "no_current_offers";
+            }
+            result["reroll"] = reroll;
+        }
         return result.Freeze();
     }
 
@@ -3554,7 +3555,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = research.EntityId.ToString("D"),
             ["category"] = "research",
-            ["nativeType"] = "ResearchSO",
             ["available"] = research.Available,
             ["visible"] = research.Visible,
             ["state"] = ResearchState(research),
@@ -3778,7 +3778,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = consumable.EntityId.ToString("D"),
             ["category"] = "consumables",
-            ["nativeType"] = "ConsumableSO",
             ["visible"] = consumable.Visible,
             ["amount"] = consumable.Quantity,
             ["queued"] = consumable.QueuedQuantity,
@@ -3904,7 +3903,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = recipe.RecipeId.ToString("D"),
             ["category"] = "concept-recipes",
-            ["nativeType"] = "AlchemyRecipeSO",
             ["activeCount"] = amount,
             ["canAdd"] = recipe.CanAddNow,
         }.Freeze();
@@ -4023,7 +4021,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = recipe.EntityId.ToString("D"),
             ["category"] = "spell-recipes",
-            ["nativeType"] = "SpellRecipeSO",
             ["discovered"] = recipe.Discovered,
             ["masteryLevel"] = recipe.MasteryLevel,
         };
@@ -4642,14 +4639,9 @@ internal static class GameMcpWorldQuery
     private static GameMcpValue ProjectTargetCandidate(GameWorldState world, Guid id, int position)
     {
         var identity = EntityIdentityFormatter.Describe(id, world.EntityIdentities);
-        var result = new JObject
-        {
-            ["uuid"] = id.ToString("D"),
-            ["name"] = identity.HasName ? identity.Name : id.ToString("D"),
-        };
+        var result = new JObject { ["uuid"] = id.ToString("D") };
+        if (identity.HasName) result["name"] = identity.Name;
         if (position >= 0) result["position"] = position;
-        if (identity.AssetName.Length > 0 && !string.Equals(identity.AssetName, identity.Name, StringComparison.Ordinal))
-            result["internalName"] = identity.AssetName;
         for (var index = 0; index < world.Structures.Count; index++)
         {
             var structure = world.Structures[index];
@@ -4675,14 +4667,12 @@ internal static class GameMcpWorldQuery
             return new JObject
             {
                 ["category"] = "spell-slots",
-                ["nativeType"] = "Spell",
                 ["slot"] = slot.SlotIndex,
                 ["occupied"] = false,
             }.Freeze();
         }
         var result = ProjectEquippedSpell(world, in slot);
         result["category"] = "spell-slots";
-        result["nativeType"] = "Spell";
         result["occupied"] = true;
         return result.Freeze();
     }
@@ -4908,7 +4898,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = resource.EntityId.ToString("D"),
             ["category"] = "resources",
-            ["nativeType"] = "ResourceSO",
             ["amount"] = new GameMcpDomainValue(amount),
         };
         if (resource.IsCapped)
@@ -4995,7 +4984,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = recipe.EntityId.ToString("D"),
             ["category"] = "alchemy-recipes",
-            ["nativeType"] = "AlchemyRecipeSO",
             ["discovered"] = recipe.Discovered,
             ["masteryLevel"] = recipe.MasteryLevel,
         };
@@ -5088,7 +5076,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = equipment.EntityId.ToString("D"),
             ["category"] = "equipment",
-            ["nativeType"] = "EquipmentSO",
             ["created"] = equipment.IsCreated,
             ["masteryLevel"] = equipment.MasteryLevel,
             ["attuningLevel"] = equipment.AttuningLevel,
@@ -5195,7 +5182,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = challenge.EntityId.ToString("D"),
             ["category"] = "challenges",
-            ["nativeType"] = "ChallengeSO",
             ["state"] = ChallengeState(challenge.State),
             ["level"] = new GameMcpDomainValue(new BigDouble(challenge.Level)),
             ["seen"] = challenge.Seen,
@@ -5390,7 +5376,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = glyph.EntityId.ToString("D"),
             ["category"] = "glyphs",
-            ["nativeType"] = "GlyphSO",
             ["discovered"] = glyph.Discovered,
             ["available"] = glyph.Learned,
             ["usableCount"] = glyph.MaximumUsages,
@@ -5410,7 +5395,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = equipmentType.EntityId.ToString("D"),
             ["category"] = "equipment-types",
-            ["nativeType"] = "EquipmentTypeSO",
             ["baseUsage"] = equipmentType.BaseUsage,
             ["masteryLevel"] = new GameMcpDomainValue(equipmentType.MasteryLevel),
 
@@ -5432,7 +5416,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = resourceType.EntityId.ToString("D"),
             ["category"] = "resource-types",
-            ["nativeType"] = "ResourceTypeSO",
             ["hidden"] = resourceType.SpecialHidden,
         };
         AddLevelDecision(world, result, resourceType.LevelDecision,
@@ -5446,7 +5429,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = ritual.EntityId.ToString("D"),
             ["category"] = "rituals",
-            ["nativeType"] = "RitualSO",
             ["discovered"] = ritual.Discovered,
             ["inBattle"] = ritual.InBattle,
             ["activeInstances"] = ritual.ActiveInstances,
@@ -5501,7 +5483,6 @@ internal static class GameMcpWorldQuery
                 ? stationIdentity.Name
                 : station.StationId.ToString("D"),
             ["category"] = "crafting-stations",
-            ["nativeType"] = "CraftingStructure",
         };
         AddCraftingStationDecision(world, result, in station);
         return result.Freeze();
@@ -5701,7 +5682,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = rune.EntityId.ToString("D"),
             ["category"] = "time-runes",
-            ["nativeType"] = "TimeRuneSO",
             ["discovered"] = rune.Discovered,
             ["masteryLevel"] = rune.MasteryLevel,
             ["seen"] = rune.Seen,
@@ -5955,7 +5935,6 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = recipe.EntityId.ToString("D"),
             ["category"] = "crafting-recipes",
-            ["nativeType"] = "CraftingRecipeSO",
             ["visible"] = reading.Visible,
             ["startingAmount"] = new GameMcpDomainValue(reading.StartingQuantity),
             ["craftTimeSeconds"] = reading.TimeToComplete,

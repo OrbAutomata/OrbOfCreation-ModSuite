@@ -35,7 +35,7 @@ public sealed class GameMcpAffordabilityTests
             GameMcpWorldQuery.ListRows(World(), "structures", 0, 50, affordableOnly: true));
 
         var row = Assert.Single(page["rows"]!.Values<JObject>())!;
-        Assert.Equal(Cheap.ToString("D"), (string?)row["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(Cheap), (string?)row["uuid"]);
         Assert.True((bool)row["affordable"]!);
         Assert.Equal(1, (int)page["total"]!);
         Assert.Null(page["nextOffset"]);
@@ -58,7 +58,7 @@ public sealed class GameMcpAffordabilityTests
             GameMcpWorldQuery.ListRows(World(), "resources", 0, 50, affordableOnly: true));
 
         Assert.Equal("unavailable", (string?)refusal["status"]);
-        Assert.Equal("filter_not_supported", (string?)refusal["reasonCode"]);
+        Assert.Equal("ERR_INPUT", (string?)refusal["reasonCode"]);
         Assert.Contains("structures", (string?)refusal["reason"], StringComparison.Ordinal);
     }
 

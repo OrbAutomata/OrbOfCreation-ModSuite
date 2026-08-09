@@ -86,7 +86,8 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal("Gather Knowledge", (string?)listed["name"]);
         Assert.Equal(0, (int)listed["masteryLevel"]!);
         Assert.False((bool)listed["discovered"]!);
-        Assert.Equal("spell-recipes", (string?)listed["category"]);
+        // A page is one category, so the header names it once instead of every row repeating it.
+        Assert.Null(listed["category"]);
         Assert.Null(listed["discover"]);
         Assert.True((bool)exact["discover"]!["available"]!);
         Assert.True((bool)exact["discover"]!["affordable"]!);
@@ -139,12 +140,13 @@ public sealed class GameMcpSpellWorkbenchTests
     }
 
     [Theory]
-    [InlineData(false, 7, "loadout_full")]
-    [InlineData(true, 0, "core_glyph_not_leveled")]
+    [InlineData(false, 7, "ERR_LIMIT", "Every slot in this loadout is in use.")]
+    [InlineData(true, 0, "ERR_LOCKED", "This recipe's core glyph has no level yet.")]
     public void StructurallyUnavailableLoadoutAddWithholdsLayoutOptionsAndPriceClaims(
         bool hasEmptySlot,
         int coreLevel,
-        string reasonCode)
+        string reasonCode,
+        string reason)
     {
         var context = GameMcpTestHarness.Context(World(
             discovered: true,
@@ -158,6 +160,7 @@ public sealed class GameMcpSpellWorkbenchTests
 
         Assert.False((bool)decision["available"]!);
         Assert.Equal(reasonCode, (string?)decision["reasonCode"]);
+        Assert.Equal(reason, (string?)decision["reason"]);
         Assert.Null(decision["augmentOptions"]);
         Assert.Null(decision["affordable"]);
         Assert.Null(decision["costs"]);
@@ -198,7 +201,7 @@ public sealed class GameMcpSpellWorkbenchTests
             new[] { "status", "reasonCode", "reason" },
             response.Properties().Select(property => property.Name));
         Assert.Equal("unavailable", (string?)response["status"]);
-        Assert.Equal("wrong_selection", (string?)response["reasonCode"]);
+        Assert.Equal("ERR_INPUT", (string?)response["reasonCode"]);
         Assert.Contains("does not resolve", (string?)response["reason"]);
     }
 
@@ -216,7 +219,7 @@ public sealed class GameMcpSpellWorkbenchTests
         var row = response["row"]!;
 
         Assert.False((bool)row["discover"]!["available"]!);
-        Assert.Equal("not_visible", (string?)row["discover"]!["reasonCode"]);
+        Assert.Equal("ERR_LOCKED", (string?)row["discover"]!["reasonCode"]);
         Assert.Null(row["selected"]);
         Assert.Null(row["select"]);
     }
@@ -253,7 +256,7 @@ public sealed class GameMcpSpellWorkbenchTests
         var success = GameMcpTestHarness.Json(terminal.Project(command));
         Assert.Equal(new[]
             {
-                "status", "uuid", "name", "internalName", "category", "nativeType",
+                "status", "uuid", "name",
                 "discovered", "surface",
             },
             success.Properties().Select(property => property.Name));

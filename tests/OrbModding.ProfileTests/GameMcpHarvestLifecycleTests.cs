@@ -99,7 +99,9 @@ public sealed class GameMcpHarvestLifecycleTests
         var action = Assert.Single(row["actions"]!.Values<JObject>());
         Assert.Equal("Grow", (string?)action["name"]);
         Assert.Equal(1, (int)action["active"]!);
-        Assert.Equal("4.5", (string?)action["nextDrain"]![0]!["cost"]);
+        Assert.True((bool)action["add"]!["available"]!);
+        Assert.Equal("4.5", (string?)action["add"]!["nextDrain"]![0]!["cost"]);
+        Assert.True((bool)action["remove"]!["available"]!);
 
         var blockedWorld = World(elementActive: 2, actionActive: 4,
             elementAddAvailable: false);
@@ -109,10 +111,12 @@ public sealed class GameMcpHarvestLifecycleTests
             blockedWorld)["row"]!;
         Assert.False((bool)blocked["addElement"]!["available"]!);
         Assert.Null(blocked["addElement"]!["costs"]);
-        Assert.Equal("unaffordable", (string?)blocked["addElement"]!["reasonCode"]);
-        Assert.Null(blocked["actions"]![0]!["nextDrain"]);
-        Assert.Equal("mastery_cap_reached",
-            (string?)blocked["actions"]![0]!["addReasonCode"]);
+        Assert.Equal("ERR_UNAFFORDABLE", (string?)blocked["addElement"]!["reasonCode"]);
+        var blockedAdd = blocked["actions"]![0]!["add"]!;
+        Assert.Null(blockedAdd["nextDrain"]);
+        Assert.False((bool)blockedAdd["available"]!);
+        Assert.Equal("ERR_LIMIT", (string?)blockedAdd["reasonCode"]);
+        Assert.Equal("The element's capacity is already full.", (string?)blockedAdd["reason"]);
     }
 
     [Fact]
@@ -133,8 +137,8 @@ public sealed class GameMcpHarvestLifecycleTests
         Assert.Equal("Grow", (string?)delta["action"]!["name"]);
         Assert.Equal(1, (int)delta["active"]!["before"]!);
         Assert.Equal(2, (int)delta["active"]!["after"]!);
-        Assert.True((bool)delta["next"]!["addAvailable"]!);
-        Assert.Equal("4.5", (string?)delta["next"]!["nextDrain"]![0]!["cost"]);
+        Assert.True((bool)delta["next"]!["add"]!["available"]!);
+        Assert.Equal("4.5", (string?)delta["next"]!["add"]!["nextDrain"]![0]!["cost"]);
     }
 
     private static GameWorldState World(

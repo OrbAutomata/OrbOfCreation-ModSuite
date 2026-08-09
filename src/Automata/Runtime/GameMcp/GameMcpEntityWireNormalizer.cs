@@ -104,15 +104,29 @@ internal static class GameMcpEntityWireNormalizer
             item.Remove("status");
             item.Remove("code");
         }
+        // No bare no. The sentence rule used to bind only a block that already had a code, so a
+        // decision could refuse by publishing `available: false` and nothing else — a caller with
+        // no axis to branch on and no way to tell a temporary no from a permanent one. Producers
+        // that know the axis name it; this is the backstop that makes silence impossible.
+        if (item["available"] is JValue { Type: JTokenType.Boolean } availability &&
+            !(bool)availability && item["reasonCode"] is null && item["status"] is null)
+        {
+            item["reasonCode"] = "native_rejected";
+        }
         if (item["reasonCode"] is JValue reasonCode)
         {
             var code = CanonicalCode(Snake((string?)reasonCode ?? string.Empty));
-            item["reasonCode"] = code;
 
             // A code without a sentence taught callers to fire the mutation just to read the
             // sentence. Producers that hold the numbers write the better sentence themselves and
             // keep it; every other code is answered here, so no surface can ship a bare one.
             if (item["reason"] is null) item["reason"] = GameMcpDecisionReason.For(code);
+
+            // The producer vocabulary picked the sentence and stops there. What crosses the wire is
+            // one of eight classes: the class says which kind of no this is, the sentence says
+            // everything else, and a check that answered yes carries neither.
+            if (GameMcpDecisionReason.IsPassing(code)) item.Remove("reasonCode");
+            else item["reasonCode"] = GameMcpDecisionReason.Class(code);
         }
         if (item["kind"] is JValue { Type: JTokenType.String } kind)
             item["kind"] = Snake((string?)kind ?? string.Empty);
@@ -124,6 +138,13 @@ internal static class GameMcpEntityWireNormalizer
             item["category"] = category;
             item.Remove("mcpCategory");
         }
+        // Read before anything is rewritten: once the row's own id is a handle it is no longer an
+        // identity, and a nested id must be compared against the whole UUID or two unrelated
+        // entities that happen to start alike collapse into one.
+        var ownUuid = item["uuid"] is JValue { Type: JTokenType.String } ownIdentity &&
+            Guid.TryParseExact((string?)ownIdentity, "D", out var parsedOwn)
+                ? parsedOwn
+                : Guid.Empty;
         var properties = new List<JProperty>(item.Properties());
         for (var index = 0; index < properties.Count; index++)
         {
@@ -132,7 +153,7 @@ internal static class GameMcpEntityWireNormalizer
             if (property.Value is JValue { Type: JTokenType.String } scalar &&
                 Guid.TryParseExact((string?)scalar, "D", out var uuid))
             {
-                NormalizeIdentity(item, property, uuid, catalog);
+                NormalizeIdentity(item, property, uuid, ownUuid, catalog);
                 continue;
             }
             if (property.Value is JValue text && text.Type == JTokenType.String)
@@ -232,6 +253,7 @@ internal static class GameMcpEntityWireNormalizer
         JObject parent,
         JProperty property,
         Guid uuid,
+        Guid ownUuid,
         EntityIdentityCatalogSnapshot catalog)
     {
         if (uuid == Guid.Empty)
@@ -241,6 +263,7 @@ internal static class GameMcpEntityWireNormalizer
         }
         if (property.Name == "uuid")
         {
+            property.Value = new JValue(GameMcpEntityHandle.Format(uuid));
             AddIdentityFields(parent, uuid, catalog);
             return;
         }
@@ -251,10 +274,7 @@ internal static class GameMcpEntityWireNormalizer
             return;
         }
 
-        var rootUuid = (string?)parent["uuid"];
-        if (rootUuid is not null &&
-            Guid.TryParseExact(rootUuid, "D", out var existing) &&
-            existing == uuid)
+        if (ownUuid != Guid.Empty && ownUuid == uuid)
         {
             property.Remove();
             return;
@@ -263,7 +283,7 @@ internal static class GameMcpEntityWireNormalizer
         if (property.Name == "entityId")
         {
             property.Remove();
-            parent["uuid"] = uuid.ToString("D");
+            parent["uuid"] = GameMcpEntityHandle.Format(uuid);
             AddIdentityFields(parent, uuid, catalog);
             return;
         }
@@ -275,22 +295,31 @@ internal static class GameMcpEntityWireNormalizer
     }
 
     /// <summary>
-    /// One entity, one identity shape. A referenced UUID carries the same name and internal name a
-    /// primary row carries, so the same entity never spells its identity two ways depending on
-    /// which field happened to introduce it.
+    /// One entity, one identity shape: the wire handle and the player's own name for it.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The asset name, the runtime type, and the category the type implies used to ride every
+    /// identity in the system. Across one live round that was 28.9 KB — 21.1% of everything the
+    /// server said — and no caller read one of them once. Where a name came from and what the game
+    /// calls it internally are catalog-browsing facts, and <c>entity_catalog</c> and
+    /// <c>explain_entity</c> publish them there, where someone actually browsing asks for them.
+    /// </para>
+    /// <para>
+    /// A UUID the catalog cannot name is marked, never quietly reduced to a bare id: the row that
+    /// carries it is usually the one carrying the fact a caller must act on, and a nameless stub
+    /// sent them to two tools that could not answer either.
+    /// </para>
+    /// </remarks>
     private static JObject Reference(
         Guid uuid,
         EntityIdentityCatalogSnapshot catalog)
     {
-        var result = new JObject { ["uuid"] = uuid.ToString("D") };
-        var identity = EntityIdentityFormatter.Describe(uuid, catalog);
-        if (!identity.HasName) return result;
-        result["name"] = identity.Name;
-        if (identity.AssetName.Length > 0 &&
-            !string.Equals(identity.AssetName, identity.Name, StringComparison.Ordinal))
-            result["internalName"] = identity.AssetName;
-        return result;
+        return new JObject
+        {
+            ["uuid"] = GameMcpEntityHandle.Format(uuid),
+            ["name"] = GameMcpEntityHandle.Name(uuid, catalog),
+        };
     }
 
     private static void AddIdentityFields(
@@ -299,24 +328,21 @@ internal static class GameMcpEntityWireNormalizer
         EntityIdentityCatalogSnapshot catalog)
     {
         var identity = EntityIdentityFormatter.Describe(uuid, catalog);
-        if (!identity.HasName)
+        if (identity.HasName)
+        {
+            target["name"] = identity.Name;
+            return;
+        }
+
+        // The catalog holds assets. A loadout the player titled and a runtime spell instance are
+        // neither, so a producer that read one off the live object keeps its name here — and an id
+        // nobody can name says so rather than passing for a row whose name is a hex string.
+        if (target["name"] is JValue { Type: JTokenType.String } own &&
+            ((string?)own ?? string.Empty).Length > 0)
         {
             return;
         }
-        // Where a name came from is a catalog-browsing fact and entity_catalog publishes it there.
-        // Stamped on every identity it followed refusals and commits around as noise.
-        target["name"] = identity.Name;
-        if (identity.AssetName.Length > 0 &&
-            !string.Equals(identity.AssetName, identity.Name, StringComparison.Ordinal))
-            target["internalName"] = identity.AssetName;
-        if (identity.RuntimeType.Length > 0)
-        {
-            target["nativeType"] = identity.RuntimeType;
-            if (GameMcpEntityCapabilityMap.TryCategoryForNativeType(
-                    identity.RuntimeType,
-                    out var category))
-                target["category"] = category;
-        }
+        target["name"] = GameMcpEntityHandle.Unnamed(uuid);
     }
 
     private static void FlattenDetails(JObject item)

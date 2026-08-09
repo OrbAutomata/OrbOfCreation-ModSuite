@@ -167,13 +167,15 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
             context,
             unknown.ToString("D")));
 
-        Assert.Equal("not_world_projected", (string?)knownResult["reasonCode"]);
+        Assert.Equal("ERR_NOT_FOUND", (string?)knownResult["reasonCode"]);
         Assert.Equal("InventoryUnlocked", (string?)knownResult["name"]);
         Assert.Equal("entity_catalog", (string?)knownResult["readWith"]!["tool"]);
         Assert.Null(knownResult["nameEvidence"]);
-        Assert.Equal("uuid_unknown", (string?)unknownResult["reasonCode"]);
+        Assert.Equal("ERR_NOT_FOUND", (string?)unknownResult["reasonCode"]);
         Assert.Equal("entity_catalog", (string?)unknownResult["readWith"]!["tool"]);
-        Assert.Null(unknownResult["name"]);
+        Assert.Equal(
+            "(unnamed " + unknown.ToString("D").Substring(0, 6) + ")",
+            (string?)unknownResult["name"]);
         Assert.Null(unknownResult["nameEvidence"]);
     }
 
@@ -203,7 +205,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
             GameMcpTestHarness.Context(world, generation: 913),
             instance.ToString("D")));
 
-        Assert.Equal("not_world_projected", (string?)result["reasonCode"]);
+        Assert.Equal("ERR_NOT_FOUND", (string?)result["reasonCode"]);
         Assert.Equal("world_list", (string?)result["readWith"]!["tool"]);
         Assert.Equal("spell-slots", (string?)result["readWith"]!["category"]);
     }
@@ -235,7 +237,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         var result = Explain(Collect(), owner.GetGuid(), 920);
 
         Assert.Equal("unavailable", (string?)result["status"]);
-        Assert.Equal("suite_verdict_unevaluable", (string?)result["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)result["reasonCode"]);
         var requirements = Assert.IsType<JObject>(result["requirements"]);
         var root = Assert.IsType<JObject>(requirements["root"]);
         Assert.Equal("AND", (string?)root["operator"]);
@@ -247,7 +249,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         Assert.Equal("Unevaluable", (string?)orChildren[1]["verdict"]);
 
         var firstLeaf = orChildren[0];
-        Assert.Equal(research.GetGuid().ToString("D"),
+        Assert.Equal(GameMcpTestHarness.Handle(research.GetGuid()),
             (string?)firstLeaf["requirement"]!["uuid"]);
         Assert.Equal("ResearchSO", (string?)firstLeaf["requirementNativeType"]);
         Assert.Equal("total_level", (string?)firstLeaf["selectedValueKind"]);
@@ -296,12 +298,12 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         Assert.Equal("OR", (string?)orGroup["operator"]);
         var leaves = orGroup["children"]!.OfType<JObject>().ToArray();
         Assert.Equal(2, leaves.Length);
-        Assert.Equal(wizardryId.ToString("D"), (string?)leaves[0]["requirement"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(wizardryId), (string?)leaves[0]["requirement"]!["uuid"]);
         Assert.Equal("total_level", (string?)leaves[0]["selectedValueKind"]);
         Assert.Equal("5", (string?)leaves[0]["current"]);
         Assert.Equal("5", (string?)leaves[0]["required"]);
         Assert.True((bool)leaves[0]["met"]!);
-        Assert.Equal(expansionId.ToString("D"), (string?)leaves[1]["requirement"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(expansionId), (string?)leaves[1]["requirement"]!["uuid"]);
         Assert.Equal("0", (string?)leaves[1]["current"]);
         Assert.Equal("15", (string?)leaves[1]["required"]);
         Assert.False((bool)leaves[1]["met"]!);
@@ -309,12 +311,12 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
 
         var predicates = result["predicates"]!;
         Assert.False((bool)predicates["available"]!["value"]!);
-        Assert.Equal("already_maxed", (string?)predicates["available"]!["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)predicates["available"]!["reasonCode"]);
         Assert.False((bool)predicates["canDevelop"]!["value"]!);
-        Assert.Equal("already_maxed", (string?)predicates["canDevelop"]!["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)predicates["canDevelop"]!["reasonCode"]);
         var cap = result["blockers"]!["cap"]!;
         Assert.True((bool)cap["blocked"]!);
-        Assert.Equal("already_maxed", (string?)cap["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)cap["reasonCode"]);
         Assert.Equal(1, (int)cap["purchasedLevel"]!);
         Assert.Equal(1, (int)cap["baseLevelExcludingBonus"]!);
         Assert.Equal(0, (int)cap["bonusLevel"]!);
@@ -423,9 +425,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         Assert.Equal("unavailable", (string?)result["status"]);
         Assert.False((bool)result["state"]!["complete"]!);
         Assert.False((bool)result["predicates"]!["canDevelop"]!["value"]!);
-        Assert.Equal(
-            "research_leeway_exhausted",
-            (string?)result["predicates"]!["canDevelop"]!["reasonCode"]);
+        Assert.Equal("ERR_LIMIT", (string?)result["predicates"]!["canDevelop"]!["reasonCode"]);
         var cap = result["blockers"]!["cap"]!;
         Assert.Equal(1, (int)cap["artificialCap"]!);
         Assert.Null(cap["effectiveCap"]);
@@ -443,14 +443,14 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         var result = Explain(collected, owner.GetGuid(), 921);
 
         Assert.Equal("unavailable", (string?)result["status"]);
-        Assert.Equal("native_verdict_mismatch", (string?)result["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)result["reasonCode"]);
         var parity = result["requirements"]!["nativeParity"]!;
         Assert.Equal("Met", (string?)parity["suiteVerdict"]);
         Assert.Equal("Unmet", (string?)parity["nativeVerdict"]);
 
         // One condition, one name: the parity block and the envelope answered the same failure
         // with two different codes, and the sentence was computed for the envelope only.
-        Assert.Equal("native_verdict_mismatch", (string?)parity["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)parity["reasonCode"]);
         Assert.Equal(
             "The suite reads this requirement as Met where the game reads it as Unmet.",
             (string?)parity["reason"]);
@@ -586,12 +586,9 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
 
         // This world is assembled by hand, so no live entity carries the identity and the game has
         // no answer to compare against. The parity block says which, rather than going missing.
-        Assert.Equal(
-            "native_verdict_unavailable",
-            (string?)upgradeResult["requirements"]!["nativeParity"]!["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)upgradeResult["requirements"]!["nativeParity"]!["reasonCode"]);
         Assert.False((bool)upgradeResult["predicates"]!["canPurchase"]!["value"]!);
-        Assert.Equal("already_maxed",
-            (string?)upgradeResult["predicates"]!["canPurchase"]!["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)upgradeResult["predicates"]!["canPurchase"]!["reasonCode"]);
         Assert.Null(upgradeResult["purchase"]);
         Assert.True((bool)upgradeResult["blockers"]!["queue"]!["blocked"]!);
         Assert.Null(upgradeResult["blockers"]!["queue"]!["evidence"]);
@@ -602,7 +599,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         Assert.Equal(10, (int)thresholds["scaledThreshold"]!);
         Assert.Equal(5, (int)thresholds["effectiveThreshold"]!);
         var adjustment = Assert.Single(thresholds["activeAdjustments"]!.Values<JObject>())!;
-        Assert.Equal(challengeId.ToString("D"), (string?)adjustment["source"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(challengeId), (string?)adjustment["source"]!["uuid"]);
         Assert.Equal("ChallengeSO", (string?)adjustment["sourceNativeType"]);
         Assert.Null(researchResult["blockers"]!["leeway"]!["applicable"]);
         Assert.True((bool)researchResult["blockers"]!["cap"]!["blocked"]!);
@@ -657,7 +654,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         Assert.True((bool)rows[0]!["affordable"]!);
         Assert.Null(rows[0]!["reasonCode"]);
         Assert.False((bool)rows[1]!["affordable"]!);
-        Assert.Equal("insufficient_resource", (string?)rows[1]!["reasonCode"]);
+        Assert.Equal("ERR_REFUSED", (string?)rows[1]!["reasonCode"]);
     }
 
     [Fact]

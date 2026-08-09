@@ -878,6 +878,18 @@ internal static class GameMcpActionResultCodeNames
             if (code == RitualLifecycleActionResultCodes.BattleAlreadyActive) return "ritual_battle_active";
             if (code == RitualLifecycleActionResultCodes.NoBattleActive) return "no_ritual_battle_active";
             if (code == RitualLifecycleActionResultCodes.WrongActiveRitual) return "wrong_active_ritual";
+            if (code == RitualLifecycleActionResultCodes.ContractUnavailable) return "contract_unavailable";
+            if (code == RitualLifecycleActionResultCodes.WrongThread) return "wrong_thread";
+            if (code == RitualLifecycleActionResultCodes.IdentityUnavailable) return "identity_unavailable";
+            if (code == RitualLifecycleActionResultCodes.NotDiscovered) return "not_discovered";
+            if (code == RitualLifecycleActionResultCodes.AlreadyInRequestedState) return "already_in_requested_state";
+            if (code == RitualLifecycleActionResultCodes.NotSelected) return "not_selected";
+            if (code == RitualLifecycleActionResultCodes.LevelLocked) return "level_locked";
+            if (code == RitualLifecycleActionResultCodes.Unaffordable) return "unaffordable";
+            if (code == RitualLifecycleActionResultCodes.NoDurationEffect) return "no_active_duration_reward";
+            if (code == RitualLifecycleActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";
+            if (code == RitualLifecycleActionResultCodes.PostCommitFault) return "post_commit_fault";
+            if (code == RitualLifecycleActionResultCodes.VerificationFailed) return "verification_failed";
         }
         if (commandKind == GameMcpCommandKind.HarvestLifecycle)
         {
@@ -910,7 +922,11 @@ internal static class GameMcpActionResultCodeNames
             return "mastery_limit_changed";
         if (code == AutoConceptActionResultCodes.AmountUnavailable)
             return "amount_unavailable";
-        return "feature_" + code.Value;
+
+        // A feature result number is not a wire vocabulary. `feature_1990` named no axis a caller
+        // could act on and taught nothing; the class it maps to says the game refused, which is
+        // exactly what an unmapped result code means, and the producer's sentence carries the rest.
+        return "native_rejected";
     }
 }
 

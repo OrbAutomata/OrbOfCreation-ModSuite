@@ -201,7 +201,7 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Null(firstSummary["uuid"]);
         Assert.False((bool)firstSummary["addressable"]!);
         Assert.Equal("spell-slots", (string?)firstSummary["category"]);
-        Assert.Equal(FirstInstanceId.ToString("D"), (string?)firstSummary["spellInstance"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(FirstInstanceId), (string?)firstSummary["spellInstance"]!["uuid"]);
         Assert.Equal("Gather Knowledge", (string?)firstSummary["spellRecipe"]!["name"]);
         Assert.True((bool)firstSummary["occupied"]!);
         Assert.Null(firstSummary["remove"]);
@@ -240,7 +240,7 @@ public sealed class GameMcpSpellLoadoutTests
         var success = GameMcpTestHarness.Json(terminal.Project(command));
 
         Assert.Equal(
-            new[] { "status", "uuid", "name", "internalName", "category", "nativeType", "slot" },
+            new[] { "status", "uuid", "name", "slot" },
             success.Properties().Select(property => property.Name));
         Assert.Equal("committed", (string?)success["status"]);
         Assert.Equal("Gather Knowledge", (string?)success["name"]);

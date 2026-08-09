@@ -98,7 +98,7 @@ public sealed class GameMcpWorldQueryTests
         Assert.Equal(
             new[]
             {
-                "uuid", "name", "category", "nativeType", "amount", "capacity",
+                "uuid", "name", "category", "amount", "capacity",
                 "netRatePerSecond", "atCapacity",
             },
             row.Children<JProperty>().Select(property => property.Name));
@@ -113,7 +113,7 @@ public sealed class GameMcpWorldQueryTests
         Assert.Null(row["rateInputs"]);
         Assert.Null(row["traits"]);
         Assert.Null(row["modifiers"]);
-        Assert.Equal(218, System.Text.Encoding.UTF8.GetByteCount(
+        Assert.Equal(162, System.Text.Encoding.UTF8.GetByteCount(
             response.ToString(Newtonsoft.Json.Formatting.None)));
 
         var list = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
@@ -222,7 +222,7 @@ public sealed class GameMcpWorldQueryTests
             }.Freeze(),
             GameMcpTestHarness.EntityCatalog));
 
-        Assert.Equal(uuid.ToString("D"), (string?)encoded["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(uuid), (string?)encoded["uuid"]);
         Assert.Equal("Knowledge", (string?)encoded["name"]);
         Assert.Equal("resources", (string?)encoded["category"]);
         Assert.Equal("2.5e3", (string?)encoded["amount"]);
@@ -309,13 +309,13 @@ public sealed class GameMcpWorldQueryTests
         var list = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(state, "spell-recipes", 0, 10));
         var scan = Assert.Single(list["rows"]!.Values<JObject>())!;
-        Assert.Equal(GameMcpAcceptanceFixture.SpellId.ToString("D"), (string?)scan["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(GameMcpAcceptanceFixture.SpellId), (string?)scan["uuid"]);
         Assert.Null(scan["nameEvidence"]);
         Assert.Equal(4, (int)scan["masteryLevel"]!);
         Assert.Null(scan["spellPowerMod"]);
         Assert.Null(scan["category"]);
         Assert.Null(scan["loadoutAdd"]);
-        Assert.Equal(103, System.Text.Encoding.UTF8.GetByteCount(
+        Assert.Equal(99, System.Text.Encoding.UTF8.GetByteCount(
             list.ToString(Newtonsoft.Json.Formatting.None)));
 
         var reportNames = GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]

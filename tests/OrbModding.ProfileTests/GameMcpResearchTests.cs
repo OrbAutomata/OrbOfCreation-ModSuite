@@ -126,7 +126,7 @@ public sealed class GameMcpResearchTests
 
         Assert.Equal("1", (string?)cost["spendableAmount"]);
         Assert.False((bool)develop["affordable"]!);
-        Assert.Equal("unaffordable", (string?)develop["reasonCode"]);
+        Assert.Equal("ERR_UNAFFORDABLE", (string?)develop["reasonCode"]);
         Assert.Null(cost["lifetimeAmount"]);
     }
 
@@ -177,7 +177,7 @@ public sealed class GameMcpResearchTests
             "research", ResearchId.ToString("D")).Freeze(), world);
         var develop = response["row"]!["develop"]!;
 
-        Assert.Equal("unaffordable", (string?)develop["reasonCode"]);
+        Assert.Equal("ERR_UNAFFORDABLE", (string?)develop["reasonCode"]);
         Assert.Equal("Needs 20 Arcana (have 1).", (string?)develop["reason"]);
         var cost = Assert.Single(develop["costs"]!).Value<JObject>()!;
         Assert.Equal("Arcana", (string?)cost["resource"]!["name"]);
@@ -195,7 +195,7 @@ public sealed class GameMcpResearchTests
             "research", ResearchId.ToString("D")).Freeze(), world);
         var develop = response["row"]!["develop"]!;
 
-        Assert.Equal("already_maxed", (string?)develop["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)develop["reasonCode"]);
         Assert.Null(develop["affordable"]);
     }
 
@@ -297,8 +297,7 @@ public sealed class GameMcpResearchTests
 
         var timeout = Json(GameMcpPostStateSettlement.TimedOut(
             command, GameMcpTestHarness.Context(idle, generation: 52)), idle);
-        Assert.Equal("requested_state_not_reached",
-            (string?)timeout["postStateUnavailable"]!["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
         Assert.Contains("before was idle and the settled target is idle",
             (string?)timeout["postStateUnavailable"]!["reason"]);
     }
@@ -316,8 +315,7 @@ public sealed class GameMcpResearchTests
         var timeout = Json(GameMcpPostStateSettlement.TimedOut(
             command, GameMcpTestHarness.Context(unchanged, generation: 52)), unchanged);
 
-        Assert.Equal("requested_state_not_reached",
-            (string?)timeout["postStateUnavailable"]!["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
         Assert.Contains("research queue has 4 pending levels, not the requested 6",
             (string?)timeout["postStateUnavailable"]!["reason"]);
     }
@@ -339,8 +337,7 @@ public sealed class GameMcpResearchTests
         var timeout = Json(GameMcpPostStateSettlement.TimedOut(
             command, GameMcpTestHarness.Context(after, generation: 52)), after);
 
-        Assert.Equal("requested_state_not_reached",
-            (string?)timeout["postStateUnavailable"]!["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
         Assert.Contains(expectedReason,
             (string?)timeout["postStateUnavailable"]!["reason"]);
     }

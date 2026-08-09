@@ -158,7 +158,7 @@ public sealed class GameMcpRitualLifecycleTests
 
         var setLevel = response["row"]!["setLevel"]!;
         Assert.False((bool)setLevel["available"]!);
-        Assert.Equal("not_selected", (string?)setLevel["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)setLevel["reasonCode"]);
         Assert.Equal(1, (int)setLevel["minimum"]!);
         Assert.Equal(8, (int)setLevel["maximum"]!);
     }
@@ -173,7 +173,7 @@ public sealed class GameMcpRitualLifecycleTests
 
         var activate = response["row"]!["activate"]!;
         Assert.False((bool)activate["available"]!);
-        Assert.Equal("not_selected", (string?)activate["reasonCode"]);
+        Assert.Equal("ERR_STATE", (string?)activate["reasonCode"]);
         Assert.Null(activate["affordable"]);
         Assert.Null(activate["costs"]);
         Assert.Null(activate["completionCosts"]);
@@ -266,7 +266,7 @@ public sealed class GameMcpRitualLifecycleTests
             GameMcpTestHarness.Context(after, generation: 94), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
-        Assert.Equal(RitualId.ToString("D"), (string?)delta["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(RitualId), (string?)delta["uuid"]);
         Assert.True((bool)delta["activeBattle"]!["before"]!);
         Assert.False((bool)delta["activeBattle"]!["after"]!);
     }

@@ -12,9 +12,9 @@ namespace OrbModding.ProfileTests;
 
 public sealed class GameMcpChallengeTests
 {
-    private static readonly Guid First = Guid.Parse("f5000000-0000-0000-0000-000000000001");
-    private static readonly Guid Second = Guid.Parse("f5000000-0000-0000-0000-000000000002");
-    private static readonly Guid Third = Guid.Parse("f5000000-0000-0000-0000-000000000003");
+    private static readonly Guid First = Guid.Parse("f5100000-0000-0000-0000-000000000001");
+    private static readonly Guid Second = Guid.Parse("f5200000-0000-0000-0000-000000000002");
+    private static readonly Guid Third = Guid.Parse("f5300000-0000-0000-0000-000000000003");
 
     [Fact]
     public void Tool_has_one_mode_conditioned_uuid_shape_and_no_generation_or_receipt_inputs()
@@ -70,7 +70,7 @@ public sealed class GameMcpChallengeTests
         Assert.Equal("Prismatic Trial", (string?)state["selected"]![0]!["name"]);
         Assert.Equal("Expanding Trial", (string?)state["timeOffers"]![1]!["name"]);
         var first = Assert.Single(response["rows"]!.Values<JObject>(),
-            row => (string?)row?["uuid"] == First.ToString("D"))!;
+            row => (string?)row?["uuid"] == GameMcpTestHarness.Handle(First))!;
         Assert.Equal("Prismatic Trial", (string?)first["name"]);
         Assert.Equal("queued", (string?)first["state"]);
         Assert.Equal("1", (string?)first["level"]);

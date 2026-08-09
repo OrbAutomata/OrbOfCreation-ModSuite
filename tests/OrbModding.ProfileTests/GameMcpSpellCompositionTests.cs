@@ -93,7 +93,7 @@ public sealed class GameMcpSpellCompositionTests
         Assert.Equal(9, (int)overview["casting"]!["reserve"]!["maximum"]!);
         Assert.Null(row["outputLevel"]);
         Assert.Equal("Gather Knowledge", (string?)equipped["spellRecipe"]!["name"]);
-        Assert.Equal(SpellInstanceId.ToString("D"), (string?)equipped["spellInstance"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(SpellInstanceId), (string?)equipped["spellInstance"]!["uuid"]);
         Assert.Equal("Gather Knowledge", (string?)equipped["spellInstance"]!["name"]);
         Assert.Null(equipped["outputLevel"]);
         Assert.Equal(6, (int)equipped["effectiveLevel"]!);
@@ -297,11 +297,15 @@ public sealed class GameMcpSpellCompositionTests
         Assert.Null(row["authoredCosts"]!["upkeep"]);
 
         Assert.Equal(
-            new[] { SpellTypeId.ToString("D") },
+            new[] { GameMcpTestHarness.Handle(SpellTypeId) },
             row["belongsTo"]!["spellTypes"]!.Values<JObject>()
                 .Select(entry => (string?)entry!["uuid"]));
         Assert.Equal(
-            new[] { FirstCoreGlyphId.ToString("D"), SecondCoreGlyphId.ToString("D") },
+            new[]
+            {
+                GameMcpTestHarness.Handle(FirstCoreGlyphId),
+                GameMcpTestHarness.Handle(SecondCoreGlyphId),
+            },
             row["belongsTo"]!["coreGlyphs"]!.Values<JObject>()
                 .Select(entry => (string?)entry!["uuid"]));
         Assert.Null(row["belongsTo"]!["recipeBooks"]);

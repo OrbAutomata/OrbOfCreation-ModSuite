@@ -44,14 +44,18 @@ public sealed class GameMcpLifecycleBoundaryTests
         return publisher.ReadLatest();
     }
 
+    /// <summary>
+    /// The class says which kind of no this is. Naming the state is the sentence's job, and the
+    /// four sentences stay distinct, so one generic class never makes four situations read alike.
+    /// </summary>
     [Theory]
-    [InlineData(GameLifecycleState.NoGame, "lifecycle_no_game")]
-    [InlineData(GameLifecycleState.Initializing, "lifecycle_initializing")]
-    [InlineData(GameLifecycleState.Resetting, "lifecycle_resetting")]
-    [InlineData(GameLifecycleState.SceneExit, "lifecycle_scene_exit")]
+    [InlineData(GameLifecycleState.NoGame, "no save is loaded")]
+    [InlineData(GameLifecycleState.Initializing, "the save is still loading")]
+    [InlineData(GameLifecycleState.Resetting, "is replacing the run")]
+    [InlineData(GameLifecycleState.SceneExit, "the play scene is unloading")]
     public void AWorldReadOnADeadLifecycleRefusesAndNamesTheState(
         GameLifecycleState state,
-        string expectedCode)
+        string expectedSentence)
     {
         var context = GameMcpTestHarness.Context(
             FlushedWorld(),
@@ -61,9 +65,9 @@ public sealed class GameMcpLifecycleBoundaryTests
         var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(context));
 
         Assert.Equal("unavailable", (string?)overview["status"]);
-        Assert.Equal(expectedCode, (string?)overview["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)overview["reasonCode"]);
         Assert.Equal(state.ToString(), (string?)overview["lifecycleState"]);
-        Assert.NotNull((string?)overview["reason"]);
+        Assert.Contains(expectedSentence, (string?)overview["reason"]);
         Assert.Null(overview["economy"]);
     }
 
@@ -87,7 +91,7 @@ public sealed class GameMcpLifecycleBoundaryTests
         foreach (var reader in readers)
         {
             Assert.Equal("unavailable", (string?)reader["status"]);
-            Assert.Equal("lifecycle_no_game", (string?)reader["reasonCode"]);
+            Assert.Equal("ERR_UNAVAILABLE", (string?)reader["reasonCode"]);
             Assert.Equal("NoGame", (string?)reader["lifecycleState"]);
         }
     }
@@ -137,7 +141,7 @@ public sealed class GameMcpLifecycleBoundaryTests
         var overview = GameMcpTestHarness.Json(
             GameMcpWorldQuery.Overview(GameMcpTestHarness.Context(FlushedWorld())));
 
-        Assert.Equal("world_not_published", (string?)overview["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)overview["reasonCode"]);
         Assert.Equal("Playing", (string?)overview["lifecycleState"]);
     }
 }

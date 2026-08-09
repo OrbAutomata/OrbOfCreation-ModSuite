@@ -71,7 +71,7 @@ public sealed class GameMcpPlotLifecycleTests
         // The prerequisite is not readable, which is a missing read rather than a refusal, so the
         // row says so in the same words every other unreadable fact uses and never claims false.
         Assert.Equal("unavailable", (string?)blocked["add"]!["status"]);
-        Assert.Equal("prerequisite_unverified", (string?)blocked["add"]!["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)blocked["add"]!["reasonCode"]);
         Assert.Null(blocked["add"]!["available"]);
         Assert.Equal("game_agromancy add_plot_action", (string?)blocked["add"]!["checkWith"]);
         Assert.Null(blocked["add"]!["plotQuantityCost"]);

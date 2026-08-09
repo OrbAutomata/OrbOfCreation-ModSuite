@@ -66,7 +66,6 @@ internal static class GameMcpDocumentJsonEncoder
         {
             result = complete;
             result["mcpCategory"] = source.Category;
-            result["nativeType"] = source.NativeType;
             if (!source.Addressable && result["uuid"] is null) result["addressable"] = false;
             return result;
         }

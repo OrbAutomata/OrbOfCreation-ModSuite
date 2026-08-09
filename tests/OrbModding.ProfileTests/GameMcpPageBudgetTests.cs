@@ -50,7 +50,6 @@ public sealed class GameMcpPageBudgetTests
 
         Assert.Equal((string?)listed["uuid"], (string?)match["uuid"]);
         Assert.Equal("resources", (string?)match["category"]);
-        Assert.Equal("ResourceSO", (string?)match["nativeType"]);
         Assert.Equal(listed.ToString(Formatting.None), match.ToString(Formatting.None));
     }
 

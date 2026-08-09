@@ -104,7 +104,7 @@ public sealed class GameMcpCraftingTests
         Assert.Null(result["worldGeneration"]);
         var row = result["row"]!;
         Assert.Equal("Craft Sigils", (string?)row["name"]);
-        Assert.Equal(RecipeId.ToString("D"), (string?)row["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(RecipeId), (string?)row["uuid"]);
         Assert.Equal("queue_stack", (string?)row["execution"]);
         Assert.Equal(2, (int)row["purchaseAmount"]!);
         Assert.Equal(4, (int)row["queuedAmount"]!);
@@ -150,7 +150,7 @@ public sealed class GameMcpCraftingTests
             RecipeId.ToString("D")))["row"]!["automation"]!;
 
         Assert.False((bool)row["available"]!);
-        Assert.Equal("automation_full", (string?)row["reasonCode"]);
+        Assert.Equal("ERR_LIMIT", (string?)row["reasonCode"]);
         Assert.Equal("Every automation slot on this queue is in use.", (string?)row["reason"]);
         Assert.Equal(1, (int)row["used"]!);
         Assert.Equal(3, (int)row["maximum"]!);
@@ -165,7 +165,7 @@ public sealed class GameMcpCraftingTests
             RecipeId.ToString("D")))["row"]!["automation"]!;
 
         Assert.False((bool)row["available"]!);
-        Assert.Equal("hidden_or_undiscovered", (string?)row["reasonCode"]);
+        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
         Assert.Equal("This recipe is not discovered yet.", (string?)row["reason"]);
     }
 
@@ -219,9 +219,7 @@ public sealed class GameMcpCraftingTests
 
         Assert.Null(automation["amount"]);
         Assert.Equal(3, (int)automation["repetitions"]!);
-        Assert.Equal(
-            "automation_entry_not_published",
-            (string?)automation["amountUnavailable"]!["reasonCode"]);
+        Assert.Equal("ERR_NOT_FOUND", (string?)automation["amountUnavailable"]!["reasonCode"]);
     }
 
     [Fact]
@@ -237,9 +235,7 @@ public sealed class GameMcpCraftingTests
             Context(automationRepetitions: 5, withQueueEntries: false), command, committed));
 
         Assert.Null(postState["amount"]);
-        Assert.Equal(
-            "automation_entry_not_published",
-            (string?)postState["amountUnavailable"]!["reasonCode"]);
+        Assert.Equal("ERR_NOT_FOUND", (string?)postState["amountUnavailable"]!["reasonCode"]);
     }
 
     [Fact]
@@ -337,8 +333,7 @@ public sealed class GameMcpCraftingTests
 
         Assert.Null(postState["completed"]);
         Assert.Null(postState["queued"]);
-        Assert.Equal("post_state_not_observed",
-            (string?)postState["postStateUnavailable"]!["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)postState["postStateUnavailable"]!["reasonCode"]);
         Assert.Contains("entered the game's crafting queue",
             (string?)postState["postStateUnavailable"]!["reason"]);
         Assert.Contains("still shows 4 queued",
@@ -346,7 +341,7 @@ public sealed class GameMcpCraftingTests
 
         // Honest about the unobserved queue, and still saying what it acted on. Without these two
         // facts, two commits on two different recipes were byte-identical.
-        Assert.Equal(RecipeId.ToString("D"), (string?)postState["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(RecipeId), (string?)postState["uuid"]);
         Assert.Equal(1, (int)postState["requestedAmount"]!);
     }
 
