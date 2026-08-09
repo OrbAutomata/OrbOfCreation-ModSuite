@@ -1111,11 +1111,16 @@ internal static class GameMcpEntityExplainer
         return WorldRequirementEvaluator.StructureCheckLevel(in row);
     }
 
+    /// <summary>
+    /// One grammar for every yes/no on the page. The explainer's verdicts answered under
+    /// <c>value</c> while every decision elsewhere answers under <c>available</c>, so a caller
+    /// reading both had to learn that two words mean the same thing.
+    /// </summary>
     private static JObject Verdict(
         bool value,
         string falseReason) => new()
     {
-        ["value"] = value,
+        ["available"] = value,
         ["reasonCode"] = value ? "passed" : falseReason,
     };
 

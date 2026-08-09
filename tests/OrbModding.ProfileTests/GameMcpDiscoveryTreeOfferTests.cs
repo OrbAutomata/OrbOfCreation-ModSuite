@@ -466,8 +466,8 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.Equal("Ability Persist", (string?)explanation["name"]);
 
         // The offered rune passes every predicate, and says so rather than going silent.
-        Assert.True((bool)explanation["predicates"]!["visible"]!["value"]!);
-        Assert.True((bool)explanation["predicates"]!["canDiscover"]!["value"]!);
+        Assert.True((bool)explanation["predicates"]!["visible"]!["available"]!);
+        Assert.True((bool)explanation["predicates"]!["canDiscover"]!["available"]!);
     }
 
     [Fact]
@@ -673,7 +673,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 Assert.NotNull(explanation["name"]);
                 Assert.Equal(
                     readOffer == secondId,
-                    !(bool)explanation["predicates"]!["available"]!["value"]!);
+                    !(bool)explanation["predicates"]!["available"]!["available"]!);
                 if (readOffer == secondId)
                     Assert.Equal("ERR_LOCKED", (string?)explanation["predicates"]!["available"]!["reasonCode"]);
             }

@@ -142,7 +142,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
             foreach (var predicate in predicateObject.Properties())
             {
                 var value = Assert.IsType<JObject>(predicate.Value);
-                if (!(bool)value["value"]!)
+                if (!(bool)value["available"]!)
                     Assert.False(string.IsNullOrWhiteSpace((string?)value["reasonCode"]));
             }
         }
@@ -320,9 +320,9 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         Assert.NotNull(leaves[1]["reason"]);
 
         var predicates = result["predicates"]!;
-        Assert.False((bool)predicates["available"]!["value"]!);
+        Assert.False((bool)predicates["available"]!["available"]!);
         Assert.Equal("ERR_STATE", (string?)predicates["available"]!["reasonCode"]);
-        Assert.False((bool)predicates["canDevelop"]!["value"]!);
+        Assert.False((bool)predicates["canDevelop"]!["available"]!);
         Assert.Equal("ERR_STATE", (string?)predicates["canDevelop"]!["reasonCode"]);
         var cap = result["blockers"]!["cap"]!;
         Assert.True((bool)cap["blocked"]!);
@@ -379,9 +379,9 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         Assert.All(
             predicates.Properties(),
             predicate => Assert.Equal(
-                JTokenType.Boolean, predicate.Value["value"]?.Type));
-        Assert.True((bool)predicates["canDiscover"]!["value"]!);
-        Assert.False((bool)predicates["visible"]!["value"]!);
+                JTokenType.Boolean, predicate.Value["available"]?.Type));
+        Assert.True((bool)predicates["canDiscover"]!["available"]!);
+        Assert.False((bool)predicates["visible"]!["available"]!);
     }
 
     [Fact]
@@ -434,7 +434,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
 
         Assert.Equal("unavailable", (string?)result["status"]);
         Assert.False((bool)result["state"]!["complete"]!);
-        Assert.False((bool)result["predicates"]!["canDevelop"]!["value"]!);
+        Assert.False((bool)result["predicates"]!["canDevelop"]!["available"]!);
         Assert.Equal("ERR_LIMIT", (string?)result["predicates"]!["canDevelop"]!["reasonCode"]);
         var cap = result["blockers"]!["cap"]!;
         Assert.Equal(1, (int)cap["artificialCap"]!);
@@ -597,7 +597,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         // This world is assembled by hand, so no live entity carries the identity and the game has
         // no answer to compare against. The parity block says which, rather than going missing.
         Assert.Equal("ERR_UNAVAILABLE", (string?)upgradeResult["requirements"]!["nativeParity"]!["reasonCode"]);
-        Assert.False((bool)upgradeResult["predicates"]!["canPurchase"]!["value"]!);
+        Assert.False((bool)upgradeResult["predicates"]!["canPurchase"]!["available"]!);
         Assert.Equal("ERR_STATE", (string?)upgradeResult["predicates"]!["canPurchase"]!["reasonCode"]);
         Assert.Null(upgradeResult["purchase"]);
         Assert.True((bool)upgradeResult["blockers"]!["queue"]!["blocked"]!);
@@ -720,7 +720,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
             affordabilityReasonCode: "unaffordable");
 
     private static bool Predicate(JObject explanation, string name) =>
-        (bool)explanation["predicates"]![name]!["value"]!;
+        (bool)explanation["predicates"]![name]!["available"]!;
 
     private static JObject Explain(GameWorldState world, Guid id, ulong generation) =>
         GameMcpTestHarness.Json(GameMcpEntityExplainer.Explain(
