@@ -175,8 +175,10 @@ public sealed class GameMcpFrameInboxTests
             (string?)GameMcpTestHarness.Json(terminal.Payload!)["reason"]));
 
         var protocol = terminals[0].ToProtocolResult();
-        Assert.Null(protocol["content"]);
-        Assert.NotNull(protocol["structuredContent"]);
+        Assert.Null(protocol["structuredContent"]);
+        Assert.Contains(
+            "cannot run inside a Unity frame operation",
+            (string?)protocol["content"]![0]!["text"]);
         Assert.True((bool)protocol["isError"]!);
     }
 

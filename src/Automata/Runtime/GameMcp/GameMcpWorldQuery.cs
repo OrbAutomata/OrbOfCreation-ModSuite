@@ -55,18 +55,18 @@ internal static class GameMcpWorldQuery
             ["activeConceptAssignments"] = world.AlchemyInstances.Count,
         };
         if (world.SpellWorkbench.MaximumOutputLevel > 0)
+            // The floor is the same number on every dial in every save, so it belongs in the
+            // casting-dial tool's documentation, not in an answer a caller reads every few calls.
             result["casting"] = new JObject
             {
                 ["output"] = new JObject
                 {
                     ["current"] = world.SpellWorkbench.OutputLevel,
-                    ["minimum"] = WorldSpellWorkbench.MinimumDialLevel,
                     ["maximum"] = world.SpellWorkbench.MaximumOutputLevel,
                 },
                 ["reserve"] = new JObject
                 {
                     ["current"] = world.SpellWorkbench.ReserveLevel,
-                    ["minimum"] = WorldSpellWorkbench.MinimumDialLevel,
                     ["maximum"] = world.SpellWorkbench.MaximumReserveLevel,
                 },
             };
@@ -2778,23 +2778,26 @@ internal static class GameMcpWorldQuery
             // summary says how many and of what, names the entities that carry them, and points at
             // the read that holds every leaf — world_get on an implicated owner answers
             // entity_data_incomplete with the full implicatedSkippedRows.
-            var owners = new JArray();
+            var owners = new List<string>();
             var seenOwners = new HashSet<Guid>();
-            var nativeTypes = new JArray();
+            var nativeTypes = new List<string>();
             var seenTypes = new HashSet<string>(StringComparer.Ordinal);
             for (var index = 0; index < implicated.Length; index++)
             {
                 var leaf = implicated[index];
-                if (seenOwners.Add(leaf.OwnerId)) owners.Add(leaf.OwnerId.ToString("D"));
+                if (seenOwners.Add(leaf.OwnerId))
+                {
+                    owners.Add(
+                        GameMcpEntityHandle.Name(leaf.OwnerId, world.EntityIdentities) + " " +
+                        GameMcpEntityHandle.Format(leaf.OwnerId));
+                }
                 if (seenTypes.Add(leaf.ConditionTypeName)) nativeTypes.Add(leaf.ConditionTypeName);
             }
-            result["skippedEntities"] = new JObject
-            {
-                ["count"] = implicated.Length,
-                ["nativeTypes"] = nativeTypes,
-                ["owners"] = owners,
-                ["readWith"] = new JObject { ["tool"] = "world_get" },
-            };
+            result["gap"] =
+                implicated.Length.ToString(CultureInfo.InvariantCulture) +
+                " requirement leaves of type " + string.Join(", ", nativeTypes) +
+                " could not be localized; world_get on " + string.Join(", ", owners) +
+                " returns every leaf";
         }
         return result;
     }
@@ -4817,6 +4820,10 @@ internal static class GameMcpWorldQuery
         return true;
     }
 
+    /// <summary>
+    /// Where this spell can move, on one line. A destination is a slot number and who is standing in
+    /// it; as a row apiece it cost a paragraph to say what fits in a sentence.
+    /// </summary>
     private static JArray ProjectSpellMoveDestinations(GameWorldState world, int currentSlot)
     {
         var destinations = new JArray();
@@ -4824,11 +4831,11 @@ internal static class GameMcpWorldQuery
         {
             var slot = world.SpellSlots[index];
             if (slot.SlotIndex == currentSlot) continue;
-            var option = new JObject { ["slot"] = slot.SlotIndex };
-            if (slot.Occupied)
-                option["occupantId"] = slot.SpellRecipeId.ToString("D");
-            else option["empty"] = true;
-            destinations.Add(option);
+            destinations.Add(
+                slot.SlotIndex.ToString(CultureInfo.InvariantCulture) + " " +
+                (slot.Occupied
+                    ? GameMcpEntityHandle.Name(slot.SpellRecipeId, world.EntityIdentities)
+                    : "empty"));
         }
         return destinations;
     }

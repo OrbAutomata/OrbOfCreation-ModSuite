@@ -172,7 +172,9 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         Assert.Equal("entity_catalog", (string?)knownResult["readWith"]!["tool"]);
         Assert.Null(knownResult["nameEvidence"]);
         Assert.Equal("ERR_NOT_FOUND", (string?)unknownResult["reasonCode"]);
-        Assert.Equal("entity_catalog", (string?)unknownResult["readWith"]!["tool"]);
+        // The name is the missing thing, so a name search is the one remedy that cannot work.
+        Assert.Equal("world_categories", (string?)unknownResult["readWith"]!["tool"]);
+        Assert.DoesNotContain("entity_catalog", (string?)unknownResult["reason"]);
         Assert.Equal(
             "(unnamed " + unknown.ToString("D").Substring(0, 6) + ")",
             (string?)unknownResult["name"]);

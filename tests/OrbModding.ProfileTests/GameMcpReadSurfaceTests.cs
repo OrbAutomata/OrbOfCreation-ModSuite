@@ -68,7 +68,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
                 ["uuid"] = uuid,
             }.Freeze()).WithEntityIdentities(pinned).ToProtocolResult();
 
-            Assert.Equal("Pinned Name", (string?)result["structuredContent"]?["name"]);
+            Assert.Contains("Pinned Name", result.ToString(), StringComparison.Ordinal);
             Assert.DoesNotContain("Later", result.ToString(), StringComparison.Ordinal);
         }
         finally
@@ -77,8 +77,12 @@ public sealed class GameMcpStreamableHttpProtocolTests
         }
     }
 
+    /// <summary>
+    /// One answer, said once. The result used to carry a machine copy beside the page a caller
+    /// reads, so every client decoded and truncated the same bytes twice.
+    /// </summary>
     [Fact]
-    public void ToolResultEmitsLargeStructuredJsonOnceWithoutATextDuplicate()
+    public void ToolResultEmitsThePageOnceWithoutAStructuredDuplicate()
     {
         var large = new string('x', 80_000);
         var result = GameMcpToolExecution.Read(new GameMcpObjectBuilder
@@ -87,13 +91,11 @@ public sealed class GameMcpStreamableHttpProtocolTests
             ["large"] = large,
         }.Freeze()).ToProtocolResult();
 
-        Assert.Null(result["content"]);
-        Assert.Equal(large, (string?)result["structuredContent"]?["large"]);
+        Assert.Null(result["structuredContent"]);
         Assert.Null(result["isError"]);
-        Assert.True(result.ToString().Length > 80_000);
-        Assert.DoesNotContain(
-            result.DescendantsAndSelf().OfType<JProperty>(),
-            property => property.Name == "text");
+        var content = Assert.Single(result["content"]!.Values<JObject>());
+        Assert.Equal("text", (string?)content["type"]);
+        Assert.Equal("large: " + large, (string?)content["text"]);
     }
 
     [Fact]
@@ -226,22 +228,17 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.NotNull(body["result"]);
         Assert.Null(body["error"]);
         Assert.Null(body["result"]!["isError"]);
-        Assert.Null(body["result"]!["content"]);
-        var structured = body["result"]!["structuredContent"]!;
-        Assert.Equal("faulted", (string?)structured["status"]);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)structured["reasonCode"]);
-        Assert.Equal(reason, (string?)structured["reason"]);
-        Assert.Equal(GameMcpTestHarness.Handle(tree), (string?)structured["uuid"]);
-        Assert.Equal("crafting mode", (string?)structured["missingOutcome"]);
-        Assert.NotNull(structured["name"]);
-        Assert.Equal(6, ((JObject)structured).Count);
-        Assert.Null(structured["worldGeneration"]);
-        Assert.Null(structured["readWith"]);
-        Assert.Null(structured["mutationScope"]);
-        Assert.Null(structured["nativeCallsAttempted"]);
-        Assert.Null(structured["mutationAttempts"]);
-        Assert.Null(structured["mutationsCommitted"]);
-        Assert.Null(structured["receipt"]);
+        Assert.Null(body["result"]!["structuredContent"]);
+        var page = (string)Assert.Single(
+            body["result"]!["content"]!.Values<JObject>())!["text"]!;
+        var lines = page.Split('\n');
+        Assert.Equal("faulted (ERR_UNAVAILABLE): " + reason, lines[0]);
+        Assert.Contains("uuid: " + GameMcpTestHarness.Handle(tree), lines);
+        Assert.Contains("missingOutcome: crafting mode", lines);
+        Assert.Equal(4, lines.Length);
+        Assert.DoesNotContain("worldGeneration", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("mutation", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("receipt", page, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -434,10 +431,9 @@ public sealed class GameMcpStreamableHttpProtocolTests
             operation => GameMcpTestHarness.ExecuteRead(
                 operation,
                 GameMcpTestHarness.Context()));
-        Assert.Equal(
-            "unavailable",
-            (string?)call.Body?["result"]?["structuredContent"]?["status"]);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)call.Body?["result"]?["structuredContent"]?["reasonCode"]);
+        Assert.StartsWith(
+            "unavailable (ERR_UNAVAILABLE): ",
+            (string?)call.Body?["result"]?["content"]?[0]?["text"]);
 
         var initialized = router.Handle(new JObject
         {
@@ -472,23 +468,21 @@ public sealed class GameMcpStreamableHttpProtocolTests
                 operation,
                 GameMcpTestHarness.Context()));
 
-        var result = (JObject)response.Body!["result"]!["structuredContent"]!;
-        Assert.Null(result["status"]);
-        Assert.Null(result["catalogSource"]);
-        Assert.Null(result["query"]);
-        Assert.Null(result["limit"]);
-        Assert.Null(result["totalCatalogRows"]);
-        Assert.Null(result["rowsWithDisplayName"]);
-        Assert.Null(result["truncated"]);
-        var match = Assert.IsType<JObject>(Assert.Single((JArray)result["rows"]!));
-        Assert.Equal("0d0474", (string?)match["uuid"]);
-        Assert.Equal("AttributeSO", (string?)match["nativeType"]);
-        Assert.Equal("HiddenComponent", (string?)match["internalName"]);
-        Assert.Equal("Hidden Component", (string?)match["name"]);
-        Assert.Equal("not-world-projected", (string?)match["category"]);
-        Assert.Null(match["nameSource"]);
-        Assert.Null(match["hasDisplayName"]);
-        Assert.Null(match["visibilityIndependent"]);
+        var page = (string)Assert.Single(
+            response.Body!["result"]!["content"]!.Values<JObject>())!["text"]!;
+        var lines = page.Split('\n');
+
+        // The catalog is where the asset name and the runtime type still live: somebody browsing
+        // asks for them, and nothing else on the surface carries them any more.
+        Assert.Equal(2, lines.Length);
+        Assert.Contains("0d0474", lines[1]);
+        Assert.Contains("AttributeSO", lines[1]);
+        Assert.Contains("HiddenComponent", lines[1]);
+        Assert.Contains("Hidden Component", lines[1]);
+        Assert.Contains("not-world-projected", lines[1]);
+        Assert.DoesNotContain("catalogSource", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("totalCatalogRows", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("nameSource", page, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -585,14 +579,15 @@ public sealed class GameMcpStreamableHttpProtocolTests
                 operation,
                 GameMcpTestHarness.Context()));
 
-        var result = (JObject)response.Body!["result"]!["structuredContent"]!;
-        var match = Assert.IsType<JObject>(Assert.Single((JArray)result["rows"]!));
-        Assert.Null(match["internalName"]);
-        Assert.Equal("OrbAnim2", (string?)match["name"]);
-        Assert.Equal("asset", (string?)match["nameSource"]);
-        Assert.Equal("not-world-projected", (string?)match["category"]);
-        Assert.Null(match["hasDisplayName"]);
-        Assert.Null(match["visibilityIndependent"]);
+        var page = (string)Assert.Single(
+            response.Body!["result"]!["content"]!.Values<JObject>())!["text"]!;
+        var lines = page.Split('\n');
+        Assert.Equal(2, lines.Length);
+        Assert.Contains("OrbAnim2", lines[1]);
+        Assert.Contains("asset", lines[1]);
+        Assert.Contains("not-world-projected", lines[1]);
+        Assert.DoesNotContain("internalName", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("hasDisplayName", page, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -908,21 +903,20 @@ public sealed class GameMcpWorldEnvelopeTests
                     },
                 }),
             operation => GameMcpTestHarness.ExecuteRead(operation, pinned));
-        var result = (JObject)response.Body!["result"]!["structuredContent"]!;
+        var page = (string)Assert.Single(
+            response.Body!["result"]!["content"]!.Values<JObject>())!["text"]!;
 
-        Assert.Null(result["status"]);
-        Assert.Null(result["worldGeneration"]);
-        Assert.Null(result["requested"]);
-        Assert.Null(result["found"]);
-        var rows = result["results"]!.OfType<JObject>().ToArray();
-        Assert.All(rows, row => Assert.Null(row["inputIndex"]));
-        Assert.Null(rows[0]["uuid"]);
-        Assert.Null(rows[0]["status"]);
-        Assert.False((bool)rows[0]["row"]!["value"]!);
-        Assert.Equal("ERR_NOT_FOUND", (string?)rows[1]["reasonCode"]);
-        Assert.Equal(GameMcpTestHarness.Handle(missingId), (string?)rows[1]["uuid"]);
-        Assert.Null(rows[2]["uuid"]);
-        Assert.True((bool)rows[2]["row"]!["value"]!);
+        // Three asks, three answers, in the order they were asked: the correlation is the order, so
+        // no row has to echo an index back.
+        var lines = page.Split('\n');
+        Assert.Equal(4, lines.Length);
+        Assert.StartsWith("results 3", lines[0]);
+        Assert.Contains("value=no", lines[1]);
+        Assert.Contains("ERR_NOT_FOUND", lines[2]);
+        Assert.Contains(GameMcpTestHarness.Handle(missingId), lines[2]);
+        Assert.Contains("value=yes", lines[3]);
+        Assert.DoesNotContain("inputIndex", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("worldGeneration", page, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1223,16 +1217,12 @@ public sealed class GameMcpWorldEnvelopeTests
         // calls, and the overview is read far more often than the rows are. It says how many, of
         // what, on whom, and which read holds the leaves themselves.
         var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(state));
-        var skippedEntities = overview["collection"]!["skippedEntities"]!;
-        Assert.Equal(1, (int)skippedEntities["count"]!);
-        Assert.Equal(
-            "ListRequirement",
-            (string?)Assert.Single(skippedEntities["nativeTypes"]!.Values<string>()));
-        Assert.Equal(
-            GameMcpTestHarness.Handle(affectedId),
-            (string?)Assert.Single(skippedEntities["owners"]!.Values<JObject>())!["uuid"]);
-        Assert.Equal("world_get", (string?)skippedEntities["readWith"]!["tool"]);
-        Assert.Null(skippedEntities["ordinal"]);
+        var gap = (string?)overview["collection"]!["gap"];
+        Assert.NotNull(gap);
+        Assert.Contains("1 requirement leaves of type ListRequirement", gap);
+        Assert.Contains(GameMcpTestHarness.Handle(affectedId), gap);
+        Assert.Contains("world_get", gap);
+        Assert.Null(overview["collection"]!["skippedEntities"]);
     }
 
     [Fact]

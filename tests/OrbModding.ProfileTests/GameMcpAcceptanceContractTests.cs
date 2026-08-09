@@ -672,13 +672,17 @@ public sealed class GameMcpConfigurationTests
                 "exact_parse_and_domain",
                 string.Empty,
                 string.Empty));
-        var result = GameMcpAcceptanceFixture.Call(
-            "suite_configuration",
-            context: GameMcpTestHarness.Context(writable: new[] { writable }));
-        Assert.Null(result["configurationGeneration"]);
-        Assert.Null(result["worldGeneration"]);
-        Assert.Null(result["configuration"]);
-        Assert.Single(result["writableSettings"]!.Values<JObject>());
+        var context = GameMcpTestHarness.Context(writable: new[] { writable });
+        var listed = GameMcpAcceptanceFixture.CallText("suite_configuration", context: context);
+        var described = GameMcpAcceptanceFixture.CallText(
+            "suite_configuration", new JObject { ["mode"] = "describe" }, context);
+
+        // The ordinary read is one line per setting and nothing else: what it does and what it takes
+        // are the same words on every call, so they live in the tool's own documentation.
+        Assert.Equal("AutoCast/Mode: Disabled", listed);
+        Assert.Contains("AutoCast/Mode", described);
+        Assert.Contains("type", described);
+        Assert.Contains("description", described);
     }
 
     [Fact]
@@ -712,19 +716,15 @@ public sealed class GameMcpConfigurationTests
             GameMcpTestHarness.Context(
                 configurationGeneration: 12,
                 writable: schema,
-                configuration: pinned)));
-        var autoCastMode = result["writableSettings"]!
-            .Values<JObject>()
-            .Single(item =>
-                (string?)item?["section"] == "AutoCast" &&
-                (string?)item?["key"] == "Mode")!;
+                configuration: pinned),
+            describe: false));
 
         Assert.Null(result["configurationGeneration"]);
         Assert.Null(result["configuration"]);
         Assert.DoesNotContain(
             result.DescendantsAndSelf().OfType<JProperty>(),
             property => property.Name == "equalityContract");
-        Assert.Equal("Disabled", (string?)autoCastMode["serializedValue"]);
+        Assert.Equal("Disabled", (string?)result["AutoCast/Mode"]);
         Assert.Equal("Active", configuration.AutoCastMode.GetSerializedValue());
         Assert.Same(schema, GameMcpTestHarness.Context(writable: schema).WritableConfiguration);
     }
@@ -836,36 +836,10 @@ internal static class GameMcpAcceptanceFixture
     internal static string[] ToolNames() =>
         Tools().Select(tool => (string)tool["name"]!).ToArray();
 
-    internal static JObject Call(
-        string tool,
-        JObject? arguments = null,
-        GameMcpFrameContext? context = null)
-    {
-        var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
-        var pinned = context ?? GameMcpTestHarness.Context();
-        var response = GameMcpTestHarness.Handle(router, inbox, Request(
-            1,
-            "tools/call",
-            new JObject
-            {
-                ["name"] = tool,
-                ["arguments"] = arguments ?? new JObject(),
-            }), operation => operation.Request.ToolName switch
-            {
-                "suite_health" => GameMcpToolExecution.Text(
-                    Plugin.ProjectGameMcpHealthText(pinned)),
-                "suite_configuration" => GameMcpToolExecution.Read(
-                    Plugin.ProjectGameMcpConfiguration(pinned)),
-                "trace_health" => GameMcpToolExecution.Text(
-                    Plugin.ProjectGameMcpTraceHealthText(pinned)),
-                _ => GameMcpTestHarness.ExecuteRead(operation, pinned),
-            });
-        Assert.Equal(200, response.StatusCode);
-        Assert.Null(response.Body?["error"]);
-        return (JObject)response.Body!["result"]!["structuredContent"]!;
-    }
-
+    /// <summary>
+    /// One tool call as a caller sees it: the page of text the protocol returns, and nothing beside
+    /// it. Every tool answers this way now, so there is one helper rather than one per shape.
+    /// </summary>
     internal static string CallText(
         string tool,
         JObject? arguments = null,
@@ -885,6 +859,9 @@ internal static class GameMcpAcceptanceFixture
             {
                 "suite_health" => GameMcpToolExecution.Text(
                     Plugin.ProjectGameMcpHealthText(pinned)),
+                "suite_configuration" => GameMcpToolExecution.Read(
+                    Plugin.ProjectGameMcpConfiguration(
+                        pinned, operation.Request.Mode == "describe")),
                 "trace_health" => GameMcpToolExecution.Text(
                     Plugin.ProjectGameMcpTraceHealthText(pinned)),
                 _ => GameMcpTestHarness.ExecuteRead(operation, pinned),

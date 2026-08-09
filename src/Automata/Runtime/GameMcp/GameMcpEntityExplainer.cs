@@ -70,10 +70,15 @@ internal static class GameMcpEntityExplainer
                 });
             }
             var code = known ? "not_world_projected" : "uuid_unknown";
+
+            // An id this build never published is the one case where a caller has no name to search
+            // with — the missing name is the whole problem — so pointing at a name search sent them
+            // to a tool that could not answer. The categories are what they can actually page.
             var reason = known
                 ? "this entity exists but has no detailed explanation; read its published category with world_get"
-                : "nothing in this process knows this UUID; search entity_catalog by name";
-            var remedy = new JObject { ["tool"] = "entity_catalog" };
+                : "no entity in this build carries this id; page world_categories for the category " +
+                    "you meant, or check the id you copied";
+            var remedy = new JObject { ["tool"] = known ? "entity_catalog" : "world_categories" };
             if (known && GameMcpEntityCapabilityMap.TryCategoryForNativeType(
                     identity.RuntimeType,
                     out var knownCategory))

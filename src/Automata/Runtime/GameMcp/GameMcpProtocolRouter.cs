@@ -218,7 +218,6 @@ internal sealed class GameMcpProtocolRouter
         {
             case "world_overview":
             case "world_categories":
-            case "suite_configuration":
             case "trace_health":
             case "game_continue":
             case "game_return_to_menu":
@@ -226,6 +225,11 @@ internal sealed class GameMcpProtocolRouter
                 break;
             case "game_modal":
                 builder.Mode = RequireOneOf(arguments, "mode", "dismiss");
+                break;
+            case "suite_configuration":
+                builder.Mode = arguments.ContainsKey("mode")
+                    ? RequireOneOf(arguments, "mode", "list", "describe")
+                    : "list";
                 break;
             case "world_list":
                 builder.Category = RequireString(arguments, "category");
@@ -635,7 +639,13 @@ internal sealed class GameMcpProtocolRouter
                 "Read suite runtime health",
                 "Read one compact scene/runtime/STOP/native-contract line plus feature and service names grouped by state.",
                 ObjectSchema()),
-            Tool("suite_configuration", "Read committed configuration", "Read the writable setting catalog and current serialized values.", ObjectSchema()),
+            Tool(
+                "suite_configuration",
+                "Read committed configuration",
+                "Read every writable setting as section/key and its committed value. mode=describe " +
+                "adds each setting's type, the values it accepts, and what it does.",
+                ObjectSchema(
+                    new JObject { ["mode"] = EnumSchema("list", "describe") })),
             Tool(
                 "trace_health",
                 "Read trace-writer health",
@@ -2008,8 +2018,10 @@ internal sealed class GameMcpToolExecution
                 },
             };
         }
-        // The structured JSON is authoritative and emitted once. Content is reserved for media;
-        // repeating the payload as text made clients decode and truncate the same result twice.
+        // One response, one representation. A page of text is what a caller reads, so it is what the
+        // server says; emitting the same answer twice — once as a document and once as prose — made
+        // clients decode and truncate the same result twice, and no tool here declares an output
+        // schema that would oblige a machine-shaped copy.
         var content = new JArray();
         if (InlinePng is not null)
         {
@@ -2020,12 +2032,13 @@ internal sealed class GameMcpToolExecution
                 ["mimeType"] = "image/png",
             });
         }
-        var result = new JObject
+        content.Add(new JObject
         {
-            ["structuredContent"] = GameMcpDocumentJsonEncoder.Encode(
-                Payload!, EntityIdentities),
-        };
-        if (content.Count > 0) result["content"] = content;
+            ["type"] = "text",
+            ["text"] = GameMcpTextPage.Render(
+                GameMcpDocumentJsonEncoder.Encode(Payload!, EntityIdentities)),
+        });
+        var result = new JObject { ["content"] = content };
         if (IsError) result["isError"] = true;
         return result;
     }

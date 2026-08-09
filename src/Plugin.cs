@@ -1593,7 +1593,8 @@ public sealed class Plugin : BaseUnityPlugin
                 execution = GameMcpToolExecution.Read(CaptureScreenCatalogGameMcp());
                 return true;
             case "suite_configuration":
-                execution = GameMcpToolExecution.Read(ProjectGameMcpConfiguration(context));
+                execution = GameMcpToolExecution.Read(
+                    ProjectGameMcpConfiguration(context, request.Mode == "describe"));
                 return true;
             case "suite_automation" when request.Mode == "list":
                 execution = GameMcpToolExecution.Read(
@@ -1812,7 +1813,7 @@ public sealed class Plugin : BaseUnityPlugin
         if (uri == "orb://suite/health")
             return GameMcpToolExecution.Text(ProjectGameMcpHealthText(context));
         if (uri == "orb://suite/configuration")
-            return GameMcpToolExecution.Read(ProjectGameMcpConfiguration(context));
+            return GameMcpToolExecution.Read(ProjectGameMcpConfiguration(context, describe: false));
         if (uri == "orb://trace/health")
             return GameMcpToolExecution.Text(ProjectGameMcpTraceHealthText(context));
         var category = Uri.UnescapeDataString(
@@ -1912,38 +1913,64 @@ public sealed class Plugin : BaseUnityPlugin
     private static string CanonicalGameMcpFeatureName(string name) =>
         string.Equals(name, "Orb Mentor", StringComparison.Ordinal) ? "Mentor" : name;
 
-    internal static GameMcpValue ProjectGameMcpConfiguration(GameMcpFrameContext context)
+    /// <summary>
+    /// The committed value of every writable setting, one setting per line.
+    /// </summary>
+    /// <remarks>
+    /// What a setting means and which values it takes do not change between calls, so they are
+    /// documentation, not an answer: the ordinary read is the values a caller came for, and
+    /// <c>mode=describe</c> is where the type, the domain — a range or a list of names, said the
+    /// same way for both — and the sentence live for whoever is deciding what to write.
+    /// </remarks>
+    internal static GameMcpValue ProjectGameMcpConfiguration(
+        GameMcpFrameContext context,
+        bool describe)
     {
-        var writable = new GameMcpArrayBuilder();
+        if (!context.ConfigurationGeneration.IsValid)
+        {
+            return new GameMcpObjectBuilder
+            {
+                ["status"] = "not_available",
+                ["code"] = "configuration_unpublished",
+                ["reason"] = "no committed configuration has been published yet",
+            }.Freeze();
+        }
+        var described = new GameMcpArrayBuilder();
+        var values = new GameMcpObjectBuilder();
         for (var index = 0; index < context.WritableConfiguration.Length; index++)
         {
             var item = context.WritableConfiguration[index];
+            var value = CanonicalConfigurationValue(
+                GameMcpConfigurationSchema.SerializePublishedValue(
+                    context.Configuration.Snapshot,
+                    item.Section,
+                    item.Key),
+                item.SettingType);
+            if (!describe)
+            {
+                values[item.Section + "/" + item.Key] = value;
+                continue;
+            }
             var setting = new GameMcpObjectBuilder
             {
-                ["section"] = item.Section,
-                ["key"] = item.Key,
-                ["settingType"] = item.SettingType,
-                ["serializedValue"] = CanonicalConfigurationValue(
-                    GameMcpConfigurationSchema.SerializePublishedValue(
-                        context.Configuration.Snapshot,
-                        item.Section,
-                        item.Key),
-                    item.SettingType),
-                ["description"] = item.Description,
+                ["setting"] = item.Section + "/" + item.Key,
+                ["value"] = value,
+                ["type"] = item.SettingType,
             };
             var domain = item.Constraint.Domain.Length > 0
                 ? item.Constraint.Domain
                 : PlainConfigurationDomain(item.Constraint.AcceptableValues);
             if (domain.Length > 0) setting["domain"] = domain;
-            writable.Add(setting);
+            setting["description"] = item.Description;
+            described.Add(setting);
         }
-        var result = new GameMcpObjectBuilder
+        var result = new GameMcpObjectBuilder();
+        if (describe)
         {
-            ["status"] = context.ConfigurationGeneration.IsValid
-                ? "available"
-                : "not_available",
-        };
-        if (writable.Count > 0) result["writableSettings"] = writable;
+            if (described.Count > 0) result["settings"] = described;
+            return result.Freeze();
+        }
+        result.CopyFrom(values);
         return result.Freeze();
     }
 
