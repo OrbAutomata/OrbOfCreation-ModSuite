@@ -579,6 +579,9 @@ public class AbstractListVariable<T> : AbstractListVariable
 {
     public static List<AbstractListVariable<T>> All = new List<AbstractListVariable<T>>();
     public List<T> value = new List<T>();
+
+    /// <summary>Whether the list is authored rather than played into, as the game marks it.</summary>
+    public bool isStatic;
     public int Maximum = 4;
     public IntVariable? maxSizeVariable;
     public int GetMax() => maxSizeVariable?.AsInt() ?? Maximum;

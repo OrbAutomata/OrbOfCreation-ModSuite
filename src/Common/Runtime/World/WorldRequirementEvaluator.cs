@@ -67,10 +67,11 @@ internal readonly struct WorldRequirementLeafEvaluation
 /// the Unity thread, and what stops the planner proposing a purchase the game will refuse.
 /// </para>
 /// <para>
-/// <b>It fails closed, comparison by comparison.</b> The game's <c>Visible</c> and <c>Available</c>
-/// comparisons ask another entity for its whole-entity gate, which reaches the <c>Check()</c> that
-/// writes; those are not modelled and never will be from here. Several other comparisons are simply
-/// not exercised by any authored content in this baseline. Both read as
+/// <b>It fails closed, comparison by comparison.</b> A <c>Visible</c> or <c>Available</c> comparison
+/// is modelled only where the target's own gate is a stored field the snapshot already carries —
+/// <c>ConsumableSO</c> answers both from <c>visible</c>. Where it is the whole-entity gate that
+/// reaches the <c>Check()</c> which writes, it is not modelled and never will be from here. Several
+/// other comparisons are simply not exercised by any authored content in this baseline. Both read as
 /// <see cref="WorldRequirementVerdict.Unevaluable"/>, and a consumer that treats that as anything but
 /// "do not plan this" has broken the contract this type exists to keep.
 /// </para>
@@ -104,6 +105,8 @@ internal static class WorldRequirementEvaluator
     private const int GenericLevel = 1;
     private const int PrerequisiteLinkBase = 0;
     private const int PrerequisiteLinkTier = 1;
+    private const int ListAnyVisible = 1;
+    private const int ListAnyAvailable = 2;
     private const int MaximumExpansionDepth = 32;
 
     /// <summary>
@@ -379,6 +382,12 @@ internal static class WorldRequirementEvaluator
                 required = effective = BigDouble.One;
                 supported = row.ReqType is PrerequisiteLinkBase or PrerequisiteLinkTier;
                 break;
+            case WorldRequirementConditionKind.List:
+                selected = row.ReqType == ListAnyVisible ? "list_any_visible" : "list_any_available";
+                current = verdict == WorldRequirementVerdict.Met ? BigDouble.One : BigDouble.Zero;
+                required = effective = BigDouble.One;
+                supported = row.ReqType is ListAnyVisible or ListAnyAvailable;
+                break;
             default:
                 selected = "unsupported";
                 current = default;
@@ -520,8 +529,55 @@ internal static class WorldRequirementEvaluator
             WorldRequirementConditionKind.Generic => Generic(world, in row, whole),
             WorldRequirementConditionKind.PrerequisiteLink => PrerequisiteLink(
                 world, in row, whole, trail, trailDepth),
+            WorldRequirementConditionKind.List => List(world, in row),
             _ => WorldRequirementVerdict.Unevaluable,
         };
+    }
+
+    /// <summary>Ported from <c>ListRequirement.InternalIsValid</c>.</summary>
+    /// <remarks>
+    /// <para>
+    /// The two folds are <c>Enumerable.Any(element is IVisibility v &amp;&amp; v.IsVisible())</c> and
+    /// its availability twin — an element implementing neither interface contributes false rather
+    /// than being skipped, which is why a null member is folded rather than ignored. The class's
+    /// third comparison, a count against the threshold, is not exercised by any authored content in
+    /// this baseline and reads as unevaluable rather than as a comparison nobody has checked.
+    /// </para>
+    /// <para>
+    /// Only a member whose own gate this suite has read is folded. <c>ConsumableSO</c> answers both
+    /// <c>IsVisible()</c> and <c>IsAvailable()</c> from the same stored <c>visible</c> field, which
+    /// the consumable rows publish; anything else refuses, because a fold that quietly treated an
+    /// unread member as not visible would answer <em>unmet</em> for a list the game calls satisfied.
+    /// A member found visible still answers met even when a later one is unreadable, because the
+    /// game's own <c>Any</c> stops at the first true.
+    /// </para>
+    /// </remarks>
+    private static WorldRequirementVerdict List(GameWorldState world, in WorldEntityRequirement row)
+    {
+        if (row.ReqType is not (ListAnyVisible or ListAnyAvailable))
+            return WorldRequirementVerdict.Unevaluable;
+        if (!WorldRequirementListLookup.TryFindRange(
+                world.RequirementListMembers, row.TargetId, out var start, out var count))
+        {
+            return WorldRequirementVerdict.Unevaluable;
+        }
+
+        var rows = world.RequirementListMembers.AsSpan();
+        var verdict = WorldRequirementVerdict.Unmet;
+        for (var offset = 0; offset < count; offset++)
+        {
+            ref readonly var member = ref rows[start + offset];
+            if (member.Position < 0 || member.MemberId == Guid.Empty) continue;
+            if (!WorldLookup.TryFind(world.Consumables, member.MemberId, out var consumable))
+            {
+                verdict = WorldRequirementVerdict.Unevaluable;
+                continue;
+            }
+
+            if (consumable.Visible) return WorldRequirementVerdict.Met;
+        }
+
+        return verdict;
     }
 
     /// <summary>

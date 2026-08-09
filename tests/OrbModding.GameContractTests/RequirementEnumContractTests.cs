@@ -46,6 +46,9 @@ public sealed class RequirementEnumContractTests
     // PrerequisiteLinkBase / PrerequisiteLinkTier
     [InlineData("Requirements.PrerequisiteLinkType", "Base", 0)]
     [InlineData("Requirements.PrerequisiteLinkType", "Tier", 1)]
+    // ListAnyVisible / ListAnyAvailable
+    [InlineData("Requirements.ListRequirementType", "AnyVisible", 1)]
+    [InlineData("Requirements.ListRequirementType", "AnyAvailable", 2)]
     [GameAssemblyTheory]
     public void EveryMirroredRequirementDiscriminantStillHoldsItsNumber(
         string enumType,

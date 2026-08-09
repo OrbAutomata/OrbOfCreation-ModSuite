@@ -116,6 +116,12 @@ internal sealed class GameWorldCycleFrame
     internal WorldEntityRequirementBuffer EntityRequirements { get; } = new();
 
     /// <summary>
+    /// The membership of every list variable a requirement compares against. Filled by the same
+    /// structural reader, because a list is only reachable through the condition that names it.
+    /// </summary>
+    internal WorldRequirementListBuffer RequirementLists { get; } = new();
+
+    /// <summary>
     /// Exact candidate-to-list/view routes for Auto Buy. Authored structure, so the collector keeps
     /// the rows for the whole lifecycle and only the ordinary <c>views</c> category refreshes each
     /// view's live availability.
@@ -508,6 +514,7 @@ internal static class GameWorldFrameDeriver
                 WorldPlotPhaseDescriptorDeriver.Build(frame.PlotPhaseDescriptors),
             EffectBlocks = WorldEffectBlockDeriver.Build(frame.EffectBlocks),
             EntityRequirements = WorldEntityRequirementDeriver.Build(frame.EntityRequirements),
+            RequirementListMembers = WorldRequirementListDeriver.Build(frame.RequirementLists),
             PrerequisiteLinkTiers =
                 WorldPrerequisiteLinkTierDeriver.Build(frame.PrerequisiteLinkTiers),
             TreasurePools = frame.TreasurePools.Build(WorldIdentityDeriver<WorldTreasurePool>.Shared),

@@ -113,6 +113,13 @@ public enum PrerequisiteLinkType
     Tier,
 }
 
+public enum ListRequirementType
+{
+    Count,
+    AnyVisible,
+    AnyAvailable,
+}
+
 public sealed class UpgradeRequirement : BaseCondition<UpgradeSO, UpgradeRequirementType>
 {
 }
@@ -153,6 +160,15 @@ public sealed class GenericRequirement : BaseCondition<UpgradeableObject, Generi
 
 public sealed class PrerequisiteLinkRequirement :
     BaseCondition<global::PrerequisiteLinkSO, PrerequisiteLinkType>
+{
+}
+
+/// <summary>
+/// The one condition whose subject is a whole list rather than one entity. Its item type is the
+/// abstract list base, as the game declares it, so the membership behind it is only reachable
+/// through the concrete class the author picked.
+/// </summary>
+public sealed class ListRequirement : BaseCondition<global::AbstractListVariable, ListRequirementType>
 {
 }
 

@@ -8311,6 +8311,42 @@
       "place": "mirrored"
     },
     {
+      "id": "requirement-type.list.any-visible",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.ListRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "AnyVisible",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.ListRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "requirement-type.list.any-available",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.ListRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "AnyAvailable",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.ListRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
       "id": "requirement-condition-info.type",
       "assembly": "assembly-csharp",
       "type": "Requirements.ConditionInfo",
@@ -8339,6 +8375,59 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "requirement-condition.list.type",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.ListRequirement",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Common world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "requirement-condition.list.membership",
+      "assembly": "assembly-csharp",
+      "type": "AbstractListVariable`1",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "value",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<!0>",
+      "owners": [
+        "Common world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<!0>"}
+    },
+    {
+      "id": "requirement-condition.list.is-static",
+      "assembly": "assembly-csharp",
+      "type": "AbstractListVariable`1",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "isStatic",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
     },
     {
       "id": "requirement-condition.and-children",

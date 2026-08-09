@@ -336,6 +336,71 @@ public sealed class WorldEntityRequirementTests : IDisposable
     }
 
     /// <summary>
+    /// A list comparison names a whole list, so the row's edge is the list and the membership behind
+    /// it is published beside it — a header row saying the list was read, then one row per position.
+    /// </summary>
+    [Fact]
+    public void AListConditionPublishesTheMembershipItsFoldNeeds()
+    {
+        var gated = Author(new global::UpgradeSO { maxLevel = 1 });
+        var first = new global::ConsumableSO();
+        var second = new global::ConsumableSO();
+        var list = new global::ConsumableRefListVariable { isStatic = true };
+        list.value.Add(first);
+        list.value.Add(second);
+        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.ListRequirement
+        {
+            item = list,
+            reqType = Requirements.ListRequirementType.AnyVisible,
+            value = new Requirements.LeveledValue(),
+        });
+
+        var world = Collect();
+
+        var row = Single(world);
+        Assert.Equal(WorldRequirementConditionKind.List, row.Kind);
+        Assert.Equal("ListRequirement", row.ConditionTypeName);
+        Assert.Equal(list.GetGuid(), row.TargetId);
+
+        Assert.True(WorldRequirementListLookup.TryFindRange(
+            world.RequirementListMembers, list.GetGuid(), out var start, out var count));
+        Assert.Equal(3, count);
+        Assert.Equal(
+            WorldRequirementListMember.HeaderPosition,
+            world.RequirementListMembers[start].Position);
+        Assert.Equal(first.GetGuid(), world.RequirementListMembers[start + 1].MemberId);
+        Assert.Equal(second.GetGuid(), world.RequirementListMembers[start + 2].MemberId);
+    }
+
+    /// <summary>
+    /// This reader is epoch-scoped, so a list the run plays into cannot be published from it without
+    /// freezing at whatever the lifecycle started with. It is named as a shortfall instead, which is
+    /// the same reading a condition class nobody has modelled gets.
+    /// </summary>
+    [Fact]
+    public void AListTheRunPlaysIntoIsNamedRatherThanPublishedStale()
+    {
+        var gated = Author(new global::UpgradeSO { maxLevel = 1 });
+        var hotbar = new global::ConsumableRefListVariable { isStatic = false };
+        hotbar.value.Add(new global::ConsumableSO());
+        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.ListRequirement
+        {
+            item = hotbar,
+            reqType = Requirements.ListRequirementType.AnyVisible,
+            value = new Requirements.LeveledValue(),
+        });
+
+        var collector = new GameWorldCollector();
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 1 };
+        var report = collector.Collect(frame);
+        var category = report.For("entity requirements");
+
+        Assert.Equal(1, category.Skipped);
+        Assert.Contains("the run plays into", category.FirstFailure, StringComparison.Ordinal);
+        Assert.Equal(0, GameWorldFrameDeriver.Build(frame).RequirementListMembers.Count);
+    }
+
+    /// <summary>
     /// The unmodelled class is named once, where an operator will see it: the pass reports itself as
     /// incomplete and says which class it found. The reader runs once per lifecycle, so that is once
     /// per run of the game.
@@ -495,6 +560,7 @@ public sealed class WorldEntityRequirementTests : IDisposable
         global::UpgradeSO.All.Clear();
         global::StructureSO.All.Clear();
         global::ResearchSO.All.Clear();
+        global::ConsumableSO.All.Clear();
         global::AlchemyRecipeSO.All.Clear();
         global::IntVariable.All.Clear();
         global::PrerequisiteLinkSO.All.Clear();

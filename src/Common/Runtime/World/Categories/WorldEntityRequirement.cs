@@ -68,6 +68,9 @@ internal enum WorldRequirementConditionKind
 
     /// <summary>An authored empty composite's exact Any/All identity value.</summary>
     Literal = 10,
+
+    /// <summary>A comparison against a whole list variable rather than against one entity.</summary>
+    List = 11,
 }
 
 internal enum WorldRequirementNodeKind
@@ -402,6 +405,119 @@ internal static class WorldEntityRequirementDeriver
     }
 }
 
+/// <summary>
+/// One position in a list variable an authored <c>ListRequirement</c> compares against.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The comparison is over a whole list — <c>GetCount()</c>, <c>IsAnyVisible()</c>, or
+/// <c>IsAnyAvailable()</c> — so what a snapshot needs is the membership, not one edge. Each member's
+/// own visibility is already a per-pass row in this same snapshot, which is what lets the fold be
+/// arithmetic over published facts rather than a native sweep.
+/// </para>
+/// <para>
+/// A <see cref="Position"/> of -1 is the list's header row: it says the list was read and its
+/// membership is authored rather than played into. Without it an empty list and an unread one would
+/// be the same absence, and only one of those may be answered.
+/// </para>
+/// </remarks>
+internal readonly struct WorldRequirementListMember
+{
+    internal const int HeaderPosition = -1;
+
+    internal WorldRequirementListMember(Guid listId, int position, Guid memberId)
+    {
+        ListId = listId;
+        Position = position;
+        MemberId = memberId;
+    }
+
+    internal Guid ListId { get; }
+
+    /// <summary>The index in the list's own order, or -1 for the header row.</summary>
+    internal int Position { get; }
+
+    /// <summary>
+    /// The member at that position, or <see cref="Guid.Empty"/> for a null element — which the
+    /// game's own <c>isinst</c> folds as neither visible nor available rather than skipping.
+    /// </summary>
+    internal Guid MemberId { get; }
+}
+
+internal static class WorldRequirementListLookup
+{
+    internal static bool TryFindRange(
+        PublicationTable<WorldRequirementListMember> table,
+        Guid listId,
+        out int start,
+        out int count)
+    {
+        start = 0;
+        count = 0;
+        if (listId == Guid.Empty) return false;
+
+        var rows = table.AsSpan();
+        var low = 0;
+        var high = rows.Length - 1;
+        var found = -1;
+        while (low <= high)
+        {
+            var middle = low + ((high - low) / 2);
+            var comparison = rows[middle].ListId.CompareTo(listId);
+            if (comparison == 0)
+            {
+                found = middle;
+                high = middle - 1;
+                continue;
+            }
+
+            if (comparison < 0) low = middle + 1;
+            else high = middle - 1;
+        }
+
+        if (found < 0) return false;
+
+        start = found;
+        while (start + count < rows.Length && rows[start + count].ListId == listId) count++;
+        return true;
+    }
+}
+
+internal sealed class WorldRequirementListBuffer
+{
+    private WorldRequirementListMember[] _samples = new WorldRequirementListMember[32];
+    private int _count;
+
+    internal int Count => _count;
+    internal ref readonly WorldRequirementListMember this[int index] => ref _samples[index];
+    internal void Reset() => _count = 0;
+
+    internal void Append(in WorldRequirementListMember sample)
+    {
+        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
+        _samples[_count++] = sample;
+    }
+}
+
+internal static class WorldRequirementListDeriver
+{
+    internal static PublicationTable<WorldRequirementListMember> Build(
+        WorldRequirementListBuffer buffer)
+    {
+        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
+        if (buffer.Count == 0) return PublicationTable<WorldRequirementListMember>.Empty;
+
+        var rows = new WorldRequirementListMember[buffer.Count];
+        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
+        Array.Sort(rows, static (left, right) =>
+        {
+            var byList = left.ListId.CompareTo(right.ListId);
+            return byList != 0 ? byList : left.Position.CompareTo(right.Position);
+        });
+        return PublicationTable<WorldRequirementListMember>.Create(rows, rows.Length);
+    }
+}
+
 /// <summary>The volatile native gates around one authored prerequisite-link tier.</summary>
 internal readonly struct WorldPrerequisiteLinkTier
 {
@@ -680,6 +796,22 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     /// </summary>
     private readonly Dictionary<Type, ConditionAccessors> _accessors = new();
 
+    /// <summary>
+    /// The same per-class binding, for the list-variable classes a <c>ListRequirement</c> names.
+    /// </summary>
+    private readonly Dictionary<Type, ListVariableAccessors> _listAccessors = new();
+
+    private readonly Dictionary<Type, Func<object, Guid>?> _memberIdentities = new();
+
+    /// <summary>Which lists this pass has already read, so a list two conditions name is read once.</summary>
+    private readonly HashSet<Guid> _capturedLists = new();
+
+    /// <summary>
+    /// Where this pass's list membership goes. Held for the pass rather than threaded through eight
+    /// signatures whose subject is the condition graph rather than the lists hanging off two of them.
+    /// </summary>
+    private WorldRequirementListBuffer? _lists;
+
     internal WorldEntityRequirementReader(
         Type? upgradeType,
         Type? structureType,
@@ -768,6 +900,9 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     {
         var buffer = frame.EntityRequirements;
         buffer.Reset();
+        frame.RequirementLists.Reset();
+        _lists = frame.RequirementLists;
+        _capturedLists.Clear();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
         var sampled = 0;
@@ -1023,6 +1158,8 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         var ordinal = nextOrdinal++;
         var row = accessors.ReadGraph(
             ownerId, kind, containerIndex, ordinal, parentOrdinal, depth, condition);
+        if (row.Kind == WorldRequirementConditionKind.List)
+            CaptureList(accessors, condition, row.TargetId, ref unmodelled, ref firstFailure);
         if (row.Kind == WorldRequirementConditionKind.Unknown &&
             row.NodeKind == WorldRequirementNodeKind.Leaf)
         {
@@ -1164,6 +1301,8 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                 var row = accessors.Read(
                     ownerId, ownerKind, appended, condition, program,
                     WorldRequirementGroupKind.All, groupOrdinal);
+                if (row.Kind == WorldRequirementConditionKind.List)
+                    CaptureList(accessors, condition, row.TargetId, ref unmodelled, ref firstFailure);
                 Append(in row, buffer, ref appended, ref unmodelled, ref firstFailure);
                 continue;
             }
@@ -1206,6 +1345,8 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                     : childAccessors.Read(
                         ownerId, ownerKind, appended, child, program,
                         accessors.GroupKind, groupOrdinal);
+                if (row.Kind == WorldRequirementConditionKind.List)
+                    CaptureList(childAccessors, child, row.TargetId, ref unmodelled, ref firstFailure);
                 Append(in row, buffer, ref appended, ref unmodelled, ref firstFailure);
             }
         }
@@ -1239,6 +1380,129 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         var built = ConditionAccessors.Bind(conditionType);
         _accessors.Add(conditionType, built);
         return built;
+    }
+
+    /// <summary>
+    /// Reads the membership behind one <c>ListRequirement</c>, once per pass per list.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The comparison the game makes is over the whole list, so membership is the fact a worker needs;
+    /// each member's own visibility is already a per-pass row elsewhere in the same snapshot. Nothing
+    /// here calls a native predicate: <c>value</c> and <c>isStatic</c> are stored fields and
+    /// <c>GetGuid()</c> is an identity read.
+    /// </para>
+    /// <para>
+    /// Only a list the game itself marks <c>isStatic</c> is published. This reader is epoch-scoped, so
+    /// a list the run plays into would be frozen at whatever it held when the lifecycle began, and a
+    /// membership that stale answers worse than no membership at all. One that is not, or whose
+    /// members carry no readable identity, is counted as a shortfall and named — the same fail-closed
+    /// reading a condition class this suite does not model gets.
+    /// </para>
+    /// </remarks>
+    private void CaptureList(
+        ConditionAccessors accessors,
+        object condition,
+        Guid listId,
+        ref int unmodelled,
+        ref string firstFailure)
+    {
+        if (_lists is null || listId == Guid.Empty || !_capturedLists.Add(listId)) return;
+
+        var list = accessors.ReadListVariable(condition);
+        if (list is null)
+        {
+            unmodelled++;
+            if (firstFailure.Length == 0)
+                firstFailure = "a list requirement names no list variable. " +
+                    "Entities gated by one are never planned.";
+            return;
+        }
+
+        var binding = ListAccessorsFor(list.GetType());
+        if (!binding.IsBound)
+        {
+            unmodelled++;
+            if (firstFailure.Length == 0)
+                firstFailure = $"this build's {list.GetType().Name} did not expose its membership. " +
+                    "Entities gated by one are never planned.";
+            return;
+        }
+
+        if (!binding.IsStatic(list))
+        {
+            unmodelled++;
+            if (firstFailure.Length == 0)
+                firstFailure = "this build compares against a list the run plays into: " +
+                    $"{list.GetType().Name}. Entities gated by one are never planned.";
+            return;
+        }
+
+        var members = binding.Members(list);
+        var count = members?.Count ?? 0;
+        for (var index = 0; index < count; index++)
+        {
+            var member = members![index];
+            if (member is null || MemberIdentityFor(member.GetType()) is not null) continue;
+            unmodelled++;
+            if (firstFailure.Length == 0)
+                firstFailure = $"a list requirement names a {member.GetType().Name} with no readable " +
+                    "identity. Entities gated by one are never planned.";
+            return;
+        }
+
+        var header = new WorldRequirementListMember(
+            listId, WorldRequirementListMember.HeaderPosition, Guid.Empty);
+        _lists.Append(in header);
+        for (var index = 0; index < count; index++)
+        {
+            var member = members![index];
+            var identity = member is null ? Guid.Empty : MemberIdentityFor(member.GetType())!(member);
+            var row = new WorldRequirementListMember(listId, index, identity);
+            _lists.Append(in row);
+        }
+    }
+
+    private ListVariableAccessors ListAccessorsFor(Type listType)
+    {
+        if (_listAccessors.TryGetValue(listType, out var cached)) return cached;
+
+        var built = ListVariableAccessors.Bind(listType);
+        _listAccessors.Add(listType, built);
+        return built;
+    }
+
+    private Func<object, Guid>? MemberIdentityFor(Type memberType)
+    {
+        if (_memberIdentities.TryGetValue(memberType, out var cached)) return cached;
+
+        var built = NativeAccessorBinder.Call<Guid>(memberType, "GetGuid");
+        _memberIdentities.Add(memberType, built);
+        return built;
+    }
+
+    /// <summary>The two stored fields one list-variable class answers its membership from.</summary>
+    private sealed class ListVariableAccessors
+    {
+        private readonly Func<object, IList?>? _members;
+        private readonly Func<object, bool>? _isStatic;
+
+        private ListVariableAccessors(Func<object, IList?>? members, Func<object, bool>? isStatic)
+        {
+            _members = members;
+            _isStatic = isStatic;
+        }
+
+        internal static ListVariableAccessors Bind(Type listType) =>
+            new(
+                NativeAccessorBinder.CollectionField(listType, "value"),
+                NativeAccessorBinder.Field<bool>(listType, "isStatic"));
+
+        internal bool IsBound => _members is not null && _isStatic is not null;
+
+        internal bool IsStatic(object list) => _isStatic!(list);
+
+        internal IList? Members(object list) => _members!(list);
     }
 
     private const BindingFlags Instance =
@@ -1275,6 +1539,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         private readonly Func<object, BigDouble>? _modPerLevelAmount;
         private readonly Func<object, int>? _modPerLevelOrder;
         private readonly WorldRequirementGroupKind? _groupKind;
+        private readonly Func<object, object?>? _itemObject;
 
         private ConditionAccessors(
             WorldRequirementConditionKind kind,
@@ -1292,8 +1557,10 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             Func<object, int>? modPerLevelType,
             Func<object, BigDouble>? modPerLevelAmount,
             Func<object, int>? modPerLevelOrder,
-            WorldRequirementGroupKind? groupKind = null)
+            WorldRequirementGroupKind? groupKind = null,
+            Func<object, object?>? itemObject = null)
         {
+            _itemObject = itemObject;
             _kind = kind;
             _typeName = typeName;
             _nodeKind = nodeKind;
@@ -1314,6 +1581,12 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
 
         internal bool IsComposite => _groupKind.HasValue;
         internal WorldRequirementGroupKind GroupKind => _groupKind ?? WorldRequirementGroupKind.All;
+
+        /// <summary>
+        /// The list variable a <c>ListRequirement</c> compares against, as the object rather than as
+        /// its identity: the membership behind the fold is only reachable through the instance.
+        /// </summary>
+        internal object? ReadListVariable(object condition) => _itemObject?.Invoke(condition);
 
         internal IList? ReadChildren(object condition) => _children?.Invoke(condition);
 
@@ -1371,12 +1644,19 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             var modPerLevelOrder =
                 NativeAccessorBinder.NestedField<int>(thresholdType, "modPerLevel", "order");
 
+            // A list comparison folds over the whole list, so the instance behind the identity is part
+            // of this class's binding set rather than an extra the reader reaches for separately.
+            var itemObject = kind == WorldRequirementConditionKind.List
+                ? NativeAccessorBinder.Reference(conditionType, "item")
+                : null;
+
             // A modelled kind whose members did not bind is not modelled after all. Collapsing the two
             // into one verdict is what keeps every consumer's fail-closed test a single comparison.
             var bound = item is not null && reqType is not null && value is not null &&
                 baseValue is not null && perLevelType is not null && perLevelAmount is not null &&
                 perLevelOrder is not null && modPerLevelType is not null &&
-                modPerLevelAmount is not null && modPerLevelOrder is not null;
+                modPerLevelAmount is not null && modPerLevelOrder is not null &&
+                (kind != WorldRequirementConditionKind.List || itemObject is not null);
 
             return new ConditionAccessors(
                 bound ? kind : WorldRequirementConditionKind.Unknown,
@@ -1393,7 +1673,9 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                 perLevelOrder,
                 modPerLevelType,
                 modPerLevelAmount,
-                modPerLevelOrder);
+                modPerLevelOrder,
+                groupKind: null,
+                itemObject: itemObject);
         }
 
         internal IList? Children(object condition) => _children?.Invoke(condition);
@@ -1541,6 +1823,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             "NumberRequirement" => WorldRequirementConditionKind.Number,
             "GenericRequirement" => WorldRequirementConditionKind.Generic,
             "PrerequisiteLinkRequirement" => WorldRequirementConditionKind.PrerequisiteLink,
+            "ListRequirement" => WorldRequirementConditionKind.List,
             _ => WorldRequirementConditionKind.Unknown,
         };
     }

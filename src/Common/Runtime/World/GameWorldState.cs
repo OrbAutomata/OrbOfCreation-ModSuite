@@ -428,6 +428,19 @@ public sealed record GameWorldState
         PublicationTable<WorldEntityRequirement>.Empty;
 
     /// <summary>
+    /// The ordered membership of every list variable a requirement compares against, keyed by the
+    /// list and read through <see cref="WorldRequirementListLookup"/>.
+    /// </summary>
+    /// <remarks>
+    /// A list comparison folds over the whole list rather than following one edge, so the membership
+    /// is what a worker needs; each member's own visibility is a per-pass row of its own category.
+    /// Only lists the game marks static are here — a list the run plays into cannot be published by
+    /// an epoch-scoped reader without going stale, and the collection report names it when one is.
+    /// </remarks>
+    internal PublicationTable<WorldRequirementListMember> RequirementListMembers { get; init; } =
+        PublicationTable<WorldRequirementListMember>.Empty;
+
+    /// <summary>
     /// The live active-link and passive-cache gates for every authored prerequisite-link tier.
     /// </summary>
     internal PublicationTable<WorldPrerequisiteLinkTier> PrerequisiteLinkTiers { get; init; } =

@@ -741,12 +741,127 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
             WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
     }
 
+    /// <summary>
+    /// The live case: the inventory tier is gated on any consumable in the authored master list being
+    /// visible. One visible member opens it, and the game's own fold stops at the first true.
+    /// </summary>
+    [Fact]
+    public void AnyVisibleIsMetAsSoonAsOneMemberOfTheListIsVisible()
+    {
+        var gated = Upgrade();
+        Consumable(visible: false);
+        var shown = Consumable(visible: false);
+        var list = StaticList(global::ConsumableSO.All.ToArray());
+        RequireList(gated, list, Requirements.ListRequirementType.AnyVisible);
+
+        Assert.Equal(
+            WorldRequirementVerdict.Unmet,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+
+        shown.visible = true;
+        Assert.Equal(
+            WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
+    /// <summary>
+    /// <c>ConsumableSO</c> answers <c>IsAvailable()</c> from the same stored field as
+    /// <c>IsVisible()</c>, so the two comparisons agree on it rather than reading different state.
+    /// </summary>
+    [Fact]
+    public void AnyAvailableReadsTheSameStoredGateAsAnyVisible()
+    {
+        var gated = Upgrade();
+        var list = StaticList(Consumable(visible: true));
+        RequireList(gated, list, Requirements.ListRequirementType.AnyAvailable);
+
+        Assert.Equal(
+            WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
+    /// <summary>
+    /// The class's third comparison is authored nowhere in this baseline, so it is refused rather
+    /// than answered by a branch nothing has ever checked against the game.
+    /// </summary>
+    [Fact]
+    public void TheCountComparisonNoContentAuthorsIsRefusedRatherThanGuessed()
+    {
+        var gated = Upgrade();
+        var list = StaticList(Consumable(visible: true));
+        RequireList(gated, list, Requirements.ListRequirementType.Count, threshold: 1d);
+
+        Assert.Equal(
+            WorldRequirementVerdict.Unevaluable,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
+    /// <summary>
+    /// A member whose own gate the snapshot does not carry refuses the fold. Treating it as not
+    /// visible would answer <em>unmet</em> for a list the game calls satisfied, which is the one
+    /// direction a planner cannot recover from.
+    /// </summary>
+    [Fact]
+    public void AMemberWhoseGateIsNotPublishedRefusesTheFold()
+    {
+        var gated = Upgrade();
+        var list = StaticList(new global::ConsumableSO());
+        RequireList(gated, list, Requirements.ListRequirementType.AnyVisible);
+
+        Assert.Equal(
+            WorldRequirementVerdict.Unevaluable,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
     private static global::UpgradeSO Upgrade()
     {
         var upgrade = new global::UpgradeSO { maxLevel = -1 };
         global::UpgradeSO.All.Add(upgrade);
         return upgrade;
     }
+
+    /// <summary>
+    /// Consumables only publish once the global consumable type's carry-load edge is reachable, so a
+    /// test that wants their visibility rows authors the same registry the game holds.
+    /// </summary>
+    private static global::ConsumableSO Consumable(bool visible)
+    {
+        if (global::ConsumableSO.All.Count == 0)
+        {
+            var carryLoad = new global::IntVariable();
+            global::IntVariable.All.Add(carryLoad);
+            var globalType = new global::ConsumableTypeSO { maximumCarryLoad = carryLoad };
+            globalType.SetGuid(GlobalConsumableTypeId);
+            global::IdScriptableObject.RuntimeLookup[GlobalConsumableTypeId] = globalType;
+        }
+
+        var consumable = new global::ConsumableSO { visible = visible };
+        global::ConsumableSO.All.Add(consumable);
+        return consumable;
+    }
+
+    private static readonly Guid GlobalConsumableTypeId =
+        new("315471ca-0d15-455d-92da-f9d5f95a3c33");
+
+    private static global::ConsumableRefListVariable StaticList(
+        params global::ConsumableSO[] members)
+    {
+        var list = new global::ConsumableRefListVariable { isStatic = true };
+        list.value.AddRange(members);
+        return list;
+    }
+
+    private static void RequireList(
+        global::UpgradeSO owner,
+        global::AbstractListVariable list,
+        Requirements.ListRequirementType reqType,
+        double threshold = 0d) =>
+        owner.prerequisitesPerLevel.prerequisites.Add(new Requirements.ListRequirement
+        {
+            item = list,
+            reqType = reqType,
+            value = new Requirements.LeveledValue { baseValue = threshold },
+        });
 
     private static global::ResearchSO Research()
     {
@@ -815,12 +930,14 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
         global::UpgradeSO.All.Clear();
         global::StructureSO.All.Clear();
         global::ResearchSO.All.Clear();
+        global::ConsumableSO.All.Clear();
         global::SpellRecipeSO.All.Clear();
         global::AlchemyRecipeSO.All.Clear();
         global::RitualSO.All.Clear();
         global::RitualManager.instance = new global::RitualManager();
         global::IntVariable.All.Clear();
         global::PrerequisiteLinkSO.All.Clear();
+        global::IdScriptableObject.RuntimeLookup.Clear();
         global::GameManager.currentFrame = 0;
     }
 }
