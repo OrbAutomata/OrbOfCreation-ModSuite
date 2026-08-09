@@ -742,6 +742,51 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
     }
 
     /// <summary>
+    /// The live case: a link tier is gated on a time rune having been discovered. The target's own
+    /// category already publishes the game's <c>IsDiscovered()</c>, so the answer comes from the
+    /// implementer the identity belongs to rather than from a guess about which field to read.
+    /// </summary>
+    [Fact]
+    public void ADiscoveredConditionReadsTheTargetCategorysOwnDiscoveryVerdict()
+    {
+        var gated = Upgrade();
+        var rune = TimeRune(discovered: false);
+        RequireDiscovered(gated, rune);
+
+        Assert.Equal(
+            WorldRequirementVerdict.Unmet,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+
+        rune.discovered = true;
+        Assert.Equal(
+            WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
+    /// <summary>
+    /// A discovery comparison whose target is in no discoverable category is refused. The game answers
+    /// true outright for a target implementing nothing, and admitting a purchase on that is exactly the
+    /// accident the fail-closed rule exists for.
+    /// </summary>
+    [Fact]
+    public void ADiscoveredConditionOnSomethingUndiscoverableIsRefusedRatherThanAdmitted()
+    {
+        var gated = Upgrade();
+        var quarry = new global::StructureSO { quantity = 9 };
+        global::StructureSO.All.Add(quarry);
+        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.GenericRequirement
+        {
+            item = quarry,
+            reqType = Requirements.GenericRequirementType.Discovered,
+            value = new Requirements.LeveledValue(),
+        });
+
+        Assert.Equal(
+            WorldRequirementVerdict.Unevaluable,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
+    /// <summary>
     /// The live case: the inventory tier is gated on any consumable in the authored master list being
     /// visible. One visible member opens it, and the game's own fold stops at the first true.
     /// </summary>
@@ -863,6 +908,22 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
             value = new Requirements.LeveledValue { baseValue = threshold },
         });
 
+    private static global::TimeRuneSO TimeRune(bool discovered)
+    {
+        var rune = new global::TimeRuneSO { discovered = discovered };
+        global::TimeRuneSO.All.Add(rune);
+        return rune;
+    }
+
+    private static void RequireDiscovered(
+        global::UpgradeSO owner, global::UpgradeableObject target) =>
+        owner.prerequisitesPerLevel.prerequisites.Add(new Requirements.GenericRequirement
+        {
+            item = target,
+            reqType = Requirements.GenericRequirementType.Discovered,
+            value = new Requirements.LeveledValue(),
+        });
+
     private static global::ResearchSO Research()
     {
         var research = new global::ResearchSO { maxLevel = 10 };
@@ -934,6 +995,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
         global::SpellRecipeSO.All.Clear();
         global::AlchemyRecipeSO.All.Clear();
         global::RitualSO.All.Clear();
+        global::TimeRuneSO.All.Clear();
         global::RitualManager.instance = new global::RitualManager();
         global::IntVariable.All.Clear();
         global::PrerequisiteLinkSO.All.Clear();

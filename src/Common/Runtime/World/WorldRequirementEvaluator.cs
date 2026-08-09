@@ -103,6 +103,7 @@ internal static class WorldRequirementEvaluator
     private const int RitualReachedLevel = 1;
     private const int NumberValue = 0;
     private const int GenericLevel = 1;
+    private const int GenericDiscovered = 2;
     private const int PrerequisiteLinkBase = 0;
     private const int PrerequisiteLinkTier = 1;
     private const int ListAnyVisible = 1;
@@ -367,6 +368,11 @@ internal static class WorldRequirementEvaluator
                 current = number.Value;
                 required = effective = scaledThreshold;
                 supported = row.ReqType == NumberValue;
+                break;
+            case WorldRequirementConditionKind.Generic when row.ReqType == GenericDiscovered:
+                selected = "discovered";
+                current = verdict == WorldRequirementVerdict.Met ? BigDouble.One : BigDouble.Zero;
+                required = effective = BigDouble.One;
                 break;
             case WorldRequirementConditionKind.Generic
                 when TryFindNumber(world, row.TargetId, out var generic):
@@ -842,12 +848,14 @@ internal static class WorldRequirementEvaluator
     /// path exists to avoid.
     /// </para>
     /// <para>
-    /// <c>Discovered</c> is refused on that same ground, and not because it writes — every
-    /// <c>IDiscoverable.IsDiscovered()</c> is a field return. They are not returns of the <em>same</em>
-    /// field: <c>EquipmentSO</c> answers from <c>isCreated</c> where the other five answer from
-    /// <c>discovered</c>, and a target implementing neither answers <c>true</c> outright. A row carries
-    /// an identity rather than a type, so nothing here can pick the right one. The typed conditions —
-    /// spell, alchemy recipe, ritual — name their target's type and so read theirs directly.
+    /// <c>Discovered</c> is not that shape. Every <c>IDiscoverable.IsDiscovered()</c> is a field
+    /// return, but not of the <em>same</em> field — <c>EquipmentSO</c> answers from
+    /// <c>isCreated</c> where the other five answer from <c>discovered</c> — so the answer depends on
+    /// the target's type, which a row carrying an identity does not name. The snapshot does: each of
+    /// the six implementers publishes the game's own <c>IsDiscovered()</c> beside its identity in its
+    /// own category, so the type is decided by which table the identity is in rather than guessed.
+    /// A target in none of them refuses, which also covers the game's outright <c>true</c> for a
+    /// target implementing nothing — that is a verdict nobody should plan on.
     /// </para>
     /// </remarks>
     private static WorldRequirementVerdict Generic(
@@ -855,11 +863,32 @@ internal static class WorldRequirementEvaluator
         in WorldEntityRequirement row,
         long threshold)
     {
+        if (row.ReqType == GenericDiscovered) return Discovered(world, row.TargetId);
         if (row.ReqType != GenericLevel) return WorldRequirementVerdict.Unevaluable;
         if (!TryFindNumber(world, row.TargetId, out var variable))
             return WorldRequirementVerdict.Unevaluable;
 
         return Verdict(variable.Value.ToInt() >= threshold);
+    }
+
+    /// <summary>
+    /// The target's own <c>IsDiscovered()</c>, taken from whichever category published it.
+    /// </summary>
+    private static WorldRequirementVerdict Discovered(GameWorldState world, Guid targetId)
+    {
+        if (WorldLookup.TryFind(world.TimeRunes, targetId, out var rune))
+            return Verdict(rune.Discovery.Discovered);
+        if (WorldLookup.TryFind(world.Glyphs, targetId, out var glyph))
+            return Verdict(glyph.Discovery.Discovered);
+        if (WorldLookup.TryFind(world.SpellRecipes, targetId, out var spell))
+            return Verdict(spell.Discovery.Discovered);
+        if (WorldLookup.TryFind(world.AlchemyRecipes, targetId, out var recipe))
+            return Verdict(recipe.Discovery.Discovered);
+        if (WorldLookup.TryFind(world.Rituals, targetId, out var ritual))
+            return Verdict(ritual.Discovery.Discovered);
+        return WorldLookup.TryFind(world.Equipment, targetId, out var equipment)
+            ? Verdict(equipment.Discovery.Discovered)
+            : WorldRequirementVerdict.Unevaluable;
     }
 
     private static bool TryFindNumber(GameWorldState world, Guid targetId, out WorldNumberVariable variable) =>

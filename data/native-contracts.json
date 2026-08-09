@@ -8275,6 +8275,24 @@
       "place": "mirrored"
     },
     {
+      "id": "requirement-type.generic.discovered",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.GenericRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Discovered",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.GenericRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
       "id": "requirement-type.prerequisite-link.base",
       "assembly": "assembly-csharp",
       "type": "Requirements.PrerequisiteLinkType",

@@ -41,8 +41,9 @@ public sealed class RequirementEnumContractTests
     [InlineData("Requirements.RitualRequirementType", "ReachedLevel", 1)]
     // NumberValue
     [InlineData("Requirements.NumberRequirementType", "Value", 0)]
-    // GenericLevel
+    // GenericLevel / GenericDiscovered
     [InlineData("Requirements.GenericRequirementType", "Level", 1)]
+    [InlineData("Requirements.GenericRequirementType", "Discovered", 2)]
     // PrerequisiteLinkBase / PrerequisiteLinkTier
     [InlineData("Requirements.PrerequisiteLinkType", "Base", 0)]
     [InlineData("Requirements.PrerequisiteLinkType", "Tier", 1)]

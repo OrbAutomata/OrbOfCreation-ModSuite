@@ -546,7 +546,7 @@ public sealed class HarvestActionInstanceListVariable : GenericListVariable<Harv
 }
 
 
-public sealed class TimeRuneSO : IdScriptableObject, IDiscoverable, ILevelable
+public sealed class TimeRuneSO : UpgradeableObject, IDiscoverable, ILevelable
 {
     public static List<TimeRuneSO> All = new List<TimeRuneSO>();
     public bool discovered;
