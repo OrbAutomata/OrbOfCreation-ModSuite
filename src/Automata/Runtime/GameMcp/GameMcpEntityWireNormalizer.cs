@@ -64,6 +64,10 @@ internal static class GameMcpEntityWireNormalizer
         Rename(item, "equippedLevel", "equippedCount");
         Rename(item, "equippedStacks", "equippedCount");
         Rename(item, "activeAmount", "activeCount");
+
+        // One name for the ceiling on the read and on the refusal. Two words for one number made a
+        // caller compare what a row offered against what a refusal named and see a difference.
+        Rename(item, "maximumAdditional", "maximumAmount");
         if (item["position"] is JValue position &&
             position.Type == JTokenType.Integer && (long)position < 0)
             item.Remove("position");

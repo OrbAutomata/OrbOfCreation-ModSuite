@@ -49,7 +49,6 @@ public sealed class GameMcpBoundTypeTests
     [InlineData("minimumSlot")]
     [InlineData("maximumSlot")]
     [InlineData("maximumDestination")]
-    [InlineData("maximumAdditional")]
     [InlineData("maximumBatch")]
     [InlineData("minimum")]
     [InlineData("maximum")]
@@ -58,6 +57,19 @@ public sealed class GameMcpBoundTypeTests
         var response = Json(new GameMcpObjectBuilder { [field] = 8 });
 
         Assert.Equal(JTokenType.Integer, response[field]!.Type);
+    }
+
+    /// <summary>
+    /// One ceiling, one word. A read that offered a headroom under one name and a refusal that
+    /// named the same number under another made a caller compare two things and see a difference.
+    /// </summary>
+    [Fact]
+    public void The_ceiling_a_read_offers_has_the_name_a_refusal_uses()
+    {
+        var response = Json(new GameMcpObjectBuilder { ["maximumAdditional"] = 8 });
+
+        Assert.Equal(8, (int)response["maximumAmount"]!);
+        Assert.Null(response["maximumAdditional"]);
     }
 
     /// <summary>
