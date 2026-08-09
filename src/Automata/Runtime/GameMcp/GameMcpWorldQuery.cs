@@ -1057,7 +1057,8 @@ internal static class GameMcpWorldQuery
             ["dial"] = command.PayloadKey,
             ["before"] = output ? before?.OutputLevel : before?.ReserveLevel,
             ["after"] = output ? after.OutputLevel : after.ReserveLevel,
-            ["minimum"] = WorldSpellWorkbench.MinimumDialLevel,
+            // The floor of both dials is the constant 1 and lives in the tool documentation. The
+            // ceiling is the one end of the range that moves, so it is the one end worth sending.
             ["maximum"] = output ? after.MaximumOutputLevel : after.MaximumReserveLevel,
         }.Freeze();
     }
