@@ -1198,7 +1198,7 @@ the suite publishes as a bound is read live.
 A **schema bound** is the range the JSON input schema declares, and it is the suite's own policy on
 what is worth sending in one call — not a native fact. `game_purchase` and `game_level` cap `amount`
 at 1,000, `game_concept` at 1,000,000, and `game_agromancy` at 10,000; the paging tools cap `limit`
-at 200 and `game_screenshot` caps `maxWidth` at 4,096 for response size; every other `amount`,
+at 200 and `game_screenshot` caps `maxWidth` at 4,096 for reader cost; every other `amount`,
 `slot`, `offset`, and dial `value` — `game_alchemy` and `game_equipment` among them — declares no
 ceiling at all, because the suite has no opinion there and the native bound decides. Where the suite
 has no ceiling it publishes none: the schema omits `maximum`, and a below-floor value is refused
@@ -1655,9 +1655,17 @@ to touch one argues for it first. Each line names where the shape is specified.
 ## Screenshots and navigation
 
 `game_screenshot` has no required parameters and returns an MCP `image` content block with
-`mimeType: image/png`. `maxWidth` bounds the encoded image between 320 and 4,096 pixels and defaults
-to 1,280, which is the control for response size. The response reports the encoded `width`,
-`height`, `scene`, and whatever native modal is covering the board, and echoes nothing else.
+`mimeType: image/png`. A capture costs its reader whole 28-pixel patches — `ceil(width / 28)` x
+`ceil(height / 28)` tokens — so pixels are the entire price and neither the image format nor its
+compression enters it. That is why the PNG path is unconditional and there is no quality knob:
+lossy encoding would buy wire bytes, which are free, at the cost of readability, which is not.
+`maxWidth` bounds the encoded image between 320 and 4,096 pixels and defaults to 896 — 32 patch
+columns, the narrowest width at which every class of on-screen text stays readable through the
+suite's resampler, and the one control worth reaching for. The response reports the encoded `width`
+and `height`, which are therefore the exact cost of what it just sent, plus `scene` and whatever
+native modal is covering the board, and echoes nothing else. There is deliberately no crop or
+region parameter: cropping risks removing what the caller actually needed, and seeing more of the
+board than was asked for is how an agent notices what it did not know to look for.
 `game_screenshot` and `game_navigate` both carry `openModals` — the game-written title of every open
 `UIModal` — whenever at least one is open, and `openModalsUnavailable` with the reason when that read
 is not possible. Neither field appears when the read succeeded and no modal is open.

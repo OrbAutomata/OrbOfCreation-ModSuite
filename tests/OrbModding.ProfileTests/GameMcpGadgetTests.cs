@@ -76,6 +76,40 @@ public sealed class GameMcpGadgetTests
         Assert.Equal(4096, (int)properties["maxWidth"]!["maximum"]!);
     }
 
+    /// <summary>
+    /// A capture is priced in 28-pixel patches, so its width is the whole cost of reading it. The
+    /// default is the narrowest width every class of on-screen text survives, snapped onto that
+    /// patch grid, and both capturing tools arrive at the same one.
+    /// </summary>
+    [Theory]
+    [InlineData("game_screenshot")]
+    [InlineData("game_navigate")]
+    public void A_capture_defaults_to_the_readable_width_snapped_to_the_patch_grid(string tool)
+    {
+        var arguments = new JObject();
+        if (tool == "game_navigate") arguments["screen"] = "World";
+
+        Assert.Equal(896, CapturedWidth(tool, arguments));
+        Assert.Equal(0, 896 % 28);
+    }
+
+    private static int CapturedWidth(string tool, JObject arguments)
+    {
+        var inbox = new GameMcpFrameInbox();
+        var router = new GameMcpProtocolRouter(inbox);
+        var width = 0;
+        GameMcpTestHarness.Handle(router, inbox, GameMcpAcceptanceFixture.Request(
+            1,
+            "tools/call",
+            new JObject { ["name"] = tool, ["arguments"] = arguments }),
+            operation =>
+            {
+                width = operation.Request.Amount;
+                return GameMcpToolExecution.Text("ok");
+            });
+        return width;
+    }
+
     [Fact]
     public void ContinueHasNoCallerSelectedSaveOrNativeSurface()
     {
