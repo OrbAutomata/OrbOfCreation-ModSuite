@@ -199,9 +199,9 @@ merely repeat `committed`. Failure adds one stable `code`, one actionable `reaso
 identity or outcome fact that made that reason true; it does not assemble a general-purpose
 receipt. No result exposes a world generation. The exceptional case where a committed outcome
 cannot be observed in a world captured after the action within one second retains `committed` plus only
-`postStateUnavailable / post_state_timeout`; it never substitutes the older world. `content` is
-reserved for text-first tools and actual image media; structured data appears once in
-`structuredContent`. Committed, refused, and faulted GameAction results are all successful MCP tool
+`postStateUnavailable` with the sentence naming it; it never substitutes the older world. Every
+result is one page of text in `content`, emitted once beside any image media, and no result carries
+a `structuredContent` copy. Committed, refused, and faulted GameAction results are all successful MCP tool
 executions, so `isError` stays false and the domain result reaches the client. `isError` is reserved
 for failures that occur before a canonical domain result exists, such as frame-operation dispatch
 failure.

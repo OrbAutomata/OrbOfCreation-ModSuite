@@ -107,6 +107,53 @@ behavior is not silently worked around here. If a stale cache prevents a native 
 terminal rejection must name the stale cached fact and the screen-view condition; the MCP server
 does not refresh it by hidden navigation.
 
+## How a response reads
+
+This surface is read, not piped. Its callers are agents, and an agent reads an answer the way a
+player reads a screen — so every tool answers with one page of plain text in MCP `content`, and
+nothing beside it. No tool declares an `outputSchema` and no result carries `structuredContent`: one
+answer, said once. Images still ride the same `content` array; the text page follows them.
+
+Layout is decided in one place, after the response document is finished, so every tool inherits the
+same idiom and no producer invents its own formatting.
+
+- **One fact per line**, `key: value`. `true`/`false` read as `yes`/`no`. A page that answered at
+  all is available, so a bare `status: available` is not said.
+- **Rows are a table.** A list of same-shaped rows says its keys once in a header and each row on one
+  line: `rows 56/180 next=56; all queuedLevels=0  [id name level]` then `006061be Constitution 2259`.
+  `total` and `nextOffset` live in that header, never on a row. Any column holding one value across
+  the whole page moves into the header behind `all` — a value repeated on every line is a page fact
+  wearing a row's clothes. Columns are separated by a single space, or by ` | ` when any cell on the
+  page contains one.
+- **A refusal is one line**: `refused (ERR_NOT_FOUND): The spell Beam Burst you tried to cancel is
+  not currently active.` A decision block reads the same way, verdict first and sentence last:
+  `equip: no (ERR_LIMIT) maximumAmount=0: Every slot in this loadout is in use.`
+- **A value beside its ceiling is `43/45`**, the way the screen shows it.
+- **An envelope is not a fact.** One object wrapped in one key that names nothing the caller asked
+  about is unwrapped, so an entity appears once per response.
+- **Constants live here, not in answers.** A number that is the same in every save on every call is
+  documentation. The casting dials publish `current` and `maximum` and not the floor, which is 1 for
+  both; `suite_configuration` publishes values and not the sentence describing each setting.
+
+### Entity handles
+
+The wire says an entity id as a **handle**: the shortest prefix that is unique across every
+published id of the pinned build, floored at six characters (`006061be` → `006061`). One helper
+formats every id at every emission site, so every handle on the surface is the same width. Identity
+inside the suite is still the whole canonical UUID; this is what an id *looks like*, not what it is.
+
+The length is a property of the id set, and the suite pins the game build, so it is a compile-time
+constant with no runtime recompute. A portable test recounts it against `data/entity-mappings.tsv`,
+so a build whose published id set moved fails the gate rather than shipping a colliding handle.
+
+Every id argument accepts the whole canonical UUID **or** any prefix that names exactly one
+published id — the handle a response just printed is always one of those. A prefix that matches
+several answers `ERR_INPUT` and names the ids it matched; nothing is guessed.
+
+An entity is its name and its handle wherever it appears: `Constitution 006061`. An id the catalog
+cannot name renders as `(unnamed 2c20e7)` — marked, never a bare id that reads like a row whose name
+happens to be hex.
+
 ## Tool surface
 
 The registry is exactly 42 tools. It is built once per lifecycle and never changes mid-session, so
@@ -122,7 +169,7 @@ there is no `tools/list_changed` notification. The rows below are in `tools/list
 | `explain_entity` | Evaluate one UUID's gates, requirement graph, exact costs, and blockers from one pinned immutable publication |
 | `world_search` | Search stable-UUID entity categories; composite diagnostic rows are excluded |
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
-| `suite_configuration` | Read the single committed configuration and writable setting catalog |
+| `suite_configuration` | Read every writable setting's committed value; `mode=describe` adds type, domain, and purpose |
 | `trace_health` | Read trace-writer health, segment, record, and byte counters |
 | `game_purchase` | Buy an Attribute (`StructureSO`) or Upgrade derived from its UUID |
 | `game_cast` | Fire, release charge, or turn off one equipped toggle spell |
@@ -184,11 +231,10 @@ row comes from the same pinned publication; the server does not issue a
 generation or retain a snapshot token across calls.
 Localized collection gaps mark only the implicated list/search/get row unavailable and attach the
 partial row plus exact evidence there; unaffected rows in the same call remain ordinary results.
-`world_overview` therefore summarises those gaps rather than restating them:
-`collection.skippedEntities` carries `count`, the distinct condition `nativeTypes` the collector
-cannot localize, the named `owners` that carry them, and `readWith`. The per-leaf evidence is the
-same bytes on every call for a given build and already lives on the owner's own `world_get`, as
-`implicatedSkippedRows`.
+`world_overview` therefore summarises those gaps in one sentence rather than restating them:
+`collection.gap` says how many leaves, of which condition types, on which named owners, and which
+read returns them. The per-leaf evidence is the same bytes on every call for a given build and
+already lives on the owner's own `world_get`, as `implicatedSkippedRows`.
 
 Every paged read — `world_list`, `world_search`, `entity_catalog`, and `game_tooltips` — pages one
 way. Each takes `offset` and `limit`
@@ -223,7 +269,9 @@ player-facing `GetName()`, so loaded entities hidden or not yet revealed by prog
 without navigation. Before that bind, or when its declared contracts fail, the tool returns
 `unavailable` rather than substituting the build-time TSV fixtures.
 
-A match contains `uuid`, `name`, `nativeType`, and one `category`. `category=not-world-projected`
+A match contains `uuid`, `name`, `nativeType`, and one `category` — this and `explain_entity` are the
+two surfaces that still carry the asset name and the runtime type, because browsing the catalog is
+the one activity that asks for them. `category=not-world-projected`
 means that the live registry identity has no world row. `nameSource=asset` appears only when no
 player-facing name exists and the Unity asset name supplied the label; absence means the name is
 player-facing. `internalName` appears only when it differs. The same immutable
@@ -392,9 +440,10 @@ lifecycle lives inside the one discovery tool instead of a permanent tool of its
 
 In Idle mode, `initiate` reports `available`, a stable false `reasonCode` when needed, and each exact
 cost line as a named `resource` plus `cost`, canonical `spendableAmount`, and `affordable`. In
-Choice mode, `offers` contains named UUID/category/native-type references in native order.
+Choice mode, `offers` contains named handle/category references in native order.
 `selectedOffer` — the named reference every `…Uuid` becomes on the wire — appears only after
-selection. `rerollAvailable` appears only in Choice mode. An empty offer set omits `offers`.
+selection. The `reroll` decision block appears only in Choice mode. An empty offer set omits
+`offers`.
 
 These values are copied during the shared 250-millisecond world capture from lifecycle-bound
 delegates for native visibility, immediate-required state, current choices, exact next cost,
@@ -696,8 +745,9 @@ The MCP-only offer sequence is seven calls when two offers need explanations:
    craft. Both presses land in the tree's Crafting mode, and the game only rolls that craft into
    Choice mode — filling the offer list — three seconds of game time later, so the offers are read
    with the next `world_get` rather than waited for inside the call.
-3. Call `offer_reroll` when `rerollAvailable=true`; its terminal response is the restarted craft,
-   settled the same way.
+3. Call `offer_reroll` when `reroll.available` is true; a false one names which of the tree's
+   states — no offers, a discovery to take first, no rerolls left, a reroll already spent — is
+   refusing. Its terminal response is the restarted craft, settled the same way.
 4. Call `explain_entity` for the candidates that require comparison. No catalog name joins are
    needed because every reference already carries its name.
 5. Call `offer_select` with that `offerUuid`; its terminal response is the settled tree naming
@@ -751,16 +801,17 @@ stanza, receipt poll, or post-mutation `world_get` is required.
 ### Casting dial loop
 
 Output Level and Reserve Level are the two sibling global steppers on the Casting screen, not
-per-spell settings. `world_overview` carries them as `casting.output` and `casting.reserve`, each
-with `current` and both bounds — `minimum` 1 and the purchased `maximum`; the block is absent until
-the Output maximum is nonzero.
+per-spell settings. `world_overview` carries them as `casting.output` and `casting.reserve`, each as
+`current`/`maximum`; the block is absent until the Output maximum is nonzero. **The floor of both
+dials is 1**, in every save and on every call, so it is documented here rather than repeated in
+every overview a caller reads.
 Raising a cap is an ordinary `game_purchase` against the corresponding upgrade UUID, so the dial
 tool only moves the value inside the live native range.
 
 `game_casting_dial(dial="output"|"reserve", value=N)` is the whole surface. `value` runs from 1 to
 the live native maximum, which the action boundary reads from the exact global `IntVariable` for
 that dial before verifying the requested value became observable. A committed result returns the
-changed dial as `before` and `after` plus the same `minimum` and `maximum` the read publishes.
+changed dial as `before` and `after` plus the `maximum` the read publishes.
 
 There is deliberately no in-place augment editor. The visible game has none: glyph layout is chosen
 on the library candidate before add, and changing it is remove → relayout → re-add. A discovered
@@ -932,23 +983,24 @@ live label candidates it compared. A subtab refusal reached its screen before it
 sentence says so: the screen change is a committed effect the caller can see in `activeScreen`. It carries no static mutation-scope label or counter ceremony. Navigation
 never authorizes a gameplay or save mutation.
 
-`suite_health` has no arguments or detail mode. It is compact text: scene, runtime availability,
-lifecycle state and generation, world publication, native-contract availability, the direct-craft
-plus crafting-instance binding health claimed by
-`game_craft`, modal-dismiss binding health, emergency STOP, then feature and service names grouped
-by state and reason code. Seven identical NotReady features therefore occupy one line, not seven objects. It
-returns no structured payload because none of those labels is a handle for another call. It reads
-those owners only for the requested operation and reports no MCP
-queue internals.
+`suite_health` has no arguments or detail mode. It is exception-shaped compact text. The standing
+lines are the leading `available` verdict, the build and its twelve-hex-character DLL fingerprint,
+scene, lifecycle state and generation, world publication, and emergency STOP. Everything else
+appears only when it is a problem: `runtime:`, `native contracts:`, `game_craft:` and `game_modal:`
+each cost a line exactly when they read `unavailable`, followed by the reason that names why, and
+feature and service names are grouped by state and reason code. Seven identical NotReady features
+therefore occupy one line, not seven objects. It returns no structured payload because none of those
+labels is a handle for another call. It reads those owners only for the requested operation and
+reports no MCP queue internals.
 
 Runtime availability is a fact about the session, not about the scene, and the report says so.
 The ServiceCycle runtime is created once, on the first frame the host admits it, and released only
-when the plugin is destroyed, so the same scene answers `unavailable` before that frame and
-`available` ever after; the reason names the session, never a scene property. The same holds for
-the `game_craft` and `game_modal` lines, which state whether this build resolved those bindings at
-all. Whether a game exists is the `lifecycle:` line — the same state and generation `game_probe`
-reports — and whether a world is published is the `world:` line: the live publication's generation,
-or `not published`.
+when the plugin is destroyed, so the same scene reports `runtime: unavailable` before that frame and
+stays silent about it ever after; the reason names the session, never a scene property. The same
+holds for the `game_craft` and `game_modal` lines, which state whether this build failed to resolve
+those bindings at all. Whether a game exists is the `lifecycle:` line — the same state and generation
+`game_probe` reports — and whether a world is published is the `world:` line: the live publication's
+generation, or `not published`.
 
 A lifecycle boundary trashes the published world, so `world:` returns to `not published` the moment
 the run it described ends, and the Start-menu reading before a run and after one are identical. On a
@@ -1023,6 +1075,44 @@ guards therefore answer one gate in one sentence — `game_research develop` say
 
 ### Refusal vocabulary
 
+A refusal carries **one of eight classes** and one sentence. The class says which kind of no this is
+so a caller can branch; the sentence says everything else, and it is the part that names the target,
+the number, and the fix.
+
+| Class | The caller should |
+| --- | --- |
+| `ERR_INPUT` | Fix the argument. It was malformed, out of range, ambiguous, or forbidden for the mode |
+| `ERR_NOT_FOUND` | Look elsewhere. The named thing is not there — no such id, no such row, no such offer |
+| `ERR_STATE` | Do something else first. The target exists and is in the wrong state for this verb |
+| `ERR_LIMIT` | Ask for less, or free something. A ceiling, a capacity, or a budget is reached. Carries `maximumAmount` or `minimumAmount` where a number fixes it |
+| `ERR_UNAFFORDABLE` | Earn or spend less. Named resources fall short; the sentence names every one |
+| `ERR_LOCKED` | Progress first. Visibility, discovery, or authored requirements are not reached yet |
+| `ERR_UNAVAILABLE` | Retry or repair. The suite or the game could not read or serve the fact — no world published, no save loaded, a contract missing, a post-state that never settled |
+| `ERR_REFUSED` | Read the sentence. The game refused and the published world does not account for it |
+
+The set is fixed at eight. A private word per refusal is a dialect every caller has to learn before
+it can branch, and the sentence beside it already says more. Producers choose a precise internal
+code — that is what picks the sentence — and `GameMcpDecisionReason.Class` maps it to the class the
+wire says. Examples of that mapping, by kind:
+
+| Class | Internal codes that reach it |
+| --- | --- |
+| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `amount_out_of_range`, `mode_forbids_uuid` |
+| `ERR_NOT_FOUND` | `unknown_uuid`, `unknown_category`, `slot_empty`, `no_pending_target`, `screen_match_failed`, `no_current_offers` |
+| `ERR_STATE` | `invalid_state`, `already_developing`, `switch_blocked`, `not_active`, `reroll_already_used`, `immediate_required_discovery` |
+| `ERR_LIMIT` | `already_maxed`, `amount_unavailable`, `automation_full`, `slot_occupied`, `slot_out_of_range`, `no_rerolls`, `cannot_level` |
+| `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable` |
+| `ERR_LOCKED` | `not_available`, `hidden_or_undiscovered`, `requirements_unmet`, `native_not_discoverable`, `core_glyph_not_owned` |
+| `ERR_UNAVAILABLE` | `world_not_published`, `contract_unavailable`, `post_state_timeout`, `no_game_loaded` |
+| `ERR_REFUSED` | `native_rejected`, `projection_refused`, and every code with no better class |
+
+A feature result number is not a wire word: it names no axis a caller can act on, so an unmapped
+native result reaches the wire as `ERR_REFUSED` with the producer's own sentence.
+
+A check that **passed** carries no class at all. There is no success code.
+
+What each internal code means is below; the class is how it reaches the wire.
+
 | Code | Meaning | Surfaces |
 | --- | --- | --- |
 | `already_maxed` | The target has no level, use, or purchase left to buy | `game_purchase`, read-side develop and purchase decisions |
@@ -1045,10 +1135,6 @@ guards therefore answer one gate in one sentence — `game_research develop` say
 | `projection_refused` | The suite's own resource-rate policy refuses the assignment; the game did not | `game_concept` |
 | `native_rejected` | The game refused and the published world does not explain why | any native mutation, reserved for exactly that case |
 
-A refusal code is scoped to the command that owns the vocabulary. Feature result-code numbers are
-namespaced per feature and deliberately reused across them, so the same number means different
-things to different commands and an unscoped match names the wrong one.
-
 `native_rejected` is the last resort, not the default: a refusal the read side can already account
 for answers with that account's own code. A mutation refused by a gate the read side already
 explains adopts that read's code and words rather than inventing a second name for it —
@@ -1057,6 +1143,9 @@ explains adopts that read's code and words rather than inventing a second name f
 `investment_unavailable` is retired — the game never
 consults the resource fill list for develop admission — and `amount_unavailable` is the name for an
 exact-amount over-ask.
+
+`maximumAmount` is the one name for that ceiling on a read and on a refusal alike, so a caller
+comparing what a row offers against what a refusal names is comparing one number under one word.
 
 `maximumAmount` is the largest `amount` **this one call** admits, re-derived from live native state
 every call. It is never a remaining budget, and a later call routinely admits more: an idle game's
@@ -1104,10 +1193,10 @@ therefore not admitted yet: the action boundary re-reads the native bound and re
 
 The two kinds never mix in one number. A published bound quotes the control or it does not ship, and
 a schema ceiling is never folded into one: an
-agromancy `maximumAdditional` is the game's remaining-instance count alone, never that count
+agromancy `maximumAmount` is the game's remaining-instance count alone, never that count
 clamped by the tool's per-call ceiling, because a blend of the two is a third number that answers
 neither question. The consequence is that a published native bound is not always a sendable amount:
-a busy plot can advertise a `maximumAdditional` above `game_agromancy`'s 10,000 schema cap, and the
+a busy plot can advertise a `maximumAmount` above `game_agromancy`'s 10,000 schema cap, and the
 over-ask is refused at schema validation rather than admitted and then refused natively. Send the
 smaller of the two and call again.
 
@@ -1119,10 +1208,9 @@ question, so none of them is a synonym for another:
 | Name | What it bounds | Where it appears |
 | --- | --- | --- |
 | `minimum` / `maximum` | a control's live range — a native dial, or a writable setting's declared domain | the read, the commit, **and** the refusal, in the same object as the value they bound |
-| `minimumAmount` / `maximumAmount` | the `amount` this one call admits | refusals and read-side decision blocks |
+| `minimumAmount` / `maximumAmount` | the `amount` this one call admits, and on agromancy and harvest reads the game's remaining-instance headroom, never clamped by a schema cap | refusals and read-side decision blocks |
 | `minimumSlot` / `maximumSlot` | the `slot` index the live list holds | every `game_loadout` snapshot mode |
 | `maximumDestination` | the `destination` index a move accepts | `game_alchemy` and `game_spell_loadout`, read and refusal alike |
-| `maximumAdditional` | the game's remaining-instance headroom, never clamped by a schema cap | agromancy and harvest reads and post-states |
 | `maximumBatch` | how many levels one queued develop would take, the multi-buy target clamped by the queue's own room | `game_research`'s develop block, queue route only |
 
 A decision block carries a bound exactly when the verb it decides takes the input that bound caps.
@@ -1156,11 +1244,13 @@ setting's range is two integers.
 
 A field or collection is absent when the suite did not collect it, and the response says so with a
 named `…Unavailable` fact rather than by silence. A collection that was collected and is genuinely
-empty is present and empty. `internalName` is present exactly when the asset name differs from the
-display name, on a row and on a reference from another row's field alike; a reference carries UUID,
-name, and that conditional `internalName`, while a row adds the classifying facts a row needs
-(`nativeType`, `category`). Where a name came from is a catalog-browsing fact: `nameSource` is an
-`entity_catalog` field and appears on no world row.
+empty is present and empty.
+
+An identity is a handle and a name, and nothing else. The asset name (`internalName`), the runtime
+type (`nativeType`), the category the type implies, and where a name came from (`nameSource`) are
+catalog-browsing facts: `entity_catalog` and `explain_entity` publish them, and no world row or
+reference carries them. Stamped on every identity they cost 21.1% of one live round for a fact
+nothing on that round read.
 
 Absence therefore never doubles as a value. Every key that once used it to mean "no" now says so:
 
@@ -1219,16 +1309,17 @@ every other spender in that window, so it is not a price and is not computed. On
 `spendableAmount` will not reconcile with any price against a balance read at another instant, and
 that is the resource moving, not the field drifting.
 
-JSON tool data is emitted once in `structuredContent`; `content` appears only for actual inline media
-such as screenshots, and success omits the false `isError` default. The server does not repeat the
-structured payload as a text item or emit an empty media array, avoiding a second client-side parse
-and text-channel truncation. Invalid arguments return all detected schema
+A tool result is one page of text in `content`, emitted once, beside any inline media such as a
+screenshot; success omits the false `isError` default. The server publishes no `structuredContent`
+duplicate of the same answer, avoiding a second client-side parse and text-channel truncation.
+Invalid arguments return all detected schema
 shape errors together under `error.data.validationErrors`, with distinct `missing_required` and
 `unexpected_field` codes, and `error.message` names the offending fields because that is the part
 most clients show the caller.
 
 A faulted GameAction is still a completed MCP tool invocation: it omits `isError`, and its domain
-`status`, stable `reasonCode`, actionable reason, and one relevant fact remain in `structuredContent`.
+verdict line — status, class, and the actionable sentence — plus one relevant fact remain on the
+page.
 `isError=true` is reserved for infrastructure failures that happen before a canonical action
 terminal exists. This distinction prevents clients from replacing the domain result with an opaque
 generic tool error.
@@ -1473,9 +1564,15 @@ mutation proof.
 STOP closes MCP native admission exactly as it closes automation. Resume still requires the host's
 ordinary fresh-world gate.
 
-`suite_configuration` returns the startup-built `writableSettings` catalog and its current
-serialized values. It never reflectively serializes the
-runtime configuration record or exposes compiler metadata and internal nested policy objects.
+`suite_configuration` returns every writable setting as one `section/key: value` line and nothing
+else. It never reflectively serializes the runtime configuration record or exposes compiler metadata
+and internal nested policy objects.
+
+`mode="describe"` is where the rest lives: each setting's type, the values it accepts, and the
+sentence saying what it does. Those three do not change between calls, so the ordinary read does not
+carry them — a caller reading current values pays for values. The accepted values are said the same
+way whichever kind they are, a range for a number and the list of names for an enum, so no caller
+has to learn two spellings of "what may I write here".
 
 `suite_config_set` commits through `AutomataConfigurationStore`, the same single publication path
 as the in-game controls. BepInEx
@@ -1531,6 +1628,12 @@ to touch one argues for it first. Each line names where the shape is specified.
     bound comes from*.
 13. `game_tooltips` scope discipline: a dismissed modal leaves the catalog, and `total` is stable
     across repeated calls on an unchanged screen — *Tooltip explorer*.
+14. One answer, said once: a page of text and no `structuredContent` duplicate of it — *How a
+    response reads*.
+15. Constant-width entity handles that a caller can send straight back, and an ambiguous prefix that
+    lists what it matched instead of guessing — *Entity handles*.
+16. A refusal class from the fixed set of eight, never a private code per refusal, and never a code
+    on a check that passed — *Refusal vocabulary*.
 
 ## Screenshots and navigation
 
