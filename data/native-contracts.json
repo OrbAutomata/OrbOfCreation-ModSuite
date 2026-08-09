@@ -22651,12 +22651,6 @@
       "owners": ["Automata challenge GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
-      "id": "challenge.reset-fetch-action", "assembly": "assembly-csharp",
-      "type": "PersistentResetManager", "typeVisibility": "public", "kind": "method", "member": "FetchNewChallenges",
-      "visibility": "public", "static": false, "returnType": "System.Void", "parameters": [],
-      "owners": ["Automata challenge GameAction"], "usages": ["reflection"], "place": "action"
-    },
-    {
       "id": "challenge.available-to-run-capture", "assembly": "assembly-csharp",
       "type": "ChallengeSO", "typeVisibility": "public", "kind": "method", "member": "IsAvailableToRun",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],

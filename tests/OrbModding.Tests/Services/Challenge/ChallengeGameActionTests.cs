@@ -46,6 +46,47 @@ public sealed class ChallengeGameActionTests : IDisposable
         Assert.Equal(2, ChallengeManager.instance.preferredChallenges.ToggleCalls);
     }
 
+    /// <summary>
+    /// Selecting past a full list is two presses on the screen — give up a row, then take the one
+    /// you want — and a caller that only ever saw the refusal had no way to learn the first press
+    /// existed. Both halves are the postcondition: half a swap is a selection nobody asked for.
+    /// </summary>
+    [Fact]
+    public void A_full_selection_gives_up_the_named_row_before_taking_the_one_asked_for()
+    {
+        var held = Register(Challenge());
+        var wanted = Register(Challenge());
+        ChallengeManager.instance.activeChallenges.value.Add(held);
+        ChallengeManager.instance.activeChallenges.value.Add(wanted);
+        ChallengeManager.instance.preferredChallenges.Maximum = 1;
+        ChallengeManager.instance.preferredChallenges.value.Add(held);
+        using var boundary = Boundary();
+
+        var swapped = Submit(boundary, ChallengeActionKind.Select, wanted, held);
+
+        Assert.True(swapped.Verified, swapped.Reason);
+        Assert.Equal(new[] { wanted }, ChallengeManager.instance.preferredChallenges.value);
+    }
+
+    [Fact]
+    public void A_full_selection_with_more_than_one_row_to_give_up_is_refused_as_the_callers_choice()
+    {
+        var first = Register(Challenge());
+        var second = Register(Challenge());
+        var wanted = Register(Challenge());
+        ChallengeManager.instance.activeChallenges.value.Add(wanted);
+        ChallengeManager.instance.preferredChallenges.Maximum = 2;
+        ChallengeManager.instance.preferredChallenges.value.Add(first);
+        ChallengeManager.instance.preferredChallenges.value.Add(second);
+        using var boundary = Boundary();
+
+        var refused = Submit(boundary, ChallengeActionKind.Select, wanted);
+
+        Assert.Equal(ChallengePreflight.SelectionFull, refused.Preflight);
+        Assert.Contains("the caller's choice", refused.Reason, StringComparison.Ordinal);
+        Assert.Equal(0, ChallengeManager.instance.preferredChallenges.ToggleCalls);
+    }
+
     [Fact]
     public void Queue_toggles_only_idle_or_queued_offers_and_abandon_gates_on_active_state()
     {
@@ -69,7 +110,7 @@ public sealed class ChallengeGameActionTests : IDisposable
     }
 
     [Fact]
-    public void First_time_fetch_sets_fetched_without_spending_a_reroll_and_materializes_time_offers()
+    public void The_first_draw_sets_fetched_without_spending_a_reroll_and_materializes_the_offers()
     {
         var first = Register(Challenge());
         var second = Register(Challenge());
@@ -77,7 +118,7 @@ public sealed class ChallengeGameActionTests : IDisposable
         ChallengeManager.instance.NextChallenges.Add(second);
         using var boundary = Boundary();
 
-        var result = Submit(boundary, ChallengeActionKind.FetchTime);
+        var result = Submit(boundary, ChallengeActionKind.Reroll);
 
         Assert.True(result.Verified, result.Reason);
         Assert.True(PersistentResetManager.instance.hasFetchedChallenges.value);
@@ -88,31 +129,31 @@ public sealed class ChallengeGameActionTests : IDisposable
     }
 
     [Fact]
-    public void Later_prestige_fetch_spends_one_reroll_then_returns_the_new_ordered_offer_state()
+    public void A_later_reroll_spends_one_reroll_then_returns_the_new_ordered_offer_state()
     {
         PersistentResetManager.instance.hasFetchedChallenges.value = true;
         var first = Register(Challenge());
         var second = Register(Challenge());
-        PersistentResetManager.instance.NextChallenges.Add(first);
-        PersistentResetManager.instance.NextChallenges.Add(second);
+        ChallengeManager.instance.NextChallenges.Add(first);
+        ChallengeManager.instance.NextChallenges.Add(second);
         using var boundary = Boundary();
 
-        var result = Submit(boundary, ChallengeActionKind.FetchPrestige);
+        var result = Submit(boundary, ChallengeActionKind.Reroll);
 
         Assert.True(result.Verified, result.Reason);
         Assert.Equal(1, PersistentResetManager.instance.challengeRerollsLeft.AsInt());
-        Assert.Equal(new[] { first, second }, PersistentResetManager.instance.activeChallenges.value);
+        Assert.Equal(new[] { first, second }, ChallengeManager.instance.activeChallenges.value);
     }
 
     [Fact]
-    public void Fetch_commits_when_the_requested_offer_list_materializes()
+    public void Reroll_commits_when_the_requested_offer_list_materializes()
     {
         var target = Register(Challenge());
         target.SuppressQueueActivation = true;
         ChallengeManager.instance.NextChallenges.Add(target);
         using var boundary = Boundary();
 
-        var result = Submit(boundary, ChallengeActionKind.FetchTime);
+        var result = Submit(boundary, ChallengeActionKind.Reroll);
 
         Assert.True(result.Verified, result.Reason);
         Assert.Equal(new[] { target }, ChallengeManager.instance.activeChallenges.value);
@@ -133,7 +174,7 @@ public sealed class ChallengeGameActionTests : IDisposable
         ChallengeManager.instance.NextChallenges.Add(target);
         using var boundary = Boundary();
 
-        var result = Submit(boundary, ChallengeActionKind.FetchTime);
+        var result = Submit(boundary, ChallengeActionKind.Reroll);
 
         Assert.True(result.Verified, result.Reason);
         Assert.Equal(1, PersistentResetManager.instance.challengeRerollsLeft.AsInt());
@@ -155,7 +196,7 @@ public sealed class ChallengeGameActionTests : IDisposable
         ChallengeManager.instance.NextChallenges.Add(target);
         using var boundary = Boundary();
 
-        var result = Submit(boundary, ChallengeActionKind.FetchTime);
+        var result = Submit(boundary, ChallengeActionKind.Reroll);
 
         Assert.Equal(ChallengePreflight.PostCommitFault, result.Preflight);
         Assert.Equal(2, result.RerollsLeft);
@@ -164,22 +205,21 @@ public sealed class ChallengeGameActionTests : IDisposable
     }
 
     [Fact]
-    public void Fetch_refusals_happen_before_flags_rerolls_or_native_callbacks()
+    public void Reroll_refusals_happen_before_flags_rerolls_or_native_callbacks()
     {
         PersistentResetManager.instance.hasFetchedChallenges.value = true;
         PersistentResetManager.instance.challengeRerollsLeft.Value = 0;
         using var boundary = Boundary();
 
-        var noRerolls = Submit(boundary, ChallengeActionKind.FetchTime);
+        var noRerolls = Submit(boundary, ChallengeActionKind.Reroll);
         PersistentResetManager.instance.hasCompleteWorldCycle.value = false;
-        var incomplete = Submit(boundary, ChallengeActionKind.FetchPrestige);
+        var incomplete = Submit(boundary, ChallengeActionKind.Reroll);
 
         Assert.Equal(ChallengePreflight.NoRerolls, noRerolls.Preflight);
         Assert.Equal(0, noRerolls.RerollsLeft);
         Assert.Equal(ChallengePreflight.FetchUnavailable, incomplete.Preflight);
         Assert.Equal(-1, incomplete.RerollsLeft);
         Assert.Equal(0, ChallengeManager.instance.FetchCalls);
-        Assert.Equal(0, PersistentResetManager.instance.FetchCalls);
     }
 
     [Fact]
@@ -231,9 +271,10 @@ public sealed class ChallengeGameActionTests : IDisposable
     }
 
     private static ChallengeSubmission Submit(ChallengeGameAction boundary,
-        ChallengeActionKind kind, ChallengeSO? target = null)
+        ChallengeActionKind kind, ChallengeSO? target = null, ChallengeSO? replaced = null)
     {
-        var action = new ChallengeAction(kind, target?.GetGuid() ?? Guid.Empty, Epoch);
+        var action = new ChallengeAction(kind, target?.GetGuid() ?? Guid.Empty,
+            replaced?.GetGuid() ?? Guid.Empty, Epoch);
         return boundary.Submit(in action);
     }
 

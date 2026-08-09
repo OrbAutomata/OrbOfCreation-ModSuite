@@ -159,6 +159,12 @@ happens to be hex.
 The registry is exactly 42 tools. It is built once per lifecycle and never changes mid-session, so
 there is no `tools/list_changed` notification. The rows below are in `tools/list` order.
 
+A tool's prefix names the screen it acts on: `world_` reads the published world, `suite_` acts on
+the mod suite, `time_` acts on the Time tab, and `game_` is everything else the player screen owns.
+The one exception is `game_level`, which buys levels from any ordinary level list — including Time
+Runes, which live on the Time tab — because a caller reaches it from the entity being levelled
+rather than from the screen it is drawn on.
+
 | Tool | Purpose |
 |---|---|
 | `world_overview` | Compact collection, economy, progression, and running-state summary |
@@ -188,8 +194,8 @@ there is no `tools/list_changed` notification. The rows below are in `tools/list
 | `game_ritual` | Select a Ritual, set its starting level, activate or end its battle, or cancel its duration reward |
 | `game_level` | Buy an explicit amount of paid or bonus levels from an ordinary level-list control |
 | `game_loadout` | Switch or edit the active player loadout, or save/load/clear an Equipment or Alchemy snapshot slot |
-| `game_challenge` | Select, activate, abandon, or reroll the Time/prestige challenge offers |
-| `game_prestige` | Confirm and perform the irreversible persistent reset |
+| `time_challenge` | Read the challenge screen, or select, queue, abandon, or reroll its offers |
+| `time_prestige` | Confirm and perform the irreversible persistent reset |
 | `game_research` | Develop/queue levels (`amount` defaults to 1), pause, resume, cancel, or apply a free research bonus level |
 | `suite_automation` | Read the seven automation on/off buttons, or flip exactly one |
 | `suite_config_set` | Commit one allowlisted setting through the configuration store |
@@ -698,39 +704,41 @@ artifact however deep its stack, matching native `EquipmentListVariable.GetTypes
 ### Challenge decision loop
 
 The `challenges` category is both the per-entity read and the pre-decision surface for
-`game_challenge`. Every row carries the native idle/queued/active/passed/failed state, current and
+`time_challenge`. Every row carries the native idle/queued/active/passed/failed state, current and
 maximum level, native next difficulty/reward, availability/completion verdicts, selection and offer
-membership, and explicit `select`, `activate`, and, when active, `abandon` decisions. Challenge
+membership, and explicit `select`, `queue`, and, when active, `abandon` decisions. Challenge
 selection has no resource price, so a row does not invent empty costs or affordability.
 
-Every detailed challenge get/search response also carries one same-publication `challengeState`: ordered
-fully named `selected`, `timeOffers`, and `prestigeOffers`; selection capacity; first-fetch state;
-rerolls; and explicit `fetchTime`/`fetchPrestige` availability. This shared state is captured once
-on Unity's main thread with the ordinary world and projected by reference.
+`time_challenge(mode="state")` is the screen itself, answered when a caller asks for it: ordered
+fully named `selected` and `offers`, selection capacity, first-draw state, rerolls, one `reroll`
+decision, and `prestige`. It is a read, and it no longer rides challenge list/get pages — a request
+for one row at offset fifty used to come back nine tenths ambient state, repeated on every page.
+`resetOffers` appears only in the build where the Reset modal's list and the Time screen's list part
+company; they draw from the same asset, so it is normally absent rather than said twice.
 
-`challengeState.prestige` is the persistent-reset pre-decision surface. It reports the current,
-projected, and previous persistence values, reset count, the fully named persistent resource with
-its current spendable amount and real capacity semantics, queued prestige challenges, queued
-rewards, and the exact `reset.available` decision. No attempt/refusal is needed to learn whether a
-reset can run.
+`state.prestige` is the persistent-reset pre-decision surface. It reports the reset's starting Time
+Advancements against the previous reset's and the difference between them (the screen's own
+subtraction), the reset count, the fully named persistent resource with its current spendable
+amount and real capacity semantics, the challenges queued for the reset, surviving rewards, and the
+exact `reset.available` decision. No attempt/refusal is needed to learn whether a reset can run.
 
 The MCP-only sequence is:
 
-1. Page `challenges`; compare next difficulty/reward and the named ordered offers from
-   `challengeState`.
-2. Call `game_challenge(mode="select", uuid=...)`; its terminal response returns the changed target
-   state.
-3. Call `activate` to toggle an offered target's activation state, or `abandon` for an active
-   target.
-4. Only when a different offer set is wanted, call `reroll_time_challenges` or
-   `reroll_prestige_challenges` without a UUID. The terminal response returns what the press cost
-   (`rerollsLeft` and `challengesFetched` as `{before, after}`), whether the offers moved
-   (`changed`), plus the complete replacement named
-   offer lists and remaining next decisions; no read-back is required. The current offers are
-   already on `challengeState` in step 1, so nothing has to spend to read them.
-5. When the prestige decision is available, call `game_prestige(confirm=true)`. Success waits for a
-   newer world after the native scene reload and returns the new scene, `prestigeState`, and
-   `challengeState` inline. The explicit boolean prevents an empty or accidental call from
+1. Page `challenges`; compare next difficulty/reward, then call `time_challenge(mode="state")` for
+   the named ordered offers and the reroll budget.
+2. Call `time_challenge(mode="select", uuid=...)`; its terminal response returns the changed target
+   state. When every selection the cycle allows is taken and exactly one is held, the tool performs
+   the screen's own first press — giving that one up — before taking the one asked for; when more
+   than one is held, which to give up is the caller's choice and the refusal says so.
+3. Call `queue` to move an offered target between idle and queued, or `abandon` for one the reset
+   started. A queued challenge starts running at the next reset, not immediately.
+4. Only when a different offer set is wanted, call `reroll` without a UUID. It is the game's one
+   new-challenges button: free the first press of a world cycle, one reroll every press after. The
+   terminal response returns what the press cost (`rerollsLeft` and `challengesFetched` as
+   `{before, after}`), whether the offers moved (`changed`), and the replacement offer list.
+5. When the prestige decision is available, call `time_prestige(confirm=true)`. Success waits for a
+   newer world after the native scene reload and returns the new scene, `prestigeState`, and the
+   challenge state inline. The explicit boolean prevents an empty or accidental call from
    triggering the irreversible reset.
 
 The MCP-only offer sequence is seven calls when two offers need explanations:
@@ -1344,7 +1352,7 @@ tools/game-mcp-client.py call game_spell_loadout --arguments \
   '{"mode":"preview","uuid":"SPELL_RECIPE_UUID","glyphs":[{"uuid":"GLYPH_UUID","count":2}]}'
 tools/game-mcp-client.py call game_spell_loadout --arguments \
   '{"mode":"add","uuid":"SPELL_RECIPE_UUID","glyphs":[{"uuid":"GLYPH_UUID","count":2}]}'
-tools/game-mcp-client.py call game_challenge --arguments \
+tools/game-mcp-client.py call time_challenge --arguments \
   '{"mode":"select","uuid":"CHALLENGE_UUID"}'
 ```
 
@@ -1469,21 +1477,26 @@ Success is only the exact requested target-stack transition. It returns the targ
 before and after, with no receipt or payment/usage stanza. A missing transition
 faults that attempt; a throw after the exact transition commits.
 
-`game_challenge` requires one of `select`, `activate`, `abandon`, `reroll_time_challenges`, or
-`reroll_prestige_challenges`. The three target modes require a published `ChallengeSO` `uuid`; both
-reroll modes reject it. `activate` is the player-facing name for the native queue toggle, which is
-why no `queue` mode exists on the wire. The boundary rereads the exact manager/list graph and target
-state on Unity's main thread, checks offer membership, selection room/restrictions, active/queued
-state, world-cycle completion, and rerolls, then captures the `ChallengeLifecycle` permit last.
-Select verifies exact membership inversion; activate verifies the exact idle/queued toggle; abandon
-verifies the exact target becomes failed.
+`time_challenge` requires one of `select`, `queue`, `abandon`, `reroll`, or `state`. The three
+target modes require a published `ChallengeSO` `uuid`; `reroll` and `state` reject it. `queue` is
+what the screen's "activate" button does — the challenge starts at the next reset, not now — and
+`abandon` names the only state a challenge can be abandoned from, the one a reset started. The
+boundary rereads the exact manager/list graph and target state on Unity's main thread, checks offer
+membership, selection room/restrictions, active/queued state, world-cycle completion, and rerolls,
+then captures the `ChallengeLifecycle` permit last. Select verifies exact membership inversion;
+queue verifies the exact idle/queued toggle; abandon verifies the exact target becomes failed.
 
-The two reroll modes press the game's own new-challenges button, which is one control with two
-labels: the first press of a world cycle sets the fetched flag and is free, and every press after
-that spends one of the limited rerolls. There is no free read mode, because none is needed — the
-current offers, the reroll budget, and both `rerollTimeChallenges` and `rerollPrestigeChallenges`
-decision blocks ride on `challengeState`, which every challenge read carries. Each decision block
-carries `costsReroll`, so what the next press would cost is readable without pressing it. The first
+Selecting past a full list is two presses on the game's own screen — give up a row, then take the
+one you want — so `select` performs the first press itself when exactly one selection is held, and
+verifies both halves: the row asked for is held and the row it took over is not. When more than one
+is held, which to give up is the caller's choice, and the refusal says that rather than reporting a
+full list the caller cannot act on.
+
+`reroll` presses the game's one new-challenges button. The Time screen and the Reset modal are two
+labels on the same control — one budget, one asset, one list — so there is one reroll mode rather
+than two that spent from the same purse. The first press of a world cycle sets the fetched flag and
+is free; every press after spends one of the limited rerolls, and `reroll.costsReroll` on
+`time_challenge(mode="state")` says which the next press would be without pressing it. The first
 press verifies the game's fetched flag; later presses verify that the reroll count decreased, and
 both publish `rerollsLeft` and `challengesFetched` as `{before, after}` pairs whether or not they
 moved. What the press hands back is not a gate: the eligible pool can be small enough that an honest
@@ -1497,7 +1510,7 @@ pair to record. Offer contents, rewards, effects, and other accounting are neith
 response data. A reroll also returns the new named offer state because it is the next decision; target modes
 return the changed challenge state. No success receipt or follow-up read is required.
 
-`game_prestige` requires `confirm:true`. The boundary rereads the reset manager's world-cycle
+`time_prestige` requires `confirm:true`. The boundary rereads the reset manager's world-cycle
 completion and challenge-fetch flags plus the persistent reset count on Unity's main
 thread, then captures `PrestigeLifecycle` ownership last. The public native method merely schedules
 the operation behind a screen fade, so MCP invokes the exact audited private transaction directly;

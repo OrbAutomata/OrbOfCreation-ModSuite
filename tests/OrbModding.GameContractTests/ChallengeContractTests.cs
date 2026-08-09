@@ -101,7 +101,7 @@ public sealed class ChallengeContractTests
             "challenge.challenge-toggle-queue-action", "challenge.challenge-abandon-action",
             "challenge.int-as-int-action", "challenge.int-set-action",
             "challenge.bool-get-action", "challenge.bool-set-action",
-            "challenge.manager-fetch-action", "challenge.reset-fetch-action",
+            "challenge.manager-fetch-action",
             "challenge.available-to-run-capture", "challenge.completed-once-capture",
             "challenge.maximum-level-capture", "challenge.next-difficulty-capture",
             "challenge.next-reward-capture",

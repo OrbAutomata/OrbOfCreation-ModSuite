@@ -208,8 +208,6 @@ internal static class GameMcpWorldQuery
         result["total"] = total;
         var end = checked(offset + rows.Count);
         if (end < total) result["nextOffset"] = end;
-        if (string.Equals(category.Name, "challenges", StringComparison.Ordinal))
-            result["challengeState"] = ProjectChallengeState(world);
         return result;
     }
 
@@ -646,8 +644,6 @@ internal static class GameMcpWorldQuery
                 if (implicated.Count > 0) result["implicatedSkippedRows"] = implicated;
                 if (implicatedOffers.Count > 0) result["implicatedOffers"] = implicatedOffers;
             }
-            if (string.Equals(category.Name, "challenges", StringComparison.Ordinal))
-                result["challengeState"] = ProjectChallengeState(publication.Snapshot);
             return result;
         }
 
@@ -769,8 +765,6 @@ internal static class GameMcpWorldQuery
 
         var result = Envelope(publication);
         result["results"] = results;
-        if (string.Equals(category.Name, "challenges", StringComparison.Ordinal))
-            result["challengeState"] = ProjectChallengeState(publication.Snapshot);
         return result;
     }
 
@@ -2225,7 +2219,7 @@ internal static class GameMcpWorldQuery
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         var world = state.World.Snapshot;
         if (command.TargetId == Guid.Empty)
-            return ProjectChallengeRerollDelta(world, Before(command), command.Mode);
+            return ProjectChallengeRerollDelta(world, Before(command));
         if (!WorldLookup.TryFind(world.Challenges, command.TargetId, out var current))
             return PostStateUnavailable(
                 "post_state_not_published",
@@ -2262,8 +2256,7 @@ internal static class GameMcpWorldQuery
     /// </summary>
     private static GameMcpValue ProjectChallengeRerollDelta(
         GameWorldState world,
-        GameWorldState? before,
-        string mode)
+        GameWorldState? before)
     {
         var after = world.ChallengeContext;
         var prior = before?.ChallengeContext;
@@ -2281,10 +2274,8 @@ internal static class GameMcpWorldQuery
             },
         };
         if (prior is { Available: true } settled && after.Available)
-            result["changed"] = !SameChallengeOffers(
-                mode == "reroll_prestige_challenges" ? settled.PrestigeOffers : settled.TimeOffers,
-                mode == "reroll_prestige_challenges" ? after.PrestigeOffers : after.TimeOffers);
-        result["challengeState"] = ProjectChallengeState(world);
+            result["changed"] = !SameChallengeOffers(settled.TimeOffers, after.TimeOffers);
+        result["offers"] = ChallengeReferences(after.TimeOffers);
         return result.Freeze();
     }
 
@@ -2296,6 +2287,27 @@ internal static class GameMcpWorldQuery
         for (var index = 0; index < before.Count; index++)
             if (before[index].ChallengeId != after[index].ChallengeId) return false;
         return true;
+    }
+
+    /// <summary>
+    /// The selection a select press has to give up first when the screen holds no free slot.
+    /// </summary>
+    /// <remarks>
+    /// Selecting past a full list is two presses on the screen: drop one, then take the one you
+    /// want. A caller naming a challenge means the second press, so the tool makes the first one
+    /// itself whenever the choice is forced. It answers nothing when there is room, when the caller
+    /// already holds the target, or when more than one selection could be the one to drop — that
+    /// last one is the caller's choice, and the action boundary refuses it by name.
+    /// </remarks>
+    internal static Guid ChallengeSelectionToReplace(GameWorldState world, Guid targetId)
+    {
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        var context = world.ChallengeContext;
+        if (!context.Available || context.SelectionMaximum <= 0) return Guid.Empty;
+        var selected = context.Selected;
+        if (selected.Count < context.SelectionMaximum || selected.Count != 1) return Guid.Empty;
+        var held = selected[0].ChallengeId;
+        return held == targetId ? Guid.Empty : held;
     }
 
     private static bool ChallengeSelected(GameWorldState world, Guid challengeId)
@@ -5098,15 +5110,19 @@ internal static class GameMcpWorldQuery
                         ? "selection_full"
                         : "selection_restricted";
         result["select"] = select;
-        var activateAvailable = context.Available && (inTime || inPrestige) && challenge.State is 0 or 1;
-        var activate = new JObject
+
+        // The button reads "activate" on the screen but it queues: the challenge starts at the next
+        // reset, not now. Naming the verb after the press taught callers to expect a running
+        // challenge and to read the queued state as a failure.
+        var queueAvailable = context.Available && (inTime || inPrestige) && challenge.State is 0 or 1;
+        var queue = new JObject
         {
-            ["available"] = activateAvailable,
-            ["selectedForActivation"] = challenge.State == 1,
+            ["available"] = queueAvailable,
+            ["queued"] = challenge.State == 1,
         };
-        if (!activateAvailable)
-            activate["reasonCode"] = !inTime && !inPrestige ? "not_offered" : "invalid_state";
-        result["activate"] = activate;
+        if (!queueAvailable)
+            queue["reasonCode"] = !inTime && !inPrestige ? "not_offered" : "already_ran";
+        result["queue"] = queue;
         if (challenge.State == 2)
             result["abandon"] = new JObject { ["available"] = true };
         return result.Freeze();
@@ -5121,6 +5137,26 @@ internal static class GameMcpWorldQuery
         4 => "failed",
         _ => "unknown",
     };
+
+    /// <summary>
+    /// Everything the challenge screen shows, answered when a caller asks for it.
+    /// </summary>
+    /// <remarks>
+    /// This block used to ride every challenge read: a request for one row at offset fifty came back
+    /// nine tenths ambient state, repeated verbatim on every page of a ninety-eight-row category. It
+    /// also said the same list three times — the two offer arrays and the surviving-selection filter
+    /// were byte-identical on every live sample — under two reroll decisions that were one budget,
+    /// one list, and one button. It is one answer now, and a caller asks for it.
+    /// </remarks>
+    internal static JObject ChallengeStateRead(GameMcpFrameContext state)
+    {
+        if (!TryWorld(state, out var publication, out var unavailable))
+            return unavailable;
+        var result = Envelope(publication);
+        result["status"] = "available";
+        result["challengeState"] = ProjectChallengeState(publication.Snapshot);
+        return result;
+    }
 
     internal static GameMcpValue ProjectChallengeState(GameWorldState world)
     {
@@ -5144,12 +5180,16 @@ internal static class GameMcpWorldQuery
             ["rerollsMaximum"] = Number(context.RerollsMaximum),
             ["selectionMaximum"] = Number(context.SelectionMaximum),
             ["selected"] = ChallengeReferences(context.Selected),
-            ["timeOffers"] = ChallengeReferences(context.TimeOffers),
-            ["prestigeOffers"] = ChallengeReferences(context.PrestigeOffers),
-            ["rerollTimeChallenges"] = RerollDecision(fetchAvailable, context),
-            ["rerollPrestigeChallenges"] = RerollDecision(fetchAvailable, context),
-            ["prestige"] = ProjectPrestigeState(world),
+            ["offers"] = ChallengeReferences(context.TimeOffers),
         };
+
+        // The Reset modal draws from the same list asset the Time screen does, so it is said once.
+        // A build where the two ever part company says the second one out loud rather than quietly
+        // planning off the first.
+        if (!SameChallengeOffers(context.TimeOffers, context.PrestigeOffers))
+            result["resetOffers"] = ChallengeReferences(context.PrestigeOffers);
+        result["reroll"] = RerollDecision(fetchAvailable, context);
+        result["prestige"] = ProjectPrestigeState(world);
         return result.Freeze();
     }
 
@@ -5193,8 +5233,13 @@ internal static class GameMcpWorldQuery
                 ["change"] = context.PersistenceCurrent - context.PersistencePrevious,
             },
             ["resetCount"] = context.ResetCount,
-            ["survivingChallengeSelections"] = PrestigeChallenges(world, queuedRewards: false),
-            ["survivingChallengeRewards"] = PrestigeChallenges(world, queuedRewards: true),
+
+            // What these two hold: the offers already queued, which is what a reset would start,
+            // and the challenges holding a reward the reset carries over. The first was named for
+            // selections and read as a third copy of the offer list, because on a save where every
+            // offer is queued it is one.
+            ["queuedForReset"] = PrestigeChallenges(world, queuedRewards: false),
+            ["survivingRewards"] = PrestigeChallenges(world, queuedRewards: true),
             ["reset"] = reset,
         };
         if (context.PersistentResourceId != Guid.Empty)

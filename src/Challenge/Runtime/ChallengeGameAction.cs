@@ -66,10 +66,21 @@ internal sealed class ChallengeGameAction : IDisposable
                 target = resolution.Value!;
             }
 
+            object? replaced = null;
+            if (action.ReplacedId != Guid.Empty)
+            {
+                var resolution = _registry.Resolve(action.ReplacedId, native.ChallengeType);
+                if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
+                    return ChallengeSubmission.Reject(ChallengePreflight.IdentityUnavailable,
+                        resolution.IsResolved ? "The challenge resolution became stale." : resolution.Reason);
+                replaced = resolution.Value!;
+            }
+
             if (!TryContext(native, out var context, out var contextFailure))
                 return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable, contextFailure);
             var before = CaptureAdmission(native, in context, target);
-            var preflight = Preflight(action.Kind, native, in context, target, in before, out var reason);
+            var preflight = Preflight(
+                action.Kind, native, in context, target, replaced, in before, out var reason);
             if (preflight != ChallengePreflight.Proceeded)
                 return preflight == ChallengePreflight.NoRerolls
                     ? ChallengeSubmission.RerollsExhausted(reason, before.RerollsLeft)
@@ -77,7 +88,7 @@ internal sealed class ChallengeGameAction : IDisposable
             if (!_tryCaptureMutationPermit())
                 return ChallengeSubmission.Reject(ChallengePreflight.MutationPermitUnavailable,
                     _readOwnershipFailure());
-            return Execute(in action, native, in context, target, in before);
+            return Execute(in action, native, in context, target, replaced, in before);
         }
         catch (Exception exception) when (IsExpected(exception))
         {
@@ -100,7 +111,8 @@ internal sealed class ChallengeGameAction : IDisposable
     }
 
     private ChallengeSubmission Execute(in ChallengeAction action, ChallengeNativeBindings native,
-        in NativeContext context, object? target, in ChallengeAdmissionState before)
+        in NativeContext context, object? target, object? replaced,
+        in ChallengeAdmissionState before)
     {
         var stage = ChallengeNativeStage.NativeCallback;
         try
@@ -108,6 +120,9 @@ internal sealed class ChallengeGameAction : IDisposable
             switch (action.Kind)
             {
                 case ChallengeActionKind.Select:
+                    // The screen's own two presses, in the order a player makes them: free the row
+                    // this one takes over, then pick this one.
+                    if (replaced is not null) native.Toggle(context.Preferred, replaced);
                     native.Toggle(context.Preferred, target!);
                     break;
                 case ChallengeActionKind.Queue:
@@ -116,24 +131,20 @@ internal sealed class ChallengeGameAction : IDisposable
                 case ChallengeActionKind.Abandon:
                     native.Abandon(target!);
                     break;
-                case ChallengeActionKind.FetchTime:
-                case ChallengeActionKind.FetchPrestige:
+                case ChallengeActionKind.Reroll:
                     stage = ChallengeNativeStage.DecisionCommit;
                     if (before.ChallengesFetched)
                         native.SetInt(context.RerollsLeft, checked(before.RerollsLeft - 1));
                     else
                         native.SetBool(context.Fetched, true);
                     stage = ChallengeNativeStage.NativeCallback;
-                    if (action.Kind == ChallengeActionKind.FetchTime)
-                        native.FetchTime(context.ChallengeManager);
-                    else
-                        native.FetchPrestige(context.ResetManager);
+                    native.Reroll(context.ChallengeManager);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(action.Kind));
             }
             stage = ChallengeNativeStage.Verification;
-            return OutcomeLanded(action.Kind, native, in context, target, in before)
+            return OutcomeLanded(action.Kind, native, in context, target, replaced, in before)
                 ? Verified()
                 : Fault(in action, ChallengePreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
@@ -142,7 +153,7 @@ internal sealed class ChallengeGameAction : IDisposable
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            if (OutcomeLandedBestEffort(action.Kind, native, in context, target, in before))
+            if (OutcomeLandedBestEffort(action.Kind, native, in context, target, replaced, in before))
                 return Verified();
             return Fault(in action, ChallengePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
@@ -161,8 +172,7 @@ internal sealed class ChallengeGameAction : IDisposable
     private static ChallengeBudget SettledBudget(ChallengeActionKind kind,
         ChallengeNativeBindings native, in NativeContext context, in ChallengeAdmissionState before)
     {
-        if (kind is not (ChallengeActionKind.FetchTime or ChallengeActionKind.FetchPrestige))
-            return ChallengeBudget.NotTheAxis;
+        if (kind != ChallengeActionKind.Reroll) return ChallengeBudget.NotTheAxis;
         try { return new ChallengeBudget(before.RerollsLeft, native.AsInt(context.RerollsLeft)); }
         catch (Exception exception) when (IsExpected(exception))
         {
@@ -171,7 +181,7 @@ internal sealed class ChallengeGameAction : IDisposable
     }
 
     private static ChallengePreflight Preflight(ChallengeActionKind kind,
-        ChallengeNativeBindings native, in NativeContext context, object? target,
+        ChallengeNativeBindings native, in NativeContext context, object? target, object? replaced,
         in ChallengeAdmissionState before, out string reason)
     {
         reason = string.Empty;
@@ -180,7 +190,20 @@ internal sealed class ChallengeGameAction : IDisposable
             if (!before.Selected && !before.InTimeOffers && !before.InPrestigeOffers)
             { reason = "The challenge is not in either current offer list."; return ChallengePreflight.OfferUnavailable; }
             if (!before.Selected && !native.HasEmptySpot(context.Preferred))
-            { reason = "The preferred challenge list has no empty slot."; return ChallengePreflight.SelectionFull; }
+            {
+                if (replaced is null)
+                {
+                    reason = "Every selection this cycle allows is taken, and more than one is " +
+                        "held, so which one to give up is the caller's choice: select one of them " +
+                        "to give it up, then select this one.";
+                    return ChallengePreflight.SelectionFull;
+                }
+                if (!native.Contains(context.Preferred, replaced))
+                {
+                    reason = "The selection this one would have replaced is no longer held.";
+                    return ChallengePreflight.SelectionFull;
+                }
+            }
             if (!before.Selected && native.Restricted(context.Preferred, target!))
             { reason = "The challenge conflicts with the selected challenge types."; return ChallengePreflight.SelectionRestricted; }
             return ChallengePreflight.Proceeded;
@@ -190,13 +213,21 @@ internal sealed class ChallengeGameAction : IDisposable
             if (!before.InTimeOffers && !before.InPrestigeOffers)
             { reason = "The challenge is not in either current offer list."; return ChallengePreflight.OfferUnavailable; }
             if (before.TargetState is not (0 or 1))
-            { reason = "Only idle or queued challenges can toggle queue state."; return ChallengePreflight.InvalidState; }
+            { reason = "This challenge has already run, so its queue toggle does nothing."; return ChallengePreflight.InvalidState; }
             return ChallengePreflight.Proceeded;
         }
         if (kind == ChallengeActionKind.Abandon)
         {
             if (before.TargetState != 2)
-            { reason = "Only a currently active challenge can be abandoned."; return ChallengePreflight.InvalidState; }
+            {
+                reason = before.TargetState == 1
+                    ? "This challenge is queued, not running. A queued challenge starts running " +
+                      "at the next reset, and only a running one can be abandoned; queue it off " +
+                      "instead if you do not want it."
+                    : "Only a challenge the reset started can be abandoned. This one is not " +
+                      "running: queue it, reset, and it will be.";
+                return ChallengePreflight.InvalidState;
+            }
             return ChallengePreflight.Proceeded;
         }
         if (!before.WorldCycleComplete)
@@ -227,25 +258,29 @@ internal sealed class ChallengeGameAction : IDisposable
     /// happen. The caller learns whether the offers moved from <c>changed</c> on the settled delta.
     /// </summary>
     private static bool OutcomeLanded(ChallengeActionKind kind,
-        ChallengeNativeBindings native, in NativeContext context, object? target,
+        ChallengeNativeBindings native, in NativeContext context, object? target, object? replaced,
         in ChallengeAdmissionState before) => kind switch
     {
-        ChallengeActionKind.Select => native.Contains(context.Preferred, target!) == !before.Selected,
+        // A replacement is two presses and both are the postcondition: the row asked for is held and
+        // the row it took over is not. Half a swap is a selection the caller did not ask for.
+        ChallengeActionKind.Select =>
+            native.Contains(context.Preferred, target!) == !before.Selected &&
+            (replaced is null || !native.Contains(context.Preferred, replaced)),
         ChallengeActionKind.Queue => before.TargetState == 0
             ? native.State(target!) == 1
             : before.TargetState == 1 && native.State(target!) == 0,
         ChallengeActionKind.Abandon => native.State(target!) == 4,
-        ChallengeActionKind.FetchTime or ChallengeActionKind.FetchPrestige => before.ChallengesFetched
+        ChallengeActionKind.Reroll => before.ChallengesFetched
             ? native.AsInt(context.RerollsLeft) == before.RerollsLeft - 1
             : native.GetBool(context.Fetched),
         _ => false,
     };
 
     private static bool OutcomeLandedBestEffort(ChallengeActionKind kind,
-        ChallengeNativeBindings native, in NativeContext context, object? target,
+        ChallengeNativeBindings native, in NativeContext context, object? target, object? replaced,
         in ChallengeAdmissionState before)
     {
-        try { return OutcomeLanded(kind, native, in context, target, in before); }
+        try { return OutcomeLanded(kind, native, in context, target, replaced, in before); }
         catch (Exception exception) when (IsExpected(exception)) { return false; }
     }
 

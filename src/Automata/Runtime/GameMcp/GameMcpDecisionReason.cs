@@ -123,7 +123,7 @@ internal static class GameMcpDecisionReason
         "selection_unavailable" => ClassNotFound,
 
         // The target exists and is in the wrong state for this verb.
-        "invalid_state" or "already_active" or "already_stopped" or "already_developing" or
+        "invalid_state" or "already_ran" or "already_active" or "already_stopped" or "already_developing" or
         "already_discovered" or "already_in_requested_state" or "already_maxed" or
         "cooldown_active" or "inventory_busy" or "native_caster_busy" or
         "targeting_in_progress" or "transition_in_progress" or "manual_pause" or
@@ -251,7 +251,8 @@ internal static class GameMcpDecisionReason
         "recipe_incomplete" => "The station has no complete recipe loaded.",
         "cooldown_active" => "This is still on cooldown.",
         "inventory_busy" => "The inventory is busy, so nothing can be used right now.",
-        "invalid_state" => "This challenge is not in a state that can be activated.",
+        "invalid_state" => "This is not in a state where that action does anything.",
+        "already_ran" => "This challenge has already run, so queueing it does nothing.",
         "no_cancellable_usage" => "Nothing is queued that could be cancelled.",
         "level_locked" => "The game fixes this ritual's starting level, so it cannot be set.",
         "not_selected" => "This ritual is not the selected one.",

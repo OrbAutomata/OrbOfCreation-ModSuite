@@ -20,7 +20,7 @@ public sealed class GameMcpPrestigeTests
     public void Tool_requires_one_explicit_irreversible_confirmation_and_no_target_or_generation()
     {
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
-            candidate => (string?)candidate["name"] == "game_prestige");
+            candidate => (string?)candidate["name"] == "time_prestige");
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
         var schema = tool["inputSchema"]!;
         Assert.Equal(new[] { "confirm" }, schema["required"]!.Values<string>());
@@ -38,7 +38,7 @@ public sealed class GameMcpPrestigeTests
         var response = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {
-                ["name"] = "game_prestige",
+                ["name"] = "time_prestige",
                 ["arguments"] = new JObject { ["confirm"] = false },
             }));
 
@@ -48,15 +48,12 @@ public sealed class GameMcpPrestigeTests
     }
 
     [Fact]
-    public void Challenge_read_carries_complete_named_prestige_decision_and_current_holding()
+    public void The_challenge_screen_carries_complete_named_prestige_decision_and_current_holding()
     {
         var world = World();
-        var context = Context(world, 2601);
-        var response = Json(GameMcpWorldQuery.ListRows(
-            context, "challenges", 0, 50).Freeze(), world);
+        var response = Json(GameMcpWorldQuery.ProjectChallengeState(world), world);
 
-        Assert.True(response["challengeState"] is not null, response.ToString());
-        var prestige = response["challengeState"]!["prestige"]!;
+        var prestige = response["prestige"]!;
         var advancements = prestige["timeAdvancements"]!;
         Assert.Equal(7, (int)advancements["atStart"]!);
         Assert.Equal(5, (int)advancements["previousStart"]!);
@@ -64,8 +61,8 @@ public sealed class GameMcpPrestigeTests
         Assert.Equal(4, (int)prestige["resetCount"]!);
         Assert.Equal("Persistent Light", (string?)prestige["persistentResource"]!["resource"]!["name"]);
         Assert.Equal("80", (string?)prestige["persistentResource"]!["amount"]);
-        Assert.Equal("Prismatic Trial", (string?)prestige["survivingChallengeSelections"]![0]!["name"]);
-        Assert.Equal("Reward Trial", (string?)prestige["survivingChallengeRewards"]![0]!["name"]);
+        Assert.Equal("Prismatic Trial", (string?)prestige["queuedForReset"]![0]!["name"]);
+        Assert.Equal("Reward Trial", (string?)prestige["survivingRewards"]![0]!["name"]);
         Assert.True((bool)prestige["reset"]!["available"]!);
     }
 
@@ -115,12 +112,11 @@ public sealed class GameMcpPrestigeTests
                 context.RerollsLeft, context.RerollsMaximum, context.SelectionMaximum,
                 context.Selected, context.TimeOffers, context.PrestigeOffers),
         };
-        var response = Json(GameMcpWorldQuery.ListRows(
-            Context(world, 2603), "challenges", 0, 50).Freeze(), world);
+        var response = Json(GameMcpWorldQuery.ProjectChallengeState(world), world);
 
-        Assert.Equal("Prismatic Trial", (string?)response["challengeState"]!["prestigeOffers"]![0]!["name"]);
-        Assert.False((bool)response["challengeState"]!["prestige"]!["available"]!);
-        Assert.Equal("ERR_REFUSED", (string?)response["challengeState"]!["prestige"]!["reasonCode"]);
+        Assert.Equal("Prismatic Trial", (string?)response["resetOffers"]![0]!["name"]);
+        Assert.False((bool)response["prestige"]!["available"]!);
+        Assert.Equal("ERR_REFUSED", (string?)response["prestige"]!["reasonCode"]);
     }
 
     [Fact]

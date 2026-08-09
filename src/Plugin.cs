@@ -1600,6 +1600,10 @@ public sealed class Plugin : BaseUnityPlugin
                 execution = GameMcpToolExecution.Read(
                     ProjectGameMcpAutomationFeatures(context));
                 return true;
+            case "time_challenge" when request.Mode == "state":
+                execution = GameMcpToolExecution.Read(
+                    GameMcpWorldQuery.ChallengeStateRead(context).Freeze());
+                return true;
             case "trace_health":
                 execution = GameMcpToolExecution.Text(ProjectGameMcpTraceHealthText(context));
                 return true;
@@ -2107,6 +2111,7 @@ public sealed class Plugin : BaseUnityPlugin
 
         var mode = request.Mode;
         var targetId = request.Uuid;
+        var secondaryId = request.SecondaryUuid;
         var nativeType = string.Empty;
         var amount = request.Amount;
         var payloadKey = string.Empty;
@@ -2260,7 +2265,12 @@ public sealed class Plugin : BaseUnityPlugin
             mode = "return_to_menu";
         }
         else if (kind == GameMcpCommandKind.Challenge)
+        {
             nativeType = "ChallengeSO";
+            if (request.Mode == "select" && context.World is not null)
+                secondaryId = GameMcpWorldQuery.ChallengeSelectionToReplace(
+                    context.World.Snapshot, targetId);
+        }
         else if (kind == GameMcpCommandKind.Prestige)
             nativeType = "PersistentResetManager";
         else if (kind == GameMcpCommandKind.Research)
@@ -2314,7 +2324,7 @@ public sealed class Plugin : BaseUnityPlugin
                     : 0,
             mode.Length == 0 ? request.ToolName : mode,
             targetId,
-            request.SecondaryUuid,
+            secondaryId,
             nativeType,
             amount <= 0 ? 1 : amount,
             payloadKey,

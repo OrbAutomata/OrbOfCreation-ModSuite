@@ -20,11 +20,11 @@ public sealed class GameMcpChallengeTests
     public void Tool_has_one_mode_conditioned_uuid_shape_and_no_generation_or_receipt_inputs()
     {
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
-            candidate => (string?)candidate["name"] == "game_challenge");
+            candidate => (string?)candidate["name"] == "time_challenge");
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
         var schema = tool["inputSchema"]!;
         Assert.Equal(new[] { "mode" }, schema["required"]!.Values<string>());
-        Assert.Equal(new[] { "select", "activate", "abandon", "reroll_time_challenges", "reroll_prestige_challenges" },
+        Assert.Equal(new[] { "select", "queue", "abandon", "reroll", "state" },
             schema["properties"]!["mode"]!["enum"]!.Values<string>());
         Assert.NotNull(schema["properties"]!["uuid"]);
         Assert.Null(schema["properties"]!["worldGeneration"]);
@@ -37,16 +37,16 @@ public sealed class GameMcpChallengeTests
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {
-                ["name"] = "game_challenge",
+                ["name"] = "time_challenge",
                 ["arguments"] = new JObject { ["mode"] = "select" },
             }));
         var forbidden = router.Handle(GameMcpAcceptanceFixture.Request(2, "tools/call",
             new JObject
             {
-                ["name"] = "game_challenge",
+                ["name"] = "time_challenge",
                 ["arguments"] = new JObject
                 {
-                    ["mode"] = "reroll_time_challenges",
+                    ["mode"] = "reroll",
                     ["uuid"] = First.ToString("D"),
                 },
             }));
@@ -57,18 +57,18 @@ public sealed class GameMcpChallengeTests
             error => (string?)error?["code"] == "unexpected_for_mode" && (string?)error?["field"] == "uuid");
     }
 
+    /// <summary>
+    /// The screen state used to ride every page of a ninety-eight-row category, so a request for one
+    /// row came back nine tenths ambient state. It is one answer a caller asks for now.
+    /// </summary>
     [Fact]
-    public void Challenge_world_list_is_lean_and_world_get_is_decision_complete()
+    public void Challenge_reads_carry_rows_only_and_the_screen_is_its_own_answer()
     {
         var world = World();
         var response = Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 2501), "challenges", 0, 50).Freeze(), world);
 
-        var state = response["challengeState"]!;
-        Assert.Equal(2, (int)state["rerollsLeft"]!);
-        Assert.Equal(3, (int)state["selectionMaximum"]!);
-        Assert.Equal("Prismatic Trial", (string?)state["selected"]![0]!["name"]);
-        Assert.Equal("Expanding Trial", (string?)state["timeOffers"]![1]!["name"]);
+        Assert.Null(response["challengeState"]);
         var first = Assert.Single(response["rows"]!.Values<JObject>(),
             row => (string?)row?["uuid"] == GameMcpTestHarness.Handle(First))!;
         Assert.Equal("Prismatic Trial", (string?)first["name"]);
@@ -78,12 +78,35 @@ public sealed class GameMcpChallengeTests
         var exact = Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 2501),
             "challenges", First.ToString("D")).Freeze(), world)["row"]!;
+        Assert.Null(exact["challengeState"]);
         Assert.True((bool)exact["select"]!["available"]!);
-        Assert.True((bool)exact["activate"]!["available"]!);
+        Assert.True((bool)exact["queue"]!["available"]!);
+        Assert.Null(exact["activate"]);
         Assert.Equal("12", (string?)exact["nextDifficulty"]);
         Assert.Equal("30", (string?)exact["nextReward"]);
         Assert.Null(first["receipt"]);
         Assert.Null(first["payment"]);
+
+        var state = Json(GameMcpWorldQuery.ProjectChallengeState(world), world);
+        Assert.Equal(2, (int)state["rerollsLeft"]!);
+        Assert.Equal(3, (int)state["selectionMaximum"]!);
+        Assert.Equal("Prismatic Trial", (string?)state["selected"]![0]!["name"]);
+        Assert.Equal("Expanding Trial", (string?)state["offers"]![1]!["name"]);
+    }
+
+    /// <summary>
+    /// The Reset modal and the Time screen draw the same list from the same asset, so it is said
+    /// once. A build where the two ever part company says the second one out loud.
+    /// </summary>
+    [Fact]
+    public void The_reset_modals_offers_are_named_only_when_they_differ_from_the_screens()
+    {
+        var shared = World(prestigeOffers: new[] { First, Second });
+        var parted = World();
+
+        Assert.Null(Json(GameMcpWorldQuery.ProjectChallengeState(shared), shared)["resetOffers"]);
+        Assert.Equal("Temporal Trial", (string?)Json(
+            GameMcpWorldQuery.ProjectChallengeState(parted), parted)["resetOffers"]![0]!["name"]);
     }
 
     [Fact]
@@ -97,7 +120,7 @@ public sealed class GameMcpChallengeTests
             "ChallengeSO", 1, string.Empty, string.Empty, false, false,
             frameContext: GameMcpTestHarness.Context(before));
         var rerollCommand = new GameMcpCommand(
-            2, GameMcpCommandKind.Challenge, 9, 3, "reroll_time_challenges", Guid.Empty, Guid.Empty,
+            2, GameMcpCommandKind.Challenge, 9, 3, "reroll", Guid.Empty, Guid.Empty,
             "ChallengeSO", 1, string.Empty, string.Empty, false, false,
             frameContext: GameMcpTestHarness.Context(before));
         var target = Json(GameMcpWorldQuery.ProjectChallengePostState(context, selectCommand), world);
@@ -108,9 +131,8 @@ public sealed class GameMcpChallengeTests
         Assert.True((bool)target["selected"]!["after"]!);
         Assert.Null(target["challengeState"]);
         Assert.Null(target["receipt"]);
-        Assert.NotNull(fetch["challengeState"]);
-        Assert.Equal("Expanding Trial",
-            (string?)fetch["challengeState"]!["timeOffers"]![1]!["name"]);
+        Assert.Null(fetch["challengeState"]);
+        Assert.Equal("Expanding Trial", (string?)fetch["offers"]![1]!["name"]);
         Assert.Equal(2, (int)fetch["rerollsLeft"]!["before"]!);
         Assert.Equal(2, (int)fetch["rerollsLeft"]!["after"]!);
         Assert.True((bool)fetch["challengesFetched"]!["before"]!);
@@ -143,19 +165,20 @@ public sealed class GameMcpChallengeTests
     }
 
     /// <summary>
-    /// The read block names the verb that acts on it and says which of the two presses this would
-    /// be, so nothing has to be attempted to learn the price.
+    /// One button, one decision: the Time screen and the Reset modal spend the same budget through
+    /// the same asset, so the read says which of the two presses the next one would be exactly once.
     /// </summary>
     [Fact]
-    public void The_read_block_names_the_reroll_verb_and_whether_the_next_press_costs_one()
+    public void The_read_block_names_one_reroll_decision_and_whether_the_next_press_costs_one()
     {
         var free = Json(GameMcpWorldQuery.ProjectChallengeState(
             World(challengesFetched: false, rerollsLeft: 3)), World());
         var paid = Json(GameMcpWorldQuery.ProjectChallengeState(World()), World());
 
-        Assert.False((bool)free["rerollTimeChallenges"]!["costsReroll"]!);
-        Assert.True((bool)paid["rerollTimeChallenges"]!["costsReroll"]!);
-        Assert.True((bool)paid["rerollPrestigeChallenges"]!["costsReroll"]!);
+        Assert.False((bool)free["reroll"]!["costsReroll"]!);
+        Assert.True((bool)paid["reroll"]!["costsReroll"]!);
+        Assert.Null(paid["rerollTimeChallenges"]);
+        Assert.Null(paid["rerollPrestigeChallenges"]);
         Assert.Null(paid["fetchTimeChallenges"]);
     }
 
@@ -200,7 +223,7 @@ public sealed class GameMcpChallengeTests
     private static JObject Reroll(GameWorldState before, GameWorldState after)
     {
         var command = new GameMcpCommand(
-            3, GameMcpCommandKind.Challenge, 9, 3, "reroll_time_challenges", Guid.Empty, Guid.Empty,
+            3, GameMcpCommandKind.Challenge, 9, 3, "reroll", Guid.Empty, Guid.Empty,
             "ChallengeSO", 1, string.Empty, string.Empty, false, false,
             frameContext: GameMcpTestHarness.Context(before));
         return Json(
@@ -246,9 +269,11 @@ public sealed class GameMcpChallengeTests
         bool selected = true,
         int rerollsLeft = 2,
         bool challengesFetched = true,
-        Guid[]? timeOffers = null)
+        Guid[]? timeOffers = null,
+        Guid[]? prestigeOffers = null)
     {
         timeOffers ??= new[] { First, Second };
+        prestigeOffers ??= new[] { Third };
         var rows = new[]
         {
             new WorldChallenge(First, 1, 1, true, false, 5, 10, 12, 30,
@@ -280,10 +305,8 @@ public sealed class GameMcpChallengeTests
                     : PublicationTable<WorldChallengeReference>.Empty,
                 PublicationTable<WorldChallengeReference>.Create(
                     timeOffers.Select((id, index) => new WorldChallengeReference(index, id)).ToArray()),
-                PublicationTable<WorldChallengeReference>.Create(new[]
-                {
-                    new WorldChallengeReference(0, Third),
-                })),
+                PublicationTable<WorldChallengeReference>.Create(
+                    prestigeOffers.Select((id, index) => new WorldChallengeReference(index, id)).ToArray())),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus("challenges", WorldCategoryOutcome.Collected, 3, 0, string.Empty),

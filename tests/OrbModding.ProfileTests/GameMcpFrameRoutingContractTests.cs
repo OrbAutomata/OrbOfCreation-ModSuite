@@ -227,11 +227,11 @@ public sealed class GameMcpFrameRoutingContractTests
             ["uuid"] = Guid.NewGuid().ToString("D"),
             ["mode"] = "select",
         },
-        "game_challenge" => new JObject
+        "time_challenge" => new JObject
         {
-            ["mode"] = "reroll_time_challenges",
+            ["mode"] = "reroll",
         },
-        "game_prestige" => new JObject
+        "time_prestige" => new JObject
         {
             ["confirm"] = true,
         },

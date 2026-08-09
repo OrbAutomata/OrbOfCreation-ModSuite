@@ -411,17 +411,17 @@ internal sealed class GameMcpProtocolRouter
                 if (builder.Mode.StartsWith("snapshot_", StringComparison.Ordinal))
                     builder.SlotIndex = RequiredInt(arguments, "slot", 0, int.MaxValue);
                 break;
-            case "game_challenge":
+            case "time_challenge":
                 builder.Mode = RequireOneOf(arguments, "mode",
-                    "select", "activate", "abandon", "reroll_time_challenges", "reroll_prestige_challenges");
+                    "select", "queue", "abandon", "reroll", "state");
                 builder.Uuid = OptionalUuid(arguments, "uuid");
-                if (builder.Mode is "select" or "activate" or "abandon" && builder.Uuid == Guid.Empty)
+                if (builder.Mode is "select" or "queue" or "abandon" && builder.Uuid == Guid.Empty)
                     throw new GameMcpInvalidParamsException("uuid is required for " + builder.Mode);
-                if (builder.Mode is "reroll_time_challenges" or "reroll_prestige_challenges" && builder.Uuid != Guid.Empty)
+                if (builder.Mode is "reroll" or "state" && builder.Uuid != Guid.Empty)
                     throw new GameMcpInvalidParamsException(
-                        "uuid is accepted only for select, activate, or abandon");
+                        "uuid is accepted only for select, queue, or abandon");
                 break;
-            case "game_prestige":
+            case "time_prestige":
                 builder.Mode = "reset";
                 if (!OptionalBool(arguments, "confirm", false))
                     throw new GameMcpInvalidParamsException(
@@ -517,9 +517,10 @@ internal sealed class GameMcpProtocolRouter
             "game_structure" or "game_return_to_menu" or
             "game_spell_level" or "game_casting_dial" or "game_spell_loadout" or "game_targeting" or
             "game_consumable" or "game_craft" or "game_discover" or "game_equipment" or
-            "game_challenge" or "game_prestige" or "game_research" or "game_alchemy" or
+            "time_challenge" or "time_prestige" or "game_research" or "game_alchemy" or
             "game_ritual" or "game_level" or "game_loadout" when
                 !(name == "game_discover" && request.Mode == "preview") &&
+                !(name == "time_challenge" && request.Mode == "state") &&
                 !(name == "game_spell_loadout" && request.Mode is "preview" or "staged") =>
                 GameMcpOperationClass.Gameplay,
         "game_navigate" or "game_continue" or "game_modal" => GameMcpOperationClass.UiState,
@@ -553,7 +554,7 @@ internal sealed class GameMcpProtocolRouter
             "game_structure" or "game_return_to_menu" or
             "game_spell_level" or "game_casting_dial" or "game_spell_loadout" or "game_targeting" or
             "game_consumable" or "game_craft" or "game_discover" or "game_equipment" or
-            "game_challenge" or "game_prestige" or "game_research" or "game_alchemy" or
+            "time_challenge" or "time_prestige" or "game_research" or "game_alchemy" or
             "game_ritual" or "game_level" or "game_loadout" =>
             GameMcpFrameData.World | GameMcpFrameData.Configuration,
         "game_screenshot" => GameMcpFrameData.Configuration,
@@ -959,25 +960,25 @@ internal sealed class GameMcpProtocolRouter
                 readOnly: false,
                 idempotent: false),
             Tool(
-                "game_challenge",
+                "time_challenge",
                 "Select, queue, abandon, or reroll challenges",
-                "Drive one exact native challenge decision. Target modes return the changed state. The two reroll modes press the game's own new-challenges button, which is free once per world cycle and spends one of the limited rerolls every time after that; both return rerollsLeft and challengesFetched as before/after pairs. Read the current offers and the reroll budget from the world instead: challengeState rides on the challenge reads.",
+                "Drive one exact native challenge decision on the game's Time tab. select presses a challenge's preferred toggle: it selects an unselected challenge and gives up a selected one, and where the selections are full and exactly one is held it gives that one up and takes this one in a single call. queue presses the row's queue toggle, which moves it between idle and queued; a queued challenge starts running at the next reset, and only a running one can be abandoned. reroll presses the offer screen's own new-challenges button, free once per world cycle and one reroll every time after. state returns the offers, the reroll budget, the selections, and the reset decision.",
                 ModeSchema(ActionSchema(
                     new JObject
                     {
-                        ["mode"] = EnumSchema("select", "activate", "abandon", "reroll_time_challenges", "reroll_prestige_challenges"),
-                        ["uuid"] = StringSchema("Required for select, activate, and abandon; a published ChallengeSO UUID."),
+                        ["mode"] = EnumSchema("select", "queue", "abandon", "reroll", "state"),
+                        ["uuid"] = StringSchema("Required for select, queue, and abandon; a published ChallengeSO UUID."),
                     },
                     "mode"),
                     ModeRule("select", new[] { "uuid" }),
-                    ModeRule("activate", new[] { "uuid" }),
+                    ModeRule("queue", new[] { "uuid" }),
                     ModeRule("abandon", new[] { "uuid" }),
-                    ModeRule("reroll_time_challenges", forbidden: new[] { "uuid" }),
-                    ModeRule("reroll_prestige_challenges", forbidden: new[] { "uuid" })),
+                    ModeRule("reroll", forbidden: new[] { "uuid" }),
+                    ModeRule("state", forbidden: new[] { "uuid" })),
                 readOnly: false,
                 idempotent: false),
             Tool(
-                "game_prestige",
+                "time_prestige",
                 "Reset the persistent world",
                 "Commit the irreversible native persistent reset after the world cycle and challenge choices are ready. Success waits for a fresh post-reset world and returns its named prestige and challenge decisions inline.",
                 ActionSchemaWithoutIdentity(
@@ -1253,15 +1254,15 @@ internal sealed class GameMcpProtocolRouter
             }
         }
 
-        if (string.Equals(name, "game_challenge", StringComparison.Ordinal) &&
+        if (string.Equals(name, "time_challenge", StringComparison.Ordinal) &&
             arguments["mode"]?.Type == JTokenType.String)
         {
             var mode = (string?)arguments["mode"];
             var hasUuid = arguments.ContainsKey("uuid");
-            if (mode is "select" or "activate" or "abandon" && !hasUuid)
+            if (mode is "select" or "queue" or "abandon" && !hasUuid)
                 errors.Add(ValidationError("missing_required", "uuid",
                     "required field 'uuid' is missing for mode '" + mode + "'"));
-            else if (mode is "reroll_time_challenges" or "reroll_prestige_challenges" && hasUuid)
+            else if (mode is "reroll" or "state" && hasUuid)
                 errors.Add(ValidationError("unexpected_for_mode", "uuid",
                     "field 'uuid' is not accepted for mode '" + mode + "'"));
         }
