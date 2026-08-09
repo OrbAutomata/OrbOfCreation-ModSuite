@@ -120,6 +120,23 @@ public sealed class GameMcpLoadoutTests
         Assert.True((bool)sections["equipment"]!["saved"]!);
     }
 
+    /// <summary>
+    /// The game's own swap gate is a state the published world already accounts for, so it reaches
+    /// the wire as one. `ERR_REFUSED` is reserved for a refusal the world cannot explain, and this
+    /// row explains it: the caller reads `canSelect: no` beside the sentence.
+    /// </summary>
+    [Fact]
+    public void A_loadout_the_manager_will_not_swap_to_is_a_state_rather_than_an_unexplained_no()
+    {
+        var world = World(selected: false, populatedSnapshot: false, canSwitchNow: false);
+        var response = Json(GameMcpWorldQuery.GetRow(Context(world, 903),
+            "player-loadouts", PlayerId.ToString("D")).Freeze(), world);
+        var row = Assert.IsType<JObject>(response["row"]);
+
+        Assert.False((bool)row["canSelect"]!);
+        Assert.Equal("ERR_STATE", (string?)row["reasonCode"]);
+    }
+
     [Fact]
     public void Settled_deltas_use_the_observed_player_and_snapshot_states()
     {
@@ -173,7 +190,8 @@ public sealed class GameMcpLoadoutTests
     private static GameWorldState World(
         bool selected,
         bool populatedSnapshot,
-        bool anySavedEntries = true)
+        bool anySavedEntries = true,
+        bool? canSwitchNow = null)
     {
         var entries = anySavedEntries
             ? new[]
@@ -205,7 +223,7 @@ public sealed class GameMcpLoadoutTests
             {
                 new WorldPlayerLoadout(PlayerId, "Boss setup", selected,
                     savesEquipment: true, savesAlchemy: true, icon: 2, color: 4,
-                    canSwitchNow: !selected),
+                    canSwitchNow: canSwitchNow ?? !selected),
             }),
             PlayerLoadoutEntries = PublicationTable<WorldLoadoutEntry>.Create(entries),
             SnapshotLoadouts = PublicationTable<WorldSnapshotLoadout>.Create(new[]

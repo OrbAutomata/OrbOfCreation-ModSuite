@@ -139,7 +139,8 @@ internal static class GameMcpDecisionReason
         "modal_already_closing" or "modal_close_not_ready" or "requested_state_not_reached" or
         "randomization_unavailable" or "cancel_unavailable" or "fetch_unavailable" or
         "bonus_unavailable" or "develop_unavailable" or
-        "immediate_required_discovery" or "reroll_already_used" => ClassState,
+        "immediate_required_discovery" or "reroll_already_used" or
+        "switch_blocked" => ClassState,
 
         // A ceiling, a capacity, or a budget is reached; a smaller ask or a later call may work.
         "amount_unavailable" or "loadout_full" or "automation_full" or "harvest_list_full" or
