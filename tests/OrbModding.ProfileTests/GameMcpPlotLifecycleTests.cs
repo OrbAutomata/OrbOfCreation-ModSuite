@@ -75,6 +75,13 @@ public sealed class GameMcpPlotLifecycleTests
         Assert.Null(blocked["add"]!["available"]);
         Assert.Equal("game_agromancy add_plot_action", (string?)blocked["add"]!["checkWith"]);
         Assert.Null(blocked["add"]!["plotQuantityCost"]);
+        // Nothing is running, which the row names on its own axis rather than leaving bare for the
+        // backstop to read as a refusal the game never issued.
+        Assert.False((bool)blocked["remove"]!["available"]!);
+        Assert.Equal("ERR_NOT_FOUND", (string?)blocked["remove"]!["reasonCode"]);
+        Assert.Equal(
+            "This is not active, so there is nothing to act on.",
+            (string?)blocked["remove"]!["reason"]);
     }
 
     private static GameWorldState World(bool prerequisitesReady, int active)

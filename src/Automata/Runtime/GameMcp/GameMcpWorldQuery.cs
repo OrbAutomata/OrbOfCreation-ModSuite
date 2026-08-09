@@ -3337,8 +3337,20 @@ internal static class GameMcpWorldQuery
             ["action"] = EntityReference(world, action.PlotNodeActionId),
             ["active"] = active,
             ["add"] = ProjectPlotActionDecision(world, in action, active),
-            ["remove"] = new JObject { ["available"] = active > 0 },
+            ["remove"] = PlotActionRemoveDecision(active),
         }.Freeze();
+    }
+
+    /// <summary>
+    /// Nothing running is not a refusal. Left bare, the no-bare-no backstop stamped this
+    /// <c>native_rejected</c> and told a caller the game had refused something it never asked for;
+    /// every sibling names its own axis, and this is the same axis they name.
+    /// </summary>
+    private static JObject PlotActionRemoveDecision(int active)
+    {
+        var result = new JObject { ["available"] = active > 0 };
+        if (active <= 0) result["reasonCode"] = "not_active";
+        return result;
     }
 
     private static GameMcpValue ProjectAgromancyProcessing(
