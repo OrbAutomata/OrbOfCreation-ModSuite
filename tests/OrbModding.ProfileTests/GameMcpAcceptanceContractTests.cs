@@ -628,6 +628,26 @@ public sealed class GameMcpProtocolSurfaceTests
         // that works is covered by the leading verdict, so it costs no line at all.
         Assert.DoesNotContain("game_modal", withoutRuntime, StringComparison.Ordinal);
         Assert.DoesNotContain("native contracts", withoutRuntime, StringComparison.Ordinal);
+        // The settings the load normalizes are ones no caller chose, so a normalization that landed
+        // says nothing and one that did not names itself here rather than only in the log.
+        Assert.DoesNotContain("agent settings", withoutRuntime, StringComparison.Ordinal);
+        Assert.Contains(
+            "agent settings: Research Queue Mode did not stay on after the setting was written",
+            Plugin.ProjectGameMcpHealthText(new GameMcpFrameContext(
+                world: null,
+                runtime: null,
+                configuration: context.Configuration,
+                lifecycleGeneration: 9,
+                sceneName: "Main",
+                nativeContractsAvailable: true,
+                featureStatuses: Array.Empty<FeatureStatusSnapshot>(),
+                traceWriterStatus: DecisionJournalStatus.Unavailable,
+                traceWriterRevision: 0,
+                writableConfiguration: Array.Empty<GameMcpWritableSettingDescriptor>(),
+                modalDismissAvailable: true,
+                agentSettingsFailure:
+                    "Research Queue Mode did not stay on after the setting was written")),
+            StringComparison.Ordinal);
 
         // The runtime outlives every scene change, so a scene name alone answered the same question
         // both ways in one session. The absent runtime is named as a session fact, and the world the

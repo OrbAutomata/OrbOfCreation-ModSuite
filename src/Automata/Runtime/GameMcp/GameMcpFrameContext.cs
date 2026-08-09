@@ -44,7 +44,8 @@ internal sealed class GameMcpFrameContext
         GameMcpWritableSettingDescriptor[] writableConfiguration,
         bool modalDismissAvailable = false,
         string modalDismissUnavailableReason = "the modal action boundary was not composed",
-        GameLifecycleState lifecycleState = GameLifecycleState.Playing)
+        GameLifecycleState lifecycleState = GameLifecycleState.Playing,
+        string agentSettingsFailure = "")
     {
         World = world;
         Runtime = runtime;
@@ -60,6 +61,7 @@ internal sealed class GameMcpFrameContext
             Array.Empty<GameMcpWritableSettingDescriptor>();
         ModalDismissAvailable = modalDismissAvailable;
         ModalDismissUnavailableReason = modalDismissUnavailableReason ?? string.Empty;
+        AgentSettingsFailure = agentSettingsFailure ?? string.Empty;
     }
 
     internal WorldPublication<GameWorldState>? World { get; }
@@ -84,6 +86,13 @@ internal sealed class GameMcpFrameContext
     internal GameMcpWritableSettingDescriptor[] WritableConfiguration { get; }
     internal bool ModalDismissAvailable { get; }
     internal string ModalDismissUnavailableReason { get; }
+
+    /// <summary>
+    /// Why the load that started this run could not leave the game in the shape every documented
+    /// verb assumes, or empty when it did. A caller whose develop queues and cancels are being
+    /// refused by a setting it never chose has no other way to learn that from the wire.
+    /// </summary>
+    internal string AgentSettingsFailure { get; }
     internal bool RuntimeAvailable => Runtime is not null;
 
     /// <summary>

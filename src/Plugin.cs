@@ -57,6 +57,7 @@ public sealed class Plugin : BaseUnityPlugin
     private ModalDismissGameAction? _modalDismissGameAction;
     private string _gameMcpTooltipContractFailure =
         "tooltip native layout has not been bound";
+    private string _gameMcpAgentSettingsFailure = string.Empty;
 #else
     private const bool AutoStartServiceCycleDiagnostics = false;
 #endif
@@ -1362,6 +1363,7 @@ public sealed class Plugin : BaseUnityPlugin
         _serviceCycleActivation?.InvalidateLifecycle();
 #if SERVICE_CYCLE_PROFILE
         _modalDismissGameAction?.InvalidateLifecycle();
+        _gameMcpAgentSettingsFailure = string.Empty;
 #endif
         _automataActionFamilyOwnership?.ReleaseLifecycleClaims();
         if (_configurationStore is not null)
@@ -1535,7 +1537,8 @@ public sealed class Plugin : BaseUnityPlugin
             _modalDismissGameAction?.BindingsAvailable == true,
             _modalDismissGameAction?.BindingFailure ??
                 "the modal action boundary was not composed",
-            GameLifecycleMonitor.Shared.Current.State);
+            GameLifecycleMonitor.Shared.Current.State,
+            _gameMcpAgentSettingsFailure);
     }
 
     private bool TryExecuteGameMcpFrameOperation(
@@ -1879,6 +1882,12 @@ public sealed class Plugin : BaseUnityPlugin
         if (!context.ModalDismissAvailable && context.ModalDismissUnavailableReason.Length > 0)
             result.Append("game_modal reason: ").AppendLine(
                 GameMcpTextFormatter.Plain(context.ModalDismissUnavailableReason));
+        // The load normalizes three settings the documented verbs assume, and a caller never asked
+        // for them — so when one did not land, the develop queue and the spell cancel it silently
+        // costs are refusals nothing else on the wire can explain.
+        if (context.AgentSettingsFailure.Length > 0)
+            result.Append("agent settings: ").AppendLine(
+                GameMcpTextFormatter.Plain(context.AgentSettingsFailure));
 
         var featureGroups = context.FeatureStatuses
             .GroupBy(feature => new { feature.State, feature.Reason.Code })
@@ -2762,10 +2771,14 @@ public sealed class Plugin : BaseUnityPlugin
 
         // The load leaves the game in the shape every documented verb assumes, and says nothing
         // about it: an unattended caller should never have to know a settings screen exists. A
-        // normalization that did not land is a defect for the log, not a status line on the wire.
+        // normalization that did not land is the one case worth a word, and health is where the
+        // suite's own broken capabilities are already named — the log alone reaches nobody the
+        // refusals will land on.
+        _gameMcpAgentSettingsFailure = string.Empty;
         if (!string.Equals(state.SceneName, "Start", StringComparison.Ordinal) &&
             !AgentSettingsNormalization.TryNormalize(out var settingsFailure))
         {
+            _gameMcpAgentSettingsFailure = settingsFailure;
             Logger.LogWarning(
                 "Game MCP could not normalize the agent-required game settings: " + settingsFailure);
         }

@@ -1004,8 +1004,9 @@ never authorizes a gameplay or save mutation.
 lines are the leading `available` verdict, the build and its twelve-hex-character DLL fingerprint,
 scene, lifecycle state and generation, world publication, and emergency STOP. Everything else
 appears only when it is a problem: `runtime:`, `native contracts:`, `game_craft:` and `game_modal:`
-each cost a line exactly when they read `unavailable`, followed by the reason that names why, and
-feature and service names are grouped by state and reason code. Seven identical NotReady features
+each cost a line exactly when they read `unavailable`, followed by the reason that names why,
+`agent settings:` costs a line exactly while the last load could not normalize the settings every
+documented verb assumes, and feature and service names are grouped by state and reason code. Seven identical NotReady features
 therefore occupy one line, not seven objects. It returns no structured payload because none of those
 labels is a handle for another call. It reads those owners only for the requested operation and
 reports no MCP queue internals.
@@ -1761,8 +1762,10 @@ when the game already holds it; nothing is persisted to the settings file, becau
 close is what persists and no modal was opened. Without them a queued develop and a spell toggle-off
 refuse for reasons a caller cannot see coming, and the numbers the game draws stop matching the
 numbers the wire carries. The response says nothing about any of it — an unattended caller should
-never need to know a settings screen exists — and a normalization that does not land is a logged
-defect rather than a status line.
+never need to know a settings screen exists. A normalization that does not land is the exception:
+it costs one `agent settings:` line on `suite_health` naming why, present exactly while the last
+load's normalization is the one that failed and gone once a load succeeds or the run ends, because
+the refusals it causes are otherwise unexplainable from the wire.
 
 `game_return_to_menu` is the opposite lifecycle boundary. On `Main` it invokes the visible
 `UIBackToMenuButton.BackToMenu` callback, which raises the game's authored manual-save event before
