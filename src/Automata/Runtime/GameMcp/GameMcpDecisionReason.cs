@@ -296,7 +296,7 @@ internal static class GameMcpDecisionReason
         "native_level_refused" => "The game refuses to level this right now.",
         "native_develop_refused" => "The game refuses to develop this right now.",
         "native_rejected" =>
-            "The game refused, and the published world does not explain why.",
+            "The game refused, and nothing it reports explains why.",
         "multi_buy_unavailable" =>
             "The global multi-buy target is zero, so a queued develop would take no levels.",
         "research_decision_unavailable" =>
@@ -313,7 +313,7 @@ internal static class GameMcpDecisionReason
 
         // Core-glyph vocabulary
         "recipe_has_no_core_glyph" => "This recipe names no core glyph.",
-        "core_glyph_not_published" => "This recipe's core glyph is not in the published world.",
+        "core_glyph_not_published" => "The game did not report this recipe's core glyph.",
         "core_glyph_not_owned" => "This recipe's core glyph is not owned.",
         "core_glyph_not_leveled" => "This recipe's core glyph has no level yet.",
         "core_glyph_augments_only" => "This recipe's core glyph may only be used as an augment.",

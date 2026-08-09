@@ -55,7 +55,7 @@ internal static class GameMcpEntityCapabilityMap
                 GameMcpCommandKind.SpellLevel or GameMcpCommandKind.SpellComposition or GameMcpCommandKind.Targeting or
                 GameMcpCommandKind.Challenge or GameMcpCommandKind.Prestige))
         {
-            reason = "a non-empty stable UUID is required";
+            reason = "This needs the id of the thing to act on, and the all-zero id names nothing.";
             return false;
         }
 
@@ -63,7 +63,7 @@ internal static class GameMcpEntityCapabilityMap
         {
             GameMcpCommandKind.Purchase => PurchaseTarget(world, target, out reason),
             GameMcpCommandKind.SpellLevel when target == Guid.Empty =>
-                AvailableGlobal(world.SpellRecipes.Count > 0, "spell recipe catalog", out reason),
+                AvailableGlobal(world.SpellRecipes.Count > 0, "The spell recipe list", out reason),
             GameMcpCommandKind.Cast or GameMcpCommandKind.SpellLevel or GameMcpCommandKind.SpellWorkbench =>
                 Entity(
                     world.EntityIdentities,
@@ -113,11 +113,11 @@ internal static class GameMcpEntityCapabilityMap
             GameMcpCommandKind.EquipmentLoadout =>
                 Entity(world.EntityIdentities, world.Equipment, target, "equipment", capability, out reason),
             GameMcpCommandKind.Challenge when target == Guid.Empty =>
-                AvailableGlobal(world.ChallengeContext.Available, "challenge decision state", out reason),
+                AvailableGlobal(world.ChallengeContext.Available, "The challenge decision", out reason),
             GameMcpCommandKind.Challenge =>
                 Entity(world.EntityIdentities, world.Challenges, target, "challenges", capability, out reason),
             GameMcpCommandKind.Prestige =>
-                AvailableGlobal(world.ChallengeContext.Available, "prestige decision state", out reason),
+                AvailableGlobal(world.ChallengeContext.Available, "The prestige decision", out reason),
             GameMcpCommandKind.Research =>
                 Entity(world.EntityIdentities, world.Research, target, "research", capability, out reason),
             GameMcpCommandKind.AlchemyLoadout =>
@@ -138,7 +138,7 @@ internal static class GameMcpEntityCapabilityMap
             GameMcpCommandKind.StructureLifecycle =>
                 Entity(world.EntityIdentities, world.Structures, target,
                     "structures", capability, out reason),
-            _ => Unsupported(capability, out reason),
+            _ => Unsupported(out reason),
         };
     }
 
@@ -148,13 +148,17 @@ internal static class GameMcpEntityCapabilityMap
         out string reason)
     {
         if (!Supports("crafting-stations", GameMcpCommandKind.CraftingStation))
-            return Unsupported(GameMcpCommandKind.CraftingStation, out reason);
+        {
+            reason = "Brewing stations are not something these tools can change.";
+            return false;
+        }
         if (WorldCraftingStationLookup.TryFind(world.CraftingStations, target, out _))
         {
             reason = string.Empty;
             return true;
         }
-        reason = "Brewing Station " + target + " is not present in the published world.";
+        reason = EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+            " is not one of your brewing stations.";
         return false;
     }
 
@@ -182,7 +186,7 @@ internal static class GameMcpEntityCapabilityMap
             return true;
         }
         nativeType = string.Empty;
-        reason = "That player loadout or snapshot list is not present in the published world.";
+        reason = "That is not one of your loadouts or saved loadout lists.";
         return false;
     }
 
@@ -225,10 +229,11 @@ internal static class GameMcpEntityCapabilityMap
             return true;
         }
         reason = matches == 0
-            ? "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " is absent from published level-list categories"
-            : "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " is ambiguous across " + matches + " level-list categories";
+            ? EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+              " is not something the game gives a level."
+            : EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+              " matches " + matches + " different things that have levels, so this cannot tell " +
+              "which one you mean.";
         nativeType = string.Empty;
         return false;
     }
@@ -278,10 +283,11 @@ internal static class GameMcpEntityCapabilityMap
             return true;
         }
         reason = matches == 0
-            ? "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " is absent from published generic-discoverable categories"
-            : "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " is ambiguous across " + matches + " generic-discoverable categories";
+            ? EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+              " is not something the game lets you discover."
+            : EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+              " matches " + matches + " different discoverable things, so this cannot tell " +
+              "which one you mean.";
         nativeType = string.Empty;
         return false;
     }
@@ -308,9 +314,10 @@ internal static class GameMcpEntityCapabilityMap
             if (candidates[index].StructureId == target) matches++;
         if (matches == 1) { reason = string.Empty; return true; }
         reason = matches == 0
-            ? "StructureSO target " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " is absent from the published eligible-target set"
-            : "StructureSO target is ambiguous in the published eligible-target set";
+            ? EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+              " is not one of the places this target picker accepts."
+            : "That place is offered more than once by the target picker, so this cannot tell " +
+              "which one you mean.";
         return false;
     }
 
@@ -321,7 +328,7 @@ internal static class GameMcpEntityCapabilityMap
     {
         if (!Supports("spell-slots", GameMcpCommandKind.SpellLoadout))
         {
-            reason = "the authoritative capability map does not admit spell-loadout targets";
+            reason = "Equipped spells are not something these tools can change.";
             return false;
         }
         var matches = 0;
@@ -335,10 +342,10 @@ internal static class GameMcpEntityCapabilityMap
             return true;
         }
         reason = matches == 0
-            ? "runtime Spell identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " is absent from published equipped spell instances"
-            : "runtime Spell identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " is ambiguous across " + matches + " equipped instances";
+            ? EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+              " is not one of the spells you have equipped."
+            : EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+              " is equipped in " + matches + " slots, so this cannot tell which one you mean.";
         return false;
     }
 
@@ -354,7 +361,7 @@ internal static class GameMcpEntityCapabilityMap
                 reason = string.Empty;
                 return true;
             }
-            reason = "the current game state has no spell output-level range";
+            reason = "The workbench has no output level to set right now.";
             return false;
         }
         var matches = 0;
@@ -368,10 +375,10 @@ internal static class GameMcpEntityCapabilityMap
             return true;
         }
         reason = matches == 0
-            ? "runtime Spell identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " is absent from published equipped spell instances"
-            : "runtime Spell identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " is ambiguous across " + matches + " equipped instances";
+            ? EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+              " is not one of the spells you have equipped."
+            : EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+              " is equipped in " + matches + " slots, so this cannot tell which one you mean.";
         return false;
     }
 
@@ -415,7 +422,7 @@ internal static class GameMcpEntityCapabilityMap
         if (!Supports("structures", GameMcpCommandKind.Purchase) ||
             !Supports("upgrades", GameMcpCommandKind.Purchase))
         {
-            reason = "the authoritative capability map does not admit purchase targets";
+            reason = "Structures and upgrades are not something these tools can buy.";
             return false;
         }
         var structure = WorldLookup.TryFind(world.Structures, target, out _);
@@ -426,10 +433,10 @@ internal static class GameMcpEntityCapabilityMap
             return true;
         }
         reason = structure
-            ? "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " ambiguously identifies both a structure and an upgrade"
-            : "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " is absent from published structures and upgrades";
+            ? EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+              " names both a structure and an upgrade, so this cannot tell which one you mean."
+            : EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+              " is neither a structure nor an upgrade you can buy.";
         return false;
     }
 
@@ -437,13 +444,13 @@ internal static class GameMcpEntityCapabilityMap
     {
         if (!Supports("plot-nodes", GameMcpCommandKind.Harvest))
         {
-            reason = "the authoritative capability map does not admit harvest targets";
+            reason = "Plots are not something these tools can harvest.";
             return false;
         }
         if (!WorldLookup.TryFind(world.PlotNodes, target, out _))
         {
-            reason = "Identity " + EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-                " is absent from published category plot-nodes";
+            reason = EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+                " is not one of your plots.";
             return false;
         }
         reason = string.Empty;
@@ -461,7 +468,7 @@ internal static class GameMcpEntityCapabilityMap
     {
         if (!Supports(category, capability))
         {
-            reason = "category " + category + " does not admit command " + capability;
+            reason = "Nothing in " + category + " supports that action.";
             return false;
         }
         if (WorldLookup.TryFind(table, target, out _))
@@ -469,20 +476,20 @@ internal static class GameMcpEntityCapabilityMap
             reason = string.Empty;
             return true;
         }
-        reason = "Identity " + EntityIdentityFormatter.PlayerName(target, identities) +
-            " is absent from published category " + category;
+        reason = EntityIdentityFormatter.PlayerName(target, identities) +
+            " is not in " + category + ".";
         return false;
     }
 
-    private static bool Unsupported(GameMcpCommandKind capability, out string reason)
+    private static bool Unsupported(out string reason)
     {
-        reason = "command " + capability + " is not a gameplay entity capability";
+        reason = "That action does not act on anything the game shows in a list.";
         return false;
     }
 
     private static bool AvailableGlobal(bool available, string label, out string reason)
     {
-        reason = available ? string.Empty : "the current " + label + " is unavailable";
+        reason = available ? string.Empty : label + " is not available right now.";
         return available;
     }
 

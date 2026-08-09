@@ -99,14 +99,14 @@ internal sealed class SpellCompositionGameAction : IDisposable
         if (player is null || variable is null)
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.ContractUnavailable,
-                "Player " + Name(action.Dial) + " state is not initialized in this lifecycle.");
+                "The game has not set up " + Name(action.Dial) + " yet.");
         var current = native.ReadInt(variable);
         var maximum = native.ReadInt(ReadMaximumVariable(native, player, action.Dial));
         var minimum = WorldSpellWorkbench.MinimumDialLevel;
         if (action.Value < minimum || action.Value > maximum)
             return SpellCompositionSubmission.OutOfRange(
-                "Requested " + Name(action.Dial) + " " + action.Value +
-                " is outside the live native range " + minimum + ".." + maximum + ".",
+                Name(action.Dial) + " " + action.Value + " is outside the range the game allows, " +
+                minimum + " to " + maximum + ".",
                 minimum,
                 maximum);
         if (current == action.Value)

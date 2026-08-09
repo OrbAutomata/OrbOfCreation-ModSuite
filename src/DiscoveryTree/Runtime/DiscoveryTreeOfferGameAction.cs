@@ -112,17 +112,18 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         DiscoveryTreeOfferNativeBindings native,
         object tree)
     {
-        if (!native.IsIdle(tree)) return WrongMode(action.Kind, "Idle");
+        if (!native.IsIdle(tree))
+            return WrongMode("This tree is already showing offers to choose from.");
         if (!native.HasRemainingDiscoveries(tree) && !native.HasImmediateRequired(tree))
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.NoDiscoveries,
-                "The native tree reports neither a remaining main-pool discovery nor an immediate required discovery.");
+                "This tree has no discovery left to start.");
 
         var cost = native.GetNextCost(tree);
         if (cost is null || cost.GetType() != native.CostType)
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.ContractUnavailable,
-                "DiscoveryTreeSO.GetNextItemCost() returned a non-ResourceCostList value.");
+                "The game did not report a price for the next discovery.");
         if (!native.HasEnough(cost))
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.Unaffordable,
@@ -160,7 +161,8 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         DiscoveryTreeOfferNativeBindings native,
         object tree)
     {
-        if (!native.IsChoice(tree)) return WrongMode(action.Kind, "Choice");
+        if (!native.IsChoice(tree))
+            return WrongMode("This tree is not showing any offers to choose from right now.");
         if (!TryResolveOfferedItem(native, tree, action.OfferId, out _, out var reason, out var rejection))
             return DiscoveryTreeOfferSubmission.Reject(rejection, reason);
         if (!TryCapturePermit(out reason))
@@ -179,7 +181,8 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         DiscoveryTreeOfferNativeBindings native,
         object tree)
     {
-        if (!native.IsChoice(tree)) return WrongMode(action.Kind, "Choice");
+        if (!native.IsChoice(tree))
+            return WrongMode("This tree is not showing any offers to choose from right now.");
         if (!TryResolveOfferedItem(native, tree, action.OfferId, out var item, out var reason, out var rejection))
             return DiscoveryTreeOfferSubmission.Reject(rejection, reason);
         var selected = ReadGuid(native, native.ReadSelected(tree));
@@ -209,11 +212,12 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         DiscoveryTreeOfferNativeBindings native,
         object tree)
     {
-        if (!native.IsChoice(tree)) return WrongMode(action.Kind, "Choice");
+        if (!native.IsChoice(tree))
+            return WrongMode("This tree is not showing any offers to choose from right now.");
         if (native.HasImmediateRequired(tree))
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.RerollUnavailable,
-                "The immediate-required discovery path does not expose reroll in the native UI.");
+                "A required discovery cannot be rerolled.");
         var offers = native.ReadCurrentChoices(tree);
         var rerolls = native.ReadRerolls(tree);
         if (rerolls <= 0)
@@ -311,12 +315,8 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             new NativeMutationCallOutcome(Math.Max(1, nativeCalls), 1, 0),
             $"Discovery Tree offer {stage} failed on tree {EntityIdentityFormatter.PlayerName(action.TreeId)}: {reason}");
 
-    private static DiscoveryTreeOfferSubmission WrongMode(
-        DiscoveryTreeOfferActionKind kind,
-        string expected) =>
-        DiscoveryTreeOfferSubmission.Reject(
-            DiscoveryTreeOfferPreflight.WrongMode,
-            $"{kind} requires native {expected} mode.");
+    private static DiscoveryTreeOfferSubmission WrongMode(string reason) =>
+        DiscoveryTreeOfferSubmission.Reject(DiscoveryTreeOfferPreflight.WrongMode, reason);
 
     private static bool TryResolveTree(
         DiscoveryTreeOfferNativeBindings native,
@@ -355,7 +355,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         item = null!;
         if (!Contains(native, native.ReadCurrentChoices(tree), offerId))
         {
-            reason = $"Identity {EntityIdentityFormatter.PlayerName(offerId)} is not in the tree's current native offer set.";
+            reason = $"{EntityIdentityFormatter.PlayerName(offerId)} is not one of the offers this tree is showing.";
             rejection = DiscoveryTreeOfferPreflight.OfferUnavailable;
             return false;
         }
@@ -363,7 +363,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         if (resolved is null || !native.ItemType.IsInstanceOfType(resolved) ||
             native.ReadItemIdentity(resolved) != offerId)
         {
-            reason = $"Current offer {EntityIdentityFormatter.PlayerName(offerId)} did not resolve to one exact IDiscoverable identity.";
+            reason = $"The offer {EntityIdentityFormatter.PlayerName(offerId)} did not resolve to exactly one thing to discover.";
             rejection = DiscoveryTreeOfferPreflight.IdentityUnavailable;
             return false;
         }

@@ -2345,7 +2345,7 @@ public sealed class Plugin : BaseUnityPlugin
             failure = GameMcpCommandResult.Rejected(
                 "world_not_available",
                 context.RuntimeNotAvailableReason.Length == 0
-                    ? "the published world is unavailable"
+                    ? "The game state has not been read yet."
                     : context.RuntimeNotAvailableReason);
             return false;
         }
@@ -2353,7 +2353,7 @@ public sealed class Plugin : BaseUnityPlugin
         {
             failure = GameMcpCommandResult.Rejected(
                 "lifecycle_not_available",
-                "the frame has no valid lifecycle generation");
+                "No game is loaded, so there is nothing to act on.");
             return false;
         }
         if (!context.ConfigurationGeneration.IsValid)

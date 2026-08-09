@@ -588,7 +588,7 @@ internal static class GameMcpWorldQuery
         if (!TryCategory(categoryName, out var category, out var reason))
             return NotAvailable(publication, "unknown_category", reason);
         if (!Guid.TryParseExact(uuidText ?? string.Empty, "D", out var uuid))
-            return NotAvailable(publication, "invalid_uuid", "uuid must be a canonical D-format GUID");
+            return NotAvailable(publication, "invalid_uuid", "That is not a valid id.");
         if (!string.Equals(
                 category.IdentityMode,
                 "stable_entity_uuid",
@@ -597,8 +597,8 @@ internal static class GameMcpWorldQuery
             return NotAvailable(
                 publication,
                 "composite_identity_required",
-                "category " + category.Name + " has composite identity fields and cannot " +
-                "be uniquely addressed by one UUID; use world_list to read its exact rows");
+                "Rows in " + category.Name + " are not addressed by one id; " +
+                "read them with world_list.");
         }
 
         var availability = Availability(publication.Snapshot, category);
@@ -637,9 +637,8 @@ internal static class GameMcpWorldQuery
                     : "discovery_offer_read_incomplete";
                 result["reason"] =
                     implicated.Count > 0
-                        ? "this entity has incomplete published requirement evidence"
-                        : "this discovery tree has an offer UUID absent from all published " +
-                          "explainable entity categories";
+                        ? "The game did not report everything this entry requires."
+                        : "This tree is offering something the game did not report anywhere else.";
                 result["partialRow"] = ProjectRow(publication.Snapshot, category, row);
                 if (implicated.Count > 0) result["implicatedSkippedRows"] = implicated;
                 if (implicatedOffers.Count > 0) result["implicatedOffers"] = implicatedOffers;
@@ -650,8 +649,7 @@ internal static class GameMcpWorldQuery
         return NotAvailable(
             publication,
             "unknown_uuid",
-            "category " + category.Name + " has no row with stable identity " +
-            uuid.ToString("D"));
+            "There is no " + category.Name + " entry with that id.");
     }
 
     /// <summary>
@@ -684,8 +682,8 @@ internal static class GameMcpWorldQuery
             return BatchUnavailable(NotAvailable(
                 publication,
                 "composite_identity_required",
-                "category " + category.Name + " has composite identity fields and cannot " +
-                "be addressed by UUID; use world_list to read its exact rows"));
+                "Rows in " + category.Name + " are not addressed by one id; " +
+                "read them with world_list."));
         }
 
         var availability = Availability(publication.Snapshot, category);
@@ -708,7 +706,7 @@ internal static class GameMcpWorldQuery
             {
                 item["status"] = "not_available";
                 item["code"] = "invalid_uuid";
-                item["reason"] = "uuid must be a non-empty canonical D-format GUID";
+                item["reason"] = "That is not a valid id, and the all-zero id names nothing.";
                 item["uuid"] = uuidText;
                 results.Add(item);
                 continue;
@@ -728,8 +726,7 @@ internal static class GameMcpWorldQuery
             {
                 item["status"] = "not_available";
                 item["code"] = "unknown_uuid";
-                item["reason"] = "category " + category.Name +
-                    " has no row with stable identity " + uuid.ToString("D");
+                item["reason"] = "There is no " + category.Name + " entry with that id.";
                 item["uuid"] = uuid.ToString("D");
             }
             else
@@ -3217,8 +3214,8 @@ internal static class GameMcpWorldQuery
             result["status"] = "not_available";
             result["code"] = "prerequisite_unverified";
             result["reason"] =
-                "the game latches this action's prerequisite only when the action is attempted, " +
-                "so whether it can be added is not readable from the published world";
+                "The game only checks this action's prerequisite when the action is started, " +
+                "so whether it can be queued cannot be read ahead of time.";
             result["checkWith"] = "game_agromancy add_plot_action";
             return result.Freeze();
         }

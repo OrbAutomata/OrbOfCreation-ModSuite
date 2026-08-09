@@ -75,7 +75,7 @@ internal static class GameMcpEntityExplainer
             // with — the missing name is the whole problem — so pointing at a name search sent them
             // to a tool that could not answer. The categories are what they can actually page.
             var reason = known
-                ? "this entity exists but has no detailed explanation; read its published category with world_get"
+                ? "This exists but has no detailed explanation; read its row with world_get"
                 : "no entity in this build carries this id; page world_categories for the category " +
                     "you meant, or check the id you copied";
             var remedy = new JObject { ["tool"] = known ? "entity_catalog" : "world_categories" };
