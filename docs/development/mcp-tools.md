@@ -1367,7 +1367,10 @@ very large `BigDouble` amount: an unchanged amount cannot disprove a transition 
 performed. On success, payment is presumed and completely omitted. Initiate/reroll wait for the
 ordinary collector to publish the Crafting state their press produces; the offer list is filled by
 the tree's own timed increment three seconds of game time later and is therefore outside any settle
-budget. Select returns the selected state; confirm returns Idle plus the next initiate costs.
+budget. Select returns the selected state. Confirm permanently spends a discovery choice, so it
+names the discovery it took — the identity the caller passed as `offerUuid` — and moves
+`discoveredCount` and `mode` as pairs, with whether the tree still has discoveries left. It does not
+re-send the next initiate price: the tree answers that when a caller asks to initiate again.
 Failures name only the failed admission or missing transition and the fact that explains it: a
 reroll refused for a spent budget names that one axis and carries `rerollsLeft`, never a recital of
 the preconditions the code believes it enforces.
@@ -1378,17 +1381,16 @@ The last mode requires the slot still to contain the exact recipe UUID and nativ
 still to be a currently casting toggle, the visible cast button to remain available, and the
 player's Cancellable Spells setting to allow the press. Its one outcome sentinel is the native
 casting state changing from active to inactive. The settled response is only the named recipe,
-slot, and observed `active` before/after change; a refusal names the binding setting or live spell
+slot, and settled `active` state; a refusal names the binding setting or live spell
 state. Detailed `spell-slots` rows expose `toggleOff.available` so the setting never has to be
 learned by attempting the action, and carry `casts`, the game's own per-spell manual cast counter.
-Every settled `fire` carries that counter as a `casts` before/after pair whether or not it moved,
-because it is the one fact the game itself writes per press: without it a repeated fire returns a
-byte-identical response and the caller cannot tell a firing loop from a no-op. `fire` on a toggle
-spell reports the same `active` pair whether
-or not the press moved it: whether a toggle is running is the fact that mode is about, and a pair
-that appears only on change cannot distinguish a spell that was already on from one that never
-started. A non-toggle spell reports the pair exactly when its casting state moved, and carries no
-`active` key while it is idle, because an idle one-shot has no running state to report.
+A settled `fire` carries that counter as the total the game holds, not as a pair: the game writes it
+when a cast *completes*, frames after the press, so a pair taken at the press was two readings of
+the same number on every fire. A press at a spell that is already running is refused rather than
+committed silently — the game's own button answers it with a warning popup or an end-of-cast, never
+with a new cast — so a repeated fire can never look like a firing loop that is doing nothing. A
+running spell reports `active`, whether it is a toggle or not; an idle one-shot carries no `active`
+key, because it has no running state to report.
 
 `game_casting_dial` requires `dial` plus a positive `value` and takes no UUID at all, because both
 Output Level and Reserve Level are single global variables. The boundary reads the exact global

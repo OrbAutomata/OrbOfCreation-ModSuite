@@ -865,8 +865,53 @@ internal static class GameMcpWorldQuery
                 "select",
                 StringComparison.Ordinal) => WithoutOffers(
                     ProjectPostState(state, PostStateCategory(command), command.TargetId)),
+            GameMcpCommandKind.DiscoveryTreeOffer when string.Equals(
+                command.Mode,
+                "offer_confirm",
+                StringComparison.Ordinal) => ProjectDiscoveryOfferConfirmDelta(state, command),
             _ => ProjectPostState(state, PostStateCategory(command), command.TargetId),
         };
+
+    /// <summary>
+    /// What a confirmed offer produced. The press permanently spends a discovery choice, and the
+    /// answer used to be a bare count with nothing naming what was taken — so a caller could not
+    /// confirm the discovery landed, and read the tree again to learn what it had got. The tool
+    /// held that identity in its own request the whole time.
+    /// </summary>
+    private static GameMcpValue ProjectDiscoveryOfferConfirmDelta(
+        GameMcpFrameContext state,
+        GameMcpCommand command)
+    {
+        if (state.World is null)
+            return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
+        var world = state.World.Snapshot;
+        if (!WorldLookup.TryFind(world.DiscoveryTrees, command.TargetId, out var after))
+            return PostStateUnavailable(
+                "post_state_not_published",
+                "the settled world has no discovery tree row for the committed target");
+        var before = Before(command);
+        WorldDiscoveryTree previous = default;
+        var hadBefore = before is not null &&
+            WorldLookup.TryFind(before.DiscoveryTrees, command.TargetId, out previous);
+        var result = new JObject
+        {
+            ["uuid"] = command.TargetId.ToString("D"),
+            ["discovered"] = command.SecondaryId.ToString("D"),
+            ["discoveredCount"] = new JObject
+            {
+                ["before"] = hadBefore ? previous.TotalDiscoveredCount : (int?)null,
+                ["after"] = after.TotalDiscoveredCount,
+            },
+            ["mode"] = new JObject
+            {
+                ["before"] = hadBefore ? DiscoveryMode(previous.ActionMode) : null,
+                ["after"] = DiscoveryMode(after.ActionMode),
+            },
+            ["hasRemainingDiscoveries"] = after.HasRemainingDiscovery ||
+                after.HasImmediateRequiredDiscovery,
+        };
+        return result.Freeze();
+    }
 
     /// <summary>
     /// A selection changes which offer is selected, not what is on offer. The settled tree still

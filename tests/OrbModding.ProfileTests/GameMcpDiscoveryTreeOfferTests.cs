@@ -218,10 +218,41 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.Equal(1, (int)delta["rerollsLeft"]!);
     }
 
+    /// <summary>
+    /// The press permanently spends a discovery choice. It used to answer with a bare count and
+    /// nothing naming what was taken, so a caller could not confirm the discovery landed and read
+    /// the tree again to learn what it had got — with an identity the tool held in its own request.
+    /// </summary>
+    [Fact]
+    public void Confirming_an_offer_names_what_was_discovered_and_moves_the_count_as_a_pair()
+    {
+        var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+        var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_confirm", treeId, offerId,
+            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false, false,
+            frameContext: GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 2), generation: 41));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 0, discoveredCount: 1), generation: 42),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.Equal(GameMcpTestHarness.Handle(offerId), (string?)delta["discovered"]!["uuid"]);
+        Assert.Equal(0, (int)delta["discoveredCount"]!["before"]!);
+        Assert.Equal(1, (int)delta["discoveredCount"]!["after"]!);
+        Assert.Equal("choice", (string?)delta["mode"]!["before"]);
+        Assert.Equal("idle", (string?)delta["mode"]!["after"]);
+        Assert.True((bool)delta["hasRemainingDiscoveries"]!);
+    }
+
     private static GameWorldState Tree(
         Guid treeId,
         int actionMode,
-        long collectedAtUtcTicks = 0) => new()
+        long collectedAtUtcTicks = 0,
+        int discoveredCount = 0) => new()
         {
             CollectedAtEpoch = 7,
             CollectedAtUtcTicks = collectedAtUtcTicks,
@@ -231,7 +262,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     treeId, true, actionMode, BigDouble.Zero, 2, false, Guid.Empty,
                     Array.Empty<Guid>(), false, true,
                     Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty, Guid.Empty,
-                    0, 0, false, 0, 3, true, true, false),
+                    0, 0, false, discoveredCount, 3, true, true, false),
             }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
