@@ -120,7 +120,7 @@ same idiom and no producer invents its own formatting.
 - **One fact per line**, `key: value`. `true`/`false` read as `yes`/`no`. A page that answered at
   all is available, so a bare `status: available` is not said.
 - **Rows are a table.** A list of same-shaped rows says its keys once in a header and each row on one
-  line: `rows 56/180 next=56; all queuedLevels=0  [id name level]` then `006061be Constitution 2259`.
+  line: `rows 56/180 next=56; all queuedLevels=0  [id name level]` then `006061 Constitution 2259`.
   `total` and `nextOffset` live in that header, never on a row. Any column holding one value across
   the whole page moves into the header behind `all` — a value repeated on every line is a page fact
   wearing a row's clothes. Columns are separated by a single space, or by ` | ` when any cell on the
@@ -945,8 +945,9 @@ world reads rather than serializing the collector's complete internal struct.
 The `predicates` and `blockers` blocks are always present, empty or not, so an entity nothing
 applies to never reads like an entity nobody evaluated. Only applicable predicate slots are inside:
 `visible`, `available`, `canDevelop`, `canPurchase`,
-`canDiscover`, and `canUse`. Presence means applicable. Each slot carries `value` and a stable
-`reasonCode`; absence means the predicate does not apply, not false. Crafting purchase uses the
+`canDiscover`, and `canUse`. Presence means applicable. Each slot answers under `available`, the same
+word every other decision on the surface answers under, and a slot that answered no carries the
+stable `reasonCode` saying why; absence means the predicate does not apply, not false. Crafting purchase uses the
 published `CraftingRecipeSO.CanBuyAt(GetStartingQuantity())` verdict, spell use uses the equipped
 `Spell.CanCast()` reading, and structure/upgrade purchase combines published native availability
 with the one exact-cost affordability lineage. No predicate emits implementation provenance or a
@@ -1311,7 +1312,7 @@ Absence therefore never doubles as a value. Every key that once used it to mean 
 
 | Key | Absent means | Present-and-false/empty means |
 | --- | --- | --- |
-| `predicates.<slot>` | the predicate does not apply to this entity | published with its `value` and `reasonCode`, passing or not |
+| `predicates.<slot>` | the predicate does not apply to this entity | published with its `available` verdict, and a `reasonCode` when that verdict is no |
 | `affordable` | the row has no price to be short of — an exhausted upgrade, or a row the world publishes no cost for | `false`: the named resources fall short |
 | `discover` | nothing: every glyph carries the block | `available:false` with the reason, including `native_not_discoverable` for a glyph the game never offers |
 | `maxLevel` / `remainingLevels` | the entity is uncapped — a negative native maximum — on `world_list` and `world_get` alike | a real ceiling and the distance left to it |
@@ -1723,8 +1724,10 @@ to touch one argues for it first. Each line names where the shape is specified.
 Four shapes this list used to protect are retired, and a round that reintroduces one is undoing a
 ruling rather than restoring a contract:
 
-- **Before/after echo pairs.** A pair whose two sides are equal reports no change; a press that
-  moved nothing says what it did in one sentence instead — *Inline action results*.
+- **The cast-counter echo.** A cast press answered with a counter that had not moved yet, because
+  the game writes it when a cast finishes rather than when one is pressed — so the pair reported no
+  change on every landed press. `{before, after}` remains the idiom for facts that did move, and the
+  ones a press always moves ride whether or not the numbers differ — *Inline action results*.
 - **The `next {…}` affordance block.** A commit answers with what its own press changed; the
   decisions that press reopened are read with `world_get`, where every other caller reads them —
   *Inline action results*.

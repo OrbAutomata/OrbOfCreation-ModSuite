@@ -106,6 +106,14 @@ A tier has no level of its own, so a per-level threshold authored on one scales 
 the asking entity's level instead would scale the tier's thresholds by a number the game never
 applies there.
 
+ConceptTiers (`PrerequisiteLinkSO` `e22f06b9`) tiers 2 and 3 each carry an `UpgradeRequirement` with
+a null `item` — the only two null-target conditions in the authored dataset. The suite classifies
+them as unreferenced by data on the pinned build, not as structurally unreachable: all 39 consumers
+hardcode tier 0, so the game never asks for those indices, but nothing in code guards them
+(`isActiveEnabled` defaults true for an owner-less tier, `BaseCondition.IsValid` has no null check,
+and the game's own `GetInvalidReferences` sweep never visits `PrerequisiteLinkSO`), so a consumer
+added at index ≥ 1 would throw.
+
 The serialized `available` and `gameId` fields inside prerequisite containers are runtime cache
 state, not authored conditions. Static analysis reads `prerequisites`; a running-game probe owns any
 claim about the current cache value. The container's `adjustValue` shifts every threshold the
