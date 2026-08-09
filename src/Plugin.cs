@@ -2729,6 +2729,16 @@ public sealed class Plugin : BaseUnityPlugin
                (string.Equals(state.SceneName, "Start", StringComparison.Ordinal) ||
                 !state.RuntimeAvailable));
 
+        // The load leaves the game in the shape every documented verb assumes, and says nothing
+        // about it: an unattended caller should never have to know a settings screen exists. A
+        // normalization that did not land is a defect for the log, not a status line on the wire.
+        if (!string.Equals(state.SceneName, "Start", StringComparison.Ordinal) &&
+            !AgentSettingsNormalization.TryNormalize(out var settingsFailure))
+        {
+            Logger.LogWarning(
+                "Game MCP could not normalize the agent-required game settings: " + settingsFailure);
+        }
+
         var details = new GameMcpObjectBuilder
         {
             ["scene"] = state.SceneName,

@@ -109,13 +109,29 @@ public static class GlobalVariables
     public static List<UnityEngine.Color> GetCustomColors() => CustomColors;
 }
 
-public static class SettingsManager
+public sealed class SettingsManager
 {
-    public static bool ResearchQueueMode { get; set; }
-    public static bool CancellableSpells { get; set; } = true;
+    public static SettingsManager instance = new SettingsManager();
+
+    public BoolVariable enableQueueResearch = new BoolVariable();
+    public BoolVariable cancellableSpells = new BoolVariable { value = true };
+    public StringVariable numDisplay = new StringVariable { value = "Named" };
+
+    public static bool ResearchQueueMode
+    {
+        get => instance.enableQueueResearch.GetValue();
+        set => instance.enableQueueResearch.SetValue(value);
+    }
+
+    public static bool CancellableSpells
+    {
+        get => instance.cancellableSpells.GetValue();
+        set => instance.cancellableSpells.SetValue(value);
+    }
 
     public static bool IsResearchQueueMode() => ResearchQueueMode;
     public static bool CanCancelSpells() => CancellableSpells;
+    public static string GetNumberDisplayOption() => instance.numDisplay.GetValue();
 }
 
 public static class KnownVariableIds
@@ -349,6 +365,22 @@ public sealed class BoolVariable
     }
     public bool initialValue;
     public bool isSaved;
+    private int observerId;
+}
+
+public sealed class StringVariable
+{
+    public static List<StringVariable> All = new List<StringVariable>();
+    public string value = string.Empty;
+
+    public string GetValue() => value;
+    public int SetCalls { get; private set; }
+    public bool SuppressSet { get; set; }
+    public void SetValue(string next)
+    {
+        SetCalls++;
+        if (!SuppressSet) value = next;
+    }
     private int observerId;
 }
 

@@ -25419,6 +25419,58 @@
       "visibility": "public", "static": false, "returnType": "System.Void", "parameters": [], "owners": ["Automata structure lifecycle GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
+      "id": "run-transition.settings.type-action", "assembly": "assembly-csharp", "type": "SettingsManager", "typeVisibility": "public", "kind": "type",
+      "owners": ["Game MCP run transition"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "run-transition.settings-instance-action", "assembly": "assembly-csharp", "type": "SettingsManager", "typeVisibility": "public", "kind": "field", "member": "instance",
+      "visibility": "public", "static": true, "valueType": "SettingsManager",
+      "owners": ["Game MCP run transition"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "run-transition.bool-variable.type-action", "assembly": "assembly-csharp", "type": "BoolVariable", "typeVisibility": "public", "kind": "type",
+      "owners": ["Game MCP run transition"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "run-transition.string-variable.type-action", "assembly": "assembly-csharp", "type": "StringVariable", "typeVisibility": "public", "kind": "type",
+      "owners": ["Game MCP run transition"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "run-transition.settings-research-queue-action", "assembly": "assembly-csharp", "type": "SettingsManager", "typeVisibility": "public", "kind": "field", "member": "enableQueueResearch",
+      "visibility": "public", "static": false, "valueType": "BoolVariable",
+      "owners": ["Game MCP run transition"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "run-transition.settings-cancellable-spells-action", "assembly": "assembly-csharp", "type": "SettingsManager", "typeVisibility": "public", "kind": "field", "member": "cancellableSpells",
+      "visibility": "public", "static": false, "valueType": "BoolVariable",
+      "owners": ["Game MCP run transition"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "run-transition.settings-number-display-action", "assembly": "assembly-csharp", "type": "SettingsManager", "typeVisibility": "public", "kind": "field", "member": "numDisplay",
+      "visibility": "public", "static": false, "valueType": "StringVariable",
+      "owners": ["Game MCP run transition"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "run-transition.bool-get-action", "assembly": "assembly-csharp", "type": "BoolVariable", "typeVisibility": "public", "kind": "method", "member": "GetValue",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
+      "owners": ["Game MCP run transition"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "run-transition.bool-set-action", "assembly": "assembly-csharp", "type": "BoolVariable", "typeVisibility": "public", "kind": "method", "member": "SetValue",
+      "visibility": "public", "static": false, "returnType": "System.Void", "parameters": ["System.Boolean"],
+      "owners": ["Game MCP run transition"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "run-transition.string-get-action", "assembly": "assembly-csharp", "type": "StringVariable", "typeVisibility": "public", "kind": "method", "member": "GetValue",
+      "visibility": "public", "static": false, "returnType": "System.String", "parameters": [],
+      "owners": ["Game MCP run transition"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "run-transition.string-set-action", "assembly": "assembly-csharp", "type": "StringVariable", "typeVisibility": "public", "kind": "method", "member": "SetValue",
+      "visibility": "public", "static": false, "returnType": "System.Void", "parameters": ["System.String"],
+      "owners": ["Game MCP run transition"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "return-to-menu.button.type-action", "assembly": "assembly-csharp", "type": "UIBackToMenuButton", "typeVisibility": "public", "kind": "type",
       "owners": ["Automata return-to-menu GameAction"], "usages": ["reflection"], "place": "action"
     },

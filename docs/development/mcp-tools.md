@@ -1660,6 +1660,16 @@ select, delete, reset, import, or rewrite a save, and it accepts no native type,
 from the caller. Its success waits for the transition and returns the new `scene` and
 `runtimeAvailable` state.
 
+The same load leaves the game in the shape every documented verb assumes: Research Queue Mode on,
+Cancellable Spells on, and number notation `Scientific`. Each is the exact write the settings
+dropdown performs on the settings variable the game reads back, verified afterwards, and skipped
+when the game already holds it; nothing is persisted to the settings file, because the modal's
+close is what persists and no modal was opened. Without them a queued develop and a spell toggle-off
+refuse for reasons a caller cannot see coming, and the numbers the game draws stop matching the
+numbers the wire carries. The response says nothing about any of it — an unattended caller should
+never need to know a settings screen exists — and a normalization that does not land is a logged
+defect rather than a status line.
+
 `game_return_to_menu` is the opposite lifecycle boundary. On `Main` it invokes the visible
 `UIBackToMenuButton.BackToMenu` callback, which raises the game's authored manual-save event before
 requesting the literal `Start` destination. Back to Main Menu lives inside a panel rather than on
