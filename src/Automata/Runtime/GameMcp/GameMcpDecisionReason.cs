@@ -113,7 +113,8 @@ internal static class GameMcpDecisionReason
         "ambiguous_handle" or "screen_match_failed" or "subtab_match_failed" or
         "multiple_modals_open" or "page_relation_ambiguous" or
         "level_out_of_range" or "slot_out_of_range" or "destination_out_of_range" or
-        "name_out_of_range" => ClassInput,
+        "name_out_of_range" or "discovery_surface_ambiguous" or
+        "composite_identity_required" => ClassInput,
 
         // The named thing is not there.
         "unknown_uuid" or "not_world_projected" or
@@ -149,7 +150,8 @@ internal static class GameMcpDecisionReason
         "randomization_unavailable" or "cancel_unavailable" or "fetch_unavailable" or
         "bonus_unavailable" or "develop_unavailable" or
         "immediate_required_discovery" or "reroll_already_used" or
-        "switch_blocked" => ClassState,
+        "switch_blocked" or "cast_in_progress" or "charge_unavailable" or
+        "resources_uncovered" or "attuning" => ClassState,
 
         // A ceiling, a capacity, or a budget is reached; a smaller ask or a later call may work.
         "amount_unavailable" or "loadout_full" or "automation_full" or "harvest_list_full" or
@@ -159,10 +161,12 @@ internal static class GameMcpDecisionReason
         "plot_quantity_insufficient" or "resource_or_headroom_insufficient" or
         "usage_budget_unavailable" or "research_leeway_exhausted" or "multi_buy_unavailable" or
         "engagement_drain_limited" or "screenshot_budget_reached" or
-        "slot_unavailable" => ClassLimit,
+        "slot_unavailable" or "level_cap_reached" or
+        "artificial_research_cap_reached" or "research_investment_cap_reached" => ClassLimit,
 
         // Named resources fall short.
-        "unaffordable" or "usage_unaffordable" or "level_not_affordable" => ClassUnaffordable,
+        "unaffordable" or "usage_unaffordable" or "level_not_affordable" or
+        "insufficient_quantity" or "insufficient_bandwidth" => ClassUnaffordable,
 
         // Progression, visibility, or authored requirements are not reached yet.
         "not_available" or "action_not_available" or "not_visible" or "hidden" or
@@ -171,7 +175,10 @@ internal static class GameMcpDecisionReason
         "native_prerequisites_currently_unmet" or "develop_range_refused" or
         "native_not_discoverable" or "discovery_unavailable" or "core_glyph_not_owned" or
         "core_glyph_not_leveled" or "core_glyph_augments_only" or "selection_restricted" or
-        "selection_hidden" or "cannot_level" or "resources_hidden" => ClassLocked,
+        "selection_hidden" or "cannot_level" or "resources_hidden" or
+        "recipe_not_discovered" or "prerequisites_unmet" or "not_discovered_or_offered" or
+        "native_hidden" or "hidden_discovery" or "requirement_unmet" or
+        "native_unavailable" or "native_leeway_exhausted" => ClassLocked,
 
         // The suite or the game could not read or serve the fact.
         "contract_unavailable" or "feature_contract_unavailable" or "pair_contract_unavailable" or
@@ -193,8 +200,16 @@ internal static class GameMcpDecisionReason
         "action_family_unavailable" or "screenshot_budget_unavailable" or
         "inline_screenshot_failed" or "request_canceled_before_claim" or
         "operation_dispatch_fault" or "adapter_fault" or "pair_faulted" or "post_commit_fault" or
-        "verification_failed" or "prerequisite_unverified" => ClassUnavailable,
+        "verification_failed" or "prerequisite_unverified" or
+        "requirement_cycle" or "requirement_depth_exceeded" or "requirement_unevaluable" or
+        "threshold_scaling_unavailable" or "category_not_collected" or
+        "configuration_unpublished" or "runtime_not_available" or "price_unavailable" or
+        "affordability_unavailable" or "entity_catalog_unavailable" or
+        "queue_not_published" or "queue_reading_inconsistent" => ClassUnavailable,
 
+        // Everything else is a no the suite cannot classify further, which is what "the game
+        // refused and the published world does not account for it" already meant. In practice that
+        // is the native_*_refused family: the game's own gate said no and reported nothing else.
         _ => ClassRefused,
     };
 

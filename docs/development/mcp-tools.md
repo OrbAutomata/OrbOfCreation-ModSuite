@@ -1122,25 +1122,33 @@ most, so an old code's new class can be looked up here:
 
 | Class | Internal codes that reach it |
 | --- | --- |
-| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `slot_out_of_range`, `screen_match_failed` |
+| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `slot_out_of_range`, `screen_match_failed`, `composite_identity_required`, `discovery_surface_ambiguous` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `recipe_has_no_core_glyph` |
-| `ERR_STATE` | `invalid_state`, `already_maxed`, `already_developing`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery` |
-| `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `research_queue_full`, `research_leeway_exhausted`, `no_rerolls` |
-| `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable` |
-| `ERR_LOCKED` | `not_available`, `hidden_or_undiscovered`, `requirements_unmet`, `native_not_discoverable`, `core_glyph_not_owned`, `cannot_level` |
-| `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout` |
-| `ERR_REFUSED` | `native_rejected`, `projection_refused`, and every code with no better class |
+| `ERR_STATE` | `invalid_state`, `already_maxed`, `already_developing`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `charge_unavailable`, `resources_uncovered`, `attuning` |
+| `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
+| `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
+| `ERR_LOCKED` | `not_available`, `native_unavailable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `core_glyph_not_owned`, `cannot_level`, `research_leeway_exhausted`, `native_leeway_exhausted` |
+| `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable` |
+| `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused` — the game's own gate said no and reported nothing else |
 
-Two of those placements are worth reading twice, because the obvious guess is wrong.
+Three of those placements are worth reading twice, because the obvious guess is wrong.
 `slot_out_of_range` is `ERR_INPUT` and not `ERR_LIMIT`: the caller named a slot the list never had,
 which is a bad argument rather than a ceiling reached. `cannot_level` is `ERR_LOCKED` and not
 `ERR_LIMIT` for the reason its own row gives — no level list in this game has a ceiling, so a shut
-level gate is always a gate rather than an exhausted supply.
+level gate is always a gate rather than an exhausted supply. Both leeway codes are `ERR_LOCKED` and
+not `ERR_LIMIT`: research leeway is a gate the game opens as the requirement level moves, not a
+supply the caller spent.
+
+`ERR_REFUSED` is the `native_*_refused` family and nothing else a producer can explain. A code that
+lands there because this map has not met it is a defect in the map, not a new kind of no.
 
 A feature result number is not a wire word: it names no axis a caller can act on, so an unmapped
 native result reaches the wire as `ERR_REFUSED` with the producer's own sentence.
 
-A check that **passed** carries no class at all. There is no success code.
+A check that **passed** carries no class at all, and no sentence either. There is no success code:
+every affirmative producer word — `requirement_met`, `recipe_discovered`, `visible`, `ready`,
+`can_buy`, `below_level_cap`, `below_research_cap`, `native_leeway_available`,
+`queue_room_available`, `drain_available`, `output_capacity_available` — renders as a bare `yes`.
 
 What each internal code means is below; the class is how it reaches the wire.
 

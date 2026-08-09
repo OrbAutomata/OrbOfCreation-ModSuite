@@ -1008,7 +1008,7 @@ public sealed class GameMcpWorldEnvelopeTests
         var unavailable = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(state, "resources", 0, 10));
         Assert.Equal("unavailable", (string?)unavailable["status"]);
-        Assert.Equal("ERR_REFUSED", (string?)unavailable["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)unavailable["reasonCode"]);
         Assert.Contains("quantity was not bound", (string?)unavailable["reason"]);
 
     }
@@ -1048,7 +1048,7 @@ public sealed class GameMcpWorldEnvelopeTests
         var rows = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(state, "resources", 0, 10));
         Assert.Equal("unavailable", (string?)rows["status"]);
-        Assert.Equal("ERR_REFUSED", (string?)rows["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)rows["reasonCode"]);
 
         var search = GameMcpTestHarness.Json(
             GameMcpWorldQuery.Search(state, "resource", 0, 10));
@@ -1379,7 +1379,7 @@ public sealed class GameMcpWorldEnvelopeTests
             Guid.NewGuid().ToString("D")));
 
         Assert.Equal("unavailable", (string?)result["status"]);
-        Assert.Equal("ERR_REFUSED", (string?)result["reasonCode"]);
+        Assert.Equal("ERR_INPUT", (string?)result["reasonCode"]);
         Assert.Contains("world_list", (string?)result["reason"]);
     }
 
@@ -1745,7 +1745,7 @@ public sealed class GameMcpWorldEnvelopeTests
             "crafting-recipes",
             recipeId.ToString("D")));
         Assert.Equal("unavailable", (string?)unavailable["status"]);
-        Assert.Equal("ERR_REFUSED", (string?)unavailable["reasonCode"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)unavailable["reasonCode"]);
         Assert.Contains(
             "crafting-recipe-state",
             (string?)unavailable["reason"],
