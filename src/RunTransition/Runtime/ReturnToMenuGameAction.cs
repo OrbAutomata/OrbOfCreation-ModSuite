@@ -231,7 +231,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
     private static ReturnToMenuSubmission Verified(string pressedControl, string openedPanel) =>
         new(ReturnToMenuPreflight.Proceeded, ReturnToMenuNativeStage.Verification,
             NativeMutationOutcome.Verified, new NativeMutationCallOutcome(1, 1, 1),
-            "The game accepted the return to its Start screen.",
+            "The game is back at its main menu.",
             pressedControl,
             openedPanel);
 

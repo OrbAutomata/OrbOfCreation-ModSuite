@@ -1199,11 +1199,6 @@ internal static class GameMcpWorldQuery
                 }
             }
 
-            // Every other ritual mode answers with what the caller can do next. End is the mode that
-            // most needs it, because it is the one that reopens selecting, levelling and activating.
-            var afterBattle = new JObject();
-            AddRitualDecision(world, afterBattle, in current);
-            postState["next"] = afterBattle;
             return postState.Freeze();
         }
         if (command.Mode == "cancel_duration")
@@ -1225,9 +1220,6 @@ internal static class GameMcpWorldQuery
                 ["before"] = hadBefore ? previous.SelectedLevel : (int?)null,
                 ["after"] = current.SelectedLevel,
             };
-        var next = new JObject();
-        AddRitualDecision(world, next, in current);
-        result["next"] = next;
         return result.Freeze();
     }
 
@@ -1256,7 +1248,6 @@ internal static class GameMcpWorldQuery
                     ["before"] = hadBefore ? previous.Active : (int?)null,
                     ["after"] = current.Active,
                 },
-                ["next"] = ProjectHarvestElementDecision(world, in current),
             };
             return result.Freeze();
         }
@@ -1278,7 +1269,6 @@ internal static class GameMcpWorldQuery
                 ["before"] = hadActionBefore ? previousAction.Active : (int?)null,
                 ["after"] = action.Active,
             },
-            ["next"] = ProjectHarvestActionDecision(world, in action),
         }.Freeze();
     }
 
@@ -1417,9 +1407,6 @@ internal static class GameMcpWorldQuery
                 };
                 break;
         }
-        var next = new JObject();
-        AddCraftingStationDecision(state.World.Snapshot, next, in station);
-        result["next"] = next;
         return result.Freeze();
     }
 
@@ -1749,7 +1736,6 @@ internal static class GameMcpWorldQuery
                 ["plot"] = EntityReference(world, command.TargetId),
                 ["action"] = EntityReference(world, command.SecondaryId),
                 ["active"] = observed,
-                ["next"] = ProjectPlotActionDecision(world, in current, after),
             }.Freeze();
         }
         return new JObject
@@ -1761,7 +1747,6 @@ internal static class GameMcpWorldQuery
                 ["before"] = before,
                 ["after"] = after,
             },
-            ["next"] = ProjectPlotActionDecision(world, in current, after),
         }.Freeze();
     }
 
@@ -3279,16 +3264,6 @@ internal static class GameMcpWorldQuery
         if (costs.Count > 0) result["costs"] = costs;
         return result;
     }
-
-    private static JObject ProjectHarvestActionDecision(
-        GameWorldState world,
-        in WorldHarvestActionControl action) =>
-        new()
-        {
-            ["maximumAmount"] = action.Maximum,
-            ["add"] = HarvestActionAddDecision(world, in action),
-            ["remove"] = HarvestActionRemoveDecision(in action),
-        };
 
     /// <summary>
     /// A false availability is a decision, not a flag. `addAvailable: false` beside nothing left a

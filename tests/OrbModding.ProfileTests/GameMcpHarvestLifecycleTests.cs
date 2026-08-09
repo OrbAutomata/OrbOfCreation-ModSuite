@@ -120,7 +120,7 @@ public sealed class GameMcpHarvestLifecycleTests
     }
 
     [Fact]
-    public void Settled_action_delta_uses_the_new_world_and_returns_only_the_next_pair_decision()
+    public void Settled_action_delta_uses_the_new_world()
     {
         var before = World(elementActive: 2, actionActive: 1);
         var after = World(elementActive: 2, actionActive: 2);
@@ -137,8 +137,9 @@ public sealed class GameMcpHarvestLifecycleTests
         Assert.Equal("Grow", (string?)delta["action"]!["name"]);
         Assert.Equal(1, (int)delta["active"]!["before"]!);
         Assert.Equal(2, (int)delta["active"]!["after"]!);
-        Assert.True((bool)delta["next"]!["add"]!["available"]!);
-        Assert.Equal("4.5", (string?)delta["next"]!["add"]!["nextDrain"]![0]!["cost"]);
+        // A commit answers with what the press changed. What is possible next is the read
+        // surface's job, and world_get agromancy-plot-actions already carries the same decision.
+        Assert.Null(delta["next"]);
     }
 
     private static GameWorldState World(

@@ -2660,9 +2660,11 @@ public sealed class Plugin : BaseUnityPlugin
                 yield break;
             }
             if (!dismissed) continue;
+            // A committed dismiss is the modal being shut; restating it as a field said the same
+            // thing twice.
             CompleteGameMcpCommand(command, GadgetCommitted(
                 "modal_dismissed",
-                new GameMcpObjectBuilder { ["open"] = false }));
+                new GameMcpObjectBuilder()));
             yield break;
         }
         CompleteGameMcpCommand(command, GadgetCommitted(

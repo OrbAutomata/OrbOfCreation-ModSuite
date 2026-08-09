@@ -235,7 +235,7 @@ public sealed class GameMcpRitualLifecycleTests
     }
 
     [Fact]
-    public void Settled_select_delta_uses_the_new_world_and_returns_the_next_decision()
+    public void Settled_select_delta_uses_the_new_world()
     {
         var before = World(selected: false, level: 0, activeInstances: 0);
         var after = World(selected: true, level: 3, activeInstances: 0);
@@ -250,8 +250,10 @@ public sealed class GameMcpRitualLifecycleTests
 
         Assert.False((bool)delta["selected"]!["before"]!);
         Assert.True((bool)delta["selected"]!["after"]!);
-        Assert.True((bool)delta["next"]!["activate"]!["available"]!);
-        Assert.Equal("5", (string?)delta["next"]!["activate"]!["costs"]![0]!["cost"]);
+
+        // A commit answers with what the press changed. The decisions it reopened are a read, and
+        // world_get rituals is the one place every verb sends a caller for them.
+        Assert.Null(delta["next"]);
     }
 
     [Fact]
@@ -274,7 +276,7 @@ public sealed class GameMcpRitualLifecycleTests
     }
 
     [Fact]
-    public void Settled_end_delta_reports_the_battle_result_and_what_is_possible_next()
+    public void Settled_end_delta_reports_the_battle_result()
     {
         // RitualSO.End() writes neither wavesCompleted nor currentSpoils — only the next Initiate()
         // clears them — so a run stopped on its first wave still reads 1 after the battle ends.
@@ -304,10 +306,7 @@ public sealed class GameMcpRitualLifecycleTests
         Assert.Equal("Knowledge", (string?)spoil!["resource"]!["name"]);
         Assert.Equal("12", (string?)spoil["amount"]);
 
-        // Parity with select, deselect, set_level and activate: end says what is possible next.
-        Assert.True((bool)delta["next"]!["selected"]!);
-        Assert.Equal(4, (int)delta["next"]!["setLevel"]!["current"]!);
-        Assert.True((bool)delta["next"]!["activate"]!["available"]!);
+        Assert.Null(delta["next"]);
     }
 
     [Fact]

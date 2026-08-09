@@ -558,8 +558,7 @@ v1.0.5 and are deliberately absent. Activation revalidates the selected Ritual a
 native price before payment; success is the settled battle transition. `cancel_duration` ends an
 already-running duration reward and does not claim to cancel a battle. `activate` and `end` are the
 two battle-boundary modes, so both report `activeBattle` and `wavesCompleted` as observed
-`{before, after}` changes and both carry the same `next` affordance block the other modes carry;
-`end` additionally reports the level the battle reached, the duration rewards it left running, and
+`{before, after}` changes; `end` additionally reports the level the battle reached, the duration rewards it left running, and
 the two facts the game's own results modal shows: `result` as `succeeded` or `failed`, read from
 `RitualSO.IsFailedRun()`, and the `spoils` the run banked as named resource rows, empty array
 included. Both are settled reads and not pre-mutation copies: `RitualSO.End()` writes neither
@@ -618,8 +617,8 @@ hidden selector state.
 
 The action boundary revalidates the concrete element/action pair, visibility, active-list room,
 standing usage capacity, and mastery-derived action maximum on Unity's main thread. Success returns
-only the active count before and after plus the settled next decision for the affected element or
-pair. The one mutation sentinel is that game-written active count moving in the requested
+only the active count before and after for the affected element or pair. The one mutation
+sentinel is that game-written active count moving in the requested
 direction; resource reservations and drain math are planning facts, never postcondition ledgers.
 
 The `plot-nodes` category is the tile catalog. `agromancy-plot-actions` enumerates every
@@ -636,7 +635,7 @@ amount=...)`. Every call requires an explicit positive `amount`.
 Add uses the same active plot-action list control as `UIPlotNodeActionList.OnActionClick`.
 Remove decrements an existing quantity; at the native minimum it uses that UI handler's distinct
 `Cancel()` path, so crossing from several instances through the last one requires two calls.
-Success returns the observed active quantity change and the settled next decision. The only
+Success returns the observed active quantity change. The only
 postcondition is the exact pair's game-written active quantity moving in the requested direction;
 refund behavior on cancellation is neither recomputed nor verified.
 
@@ -1048,6 +1047,13 @@ committed and the response carries the single exceptional
 `postStateUnavailable / post_state_timeout` fact instead of an empty success or the pre-mutation
 world. Reaching that path repeatedly in live play means a missing publication trigger to diagnose,
 not a timeout to lengthen.
+
+Every action verb settles the same way, and there is exactly one idiom for it. A commit answers
+with the facts its own press changed, each as a `{before, after}` pair, plus any fact the press
+produced that has no "before" — a battle's result and spoils, a settled level, the price it drew.
+When the settled world cannot prove the change, the answer is `postStateUnavailable`. No verb
+re-reads a whole screen and no verb appends what is possible next: the decisions a press reopened
+are read with `world_get`, which is where every other caller reads them.
 
 A successful read uses `available`; an unavailable domain read uses `unavailable`. A successful
 mutation uses `committed`; a refused mutation uses `refused`; infrastructure or native divergence
@@ -1687,9 +1693,8 @@ and never by caption — and then presses the control. A panel that will not ope
 without one interactable control, refuses in a sentence that also states the panel is now open. The
 response is completed as soon as the native screen
 fade becomes active, before scene teardown can invalidate the HTTP operation. Its compact success
-is `status: committed, scene: Start, pressedControl, openedPanel` — the two controls the tool
-operated, named as the game names them, with an empty `openedPanel` when the control was already on
-screen and no panel had to be raised; the scene transition then clears every lifecycle-retained
+is `status: committed, scene: Start` — which controls the tool pressed to get there is how it drove
+the UI, not a fact about the game; the scene transition then clears every lifecycle-retained
 world, identity, binding, and lease through the ordinary lifecycle observer. The tool cannot choose
 a save, suppress the save event, select another scene, or run while another transition is active.
 
@@ -1705,8 +1710,8 @@ closing. The tool names no entity, so the
 caller submits no lifecycle: the boundary reads the live lifecycle itself and pins it for the settled
 read. The action invokes `UIModal.CloseModal()`, verifies
 the game-owned closing flag, then watches that exact modal for up to the shared one-second
-settlement bound. A completed close returns `open: false`; timeout remains committed and says the
-post-state is unavailable because the verified close already began. It does not click modal-specific confirm, purchase, reset, or
+settlement bound. A completed close is the commit itself and says nothing further; timeout remains
+committed and says the post-state is unavailable because the verified close already began. It does not click modal-specific confirm, purchase, reset, or
 destructive buttons.
 
 `game_screen_catalog` reads the live Main-scene UI. Top tabs retain native rail order. Current

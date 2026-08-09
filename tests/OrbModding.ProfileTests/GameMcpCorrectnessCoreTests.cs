@@ -488,7 +488,10 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.False(string.IsNullOrWhiteSpace((string?)active["plot"]!["name"]));
         Assert.Equal(GameMcpTestHarness.Handle(actionId), (string?)active["action"]!["uuid"]);
         Assert.False(string.IsNullOrWhiteSpace((string?)active["action"]!["name"]));
-        Assert.True((bool)active["next"]!["available"]!);
+
+        // A commit answers with what the press changed. Whether another one is possible is a read,
+        // and world_get agromancy-plot-actions carries the same decision.
+        Assert.Null(active["next"]);
 
         var fastActionDetails = new GameMcpObjectBuilder
         {
