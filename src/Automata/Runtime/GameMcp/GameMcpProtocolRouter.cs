@@ -1898,7 +1898,8 @@ internal sealed class GameMcpProtocolRouter
         var value = OptionalUuid(source, name);
         if (value == Guid.Empty)
             throw new GameMcpInvalidParamsException(
-                name + " must be a non-empty canonical D-format UUID");
+                name + " must be a whole canonical UUID or an id handle that names one published " +
+                "entity");
         return value;
     }
 

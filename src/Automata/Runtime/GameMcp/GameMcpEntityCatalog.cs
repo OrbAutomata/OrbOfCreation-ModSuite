@@ -75,9 +75,11 @@ internal static class GameMcpEntityCatalog
                     : "the live entity catalog has not bound in this playing lifecycle yet");
         if (catalog.TryGet(uuid, out var row)) return Project(catalog, in row);
 
+        // The id is on the row already; a sentence that repeats it spends the caller's line on a
+        // string it just sent.
         var unavailable = NotAvailable(
             "entity_name_unavailable",
-            "the live entity catalog has no entry for UUID " + uuid.ToString("D"));
+            "the live entity catalog has no entry for that id");
         unavailable["uuid"] = uuid.ToString("D");
         return unavailable;
     }
