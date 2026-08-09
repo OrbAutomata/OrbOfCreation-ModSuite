@@ -381,7 +381,6 @@ public sealed class StringVariable
         SetCalls++;
         if (!SuppressSet) value = next;
     }
-    private int observerId;
 }
 
 public class ViewSO : IdScriptableObject
