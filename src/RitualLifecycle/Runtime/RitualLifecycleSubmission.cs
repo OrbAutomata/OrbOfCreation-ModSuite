@@ -11,7 +11,6 @@ internal enum RitualLifecyclePreflight
     IdentityUnavailable,
     NotDiscovered,
     AlreadyInRequestedState,
-    NotSelected,
     LevelLocked,
     LevelOutOfRange,
     BattleAlreadyActive,

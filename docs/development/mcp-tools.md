@@ -534,12 +534,14 @@ afterwards those same two fields are the finished run's and appear as `lastRun`,
 played is in, so such a row reports no `lastRun` at all rather than an empty one.
 Only the selected row carries activation and completion prices in the same
 player-facing units as the Ritual panel and the eventual resource spend;
-unselected rows do not publish a speculative ledger. `setLevel`, `activate`, and
+unselected rows do not publish a speculative ledger, and their `activate` block says so — the price
+appears once the ritual is selected, which activating it does. `setLevel`, `activate`, and
 `cancelDuration` each carry only the binding availability or refusal reason that affects the next
 decision. `setLevel` has one presence rule for its bounds: every ritual whose starting level is the
 caller's to choose publishes `minimum` and `maximum`, selected or not, because the ceiling is a fact
-of the ritual and the player rather than of the selection. Only a `level_locked` ritual — one the
-game runs at an authored level — publishes none, because there is no range to choose from.
+of the ritual and the player rather than of the selection — and it is available on an unselected
+ritual too, because the verb performs the selection. Only a `level_locked` ritual — one the
+game runs at an authored level — publishes no bounds, because there is no range to choose from.
 
 `game_ritual(mode="select"|"deselect"|"activate"|"end"|"cancel_duration", uuid=...)` reproduces the
 corresponding visible Ritual control. `mode="set_level"` also requires the `level` the Ritual
@@ -547,7 +549,11 @@ screen's starting-level selector shows, which runs from 1 to the row's `setLevel
 `UIRitual` clamps that selector to `1..RitualSO.GetMaxSelectedLevel()`, so 1 is a starting level and
 0 is not, even though the setter behind the control would accept it. A level outside that range is
 refused with `level_out_of_range` carrying `minimumAmount` and `maximumAmount` — the same two
-numbers its sentence names. The old runestone-selection manager methods are empty/null-returning in
+numbers its sentence names. `set_level` and `activate` both act on the selected Ritual, and the
+game's selection variable holds whichever ritual its toggle was last pressed with — so both verbs
+press that toggle themselves when the named ritual is not the held one, whatever was selected
+before, and verify the selection landed. A caller is never refused for a step it could not see.
+The old runestone-selection manager methods are empty/null-returning in
 v1.0.5 and are deliberately absent. Activation revalidates the selected Ritual and the screen's
 native price before payment; success is the settled battle transition. `cancel_duration` ends an
 already-running duration reward and does not claim to cancel a battle. `activate` and `end` are the

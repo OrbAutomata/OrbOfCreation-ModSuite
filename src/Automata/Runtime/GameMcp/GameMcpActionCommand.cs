@@ -888,7 +888,6 @@ internal static class GameMcpActionResultCodeNames
             if (code == RitualLifecycleActionResultCodes.IdentityUnavailable) return "identity_unavailable";
             if (code == RitualLifecycleActionResultCodes.NotDiscovered) return "not_discovered";
             if (code == RitualLifecycleActionResultCodes.AlreadyInRequestedState) return "already_in_requested_state";
-            if (code == RitualLifecycleActionResultCodes.NotSelected) return "not_selected";
             if (code == RitualLifecycleActionResultCodes.LevelLocked) return "level_locked";
             if (code == RitualLifecycleActionResultCodes.Unaffordable) return "unaffordable";
             if (code == RitualLifecycleActionResultCodes.NoDurationEffect) return "no_active_duration_reward";

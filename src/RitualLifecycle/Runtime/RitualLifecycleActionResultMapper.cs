@@ -28,7 +28,6 @@ internal static class RitualLifecycleActionResultMapper
             RitualLifecyclePreflight.IdentityUnavailable => RitualLifecycleActionResultCodes.IdentityUnavailable,
             RitualLifecyclePreflight.NotDiscovered => RitualLifecycleActionResultCodes.NotDiscovered,
             RitualLifecyclePreflight.AlreadyInRequestedState => RitualLifecycleActionResultCodes.AlreadyInRequestedState,
-            RitualLifecyclePreflight.NotSelected => RitualLifecycleActionResultCodes.NotSelected,
             RitualLifecyclePreflight.LevelLocked => RitualLifecycleActionResultCodes.LevelLocked,
             RitualLifecyclePreflight.LevelOutOfRange => RitualLifecycleActionResultCodes.LevelOutOfRange,
             RitualLifecyclePreflight.BattleAlreadyActive => RitualLifecycleActionResultCodes.BattleAlreadyActive,

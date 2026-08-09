@@ -9,7 +9,6 @@ internal static class RitualLifecycleActionResultCodes
     internal static readonly ServiceActionResultCode IdentityUnavailable = new(1982);
     internal static readonly ServiceActionResultCode NotDiscovered = new(1983);
     internal static readonly ServiceActionResultCode AlreadyInRequestedState = new(1984);
-    internal static readonly ServiceActionResultCode NotSelected = new(1985);
     internal static readonly ServiceActionResultCode LevelLocked = new(1986);
     internal static readonly ServiceActionResultCode LevelOutOfRange = new(1987);
     internal static readonly ServiceActionResultCode BattleAlreadyActive = new(1988);

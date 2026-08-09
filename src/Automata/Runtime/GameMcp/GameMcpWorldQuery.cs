@@ -5596,9 +5596,12 @@ internal static class GameMcpWorldQuery
         for (var index = 0; index < world.Rituals.Count; index++)
             if (world.Rituals[index].InBattle) { anyBattleActive = true; break; }
         result["selected"] = selected;
+        // Selection is no longer a precondition a caller has to satisfy: the verb presses the
+        // screen's own selection toggle first. The starting-level bounds are facts of the ritual
+        // and the player, so the decision is complete whether or not this ritual is the held one.
         var level = new JObject
         {
-            ["available"] = selected && !ritual.ForceLevel && !anyBattleActive,
+            ["available"] = !ritual.ForceLevel && !anyBattleActive,
             ["current"] = ritual.SelectedLevel,
         };
         if (ritual.ForceLevel)
@@ -5612,8 +5615,7 @@ internal static class GameMcpWorldQuery
             // selecting one is not how a caller finds out the range exists.
             level["minimum"] = WorldRitualDecision.NativeMinimumStartingLevel;
             level["maximum"] = ritual.Decision.MaximumStartingLevel;
-            if (!selected) level["reasonCode"] = "not_selected";
-            else if (anyBattleActive) level["reasonCode"] = "ritual_battle_active";
+            if (anyBattleActive) level["reasonCode"] = "ritual_battle_active";
         }
         result["setLevel"] = level;
 

@@ -124,9 +124,6 @@ internal sealed class RitualLifecycleGameAction : IDisposable
                     return Reject(RitualLifecyclePreflight.AlreadyInRequestedState,
                         "This ritual is not selected.");
                 case RitualLifecycleActionKind.SetLevel:
-                    if (!isSelected)
-                        return Reject(RitualLifecyclePreflight.NotSelected,
-                            "Select this ritual before changing its starting level.");
                     if (native.ForceLevel(ritual))
                         return Reject(RitualLifecyclePreflight.LevelLocked,
                             "This ritual fixes its starting level at " +
@@ -144,9 +141,6 @@ internal sealed class RitualLifecycleGameAction : IDisposable
                             "The ritual starting level is already " + action.Level + ".");
                     break;
                 case RitualLifecycleActionKind.Activate:
-                    if (!isSelected)
-                        return Reject(RitualLifecyclePreflight.NotSelected,
-                            "Select this ritual before activating it.");
                     var cost = native.ActivationCost(ritual);
                     if (cost is null)
                         return Reject(RitualLifecyclePreflight.ContractUnavailable,
@@ -187,6 +181,30 @@ internal sealed class RitualLifecycleGameAction : IDisposable
         _bindingFailure = string.Empty;
     }
 
+    /// <summary>
+    /// The screen's own first press, made by the tool rather than demanded of the caller.
+    /// </summary>
+    /// <remarks>
+    /// Both the starting level and the activation act on the selected ritual, and the game's
+    /// selection variable holds whichever ritual its toggle was last pressed with — one press, no
+    /// matter what was selected before. A caller that asked for a level or an activation was being
+    /// refused for a step it could not see and could not have known the order of.
+    /// </remarks>
+    private static bool TrySelectFirst(
+        RitualLifecycleNativeBindings native,
+        object selected,
+        object ritual,
+        out RitualLifecycleSubmission failure)
+    {
+        failure = default;
+        if (native.IsSelected(selected, ritual)) return true;
+        native.ToggleSelected(selected, ritual);
+        if (native.IsSelected(selected, ritual)) return true;
+        failure = Reject(RitualLifecyclePreflight.VerificationFailed,
+            "The ritual did not become the selected one when its selection was pressed.");
+        return false;
+    }
+
     private static RitualLifecycleSubmission Execute(
         in RitualLifecycleAction action,
         RitualLifecycleNativeBindings native,
@@ -205,6 +223,8 @@ internal sealed class RitualLifecycleGameAction : IDisposable
             }
             else if (action.Kind == RitualLifecycleActionKind.SetLevel)
             {
+                if (!TrySelectFirst(native, selected, ritual, out var levelFailure))
+                    return levelFailure;
                 native.ChangeStartingLevel(ritual, action.Level);
             }
             else if (action.Kind == RitualLifecycleActionKind.Activate)
@@ -212,9 +232,8 @@ internal sealed class RitualLifecycleGameAction : IDisposable
                 var cost = native.ActivationCost(ritual) ??
                     throw new InvalidOperationException(
                         "RitualSO.GetActivationCost returned null before payment");
-                if (!native.IsSelected(selected, ritual))
-                    return Reject(RitualLifecyclePreflight.NotSelected,
-                        "The selected ritual changed before activation.");
+                if (!TrySelectFirst(native, selected, ritual, out var activateFailure))
+                    return activateFailure;
                 if (!native.HasEnough(cost)) return Unaffordable(native, cost);
                 stage = RitualLifecycleNativeStage.Payment;
                 native.PerformCost(cost);

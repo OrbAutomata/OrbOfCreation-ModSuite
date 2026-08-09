@@ -110,7 +110,7 @@ internal static class GameMcpDecisionReason
         "unknown_uuid" or "not_world_projected" or
         "offer_not_in_explainable_world" or "resource_not_published" or
         "automation_entry_not_published" or "not_created" or "not_equipped" or "none_owned" or
-        "not_active" or "no_active_duration_reward" or "not_a_duration_ritual" or
+        "not_active" or "not_a_duration_ritual" or
         "no_cancellable_usage" or "nothing_to_discard" or "no_pending_request" or
         "no_pending_target" or "no_valid_target" or "no_open_modal" or "no_other_slot" or
         "single_slot" or "no_discoveries" or "no_ritual_battle_active" or "slot_empty" or
@@ -123,7 +123,8 @@ internal static class GameMcpDecisionReason
         "selection_unavailable" => ClassNotFound,
 
         // The target exists and is in the wrong state for this verb.
-        "invalid_state" or "already_ran" or "already_active" or "already_stopped" or "already_developing" or
+        "invalid_state" or "already_ran" or "no_active_duration_reward" or
+        "already_active" or "already_stopped" or "already_developing" or
         "already_discovered" or "already_in_requested_state" or "already_maxed" or
         "cooldown_active" or "inventory_busy" or "native_caster_busy" or
         "targeting_in_progress" or "transition_in_progress" or "manual_pause" or
@@ -255,7 +256,8 @@ internal static class GameMcpDecisionReason
         "already_ran" => "This challenge has already run, so queueing it does nothing.",
         "no_cancellable_usage" => "Nothing is queued that could be cancelled.",
         "level_locked" => "The game fixes this ritual's starting level, so it cannot be set.",
-        "not_selected" => "This ritual is not the selected one.",
+        "not_selected" => "The game prices only the selected ritual, so this one's price appears " +
+            "once it is selected; activating it selects it first.",
         "ritual_battle_active" => "A ritual battle is running.",
         "no_active_duration_reward" => "No duration reward from this ritual is running.",
         "not_a_duration_ritual" => "This ritual grants no duration reward to cancel.",

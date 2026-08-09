@@ -76,6 +76,35 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
         Assert.Equal(3, ritual.selectedLevel);
     }
 
+    /// <summary>
+    /// Both verbs act on the selected ritual, and the game's selection variable holds whichever
+    /// ritual its toggle was last pressed with. A caller that asked for a level or an activation was
+    /// refused for a step it could not see; the tool makes that press, whatever was selected before.
+    /// </summary>
+    [Fact]
+    public void Level_and_activation_press_the_screens_own_selection_first()
+    {
+        var held = Ritual();
+        var wanted = Ritual();
+        var resource = new ResourceSO { quantity = new BigDouble(10) };
+        resource.SetGuid(Guid.NewGuid());
+        wanted.activationCost.costs.Add(new ResourceTuple(resource, new BigDouble(3)));
+        wanted.NativeMaximumSelectedLevel = 7;
+        Register(held);
+        Register(wanted);
+        RitualManager.instance!.selectedRitual.ToggleValue(held);
+        using var boundary = Boundary();
+
+        var leveled = Submit(boundary, wanted, RitualLifecycleActionKind.SetLevel, level: 5);
+        var activated = Submit(boundary, wanted, RitualLifecycleActionKind.Activate);
+
+        Assert.True(leveled.Verified, leveled.Reason);
+        Assert.Equal(5, wanted.selectedLevel);
+        Assert.True(activated.Verified, activated.Reason);
+        Assert.True(wanted.inBattle);
+        Assert.True(RitualManager.instance.selectedRitual.IsItem(wanted));
+    }
+
     [Fact]
     public void Activate_revalidates_and_pays_the_screen_cost_before_the_manager_callback()
     {

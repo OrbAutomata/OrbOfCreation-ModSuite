@@ -146,10 +146,12 @@ public sealed class GameMcpRitualLifecycleTests
     /// <remarks>
     /// One presence rule for one block: the ceiling is Math.Max(reachedLevel + 1, ceremonial level),
     /// which the ritual and the player answer whether or not anything is selected. Publishing it
-    /// only for the selected ritual made selecting one the way to discover the range exists.
+    /// only for the selected ritual made selecting one the way to discover the range exists — and
+    /// the verb presses the screen's own selection toggle itself, so the decision no longer waits
+    /// on a step the caller had to make in the right order.
     /// </remarks>
     [Fact]
-    public void The_starting_level_bounds_do_not_wait_for_a_selection()
+    public void The_starting_level_decision_does_not_wait_for_a_selection()
     {
         var world = World(selected: false, level: 0, activeInstances: 0);
         var response = Json(GameMcpWorldQuery.GetRow(
@@ -157,8 +159,8 @@ public sealed class GameMcpRitualLifecycleTests
             "rituals", RitualId.ToString("D")).Freeze(), world);
 
         var setLevel = response["row"]!["setLevel"]!;
-        Assert.False((bool)setLevel["available"]!);
-        Assert.Equal("ERR_STATE", (string?)setLevel["reasonCode"]);
+        Assert.True((bool)setLevel["available"]!);
+        Assert.Null(setLevel["reasonCode"]);
         Assert.Equal(1, (int)setLevel["minimum"]!);
         Assert.Equal(8, (int)setLevel["maximum"]!);
     }
