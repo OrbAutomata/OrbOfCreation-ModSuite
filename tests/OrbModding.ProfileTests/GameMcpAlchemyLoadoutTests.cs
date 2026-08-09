@@ -99,7 +99,7 @@ public sealed class GameMcpAlchemyLoadoutTests
         Assert.Equal(2, (int)row["activeCount"]!);
         var loadout = Assert.IsType<JObject>(row["alchemyLoadout"]);
         Assert.Equal(2, (int)loadout["activeCount"]!);
-        Assert.Equal(1, (int)loadout["slot"]!);
+        Assert.Equal(2, (int)loadout["slot"]!);
         Assert.True((bool)loadout["add"]!["available"]!);
         Assert.Equal(4, (int)loadout["add"]!["maximumAmount"]!);
         var add = Assert.IsType<JObject>(loadout["add"]);

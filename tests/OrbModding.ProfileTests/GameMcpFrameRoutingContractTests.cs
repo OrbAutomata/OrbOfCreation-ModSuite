@@ -164,7 +164,7 @@ public sealed class GameMcpFrameRoutingContractTests
         {
             ["uuid"] = Guid.NewGuid().ToString("D"),
             ["mode"] = "fire",
-            ["slotIndex"] = 0,
+            ["slot"] = 1,
         },
         "game_concept" => new JObject
         {
@@ -224,7 +224,7 @@ public sealed class GameMcpFrameRoutingContractTests
         },
         "game_loadout" => new JObject
         {
-            ["uuid"] = Guid.NewGuid().ToString("D"),
+            ["loadout"] = 1,
             ["mode"] = "select",
         },
         "time_challenge" => new JObject
@@ -257,7 +257,7 @@ public sealed class GameMcpFrameRoutingContractTests
         },
         "game_spell_loadout" => new JObject
         {
-            ["uuid"] = Guid.NewGuid().ToString("D"),
+            ["slot"] = 1,
             ["mode"] = "remove",
         },
         "game_targeting" => new JObject

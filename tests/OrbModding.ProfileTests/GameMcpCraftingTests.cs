@@ -180,7 +180,7 @@ public sealed class GameMcpCraftingTests
         var manual = row["queue"]!;
         Assert.Equal("Sigil Queue", (string?)manual["queue"]!["name"]);
         var manualSlot = Assert.Single(manual["slots"]!).Value<JObject>()!;
-        Assert.Equal(0, (int?)manualSlot["slot"]);
+        Assert.Equal(1, (int?)manualSlot["slot"]);
         Assert.Equal("Craft Sigils", (string?)manualSlot["recipe"]!["name"]);
         Assert.Equal("4", (string?)manualSlot["amount"]);
         Assert.Null(manualSlot["repetitions"]);
@@ -188,7 +188,7 @@ public sealed class GameMcpCraftingTests
         var automation = row["automation"]!;
         Assert.Equal("Auto Sigil Queue", (string?)automation["queue"]!["name"]);
         var automationSlot = Assert.Single(automation["slots"]!).Value<JObject>()!;
-        Assert.Equal(1, (int?)automationSlot["slot"]);
+        Assert.Equal(2, (int?)automationSlot["slot"]);
         Assert.Equal("Craft Sigils", (string?)automationSlot["recipe"]!["name"]);
         Assert.Equal("4", (string?)automationSlot["amount"]);
         Assert.Equal(3, (int?)automationSlot["repetitions"]);
@@ -252,12 +252,12 @@ public sealed class GameMcpCraftingTests
         Assert.Equal(2, rows.Length);
         Assert.Equal("Sigil Queue", (string?)rows[0]?["queue"]?["name"]);
         Assert.Equal("Craft Sigils", (string?)rows[0]?["recipe"]?["name"]);
-        Assert.Equal(0, (int?)rows[0]?["slot"]);
+        Assert.Equal(1, (int?)rows[0]?["slot"]);
         Assert.Equal("4", (string?)rows[0]?["amount"]);
         Assert.False((bool?)rows[0]?["automatic"]);
         Assert.Null(rows[0]?["repetitions"]);
         Assert.Equal("Auto Sigil Queue", (string?)rows[1]?["queue"]?["name"]);
-        Assert.Equal(1, (int?)rows[1]?["slot"]);
+        Assert.Equal(2, (int?)rows[1]?["slot"]);
         Assert.Equal("4", (string?)rows[1]?["amount"]);
         Assert.True((bool?)rows[1]?["automatic"]);
         Assert.Equal(3, (int?)rows[1]?["repetitions"]);

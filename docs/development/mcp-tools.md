@@ -402,7 +402,7 @@ emitted in `drainBlockers`. The category is unavailable unless both recipe and r
 are clean.
 
 `crafting-queue-entries` is the ordered live contents of every loaded manual and automation queue.
-Each lean row names the queue and recipe, reports its zero-based slot, current amount, and whether
+Each lean row names the queue and recipe, reports its slot counted from 1, current amount, and whether
 the instance is automatic; only automatic entries carry their repetition count. The same
 lifecycle-bound crafting reader supplies these rows and recipe decisions, so a malformed instance,
 queue-role contradiction, or unstable page roster makes the category unavailable rather than
@@ -513,7 +513,7 @@ leveling belongs to the unified level surface rather than this list lifecycle.
 
 `game_alchemy(mode="add"|"remove", uuid=..., amount=...)` applies the caller's explicit positive
 amount through the list's native counted mutation after revalidating live usage capacity.
-`mode="move"` instead requires the zero-based
+`mode="move"` instead requires the
 `destination` exposed by the row. Success returns only the settled `activeCount` before and after, or
 the ordered slot before and after for a move. The action boundary revalidates exact recipe identity,
 ordinary-family classification, discovery, and capacity before invoking the explicit-count core
@@ -689,12 +689,15 @@ The selected player row also owns the three controls visible in the editor:
 `set_section` requires `section:"equipment"|"alchemy"` plus `enabled`; `rename` requires a name
 of at most 24 characters; `next_icon` and `next_color` advance one step through the same native
 lists as the UI. Arbitrary icon/color indexes and a free-standing save verb are absent because the
-screen exposes neither.
+screen exposes neither. Every one of those modes names its loadout with `loadout`, its position on
+the loadout bar counted from 1. A player loadout is a live Unity object the asset catalog never
+publishes, so it has no id the wire can carry, and a refusal that cannot find one says how many
+loadouts there are.
 
 `snapshot-loadouts` identifies both the Alchemy and Equipment snapshot-list owners; each detail
-row exposes its kind, visible zero-based slots, populated state, and named saved entries.
-Snapshot rows themselves have no UUID, so `snapshot_save`, `snapshot_load`, and `snapshot_clear`
-take the owning list `uuid` plus `slot`. Save accepts only an empty slot, load/clear only a
+row exposes its kind, its visible slots counted from 1, populated state, and named saved entries.
+Snapshot rows and their owning lists are live objects with no published id, so `snapshot_save`,
+`snapshot_load`, and `snapshot_clear` take `section:"equipment"|"alchemy"` plus `slot`. Save accepts only an empty slot, load/clear only a
 populated slot, and no overwrite mode exists. Optional native type must match the owning
 `AlchemySnapshotListVariable` or `EquipmentSnapshotListVariable`. Success returns the observed
 slot or active-section change from the settled world; usage capacity is admission only and no
@@ -900,7 +903,7 @@ The MCP-only consumable sequence is:
 3. Call `game_consumable(mode="discard", uuid=..., amount=...)` for a positive amount,
    `game_consumable(mode="set_randomization", uuid=..., enabled=...)`, or
    `game_consumable(mode="move", uuid=..., list="inventory|hotbar",
-   destination=...)` for a zero-based same-list position.
+   destination=...)` for a same-list position counted from 1.
 
 Every committed mode returns the changed amount, flag, or slot. There is no
 payment stanza, receipt, world-generation argument, catalog join, or post-mutation read-back.
@@ -1195,6 +1198,14 @@ audit can read without an asset dump. So the shape of the bound is audited and t
 quoted, while the dial value rests on every value selector in the game flooring at 1. Anything else
 the suite publishes as a bound is read live.
 
+**Every slot, position, and destination on the wire counts from 1**, in arguments and in responses
+alike: the first spell slot is slot 1, the first snapshot is snapshot 1, the first loadout is
+loadout 1, and the first queue entry is slot 1. Every screen in the game counts the same way and no
+screen shows an array index, so nothing on the wire does either. Internally every list stays
+zero-based; the conversion happens only where an argument arrives and where a response is written.
+A slot refusal states both sides — the slot asked for and the slots that exist or hold something —
+so the retry needs no second read.
+
 A **schema bound** is the range the JSON input schema declares, and it is the suite's own policy on
 what is worth sending in one call — not a native fact. `game_purchase` and `game_level` cap `amount`
 at 1,000, `game_concept` at 1,000,000, and `game_agromancy` at 10,000; the paging tools cap `limit`
@@ -1349,9 +1360,9 @@ tools/game-mcp-client.py call game_agromancy --arguments \
 tools/game-mcp-client.py call game_agromancy --arguments \
   '{"mode":"add_element_action","uuid":"HARVEST_ELEMENT_UUID","actionUuid":"HARVEST_ACTION_UUID","amount":1}'
 tools/game-mcp-client.py call game_cast --arguments \
-  '{"mode":"fire","slotIndex":0,"uuid":"SPELL_UUID"}'
+  '{"mode":"fire","slot":1,"uuid":"SPELL_UUID"}'
 tools/game-mcp-client.py call game_cast --arguments \
-  '{"mode":"toggle_off","slotIndex":0,"uuid":"SPELL_UUID"}'
+  '{"mode":"toggle_off","slot":1,"uuid":"SPELL_UUID"}'
 tools/game-mcp-client.py call game_discover --arguments \
   '{"mode":"preview","surface":"spellcraft","components":[{"uuid":"GLYPH_UUID","count":2}]}'
 tools/game-mcp-client.py call game_discover --arguments \
@@ -1417,9 +1428,9 @@ and `add`, `uuid` is a spell-recipe
 identity and an explicit `glyphs` array is required. Preview combines the recipe's authored core
 with those explicit augments and prices the resulting layout through
 `SpellManager.GetSpellCreateCost` without changing the staged UI
-selection or acquiring mutation ownership. For `remove` and `move`, `uuid` is a runtime
-spell-instance identity and `glyphs` is rejected; `move` additionally requires a zero-based
-`destination`, which no other mode accepts. Add builds the native candidate, applies the selected level, bakes the glyph layout
+selection or acquiring mutation ownership. For `remove` and `move`, `slot` names the loadout-bar
+position and `uuid` and `glyphs` are rejected; `move` additionally requires a `destination`, which
+no other mode accepts. Add builds the native candidate, applies the selected level, bakes the glyph layout
 with `Spell.SetAugmentGlyphs` before the manager add route, pays last, and verifies the exact
 requested loadout outcome. Remove rechecks the game's live `Spell.CanRemove()` verdict; move
 re-resolves the source slot and invokes the same native swap-plus-notify path as the spellbook.
@@ -1436,7 +1447,7 @@ submitted target; a failure names only the rejected target or missing submission
 
 `game_consumable` has five conditional shapes. `use` and `cancel` require only a
 consumable `uuid`; `discard` also requires positive `amount`; `set_randomization` requires
-`enabled`; and `move` requires `list` plus zero-based `destination`. Fields belonging to another
+`enabled`; and `move` requires `list` plus `destination`, counted from 1. Fields belonging to another
 mode are rejected. The boundary re-resolves the exact `ConsumableSO`, all live verb predicates,
 and the current list/source/destination on the Unity main thread, then captures the shared
 ConsumableUse/MultiBuy permit last. Success is the requested queue, exact usage cancellation,

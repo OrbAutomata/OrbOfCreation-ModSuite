@@ -109,8 +109,9 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (!native.CanRemove(spell))
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.NativeRemoveRefused,
-                "Native Spell.CanRemove() refused runtime spell " +
-                EntityIdentityFormatter.PlayerName(action.SpellInstanceId) + ".");
+                "The game will not let " +
+                EntityIdentityFormatter.PlayerName(action.SpellInstanceId) +
+                " be taken off the loadout bar.");
         if (!TryCapturePermit(out reason))
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.MutationPermitUnavailable,
@@ -157,13 +158,13 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (action.DestinationSlot >= slotCount)
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.DestinationOutOfRange,
-                "Destination slot " + action.DestinationSlot +
-                " is outside the live native range 0.." + (slotCount - 1) + ".");
+                "There is no slot " + (action.DestinationSlot + 1) +
+                "; the loadout bar has slots 1 to " + slotCount + ".");
         if (sourceSlot == action.DestinationSlot)
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.AlreadyInRequestedState,
-                "Runtime spell " + EntityIdentityFormatter.PlayerName(action.SpellInstanceId) +
-                " is already in slot " + sourceSlot + ".");
+                EntityIdentityFormatter.PlayerName(action.SpellInstanceId) +
+                " is already in slot " + (sourceSlot + 1) + ".");
         if (!TryCapturePermit(out reason))
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.MutationPermitUnavailable,
@@ -250,10 +251,10 @@ internal sealed class SpellLoadoutGameAction : IDisposable
             return true;
         }
         reason = matches == 0
-            ? "No exact equipped Spell with runtime identity " +
-              EntityIdentityFormatter.PlayerName(targetId) + " exists."
-            : "Runtime Spell identity " + EntityIdentityFormatter.PlayerName(targetId) +
-              " is ambiguous across " + matches + " exact instances.";
+            ? EntityIdentityFormatter.PlayerName(targetId) +
+              " is not one of the spells you have equipped."
+            : EntityIdentityFormatter.PlayerName(targetId) + " is equipped in " + matches +
+              " slots, so this cannot tell which one you mean.";
         return false;
     }
 

@@ -27,8 +27,15 @@ public sealed class GameMcpLoadoutTests
             candidate => (string?)candidate["name"] == "game_loadout");
 
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
-        Assert.Equal(new[] { "mode", "uuid" },
+        Assert.Equal(new[] { "mode" },
             tool["inputSchema"]!["required"]!.Values<string>());
+
+        // A loadout and a snapshot are both live objects the asset catalog never publishes, so the
+        // wire names them the way the screen does: a position on the bar, and a section plus a
+        // slot, both counted from 1.
+        Assert.Null(tool["inputSchema"]!["properties"]!["uuid"]);
+        Assert.Equal(1, (int)tool["inputSchema"]!["properties"]!["loadout"]!["minimum"]!);
+        Assert.Equal(1, (int)tool["inputSchema"]!["properties"]!["slot"]!["minimum"]!);
         Assert.Equal(new[]
         {
             "select", "set_section", "rename", "next_icon", "next_color",
@@ -48,7 +55,7 @@ public sealed class GameMcpLoadoutTests
                 ["arguments"] = new JObject
                 {
                     ["mode"] = "snapshot_load",
-                    ["uuid"] = SnapshotId.ToString("D"),
+                    ["section"] = "equipment",
                 },
             }));
         var extra = router.Handle(GameMcpAcceptanceFixture.Request(2, "tools/call",
@@ -58,7 +65,7 @@ public sealed class GameMcpLoadoutTests
                 ["arguments"] = new JObject
                 {
                     ["mode"] = "select",
-                    ["uuid"] = PlayerId.ToString("D"),
+                    ["loadout"] = 1,
                     ["name"] = "ignored",
                 },
             }));
@@ -133,9 +140,30 @@ public sealed class GameMcpLoadoutTests
         Assert.False((bool)selected["selected"]!["before"]!);
         Assert.True((bool)selected["selected"]!["after"]!);
         Assert.Equal(GameMcpTestHarness.Handle(PlayerId), (string?)selected["loadout"]!["uuid"]);
-        Assert.Equal(0, (int)cleared["snapshot"]!["slot"]!);
+        Assert.Equal(1, (int)cleared["snapshot"]!["slot"]!);
         Assert.False((bool)cleared["snapshot"]!["populated"]!);
         Assert.Null(cleared["snapshot"]!["entries"]);
+    }
+
+    /// <summary>
+    /// A player loadout and a snapshot list are both live objects the asset catalog never
+    /// publishes. The wire names them the way the screen does, and a refusal says how many there
+    /// actually are.
+    /// </summary>
+    [Fact]
+    public void A_position_names_the_loadout_and_a_section_names_the_snapshot_list()
+    {
+        var world = World(selected: true, populatedSnapshot: true);
+
+        Assert.True(GameMcpWorldQuery.TryPlayerLoadout(world, 1, out var player, out _));
+        Assert.Equal(PlayerId, player);
+        Assert.False(GameMcpWorldQuery.TryPlayerLoadout(world, 4, out _, out var absent));
+        Assert.Equal("There is no loadout 4; you have loadouts 1 to 1.", absent);
+
+        Assert.True(GameMcpWorldQuery.TrySnapshotList(world, "equipment", out var list, out _));
+        Assert.Equal(SnapshotId, list);
+        Assert.False(GameMcpWorldQuery.TrySnapshotList(world, "alchemy", out _, out var missing));
+        Assert.Equal("The game is not showing the Alchemy snapshots right now.", missing);
     }
 
     private static GameWorldState World(

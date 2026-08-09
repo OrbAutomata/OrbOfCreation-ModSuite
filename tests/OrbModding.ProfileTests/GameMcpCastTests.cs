@@ -78,7 +78,7 @@ public sealed class GameMcpCastTests
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
         Assert.Equal(GameMcpTestHarness.Handle(RecipeId), (string?)delta["uuid"]);
-        Assert.Equal(0, (int)delta["slot"]!);
+        Assert.Equal(1, (int)delta["slot"]!);
         Assert.False((bool)delta["active"]!);
 
         var unchanged = GameMcpTestHarness.Context(

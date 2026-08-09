@@ -43,7 +43,11 @@ public sealed class GameMcpSpellLoadoutTests
             schema["properties"]!["mode"]!["enum"]!.Values<string>().ToArray());
         Assert.NotNull(schema["properties"]!["uuid"]);
         Assert.NotNull(schema["properties"]!["glyphs"]);
-        Assert.NotNull(schema["properties"]!["destination"]);
+
+        // An equipped spell is addressed by the slot the screen numbers, not by a runtime instance
+        // id the game never shows, and the wire counts those slots from 1.
+        Assert.Equal(1, (int)schema["properties"]!["slot"]!["minimum"]!);
+        Assert.Equal(1, (int)schema["properties"]!["destination"]!["minimum"]!);
         Assert.Null(schema["properties"]!["worldGeneration"]);
         Assert.Null(schema["properties"]!["detail"]);
         Assert.Null(schema["properties"]!["receipt"]);
@@ -62,7 +66,7 @@ public sealed class GameMcpSpellLoadoutTests
                 ["arguments"] = new JObject
                 {
                     ["mode"] = "move",
-                    ["uuid"] = FirstInstanceId.ToString("D"),
+                    ["slot"] = 1,
                 },
             }));
         var unexpected = router.Handle(GameMcpAcceptanceFixture.Request(
@@ -74,8 +78,8 @@ public sealed class GameMcpSpellLoadoutTests
                 ["arguments"] = new JObject
                 {
                     ["mode"] = "remove",
-                    ["uuid"] = FirstInstanceId.ToString("D"),
-                    ["destination"] = 1,
+                    ["slot"] = 1,
+                    ["destination"] = 2,
                 },
             }));
 
@@ -244,8 +248,8 @@ public sealed class GameMcpSpellLoadoutTests
             success.Properties().Select(property => property.Name));
         Assert.Equal("committed", (string?)success["status"]);
         Assert.Equal("Gather Knowledge", (string?)success["name"]);
-        Assert.Equal(0, (int)success["slot"]!["before"]!);
-        Assert.Equal(1, (int)success["slot"]!["after"]!);
+        Assert.Equal(1, (int)success["slot"]!["before"]!);
+        Assert.Equal(2, (int)success["slot"]!["after"]!);
         Assert.Null(success["code"]);
         Assert.Null(success["loadout"]);
         Assert.Null(success["preflight"]);
@@ -317,6 +321,31 @@ public sealed class GameMcpSpellLoadoutTests
         false,
         false,
         frameContext: frameContext);
+
+    /// <summary>
+    /// A spell instance's id is a Unity object the game never shows and the asset catalog never
+    /// publishes, so the loadout bar is addressed the way the screen numbers it. A refusal says
+    /// both what was asked for and what is actually there, so the next call needs no second read.
+    /// </summary>
+    [Fact]
+    public void A_slot_names_the_spell_and_a_refusal_names_both_sides()
+    {
+        var world = World();
+
+        Assert.True(GameMcpWorldQuery.TryEquippedSpellSlot(world, 1, out var first, out _));
+        Assert.Equal(FirstInstanceId, first);
+        Assert.True(GameMcpWorldQuery.TryEquippedSpellSlot(world, 2, out var second, out _));
+        Assert.Equal(SecondInstanceId, second);
+
+        Assert.False(GameMcpWorldQuery.TryEquippedSpellSlot(world, 3, out _, out var empty));
+        Assert.Equal("Slot 3 is empty; the spells you have equipped are in slots 1, 2.", empty);
+
+        Assert.False(GameMcpWorldQuery.TryEquippedSpellSlot(world, 9, out _, out var absent));
+        Assert.Equal("There is no slot 9; the loadout bar has slots 1 to 3.", absent);
+
+        Assert.False(GameMcpWorldQuery.TryEquippedSpellSlot(world, 0, out _, out var zero));
+        Assert.Equal("There is no slot 0; the loadout bar has slots 1 to 3.", zero);
+    }
 
     private static GameWorldState World(bool moved = false)
     {

@@ -402,7 +402,7 @@ internal static class GameMcpWorldQuery
         var result = new JObject
         {
             ["queueId"] = entry.QueueId,
-            ["slot"] = entry.Slot,
+            ["slot"] = GameMcpSlotNumbering.Wire(entry.Slot),
             ["recipeId"] = entry.RecipeId,
             ["amount"] = new GameMcpDomainValue(entry.Amount),
             ["automatic"] = entry.Automatic,
@@ -955,7 +955,7 @@ internal static class GameMcpWorldQuery
         var result = new JObject
         {
             ["uuid"] = command.TargetId.ToString("D"),
-            ["slot"] = slotIndex,
+            ["slot"] = GameMcpSlotNumbering.Wire(slotIndex),
         };
         if (string.Equals(command.Mode, "fire", StringComparison.Ordinal))
         {
@@ -1131,8 +1131,10 @@ internal static class GameMcpWorldQuery
                 ["uuid"] = command.TargetId.ToString("D"),
                 ["slot"] = new JObject
                 {
-                    ["before"] = hadBefore ? previous.Position : (int?)null,
-                    ["after"] = current.Position,
+                    ["before"] = hadBefore
+                        ? GameMcpSlotNumbering.Wire(previous.Position)
+                        : (int?)null,
+                    ["after"] = GameMcpSlotNumbering.Wire(current.Position),
                 },
             }.Freeze();
         }
@@ -1372,7 +1374,7 @@ internal static class GameMcpWorldQuery
                     : station.SecondIngredientId;
                 result["ingredient"] = new JObject
                 {
-                    ["slot"] = command.Amount - 1,
+                    ["slot"] = command.Amount,
                     ["before"] = hadBefore && oldIngredient != Guid.Empty
                         ? oldIngredient.ToString("D")
                         : null,
@@ -1605,7 +1607,7 @@ internal static class GameMcpWorldQuery
         if (!found) return null;
         var result = new JObject
         {
-            ["slot"] = slot,
+            ["slot"] = GameMcpSlotNumbering.Wire(slot),
             ["populated"] = value.Populated,
         };
         if (value.Populated)
@@ -2109,7 +2111,11 @@ internal static class GameMcpWorldQuery
                 return new JObject
                 {
                     ["uuid"] = command.TargetId.ToString("D"),
-                    ["slot"] = new JObject { ["before"] = null, ["after"] = slot.SlotIndex },
+                    ["slot"] = new JObject
+                    {
+                        ["before"] = null,
+                        ["after"] = GameMcpSlotNumbering.Wire(slot.SlotIndex),
+                    },
                     ["loadBudget"] = new JObject
                     {
                         ["used"] = new JObject
@@ -2133,7 +2139,11 @@ internal static class GameMcpWorldQuery
                 return new JObject
                 {
                     ["uuid"] = oldSlot.SpellRecipeId.ToString("D"),
-                    ["slot"] = new JObject { ["before"] = oldSlot.SlotIndex, ["after"] = null },
+                    ["slot"] = new JObject
+                    {
+                        ["before"] = GameMcpSlotNumbering.Wire(oldSlot.SlotIndex),
+                        ["after"] = null,
+                    },
                 }.Freeze();
             if (command.Mode == "move" && hadBefore && hasAfter)
                 return new JObject
@@ -2141,8 +2151,8 @@ internal static class GameMcpWorldQuery
                     ["uuid"] = newSlot.SpellRecipeId.ToString("D"),
                     ["slot"] = new JObject
                     {
-                        ["before"] = oldSlot.SlotIndex,
-                        ["after"] = newSlot.SlotIndex,
+                        ["before"] = GameMcpSlotNumbering.Wire(oldSlot.SlotIndex),
+                        ["after"] = GameMcpSlotNumbering.Wire(newSlot.SlotIndex),
                     },
                 }.Freeze();
         }
@@ -2314,6 +2324,116 @@ internal static class GameMcpWorldQuery
         for (var index = 0; index < before.Count; index++)
             if (before[index].ChallengeId != after[index].ChallengeId) return false;
         return true;
+    }
+
+    /// <summary>
+    /// The spell a caller means when it names a slot on the loadout bar.
+    /// </summary>
+    /// <remarks>
+    /// A runtime spell instance has an id the game never shows and the asset catalog never
+    /// publishes, so it has no place on the wire at all. The bar itself is what the player sees and
+    /// what the screen numbers, and a refusal names both what was asked for and what is there.
+    /// </remarks>
+    internal static bool TryEquippedSpellSlot(
+        GameWorldState world,
+        int slot,
+        out Guid spellInstanceId,
+        out string reason)
+    {
+        spellInstanceId = Guid.Empty;
+        var slots = world.SpellSlots;
+        if (slots.Count == 0)
+        {
+            reason = "The loadout bar has no slots yet.";
+            return false;
+        }
+        if (slot < 1 || slot > slots.Count)
+        {
+            reason = "There is no slot " + slot + "; the loadout bar has slots 1 to " +
+                slots.Count + ".";
+            return false;
+        }
+        var value = slots[GameMcpSlotNumbering.Index(slot)];
+        if (!value.Occupied || value.SpellInstanceId == Guid.Empty)
+        {
+            reason = "Slot " + slot + " is empty; " + OccupiedSlotsSentence(slots);
+            return false;
+        }
+        spellInstanceId = value.SpellInstanceId;
+        reason = string.Empty;
+        return true;
+    }
+
+    private static string OccupiedSlotsSentence(PublicationTable<WorldSpellSlot> slots)
+    {
+        var occupied = new System.Text.StringBuilder();
+        var count = 0;
+        for (var index = 0; index < slots.Count; index++)
+        {
+            if (!slots[index].Occupied) continue;
+            if (count > 0) occupied.Append(", ");
+            occupied.Append(GameMcpSlotNumbering.Wire(slots[index].SlotIndex)
+                .ToString(CultureInfo.InvariantCulture));
+            count++;
+        }
+        return count == 0
+            ? "no slot on the bar holds a spell."
+            : count == 1
+                ? "the one spell you have equipped is in slot " + occupied + "."
+                : "the spells you have equipped are in slots " + occupied + ".";
+    }
+
+    /// <summary>
+    /// The player loadout a caller means when it names a position on the loadout bar.
+    /// </summary>
+    internal static bool TryPlayerLoadout(
+        GameWorldState world,
+        int position,
+        out Guid loadoutId,
+        out string reason)
+    {
+        loadoutId = Guid.Empty;
+        var loadouts = world.PlayerLoadouts;
+        if (loadouts.Count == 0)
+        {
+            reason = "This save has no player loadouts.";
+            return false;
+        }
+        if (position < 1 || position > loadouts.Count)
+        {
+            reason = "There is no loadout " + position + "; you have loadouts 1 to " +
+                loadouts.Count + ".";
+            return false;
+        }
+        loadoutId = loadouts[GameMcpSlotNumbering.Index(position)].EntityId;
+        reason = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// The snapshot list a caller means when it names the Equipment or Alchemy section.
+    /// </summary>
+    internal static bool TrySnapshotList(
+        GameWorldState world,
+        string section,
+        out Guid listId,
+        out string reason)
+    {
+        listId = Guid.Empty;
+        var wanted = string.Equals(section, "alchemy", StringComparison.Ordinal)
+            ? WorldSnapshotLoadoutKind.Alchemy
+            : WorldSnapshotLoadoutKind.Equipment;
+        for (var index = 0; index < world.SnapshotLoadouts.Count; index++)
+        {
+            if (world.SnapshotLoadouts[index].Kind != wanted) continue;
+            listId = world.SnapshotLoadouts[index].EntityId;
+            reason = string.Empty;
+            return true;
+        }
+        reason = "The game is not showing the " +
+            (wanted == WorldSnapshotLoadoutKind.Alchemy ? "Alchemy" : "Equipment") +
+            " snapshots right now.";
+        return false;
     }
 
     /// <summary>
@@ -3156,7 +3276,7 @@ internal static class GameMcpWorldQuery
     {
         var result = new JObject
         {
-            ["slot"] = slot.Index,
+            ["slot"] = GameMcpSlotNumbering.Wire(slot.Index),
             ["empty"] = slot.Empty,
         };
         if (WorldLookup.TryFind(world.ActionQueues, slot.QueueId, out var queue))
@@ -3948,7 +4068,7 @@ internal static class GameMcpWorldQuery
             var placement = new JObject
             {
                 ["list"] = ConsumableListName(slot.List),
-                ["position"] = slot.Position,
+                ["position"] = GameMcpSlotNumbering.Wire(slot.Position),
             };
             result.Add(placement);
         }
@@ -4590,7 +4710,7 @@ internal static class GameMcpWorldQuery
         var identity = EntityIdentityFormatter.Describe(id, world.EntityIdentities);
         var result = new JObject { ["uuid"] = id.ToString("D") };
         if (identity.HasName) result["name"] = identity.Name;
-        if (position >= 0) result["position"] = position;
+        if (position >= 0) result["position"] = GameMcpSlotNumbering.Wire(position);
         for (var index = 0; index < world.Structures.Count; index++)
         {
             var structure = world.Structures[index];
@@ -4616,7 +4736,7 @@ internal static class GameMcpWorldQuery
             return new JObject
             {
                 ["category"] = "spell-slots",
-                ["slot"] = slot.SlotIndex,
+                ["slot"] = GameMcpSlotNumbering.Wire(slot.SlotIndex),
                 ["occupied"] = false,
             }.Freeze();
         }
@@ -4642,7 +4762,7 @@ internal static class GameMcpWorldQuery
         {
             ["spellInstance"] = instance,
             ["spellRecipeId"] = slot.SpellRecipeId.ToString("D"),
-            ["slot"] = slot.SlotIndex,
+            ["slot"] = GameMcpSlotNumbering.Wire(slot.SlotIndex),
             ["effectiveLevel"] = slot.EffectiveLevel,
             ["requiredMasteryLevel"] = slot.RequiredMasteryLevel,
             ["recipeMasteryLevel"] = slot.RecipeMasteryLevel,
@@ -4778,7 +4898,8 @@ internal static class GameMcpWorldQuery
             var slot = world.SpellSlots[index];
             if (slot.SlotIndex == currentSlot) continue;
             destinations.Add(
-                slot.SlotIndex.ToString(CultureInfo.InvariantCulture) + " " +
+                GameMcpSlotNumbering.Wire(slot.SlotIndex)
+                    .ToString(CultureInfo.InvariantCulture) + " " +
                 (slot.Occupied
                     ? GameMcpEntityHandle.Name(slot.SpellRecipeId, world.EntityIdentities)
                     : "empty"));
@@ -4964,7 +5085,8 @@ internal static class GameMcpWorldQuery
             ["activeCount"] = decision.Amount,
             ["targetAmount"] = decision.TargetAmount,
         };
-        if (decision.IsActive) loadout["slot"] = decision.Position;
+        if (decision.IsActive)
+            loadout["slot"] = GameMcpSlotNumbering.Wire(decision.Position);
         var addAvailable = decision.Discovered && decision.CanAdd && decision.MaximumAdd > 0;
         var add = new JObject { ["available"] = addAvailable };
         if (addAvailable)

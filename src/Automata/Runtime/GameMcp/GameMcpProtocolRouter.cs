@@ -275,7 +275,7 @@ internal sealed class GameMcpProtocolRouter
                 builder.Uuid = RequireUuid(arguments, "uuid");
                 builder.Mode = RequireOneOf(
                     arguments, "mode", "fire", "release", "toggle_off");
-                builder.SlotIndex = RequiredInt(arguments, "slotIndex", 0, 255);
+                builder.SlotIndex = RequiredInt(arguments, "slot", 1, 256);
                 break;
             case "game_concept":
                 builder.Uuid = RequireUuid(arguments, "uuid");
@@ -319,10 +319,10 @@ internal sealed class GameMcpProtocolRouter
                     builder.Uuid = RequireUuid(arguments, "uuid");
                     builder.UuidCounts = RequireUuidCountArray(arguments, "glyphs", 64);
                 }
-                else if (builder.Mode != "staged")
-                    builder.Uuid = RequireUuid(arguments, "uuid");
+                else if (builder.Mode is "remove" or "move")
+                    builder.Amount = RequiredInt(arguments, "slot", 1, 256);
                 if (builder.Mode == "move")
-                    builder.SlotIndex = RequiredInt(arguments, "destination", 0, 255);
+                    builder.SlotIndex = RequiredInt(arguments, "destination", 1, 256);
                 break;
             case "game_targeting":
                 builder.Mode = RequireOneOf(arguments, "mode", "submit", "randomize");
@@ -347,7 +347,7 @@ internal sealed class GameMcpProtocolRouter
                 if (builder.Mode == "move")
                 {
                     builder.Key = RequireOneOf(arguments, "list", "inventory", "hotbar");
-                    builder.SlotIndex = RequiredInt(arguments, "destination", 0, int.MaxValue);
+                    builder.SlotIndex = RequiredInt(arguments, "destination", 1, int.MaxValue);
                 }
                 break;
             case "game_craft":
@@ -385,7 +385,7 @@ internal sealed class GameMcpProtocolRouter
                 if (builder.Mode is "add" or "remove")
                     builder.Amount = RequiredInt(arguments, "amount", 1, int.MaxValue);
                 if (builder.Mode == "move")
-                    builder.SlotIndex = RequiredInt(arguments, "destination", 0, int.MaxValue);
+                    builder.SlotIndex = RequiredInt(arguments, "destination", 1, int.MaxValue);
                 break;
             case "game_ritual":
                 builder.Mode = RequireOneOf(arguments, "mode",
@@ -407,18 +407,24 @@ internal sealed class GameMcpProtocolRouter
                 builder.Mode = RequireOneOf(arguments, "mode", "select", "set_section",
                     "rename", "next_icon", "next_color", "snapshot_save",
                     "snapshot_load", "snapshot_clear");
-                builder.Uuid = RequireUuid(arguments, "uuid");
-                if (builder.Mode == "set_section")
+                if (builder.Mode.StartsWith("snapshot_", StringComparison.Ordinal))
                 {
                     builder.Key = RequireOneOf(arguments, "section", "equipment", "alchemy");
-                    builder.SerializedValue = OptionalBool(arguments, "enabled", false)
-                        ? "true"
-                        : "false";
+                    builder.SlotIndex = RequiredInt(arguments, "slot", 1, int.MaxValue);
                 }
-                if (builder.Mode == "rename")
-                    builder.SerializedValue = RequireString(arguments, "name");
-                if (builder.Mode.StartsWith("snapshot_", StringComparison.Ordinal))
-                    builder.SlotIndex = RequiredInt(arguments, "slot", 0, int.MaxValue);
+                else
+                {
+                    builder.Amount = RequiredInt(arguments, "loadout", 1, int.MaxValue);
+                    if (builder.Mode == "set_section")
+                    {
+                        builder.Key = RequireOneOf(arguments, "section", "equipment", "alchemy");
+                        builder.SerializedValue = OptionalBool(arguments, "enabled", false)
+                            ? "true"
+                            : "false";
+                    }
+                    if (builder.Mode == "rename")
+                        builder.SerializedValue = RequireString(arguments, "name");
+                }
                 break;
             case "time_challenge":
                 builder.Mode = RequireOneOf(arguments, "mode",
@@ -680,10 +686,10 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["mode"] = EnumSchema("fire", "release", "toggle_off"),
-                        ["slotIndex"] = IntegerSchema(0, 255),
+                        ["slot"] = IntegerSchema(1, 256),
                         ["uuid"] = StringSchema("Spell recipe UUID currently occupying the slot."),
                     },
-                    "mode", "slotIndex", "uuid")),
+                    "mode", "slot", "uuid")),
             Tool(
                 "game_concept",
                 "Assign or remove a concept",
@@ -766,29 +772,34 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_spell_loadout",
                 "Read staging; preview, add, remove, or move a spell",
-                "Read the exact staged Spellcraft core and augment layout; preview an explicit layout's native price without changing staging; add that layout baked into a new spell; or remove or move an equipped spell. Success returns the settled slot change.",
+                "Read the exact staged Spellcraft core and augment layout; preview an explicit layout's native price without changing staging; add that layout baked into a new spell; or remove or move an equipped spell. remove and move name the slot on the loadout bar, counted from 1 as the screen shows it. Success returns the settled slot change.",
                 ModeSchema(ActionSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("staged", "preview", "add", "remove", "move"),
-                        ["uuid"] = StringSchema("A discovered recipe UUID for preview or add; an equipped spell-instance UUID for remove or move."),
+                        ["uuid"] = StringSchema("A discovered recipe UUID, for preview and add."),
                         ["glyphs"] = ArraySchema(
                             ObjectSchema(new JObject
                             {
                                 ["uuid"] = StringSchema("Published augment GlyphSO UUID."),
                                 ["count"] = IntegerSchema(1, int.MaxValue),
                             }, "uuid", "count"), 0, 64),
-                        ["destination"] = IntegerSchema(0, 255),
+                        ["slot"] = IntegerSchema(1, 256),
+                        ["destination"] = IntegerSchema(1, 256),
                     },
                     "mode"),
                     ModeRule("staged", forbidden: new[]
                     {
-                        "uuid", "glyphs", "destination",
+                        "uuid", "glyphs", "slot", "destination",
                     }),
-                    ModeRule("preview", new[] { "uuid", "glyphs" }, new[] { "destination" }),
-                    ModeRule("add", new[] { "uuid", "glyphs" }, new[] { "destination" }),
-                    ModeRule("remove", new[] { "uuid" }, new[] { "glyphs", "destination" }),
-                    ModeRule("move", new[] { "uuid", "destination" }, new[] { "glyphs" })),
+                    ModeRule("preview", new[] { "uuid", "glyphs" },
+                        new[] { "slot", "destination" }),
+                    ModeRule("add", new[] { "uuid", "glyphs" },
+                        new[] { "slot", "destination" }),
+                    ModeRule("remove", new[] { "slot" },
+                        new[] { "uuid", "glyphs", "destination" }),
+                    ModeRule("move", new[] { "slot", "destination" },
+                        new[] { "uuid", "glyphs" })),
                 readOnly: false,
                 idempotent: false),
             Tool(
@@ -819,7 +830,7 @@ internal sealed class GameMcpProtocolRouter
                         ["amount"] = IntegerSchema(1, int.MaxValue),
                         ["enabled"] = BooleanSchema("Requested randomization state."),
                         ["list"] = EnumSchema("inventory", "hotbar"),
-                        ["destination"] = IntegerSchema(0, int.MaxValue),
+                        ["destination"] = IntegerSchema(1, int.MaxValue),
                     },
                     "mode", "uuid"),
                     ModeRule("discard", new[] { "amount" }, new[] { "enabled", "list", "destination" }),
@@ -898,7 +909,7 @@ internal sealed class GameMcpProtocolRouter
                         ["mode"] = EnumSchema("add", "remove", "move"),
                         ["uuid"] = StringSchema("Published ordinary AlchemyRecipeSO UUID."),
                         ["amount"] = IntegerSchema(1, int.MaxValue),
-                        ["destination"] = IntegerSchema(0, int.MaxValue),
+                        ["destination"] = IntegerSchema(1, int.MaxValue),
                     },
                     "mode", "uuid"),
                     ModeRule("add", new[] { "amount" }, new[] { "destination" }),
@@ -945,27 +956,35 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_loadout",
                 "Manage player loadouts and snapshots",
-                "Select or edit the active player loadout, or save, load, and clear visible Equipment or Alchemy snapshot slots.",
+                "Select or edit a player loadout, or save, load, and clear visible Equipment or Alchemy snapshot slots. A loadout is named by its position on the loadout bar and a snapshot by its section and its slot, both counted from 1 as the screen shows them.",
                 ModeSchema(ActionSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("select", "set_section", "rename", "next_icon", "next_color",
                             "snapshot_save", "snapshot_load", "snapshot_clear"),
-                        ["uuid"] = StringSchema("Published player-loadout or snapshot-list UUID."),
+                        ["loadout"] = IntegerSchema(1, int.MaxValue),
                         ["section"] = EnumSchema("equipment", "alchemy"),
                         ["enabled"] = BooleanSchema("Whether the selected loadout saves that section."),
                         ["name"] = StringSchema("Player-visible loadout label, at most 24 characters."),
-                        ["slot"] = IntegerSchema(0, int.MaxValue),
+                        ["slot"] = IntegerSchema(1, int.MaxValue),
                     },
-                    "mode", "uuid"),
-                    ModeRule("select", forbidden: new[] { "section", "enabled", "name", "slot" }),
-                    ModeRule("set_section", new[] { "section", "enabled" }, new[] { "name", "slot" }),
-                    ModeRule("rename", new[] { "name" }, new[] { "section", "enabled", "slot" }),
-                    ModeRule("next_icon", forbidden: new[] { "section", "enabled", "name", "slot" }),
-                    ModeRule("next_color", forbidden: new[] { "section", "enabled", "name", "slot" }),
-                    ModeRule("snapshot_save", new[] { "slot" }, new[] { "section", "enabled", "name" }),
-                    ModeRule("snapshot_load", new[] { "slot" }, new[] { "section", "enabled", "name" }),
-                    ModeRule("snapshot_clear", new[] { "slot" }, new[] { "section", "enabled", "name" })),
+                    "mode"),
+                    ModeRule("select", new[] { "loadout" },
+                        new[] { "section", "enabled", "name", "slot" }),
+                    ModeRule("set_section", new[] { "loadout", "section", "enabled" },
+                        new[] { "name", "slot" }),
+                    ModeRule("rename", new[] { "loadout", "name" },
+                        new[] { "section", "enabled", "slot" }),
+                    ModeRule("next_icon", new[] { "loadout" },
+                        new[] { "section", "enabled", "name", "slot" }),
+                    ModeRule("next_color", new[] { "loadout" },
+                        new[] { "section", "enabled", "name", "slot" }),
+                    ModeRule("snapshot_save", new[] { "section", "slot" },
+                        new[] { "loadout", "enabled", "name" }),
+                    ModeRule("snapshot_load", new[] { "section", "slot" },
+                        new[] { "loadout", "enabled", "name" }),
+                    ModeRule("snapshot_clear", new[] { "section", "slot" },
+                        new[] { "loadout", "enabled", "name" })),
                 readOnly: false,
                 idempotent: false),
             Tool(
@@ -1339,15 +1358,20 @@ internal sealed class GameMcpProtocolRouter
             var enabled = arguments.ContainsKey("enabled");
             var label = arguments.ContainsKey("name");
             var slot = arguments.ContainsKey("slot");
+            var loadout = arguments.ContainsKey("loadout");
+            var snapshot = mode is "snapshot_save" or "snapshot_load" or "snapshot_clear";
+            if (snapshot && !section)
+                errors.Add(ValidationError("missing_required", "section",
+                    "required field 'section' is missing for mode '" + mode + "'"));
             if (mode == "set_section" && !section)
                 errors.Add(ValidationError("missing_required", "section",
                     "required field 'section' is missing for mode 'set_section'"));
             if (mode == "set_section" && !enabled)
                 errors.Add(ValidationError("missing_required", "enabled",
                     "required field 'enabled' is missing for mode 'set_section'"));
-            if (mode != "set_section" && section)
+            if (mode != "set_section" && !snapshot && section)
                 errors.Add(ValidationError("unexpected_for_mode", "section",
-                    "field 'section' is accepted only for mode 'set_section'"));
+                    "field 'section' is accepted only for mode 'set_section' and snapshot modes"));
             if (mode != "set_section" && enabled)
                 errors.Add(ValidationError("unexpected_for_mode", "enabled",
                     "field 'enabled' is accepted only for mode 'set_section'"));
@@ -1357,13 +1381,18 @@ internal sealed class GameMcpProtocolRouter
             if (mode != "rename" && label)
                 errors.Add(ValidationError("unexpected_for_mode", "name",
                     "field 'name' is accepted only for mode 'rename'"));
-            var snapshot = mode is "snapshot_save" or "snapshot_load" or "snapshot_clear";
             if (snapshot && !slot)
                 errors.Add(ValidationError("missing_required", "slot",
                     "required field 'slot' is missing for mode '" + mode + "'"));
             if (!snapshot && slot)
                 errors.Add(ValidationError("unexpected_for_mode", "slot",
                     "field 'slot' is accepted only for snapshot modes"));
+            if (!snapshot && !loadout)
+                errors.Add(ValidationError("missing_required", "loadout",
+                    "required field 'loadout' is missing for mode '" + mode + "'"));
+            if (snapshot && loadout)
+                errors.Add(ValidationError("unexpected_for_mode", "loadout",
+                    "field 'loadout' is not accepted for snapshot modes"));
         }
 
         if (string.Equals(name, "game_agromancy", StringComparison.Ordinal) &&
@@ -1399,15 +1428,9 @@ internal sealed class GameMcpProtocolRouter
             var mode = (string?)arguments["mode"];
             var subject = arguments.ContainsKey("uuid");
             var glyphs = arguments.ContainsKey("glyphs");
+            var slot = arguments.ContainsKey("slot");
             var destination = arguments.ContainsKey("destination");
-            if (mode == "staged")
-            {
-                if (subject) errors.Add(ValidationError("unexpected_for_mode", "uuid",
-                    "field 'uuid' is not accepted for mode 'staged'"));
-                if (glyphs) errors.Add(ValidationError("unexpected_for_mode", "glyphs",
-                    "field 'glyphs' is not accepted for mode 'staged'"));
-            }
-            else if (mode is "preview" or "add")
+            if (mode is "preview" or "add")
             {
                 if (!subject) errors.Add(ValidationError("missing_required", "uuid",
                     "required field 'uuid' is missing for mode '" + mode + "'"));
@@ -1416,11 +1439,18 @@ internal sealed class GameMcpProtocolRouter
             }
             else
             {
-                if (!subject) errors.Add(ValidationError("missing_required", "uuid",
-                    "required field 'uuid' is missing for mode '" + mode + "'"));
+                if (subject) errors.Add(ValidationError("unexpected_for_mode", "uuid",
+                    "field 'uuid' is accepted only for modes 'preview' and 'add'"));
                 if (glyphs) errors.Add(ValidationError("unexpected_for_mode", "glyphs",
                     "field 'glyphs' is accepted only for modes 'preview' and 'add'"));
             }
+            var slotted = mode is "remove" or "move";
+            if (slotted && !slot)
+                errors.Add(ValidationError("missing_required", "slot",
+                    "required field 'slot' is missing for mode '" + mode + "'"));
+            else if (!slotted && slot)
+                errors.Add(ValidationError("unexpected_for_mode", "slot",
+                    "field 'slot' is accepted only for modes 'remove' and 'move'"));
             if (mode == "move" && !destination)
                 errors.Add(ValidationError("missing_required", "destination",
                     "required field 'destination' is missing for mode 'move'"));

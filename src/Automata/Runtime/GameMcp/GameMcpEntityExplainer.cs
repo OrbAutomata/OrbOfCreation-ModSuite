@@ -885,7 +885,7 @@ internal static class GameMcpEntityExplainer
         {
             var cost = world.SpellCosts[start + index];
             var row = ResourceCostEvidence(world, cost.ResourceId, cost.Amount, out var oneBlocked);
-            row["slotIndex"] = slotIndex;
+            row["slot"] = GameMcpSlotNumbering.Wire(slotIndex);
             row["costKind"] = kind.ToString();
             rows.Add(row);
             blocked |= oneBlocked;

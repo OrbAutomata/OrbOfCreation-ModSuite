@@ -104,10 +104,10 @@ internal sealed class LoadoutGameAction : IDisposable
                 var empty = IsSnapshotEmpty(native, target!, snapshotIsAlchemy);
                 if (action.Kind == LoadoutActionKind.SnapshotSave && !empty)
                     return Reject(LoadoutPreflight.SlotOccupied,
-                        "Clear snapshot slot " + action.Slot + " before saving into it.");
+                        "Clear snapshot slot " + (action.Slot + 1) + " before saving into it.");
                 if (action.Kind is LoadoutActionKind.SnapshotLoad or LoadoutActionKind.SnapshotClear && empty)
                     return Reject(LoadoutPreflight.SlotEmpty,
-                        "Snapshot slot " + action.Slot + " is empty.");
+                        "Snapshot slot " + (action.Slot + 1) + " is empty.");
 
                 // Nothing staged is answered before the record is validated. A save reads the
                 // active section, and an empty one has no entry that could fail a limit — the
@@ -129,7 +129,7 @@ internal sealed class LoadoutGameAction : IDisposable
                             SnapshotRecord(native, target!, snapshotIsAlchemy), snapshotIsAlchemy))
                         return Reject(LoadoutPreflight.AlreadyInRequestedState,
                             "The active " + (snapshotIsAlchemy ? "Alchemy" : "Equipment") +
-                            " section already matches snapshot slot " + action.Slot + ".");
+                            " section already matches snapshot slot " + (action.Slot + 1) + ".");
                 }
             }
 
@@ -485,9 +485,9 @@ internal sealed class LoadoutGameAction : IDisposable
             refusal = LoadoutSubmission.RejectSlotOutOfRange(
                 count == 0
                     ? "This save owns zero snapshot slots."
-                    : "The snapshot slot must be between 0 and " + (count - 1) + ".",
-                count == 0 ? -1 : 0,
-                count - 1);
+                    : "The snapshot slot must be between 1 and " + count + ".",
+                count == 0 ? -1 : 1,
+                count);
             return false;
         }
         snapshot = values![slot];

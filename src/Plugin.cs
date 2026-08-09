@@ -2132,7 +2132,7 @@ public sealed class Plugin : BaseUnityPlugin
         else if (kind == GameMcpCommandKind.Cast)
         {
             nativeType = "SpellRecipeSO";
-            amount = checked(request.SlotIndex + 1);
+            amount = request.SlotIndex;
         }
         else if (kind == GameMcpCommandKind.Concept)
             nativeType = "AlchemyRecipeSO";
@@ -2178,7 +2178,15 @@ public sealed class Plugin : BaseUnityPlugin
         else if (kind == GameMcpCommandKind.SpellLoadout)
         {
             nativeType = "Spell";
-            amount = checked(request.SlotIndex + 1);
+            amount = request.Mode == "move" ? request.SlotIndex : 1;
+            if (context.World is null)
+                preparationFailure = GameMcpCommandResult.Rejected(
+                    "world_not_published", context.RuntimeNotAvailableReason);
+            else if (!GameMcpWorldQuery.TryEquippedSpellSlot(
+                         context.World.Snapshot, request.Amount,
+                         out targetId, out var spellSlotReason))
+                preparationFailure = GameMcpCommandResult.Rejected(
+                    "slot_unavailable", spellSlotReason);
         }
         else if (kind == GameMcpCommandKind.Targeting)
             nativeType = request.Mode == "submit" ? "StructureSO" : "TargetingManager+TargetLink";
@@ -2187,7 +2195,7 @@ public sealed class Plugin : BaseUnityPlugin
             nativeType = "ConsumableSO";
             payloadKey = request.Key;
             payloadValue = request.SerializedValue;
-            if (request.Mode == "move") amount = checked(request.SlotIndex + 1);
+            if (request.Mode == "move") amount = request.SlotIndex;
         }
         else if (kind == GameMcpCommandKind.Crafting)
             nativeType = "CraftingRecipeSO";
@@ -2216,7 +2224,7 @@ public sealed class Plugin : BaseUnityPlugin
         else if (kind == GameMcpCommandKind.AlchemyLoadout)
         {
             nativeType = "AlchemyRecipeSO";
-            if (request.Mode == "move") amount = checked(request.SlotIndex + 1);
+            if (request.Mode == "move") amount = request.SlotIndex;
         }
         else if (kind == GameMcpCommandKind.RitualLifecycle)
             nativeType = "RitualSO";
@@ -2234,26 +2242,47 @@ public sealed class Plugin : BaseUnityPlugin
         else if (kind == GameMcpCommandKind.CraftingStation)
         {
             nativeType = "CraftingStructure";
-            if (request.Mode == "set_ingredient") amount = checked(request.SlotIndex + 1);
+            if (request.Mode == "set_ingredient") amount = request.SlotIndex;
             else if (request.Mode == "set_level") amount = request.Amount;
         }
         else if (kind == GameMcpCommandKind.Loadout)
         {
+            var snapshotMode = request.Mode.StartsWith("snapshot_", StringComparison.Ordinal);
             if (context.World is null)
+            {
                 preparationFailure = GameMcpCommandResult.Rejected(
                     "world_not_published", context.RuntimeNotAvailableReason);
-            else if (!GameMcpEntityCapabilityMap.TryResolveLoadoutType(
-                         context.World.Snapshot, request.Uuid,
-                         out nativeType, out var loadoutReason))
+            }
+            else if (snapshotMode)
+            {
+                if (GameMcpWorldQuery.TrySnapshotList(
+                        context.World.Snapshot, request.Key, out targetId, out var listReason))
+                    nativeType = request.Key == "alchemy"
+                        ? "AlchemySnapshotListVariable"
+                        : "EquipmentSnapshotListVariable";
+                else
+                    preparationFailure = GameMcpCommandResult.Rejected(
+                        "loadout_unavailable", listReason);
+            }
+            else if (GameMcpWorldQuery.TryPlayerLoadout(
+                         context.World.Snapshot, request.Amount,
+                         out targetId, out var loadoutReason))
+            {
+                nativeType = "PlayerLoadout";
+            }
+            else
+            {
                 preparationFailure = GameMcpCommandResult.Rejected(
                     "loadout_unavailable", loadoutReason);
+            }
             mode = request.Mode == "set_section"
                 ? request.Key == "equipment" ? "set_equipment" : "set_alchemy"
                 : request.Mode;
             payloadKey = request.Key;
             payloadValue = request.SerializedValue;
-            if (request.Mode.StartsWith("snapshot_", StringComparison.Ordinal))
-                amount = checked(request.SlotIndex + 1);
+            // Only a snapshot mode addresses a slot. A loadout position is resolved here into the
+            // identity the boundary acts on, so it must not also ride along as a slot number.
+            amount = snapshotMode ? request.SlotIndex : 1;
         }
         else if (kind == GameMcpCommandKind.HarvestLifecycle)
             nativeType = "HarvestElementSO";

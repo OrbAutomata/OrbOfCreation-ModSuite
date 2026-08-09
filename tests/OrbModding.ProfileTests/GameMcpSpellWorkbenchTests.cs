@@ -135,7 +135,7 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal(3, (int)row["loadBudget"]!["maximum"]!);
         Assert.True((bool)row["loadBudget"]!["fitsAnotherSpell"]!);
         var equipped = Assert.Single(row["equipped"]!.Values<JObject>())!;
-        Assert.Equal(0, (int)equipped["slot"]!);
+        Assert.Equal(1, (int)equipped["slot"]!);
         Assert.Equal("Gather Knowledge", (string?)equipped["spellInstance"]!["name"]);
     }
 
@@ -324,7 +324,7 @@ public sealed class GameMcpSpellWorkbenchTests
         var added = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(afterAdd), addCommand, terminal));
 
-        Assert.Equal(0, (int)added["slot"]!["after"]!);
+        Assert.Equal(1, (int)added["slot"]!["after"]!);
         Assert.Equal(0, (int)added["loadBudget"]!["used"]!["before"]!);
         Assert.Equal(1, (int)added["loadBudget"]!["used"]!["after"]!);
         Assert.Equal(3, (int)added["loadBudget"]!["maximum"]!);

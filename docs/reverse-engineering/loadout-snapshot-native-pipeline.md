@@ -60,7 +60,8 @@ stale, structurally invalid, undiscovered/uncreated, over-stacked, or over capac
 concrete `AlchemySnapshot` (`TypeDef 0x00b2`) and `EquipmentSnapshot` (`TypeDef 0x00b3`) do
 not own a UUID. The owning `AlchemySnapshotListVariable` and
 `EquipmentSnapshotListVariable` are `IdScriptableObject` descendants, so the truthful stable
-address is the list UUID plus the visible zero-based slot.
+address is the list UUID plus the visible zero-based slot. The MCP wire counts those slots from
+1, matching the screen; the native index below it is unchanged.
 
 `UISnapshotLoadout.RenderEmpty` enables Save and disables Load/Clear. `RenderContent` enables
 Load/Clear and disables Save. The supported lifecycle therefore is:
