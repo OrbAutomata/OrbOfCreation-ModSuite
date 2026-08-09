@@ -161,6 +161,16 @@ public sealed class GameMcpLoadoutTests
         Assert.True((bool)selected["selected"]!["after"]!);
         Assert.Equal("Boss setup", (string?)selected["loadout"]!["name"]);
         Assert.Null(selected["loadout"]!["uuid"]);
+        // The mutation answers the way the read rows do: a loadout, a snapshot list, and a saved
+        // spell are live objects the catalog never publishes, so a post-state that printed one of
+        // their ids would be the last place a caller could find an address no tool accepts.
+        Assert.Equal("Boss setup", (string?)selected["name"]);
+        Assert.Null(selected["uuid"]);
+        Assert.Null(selected["loadout"]!["sections"]!["spells"]![0]!["instanceUuid"]);
+        Assert.Equal(
+            "Beam Burst",
+            (string?)selected["loadout"]!["sections"]!["spells"]![0]!["spell"]!["name"]);
+        Assert.Null(cleared["uuid"]);
         Assert.Equal(1, (int)cleared["snapshot"]!["slot"]!);
         Assert.False((bool)cleared["snapshot"]!["populated"]!);
         Assert.Null(cleared["snapshot"]!["entries"]);

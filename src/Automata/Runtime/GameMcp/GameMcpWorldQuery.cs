@@ -1505,11 +1505,10 @@ internal static class GameMcpWorldQuery
             WorldPlayerLoadout previous = default;
             var hadBefore = before is not null && WorldLoadoutLookup.TryFindPlayer(
                 before.PlayerLoadouts, command.TargetId, out previous);
-            var result = new JObject
-            {
-                ["uuid"] = current.EntityId.ToString("D"),
-                ["name"] = current.Name,
-            };
+            // The loadout is a live object the asset catalog never publishes, so its id resolves for
+            // nobody and every tool refuses it; the read rows dropped it for the same reason, and a
+            // mutation answering with one would be the one place a caller could still find it.
+            var result = new JObject { ["name"] = current.Name };
             switch (command.Mode)
             {
                 case "select":
@@ -1570,7 +1569,6 @@ internal static class GameMcpWorldQuery
                 "the settled snapshot list has no requested slot");
         var response = new JObject
         {
-            ["uuid"] = owner.EntityId.ToString("D"),
             ["name"] = SnapshotOwnerName(world, in owner),
             ["kind"] = SnapshotKind(owner.Kind),
             ["snapshot"] = snapshot,
@@ -1593,12 +1591,9 @@ internal static class GameMcpWorldQuery
             if (entry.OwnerId != loadout.EntityId) continue;
             if (entry.Kind == WorldLoadoutEntryKind.Spell)
             {
-                var row = new JObject
-                {
-                    ["instanceUuid"] = entry.EntryId.ToString("D"),
-                    ["spell"] = EntityReference(world, entry.ReferenceId),
-                };
-                spells.Add(row);
+                // The saved spell is a runtime instance, so its id is in no catalog and resolves for
+                // nobody. Its recipe does, and it is the only identity here a caller can look up.
+                spells.Add(new JObject { ["spell"] = EntityReference(world, entry.ReferenceId) });
             }
             else
             {
