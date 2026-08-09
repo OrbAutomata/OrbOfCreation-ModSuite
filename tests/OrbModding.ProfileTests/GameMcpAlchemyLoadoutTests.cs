@@ -128,6 +128,22 @@ public sealed class GameMcpAlchemyLoadoutTests
         Assert.Equal(2, (int)instance["queuedCount"]!);
     }
 
+    /// <summary>
+    /// The loadout list row says the same slot number the recipe detail says, and the same one the
+    /// move verb takes. It used to print the raw array position, one below both of them.
+    /// </summary>
+    [Fact]
+    public void The_loadout_list_row_names_the_same_slot_the_detail_and_the_move_verb_do()
+    {
+        var listed = Assert.Single(Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(World(targetAmount: 2, position: 1), generation: 702),
+            "alchemy-loadout", 0, 10).Freeze())["rows"]!.Values<JObject>());
+
+        Assert.Equal(2, (int)listed["slot"]!);
+        Assert.Null(listed["position"]);
+        Assert.Equal("Catalyze", (string?)listed["recipe"]!["name"]);
+    }
+
     /// <remarks>
     /// The read decision publishes <c>maximumDestination</c>, and the refusal that names the same
     /// ceiling in prose used to publish nothing — so learning the ceiling from a refusal meant

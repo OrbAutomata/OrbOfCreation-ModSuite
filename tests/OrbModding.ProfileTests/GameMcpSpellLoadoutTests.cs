@@ -198,7 +198,10 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Equal(3, rows.Length);
 
         var firstSummary = Assert.IsType<JObject>(rows[0]);
-        Assert.Equal(0, (int)firstSummary["slotIndex"]!);
+        // The number on the row is the number the verbs take. It used to be the internal index, so
+        // a caller reading slot 5 off the list unequipped what the same list called slot 4.
+        Assert.Equal(1, (int)firstSummary["slot"]!);
+        Assert.Null(firstSummary["slotIndex"]);
 
         // A slot is not the recipe it holds. It says it has no addressable identity rather than
         // publishing the recipe's UUID as its own, which world_get then refused.
@@ -213,8 +216,9 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Null(firstSummary["remove"]);
         var second = Assert.IsType<JObject>(rows[1]);
         var empty = Assert.IsType<JObject>(rows[2]);
-        Assert.Equal(1, (int)second["slotIndex"]!);
+        Assert.Equal(2, (int)second["slot"]!);
         Assert.Equal("Whirling Sorcery", (string?)second["spellRecipe"]!["name"]);
+        Assert.Equal(3, (int)empty["slot"]!);
         Assert.False((bool)empty["occupied"]!);
         Assert.Null(response["moveDestinations"]);
     }
@@ -347,6 +351,43 @@ public sealed class GameMcpSpellLoadoutTests
 
         Assert.False(GameMcpWorldQuery.TryEquippedSpellSlot(world, 0, out _, out var zero));
         Assert.Equal("There is no slot 0; the loadout bar has slots 1 to 3.", zero);
+    }
+
+    /// <summary>
+    /// A price row addresses the slot it prices the way every spell verb does. It carried the raw
+    /// array index, so the caller who read a price and then cast that number cast the slot before.
+    /// </summary>
+    [Fact]
+    public void A_spell_price_row_names_the_slot_the_cast_verb_takes()
+    {
+        var resourceId = Guid.Parse("6a3a5b41-4a2e-4f52-9f47-9f6d1a4e2c11");
+        var world = new GameWorldState
+        {
+            CollectedAtEpoch = 9,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, new[]
+            {
+                new EntityIdentityName(resourceId, "ResourceSO", "Knowledge", "knowledge"),
+            }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus(
+                    "spell slots", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+            }),
+            SpellCosts = PublicationTable<WorldSpellCost>.Create(new[]
+            {
+                new WorldSpellCost(
+                    0, WorldSpellCostKind.Immediate, resourceId, new BigDouble(50)),
+            }),
+        };
+
+        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world), "spell-costs", 0, 10))
+            ["rows"]!.Values<JObject>());
+
+        Assert.Equal(1, (int)row["slot"]!);
+        Assert.Null(row["slotIndex"]);
+        Assert.Equal("immediate", (string?)row["kind"]);
     }
 
     private static GameWorldState World(bool moved = false)

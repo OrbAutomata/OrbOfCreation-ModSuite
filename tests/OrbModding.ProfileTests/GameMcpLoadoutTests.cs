@@ -187,6 +187,29 @@ public sealed class GameMcpLoadoutTests
         Assert.Equal("The game is not showing the Alchemy snapshots right now.", missing);
     }
 
+    /// <summary>
+    /// The snapshot list rows count the way the snapshot verbs do. They used to print the internal
+    /// array index, so a caller who read a row and passed its number back addressed the row above.
+    /// </summary>
+    [Fact]
+    public void Snapshot_rows_count_slots_the_way_the_snapshot_verbs_take_them()
+    {
+        var world = World(selected: true, populatedSnapshot: true);
+        var context = Context(world, 93);
+
+        var slot = Assert.Single(
+            Json(GameMcpWorldQuery.ListRows(context, "snapshot-slots", 0, 10).Freeze(), world)
+                ["rows"]!.Values<JObject>());
+        Assert.Equal(1, (int)slot["slot"]!);
+        Assert.True((bool)slot["populated"]!);
+
+        var entry = Assert.Single(
+            Json(GameMcpWorldQuery.ListRows(context, "snapshot-entries", 0, 10).Freeze(), world)
+                ["rows"]!.Values<JObject>());
+        Assert.Equal(1, (int)entry["slot"]!);
+        Assert.Equal("Aegis", (string?)entry["entry"]!["name"]);
+    }
+
     private static GameWorldState World(
         bool selected,
         bool populatedSnapshot,

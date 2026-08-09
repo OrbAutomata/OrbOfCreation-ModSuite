@@ -390,11 +390,83 @@ internal static class GameMcpWorldQuery
             return ProjectAgromancyProcessing(world, in processingSlot);
         if (row is WorldPlotAction plotAction)
             return ProjectPlotAction(world, in plotAction);
+        // Every row that carries a position says it the way the verbs take it. The reflected
+        // projector below copies the native member under its native name, and every native list is
+        // indexed from zero — so a row printed its internal index while the verb addressed by that
+        // number acted on the row above it. These five say slot, one-based, like the screen.
+        if (row is WorldSpellSlot listedSpellSlot)
+            return ProjectSpellSlotSummary(in listedSpellSlot);
+        if (row is WorldSpellCost spellCost)
+            return ProjectSpellCostRow(in spellCost);
+        if (row is WorldSnapshotSlot snapshotSlot)
+            return ProjectSnapshotSlotRow(in snapshotSlot);
+        if (row is WorldSnapshotEntry snapshotEntry)
+            return ProjectSnapshotEntryRow(in snapshotEntry);
+        if (row is WorldAlchemyLoadoutDecision alchemyLoadout)
+            return ProjectAlchemyLoadoutSummary(in alchemyLoadout);
         return new GameMcpProjectedDomainValue(
             row,
             ListFields(category),
             category.Name,
             category.ExpectedNativeType);
+    }
+
+    /// <summary>
+    /// The spell-slot list row, addressed the way <c>game_cast</c> and <c>game_spell_loadout</c>
+    /// take it. The equipped spell's own runtime id stays off the row: it is in no catalog, so it
+    /// resolves for nobody, and the recipe carries the same name.
+    /// </summary>
+    private static GameMcpValue ProjectSpellSlotSummary(in WorldSpellSlot slot)
+    {
+        var result = new JObject
+        {
+            ["slot"] = GameMcpSlotNumbering.Wire(slot.SlotIndex),
+            ["spellRecipeId"] = slot.SpellRecipeId,
+            ["occupied"] = slot.Occupied,
+        };
+        if (slot.Casting) result["casting"] = true;
+        return result.Freeze();
+    }
+
+    private static GameMcpValue ProjectSpellCostRow(in WorldSpellCost cost) =>
+        new JObject
+        {
+            ["slot"] = GameMcpSlotNumbering.Wire(cost.SlotIndex),
+            ["kind"] = cost.Kind.ToString(),
+            ["resourceId"] = cost.ResourceId,
+            ["amount"] = new GameMcpDomainValue(cost.Amount),
+        }.Freeze();
+
+    private static GameMcpValue ProjectSnapshotSlotRow(in WorldSnapshotSlot slot) =>
+        new JObject
+        {
+            ["ownerId"] = slot.OwnerId,
+            ["slot"] = GameMcpSlotNumbering.Wire(slot.Slot),
+            ["populated"] = slot.Populated,
+        }.Freeze();
+
+    private static GameMcpValue ProjectSnapshotEntryRow(in WorldSnapshotEntry entry) =>
+        new JObject
+        {
+            ["ownerId"] = entry.OwnerId,
+            ["slot"] = GameMcpSlotNumbering.Wire(entry.Slot),
+            ["entryId"] = entry.EntryId,
+            ["quantity"] = entry.Quantity,
+        }.Freeze();
+
+    /// <summary>
+    /// A recipe the loadout does not hold has no position at all — the game stores that as a
+    /// negative index, which one-based arithmetic would print as a plausible slot 0.
+    /// </summary>
+    private static GameMcpValue ProjectAlchemyLoadoutSummary(
+        in WorldAlchemyLoadoutDecision decision)
+    {
+        var result = new JObject { ["recipeId"] = decision.RecipeId };
+        if (decision.Position >= 0)
+            result["slot"] = GameMcpSlotNumbering.Wire(decision.Position);
+        result["slotCount"] = decision.SlotCount;
+        result["amount"] = decision.Amount;
+        return result.Freeze();
     }
 
     private static GameMcpValue ProjectCraftingQueueEntry(
