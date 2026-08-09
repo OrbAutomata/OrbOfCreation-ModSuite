@@ -128,7 +128,8 @@ internal static class GameMcpDecisionReason
         "cooldown_active" or "inventory_busy" or "native_caster_busy" or
         "targeting_in_progress" or "transition_in_progress" or "manual_pause" or
         "ritual_battle_active" or "wrong_active_ritual" or "not_selected" or "wrong_scene" or
-        "spell_already_inactive" or "spell_not_ready" or "spell_not_toggleable" or
+        "spell_already_inactive" or "spell_already_casting" or
+        "spell_not_ready" or "spell_not_toggleable" or
         "unique_spell_conflict" or "recipe_incomplete" or "slot_occupied" or
         "composition_changed" or "recipe_identity_changed" or "slot_identity_changed" or
         "ownership_changed" or "mastery_limit_changed" or "assignment_unsettled" or
@@ -241,6 +242,9 @@ internal static class GameMcpDecisionReason
 
         // Progress and state
         "already_active" => "This is already running.",
+        "spell_already_casting" =>
+            "This spell is already running, so a fire press starts no cast; " +
+            "toggle_off ends a running toggle spell.",
         "already_stopped" => "This is already stopped.",
         "already_developing" => "A development is already running on this research.",
         "already_in_requested_state" => "This is already in the state the call asked for.",

@@ -45,6 +45,16 @@ internal enum AutoCastPreflight
 
     /// <summary>The player's Cancellable Spells setting disables the native toggle-off path.</summary>
     CancellationDisabled,
+
+    /// <summary>The spell is already running, so a fire press would start no cast.</summary>
+    /// <remarks>
+    /// <c>Spell.Fire</c> branches on <c>IsCasting()</c> before it looks at anything else: with
+    /// Cancellable Spells off it shows a warning and returns, and with it on it ends the running
+    /// cast instead of starting one. Neither is the cast the caller asked for, and neither moves the
+    /// game's own per-cast counter — which is what made a discarded press byte-identical to a real
+    /// one for a caller that could only read the counter.
+    /// </remarks>
+    AlreadyCasting,
 }
 
 /// <summary>
@@ -208,6 +218,16 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
             if (_blockedSpells.TryGetValue(spellRecipeId, out var blocked))
                 return AutoCastSubmission.Rejected(AutoCastPreflight.ContractUnavailable, blocked);
+
+            // Spell.Fire's own first branch, asked before pressing it. A running spell answers the
+            // press with a warning popup or with an end-of-cast, never with a new cast, and the
+            // press left no trace a caller could read afterwards.
+            if (_isCasting!.Invoke(spell, Array.Empty<object>()) is true)
+            {
+                return AutoCastSubmission.Rejected(
+                    AutoCastPreflight.AlreadyCasting,
+                    "the spell is already running, so the press would start no cast");
+            }
 
             // The game's own answer, asked again. The plan was made against a reading of it that is
             // up to a generation old, and a cooldown that came back in between is the ordinary case.

@@ -478,6 +478,9 @@ internal static class GameMcpActionResultCodeNames
             return "This equipped spell is not a toggle spell.";
         if (code == AutoCastActionResultCodes.SpellAlreadyInactive)
             return "This toggle spell is already off.";
+        if (code == AutoCastActionResultCodes.SpellAlreadyCasting)
+            return "This spell is already running, so a fire press starts no cast; " +
+                "toggle_off ends a running toggle spell.";
         if (code == AutoCastActionResultCodes.CancellationDisabled)
             return "Enable Cancellable Spells in the game settings before turning this spell off.";
         if (code == SpellLevelActionResultCodes.ProgressionLocked)
@@ -584,6 +587,8 @@ internal static class GameMcpActionResultCodeNames
             return "spell_not_toggleable";
         if (code == AutoCastActionResultCodes.SpellAlreadyInactive)
             return "spell_already_inactive";
+        if (code == AutoCastActionResultCodes.SpellAlreadyCasting)
+            return "spell_already_casting";
         if (code == AutoCastActionResultCodes.CancellationDisabled)
             return "cancellable_spells_disabled";
         if (commandKind == GameMcpCommandKind.DiscoveryTreeOffer)

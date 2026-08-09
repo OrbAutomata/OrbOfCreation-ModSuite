@@ -665,7 +665,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_cast",
                 "Cast an equipped spell",
-                "Live-revalidate an equipped slot and fire it, release a charge hold, or press an active toggle spell's native cast button again to turn it off.",
+                "Live-revalidate an equipped slot and fire it, release a charge hold, or press an active toggle spell's native cast button again to turn it off. A fire on a spell that is already running is refused rather than pressed: the game answers that press with a warning or by ending the cast, never by starting one. The casts total counts casts the game has finished, so a cast that has only just started is not in it yet.",
                 ActionSchema(
                     new JObject
                     {

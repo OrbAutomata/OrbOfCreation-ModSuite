@@ -51,4 +51,7 @@ internal static class AutoCastActionResultCodes
 
     /// <summary>The native Cancellable Spells setting disables turning active toggles off.</summary>
     public static ServiceActionResultCode CancellationDisabled => new(3082);
+
+    /// <summary>The spell was already running, so the fire press would have started no cast.</summary>
+    public static ServiceActionResultCode SpellAlreadyCasting => new(3083);
 }

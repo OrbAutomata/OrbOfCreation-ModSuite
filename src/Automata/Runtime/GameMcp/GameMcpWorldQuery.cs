@@ -1006,29 +1006,19 @@ internal static class GameMcpWorldQuery
             var costs = ProjectEquippedSpellCosts(
                 state.World.Snapshot, slotIndex, WorldSpellCostKind.Immediate);
             if (costs.Count > 0) result["costs"] = costs;
-            // The one game-written fact a cast always moves, present whether or not it moved. Six of
-            // seven fires in round 6 returned byte-identical payloads because every other fact here
-            // is either back at rest by the time the world settles or never applies to that spell,
-            // and an absent key cannot be told apart from "nothing happened".
-            result["casts"] = new JObject
-            {
-                ["before"] = hasBefore ? prior.CastCount : (int?)null,
-                ["after"] = after.CastCount,
-            };
+            // The game's completed-cast counter, as the single number it is. It was a before/after
+            // pair, and the pair read identical on sixteen of seventeen live fires because the game
+            // increments it in Spell.ExecuteSpell when a cast finishes rather than when it starts:
+            // the settled world one frame after a press has, correctly, not counted the press yet.
+            // Whether the press landed is now the answer's own verdict — a running spell is refused
+            // before the button, so a commit is a cast that started — and this stays what it always
+            // was, a total of casts the game has finished.
+            result["casts"] = after.CastCount;
         }
-        // A toggle spell always says whether it is running: publishing the pair only when it moved
-        // meant a second fire on an already-running spell said nothing, and silence there is
-        // indistinguishable from a response that does not carry the fact at all. A non-toggle spell
-        // has no running state to report while it sits idle, so it reports one exactly when it
-        // moved — the fact still ships wherever it exists.
-        if (after.Toggled || (hasBefore && prior.Casting != after.Casting))
-        {
-            result["active"] = new JObject
-            {
-                ["before"] = hasBefore ? prior.Casting : (bool?)null,
-                ["after"] = after.Casting,
-            };
-        }
+        // Whether the spell is running, as the boolean the read surface publishes. A toggle spell
+        // always says it, because a caller maintaining one needs the state even when nothing moved;
+        // an ordinary spell says it only while it is up.
+        if (after.Toggled || after.Casting) result["active"] = after.Casting;
         if (hasBefore && prior.CurrentCharges != after.CurrentCharges)
         {
             result["charges"] = new JObject

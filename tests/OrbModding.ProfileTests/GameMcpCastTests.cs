@@ -79,8 +79,7 @@ public sealed class GameMcpCastTests
             GameMcpCommandResult.Committed("committed", 9, 3)));
         Assert.Equal(GameMcpTestHarness.Handle(RecipeId), (string?)delta["uuid"]);
         Assert.Equal(0, (int)delta["slot"]!);
-        Assert.True((bool)delta["active"]!["before"]!);
-        Assert.False((bool)delta["active"]!["after"]!);
+        Assert.False((bool)delta["active"]!);
 
         var unchanged = GameMcpTestHarness.Context(
             World(
@@ -118,35 +117,37 @@ public sealed class GameMcpCastTests
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
         Assert.Equal("25", (string?)delta["costs"]![0]!["cost"]);
-        Assert.False((bool)delta["active"]!["before"]!);
-        Assert.True((bool)delta["active"]!["after"]!);
+        Assert.True((bool)delta["active"]!);
         Assert.Equal(2, (int)delta["charges"]!["before"]!);
         Assert.Equal(1, (int)delta["charges"]!["after"]!);
-        Assert.Equal(7, (int)delta["casts"]!["before"]!);
-        Assert.Equal(8, (int)delta["casts"]!["after"]!);
+        Assert.Equal(8, (int)delta["casts"]!);
     }
 
+    /// <summary>
+    /// The counter is one number, not a pair. The game increments <c>numCasts</c> in
+    /// <c>Spell.ExecuteSpell</c> — where a cast finishes — so the world settled a frame after a
+    /// press has correctly not counted the press, and a pair of it read identical on sixteen of
+    /// seventeen live fires. Whether the press landed is the answer's own verdict now.
+    /// </summary>
     [Fact]
-    public void Every_fire_carries_the_game_written_cast_counter_even_when_nothing_else_moved()
+    public void The_cast_counter_is_a_settled_total_rather_than_a_pair_that_never_moves()
     {
-        // Spell.ExecuteSpell() increments numCasts for every manual cast, which is the cast type
-        // Spell.Cast() creates. Six byte-identical fire responses in a row are a firing loop with
-        // no feedback; the counter is the one fact the game itself writes per press, so it is
-        // published whether or not it moved.
-        var before = World(casting: true, cancellationEnabled: true, charges: 2, castCount: 12);
-        var refused = World(casting: true, cancellationEnabled: true, charges: 2, castCount: 12);
+        var before = World(casting: false, cancellationEnabled: true, charges: 2, castCount: 12);
+        var after = World(casting: false, cancellationEnabled: true, charges: 2, castCount: 12);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
             "SpellRecipeSO", 1, string.Empty, string.Empty, false, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 59));
 
         var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            GameMcpTestHarness.Context(refused, generation: 60),
+            GameMcpTestHarness.Context(after, generation: 60),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
-        Assert.Equal(12, (int)delta["casts"]!["before"]!);
-        Assert.Equal(12, (int)delta["casts"]!["after"]!);
+        Assert.Equal(JTokenType.Integer, delta["casts"]!.Type);
+        Assert.Equal(12, (int)delta["casts"]!);
+        Assert.Equal("casts: 12", Assert.Single(
+            GameMcpTextPage.Render(delta).Split('\n'), line => line.StartsWith("casts")));
     }
 
     [Fact]
@@ -163,12 +164,12 @@ public sealed class GameMcpCastTests
     }
 
     [Fact]
-    public void A_toggle_spell_reports_it_is_running_even_when_the_fire_did_not_move_it()
+    public void A_toggle_spell_says_whether_it_is_running_as_the_boolean_the_read_surface_uses()
     {
         var before = World(casting: true, cancellationEnabled: true, charges: 2);
         var after = World(casting: true, cancellationEnabled: true, charges: 2);
         var command = new GameMcpCommand(
-            1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
+            1, GameMcpCommandKind.Cast, 9, 3, "toggle_off", RecipeId, Guid.Empty,
             "SpellRecipeSO", 1, string.Empty, string.Empty, false, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 53));
 
@@ -177,17 +178,13 @@ public sealed class GameMcpCastTests
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
-        // Publishing the pair only when it moved made a repeat fire silent, which a caller cannot
-        // tell from a response that never carries the fact.
-        Assert.True((bool)delta["active"]!["before"]!);
-        Assert.True((bool)delta["active"]!["after"]!);
+        Assert.Equal(JTokenType.Boolean, delta["active"]!.Type);
+        Assert.True((bool)delta["active"]!);
     }
 
     [Fact]
-    public void A_non_toggle_spell_whose_casting_state_moved_still_reports_the_pair()
+    public void A_non_toggle_spell_that_is_running_says_so_under_the_same_name()
     {
-        // Narrowing the pair to toggles dropped a real transition: a duration or channelled spell
-        // that started casting has a running state, and it is the same fact under the same name.
         var before = World(casting: false, cancellationEnabled: true, charges: 2, toggled: false);
         var after = World(casting: true, cancellationEnabled: true, charges: 2, toggled: false);
         var command = new GameMcpCommand(
@@ -200,8 +197,7 @@ public sealed class GameMcpCastTests
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
-        Assert.False((bool)delta["active"]!["before"]!);
-        Assert.True((bool)delta["active"]!["after"]!);
+        Assert.True((bool)delta["active"]!);
     }
 
     [Fact]
@@ -220,6 +216,27 @@ public sealed class GameMcpCastTests
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
         Assert.Null(delta["active"]);
+    }
+
+    /// <summary>
+    /// A press the game would discard is a no, not a commit. <c>Spell.Fire</c> answers a running
+    /// spell with a warning popup or by ending the cast, so the boundary refuses before pressing
+    /// and the caller reads which kind of no it was and what to press instead.
+    /// </summary>
+    [Fact]
+    public void A_fire_at_a_running_spell_is_refused_with_the_class_and_the_remedy()
+    {
+        var refusal = GameMcpTestHarness.Json(new GameMcpObjectBuilder
+        {
+            ["status"] = "refused",
+            ["reasonCode"] = "spell_already_casting",
+        });
+
+        Assert.Equal("ERR_STATE", (string?)refusal["reasonCode"]);
+        Assert.Equal(
+            "This spell is already running, so a fire press starts no cast; " +
+            "toggle_off ends a running toggle spell.",
+            (string?)refusal["reason"]);
     }
 
     private static GameMcpCommand Command(GameMcpFrameContext before) => new(

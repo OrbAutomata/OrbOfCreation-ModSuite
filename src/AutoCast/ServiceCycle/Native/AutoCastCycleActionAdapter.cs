@@ -196,6 +196,11 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
                 return ServiceActionResult.Rejected(AutoCastActionResultCodes.SpellAlreadyInactive);
             case AutoCastPreflight.CancellationDisabled:
                 return ServiceActionResult.Rejected(AutoCastActionResultCodes.CancellationDisabled);
+            case AutoCastPreflight.AlreadyCasting:
+                // Ordinary snapshot staleness for the service, exactly like an unready spell: the
+                // cast started between planning and pressing. No penalty, and the MCP caller reads
+                // it as the refusal it is.
+                return ServiceActionResult.Skipped(AutoCastActionResultCodes.SpellAlreadyCasting);
         }
 
         var evidence = ServiceNativeMutationEvidence.Observed(submission.Outcome, submission.CallOutcome);
