@@ -2325,10 +2325,44 @@ internal static class GameMcpWorldQuery
         var world = state.World.Snapshot;
         var result = new JObject
         {
+            ["lifecycleGeneration"] = state.LifecycleGeneration,
             ["scene"] = state.SceneName,
             ["prestigeState"] = ProjectPrestigeState(world),
             ["challengeState"] = ProjectChallengeState(world),
         };
+        return result.Freeze();
+    }
+
+    /// <summary>
+    /// What a reset says when the post-reset world has not landed yet. The reset is the one action
+    /// whose own identity is the lifecycle it replaced, so the answer carries that on both sides:
+    /// a caller learns the reset happened, and that only the republished world is still owed.
+    /// It used to answer the heaviest verb in the game with a bare timeout sentence and nothing to
+    /// correlate it against.
+    /// </summary>
+    internal static GameMcpValue PrestigeSettlementPending(
+        long expectedLifecycleGeneration,
+        long? observedLifecycleGeneration,
+        string? sceneName)
+    {
+        var result = new JObject
+        {
+            ["lifecycleGeneration"] = new JObject
+            {
+                ["before"] = expectedLifecycleGeneration,
+                ["after"] = observedLifecycleGeneration,
+            },
+            ["postStateUnavailable"] = new JObject
+            {
+                ["reasonCode"] = "post_state_timeout",
+                ["reason"] = observedLifecycleGeneration > expectedLifecycleGeneration
+                    ? "the reset replaced the lifecycle, but the post-reset world was not " +
+                      "republished within fifteen seconds; read it with world_overview"
+                    : "the reset was submitted, but neither a new lifecycle nor a post-reset " +
+                      "world appeared within fifteen seconds",
+            },
+        };
+        if (!string.IsNullOrEmpty(sceneName)) result["scene"] = sceneName;
         return result.Freeze();
     }
 

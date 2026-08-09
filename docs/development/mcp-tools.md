@@ -1518,8 +1518,13 @@ that transaction performs persistent-state preservation/reset, activates queued 
 prestige challenges, updates the persistent resource, and reloads the scene. Success is gated only
 by the exact lifecycle replacement. Resource and counter movements are not ledger gates. A native
 throw or a returned transaction without lifecycle replacement faults that attempt.
-After success, the response waits for the newer post-reset world and carries its scene plus complete
-prestige and challenge next-decision state, with no receipt, payment stanza, or read-back call.
+After success, the response waits for the newer post-reset world and carries its lifecycle
+generation and scene plus complete prestige and challenge next-decision state, with no receipt,
+payment stanza, or read-back call. The wait is a lifecycle budget of fifteen seconds rather than the
+one second every other verb settles on, because a reset tears the world down behind a native scene
+fade and rebuilds it. If the world still has not landed, the answer carries the lifecycle generation
+on both sides — the reset's own identity — so a caller learns the reset happened and that only the
+republished world is still owed, and it names `world_overview` as where to read it.
 
 `game_research` requires `mode` plus one published `ResearchSO` `uuid`. Modes are `develop`,
 `pause`, `resume`, `cancel`, and `bonus`. The boundary re-resolves that exact identity and rereads

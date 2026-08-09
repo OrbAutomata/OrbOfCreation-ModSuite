@@ -1741,7 +1741,7 @@ public sealed class Plugin : BaseUnityPlugin
         ulong actionWorldGeneration,
         long actionCompletedAtUtcTicks)
     {
-        var deadline = Time.realtimeSinceStartup + GameMcpPostStateSettlement.MaximumWaitSeconds;
+        var deadline = Time.realtimeSinceStartup + GameMcpPostStateSettlement.WaitSeconds(command);
         GameMcpFrameContext? latest = null;
         while (Time.realtimeSinceStartup < deadline)
         {

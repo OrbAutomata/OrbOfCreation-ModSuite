@@ -8,6 +8,17 @@ internal static class GameMcpPostStateSettlement
 {
     internal const float MaximumWaitSeconds = 1f;
 
+    /// <summary>
+    /// What a lifecycle transition is allowed to take. A reset tears the world down behind a native
+    /// scene fade and republishes it from scratch, which is not the same order of work as the next
+    /// world after a button press. The frame-scale budget answered the heaviest verb in the game
+    /// with a timeout on a reset that had plainly worked.
+    /// </summary>
+    internal const float LifecycleWaitSeconds = 15f;
+
+    internal static float WaitSeconds(GameMcpCommand command) =>
+        command.Kind == GameMcpCommandKind.Prestige ? LifecycleWaitSeconds : MaximumWaitSeconds;
+
     internal static bool IsStrictlyNewer(ulong candidate, ulong mutationWorld) =>
         candidate > mutationWorld;
 
@@ -196,6 +207,13 @@ internal static class GameMcpPostStateSettlement
                 "requested_state_not_reached",
                 "the settled concept stack did not reach the requested amount; active count is " +
                 observed);
+        }
+        if (command.Kind == GameMcpCommandKind.Prestige)
+        {
+            return GameMcpWorldQuery.PrestigeSettlementPending(
+                command.ExpectedLifecycleGeneration,
+                latest?.LifecycleGeneration,
+                latest?.SceneName);
         }
         return GameMcpWorldQuery.PostStateUnavailable(
             "post_state_timeout",

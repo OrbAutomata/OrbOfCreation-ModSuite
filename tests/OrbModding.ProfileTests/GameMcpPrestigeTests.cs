@@ -87,6 +87,45 @@ public sealed class GameMcpPrestigeTests
             GameMcpTextPage.Render(prestige).Split('\n'));
     }
 
+    /// <summary>
+    /// A reset tears the world down behind a native scene fade and rebuilds it. The frame-scale
+    /// budget every other verb settles on answered the heaviest verb in the game with a timeout on
+    /// a reset that had plainly worked.
+    /// </summary>
+    [Fact]
+    public void The_reset_settles_on_a_lifecycle_budget_rather_than_the_frame_scale_one()
+    {
+        var reset = new GameMcpCommand(
+            1, GameMcpCommandKind.Prestige, 9, 3, "confirm", Guid.Empty, Guid.Empty,
+            "PersistentResetManager", 1, string.Empty, string.Empty, false, false);
+
+        Assert.Equal(15f, GameMcpPostStateSettlement.WaitSeconds(reset));
+        Assert.Equal(
+            GameMcpPostStateSettlement.MaximumWaitSeconds,
+            GameMcpPostStateSettlement.WaitSeconds(GameMcpAcceptanceFixture.NativeCommand()));
+    }
+
+    /// <summary>
+    /// The reset's own identity is the lifecycle it replaced, so an unsettled world still says
+    /// whether the reset happened. It used to answer with a bare sentence and nothing to correlate
+    /// against, which cost a live round four calls rebuilding the picture by hand.
+    /// </summary>
+    [Fact]
+    public void An_unsettled_reset_still_says_which_lifecycle_it_replaced_and_where_to_read_it()
+    {
+        var replaced = Json(GameMcpWorldQuery.PrestigeSettlementPending(9, 10, "Main"), World());
+        var nothing = Json(GameMcpWorldQuery.PrestigeSettlementPending(9, 9, null), World());
+
+        Assert.Equal(9, (int)replaced["lifecycleGeneration"]!["before"]!);
+        Assert.Equal(10, (int)replaced["lifecycleGeneration"]!["after"]!);
+        Assert.Equal("Main", (string?)replaced["scene"]);
+        Assert.Contains("world_overview",
+            (string?)replaced["postStateUnavailable"]!["reason"]!, StringComparison.Ordinal);
+        Assert.Contains("neither a new lifecycle",
+            (string?)nothing["postStateUnavailable"]!["reason"]!, StringComparison.Ordinal);
+        Assert.Null(nothing["scene"]);
+    }
+
     [Fact]
     public void Committed_poststate_returns_the_fresh_scene_prestige_and_challenge_decisions()
     {
@@ -94,6 +133,7 @@ public sealed class GameMcpPrestigeTests
         var response = Json(GameMcpWorldQuery.ProjectPrestigePostState(Context(world, 2602)), world);
 
         Assert.Equal("Main", (string?)response["scene"]);
+        Assert.NotNull(response["lifecycleGeneration"]);
         Assert.Equal("ERR_STATE", (string?)response["prestigeState"]!["reset"]!["reasonCode"]);
         Assert.NotNull(response["challengeState"]);
         Assert.Null(response["receipt"]);
