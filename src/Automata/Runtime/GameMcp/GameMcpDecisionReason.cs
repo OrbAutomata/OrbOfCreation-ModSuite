@@ -107,7 +107,7 @@ internal static class GameMcpDecisionReason
         "name_out_of_range" => ClassInput,
 
         // The named thing is not there.
-        "unknown_uuid" or "uuid_unknown" or "not_world_projected" or
+        "unknown_uuid" or "not_world_projected" or
         "offer_not_in_explainable_world" or "resource_not_published" or
         "automation_entry_not_published" or "not_created" or "not_equipped" or "none_owned" or
         "not_active" or "no_active_duration_reward" or "not_a_duration_ritual" or

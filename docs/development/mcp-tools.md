@@ -934,14 +934,15 @@ with the one exact-cost affordability lineage. No predicate emits implementation
 permanent never-evaluated apology.
 
 Discovery trees are explainable entities: their explanation carries the same decision row as
-`world_get(discovery-trees)`. A UUID absent from the live identity registry returns `uuid_unknown`
-and points to `entity_catalog`; a catalog-known UUID with no explainable row returns
-`not_world_projected` and names the applicable read surface. The two remedies never share a code.
-A UUID the asset catalog does not know but the world published inside a composite row — an equipped
-spell instance is a runtime object, not a loaded asset — is that second case, not the first: it
-returns `not_world_projected` with `readWith: {tool: "world_list", category: "spell-slots"}`. The
-surface never claims the process is ignorant of a UUID it published, and never points a runtime
-instance at the asset registry that cannot resolve it.
+`world_get(discovery-trees)`. Both misses are `ERR_NOT_FOUND`, and the sentence and the `readWith`
+remedy are what separate them: a UUID absent from the live identity registry says no entity in this
+build carries it and points at `world_categories`, because the caller has no name to search with; a
+catalog-known UUID with no explainable row says the entity exists without a detailed explanation and
+names the read surface that does carry it. A UUID the asset catalog does not know but the world
+published inside a composite row — an equipped spell instance is a runtime object, not a loaded
+asset — is that second case, not the first: it points at `readWith: {tool: "world_list", category:
+"spell-slots"}`. The surface never claims the process is ignorant of a UUID it published, and never
+points a runtime instance at the asset registry that cannot resolve it.
 
 Per-level structure, upgrade, and Research requirements preserve the implicit container `AND`,
 explicit native `AND`/`OR` nodes, authored order, and recursively expanded prerequisite-link tiers.

@@ -69,7 +69,7 @@ internal static class GameMcpEntityExplainer
                     },
                 });
             }
-            var code = known ? "not_world_projected" : "uuid_unknown";
+            var code = known ? "not_world_projected" : "unknown_uuid";
 
             // An id this build never published is the one case where a caller has no name to search
             // with — the missing name is the whole problem — so pointing at a name search sent them
