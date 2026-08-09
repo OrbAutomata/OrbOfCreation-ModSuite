@@ -78,10 +78,19 @@ internal static class GameMcpDecisionReason
     /// same field as thirty-nine refusals, which taught a caller that "has a code" means "was
     /// refused" and made a healthy entity read as a blocked one.
     /// </summary>
+    /// <remarks>
+    /// Every affirmative half of a producer pair belongs here, not only the ones spelled
+    /// <c>passed</c>. A met requirement leaf carries <c>requirement_met</c>, and while that code sat
+    /// outside this list every satisfied leaf in <c>explain_entity</c> — the tool's primary content —
+    /// rendered as a refusal, which is the exact confusion this method exists to end.
+    /// </remarks>
     internal static bool IsPassing(string reasonCode) => reasonCode switch
     {
         "passed" or "native_verdict_matched" or "committed" or
-        "queue_room_available" or "below_level_cap" => true,
+        "queue_room_available" or "below_level_cap" or
+        "requirement_met" or "recipe_discovered" or "native_leeway_available" or
+        "below_research_cap" or "visible" or "ready" or "can_buy" or
+        "drain_available" or "output_capacity_available" => true,
         _ => false,
     };
 

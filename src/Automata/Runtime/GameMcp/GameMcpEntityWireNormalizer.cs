@@ -121,16 +121,24 @@ internal static class GameMcpEntityWireNormalizer
         {
             var code = CanonicalCode(Snake((string?)reasonCode ?? string.Empty));
 
-            // A code without a sentence taught callers to fire the mutation just to read the
-            // sentence. Producers that hold the numbers write the better sentence themselves and
-            // keep it; every other code is answered here, so no surface can ship a bare one.
-            if (item["reason"] is null) item["reason"] = GameMcpDecisionReason.For(code);
-
             // The producer vocabulary picked the sentence and stops there. What crosses the wire is
             // one of eight classes: the class says which kind of no this is, the sentence says
-            // everything else, and a check that answered yes carries neither.
-            if (GameMcpDecisionReason.IsPassing(code)) item.Remove("reasonCode");
-            else item["reasonCode"] = GameMcpDecisionReason.Class(code);
+            // everything else, and a check that answered yes carries neither. The sentence is
+            // defaulted inside the refusal branch for that reason — every yes used to gain
+            // "This check passes." as well, one line per verdict on the surface this idiom exists
+            // to compact.
+            if (GameMcpDecisionReason.IsPassing(code))
+            {
+                item.Remove("reasonCode");
+            }
+            else
+            {
+                // A code without a sentence taught callers to fire the mutation just to read the
+                // sentence. Producers that hold the numbers write the better sentence themselves
+                // and keep it; every other code is answered here, so none ships a bare one.
+                if (item["reason"] is null) item["reason"] = GameMcpDecisionReason.For(code);
+                item["reasonCode"] = GameMcpDecisionReason.Class(code);
+            }
         }
         if (item["kind"] is JValue { Type: JTokenType.String } kind)
             item["kind"] = Snake((string?)kind ?? string.Empty);

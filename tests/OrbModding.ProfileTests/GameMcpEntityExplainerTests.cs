@@ -311,6 +311,14 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         Assert.False((bool)leaves[1]["met"]!);
         Assert.Null(requirements["nativeParity"]);
 
+        // A met leaf carries no class and no sentence. It used to carry both — every satisfied
+        // condition in the tool's main content read `met: yes … ERR_REFUSED`, which is a caller
+        // branching on "has a class means it was refused" being told a finished entity is blocked.
+        Assert.Null(leaves[0]["reasonCode"]);
+        Assert.Null(leaves[0]["reason"]);
+        Assert.NotNull(leaves[1]["reasonCode"]);
+        Assert.NotNull(leaves[1]["reason"]);
+
         var predicates = result["predicates"]!;
         Assert.False((bool)predicates["available"]!["value"]!);
         Assert.Equal("ERR_STATE", (string?)predicates["available"]!["reasonCode"]);
