@@ -673,12 +673,12 @@ native selectors as a verb would expose developer-era machinery the shipped UI d
 
 ### Player loadouts and snapshots
 
-`player-loadouts` lists the named, stable player loadout UUIDs. A detail row reports whether the
-loadout is selected, whether its Equipment and Alchemy sections are enabled, the current icon and
+`player-loadouts` lists the loadouts the player titled, in bar order. A detail row reports whether
+the loadout is selected, whether its Equipment and Alchemy sections are enabled, the current icon and
 color indexes, whether the native manager can switch now, and the named saved spell, Equipment,
 and Alchemy entries. All three sections are always present with their own list: a loadout that
 saved nothing publishes empty lists rather than dropping the keys, so empty never reads the same
-as unprojected. `game_loadout(mode="select", uuid=...)` invokes the manager's whole
+as unprojected. `game_loadout(mode="select", loadout=...)` invokes the manager's whole
 save/deactivate/load/reactivate transaction after revalidating every stored reference's identity,
 native type, role, and whole-loadout capacity. Current glyph ownership is deliberately not a
 selection precondition: the native screen accepts authored saved layouts whose construction
@@ -832,38 +832,42 @@ next decision.
 
 ### Spell loadout loop
 
-`spell-slots` is the pre-decision surface for `game_spell_loadout`. Each occupied detail row contains
-the named runtime spell and recipe, exact slot, active cast/ready/attune state when applicable, the
-game's current remove verdict, and that spell's move destinations. Augment choices appear only on a
-discovered recipe's `loadoutAdd` decision. `loadBudget` — `used`, `maximum`, and
+`spell-slots` is the pre-decision surface for `game_spell_loadout`. Each occupied detail row names
+the recipe the equipped spell was baked from, its slot, active cast/ready/attune state when
+applicable, the game's current remove verdict, and that spell's move destinations. Augment choices
+appear only on a discovered recipe's `loadoutAdd` decision. `loadBudget` — `used`, `maximum`, and
 `fitsAnotherSpell` — rides on every detailed `spell-recipes` row, so capacity is known before add.
+
+An equipped spell is a runtime instance, and the catalog publishes assets, so that instance has no
+handle any tool can resolve. The row therefore carries no id of its own: the recipe names the spell
+and the slot addresses it, which is also what the bar on the screen shows.
 
 The MCP-only loadout sequence is:
 
 1. Call `game_spell_loadout(mode="staged")` when the current Spellcraft core/augment selection is
    relevant. The request-scoped read returns ordered named `core` and `augments` stacks and does
    not acquire mutation ownership or change the UI selection.
-2. Read `world_list(category="spell-slots")` and choose one exact runtime `spellInstance.uuid`, or
-   read a discovered `spell-recipes` row's `loadoutAdd` decision to add a new one.
+2. Read `world_list(category="spell-slots")` and choose one occupied `slot`, or read a discovered
+   `spell-recipes` row's `loadoutAdd` decision to add a new spell.
 3. Call `game_spell_loadout(mode="preview", uuid=..., glyphs=[{uuid,count}, ...])` to resolve and
    price that exact layout without changing the staged UI selection. `[]` is a valid intentional
    empty augment layout, not "reuse whatever the UI last selected".
 4. Call `game_spell_loadout(mode="add", uuid=..., glyphs=[...])` with the previewed layout.
-5. Call `game_spell_loadout(mode="move", uuid=..., destination=...)`; success returns the slot
+5. Call `game_spell_loadout(mode="move", slot=..., destination=...)`; success returns the slot
    change.
-6. Call `game_spell_loadout(mode="remove", uuid=...)` only when that row's `remove.available` is
+6. Call `game_spell_loadout(mode="remove", slot=...)` only when that row's `remove.available` is
    true; success returns the removed spell's former slot.
 
-`staged` accepts no other field. The `uuid` means a recipe for `preview`/`add` and a runtime spell
-instance for `remove`/`move`.
-`glyphs` belongs to `preview`/`add` only; `destination` belongs to `move` only. Anything else is a
-named `unexpected_for_mode` validation failure rather than a silently ignored field.
+`staged` accepts no other field. The `uuid` means a recipe and belongs to `preview`/`add` only;
+`slot` addresses the loadout bar for `remove`/`move`, and `destination` belongs to `move` only.
+Anything else is a named `unexpected_for_mode` validation failure rather than a silently ignored
+field.
 
 Add reproduces the library button's own admission order: it creates the native candidate, applies
 the recipe's selected level and the requested glyphs, then requires recipe usage requirements,
 computed usage-cost affordability, unique-spell compatibility, loadout capacity, per-glyph usable
 counts, and non-level glyph requirements before payment, which is taken last. Remove and move
-re-resolve the runtime UUID and the native remove verdict or slot range on the Unity main thread.
+re-resolve the named slot and the native remove verdict or slot range on the Unity main thread.
 Every mode acquires the family permit last and verifies only requested identity/outcome. Weight,
 glyph usage, drain, and resource accounting are observations, not gates. There is no generation,
 payment, receipt, request echo, catalog join, or post-mutation read-back.
@@ -1113,18 +1117,25 @@ the number, and the fix.
 The set is fixed at eight. A private word per refusal is a dialect every caller has to learn before
 it can branch, and the sentence beside it already says more. Producers choose a precise internal
 code — that is what picks the sentence — and `GameMcpDecisionReason.Class` maps it to the class the
-wire says. Examples of that mapping, by kind:
+wire says. That method is the whole map; the rows below name the codes each class is reached by
+most, so an old code's new class can be looked up here:
 
 | Class | Internal codes that reach it |
 | --- | --- |
-| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `amount_out_of_range`, `mode_forbids_uuid` |
-| `ERR_NOT_FOUND` | `unknown_uuid`, `unknown_category`, `slot_empty`, `no_pending_target`, `screen_match_failed`, `no_current_offers` |
-| `ERR_STATE` | `invalid_state`, `already_developing`, `switch_blocked`, `not_active`, `reroll_already_used`, `immediate_required_discovery` |
-| `ERR_LIMIT` | `already_maxed`, `amount_unavailable`, `automation_full`, `slot_occupied`, `slot_out_of_range`, `no_rerolls`, `cannot_level` |
+| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `slot_out_of_range`, `screen_match_failed` |
+| `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `recipe_has_no_core_glyph` |
+| `ERR_STATE` | `invalid_state`, `already_maxed`, `already_developing`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery` |
+| `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `research_queue_full`, `research_leeway_exhausted`, `no_rerolls` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable` |
-| `ERR_LOCKED` | `not_available`, `hidden_or_undiscovered`, `requirements_unmet`, `native_not_discoverable`, `core_glyph_not_owned` |
-| `ERR_UNAVAILABLE` | `world_not_published`, `contract_unavailable`, `post_state_timeout`, `no_game_loaded` |
+| `ERR_LOCKED` | `not_available`, `hidden_or_undiscovered`, `requirements_unmet`, `native_not_discoverable`, `core_glyph_not_owned`, `cannot_level` |
+| `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout` |
 | `ERR_REFUSED` | `native_rejected`, `projection_refused`, and every code with no better class |
+
+Two of those placements are worth reading twice, because the obvious guess is wrong.
+`slot_out_of_range` is `ERR_INPUT` and not `ERR_LIMIT`: the caller named a slot the list never had,
+which is a bad argument rather than a ceiling reached. `cannot_level` is `ERR_LOCKED` and not
+`ERR_LIMIT` for the reason its own row gives — no level list in this game has a ceiling, so a shut
+level gate is always a gate rather than an exhausted supply.
 
 A feature result number is not a wire word: it names no axis a caller can act on, so an unmapped
 native result reaches the wire as `ERR_REFUSED` with the producer's own sentence.
@@ -1182,15 +1193,19 @@ Every numeric input has two different kinds of limit and they are not interchang
 
 A **native bound** is the game's own limit on a control, read live from the native member that owns
 it. Native bounds are published in pairs — a value never ships with only its ceiling — and appear in
-both the read and the committed response: `casting.output`/`casting.reserve` carry `minimum` and
-`maximum`, a ritual's `setLevel` carries `current` with the same pair, a snapshot slot refusal
+both the read and the committed response: `casting.output`/`casting.reserve` carry `current` and
+`maximum`, a ritual's `setLevel` carries `minimum` and `maximum`, a snapshot slot refusal
 carries `minimumSlot` and `maximumSlot` read from the live list the sentence was written from, and
 `maximumAmount` is the live per-call admission ceiling described above. A caller can act on these:
 they are what the game will accept this instant.
 
 Two floors are the exception and are named here rather than left to look like the rest. The ritual
-`setLevel.minimum` and the two `casting` dial minimums are both the constant `1`, held by the suite
-and matching the control the player presses rather than read from it each time. Both controls are a
+`setLevel.minimum` and the two `casting` dial minimums are all the constant `1`, held by the suite
+and matching the control the player presses rather than read from it each time. Only one of them
+still rides an answer, and the split is deliberate: the dial floor left the overview and the dial
+commit for the *Casting dial loop* tool doc, because a number that is 1 in every save on every call
+is documentation; the ritual `setLevel` pair stays whole on the read, because both ends together are
+what tells a caller that 0 is not a starting level the game offers. Both controls are a
 `UIValueSelectButton`, whose floor is the `minValue` its `SetClamp(min, max)` stores and whose
 decrement is `Math.Max(value - change, minValue)`; the ritual screen passes the literal `1`, which
 the contract gate pins, and the casting dials take theirs from a prefab-serialized clamp that no
@@ -1615,9 +1630,17 @@ config-file wording is never spliced into the sentence, so the surface no longer
 `suite_automation` is the seven green/gray automation buttons as booleans, because that is what
 they are: `auto_buy`, `auto_cast`, `auto_concept`, `auto_harvest`, `auto_items`, `auto_scribe`, and
 `mentor` are each a `{Disabled, Active}` setting with no third state. `mode="list"` returns every
-feature as `{feature, name, on}` and takes nothing else; it also carries `emergencyStop` or
-`automationEnabled: false` exactly when one of the two suite-wide switches is silencing all seven,
-because a list of on buttons would otherwise answer a different question than the caller asked.
+feature as `{feature, name, on}` and takes nothing else; it also carries the two suite-wide
+switches when either is silencing all seven, because a list of on buttons would otherwise answer a
+different question than the caller asked.
+
+Both switches are present exactly when they are overriding, and never otherwise:
+`automationEnabled: false` appears exactly when the suite's global automation toggle is off, and
+`emergencyStop: true` exactly when the stop is engaged. Neither key ever ships in its ordinary
+state — there is no `automationEnabled: true` and no `emergencyStop: false` on this tool, because
+an override that is not overriding is not a fact about the buttons. `suite_health` is the one place
+that reports the stop in both states, since its whole job is to say what the suite is doing.
+
 `mode="set"` takes exactly one `feature` and one `on`, writes through the same
 `AutomataConfigurationStore` path `suite_config_set` uses, and returns the named feature with its
 `on` before/after plus those same two override keys under the same condition — a caller who turns a
@@ -1634,34 +1657,64 @@ shapes that earned their keep as well as the defects. Those survivors are a stan
 change that would undo one is a regression even when it is locally tidier, and the round that wants
 to touch one argues for it first. Each line names where the shape is specified.
 
-1. `{before, after}` settled-delta pairs as the single mutation sentinel — *Inline action results*.
-2. The `next {…}` affordance block on a commit, so no read-back is needed — *Inline action results*.
-3. Every entity reference named inline, so no caller ever joins a UUID to a name — *Presence
-   semantics*.
-4. The `cost` / `spendableAmount` / `affordable` triplet in the screen's own spend units — *Where a
-   bound comes from*.
-5. The terminal discovery loop: initiate → read → select → confirm, each returning the settled tree
-   — *Discovery decision loop*.
-6. `nextOffset` present exactly when more rows remain, and nothing else — *Tool surface*.
-7. Refusals that name the responsible **game** setting rather than a suite number — *Refusal
+1. Settled-delta pairs as the single mutation sentinel: a commit answers with the facts its own
+   press changed, each as `{before, after}` — *Inline action results*.
+2. Stop-in-same-answer: every action, configuration write, STOP transition, and gadget returns its
+   terminal result in the same call. No receipts, no cursors, no polling tool — *Inline action
+   results*.
+3. Sentences with both sides: a refusal that names a slot, a position, or a ceiling also names what
+   exists, so the retry needs no second read — *Where a bound comes from*.
+4. Remedy-naming: a refusal names the fix, not only the fault — *Refusal vocabulary*.
+5. Needs-and-haves: an unaffordable refusal names every short resource, its price, and what is
+   held — *Refusal vocabulary*.
+6. Refusals that name the responsible **game** setting rather than a suite number — *Refusal
    vocabulary*.
-8. Refusals that name the fix, not only the fault — *Refusal vocabulary*.
-9. Fail-closed reads that name the tool which can answer (`checkWith`, `readWith`) — *Presence
-   semantics*.
-10. Honest, named collection gaps rather than silent under-reporting — *Tool surface*.
-11. `game_navigate` returning the arrived screen's nested strips, inner to outer and byte-identical
-    on a repeat — *Screenshots and navigation*.
-12. Schema-level guards on irreversible or run-killing inputs (`confirm must be true`, the ritual
+7. A refusal class from the fixed set of eight, never a private code per refusal, and never a code
+   on a check that passed — *Refusal vocabulary*.
+8. `lastRun` separation: a ritual nobody has played and a run that finished badly are different
+   answers, never one verdict — *Presence semantics*.
+9. Lifecycle triple-agreement: `suite_health`, the world readers, and `game_probe` read one
+   `lifecycleState` and cannot hold three beliefs about whether a game is running — *Trace health
+   and probes*.
+10. The four not-running reasons: a lifecycle that is not `Playing` answers `lifecycle_no_game`,
+    `lifecycle_initializing`, `lifecycle_resetting`, or `lifecycle_scene_exit` rather than serving a
+    destroyed run — *Trace health and probes*.
+11. Paging exactness: `nextOffset` present exactly when more rows remain, and nothing else — *How a
+    response reads*.
+12. One answer, said once: a page of text and no `structuredContent` duplicate of it — *How a
+    response reads*.
+13. Constant-width entity handles that a caller can send straight back, and an ambiguous prefix that
+    lists what it matched instead of guessing — *Entity handles*.
+14. Every entity named where it appears, so no caller joins an id to a name — *Presence semantics*.
+15. Fail-closed reads that name the tool which can answer (`checkWith`, `readWith`) — *Presence
+    semantics*.
+16. Honest, named collection gaps rather than silent under-reporting — *Tool surface*.
+17. The `cost` / `spendableAmount` / `affordable` triplet in the screen's own spend units — *Where a
+    bound comes from*.
+18. The terminal discovery loop: initiate → read → select → confirm, each returning the settled tree
+    — *Discovery decision loop*.
+19. Schema-level guards on irreversible or run-killing inputs (`confirm must be true`, the ritual
     `level` floor), which make a dangerous call unreachable rather than merely refused — *Where a
     bound comes from*.
-13. `game_tooltips` scope discipline: a dismissed modal leaves the catalog, and `total` is stable
+20. `game_navigate` returning the arrived screen's nested strips, inner to outer and byte-identical
+    on a repeat — *Screenshots and navigation*.
+21. `game_tooltips` scope discipline: a dismissed modal leaves the catalog, and `total` is stable
     across repeated calls on an unchanged screen — *Tooltip explorer*.
-14. One answer, said once: a page of text and no `structuredContent` duplicate of it — *How a
-    response reads*.
-15. Constant-width entity handles that a caller can send straight back, and an ambiguous prefix that
-    lists what it matched instead of guessing — *Entity handles*.
-16. A refusal class from the fixed set of eight, never a private code per refusal, and never a code
-    on a check that passed — *Refusal vocabulary*.
+
+Four shapes this list used to protect are retired, and a round that reintroduces one is undoing a
+ruling rather than restoring a contract:
+
+- **Before/after echo pairs.** A pair whose two sides are equal reports no change; a press that
+  moved nothing says what it did in one sentence instead — *Inline action results*.
+- **The `next {…}` affordance block.** A commit answers with what its own press changed; the
+  decisions that press reopened are read with `world_get`, where every other caller reads them —
+  *Inline action results*.
+- **Identity preambles.** The asset name, the runtime type, and the category the type implies rode
+  every identity for 21.1% of one live round and nothing read them. They live on
+  `entity_catalog`/`explain_entity` now — *Presence semantics*.
+- **`paid[]` and `costPerLevel[]`.** A commit reports the levels it bought; what a level costs and
+  what the next one asks are read on `world_get` and `purchase-costs`, where the whole curve is —
+  *Presence semantics*.
 
 ## Screenshots and navigation
 
