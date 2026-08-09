@@ -17134,6 +17134,25 @@
       "place": "action"
     },
     {
+      "id": "consumable.is-available",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "IsAvailable",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
       "id": "consumable.select-and-fire",
       "assembly": "assembly-csharp",
       "type": "ConsumableSO",
