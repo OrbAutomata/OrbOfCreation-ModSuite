@@ -634,88 +634,19 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.Equal(1, (int)delta["queuedLevels"]!["after"]!);
     }
 
+    /// <summary>
+    /// A committed purchase answers with what moved. It used to answer with what it charged as
+    /// well, and on a multi-level call that figure priced one level of a rising ladder while
+    /// reading like the whole charge — always short, always in the direction of believing there is
+    /// more left to spend. The cost curves live in the world publication, where Auto Buy plans off
+    /// them; a caller that could not afford something still reads what it needs and what it holds
+    /// in the refusal's own sentence.
+    /// </summary>
     [Fact]
-    public void ACommittedPurchaseReportsWhatItPaidAndWhatIsLeft()
+    public void ACommittedPurchaseReportsTheLevelsItBoughtAndNoPaymentRows()
     {
         var attributeId = Guid.Parse("f2000000-0000-0000-0000-000000000003");
         var resourceId = Guid.Parse("f2000000-0000-0000-0000-000000000004");
-        var identities = EntityIdentityCatalogSnapshot.Bound(1, new[]
-        {
-            new EntityIdentityName(resourceId, "ResourceSO", "Glyph Upgrades", "GlyphUpgrades"),
-        });
-        var before = new GameWorldState
-        {
-            EntityIdentities = identities,
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(attributeId, 632),
-            }),
-            Resources = PublicationTable<WorldResource>.Create(new[]
-            {
-                Stock(resourceId, 110),
-            }),
-            PurchaseCosts = PublicationTable<WorldPurchaseCost>.Create(new[]
-            {
-                new WorldPurchaseCost(attributeId, resourceId, new BigDouble(2)),
-            }),
-        };
-        var command = new GameMcpCommand(
-            1,
-            GameMcpCommandKind.Purchase,
-            expectedLifecycleGeneration: 9,
-            expectedConfigurationGeneration: 3,
-            mode: "structure",
-            targetId: attributeId,
-            secondaryId: Guid.Empty,
-            derivedNativeType: "StructureSO",
-            amount: 1,
-            payloadKey: string.Empty,
-            payloadValue: string.Empty,
-            capture: false,
-            saveCapture: false,
-            frameContext: GameMcpTestHarness.Context(before));
-        var after = before with
-        {
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(attributeId, 633),
-            }),
-            Resources = PublicationTable<WorldResource>.Create(new[]
-            {
-                Stock(resourceId, 108),
-            }),
-        };
-
-        var delta = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            GameMcpWorldQuery.ProjectGameplayPostState(
-                GameMcpTestHarness.Context(after),
-                command,
-                GameMcpCommandResult.Committed("committed", 9, 3)),
-            identities));
-
-        Assert.Equal(633, (int)delta["level"]!["after"]!);
-        var paid = Assert.IsType<JObject>(Assert.Single(delta["paid"]!.Values<JObject>()));
-        Assert.Equal("Glyph Upgrades", (string?)paid["resource"]!["name"]);
-        Assert.Equal("2", (string?)paid["cost"]);
-        Assert.Equal("108", (string?)paid["spendableAmount"]);
-        Assert.Null(paid["amount"]);
-        Assert.Null(paid["costPerLevel"]);
-        Assert.Null(paid["affordable"]);
-        var next = Assert.IsType<JObject>(Assert.Single(delta["costPerLevel"]!.Values<JObject>()));
-        Assert.Equal("2", (string?)next["cost"]);
-        Assert.Equal("108", (string?)next["spendableAmount"]);
-    }
-
-    /// <summary>
-    /// A multi-level purchase charges a rising curve the suite does not hold a sum for. The price
-    /// field names one level and only one, and the level pair is what says how many were bought —
-    /// so nothing on the wire invites multiplying the two.
-    /// </summary>
-    [Fact]
-    public void AMultiLevelPurchasePricesOneLevelAndSaysSoInTheFieldName()
-    {
-        var attributeId = Guid.Parse("f2000000-0000-0000-0000-00000000000f");
-        var resourceId = Guid.Parse("f2000000-0000-0000-0000-000000000010");
         var identities = EntityIdentityCatalogSnapshot.Bound(1, new[]
         {
             new EntityIdentityName(resourceId, "ResourceSO", "Glyph Upgrades", "GlyphUpgrades"),
@@ -772,179 +703,9 @@ public sealed class GameMcpCorrectnessCoreTests
 
         Assert.Equal(100, (int)delta["level"]!["before"]!);
         Assert.Equal(125, (int)delta["level"]!["after"]!);
-        var paid = Assert.IsType<JObject>(Assert.Single(delta["paid"]!.Values<JObject>()));
-        Assert.Equal("2", (string?)paid["cost"]);
-        Assert.Null(paid["costPerLevel"]);
-    }
-
-    [Fact]
-    public void APurchaseWhoseSettledResourceRowIsMissingNamesThatRatherThanReportingZero()
-    {
-        var attributeId = Guid.Parse("f2000000-0000-0000-0000-000000000011");
-        var resourceId = Guid.Parse("f2000000-0000-0000-0000-000000000012");
-        var before = new GameWorldState
-        {
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(attributeId, 632),
-            }),
-            Resources = PublicationTable<WorldResource>.Create(new[]
-            {
-                Stock(resourceId, 110),
-            }),
-            PurchaseCosts = PublicationTable<WorldPurchaseCost>.Create(new[]
-            {
-                new WorldPurchaseCost(attributeId, resourceId, new BigDouble(2)),
-            }),
-        };
-        var command = new GameMcpCommand(
-            1,
-            GameMcpCommandKind.Purchase,
-            expectedLifecycleGeneration: 9,
-            expectedConfigurationGeneration: 3,
-            mode: "structure",
-            targetId: attributeId,
-            secondaryId: Guid.Empty,
-            derivedNativeType: "StructureSO",
-            amount: 1,
-            payloadKey: string.Empty,
-            payloadValue: string.Empty,
-            capture: false,
-            saveCapture: false,
-            frameContext: GameMcpTestHarness.Context(before));
-        var after = before with
-        {
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(attributeId, 633),
-            }),
-            Resources = PublicationTable<WorldResource>.Empty,
-        };
-
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            GameMcpTestHarness.Context(after),
-            command,
-            GameMcpCommandResult.Committed("committed", 9, 3)));
-
-        var paid = Assert.IsType<JObject>(Assert.Single(delta["paid"]!.Values<JObject>()));
-        Assert.Null(paid["spendableAmount"]);
-        Assert.Equal("ERR_NOT_FOUND", (string?)paid["spendableAmountUnavailable"]!["reasonCode"]);
-    }
-
-    /// <summary>
-    /// An idle game's income routinely outruns a price between admission and settlement. The price
-    /// is what the action was admitted at, so it survives a settled balance that went up.
-    /// </summary>
-    [Fact]
-    public void APurchaseWhoseIncomeOutranItsPriceStillNamesThePriceItWasAdmittedAt()
-    {
-        var attributeId = Guid.Parse("f2000000-0000-0000-0000-000000000005");
-        var resourceId = Guid.Parse("f2000000-0000-0000-0000-000000000006");
-        var before = new GameWorldState
-        {
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(attributeId, 632),
-            }),
-            Resources = PublicationTable<WorldResource>.Create(new[]
-            {
-                Stock(resourceId, 110),
-            }),
-            PurchaseCosts = PublicationTable<WorldPurchaseCost>.Create(new[]
-            {
-                new WorldPurchaseCost(attributeId, resourceId, new BigDouble(2)),
-            }),
-        };
-        var command = new GameMcpCommand(
-            1,
-            GameMcpCommandKind.Purchase,
-            expectedLifecycleGeneration: 9,
-            expectedConfigurationGeneration: 3,
-            mode: "structure",
-            targetId: attributeId,
-            secondaryId: Guid.Empty,
-            derivedNativeType: "StructureSO",
-            amount: 1,
-            payloadKey: string.Empty,
-            payloadValue: string.Empty,
-            capture: false,
-            saveCapture: false,
-            frameContext: GameMcpTestHarness.Context(before));
-        var after = before with
-        {
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(attributeId, 633),
-            }),
-            Resources = PublicationTable<WorldResource>.Create(new[]
-            {
-                Stock(resourceId, 130),
-            }),
-        };
-
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            GameMcpTestHarness.Context(after),
-            command,
-            GameMcpCommandResult.Committed("committed", 9, 3)));
-
-        var paid = Assert.IsType<JObject>(Assert.Single(delta["paid"]!.Values<JObject>()));
-        Assert.Equal("2", (string?)paid["cost"]);
-        Assert.Equal("130", (string?)paid["spendableAmount"]);
-    }
-
-    /// <summary>
-    /// Enabling or disabling an attribute is free. It targets a priced entity, so a cost-row test is
-    /// the wrong gate: only an action admitted against a price it charges reports one.
-    /// </summary>
-    [Fact]
-    public void AFreeStructureToggleReportsNoPrice()
-    {
-        var attributeId = Guid.Parse("f2000000-0000-0000-0000-000000000007");
-        var resourceId = Guid.Parse("f2000000-0000-0000-0000-000000000008");
-        var before = new GameWorldState
-        {
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(attributeId, 632),
-            }),
-            Resources = PublicationTable<WorldResource>.Create(new[]
-            {
-                Stock(resourceId, 110),
-            }),
-            PurchaseCosts = PublicationTable<WorldPurchaseCost>.Create(new[]
-            {
-                new WorldPurchaseCost(attributeId, resourceId, new BigDouble(2)),
-            }),
-        };
-        var command = new GameMcpCommand(
-            1,
-            GameMcpCommandKind.StructureLifecycle,
-            expectedLifecycleGeneration: 9,
-            expectedConfigurationGeneration: 3,
-            mode: "disable",
-            targetId: attributeId,
-            secondaryId: Guid.Empty,
-            derivedNativeType: "StructureSO",
-            amount: 1,
-            payloadKey: string.Empty,
-            payloadValue: string.Empty,
-            capture: false,
-            saveCapture: false,
-            frameContext: GameMcpTestHarness.Context(before));
-        var after = before with
-        {
-            Resources = PublicationTable<WorldResource>.Create(new[]
-            {
-                Stock(resourceId, 40),
-            }),
-        };
-
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            GameMcpTestHarness.Context(after),
-            command,
-            GameMcpCommandResult.Committed("committed", 9, 3)));
-
         Assert.Null(delta["paid"]);
+        Assert.Null(delta["costPerLevel"]);
+        Assert.Null(delta["spendableAmount"]);
     }
 
     private static WorldResource Stock(Guid id, double quantity)

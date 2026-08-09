@@ -579,16 +579,12 @@ returns `usableCount {before, after}`, because that is the number the glyph scre
 uses through the mastery requirement, and a response that named only levels left the screen's own
 count out.
 
-It also names the price, because two verbs buy levels and a silent one reads as an omission rather
-than as a semantic. A single-level call carries `paid[]` — the named cost rows the bought level
-asked, read from the pre-state row — and every call carries `costPerLevel[]`, the rows the next
-level asks in the settled world, each with its `affordable` verdict. This is the same shape
-`game_purchase` publishes, key for key. A multi-level call publishes only `costPerLevel`: the sum of
-the prices it actually paid is accounting this surface does not keep. A route whose cost table is empty
-on both sides says `free: true` rather than staying quiet. The paid route
-checks the game's persistent usage cost but does not perform a one-time payment; the concrete
-native level callback applies its own usage/effects. Research development and spell mastery stay
-on `game_research` and `game_spell_level`, respectively.
+A route whose cost table is empty on both sides says `free: true` rather than staying quiet. No
+other pricing rides the answer: what a level cost and what the next one asks are read from
+`world_get`, where the whole curve lives. The paid route checks the game's persistent usage cost but
+does not perform a one-time payment; the concrete native level callback applies its own
+usage/effects. Research development and spell mastery stay on `game_research` and
+`game_spell_level`, respectively.
 
 ### Agromancy
 
@@ -1276,29 +1272,19 @@ badge, a level that has to be built moves the queue and leaves the badge where i
 their sum under one name — the retired `committedLevel` — put a number on the wire that no screen
 shows and hid which of the two the purchase actually did.
 
-A committed purchase reports what it was priced at: `game_purchase` carries `paid[]`, and a mutation
-that was never admitted against a price — the free `game_structure` toggle on the same priced
-attribute — does not. `game_purchase` and `game_level` publish one shape, because two verbs buy
-levels and a planner that had to know which one it called to read a price was reading two dialects:
-`paid[]` is what the call was **charged**, `costPerLevel[]` at the top level is what the **next**
-level asks in the settled world, and each row of either carries the `resource` identity, `cost`, and
-`spendableAmount`.
+A committed purchase reports the levels it bought and nothing about what it charged. It used to
+carry `paid[]` and `costPerLevel[]`, and both were bookkeeping rather than an answer: the paid rows
+priced the game's own multi-buy setting at capture time rather than the count the call turned out to
+commit, so an `amount=25` call reported one level of a rising ladder as though it were the whole
+charge — understating spend, and understating it in the direction of believing there is more left.
+`level {before, after}` is what says how many levels were bought. What a level costs and what the
+next one asks are read where the whole curve lives, on `world_get` and the `purchase-costs`
+category, which is also where Auto Buy plans from. A refusal that could not afford something still
+names every short resource, its price, and what is held, in its own sentence.
 
-`cost` on a `paid[]` row is **one level's** price — the admission capture's next-level amount, the
-same number that resource's cost row showed. It is not the total a call charged, and multiplying it
-by the levels committed is wrong in the other direction: the cost curve rises with every level, so
-an `amount=25` call charges twenty-five successively higher prices. The suite does not publish their
-sum, because it does not hold one: the world's grouped pricing is computed for the game's own
-multi-buy setting at capture time, not for the count this call turned out to commit, and a total
-assembled any other way would be suite arithmetic wearing a transaction's name. `level
-{before, after}` is what says how many levels were actually bought, and `costPerLevel[]` is what
-prices the next one — with `affordable` on the row, so the answer the screen gives with colour is
-not two Scientific strings the caller has to compare. A `paid[]` row carries no `affordable`,
-because it was.
-
-`spendableAmount` is read from the settled world in the same spendable coordinate every cost row
-uses. It does not have to equal the same resource's `amount` on a `resources` row, and where the two
-differ it is not drift: `spendableAmount` is spendable amount, which a **bandwidth**
+`spendableAmount` still rides a cost row on the read surface, in the same spendable coordinate every
+cost row uses. It does not have to equal the same resource's `amount` on a `resources` row, and
+where the two differ it is not drift: `spendableAmount` is spendable amount, which a **bandwidth**
 resource reports as the headroom left rather than the stock held, while a row's `amount` is the
 displayed quantity, which an **inverted** resource reports counting down from its cap. The two
 traits are independent, so either key can be the larger one depending on which traits the resource
@@ -1306,9 +1292,7 @@ carries. When the settled world publishes no row for that resource the key is ab
 `spendableAmountUnavailable` names the reason, because zero is a balance and "not collected" is not.
 
 There is no delta field: the difference between two worlds also contains every income stream and
-every other spender in that window, so it is not a price and is not computed. On a volatile resource
-`spendableAmount` will not reconcile with any price against a balance read at another instant, and
-that is the resource moving, not the field drifting.
+every other spender in that window, so it is not a price and is not computed.
 
 A tool result is one page of text in `content`, emitted once, beside any inline media such as a
 screenshot; success omits the false `isError` default. The server publishes no `structuredContent`
