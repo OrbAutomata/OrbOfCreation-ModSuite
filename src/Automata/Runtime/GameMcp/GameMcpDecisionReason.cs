@@ -138,7 +138,7 @@ internal static class GameMcpDecisionReason
         "already_discovered" or "already_in_requested_state" or "already_maxed" or
         "cooldown_active" or "inventory_busy" or "native_caster_busy" or
         "targeting_in_progress" or "transition_in_progress" or "manual_pause" or
-        "ritual_battle_active" or "wrong_active_ritual" or "not_selected" or "wrong_scene" or
+        "ritual_battle_active" or "wrong_active_ritual" or "wrong_scene" or
         "spell_already_inactive" or "spell_already_casting" or
         "spell_not_ready" or "spell_not_toggleable" or
         "unique_spell_conflict" or "recipe_incomplete" or "slot_occupied" or
@@ -281,8 +281,6 @@ internal static class GameMcpDecisionReason
         "already_ran" => "This challenge has already run, so queueing it does nothing.",
         "no_cancellable_usage" => "Nothing is queued that could be cancelled.",
         "level_locked" => "The game fixes this ritual's starting level, so it cannot be set.",
-        "not_selected" => "The game prices only the selected ritual, so this one's price appears " +
-            "once it is selected; activating it selects it first.",
         "ritual_battle_active" => "A ritual battle is running.",
         "no_active_duration_reward" => "No duration reward from this ritual is running.",
         "not_a_duration_ritual" => "This ritual grants no duration reward to cancel.",

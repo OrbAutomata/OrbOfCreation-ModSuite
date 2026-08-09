@@ -165,8 +165,14 @@ public sealed class GameMcpRitualLifecycleTests
         Assert.Equal(8, (int)setLevel["maximum"]!);
     }
 
+    /// <remarks>
+    /// GetActivationCost() scales the ritual's own stored cost by its own level, repeat penalty and
+    /// usage gate and reads the selection for none of it, and the verb presses the selection toggle
+    /// itself. Pricing only the held ritual therefore made "which of these can I afford" a question
+    /// a caller answered by selecting each in turn — reading the world by mutating it.
+    /// </remarks>
     [Fact]
-    public void Unselected_ritual_has_no_speculative_price_ledger()
+    public void An_unselected_ritual_carries_its_price_and_is_activatable()
     {
         var world = World(selected: false, level: 0, activeInstances: 0);
         var response = Json(GameMcpWorldQuery.GetRow(
@@ -174,11 +180,14 @@ public sealed class GameMcpRitualLifecycleTests
             "rituals", RitualId.ToString("D")).Freeze(), world);
 
         var activate = response["row"]!["activate"]!;
-        Assert.False((bool)activate["available"]!);
-        Assert.Equal("ERR_STATE", (string?)activate["reasonCode"]);
-        Assert.Null(activate["affordable"]);
-        Assert.Null(activate["costs"]);
-        Assert.Null(activate["completionCosts"]);
+        Assert.False((bool)response["row"]!["selected"]!);
+        Assert.True((bool)activate["available"]!);
+        Assert.Null(activate["reasonCode"]);
+        Assert.True((bool)activate["affordable"]!);
+        Assert.Equal(
+            "Knowledge",
+            (string?)activate["costs"]!.Values<JObject>().Single()["resource"]!["name"]);
+        Assert.Single(activate["completionCosts"]!.Values<JObject>());
     }
 
     [Fact]
@@ -365,14 +374,13 @@ public sealed class GameMcpRitualLifecycleTests
         // wavesCompleted < 5, so a world that sets the two separately can assert a result the wave
         // count it publishes contradicts.
         var failedRun = wavesCompleted < 5;
-        var activation = selected
-            ? PublicationTable<WorldRitualCost>.Create(new[]
-                { new WorldRitualCost(ResourceId, new BigDouble(5)) })
-            : PublicationTable<WorldRitualCost>.Empty;
-        var completion = selected
-            ? PublicationTable<WorldRitualCost>.Create(new[]
-                { new WorldRitualCost(ResourceId, new BigDouble(2)) })
-            : PublicationTable<WorldRitualCost>.Empty;
+        // The price is a fact of the ritual and the player, so the collector reads it whether or not
+        // this is the held one; a fixture that emptied it for an unselected ritual would model a
+        // world the collector no longer publishes.
+        var activation = PublicationTable<WorldRitualCost>.Create(new[]
+            { new WorldRitualCost(ResourceId, new BigDouble(5)) });
+        var completion = PublicationTable<WorldRitualCost>.Create(new[]
+            { new WorldRitualCost(ResourceId, new BigDouble(2)) });
         var decision = new WorldRitualDecision(selected, 8, true, true,
             activation, completion);
         var modifiers = default(RawRitualModifiers);

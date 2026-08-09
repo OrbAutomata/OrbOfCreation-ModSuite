@@ -5791,27 +5791,28 @@ internal static class GameMcpWorldQuery
         }
         result["setLevel"] = level;
 
-        var activateAvailable = ritual.Discovered && selected && !anyBattleActive &&
+        // Activation presses the selection toggle first, so being the held ritual is not something a
+        // caller has to arrange. It was the last fact that only the selection could answer, and it
+        // no longer is.
+        var activateAvailable = ritual.Discovered && !anyBattleActive &&
             ritual.Decision.UsageRequirementsMet && ritual.Decision.ActivationAffordable;
+        // The price is a fact of the ritual, not of the selection, so it rides on every row. Pricing
+        // only the held one made "which of these can I afford" a question a caller had to answer by
+        // selecting each of them in turn — a mutation, to read.
         var activate = new JObject { ["available"] = activateAvailable };
-        if (selected)
-        {
-            activate["affordable"] = ritual.Decision.ActivationAffordable;
-            var activationCosts = ProjectRitualCosts(world, ritual.Decision.ActivationCosts);
-            if (activationCosts.Count > 0) activate["costs"] = activationCosts;
-            var completionCosts = ProjectRitualCosts(world, ritual.Decision.CompletionCosts);
-            if (completionCosts.Count > 0) activate["completionCosts"] = completionCosts;
-        }
+        activate["affordable"] = ritual.Decision.ActivationAffordable;
+        var activationCosts = ProjectRitualCosts(world, ritual.Decision.ActivationCosts);
+        if (activationCosts.Count > 0) activate["costs"] = activationCosts;
+        var completionCosts = ProjectRitualCosts(world, ritual.Decision.CompletionCosts);
+        if (completionCosts.Count > 0) activate["completionCosts"] = completionCosts;
         if (!activateAvailable)
             activate["reasonCode"] = !ritual.Discovered
                 ? "not_discovered"
-                : !selected
-                    ? "not_selected"
-                    : anyBattleActive
-                        ? "ritual_battle_active"
-                        : !ritual.Decision.UsageRequirementsMet
-                            ? "usage_requirements_unmet"
-                            : "unaffordable";
+                : anyBattleActive
+                    ? "ritual_battle_active"
+                    : !ritual.Decision.UsageRequirementsMet
+                        ? "usage_requirements_unmet"
+                        : "unaffordable";
         result["activate"] = activate;
 
         var durationAvailable = ritual.DurationRewardBlocks > 0 && ritual.ActiveInstances > 0;

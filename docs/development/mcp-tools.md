@@ -532,10 +532,13 @@ carries the running battle's `wavesCompleted` and, once it has banked anything, 
 afterwards those same two fields are the finished run's and appear as `lastRun`, with the verdict
 `result` beside them. A cleared wave count and no spoils is exactly the state a ritual nobody has
 played is in, so such a row reports no `lastRun` at all rather than an empty one.
-Only the selected row carries activation and completion prices in the same
-player-facing units as the Ritual panel and the eventual resource spend;
-unselected rows do not publish a speculative ledger, and their `activate` block says so — the price
-appears once the ritual is selected, which activating it does. `setLevel`, `activate`, and
+Every row carries its activation and completion prices in the same
+player-facing units as the Ritual panel and the eventual resource spend, selected or not:
+`RitualSO.GetActivationCost()` scales the ritual's own stored cost by its own level, repeat penalty
+and usage gate and consults the selection for none of it, so pricing only the held ritual made
+"which of these can I afford" a question a caller answered by selecting each in turn — a mutation,
+to read. For the same reason `activate.available` no longer waits on the selection: the verb presses
+the selection toggle itself. `setLevel`, `activate`, and
 `cancelDuration` each carry only the binding availability or refusal reason that affects the next
 decision. `setLevel` has one presence rule for its bounds: every ritual whose starting level is the
 caller's to choose publishes `minimum` and `maximum`, selected or not, because the ceiling is a fact

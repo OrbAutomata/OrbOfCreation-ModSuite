@@ -24351,7 +24351,7 @@
       "type": "RitualSO", "typeVisibility": "public", "kind": "method", "member": "HasMetUsageRequirements",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
       "owners": ["Common Ritual decision world collection"], "usages": ["reflection"], "place": "capture",
-      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": ["latches Prerequisites.Container.available through prerequisites.Check()"], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "IL: ldfld RitualSO.usageRequirements then callvirt Prerequisites.Container.Check(), whose all-pass exit stores 1 into Prerequisites.Container.available"}
     },
     {
       "id": "generic-level.levelable.type-action", "assembly": "assembly-csharp",

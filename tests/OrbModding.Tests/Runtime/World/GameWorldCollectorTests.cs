@@ -2527,6 +2527,9 @@ public sealed class GameWorldCollectorTests : IDisposable
             Identity = idle,
             discovered = true,
             durationRewardBlocks = { new object() },
+            maximumSelectedLevel = 4,
+            activationCost = new FakeCraftingResourceCostList()
+                .With(knowledge, new BigDouble(11)),
         });
         var selected = new FakeRitual
         {
@@ -2574,6 +2577,15 @@ public sealed class GameWorldCollectorTests : IDisposable
         // The list is null on this one, which is how the game leaves it before first use.
         Assert.Equal(0, quiet.ActiveInstances);
         Assert.Equal(1, quiet.DurationRewardBlocks);
+
+        // GetActivationCost() reads the ritual's own stored cost and its own level and consults the
+        // selection for none of it, so an unselected ritual is priced too — otherwise comparing two
+        // of them meant selecting each in turn, which is a mutation.
+        Assert.False(quiet.Decision.Selected);
+        Assert.Equal(4, quiet.Decision.MaximumStartingLevel);
+        Assert.Equal(1, quiet.Decision.ActivationCosts.Count);
+        Assert.Equal(new BigDouble(11), quiet.Decision.ActivationCosts[0].Cost);
+        Assert.True(quiet.Decision.ActivationAffordable);
 
         Assert.True(WorldLookup.TryFind(world.Rituals, ticking, out var running));
         Assert.True(running.Decision.Selected);

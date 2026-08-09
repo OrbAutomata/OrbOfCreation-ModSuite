@@ -308,12 +308,6 @@ internal static class WorldRitualDeriver
         for (var index = 0; index < rows.Length; index++)
         {
             ref readonly var source = ref buffer[index];
-            if (!source.Decision.Selected)
-            {
-                rows[index] = source;
-                continue;
-            }
-
             var completion = ComputeCompletionCosts(in source);
             var decision = source.Decision.WithCompletionCosts(completion);
             rows[index] = source.WithDecision(in decision);
@@ -798,18 +792,15 @@ internal sealed class WorldRitualDecisionBinding
         // GetMaxSelectedLevel() is Math.Max(reachedLevel + 1, Player.GetCeremonialLevel()) — a fact
         // of the ritual and the player, not of the selection. Reading it only for the selected
         // ritual made the starting-level ceiling something a caller had to select a ritual to
-        // discover.
+        // discover. The activation price is the same kind of fact: GetActivationCost() reads the
+        // ritual's own stored cost and scales it by its own level, repeat penalty, and usage gate,
+        // and consults the selection for none of it — so pricing only the held ritual made
+        // comparing two of them a mutation.
         var maximumStartingLevel = _maximumStartingLevel!(ritual);
-        if (!selected)
-            return new WorldRitualDecision(
-                false, maximumStartingLevel, false, false,
-                PublicationTable<WorldRitualCost>.Empty,
-                PublicationTable<WorldRitualCost>.Empty);
-
         var activation = _activationCost!(ritual) ??
             throw new InvalidOperationException("RitualSO.GetActivationCost returned null");
         return new WorldRitualDecision(
-            true,
+            selected,
             maximumStartingLevel,
             _usageRequirementsMet!(ritual),
             _hasEnough!(activation),
