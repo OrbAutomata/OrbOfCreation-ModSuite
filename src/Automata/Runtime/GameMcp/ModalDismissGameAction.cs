@@ -10,16 +10,23 @@ namespace OrbAutomata.GameMcp;
 
 internal readonly struct ModalDismissSubmission
 {
-    internal ModalDismissSubmission(bool committed, string code, string reason)
+    internal ModalDismissSubmission(bool committed, string code, string reason, string title = "")
     {
         Committed = committed;
         Code = code ?? string.Empty;
         Reason = reason ?? string.Empty;
+        Title = title ?? string.Empty;
     }
 
     internal bool Committed { get; }
     internal string Code { get; }
     internal string Reason { get; }
+
+    /// <summary>
+    /// The title the closing modal was showing, read before the close so the answer can name what
+    /// it shut. A dismissed modal has no title left to read.
+    /// </summary>
+    internal string Title { get; }
 }
 
 /// <summary>Lifecycle-scoped Unity-main-thread boundary for the visible native modal close control.</summary>
@@ -96,12 +103,13 @@ internal sealed class ModalDismissGameAction : IDisposable
             if (native.GraceTime(candidate!) > 0f)
                 return Refused("modal_close_not_ready", "The modal close control is not ready yet.");
 
+            var title = native.Title(candidate!);
             native.Close(candidate!);
             if (!native.IsClosing(candidate!))
                 return Refused("requested_state_not_reached", "The modal did not begin closing.");
             _pendingModal = candidate;
             _pendingEpoch = _readLifecycleEpoch();
-            return new ModalDismissSubmission(true, "committed", string.Empty);
+            return new ModalDismissSubmission(true, "committed", string.Empty, title);
         }
         catch (Exception exception) when (exception is InvalidOperationException or
             ArgumentException or TargetInvocationException)

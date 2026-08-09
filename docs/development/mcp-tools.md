@@ -451,6 +451,11 @@ Choice mode, `offers` contains named handle/category references in native order.
 selection. The `reroll` decision block appears only in Choice mode. An empty offer set omits
 `offers`.
 
+A spent `offer_reroll` answers in the same shape `time_challenge reroll` does: `rerollsLeft` as a
+`{before, after}` pair, an explicit `changed` saying whether the offers actually moved, and the
+settled `offers` inline. A bare post-value said nothing about what the press bought, so the caller
+re-read the whole tree to find out.
+
 These values are copied during the shared 250-millisecond world capture from lifecycle-bound
 delegates for native visibility, immediate-required state, current choices, exact next cost,
 affordability, and resource true quantity. The MCP worker only projects the immutable row. A choice
@@ -591,7 +596,10 @@ the published category, repeats the visible button's live admission on Unity's m
 returns only the settled paid- or bonus-level change plus the resulting total. A glyph target also
 returns `usableCount {before, after}`, because that is the number the glyph screen draws — levels buy
 uses through the mastery requirement, and a response that named only levels left the screen's own
-count out.
+count out. When the game's headroom delivered fewer levels than `amount` asked for, the answer adds
+`requestedAmount` and `deliveredAmount`; a fully satisfied ask says neither, because an
+under-delivery that read exactly like a satisfied `amount=1` let a caller batching its own
+progression accumulate drift with no signal.
 
 A route whose cost table is empty on both sides says `free: true` rather than staying quiet. No
 other pricing rides the answer: what a level cost and what the next one asks are read from
@@ -686,7 +694,11 @@ save/deactivate/load/reactivate transaction after revalidating every stored refe
 native type, role, and whole-loadout capacity. Current glyph ownership is deliberately not a
 selection precondition: the native screen accepts authored saved layouts whose construction
 choices are no longer available. Success returns the observed selection change and the settled
-selected loadout.
+selected loadout, and — when the swap moved the spell bar — a `spellBar` block naming the
+`equipped` count as a pair plus the spells `unequipped` and `equipped_now`. The bar is player state
+rather than loadout contents, so a select that empties it says so at the top of its own answer
+instead of leaving `spells: none` inside the loadout's description to be read as the effect; a
+select that leaves the bar alone publishes no `spellBar` at all.
 
 The selected player row also owns the three controls visible in the editor:
 `set_section` requires `section:"equipment"|"alchemy"` plus `enabled`; `rename` requires a name
@@ -857,7 +869,9 @@ The MCP-only loadout sequence is:
    empty augment layout, not "reuse whatever the UI last selected".
 4. Call `game_spell_loadout(mode="add", uuid=..., glyphs=[...])` with the previewed layout.
 5. Call `game_spell_loadout(mode="move", slot=..., destination=...)`; success returns the slot
-   change.
+   change, and a move onto an occupied slot adds `displaced` — the pushed-out spell and its own
+   slot pair. A swap that reported only the half the caller named left the other spell at an
+   address the caller's model no longer had.
 6. Call `game_spell_loadout(mode="remove", slot=...)` only when that row's `remove.available` is
    true; success returns the removed spell's former slot.
 
@@ -1806,9 +1820,11 @@ closing. The tool names no entity, so the
 caller submits no lifecycle: the boundary reads the live lifecycle itself and pins it for the settled
 read. The action invokes `UIModal.CloseModal()`, verifies
 the game-owned closing flag, then watches that exact modal for up to the shared one-second
-settlement bound. A completed close is the commit itself and says nothing further; timeout remains
-committed and says the post-state is unavailable because the verified close already began. It does not click modal-specific confirm, purchase, reset, or
-destructive buttons.
+settlement bound. A completed close answers `dismissed: <modal title>`, read off the control before
+it shut, so the caller confirms which modal went away without a screenshot; an untitled modal
+publishes no `dismissed` rather than an empty string. Timeout remains committed, carries the same
+`dismissed`, and says the post-state is unavailable because the verified close already began. It
+does not click modal-specific confirm, purchase, reset, or destructive buttons.
 
 `game_screen_catalog` reads the live Main-scene UI. Top tabs retain native rail order. Current
 subtabs are active `UIViewRadioButton` controls under the current native content area. Inactive

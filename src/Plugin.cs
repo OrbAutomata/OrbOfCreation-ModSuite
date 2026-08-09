@@ -2656,7 +2656,7 @@ public sealed class Plugin : BaseUnityPlugin
                 result = GadgetRejected(submission.Code, submission.Reason);
                 return true;
             }
-            StartCoroutine(CompleteModalDismissGameMcp(command));
+            StartCoroutine(CompleteModalDismissGameMcp(command, submission.Title));
             result = null!;
             return false;
         }
@@ -2681,7 +2681,7 @@ public sealed class Plugin : BaseUnityPlugin
         return true;
     }
 
-    private IEnumerator CompleteModalDismissGameMcp(GameMcpCommand command)
+    private IEnumerator CompleteModalDismissGameMcp(GameMcpCommand command, string title)
     {
         var deadline = Time.realtimeSinceStartup + GameMcpPostStateSettlement.MaximumWaitSeconds;
         while (Time.realtimeSinceStartup < deadline)
@@ -2698,23 +2698,32 @@ public sealed class Plugin : BaseUnityPlugin
                 yield break;
             }
             if (!dismissed) continue;
-            // A committed dismiss is the modal being shut; restating it as a field said the same
-            // thing twice.
+            // Which modal went away. A zero-byte body left the caller with nothing to compare
+            // against the screen, and a screenshot was the only way to learn the press had landed;
+            // the title was in hand the whole time, read off the control before it closed.
             CompleteGameMcpCommand(command, GadgetCommitted(
                 "modal_dismissed",
-                new GameMcpObjectBuilder()));
+                DismissedModal(title)));
             yield break;
         }
-        CompleteGameMcpCommand(command, GadgetCommitted(
-            "modal_dismissed",
-            new GameMcpObjectBuilder
-            {
-                ["postStateUnavailable"] = new GameMcpObjectBuilder
-                {
-                    ["reasonCode"] = "post_state_timeout",
-                    ["reason"] = "the modal began closing but remained open after one second",
-                }.Freeze(),
-            }));
+        var timedOut = DismissedModal(title);
+        timedOut["postStateUnavailable"] = new GameMcpObjectBuilder
+        {
+            ["reasonCode"] = "post_state_timeout",
+            ["reason"] = "the modal began closing but remained open after one second",
+        }.Freeze();
+        CompleteGameMcpCommand(command, GadgetCommitted("modal_dismissed", timedOut));
+    }
+
+    /// <summary>
+    /// The dismissal's own post-state: the name of the modal that closed. An untitled modal has no
+    /// name to publish, and absence says so rather than an empty string pretending to be one.
+    /// </summary>
+    private static GameMcpObjectBuilder DismissedModal(string title)
+    {
+        var details = new GameMcpObjectBuilder();
+        if (!string.IsNullOrWhiteSpace(title)) details["dismissed"] = title;
+        return details;
     }
 
     private GameMcpCommandResult ContinueRunGameMcp()

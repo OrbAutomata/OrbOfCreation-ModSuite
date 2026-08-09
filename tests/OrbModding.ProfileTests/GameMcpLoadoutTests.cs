@@ -220,11 +220,59 @@ public sealed class GameMcpLoadoutTests
         Assert.Equal("Aegis", (string?)entry["entry"]!["name"]);
     }
 
+    /// <summary>
+    /// Swapping loadouts re-equips the spell bar, and one select unequipped five spells with no
+    /// word about it in the answer: the only trace was <c>spells: none</c> inside the selected
+    /// loadout's own contents, which reads as what that loadout stores rather than as what the
+    /// player now has. The bar is the player's, so the swap names it.
+    /// </summary>
+    [Fact]
+    public void Selecting_a_loadout_reports_what_it_did_to_the_spell_bar()
+    {
+        var before = World(selected: false, populatedSnapshot: false, equippedSpells: 2);
+        var after = World(selected: true, populatedSnapshot: false, equippedSpells: 0);
+        var select = new GameMcpCommand(1, GameMcpCommandKind.Loadout,
+            9, 3, "select", PlayerId, Guid.Empty, "PlayerLoadout",
+            1, string.Empty, string.Empty, false, false,
+            frameContext: Context(before, 94));
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            Context(after, 95), select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
+
+        Assert.Equal(2, (int)delta["spellBar"]!["equipped"]!["before"]!);
+        Assert.Equal(0, (int)delta["spellBar"]!["equipped"]!["after"]!);
+        Assert.Equal(
+            new[] { "Beam Burst", "Beam Burst" },
+            delta["spellBar"]!["unequipped"]!.Select(row => (string?)row!["name"]).ToArray());
+        Assert.Null(delta["spellBar"]!["equipped_now"]);
+    }
+
+    /// <summary>
+    /// A select that leaves the bar exactly as it was says nothing about it. A fact the verb did
+    /// not move is not part of its post-state.
+    /// </summary>
+    [Fact]
+    public void A_select_that_leaves_the_bar_alone_says_nothing_about_it()
+    {
+        var before = World(selected: false, populatedSnapshot: false, equippedSpells: 2);
+        var after = World(selected: true, populatedSnapshot: false, equippedSpells: 2);
+        var select = new GameMcpCommand(1, GameMcpCommandKind.Loadout,
+            9, 3, "select", PlayerId, Guid.Empty, "PlayerLoadout",
+            1, string.Empty, string.Empty, false, false,
+            frameContext: Context(before, 96));
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            Context(after, 97), select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
+
+        Assert.Null(delta["spellBar"]);
+    }
+
     private static GameWorldState World(
         bool selected,
         bool populatedSnapshot,
         bool anySavedEntries = true,
-        bool? canSwitchNow = null)
+        bool? canSwitchNow = null,
+        int equippedSpells = 0)
     {
         var entries = anySavedEntries
             ? new[]
@@ -247,11 +295,50 @@ public sealed class GameMcpLoadoutTests
             new EntityIdentityName(SnapshotId, "EquipmentSnapshotListVariable",
                 "Equipment Snapshots", "equipment_snapshots"),
         }.OrderBy(row => row.EntityId).ToArray();
+        var slots = new WorldSpellSlot[3];
+        for (var index = 0; index < slots.Length; index++)
+        {
+            slots[index] = index < equippedSpells
+                ? new WorldSpellSlot(
+                    index,
+                    Guid.Parse("fb000000-0000-0000-0000-0000000000" + (10 + index)),
+                    RecipeId,
+                    occupied: true,
+                    casting: false,
+                    readyingCast: false,
+                    attuning: false,
+                    channeled: false,
+                    toggled: false,
+                    chargeable: false,
+                    castReady: true,
+                    chargeAvailable: false,
+                    resourcesCovered: true,
+                    currentCharges: 1,
+                    maximumCharges: 1,
+                    cooldownRemaining: BigDouble.Zero)
+                : new WorldSpellSlot(
+                    index,
+                    Guid.Empty,
+                    occupied: false,
+                    casting: false,
+                    readyingCast: false,
+                    attuning: false,
+                    channeled: false,
+                    toggled: false,
+                    chargeable: false,
+                    castReady: false,
+                    chargeAvailable: false,
+                    resourcesCovered: false,
+                    currentCharges: 0,
+                    maximumCharges: 0,
+                    cooldownRemaining: BigDouble.Zero);
+        }
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
             EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            SpellSlots = PublicationTable<WorldSpellSlot>.Create(slots),
             PlayerLoadouts = PublicationTable<WorldPlayerLoadout>.Create(new[]
             {
                 new WorldPlayerLoadout(PlayerId, "Boss setup", selected,

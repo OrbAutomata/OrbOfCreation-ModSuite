@@ -223,8 +223,13 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Null(response["moveDestinations"]);
     }
 
+    /// <summary>
+    /// A move onto an occupied slot is a swap, and the answer names both halves. Reporting only
+    /// the spell the caller asked about left the other one somewhere the caller's model did not
+    /// have it, and the next cast at the old address was refused with nothing explaining it.
+    /// </summary>
     [Fact]
-    public void CommittedMutationReturnsOnlyTheNamedSlotDelta()
+    public void CommittedMutationNamesBothHalvesOfASwap()
     {
         var submission = new SpellLoadoutSubmission(
             SpellLoadoutPreflight.Proceeded,
@@ -250,12 +255,17 @@ public sealed class GameMcpSpellLoadoutTests
         var success = GameMcpTestHarness.Json(terminal.Project(command));
 
         Assert.Equal(
-            new[] { "status", "uuid", "name", "slot" },
+            new[] { "status", "uuid", "name", "slot", "displaced" },
             success.Properties().Select(property => property.Name));
         Assert.Equal("committed", (string?)success["status"]);
         Assert.Equal("Gather Knowledge", (string?)success["name"]);
         Assert.Equal(1, (int)success["slot"]!["before"]!);
         Assert.Equal(2, (int)success["slot"]!["after"]!);
+        Assert.Equal(
+            GameMcpTestHarness.Handle(SecondRecipeId),
+            (string?)success["displaced"]!["uuid"]);
+        Assert.Equal(2, (int)success["displaced"]!["slot"]!["before"]!);
+        Assert.Equal(1, (int)success["displaced"]!["slot"]!["after"]!);
         Assert.Null(success["code"]);
         Assert.Null(success["loadout"]);
         Assert.Null(success["preflight"]);

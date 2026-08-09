@@ -939,6 +939,10 @@ internal static class GameMcpWorldQuery
                 command.Mode,
                 "offer_confirm",
                 StringComparison.Ordinal) => ProjectDiscoveryOfferConfirmDelta(state, command),
+            GameMcpCommandKind.DiscoveryTreeOffer when string.Equals(
+                command.Mode,
+                "offer_reroll",
+                StringComparison.Ordinal) => ProjectDiscoveryRerollDelta(state, command),
             _ => ProjectPostState(state, PostStateCategory(command), command.TargetId),
         };
 
@@ -984,6 +988,54 @@ internal static class GameMcpWorldQuery
                 after.HasImmediateRequiredDiscovery,
         };
         return result.Freeze();
+    }
+
+    /// <summary>
+    /// What a spent discovery reroll bought: the budget it cost, whether the offers actually moved,
+    /// and the offers themselves. It answered with a bare post-value and no offers, so the caller
+    /// re-read the whole tree to learn whether the press had done anything.
+    /// </summary>
+    private static GameMcpValue ProjectDiscoveryRerollDelta(
+        GameMcpFrameContext state,
+        GameMcpCommand command)
+    {
+        if (state.World is null)
+            return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
+        var world = state.World.Snapshot;
+        if (!WorldLookup.TryFind(world.DiscoveryTrees, command.TargetId, out var after))
+            return PostStateUnavailable(
+                "post_state_not_published",
+                "the settled world has no discovery tree row for the committed target");
+        var before = Before(command);
+        WorldDiscoveryTree previous = default;
+        var hadBefore = before is not null &&
+            WorldLookup.TryFind(before.DiscoveryTrees, command.TargetId, out previous);
+        var result = new JObject
+        {
+            ["uuid"] = command.TargetId.ToString("D"),
+            ["rerollsLeft"] = new JObject
+            {
+                ["before"] = hadBefore ? previous.RerollsLeft : (int?)null,
+                ["after"] = after.RerollsLeft,
+            },
+        };
+        if (hadBefore)
+            result["changed"] = !SameOfferIds(previous.CurrentOfferIds, after.CurrentOfferIds);
+        var offers = new JArray();
+        for (var index = 0; index < after.CurrentOfferIds.Count; index++)
+            offers.Add(EntityReference(world, after.CurrentOfferIds[index]));
+        if (offers.Count > 0) result["offers"] = offers;
+        return result.Freeze();
+    }
+
+    private static bool SameOfferIds(
+        PublicationTable<Guid> before,
+        PublicationTable<Guid> after)
+    {
+        if (before.Count != after.Count) return false;
+        for (var index = 0; index < before.Count; index++)
+            if (before[index] != after[index]) return false;
+        return true;
     }
 
     /// <summary>
@@ -1389,6 +1441,14 @@ internal static class GameMcpWorldQuery
                 ["before"] = previousPaid,
                 ["after"] = currentPaid,
             };
+            // The game's headroom can be below the ask, and one level bought against an ask of two
+            // settled into an answer indistinguishable from a satisfied amount=1. What was asked is
+            // said only when it differs from what arrived.
+            if (hadBefore && command.Amount > currentPaid - previousPaid!.Value)
+            {
+                result["requestedAmount"] = command.Amount;
+                result["deliveredAmount"] = currentPaid - previousPaid.Value;
+            }
         }
         result["totalLevel"] = new JObject
         {
@@ -1517,6 +1577,12 @@ internal static class GameMcpWorldQuery
                         ["before"] = hadBefore && previous.Selected,
                         ["after"] = current.Selected,
                     };
+                    // Swapping loadouts re-equips the spell bar, and the bar belongs to the player
+                    // rather than to the loadout being described. Selecting an empty loadout
+                    // unequipped five spells and the only trace was `spells: none` inside the
+                    // loadout's own contents, which reads as what that loadout stores.
+                    var bar = ProjectSpellBarEffect(world, before);
+                    if (bar is not null) result["spellBar"] = bar;
                     result["loadout"] = ProjectPlayerLoadout(world, in current);
                     break;
                 case "set_equipment":
@@ -1576,6 +1642,57 @@ internal static class GameMcpWorldQuery
         if (command.Mode == "snapshot_load")
             response["active"] = ProjectActiveLoadoutSection(world, owner.Kind);
         return response.Freeze();
+    }
+
+    /// <summary>
+    /// What a loadout swap did to the spell bar, or nothing when the bar did not move.
+    /// </summary>
+    /// <remarks>
+    /// The bar is player state, not loadout contents, so it is named at the top of the answer with
+    /// the spells that left and the spells that arrived. Recovery needs the names that went away,
+    /// and the settled world no longer holds them.
+    /// </remarks>
+    private static GameMcpValue? ProjectSpellBarEffect(
+        GameWorldState world,
+        GameWorldState? before)
+    {
+        if (before is null) return null;
+        var removed = new JArray();
+        var added = new JArray();
+        for (var index = 0; index < before.SpellSlots.Count; index++)
+        {
+            var slot = before.SpellSlots[index];
+            if (!slot.Occupied) continue;
+            if (ContainsSpellInstance(world.SpellSlots, slot.SpellInstanceId)) continue;
+            removed.Add(EntityReference(before, slot.SpellRecipeId));
+        }
+        for (var index = 0; index < world.SpellSlots.Count; index++)
+        {
+            var slot = world.SpellSlots[index];
+            if (!slot.Occupied) continue;
+            if (ContainsSpellInstance(before.SpellSlots, slot.SpellInstanceId)) continue;
+            added.Add(EntityReference(world, slot.SpellRecipeId));
+        }
+        if (removed.Count == 0 && added.Count == 0) return null;
+        var result = new JObject
+        {
+            ["equipped"] = new JObject
+            {
+                ["before"] = OccupiedSpellSlots(before),
+                ["after"] = OccupiedSpellSlots(world),
+            },
+        };
+        if (removed.Count > 0) result["unequipped"] = removed;
+        if (added.Count > 0) result["equipped_now"] = added;
+        return result.Freeze();
+    }
+
+    private static int OccupiedSpellSlots(GameWorldState world)
+    {
+        var occupied = 0;
+        for (var index = 0; index < world.SpellSlots.Count; index++)
+            if (world.SpellSlots[index].Occupied) occupied++;
+        return occupied;
     }
 
     private static GameMcpValue ProjectPlayerLoadout(
@@ -2215,7 +2332,8 @@ internal static class GameMcpWorldQuery
                     },
                 }.Freeze();
             if (command.Mode == "move" && hadBefore && hasAfter)
-                return new JObject
+            {
+                var moved = new JObject
                 {
                     ["uuid"] = newSlot.SpellRecipeId.ToString("D"),
                     ["slot"] = new JObject
@@ -2223,10 +2341,53 @@ internal static class GameMcpWorldQuery
                         ["before"] = GameMcpSlotNumbering.Wire(oldSlot.SlotIndex),
                         ["after"] = GameMcpSlotNumbering.Wire(newSlot.SlotIndex),
                     },
-                }.Freeze();
+                };
+                // A move onto an occupied slot is a swap. Reporting only the half the caller named
+                // left the other spell somewhere the caller's model did not have it, and the next
+                // cast at the old address refused.
+                var displaced = ProjectDisplacedSpell(
+                    after, before!, newSlot.SlotIndex, newSlot.SpellInstanceId);
+                if (displaced is not null) moved["displaced"] = displaced;
+                return moved.Freeze();
+            }
         }
         return PostStateUnavailable("requested_state_not_reached",
             "the settled loadout does not show the requested add, remove, or move");
+    }
+
+    /// <summary>
+    /// The spell the move pushed out of the destination, and where the game put it.
+    /// </summary>
+    private static GameMcpValue? ProjectDisplacedSpell(
+        GameWorldState after,
+        GameWorldState before,
+        int destinationIndex,
+        Guid movedInstanceId)
+    {
+        var occupant = default(WorldSpellSlot);
+        var occupied = false;
+        for (var index = 0; index < before.SpellSlots.Count; index++)
+        {
+            var slot = before.SpellSlots[index];
+            if (slot.SlotIndex != destinationIndex || !slot.Occupied) continue;
+            if (slot.SpellInstanceId == movedInstanceId) continue;
+            occupant = slot;
+            occupied = true;
+            break;
+        }
+        if (!occupied) return null;
+        if (!TryFindSpellInstance(after.SpellSlots, occupant.SpellInstanceId, out var settled))
+            return null;
+        if (settled.SlotIndex == destinationIndex) return null;
+        return new JObject
+        {
+            ["uuid"] = settled.SpellRecipeId.ToString("D"),
+            ["slot"] = new JObject
+            {
+                ["before"] = GameMcpSlotNumbering.Wire(destinationIndex),
+                ["after"] = GameMcpSlotNumbering.Wire(settled.SlotIndex),
+            },
+        }.Freeze();
     }
 
     private static bool ContainsSpellInstance(

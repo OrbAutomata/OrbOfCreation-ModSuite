@@ -189,10 +189,54 @@ public sealed class GameMcpGenericLevelTests
         }
     }
 
-    private static GameMcpCommand Command(string mode, GameWorldState before) =>
+    /// <summary>
+    /// The game's headroom can be below the ask. One level bought against an ask of two settled
+    /// into an answer indistinguishable from a satisfied <c>amount=1</c>, so a caller batching its
+    /// own progression accumulated drift with no signal at all.
+    /// </summary>
+    [Fact]
+    public void A_purchase_that_delivered_fewer_levels_than_asked_says_both_numbers()
+    {
+        var before = World(total: 5, bonus: 2, purchaseAffordable: true);
+        var after = World(total: 6, bonus: 2, purchaseAffordable: true, maximumUsages: 4);
+        var asked = Command("purchase", before, amount: 2);
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 904), asked,
+            GameMcpCommandResult.Committed("committed", 9, 3)), after);
+
+        Assert.Equal(3, (int)delta["paidLevel"]!["before"]!);
+        Assert.Equal(4, (int)delta["paidLevel"]!["after"]!);
+        Assert.Equal(2, (int)delta["requestedAmount"]!);
+        Assert.Equal(1, (int)delta["deliveredAmount"]!);
+    }
+
+    /// <summary>
+    /// A satisfied ask says nothing about itself: what was requested is only worth saying when it
+    /// differs from what arrived.
+    /// </summary>
+    [Fact]
+    public void A_fully_delivered_purchase_does_not_restate_what_was_asked()
+    {
+        var before = World(total: 5, bonus: 2, purchaseAffordable: true);
+        var after = World(total: 6, bonus: 2, purchaseAffordable: true, maximumUsages: 4);
+        var asked = Command("purchase", before);
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 905), asked,
+            GameMcpCommandResult.Committed("committed", 9, 3)), after);
+
+        Assert.Null(delta["requestedAmount"]);
+        Assert.Null(delta["deliveredAmount"]);
+    }
+
+    private static GameMcpCommand Command(
+        string mode,
+        GameWorldState before,
+        int amount = 1) =>
         new(1, GameMcpCommandKind.GenericLevel,
             9, 3, mode, GlyphId, Guid.Empty, "GlyphSO",
-            1, string.Empty, string.Empty, false, false,
+            amount, string.Empty, string.Empty, false, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 901));
 
     private static GameWorldState World(

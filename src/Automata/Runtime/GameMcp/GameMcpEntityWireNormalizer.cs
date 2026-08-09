@@ -461,7 +461,8 @@ internal static class GameMcpEntityWireNormalizer
         "freeLevels" or "baseLevelExcludingBonus" or "effectiveCap" or "artificialCap" or
         "equippedStacks" or "maximumStacks" or "multiBuy" or "queued" or
         "queuedAmount" or "queuedQuantity" or "purchaseAmount" or "maximumAmount" or "currentCharges" or
-        "maximumCharges" or "requestedAmount" or "rerollsLeft" or "selectionMaximum" or
+        "maximumCharges" or "requestedAmount" or "deliveredAmount" or
+        "rerollsLeft" or "selectionMaximum" or
         "resetCount" or "persistenceCurrent" or "remainingBonusLevels" or
         "maximumBatch" => true,
         _ => false,

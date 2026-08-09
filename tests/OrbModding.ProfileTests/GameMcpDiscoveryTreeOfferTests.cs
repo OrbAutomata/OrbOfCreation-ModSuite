@@ -251,19 +251,81 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.True((bool)delta["hasRemainingDiscoveries"]!);
     }
 
+    /// <summary>
+    /// A spent reroll answers the way the challenge reroll does: the budget as a pair, whether the
+    /// offers actually moved, and the offers themselves. A bare post-value with no offers said
+    /// nothing about what the press bought, so the caller re-read the whole tree to find out.
+    /// </summary>
+    [Fact]
+    public void A_spent_reroll_pairs_the_budget_and_names_the_offers_it_bought()
+    {
+        var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+        var first = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
+        var second = Guid.Parse("b1d6b0b6-98c1-4b74-90a4-7d0f7dbd3a1f");
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_reroll", treeId, Guid.Empty,
+            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false, false,
+            frameContext: GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 2, rerollsLeft: 2, offers: new[] { first }),
+                generation: 61));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 2, rerollsLeft: 1, offers: new[] { second }),
+                generation: 62),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.Equal(2, (int)delta["rerollsLeft"]!["before"]!);
+        Assert.Equal(1, (int)delta["rerollsLeft"]!["after"]!);
+        Assert.True((bool)delta["changed"]!);
+        Assert.Equal(
+            GameMcpTestHarness.Handle(second),
+            (string?)Assert.Single(delta["offers"]!)["uuid"]);
+    }
+
+    /// <summary>
+    /// A reroll that spent the budget and put the same offers back says so, rather than leaving a
+    /// caller to diff two tree reads.
+    /// </summary>
+    [Fact]
+    public void A_reroll_that_moved_nothing_says_the_offers_did_not_change()
+    {
+        var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+        var offer = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_reroll", treeId, Guid.Empty,
+            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false, false,
+            frameContext: GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 2, rerollsLeft: 1, offers: new[] { offer }),
+                generation: 63));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 2, rerollsLeft: 0, offers: new[] { offer }),
+                generation: 64),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.Equal(0, (int)delta["rerollsLeft"]!["after"]!);
+        Assert.False((bool)delta["changed"]!);
+    }
+
     private static GameWorldState Tree(
         Guid treeId,
         int actionMode,
         long collectedAtUtcTicks = 0,
-        int discoveredCount = 0) => new()
+        int discoveredCount = 0,
+        int rerollsLeft = 2,
+        Guid[]? offers = null) => new()
         {
             CollectedAtEpoch = 7,
             CollectedAtUtcTicks = collectedAtUtcTicks,
             DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new[]
             {
                 new WorldDiscoveryTree(
-                    treeId, true, actionMode, BigDouble.Zero, 2, false, Guid.Empty,
-                    Array.Empty<Guid>(), false, true,
+                    treeId, true, actionMode, BigDouble.Zero, rerollsLeft, false, Guid.Empty,
+                    offers ?? Array.Empty<Guid>(), false, true,
                     Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty, Guid.Empty,
                     0, 0, false, discoveredCount, 3, discoveredCount + 3, 4, true, true, false),
             }),

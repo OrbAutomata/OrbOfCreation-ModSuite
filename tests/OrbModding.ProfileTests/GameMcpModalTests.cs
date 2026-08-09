@@ -55,6 +55,25 @@ public sealed class GameMcpModalTests : IDisposable
         Assert.True(after);
     }
 
+    /// <summary>
+    /// A dismissal names the modal it shut. The answer was zero bytes, so the only way to learn
+    /// the press had landed was a screenshot — the most expensive object on the surface — while
+    /// the title was readable off the control the whole time.
+    /// </summary>
+    [Fact]
+    public void A_committed_dismissal_carries_the_title_of_the_modal_it_shut()
+    {
+        var titled = new UIModal();
+        titled.OpenForTest(title: "Ritual Results");
+        UnityEngine.Resources.Objects.Add(titled);
+        using var action = new ModalDismissGameAction(() => Epoch);
+
+        var result = action.Submit();
+
+        Assert.True(result.Committed, result.Reason);
+        Assert.Equal("Ritual Results", result.Title);
+    }
+
     [Fact]
     public void Dismiss_reads_the_live_lifecycle_the_caller_cannot_submit()
     {
