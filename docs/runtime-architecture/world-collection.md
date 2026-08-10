@@ -337,11 +337,11 @@ this build will make it deliver, and waiting for it would re-walk every other st
 four times a second.
 
 `WorldScribeRelations.cs` is the reader that belongs in that structural set and is not in it yet. Its
-enchantment-role half is authored data, and it re-reads it every 250 ms through `MethodInfo.Invoke`
-and `FieldInfo.GetValue` rather than the compiled accessors every other reader binds — the overhead
-`NativeAccessorBinder` exists to have removed — while its target sweep filters the whole structure
-registry once per role and latches every candidate's availability on the way past. The manifest
-records the sweep as owed capture debt; the binding and the epoch scope are owed with it.
+enchantment-role half is authored data and it re-reads it every 250 ms, while its target sweep
+filters the whole structure registry once per role and latches every candidate's availability on the
+way past. It reads its members through the compiled accessors every other reader binds, so the
+overhead `NativeAccessorBinder` exists to have removed is gone; the manifest still records the sweep
+as owed capture debt, and the epoch scope is owed with it.
 
 The live entity-name catalog follows an even narrower lifecycle contract: it binds at the first
 stable Playing capture after `RuntimeReady`, then reuses one UUID-sorted snapshot until lifecycle
