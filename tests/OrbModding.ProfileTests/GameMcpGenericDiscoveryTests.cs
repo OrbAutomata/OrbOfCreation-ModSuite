@@ -76,13 +76,11 @@ public sealed class GameMcpGenericDiscoveryTests
                 },
             }));
 
-        var missingErrors = Assert.IsType<JArray>(
-            missing.Body!["error"]!["data"]!["validationErrors"]);
-        Assert.Contains(
-            missingErrors.Values<JObject>(),
-            error => (string?)error!["code"] == "missing_required" &&
-                     (string?)error["field"] == "mode");
-        Assert.NotEqual(-32602, (int?)accepted.Body?["error"]?["code"]);
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'mode' is missing", GameMcpTestHarness.Page(missing));
+        Assert.DoesNotContain(
+            "refused (ERR_INPUT)", GameMcpTestHarness.Page(accepted), StringComparison.Ordinal);
         var operation = GameMcpProtocolRouter.BuildOperation(
             "game_discover",
             new JObject

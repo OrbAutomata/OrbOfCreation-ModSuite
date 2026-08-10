@@ -112,6 +112,19 @@ public sealed class GameMcpDecisionReasonTests
     public void Every_code_reads_as_a_sentence(string reasonCode, string expected) =>
         Assert.Equal(expected, GameMcpDecisionReason.For(reasonCode));
 
+    /// <summary>
+    /// One kind of no is one class wherever it happens. A value outside the range its setting takes
+    /// answered ERR_INPUT on the casting dial and ERR_REFUSED on a configuration write, which taught
+    /// a caller that the class described which tool it called rather than what went wrong.
+    /// </summary>
+    [Theory]
+    [InlineData("level_out_of_range")]
+    [InlineData("slot_out_of_range")]
+    [InlineData("destination_out_of_range")]
+    [InlineData("configuration_write_rejected")]
+    public void A_value_outside_its_range_is_one_class_on_every_verb(string reasonCode) =>
+        Assert.Equal(GameMcpDecisionReason.ClassInput, GameMcpDecisionReason.Class(reasonCode));
+
     [Fact]
     public void The_shortfall_names_every_resource_that_is_actually_short()
     {

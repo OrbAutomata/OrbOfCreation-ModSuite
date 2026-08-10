@@ -114,6 +114,10 @@ internal static class GameMcpDecisionReason
         "multiple_modals_open" or "page_relation_ambiguous" or
         "level_out_of_range" or "slot_out_of_range" or "destination_out_of_range" or
         "name_out_of_range" or "discovery_surface_ambiguous" or
+        // A value outside the range its setting accepts is the same kind of no as a dial value
+        // outside the range the game allows. It used to answer a different class on each verb,
+        // which taught a caller that the class described the tool rather than the failure.
+        "configuration_write_rejected" or
         "composite_identity_required" => ClassInput,
 
         // The named thing is not there.

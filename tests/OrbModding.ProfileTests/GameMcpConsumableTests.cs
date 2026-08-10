@@ -63,11 +63,9 @@ public sealed class GameMcpConsumableTests
                 },
             }));
 
-        Assert.Equal(-32602, (int)response.Body!["error"]!["code"]!);
-        Assert.Contains(
-            response.Body["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => (string?)error!["code"] == "missing_required" &&
-                     (string?)error["field"] == field);
+        var page = GameMcpTestHarness.Page(response);
+        Assert.StartsWith("refused (ERR_INPUT): ", page, StringComparison.Ordinal);
+        Assert.Contains("required field '" + field + "' is missing", page, StringComparison.Ordinal);
     }
 
     [Fact]

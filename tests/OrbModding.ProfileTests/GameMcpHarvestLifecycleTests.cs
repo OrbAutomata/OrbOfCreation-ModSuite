@@ -72,12 +72,14 @@ public sealed class GameMcpHarvestLifecycleTests
                 },
             }));
 
-        Assert.Contains(missing.Body!["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => (string?)error["code"] == "missing_required" &&
-                     (string?)error["field"] == "actionUuid");
-        Assert.Contains(extra.Body!["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => (string?)error["code"] == "unexpected_for_mode" &&
-                     (string?)error["field"] == "actionUuid");
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'actionUuid' is missing for mode 'add_element_action'",
+            GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'actionUuid' is accepted only for action modes",
+            GameMcpTestHarness.Page(extra));
     }
 
     [Fact]

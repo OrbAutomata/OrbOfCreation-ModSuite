@@ -79,14 +79,12 @@ public sealed class GameMcpAlchemyLoadoutTests
             }));
 
         Assert.Equal(
-            "mode must be one of: add, remove",
-            (string?)Assert.IsType<JObject>(move.Body?["error"])["message"]);
-        var data = Assert.IsType<JObject>(
-            Assert.IsType<JObject>(destination.Body?["error"])["data"]);
-        Assert.Contains(Assert.IsType<JArray>(data["validationErrors"]).Values<JObject>(),
-            candidate => candidate is not null &&
-                         (string?)candidate["code"] == "unexpected_field" &&
-                         (string?)candidate["field"] == "destination");
+            "refused (ERR_INPUT): mode must be one of: add, remove",
+            GameMcpTestHarness.Page(move));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'destination' is not accepted by game_alchemy",
+            GameMcpTestHarness.Page(destination));
     }
 
     [Fact]

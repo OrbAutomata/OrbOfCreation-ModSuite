@@ -59,6 +59,13 @@ internal static class GameMcpEntityHandle
         Resolved = 0,
         NotFound = 1,
         Ambiguous = 2,
+
+        /// <summary>
+        /// No catalog is published, so no handle can name anything. A run's teardown used to turn
+        /// every handle the same run had just handed out into a malformed-argument refusal, while
+        /// the whole UUID for the same entity correctly answered that no save is loaded.
+        /// </summary>
+        CatalogUnavailable = 3,
     }
 
     /// <summary>
@@ -80,8 +87,8 @@ internal static class GameMcpEntityHandle
             uuid = exact;
             return ResolutionOutcome.Resolved;
         }
-        if (catalog is null || !catalog.IsBound || !IsHexPrefix(trimmed))
-            return ResolutionOutcome.NotFound;
+        if (!IsHexPrefix(trimmed)) return ResolutionOutcome.NotFound;
+        if (catalog is null || !catalog.IsBound) return ResolutionOutcome.CatalogUnavailable;
 
         var matches = new List<Guid>();
         var rows = catalog.Rows.AsSpan();

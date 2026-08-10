@@ -46,14 +46,14 @@ public sealed class GameMcpEquipmentLoadoutTests
                 ["arguments"] = new JObject { ["mode"] = "equip", ["uuid"] = id, ["amount"] = 1, ["worldGeneration"] = 9 },
             }));
 
-        var missingErrors = Assert.IsType<JArray>(missing.Body!["error"]!["data"]!["validationErrors"]);
-        Assert.Contains(missingErrors.Values<JObject>(),
-            error => (string?)error!["code"] == "missing_required" && (string?)error["field"] == "mode");
-        Assert.Equal(-32602, (int?)rejected.Body?["error"]?["code"]);
-        Assert.Contains(
-            rejected.Body!["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => (string?)error["code"] == "unexpected_field" &&
-                     (string?)error["field"] == "worldGeneration");
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'mode' is missing; required field 'amount' is missing",
+            GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'worldGeneration' is not accepted by game_equipment",
+            GameMcpTestHarness.Page(rejected));
         Assert.Empty(inbox.ClaimPending());
     }
 

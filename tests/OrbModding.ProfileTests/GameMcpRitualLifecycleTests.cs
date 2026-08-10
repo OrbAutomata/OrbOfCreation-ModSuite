@@ -63,12 +63,12 @@ public sealed class GameMcpRitualLifecycleTests
                 },
             }));
 
-        Assert.Contains(missing.Body!["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => (string?)error["code"] == "missing_required" &&
-                     (string?)error["field"] == "level");
-        Assert.Contains(extra.Body!["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => (string?)error["code"] == "unexpected_for_mode" &&
-                     (string?)error["field"] == "level");
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'level' is missing for mode 'set_level'", GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'level' is accepted only for mode 'set_level'", GameMcpTestHarness.Page(extra));
     }
 
     [Fact]
@@ -94,14 +94,9 @@ public sealed class GameMcpRitualLifecycleTests
         // The floor is real and is stated. The ceiling was int.MaxValue - 1, and printing it beside
         // the floor published 2147483646 as if the game had chosen it; the game's own ceiling on
         // this dial was 240.
-        Assert.Contains(
-            "level must be 1 or greater",
-            response.Body!["error"]!.ToString(),
-            StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "2147483646",
-            response.Body!["error"]!.ToString(),
-            StringComparison.Ordinal);
+        var page = GameMcpTestHarness.Page(response);
+        Assert.Contains("level must be 1 or greater", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("2147483646", page, StringComparison.Ordinal);
         Assert.Null(tool["inputSchema"]!["properties"]!["level"]!["maximum"]);
     }
 

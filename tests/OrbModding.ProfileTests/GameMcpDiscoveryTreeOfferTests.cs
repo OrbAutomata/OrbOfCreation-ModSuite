@@ -61,11 +61,10 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 },
             }));
 
-        Assert.Equal(-32602, (int)response.Body!["error"]!["code"]!);
-        var error = Assert.Single(
-            response.Body["error"]!["data"]!["validationErrors"]!.Values<JObject>());
-        Assert.Equal("missing_required", (string?)error!["code"]);
-        Assert.Equal("offerUuid", (string?)error["field"]);
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'offerUuid' is missing for mode 'offer_select'",
+            GameMcpTestHarness.Page(response));
     }
 
     [Fact]

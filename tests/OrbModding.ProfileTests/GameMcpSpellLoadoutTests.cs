@@ -83,10 +83,12 @@ public sealed class GameMcpSpellLoadoutTests
                 },
             }));
 
-        Assert.Equal("destination", (string?)missing.Body!["error"]!["data"]!["validationErrors"]![0]!["field"]);
-        Assert.Equal("missing_required", (string?)missing.Body["error"]!["data"]!["validationErrors"]![0]!["code"]);
-        Assert.Equal("destination", (string?)unexpected.Body!["error"]!["data"]!["validationErrors"]![0]!["field"]);
-        Assert.Equal("unexpected_for_mode", (string?)unexpected.Body["error"]!["data"]!["validationErrors"]![0]!["code"]);
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'destination' is missing for mode 'move'", GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'destination' is accepted only for mode 'move'", GameMcpTestHarness.Page(unexpected));
     }
 
     [Theory]
@@ -104,11 +106,10 @@ public sealed class GameMcpSpellLoadoutTests
                 ["arguments"] = new JObject { ["mode"] = mode },
             }));
 
-        var fields = missing.Body!["error"]!["data"]!["validationErrors"]!
-            .Values<JObject>()
-            .Select(error => (string?)error["field"])
-            .ToArray();
-        Assert.Equal(new[] { "uuid", "glyphs" }, fields);
+        var page = GameMcpTestHarness.Page(missing);
+        Assert.StartsWith("refused (ERR_INPUT): ", page, StringComparison.Ordinal);
+        Assert.Contains("'uuid'", page, StringComparison.Ordinal);
+        Assert.Contains("'glyphs'", page, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -151,14 +152,10 @@ public sealed class GameMcpSpellLoadoutTests
                     ["glyphs"] = new JArray(),
                 },
             }));
-        var errors = rejected.Body!["error"]!["data"]!["validationErrors"]!
-            .Values<JObject>().ToArray();
-        Assert.Contains(errors, error =>
-            (string?)error?["field"] == "uuid" &&
-            (string?)error?["code"] == "unexpected_for_mode");
-        Assert.Contains(errors, error =>
-            (string?)error?["field"] == "glyphs" &&
-            (string?)error?["code"] == "unexpected_for_mode");
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'uuid' is accepted only for modes 'preview' and 'add'; field 'glyphs' is " +
+            "accepted only for modes 'preview' and 'add'", GameMcpTestHarness.Page(rejected));
     }
 
     [Fact]

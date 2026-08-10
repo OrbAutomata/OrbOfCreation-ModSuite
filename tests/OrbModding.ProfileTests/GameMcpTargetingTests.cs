@@ -40,10 +40,12 @@ public sealed class GameMcpTargetingTests
         {
             ["mode"] = "randomize", ["uuid"] = First.ToString("D"),
         });
-        Assert.Equal("uuid", (string?)missing.Body!["error"]!["data"]!["validationErrors"]![0]!["field"]);
-        Assert.Equal("missing_required", (string?)missing.Body["error"]!["data"]!["validationErrors"]![0]!["code"]);
-        Assert.Equal("uuid", (string?)unexpected.Body!["error"]!["data"]!["validationErrors"]![0]!["field"]);
-        Assert.Equal("unexpected_for_mode", (string?)unexpected.Body["error"]!["data"]!["validationErrors"]![0]!["code"]);
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'uuid' is missing for mode 'submit'", GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'uuid' is not accepted for mode 'randomize'", GameMcpTestHarness.Page(unexpected));
     }
 
     [Fact]

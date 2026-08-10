@@ -94,6 +94,25 @@ public sealed class GameMcpEntityHandleTests
         Assert.Equal(GameMcpEntityHandle.ResolutionOutcome.NotFound, outcome);
     }
 
+    /// <summary>
+    /// A handle stops resolving the moment a run ends. Answering "that is not an id" for a handle
+    /// the same run had just handed out read as a typo, and taught a caller to throw away good ids
+    /// after any teardown, while the whole UUID for the same entity said no save was loaded.
+    /// </summary>
+    [Fact]
+    public void A_handle_with_no_published_catalog_says_so_instead_of_reading_as_a_typo()
+    {
+        var outcome = GameMcpEntityHandle.Resolve(
+            "075fcc", EntityIdentityCatalogSnapshot.Unbound(0), out var uuid, out _);
+
+        Assert.Equal(GameMcpEntityHandle.ResolutionOutcome.CatalogUnavailable, outcome);
+        Assert.Equal(Guid.Empty, uuid);
+        Assert.Equal(
+            GameMcpEntityHandle.ResolutionOutcome.NotFound,
+            GameMcpEntityHandle.Resolve(
+                "not-an-id", EntityIdentityCatalogSnapshot.Unbound(0), out _, out _));
+    }
+
     private static EntityIdentityCatalogSnapshot Catalog(params Guid[] ids)
     {
         var rows = new EntityIdentityName[ids.Length];

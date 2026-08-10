@@ -73,7 +73,7 @@ internal sealed class GameMcpProtocolRouter
         catch (GameMcpInvalidParamsException exception)
         {
             return GameMcpProtocolResponse.Json(
-                Error(id, -32602, exception.Message, exception.DataObject));
+                Error(id, -32602, exception.Message));
         }
         catch (Exception exception)
         {
@@ -128,16 +128,38 @@ internal sealed class GameMcpProtocolRouter
     {
         var parameters = RequireObject(request, "params");
         var name = RequireString(parameters, "name");
-        var argumentsToken = parameters["arguments"];
-        var arguments = argumentsToken switch
+
+        // One transport for one kind of answer. A refusal about what a known tool was asked is a
+        // tool result like every other refusal, so a caller branches on what went wrong rather than
+        // on which of two shapes it arrived in. Only a request that never named a tool this server
+        // has — an unknown method or an unknown name — is still a protocol error.
+        try
         {
-            null => new JObject(),
-            JObject value => value,
-            _ => throw new GameMcpInvalidParamsException("arguments must be an object"),
-        };
-        ValidateToolArguments(name, arguments);
-        return SubmitAndWait(BuildOperation(name, arguments)).ToProtocolResult();
+            var argumentsToken = parameters["arguments"];
+            var arguments = argumentsToken switch
+            {
+                null => new JObject(),
+                JObject value => value,
+                _ => throw new GameMcpInvalidParamsException("arguments must be an object"),
+            };
+            ValidateToolArguments(name, arguments);
+            return SubmitAndWait(BuildOperation(name, arguments)).ToProtocolResult();
+        }
+        catch (GameMcpInvalidParamsException exception)
+            when (exception.Code != "unknown_tool")
+        {
+            return ArgumentRefusal(exception).ToProtocolResult();
+        }
     }
+
+    /// <summary>The refusal body an argument the server will not run answers with.</summary>
+    private static GameMcpToolExecution ArgumentRefusal(GameMcpInvalidParamsException exception) =>
+        GameMcpToolExecution.Read(new GameMcpObjectBuilder
+        {
+            ["status"] = "rejected",
+            ["code"] = exception.Code,
+            ["reason"] = exception.Message,
+        });
 
     private JObject ReadResourceNew(JObject request)
     {
@@ -481,7 +503,8 @@ internal sealed class GameMcpProtocolRouter
                 break;
             default:
                 throw new GameMcpInvalidParamsException(
-                    "unknown tool '" + name + "'; call tools/list");
+                    "unknown tool '" + name + "'; call tools/list",
+                    "unknown_tool");
         }
         builder.Classification = Classification(name, builder);
         builder.RequiredData = RequiredData(name, builder);
@@ -1900,15 +1923,28 @@ internal sealed class GameMcpProtocolRouter
                     .Append(candidates[index].ToString("D"));
             }
             throw new GameMcpInvalidParamsException(
-                "refused (" + GameMcpDecisionReason.ClassInput + "): the id " + text + " given for " +
+                "the id " + text + " given for " +
                 name + " names more than one published entity — " + written +
-                "; send more characters or the whole UUID");
+                "; send more characters or the whole UUID",
+                "ambiguous_handle");
+        }
+
+        // A handle stops resolving the moment a run ends, and answering "that is not an id" for one
+        // this same run handed out taught a caller to throw away good ids after any teardown. The
+        // whole UUID for the same entity already answered with the lifecycle fact; so does this.
+        if (outcome == GameMcpEntityHandle.ResolutionOutcome.CatalogUnavailable)
+        {
+            throw new GameMcpInvalidParamsException(
+                "No entity catalog is published, so no id handle resolves; " +
+                "the whole UUID still reads, and handles resolve again once a save is loaded.",
+                "entity_catalog_unavailable");
         }
         if (outcome == GameMcpEntityHandle.ResolutionOutcome.NotFound || uuid == Guid.Empty)
         {
             throw new GameMcpInvalidParamsException(
-                "refused (" + GameMcpDecisionReason.ClassInput + "): " + name +
-                " must be a whole canonical UUID or an id handle that names one published entity");
+                name + " must be a whole canonical UUID or an id handle that names one published " +
+                "entity",
+                "invalid_uuid");
         }
         return uuid;
     }
@@ -2070,29 +2106,28 @@ internal readonly struct GameMcpProtocolResponse
     internal static GameMcpProtocolResponse Json(JObject body) => new(200, body);
 }
 
+/// <summary>
+/// A tool call the server will not run because of what it was asked, carrying the producer code
+/// that says which kind of no it is.
+/// </summary>
 internal sealed class GameMcpInvalidParamsException : Exception
 {
-    internal GameMcpInvalidParamsException(string message) : base(message) { }
-
-    private GameMcpInvalidParamsException(string message, JObject dataObject)
+    internal GameMcpInvalidParamsException(
+        string message,
+        string code = "argument_validation_failed")
         : base(message)
     {
-        DataObject = dataObject;
+        Code = code;
     }
 
-    internal JObject? DataObject { get; }
+    internal string Code { get; }
 
     internal static GameMcpInvalidParamsException Validation(JArray errors) =>
-        new(
-            Sentence(errors),
-            new JObject
-            {
-                ["kind"] = "argument_validation_failed",
-                ["validationErrors"] = errors,
-            });
+        new(Sentence(errors));
 
-    // Most MCP clients show the caller only this message, so the offending fields belong in it. A
-    // validation error that names no field costs the caller a guess per attempt.
+    // The sentence names every offending field, which is the whole of what a parallel array of
+    // {code, field, message} rows said — the same facts once more in a machine shape, on a surface
+    // whose one representation is the page a caller reads.
     private static string Sentence(JArray errors)
     {
         var text = new System.Text.StringBuilder("tool arguments failed schema validation");

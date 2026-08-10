@@ -609,10 +609,39 @@ public sealed class GameMcpStreamableHttpProtocolTests
                 },
             }));
 
-        Assert.Equal(-32602, (int?)response.Body?["error"]?["code"]);
-        Assert.Contains(
-            "must be a whole canonical UUID or an id handle",
-            (string?)response.Body?["error"]?["message"]);
+        Assert.Equal(
+            "refused (ERR_INPUT): uuid must be a whole canonical UUID or an id handle " +
+            "that names one published entity",
+            GameMcpTestHarness.Page(response));
+    }
+
+    /// <summary>
+    /// A handle valid ninety seconds earlier used to read as a typo the moment the run ended, so a
+    /// caller had reason to throw away good ids after any teardown. It now says the same lifecycle
+    /// fact the whole UUID for the same entity already answered with.
+    /// </summary>
+    [Fact]
+    public void A_handle_after_teardown_says_the_lifecycle_fact_rather_than_calling_it_malformed()
+    {
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var response = router.Handle(Request(
+            8,
+            "tools/call",
+            new JObject
+            {
+                ["name"] = "world_get",
+                ["arguments"] = new JObject
+                {
+                    ["category"] = "resources",
+                    ["uuid"] = "b11072",
+                },
+            }));
+
+        Assert.Equal(
+            "refused (ERR_UNAVAILABLE): No entity catalog is published, so no id handle " +
+            "resolves; the whole UUID still reads, and handles resolve again once a save " +
+            "is loaded.",
+            GameMcpTestHarness.Page(response));
     }
 
     [Fact]
@@ -631,19 +660,10 @@ public sealed class GameMcpStreamableHttpProtocolTests
                 },
             }));
 
-        Assert.Equal(-32602, (int?)response.Body?["error"]?["code"]);
         Assert.Equal(
-            "argument_validation_failed",
-            (string?)response.Body?["error"]?["data"]?["kind"]);
-        var errors = response.Body!["error"]!["data"]!["validationErrors"]!
-            .OfType<JObject>()
-            .ToArray();
-        Assert.Contains(errors, error =>
-            (string?)error["code"] == "missing_required" &&
-            (string?)error["field"] == "uuid");
-        Assert.Contains(errors, error =>
-            (string?)error["code"] == "unexpected_field" &&
-            (string?)error["field"] == "id");
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'uuid' is missing; required field 'amount' is missing; field 'id' " +
+            "is not accepted by game_purchase", GameMcpTestHarness.Page(response));
     }
 
     [Fact]

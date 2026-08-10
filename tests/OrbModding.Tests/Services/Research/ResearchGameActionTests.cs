@@ -169,6 +169,11 @@ public sealed class ResearchGameActionTests : IDisposable
         Assert.False(target.isDeveloping);
     }
 
+    /// <summary>
+    /// Nothing is wrong with the mode a caller named when the game's own queue setting is what
+    /// closes pause and resume, so the refusal is the same state class every other precondition
+    /// answers with rather than the class reserved for a bad argument.
+    /// </summary>
     [Fact]
     public void Ui_mode_and_state_gates_are_preserved_for_pause_and_bonus()
     {
@@ -185,7 +190,7 @@ public sealed class ResearchGameActionTests : IDisposable
         var pause = Submit(boundary, target, ResearchActionKind.Pause);
         var bonus = Submit(boundary, target, ResearchActionKind.Bonus);
 
-        Assert.Equal(ResearchPreflight.InvalidMode, pause.Preflight);
+        Assert.Equal(ResearchPreflight.InvalidState, pause.Preflight);
         Assert.Equal(ResearchPreflight.InvalidState, bonus.Preflight);
     }
 

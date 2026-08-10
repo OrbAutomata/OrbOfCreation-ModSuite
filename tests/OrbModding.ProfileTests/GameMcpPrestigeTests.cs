@@ -42,8 +42,9 @@ public sealed class GameMcpPrestigeTests
                 ["arguments"] = new JObject { ["confirm"] = false },
             }));
 
-        Assert.Equal(-32602, (int?)response.Body!["error"]!["code"]);
-        Assert.Contains("confirm must be true", (string?)response.Body["error"]!["message"]);
+        Assert.Equal(
+            "refused (ERR_INPUT): confirm must be true to request the irreversible " +
+            "persistent reset", GameMcpTestHarness.Page(response));
         Assert.Empty(inbox.ClaimPending());
     }
 

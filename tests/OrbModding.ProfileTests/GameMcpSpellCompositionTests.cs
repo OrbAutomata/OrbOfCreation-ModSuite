@@ -65,13 +65,9 @@ public sealed class GameMcpSpellCompositionTests
                 ["arguments"] = new JObject { ["dial"] = "output" },
             }));
 
-        Assert.Equal(-32602, (int)response.Body!["error"]!["code"]!);
-        var errors = response.Body["error"]!["data"]!["validationErrors"]!
-            .Values<JObject>()
-            .ToArray();
-        Assert.Equal(new[] { "value" },
-            errors.Select(error => (string?)error!["field"]));
-        Assert.All(errors, error => Assert.Equal("missing_required", (string?)error!["code"]));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'value' is missing", GameMcpTestHarness.Page(response));
     }
 
     [Fact]

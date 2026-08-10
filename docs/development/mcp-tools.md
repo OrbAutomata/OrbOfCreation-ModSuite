@@ -150,7 +150,10 @@ so a build whose published id set moved fails the gate rather than shipping a co
 
 Every id argument accepts the whole canonical UUID **or** any prefix that names exactly one
 published id — the handle a response just printed is always one of those. A prefix that matches
-several answers `ERR_INPUT` and names the ids it matched; nothing is guessed.
+several answers `ERR_INPUT` and names the ids it matched; nothing is guessed. A handle resolves
+against the catalog the current run publishes, so when no catalog is published the refusal says
+that — `ERR_UNAVAILABLE`, the same lifecycle fact the whole UUID for the same entity answers with —
+rather than calling a handle the same run handed out a malformed argument.
 
 An entity is its name and its handle wherever it appears: `Constitution 006061`. An id the catalog
 cannot name renders as `(unnamed 2c20e7)` — marked, never a bare id that reads like a row whose name
@@ -1217,7 +1220,7 @@ most, so an old code's new class can be looked up here:
 
 | Class | Internal codes that reach it |
 | --- | --- |
-| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `slot_out_of_range`, `screen_match_failed`, `composite_identity_required`, `discovery_surface_ambiguous` |
+| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `slot_out_of_range`, `configuration_write_rejected`, `screen_match_failed`, `composite_identity_required`, `discovery_surface_ambiguous` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `recipe_has_no_core_glyph` |
 | `ERR_STATE` | `invalid_state`, `already_maxed`, `already_developing`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
@@ -1226,9 +1229,11 @@ most, so an old code's new class can be looked up here:
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused` — the game's own gate said no and reported nothing else |
 
-Three of those placements are worth reading twice, because the obvious guess is wrong.
+Four of those placements are worth reading twice, because the obvious guess is wrong.
 `slot_out_of_range` is `ERR_INPUT` and not `ERR_LIMIT`: the caller named a slot the list never had,
-which is a bad argument rather than a ceiling reached. `cannot_level` is `ERR_LOCKED` and not
+which is a bad argument rather than a ceiling reached. `configuration_write_rejected` is `ERR_INPUT`
+for the same reason a dial value outside the game's range is: one kind of no is one class wherever
+it happens, and a class that changed with the verb taught callers it described the tool. `cannot_level` is `ERR_LOCKED` and not
 `ERR_LIMIT` for the reason its own row gives — no level list in this game has a ceiling, so a shut
 level gate is always a gate rather than an exhausted supply. Both leeway codes are `ERR_LOCKED` and
 not `ERR_LIMIT`: research leeway is a gate the game opens as the requirement level moves, not a
@@ -1371,7 +1376,7 @@ forbidden there; a decision block is where the game's live answer lives, never a
 call signature.
 
 Two shapes were retired rather than joined: a bound named only in an English sentence, and a
-JSON-RPC `-32602` text quoting an `int.MaxValue` placeholder as if it were the game's limit. A
+refusal quoting an `int.MaxValue` placeholder as if it were the game's limit. A
 sentence that names a ceiling now ships that ceiling in one of the fields above, and a schema
 message states only the floor it actually declares, leaving the ceiling to the game and to the
 refusal that names it.
@@ -1450,10 +1455,14 @@ every other spender in that window, so it is not a price and is not computed.
 A tool result is one page of text in `content`, emitted once, beside any inline media such as a
 screenshot; success omits the false `isError` default. The server publishes no `structuredContent`
 duplicate of the same answer, avoiding a second client-side parse and text-channel truncation.
-Invalid arguments return all detected schema
-shape errors together under `error.data.validationErrors`, with distinct `missing_required` and
-`unexpected_field` codes, and `error.message` names the offending fields because that is the part
-most clients show the caller.
+
+**One transport per kind of answer.** A refusal about what a known tool was asked is a tool result
+in the same one-line shape as every other refusal — `refused (ERR_INPUT): …` — never a JSON-RPC
+error beside it. A caller branches on what went wrong, not on which of two shapes the answer
+arrived in. Only a request that never named a tool this server has is a protocol error: an unknown
+method, a malformed envelope, or an unknown tool name. An argument refusal reports every schema
+problem it detected in one sentence, each naming its offending field, and there is no parallel
+array repeating those same facts in a machine shape — the page is the one representation.
 
 A faulted GameAction is still a completed MCP tool invocation: it omits `isError`, and its domain
 verdict line — status, class, and the actionable sentence — plus one relevant fact remain on the
@@ -1707,6 +1716,10 @@ which is what a level finishing inside the call looks like. A level takes resear
 unconditional level pair on a develop reported the same number twice while the queue it grew went
 unpublished. `bonus` returns its own `bonusLevel` pair. No mode returns a receipt, payment stanza,
 or read-back.
+
+`pause` and `resume` are UI-reachable only while Research Queue Mode is off, and a call made with it
+on is refused as `ERR_STATE`, not `ERR_INPUT`: nothing is wrong with the mode the caller named, and
+turning the game's own setting off reopens both controls.
 
 No MCP fault installs a persistent family quarantine. A faulted or refused request leaves nothing
 behind: the next call returns to the same action boundary and revalidates current identity, native

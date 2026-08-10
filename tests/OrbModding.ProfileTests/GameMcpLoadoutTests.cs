@@ -70,14 +70,12 @@ public sealed class GameMcpLoadoutTests
                 },
             }));
 
-        Assert.Contains(missing.Body!["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => error is not null &&
-                     (string?)error["code"] == "missing_required" &&
-                     (string?)error["field"] == "slot");
-        Assert.Contains(extra.Body!["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => error is not null &&
-                     (string?)error["code"] == "unexpected_for_mode" &&
-                     (string?)error["field"] == "name");
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'slot' is missing for mode 'snapshot_load'", GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'name' is accepted only for mode 'rename'", GameMcpTestHarness.Page(extra));
     }
 
     [Fact]

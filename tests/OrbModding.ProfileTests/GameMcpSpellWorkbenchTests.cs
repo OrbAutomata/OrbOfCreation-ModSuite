@@ -60,12 +60,10 @@ public sealed class GameMcpSpellWorkbenchTests
                 ["arguments"] = new JObject { ["mode"] = "confirm" },
             }));
 
-        Assert.Equal(-32602, (int)response.Body!["error"]!["code"]!);
-        var errors = response.Body["error"]!["data"]!["validationErrors"]!
-            .Values<JObject>().ToArray();
-        Assert.Equal(new[] { "surface", "components" },
-            errors.Select(error => (string?)error["field"]));
-        Assert.All(errors, error => Assert.Equal("missing_required", (string?)error["code"]));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'surface' is missing for mode 'confirm'; required field " +
+            "'components' is missing for mode 'confirm'", GameMcpTestHarness.Page(response));
     }
 
     [Fact]

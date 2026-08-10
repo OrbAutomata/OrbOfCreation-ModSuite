@@ -563,7 +563,9 @@ public sealed class GameMcpProtocolSurfaceTests
                 ["name"] = "explain_entity",
                 ["arguments"] = new JObject { ["uuid"] = "not-a-guid" },
             }));
-        Assert.Equal(-32602, (int)invalid.Body!["error"]!["code"]!);
+        Assert.Equal(
+            "refused (ERR_INPUT): uuid must be a whole canonical UUID or an id handle " +
+            "that names one published entity", GameMcpTestHarness.Page(invalid));
     }
 
     [Fact]
@@ -682,11 +684,9 @@ public sealed class GameMcpProtocolSurfaceTests
                 ["name"] = "suite_health",
                 ["arguments"] = new JObject { ["detail"] = "AutoBuy" },
             }));
-        Assert.Equal(-32602, (int)rejected.Body!["error"]!["code"]!);
-        var error = Assert.Single(
-            rejected.Body["error"]!["data"]!["validationErrors"]!.Values<JObject>())!;
-        Assert.Equal("unexpected_field", (string?)error["code"]);
-        Assert.Equal("detail", (string?)error["field"]);
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'detail' is not accepted by suite_health", GameMcpTestHarness.Page(rejected));
     }
 
     [Fact]

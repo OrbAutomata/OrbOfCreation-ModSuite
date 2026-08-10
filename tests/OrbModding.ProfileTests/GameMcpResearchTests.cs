@@ -57,20 +57,16 @@ public sealed class GameMcpResearchTests
                 },
             }));
 
-        var missingErrors = Assert.IsType<JArray>(missing.Body!["error"]!["data"]!["validationErrors"]);
-        Assert.Contains(missingErrors.Values<JObject>(), error => (string?)error!["code"] == "missing_required" &&
-                (string?)error["field"] == "uuid");
-        Assert.Equal(-32602, (int?)rejected.Body?["error"]?["code"]);
-        Assert.Contains(
-            rejected.Body!["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => (string?)error["code"] == "unexpected_field" &&
-                     (string?)error["field"] == "worldGeneration");
-
-        // Most clients show the caller only error.message, so the offending fields belong in it.
-        Assert.Contains("uuid", (string?)missing.Body!["error"]!["message"]!,
-            StringComparison.Ordinal);
-        Assert.Contains("worldGeneration", (string?)rejected.Body!["error"]!["message"]!,
-            StringComparison.Ordinal);
+        // One transport: an argument refusal is the page every other refusal is, and its sentence
+        // names the offending field rather than repeating it in a parallel machine array.
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: " +
+            "required field 'uuid' is missing",
+            GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: " +
+            "field 'worldGeneration' is not accepted by game_research",
+            GameMcpTestHarness.Page(rejected));
         Assert.Empty(inbox.ClaimPending());
     }
 

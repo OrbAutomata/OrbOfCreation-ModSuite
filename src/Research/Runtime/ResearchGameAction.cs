@@ -196,8 +196,10 @@ internal sealed class ResearchGameAction : IDisposable
                 return ResearchPreflight.Proceeded;
             case ResearchActionKind.Pause:
             case ResearchActionKind.Resume:
+                // Nothing is wrong with the mode the caller named; the game's own queue setting is
+                // what closes the two controls, and turning it off reopens them.
                 if (state.QueueMode)
-                { reason = "Pause and resume are UI-reachable only when Research Queue Mode is disabled."; return ResearchPreflight.InvalidMode; }
+                { reason = "Pause and resume are UI-reachable only when Research Queue Mode is disabled."; return ResearchPreflight.InvalidState; }
                 if (!state.IsDeveloping || (kind == ResearchActionKind.Pause ? !state.IsActive : state.IsActive))
                 {
                     var observed = !state.IsDeveloping

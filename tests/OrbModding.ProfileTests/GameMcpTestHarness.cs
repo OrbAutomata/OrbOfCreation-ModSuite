@@ -31,6 +31,18 @@ internal static class GameMcpTestHarness
     internal static string Handle(Guid uuid) => GameMcpEntityHandle.Format(uuid);
 
     /// <summary>
+    /// The one page a tool call answers with. A refusal about what a known tool was asked arrives
+    /// here, in the same shape as every other refusal, rather than as a protocol error beside it.
+    /// </summary>
+    internal static string Page(GameMcpProtocolResponse response)
+    {
+        Assert.Null(response.Body!["error"]);
+        return (string)Assert.Single(
+            response.Body["result"]!["content"]!.Values<JObject>(),
+            content => (string?)content!["type"] == "text")!["text"]!;
+    }
+
+    /// <summary>
     /// The caller's half of the handle contract: what a response said, read back as an id argument
     /// through the same resolver the tool boundary uses.
     /// </summary>

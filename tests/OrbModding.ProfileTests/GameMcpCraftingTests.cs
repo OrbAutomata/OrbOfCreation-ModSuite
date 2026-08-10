@@ -78,17 +78,12 @@ public sealed class GameMcpCraftingTests
                 },
             }));
 
-        var missingErrors = Assert.IsType<JArray>(
-            missing.Body!["error"]!["data"]!["validationErrors"]);
-        Assert.Contains(
-            missingErrors.Values<JObject>(),
-            error => (string?)error!["code"] == "missing_required" &&
-                     (string?)error["field"] == "uuid");
-        Assert.Equal(-32602, (int?)accepted.Body?["error"]?["code"]);
-        Assert.Contains(
-            accepted.Body!["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => (string?)error!["code"] == "unexpected_field" &&
-                     (string?)error["field"] == "worldGeneration");
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'uuid' is missing", GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'worldGeneration' is not accepted by game_craft", GameMcpTestHarness.Page(accepted));
         Assert.Empty(inbox.ClaimPending());
     }
 

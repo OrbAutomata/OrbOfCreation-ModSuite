@@ -51,10 +51,12 @@ public sealed class GameMcpChallengeTests
                 },
             }));
 
-        Assert.Contains(missing.Body!["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => (string?)error?["code"] == "missing_required" && (string?)error?["field"] == "uuid");
-        Assert.Contains(forbidden.Body!["error"]!["data"]!["validationErrors"]!.Values<JObject>(),
-            error => (string?)error?["code"] == "unexpected_for_mode" && (string?)error?["field"] == "uuid");
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'uuid' is missing for mode 'select'", GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'uuid' is not accepted for mode 'reroll'", GameMcpTestHarness.Page(forbidden));
     }
 
     /// <summary>
