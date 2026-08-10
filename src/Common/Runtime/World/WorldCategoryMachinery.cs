@@ -628,6 +628,13 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
     /// </summary>
     private readonly Func<GameWorldCycleFrame, WorldSampleBuffer<TSample, TRow>> _buffer;
 
+    /// <summary>
+    /// Reads this category's registry. Resolved once with the rest of the binding rather than looked
+    /// up per pass: the member does not move within a lifecycle, and rediscovering it four times a
+    /// second for every category is a fixed cost paid for nothing.
+    /// </summary>
+    private readonly Func<IList?>? _registry;
+
     internal WorldCategoryReader(
         WorldRowBinder<TSample, TRow> binder,
         Type? nativeType,
@@ -639,6 +646,7 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
         _unavailable = nativeType is null
             ? $"the {binder.TypeName} type was not found on this build"
             : binder.Bind(nativeType);
+        _registry = NativeAccessorBinder.StaticListAccessor(nativeType, binder.RegistryMember);
     }
 
     public string Category => _binder.Category;
@@ -651,7 +659,7 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
         buffer.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var entities = NativeAccessorBinder.StaticList(_nativeType, _binder.RegistryMember);
+        var entities = _registry?.Invoke();
         if (entities is null)
         {
             return WorldCategoryReport.Missing(
