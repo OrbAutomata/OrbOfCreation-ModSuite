@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -35,8 +36,14 @@ public sealed class GameMcpPageBudgetTests
             "a page of " + bytes + " bytes left most of the published bound unused");
     }
 
+    /// <summary>
+    /// A search page mixes categories, so borrowing each category's scan columns unioned them all
+    /// and padded the rest with dashes. Every cell here is filled, and `category` — the column that
+    /// says which read verb can follow up on the hit — is on every row rather than on the few rows
+    /// that happened to have no identity of their own.
+    /// </summary>
     [Fact]
-    public void A_search_match_is_the_row_the_list_would_have_returned()
+    public void A_search_match_names_the_entity_and_the_category_that_reads_the_rest()
     {
         var state = ResourceWorld(200);
         var listed = (JObject)GameMcpTestHarness.Json(
@@ -49,8 +56,9 @@ public sealed class GameMcpPageBudgetTests
             20).Freeze())["rows"]![0]!;
 
         Assert.Equal((string?)listed["uuid"], (string?)match["uuid"]);
+        Assert.Equal((string?)listed["name"], (string?)match["name"]);
         Assert.Equal("resources", (string?)match["category"]);
-        Assert.Equal(listed.ToString(Formatting.None), match.ToString(Formatting.None));
+        Assert.Equal(new[] { "uuid", "name", "category" }, match.Properties().Select(p => p.Name));
     }
 
     private static GameMcpFrameContext ResourceWorld(int maximumRows)

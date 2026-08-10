@@ -142,6 +142,9 @@ internal static class GameMcpWorldQuery
         }
 
         var world = publication.Snapshot;
+        if (string.Equals(category.Name, "mastery-experience", StringComparison.Ordinal))
+            return MasteryExperienceSummary(publication, offset, limit);
+
         var count = category.Count(world);
         var rows = new JArray();
         var total = 0;
@@ -210,6 +213,81 @@ internal static class GameMcpWorldQuery
         if (end < total) result["nextOffset"] = end;
         return result;
     }
+
+    /// <summary>
+    /// What the mastery-experience ring actually says, rather than the ring.
+    /// </summary>
+    /// <remarks>
+    /// The buffer is a fixed-size window the game overwrites, and the sources feeding it repeat on a
+    /// short cycle: reading it row by row cost four full pages to deliver about fifteen distinct
+    /// facts, and the only column that varied down the page was a monotone counter. The page says
+    /// each distinct source once with how many of the window's samples it earned, and names the
+    /// window itself so a caller can tell one read's window from the next.
+    /// </remarks>
+    private static JObject MasteryExperienceSummary(
+        WorldPublication<GameWorldState> publication,
+        int offset,
+        int limit)
+    {
+        var world = publication.Snapshot;
+        var samples = world.MasteryExperience;
+        var keys = new List<(MasteryExperienceDomain Domain, Guid SourceId, int SourceMastery)>();
+        var counts = new List<int>();
+        for (var index = 0; index < samples.Count; index++)
+        {
+            var sample = samples[index];
+            var key = (sample.Domain, sample.SourceId, sample.SourceMastery);
+            var found = false;
+            for (var slot = 0; slot < keys.Count; slot++)
+            {
+                if (!keys[slot].Equals(key)) continue;
+                counts[slot]++;
+                found = true;
+                break;
+            }
+            if (found) continue;
+            keys.Add(key);
+            counts.Add(1);
+        }
+
+        var rows = new JArray();
+        var end = Math.Min(keys.Count, checked(offset + limit));
+        for (var index = Math.Min(offset, keys.Count); index < end; index++)
+        {
+            rows.Add(new JObject
+            {
+                ["count"] = counts[index],
+                ["domain"] = keys[index].Domain.ToString(),
+                ["sourceMastery"] = keys[index].SourceMastery,
+                ["sourceId"] = keys[index].SourceId.ToString("D"),
+                ["category"] = "mastery-experience",
+                ["addressable"] = false,
+            });
+        }
+
+        var result = Envelope(publication);
+        if (samples.Count > 0)
+        {
+            result["window"] = new JObject
+            {
+                ["samples"] = samples.Count,
+                ["firstSequence"] = samples[0].Sequence,
+                ["lastSequence"] = samples[samples.Count - 1].Sequence,
+            };
+        }
+        result["rows"] = rows;
+        result["total"] = keys.Count;
+        if (end < keys.Count) result["nextOffset"] = end;
+        return result;
+    }
+
+    /// <summary>One search hit: which entity it is, and which category can be read for the rest.</summary>
+    private static GameMcpValue ProjectSearchMatch(GameMcpWorldCategory category, Guid identity) =>
+        new JObject
+        {
+            ["entityId"] = identity.ToString("D"),
+            ["category"] = category.Name,
+        }.Freeze();
 
     private static GameMcpValue ProjectListRow(
         GameWorldState world,
@@ -2929,10 +3007,13 @@ internal static class GameMcpWorldQuery
                 totalMatches++;
                 scanned++;
                 if (scanned <= offset || rows.Count >= limit || byteBudgetReached) continue;
-                // A match is the same row world_list would have returned for that category, named
-                // and scanned. A bare uuid and category cost the caller a second call to learn
-                // anything about what it had just found.
-                var projected = ProjectListRow(publication.Snapshot, category, row);
+                // A search page holds rows from every category at once, so borrowing each
+                // category's own scan columns unioned seventeen headings across the page and left
+                // about nine cells in ten empty — and the one column that says which read verb can
+                // follow up on a hit was blank on almost every row, because only rows without an
+                // identity were carrying it. A match says what it is and what kind of thing it is;
+                // widening is world_list's job, on a page whose columns all apply.
+                var projected = ProjectSearchMatch(category, identity);
                 var local = LocalizedRequirementImplications(
                     publication.Snapshot, new HashSet<Guid> { identity });
                 var localOffers = LocalizedDiscoveryOfferImplications(
@@ -6268,8 +6349,19 @@ internal static class GameMcpWorldQuery
             // This row answers for its own resource. The whole-price verdict is what the rows fold
             // to, and a row that reported it claimed to be short of a resource it holds plenty of.
             result["affordable"] = cost.ResourceAffordable;
-            if (!cost.ResourceAffordable)
+
+            // `affordable: no` beside the cost and the holding already says "short of this". The
+            // plain shortfall code and the generic sentence behind it wrote that same fact a second
+            // and a third time on every row of a 744-row category, so only a shortfall that says
+            // something else — a bandwidth ceiling rather than a quantity — still names itself.
+            if (!cost.ResourceAffordable &&
+                !string.Equals(
+                    cost.ResourceAffordabilityReasonCode,
+                    "insufficient_quantity",
+                    StringComparison.Ordinal))
+            {
                 result["reasonCode"] = cost.ResourceAffordabilityReasonCode;
+            }
         }
         return result;
     }

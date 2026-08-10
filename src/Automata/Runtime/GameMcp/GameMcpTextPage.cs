@@ -208,7 +208,7 @@ internal static class GameMcpTextPage
                 {
                     if (index > 0) header.Append(", ");
                     header.Append(constants[index].Key).Append('=')
-                        .Append(Cell(constants[index].Value));
+                        .Append(HeaderCell(constants[index].Value));
                 }
             }
             header.Append("  [").Append(string.Join(separator, ColumnLabels(columns))).Append(']');
@@ -240,6 +240,12 @@ internal static class GameMcpTextPage
     /// line. Any column holding one value across the whole page moves into the header, because a
     /// value repeated on every line is a page-level fact wearing a row's clothes.
     /// </summary>
+    /// <remarks>
+    /// Only the columns that vary have to fit in a cell. A constant one is said once in the header,
+    /// so its size stops being a per-row cost — and a page whose every row carried the same refusal
+    /// block was rendered as twenty paragraphs precisely because that block was too big for a cell
+    /// it was never going to occupy.
+    /// </remarks>
     private static bool TryTable(
         JArray array,
         out List<string> columns,
@@ -254,10 +260,7 @@ internal static class GameMcpTextPage
         {
             if (array[index] is not JObject row) return false;
             foreach (var property in row.Properties())
-            {
-                if (!Flat(property.Value)) return false;
                 if (seen.Add(property.Name)) columns.Add(property.Name);
-            }
         }
         if (columns.Count == 0) return false;
 
@@ -276,6 +279,16 @@ internal static class GameMcpTextPage
             }
             if (varying.Count == 0) constants.Clear();
             else columns = varying;
+        }
+
+        for (var index = 0; index < array.Count; index++)
+        {
+            var row = (JObject)array[index];
+            for (var column = 0; column < columns.Count; column++)
+            {
+                var cell = row[columns[column]];
+                if (cell is not null && !Flat(cell)) return false;
+            }
         }
 
         for (var index = 0; index < array.Count; index++)
@@ -306,6 +319,31 @@ internal static class GameMcpTextPage
         }
     }
 
+    /// <summary>
+    /// A constant said once for the whole page, so nothing about it is budgeted against a row it
+    /// does not occupy: the sentence a refusal repeated on every line is what the header exists to
+    /// carry.
+    /// </summary>
+    private static string HeaderCell(JToken value)
+    {
+        if (value is not JObject item) return Cell(value);
+        var status = (string?)item["status"];
+        var reason = (string?)item["reason"];
+        if (status is null || reason is null) return TryInline(item, int.MaxValue) ?? Cell(value);
+
+        // The same grammar a verdict has anywhere else: which kind of answer it is, the fields a
+        // caller acts on, then the sentence — which ends in a full stop, so nothing may follow it.
+        var line = new StringBuilder(status);
+        if ((string?)item["reasonCode"] is { } code) line.Append(" (").Append(code).Append(')');
+        foreach (var property in item.Properties())
+        {
+            if (property.Name is "status" or "reasonCode" or "reason") continue;
+            if (property.Value.Type == JTokenType.Null) continue;
+            line.Append(' ').Append(property.Name).Append('=').Append(Cell(property.Value));
+        }
+        return line.Append(": ").Append(reason).ToString();
+    }
+
     private static string Cell(JToken value)
     {
         switch (value)
@@ -331,7 +369,9 @@ internal static class GameMcpTextPage
     /// say it, and one level of nesting is the limit: two levels of <c>key=value</c> inside one line
     /// stop being readable exactly where a caller most needs to read them.
     /// </summary>
-    private static string? TryInline(JObject item)
+    private static string? TryInline(JObject item) => TryInline(item, InlineBudget);
+
+    private static string? TryInline(JObject item, int budget)
     {
         if (item.Count == 0) return "none";
         if (IsIdentity(item)) return Identity(item);
@@ -392,7 +432,7 @@ internal static class GameMcpTextPage
             body = line.ToString();
         }
         else if (parts.Count == 0) body = "none";
-        return body.Length > InlineBudget ? null : body;
+        return body.Length > budget ? null : body;
     }
 
     /// <summary>

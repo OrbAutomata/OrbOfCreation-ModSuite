@@ -376,12 +376,14 @@ public sealed class GameMcpWorldQueryTests
             GameMcpAcceptanceFixture.SpellId.ToString("D"),
             0,
             5));
-        // A match is the row the list would have returned, so search costs one call rather than a
-        // pointer plus a follow-up read.
+        // A match names the entity and the category that reads the rest of it. Borrowing each
+        // category's scan columns unioned every category's headings onto one page and left nine
+        // cells in ten empty, on the tool whose whole job is routing the caller to the right read.
         var match = Assert.Single(search["rows"]!.Values<JObject>())!;
-        Assert.Equal(
-            scan.ToString(Newtonsoft.Json.Formatting.None),
-            match.ToString(Newtonsoft.Json.Formatting.None));
+        Assert.Equal((string?)scan["uuid"], (string?)match["uuid"]);
+        Assert.Equal((string?)scan["name"], (string?)match["name"]);
+        Assert.Equal("spell-recipes", (string?)match["category"]);
+        Assert.Equal(3, match.Properties().Count());
 
         var exact = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             state,

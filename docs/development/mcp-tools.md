@@ -123,8 +123,10 @@ same idiom and no producer invents its own formatting.
   line: `rows 56/180 next=56; all queuedLevels=0  [id name level]` then `006061 Constitution 2259`.
   `total` and `nextOffset` live in that header, never on a row. Any column holding one value across
   the whole page moves into the header behind `all` — a value repeated on every line is a page fact
-  wearing a row's clothes. Columns are separated by a single space, or by ` | ` when any cell on the
-  page contains one.
+  wearing a row's clothes. Only a column that actually varies has to fit in a cell: a constant one is
+  said once in the header however long it is, so a page whose every row carried the same multi-line
+  refusal is a table with a long header rather than twenty paragraphs. Columns are separated by a
+  single space, or by ` | ` when any cell on the page contains one.
 - **A refusal is one line**: `refused (ERR_NOT_FOUND): The spell Beam Burst you tried to cancel is
   not currently active.` A decision block reads the same way, verdict first and sentence last:
   `equip: no (ERR_LIMIT) maximumAmount=0: Every slot in this loadout is in use.`
@@ -259,6 +261,12 @@ its only page bound.
 `world_search` deduplicates by entity identity before paging, so one entity that matches in two
 categories occupies one row and one page slot.
 
+A `world_search` row is `uuid`, `name`, and `category`, on every row and with no other column. A
+search page holds hits from every category at once, so borrowing each category's own scan columns
+unioned every heading onto one table and left about nine cells in ten empty — while `category`, the
+column that says which read verb can follow the hit up, was filled only on rows that had no identity
+of their own. Widening is `world_list`'s job, on a page whose columns all apply to every row.
+
 The two search tools page in different orders and are not interchangeable at the same offset.
 `world_search` walks the published world category by category in `world_list` order and, inside a
 category, in publication order; `entity_catalog` walks the whole live registry in UUID order. They
@@ -327,6 +335,14 @@ written unconditionally so the header is the same one before and after a lifecyc
 published cost verdict for the next development, which is a fact of the row rather than of the
 develop gate — so the scan row carries it everywhere instead of only where that gate is open.
 
+`mastery-experience` answers with a summary rather than the ring behind it. The category is a
+fixed-size window the game overwrites, and the sources feeding it repeat on a short cycle, so paging
+it row by row cost four full pages to deliver about fifteen distinct facts with a monotone `sequence`
+as the only column that varied. The page publishes one row per distinct `domain`/`sourceMastery`/
+source with the `count` of window samples it earned, and one `window` block — `samples`,
+`firstSequence`, `lastSequence` — so a caller can tell one read's window from the next. `total`,
+`offset`, and `nextOffset` count summary rows.
+
 A `structures` row publishes `level` as the number the attribute's own badge shows, the game's
 persisted `GetBaseLevel()`, and names work still in flight separately as `queuedLevels`, which is
 always present because zero levels in flight is an answer; neither
@@ -367,9 +383,12 @@ the screen's spend units: ordinary nominal costs are divided by the resource qua
 the audited `GetTrueSpend` formula, while bandwidth costs remain nominal. Each structure/upgrade cost row exposes
 the screen's `cost`, the matching `spendableAmount`, and the resource identity needed for the
 next decision. Every cost row uses `cost` for the screen price and `spendableAmount` for the
-same-publication player pool, with `affordable` and a reason only when the decision was evaluated.
+same-publication player pool, with `affordable` only when the decision was evaluated.
 A row's verdict answers for that row's own resource; the whole price is what the rows fold to, so
-no aggregate verdict is published beside them.
+no aggregate verdict is published beside them. A short row names no reason code and no sentence:
+the price and the holding beside `affordable: false` already say "short of this", and writing that
+one bit three ways cost thirty constant bytes on every row of a 744-row category. A shortfall that
+says something else — a bandwidth ceiling rather than a quantity — still names itself.
 Ordinary resources compare their raw on-screen pool against the quality-adjusted spend; bandwidth
 resources compare nominal cost against headroom using the game's integer-snapped comparison. A
 counter's `amount` is always the number the screen shows for it, whatever native member happens to

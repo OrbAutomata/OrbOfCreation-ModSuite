@@ -62,7 +62,30 @@ public sealed class GameMcpAffordabilityTests
         Assert.Contains("structures", (string?)refusal["reason"], StringComparison.Ordinal);
     }
 
-    private static GameMcpFrameContext World()
+    /// <summary>
+    /// One bit written three ways — `affordable: no`, the shortfall code, and the generic sentence
+    /// the code expands to — cost thirty constant bytes on every row of a 744-row category. The
+    /// price and the holding beside it already say which way the row went.
+    /// </summary>
+    [Theory]
+    [InlineData("insufficient_quantity", null)]
+    [InlineData("insufficient_bandwidth", "ERR_UNAFFORDABLE")]
+    public void A_short_price_row_says_it_once_unless_the_shortfall_says_something_else(
+        string code,
+        string? expected)
+    {
+        var page = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.ListRows(World(code), "purchase-costs", 0, 50));
+
+        var row = page["rows"]!.Values<JObject>()
+            .Single(candidate => !(bool)candidate!["affordable"]!)!;
+        Assert.Equal(expected, (string?)row["reasonCode"]);
+        Assert.Equal(expected is null, row["reason"] is null);
+    }
+
+    private static GameMcpFrameContext World() => World("insufficient_quantity");
+
+    private static GameMcpFrameContext World(string shortfallCode)
     {
         var world = new GameWorldState
         {
@@ -79,8 +102,8 @@ public sealed class GameMcpAffordabilityTests
             }),
             PurchaseCosts = PublicationTable<WorldPurchaseCost>.Create(new[]
             {
-                Cost(Cheap, affordable: true),
-                Cost(Dear, affordable: false),
+                Cost(Cheap, affordable: true, shortfallCode),
+                Cost(Dear, affordable: false, shortfallCode),
             }),
             Resources = PublicationTable<WorldResource>.Create(new[]
             {
@@ -95,6 +118,16 @@ public sealed class GameMcpAffordabilityTests
                     "resources", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
                 new WorldCollectionCategoryStatus(
                     "purchase-costs", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+                new WorldCollectionCategoryStatus(
+                    "upgrades", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+                new WorldCollectionCategoryStatus(
+                    "modifier-variables", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+                new WorldCollectionCategoryStatus(
+                    "int-variables", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+                new WorldCollectionCategoryStatus(
+                    "structure-costs", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+                new WorldCollectionCategoryStatus(
+                    "upgrade-costs", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
             }),
             CollectedAtEpoch = 25,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
@@ -105,7 +138,10 @@ public sealed class GameMcpAffordabilityTests
         return GameMcpTestHarness.Context(publisher.ReadLatest());
     }
 
-    private static WorldPurchaseCost Cost(Guid entityId, bool affordable) => new(
+    private static WorldPurchaseCost Cost(
+        Guid entityId,
+        bool affordable,
+        string shortfallCode) => new(
         entityId,
         Resource,
         new BigDouble(10),
@@ -117,7 +153,7 @@ public sealed class GameMcpAffordabilityTests
         availableAmount: new BigDouble(affordable ? 50 : 1),
         combinedEffectiveAmount: new BigDouble(10),
         resourceAffordable: affordable,
-        resourceAffordabilityReasonCode: affordable ? "affordable" : "insufficient_resource",
+        resourceAffordabilityReasonCode: affordable ? "affordable" : shortfallCode,
         affordable: affordable,
         affordabilityReasonCode: affordable ? "affordable" : "unaffordable");
 

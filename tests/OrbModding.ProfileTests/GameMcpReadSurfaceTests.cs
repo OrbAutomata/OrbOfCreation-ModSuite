@@ -1769,6 +1769,56 @@ public sealed class GameMcpWorldEnvelopeTests
             lifecycleGeneration: 17);
     }
 
+    /// <summary>
+    /// The mastery ring is a fixed window the game overwrites, and the sources feeding it repeat on
+    /// a short cycle. Paged row by row it cost four full pages to deliver about fifteen distinct
+    /// facts, with a monotone counter as the only column that varied down the page.
+    /// </summary>
+    [Fact]
+    public void The_mastery_ring_publishes_each_source_once_with_how_often_it_earned()
+    {
+        var spell = Guid.Parse("c1000000-0000-0000-0000-000000000001");
+        var artifact = Guid.Parse("c1000000-0000-0000-0000-000000000002");
+        var samples = new[]
+        {
+            new WorldMasteryExperience(101, MasteryExperienceDomain.Spell, spell, 331, true,
+                new BigDouble(5)),
+            new WorldMasteryExperience(102, MasteryExperienceDomain.Artifact, artifact, 12, true,
+                new BigDouble(7)),
+            new WorldMasteryExperience(103, MasteryExperienceDomain.Spell, spell, 331, true,
+                new BigDouble(5)),
+            new WorldMasteryExperience(104, MasteryExperienceDomain.Spell, spell, 331, true,
+                new BigDouble(6)),
+        };
+        var world = new GameWorldState
+        {
+            MasteryExperience = PublicationTable<WorldMasteryExperience>.Create(samples),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                new[] { Clean("spell-recipes"), Clean("alchemy-recipes"), Clean("equipment") }),
+            CollectedAtEpoch = 21,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        using var publisher =
+            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(921));
+        var state = Snapshot(publisher.ReadLatest());
+
+        var page = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.ListRows(state, "mastery-experience", 0, 50));
+        var rows = page["rows"]!.Values<JObject>().ToArray();
+
+        Assert.Equal(2, (int)page["total"]!);
+        Assert.Equal(2, rows.Length);
+        Assert.Equal(3, (int)rows[0]!["count"]!);
+        Assert.Equal("Spell", (string?)rows[0]!["domain"]);
+        Assert.Equal(331, (int)rows[0]!["sourceMastery"]!);
+        Assert.Equal(1, (int)rows[1]!["count"]!);
+        Assert.Equal(4, (int)page["window"]!["samples"]!);
+        Assert.Equal(101L, (long)page["window"]!["firstSequence"]!);
+        Assert.Equal(104L, (long)page["window"]!["lastSequence"]!);
+        Assert.Null(rows[0]!["sequence"]);
+    }
+
     private static WorldCollectionCategoryStatus Clean(string category) =>
         new(
             category,
