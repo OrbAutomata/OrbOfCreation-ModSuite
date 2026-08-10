@@ -764,7 +764,7 @@ native type, role, and whole-loadout capacity. Current glyph ownership is delibe
 selection precondition: the native screen accepts authored saved layouts whose construction
 choices are no longer available. Success returns the observed selection change and the settled
 selected loadout, and — when the swap moved the spell bar — a `spellBar` block naming the
-`equipped` count as a pair plus the spells `unequipped` and `equipped_now`. The bar is player state
+`equipped` count as a pair plus the spells `unequipped` and `equippedNow`. The bar is player state
 rather than loadout contents, so a select that empties it says so at the top of its own answer
 instead of leaving `spells: none` inside the loadout's description to be read as the effect; a
 select that leaves the bar alone publishes no `spellBar` at all.

@@ -1806,7 +1806,7 @@ internal static class GameMcpWorldQuery
             },
         };
         if (removed.Count > 0) result["unequipped"] = removed;
-        if (added.Count > 0) result["equipped_now"] = added;
+        if (added.Count > 0) result["equippedNow"] = added;
         return result.Freeze();
     }
 

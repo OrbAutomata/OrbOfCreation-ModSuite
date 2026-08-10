@@ -242,7 +242,7 @@ public sealed class GameMcpLoadoutTests
         Assert.Equal(
             new[] { "Beam Burst", "Beam Burst" },
             delta["spellBar"]!["unequipped"]!.Select(row => (string?)row!["name"]).ToArray());
-        Assert.Null(delta["spellBar"]!["equipped_now"]);
+        Assert.Null(delta["spellBar"]!["equippedNow"]);
     }
 
     /// <summary>
