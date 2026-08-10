@@ -77,8 +77,12 @@ carried cross-run bonuses (authored constants do not).
   arrive from a non-Scribe source or the registry reading is incomplete.
 - **Agromancy remaining-instance counts** — the count is computed against idle nodes and is allowed
   to go negative; the player-visible consequence is unrecorded.
-- **The six Alchemy pools** — what they represent, what an alchemy effect does, and how Alchemy Level
-  interacts with either.
+- **The six Alchemy pools** — what they represent, what an alchemy effect does, and how the Alchemy
+  Level dial interacts with either. The dial's authored shape is written up in
+  [attributes-and-upgrades.md](attributes-and-upgrades.md); what a level is worth is not.
+- **Whether a bought ceiling drags its dial up** — `Raise Alchemy Level` adds only to
+  `MaxAlchemyLevel`, and no authored effect moves `AlchemyOutputLevel`. Play has only ever seen the
+  dial sitting at its ceiling, which both an auto-follow and a diligent player would produce.
 
 ## Interface
 
