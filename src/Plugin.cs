@@ -449,7 +449,7 @@ public sealed class Plugin : BaseUnityPlugin
                                 else Log.LogWarning(report.Describe());
                             },
                             createCollector: () =>
-                                new GameWorldCollector(_mentorMasteryJournal)),
+                                GameWorldCollector.ForSession(_mentorMasteryJournal)),
                         new AutoItemsServiceCycleFeature(
                             new AutoItemsFeatureDependencies(
                                 autoHarvestRegistryResolver,

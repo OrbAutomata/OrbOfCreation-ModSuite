@@ -698,11 +698,12 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
 
     /// <summary>The throwaway collector a pass reads its comparison world from.</summary>
     /// <remarks>
-    /// Deliberately not the parameterless constructor. That one opts into the production
-    /// purchase-view topology, which is a process-wide singleton the running suite's action boundary
-    /// reads its owning-view admissions from — so a diagnostic collector built that way restamps
-    /// that singleton with its own epoch, and every purchase afterwards refuses on a snapshot this
-    /// check wrote. A verification pass compares math; it has no business owning the live topology.
+    /// Deliberately not <see cref="GameWorldCollector.ForSession()"/>. That factory is the named
+    /// opt-in into the production purchase-view topology — a process-wide singleton the running
+    /// suite's action boundary reads its owning-view admissions from — and a diagnostic collector
+    /// that took it would restamp the singleton with its own epoch, leaving every purchase
+    /// afterwards refusing on a snapshot this check wrote. A verification pass compares math; it has
+    /// no business owning the live topology.
     /// </remarks>
     private static GameWorldCollector VerificationCollector() => new(WorldNativeTypes.Resolve);
 

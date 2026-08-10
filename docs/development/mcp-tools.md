@@ -1973,11 +1973,11 @@ Two things about it are unlike every other read here, and both are deliberate:
   the same frame, so a call that arrives while one is queued is refused with `ERR_STATE` and the
   sentence naming the queued press. Running both would measure caches the first run had just warmed.
 
-Its passes read their comparison worlds through throwaway collectors built on the non-production
-purchase-view topology. That is load-bearing rather than incidental: a collector built the
-production way binds the process-wide owning-view admission resolver the purchase boundary reads
-from, and a diagnostic that restamped that resolver with its own epoch would leave every later
-purchase refusing on a snapshot this check wrote.
+Its passes read their comparison worlds through throwaway collectors, which get their own
+purchase-view topology because every collector does unless it is built by the session's named
+`GameWorldCollector.ForSession(...)` opt-in. That opt-in binds the process-wide owning-view
+admission resolver the purchase boundary reads from, and a diagnostic that restamped that resolver
+with its own epoch would leave every later purchase refusing on a snapshot this check wrote.
 
 ## Trace health and probes
 

@@ -38,7 +38,7 @@ internal sealed class AutomataWorldCollectionFeature : IAutomataServiceCycleFeat
         _readFrameIdentity = readFrameIdentity ?? throw new ArgumentNullException(nameof(readFrameIdentity));
         _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _announce = announce;
-        _createCollector = createCollector ?? (static () => new GameWorldCollector());
+        _createCollector = createCollector ?? (static () => GameWorldCollector.ForSession());
     }
 
     public IAutomataServiceCycleFeatureRuntime Register(in AutomataServiceCycleFeatureContext context)

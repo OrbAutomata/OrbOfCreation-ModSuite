@@ -198,6 +198,17 @@ screen's progression gate. Separate list identities remain alternate routes, and
 available route is sufficient. This distinction preserves authored global access without treating two
 views of the same gated list as independent entrances.
 
+**Only the session collector owns the live owning-view admission snapshot.** That snapshot is a
+process-wide singleton the purchase action boundary reads its admissions from, and taking it is an
+explicit, named opt-in — `GameWorldCollector.ForSession(...)`, used by the plugin's world-collection
+feature and by nothing else. Every other collector — a diagnostic's, a verifier's, a test's — binds
+its own resolver and cannot write the live snapshot however it is constructed. The inverse default
+cost a live save twenty-seven minutes of refused purchases: throwaway collectors inside a
+verification pass took the shared resolver and stamped it at the epoch their own frames carried,
+which is zero, and the once-per-lifecycle structural gate meant nothing restamped it until the next
+lifecycle. The resolver also refuses to publish under a non-positive lifecycle epoch, keeping
+whatever the last real lifecycle stamped rather than replacing it with evidence no epoch can match.
+
 **Do not sort members into runtime state and definition constants.** The tempting fourth rule is to skip
 fields the game never writes. It was measured and rejected: classifying the 270 members remaining after
 the first three rules by whether the declaring type assigns them put 186 in "runtime" and 84 in

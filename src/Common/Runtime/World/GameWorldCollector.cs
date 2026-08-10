@@ -166,12 +166,35 @@ internal sealed class GameWorldCollector
     private GameWorldCycleFrame? _structuralFrame;
     private long _structuralEpoch;
 
+    /// <summary>
+    /// The collector the session composes: the one that publishes the process-wide owning-view
+    /// admission snapshot the purchase boundary reads from.
+    /// </summary>
+    /// <remarks>
+    /// Production purchase topology is an explicit, named opt-in and nothing else selects it. A
+    /// collector built any other way binds its own resolver, so a diagnostic, a verifier or a test
+    /// cannot restamp the live snapshot no matter how it is constructed. The inverse default cost a
+    /// live save twenty-seven minutes of refused purchases: a verification pass allocated four
+    /// throwaway <c>new GameWorldCollector()</c> collectors, each took the shared resolver, and each
+    /// stamped it at the epoch its own frame carried — zero.
+    /// </remarks>
+    internal static GameWorldCollector ForSession() =>
+        ForSession(EmptyWorldMasteryExperienceSource.Instance);
+
+    /// <inheritdoc cref="ForSession()"/>
+    internal static GameWorldCollector ForSession(IWorldMasteryExperienceSource masteryExperience) =>
+        new(
+            WorldNativeTypes.Resolve,
+            static () => UnityEngine.Time.fixedDeltaTime,
+            masteryExperience,
+            productionPurchaseTopology: true);
+
     internal GameWorldCollector()
         : this(
             WorldNativeTypes.Resolve,
             static () => UnityEngine.Time.fixedDeltaTime,
             EmptyWorldMasteryExperienceSource.Instance,
-            productionPurchaseTopology: true)
+            productionPurchaseTopology: false)
     {
     }
 
@@ -180,7 +203,7 @@ internal sealed class GameWorldCollector
             WorldNativeTypes.Resolve,
             static () => UnityEngine.Time.fixedDeltaTime,
             masteryExperience,
-            productionPurchaseTopology: true)
+            productionPurchaseTopology: false)
     {
     }
 
