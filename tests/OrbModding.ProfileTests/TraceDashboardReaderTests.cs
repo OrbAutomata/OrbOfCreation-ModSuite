@@ -131,6 +131,67 @@ public sealed class TraceDashboardReaderTests
         }
     }
 
+    /// <summary>
+    /// What the frame cost is the denominator of every claim about what the suite cost, and it was
+    /// only ever recoverable by differencing consecutive pump offsets by hand.
+    /// </summary>
+    [Fact]
+    public void EveryPumpAfterTheFirstCarriesTheFrameItLandedIn()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            "orb-trace-dashboard-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var run = Path.Combine(root, "run-20260101-000000-test");
+            var fullSession = Path.Combine(run, "full", "session-000000000000002a");
+            Directory.CreateDirectory(fullSession);
+            WriteFullTrace(
+                fullSession,
+                PumpCompleted(1, frame: 10, timestampTicks: 1_000_000),
+                PumpCompleted(2, frame: 11, timestampTicks: 1_250_000),
+                PumpCompleted(3, frame: 12, timestampTicks: 1_400_000));
+
+            var document = TraceDashboardReader.Read(TraceCaptureLocator.Locate(run));
+
+            Assert.Equal(
+                new double?[] { null, 25, 15 },
+                document.Pumps.Select(x => x.AmbientMilliseconds).ToArray());
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static ServiceCycleSemanticEvent PumpCompleted(
+        ulong sequence,
+        long frame,
+        long timestampTicks)
+    {
+        var payload = ServiceCycleSemanticPayload.Pump(
+            frame,
+            accepted: true,
+            startingOrdinal: 0,
+            responsesAcquired: 0,
+            actionsAttempted: 0,
+            capturesAttempted: 0,
+            cyclesStarted: 0,
+            worldGateDeferrals: 0,
+            emergencyBatchesRejected: 0,
+            lifecycleTransitions: 0,
+            responseDuration: 0,
+            actionDuration: 0,
+            captureDuration: 0,
+            totalDuration: 50_000,
+            timestampTicks: timestampTicks);
+        return new ServiceCycleSemanticEvent(
+            new ServiceCycleTraceEventId(new ServiceCycleTraceSessionId(101), sequence),
+            default,
+            ServiceCycleSemanticEventKind.PumpCompleted,
+            in payload);
+    }
+
     private static ServiceCycleSemanticEvent CycleStarted(
         ulong sequence,
         ulong lifecycle,

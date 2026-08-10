@@ -37,6 +37,7 @@ internal static class TraceDashboardReader
         var pumps = new List<TraceDashboardPump>();
         var events = new List<TraceDashboardEvent>();
         var acceptedPumps = 0;
+        long? previousPumpTicks = null;
         foreach (var segment in full.Segments())
         {
             foreach (var item in segment.Events)
@@ -45,7 +46,12 @@ internal static class TraceDashboardReader
                 if (item.Kind == ServiceCycleSemanticEventKind.PumpCompleted)
                 {
                     if (payload.PumpAccepted) acceptedPumps++;
-                    pumps.Add(Pump(in payload, firstTicks, firstAccepted: payload.PumpAccepted && acceptedPumps == 1));
+                    pumps.Add(Pump(
+                        in payload,
+                        firstTicks,
+                        firstAccepted: payload.PumpAccepted && acceptedPumps == 1,
+                        previousPumpTicks));
+                    previousPumpTicks = payload.TimestampTicks;
                 }
                 else
                 {
@@ -183,11 +189,15 @@ internal static class TraceDashboardReader
     private static TraceDashboardPump Pump(
         in ServiceCycleSemanticPayload value,
         long origin,
-        bool firstAccepted) => new(
+        bool firstAccepted,
+        long? previousPumpTicks) => new(
         Offset(value.TimestampTicks, origin),
         value.FrameIdentity,
         value.PumpAccepted,
         Milliseconds(value.TotalDurationTicks),
+        previousPumpTicks is null || value.TimestampTicks < previousPumpTicks.Value
+            ? null
+            : Milliseconds(value.TimestampTicks - previousPumpTicks.Value),
         Milliseconds(value.ResponseDurationTicks),
         Milliseconds(value.CaptureDurationTicks),
         Milliseconds(value.ActionDurationTicks),

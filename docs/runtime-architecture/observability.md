@@ -356,6 +356,13 @@ reachable from a full-trace session.
   trace says started is reconciled against the rows that kept a start, and a shortfall fails the read
   rather than rendering a table a quarter short.
 
+Each pump row carries the frame's own wall time beside the suite's cost inside it, differenced from
+the previous pump record. That figure is the denominator of every honest statement about what the
+suite costs — duty cycle, what share of a collection frame is ours, and whether an expensive capture
+landed in a frame that was already slow — and recovering it by hand from consecutive offsets is work
+two separate analyses each did. The first pump of a session has no predecessor and carries no ambient
+time rather than a zero.
+
 The viewer is organised by service rather than by phase: an overview page spends the pump frame as a
 stacked bar per frame — response, capture, action, and whatever the pump measured but did not attribute
 — then one page per service, each spending a cycle as capture, handoff, derive, project, and dispatch
