@@ -30,9 +30,10 @@ internal static class GameMcpEntityHandle
 {
     /// <summary>
     /// Shortest prefix unique across all 2,818 published ids of the pinned build. Six is also the
-    /// floor this surface will use whatever a future id set allows.
+    /// floor this surface will use whatever a future id set allows. Held once, because a sentence
+    /// that points at an entity prints the same handle a row does and the two must not drift.
     /// </summary>
-    internal const int Length = 6;
+    internal const int Length = EntityIdentityFormatter.HandleLength;
 
     /// <summary>The wire spelling of one id.</summary>
     internal static string Format(Guid uuid) => uuid.ToString("D").Substring(0, Length);

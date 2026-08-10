@@ -46,6 +46,13 @@ internal readonly struct EntityIdentityDescription
 /// </remarks>
 internal static class EntityIdentityFormatter
 {
+    /// <summary>
+    /// How much of a UUID a surface a player reads prints. The wire settled on this width first and
+    /// proves it unique across the pinned build's whole id set; a sentence that points at an entity
+    /// says the same handle, so what a reader sees and what a caller types are one string.
+    /// </summary>
+    internal const int HandleLength = 6;
+
     private static readonly object Sync = new();
     private static readonly HashSet<Guid> WarnedMisses = new();
     private static Action<string> _warning = static _ => { };
@@ -168,6 +175,35 @@ internal static class EntityIdentityFormatter
         catch (Exception)
         {
             return uuid.ToString("D");
+        }
+    }
+
+    /// <summary>
+    /// The name and the short handle, for a sentence that has to point at a second entity — the one
+    /// occupying a slot, or the one that turned up where another was planned.
+    /// </summary>
+    /// <remarks>
+    /// A refusal naming a second entity used to spell it the way a log does: display name, asset
+    /// name in brackets, and the whole canonical UUID, inside prose a player reads. The handle is
+    /// the address a caller can act on and the one every other surface prints, so the sentence says
+    /// that and nothing else. Where the same entity also rides as a field, the field is what a
+    /// caller parses and this is what a person reads.
+    /// </remarks>
+    internal static string PlayerHandle(
+        Guid uuid,
+        EntityIdentityCatalogSnapshot? snapshot = null)
+    {
+        var handle = uuid.ToString("D").Substring(0, HandleLength);
+        try
+        {
+            var description = Describe(uuid, snapshot);
+            return description.HasName
+                ? description.Name + " (" + handle + ")"
+                : "(unnamed " + handle + ")";
+        }
+        catch (Exception)
+        {
+            return "(unnamed " + handle + ")";
         }
     }
 

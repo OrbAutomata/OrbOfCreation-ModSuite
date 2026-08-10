@@ -2518,15 +2518,20 @@ public sealed class Plugin : BaseUnityPlugin
                     out var owningNativeType,
                     out var owningTool))
             {
-                var identity = EntityIdentityFormatter.Format(
+                // The name a player reads and the handle they can act on. Spelling the subject the
+                // way a log does — display name, asset name in brackets, whole canonical UUID —
+                // put an address nobody could type into prose beside the same entity's own
+                // structured fields, and the game's internal type name beside a category that had
+                // already said the same thing in the player's word for it.
+                var identity = EntityIdentityFormatter.PlayerHandle(
                     targetId,
                     context.World.Snapshot.EntityIdentities);
                 if (owningTool.Length > 0 && !string.Equals(
                         owningTool, request.ToolName, StringComparison.Ordinal))
                 {
                     code = "wrong_action_tool";
-                    reason = identity + " is a " + owningNativeType + " in " +
-                        owningCategory + "; use " + owningTool + " for its player action";
+                    reason = identity + " lives under " + owningCategory +
+                        "; use " + owningTool + " for its player action";
                 }
                 else if (owningTool.Length > 0)
                 {

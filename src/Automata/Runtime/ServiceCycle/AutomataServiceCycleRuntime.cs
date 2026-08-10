@@ -357,6 +357,18 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 var submission = casts.LastGameMcpSubmission;
                 if (!submission.Verified && !string.IsNullOrEmpty(submission.Reason))
                     exactReason = submission.Reason;
+
+                // The spell holding the slot rides as an entity, not only inside the sentence. A
+                // caller acting on it had nowhere to read its id but a regular expression over
+                // prose, because the structured id beside it names the spell that was planned —
+                // the one thing this refusal has already established is not there.
+                if (submission.Occupant != Guid.Empty)
+                {
+                    details = new GameMcpObjectBuilder
+                    {
+                        ["occupant"] = submission.Occupant.ToString("D"),
+                    }.Freeze();
+                }
             }
             return GameMcpCommandResult.FromAction(
                 in result,

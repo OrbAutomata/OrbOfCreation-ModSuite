@@ -78,13 +78,15 @@ internal readonly struct AutoCastSubmission
         bool hasEvidence,
         NativeMutationOutcome outcome,
         NativeMutationCallOutcome callOutcome,
-        string reason)
+        string reason,
+        Guid occupant = default)
     {
         Preflight = preflight;
         HasEvidence = hasEvidence;
         Outcome = outcome;
         CallOutcome = callOutcome;
         Reason = reason;
+        Occupant = occupant;
     }
 
     public AutoCastPreflight Preflight { get; }
@@ -96,11 +98,26 @@ internal readonly struct AutoCastSubmission
     /// <summary>What the boundary would tell an operator, whichever way it went.</summary>
     public string Reason { get; }
 
-    public static AutoCastSubmission Rejected(AutoCastPreflight preflight, string reason)
+    /// <summary>
+    /// The spell found holding the slot this call named, when that is what refused it.
+    /// </summary>
+    /// <remarks>
+    /// The identity lived only inside the sentence, so a caller that wanted to act on whatever had
+    /// taken the slot had nowhere to read it but a regular expression over prose — while the
+    /// structured id beside it named the spell that was planned, which is the one thing already
+    /// known to be absent.
+    /// </remarks>
+    public Guid Occupant { get; }
+
+    public static AutoCastSubmission Rejected(
+        AutoCastPreflight preflight,
+        string reason,
+        Guid occupant = default)
     {
         if (preflight == AutoCastPreflight.Proceeded)
             throw new ArgumentOutOfRangeException(nameof(preflight));
-        return new AutoCastSubmission(preflight, hasEvidence: false, default, default, reason);
+        return new AutoCastSubmission(
+            preflight, hasEvidence: false, default, default, reason, occupant);
     }
 
     /// <summary>A charge release, which is a native call with nothing to verify a delta against.</summary>
@@ -224,8 +241,13 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                     AutoCastPreflight.CasterBusy, "the native spell system is busy");
             }
 
-            if (!TryResolveSlot(slotIndex, spellRecipeId, out var spell, out var identityReason))
-                return AutoCastSubmission.Rejected(AutoCastPreflight.SlotIdentityChanged, identityReason);
+            if (!TryResolveSlot(
+                    slotIndex, spellRecipeId, out var spell, out var identityReason,
+                    out var occupant))
+            {
+                return AutoCastSubmission.Rejected(
+                    AutoCastPreflight.SlotIdentityChanged, identityReason, occupant);
+            }
 
             if (_blockedSpells.TryGetValue(spellRecipeId, out var blocked))
                 return AutoCastSubmission.Rejected(AutoCastPreflight.ContractUnavailable, blocked);
@@ -298,8 +320,13 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             // Deliberately not gated on the spell still charging. Letting go of a charge input is
             // idempotent and always safe; refusing to let go because a stale reading disagreed is
             // how an input gets stuck down with nobody tracking it.
-            if (!TryResolveSlot(slotIndex, spellRecipeId, out var spell, out var identityReason))
-                return AutoCastSubmission.Rejected(AutoCastPreflight.SlotIdentityChanged, identityReason);
+            if (!TryResolveSlot(
+                    slotIndex, spellRecipeId, out var spell, out var identityReason,
+                    out var occupant))
+            {
+                return AutoCastSubmission.Rejected(
+                    AutoCastPreflight.SlotIdentityChanged, identityReason, occupant);
+            }
 
             var released = TrySetChargeHold(spell, false, out var releaseReason);
             return AutoCastSubmission.Released(released, released ? string.Empty : releaseReason);
@@ -319,9 +346,13 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
         try
         {
-            if (!TryResolveSlot(slotIndex, spellRecipeId, out var spell, out var identityReason))
+            if (!TryResolveSlot(
+                    slotIndex, spellRecipeId, out var spell, out var identityReason,
+                    out var occupant))
+            {
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.SlotIdentityChanged, identityReason);
+                    AutoCastPreflight.SlotIdentityChanged, identityReason, occupant);
+            }
             if (_blockedSpells.TryGetValue(spellRecipeId, out var blocked))
                 return AutoCastSubmission.Rejected(AutoCastPreflight.ContractUnavailable, blocked);
             if (_isToggled!.Invoke(spell, Array.Empty<object>()) is not true)
@@ -670,9 +701,15 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     /// Casting whatever happens to be in a position is exactly the mistake identity checking exists
     /// to prevent.
     /// </remarks>
-    private bool TryResolveSlot(int slotIndex, Guid spellRecipeId, out object spell, out string reason)
+    private bool TryResolveSlot(
+        int slotIndex,
+        Guid spellRecipeId,
+        out object spell,
+        out string reason,
+        out Guid occupant)
     {
         spell = null!;
+        occupant = Guid.Empty;
         if (spellRecipeId == Guid.Empty)
         {
             reason = "the planned slot carried no spell identity";
@@ -709,15 +746,19 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
         // Naming the occupant is the point of this refusal. "The identity changed" leaves a caller
         // with no next move; "the slot now holds Firebolt" says which plan to redo and against what.
+        // It rides out as an id as well as a name, because a caller that wants to act on whatever
+        // took the slot had nowhere else to read it: the structured id beside the sentence names
+        // the spell that was planned, which is the one thing already known not to be there.
         var recipe = _getReference?.Invoke(candidate, Array.Empty<object>());
         var identity = recipe is null ? null : ReflectionUtil.ReadStableId(recipe);
         if (!Guid.TryParse(identity, out var liveId) || liveId != spellRecipeId)
         {
+            occupant = liveId;
             reason = liveId == Guid.Empty
                 ? $"Spell slot {slotIndex + 1} no longer holds the spell that was planned, and what " +
                   "occupies it now could not be named."
                 : $"Spell slot {slotIndex + 1} now holds " +
-                  $"{EntityIdentityFormatter.Format(liveId)}, not the spell that was planned.";
+                  $"{EntityIdentityFormatter.PlayerHandle(liveId)}, not the spell that was planned.";
             return false;
         }
 

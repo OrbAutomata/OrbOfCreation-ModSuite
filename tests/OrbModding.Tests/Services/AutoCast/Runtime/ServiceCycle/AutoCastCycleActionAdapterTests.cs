@@ -111,7 +111,10 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
     /// </summary>
     /// <remarks>
     /// "The planned spell identity changed" leaves a caller with nothing to do but read the loadout
-    /// again; naming the occupant is the whole difference between a refusal and an answer.
+    /// again; naming the occupant is the whole difference between a refusal and an answer. It rides
+    /// as an id as well as a name: the sentence is for a person, and a caller that wants to act on
+    /// whatever took the slot had nowhere else to read it, because the structured id beside the
+    /// sentence names the spell that was planned — the one already known not to be there.
     /// </remarks>
     [Fact]
     public void ARearrangedLoadoutNamesTheSpellThatTookTheSlot()
@@ -121,8 +124,12 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         var submission = new AutoCastNativeAdapter().Fire(0, Ember, holdFullCharge: false);
 
         Assert.Equal(AutoCastPreflight.SlotIdentityChanged, submission.Preflight);
+        Assert.Equal(Frost, submission.Occupant);
         Assert.Contains("slot 1", submission.Reason);
-        Assert.Contains(Frost.ToString("D"), submission.Reason);
+
+        // The handle a caller can type, not the 36-character canonical form no surface prints.
+        Assert.Contains(Frost.ToString("D").Substring(0, 6), submission.Reason);
+        Assert.DoesNotContain(Frost.ToString("D"), submission.Reason);
     }
 
     [Fact]
