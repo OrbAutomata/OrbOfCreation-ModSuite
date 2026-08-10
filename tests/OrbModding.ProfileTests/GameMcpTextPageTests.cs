@@ -154,7 +154,7 @@ public sealed class GameMcpTextPageTests
     {
         const string Row =
             "'available':false,'affordable':'already_maxed'," +
-            "'reason':'The game refused, and nothing it reports explains why.'";
+            "'reason':'The game keeps this locked, and says nothing about what would unlock it.'";
         var page = Render(@"{'rows':[
             {'uuid':'00246c','name':'Gather Space'," + Row + @"},
             {'uuid':'00246d','name':'Gather Time'," + Row + @"},
@@ -170,7 +170,7 @@ public sealed class GameMcpTextPageTests
         Assert.Equal("these 6 share: available=no, affordable=already_maxed", share);
         Assert.Contains(
             "00246c | Gather Space | no | already_maxed | " +
-            "The game refused, and nothing it reports explains why.",
+            "The game keeps this locked, and says nothing about what would unlock it.",
             page,
             StringComparison.Ordinal);
     }

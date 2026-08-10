@@ -4879,7 +4879,22 @@ internal static class GameMcpWorldQuery
                 }
                 if (isGlyph)
                 {
-                    if (!glyph.Learned || component.Count > glyph.MaximumUsages)
+                    // Not holding the glyph and asking too much of one you hold are different
+                    // answers with different next moves. Folded together, a glyph the player has
+                    // never seen refused by quoting a usage ceiling of nought, which reads as a
+                    // clamp on something they own.
+                    if (!glyph.Learned)
+                    {
+                        var undiscovered = glyph.DiscoveryRequired && !glyph.Discovered;
+                        reasonCode = undiscovered ? "undiscovered" : "native_unavailable";
+                        reason = "Glyph " +
+                            EntityIdentityFormatter.PlayerName(component.Uuid, world.EntityIdentities) +
+                            (undiscovered
+                                ? " has not been discovered yet."
+                                : " is locked, and the game says nothing about what would unlock it.");
+                        return false;
+                    }
+                    if (component.Count > glyph.MaximumUsages)
                     {
                         reasonCode = "component_unavailable";
                         reason = "Glyph " +
@@ -5944,6 +5959,18 @@ internal static class GameMcpWorldQuery
             ["available"] = glyph.Learned,
             ["usableCount"] = glyph.MaximumUsages,
         };
+
+        // The glyph the picker will not offer says which of the two reasons it is. A glyph behind a
+        // discovery has a gate a player can go and do something about; a pool unlocker has an
+        // authored edge the world states no condition for, and saying so is the whole of what is
+        // known. Left unnamed, every unlearned glyph in the game answered the same contentless
+        // sentence, which is what a whole page of them read as.
+        if (!glyph.Learned)
+        {
+            result["reasonCode"] = glyph.DiscoveryRequired && !glyph.Discovered
+                ? "undiscovered"
+                : "native_unavailable";
+        }
         AddLevelDecision(world, result, glyph.LevelDecision,
             glyph.Learned,
             "not_available");

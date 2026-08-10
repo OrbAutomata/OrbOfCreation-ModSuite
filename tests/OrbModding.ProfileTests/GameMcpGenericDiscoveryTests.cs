@@ -166,6 +166,30 @@ public sealed class GameMcpGenericDiscoveryTests
         Assert.NotNull(output["discover"]!["costs"]);
     }
 
+    /// <summary>
+    /// Not holding a glyph and asking too much of one you hold are different answers with different
+    /// next moves. Folded into one clause, a glyph the player has never seen refused by quoting a
+    /// usage ceiling of nought — which reads as a clamp on something they own.
+    /// </summary>
+    [Fact]
+    public void A_component_glyph_the_player_does_not_hold_says_so_rather_than_quoting_a_ceiling()
+    {
+        var preview = Json(GameMcpWorldQuery.ProjectDiscoveryPreview(
+            Context(componentLearned: false),
+            "glyphcraft",
+            new[]
+            {
+                new GameMcpUuidCount(ComponentId, 1),
+                new GameMcpUuidCount(ResourceId, 1),
+            }));
+
+        Assert.Equal("unavailable", (string?)preview["status"]);
+        Assert.Equal("ERR_LOCKED", (string?)preview["reasonCode"]);
+        Assert.Equal(
+            "Glyph Focus has not been discovered yet.",
+            (string?)preview["reason"]);
+    }
+
     [Fact]
     public void Generic_preview_refuses_ambiguous_authored_recipes_instead_of_guessing()
     {
@@ -208,16 +232,20 @@ public sealed class GameMcpGenericDiscoveryTests
         Assert.Empty(committed.Properties());
     }
 
-    private static GameMcpFrameContext Context(bool ambiguous = false)
+    private static GameMcpFrameContext Context(
+        bool ambiguous = false,
+        bool componentLearned = true)
     {
         using var publisher =
             new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(World(ambiguous), new WorldGeneration(2301));
+        publisher.Publish(World(ambiguous, componentLearned), new WorldGeneration(2301));
         return GameMcpTestHarness.Context(
             publisher.ReadLatest(), configurationGeneration: 8, lifecycleGeneration: 15);
     }
 
-    private static GameWorldState World(bool ambiguous = false)
+    private static GameWorldState World(
+        bool ambiguous = false,
+        bool componentLearned = true)
     {
         var costs = PublicationTable<WorldDiscoverableCost>.Create(new[]
         {
@@ -233,7 +261,8 @@ public sealed class GameMcpGenericDiscoveryTests
             PublicationTable<Guid>.Create(new[] { ComponentId }),
             PublicationTable<Guid>.Create(new[] { ResourceId }));
         var glyph = Glyph(GlyphId, decision, maximumUsages: 1);
-        var component = Glyph(ComponentId, default, maximumUsages: 2);
+        var component = Glyph(
+            ComponentId, default, maximumUsages: 2, learned: componentLearned);
         var glyphs = ambiguous
             ? new[] { glyph, component, Glyph(AmbiguousOutputId, decision, maximumUsages: 1) }
             : new[] { glyph, component };
@@ -290,12 +319,13 @@ public sealed class GameMcpGenericDiscoveryTests
     private static WorldGlyph Glyph(
         Guid id,
         WorldDiscoverableDecision decision,
-        int maximumUsages) => new(
+        int maximumUsages,
+        bool learned = true) => new(
             id,
             level: 0,
             freeLevels: 0,
             discoveryRarityLevel: 1,
-            learned: true,
+            learned: learned,
             discoverable: true,
             discoveryRequired: true,
             augmentsSpells: false,

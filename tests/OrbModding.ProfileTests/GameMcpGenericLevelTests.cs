@@ -143,6 +143,32 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal("ERR_LOCKED", (string?)resourceType["purchase"]!["reasonCode"]);
     }
 
+    /// <summary>
+    /// A glyph the picker will not offer says which of the two reasons it is. A pool unlocker is
+    /// held shut by an authored edge the world states no condition for, and that is the whole of
+    /// what is known; a glyph behind a discovery has a gate the player can go and act on. Unnamed,
+    /// both answered the backstop's contentless sentence, on every unlearned glyph in the game.
+    /// </summary>
+    [Theory]
+    [InlineData(false, "ERR_LOCKED",
+        "The game keeps this locked, and says nothing about what would unlock it.")]
+    [InlineData(true, "ERR_LOCKED", "This has not been discovered yet.")]
+    public void An_unlearned_glyph_names_the_gate_the_game_actually_published(
+        bool discoveryRequired,
+        string expectedClass,
+        string expectedReason)
+    {
+        var glyph = Row(
+            World(5, 2, purchaseAffordable: true, glyphLearned: false,
+                glyphDiscoveryRequired: discoveryRequired),
+            "glyphs",
+            GlyphId);
+
+        Assert.False((bool)glyph["available"]!);
+        Assert.Equal(expectedClass, (string?)glyph["reasonCode"]);
+        Assert.Equal(expectedReason, (string?)glyph["reason"]);
+    }
+
     [Fact]
     public void PrerequisiteLearnedGlyphIsAvailableWithoutClaimingDiscovery()
     {
@@ -264,6 +290,7 @@ public sealed class GameMcpGenericLevelTests
         bool purchaseAffordable,
         bool glyphLearned = true,
         bool glyphDiscoverable = true,
+        bool glyphDiscoveryRequired = false,
         bool resourceTypeHidden = false,
         bool levelsAreFree = false,
         int maximumUsages = 3)
@@ -283,7 +310,7 @@ public sealed class GameMcpGenericLevelTests
             EquipmentTypeId, total - bonus, bonus, 1, new BigDouble(4),
             new BigDouble(8), 0, 0, withBonus);
         var glyph = new WorldGlyph(GlyphId, total - bonus, bonus, 0, glyphLearned,
-            glyphDiscoverable, false, false, false, false, 0, BigDouble.Zero,
+            glyphDiscoverable, glyphDiscoveryRequired, false, false, false, 0, BigDouble.Zero,
             BigDouble.Zero, BigDouble.Zero, maximumUsages, levelDecision: withBonus);
         var resourceType = new WorldResourceType(
             resourceTypeId: ResourceTypeId,

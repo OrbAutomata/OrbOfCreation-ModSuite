@@ -98,11 +98,52 @@ public sealed class GameMcpDecisionReasonTests
         Assert.Null(row["candidates"]![0]!["reasonCode"]);
         Assert.Null(row["candidates"]![0]!["reason"]);
 
-        // The same bare no outside the table keeps the axis the backstop exists to supply.
-        Assert.Equal("ERR_REFUSED", (string?)encoded["decision"]!["reasonCode"]);
+        // The same bare no outside the table keeps the axis the backstop exists to supply, and the
+        // axis is a lock: the game is holding this shut and has published no condition for it.
+        Assert.Equal("ERR_LOCKED", (string?)encoded["decision"]!["reasonCode"]);
         Assert.Equal(
-            "The game refused, and nothing it reports explains why.",
+            "The game keeps this locked, and says nothing about what would unlock it.",
             (string?)encoded["decision"]!["reason"]);
+    }
+
+    /// <summary>
+    /// One class per fact per response. <c>explain_entity</c> published an entity's row and its
+    /// evaluated predicates side by side and let both answer availability, with different classes:
+    /// a caller branching on the row's code ran a different program than one branching on the
+    /// predicate. The predicate block is the verdict surface and keeps the answer.
+    /// </summary>
+    [Fact]
+    public void A_response_answering_one_fact_twice_keeps_the_predicate_and_drops_the_row_copy()
+    {
+        var encoded = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            new GameMcpObjectBuilder
+            {
+                ["state"] = new GameMcpObjectBuilder
+                {
+                    ["available"] = false,
+                    ["level"] = 0,
+                }.Freeze(),
+                ["predicates"] = new GameMcpObjectBuilder
+                {
+                    ["available"] = new GameMcpObjectBuilder
+                    {
+                        ["available"] = false,
+                        ["reasonCode"] = "native_unavailable",
+                    }.Freeze(),
+                }.Freeze(),
+            }.Freeze(),
+            GameMcpTestHarness.EntityCatalog));
+
+        var state = (JObject)encoded["state"]!;
+        Assert.False((bool)state["available"]!);
+        Assert.Null(state["reasonCode"]);
+        Assert.Null(state["reason"]);
+
+        var predicate = (JObject)encoded["predicates"]!["available"]!;
+        Assert.Equal("ERR_LOCKED", (string?)predicate["reasonCode"]);
+        Assert.Equal(
+            "The game keeps this locked, and says nothing about what would unlock it.",
+            (string?)predicate["reason"]);
     }
 
     /// <remarks>

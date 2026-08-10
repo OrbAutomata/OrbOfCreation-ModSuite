@@ -120,11 +120,19 @@ internal static class GameMcpEntityWireNormalizer
         // refused and would not say why — the same 139 characters on every row of a page, telling
         // a reader nothing the `no` in the column did not. Cells carry words; the sentence lives
         // in get and in refusals, which are exactly the shapes this backstop still guards.
+        //
+        // What it supplies is a lock, not a refusal. `available: false` with no axis beside it is
+        // the game holding something shut and publishing no condition for it — which is what
+        // ERR_LOCKED means. Filing it as ERR_REFUSED invented a refusal of an action nobody had
+        // asked for, and put a second class on the same fact the predicate block was already
+        // answering ERR_LOCKED about, inside one response. On a mature save the producers' own
+        // codes hid it; after a prestige nothing is exhausted and everything is re-locked, so it
+        // answered for a whole category at once.
         if (!inRow &&
             item["available"] is JValue { Type: JTokenType.Boolean } availability &&
             !(bool)availability && item["reasonCode"] is null && item["status"] is null)
         {
-            item["reasonCode"] = "native_rejected";
+            item["reasonCode"] = "native_unavailable";
         }
         if (item["reasonCode"] is JValue reasonCode)
         {
@@ -210,6 +218,7 @@ internal static class GameMcpEntityWireNormalizer
         }
 
         DeduplicateChildIdentity(item, "state");
+        DeduplicateStateVerdict(item);
         PromoteNestedPrimaryIdentity(item);
         PromoteIdentity(item);
 
@@ -461,6 +470,33 @@ internal static class GameMcpEntityWireNormalizer
     {
         if (item[field] is JValue { Type: JTokenType.String } value)
             item[field] = Snake((string?)value ?? string.Empty);
+    }
+
+    /// <summary>
+    /// One class per fact per response. A response that publishes an entity's row under
+    /// <c>state</c> and its evaluated verdicts under <c>predicates</c> answered availability twice,
+    /// and the two answers disagreed about which kind of no it was: <c>state.reasonCode</c> read
+    /// ERR_REFUSED where <c>predicates.available</c> read ERR_LOCKED, for one entity, in one
+    /// payload. A caller branching on the first got a different program than one branching on the
+    /// second, which makes the taxonomy useless for control flow — the failure this deletes.
+    /// </summary>
+    /// <remarks>
+    /// The predicate block wins because it is the surface built to hold verdicts: one per named
+    /// fact, each with its own code, where the row carries a single pair for the whole row. The row
+    /// keeps the fact itself — <c>available</c> stays — and gives up only the second opinion about
+    /// it, which the block below states in full.
+    /// </remarks>
+    private static void DeduplicateStateVerdict(JObject item)
+    {
+        if (item["predicates"] is not JObject predicates ||
+            predicates["available"] is not JObject ||
+            item["state"] is not JObject state ||
+            state["available"] is null)
+        {
+            return;
+        }
+        state.Remove("reasonCode");
+        state.Remove("reason");
     }
 
     private static void DeduplicateChildIdentity(JObject item, string field)

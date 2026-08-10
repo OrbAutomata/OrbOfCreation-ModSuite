@@ -305,6 +305,15 @@ internal static class GameMcpDecisionReason
             "Cancellable spells are switched off, so this cast cannot be toggled off.",
         "progression_locked" => "The progression that unlocks this is not reached yet.",
 
+        // The lock the game states and does not explain. It is the honest floor under every other
+        // sentence here: those name a condition because the world published one, and this one is
+        // what is left to say when it published none. Restating the code produced "Native
+        // unavailable." — the suite's own word for the reading, in a sentence meant for a player,
+        // that named neither a gate nor a limit. Saying the limit out loud is the answer: a caller
+        // learns there is nothing further to look up, which is a decision it can act on.
+        "native_unavailable" =>
+            "The game keeps this locked, and says nothing about what would unlock it.",
+
         // Offers, challenges and prestige
         "not_offered" => "This is not among the offers the game is showing.",
         "ambiguous_offer" => "The game offers this action more than once, so the target is unclear.",
