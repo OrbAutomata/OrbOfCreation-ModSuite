@@ -137,7 +137,8 @@ internal sealed class BufferedSegmentWriter<TRecord> where TRecord : struct
             if (!DrainReady(lane)) return;
         }
         Discard(lane);
-        TryComplete(complete: false);
+        if (!TryComplete(complete: false)) return;
+        if (_state.TryPublishStoppedWithoutLoss()) return;
         _state.PublishFaulted();
     }
 

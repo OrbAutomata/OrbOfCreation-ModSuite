@@ -119,6 +119,16 @@ Ordinals are dense, sessions are never resumed or pruned automatically, and init
 manifest-publication failure leaves the durable segments unmodified with no manifest — there is no
 recovery path that fabricates terminal evidence.
 
+**Completeness is about loss, not about which door the session left by.** A producer that stops
+because the runtime is going away seals and publishes its partial block first, so the drain behind it
+makes every accepted record durable; that session publishes `Complete` with no first-missing sequence
+and reports its terminal reason as the shutdown it was. Equal accepted and durable counts alone do not
+earn the word: a session that exhausted its buffers or its sequence space also ends with everything it
+accepted on disk, and there the equality means the sink began refusing records, which is the
+truncation `Incomplete` exists to report. Faulting a clean shutdown cost one 43-minute capture its
+credibility — it read `Incomplete` at a first-missing sequence one past its own last record, a
+contradiction only the offline tool could see and only arithmetic could dismiss.
+
 **Generation-keyed publication stores.** The semantic stream says which generation a cycle decided
 against, not what that generation held. A recording session writes `configuration-<generation>.oscv`
 and `strategy-<generation>.oscv` beside its segments the first time it sees each generation, so three
