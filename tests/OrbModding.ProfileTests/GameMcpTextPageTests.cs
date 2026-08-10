@@ -1,3 +1,4 @@
+using System;
 using Newtonsoft.Json.Linq;
 using OrbAutomata.GameMcp;
 using Xunit;
@@ -194,6 +195,22 @@ public sealed class GameMcpTextPageTests
             {'name':'second','detail':{'a':9,'b':8,'c':{'d':7}}}]}");
 
         Assert.Equal("rows 2:", page.Split('\n')[0]);
+    }
+
+    /// <summary>
+    /// A constant the header would have to count rather than say stays a column. Hoisted, it came
+    /// out as `all detail=3` — three properties — and because constants are not printed per row,
+    /// the content it stood for appeared nowhere on the page.
+    /// </summary>
+    [Fact]
+    public void A_constant_the_header_could_only_count_keeps_its_content_on_the_page()
+    {
+        var page = Render(@"{'rows':[
+            {'name':'first','detail':{'a':1,'b':2,'c':{'d':3}}},
+            {'name':'second','detail':{'a':1,'b':2,'c':{'d':3}}}]}");
+
+        Assert.DoesNotContain("all detail=", page, StringComparison.Ordinal);
+        Assert.Contains("d=3", page, StringComparison.Ordinal);
     }
 
     private static string Render(string json) =>

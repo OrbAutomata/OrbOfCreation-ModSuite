@@ -125,7 +125,10 @@ same idiom and no producer invents its own formatting.
   the whole page moves into the header behind `all` — a value repeated on every line is a page fact
   wearing a row's clothes. Only a column that actually varies has to fit in a cell: a constant one is
   said once in the header however long it is, so a page whose every row carried the same multi-line
-  refusal is a table with a long header rather than twenty paragraphs. Columns are separated by a
+  refusal is a table with a long header rather than twenty paragraphs. Length is the only thing the
+  header relaxes: a constant it could render only as a count of properties or elements stays a
+  column, because constants are not repeated per row and a hoisted bare count would leave the value
+  nowhere on the page. Columns are separated by a
   single space, or by ` | ` when any cell on the page contains one.
 - **A refusal is one line**: `refused (ERR_NOT_FOUND): The spell Beam Burst you tried to cancel is
   not currently active.` A decision block reads the same way, verdict first and sentence last:

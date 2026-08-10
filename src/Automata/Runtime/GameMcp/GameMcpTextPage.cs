@@ -274,7 +274,12 @@ internal static class GameMcpTextPage
                 var constant = first is not null;
                 for (var row = 1; constant && row < array.Count; row++)
                     constant = JToken.DeepEquals(first, ((JObject)array[row])[column]);
-                if (constant) constants.Add(new KeyValuePair<string, JToken>(column, first!));
+                // Hoisting is only worth it when the header can say the value. A constant the
+                // header cannot render came out as a bare property count — `all foo=3` — and
+                // because constants are not printed per row, the value then appeared nowhere on
+                // the page at all. Left as a column it keeps its content, whatever shape it takes.
+                if (constant && HeaderCanSay(first!))
+                    constants.Add(new KeyValuePair<string, JToken>(column, first!));
                 else varying.Add(column);
             }
             if (varying.Count == 0) constants.Clear();
@@ -304,6 +309,21 @@ internal static class GameMcpTextPage
         }
         return true;
     }
+
+    /// <summary>
+    /// Whether <see cref="HeaderCell"/> would say this value rather than count it. Both fallbacks
+    /// it can reach — a nested object's property count and a non-scalar array's element count —
+    /// print an integer that means nothing a caller asked about.
+    /// </summary>
+    private static bool HeaderCanSay(JToken value) => value switch
+    {
+        JObject item =>
+            ((string?)item["status"] is not null && (string?)item["reason"] is not null) ||
+            TryInline(item, int.MaxValue) is not null,
+        JArray array =>
+            array.Count == 0 || AllScalars(array) is not null || TryIdentityList(array, out _),
+        _ => true,
+    };
 
     /// <summary>A value a table cell can hold without the row needing a second line.</summary>
     private static bool Flat(JToken value)
