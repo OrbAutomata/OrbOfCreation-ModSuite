@@ -236,6 +236,13 @@ messages remain, and an actual adapter failure or native refusal emits one actio
 identity and reason. Auto Buy's classified refusal responder owns the `NotAdmissible` line so narration
 cannot duplicate it.
 
+World collection announces what a pass managed when the answer changes, and the sampled population is
+part of that answer: a healthy pass repeats only while its entity count stays within a tenth of the
+last announced one. The band is measured against what was last spoken rather than bucketed against
+fixed boundaries, so ordinary play drifts quietly and a prestige, save load, or vanished category
+speaks immediately. Keying a healthy pass on completeness alone kept this line silent through a
+session that went from 6,683 entities to 4,051.
+
 Auto Buy affordability drift remains a loud refusal but does not synchronously render or write a
 bundle. Structural contradictions that disable the feature retain a full text bundle under
 `trace/diagnostics`, capped before each write at eight owned files and 1 MiB total. A collision,
