@@ -1870,12 +1870,12 @@ public sealed class Plugin : BaseUnityPlugin
                 ["reason"] = "The suite's game math check is not composed in this scene.",
             });
         }
-        if (!_mathVerification.TryRunNow(out var lines, out var reason))
+        if (!_mathVerification.TryRunNow(out var lines, out var code, out var reason))
         {
             return GameMcpToolExecution.Read(new GameMcpObjectBuilder
             {
                 ["status"] = "refused",
-                ["reasonCode"] = "already_active",
+                ["reasonCode"] = code,
                 ["reason"] = reason,
             });
         }

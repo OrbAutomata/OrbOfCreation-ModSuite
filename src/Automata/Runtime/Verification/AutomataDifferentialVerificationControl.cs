@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.Verification;
@@ -40,16 +41,19 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
 {
     private readonly Action<string> _report;
     private readonly Action<Action<string>>? _runOverride;
+    private readonly Func<GameLifecycleState> _lifecycle;
     private List<string>? _capture;
     private bool _runRequested;
     private long _revision;
 
     internal AutomataDifferentialVerificationControl(
         Action<string> report,
-        Action<Action<string>>? runOverride = null)
+        Action<Action<string>>? runOverride = null,
+        Func<GameLifecycleState>? lifecycle = null)
     {
         _report = report ?? throw new ArgumentNullException(nameof(report));
         _runOverride = runOverride;
+        _lifecycle = lifecycle ?? (() => GameLifecycleMonitor.Shared.Current.State);
     }
 
     public bool RunRequested => _runRequested;
@@ -70,6 +74,11 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         if (!_runRequested) return;
         _runRequested = false;
         _revision = checked(_revision + 1);
+        if (!TryBegin(out _, out var reason))
+        {
+            Report(reason);
+            return;
+        }
         Run();
     }
 
@@ -84,12 +93,11 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
     /// the same frame, and running twice would report a second verdict measured against caches the
     /// first run had just warmed.
     /// </remarks>
-    internal bool TryRunNow(out string[] lines, out string reason)
+    internal bool TryRunNow(out string[] lines, out string code, out string reason)
     {
-        if (_runRequested)
+        if (!TryBegin(out code, out reason))
         {
             lines = Array.Empty<string>();
-            reason = "A game math check is already queued from the Runtime page and runs this frame.";
             return false;
         }
         var captured = new List<string>();
@@ -103,6 +111,35 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
             _capture = null;
         }
         lines = captured.ToArray();
+        return true;
+    }
+
+    /// <summary>
+    /// Whether the game this check compares itself against exists to be read.
+    /// </summary>
+    /// <remarks>
+    /// Every pass below resolves its type from the loaded assembly and reads that type's static
+    /// registry, both of which answer in the Start menu — the assets are loaded when the process is,
+    /// long before any save is. So "the registry is empty" was never the question it was asked as,
+    /// and with no run behind it the first pass to build a comparison world dereferenced a game
+    /// object that does not exist yet. The check reads the live game, so the live game's lifecycle
+    /// is its precondition, asked once here for both the Runtime-page press and the tool call.
+    /// </remarks>
+    private bool TryBegin(out string code, out string reason)
+    {
+        if (_runRequested)
+        {
+            code = "already_active";
+            reason = "A game math check is already queued from the Runtime page and runs this frame.";
+            return false;
+        }
+        if (GameLifecycleUnavailability.TryDescribe(_lifecycle(), out code, out var lifecycleReason))
+        {
+            reason = "The game math check compares the suite against a running game, and " +
+                lifecycleReason;
+            return false;
+        }
+        code = string.Empty;
         reason = string.Empty;
         return true;
     }
@@ -212,8 +249,15 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         {
             // A throw here is itself the finding — the collector reached something on a live object
             // that no stub reproduces — so it is reported rather than allowed to take down the frame
-            // the player is standing in.
-            Report($"World collection check threw: {ex.GetBaseException().Message}");
+            // the player is standing in. What it must not report is the runtime's own exception text
+            // on its own: read alone, "Object reference not set to an instance of an object" is a
+            // sentence about the suite's plumbing that a reader mistook for a verdict about the
+            // game. The verdict word comes first and says there is no verdict; the exception type
+            // stays after it, where whoever is debugging the suite still has the clue.
+            Report(
+                "World collection check: INCONCLUSIVE — it faulted before it could compare " +
+                "anything, so nothing here is a verdict about the game " +
+                $"({ex.GetBaseException().GetType().Name}).");
         }
     }
 

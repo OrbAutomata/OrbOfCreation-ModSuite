@@ -95,7 +95,8 @@ public sealed class AutomataDifferentialVerificationShortcutTests
     public void RuntimeButtonCoalescesRequestsAndRunsOnceOnTick()
     {
         var runs = 0;
-        var control = new AutomataDifferentialVerificationControl(_ => { }, _ => runs++);
+        var control = new AutomataDifferentialVerificationControl(
+            _ => { }, _ => runs++, () => GameLifecycleState.Playing);
 
         Assert.True(control.RequestRun());
         Assert.False(control.RequestRun());
@@ -125,10 +126,12 @@ public sealed class AutomataDifferentialVerificationShortcutTests
             {
                 report("Cost verification PASSED: 522 compared, 522 exact.");
                 report("Rate verification PASSED: 640 compared, 640 exact.");
-            });
+            },
+            () => GameLifecycleState.Playing);
 
-        Assert.True(control.TryRunNow(out var lines, out var reason));
+        Assert.True(control.TryRunNow(out var lines, out var code, out var reason));
 
+        Assert.Equal(string.Empty, code);
         Assert.Equal(string.Empty, reason);
         Assert.Equal(logged, lines);
         Assert.Equal(2, lines.Length);
@@ -143,17 +146,76 @@ public sealed class AutomataDifferentialVerificationShortcutTests
     public void ACheckAlreadyQueuedFromTheRuntimePageRefusesASecondRun()
     {
         var runs = 0;
-        var control = new AutomataDifferentialVerificationControl(_ => { }, _ => runs++);
+        var control = new AutomataDifferentialVerificationControl(
+            _ => { }, _ => runs++, () => GameLifecycleState.Playing);
         control.RequestRun();
 
-        var admitted = control.TryRunNow(out var lines, out var reason);
+        var admitted = control.TryRunNow(out var lines, out var code, out var reason);
 
         Assert.False(admitted);
         Assert.Empty(lines);
+        Assert.Equal("already_active", code);
         Assert.Equal(
             "A game math check is already queued from the Runtime page and runs this frame.",
             reason);
         Assert.Equal(0, runs);
+    }
+
+    /// <summary>
+    /// The check reads the live game, so with no run behind it there is nothing to read. It used to
+    /// find that out by dereferencing a game object that does not exist in the Start menu, and
+    /// answered the runtime's own NullReferenceException text as though that were a verdict.
+    /// </summary>
+    [Theory]
+    [InlineData(GameLifecycleState.NoGame, "lifecycle_no_game",
+        "The game math check compares the suite against a running game, and no save is loaded, " +
+        "so there is no world to read.")]
+    [InlineData(GameLifecycleState.Initializing, "lifecycle_initializing",
+        "The game math check compares the suite against a running game, and the save is still " +
+        "loading, so no world has been collected yet.")]
+    [InlineData(GameLifecycleState.SceneExit, "lifecycle_scene_exit",
+        "The game math check compares the suite against a running game, and the play scene is " +
+        "unloading, so the world it was read from is gone.")]
+    public void WithNoRunToReadTheCheckRefusesByNameAndRunsNothing(
+        GameLifecycleState state,
+        string expectedCode,
+        string expectedReason)
+    {
+        var runs = 0;
+        var logged = new List<string>();
+        var control = new AutomataDifferentialVerificationControl(
+            logged.Add, _ => runs++, () => state);
+
+        var admitted = control.TryRunNow(out var lines, out var code, out var reason);
+
+        Assert.False(admitted);
+        Assert.Empty(lines);
+        Assert.Equal(expectedCode, code);
+        Assert.Equal(expectedReason, reason);
+        Assert.Equal(0, runs);
+        Assert.Empty(logged);
+    }
+
+    /// <summary>The Runtime-page press answers the same refusal, in the place the button reports to.</summary>
+    [Fact]
+    public void TheRuntimeButtonReportsTheSameRefusalWithNoRunToRead()
+    {
+        var runs = 0;
+        var logged = new List<string>();
+        var control = new AutomataDifferentialVerificationControl(
+            logged.Add, _ => runs++, () => GameLifecycleState.NoGame);
+        control.RequestRun();
+
+        control.Tick();
+
+        Assert.Equal(0, runs);
+        Assert.Equal(
+            new[]
+            {
+                "The game math check compares the suite against a running game, and no save is " +
+                "loaded, so there is no world to read.",
+            },
+            logged);
     }
 
     [Fact]

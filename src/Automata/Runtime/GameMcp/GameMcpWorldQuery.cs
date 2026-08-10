@@ -3138,33 +3138,12 @@ internal static class GameMcpWorldQuery
         out string code,
         out string reason)
     {
-        switch (state.LifecycleState)
-        {
-            case GameLifecycleState.NoGame:
-                code = "lifecycle_no_game";
-                reason = "no save is loaded, so there is no world to read.";
-                return;
-            case GameLifecycleState.Initializing:
-                code = "lifecycle_initializing";
-                reason = "the save is still loading, so no world has been collected yet.";
-                return;
-            case GameLifecycleState.Resetting:
-                code = "lifecycle_resetting";
-                reason =
-                    "a save load, reset, or new game plus is replacing the run, so the previous " +
-                    "world was dropped and the next one has not been collected yet.";
-                return;
-            case GameLifecycleState.SceneExit:
-                code = "lifecycle_scene_exit";
-                reason = "the play scene is unloading, so the world it was read from is gone.";
-                return;
-            default:
-                code = "world_not_published";
-                reason = state.RuntimeNotAvailableReason.Length == 0
-                    ? "the world collector has not published a captured world yet"
-                    : state.RuntimeNotAvailableReason;
-                return;
-        }
+        if (GameLifecycleUnavailability.TryDescribe(state.LifecycleState, out code, out reason))
+            return;
+        code = "world_not_published";
+        reason = state.RuntimeNotAvailableReason.Length == 0
+            ? "the world collector has not published a captured world yet"
+            : state.RuntimeNotAvailableReason;
     }
 
     /// <summary>
