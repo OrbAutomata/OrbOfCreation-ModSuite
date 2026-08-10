@@ -96,11 +96,14 @@ and no way to select a discovery output by UUID; and `game_spell_level` requires
 `uuid` for `single` while rejecting it for `all`, because the native Level All button
 takes no target.
 
-Every game-domain `BigDouble` is one JSON string produced by the shared MCP number formatter, never
+Every game-domain `BigDouble` is one JSON string produced by the shared number formatter, never
 a JSON number or a text/mantissa/exponent object. Zero is `"0"`. The formatter follows the screen:
 ordinary player-scale values are plain with at most two decimals (`"26"`, `"2.2"`), while large or
 small magnitudes use a normalized mantissa and lowercase `e` exponent without a plus sign
-(`"1.66e8"`, `"1.23e-3"`). There is one formatter and no precision or verbosity option.
+(`"1.66e8"`, `"1.23e-3"`). There is one formatter and no precision or verbosity option, and it is
+not the wire's alone: the differential check prints magnitudes from the Runtime page in builds this
+whole surface is compiled out of, and a second formatter for those builds would be a second
+notation.
 
 The game aggressively caches some derived values until their screen has been viewed. That upstream
 behavior is not silently worked around here. If a stale cache prevents a native action, the
@@ -259,7 +262,7 @@ rather than from the screen it is drawn on.
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
 | `suite_configuration` | Read every writable setting's committed value; `mode=describe` adds type, domain, and purpose |
 | `trace_health` | Read trace-writer health, segment, record, and byte counters |
-| `suite_check_game_math` | Run the differential check of the suite's math against the game and return its verdict lines |
+| `suite_check_game_math` | Run the differential check of the suite's math against the game and answer with one verdict word, the disagreements, and one provenance line |
 | `game_purchase` | Buy an Attribute (`StructureSO`) or Upgrade derived from its UUID |
 | `game_cast` | Fire, release charge, or turn off one equipped toggle spell |
 | `game_concept` | Add or remove one owned concept assignment |
@@ -2274,9 +2277,48 @@ same audited `ITooltipable.GetDescription()` contract supplies authored descript
 
 `suite_check_game_math` takes no arguments and runs the same differential check the
 **Mods > Runtime > Check game math** action runs: every entity in every registry is compared against
-the game's own answer, one pass at a time, and each pass reports one verdict line. The answer is the
-verdict lines as plain text with no envelope — they are already one fact per line, and there is no
-handle to follow up on.
+the game's own answer. The answer is plain text with no envelope — it is already one fact per line,
+and there is no handle to follow up on.
+
+**The verdict is the first word of the first line**, followed by the count that accounts for
+everything the run compared:
+
+```
+AGREE — 8442 facts compared, 8442 agree, 0 differ.
+window: generation=3 frame=48213 entities=6683 categories=60 collect=41.213ms ported=118.4ms native=2249.1ms elapsed=2407.741ms memos=5677 drifted=730 dirty=3558 uncalculated=612 widestDrift=2.46e121%@StructureSO.passiveCostMod
+```
+
+Those two lines are the whole response when everything agreed. The rules that make them so:
+
+- **One verdict vocabulary, four words, everywhere.** `AGREE` — everything compared agreed, and
+  everything in scope was compared. `DISAGREE` — at least one comparison found the two sides
+  genuinely different. `INCOMPLETE` — everything compared agreed, but something in scope could not
+  be read, so a pass over a subset is not reported as a pass. `INCONCLUSIVE` — nothing could be
+  compared, so there is no verdict to have. A response never mixes vocabularies between its summary
+  and its checks, and no check says `PASSED`, `FAILED`, `MISMATCH` or "all agree" any more.
+- **Only checks that did not agree render.** A check that agreed contributes its count to the
+  summary line and nothing else. Its disagreements, when it has them, follow its own headline
+  indented by two spaces.
+- **Agreement is a count, disagreement is a row.** A comparison that agreed only within
+  floating-point tolerance is agreement; it is counted on the summary line
+  (`N agree only within tolerance`) and never given a row, because such a row printed two
+  byte-identical numbers behind two full UUIDs.
+- **Numbers are the game's own Scientific notation**, both sides of a comparison in the same form,
+  so a difference shows in the digits that differ. Two values that agree are written once
+  (`ours=theirs=4.4e3`). Two that differ only below the three digits the screen keeps say so
+  (`both read 7.46e290, differing below what the screen shows`) rather than printing the same string
+  twice under a heading that claims they disagree.
+- **One `window:` line, last, the same shape every call.** Everything that moves between two calls
+  over an unchanged world lives there and nowhere else: which lifecycle generation and Unity frame
+  the numbers were read from, how much was read, what the run cost, and how far the game's own
+  modifier memos had drifted from a fresh recompute when it was taken. Memo drift is the game's
+  state rather than an error in the suite — the suite reads the memo because the game acts on the
+  memo — so it is a condition of the run, not a verdict about it.
+
+The per-category entity census, the bind and cold-collect timings, the per-pass millisecond
+breakdown and the per-type drift percentages are not part of the answer and are not printed: each
+answers a performance or inventory question this verb is not asked, and each moved between two calls
+over an unchanged world.
 
 Two things about it are unlike every other read here, and both are deliberate:
 
@@ -2294,9 +2336,9 @@ button reports it in the log, the tool refuses with the lifecycle class. Its pas
 types from the loaded assembly and read those types' static registries, both of which answer in the
 Start menu because the assets load with the process long before any save does; asked there without
 that precondition it dereferenced a game object that does not exist yet, and answered the runtime's
-own exception text as a tool error. No verdict line prints raw exception text either: a check that
-faults before it can compare anything says so, and says that nothing in it is a verdict about the
-game.
+own exception text as a tool error. No finding prints raw exception text either: a check that faults
+before it can compare anything answers `INCONCLUSIVE`, says that nothing in it is a verdict about
+the game, and names only the exception's type.
 
 Its passes read their comparison worlds through throwaway collectors, which get their own
 purchase-view topology because every collector does unless it is built by the session's named

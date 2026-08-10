@@ -682,7 +682,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "suite_check_game_math",
                 "Check the suite's math against the game",
-                "Run the Mods>Runtime \"Check game math\" differential check and return one verdict line per pass. Every entity in every registry is compared against the game's own answer, and all of it runs inside this call's frame, so the game stalls for seconds and the call takes that long to answer. It is a diagnostic, not a read: run it when a number looks wrong, not on a schedule.",
+                "Run the Mods>Runtime \"Check game math\" differential check. Every entity in every registry is compared against the game's own answer, and the reply leads with one verdict word — AGREE, DISAGREE, INCOMPLETE or INCONCLUSIVE — and the count behind it, then renders only the checks that did not agree, then one window: line naming what was compared and when. All of it runs inside this call's frame, so the game stalls for seconds and the call takes that long to answer. It is a diagnostic, not a read: run it when a number looks wrong, not on a schedule.",
                 ObjectSchema()),
             Tool(
                 "game_purchase",

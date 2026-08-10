@@ -126,6 +126,12 @@ and eligibility verdict against `GetPurchaseCost()` and `HasEnough()`, every res
 coordinate and capacity verdict, the ritual/consumable/resource predicates, reference edges,
 identities, and cache staleness.
 
+Every one of them reports a `VerificationFinding` rather than writing a line, and one renderer turns
+the set into the answer: the verdict word first, then only the checks that did not agree, then one
+`window:` line carrying everything that moves between two calls over an unchanged world. The
+vocabulary and the rendering rules are in
+[MCP tools](../development/mcp-tools.md#checking-the-suites-math-against-the-game).
+
 Two of those comparisons exist because a reading left capture and the rule is that the replacing math
 is proved before the call is deleted. The composed `canFire` verdict is compared against native
 `ConsumableSO.CanFire()` — a call that writes while it answers, which is why the oracle lives here and

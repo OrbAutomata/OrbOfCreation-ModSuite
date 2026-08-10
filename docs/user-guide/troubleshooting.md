@@ -75,8 +75,12 @@ refusal reason without requiring you to copy individual log lines.
 loaded game without changing the game. Load a save first. The check runs in one frame, so the game
 will visibly pause while it completes; its result is written to `BepInEx/LogOutput.log`.
 
-An `INCOMPLETE` result names a condition the suite does not model and therefore refuses to automate.
-Include that result in a problem report.
+The first word of the first line is the answer. `AGREE` means the suite and the game reached the
+same number everywhere they were compared, and nothing follows it but the count and one `window:`
+line — a short result is a healthy one, not a truncated one. `DISAGREE` means at least one number
+genuinely differs, and only the checks that differ are listed. `INCOMPLETE` names a condition the
+suite does not model and therefore refuses to automate. `INCONCLUSIVE` means nothing could be
+compared at all, which is not a pass. Include anything but `AGREE` in a problem report.
 
 ## Reporting a problem
 
