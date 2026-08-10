@@ -92,12 +92,12 @@ internal sealed class WorldFrameGlobalsReader
     private const BindingFlags Statics = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private const BindingFlags Instances = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-    private readonly MethodInfo? _resourceOverflow;
-    private readonly MethodInfo? _resourceOverflowLoss;
-    private readonly MethodInfo? _resetTimePassed;
-    private readonly MethodInfo? _structureCost;
-    private readonly MethodInfo? _attributeQualityBonus;
-    private readonly FieldInfo? _variableValue;
+    private readonly Func<object?>? _resourceOverflow;
+    private readonly Func<object?>? _resourceOverflowLoss;
+    private readonly Func<object?>? _resetTimePassed;
+    private readonly Func<object?>? _structureCost;
+    private readonly Func<object?>? _attributeQualityBonus;
+    private readonly Func<object, object?>? _variableValue;
     private readonly NativeModifierRecordAccess? _record;
 
     internal WorldFrameGlobalsReader(Func<string, Type?> resolveType)
@@ -107,14 +107,23 @@ internal sealed class WorldFrameGlobalsReader
         var player = resolveType("Player");
         if (player is null) return;
 
-        _resourceOverflow = StaticNoArg(player, "GetResourceOverflow");
-        _resourceOverflowLoss = StaticNoArg(player, "GetResourceOverflowLoss");
-        _resetTimePassed = StaticNoArg(player, "GetResetTimePassed");
-        _structureCost = StaticNoArg(player, "GetStructureCost");
-        _attributeQualityBonus = StaticNoArg(player, "GetAttributeQualityBonus");
+        var resourceOverflow = StaticNoArg(player, "GetResourceOverflow");
+        var variableValue = resourceOverflow?.ReturnType.GetField("value", Instances);
+        _record = NativeModifierRecordAccess.For(variableValue?.FieldType);
 
-        _variableValue = _resourceOverflow?.ReturnType.GetField("value", Instances);
-        _record = NativeModifierRecordAccess.For(_variableValue?.FieldType);
+        // Discovery stays where it was; only the reading changes. A member that resolves but will
+        // not compile leaves its accessor null, which is the same unavailability a renamed accessor
+        // produces and degrades through the same per-term neutral values.
+        _resourceOverflow = NativeAccessorBinder.CallStaticValue(resourceOverflow);
+        _resourceOverflowLoss = NativeAccessorBinder.CallStaticValue(
+            StaticNoArg(player, "GetResourceOverflowLoss"));
+        _resetTimePassed = NativeAccessorBinder.CallStaticValue(
+            StaticNoArg(player, "GetResetTimePassed"));
+        _structureCost = NativeAccessorBinder.CallStaticValue(
+            StaticNoArg(player, "GetStructureCost"));
+        _attributeQualityBonus = NativeAccessorBinder.CallStaticValue(
+            StaticNoArg(player, "GetAttributeQualityBonus"));
+        _variableValue = NativeAccessorBinder.ReadValue(variableValue);
     }
 
     internal bool IsAvailable =>
@@ -153,12 +162,12 @@ internal sealed class WorldFrameGlobalsReader
             fixedDeltaTime);
     }
 
-    private BigDouble Value(MethodInfo accessor)
+    private BigDouble Value(Func<object?> accessor)
     {
-        var variable = accessor.Invoke(null, null);
+        var variable = accessor();
         if (variable is null) return default;
 
-        return _record!.Fold(_variableValue!.GetValue(variable));
+        return _record!.Fold(_variableValue!(variable));
     }
 
     /// <summary>
