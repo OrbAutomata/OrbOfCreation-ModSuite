@@ -210,14 +210,17 @@ public sealed class GameMcpSpellLoadoutTests
         // every tool refused it. The recipe names the spell and does resolve.
         Assert.Null(firstSummary["spellInstance"]);
         Assert.Equal("Gather Knowledge", (string?)firstSummary["spellRecipe"]!["name"]);
-        Assert.True((bool)firstSummary["occupied"]!);
         Assert.Null(firstSummary["remove"]);
+
+        // The spell column says whether the slot is filled, so `occupied` is not a second column
+        // for the same bit — and a bar with nothing on it keeps the column a full one has.
+        Assert.Null(firstSummary["occupied"]);
         var second = Assert.IsType<JObject>(rows[1]);
         var empty = Assert.IsType<JObject>(rows[2]);
         Assert.Equal(2, (int)second["slot"]!);
         Assert.Equal("Whirling Sorcery", (string?)second["spellRecipe"]!["name"]);
         Assert.Equal(3, (int)empty["slot"]!);
-        Assert.False((bool)empty["occupied"]!);
+        Assert.Equal("empty", (string?)empty["spellRecipe"]);
         Assert.Null(response["moveDestinations"]);
     }
 

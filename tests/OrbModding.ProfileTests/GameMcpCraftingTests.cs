@@ -178,7 +178,7 @@ public sealed class GameMcpCraftingTests
         Assert.Equal(1, (int?)manualSlot["slot"]);
         Assert.Equal("Craft Sigils", (string?)manualSlot["recipe"]!["name"]);
         Assert.Equal("4", (string?)manualSlot["amount"]);
-        Assert.Null(manualSlot["repetitions"]);
+        Assert.Equal("manual", (string?)manualSlot["repetitions"]);
 
         var automation = row["automation"]!;
         Assert.Equal("Auto Sigil Queue", (string?)automation["queue"]!["name"]);
@@ -233,7 +233,7 @@ public sealed class GameMcpCraftingTests
     }
 
     [Fact]
-    public void QueueContentsAreOrderedNamedAndOmitManualAutomationFields()
+    public void QueueContentsAreOrderedNamedAndSayWhichEntriesRepeat()
     {
         var result = Json(GameMcpWorldQuery.ListRows(
             Context(),
@@ -248,13 +248,16 @@ public sealed class GameMcpCraftingTests
         Assert.Equal("Craft Sigils", (string?)rows[0]?["recipe"]?["name"]);
         Assert.Equal(1, (int?)rows[0]?["slot"]);
         Assert.Equal("4", (string?)rows[0]?["amount"]);
-        Assert.False((bool?)rows[0]?["automatic"]);
-        Assert.Null(rows[0]?["repetitions"]);
+
+        // One column carries both answers, so the page never spends a second one saying that the
+        // first does not apply here.
+        Assert.Equal("manual", (string?)rows[0]?["repetitions"]);
+        Assert.Null(rows[0]?["automatic"]);
         Assert.Equal("Auto Sigil Queue", (string?)rows[1]?["queue"]?["name"]);
         Assert.Equal(2, (int?)rows[1]?["slot"]);
         Assert.Equal("4", (string?)rows[1]?["amount"]);
-        Assert.True((bool?)rows[1]?["automatic"]);
         Assert.Equal(3, (int?)rows[1]?["repetitions"]);
+        Assert.Null(rows[1]?["automatic"]);
     }
 
     [Fact]

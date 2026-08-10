@@ -412,8 +412,10 @@ inverted/bandwidth flags never overload one field with two meanings. These field
 include Auto Buy's configurable reserve or excess policy.
 
 A `resources` row is deliberately only named identity, the counter's on-screen `amount`,
-`netRatePerSecond`, and, when the resource is capped, `capacity` plus `atCapacity`. A negative native
-capacity is the game's uncapped sentinel and is never serialized as a magnitude. `atCapacity`
+`netRatePerSecond`, `capacity` and `atCapacity`. A resource with no storage ceiling reads `uncapped`
+under both of the last two: the game's uncapped marker is a negative native capacity, which is never
+serialized as a magnitude, and a bare `atCapacity: no` would answer "is it full" about a counter
+that cannot fill. Where a ceiling does apply, `atCapacity`
 answers in the same coordinate as `amount`: it is true exactly when the published `amount` reached
 `capacity`, so an inverted counter reading `amount: 0` is not at capacity and one reading its whole
 pool is. Detailed
@@ -459,8 +461,10 @@ emitted in `drainBlockers`. The category is unavailable unless both recipe and r
 are clean.
 
 `crafting-queue-entries` is the ordered live contents of every loaded manual and automation queue.
-Each lean row names the queue and recipe, reports its slot counted from 1, current amount, and whether
-the instance is automatic; only automatic entries carry their repetition count. The same
+Each lean row names the queue and recipe, reports its slot counted from 1, current amount, and its
+`repetitions`. Only an automated entry repeats, so a manual one reads `repetitions: manual` — the
+one column answers both questions, where a separate `automatic` flag beside it spelled the same bit
+twice and then went quiet about the count. The same
 lifecycle-bound crafting reader supplies these rows and recipe decisions, so a malformed instance,
 queue-role contradiction, or unstable page roster makes the category unavailable rather than
 publishing a partial queue.
@@ -725,8 +729,10 @@ postcondition is the exact pair's game-written active quantity moving in the req
 refund behavior on cancellation is neither recomputed nor verified.
 
 `agromancy-processing` is the screen's top processing strip in screen order. Each row reports its
-slot, whether it is empty, the strip capacity and occupancy, and—when occupied—the named plot,
-named action, amount, and whether it is processing. The former helper categories for harvest
+slot, the strip `capacity` and `used` count, and its occupant: the named `plot`, named `action`,
+`amount`, and whether it is `processing`. A free slot reads `empty` under all four, which is what a
+separate `empty` flag used to say about the four columns beside it; a strip whose queue the world
+did not publish reads `unreadable` under `capacity` and `used`. The former helper categories for harvest
 controls/resources, plot instances, and raw action-queue internals are not public MCP categories;
 their facts are joined into these three player-facing surfaces.
 
@@ -1433,6 +1439,30 @@ This costs almost nothing to read, because a column holding one value across a p
 the header: a page of uncapped upgrades renders `all maxLevel=uncapped, remainingLevels=uncapped`
 on one line. What it buys is that the header stops shifting with world state — the page that taught
 nothing about caps was exactly the page whose every upgrade was uncapped.
+
+Where one column already answered a second column's question, the second is gone rather than
+totalized — a flag whose only job was to explain the absence beside it says nothing once the
+absence is spelled:
+
+| Category | Column | Says instead of going absent | Column deleted with it |
+| --- | --- | --- | --- |
+| `upgrades` | `maxLevel`, `remainingLevels` | `uncapped` | — |
+| `upgrades` | `affordable` | `already_maxed`, `unpriced` | — |
+| `structures` | `affordable` | `unpriced` | — |
+| `resources` | `capacity`, `atCapacity` | `uncapped` | — |
+| `purchase-costs` | `spendableAmount`, `affordable` | `unevaluated` | — |
+| `alchemy-instances` | `drainRatio` | `unreadable` | `drainReadable` |
+| `alchemy-loadout` | `slot` | `unslotted` | — |
+| `crafting-queue-entries` | `repetitions` | `manual` | `automatic` |
+| `spell-slots` | `spellRecipe` | `empty` | `occupied` |
+| `spell-slots` | `casting` | `no` | — |
+| `agromancy-processing` | `plot`, `action`, `amount`, `processing` | `empty` | `empty` (the flag) |
+| `agromancy-processing` | `capacity`, `used` | `unreadable` | — |
+
+A row's verdict pair — `reasonCode` and `reason` — is not part of the declared set. It is the
+refusal grammar every surface shares: present exactly where there is a no to explain, and absent
+where the answer is yes, which the row's own `available` or `affordable` column already states. That
+absence never means "not applicable"; it means nothing was refused.
 
 An identity is a handle and a name, and nothing else. The asset name (`internalName`), the runtime
 type (`nativeType`), the category the type implies, and where a name came from (`nameSource`) are

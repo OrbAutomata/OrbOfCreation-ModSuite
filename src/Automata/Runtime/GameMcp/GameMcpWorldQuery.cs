@@ -334,9 +334,11 @@ internal static class GameMcpWorldQuery
                 ["level"] = structure.Reading.Level.ToInt(),
                 ["queuedLevels"] = structure.Reading.QueuedLevels.ToInt(),
                 ["enabled"] = !structure.Reading.Disabled,
+                ["affordable"] =
+                    TryPurchaseAffordability(world, structure.EntityId, out var affordable)
+                        ? affordable
+                        : (object)GameMcpListColumns.Unpriced,
             };
-            if (TryPurchaseAffordability(world, structure.EntityId, out var affordable))
-                projected["affordable"] = affordable;
             return projected.Freeze();
         }
         if (row is WorldUpgrade upgrade)
@@ -530,13 +532,13 @@ internal static class GameMcpWorldQuery
     /// </summary>
     private static GameMcpValue ProjectSpellSlotSummary(in WorldSpellSlot slot)
     {
-        var result = new JObject
-        {
-            ["slot"] = GameMcpSlotNumbering.Wire(slot.SlotIndex),
-            ["spellRecipeId"] = slot.SpellRecipeId,
-            ["occupied"] = slot.Occupied,
-        };
-        if (slot.Casting) result["casting"] = true;
+        // An empty slot names itself under the column that would name its spell, so `occupied` is
+        // not a second column for the same bit — and the id of an empty slot is the game's zero
+        // Guid, which the wire drops rather than handing back an address nothing answers to.
+        var result = new JObject { ["slot"] = GameMcpSlotNumbering.Wire(slot.SlotIndex) };
+        if (slot.Occupied) result["spellRecipeId"] = slot.SpellRecipeId;
+        else result["spellRecipe"] = GameMcpListColumns.Empty;
+        result["casting"] = slot.Casting;
         return result.Freeze();
     }
 
@@ -568,31 +570,39 @@ internal static class GameMcpWorldQuery
 
     /// <summary>
     /// A recipe the loadout does not hold has no position at all — the game stores that as a
-    /// negative index, which one-based arithmetic would print as a plausible slot 0.
+    /// negative index, which one-based arithmetic would print as a plausible slot 0, so the column
+    /// says which recipes are out rather than going quiet about them.
     /// </summary>
     private static GameMcpValue ProjectAlchemyLoadoutSummary(
         in WorldAlchemyLoadoutDecision decision)
     {
-        var result = new JObject { ["recipeId"] = decision.RecipeId };
-        if (decision.Position >= 0)
-            result["slot"] = GameMcpSlotNumbering.Wire(decision.Position);
-        result["slotCount"] = decision.SlotCount;
-        result["amount"] = decision.Amount;
+        var result = new JObject
+        {
+            ["recipeId"] = decision.RecipeId,
+            ["slot"] = decision.Position >= 0
+                ? GameMcpSlotNumbering.Wire(decision.Position)
+                : (object)GameMcpListColumns.Unslotted,
+            ["slotCount"] = decision.SlotCount,
+            ["amount"] = decision.Amount,
+        };
         return result.Freeze();
     }
 
     private static GameMcpValue ProjectCraftingQueueEntry(
         in WorldCraftingQueueEntry entry)
     {
+        // Only an automated entry repeats, so the repetition count is where "this one is manual"
+        // belongs; a separate `automatic` flag said the same bit a second time.
         var result = new JObject
         {
             ["queueId"] = entry.QueueId,
             ["slot"] = GameMcpSlotNumbering.Wire(entry.Slot),
             ["recipeId"] = entry.RecipeId,
             ["amount"] = new GameMcpDomainValue(entry.Amount),
-            ["automatic"] = entry.Automatic,
+            ["repetitions"] = entry.Automatic
+                ? entry.Repetitions
+                : (object)GameMcpListColumns.Manual,
         };
-        if (entry.Automatic) result["repetitions"] = entry.Repetitions;
         return result.Freeze();
     }
 
@@ -3655,23 +3665,23 @@ internal static class GameMcpWorldQuery
         GameWorldState world,
         in WorldActionQueueSlot slot)
     {
+        // The occupant columns say `empty` where there is no occupant, which is what the separate
+        // `empty` flag used to say — one bit on five columns. What fills the slot answers it.
+        var queueFound = WorldLookup.TryFind(world.ActionQueues, slot.QueueId, out var queue);
         var result = new JObject
         {
             ["slot"] = GameMcpSlotNumbering.Wire(slot.Index),
-            ["empty"] = slot.Empty,
+            ["capacity"] = queueFound ? queue.SlotCount : (object)GameMcpListColumns.Unreadable,
+            ["used"] = queueFound ? queue.UsedSlots : (object)GameMcpListColumns.Unreadable,
+            ["plot"] = slot.Empty
+                ? GameMcpListColumns.Empty
+                : EntityReference(world, slot.PlotNodeId),
+            ["action"] = slot.Empty
+                ? GameMcpListColumns.Empty
+                : EntityReference(world, slot.PlotNodeActionId),
+            ["amount"] = slot.Empty ? (object)GameMcpListColumns.Empty : slot.Quantity,
+            ["processing"] = slot.Empty ? (object)GameMcpListColumns.Empty : slot.Engaged,
         };
-        if (WorldLookup.TryFind(world.ActionQueues, slot.QueueId, out var queue))
-        {
-            result["capacity"] = queue.SlotCount;
-            result["used"] = queue.UsedSlots;
-        }
-        if (!slot.Empty)
-        {
-            result["plot"] = EntityReference(world, slot.PlotNodeId);
-            result["action"] = EntityReference(world, slot.PlotNodeActionId);
-            result["amount"] = slot.Quantity;
-            result["processing"] = slot.Engaged;
-        }
         return result.Freeze();
     }
 
@@ -4391,16 +4401,18 @@ internal static class GameMcpWorldQuery
         GameWorldState world,
         in WorldAlchemyInstance instance)
     {
+        // `drainReadable` was a column whose only job was to explain the absence of the column
+        // beside it. The ratio now carries both answers, so the page says it once.
         var result = new JObject
         {
             ["recipe"] = EntityReference(world, instance.RecipeId),
             ["activeCount"] = instance.Quantity,
             ["queuedCount"] = instance.QueuedQuantity,
             ["settled"] = instance.IsSettled,
-            ["drainReadable"] = instance.DrainReadable,
+            ["drainRatio"] = instance.DrainReadable
+                ? new GameMcpDomainValue(instance.DrainRatio)
+                : (object)GameMcpListColumns.Unreadable,
         };
-        if (instance.DrainReadable)
-            result["drainRatio"] = new GameMcpDomainValue(instance.DrainRatio);
         return result.Freeze();
     }
 
@@ -5356,12 +5368,18 @@ internal static class GameMcpWorldQuery
             ["entityId"] = resource.EntityId.ToString("D"),
             ["category"] = "resources",
             ["amount"] = new GameMcpDomainValue(amount),
+
+            // A resource with no storage ceiling says so under both keys. Publishing the native
+            // capacity would state a limit the game does not apply, and a bare `atCapacity: no`
+            // would answer "is it full" about a thing that cannot fill.
+            ["capacity"] = resource.IsCapped
+                ? new GameMcpDomainValue(resource.Reading.Capacity)
+                : (object)GameMcpListColumns.Uncapped,
+            ["netRatePerSecond"] = new GameMcpDomainValue(resource.TrueRate),
+            ["atCapacity"] = resource.IsCapped
+                ? resource.IsAtCapacity
+                : (object)GameMcpListColumns.Uncapped,
         };
-        if (resource.IsCapped)
-            result["capacity"] = new GameMcpDomainValue(resource.Reading.Capacity);
-        result["netRatePerSecond"] = new GameMcpDomainValue(resource.TrueRate);
-        if (resource.IsCapped)
-            result["atCapacity"] = resource.IsAtCapacity;
         return result.Freeze();
     }
 
@@ -6330,27 +6348,33 @@ internal static class GameMcpWorldQuery
             ["resourceId"] = cost.ResourceId.ToString("D"),
             ["cost"] = new GameMcpDomainValue(AdmittedCost(world, in cost)),
         };
-        if (cost.AffordabilityEvaluated)
+        // A price the publication could not compare against a same-generation holding says that,
+        // rather than dropping the two columns that would have said it.
+        if (!cost.AffordabilityEvaluated)
         {
-            result["spendableAmount"] = new GameMcpDomainValue(
-                SpendableAmount(world, cost.ResourceId, cost.AvailableAmount));
+            result["spendableAmount"] = GameMcpListColumns.Unevaluated;
+            result["affordable"] = GameMcpListColumns.Unevaluated;
+            return result;
+        }
 
-            // This row answers for its own resource. The whole-price verdict is what the rows fold
-            // to, and a row that reported it claimed to be short of a resource it holds plenty of.
-            result["affordable"] = cost.ResourceAffordable;
+        result["spendableAmount"] = new GameMcpDomainValue(
+            SpendableAmount(world, cost.ResourceId, cost.AvailableAmount));
 
-            // `affordable: no` beside the cost and the holding already says "short of this". The
-            // plain shortfall code and the generic sentence behind it wrote that same fact a second
-            // and a third time on every row of a 744-row category, so only a shortfall that says
-            // something else — a bandwidth ceiling rather than a quantity — still names itself.
-            if (!cost.ResourceAffordable &&
-                !string.Equals(
-                    cost.ResourceAffordabilityReasonCode,
-                    "insufficient_quantity",
-                    StringComparison.Ordinal))
-            {
-                result["reasonCode"] = cost.ResourceAffordabilityReasonCode;
-            }
+        // This row answers for its own resource. The whole-price verdict is what the rows fold
+        // to, and a row that reported it claimed to be short of a resource it holds plenty of.
+        result["affordable"] = cost.ResourceAffordable;
+
+        // `affordable: no` beside the cost and the holding already says "short of this". The
+        // plain shortfall code and the generic sentence behind it wrote that same fact a second
+        // and a third time on every row of a 744-row category, so only a shortfall that says
+        // something else — a bandwidth ceiling rather than a quantity — still names itself.
+        if (!cost.ResourceAffordable &&
+            !string.Equals(
+                cost.ResourceAffordabilityReasonCode,
+                "insufficient_quantity",
+                StringComparison.Ordinal))
+        {
+            result["reasonCode"] = cost.ResourceAffordabilityReasonCode;
         }
         return result;
     }

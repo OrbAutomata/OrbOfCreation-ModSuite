@@ -164,7 +164,7 @@ public sealed class GameMcpWorldQueryTests
     }
 
     [Fact]
-    public void UncappedResourceOmitsTheNativeNegativeCapacitySentinel()
+    public void UncappedResourceNamesThatInsteadOfTheNativeNegativeCapacitySentinel()
     {
         var resourceId = Guid.Parse("67acd892-3260-47b7-aaca-23e49c5903d4");
         var rateInputs = default(RawResourceRateInputs);
@@ -219,8 +219,12 @@ public sealed class GameMcpWorldQueryTests
 
         Assert.Equal("5e24", (string?)row["amount"]);
         Assert.Equal("0", (string?)row["netRatePerSecond"]);
-        Assert.Null(row["capacity"]);
-        Assert.Null(row["atCapacity"]);
+
+        // The native ceiling here is -9.48e9. Neither that number nor a plain `atCapacity: no`
+        // belongs on a resource that cannot fill, and dropping the pair let a page of uncapped
+        // resources read as a page whose reader was never told capacities exist.
+        Assert.Equal("uncapped", (string?)row["capacity"]);
+        Assert.Equal("uncapped", (string?)row["atCapacity"]);
     }
 
     [Fact]
