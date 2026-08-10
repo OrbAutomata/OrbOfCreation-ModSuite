@@ -194,17 +194,26 @@ public sealed class GameMcpCorrectnessCoreTests
     }
 
     /// <summary>
-    /// No refusal sentence ever prints a native result number.
+    /// No result code's own sentence ever prints a native result number.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A feature result number names no axis a caller can act on, and round 8 shipped it as prose
     /// nine separate ways — "the native action boundary returned Rejected with exact result code
     /// 2051" was the whole answer a caller got for a purchase that had stopped working. The sweep
     /// covers the entire code space rather than the codes that leak today, because the leak was a
     /// fallback: every code a producer forgets to map lands there next.
+    /// </para>
+    /// <para>
+    /// Its scope is the channel it names and no more: the sentence a result <em>code</em> answers
+    /// with. A boundary's own <c>exactReason</c> overrides that sentence without passing through
+    /// here, and it carries digits on purpose — the epoch a purchase topology was stamped at, the
+    /// slot number a spell moved to. A blanket digit assert on that channel would delete facts a
+    /// caller acts on, so the honest scope is this one, stated in the name rather than implied.
+    /// </para>
     /// </remarks>
     [Fact]
-    public void No_refusal_sentence_prints_a_native_result_number()
+    public void No_result_code_sentence_prints_a_native_result_number()
     {
         var reserved = new[]
         {
