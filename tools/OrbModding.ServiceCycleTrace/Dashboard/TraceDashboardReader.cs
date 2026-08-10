@@ -237,18 +237,25 @@ internal static class TraceDashboardReader
     /// already reads the monotonic clock three times per cycle and all three readings already reach
     /// the wire, they were simply never correlated back into one cycle.
     /// </summary>
+    /// <remarks>
+    /// The key carries the lifecycle because cycle ids restart at one in every lifecycle. Keyed on
+    /// service and cycle alone, a later lifecycle overwrote an earlier one row for row: one 43-minute
+    /// capture lost 2,782 of World collection's 7,822 cycles and showed the service as
+    /// post-prestige-only in the same table that showed Auto Buy as pre-prestige-only, silently, with
+    /// the surviving rows mixing stamps from two lifecycles into one handoff and derive figure.
+    /// </remarks>
     private static TraceDashboardCycle[] Cycles(List<TraceDashboardEvent> events)
     {
-        var stages = new Dictionary<(ulong Service, ulong Cycle), CycleStages>();
+        var stages = new Dictionary<(ulong Service, ulong Lifecycle, ulong Cycle), CycleStages>();
         foreach (var item in events)
         {
             if (item.Service == 0 || item.Cycle == 0) continue;
-            var key = (item.Service, item.Cycle);
+            var key = (item.Service, item.Lifecycle, item.Cycle);
             if (!stages.TryGetValue(key, out var stage)) stages[key] = stage = new CycleStages();
             stage.Observe(item);
         }
 
-        var firstCycleByService = new Dictionary<ulong, ulong>();
+        var firstCycleByService = new Dictionary<ulong, (ulong Service, ulong Lifecycle, ulong Cycle)>();
         var firstLifecycleByService = new Dictionary<ulong, ulong>();
         var rebindCycles = new HashSet<(ulong Service, ulong Lifecycle)>();
         foreach (var pair in stages.OrderBy(x => x.Value.StartMilliseconds))
@@ -256,7 +263,7 @@ internal static class TraceDashboardReader
             var service = pair.Key.Service;
             if (!firstCycleByService.ContainsKey(service))
             {
-                firstCycleByService[service] = pair.Key.Cycle;
+                firstCycleByService[service] = pair.Key;
                 firstLifecycleByService[service] = pair.Value.Lifecycle;
                 continue;
             }
@@ -264,13 +271,15 @@ internal static class TraceDashboardReader
                 rebindCycles.Add((service, pair.Value.Lifecycle));
         }
 
+        ReconcileStartedCycles(events, stages);
+
         var output = new List<TraceDashboardCycle>(stages.Count);
         var rebindSeen = new HashSet<(ulong, ulong)>();
         foreach (var pair in stages.OrderBy(x => x.Value.StartMilliseconds))
         {
             var stage = pair.Value;
             var service = pair.Key.Service;
-            var temperature = firstCycleByService[service] == pair.Key.Cycle
+            var temperature = firstCycleByService[service] == pair.Key
                 ? nameof(ServiceCycleProfileTemperature.ColdProcess)
                 : rebindCycles.Contains((service, stage.Lifecycle)) && rebindSeen.Add((service, stage.Lifecycle))
                     ? nameof(ServiceCycleProfileTemperature.LifecycleRebind)
@@ -299,6 +308,42 @@ internal static class TraceDashboardReader
                 stage.HasWorker));
         }
         return output.ToArray();
+    }
+
+    /// <summary>
+    /// Every cycle the trace says started must be one row of its own. A cycle whose start predates
+    /// the recording is legal and produces a row with no start, so the count is of rows that observed
+    /// one rather than of rows outright — an id colliding with another lifecycle's would swallow a
+    /// start and show up here as one row short.
+    /// </summary>
+    private static void ReconcileStartedCycles(
+        List<TraceDashboardEvent> events,
+        Dictionary<(ulong Service, ulong Lifecycle, ulong Cycle), CycleStages> stages)
+    {
+        var started = new Dictionary<ulong, int>();
+        foreach (var item in events)
+        {
+            if (item.Service == 0 || item.Cycle == 0) continue;
+            if (item.Kind != nameof(ServiceCycleSemanticEventKind.CycleStarted)) continue;
+            started[item.Service] = started.TryGetValue(item.Service, out var count) ? count + 1 : 1;
+        }
+
+        var rows = new Dictionary<ulong, int>();
+        foreach (var pair in stages)
+        {
+            if (pair.Value.StartedCount == 0) continue;
+            rows[pair.Key.Service] =
+                rows.TryGetValue(pair.Key.Service, out var count) ? count + 1 : 1;
+        }
+
+        foreach (var pair in started)
+        {
+            rows.TryGetValue(pair.Key, out var kept);
+            if (kept == pair.Value) continue;
+            throw new InvalidOperationException(
+                $"Service {pair.Key} started {pair.Value} cycles but the dashboard kept {kept} rows " +
+                "carrying a start. Cycle rows and CycleStarted events must reconcile exactly.");
+        }
     }
 
     private static TraceDashboardService[] Services(
@@ -401,6 +446,7 @@ internal static class TraceDashboardReader
         internal int Committed { get; private set; }
         internal int Skipped { get; private set; }
         internal int Failed { get; private set; }
+        internal int StartedCount { get; private set; }
         internal bool HasCapture => _captureCompleted.Present;
         internal bool HasWorker => _evaluationStarted.Present && _evaluationCompleted.Present;
 
@@ -436,6 +482,9 @@ internal static class TraceDashboardReader
             if (item.Lifecycle != 0) Lifecycle = item.Lifecycle;
             switch (item.Kind)
             {
+                case nameof(ServiceCycleSemanticEventKind.CycleStarted):
+                    StartedCount++;
+                    break;
                 case nameof(ServiceCycleSemanticEventKind.CaptureStarted):
                     _captureStarted = new Stamp(item.OffsetMilliseconds);
                     ObserveCaptureFrame(item);

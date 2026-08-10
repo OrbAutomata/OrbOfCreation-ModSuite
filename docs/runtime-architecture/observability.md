@@ -337,7 +337,11 @@ reachable from a full-trace session.
   strict readers, selects the newest retained journal run, clips its decision spans to the full-trace
   window, and calibrates profile raw timestamps onto the Common monotonic clock, writing one JSON
   dataset and an HTML viewer. Correlation stays a presentation concern: the three formats, writers,
-  terminal states, and failure boundaries remain independent runtime products.
+  terminal states, and failure boundaries remain independent runtime products. A cycle is identified
+  by service, lifecycle, and cycle id together, because cycle ids restart at one in every lifecycle
+  and the pair alone let a later lifecycle overwrite an earlier one row for row. Every cycle the
+  trace says started is reconciled against the rows that kept a start, and a shortfall fails the read
+  rather than rendering a table a quarter short.
 
 The viewer is organised by service rather than by phase: an overview page spends the pump frame as a
 stacked bar per frame — response, capture, action, and whatever the pump measured but did not attribute
