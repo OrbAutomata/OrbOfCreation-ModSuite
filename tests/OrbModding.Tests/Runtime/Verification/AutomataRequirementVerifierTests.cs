@@ -58,7 +58,7 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         Assert.False(verified);
         Assert.NotEmpty(failure);
         Assert.Equal(0, run.Compared);
-        Assert.DoesNotContain("PASSED", run.Summarize(), StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Inconclusive, run.Finding().Verdict);
     }
 
     /// <summary>
@@ -228,7 +228,9 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
 
         Assert.Empty(failure);
         Assert.False(run.Passed);
-        Assert.Contains("usage-prerequisites", run.Summarize(), StringComparison.Ordinal);
+        Assert.Contains(
+            run.Finding().Detail,
+            row => row.Contains("usage-prerequisites", StringComparison.Ordinal));
     }
 
     private static GameWorldState Collect()

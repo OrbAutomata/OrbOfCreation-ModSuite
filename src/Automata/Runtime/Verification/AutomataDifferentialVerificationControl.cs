@@ -42,18 +42,27 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
     private readonly Action<string> _report;
     private readonly Action<Action<string>>? _runOverride;
     private readonly Func<GameLifecycleState> _lifecycle;
+    private readonly Func<long> _generation;
+    private readonly Func<int> _frame;
+    private VerificationReport _pending = new();
     private List<string>? _capture;
     private bool _runRequested;
     private long _revision;
+    private long _ourTicks;
+    private long _theirTicks;
 
     internal AutomataDifferentialVerificationControl(
         Action<string> report,
         Action<Action<string>>? runOverride = null,
-        Func<GameLifecycleState>? lifecycle = null)
+        Func<GameLifecycleState>? lifecycle = null,
+        Func<long>? generation = null,
+        Func<int>? frame = null)
     {
         _report = report ?? throw new ArgumentNullException(nameof(report));
         _runOverride = runOverride;
         _lifecycle = lifecycle ?? (() => GameLifecycleMonitor.Shared.Current.State);
+        _generation = generation ?? (() => GameLifecycleMonitor.Shared.Current.Generation);
+        _frame = frame ?? (() => UnityEngine.Time.frameCount);
     }
 
     public bool RunRequested => _runRequested;
@@ -161,9 +170,20 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         _report(line);
     }
 
+    /// <summary>
+    /// Runs every check, then answers once: the verdict word, what disagreed, and one line saying
+    /// what was compared against what and when.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is reported as it happens any more. A response cannot lead with its verdict while its
+    /// checks are writing prose into the middle of it, and the reader who has to count verdict words
+    /// down ninety lines to learn the answer is the reader this check was failing.
+    /// </remarks>
     private void RunEverything()
     {
-        Report("Verification started. Everything runs in this frame, so the game will hitch.");
+        _pending = new VerificationReport();
+        _ourTicks = 0;
+        _theirTicks = 0;
 
         var whole = Stopwatch.StartNew();
 
@@ -172,7 +192,9 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         // same inputs — which leaves every record they touched freshly recalculated. Running the
         // check afterwards would have it survey a cache the verifier had just warmed, and report a
         // staleness figure that says more about the verifier than about the game.
-        RunWorldCollectionCheck();
+        var collection = RunWorldCollectionCheck();
+        foreach (var finding in collection.Findings) _pending.Add(finding);
+
         RunPass(new ConceptDrainPass());
         RunPass(new SpellLevelPass(compareAffordability: false));
         RunPass(new SpellLevelPass(compareAffordability: true));
@@ -193,15 +215,40 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         RunPass(new UsagePrerequisitePass());
 
         whole.Stop();
-        Report($"Verification finished in {whole.Elapsed.TotalMilliseconds:0.###} ms.");
+        foreach (var line in _pending.Render(Window(collection, whole.Elapsed.TotalMilliseconds)))
+        {
+            Report(line);
+        }
     }
+
+    /// <summary>
+    /// One line, the same shape every call, carrying everything that moves between two calls over an
+    /// unchanged world: when the numbers were read, how much was read, what the game's own caches
+    /// looked like while they were, and what it all cost.
+    /// </summary>
+    private string Window(in WorldCollectionCheckResult collection, double elapsedMilliseconds)
+    {
+        var drift = collection.Drift;
+        var window =
+            $"generation={_generation()} frame={_frame()} " +
+            $"entities={collection.Entities} categories={collection.Categories} " +
+            $"collect={collection.CollectMilliseconds:0.###}ms " +
+            $"ported={Milliseconds(_ourTicks)}ms native={Milliseconds(_theirTicks)}ms " +
+            $"elapsed={elapsedMilliseconds:0.###}ms " +
+            $"memos={drift.Surveyed} drifted={drift.Drifted} dirty={drift.Dirty} " +
+            $"uncalculated={drift.NeverCalculated}";
+        return drift.Widest.Length == 0 ? window : window + " widestDrift=" + drift.Widest;
+    }
+
+    private static string Milliseconds(long ticks) =>
+        (ticks * 1000.0 / Stopwatch.Frequency).ToString("0.###");
 
     /// <summary>Runs one ported-math pass over every entity it can reach, then reports its verdict.</summary>
     private void RunPass(IVerificationPass pass)
     {
         if (!pass.TryBegin(out var entities, out var failure))
         {
-            Report($"{pass.Subject} verification unavailable: {failure}");
+            _pending.Add(VerificationFinding.Inconclusive(pass.Subject, failure));
             return;
         }
 
@@ -231,19 +278,21 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         }
 
         session.EndTick();
-        Report(session.Complete());
+        _ourTicks += session.OurElapsedTicks;
+        _theirTicks += session.TheirElapsedTicks;
+        _pending.Add(session.Complete());
     }
 
     /// <summary>
     /// Checks world collection itself — binding, traversal, identity, edges, accessor parity, and
-    /// cache warmth — against the live game. Reports several lines rather than one verdict, because
-    /// the answers are measurements as much as they are pass or fail.
+    /// cache warmth — against the live game. Reports several findings rather than one, because those
+    /// checks fail independently and a combined verdict would hide which of them did.
     /// </summary>
-    private void RunWorldCollectionCheck()
+    private WorldCollectionCheckResult RunWorldCollectionCheck()
     {
         try
         {
-            foreach (var line in new AutomataWorldCollectionCheck().Run()) Report(line);
+            return new AutomataWorldCollectionCheck().Run();
         }
         catch (Exception ex)
         {
@@ -252,12 +301,20 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
             // the player is standing in. What it must not report is the runtime's own exception text
             // on its own: read alone, "Object reference not set to an instance of an object" is a
             // sentence about the suite's plumbing that a reader mistook for a verdict about the
-            // game. The verdict word comes first and says there is no verdict; the exception type
-            // stays after it, where whoever is debugging the suite still has the clue.
-            Report(
-                "World collection check: INCONCLUSIVE — it faulted before it could compare " +
-                "anything, so nothing here is a verdict about the game " +
-                $"({ex.GetBaseException().GetType().Name}).");
+            // game. The verdict word is the finding's own; the exception type stays in the sentence,
+            // where whoever is debugging the suite still has the clue.
+            return new WorldCollectionCheckResult(
+                new[]
+                {
+                    VerificationFinding.Inconclusive(
+                        "World collection",
+                        "it faulted before it could compare anything, so nothing here is a verdict " +
+                        $"about the game ({ex.GetBaseException().GetType().Name})."),
+                },
+                entities: 0,
+                categories: 0,
+                collectMilliseconds: 0d,
+                drift: default);
         }
     }
 

@@ -14,20 +14,22 @@ public sealed class AutomataOwnedFormulaVerifierTests
     private static readonly Guid ResourceId = Guid.Parse("70000000-0000-0000-0000-000000000001");
 
     [Fact]
-    public void OwnedSpellCostAgreementClassifiesAsPass()
+    public void OwnedSpellCostAgreementClassifiesAsAgreement()
     {
         var result = VerifySpell(ownedAmount: 10, nativeAmount: 10);
 
-        Assert.Contains("PASSED", result, StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Agree, result.Verdict);
     }
 
     [Fact]
-    public void OwnedSpellCostDivergenceClassifiesAsFailure()
+    public void OwnedSpellCostDivergenceClassifiesAsDisagreement()
     {
         var result = VerifySpell(ownedAmount: 11, nativeAmount: 10);
 
-        Assert.Contains("FAILED", result, StringComparison.Ordinal);
-        Assert.Contains("SpellRecipeSO term=cost", result, StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Disagree, result.Verdict);
+        Assert.Contains(
+            result.Detail,
+            row => row.Contains("SpellRecipeSO term=cost", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -43,9 +45,7 @@ public sealed class AutomataOwnedFormulaVerifierTests
         else session.RecordUnverifiable(failure);
         session.EndTick();
 
-        var result = session.Complete();
-        Assert.Contains("INCONCLUSIVE", result, StringComparison.Ordinal);
-        Assert.DoesNotContain("PASSED", result, StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Inconclusive, session.Complete().Verdict);
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public sealed class AutomataOwnedFormulaVerifierTests
         Assert.Equal(1, session.Unverifiable);
     }
 
-    private static string VerifySpell(double ownedAmount, double nativeAmount)
+    private static VerificationFinding VerifySpell(double ownedAmount, double nativeAmount)
     {
         var resource = new ResourceSO();
         resource.SetGuid(ResourceId);

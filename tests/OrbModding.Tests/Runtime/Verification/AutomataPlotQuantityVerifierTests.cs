@@ -91,7 +91,9 @@ public sealed class AutomataPlotQuantityVerifierTests : IDisposable
             .TryVerify(node, run, out _));
 
         Assert.False(run.Passed);
-        Assert.Contains("GetRemainingQuantity", run.Summarize(), StringComparison.Ordinal);
+        Assert.Contains(
+            run.Finding().Detail,
+            row => row.Contains("GetRemainingQuantity", StringComparison.Ordinal));
     }
 
     private static global::PlotNodeSO Node(int idle, int growing, int usageMain, int usageAny)
