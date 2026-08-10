@@ -1846,9 +1846,12 @@ public sealed class Plugin : BaseUnityPlugin
     /// </remarks>
     private GameMcpToolExecution RunGameMcpGameMathCheck()
     {
+        // A no is a result. `isError` is reserved for a tool that failed before it produced a
+        // domain answer, so both of these arrive the way every other refusal in the suite does —
+        // a caller branches on the class, not on which of two transports carried it.
         if (_mathVerification is null)
         {
-            return GameMcpToolExecution.Error(new GameMcpObjectBuilder
+            return GameMcpToolExecution.Read(new GameMcpObjectBuilder
             {
                 ["status"] = "unavailable",
                 ["reasonCode"] = "contract_unavailable",
@@ -1857,7 +1860,7 @@ public sealed class Plugin : BaseUnityPlugin
         }
         if (!_mathVerification.TryRunNow(out var lines, out var reason))
         {
-            return GameMcpToolExecution.Error(new GameMcpObjectBuilder
+            return GameMcpToolExecution.Read(new GameMcpObjectBuilder
             {
                 ["status"] = "refused",
                 ["reasonCode"] = "already_active",
