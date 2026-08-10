@@ -249,7 +249,8 @@ public sealed class AutoScribeServiceStatusProjectionTests
                 WorldCategoryOutcome.Collected,
                 sampled: 1,
                 skipped: 0,
-                firstFailure: string.Empty)),
+                firstFailure: string.Empty,
+                elapsedTicks: 0)),
             ScribeRecipes = Table(recipes.ToArray()),
             ScribeQueues = PublicationTable<WorldScribeQueue>.Empty,
         };

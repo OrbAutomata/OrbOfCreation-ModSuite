@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace OrbModding.Common.Runtime.World;
 
@@ -442,12 +443,19 @@ internal sealed class GameWorldCollector
             if (structuralIsCurrent && _isStructural[index])
             {
                 // Not re-read and not reset, so the rows the last epoch's read left are still there.
-                // The report is the one that read them, because that is what is true of the buffer.
-                reports[index] = _structuralReports[index];
+                // The report is the one that read them, because that is what is true of the buffer —
+                // charged at nothing, because that is what this pass spent getting them.
+                reports[index] = _structuralReports[index].WithElapsedTicks(0);
                 continue;
             }
 
-            reports[index] = _readers[index].Collect(_claimed, frame);
+            // Two clock reads per category, about sixty per pass. Collection is the suite's largest
+            // main-thread cost and this is the only place that can say which category it went on: an
+            // outer span can time the pass, and nothing outside the loop can attribute it.
+            var startedAtTicks = Stopwatch.GetTimestamp();
+            reports[index] = _readers[index]
+                .Collect(_claimed, frame)
+                .WithElapsedTicks(Stopwatch.GetTimestamp() - startedAtTicks);
             if (!_isStructural[index]) continue;
             _structuralReports[index] = reports[index];
             if (_readers[index].IsAvailable &&

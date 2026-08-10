@@ -88,6 +88,32 @@ public sealed class WorldStructuralEpochTests : IDisposable
     }
 
     /// <summary>
+    /// Every pass says what it spent per category, and a skipped read spends nothing.
+    /// </summary>
+    /// <remarks>
+    /// The skip is the whole point of the epoch gate, so a cost table that re-charged a later pass
+    /// with the read that filled the buffer would report the cheapest categories in the pass among
+    /// its dearest — and the optimisation that already happened as the next one to make.
+    /// </remarks>
+    [Fact]
+    public void ASkippedReadCostsThePassNothingWhileTheReadsAroundItAreStillCharged()
+    {
+        Author();
+        var collector = new GameWorldCollector();
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 5 };
+
+        var read = collector.Collect(frame);
+        Assert.True(read.For("plot authoring").ElapsedTicks > 0, read.DescribeCost());
+
+        var skipped = collector.Collect(frame);
+
+        Assert.Equal(0, skipped.For("plot authoring").ElapsedTicks);
+        Assert.Equal(0, skipped.For("effect blocks").ElapsedTicks);
+        Assert.Equal(0, skipped.For("entity requirements").ElapsedTicks);
+        Assert.True(skipped.TotalElapsedTicks > 0, skipped.DescribeCost());
+    }
+
+    /// <summary>
     /// A lifecycle boundary is the one thing that can change authored content, and it is the one thing
     /// that makes the collector look again.
     /// </summary>

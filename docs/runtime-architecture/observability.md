@@ -281,6 +281,17 @@ fixed boundaries, so ordinary play drifts quietly and a prestige, save load, or 
 speaks immediately. Keying a healthy pass on completeness alone kept this line silent through a
 session that went from 6,683 entities to 4,051.
 
+Each pass is timed per category and the announce says where the time went: the total, the three
+dearest categories by name with their milliseconds, and the remainder as one figure so the named
+three are never read as the whole pass. A category read once per lifecycle epoch is charged to the
+pass that read it and to no pass that skipped it, so a collection's cost is the sum of its
+categories. The per-category figure travels on the published world too, beside the availability
+evidence for the same category, because what a category cost is a fact about the collection that
+produced the world. Cost stays out of the announce key: collection runs four times a second and no
+two passes cost the same, so a key carrying it would announce every pass. The profile artifact still
+times the pass as a single span — attribution within it belongs to the collector, because nothing
+outside the reader loop can say which category the time went on.
+
 Auto Buy affordability drift remains a loud refusal but does not synchronously render or write a
 bundle. Structural contradictions that disable the feature retain a full text bundle under
 `trace/diagnostics`, capped before each write at eight owned files and 1 MiB total. A collision,

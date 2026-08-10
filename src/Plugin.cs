@@ -445,8 +445,9 @@ public sealed class Plugin : BaseUnityPlugin
                             readAutoHarvestLifecycleEpoch,
                             static report =>
                             {
-                                if (report.IsComplete) Log.LogInfo(report.Describe());
-                                else Log.LogWarning(report.Describe());
+                                var line = report.Describe() + " " + report.DescribeCost();
+                                if (report.IsComplete) Log.LogInfo(line);
+                                else Log.LogWarning(line);
                             },
                             createCollector: () =>
                                 GameWorldCollector.ForSession(_mentorMasteryJournal)),
