@@ -85,6 +85,40 @@ public sealed class AutomataFullTraceControllerTests
             item.Kind == ServiceCycleSemanticEventKind.EmergencyEntered);
     }
 
+    /// <summary>
+    /// A 43-minute capture said nothing about itself anywhere in the log: no start, no stop, and the
+    /// completeness line is reported from a tick that shutdown has none of. Correlating that trace to
+    /// the log it belongs beside took two independent clock anchors and an mtime.
+    /// </summary>
+    [Fact]
+    public void TheSessionNamesItselfWhenItStartsAndWhenItCloses()
+    {
+        var clock = new VirtualMonotonicClock(new MonotonicTimestamp(100));
+        using var registry = Registry(clock);
+        using var pump = new SuiteFramePump(registry);
+        using var storage = new MemoryStorage();
+        var log = new ManualLogSource();
+        var options = new AutomataFullTraceOptions(new SessionSource(storage));
+        var controller = AutomataFullTraceController.Create(pump, 1, TestRoster, in options, log);
+
+        controller.StartAutomatically();
+        AdvanceTo(controller, FullTraceRuntimeSessionState.Recording);
+        pump.PumpFrame(1);
+        controller.AfterPump();
+        controller.Dispose();
+
+        var lines = new List<string>();
+        foreach (var entry in log.Entries) lines.Add(entry?.ToString() ?? string.Empty);
+        Assert.Contains(
+            lines,
+            line => line.Contains("Profiling full trace session-0000000000000065 started", StringComparison.Ordinal));
+        Assert.Contains(
+            lines,
+            line => line.Contains(
+                "Profiling full trace session-0000000000000065 closing at shutdown",
+                StringComparison.Ordinal));
+    }
+
     [Fact]
     public void ProfilingTraceStartFailureIsContainedAndNeverRetried()
     {

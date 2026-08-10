@@ -65,6 +65,9 @@ internal sealed class AutomataFullTraceController : IDisposable
             _artifactName = spec.ArtifactName;
             _session.Start(spec.Session, spec.SemanticSession, spec.Storage);
             _started = true;
+            _log.LogAutomataInfo(
+                "Profiling full trace " + _artifactName + " started at " +
+                AutomataFullTracePathPolicy.FormatRelativeArtifactPath(_artifactName) + ".");
             Tick();
         }
         catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
@@ -76,10 +79,29 @@ internal sealed class AutomataFullTraceController : IDisposable
         }
     }
 
+    /// <summary>
+    /// Says the session is closing before it closes it.
+    /// </summary>
+    /// <remarks>
+    /// The completeness line is reported from <see cref="Tick"/>, and shutdown is the one boundary no
+    /// tick follows: the writer publishes its manifest on its own thread after this returns, and
+    /// Unity does not wait for diagnostics. A 43-minute capture therefore ended without one word
+    /// about itself anywhere in the log. What can be said here is said here — the session and what it
+    /// had taken — and the manifest remains the authority on how it ended.
+    /// </remarks>
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
+        if (_started && !_startFailed && !_terminalReported)
+        {
+            var snapshot = _session.Snapshot;
+            _log.LogAutomataInfo(
+                "Profiling full trace " + _artifactName + " closing at shutdown | records=" +
+                snapshot.WrittenRecords + "/" + snapshot.AcceptedRecords +
+                " | segments=" + snapshot.SegmentCount +
+                "; its manifest publishes behind this line.");
+        }
         _session.Dispose();
     }
 
@@ -97,8 +119,15 @@ internal sealed class AutomataFullTraceController : IDisposable
             _log.LogAutomataError(
                 "Profiling full trace ended incomplete: " + _artifactName +
                 " | reason=" + snapshot.FaultReason +
+                " | records=" + snapshot.WrittenRecords + "/" + snapshot.AcceptedRecords +
                 " | first missing sequence=" + snapshot.FirstIncompleteSequence + ".");
+            return;
         }
+        _log.LogAutomataInfo(
+            "Profiling full trace ended complete: " + _artifactName +
+            " | reason=" + snapshot.TerminalReason +
+            " | records=" + snapshot.WrittenRecords +
+            " | segments=" + snapshot.SegmentCount + ".");
     }
 
     private static string Describe(Exception exception)

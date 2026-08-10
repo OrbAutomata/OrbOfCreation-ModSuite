@@ -239,6 +239,19 @@ There is deliberately no configuration toggle for the normal journal, and no res
 
 ## Other owned output paths
 
+A full-trace session names itself in the log at both ends: one line when it starts, carrying the
+session id and the run-relative path it is writing to, and one when it closes, carrying the records it
+had taken. The closing line exists because shutdown is the one boundary no tick follows — the writer
+publishes its manifest on its own thread afterwards and Unity does not wait for it — so a completeness
+line alone left one 43-minute capture without a single word about itself anywhere in the log, and
+pairing it to that log took two independent clock anchors and a file mtime.
+
+Each completed Game MCP operation writes one ledger line naming the verb, the disposition, its own
+duration, and the frame it finished on. The frame is what makes the line correlatable: pump and
+capture records carry the same counter, so a line resolves to an exact trace offset rather than
+needing a wall-clock anchor. The code appears beside the disposition only when it says something the
+disposition does not, and the reason only when there is one.
+
 The suite does not use `LogOutput.log` as an action ledger. Verified successes and ordinary preflight
 no-actions emit no per-action line; the action journal and Runtime outcome projection own those facts.
 A submitted mutation whose postcondition does not hold emits one warning. Lifecycle/startup/shutdown

@@ -1489,9 +1489,8 @@ public sealed class Plugin : BaseUnityPlugin
                     result.IsProtocolError,
                     EntityIdentities(command.FrameContext)));
         }
-        Logger.LogInfo(
-            "Game MCP operation " + command.Sequence + " completed " +
-            result.Status + " (" + result.Code + "): " + result.Reason);
+        Logger.LogAutomataInfo(
+            GameMcpOperationLedger.Describe(command, result, Time.frameCount));
     }
 
     private GameMcpFrameContext CaptureGameMcpFrameContext(GameMcpFrameData required)

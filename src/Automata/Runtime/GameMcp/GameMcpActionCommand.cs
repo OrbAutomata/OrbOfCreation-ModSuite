@@ -1,6 +1,7 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -176,6 +177,8 @@ internal static class GameMcpCommandKinds
 /// </summary>
 internal sealed class GameMcpCommand
 {
+    private readonly long _startedAtRawTicks = Stopwatch.GetTimestamp();
+
     internal GameMcpCommand(
         long sequence,
         GameMcpCommandKind kind,
@@ -238,6 +241,16 @@ internal sealed class GameMcpCommand
     internal GameMcpFrameOperation? SourceOperation { get; }
     internal GameMcpFrameContext? FrameContext { get; }
     internal GameMcpUuidCount[] UuidCounts { get; }
+
+    /// <summary>The verb this command was asked for, empty when it carries no operation.</summary>
+    internal string ToolName => SourceOperation?.Request.ToolName ?? string.Empty;
+
+    /// <summary>
+    /// How long this command has been alive. A command that waits for post-state settlement spans
+    /// several frames, and the ledger could not tell one of those from an instant read.
+    /// </summary>
+    internal double ElapsedMilliseconds =>
+        (Stopwatch.GetTimestamp() - _startedAtRawTicks) * 1000.0 / Stopwatch.Frequency;
 }
 
 internal sealed class GameMcpCommandResult
