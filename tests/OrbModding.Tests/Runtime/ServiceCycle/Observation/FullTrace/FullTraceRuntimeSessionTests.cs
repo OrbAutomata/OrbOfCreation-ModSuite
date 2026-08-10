@@ -86,8 +86,19 @@ public sealed class FullTraceRuntimeSessionTests
         Assert.Equal(1UL, manifest.FirstIncompleteTransportSequence);
     }
 
+    /// <summary>
+    /// A shutdown that reached the recorder mid-cycle ends the recording early and loses nothing, and
+    /// the manifest says exactly that: the reason names the shutdown, the completeness answers for
+    /// the records.
+    /// </summary>
+    /// <remarks>
+    /// Completeness is about loss. Stamping a shutdown incomplete on the strength of the shutdown
+    /// alone cost one 43-minute capture its standing: 486,377 accepted records, 486,377 durable, and
+    /// a manifest naming 486,378 as the first record missing — a truncation that had not happened,
+    /// which is indistinguishable from one that had until somebody reconciles the two counts by hand.
+    /// </remarks>
     [Fact]
-    public void ShutdownDuringACyclePublishesIncompleteEvidenceAndReleasesPumpOwnership()
+    public void ShutdownDuringACycleNamesTheShutdownWithoutClaimingLossAndReleasesPumpOwnership()
     {
         var clock = new ThreadSafeTestClock(100);
         using var registry = new ServiceCycleRegistry(1, clock);
@@ -109,8 +120,10 @@ public sealed class FullTraceRuntimeSessionTests
 
         Assert.True(firstStorage.ManifestPublished.Wait(Deadline));
         var interrupted = FullTraceManifestCodec.Decode(Assert.IsType<byte[]>(firstStorage.Manifest));
-        Assert.Equal(FullTraceCompleteness.Incomplete, interrupted.Completeness);
+        Assert.Equal(FullTraceCompleteness.Complete, interrupted.Completeness);
         Assert.Equal(FullTraceTerminalReason.RuntimeShutdown, interrupted.Reason);
+        Assert.Equal(interrupted.AcceptedRecords, interrupted.WrittenRecords);
+        Assert.Equal(0UL, interrupted.FirstIncompleteTransportSequence);
 
         definition.StartDecision = ServiceStartDecision.Wait(
             CommonServiceDecisionCodes.NotReady,
