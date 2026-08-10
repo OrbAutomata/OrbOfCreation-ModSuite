@@ -3575,9 +3575,14 @@ public sealed class Plugin : BaseUnityPlugin
                 "tooltip_offset_invalid",
                 "the immutable tooltip catalog offset could not be decoded");
         }
-        var prefix = TooltipPathPrefix(entries);
-        var projected = new GameMcpArrayBuilder();
         var end = (int)Math.Min(entries.Length, (long)offset + command.Amount);
+
+        // The prefix is the ancestry the returned rows share, not the ancestry of the whole screen.
+        // Taken over the screen it collapsed to about ten characters precisely when the page was
+        // long, so every row of a deep panel repeated some 240 identical characters of ancestor
+        // path — the densest tokens on the wire, and about 95% of what the call spent.
+        var prefix = TooltipPathPrefix(entries, offset, end);
+        var projected = new GameMcpArrayBuilder();
         for (var index = offset; index < end; index++)
         {
             var entry = entries[index];
@@ -3615,26 +3620,18 @@ public sealed class Plugin : BaseUnityPlugin
         var requestedPath = command.PayloadValue;
         var active = CaptureActiveHoverTooltips();
 
-        // The catalog hands out the part of the path its shared prefix does not already say, and
-        // the prefix is derived from the same live screen on both sides, so a row's path resolves
-        // as given without the caller re-assembling it.
-        var prefix = TooltipPathPrefix(
-            active.Where(static entry => entry.Hover.tooltipItem is not null).ToArray());
-        var qualified = prefix.Length > 0 ? prefix + "/" + requestedPath : requestedPath;
+        // The catalog hands out the part of the path its page's shared prefix does not already say,
+        // and which prefix that was depends on which page the row came from. So a row resolves by
+        // the tail it was given: the whole path, or any path ending in it at an element boundary.
         var matches = active
-            .Where(entry =>
-                string.Equals(entry.Path, requestedPath, StringComparison.Ordinal) ||
-                string.Equals(entry.Path, qualified, StringComparison.Ordinal))
+            .Where(entry => NativeObjectPath.Addresses(entry.Path, requestedPath))
             .ToArray();
         if (matches.Length != 1)
         {
             return GadgetRejected(
                 "tooltip_match_failed",
                 "tooltip path '" + requestedPath + "' matched " +
-                matches.Length + " active current-screen elements" +
-                (prefix.Length > 0
-                    ? "; paths read relative to pathPrefix '" + prefix + "'"
-                    : string.Empty));
+                matches.Length + " active current-screen elements");
         }
         var hover = matches[0].Hover;
         if (hover.tooltipItem is null)
@@ -3715,9 +3712,13 @@ public sealed class Plugin : BaseUnityPlugin
             .OrderBy(static entry => entry.Placement.OrderKey, StringComparer.Ordinal)
             .ToArray();
 
-    private static string TooltipPathPrefix(IReadOnlyList<TooltipElement> entries) =>
-        NativeObjectPath.CommonPrefix(
-            entries.Select(static entry => entry.Path).ToArray());
+    private static string TooltipPathPrefix(IReadOnlyList<TooltipElement> entries, int start, int end)
+    {
+        var paths = new List<string>();
+        for (var index = Math.Max(start, 0); index < Math.Min(end, entries.Count); index++)
+            paths.Add(entries[index].Path);
+        return NativeObjectPath.CommonPrefix(paths.ToArray());
+    }
 
     private static void AddTooltipIdentity(
         GameMcpObjectBuilder result,

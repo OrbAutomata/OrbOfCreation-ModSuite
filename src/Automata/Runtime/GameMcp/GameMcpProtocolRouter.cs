@@ -1160,7 +1160,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_tooltips",
                 "Discover visible tooltips",
-                "Page through the tooltip-bearing elements the player can hover right now — the current screen, its persistent chrome, and any open modal — by sibling-indexed native path. Each row's path is relative to the response's pathPrefix, present exactly when the screen's paths share one. A closed modal stays instantiated and is not listed. nextOffset is present exactly when more rows remain, and is the offset to resume from.",
+                "Page through the tooltip-bearing elements the player can hover right now — the current screen, its persistent chrome, and any open modal — by sibling-indexed native path. Each row's path is relative to the response's pathPrefix, present exactly when the returned rows share one. A closed modal stays instantiated and is not listed. nextOffset is present exactly when more rows remain, and is the offset to resume from.",
                 ObjectSchema(new JObject
                 {
                     ["offset"] = IntegerSchema(0, int.MaxValue),
@@ -1174,8 +1174,8 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["path"] = StringSchema(
-                            "A path exactly as game_tooltips returned it, relative to that " +
-                            "response's pathPrefix. The whole path is accepted too."),
+                            "A path exactly as game_tooltips returned it. Any longer tail of the " +
+                            "same path is accepted, including the whole path."),
                     },
                     "path"),
                 readOnly: false,

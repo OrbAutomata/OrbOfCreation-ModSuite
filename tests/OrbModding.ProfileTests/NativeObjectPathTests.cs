@@ -83,6 +83,24 @@ public sealed class NativeObjectPathTests
         Assert.Equal(string.Empty, NativeObjectPath.CommonPrefix(System.Array.Empty<string>()));
 
     /// <summary>
+    /// A catalog page factors the ancestry its own rows share, so which prefix a row was handed
+    /// depends on which page it came from. The read verb therefore resolves a row by the tail it
+    /// was given — at a segment boundary, so a longer sibling name never answers for a shorter one.
+    /// </summary>
+    [Fact]
+    public void A_row_addresses_its_element_by_the_tail_the_page_handed_out()
+    {
+        const string path = "Canvas[0]/HUD[1]/Panel[0]/Row[1]";
+
+        Assert.True(NativeObjectPath.Addresses(path, path));
+        Assert.True(NativeObjectPath.Addresses(path, "Panel[0]/Row[1]"));
+        Assert.True(NativeObjectPath.Addresses(path, "Row[1]"));
+        Assert.False(NativeObjectPath.Addresses(path, "ow[1]"));
+        Assert.False(NativeObjectPath.Addresses(path, "Row[0]"));
+        Assert.False(NativeObjectPath.Addresses("Canvas[0]/NarrowRow[1]", "Row[1]"));
+    }
+
+    /// <summary>
     /// One walk of an element's ancestry answers both questions the tooltip catalog asks of it.
     /// </summary>
     /// <remarks>

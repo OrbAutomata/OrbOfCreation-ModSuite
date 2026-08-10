@@ -159,4 +159,14 @@ internal static class NativeObjectPath
         path.StartsWith(prefix, StringComparison.Ordinal) && path[prefix.Length] == '/'
             ? path.Substring(prefix.Length + 1)
             : path;
+
+    /// <summary>
+    /// Whether one live path is the element a caller addressed, given that a catalog page hands out
+    /// only the part its own shared prefix did not already say. Which prefix that was depends on
+    /// which page the row came from, so a row addresses its element by the tail it was handed —
+    /// matched at a segment boundary, so <c>Row[1]</c> never answers for <c>NarrowRow[1]</c>.
+    /// </summary>
+    public static bool Addresses(string path, string requested) =>
+        string.Equals(path, requested, StringComparison.Ordinal) ||
+        path.EndsWith("/" + requested, StringComparison.Ordinal);
 }

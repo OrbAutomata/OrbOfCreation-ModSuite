@@ -1970,11 +1970,14 @@ every panel the session ever opened stays active in the hierarchy — the catalo
 `UIModal.IsOpen()` up each element's ancestry and lists none of them, and `total` therefore counts
 hoverable elements rather than instantiated ones.
 A screen's elements descend from one canvas, so the catalog says the shared leading path once as
-`pathPrefix` and each row carries only what that prefix does not already say. `pathPrefix` is
-present exactly when the listed paths share leading segments, is the same on every page of one
-screen, and always leaves the shortest listed path one segment of its own. `game_tooltip` takes a
-row's path as handed out — it derives the same prefix from the same live screen — and accepts a
-whole path as well; a refusal that has a prefix names it. The reply is compact plain screen text.
+`pathPrefix` and each row carries only what that prefix does not already say. The prefix is taken
+over the rows the page actually returns, not over the whole screen: taken over the screen it
+collapsed to a canvas name precisely when the page was long, leaving every row of a deep panel
+repeating some 240 identical characters of ancestor path. `pathPrefix` is present exactly when the
+returned rows share leading segments and always leaves the shortest of them one segment of its own,
+so it differs between pages of one screen. `game_tooltip` therefore resolves a row by the tail it was
+handed: any tail of a live path, matched at a segment boundary, up to and including the whole path.
+The reply is compact plain screen text.
 The
 catalog includes the owning UUID when the assigned tooltip item is itself an identity-bearing game
 entity; control-only rows retain the volatile current-screen path and name. The
