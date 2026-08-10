@@ -1014,7 +1014,6 @@ internal static class GameMcpAcceptanceFixture
             amount: 1,
             payloadKey: string.Empty,
             payloadValue: string.Empty,
-            capture: false,
             saveCapture: false);
 
     internal static GameMcpFrameOperation SubmitHarvest(GameMcpFrameInbox operations) =>

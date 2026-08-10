@@ -2445,7 +2445,6 @@ public sealed class Plugin : BaseUnityPlugin
             amount <= 0 ? 1 : amount,
             payloadKey,
             payloadValue,
-            request.Capture || kind == GameMcpCommandKind.Screenshot,
             request.SaveCapture,
             operation,
             context,
@@ -2783,11 +2782,6 @@ public sealed class Plugin : BaseUnityPlugin
             _ => throw new InvalidOperationException(
                 "the request-time MCP gadget mapping is incomplete"),
         };
-        if (command.Capture && string.Equals(result.Status, "committed", StringComparison.Ordinal))
-        {
-            StartCoroutine(CaptureGameMcpAtEndOfFrame(command, result));
-            return false;
-        }
         return true;
     }
 
@@ -2925,7 +2919,8 @@ public sealed class Plugin : BaseUnityPlugin
             if (texture is null)
                 throw new InvalidOperationException(
                     "ScreenCapture.CaptureScreenshotAsTexture returned null");
-            encodedTexture = DownscaleScreenshot(texture, command.Amount);
+            encodedTexture = DownscaleScreenshot(
+                texture, GameMcpGadgetPolicy.CaptureWidth);
             var png = encodedTexture.EncodeToPNG();
             if (png is null || png.Length == 0)
                 throw new InvalidOperationException("Texture2D.EncodeToPNG returned no bytes");
@@ -3228,8 +3223,7 @@ public sealed class Plugin : BaseUnityPlugin
                         SubtabRefusalReason(subtabReason, settledScreen[0]),
                         details,
                         "subtabCandidates",
-                        subtabs.Select(candidate => candidate.Label)),
-                    capture: false);
+                        subtabs.Select(candidate => candidate.Label)));
                 yield break;
             }
             if (!subtab.TrySelect(out var selectionReason))
@@ -3237,8 +3231,7 @@ public sealed class Plugin : BaseUnityPlugin
                 yield return CompleteNavigateGameMcpAfterSettlement(
                     command,
                     GadgetRejected("subtab_selection_failed", selectionReason)
-                        .WithDetails(details.Freeze()),
-                    capture: false);
+                        .WithDetails(details.Freeze()));
                 yield break;
             }
             yield return null;
@@ -3252,8 +3245,7 @@ public sealed class Plugin : BaseUnityPlugin
             {
                 yield return CompleteNavigateGameMcpAfterSettlement(
                     command,
-                    plotResult.WithDetails(details.Freeze()),
-                    capture: false);
+                    plotResult.WithDetails(details.Freeze()));
                 yield break;
             }
             details["plotNodeUuid"] = command.TargetId.ToString("D");
@@ -3264,10 +3256,7 @@ public sealed class Plugin : BaseUnityPlugin
         var result = GadgetCommitted(
             "navigation_arrived",
             details);
-        yield return CompleteNavigateGameMcpAfterSettlement(
-            command,
-            result,
-            capture: command.Capture);
+        yield return CompleteNavigateGameMcpAfterSettlement(command, result);
     }
 
     /// <summary>
@@ -3293,8 +3282,7 @@ public sealed class Plugin : BaseUnityPlugin
 
     private IEnumerator CompleteNavigateGameMcpAfterSettlement(
         GameMcpCommand command,
-        GameMcpCommandResult result,
-        bool capture = false)
+        GameMcpCommandResult result)
     {
         var settled = new bool[1];
         yield return SettleNavigation(settled);
@@ -3311,7 +3299,6 @@ public sealed class Plugin : BaseUnityPlugin
                         ["reason"] = "the destination did not settle within one second",
                     }.Freeze(),
                 });
-            capture = false;
         }
         else if (string.Equals(result.Status, "committed", StringComparison.Ordinal) &&
                  (_uiShell is null || !_uiShell.IsAlive))
@@ -3324,7 +3311,6 @@ public sealed class Plugin : BaseUnityPlugin
                     ["subtabStripsUnavailable"] =
                         "The navigation shell was no longer alive after the destination settled.",
                 });
-            capture = false;
         }
         else if (string.Equals(result.Status, "committed", StringComparison.Ordinal))
         {
@@ -3344,11 +3330,6 @@ public sealed class Plugin : BaseUnityPlugin
                 details["selectedPlot"] = command.TargetId.ToString("D");
             AppendOpenModals(details);
             result = GadgetCommitted("navigation_arrived", details);
-        }
-        if (capture && string.Equals(result.Status, "committed", StringComparison.Ordinal))
-        {
-            yield return CaptureGameMcpAtEndOfFrame(command, result);
-            yield break;
         }
         CompleteGameMcpCommand(command, result);
     }

@@ -175,7 +175,6 @@ internal sealed class GameMcpCommand
         int amount,
         string payloadKey,
         string payloadValue,
-        bool capture,
         bool saveCapture,
         GameMcpFrameOperation? sourceOperation = null,
         GameMcpFrameContext? frameContext = null,
@@ -203,7 +202,6 @@ internal sealed class GameMcpCommand
         Amount = amount;
         PayloadKey = payloadKey ?? string.Empty;
         PayloadValue = payloadValue ?? string.Empty;
-        Capture = capture;
         SaveCapture = saveCapture;
         SourceOperation = sourceOperation;
         FrameContext = frameContext;
@@ -223,7 +221,6 @@ internal sealed class GameMcpCommand
     internal int Amount { get; }
     internal string PayloadKey { get; }
     internal string PayloadValue { get; }
-    internal bool Capture { get; }
     internal bool SaveCapture { get; }
     internal GameMcpFrameOperation? SourceOperation { get; }
     internal GameMcpFrameContext? FrameContext { get; }

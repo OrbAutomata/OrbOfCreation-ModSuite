@@ -117,11 +117,11 @@ public sealed class GameMcpChallengeTests
         var before = World(selected: false);
         var selectCommand = new GameMcpCommand(
             1, GameMcpCommandKind.Challenge, 9, 3, "select", First, Guid.Empty,
-            "ChallengeSO", 1, string.Empty, string.Empty, false, false,
+            "ChallengeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before));
         var rerollCommand = new GameMcpCommand(
             2, GameMcpCommandKind.Challenge, 9, 3, "reroll", Guid.Empty, Guid.Empty,
-            "ChallengeSO", 1, string.Empty, string.Empty, false, false,
+            "ChallengeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before));
         var target = Json(GameMcpWorldQuery.ProjectChallengePostState(context, selectCommand), world);
         var fetch = Json(GameMcpWorldQuery.ProjectChallengePostState(context, rerollCommand), world);
@@ -224,7 +224,7 @@ public sealed class GameMcpChallengeTests
     {
         var command = new GameMcpCommand(
             3, GameMcpCommandKind.Challenge, 9, 3, "reroll", Guid.Empty, Guid.Empty,
-            "ChallengeSO", 1, string.Empty, string.Empty, false, false,
+            "ChallengeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before));
         return Json(
             GameMcpWorldQuery.ProjectChallengePostState(

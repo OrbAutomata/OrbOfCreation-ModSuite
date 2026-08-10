@@ -71,43 +71,21 @@ public sealed class GameMcpGadgetTests
         var screenshot = Tool("game_screenshot");
         Assert.Null(screenshot["inputSchema"]!["required"]);
         var properties = (JObject)screenshot["inputSchema"]!["properties"]!;
-        Assert.Equal(new[] { "save", "maxWidth" }, properties.Properties().Select(p => p.Name));
-        Assert.Equal(320, (int)properties["maxWidth"]!["minimum"]!);
-        Assert.Equal(4096, (int)properties["maxWidth"]!["maximum"]!);
+        Assert.Equal(new[] { "save" }, properties.Properties().Select(p => p.Name));
     }
 
     /// <summary>
-    /// A capture is priced in 28-pixel patches, so its width is the whole cost of reading it. The
-    /// default is the narrowest width every class of on-screen text survives, snapped onto that
-    /// patch grid, and both capturing tools arrive at the same one.
+    /// A capture is priced in 28-pixel patches, so its width is the whole cost of reading it. One
+    /// width is the narrowest every class of on-screen text survives, snapped onto that patch grid,
+    /// and it is the answer for every caller — so no tool takes a width to be told it again.
     /// </summary>
-    [Theory]
-    [InlineData("game_screenshot")]
-    [InlineData("game_navigate")]
-    public void A_capture_defaults_to_the_readable_width_snapped_to_the_patch_grid(string tool)
+    [Fact]
+    public void A_capture_arrives_at_the_readable_width_and_no_tool_asks_for_one()
     {
-        var arguments = new JObject();
-        if (tool == "game_navigate") arguments["screen"] = "World";
-
-        Assert.Equal(896, CapturedWidth(tool, arguments));
-        Assert.Equal(0, 896 % 28);
-    }
-
-    private static int CapturedWidth(string tool, JObject arguments)
-    {
-        var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
-        var width = 0;
-        GameMcpTestHarness.Handle(router, inbox, GameMcpAcceptanceFixture.Request(
-            1,
-            "tools/call",
-            new JObject { ["name"] = tool, ["arguments"] = arguments }),
-            operation =>
-            {
-                width = operation.Request.Amount;
-                return GameMcpToolExecution.Text("ok");
-            });
-        return width;
+        Assert.Equal(896, GameMcpGadgetPolicy.CaptureWidth);
+        Assert.Equal(0, GameMcpGadgetPolicy.CaptureWidth % 28);
+        foreach (var tool in Tools())
+            Assert.Null(tool["inputSchema"]!["properties"]!["maxWidth"]);
     }
 
     [Fact]
@@ -152,7 +130,7 @@ public sealed class GameMcpGadgetTests
         var navigation = Tool("game_navigate");
         var properties = (JObject)navigation["inputSchema"]!["properties"]!;
         Assert.Equal(
-            new[] { "screen", "subtab", "uuid", "capture", "maxWidth" },
+            new[] { "screen", "subtab", "uuid" },
             properties.Properties().Select(property => property.Name));
         Assert.Null(properties["operation"]);
         Assert.Null(properties["tabIndex"]);
@@ -196,7 +174,6 @@ public sealed class GameMcpGadgetTests
             string.Empty, 1,
             string.Empty,
             string.Empty,
-            capture: false,
             saveCapture: false);
         var terminal = GameMcpCommandResult.Committed(
             "navigation_arrived",
@@ -304,7 +281,6 @@ public sealed class GameMcpGadgetTests
             string.Empty, 1,
             string.Empty,
             string.Empty,
-            capture: false,
             saveCapture: false);
         var terminal = GameMcpCommandResult.Committed(
             "continue_invoked",
@@ -372,19 +348,19 @@ public sealed class GameMcpGadgetTests
             string.Empty, 1,
             string.Empty,
             string.Empty,
-            capture: false,
             saveCapture: false,
             sourceOperation: operation);
 
-    private static JObject Tool(string name)
+    private static JObject Tool(string name) =>
+        Assert.Single(Tools(), value => (string?)value["name"] == name);
+
+    private static JObject[] Tools()
     {
         var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
         var response = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/list",
             new JObject()));
-        return Assert.Single(
-            response.Body!["result"]!["tools"]!.Values<JObject>(),
-            value => (string?)value!["name"] == name)!;
+        return response.Body!["result"]!["tools"]!.Values<JObject>().ToArray()!;
     }
 }

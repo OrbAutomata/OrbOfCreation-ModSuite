@@ -237,7 +237,7 @@ public sealed class GameMcpBoundTypeTests
 
     private static GameMcpCommand Command(string section, string key, string value) =>
         new(1, GameMcpCommandKind.ConfigurationSet, 9, 3, section, Guid.Empty, Guid.Empty,
-            string.Empty, 1, key, value, false, false);
+            string.Empty, 1, key, value, false);
 
     private static readonly Guid Equipment = Guid.Parse("f6000000-0000-0000-0000-000000000001");
     private static readonly Guid EquipmentType = Guid.Parse("f6000000-0000-0000-0000-000000000002");

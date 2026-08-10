@@ -227,8 +227,7 @@ public sealed class GameMcpCraftingTests
     {
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Crafting, 15, 8, "automate", RecipeId, Guid.Empty,
-            "CraftingRecipeSO", 1, string.Empty, string.Empty,
-            false, false, frameContext: Context(automationRepetitions: 3));
+            "CraftingRecipeSO", 1, string.Empty, string.Empty, false, frameContext: Context(automationRepetitions: 3));
         var committed = GameMcpCommandResult.Committed("committed", 15, 8);
 
         var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -268,8 +267,7 @@ public sealed class GameMcpCraftingTests
     {
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Crafting, 15, 8, "craft", RecipeId, Guid.Empty,
-            "CraftingRecipeSO", 1, string.Empty, string.Empty,
-            false, false, frameContext: Context(queuedAmount: 4));
+            "CraftingRecipeSO", 1, string.Empty, string.Empty, false, frameContext: Context(queuedAmount: 4));
         var committed = GameMcpCommandResult.Committed("committed", 15, 8);
         var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
             Context(queuedAmount: 6), command, committed));
@@ -289,8 +287,7 @@ public sealed class GameMcpCraftingTests
     {
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Crafting, 15, 8, "craft", RecipeId, Guid.Empty,
-            "CraftingRecipeSO", 1, string.Empty, string.Empty,
-            false, false, frameContext: Context(queuedAmount: 0));
+            "CraftingRecipeSO", 1, string.Empty, string.Empty, false, frameContext: Context(queuedAmount: 0));
         var submission = new CraftingPlayerSubmission(
             RecipeId,
             CraftingPlayerPreflight.Proceeded,
@@ -315,8 +312,7 @@ public sealed class GameMcpCraftingTests
     {
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Crafting, 15, 8, "craft", RecipeId, Guid.Empty,
-            "CraftingRecipeSO", 1, string.Empty, string.Empty,
-            false, false, frameContext: Context(queuedAmount: 4));
+            "CraftingRecipeSO", 1, string.Empty, string.Empty, false, frameContext: Context(queuedAmount: 4));
         var submission = new CraftingPlayerSubmission(
             RecipeId,
             CraftingPlayerPreflight.Proceeded,
@@ -350,8 +346,7 @@ public sealed class GameMcpCraftingTests
     {
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Crafting, 15, 8, "craft", RecipeId, Guid.Empty,
-            "CraftingRecipeSO", 1, string.Empty, string.Empty,
-            false, false, frameContext: Context(queuedAmount: 0));
+            "CraftingRecipeSO", 1, string.Empty, string.Empty, false, frameContext: Context(queuedAmount: 0));
         var submission = new CraftingPlayerSubmission(
             RecipeId,
             CraftingPlayerPreflight.Proceeded,
@@ -384,8 +379,7 @@ public sealed class GameMcpCraftingTests
     {
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Crafting, 15, 8, mode, RecipeId, Guid.Empty,
-            "CraftingRecipeSO", 1, string.Empty, string.Empty,
-            false, false, frameContext: Context(automationRepetitions: before));
+            "CraftingRecipeSO", 1, string.Empty, string.Empty, false, frameContext: Context(automationRepetitions: before));
         var committed = GameMcpCommandResult.Committed("committed", 15, 8);
 
         var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(

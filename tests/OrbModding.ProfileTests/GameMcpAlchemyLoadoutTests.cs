@@ -152,7 +152,7 @@ public sealed class GameMcpAlchemyLoadoutTests
         var after = World(targetAmount: 3, position: 0);
         var command = new GameMcpCommand(1, GameMcpCommandKind.AlchemyLoadout,
             9, 3, "add", RecipeId, Guid.Empty, "AlchemyRecipeSO",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 81));
 
         var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(

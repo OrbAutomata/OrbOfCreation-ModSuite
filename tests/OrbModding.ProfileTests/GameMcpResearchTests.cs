@@ -242,7 +242,7 @@ public sealed class GameMcpResearchTests
         var before = World(queuedLevels: 3);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Research, 41, 8, "develop", ResearchId, Guid.Empty,
-            "ResearchSO", 1, string.Empty, string.Empty, false, false,
+            "ResearchSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var after = World(queuedLevels: 4);
 
@@ -263,7 +263,7 @@ public sealed class GameMcpResearchTests
         var before = World(totalLevel: 1, queuedLevels: 4);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Research, 41, 8, "develop", ResearchId, Guid.Empty,
-            "ResearchSO", 1, string.Empty, string.Empty, false, false,
+            "ResearchSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var after = World(totalLevel: 2, queuedLevels: 4);
 
@@ -283,7 +283,7 @@ public sealed class GameMcpResearchTests
         var before = World(isDeveloping: false, queueMode: false);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Research, 41, 8, "develop", ResearchId, Guid.Empty,
-            "ResearchSO", 1, string.Empty, string.Empty, false, false,
+            "ResearchSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var started = World(
             isDeveloping: true, collectedAtUtcTicks: completedAt + 1, queueMode: false);
@@ -308,7 +308,7 @@ public sealed class GameMcpResearchTests
         var before = World(isDeveloping: true, queueMode: true);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Research, 41, 8, "develop", ResearchId, Guid.Empty,
-            "ResearchSO", 2, string.Empty, string.Empty, false, false,
+            "ResearchSO", 2, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var unchanged = World(isDeveloping: true, queueMode: true);
 
@@ -330,7 +330,7 @@ public sealed class GameMcpResearchTests
         var before = new GameWorldState();
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Research, 41, 8, "develop", ResearchId, Guid.Empty,
-            "ResearchSO", 2, string.Empty, string.Empty, false, false,
+            "ResearchSO", 2, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var after = World(isDeveloping: true, queueMode: queueMode);
 

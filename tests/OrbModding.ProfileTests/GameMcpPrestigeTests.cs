@@ -95,7 +95,7 @@ public sealed class GameMcpPrestigeTests
     {
         var reset = new GameMcpCommand(
             1, GameMcpCommandKind.Prestige, 9, 3, "confirm", Guid.Empty, Guid.Empty,
-            "PersistentResetManager", 1, string.Empty, string.Empty, false, false);
+            "PersistentResetManager", 1, string.Empty, string.Empty, false);
 
         Assert.Equal(15f, GameMcpPostStateSettlement.WaitSeconds(reset));
         Assert.Equal(

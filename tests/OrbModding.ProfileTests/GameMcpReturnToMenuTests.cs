@@ -61,7 +61,7 @@ public sealed class GameMcpReturnToMenuTests
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.ReturnToMenu, 12, 34, "return_to_menu",
             System.Guid.Empty, System.Guid.Empty, "UIBackToMenuButton",
-            1, string.Empty, string.Empty, false, false);
+            1, string.Empty, string.Empty, false);
         var action = ServiceActionResult.Committed(
             CommonActionResultCodes.Committed,
             ServiceNativeMutationEvidence.Observed(
@@ -136,7 +136,7 @@ public sealed class GameMcpReturnToMenuTests
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.ReturnToMenu, lifecycle, 1, "return_to_menu",
             Guid.Empty, Guid.Empty, "UIBackToMenuButton",
-            1, string.Empty, string.Empty, false, false);
+            1, string.Empty, string.Empty, false);
 
         var result = runtime.ExecuteGameMcp(command);
         var json = GameMcpTestHarness.Json(result.Project(command));

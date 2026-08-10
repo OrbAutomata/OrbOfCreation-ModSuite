@@ -336,7 +336,6 @@ public sealed class GameMcpSpellLoadoutTests
         string.Empty,
         string.Empty,
         false,
-        false,
         frameContext: frameContext);
 
     /// <summary>

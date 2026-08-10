@@ -255,7 +255,7 @@ public sealed class GameMcpGenericLevelTests
         int amount = 1) =>
         new(1, GameMcpCommandKind.GenericLevel,
             9, 3, mode, GlyphId, Guid.Empty, "GlyphSO",
-            amount, string.Empty, string.Empty, false, false,
+            amount, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 901));
 
     private static GameWorldState World(

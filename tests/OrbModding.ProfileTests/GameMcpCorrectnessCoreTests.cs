@@ -180,7 +180,7 @@ public sealed class GameMcpCorrectnessCoreTests
         };
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Purchase, 1, 1, "upgrade", target, Guid.Empty,
-            "UpgradeSO", 1, string.Empty, string.Empty, false, false);
+            "UpgradeSO", 1, string.Empty, string.Empty, false);
         var action = ServiceActionResult.Skipped(CommonActionResultCodes.Skipped);
 
         var result = AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
@@ -275,7 +275,7 @@ public sealed class GameMcpCorrectnessCoreTests
         };
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Purchase, 1, 1, "upgrade", target, Guid.Empty,
-            "UpgradeSO", 1, string.Empty, string.Empty, false, false);
+            "UpgradeSO", 1, string.Empty, string.Empty, false);
 
         var result = AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
             command,
@@ -294,7 +294,7 @@ public sealed class GameMcpCorrectnessCoreTests
         var target = Guid.Parse("34444444-4444-4444-8444-444444444445");
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Purchase, 1, 1, "upgrade", target, Guid.Empty,
-            "UpgradeSO", 1, string.Empty, string.Empty, false, false);
+            "UpgradeSO", 1, string.Empty, string.Empty, false);
 
         Assert.Null(AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
             command,
@@ -320,7 +320,7 @@ public sealed class GameMcpCorrectnessCoreTests
         };
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Purchase, 1, 1, "upgrade", target, Guid.Empty,
-            "UpgradeSO", 1, string.Empty, string.Empty, false, false);
+            "UpgradeSO", 1, string.Empty, string.Empty, false);
 
         var result = AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
             command, world, ServiceActionResult.Skipped(CommonActionResultCodes.Skipped),
@@ -459,7 +459,7 @@ public sealed class GameMcpCorrectnessCoreTests
         };
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Concept, 9, 3, "add", recipe, Guid.Empty,
-            "AlchemyRecipeSO", 5, string.Empty, string.Empty, false, false,
+            "AlchemyRecipeSO", 5, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 41));
         // The game takes the queue increase a settlement before it submits it.
         var queuedOnly = new GameWorldState
@@ -528,7 +528,6 @@ public sealed class GameMcpCorrectnessCoreTests
             amount: 1,
             payloadKey: string.Empty,
             payloadValue: string.Empty,
-            capture: false,
             saveCapture: false,
             frameContext: GameMcpTestHarness.Context(before));
         var committed = GameMcpCommandResult.Committed("committed", 9, 3);
@@ -629,7 +628,6 @@ public sealed class GameMcpCorrectnessCoreTests
             amount: 1,
             payloadKey: string.Empty,
             payloadValue: string.Empty,
-            capture: false,
             saveCapture: false,
             frameContext: GameMcpTestHarness.Context(before));
         var after = new GameWorldState
@@ -681,7 +679,6 @@ public sealed class GameMcpCorrectnessCoreTests
             amount: 1,
             payloadKey: string.Empty,
             payloadValue: string.Empty,
-            capture: false,
             saveCapture: false,
             frameContext: GameMcpTestHarness.Context(before));
         var after = new GameWorldState
@@ -748,7 +745,6 @@ public sealed class GameMcpCorrectnessCoreTests
             amount: 25,
             payloadKey: string.Empty,
             payloadValue: string.Empty,
-            capture: false,
             saveCapture: false,
             frameContext: GameMcpTestHarness.Context(before));
         var after = before with
@@ -936,7 +932,6 @@ public sealed class GameMcpCorrectnessCoreTests
             amount: 1,
             payloadKey: string.Empty,
             payloadValue: string.Empty,
-            capture: false,
             saveCapture: false,
             sourceOperation: operation,
             frameContext: context);

@@ -144,12 +144,12 @@ public sealed class GameMcpLoadoutTests
         var after = World(selected: true, populatedSnapshot: false);
         var select = new GameMcpCommand(1, GameMcpCommandKind.Loadout,
             9, 3, "select", PlayerId, Guid.Empty, "PlayerLoadout",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: Context(before, 91));
         var clear = new GameMcpCommand(2, GameMcpCommandKind.Loadout,
             9, 3, "snapshot_clear", SnapshotId, Guid.Empty,
             "EquipmentSnapshotListVariable",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: Context(before, 91));
 
         var selected = Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -233,7 +233,7 @@ public sealed class GameMcpLoadoutTests
         var after = World(selected: true, populatedSnapshot: false, equippedSpells: 0);
         var select = new GameMcpCommand(1, GameMcpCommandKind.Loadout,
             9, 3, "select", PlayerId, Guid.Empty, "PlayerLoadout",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: Context(before, 94));
 
         var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -258,7 +258,7 @@ public sealed class GameMcpLoadoutTests
         var after = World(selected: true, populatedSnapshot: false, equippedSpells: 2);
         var select = new GameMcpCommand(1, GameMcpCommandKind.Loadout,
             9, 3, "select", PlayerId, Guid.Empty, "PlayerLoadout",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: Context(before, 96));
 
         var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(

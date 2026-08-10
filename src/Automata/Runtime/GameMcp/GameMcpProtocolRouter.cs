@@ -32,15 +32,6 @@ internal sealed class GameMcpProtocolRouter
         "resources/templates/list",
     };
 
-    /// <summary>
-    /// The width a capture arrives at when the caller does not name one. A screenshot costs its
-    /// reader whole 28-pixel patches, so pixels are the only lever that matters: 900 is the
-    /// narrowest width at which every class of on-screen text stays readable through the suite's
-    /// own resampler, and 896 is that width snapped down onto the patch grid at 32 patches across.
-    /// It reads identically to 900 and costs one patch column less.
-    /// </summary>
-    private const int DefaultScreenshotWidth = 896;
-
     private readonly GameMcpFrameInbox _operations;
 
     internal GameMcpProtocolRouter(GameMcpFrameInbox operations)
@@ -469,21 +460,12 @@ internal sealed class GameMcpProtocolRouter
                 break;
             case "game_screenshot":
                 builder.SaveCapture = OptionalBool(arguments, "save", false);
-                builder.Amount = OptionalInt(arguments, "maxWidth", DefaultScreenshotWidth);
-                if (builder.Amount < 320 || builder.Amount > 4096)
-                    throw new GameMcpInvalidParamsException(
-                        "maxWidth must be between 320 and 4096 pixels");
                 break;
             case "game_navigate":
                 builder.Tab = ParseNavigationSelector(RequireSelector(arguments, "screen"));
                 if (arguments.TryGetValue("subtab", out _))
                     builder.Subtab = ParseNavigationSelector(RequireSelector(arguments, "subtab"));
                 builder.Uuid = OptionalUuid(arguments, "uuid");
-                builder.Capture = OptionalBool(arguments, "capture", false);
-                builder.Amount = OptionalInt(arguments, "maxWidth", DefaultScreenshotWidth);
-                if (builder.Amount < 320 || builder.Amount > 4096)
-                    throw new GameMcpInvalidParamsException(
-                        "maxWidth must be between 320 and 4096 pixels");
                 break;
             case "game_tooltips":
                 builder.Offset = OptionalInt(arguments, "offset", 0);
@@ -539,7 +521,6 @@ internal sealed class GameMcpProtocolRouter
                 !(name == "game_spell_loadout" && request.Mode is "preview" or "staged") =>
                 GameMcpOperationClass.Gameplay,
         "game_navigate" or "game_continue" or "game_modal" => GameMcpOperationClass.UiState,
-        "game_tooltip" when request.Capture => GameMcpOperationClass.UiState,
 
         // A screenshot is a capture the server performs, not a read of published state, whether or
         // not the caller also asks for it on disk. One classification keeps one status word.
@@ -1103,11 +1084,10 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_screenshot",
                 "Capture the game framebuffer",
-                "Return a PNG as inline MCP image content. Reading one costs ceil(width/28) x ceil(height/28) tokens, so pixels are its whole price and format and compression never enter it. maxWidth defaults to 896 — 32 patch columns, the narrowest width at which every class of on-screen text stays readable. Set save=true to also write a generated name in the trace folder.",
+                "Return a PNG as inline MCP image content. Reading one costs ceil(width/28) x ceil(height/28) tokens, so pixels are its whole price and format and compression never enter it. Every capture arrives 896 pixels wide — 32 patch columns, the narrowest width at which every class of on-screen text stays readable. Set save=true to also write a generated name in the trace folder.",
                 ObjectSchema(new JObject
                 {
                     ["save"] = BooleanSchema("Also save to the trace folder."),
-                    ["maxWidth"] = IntegerSchema(320, 4096),
                 }),
                 readOnly: false,
                 idempotent: false),
@@ -1143,15 +1123,13 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_navigate",
                 "Navigate the live screen catalog",
-                "UI-only, no gameplay/save mutation. Select one catalog screen, an optional subtab of that screen, and an optional published plot node; capture returns an inline PNG after arrival, priced exactly as game_screenshot and defaulting to the same 896-pixel width.",
+                "UI-only, no gameplay/save mutation. Select one catalog screen, an optional subtab of that screen, and an optional published plot node; the answer is the arrived screen in words. game_screenshot is the only tool that captures the framebuffer.",
                 ObjectSchema(
                     new JObject
                     {
                         ["screen"] = StringSchema("Exact player-facing top-level screen name."),
                         ["subtab"] = StringSchema("Optional exact player-facing subtab name."),
                         ["uuid"] = StringSchema("Optional published plot UUID to select after navigation."),
-                        ["capture"] = BooleanSchema("Return an inline PNG after arrival."),
-                        ["maxWidth"] = IntegerSchema(320, 4096),
                     },
                     "screen"),
                 readOnly: false,

@@ -72,7 +72,7 @@ public sealed class GameMcpStructureLifecycleTests
         var after = World(disabled: true, available: true);
         var command = new GameMcpCommand(1, GameMcpCommandKind.StructureLifecycle,
             9, 3, "disable", StructureId, Guid.Empty, "StructureSO",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 91));
         var afterContext = GameMcpTestHarness.Context(after, generation: 92);
 

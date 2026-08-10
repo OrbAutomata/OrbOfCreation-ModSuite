@@ -172,7 +172,7 @@ rather than from the screen it is drawn on.
 | `world_overview` | Compact collection, economy, progression, and running-state summary |
 | `world_categories` | Discover every published table and exact collection availability |
 | `world_list` | Page compact identity-plus-scan rows in one category |
-| `world_get` | Read an ordered 1–200 UUID list from one pinned immutable publication; optional native-type assertion |
+| `world_get` | Read an ordered 1–200 UUID list from one pinned immutable publication |
 | `entity_catalog` | Search every live-registry identity and available player-facing name, including loaded entities hidden by progression |
 | `explain_entity` | Evaluate one UUID's gates, requirement graph, exact costs, and blockers from one pinned immutable publication |
 | `world_search` | Search stable-UUID entity categories; composite diagnostic rows are excluded |
@@ -208,7 +208,7 @@ rather than from the screen it is drawn on.
 | `game_return_to_menu` | Raise the native manual-save event and return from play to the Start scene |
 | `game_modal` | Dismiss the one unambiguous open native modal through its close control |
 | `game_screen_catalog` | Read the live screens with the active screen and its subtab strips marked |
-| `game_navigate` | Navigate a catalog screen/subtab and optional published plot UUID |
+| `game_navigate` | Navigate a catalog screen/subtab and optional published plot UUID; answers in words |
 | `game_tooltips` | Page through active tooltip-bearing elements by indexed path |
 | `game_tooltip` | Read compact plain screen text, including nested/computed and inspected content |
 | `game_probe` | Read one fixed native fact not carried by `WORLD` |
@@ -1332,7 +1332,7 @@ so the retry needs no second read.
 A **schema bound** is the range the JSON input schema declares, and it is the suite's own policy on
 what is worth sending in one call — not a native fact. `game_purchase` and `game_level` cap `amount`
 at 1,000, `game_concept` at 1,000,000, and `game_agromancy` at 10,000; the paging tools cap `limit`
-at 200 and `game_screenshot` caps `maxWidth` at 4,096 for reader cost; every other `amount`,
+at 200; every other `amount`,
 `slot`, `offset`, and dial `value` — `game_alchemy` and `game_equipment` among them — declares no
 ceiling at all, because the suite has no opinion there and the native bound decides. Where the suite
 has no ceiling it publishes none: the schema omits `maximum`, and a below-floor value is refused
@@ -1868,9 +1868,10 @@ ruling rather than restoring a contract:
 `ceil(height / 28)` tokens — so pixels are the entire price and neither the image format nor its
 compression enters it. That is why the PNG path is unconditional and there is no quality knob:
 lossy encoding would buy wire bytes, which are free, at the cost of readability, which is not.
-`maxWidth` bounds the encoded image between 320 and 4,096 pixels and defaults to 896 — 32 patch
-columns, the narrowest width at which every class of on-screen text stays readable through the
-suite's resampler, and the one control worth reaching for. The response reports the encoded `width`
+Every capture arrives 896 pixels wide — 32 patch columns, the narrowest width at which every class
+of on-screen text stays readable through the suite's resampler. There is no width parameter,
+because that choice has one answer: a narrower capture stops being readable and a wider one costs
+patch columns for pixels no reader gains anything from. The response reports the encoded `width`
 and `height`, which are therefore the exact cost of what it just sent, plus `scene` and whatever
 native modal is covering the board, and echoes nothing else. There is deliberately no crop or
 region parameter: cropping risks removing what the caller actually needed, and seeing more of the
@@ -1944,7 +1945,10 @@ unstable numeric indexes are deliberately absent. Inactive tab content is not in
 audited v1.0.5 data and scene assets do not carry an authoritative tab-to-subtab roster. The catalog
 therefore omits inactive subtabs rather than navigating speculatively or guessing labels.
 
-`game_navigate(screen, subtab?, uuid?, capture?, maxWidth?)` accepts exact labels only. Name matching is
+`game_navigate(screen, subtab?, uuid?)` accepts exact labels only. It answers in words — the
+arrived screen, its strips, and any open modal. `game_screenshot` is the only tool that captures the
+framebuffer, so a caller that wants a picture of where it landed asks for one, and a caller that
+does not is never charged patch columns for arriving. Name matching is
 ordinal and closed-world: zero or multiple matches reject with the exact candidate labels. Plot selection resolves
 the supplied UUID as a published `PlotNodeSO` and invokes the one audited active
 `UIPlotNodeList.OnNodeClick(PlotNodeSO)`. It is not a hardcoded Fruit Tree command.
@@ -1953,7 +1957,7 @@ screen and complete live strip set to remain stable across frames, and only then
 selects the requested subtab or plot. Resolving against the settled hierarchy is what makes the
 subtab candidates the matcher searched identical to the ones the catalog advertises for that screen.
 It then waits for settlement again before answering. A timeout stays committed but returns only `postStateUnavailable`; it never labels a
-mid-transition strip set or capture as settled. The whole operation
+mid-transition strip set as settled. The whole operation
 still returns one terminal tool result; callers never split it into a retry sequence.
 Mods is a suite-added screen, not one of the game's — see
 [runtime architecture](../runtime-architecture/architecture.md#the-mods-screen-is-ours-not-the-games).

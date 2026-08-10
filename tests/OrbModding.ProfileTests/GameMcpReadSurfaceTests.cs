@@ -194,7 +194,6 @@ public sealed class GameMcpStreamableHttpProtocolTests
             amount: 1,
             payloadKey: string.Empty,
             payloadValue: string.Empty,
-            capture: false,
             saveCapture: false,
             sourceOperation: operation,
             frameContext: context);
@@ -282,7 +281,6 @@ public sealed class GameMcpStreamableHttpProtocolTests
             amount: 1,
             payloadKey: kind == GameMcpCommandKind.ConfigurationSet ? "Mode" : string.Empty,
             payloadValue: kind == GameMcpCommandKind.ConfigurationSet ? "Disabled" : string.Empty,
-            capture: false,
             saveCapture: false,
             sourceOperation: source);
         var result = GameMcpTestHarness.Json(GameMcpCommandResult.Rejected(

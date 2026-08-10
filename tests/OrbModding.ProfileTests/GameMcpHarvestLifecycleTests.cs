@@ -126,7 +126,7 @@ public sealed class GameMcpHarvestLifecycleTests
         var after = World(elementActive: 2, actionActive: 2);
         var command = new GameMcpCommand(1, GameMcpCommandKind.HarvestLifecycle,
             9, 3, "add_element_action", ElementId, ActionId, "HarvestElementSO",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 91));
 
         var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(

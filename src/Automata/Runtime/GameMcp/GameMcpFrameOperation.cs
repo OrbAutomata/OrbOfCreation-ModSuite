@@ -69,7 +69,6 @@ internal sealed class GameMcpOperationRequest
         Path = source.Path ?? string.Empty;
         Probe = source.Probe ?? string.Empty;
         AffordableOnly = source.AffordableOnly;
-        Capture = source.Capture;
         SaveCapture = source.SaveCapture;
         ResourceUri = source.ResourceUri ?? string.Empty;
         Tab = source.Tab;
@@ -96,7 +95,6 @@ internal sealed class GameMcpOperationRequest
     internal string Path { get; }
     internal string Probe { get; }
     internal bool AffordableOnly { get; }
-    internal bool Capture { get; }
     internal bool SaveCapture { get; }
     internal string ResourceUri { get; }
     internal GameMcpNavigationSelector? Tab { get; }
@@ -125,7 +123,6 @@ internal sealed class GameMcpOperationRequestBuilder
     internal string Path { get; set; } = string.Empty;
     internal string Probe { get; set; } = string.Empty;
     internal bool AffordableOnly { get; set; }
-    internal bool Capture { get; set; }
     internal bool SaveCapture { get; set; }
     internal string ResourceUri { get; set; } = string.Empty;
     internal GameMcpNavigationSelector? Tab { get; set; }

@@ -151,7 +151,7 @@ public sealed class GameMcpCastTests
             castCount: 8);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
-            "SpellRecipeSO", 1, string.Empty, string.Empty, false, false,
+            "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
 
         var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -179,7 +179,7 @@ public sealed class GameMcpCastTests
         var after = World(casting: false, cancellationEnabled: true, charges: 2, castCount: 12);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
-            "SpellRecipeSO", 1, string.Empty, string.Empty, false, false,
+            "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 59));
 
         var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -206,7 +206,7 @@ public sealed class GameMcpCastTests
             casting: true, cancellationEnabled: true, charges: 2, chargeable: true);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
-            "SpellRecipeSO", 1, string.Empty, "charge", false, false,
+            "SpellRecipeSO", 1, string.Empty, "charge", false,
             frameContext: GameMcpTestHarness.Context(before, generation: 61));
 
         var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -266,7 +266,7 @@ public sealed class GameMcpCastTests
         var after = World(casting: true, cancellationEnabled: true, charges: 2);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Cast, 9, 3, "toggle_off", RecipeId, Guid.Empty,
-            "SpellRecipeSO", 1, string.Empty, string.Empty, false, false,
+            "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 53));
 
         var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -285,7 +285,7 @@ public sealed class GameMcpCastTests
         var after = World(casting: true, cancellationEnabled: true, charges: 2, toggled: false);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
-            "SpellRecipeSO", 1, string.Empty, string.Empty, false, false,
+            "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 55));
 
         var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -303,7 +303,7 @@ public sealed class GameMcpCastTests
         var after = World(casting: false, cancellationEnabled: true, charges: 2, toggled: false);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
-            "SpellRecipeSO", 1, string.Empty, string.Empty, false, false,
+            "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 57));
 
         var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -347,7 +347,6 @@ public sealed class GameMcpCastTests
         1,
         string.Empty,
         string.Empty,
-        false,
         false,
         frameContext: before);
 

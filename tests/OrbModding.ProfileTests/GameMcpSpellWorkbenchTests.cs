@@ -390,7 +390,6 @@ public sealed class GameMcpSpellWorkbenchTests
         payloadKey,
         string.Empty,
         false,
-        false,
         frameContext: before is null ? null : GameMcpTestHarness.Context(before));
 
     private static GameWorldState World(

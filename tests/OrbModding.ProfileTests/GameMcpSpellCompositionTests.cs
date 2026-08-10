@@ -268,7 +268,6 @@ public sealed class GameMcpSpellCompositionTests
         mode == "set_output_level" ? "output" : "reserve",
         string.Empty,
         false,
-        false,
         frameContext: frameContext);
 
     /// <summary>

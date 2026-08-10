@@ -272,7 +272,7 @@ public sealed class GameMcpRitualLifecycleTests
         var after = World(selected: true, level: 3, activeInstances: 0);
         var command = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
             9, 3, "select", RitualId, Guid.Empty, "RitualSO",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 91));
 
         var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -294,7 +294,7 @@ public sealed class GameMcpRitualLifecycleTests
         var after = World(selected: true, level: 4, activeInstances: 0, inBattle: false);
         var command = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
             9, 3, "end", RitualId, Guid.Empty, "RitualSO",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 93));
 
         var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -318,7 +318,7 @@ public sealed class GameMcpRitualLifecycleTests
             spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(12)) });
         var command = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
             9, 3, "end", RitualId, Guid.Empty, "RitualSO",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 95));
 
         var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -350,7 +350,7 @@ public sealed class GameMcpRitualLifecycleTests
             spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(30)) });
         var command = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
             9, 3, "end", RitualId, Guid.Empty, "RitualSO",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 97));
 
         var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -372,7 +372,7 @@ public sealed class GameMcpRitualLifecycleTests
         var after = World(selected: true, level: 4, activeInstances: 0, wavesCompleted: 0);
         var command = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
             9, 3, "activate", RitualId, Guid.Empty, "RitualSO",
-            1, string.Empty, string.Empty, false, false,
+            1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 99));
 
         var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(

@@ -18,6 +18,15 @@ internal enum GameMcpGadgetAccess
 /// <summary>Closed-world names for native probes whose implementations are fixed in the mod.</summary>
 internal static class GameMcpGadgetPolicy
 {
+    /// <summary>
+    /// The width every capture arrives at. A screenshot costs its reader whole 28-pixel patches, so
+    /// pixels are the only lever that matters: 900 is the narrowest width at which every class of
+    /// on-screen text stays readable through the suite's own resampler, and 896 is that width
+    /// snapped down onto the patch grid at 32 patches across. It reads identically to 900 and costs
+    /// one patch column less, which is why no caller is asked to pick a number instead.
+    /// </summary>
+    internal const int CaptureWidth = 896;
+
     internal static GameMcpGadgetAccess AccessFor(GameMcpCommandKind kind) => kind switch
     {
         GameMcpCommandKind.Screenshot => GameMcpGadgetAccess.Framebuffer,

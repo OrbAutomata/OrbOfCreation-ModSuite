@@ -82,7 +82,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             "DiscoveryTreeSO", 1,
             string.Empty,
             string.Empty,
-            false,
             false);
 
         Assert.True(GameMcpNativeActionAdmission.TryReject(
@@ -160,7 +159,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var completedAt = DateTime.UtcNow.Ticks;
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, mode, treeId, Guid.Empty,
-            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false, false,
+            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 0), generation: 41));
 
@@ -206,7 +205,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             });
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "select", treeId, offerId,
-            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false, false);
+            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false);
 
         var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(world, generation: 806),
@@ -230,7 +229,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_confirm", treeId, offerId,
-            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false, false,
+            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2), generation: 41));
 
@@ -264,7 +263,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var second = Guid.Parse("b1d6b0b6-98c1-4b74-90a4-7d0f7dbd3a1f");
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_reroll", treeId, Guid.Empty,
-            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false, false,
+            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2, rerollsLeft: 2, offers: new[] { first }),
                 generation: 61));
@@ -295,7 +294,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var offer = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_reroll", treeId, Guid.Empty,
-            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false, false,
+            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2, rerollsLeft: 1, offers: new[] { offer }),
                 generation: 63));
@@ -874,7 +873,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "confirm",
             tree, offer, "DiscoveryTreeSO", 1,
-            string.Empty, string.Empty, false, false);
+            string.Empty, string.Empty, false);
         var terminal = GameMcpCommandResult.FromAction(
             in mapped,
             command.Kind,
@@ -938,7 +937,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "initiate",
             tree, Guid.Empty, "DiscoveryTreeSO", 1,
-            string.Empty, string.Empty, false, false);
+            string.Empty, string.Empty, false);
         var terminal = GameMcpCommandResult.FromAction(
             in mapped,
             command.Kind,
@@ -1062,7 +1061,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 "DiscoveryTreeSO", 1,
                 string.Empty,
                 string.Empty,
-                false,
                 false);
 
             var result = runtime.ExecuteGameMcp(command);
@@ -1170,7 +1168,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                         "DiscoveryTreeSO", 1,
                         string.Empty,
                         string.Empty,
-                        false,
                         false,
                         operation,
                         pinned);
