@@ -288,11 +288,25 @@ internal static class GameMcpWorldQuery
             if (upgrade.IsExhausted) projected["reasonCode"] = "already_maxed";
             return projected.Freeze();
         }
+        // `created` is what separates the two things a zero equipped count meant: owning none of an
+        // artifact, and owning some with none equipped. Without it the only way to tell them apart
+        // was to attempt an equip and read the refusal, once per row.
         if (row is WorldEquipment equipment)
             return new JObject
             {
                 ["entityId"] = equipment.EntityId.ToString("D"),
+                ["created"] = equipment.IsCreated,
                 ["equippedCount"] = equipment.EquippedLevel,
+            }.Freeze();
+
+        // The gate the detail row already publishes. A hidden resource type refuses every level
+        // purchase, so a list that omits it is a list a caller must probe row by row.
+        if (row is WorldResourceType resourceType)
+            return new JObject
+            {
+                ["entityId"] = resourceType.EntityId.ToString("D"),
+                ["level"] = resourceType.LevelDecision.TotalLevel,
+                ["hidden"] = resourceType.SpecialHidden,
             }.Freeze();
         if (row is WorldGlyph glyph)
             return new JObject
@@ -4224,8 +4238,33 @@ internal static class GameMcpWorldQuery
             ["entityId"] = recipe.RecipeId.ToString("D"),
             ["category"] = "concept-recipes",
             ["activeCount"] = amount,
-            ["canAdd"] = recipe.CanAddNow,
+            ["usedSlots"] = world.AlchemyInstances.Count,
+            ["maximumSlots"] = recipe.SlotCount,
+            ["canAdd"] = ConceptAddDecision(world, in recipe),
         }.Freeze();
+    }
+
+    /// <summary>
+    /// Whether the game's Active Concepts list takes this recipe now, and when it does not, why.
+    /// </summary>
+    /// <remarks>
+    /// The published assignments are the filled slots only, so a caller counting them cannot tell a
+    /// full list from a half-empty one that refuses this particular recipe. The decision carries the
+    /// pair, which is also the difference between "swap something out" and "this one, not now".
+    /// </remarks>
+    internal static JObject ConceptAddDecision(
+        GameWorldState world,
+        in WorldConceptRecipe recipe)
+    {
+        var result = new JObject { ["available"] = recipe.CanAddNow };
+        if (recipe.CanAddNow) return result;
+        var used = world.AlchemyInstances.Count;
+        result["reasonCode"] = "slot_unavailable";
+        result["reason"] = recipe.SlotCount > 0 && used >= recipe.SlotCount
+            ? "All " + recipe.SlotCount + " Concept slots are in use."
+            : "The game will not take this Concept into a slot right now; " +
+                used + " of " + recipe.SlotCount + " slots are in use.";
+        return result;
     }
 
     private static GameMcpValue ProjectAlchemyInstance(

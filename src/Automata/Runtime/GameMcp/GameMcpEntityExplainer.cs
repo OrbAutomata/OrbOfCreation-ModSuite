@@ -112,6 +112,23 @@ internal static class GameMcpEntityExplainer
             out var category)
                 ? GameMcpWorldQuery.ProjectEntityState(world, category, row)
                 : new GameMcpDomainValue(row);
+
+        // A Concept recipe is an alchemy recipe the game also lets you assign to a slot. Explaining
+        // it under the one kind and dropping the other half answered a question the caller did not
+        // ask, and the assignment state was reachable only from a second read.
+        if (WorldConceptRecipeLookup.TryFind(world.ConceptRecipes, uuid, out var conceptRecipe))
+        {
+            result["concept"] = new JObject
+            {
+                ["assignedCount"] = WorldAlchemyInstanceLookup.TryFind(
+                    world.AlchemyInstances, uuid, out var assignment)
+                    ? assignment.Quantity
+                    : 0,
+                ["usedSlots"] = world.AlchemyInstances.Count,
+                ["maximumSlots"] = conceptRecipe.SlotCount,
+                ["canAdd"] = GameMcpWorldQuery.ConceptAddDecision(world, in conceptRecipe),
+            };
+        }
         // Both blocks are always present. An entity with no applicable predicate and one whose
         // predicates were never evaluated are different answers, and an omitted key said both.
         result["predicates"] = predicates;
@@ -241,6 +258,8 @@ internal static class GameMcpEntityExplainer
             {
                 WorldLookup.TryFind(world.AlchemyRecipes, id, out var alchemy);
                 AddDiscoveryPredicates(result, world, id, alchemy.Discovered, nativeDiscoverable: true);
+                if (WorldConceptRecipeLookup.TryFind(world.ConceptRecipes, id, out var concept))
+                    result["canAdd"] = GameMcpWorldQuery.ConceptAddDecision(world, in concept);
                 break;
             }
             case EntityKind.CraftingRecipe:

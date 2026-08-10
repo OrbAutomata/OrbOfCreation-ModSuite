@@ -152,6 +152,89 @@ public sealed class GameMcpBoundTypeTests
         Assert.Contains("from 10 to 3600", reason, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The setting whose ceiling is a live game number: reserving the whole action queue leaves Auto
+    /// Buy no slot it may ever take, and the feature would keep reporting itself on while buying
+    /// nothing. The refusal states the range in the same two fields a declared domain uses.
+    /// </summary>
+    [Fact]
+    public void Reserving_the_whole_action_queue_is_refused_against_the_live_capacity()
+    {
+        var world = QueueWorld(capacity: 132);
+
+        Assert.False(GameMcpConfigurationValuePolicy.TryValidateAgainstWorld(
+            "AutoBuy", "LeaveQueueSlots", "9999", world, out var reason, out var bound));
+        var refusal = Json(GameMcpConfigurationValuePolicy.RefusalFacts(
+            Command("AutoBuy", "LeaveQueueSlots", "9999"), in bound));
+
+        var setting = refusal["setting"]!;
+        Assert.Equal(0, (int)setting["minimum"]!);
+        Assert.Equal(131, (int)setting["maximum"]!);
+        Assert.Equal(JTokenType.Integer, setting["maximum"]!.Type);
+        Assert.Contains("from 0 to 131", reason, StringComparison.Ordinal);
+        Assert.Contains("the action queue holds 132", reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_reservation_the_queue_can_still_fund_is_admitted_and_other_settings_are_untouched()
+    {
+        var world = QueueWorld(capacity: 132);
+
+        Assert.True(GameMcpConfigurationValuePolicy.TryValidateAgainstWorld(
+            "AutoBuy", "LeaveQueueSlots", "3", world, out _, out var admitted));
+        Assert.True(GameMcpConfigurationValuePolicy.TryValidateAgainstWorld(
+            "AutoCast", "Mode", "Disabled", world, out _, out _));
+
+        // No published queue is no ceiling: a write made before a save is loaded cannot be shown to
+        // brick anything, and refusing it would be inventing a capacity nobody read.
+        Assert.True(GameMcpConfigurationValuePolicy.TryValidateAgainstWorld(
+            "AutoBuy", "LeaveQueueSlots", "9999",
+            GameWorldStateDefaults.Empty, out _, out _));
+        Assert.False(admitted.HasRange);
+    }
+
+    /// <summary>
+    /// A caller reading the surface before it writes gets the range as the same two numbers a
+    /// refused write hands back, instead of a sentence it has to parse a range out of.
+    /// </summary>
+    [Fact]
+    public void A_described_setting_publishes_its_declared_range_as_numbers()
+    {
+        var entry = new ConfigFile().Bind(
+            "AutoConcept", "TrainingPeriodSeconds", 30,
+            new ConfigDescription("period", new AcceptableValueRange<int>(10, 3600)));
+        var setting = new GameMcpObjectBuilder();
+
+        GameMcpConfigurationValuePolicy.AddBound(
+            setting, GameMcpConfigurationValuePolicy.Describe(entry).Bound);
+
+        var described = Json(setting);
+        Assert.Equal(10, (int)described["minimum"]!);
+        Assert.Equal(3600, (int)described["maximum"]!);
+        Assert.Equal(JTokenType.Integer, described["maximum"]!.Type);
+    }
+
+    private static GameWorldState QueueWorld(int capacity)
+    {
+        var maximumId = Guid.Parse("f7000000-0000-0000-0000-000000000001");
+        return new GameWorldState
+        {
+            CollectedAtEpoch = 51,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+            ActionQueues = PublicationTable<WorldActionQueue>.Create(new[]
+            {
+                new WorldActionQueue(
+                    KnownEntities.ActiveActionables.Uuid, maximumId,
+                    slotCount: 40, usedSlots: 40, emptySlots: 0,
+                    hasEmptySlot: true, consistent: true),
+            }),
+            IntVariables = PublicationTable<WorldNumberVariable>.Create(new[]
+            {
+                new WorldNumberVariable(maximumId, new BigDouble(capacity), isPercent: false),
+            }),
+        };
+    }
+
     private static GameMcpCommand Command(string section, string key, string value) =>
         new(1, GameMcpCommandKind.ConfigurationSet, 9, 3, section, Guid.Empty, Guid.Empty,
             string.Empty, 1, key, value, false, false);

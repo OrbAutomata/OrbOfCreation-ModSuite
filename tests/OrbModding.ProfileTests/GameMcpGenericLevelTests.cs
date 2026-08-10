@@ -161,6 +161,25 @@ public sealed class GameMcpGenericLevelTests
         Assert.Null(glyph["discover"]!["costs"]);
     }
 
+    /// <summary>
+    /// The hidden gate the detail row publishes belongs on the list too: a hidden resource type
+    /// refuses every level purchase, and a list without it is a list a caller probes row by row.
+    /// </summary>
+    [Fact]
+    public void A_resource_type_list_row_carries_the_hidden_gate_its_detail_does()
+    {
+        var world = World(5, 2, purchaseAffordable: true, resourceTypeHidden: true);
+        var listed = Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 901),
+            "resource-types", 0, 10).Freeze(), world);
+        var detail = Row(world, "resource-types", ResourceTypeId);
+
+        var entry = Assert.Single(listed["rows"]!.Values<JObject>())!;
+        Assert.True((bool)entry["hidden"]!);
+        Assert.Equal((bool)detail["hidden"]!, (bool)entry["hidden"]!);
+        Assert.Equal((int)detail["totalLevel"]!, (int)entry["level"]!);
+    }
+
     private static JObject Row(
         GameWorldState world,
         string category,

@@ -561,8 +561,14 @@ internal sealed class GameMcpProtocolRouter
         "suite_health" => GameMcpFrameData.World | GameMcpFrameData.Configuration |
             GameMcpFrameData.FeatureHealth | GameMcpFrameData.ServiceHealth |
             GameMcpFrameData.Scene | GameMcpFrameData.NativeContractHealth,
-        "suite_configuration" or "suite_config_set" =>
+        "suite_configuration" =>
             GameMcpFrameData.Configuration | GameMcpFrameData.WritableConfiguration,
+
+        // A write captures the world because one of the values it may set is only safe or unsafe
+        // against a live game number: reserving the whole action queue is a number Auto Buy can
+        // never queue under, and the queue's capacity is the game's to say.
+        "suite_config_set" => GameMcpFrameData.World | GameMcpFrameData.Configuration |
+            GameMcpFrameData.WritableConfiguration,
         "trace_health" => GameMcpFrameData.TraceWriterHealth,
         "suite_emergency_stop" or "suite_automation" => GameMcpFrameData.Configuration,
         "game_spell_loadout" when request?.Mode == "staged" => GameMcpFrameData.None,

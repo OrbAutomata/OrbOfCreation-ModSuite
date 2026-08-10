@@ -2,6 +2,8 @@
 using System;
 using System.Globalization;
 using BepInEx.Configuration;
+using OrbModding.Common;
+using OrbModding.Common.Runtime.World;
 
 namespace OrbAutomata.GameMcp;
 
@@ -93,6 +95,58 @@ internal static class GameMcpConfigurationValuePolicy
         return true;
     }
 
+    /// <summary>
+    /// Refuses the one writable value whose safe ceiling is a live game fact rather than a declared
+    /// range: reserving the whole action queue leaves Auto Buy no slot it may ever take, so the
+    /// feature would report itself on and buy nothing until somebody found this setting again.
+    /// </summary>
+    internal static bool TryValidateAgainstWorld(
+        string section,
+        string key,
+        string serializedValue,
+        GameWorldState? world,
+        out string reason,
+        out GameMcpConfigurationBound bound)
+    {
+        bound = GameMcpConfigurationBound.None;
+        reason = string.Empty;
+        if (!string.Equals(section, "AutoBuy", StringComparison.Ordinal) ||
+            !string.Equals(key, "LeaveQueueSlots", StringComparison.Ordinal))
+            return true;
+        if (!int.TryParse(
+                serializedValue ?? string.Empty,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var reserved))
+            return true;
+        if (!TryReadActionQueueCapacity(world, out var capacity)) return true;
+        if (reserved < capacity) return true;
+        bound = new GameMcpConfigurationBound(0, capacity - 1, integral: true);
+        reason =
+            "AutoBuy/LeaveQueueSlots must be from 0 to " + (capacity - 1) +
+            "; the action queue holds " + capacity +
+            " and reserving all of them leaves Auto Buy no slot to queue into";
+        return false;
+    }
+
+    /// <summary>
+    /// The development queue's declared capacity, off the published world. A capacity nobody has
+    /// published yet — no save loaded — is not a ceiling this can hold a write against.
+    /// </summary>
+    private static bool TryReadActionQueueCapacity(GameWorldState? world, out int capacity)
+    {
+        capacity = 0;
+        if (world is null) return false;
+        if (!WorldLookup.TryFind(
+                world.ActionQueues, KnownEntities.ActiveActionables.Uuid, out var queue))
+            return false;
+        if (queue.MaxQueuedItemsId == Guid.Empty ||
+            !WorldLookup.TryFind(world.IntVariables, queue.MaxQueuedItemsId, out var maximum))
+            return false;
+        capacity = maximum.Value.ToInt();
+        return capacity > 0;
+    }
+
     internal static GameMcpConfigurationConstraint Describe(ConfigEntryBase entry)
     {
         if (entry is null) throw new ArgumentNullException(nameof(entry));
@@ -102,13 +156,16 @@ internal static class GameMcpConfigurationValuePolicy
         else if (Is(entry, "Reserves", "RelativeReserveMultiplier"))
             domain = "finite float >= 0";
         else if (Is(entry, "AutoBuy", "LeaveQueueSlots"))
-            domain = "integer >= 0";
+            domain = "integer >= 0, and below the live action-queue capacity";
         else if (entry.SettingType.IsEnum)
             domain = "one of: " + string.Join(", ", Enum.GetNames(entry.SettingType));
         return new GameMcpConfigurationConstraint(
             "exact_parse_and_domain",
             entry.Description.AcceptableValues?.ToDescriptionString() ?? string.Empty,
-            domain);
+            domain,
+            entry.Description.AcceptableValues is null
+                ? GameMcpConfigurationBound.None
+                : Bound(entry.Description.AcceptableValues));
     }
 
     /// <summary>
@@ -127,12 +184,19 @@ internal static class GameMcpConfigurationValuePolicy
             ["key"] = command.PayloadKey,
             ["requestedValue"] = command.PayloadValue,
         };
-        if (bound.HasRange)
-        {
-            setting["minimum"] = Bounded(bound.Minimum!.Value, bound.Integral);
-            setting["maximum"] = Bounded(bound.Maximum!.Value, bound.Integral);
-        }
+        AddBound(setting, in bound);
         return new GameMcpObjectBuilder { ["setting"] = setting }.Freeze();
+    }
+
+    /// <summary>Writes a declared range onto whatever publishes it, refusal or read alike.</summary>
+    internal static void AddBound(
+        GameMcpObjectBuilder target,
+        in GameMcpConfigurationBound bound)
+    {
+        if (target is null) throw new ArgumentNullException(nameof(target));
+        if (!bound.HasRange) return;
+        target["minimum"] = Bounded(bound.Minimum!.Value, bound.Integral);
+        target["maximum"] = Bounded(bound.Maximum!.Value, bound.Integral);
     }
 
     private static object Bounded(double value, bool integral) =>
@@ -251,15 +315,23 @@ internal sealed class GameMcpConfigurationConstraint
     internal GameMcpConfigurationConstraint(
         string mode,
         string acceptableValues,
-        string domain)
+        string domain,
+        GameMcpConfigurationBound bound = default)
     {
         Mode = mode ?? string.Empty;
         AcceptableValues = acceptableValues ?? string.Empty;
         Domain = domain ?? string.Empty;
+        Bound = bound;
     }
 
     internal string Mode { get; }
     internal string AcceptableValues { get; }
     internal string Domain { get; }
+
+    /// <summary>
+    /// The declared range as numbers, so a caller reading the surface before it writes gets the same
+    /// two fields a refused write would hand it back rather than a sentence to parse.
+    /// </summary>
+    internal GameMcpConfigurationBound Bound { get; }
 }
 #endif

@@ -11,11 +11,16 @@ namespace OrbModding.Common.Runtime.World;
 /// <summary>One recipe named by the native ConceptRecipes registry.</summary>
 internal readonly struct WorldConceptRecipe : IWorldEntity
 {
-    internal WorldConceptRecipe(Guid recipeId, Guid coreTypeId, bool canAddNow = true)
+    internal WorldConceptRecipe(
+        Guid recipeId,
+        Guid coreTypeId,
+        bool canAddNow = true,
+        int slotCount = 0)
     {
         RecipeId = recipeId;
         CoreTypeId = coreTypeId;
         CanAddNow = canAddNow;
+        SlotCount = slotCount;
     }
 
     internal Guid RecipeId { get; }
@@ -27,6 +32,13 @@ internal readonly struct WorldConceptRecipe : IWorldEntity
 
     /// <summary>Whether the authoritative Active Concepts list can admit this recipe now.</summary>
     internal bool CanAddNow { get; }
+
+    /// <summary>
+    /// How many slots the Active Concepts list holds, filled or not. A refusal to add is a fact
+    /// about a full list, and a caller cannot read fullness out of the assignments alone — those
+    /// are only the occupied ones.
+    /// </summary>
+    internal int SlotCount { get; }
 }
 
 /// <summary>One active Concept assignment as it stood when the world was collected.</summary>
@@ -531,7 +543,8 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
                 if (canAddValue is not bool canAddNow)
                     throw new InvalidOperationException(
                         "AlchemyInstanceListVariable.CanAddInstance returned no Boolean value");
-                frame.ConceptRecipes.Append(new WorldConceptRecipe(id, core, canAddNow));
+                frame.ConceptRecipes.Append(
+                    new WorldConceptRecipe(id, core, canAddNow, active?.Count ?? 0));
                 AppendCosts(id, WorldAlchemyCostKind.RecipeDrain, _recipeDrain!(recipe), frame.AlchemyCosts);
                 AppendCosts(id, WorldAlchemyCostKind.Bandwidth, _bandwidthCost!(recipe), frame.AlchemyCosts);
                 CaptureFormulaBasis(id, recipe, coreObject!, core, capturedScalings, frame);

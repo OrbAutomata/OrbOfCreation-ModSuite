@@ -329,6 +329,12 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 return SpellWorkbenchPricePreview.Refused(
                     SpellWorkbenchPreflight.RecipeUnavailable,
                     coreReason);
+            if (!native.IsCreatable(recipe))
+                return SpellWorkbenchPricePreview.Refused(
+                    SpellWorkbenchPreflight.RecipeUnavailable,
+                    "The requested spell is not currently craftable.");
+            if (!TryAdmitCandidate(native, manager, recipe, augments, out preflight, out var admitReason))
+                return SpellWorkbenchPricePreview.Refused(preflight, admitReason);
             if (!TryPriceCreateLayout(
                     native,
                     manager,
@@ -636,6 +642,49 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 "The requested spell is not currently craftable.",
                 out refusal, out reason);
 
+        if (!TryAdmitCandidate(native, manager, recipe, augments, out refusal, out reason))
+            return false;
+
+        if (!TryPriceCreateLayout(
+                native,
+                manager,
+                recipe,
+                core,
+                augments,
+                out createCost,
+                out refusal,
+                out reason))
+            return false;
+        if (!native.HasEnough(createCost!))
+        {
+            var shortResourceId = ReadShortResourceId(native, createCost!);
+            return Refuse(
+                SpellWorkbenchPreflight.Unaffordable,
+                shortResourceId == Guid.Empty
+                    ? "The requested spell layout is not affordable with the current resources."
+                    : EntityIdentityFormatter.PlayerName(shortResourceId) +
+                        " is short for this spell layout.",
+                out refusal,
+                out reason);
+        }
+        refusal = SpellWorkbenchPreflight.Proceeded;
+        reason = string.Empty;
+        return true;
+    }
+
+    /// <summary>Every admission the add path can decide before it touches the staged UI.</summary>
+    /// <remarks>
+    /// Preview and add share this so a preview cannot answer priced-and-affordable for a layout the
+    /// add on identical arguments refuses. Whatever add can know without staging, preview knows too.
+    /// </remarks>
+    private static bool TryAdmitCandidate(
+        SpellWorkbenchNativeBindings native,
+        object manager,
+        object recipe,
+        IList<object> augments,
+        out SpellWorkbenchPreflight refusal,
+        out string reason)
+    {
         var candidate = native.CreateEmptySpell(recipe, 0);
         native.SetSpellLevel(candidate, native.GetSelectedSpellLevel(recipe));
         var record = native.CreateStackedRecord();
@@ -664,29 +713,6 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             return Refuse(SpellWorkbenchPreflight.UniqueSpellConflict,
                 "The candidate is loadout-unique and this recipe is already equipped.",
                 out refusal, out reason);
-
-        if (!TryPriceCreateLayout(
-                native,
-                manager,
-                recipe,
-                core,
-                augments,
-                out createCost,
-                out refusal,
-                out reason))
-            return false;
-        if (!native.HasEnough(createCost!))
-        {
-            var shortResourceId = ReadShortResourceId(native, createCost!);
-            return Refuse(
-                SpellWorkbenchPreflight.Unaffordable,
-                shortResourceId == Guid.Empty
-                    ? "The requested spell layout is not affordable with the current resources."
-                    : EntityIdentityFormatter.PlayerName(shortResourceId) +
-                        " is short for this spell layout.",
-                out refusal,
-                out reason);
-        }
         refusal = SpellWorkbenchPreflight.Proceeded;
         reason = string.Empty;
         return true;

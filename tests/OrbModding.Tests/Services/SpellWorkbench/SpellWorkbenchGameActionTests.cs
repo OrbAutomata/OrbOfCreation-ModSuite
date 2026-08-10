@@ -199,6 +199,67 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.Equal(0, payment.PerformCalls);
     }
 
+    /// <summary>
+    /// A pre-check that answers priced-and-affordable for a layout the add on identical arguments
+    /// refuses is worse than no pre-check: it turns a cautious caller into a confident wrong one.
+    /// </summary>
+    [Fact]
+    public void PricePreviewRefusesEverythingTheAddRefusesBeforeItStages()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var usageResource = new ResourceSO { quantity = BigDouble.Zero };
+        recipe.baseUsageCost.costs.Add(new ResourceTuple(usageResource, BigDouble.One));
+        var payment = new ResourceCostList();
+        SpellManager.instance!.CreateCostOverride = payment;
+        using var action = Action();
+
+        var budgetPreview = action.Preview(new SpellWorkbenchPricePreviewRequest(
+            recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
+        var budgetAdd = action.Submit(new SpellWorkbenchAction(
+            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
+            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
+
+        recipe.baseUsageCost = new ResourceCostList();
+        recipe.NativeUniqueSpell = true;
+        SpellManager.instance.activeSpells.value.Add(recipe.CreateEmpty(0));
+        var uniquePreview = action.Preview(new SpellWorkbenchPricePreviewRequest(
+            recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
+        var uniqueAdd = action.Submit(new SpellWorkbenchAction(
+            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
+            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
+
+        Assert.False(budgetPreview.Available);
+        Assert.Equal(budgetAdd.Preflight, budgetPreview.Preflight);
+        Assert.Equal(SpellWorkbenchPreflight.UsageUnaffordable, budgetPreview.Preflight);
+        Assert.False(uniquePreview.Available);
+        Assert.Equal(uniqueAdd.Preflight, uniquePreview.Preflight);
+        Assert.Equal(SpellWorkbenchPreflight.UniqueSpellConflict, uniquePreview.Preflight);
+        Assert.Equal(0, payment.PerformCalls);
+    }
+
+    /// <summary>
+    /// The price is still an answer, not a refusal: a caller asking what a layout costs gets the
+    /// costs and an honest <c>affordable: false</c> rather than a shut door.
+    /// </summary>
+    [Fact]
+    public void PricePreviewStillPricesALayoutTheCallerCannotAffordYet()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var knowledge = new ResourceSO { name = "Knowledge", quantity = new BigDouble(2) };
+        var price = new ResourceCostList();
+        price.costs.Add(new ResourceTuple(knowledge, new BigDouble(3)));
+        SpellManager.instance!.CreateCostResolver = _ => price;
+        using var action = Action(permit: false);
+
+        var preview = action.Preview(new SpellWorkbenchPricePreviewRequest(
+            recipe.GetGuid(), Epoch,
+            new[] { new SpellWorkbenchGlyphStack(Augment().GetGuid(), 1) }));
+
+        Assert.True(preview.Available, preview.Reason);
+        Assert.False(preview.Affordable);
+        Assert.Equal(knowledge.GetGuid(), preview.ShortResourceId);
+    }
+
     [Fact]
     public void LoadoutAddFaultsWhenPaymentRunsWithoutTheExactRequestedOutcome()
     {

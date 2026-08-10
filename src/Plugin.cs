@@ -1672,7 +1672,7 @@ public sealed class Plugin : BaseUnityPlugin
         {
             execution = ProjectGameMcpCommand(
                 command,
-                ExecuteAdministrativeGameMcp(command));
+                ExecuteAdministrativeGameMcp(command, context));
             return true;
         }
         if (command.Kind is >= GameMcpCommandKind.Screenshot and
@@ -2009,6 +2009,10 @@ public sealed class Plugin : BaseUnityPlugin
                 ? item.Constraint.Domain
                 : PlainConfigurationDomain(item.Constraint.AcceptableValues);
             if (domain.Length > 0) setting["domain"] = domain;
+
+            // The same two numbers a refused write hands back. A caller that has to parse a range
+            // out of prose before it may write is a caller that will get the parse wrong once.
+            GameMcpConfigurationValuePolicy.AddBound(setting, item.Constraint.Bound);
             setting["description"] = item.Description;
             described.Add(setting);
         }
@@ -2496,7 +2500,37 @@ public sealed class Plugin : BaseUnityPlugin
         return true;
     }
 
-    private GameMcpCommandResult ExecuteAdministrativeGameMcp(GameMcpCommand command)
+    /// <summary>
+    /// The half of a configuration write that only the live game can settle. A declared range is
+    /// checked against the setting; a range that is a game fact is checked against the world this
+    /// frame published, so a write that would silence a feature is refused instead of stored.
+    /// </summary>
+    private static bool TryAdmitConfigurationWriteAgainstWorld(
+        GameMcpCommand command,
+        GameMcpFrameContext context,
+        out GameMcpCommandResult failure)
+    {
+        if (GameMcpConfigurationValuePolicy.TryValidateAgainstWorld(
+                command.Mode,
+                command.PayloadKey,
+                command.PayloadValue,
+                context.World?.Snapshot,
+                out var reason,
+                out var bound))
+        {
+            failure = null!;
+            return true;
+        }
+        failure = GameMcpCommandResult.Rejected(
+            "configuration_write_rejected",
+            reason,
+            details: GameMcpConfigurationValuePolicy.RefusalFacts(command, in bound));
+        return false;
+    }
+
+    private GameMcpCommandResult ExecuteAdministrativeGameMcp(
+        GameMcpCommand command,
+        GameMcpFrameContext context)
     {
         if (_configurationStore is null)
             return GameMcpCommandResult.Rejected(
@@ -2519,6 +2553,8 @@ public sealed class Plugin : BaseUnityPlugin
                 _configurationStore.Current,
                 command.Mode,
                 command.PayloadKey);
+            if (!TryAdmitConfigurationWriteAgainstWorld(command, context, out var worldFailure))
+                return worldFailure;
             if (!_configurationStore.TrySetGameMcp(
                     command.Mode,
                     command.PayloadKey,

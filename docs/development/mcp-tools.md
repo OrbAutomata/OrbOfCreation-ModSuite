@@ -305,6 +305,12 @@ as it does in the detail row, and `discovery-trees` says the named `mode` — `i
 `choice` — rather than the native integer behind it. Whether a decision can be taken is `available`
 everywhere it is known.
 
+Narrower never means a caller has to mutate to learn the rest. An `equipment` row carries `created`
+beside `equippedCount`, because a zero count means both "own none of this artifact" and "own some,
+equipped none", and the only other way to tell those apart was to attempt an equip and read the
+refusal. A `resource-types` row carries the same `hidden` gate its detail row does, because a
+hidden type refuses every level purchase and a list without it is a list a caller probes row by row.
+
 A `structures` row publishes `level` as the number the attribute's own badge shows, the game's
 persisted `GetBaseLevel()`, and names work still in flight separately as `queuedLevels`, which is
 always present because zero levels in flight is an answer; neither
@@ -526,6 +532,20 @@ core used by the UI wrappers. The global multi-buy strip is never read or change
 Loadout order carries no gameplay effect — nothing the game computes reads the position a recipe
 sits in — so there is no verb that reorders it, no `destination` argument on this surface, and no
 `move` decision on the read. The slot a row prints is the address the player sees on the screen.
+
+### Concept slots
+
+A `concept-recipes` row is the pre-decision surface for `game_concept`. It carries `activeCount`,
+the slot budget as `usedSlots` and `maximumSlots`, and `canAdd` as a decision rather than a bare
+boolean: a refusal names its class and says whether every slot is taken or the game simply will not
+take this recipe with room left, which is the difference between freeing a slot and picking another
+recipe. The budget is published because assignments are only the filled slots — counting
+`alchemy-instances` rows can never reveal the capacity behind them.
+
+A Concept recipe is also an alchemy recipe, so `explain_entity` on one answers `kind:
+alchemy_recipe` and carries a `concept` block with `assignedCount`, the same slot pair, and the same
+`canAdd` decision. Explaining the id under the one kind and dropping the other half answered a
+question the caller did not ask.
 
 ### Ritual lifecycle
 
@@ -820,7 +840,12 @@ The MCP-only base-recipe sequence is:
    `game_spell_loadout(mode="preview", uuid=..., glyphs=[...])`. This read resolves and prices the
    submitted layout through the same native manager methods used by add, without touching the
    player's staged UI selection. It returns the named resolved recipe, named per-resource costs,
-   overall affordability, and the named short resource when unaffordable.
+   overall affordability, and the named short resource when unaffordable. It runs every admission
+   `add` runs before `add` stages anything — craftability, glyph duration/toggle requirements,
+   usage requirements and budget, a free loadout slot, and loadout uniqueness — so a preview that
+   comes back priced is a layout `add` will not refuse on the same arguments. Price stays an answer
+   rather than a refusal: an unaffordable layout is priced with `affordable: false` and the short
+   resource named.
 4. Call `game_spell_loadout(mode="add", uuid=..., glyphs=[...])` with that same layout. Adding is
    the only mutation where the layout is chosen; it is baked into the created runtime spell.
 
@@ -1661,7 +1686,9 @@ and internal nested policy objects.
 sentence saying what it does. Those three do not change between calls, so the ordinary read does not
 carry them — a caller reading current values pays for values. The accepted values are said the same
 way whichever kind they are, a range for a number and the list of names for an enum, so no caller
-has to learn two spellings of "what may I write here".
+has to learn two spellings of "what may I write here". A setting that declares a range also carries
+that range as the numbers `minimum` and `maximum`, the same two fields a refused write hands back,
+so no caller has to parse a range back out of a sentence before it may write.
 
 `suite_config_set` commits through `AutomataConfigurationStore`, the same single publication path
 as the in-game controls. BepInEx
@@ -1672,6 +1699,14 @@ and not the endpoint. A write refused for its domain returns the setting, the `r
 the declared range as `minimum` and `maximum` read off the entry itself — BepInEx's own
 config-file wording is never spliced into the sentence, so the surface no longer says
 "must be From 0 to 60".
+
+One setting's ceiling is not declared on the entry but read off the game: `AutoBuy/LeaveQueueSlots`
+reserves native action-queue slots, so a value at or above the live queue capacity leaves Auto Buy
+no slot it could ever queue into. The write is refused with the same `minimum`/`maximum` fields, a
+sentence naming the capacity that refused it, and no mutation — otherwise the feature would keep
+reporting `on: yes` while buying nothing. This is why `suite_config_set` captures the world: the
+ceiling is the game's to say. Before a save is loaded no queue is published, no ceiling is known,
+and the write is admitted rather than refused against a capacity nobody read.
 
 `suite_automation` is the seven green/gray automation buttons as booleans, because that is what
 they are: `auto_buy`, `auto_cast`, `auto_concept`, `auto_harvest`, `auto_items`, `auto_scribe`, and

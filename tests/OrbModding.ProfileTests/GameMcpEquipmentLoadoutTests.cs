@@ -120,6 +120,49 @@ public sealed class GameMcpEquipmentLoadoutTests
         Assert.Null(noCeiling["maximumAmount"]);
     }
 
+    /// <summary>
+    /// Zero equipped meant two different things — owning none, and owning some with none equipped —
+    /// and the only way to tell them apart was to attempt an equip and read the refusal.
+    /// </summary>
+    [Fact]
+    public void An_equipment_list_row_says_whether_the_artifact_exists_at_all()
+    {
+        var uncreated = Guid.Parse("f4b19e00-0000-0000-0000-000000000009");
+        var world = World();
+        var rows = PublicationTable<WorldEquipment>.Create(new[]
+        {
+            world.Equipment.AsSpan()[0],
+            new WorldEquipment(uncreated, false, 0, BigDouble.Zero, 0, false,
+                BigDouble.One, BigDouble.One, BigDouble.One, 0, 0, -1, BigDouble.Zero),
+        });
+        var context = GameMcpTestHarness.Context(
+            new GameWorldState
+            {
+                CollectedAtEpoch = world.CollectedAtEpoch,
+                CollectedAtUtcTicks = world.CollectedAtUtcTicks,
+                EntityIdentities = world.EntityIdentities,
+                Resources = world.Resources,
+                Equipment = rows,
+                CollectionCategories = world.CollectionCategories,
+            },
+            generation: 2402);
+
+        var listed = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            GameMcpWorldQuery.ListRows(context, "equipment", 0, 50).Freeze(),
+            world.EntityIdentities));
+
+        var listedRows = Assert.IsType<JArray>(listed["rows"]);
+        var created = listedRows.Values<JObject>()
+            .Single(row => (string?)row!["uuid"] == GameMcpTestHarness.Handle(EquipmentId))!;
+        var missing = listedRows.Values<JObject>()
+            .Single(row => (string?)row!["uuid"] == GameMcpTestHarness.Handle(uncreated))!;
+
+        Assert.True((bool)created["created"]!);
+        Assert.Equal(1, (int)created["equippedCount"]!);
+        Assert.False((bool)missing["created"]!);
+        Assert.Equal(0, (int)missing["equippedCount"]!);
+    }
+
     private static GameWorldState World()
     {
         var rateInputs = default(RawResourceRateInputs);
