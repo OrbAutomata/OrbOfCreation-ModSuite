@@ -1233,7 +1233,7 @@ internal sealed class AutomataWorldCollectionCheck
         {
             var theirGlobal = GameReads(globalMemo, globalDirty, globalTruth);
             _detail.Add(
-                $"{"structure cost %",-20} " +
+                $"  {"structure cost %",-20} " +
                 VerificationValue.Sides(
                     OrbGameMath.AsPercent(ourGlobal), OrbGameMath.AsPercent(theirGlobal)) +
                 $" recompute={VerificationValue.Format(OrbGameMath.AsPercent(globalTruth))}" +
@@ -1241,7 +1241,7 @@ internal sealed class AutomataWorldCollectionCheck
         }
         else
         {
-            _detail.Add($"{"structure cost %",-20} Player.GetStructureCost {globalFailure}");
+            _detail.Add($"  {"structure cost %",-20} Player.GetStructureCost {globalFailure}");
         }
 
         var reference = structureType.GetField("costPerQuantity", Instance);
@@ -1253,7 +1253,7 @@ internal sealed class AutomataWorldCollectionCheck
             TryReadGameModifier(entity, reference, getModifier, out theirType, out theirAmount, out theirOrder);
         var readOurs = WorldLookup.TryFind(world.ModifierVariables, reading.CostPerQuantityId, out var ours);
         _detail.Add(
-            $"{"costPerQuantity",-20} " +
+            $"  {"costPerQuantity",-20} " +
             (readOurs
                 ? $"ours=[type {ours.ModifierType} " +
                   $"amount {VerificationValue.Format(ours.Amount)} order {ours.Order}] "
@@ -1270,7 +1270,7 @@ internal sealed class AutomataWorldCollectionCheck
             ? (BigDouble?)null
             : new BigDouble(Convert.ToInt64(quantity) + Convert.ToInt64(queued));
         _detail.Add(
-            $"{"committed quantity",-20} " +
+            $"  {"committed quantity",-20} " +
             (theirCommitted is { } committed
                 ? VerificationValue.Sides(ourCommitted, committed) +
                   Verdict(ourCommitted == committed)
@@ -1303,7 +1303,7 @@ internal sealed class AutomataWorldCollectionCheck
         }
 
         _detail.Add(
-            $"{"next cost mod",-20} " +
+            $"  {"next cost mod",-20} " +
             (ourNextCostMod is { } left && theirNextCostMod is { } right
                 ? VerificationValue.Sides(left, right) + Verdict(left == right)
                 : (ourNextCostMod is { } ourMod
@@ -1321,14 +1321,14 @@ internal sealed class AutomataWorldCollectionCheck
         if (record is null || !TryReadCache(record, out var memo, out var isDirty, out var recomputed))
         {
             _detail.Add(
-                $"{label,-20} ours={VerificationValue.Format(ours)} " +
+                $"  {label,-20} ours={VerificationValue.Format(ours)} " +
                 "(the game's record was unreadable)");
             return;
         }
 
         var theirs = GameReads(memo, isDirty, recomputed);
         _detail.Add(
-            $"{label,-20} {VerificationValue.Sides(ours, theirs)} " +
+            $"  {label,-20} {VerificationValue.Sides(ours, theirs)} " +
             $"recompute={VerificationValue.Format(recomputed)} " +
             $"memo={VerificationValue.Format(memo)} {(isDirty ? "dirty" : "clean")}" +
             Verdict(ours == theirs));
@@ -1355,7 +1355,7 @@ internal sealed class AutomataWorldCollectionCheck
             : costList.GetType().GetField("costs", Instance)?.GetValue(costList) as IList;
         if (entries is null)
         {
-            _detail.Add($"{"authored base",-20} the structure's cost list was unreadable");
+            _detail.Add($"  {"authored base",-20} the structure's cost list was unreadable");
             return;
         }
 
@@ -1375,7 +1375,7 @@ internal sealed class AutomataWorldCollectionCheck
             var accessor = FindNoArg(entryType, "GetValue");
             var read = accessor?.Invoke(entry, null) as BigDouble?;
             _detail.Add(
-                $"{"authored base",-20} valueBig={VerificationValue.Format(big)} " +
+                $"  {"authored base",-20} valueBig={VerificationValue.Format(big)} " +
                 $"serialized={VerificationValue.Format(serialized)} " +
                 (read is { } theirs
                     ? $"GetValue={VerificationValue.Format(theirs)}"
@@ -1384,7 +1384,7 @@ internal sealed class AutomataWorldCollectionCheck
             return;
         }
 
-        _detail.Add($"{"authored base",-20} the game's cost list does not name {resourceId}");
+        _detail.Add($"  {"authored base",-20} the game's cost list does not name {resourceId}");
     }
 
     /// <summary>
@@ -1418,7 +1418,7 @@ internal sealed class AutomataWorldCollectionCheck
 
         if (!WorldLookup.TryFind(world.Resources, resourceId, out var resource))
         {
-            _detail.Add($"{label,-20} the snapshot does not carry resource {resourceId}");
+            _detail.Add($"  {label,-20} the snapshot does not carry resource {resourceId}");
             return;
         }
 
@@ -1426,7 +1426,7 @@ internal sealed class AutomataWorldCollectionCheck
         var bonusAccess = bonusRecord is null ? null : NativeModifierRecordAccess.For(bonusRecord.GetType());
         if (bonusAccess is null)
         {
-            _detail.Add($"{label,-20} Player.GetAttributeQualityBonus {bonusFailure}");
+            _detail.Add($"  {label,-20} Player.GetAttributeQualityBonus {bonusFailure}");
             return;
         }
 
@@ -1449,7 +1449,7 @@ internal sealed class AutomataWorldCollectionCheck
         }
 
         _detail.Add(
-            $"{label,-20} " +
+            $"  {label,-20} " +
             (theirs is { } mod
                 ? VerificationValue.Sides(ours, mod) + " "
                 : $"ours={VerificationValue.Format(ours)} theirs=[unreadable] ") +
