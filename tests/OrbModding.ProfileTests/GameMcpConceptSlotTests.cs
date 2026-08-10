@@ -37,7 +37,7 @@ public sealed class GameMcpConceptSlotTests
         Assert.Equal(2, (int)row["maximumSlots"]!);
         Assert.False((bool)row["canAdd"]!["available"]!);
         Assert.Equal("ERR_LIMIT", (string?)row["canAdd"]!["reasonCode"]);
-        Assert.Equal("All 2 Concept slots are in use.", (string?)row["canAdd"]!["reason"]);
+        Assert.Equal("Every Concept slot is in use.", (string?)row["canAdd"]!["reason"]);
     }
 
     /// <summary>
@@ -53,8 +53,10 @@ public sealed class GameMcpConceptSlotTests
             GameMcpWorldQuery.GetRow(
                 context, "concept-recipes", AnalyzeBlooming.ToString("D")).Freeze())["row"]);
 
+        Assert.Equal(2, (int)row["usedSlots"]!);
+        Assert.Equal(6, (int)row["maximumSlots"]!);
         Assert.Equal(
-            "The game will not take this Concept into a slot right now; 2 of 6 slots are in use.",
+            "Slots are free, and the game still will not take this Concept into one.",
             (string?)row["canAdd"]!["reason"]);
     }
 
@@ -94,8 +96,11 @@ public sealed class GameMcpConceptSlotTests
         Assert.False((bool)state["canAdd"]!["available"]!);
         Assert.Equal("ERR_LIMIT", (string?)state["canAdd"]!["reasonCode"]);
         Assert.Equal(
-            "All 2 Concept slots are in use.", (string?)state["canAdd"]!["reason"]);
-        Assert.False((bool)concept["predicates"]!["canAdd"]!["available"]!);
+            "Every Concept slot is in use.", (string?)state["canAdd"]!["reason"]);
+
+        // One decision, published once. The predicate names the block that holds it rather than
+        // reprinting the same verdict byte for byte beside it.
+        Assert.Equal("concept.canAdd", (string?)concept["predicates"]!["canAdd"]);
 
         // An alchemy recipe the Concept registry does not name carries none of it, so the block's
         // presence is the answer to "is this assignable at all".

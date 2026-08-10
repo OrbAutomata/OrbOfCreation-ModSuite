@@ -4366,10 +4366,11 @@ internal static class GameMcpWorldQuery
         if (recipe.CanAddNow) return result;
         var used = world.AlchemyInstances.Count;
         result["reasonCode"] = "slot_unavailable";
+        // The pair rides beside this decision on both surfaces that publish it, so the sentence
+        // says which of the two situations this is and leaves the counting to those two fields.
         result["reason"] = recipe.SlotCount > 0 && used >= recipe.SlotCount
-            ? "All " + recipe.SlotCount + " Concept slots are in use."
-            : "The game will not take this Concept into a slot right now; " +
-                used + " of " + recipe.SlotCount + " slots are in use.";
+            ? "Every Concept slot is in use."
+            : "Slots are free, and the game still will not take this Concept into one.";
         return result;
     }
 

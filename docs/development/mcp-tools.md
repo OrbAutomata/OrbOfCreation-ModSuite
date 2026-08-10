@@ -584,13 +584,15 @@ A `concept-recipes` row is the pre-decision surface for `game_concept`. It carri
 the slot budget as `usedSlots` and `maximumSlots`, and `canAdd` as a decision rather than a bare
 boolean: a refusal names its class and says whether every slot is taken or the game simply will not
 take this recipe with room left, which is the difference between freeing a slot and picking another
-recipe. The budget is published because assignments are only the filled slots — counting
-`alchemy-instances` rows can never reveal the capacity behind them.
+recipe. The sentence says which of the two situations it is and leaves the counting to the pair
+beside it, so the budget is stated once. The budget is published because assignments are only the
+filled slots — counting `alchemy-instances` rows can never reveal the capacity behind them.
 
 A Concept recipe is also an alchemy recipe, so `explain_entity` on one answers `kind:
-alchemy_recipe` and carries a `concept` block with `assignedCount`, the same slot pair, and the same
+alchemy_recipe` and carries a `concept` block with `assignedCount`, the same slot pair, and the
 `canAdd` decision. Explaining the id under the one kind and dropping the other half answered a
-question the caller did not ask.
+question the caller did not ask. `predicates.canAdd` names that block — its value is the path
+`concept.canAdd` — rather than reprinting the verdict beside it, so one decision is published once.
 
 ### Ritual lifecycle
 
@@ -1041,7 +1043,8 @@ word every other decision on the surface answers under, and a slot that answered
 stable `reasonCode` saying why; absence means the predicate does not apply, not false. A predicate
 points at the block that holds its evidence rather than reprinting it: `canUse` lists the slot
 numbers the spell is equipped in, and the same response already carries those slots in full under
-`state.equipped`. Crafting purchase uses the
+`state.equipped`; `canAdd` is the path `concept.canAdd`, where the whole decision is published.
+Crafting purchase uses the
 published `CraftingRecipeSO.CanBuyAt(GetStartingQuantity())` verdict, spell use uses the equipped
 `Spell.CanCast()` reading, and structure/upgrade purchase combines published native availability
 with the one exact-cost affordability lineage. No predicate emits implementation provenance or a

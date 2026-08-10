@@ -258,8 +258,12 @@ internal static class GameMcpEntityExplainer
             {
                 WorldLookup.TryFind(world.AlchemyRecipes, id, out var alchemy);
                 AddDiscoveryPredicates(result, world, id, alchemy.Discovered, nativeDiscoverable: true);
-                if (WorldConceptRecipeLookup.TryFind(world.ConceptRecipes, id, out var concept))
-                    result["canAdd"] = GameMcpWorldQuery.ConceptAddDecision(world, in concept);
+                // The predicate names the block that holds the decision rather than carrying a
+                // second byte-identical copy of it. The same response already publishes the
+                // Concept's assignment state in full, and two copies of one verdict gave a caller
+                // two blocks with nothing to tell them apart.
+                if (WorldConceptRecipeLookup.TryFind(world.ConceptRecipes, id, out _))
+                    result["canAdd"] = "concept.canAdd";
                 break;
             }
             case EntityKind.CraftingRecipe:
