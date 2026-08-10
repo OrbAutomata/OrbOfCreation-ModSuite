@@ -3,6 +3,7 @@ using BepInEx.Logging;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.FullTrace;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Roster;
+using OrbModding.Common.Runtime.ServiceCycle.Observation.WorldCollection;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 
@@ -27,7 +28,11 @@ internal sealed class AutomataFullTraceController : IDisposable
         IAutomataFullTraceSessionSource sessions,
         ManualLogSource log)
     {
-        _session = new FullTraceRuntimeSession(pump, serviceCapacity, roster);
+        _session = new FullTraceRuntimeSession(
+            pump,
+            serviceCapacity,
+            roster,
+            WorldCollectionSpanRegistry.Shared);
         _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
         _log = log ?? throw new ArgumentNullException(nameof(log));
     }

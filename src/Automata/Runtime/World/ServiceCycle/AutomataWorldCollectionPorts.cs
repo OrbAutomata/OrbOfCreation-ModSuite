@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common.Runtime.ServiceCycle.Observation.WorldCollection;
 using OrbModding.Common.Runtime.World;
 
 namespace OrbAutomata;
@@ -28,6 +29,7 @@ internal sealed class AutomataWorldCapturePort : IAutomataWorldCapturePort
     private readonly Func<long> _readFrameIdentity;
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Action<WorldCollectionReport>? _announce;
+    private readonly WorldCollectionSpanRegistry? _spans;
     private string _announced = string.Empty;
     private int _announcedSampled;
 
@@ -41,16 +43,23 @@ internal sealed class AutomataWorldCapturePort : IAutomataWorldCapturePort
     /// is read, for the same reason the frame counter is: an epoch resolved later would name the run
     /// the derivation finished under rather than the one the readings came from.
     /// </param>
+    /// <param name="spans">
+    /// Where a recording session collects this pass's per-category numbers. Nothing is measured for
+    /// it — the report already carries what each category cost — and nothing is recorded unless a
+    /// session is running.
+    /// </param>
     internal AutomataWorldCapturePort(
         GameWorldCollector collector,
         Func<long> readFrameIdentity,
         Func<long> readLifecycleEpoch,
-        Action<WorldCollectionReport>? announce = null)
+        Action<WorldCollectionReport>? announce = null,
+        WorldCollectionSpanRegistry? spans = null)
     {
         _collector = collector ?? throw new ArgumentNullException(nameof(collector));
         _readFrameIdentity = readFrameIdentity ?? throw new ArgumentNullException(nameof(readFrameIdentity));
         _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _announce = announce;
+        _spans = spans;
     }
 
     /// <summary>
@@ -65,6 +74,9 @@ internal sealed class AutomataWorldCapturePort : IAutomataWorldCapturePort
         frame.CollectedAtEpoch = _readLifecycleEpoch();
         frame.EntityIdentities = EntityIdentityCatalog.Shared.Capture(frame.CollectedAtEpoch);
         var report = _collector.Collect(frame);
+        // Every pass, where the announce speaks only when the answer moves: a session is measuring a
+        // distribution and a distribution needs the quiet passes too.
+        _spans?.Observe(report, frame.CollectedAtFrame, frame.CollectedAtEpoch, frame.CollectedAt);
         Announce(in report);
         return report;
     }

@@ -70,7 +70,7 @@ internal static class ServiceCycleSemanticEventV7Codec
         var parent = ReadIdentity(bytes, 16, 24, required: false);
         var kindValue = ReadI32(bytes, 32);
         if (kindValue is < (int)ServiceCycleSemanticEventKind.ConfigurationPublished or
-            > (int)ServiceCycleSemanticEventKind.ActionSkipped) throw Invalid();
+            > (int)ServiceCycleSemanticEventKind.WorldCategoryCollected) throw Invalid();
         var kind = (ServiceCycleSemanticEventKind)kindValue;
         if (ReadU32(bytes, 36) != 0) throw Invalid();
         var payload = new ServiceCycleSemanticPayload(

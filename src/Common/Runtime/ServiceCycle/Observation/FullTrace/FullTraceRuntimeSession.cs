@@ -2,6 +2,7 @@ using System;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.FullTrace.Format;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.FullTrace.Stores;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Roster;
+using OrbModding.Common.Runtime.ServiceCycle.Observation.WorldCollection;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.Tracing;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing;
@@ -17,7 +18,9 @@ internal sealed class FullTraceRuntimeSession : IDisposable
     private readonly SuiteFramePump _pump;
     private readonly int _serviceCapacity;
     private readonly ServiceCycleTraceRoster? _roster;
+    private readonly WorldCollectionSpanRegistry? _worldSpans;
     private readonly int _ownerThreadId;
+    private WorldCollectionSpanRecording? _worldSpanRecording;
     private BufferedSegmentSink<ServiceCycleSemanticEvent>? _sink;
     private FullTraceSegmentConsumer? _consumer;
     private FullTraceTerminalRequest? _terminalRequest;
@@ -35,12 +38,14 @@ internal sealed class FullTraceRuntimeSession : IDisposable
     internal FullTraceRuntimeSession(
         SuiteFramePump pump,
         int serviceCapacity,
-        ServiceCycleTraceRoster? roster = null)
+        ServiceCycleTraceRoster? roster = null,
+        WorldCollectionSpanRegistry? worldSpans = null)
     {
         _pump = pump ?? throw new ArgumentNullException(nameof(pump));
         if (serviceCapacity <= 0) throw new ArgumentOutOfRangeException(nameof(serviceCapacity));
         _serviceCapacity = serviceCapacity;
         _roster = roster;
+        _worldSpans = worldSpans;
         _ownerThreadId = Environment.CurrentManagedThreadId;
     }
 
@@ -168,6 +173,9 @@ internal sealed class FullTraceRuntimeSession : IDisposable
         var recorder = _recorder ?? throw new InvalidOperationException("The full-trace recorder is unavailable.");
         if (!_pump.TryAttachManualSemanticTrace(recorder, out var attached)) return;
         _attachedTrace = attached ?? throw new InvalidOperationException("The pump attached no semantic trace.");
+        // World-collection spans start exactly when the trace does and stop with it, so the session
+        // that carries them is the session that says when it began and how it ended.
+        _worldSpans?.TryStartRecording(_attachedTrace, out _worldSpanRecording);
         _state = FullTraceRuntimeSessionState.Recording;
     }
 
@@ -197,6 +205,7 @@ internal sealed class FullTraceRuntimeSession : IDisposable
             if (_attachedTrace.IsFaulted && sink.Metrics().Status == BufferedSegmentStatus.Running)
                 sink.FailProducer();
             if (!_pump.TryDetachManualSemanticTrace(_attachedTrace)) return;
+            StopWorldSpanRecording();
             _attachedTrace = null;
         }
 
@@ -244,6 +253,7 @@ internal sealed class FullTraceRuntimeSession : IDisposable
             BeginStopping(FullTraceTerminalReason.RuntimeShutdown);
         if (_attachedTrace is not null)
         {
+            StopWorldSpanRecording();
             if (_pump.TryDetachManualSemanticTrace(_attachedTrace))
             {
                 _attachedTrace = null;
@@ -298,8 +308,15 @@ internal sealed class FullTraceRuntimeSession : IDisposable
         ReleaseTerminalResources();
     }
 
+    private void StopWorldSpanRecording()
+    {
+        _worldSpanRecording?.Dispose();
+        _worldSpanRecording = null;
+    }
+
     private void ReleaseTerminalResources()
     {
+        StopWorldSpanRecording();
         _sink?.Dispose();
         _sink = null;
         _consumer = null;

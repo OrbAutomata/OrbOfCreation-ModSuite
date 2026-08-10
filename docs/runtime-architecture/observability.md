@@ -105,6 +105,30 @@ from a host control transition between frames — an emergency stop rejecting li
 frame and says so by carrying none. Frame zero is legal, so absence is the field's absence and never a
 zero value.
 
+### World-collection spans
+
+Collection is the suite's largest main-thread cost and the only capture whose cost is a distribution
+rather than a number: one pass is sixty-odd readers, and the pass total says nothing about which of
+them moved. A recording session therefore appends one `WorldCategoryCollected` record per category
+per pass, carrying the category identity, what that pass spent on it, how many rows it sampled, and
+how many categories the pass reported. The durations are the ones the collector already measures —
+the wire converts them to the hundred-nanosecond ticks every other duration on it uses and adds no
+second measurement, so a reused structural category charges the pass that read it and nothing to the
+passes that reused it. That zero is the fact, not a gap.
+
+The records are an appended kind on the existing wire rather than a second artifact: the segment
+consumer requires contiguous semantic sequences, so anything sharing a session's segments has to come
+from the one ring that allocates them, and every capture written before the kind existed still reads
+without change. The pass width each span carries is the reconciliation denominator — a pass showing
+fewer spans than the categories it reported is named in the reader rather than silently
+under-counted, because a session that ended `Incomplete` truncates its last pass legitimately.
+
+Emission is gated on a recording session exactly like every other record: with no session attached,
+an observed pass returns before it builds anything, so the four-times-a-second path in an ordinary
+build carries a null check and no allocation. The category names come from the collector itself,
+written into the session roster as `world-category` rows, so a category added to the collector is
+named by that alone and no second table can drift from it.
+
 ### Artifacts
 
 Format v1 publishes `segment-{ordinal}.oscs` files with a 96-byte header, at most 3,640 unchanged
@@ -143,7 +167,9 @@ store write stops storing and does not stop the recording.
 nothing, so a recording writes `roster.oscr` once, before the manifest seals the session — UTF-8, a
 header line of `OSCR <version> <count>` and `<kind> <identity> <machine-id> = <display name>` rows.
 Rows are kinded rather than assumed to be services, because the same question is coming for the
-configuration and strategy publications. A service with no display name keeps its registered identity
+configuration and strategy publications — world-collection categories already use the second kind,
+and their machine identity is a phrase with spaces in it, so that field takes whatever is left of the
+row before the separator. A service with no display name keeps its registered identity
 rather than being left out, so an unnamed feature reads as `orbautomata.auto-agromancy` — true, and
 visibly missing a name — instead of "Service 4", which would look finished while saying nothing. A
 roster that cannot be written or parsed costs the names and nothing else. The profiling trace and the

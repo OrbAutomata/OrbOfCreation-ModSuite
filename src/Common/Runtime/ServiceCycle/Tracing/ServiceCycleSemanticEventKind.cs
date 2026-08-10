@@ -46,6 +46,13 @@ public enum ServiceCycleSemanticEventKind
     StartFaulted = 38,
     StartReady = 39,
     ActionSkipped = 40,
+
+    /// <summary>
+    /// One world-collection category, as one pass read it. Appended rather than folded into the
+    /// capture facts: a capture is one fact per service cycle, and collection is the one capture whose
+    /// cost is a distribution over sixty-odd readers rather than a single number.
+    /// </summary>
+    WorldCategoryCollected = 41,
 }
 
 [System.Flags]

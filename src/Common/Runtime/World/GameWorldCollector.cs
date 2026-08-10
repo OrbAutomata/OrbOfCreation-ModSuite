@@ -123,6 +123,9 @@ internal sealed class GameWorldCollector
     /// <summary>Every reader in traversal order, so the pass itself is category-blind.</summary>
     private readonly IWorldCategoryReader[] _readers;
 
+    /// <summary>The pseudo-category a pass appends when the modifier fold had to reconstruct an input.</summary>
+    private const string ModifierFoldingCategory = "modifier folding";
+
     /// <summary>
     /// Identities already seen this pass, reused across collections. Claiming spans every category at
     /// once: the game keys all entities in one UUID space, so a collision between categories is as
@@ -386,6 +389,23 @@ internal sealed class GameWorldCollector
         }
     }
 
+    /// <summary>
+    /// What this collector calls its categories, in the traversal order a report is built in, so
+    /// entry <c>index</c> names the report at <c>index</c>.
+    /// </summary>
+    /// <remarks>
+    /// The modifier-folding pseudo-category is last, because that is where a degraded pass appends it.
+    /// It is named here rather than only when it appears: a reader that meets it for the first time
+    /// mid-session should find it already named, not discover an unnamed identity.
+    /// </remarks>
+    internal string[] CategoryNames()
+    {
+        var names = new string[_readers.Length + 1];
+        for (var index = 0; index < _readers.Length; index++) names[index] = _readers[index].Category;
+        names[_readers.Length] = ModifierFoldingCategory;
+        return names;
+    }
+
     /// <summary>Whether every category resolved. False means the snapshot will be partial by design.</summary>
     internal bool IsFullyAvailable
     {
@@ -434,7 +454,7 @@ internal sealed class GameWorldCollector
         var reports = new WorldCategoryReport[_readers.Length + (degradation.Length == 0 ? 0 : 1)];
         if (degradation.Length > 0)
         {
-            reports[_readers.Length] = WorldCategoryReport.Missing("modifier folding", degradation);
+            reports[_readers.Length] = WorldCategoryReport.Missing(ModifierFoldingCategory, degradation);
         }
 
         var structuralWasRead = true;
