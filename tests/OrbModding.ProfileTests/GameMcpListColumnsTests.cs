@@ -186,13 +186,11 @@ public sealed class GameMcpListColumnsTests
             // handing back an address nothing answers to, so a page here can show fewer columns
             // than it declares. It may never show one the declaration does not name, and never in
             // another order — either would be a header the empty page of this category would get
-            // wrong with nothing on it to say so. The verdict pair is the one exception the
-            // declaration itself makes: a refusal explains itself in the grammar every surface
-            // shares, and no row that answers yes carries it.
+            // wrong with nothing on it to say so. The verdict pair used to be exempt here, which
+            // is what let a page holding one blocked row be wider than the same page without it.
             var next = 0;
             foreach (var column in shown)
             {
-                if (column is "reason" or "reasonCode") continue;
                 var found = Array.IndexOf(declared, column, next);
                 Assert.True(
                     found >= 0,
@@ -202,6 +200,57 @@ public sealed class GameMcpListColumnsTests
             }
         });
     }
+
+    /// <summary>
+    /// One vocabulary, and every word in it readable at a glance. A cell that carried a sentence
+    /// made the reader parse prose out of a column; a cell that carried an <c>ERR_</c> class made
+    /// them look the class up. Both are gone, and this is the shape of what replaced them.
+    /// </summary>
+    [Fact]
+    public void Every_word_a_cell_can_carry_is_one_lowercase_fact()
+    {
+        var vocabulary = new[]
+        {
+            GameMcpListColumns.Yes,
+            GameMcpListColumns.No,
+            GameMcpListColumns.Uncapped,
+            GameMcpListColumns.AlreadyMaxed,
+            GameMcpListColumns.Unpriced,
+            GameMcpListColumns.Unevaluated,
+            GameMcpListColumns.Unreadable,
+            GameMcpListColumns.Empty,
+            GameMcpListColumns.Manual,
+            GameMcpListColumns.Unslotted,
+            GameMcpListColumns.Unset,
+        }.Concat(BlockedCodes.Select(GameMcpListColumns.Word)).ToArray();
+
+        Assert.All(vocabulary, word =>
+        {
+            Assert.Equal(word.ToLowerInvariant(), word);
+            Assert.DoesNotContain(" ", word, StringComparison.Ordinal);
+            Assert.DoesNotContain(".", word, StringComparison.Ordinal);
+            Assert.DoesNotContain("ERR_", word, StringComparison.OrdinalIgnoreCase);
+            Assert.InRange(word.Length, 2, 14);
+        });
+
+        // One fact, one word: the game publishing no price is the same fact whether an
+        // `affordable` column or an agromancy `add` cell is the one asking.
+        Assert.Equal(GameMcpListColumns.Unpriced, GameMcpListColumns.Word("cost_unavailable"));
+
+        // A code with no word is a defect, not a cell to improvise in.
+        Assert.Throws<InvalidOperationException>(
+            () => GameMcpListColumns.Word("some_code_nobody_gave_a_word"));
+    }
+
+    /// <summary>
+    /// The whole point of the vocabulary is that it fits. A word that needed a column wider than a
+    /// short number would put the page back where the sentences had it.
+    /// </summary>
+    private static readonly string[] BlockedCodes =
+    {
+        "not_offered", "ambiguous_offer", "cost_unavailable", "plot_quantity_insufficient",
+        "plot_action_list_full", "prerequisite_unverified", "not_active", "insufficient_bandwidth",
+    };
 
     private static GameWorldState OneRowOfEach()
     {

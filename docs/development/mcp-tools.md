@@ -129,6 +129,13 @@ same idiom and no producer invents its own formatting.
   00246c | Gather Space | 1 | 1
   ```
 
+  ```
+  rows 20/20
+  these 20 share: active=0, add=unverified, remove=inactive
+  [plot | action | active | add | remove]
+  Moon Garden fd0000 | Plant Moondust fe0000 | 0 | unverified | inactive
+  ```
+
   `total` and `nextOffset` live on the count line, never on a row.
   - **The column set is a fact about the category, not about the page.** It is complete, and in the
     same order, on every page of every category. A column every row on this page agrees on is still
@@ -145,14 +152,51 @@ same idiom and no producer invents its own formatting.
     no row to read that set off, so the producer states it, and a portable test holds every
     category's stated set to the columns its full page renders. A list that is not a page still
     answers `spells: none`.
+  - **A cell carries one word, never a sentence.** A blocked row names what blocks it with one
+    short lowercase fact from the vocabulary below, and a row that is not blocked says so in the
+    column that asked. No cell ever holds an `ERR_` class: those say which kind of no a *refusal*
+    is, and a table refuses nothing. The `reasonCode` + `reason` pair a refusal carries appears in
+    no table at all, so the declared column set is the whole truth — a page holding a blocked row
+    is exactly as wide as the same page without one.
+  - **A fact is worded once.** Where a column the row already carries states the block, that column
+    states it alone: a maxed upgrade says `affordable=already_maxed` beside `remainingLevels=0` and
+    `available=no`, and nothing repeats it. A word is only added where the row could not otherwise
+    show the fact.
   - Length is relaxed for page constants alone. A value identical on every row makes every row
-    equally wide, so a page whose every row carries the same multi-line refusal is a table with one
+    equally wide, so a page whose every row carries the same multi-line value is a table with one
     wide column rather than twenty paragraphs — while a varying value that big still costs the page
     its table. A constant the page could only render as a count of properties or elements costs it
     the table too, because that count would leave the value nowhere.
   - **No key with nothing after it.** A value the game published as an empty string reads as `-`,
     the same mark an absent one gets, because `key=` before a delimiter is indistinguishable from a
     truncated line.
+
+#### The cell vocabulary
+
+One vocabulary across every category, so a word means one thing wherever it is read. Words are
+lowercase, hold no spaces, and are facts rather than codes.
+
+| word | what the cell is saying |
+|---|---|
+| `yes` | nothing stands in the way of what this column asks |
+| `no` | no, and the row's other columns are where the why is |
+| `already_maxed` | nothing left to buy, so there is no next price to be short of |
+| `unpriced` | the game publishes no price for this, so affordability cannot be read |
+| `unevaluated` | a price is published, with no same-generation holding to compare it against |
+| `no_bandwidth` | short, and the ceiling is bandwidth rather than the amount held |
+| `not_offered` | the game is showing no offer for this |
+| `ambiguous` | the game offers this more than once, so the target is unclear |
+| `plot_short` | the plot has no room, or not enough of what the action consumes |
+| `list_full` | the list this would join has no empty slot |
+| `inactive` | nothing is running, so there is nothing to act on |
+| `unverified` | the game only checks this when the action starts; it cannot be read ahead |
+| `uncapped` | no ceiling applies |
+| `unreadable` | the suite could not read this fact from the game this generation |
+| `empty` / `unslotted` / `manual` / `unset` | the slot holds nothing / occupies no position / repeats no number of times / the game published no value here |
+
+The sentence behind a word is not lost — it is what `get` and a refusal answer with, which is where
+a caller who wants prose has asked for it. A decision code with no word here fails the read rather
+than printing itself into a cell.
 - **A refusal is one line**: `refused (ERR_NOT_FOUND): The spell Beam Burst you tried to cancel is
   not currently active.` A decision block reads the same way, verdict first and sentence last:
   `equip: no (ERR_LIMIT) maximumAmount=0: Every slot in this loadout is in use.`
@@ -390,8 +434,10 @@ fact that is: an upgrade the game marks with a negative native maximum reads `un
 `maxLevel` and `remainingLevels` — never `0`, which would read as a cap of zero and as nothing left
 to buy. An exhausted upgrade reads `affordable: already_maxed`, because a level that cannot be
 bought has no price to be short of; one the world publishes no cost for reads `affordable:
-unpriced`. `world_list` and `world_get` publish the same set, so a page of uncapped upgrades still
-shows the columns a capped page shows.
+unpriced`. That is the whole of what a maxed row says about being maxed — `remainingLevels: 0` and
+`available: no` beside it say it twice more, and the sentence a `world_get` on the same upgrade
+answers with is not repeated into the page. `world_list` and `world_get` publish the same column
+set, so a page of uncapped upgrades still shows the columns a capped page shows.
 
 Every purchasable counts levels, and no two of them count the same thing. One name means one thing
 across the whole surface, reads and commits alike:
@@ -426,7 +472,8 @@ A row's verdict answers for that row's own resource; the whole price is what the
 no aggregate verdict is published beside them. A short row names no reason code and no sentence:
 the price and the holding beside `affordable: false` already say "short of this", and writing that
 one bit three ways cost thirty constant bytes on every row of a 744-row category. A shortfall that
-says something else — a bandwidth ceiling rather than a quantity — still names itself.
+says something else — a bandwidth ceiling rather than a quantity — still names itself, and on a
+row it names itself in the column that asked: `affordable: no_bandwidth`.
 Ordinary resources compare their raw on-screen pool against the quality-adjusted spend; bandwidth
 resources compare nominal cost against headroom using the game's integer-snapped comparison. A
 counter's `amount` is always the number the screen shows for it, whatever native member happens to
@@ -738,12 +785,14 @@ direction; resource reservations and drain math are planning facts, never postco
 
 The `plot-nodes` category is the tile catalog. `agromancy-plot-actions` enumerates every
 `PlotNodeSO` / `PlotNodeActionSO` pair authored by the game, not only Auto Harvest's fruit and
-treasure collect pairs. Each row names both handles,
-shows the active quantity, and carries add/remove decisions. An available add includes the plot
-quantity consumed by one instance and the current maximum additional count, which is the game's own
-remaining-instance count and can exceed the 10,000 this verb accepts in one call. An unevaluated
-prerequisite latch omits `available` and reports `requiresLiveCheck:true`; the action boundary
-performs the exact native check instead of a read mutating the latch.
+treasure collect pairs. Each row names both handles, shows the active quantity, and answers `add`
+and `remove` with one word each: `yes`, or what stands in the way — `not_offered`, `ambiguous`,
+`unpriced`, `plot_short`, `list_full`, `inactive`, `unverified`. The detail projection behind a
+mutation or an explanation carries the full decision: the plot quantity one instance consumes, the
+current maximum additional count (the game's own remaining-instance count, which can exceed the
+10,000 this verb accepts in one call), and the sentence for a block. `unverified` is the
+prerequisite latch the game evaluates only when the action starts — the action boundary performs
+the exact native check instead of a read mutating the latch, so pressing is how you find out.
 
 Call `game_agromancy(mode="add_plot_action"|"remove_plot_action", uuid=..., actionUuid=...,
 amount=...)`. Every call requires an explicit positive `amount`.
@@ -1011,7 +1060,10 @@ payment, receipt, request echo, catalog join, or post-mutation read-back.
 is pending. Its active row names the requesting effect, identifies the native selection kind,
 reports the game's own `cancelAvailable` flag, and carries every eligible structure in native order.
 Each candidate is fully named and includes current committed/effective level, availability, and
-work-in-flight state. Costs and affordability are absent because targeting spends no resource.
+work-in-flight state — a locked candidate says `available: no` and stops there, because the row is
+not refusing anything. `randomize` answers `yes` or `no`; when it is `no` the candidates column
+beside it is empty, which is the whole of the why. Costs and affordability are absent because
+targeting spends no resource.
 
 The MCP-only targeting sequence is:
 
@@ -1509,10 +1561,11 @@ under reads `unset`, and so does one holding the zero identity, because a handle
 nothing is not an entity and dropping it would take the column with it. A reference column keeps
 the name a filled one would have had — `selectedLevel`, not `selectedLevelId`.
 
-A row's verdict pair — `reasonCode` and `reason` — is not part of the declared set. It is the
-refusal grammar every surface shares: present exactly where there is a no to explain, and absent
-where the answer is yes, which the row's own `available` or `affordable` column already states. That
-absence never means "not applicable"; it means nothing was refused.
+A row carries no verdict pair at all. `reasonCode` and `reason` are the refusal grammar, and a
+table refuses nothing: what blocks a row is one word in the column that asks, or the column that
+already states the fact stating it alone. So the declared set is the whole truth — a page holding a
+blocked row is exactly as wide as the same page without one, and an undeclared column in a row is
+an error with no exceptions.
 
 The declaration is enforced rather than described. Every row a hand-written projection builds is
 checked against its category's set as it is built, so a column left off one row or invented for

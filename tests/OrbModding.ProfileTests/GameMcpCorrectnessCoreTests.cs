@@ -871,8 +871,12 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.Equal("uncapped", (string?)rows[0]!["remainingLevels"]);
         Assert.Equal(10, (int)rows[1]!["maxLevel"]!);
         Assert.Equal(0, (int)rows[1]!["remainingLevels"]!);
-        Assert.Equal("ERR_STATE", (string?)rows[1]!["reasonCode"]);
+
+        // The row already says maxed three ways — no levels left, no price to be short of, and no.
+        // Saying it a fourth time as a code and a sentence is what the detail read above is for.
         Assert.Equal("already_maxed", (string?)rows[1]!["affordable"]);
+        Assert.Null(rows[1]!["reasonCode"]);
+        Assert.Null(rows[1]!["reason"]);
 
         // A caller paging the list must read the ceiling the same way a get would: both surfaces
         // publish the pair on every row, so neither can be read as the leaner one having dropped it.

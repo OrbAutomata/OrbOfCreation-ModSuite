@@ -71,7 +71,12 @@ public sealed class GameMcpTargetingTests
         // The sum of built and building levels has no badge and no name on the wire.
         Assert.Null(candidates[0]["committedLevel"]);
         Assert.True((bool)candidates[0]["available"]!);
-        Assert.True((bool)row["randomize"]!["available"]!);
+
+        // A roll either lands or it does not, and the candidates column beside it is where the why
+        // lives. One word, no verdict pair, on the row and inside every candidate it holds.
+        Assert.Equal("yes", (string?)row["randomize"]);
+        Assert.Null(candidates[0]["reasonCode"]);
+        Assert.Null(candidates[0]["reason"]);
         Assert.Null(row["cancel"]);
     }
 

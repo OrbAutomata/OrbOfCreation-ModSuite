@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using OrbAutomata;
@@ -51,9 +52,13 @@ public sealed class GameMcpPlotLifecycleTests
         Assert.Equal("Moon Garden", (string?)row["plot"]!["name"]);
         Assert.Equal("Plant Moondust", (string?)row["action"]!["name"]);
         Assert.Equal(2, (int)row["active"]!);
-        Assert.True((bool)row["add"]!["available"]!);
-        Assert.Equal(3, (int)row["add"]!["plotQuantityCost"]!);
-        Assert.True((bool)row["remove"]!["available"]!);
+
+        // A row answers each decision with the one word a cell has room for. What a press would
+        // cost belongs to the detail projection, which is where a caller who asked about this one
+        // pair still finds it.
+        Assert.Equal("yes", (string?)row["add"]);
+        Assert.Equal("yes", (string?)row["remove"]);
+        Assert.Equal(3, (int)Detail(world)["add"]!["plotQuantityCost"]!);
 
         var processing = Assert.Single(Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 911),
@@ -69,20 +74,92 @@ public sealed class GameMcpPlotLifecycleTests
             GameMcpTestHarness.Context(blockedWorld, generation: 912),
             "agromancy-plot-actions", 0, 10).Freeze(), blockedWorld)["rows"]!.Values<JObject>());
         // The prerequisite is not readable, which is a missing read rather than a refusal, so the
-        // row says so in the same words every other unreadable fact uses and never claims false.
-        Assert.Equal("unavailable", (string?)blocked["add"]!["status"]);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)blocked["add"]!["reasonCode"]);
-        Assert.Null(blocked["add"]!["available"]);
-        Assert.Equal("game_agromancy add_plot_action", (string?)blocked["add"]!["checkWith"]);
-        Assert.Null(blocked["add"]!["plotQuantityCost"]);
-        // Nothing is running, which the row names on its own axis rather than leaving bare for the
-        // backstop to read as a refusal the game never issued.
-        Assert.False((bool)blocked["remove"]!["available"]!);
-        Assert.Equal("ERR_NOT_FOUND", (string?)blocked["remove"]!["reasonCode"]);
+        // cell says so in one word and never claims false. Nothing is running, which the row names
+        // on its own axis rather than leaving bare for the backstop to read as a refusal the game
+        // never issued.
+        Assert.Equal("unverified", (string?)blocked["add"]);
+        Assert.Equal("inactive", (string?)blocked["remove"]);
+
+        // The sentence and the repair are not lost, only left to the projection that has room for
+        // them — the one a mutation answers with and an explanation reads from.
+        var blockedDetail = Detail(blockedWorld);
+        Assert.Equal("unavailable", (string?)blockedDetail["add"]!["status"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)blockedDetail["add"]!["reasonCode"]);
+        Assert.Equal(
+            "game_agromancy add_plot_action", (string?)blockedDetail["add"]!["checkWith"]);
         Assert.Equal(
             "This is not active, so there is nothing to act on.",
-            (string?)blocked["remove"]!["reason"]);
+            (string?)blockedDetail["remove"]!["reason"]);
     }
+
+    /// <summary>
+    /// The page this lane was called for. Twenty pairs whose prerequisite the game will not
+    /// evaluate until the action starts used to repeat a 133-character sentence and its
+    /// <c>ERR_</c> class in two columns of every row — 6,710 bytes for twenty rows of five facts.
+    /// Words carry the same two decisions, the page stays one table with every column on it, and
+    /// what a reader has to hold in their head is a vocabulary instead of a paragraph.
+    /// </summary>
+    [Fact]
+    public void A_page_of_blocked_pairs_says_the_block_in_one_word_per_cell()
+    {
+        var world = ManyPairs(20);
+        var page = GameMcpTextPage.Render(Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 913),
+            "agromancy-plot-actions", 0, 20).Freeze(), world));
+        var lines = page.Split('\n');
+
+        Assert.Equal("rows 20/20", lines[0]);
+        Assert.Equal("these 20 share: active=0, add=unverified, remove=inactive", lines[1]);
+        Assert.Equal("[plot | action | active | add | remove]", lines[2]);
+        Assert.Equal("Moon Garden 0 fd0000 | Plant Moondust 0 fe0000 | 0 | unverified | inactive",
+            lines[3]);
+        Assert.Equal(23, lines.Length);
+
+        // The regression this retires, in the units it was reported in.
+        Assert.DoesNotContain("ERR_", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("cannot be read ahead of time", page, StringComparison.Ordinal);
+        Assert.InRange(System.Text.Encoding.UTF8.GetByteCount(page), 1, 2000);
+    }
+
+    private static GameWorldState ManyPairs(int count)
+    {
+        var pairs = new List<WorldPlotAction>();
+        var instances = new List<WorldPlotActionInstance>();
+        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().ToList();
+        for (var index = 0; index < count; index++)
+        {
+            var plot = Guid.Parse("fd" + index.ToString("D2") + "0000-0000-0000-0000-000000000001");
+            var action =
+                Guid.Parse("fe" + index.ToString("D2") + "0000-0000-0000-0000-000000000002");
+            pairs.Add(new WorldPlotAction(
+                new RawPlotAction(plot, action, 1, 0,
+                    PlotActionPrerequisiteEvidence.UnknownNeedsNativeValidation),
+                elementCost: 3,
+                elementCostKnown: true,
+                hasEnoughForOneInstance: true,
+                maximumRemainingInstances: 8));
+            instances.Add(new WorldPlotActionInstance(plot, action, 0, 0, false, false, true));
+            identities.Add(
+                new EntityIdentityName(plot, "PlotNodeSO", "Moon Garden " + index, "moonGarden"));
+            identities.Add(new EntityIdentityName(
+                action, "PlotNodeActionSO", "Plant Moondust " + index, "plantMoondust"));
+        }
+
+        var world = World(prerequisitesReady: false, active: 0);
+        return world with
+        {
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(
+                9, identities.OrderBy(row => row.EntityId).ToArray()),
+            PlotActions = PublicationTable<WorldPlotAction>.Create(pairs.ToArray()),
+            PlotActionInstances = PublicationTable<WorldPlotActionInstance>.Create(
+                instances.ToArray()),
+        };
+    }
+
+    /// <summary>The same pair as a detail projection: the shape a mutation and an explanation read.</summary>
+    private static JObject Detail(GameWorldState world) =>
+        Json(GameMcpWorldQuery.ProjectEntityState(
+            world, "agromancy-plot-actions", world.PlotActions[0]), world);
 
     private static GameWorldState World(bool prerequisitesReady, int active)
     {

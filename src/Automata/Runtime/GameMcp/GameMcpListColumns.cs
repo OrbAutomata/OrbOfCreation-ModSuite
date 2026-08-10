@@ -5,7 +5,8 @@ using System.Collections.Generic;
 namespace OrbAutomata.GameMcp;
 
 /// <summary>
-/// The words a list column uses when the fact it names does not apply to one row.
+/// The words a list cell is allowed to say: one short fact, from one vocabulary, for every row of
+/// every category.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,6 +22,16 @@ namespace OrbAutomata.GameMcp;
 /// never a number that would be read as one. The game's own uncapped marker is a negative maximum;
 /// it maps to <see cref="Uncapped"/> and never to <c>0</c> or a large literal. The header hoist
 /// keeps this close to free: a page where every row says the same word says it once, in the header.
+/// </para>
+/// <para>
+/// A blocked row answers the same way. It used to answer with a code and a sentence — the pair a
+/// refusal carries — repeated in full on every row: twenty agromancy rows paid for the same 133
+/// characters of prose about a prerequisite the game does not evaluate until you press, and a
+/// maxed upgrade said "This is already at its maximum level." beside an <c>affordable</c> column
+/// that already said <c>already_maxed</c>. A cell now says one word or the column that already
+/// names the fact says it alone; the sentence keeps living where a reader asked for one, in
+/// <c>get</c> and in refusals. No cell ever carries an <c>ERR_</c> class: those name which kind of
+/// no a refusal is, and a table is not refusing anything.
 /// </para>
 /// </remarks>
 internal static class GameMcpListColumns
@@ -55,12 +66,60 @@ internal static class GameMcpListColumns
     /// <summary>The game published no value under the member this column names.</summary>
     internal const string Unset = "unset";
 
+    /// <summary>Nothing stands in the way of what this column asks about.</summary>
+    internal const string Yes = "yes";
+
     /// <summary>
-    /// A refusal explains itself in the grammar every surface shares, so the verdict pair is
-    /// present exactly where there is a no and absent where the answer is yes — which the row's own
-    /// decision column already states. That absence never means "not applicable".
+    /// No, and the row's other columns are where the why is: the same word a boolean column
+    /// renders, so one cell does not answer in a second grammar.
     /// </summary>
-    private static readonly string[] Verdict = { "reasonCode", "reason" };
+    internal const string No = "no";
+
+    /// <summary>
+    /// The one word a decision cell says instead of the sentence a refusal would say, for every
+    /// producer code a list row can reach.
+    /// </summary>
+    /// <remarks>
+    /// One word per fact and one vocabulary across categories, so a reader learns a word once:
+    /// <see cref="Unpriced"/> means the same thing in an <c>affordable</c> column and in an
+    /// agromancy <c>add</c> cell, because it is the same fact — the game publishes no price. A code
+    /// with no word here is a defect rather than a cell, and it says so at the first row of the
+    /// first page, the way a category with no declared column set does.
+    /// </remarks>
+    internal static string Word(string code)
+    {
+        if (code is null) throw new ArgumentNullException(nameof(code));
+        return code switch
+        {
+            // The game shows no offer for this pair, or shows it more than once and will not say
+            // which one a press would take.
+            "not_offered" => "not_offered",
+            "ambiguous_offer" => "ambiguous",
+
+            // No published price, so affordability cannot be read — the fact `affordable` already
+            // has a word for.
+            "cost_unavailable" => Unpriced,
+
+            // The plot itself is what is short: of room, or of what the action consumes.
+            "plot_quantity_insufficient" => "plot_short",
+            "plot_action_list_full" => "list_full",
+
+            // The game latches this prerequisite only when the action is started, so the read is
+            // what is missing rather than the permission.
+            "prerequisite_unverified" => "unverified",
+
+            "not_active" => "inactive",
+
+            // A shortfall the row's own cost and holding columns do not already show: the ceiling
+            // is bandwidth rather than the amount held.
+            "insufficient_bandwidth" => "no_bandwidth",
+
+            _ => throw new InvalidOperationException(
+                "a list cell reached decision code '" + code +
+                "' with no word for it; a cell says one word from the list vocabulary or the " +
+                "column that already names the fact says it alone"),
+        };
+    }
 
     /// <summary>
     /// What one row of a hand-written list projection must carry, in the projection's own
@@ -153,7 +212,9 @@ internal static class GameMcpListColumns
     /// <remarks>
     /// This fires on the first row of the first page of the category, which is every test that
     /// reads it — the same loudness <c>ScanFields</c> has for a category with no scan projection,
-    /// and for the same reason: the shape a surface promises is not a runtime variable.
+    /// and for the same reason: the shape a surface promises is not a runtime variable. The
+    /// verdict pair used to be exempt, which made a page holding one refused row wider than the
+    /// same page without it; now the declared set is the whole truth and there is no exception.
     /// </remarks>
     internal static void Verify(string category, GameMcpObject row)
     {
@@ -170,7 +231,6 @@ internal static class GameMcpListColumns
                 "list category '" + category + "' left declared column '" + declared[index] +
                 "' off a row; a column that does not apply says which fact does not apply");
         }
-        for (var index = 0; index < Verdict.Length; index++) present.Remove(Verdict[index]);
         foreach (var extra in present)
         {
             throw new InvalidOperationException(

@@ -63,6 +63,48 @@ public sealed class GameMcpDecisionReasonTests
             (string?)document["slots"]![1]!["remove"]!["reason"]);
     }
 
+    /// <summary>
+    /// The backstop stops at the edge of a table. Inside a page's rows, <c>available: no</c> is a
+    /// declared column the header already names, and the pair the backstop invented there said the
+    /// game had refused and would not say why — the same sentence on every row, in a column no
+    /// reader gained anything from. Everywhere else it still fires, because everywhere else a bare
+    /// no really does leave a caller with no axis.
+    /// </summary>
+    [Fact]
+    public void A_row_of_a_page_answers_no_without_a_sentence_explaining_the_no()
+    {
+        var encoded = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            new GameMcpObjectBuilder
+            {
+                ["rows"] = new GameMcpArrayBuilder(
+                    new GameMcpObjectBuilder
+                    {
+                        ["name"] = "Arcane Glyph",
+                        ["available"] = false,
+                        ["candidates"] = new GameMcpArrayBuilder(
+                            new GameMcpObjectBuilder { ["available"] = false }.Freeze()),
+                    }.Freeze()),
+                ["decision"] = new GameMcpObjectBuilder { ["available"] = false },
+                ["total"] = 1,
+            }.Freeze(),
+            GameMcpTestHarness.EntityCatalog));
+
+        var row = (JObject)encoded["rows"]![0]!;
+        Assert.False((bool)row["available"]!);
+        Assert.Null(row["reasonCode"]);
+        Assert.Null(row["reason"]);
+
+        // A cell of that row is still a cell of that row, however deep it is.
+        Assert.Null(row["candidates"]![0]!["reasonCode"]);
+        Assert.Null(row["candidates"]![0]!["reason"]);
+
+        // The same bare no outside the table keeps the axis the backstop exists to supply.
+        Assert.Equal("ERR_REFUSED", (string?)encoded["decision"]!["reasonCode"]);
+        Assert.Equal(
+            "The game refused, and nothing it reports explains why.",
+            (string?)encoded["decision"]!["reason"]);
+    }
+
     /// <remarks>
     /// A site that holds the numbers writes the better sentence, and the fallback must not overwrite
     /// it — the shortfall names the resource, the price, and the holding, where the code alone can

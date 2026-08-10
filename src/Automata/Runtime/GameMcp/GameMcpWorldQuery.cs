@@ -380,7 +380,10 @@ internal static class GameMcpWorldQuery
                 ["affordable"] = UpgradeAffordability(world, in upgrade),
                 ["available"] = upgrade.Reading.Available && !upgrade.IsExhausted,
             };
-            if (upgrade.IsExhausted) projected["reasonCode"] = "already_maxed";
+            // Being maxed is already said three ways across this row — `affordable` says
+            // `already_maxed`, `remainingLevels` says none, `available` says no. The verdict pair
+            // said it a fourth time as a code and a sentence, and paid for the sentence on every
+            // row of the page. The detail row keeps it; a table does not repeat itself.
             return projected.Freeze();
         }
         // `created` is what separates the two things a zero equipped count meant: owning none of an
@@ -457,12 +460,12 @@ internal static class GameMcpWorldQuery
             }.Freeze();
         if (row is WorldPurchaseCost purchaseCost)
         {
-            var projected = ProjectPurchaseCost(world, in purchaseCost);
+            var projected = ProjectPurchaseCost(world, in purchaseCost, asRow: true);
             projected["targetId"] = purchaseCost.EntityId.ToString("D");
             return projected.Freeze();
         }
         if (row is WorldTargetingRequest targeting)
-            return ProjectTargeting(world, in targeting);
+            return ProjectTargeting(world, in targeting, asRow: true);
         if (row is WorldChallenge challenge)
             return new JObject
             {
@@ -530,7 +533,7 @@ internal static class GameMcpWorldQuery
         if (row is WorldActionQueueSlot processingSlot)
             return ProjectAgromancyProcessing(world, in processingSlot);
         if (row is WorldPlotAction plotAction)
-            return ProjectPlotAction(world, in plotAction);
+            return ProjectPlotAction(world, in plotAction, asRow: true);
         // Every row that carries a position says it the way the verbs take it. The reflected
         // projector below copies the native member under its native name, and every native list is
         // indexed from zero — so a row printed its internal index while the verb addressed by that
@@ -3666,18 +3669,47 @@ internal static class GameMcpWorldQuery
 
     private static GameMcpValue ProjectPlotAction(
         GameWorldState world,
-        in WorldPlotAction action)
+        in WorldPlotAction action) =>
+        ProjectPlotAction(world, in action, asRow: false);
+
+    /// <summary>
+    /// One plot-and-action pair, as a detail block or as a row of the table.
+    /// </summary>
+    /// <remarks>
+    /// The two decisions are the same decisions either way; what differs is how much room the
+    /// answer has. A detail reader asked about this pair and gets the whole verdict — the sentence,
+    /// the repair to call, the remaining-instance count. A row of twenty gets the word, because the
+    /// alternative is the same paragraph twenty times in a column three characters wide.
+    /// </remarks>
+    private static GameMcpValue ProjectPlotAction(
+        GameWorldState world,
+        in WorldPlotAction action,
+        bool asRow)
     {
         var active = PlotActionQuantity(
             world.ActionQueueSlots, action.PlotNodeId, action.PlotNodeActionId);
+        var add = ProjectPlotActionDecision(world, in action, active);
+        var remove = PlotActionRemoveDecision(active);
         return new JObject
         {
             ["plot"] = EntityReference(world, action.PlotNodeId),
             ["action"] = EntityReference(world, action.PlotNodeActionId),
             ["active"] = active,
-            ["add"] = ProjectPlotActionDecision(world, in action, active),
-            ["remove"] = PlotActionRemoveDecision(active),
+            ["add"] = asRow ? DecisionWord(add) : (object)add,
+            ["remove"] = asRow ? DecisionWord(remove) : (object)remove,
         }.Freeze();
+    }
+
+    /// <summary>
+    /// A decision block as the one word a cell has room for: <c>yes</c>, or what stands in the way.
+    /// </summary>
+    private static object DecisionWord(JObject decision)
+    {
+        if (decision["available"] is true) return GameMcpListColumns.Yes;
+        var code = (decision["reasonCode"] ?? decision["code"]) as string;
+        return string.IsNullOrEmpty(code)
+            ? GameMcpListColumns.No
+            : GameMcpListColumns.Word(code!);
     }
 
     /// <summary>
@@ -3716,7 +3748,7 @@ internal static class GameMcpWorldQuery
         return result.Freeze();
     }
 
-    private static GameMcpValue ProjectPlotActionDecision(
+    private static JObject ProjectPlotActionDecision(
         GameWorldState world,
         in WorldPlotAction action,
         int active)
@@ -3744,7 +3776,7 @@ internal static class GameMcpWorldQuery
                 "The game only checks this action's prerequisite when the action is started, " +
                 "so whether it can be queued cannot be read ahead of time.";
             result["checkWith"] = "game_agromancy add_plot_action";
-            return result.Freeze();
+            return result;
         }
         else if (!action.ElementCostKnown)
         {
@@ -3768,7 +3800,7 @@ internal static class GameMcpWorldQuery
         if (!available)
         {
             result["reasonCode"] = reason;
-            return result.Freeze();
+            return result;
         }
         // The game's own remaining-instance count, and nothing else. Folding the tool schema's
         // per-call ceiling in here produced a third number that was neither bound: with the list
@@ -3776,7 +3808,7 @@ internal static class GameMcpWorldQuery
         // per-call limit rather than a running budget in the first place.
         result["maximumAmount"] = action.MaximumRemainingInstances;
         result["plotQuantityCost"] = action.ElementCost;
-        return result.Freeze();
+        return result;
     }
 
     private static JObject ProjectHarvestElementDecision(
@@ -5138,7 +5170,11 @@ internal static class GameMcpWorldQuery
     }
 
     private static GameMcpValue ProjectTargeting(
-        GameWorldState world, in WorldTargetingRequest request)
+        GameWorldState world, in WorldTargetingRequest request) =>
+        ProjectTargeting(world, in request, asRow: false);
+
+    private static GameMcpValue ProjectTargeting(
+        GameWorldState world, in WorldTargetingRequest request, bool asRow)
     {
         var candidates = new JArray();
         for (var index = 0; index < request.Candidates.Count; index++)
@@ -5146,6 +5182,11 @@ internal static class GameMcpWorldQuery
             var candidate = request.Candidates[index];
             candidates.Add(ProjectTargetCandidate(world, candidate.StructureId, candidate.Position));
         }
+
+        // Nothing to pick from is the whole of why a roll would not land, and the candidates column
+        // beside it already shows that. On a row it is one word; a caller who asked about this
+        // request by itself still gets the sentence.
+        var randomize = new JObject { ["available"] = candidates.Count > 0 };
         var result = new JObject
         {
             ["pending"] = true,
@@ -5153,7 +5194,7 @@ internal static class GameMcpWorldQuery
             ["ownerNativeType"] = request.OwnerNativeType,
             ["selectionType"] = request.SelectionNativeType,
             ["candidates"] = candidates,
-            ["randomize"] = new JObject { ["available"] = candidates.Count > 0 },
+            ["randomize"] = asRow ? DecisionWord(randomize) : (object)randomize,
         };
         return result.Freeze();
     }
@@ -6372,7 +6413,13 @@ internal static class GameMcpWorldQuery
 
     internal static JObject ProjectPurchaseCost(
         GameWorldState world,
-        in WorldPurchaseCost cost)
+        in WorldPurchaseCost cost) =>
+        ProjectPurchaseCost(world, in cost, asRow: false);
+
+    internal static JObject ProjectPurchaseCost(
+        GameWorldState world,
+        in WorldPurchaseCost cost,
+        bool asRow)
     {
         var result = new JObject
         {
@@ -6399,13 +6446,20 @@ internal static class GameMcpWorldQuery
         // plain shortfall code and the generic sentence behind it wrote that same fact a second
         // and a third time on every row of a 744-row category, so only a shortfall that says
         // something else — a bandwidth ceiling rather than a quantity — still names itself.
+        //
+        // On a row it names itself in the column that asked. `affordable` already answers with a
+        // word wherever a plain no would mislead, so the shortfall the cost and holding columns
+        // cannot show is one more word in that vocabulary rather than two columns of its own.
         if (!cost.ResourceAffordable &&
             !string.Equals(
                 cost.ResourceAffordabilityReasonCode,
                 "insufficient_quantity",
                 StringComparison.Ordinal))
         {
-            result["reasonCode"] = cost.ResourceAffordabilityReasonCode;
+            if (asRow)
+                result["affordable"] =
+                    GameMcpListColumns.Word(cost.ResourceAffordabilityReasonCode);
+            else result["reasonCode"] = cost.ResourceAffordabilityReasonCode;
         }
         return result;
     }

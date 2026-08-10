@@ -65,22 +65,29 @@ public sealed class GameMcpAffordabilityTests
     /// <summary>
     /// One bit written three ways — `affordable: no`, the shortfall code, and the generic sentence
     /// the code expands to — cost thirty constant bytes on every row of a 744-row category. The
-    /// price and the holding beside it already say which way the row went.
+    /// price and the holding beside it already say which way the row went, so the only shortfall
+    /// they cannot show answers in the column that asked rather than in two of its own.
     /// </summary>
     [Theory]
-    [InlineData("insufficient_quantity", null)]
-    [InlineData("insufficient_bandwidth", "ERR_UNAFFORDABLE")]
+    [InlineData("insufficient_quantity", "no")]
+    [InlineData("insufficient_bandwidth", "no_bandwidth")]
     public void A_short_price_row_says_it_once_unless_the_shortfall_says_something_else(
         string code,
-        string? expected)
+        string expected)
     {
         var page = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(World(code), "purchase-costs", 0, 50));
 
-        var row = page["rows"]!.Values<JObject>()
-            .Single(candidate => !(bool)candidate!["affordable"]!)!;
-        Assert.Equal(expected, (string?)row["reasonCode"]);
-        Assert.Equal(expected is null, row["reason"] is null);
+        var row = page["rows"]!.Values<JObject>().Single(candidate =>
+            candidate!["affordable"] is not JValue { Type: JTokenType.Boolean, Value: true })!;
+        Assert.Equal(expected, row["affordable"] switch
+        {
+            JValue { Type: JTokenType.Boolean } flag => (bool)flag ? "yes" : "no",
+            JValue word => (string?)word,
+            _ => null,
+        });
+        Assert.Null(row["reasonCode"]);
+        Assert.Null(row["reason"]);
     }
 
     private static GameMcpFrameContext World() => World("insufficient_quantity");

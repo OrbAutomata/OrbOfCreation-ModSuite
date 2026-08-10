@@ -145,7 +145,9 @@ public sealed class GameMcpTextPageTests
     /// A reader splits the share line on <c>, </c> and the first <c>=</c>, so nothing on it may
     /// carry a comma. The refusal sentence that broke this rule appeared on every page of three
     /// categories and grew the header a phantom field; it keeps its cell, where its own column
-    /// boundary says where it ends.
+    /// boundary says where it ends. No producer emits that sentence into a row any more — cells
+    /// carry words — but the renderer takes whatever it is handed, so the rule is pinned on the
+    /// shape that broke it.
     /// </summary>
     [Fact]
     public void A_page_constant_holding_a_comma_stays_out_of_the_share_line()
@@ -344,7 +346,9 @@ public sealed class GameMcpTextPageTests
     /// A block too big for a cell is not too big for a cell every row fills the same way. Twenty
     /// rows carrying the same refusal used to render as twenty paragraphs, because one constant
     /// nobody could fit in a column disqualified the whole page from being a table; the length
-    /// relaxation that fixed it survives the column staying where it belongs.
+    /// relaxation that fixed it survives the column staying where it belongs. The agromancy page
+    /// this was found on now says two words instead, so the fixture is the retired shape and the
+    /// rule is what still has to hold for any long page constant.
     /// </summary>
     [Fact]
     public void A_constant_nobody_could_fit_in_a_cell_keeps_its_column_and_its_content()

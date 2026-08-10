@@ -22,17 +22,18 @@ internal static class GameMcpEntityWireNormalizer
     {
         if (source is null) throw new ArgumentNullException(nameof(source));
         if (catalog is null) throw new ArgumentNullException(nameof(catalog));
-        NormalizeToken(source, catalog);
+        NormalizeToken(source, catalog, inRow: false);
         return source;
     }
 
     private static void NormalizeToken(
         JToken token,
-        EntityIdentityCatalogSnapshot catalog)
+        EntityIdentityCatalogSnapshot catalog,
+        bool inRow)
     {
         if (token is JObject item)
         {
-            NormalizeObject(item, catalog);
+            NormalizeObject(item, catalog, inRow);
             return;
         }
         if (token is not JArray array) return;
@@ -46,13 +47,14 @@ internal static class GameMcpEntityWireNormalizer
                 array[index] = Reference(uuid, catalog);
                 continue;
             }
-            if (value is not null) NormalizeToken(value, catalog);
+            if (value is not null) NormalizeToken(value, catalog, inRow);
         }
     }
 
     private static void NormalizeObject(
         JObject item,
-        EntityIdentityCatalogSnapshot catalog)
+        EntityIdentityCatalogSnapshot catalog,
+        bool inRow)
     {
         FlattenDetails(item);
         FlattenReading(item);
@@ -112,7 +114,14 @@ internal static class GameMcpEntityWireNormalizer
         // decision could refuse by publishing `available: false` and nothing else — a caller with
         // no axis to branch on and no way to tell a temporary no from a permanent one. Producers
         // that know the axis name it; this is the backstop that makes silence impossible.
-        if (item["available"] is JValue { Type: JTokenType.Boolean } availability &&
+        //
+        // A table row is the one place it must not fire. There, `available` is a declared column a
+        // header already names, and the pair it invents is a code and a sentence saying the game
+        // refused and would not say why — the same 139 characters on every row of a page, telling
+        // a reader nothing the `no` in the column did not. Cells carry words; the sentence lives
+        // in get and in refusals, which are exactly the shapes this backstop still guards.
+        if (!inRow &&
+            item["available"] is JValue { Type: JTokenType.Boolean } availability &&
             !(bool)availability && item["reasonCode"] is null && item["status"] is null)
         {
             item["reasonCode"] = "native_rejected";
@@ -192,7 +201,12 @@ internal static class GameMcpEntityWireNormalizer
                     Convert.ToDouble(number.Value, CultureInfo.InvariantCulture));
                 continue;
             }
-            NormalizeToken(property.Value, catalog);
+            // A page's rows are its table, and every cell of a row — including the objects and
+            // arrays a cell holds — answers under the table's grammar rather than a document's.
+            NormalizeToken(
+                property.Value,
+                catalog,
+                inRow || string.Equals(property.Name, "rows", StringComparison.Ordinal));
         }
 
         DeduplicateChildIdentity(item, "state");
