@@ -117,6 +117,37 @@ public sealed class GameMcpTooltipProjectorTests
             (string?)result["text"]);
     }
 
+    /// <summary>
+    /// A tail that repeats at two scales loses the smallest repeat, not the largest. Taking the
+    /// largest match deleted half a body where one block was all that had been said twice.
+    /// </summary>
+    [Fact]
+    public void A_tail_that_repeats_at_two_scales_loses_only_the_smallest_repeat()
+    {
+        var tooltip = new FakeTooltip(
+            "Ward",
+            new TooltipNode("Shield: 4"),
+            new TooltipNode("Decay: 2"),
+            new TooltipNode("Shield: 4"),
+            new TooltipNode("Decay: 2"),
+            new TooltipNode("Shield: 4"),
+            new TooltipNode("Decay: 2"),
+            new TooltipNode("Shield: 4"),
+            new TooltipNode("Decay: 2"))
+        {
+            DisplayType = "Effect",
+            Description = "Absorbs damage.",
+        };
+
+        var result = GameMcpTestHarness.Json(
+            GameMcpTooltipProjector.Project(tooltip, null, null));
+
+        Assert.Equal(
+            "Ward\nEffect\nAbsorbs damage.\n" +
+            "Shield: 4\nDecay: 2\nShield: 4\nDecay: 2\nShield: 4\nDecay: 2",
+            (string?)result["text"]);
+    }
+
     [Fact]
     public void FortyNodeDuplicateTooltipFitsTheCriticSignalBudget()
     {

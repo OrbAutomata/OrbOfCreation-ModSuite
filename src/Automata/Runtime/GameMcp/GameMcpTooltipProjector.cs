@@ -33,9 +33,17 @@ internal static class GameMcpTooltipProjector
     /// lines were already suppressed one at a time, which never caught a panel that painted its
     /// whole last block twice — half a tooltip body, saying nothing the half above it had not.
     /// </summary>
+    /// <remarks>
+    /// The smallest repeat wins, not the largest. Every candidate here already ends at the last
+    /// line, so the choice is only how much of the closing text to call a repeat — and taking the
+    /// largest let a page whose tail repeated at two scales lose half the body when one line of it
+    /// would have done. A panel that genuinely paints two identical blocks at the end is
+    /// indistinguishable from one that painted its last block twice, so the smallest match is the
+    /// most this can honestly claim.
+    /// </remarks>
     private static void DropRepeatedTail(List<string> lines)
     {
-        for (var length = lines.Count / 2; length >= 2; length--)
+        for (var length = 2; length <= lines.Count / 2; length++)
         {
             var repeated = true;
             for (var offset = 0; repeated && offset < length; offset++)
