@@ -18,7 +18,7 @@ internal readonly struct WorldCollectionCategoryStatus
         int sampled,
         int skipped,
         string firstFailure,
-        long elapsedTicks)
+        long elapsedTicks = 0)
     {
         Category = category;
         Outcome = outcome;
