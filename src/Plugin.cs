@@ -2142,6 +2142,7 @@ public sealed class Plugin : BaseUnityPlugin
         {
             nativeType = "SpellRecipeSO";
             amount = request.SlotIndex;
+            payloadValue = request.SerializedValue;
         }
         else if (kind == GameMcpCommandKind.Concept)
             nativeType = "AlchemyRecipeSO";

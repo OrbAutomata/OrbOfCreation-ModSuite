@@ -276,6 +276,8 @@ internal sealed class GameMcpProtocolRouter
                 builder.Mode = RequireOneOf(
                     arguments, "mode", "fire", "release", "toggle_off");
                 builder.SlotIndex = RequiredInt(arguments, "slot", 1, 256);
+                if (builder.Mode == "fire" && OptionalBool(arguments, "charge", false))
+                    builder.SerializedValue = "charge";
                 break;
             case "game_concept":
                 builder.Uuid = RequireUuid(arguments, "uuid");
@@ -681,15 +683,19 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_cast",
                 "Cast an equipped spell",
-                "Live-revalidate an equipped slot and fire it, release a charge hold, or press an active toggle spell's native cast button again to turn it off. A fire on a spell that is already running is refused rather than pressed: the game answers that press with a warning or by ending the cast, never by starting one. The casts total counts casts the game has finished, so a cast that has only just started is not in it yet.",
-                ActionSchema(
+                "Live-revalidate an equipped slot and fire it, release a charge hold, or press an active toggle spell's native cast button again to turn it off. A fire on a spell that is already running is refused rather than pressed: the game answers that press with a warning or by ending the cast, never by starting one. A committed fire means the press started a cast now. charge=true holds the cast button down the way the player does, so the spell charges instead of firing at once; release it with mode=release, and the longer it was held the more power the cast lands with. Charging needs the Charged Spells research on a spell type that scales with it, and a spell the game will not charge is refused rather than fired uncharged.",
+                ModeSchema(ActionSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("fire", "release", "toggle_off"),
                         ["slot"] = IntegerSchema(1, 256),
                         ["uuid"] = StringSchema("Spell recipe UUID currently occupying the slot."),
+                        ["charge"] = BooleanSchema(
+                            "Hold the cast button down so the spell charges; release with mode=release."),
                     },
-                    "mode", "slot", "uuid")),
+                    "mode", "slot", "uuid"),
+                    ModeRule("release", forbidden: new[] { "charge" }),
+                    ModeRule("toggle_off", forbidden: new[] { "charge" }))),
             Tool(
                 "game_concept",
                 "Assign or remove a concept",

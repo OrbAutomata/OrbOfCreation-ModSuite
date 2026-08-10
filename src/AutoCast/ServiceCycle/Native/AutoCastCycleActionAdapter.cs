@@ -98,7 +98,9 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
                 _ => _casts.Fire(
                     action.SlotIndex,
                     action.SpellRecipeId,
-                    AutoCastConfigurationPolicy.HoldsFullCharge(config) && action.Belief.Chargeable),
+                    action.ChargeHold ||
+                        (AutoCastConfigurationPolicy.HoldsFullCharge(config) &&
+                            action.Belief.Chargeable)),
             };
         }
         catch (Exception ex) when (

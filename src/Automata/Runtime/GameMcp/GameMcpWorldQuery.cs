@@ -1090,14 +1090,20 @@ internal static class GameMcpWorldQuery
             var costs = ProjectEquippedSpellCosts(
                 state.World.Snapshot, slotIndex, WorldSpellCostKind.Immediate);
             if (costs.Count > 0) result["costs"] = costs;
-            // The game's completed-cast counter, as the single number it is. It was a before/after
-            // pair, and the pair read identical on sixteen of seventeen live fires because the game
-            // increments it in Spell.ExecuteSpell when a cast finishes rather than when it starts:
-            // the settled world one frame after a press has, correctly, not counted the press yet.
-            // Whether the press landed is now the answer's own verdict — a running spell is refused
-            // before the button, so a commit is a cast that started — and this stays what it always
-            // was, a total of casts the game has finished.
-            result["casts"] = after.CastCount;
+            // What a committed fire moved: a cast that was not running is running now. The boundary
+            // verifies the press against the game's own fire hook, and it refuses a spell that is
+            // already casting, so a commit is a cast this call started.
+            //
+            // The game's finished-cast counter used to stand here and could not do this job. The
+            // game increments it when a cast completes, not when one starts, so a cast shorter than
+            // the world cadence and a cast that never happened produced the same number — a landed
+            // press and a dropped press read byte-identical.
+            result["casting"] = true;
+            // A held charge is an input this call put down that the caller has to pick back up.
+            // Nothing in the settled loadout says a hold is outstanding, and a caller who never
+            // learns of one leaves the spell charging forever.
+            if (string.Equals(command.PayloadValue, "charge", StringComparison.Ordinal))
+                result["charging"] = true;
         }
         // Whether the spell is running, as the boolean the read surface publishes. A toggle spell
         // always says it, because a caller maintaining one needs the state even when nothing moved;

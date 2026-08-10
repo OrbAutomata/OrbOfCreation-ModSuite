@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using OrbAutomata;
 using OrbAutomata.GameMcp;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -28,6 +29,48 @@ public sealed class GameMcpCastTests
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!
                 .Values<string>()
                 .ToArray());
+    }
+
+    /// <summary>
+    /// The game gives the player a held cast button that charges a spell instead of firing it, so
+    /// the tool gives the caller the same choice — offered on the press that starts a cast and
+    /// nowhere else.
+    /// </summary>
+    [Fact]
+    public void Charging_is_an_optional_choice_on_the_press_that_starts_a_cast()
+    {
+        var tool = Assert.Single(
+            GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate["name"] == "game_cast");
+
+        Assert.Equal(
+            "boolean",
+            (string?)tool["inputSchema"]!["properties"]!["charge"]!["type"]);
+        Assert.DoesNotContain(
+            "charge",
+            tool["inputSchema"]!["required"]!.Values<string>());
+        var forbidden = tool["inputSchema"]!["allOf"]!
+            .Where(rule => rule["then"]!["not"] is not null)
+            .Select(rule => (string?)rule["if"]!["properties"]!["mode"]!["const"])
+            .ToArray();
+        Assert.Equal(new[] { "release", "toggle_off" }, forbidden);
+
+        var charged = GameMcpProtocolRouter.BuildOperation("game_cast", new JObject
+        {
+            ["mode"] = "fire",
+            ["slot"] = 1,
+            ["uuid"] = RecipeId.ToString("D"),
+            ["charge"] = true,
+        });
+        var plain = GameMcpProtocolRouter.BuildOperation("game_cast", new JObject
+        {
+            ["mode"] = "fire",
+            ["slot"] = 1,
+            ["uuid"] = RecipeId.ToString("D"),
+        });
+
+        Assert.Equal("charge", charged.SerializedValue);
+        Assert.Equal(string.Empty, plain.SerializedValue);
     }
 
     [Theory]
@@ -120,17 +163,17 @@ public sealed class GameMcpCastTests
         Assert.True((bool)delta["active"]!);
         Assert.Equal(2, (int)delta["charges"]!["before"]!);
         Assert.Equal(1, (int)delta["charges"]!["after"]!);
-        Assert.Equal(8, (int)delta["casts"]!);
+        Assert.True((bool)delta["casting"]!);
     }
 
     /// <summary>
-    /// The counter is one number, not a pair. The game increments <c>numCasts</c> in
-    /// <c>Spell.ExecuteSpell</c> — where a cast finishes — so the world settled a frame after a
-    /// press has correctly not counted the press, and a pair of it read identical on sixteen of
-    /// seventeen live fires. Whether the press landed is the answer's own verdict now.
+    /// A fire says what the press did: a cast is running that was not. The game's finished-cast
+    /// counter stood here and could not say it — the increment lives in <c>Spell.ExecuteSpell</c>,
+    /// where a cast ends, so a cast shorter than the world cadence left the number untouched and a
+    /// landed press read byte-identical to a dropped one.
     /// </summary>
     [Fact]
-    public void The_cast_counter_is_a_settled_total_rather_than_a_pair_that_never_moves()
+    public void A_fire_says_a_cast_started_rather_than_quoting_a_finished_cast_total()
     {
         var before = World(casting: false, cancellationEnabled: true, charges: 2, castCount: 12);
         var after = World(casting: false, cancellationEnabled: true, charges: 2, castCount: 12);
@@ -144,14 +187,67 @@ public sealed class GameMcpCastTests
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
-        Assert.Equal(JTokenType.Integer, delta["casts"]!.Type);
-        Assert.Equal(12, (int)delta["casts"]!);
-        Assert.Equal("casts: 12", Assert.Single(
-            GameMcpTextPage.Render(delta).Split('\n'), line => line.StartsWith("casts")));
+        Assert.Equal(JTokenType.Boolean, delta["casting"]!.Type);
+        Assert.True((bool)delta["casting"]!);
+        Assert.Null(delta["casts"]);
+        Assert.Null(delta["charging"]);
+    }
+
+    /// <summary>
+    /// A charged fire leaves the cast button held down, and nothing in the settled loadout says so.
+    /// The caller has to release it, so the answer says the hold is outstanding.
+    /// </summary>
+    [Fact]
+    public void A_charged_fire_says_the_hold_it_left_down()
+    {
+        var before = World(
+            casting: false, cancellationEnabled: true, charges: 2, chargeable: true);
+        var after = World(
+            casting: true, cancellationEnabled: true, charges: 2, chargeable: true);
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
+            "SpellRecipeSO", 1, string.Empty, "charge", false, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 61));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 62),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.True((bool)delta["casting"]!);
+        Assert.True((bool)delta["charging"]!);
+    }
+
+    /// <summary>
+    /// A hold asked for on a spell the game will not charge would set an input the game ignores and
+    /// fire an ordinary cast under the name of a charged one, so it is refused with the reason.
+    /// </summary>
+    [Fact]
+    public void A_charge_the_game_does_not_offer_is_refused_rather_than_fired_plain()
+    {
+        var chargeable = World(casting: false, cancellationEnabled: true, chargeable: true);
+        var plain = World(casting: false, cancellationEnabled: true, chargeable: false);
+        var other = Guid.Parse("11111111-1111-4111-8111-111111111111");
+
+        Assert.True(AutomataServiceCycleRuntime.SpellSlotCharges(chargeable, 0, RecipeId));
+        Assert.False(AutomataServiceCycleRuntime.SpellSlotCharges(plain, 0, RecipeId));
+        Assert.False(AutomataServiceCycleRuntime.SpellSlotCharges(chargeable, 0, other));
+        Assert.False(AutomataServiceCycleRuntime.SpellSlotCharges(chargeable, 1, RecipeId));
+
+        var refusal = GameMcpTestHarness.Json(new GameMcpObjectBuilder
+        {
+            ["status"] = "refused",
+            ["reasonCode"] = "spell_not_chargeable",
+        });
+
+        Assert.Equal("ERR_STATE", (string?)refusal["reasonCode"]);
+        Assert.Equal(
+            "The game offers this spell no charged cast, so it can only be fired outright.",
+            (string?)refusal["reason"]);
     }
 
     [Fact]
-    public void A_spell_slot_row_reads_the_same_cast_counter_the_fire_response_moves()
+    public void A_spell_slot_row_publishes_the_games_finished_cast_total()
     {
         var world = World(casting: false, cancellationEnabled: true, castCount: 4);
 
@@ -263,7 +359,8 @@ public sealed class GameMcpCastTests
         Guid immediateCostResource = default,
         BigDouble immediateCost = default,
         bool toggled = true,
-        int castCount = 0) => new()
+        int castCount = 0,
+        bool chargeable = false) => new()
     {
         CollectedAtEpoch = 9,
         CollectedAtUtcTicks = collectedAtUtcTicks,
@@ -279,7 +376,7 @@ public sealed class GameMcpCastTests
                 attuning: false,
                 channeled: false,
                 toggled,
-                chargeable: false,
+                chargeable,
                 castReady: true,
                 chargeAvailable: true,
                 canRemove: false,

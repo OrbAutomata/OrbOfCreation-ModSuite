@@ -86,7 +86,8 @@ internal readonly struct AutoCastCycleAction
         int slotIndex,
         Guid spellRecipeId,
         long collectedAtEpoch,
-        AutoCastPlanBelief belief)
+        AutoCastPlanBelief belief,
+        bool chargeHold = false)
     {
         if (kind is not (AutoCastActionKind.Fire or AutoCastActionKind.ReleaseCharge or
             AutoCastActionKind.ToggleOff))
@@ -99,6 +100,7 @@ internal readonly struct AutoCastCycleAction
         SpellRecipeId = spellRecipeId;
         CollectedAtEpoch = collectedAtEpoch;
         Belief = belief;
+        ChargeHold = chargeHold;
     }
 
     public AutoCastActionKind Kind { get; }
@@ -115,6 +117,16 @@ internal readonly struct AutoCastCycleAction
 
     /// <summary>What the planner believed about the slot when it chose it.</summary>
     public AutoCastPlanBelief Belief { get; }
+
+    /// <summary>
+    /// Whether the caller asked for this fire to be held at charge rather than released at once.
+    /// </summary>
+    /// <remarks>
+    /// The service decides charging from its own configuration and what the snapshot said the spell
+    /// could do. A caller pressing the button through the MCP holds that choice itself, so the ask
+    /// travels with the action instead of being inferred from a setting the caller never set.
+    /// </remarks>
+    public bool ChargeHold { get; }
 
     /// <summary>
     /// The lifecycle epoch the world this cast was planned from was collected under.

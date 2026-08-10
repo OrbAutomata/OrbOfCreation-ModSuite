@@ -1143,7 +1143,7 @@ most, so an old code's new class can be looked up here:
 | --- | --- |
 | `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `slot_out_of_range`, `screen_match_failed`, `composite_identity_required`, `discovery_surface_ambiguous` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `recipe_has_no_core_glyph` |
-| `ERR_STATE` | `invalid_state`, `already_maxed`, `already_developing`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `charge_unavailable`, `resources_uncovered`, `attuning` |
+| `ERR_STATE` | `invalid_state`, `already_maxed`, `already_developing`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `charge_unavailable`, `spell_not_chargeable`, `resources_uncovered`, `attuning` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
 | `ERR_LOCKED` | `not_available`, `native_unavailable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `core_glyph_not_owned`, `cannot_level`, `research_leeway_exhausted`, `native_leeway_exhausted` |
@@ -1404,6 +1404,8 @@ tools/game-mcp-client.py call game_agromancy --arguments \
 tools/game-mcp-client.py call game_cast --arguments \
   '{"mode":"fire","slot":1,"uuid":"SPELL_UUID"}'
 tools/game-mcp-client.py call game_cast --arguments \
+  '{"mode":"fire","slot":1,"uuid":"SPELL_UUID","charge":true}'
+tools/game-mcp-client.py call game_cast --arguments \
   '{"mode":"toggle_off","slot":1,"uuid":"SPELL_UUID"}'
 tools/game-mcp-client.py call game_discover --arguments \
   '{"mode":"preview","surface":"spellcraft","components":[{"uuid":"GLYPH_UUID","count":2}]}'
@@ -1453,13 +1455,22 @@ casting state changing from active to inactive. The settled response is only the
 slot, and settled `active` state; a refusal names the binding setting or live spell
 state. Detailed `spell-slots` rows expose `toggleOff.available` so the setting never has to be
 learned by attempting the action, and carry `casts`, the game's own per-spell manual cast counter.
-A settled `fire` carries that counter as the total the game holds, not as a pair: the game writes it
-when a cast *completes*, frames after the press, so a pair taken at the press was two readings of
-the same number on every fire. A press at a spell that is already running is refused rather than
-committed silently — the game's own button answers it with a warning popup or an end-of-cast, never
-with a new cast — so a repeated fire can never look like a firing loop that is doing nothing. A
-running spell reports `active`, whether it is a toggle or not; an idle one-shot carries no `active`
-key, because it has no running state to report.
+A settled `fire` says `casting: yes` — the press started a cast now — and carries no cast counter at
+all. The game writes that counter when a cast *completes*, frames after the press and sometimes
+before the next world is published, so it was the same number whether the press landed or was
+dropped. A press at a spell that is already running is refused rather than committed silently — the
+game's own button answers it with a warning popup or an end-of-cast, never with a new cast — so a
+repeated fire can never look like a firing loop that is doing nothing. A running spell reports
+`active`, whether it is a toggle or not; an idle one-shot carries no `active` key, because it has no
+running state to report.
+
+`fire` takes an optional `charge`, default false, which is the player's held cast button: the spell
+charges instead of firing at once, and `release` lets it go, landing more power the longer it was
+held. The other two modes reject the argument. A charged fire answers `charging: yes` as well,
+because a held input is a thing this call put down that the caller has to pick back up and no
+loadout row says one is outstanding. Charging is offered by the game only on spells that scale with
+it once Charged Spells is researched, so `charge` at a spell the published loadout shows without one
+is refused `spell_not_chargeable` rather than fired plain under a charged name.
 
 `game_casting_dial` requires `dial` plus a positive `value` and takes no UUID at all, because both
 Output Level and Reserve Level are single global variables. The boundary reads the exact global
@@ -1740,8 +1751,11 @@ ruling rather than restoring a contract:
 
 - **The cast-counter echo.** A cast press answered with a counter that had not moved yet, because
   the game writes it when a cast finishes rather than when one is pressed — so the pair reported no
-  change on every landed press. `{before, after}` remains the idiom for facts that did move, and the
-  ones a press always moves ride whether or not the numbers differ — *Inline action results*.
+  change on every landed press. Demoting the pair to a bare total kept the same defect: a landed
+  press and a dropped press were byte-identical. The counter is off the fire response entirely, and
+  the press answers what it did — `casting: yes`. `{before, after}` remains the idiom for facts that
+  did move, and the ones a press always moves ride whether or not the numbers differ — *Inline
+  action results*.
 - **The `next {…}` affordance block.** A commit answers with what its own press changed; the
   decisions that press reopened are read with `world_get`, where every other caller reads them —
   *Inline action results*.

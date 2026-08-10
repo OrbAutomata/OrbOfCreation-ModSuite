@@ -1174,11 +1174,22 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                     "toggle_off" => AutoCastActionKind.ToggleOff,
                     _ => AutoCastActionKind.Fire,
                 };
+                var slotIndex = checked(command.Amount - 1);
+                var chargeHold = string.Equals(
+                    command.PayloadValue, "charge", StringComparison.Ordinal);
+                if (chargeHold && !SpellSlotCharges(world, slotIndex, command.TargetId))
+                {
+                    throw new GameMcpActionUnavailableException(
+                        "spell_not_chargeable",
+                        "the published loadout shows this spell with no charged cast to hold");
+                }
                 var action = new AutoCastCycleAction(
                     kind,
-                    checked(command.Amount - 1),
+                    slotIndex,
                     command.TargetId,
-                    world.CollectedAtEpoch);
+                    world.CollectedAtEpoch,
+                    default,
+                    chargeHold);
                 return ((AutoCastFeatureRuntime)feature).TryExecuteGameMcp(
                     in action, in config, in context);
             }
@@ -1240,6 +1251,22 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             default:
                 throw new ArgumentOutOfRangeException(nameof(command.Kind));
         }
+    }
+
+    /// <summary>
+    /// Whether the published loadout shows the named spell in the named position offering a charged
+    /// cast. A hold asked for on a spell the game does not charge would set an input the game ignores
+    /// and fire an ordinary cast, which is not the cast the caller asked for.
+    /// </summary>
+    internal static bool SpellSlotCharges(GameWorldState world, int slotIndex, Guid spellRecipeId)
+    {
+        for (var index = 0; index < world.SpellSlots.Count; index++)
+        {
+            var slot = world.SpellSlots[index];
+            if (slot.SlotIndex != slotIndex) continue;
+            return slot.Occupied && slot.SpellRecipeId == spellRecipeId && slot.Chargeable;
+        }
+        return false;
     }
 
     private IAutomataServiceCycleFeatureRuntime FindFeature(GameMcpCommandKind kind)
