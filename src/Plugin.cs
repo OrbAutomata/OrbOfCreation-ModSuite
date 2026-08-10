@@ -1358,6 +1358,7 @@ public sealed class Plugin : BaseUnityPlugin
     private void OnLifecycleTransition(GameLifecycleTransition transition)
     {
         if (transition.Current.Generation == _lifecycleGeneration) return;
+        Logger.LogAutomataInfo(transition.Describe());
         _lifecycleGeneration = transition.Current.Generation;
         EntityIdentityCatalog.Shared.Reset(_lifecycleGeneration);
         _serviceCycleActivation?.InvalidateLifecycle();

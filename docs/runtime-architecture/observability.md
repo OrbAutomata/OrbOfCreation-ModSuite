@@ -239,6 +239,14 @@ There is deliberately no configuration toggle for the normal journal, and no res
 
 ## Other owned output paths
 
+Every game lifecycle transition writes one line naming the epoch it produced, the kind of transition,
+the scene, the source that reported it, and the frame. The log is where that reason has to land: the
+suite invalidates every native reference on the epoch number alone, and the number is all the trace
+can carry, since its records are numeric and a scene name and a source are strings. Without it,
+naming the prestige behind one mid-session epoch change took a purchase-topology line, two
+independent clock anchors, and a file timestamp. A field with no fact reads `unnamed` rather than
+empty, so an absent fact cannot be mistaken for a broken line.
+
 A full-trace session names itself in the log at both ends: one line when it starts, carrying the
 session id and the run-relative path it is writing to, and one when it closes, carrying the records it
 had taken. The closing line exists because shutdown is the one boundary no tick follows — the writer

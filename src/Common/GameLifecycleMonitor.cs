@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace OrbModding.Common;
 
@@ -84,6 +85,30 @@ public readonly struct GameLifecycleTransition
     public GameLifecycleSnapshot Previous { get; }
     public GameLifecycleSnapshot Current { get; }
     public string Source { get; }
+
+    /// <summary>
+    /// One line saying which epoch this is and why it happened.
+    /// </summary>
+    /// <remarks>
+    /// Every reference that invalidates at a lifecycle boundary invalidates on the number alone, and
+    /// the number is all the trace can carry: its records are numeric, and a scene name and a source
+    /// are strings. So the reason has to reach the log or it reaches nobody — an epoch changed
+    /// mid-session and naming the prestige behind it took a purchase-topology line, two clock
+    /// anchors, and a file timestamp to establish. An unnamed fact is spelled out rather than left
+    /// blank, because a blank field reads as a formatting bug rather than as an absent fact.
+    /// </remarks>
+    public string Describe() =>
+        "Game lifecycle " +
+        Previous.Generation.ToString(CultureInfo.InvariantCulture) + " -> " +
+        Current.Generation.ToString(CultureInfo.InvariantCulture) + ": " +
+        (Current.LastTransition?.ToString() ?? "unrecorded") +
+        " | state=" + Current.State +
+        " | scene=" + Named(Current.SceneName) +
+        " | source=" + Named(Source) +
+        " | frame=" + Current.LastFrame.ToString(CultureInfo.InvariantCulture) + ".";
+
+    private static string Named(string value) =>
+        string.IsNullOrWhiteSpace(value) ? "unnamed" : value;
 }
 
 public readonly struct GameLifecycleDiagnostic
