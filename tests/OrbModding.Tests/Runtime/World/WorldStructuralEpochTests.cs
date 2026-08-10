@@ -373,6 +373,60 @@ public sealed class WorldStructuralEpochTests : IDisposable
     }
 
     /// <summary>
+    /// A read that failed did not read, so the gate stays open until one does.
+    /// </summary>
+    /// <remarks>
+    /// The gate's claim is that the structural rows in this frame describe this run of the game.
+    /// Closing it over a bound reader that threw made that claim about an emptied buffer, and since
+    /// the epoch only moves at a lifecycle boundary, recovery took a prestige — one transient native
+    /// exception in the owning-view reader disabled every purchase for the rest of the run.
+    /// </remarks>
+    [Fact]
+    public void AFailedStructuralReadIsTakenAgainOnTheNextPass()
+    {
+        Author();
+        var collector = new GameWorldCollector();
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 5 };
+        var registry = global::PlotNodeSO.All;
+        try
+        {
+            global::PlotNodeSO.All = null!;
+            Assert.Equal(
+                WorldCategoryOutcome.Unavailable,
+                collector.Collect(frame).For("plot authoring").Outcome);
+        }
+        finally
+        {
+            global::PlotNodeSO.All = registry;
+        }
+
+        collector.Collect(frame);
+
+        Assert.Equal(1, GameWorldFrameDeriver.Build(frame).PlotAuthoring.Count);
+    }
+
+    /// <summary>
+    /// A category this build never had is not a failed read. Holding the gate open for one would
+    /// re-walk every other structural category four times a second for an answer that cannot arrive.
+    /// </summary>
+    [Fact]
+    public void AStructuralReaderThatNeverBoundStillClosesTheGate()
+    {
+        Author();
+        var collector = new GameWorldCollector(
+            static name => name == "SpellRecipeSO" ? null : WorldNativeTypes.Resolve(name));
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 5 };
+        Assert.Equal(
+            WorldCategoryOutcome.Unavailable,
+            collector.Collect(frame).For("spell authored graph").Outcome);
+
+        ClearRegistries();
+        collector.Collect(frame);
+
+        Assert.Equal(1, GameWorldFrameDeriver.Build(frame).PlotAuthoring.Count);
+    }
+
+    /// <summary>
     /// One plot authoring the three phases the game ships, and one action whose completion applies one
     /// block. Enough shape for both structural readers to produce rows; the terms themselves are the
     /// safety audit's business, not this file's.

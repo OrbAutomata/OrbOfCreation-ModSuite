@@ -327,6 +327,13 @@ native requirement verdicts, crafting visibility/purchase/capacity/drain verdict
 modifier inputs, and affordability. The field-by-field ownership table is in
 [Game MCP frame operations](game-mcp-frame-operations.md#data-lifetime-and-owner-inventory).
 
+The epoch is recorded only when the structural readers actually delivered. A bound reader that threw
+left its buffer reset, and recording that pass as read would claim the frame holds this run's
+authored rows when it holds none — with no further epoch until the next lifecycle, recovery took a
+prestige. A reader that never bound is the opposite fact and does not hold the epoch open: nothing on
+this build will make it deliver, and waiting for it would re-walk every other structural category
+four times a second.
+
 `WorldScribeRelations.cs` is the reader that belongs in that structural set and is not in it yet. Its
 enchantment-role half is authored data, and it re-reads it every 250 ms through `MethodInfo.Invoke`
 and `FieldInfo.GetValue` rather than the compiled accessors every other reader binds — the overhead

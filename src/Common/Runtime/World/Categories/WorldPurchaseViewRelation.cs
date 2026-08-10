@@ -1414,10 +1414,15 @@ internal sealed class WorldPurchaseViewRelationReader : IWorldCategoryReader
                     : unresolved + " candidate owning-view relation(s) were retained as named fail-closed facts; " +
                       skipped + " candidate(s) lacked a publishable exact identity");
         }
+        // The buffers are reset because a half-appended pass is not a route table. The published
+        // snapshot is deliberately left alone: ReadAll assembles its own and assigns it only on the
+        // way out, so a throw never touched it, and dropping it here would turn one transient native
+        // exception into a whole lifecycle of refused purchases. Nothing stale can slip through —
+        // TryGetCaptured admits only under the epoch that stamped it — and the failed report keeps
+        // the collector's structural gate open, so the next pass reads again.
         catch (Exception ex) when (ex is TargetInvocationException or ArgumentException or
                                    InvalidOperationException or TargetException or MemberAccessException)
         {
-            _resolver!.Invalidate();
             frame.PurchaseViewRelations.Reset();
             frame.PurchaseViewRoutes.Reset();
             return WorldCategoryReport.Missing(Category, ex.GetBaseException().Message);

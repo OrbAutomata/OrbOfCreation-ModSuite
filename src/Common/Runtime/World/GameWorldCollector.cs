@@ -436,6 +436,7 @@ internal sealed class GameWorldCollector
             reports[_readers.Length] = WorldCategoryReport.Missing("modifier folding", degradation);
         }
 
+        var structuralWasRead = true;
         for (var index = 0; index < _readers.Length; index++)
         {
             if (structuralIsCurrent && _isStructural[index])
@@ -447,10 +448,23 @@ internal sealed class GameWorldCollector
             }
 
             reports[index] = _readers[index].Collect(_claimed, frame);
-            if (_isStructural[index]) _structuralReports[index] = reports[index];
+            if (!_isStructural[index]) continue;
+            _structuralReports[index] = reports[index];
+            if (_readers[index].IsAvailable &&
+                reports[index].Outcome != WorldCategoryOutcome.Collected)
+            {
+                structuralWasRead = false;
+            }
         }
 
-        if (!structuralIsCurrent)
+        // The gate says the structural rows in this frame describe this run of the game, so it may
+        // only close over rows a read actually delivered. A bound reader that threw left its buffer
+        // reset, and calling that "already read for this epoch" is how one transient native
+        // exception used to disable a whole lifecycle's worth of admissions — recovery needed a
+        // prestige. A reader that did not bind at all is a different fact: nothing on this build
+        // will ever make it deliver, and holding the gate open for it would re-walk every other
+        // structural category four times a second for an answer that cannot arrive.
+        if (!structuralIsCurrent && structuralWasRead)
         {
             _structuralFrame = frame;
             _structuralEpoch = frame.CollectedAtEpoch;
