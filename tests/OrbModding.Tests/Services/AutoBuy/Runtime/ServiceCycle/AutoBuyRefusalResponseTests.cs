@@ -116,6 +116,65 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
         Assert.DoesNotContain("Diagnostic bundle", message);
     }
 
+    /// <summary>
+    /// A gate the game shut since planning is the fact the action boundary exists to revalidate,
+    /// not a contradiction. A prestige shuts a great many at once, and the suite switched the whole
+    /// feature off over one candidate the game was right about, for the rest of the session.
+    /// </summary>
+    [Fact]
+    public void AGateTheGameShutSincePlanningSkipsTheCandidateAndKeepsAutoBuyOn()
+    {
+        var config = new EditableConfig(AutoBuyOperationMode.Active);
+        var responder = Responder(config, out var bundles, out var logged);
+
+        responder.ObserveRefusal(Report(RefusedOnAvailability()));
+
+        Assert.Equal(AutoBuyOperationMode.Active, config.Current.AutoBuy.Mode);
+        Assert.False(Directory.Exists(bundles));
+        var message = Assert.Single(logged);
+        Assert.Contains("skipped a purchase the game had shut since planning", message);
+        Assert.Contains("refused by IsAvailable()", message);
+        Assert.Contains("Auto Buy remains enabled", message);
+        Assert.DoesNotContain("Diagnostic bundle", message);
+    }
+
+    /// <summary>
+    /// Skipping is not retrying. A world collected after the first refusal had its chance to read
+    /// the shut gate; reading it open and being refused again is the suite disagreeing with the
+    /// game about an entity, which is what the stand-down is for.
+    /// </summary>
+    [Fact]
+    public void TheSameCandidateRefusedAgainFromAFresherWorldStandsAutoBuyDown()
+    {
+        var config = new EditableConfig(AutoBuyOperationMode.Active);
+        var responder = Responder(config, out _, out var logged);
+
+        responder.ObserveRefusal(Report(RefusedOnAvailability()));
+        responder.ObserveRefusal(Report(RefusedOnAvailability(), worldGeneration: 5));
+
+        Assert.Equal(AutoBuyOperationMode.Disabled, config.Current.AutoBuy.Mode);
+        Assert.Equal(2, logged.Count);
+        Assert.Contains("Auto Buy disabled itself", logged[1]);
+    }
+
+    /// <summary>
+    /// The same world says nothing new: a batch's later actions were all planned before the gate
+    /// shut, so the capture never had a chance to see it.
+    /// </summary>
+    [Fact]
+    public void TheSameCandidateRefusedTwiceFromOneWorldIsStillOneStaleReading()
+    {
+        var config = new EditableConfig(AutoBuyOperationMode.Active);
+        var responder = Responder(config, out _, out var logged);
+
+        responder.ObserveRefusal(Report(RefusedOnAvailability()));
+        responder.ObserveRefusal(Report(RefusedOnAvailability()));
+
+        Assert.Equal(AutoBuyOperationMode.Active, config.Current.AutoBuy.Mode);
+        Assert.Equal(2, logged.Count);
+        Assert.All(logged, message => Assert.Contains("Auto Buy remains enabled", message));
+    }
+
     [Fact]
     public void TheLoudLineNamesTheBundleItWrote()
     {
@@ -368,6 +427,13 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
             AutoBuyAdmissionTerm.Refused,
             AutoBuyAdmissionTerm.Passed);
 
+    private static AutoBuyAdmissionDiagnosis RefusedOnAvailability() =>
+        new(
+            AutoBuyAdmissionTerm.Refused,
+            AutoBuyAdmissionTerm.Passed,
+            AutoBuyAdmissionTerm.Passed,
+            AutoBuyAdmissionTerm.Passed);
+
     private static AutoBuyAdmissionDiagnosis RefusedOnAffordability()
     {
         var live = AutoBuyLiveCostSnapshot.Complete(
@@ -387,7 +453,9 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
             in live);
     }
 
-    private static AutoBuyRefusalReport Report(AutoBuyAdmissionDiagnosis diagnosis) =>
+    private static AutoBuyRefusalReport Report(
+        AutoBuyAdmissionDiagnosis diagnosis,
+        ulong worldGeneration = 4) =>
         new(
             AutoBuyCandidateKind.Upgrade,
             CandidateId,
@@ -408,7 +476,7 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
                 bindingAvailable: new BigDouble(8.0, 0),
                 bindingReserveFloor: default),
             diagnosis,
-            worldGeneration: 4,
+            worldGeneration,
             collectedAtEpoch: 12,
             configGeneration: 3,
             lifecycleGeneration: 2,
