@@ -492,14 +492,14 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
     private readonly Func<object, int>? _recipeMasteryLevel;
     private readonly Func<object, bool>? _durationSpell;
     private readonly Func<object, bool>? _usageRequirementsMet;
-    private readonly MethodInfo? _getAugmentGlyphs;
-    private readonly MethodInfo? _getGlyphQuantity;
+    private readonly Func<object, object?>? _getAugmentGlyphs;
+    private readonly Func<object, object, int>? _getGlyphQuantity;
     private readonly Func<object, Guid>? _glyphId;
-    private readonly MethodInfo? _canCancelSpells;
+    private readonly Func<object?>? _canCancelSpells;
 
-    private readonly MethodInfo? _getCost;
-    private readonly MethodInfo? _getDrainCost;
-    private readonly MethodInfo? _canCastASpell;
+    private readonly Func<object, object?>? _getCost;
+    private readonly Func<object, object?>? _getDrainCost;
+    private readonly Func<object?>? _canCastASpell;
     private readonly Func<object, IList?>? _costEntries;
     private readonly Func<object, Guid>? _entryResource;
     private readonly Func<object, BigDouble>? _entryValue;
@@ -557,35 +557,49 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         _usageRequirementsMet = spell.Call<bool>("HasMetUsageRequirements");
         var glyphType = resolveType("GlyphSO");
         var glyphListType = glyphType is null ? null : typeof(List<>).MakeGenericType(glyphType);
-        _getAugmentGlyphs = _spellType?.GetMethod(
+        var getAugmentGlyphs = _spellType?.GetMethod(
             "GetAugmentGlyphs", Instance, null, Type.EmptyTypes, null);
-        _getGlyphQuantity = glyphType is null
+        var getGlyphQuantity = glyphType is null
             ? null
             : _spellType?.GetMethod(
                 "GetQuantityOfGlyph", Instance, null, new[] { glyphType }, null);
         _glyphId = NativeAccessorBinder.Call<Guid>(glyphType, "GetGuid");
         var settingsType = resolveType("SettingsManager");
-        _canCancelSpells = settingsType?.GetMethod(
+        var canCancelSpells = settingsType?.GetMethod(
             "CanCancelSpells",
             BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
             null,
             Type.EmptyTypes,
             null);
-        if (_getAugmentGlyphs?.ReturnType != glyphListType ||
-            _getGlyphQuantity?.ReturnType != typeof(int))
+        if (getAugmentGlyphs?.ReturnType != glyphListType ||
+            getGlyphQuantity?.ReturnType != typeof(int))
         {
-            _getAugmentGlyphs = null;
-            _getGlyphQuantity = null;
+            getAugmentGlyphs = null;
+            getGlyphQuantity = null;
         }
 
         // The two cost accessors return a cost list rather than a value, so their entries are bound
         // off the declared return type the same way the upgrade reader binds its authored costs.
-        _getCost = _spellType?.GetMethod("GetCost", Instance, null, Type.EmptyTypes, null);
-        _getDrainCost = _spellType?.GetMethod("GetDrainCost", Instance, null, Type.EmptyTypes, null);
-        _canCastASpell = _managerType?.GetMethod(
+        var getCost = _spellType?.GetMethod("GetCost", Instance, null, Type.EmptyTypes, null);
+        var getDrainCost = _spellType?.GetMethod("GetDrainCost", Instance, null, Type.EmptyTypes, null);
+        var canCastASpell = _managerType?.GetMethod(
             "CanCastASpell", Static, null, Type.EmptyTypes, null);
 
-        var costListType = _getCost?.ReturnType;
+        // Every member the audits above accepted is compiled into an accessor. A member that resolves
+        // but will not compile leaves its accessor null, which is the same unavailability an absent
+        // member produces and reaches the player through the same sentence.
+        _getAugmentGlyphs = NativeAccessorBinder.CallValue(getAugmentGlyphs);
+        _getGlyphQuantity = NativeAccessorBinder.CallWithObjectArgument<int>(getGlyphQuantity);
+        _canCancelSpells = canCancelSpells?.ReturnType == typeof(bool)
+            ? NativeAccessorBinder.CallStaticValue(canCancelSpells)
+            : null;
+        _canCastASpell = canCastASpell?.ReturnType == typeof(bool)
+            ? NativeAccessorBinder.CallStaticValue(canCastASpell)
+            : null;
+        _getCost = NativeAccessorBinder.CallValue(getCost);
+        _getDrainCost = NativeAccessorBinder.CallValue(getDrainCost);
+
+        var costListType = getCost?.ReturnType;
         var entryType = NativeAccessorBinder.CollectionElementType(costListType, "costs");
         _costEntries = NativeAccessorBinder.CollectionField(costListType, "costs");
         _entryResource = NativeAccessorBinder.ReferenceGuid(entryType, "resource");
@@ -598,8 +612,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         }
 
         _unavailable = IsCostBound() && IsCompositionBound() &&
-            _canCancelSpells?.ReturnType == typeof(bool) &&
-            _canCastASpell?.ReturnType == typeof(bool)
+            _canCancelSpells is not null && _canCastASpell is not null
             ? string.Empty
             : "Spell did not expose its complete cast, level, augment, cancellation, or manager readiness state on this build";
     }
@@ -641,8 +654,8 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         try
         {
             values = _slots!(loadout);
-            cancellationEnabled = _canCancelSpells!.Invoke(null, Array.Empty<object>()) is true;
-            casterAvailable = (bool)_canCastASpell!.Invoke(null, null)!;
+            cancellationEnabled = _canCancelSpells!() is true;
+            casterAvailable = (bool)_canCastASpell!()!;
         }
         catch (Exception ex)
         {
@@ -737,10 +750,10 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         object spell,
         int index,
         WorldSpellCostKind kind,
-        MethodInfo accessor,
+        Func<object, object?> accessor,
         WorldSpellCostBuffer costs)
     {
-        var costList = accessor.Invoke(spell, null);
+        var costList = accessor(spell);
         if (costList is null) return;
 
         var entries = _costEntries!(costList);
@@ -772,7 +785,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
 
     private PublicationTable<WorldSpellSlotGlyph> ReadAugmentGlyphs(object spell)
     {
-        var values = _getAugmentGlyphs!.Invoke(spell, null) as IList;
+        var values = _getAugmentGlyphs!(spell) as IList;
         if (values is null || values.Count == 0)
             return PublicationTable<WorldSpellSlotGlyph>.Empty;
         var rows = new List<WorldSpellSlotGlyph>(values.Count);
@@ -783,7 +796,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             if (glyph is null) continue;
             var id = _glyphId!(glyph);
             if (id == Guid.Empty || !seen.Add(id)) continue;
-            var quantity = (int)(_getGlyphQuantity!.Invoke(spell, new[] { glyph }) ?? 0);
+            var quantity = _getGlyphQuantity!(spell, glyph);
             if (quantity > 0) rows.Add(new WorldSpellSlotGlyph(id, quantity));
         }
         rows.Sort(static (left, right) => left.GlyphId.CompareTo(right.GlyphId));

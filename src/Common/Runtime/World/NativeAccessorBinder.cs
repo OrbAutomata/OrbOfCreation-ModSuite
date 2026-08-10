@@ -993,6 +993,21 @@ internal static class NativeAccessorBinder
         }
     }
 
+    /// <summary>Compiles an already-audited no-argument static method as the value it answers.</summary>
+    internal static Func<object?>? CallStaticValue(MethodInfo? method)
+    {
+        if (method is null || !method.IsStatic || method.GetParameters().Length != 0) return null;
+        try
+        {
+            return Expression.Lambda<Func<object?>>(
+                Expression.Convert(Expression.Call(method), typeof(object))).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Compiles an already-audited one-argument static method as the value it answers.</summary>
     internal static Func<TArgument, object?>? CallStatic<TArgument>(MethodInfo? method)
     {
