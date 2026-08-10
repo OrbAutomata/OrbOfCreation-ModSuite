@@ -346,23 +346,11 @@ internal static class GameMcpWorldQuery
                 ["entityId"] = upgrade.EntityId.ToString("D"),
                 ["level"] = upgrade.Reading.Level,
                 ["queuedLevels"] = upgrade.Reading.QueuedLevels,
+                ["maxLevel"] = UpgradeCeiling(in upgrade),
+                ["remainingLevels"] = UpgradeRemaining(in upgrade),
+                ["affordable"] = UpgradeAffordability(world, in upgrade),
+                ["available"] = upgrade.Reading.Available && !upgrade.IsExhausted,
             };
-
-            // An exhausted upgrade has no next level, so it has no price to be short of.
-            if (!upgrade.IsExhausted &&
-                TryPurchaseAffordability(world, upgrade.EntityId, out var upgradeAffordable))
-            {
-                projected["affordable"] = upgradeAffordable;
-            }
-
-            // The ceiling and the distance to it travel together on every surface, so a row
-            // missing them means the upgrade is uncapped and never means this surface is lean.
-            if (upgrade.IsBounded)
-            {
-                projected["maxLevel"] = upgrade.Reading.MaxLevel;
-                projected["remainingLevels"] = upgrade.RemainingLevels;
-            }
-            projected["available"] = upgrade.Reading.Available && !upgrade.IsExhausted;
             if (upgrade.IsExhausted) projected["reasonCode"] = "already_maxed";
             return projected.Freeze();
         }
@@ -661,6 +649,34 @@ internal static class GameMcpWorldQuery
             if (!cost.Affordable) affordable = false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// The upgrade's ceiling, or the word for having none. The game marks "no ceiling" with a
+    /// negative native maximum, and every candidate number for it either lies or inverts the
+    /// meaning — <c>0</c> reads as a cap of zero. The word is the only spelling that is true.
+    /// </summary>
+    private static object UpgradeCeiling(in WorldUpgrade upgrade) =>
+        upgrade.IsBounded ? upgrade.Reading.MaxLevel : GameMcpListColumns.Uncapped;
+
+    /// <summary>
+    /// The distance left to the ceiling. <c>RemainingLevels</c> is zero for an unbounded upgrade
+    /// as well as for an exhausted one, so publishing the raw number would say "nothing left to
+    /// buy" about the upgrade that has the most left.
+    /// </summary>
+    private static object UpgradeRemaining(in WorldUpgrade upgrade) =>
+        upgrade.IsBounded ? upgrade.RemainingLevels : GameMcpListColumns.Uncapped;
+
+    /// <summary>
+    /// Whether the next level can be paid for, and when it cannot be priced at all, which of the
+    /// two reasons that is: the upgrade is finished, or the world published no cost for it.
+    /// </summary>
+    private static object UpgradeAffordability(GameWorldState world, in WorldUpgrade upgrade)
+    {
+        if (upgrade.IsExhausted) return GameMcpListColumns.AlreadyMaxed;
+        return TryPurchaseAffordability(world, upgrade.EntityId, out var affordable)
+            ? affordable
+            : GameMcpListColumns.Unpriced;
     }
 
     private static string[] ListFields(GameMcpWorldCategory category) => category.Name switch
@@ -3497,8 +3513,8 @@ internal static class GameMcpWorldQuery
 
     /// <summary>
     /// An upgrade with no ceiling has no ceiling to report: the game marks that with a negative
-    /// <c>maxLevel</c>, and a sentinel becomes absence rather than a plausible number. Both
-    /// <c>maxLevel</c> and <c>remainingLevels</c> are therefore published together or not at all.
+    /// <c>maxLevel</c>, which becomes the word for having none rather than a plausible number.
+    /// <c>world_get</c> shares the list's shape, so both fields are published on every row.
     /// </summary>
     private static GameMcpValue ProjectUpgrade(in WorldUpgrade upgrade)
     {
@@ -3513,11 +3529,8 @@ internal static class GameMcpWorldQuery
 
         // Nothing developing is a fact about the upgrade, not a missing reading, so zero ships.
         result["queuedLevels"] = upgrade.Reading.QueuedLevels;
-        if (upgrade.IsBounded)
-        {
-            result["maxLevel"] = upgrade.Reading.MaxLevel;
-            result["remainingLevels"] = upgrade.RemainingLevels;
-        }
+        result["maxLevel"] = UpgradeCeiling(in upgrade);
+        result["remainingLevels"] = UpgradeRemaining(in upgrade);
         if (upgrade.IsDeveloping)
             result["developmentProgress"] = upgrade.DevelopmentProgress;
         return result.Freeze();

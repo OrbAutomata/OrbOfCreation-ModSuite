@@ -865,7 +865,7 @@ public sealed class GameMcpCorrectnessCoreTests
     }
 
     [Fact]
-    public void AnUpgradeWithoutACeilingOmitsItInsteadOfReportingNoLevelsLeft()
+    public void AnUpgradeWithoutACeilingNamesThatInsteadOfReportingNoLevelsLeft()
     {
         var unboundedId = Guid.Parse("f2000000-0000-0000-0000-000000000003");
         var exhaustedId = Guid.Parse("f2000000-0000-0000-0000-000000000004");
@@ -889,8 +889,8 @@ public sealed class GameMcpCorrectnessCoreTests
         var unbounded = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             context, "upgrades", unboundedId.ToString("D")))["row"]!;
         Assert.Equal(7, (int)unbounded["level"]!);
-        Assert.Null(unbounded["maxLevel"]);
-        Assert.Null(unbounded["remainingLevels"]);
+        Assert.Equal("uncapped", (string?)unbounded["maxLevel"]);
+        Assert.Equal("uncapped", (string?)unbounded["remainingLevels"]);
         Assert.Null(unbounded["reasonCode"]);
 
         var exhausted = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
@@ -903,15 +903,15 @@ public sealed class GameMcpCorrectnessCoreTests
         var listed = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(context, "upgrades", 0, 10));
         var rows = listed["rows"]!.Values<JObject>().ToArray();
-        Assert.Null(rows[0]!["maxLevel"]);
-        Assert.Null(rows[0]!["remainingLevels"]);
+        Assert.Equal("uncapped", (string?)rows[0]!["maxLevel"]);
+        Assert.Equal("uncapped", (string?)rows[0]!["remainingLevels"]);
         Assert.Equal(10, (int)rows[1]!["maxLevel"]!);
         Assert.Equal(0, (int)rows[1]!["remainingLevels"]!);
         Assert.Equal("ERR_STATE", (string?)rows[1]!["reasonCode"]);
-        Assert.Null(rows[1]!["affordable"]);
+        Assert.Equal("already_maxed", (string?)rows[1]!["affordable"]);
 
-        // A caller paging the list must read the ceiling the same way a get would: absent on
-        // both surfaces means uncapped, never means the leaner surface dropped it.
+        // A caller paging the list must read the ceiling the same way a get would: both surfaces
+        // publish the pair on every row, so neither can be read as the leaner one having dropped it.
         Assert.Equal(0, (int)rows[0]!["queuedLevels"]!);
         Assert.Equal((int?)exhausted["maxLevel"], (int?)rows[1]!["maxLevel"]);
     }

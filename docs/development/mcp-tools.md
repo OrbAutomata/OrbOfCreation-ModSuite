@@ -361,12 +361,14 @@ persisted `GetBaseLevel()`, and names work still in flight separately as `queued
 always present because zero levels in flight is an answer; neither
 number is repeated under a second name. Both are exact counts on the wire: the badge draws
 `Utils.BeautifyInt`, so routing them through the large-magnitude renderer would round a
-2,136-level attribute to `2.14e3`. An `upgrades` row publishes `maxLevel` and `remainingLevels`
-only when the upgrade has a ceiling: a negative native maximum is the uncapped sentinel, so both
-fields are absent together rather than reading `0`. `world_list` and `world_get` publish that pair
-and `queuedLevels` identically, so an absent ceiling means uncapped on either surface and never
-means the list dropped it. An exhausted upgrade reads `already_maxed` and
-publishes no `affordable`, because a level that cannot be bought has no price to be short of.
+2,136-level attribute to `2.14e3`. An `upgrades` row publishes `maxLevel`, `remainingLevels` and
+`affordable` on every row, in every world state. Where the fact does not apply the cell says which
+fact that is: an upgrade the game marks with a negative native maximum reads `uncapped` under both
+`maxLevel` and `remainingLevels` — never `0`, which would read as a cap of zero and as nothing left
+to buy. An exhausted upgrade reads `affordable: already_maxed`, because a level that cannot be
+bought has no price to be short of; one the world publishes no cost for reads `affordable:
+unpriced`. `world_list` and `world_get` publish the same set, so a page of uncapped upgrades still
+shows the columns a capped page shows.
 
 Every purchasable counts levels, and no two of them count the same thing. One name means one thing
 across the whole surface, reads and commits alike:
@@ -1408,6 +1410,30 @@ A field or collection is absent when the suite did not collect it, and the respo
 named `…Unavailable` fact rather than by silence. A collection that was collected and is genuinely
 empty is present and empty.
 
+#### List columns are a declared, total set
+
+A `world_list` category's columns are declared, and every row fills every column in every world
+state; `world_get` shares the shape, so it follows. A field is either always in that set or deleted
+outright — nothing conditional. Absence in a table never means "not applicable": the cell says which
+fact does not apply, using a word, never a number that would be read as one.
+
+| Word | The fact the cell names |
+| --- | --- |
+| `uncapped` | no ceiling applies — the game's marker is a negative native maximum |
+| `already_maxed` | nothing is left to buy, so there is no next-level price |
+| `unpriced` | the publication names no price for this row |
+| `unevaluated` | a price is published, but this generation carried no same-generation holding to compare it against |
+| `unreadable` | the suite could not read this fact from the game this generation |
+| `empty` | the slot holds nothing |
+| `manual` | the entry is not automated, so it repeats no number of times |
+| `unslotted` | the loadout does not hold this recipe, so it occupies no position |
+| `unset` | the game published no value under the member this column names |
+
+This costs almost nothing to read, because a column holding one value across a page is said once in
+the header: a page of uncapped upgrades renders `all maxLevel=uncapped, remainingLevels=uncapped`
+on one line. What it buys is that the header stops shifting with world state — the page that taught
+nothing about caps was exactly the page whose every upgrade was uncapped.
+
 An identity is a handle and a name, and nothing else. The asset name (`internalName`), the runtime
 type (`nativeType`), the category the type implies, and where a name came from (`nameSource`) are
 catalog-browsing facts: `entity_catalog` and `explain_entity` publish them, and no world row or
@@ -1419,9 +1445,7 @@ Absence therefore never doubles as a value. Every key that once used it to mean 
 | Key | Absent means | Present-and-false/empty means |
 | --- | --- | --- |
 | `predicates.<slot>` | the predicate does not apply to this entity | published with its `available` verdict, and a `reasonCode` when that verdict is no |
-| `affordable` | the row has no price to be short of — an exhausted upgrade, or a row the world publishes no cost for | `false`: the named resources fall short |
 | `discover` | nothing: every glyph carries the block | `available:false` with the reason, including `native_not_discoverable` for a glyph the game never offers |
-| `maxLevel` / `remainingLevels` | the entity is uncapped — a negative native maximum — on `world_list` and `world_get` alike | a real ceiling and the distance left to it |
 | `queuedLevels` | nothing: every level-bearing row carries it | `0`: nothing is in flight |
 | `lastRun` | the game retains no record of a run: a cleared `wavesCompleted` with no spoils is the state a ritual nobody has played is in, and `RitualSO.IsFailedRun()` is `wavesCompleted < 5`, so an unconditional verdict would call every untouched ritual a failure | a finished run's `result`, `wavesCompleted` and `spoils` |
 | `spoils` | on a row that is `inBattle`, that the running battle has banked nothing yet. On one that is not, see `lastRun` | `[]` on `game_ritual end`: the run banked nothing |
