@@ -1470,6 +1470,12 @@ refusal grammar every surface shares: present exactly where there is a no to exp
 where the answer is yes, which the row's own `available` or `affordable` column already states. That
 absence never means "not applicable"; it means nothing was refused.
 
+The declaration is enforced rather than described. Every row a hand-written projection builds is
+checked against its category's set as it is built, so a column left off one row or invented for
+another refuses the read instead of reaching a page — the same loudness a category with no scan
+projection already has. A row the suite could not fully read is a different shape, not a shorter
+one: it keeps the whole declared set under `partialRow` and states the incompleteness beside it.
+
 An identity is a handle and a name, and nothing else. The asset name (`internalName`), the runtime
 type (`nativeType`), the category the type implies, and where a name came from (`nameSource`) are
 catalog-browsing facts: `entity_catalog` and `explain_entity` publish them, and no world row or

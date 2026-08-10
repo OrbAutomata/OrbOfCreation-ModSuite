@@ -1,4 +1,7 @@
 #if SERVICE_CYCLE_PROFILE
+using System;
+using System.Collections.Generic;
+
 namespace OrbAutomata.GameMcp;
 
 /// <summary>
@@ -51,5 +54,122 @@ internal static class GameMcpListColumns
 
     /// <summary>The game published no value under the member this column names.</summary>
     internal const string Unset = "unset";
+
+    /// <summary>
+    /// A refusal explains itself in the grammar every surface shares, so the verdict pair is
+    /// present exactly where there is a no and absent where the answer is yes — which the row's own
+    /// decision column already states. That absence never means "not applicable".
+    /// </summary>
+    private static readonly string[] Verdict = { "reasonCode", "reason" };
+
+    /// <summary>
+    /// What one row of a hand-written list projection must carry, in the projection's own
+    /// vocabulary — the wire renames some of these on the way out, but it renames them for every
+    /// row alike, so a set that is total here is total on the page.
+    /// </summary>
+    private static readonly Dictionary<string, string[]> Columns = Declare();
+
+    /// <summary>Every category that builds its own list rows, and therefore declares them.</summary>
+    internal static IReadOnlyCollection<string> Categories => Columns.Keys;
+
+    private static string[] Declared(string category) =>
+        Columns.TryGetValue(category, out var declared)
+            ? declared
+            : throw new InvalidOperationException(
+                "world category '" + category +
+                "' builds its own list rows but declares no total column set");
+
+    private static Dictionary<string, string[]> Declare() => new(StringComparer.Ordinal)
+    {
+        ["structures"] =
+            new[] { "entityId", "level", "queuedLevels", "enabled", "affordable" },
+        ["upgrades"] = new[]
+        {
+            "entityId", "level", "queuedLevels", "maxLevel", "remainingLevels", "affordable",
+            "available",
+        },
+        ["equipment"] = new[] { "entityId", "created", "equippedCount" },
+        ["rituals"] = new[]
+        {
+            "entityId", "discovered", "selected", "reachedLevel", "selectedLevel", "waveTotal",
+            "affordable",
+        },
+        ["research"] = new[]
+        {
+            "entityId", "state", "totalLevel", "queuedLevels", "canDevelop", "affordable",
+        },
+        ["resource-types"] = new[] { "entityId", "level", "hidden" },
+        ["glyphs"] = new[]
+        {
+            "entityId", "discovered", "available", "paidLevel", "bonusLevel", "totalLevel",
+        },
+        ["plot-nodes"] = new[]
+        {
+            "entityId", "visible", "masteryLevel", "quantity", "idleQuantity",
+            "availableQuantity",
+        },
+        ["purchase-costs"] =
+            new[] { "resourceId", "cost", "spendableAmount", "affordable", "targetId" },
+        ["challenges"] = new[] { "entityId", "state", "level" },
+        ["crafting-recipes"] = new[] { "entityId", "startingAmount" },
+        ["discovery-trees"] = new[] { "entityId", "mode" },
+        ["resources"] = new[]
+        {
+            "entityId", "category", "amount", "capacity", "netRatePerSecond", "atCapacity",
+        },
+        ["player-loadouts"] = new[] { "name", "selected" },
+        ["snapshot-loadouts"] = new[] { "name", "kind", "slots" },
+        ["snapshot-slots"] = new[] { "ownerId", "slot", "populated" },
+        ["snapshot-entries"] = new[] { "ownerId", "slot", "entryId", "quantity" },
+        ["crafting-queue-entries"] =
+            new[] { "queueId", "slot", "recipeId", "amount", "repetitions" },
+        ["spell-slots"] = new[] { "slot", "spellRecipeId", "casting" },
+        ["spell-costs"] = new[] { "slot", "kind", "resourceId", "amount" },
+        ["alchemy-instances"] =
+            new[] { "recipe", "activeCount", "queuedCount", "settled", "drainRatio" },
+        ["alchemy-loadout"] = new[] { "recipeId", "slot", "slotCount", "amount" },
+        ["agromancy-processing"] = new[]
+        {
+            "slot", "capacity", "used", "plot", "action", "amount", "processing",
+        },
+        ["agromancy-plot-actions"] = new[] { "plot", "action", "active", "add", "remove" },
+        ["targeting"] = new[]
+        {
+            "pending", "owner", "ownerNativeType", "selectionType", "candidates", "randomize",
+        },
+    };
+
+    /// <summary>
+    /// Hold one built row to its category's declaration, so a column cannot be reintroduced as
+    /// conditional by an edit that only looked at the row in front of it.
+    /// </summary>
+    /// <remarks>
+    /// This fires on the first row of the first page of the category, which is every test that
+    /// reads it — the same loudness <c>ScanFields</c> has for a category with no scan projection,
+    /// and for the same reason: the shape a surface promises is not a runtime variable.
+    /// </remarks>
+    internal static void Verify(string category, GameMcpObject row)
+    {
+        if (category is null) throw new ArgumentNullException(nameof(category));
+        if (row is null) throw new ArgumentNullException(nameof(row));
+        var declared = Declared(category);
+        var present = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < row.Properties.Count; index++)
+            present.Add(row.Properties[index].Name);
+        for (var index = 0; index < declared.Length; index++)
+        {
+            if (present.Remove(declared[index])) continue;
+            throw new InvalidOperationException(
+                "list category '" + category + "' left declared column '" + declared[index] +
+                "' off a row; a column that does not apply says which fact does not apply");
+        }
+        for (var index = 0; index < Verdict.Length; index++) present.Remove(Verdict[index]);
+        foreach (var extra in present)
+        {
+            throw new InvalidOperationException(
+                "list category '" + category + "' published undeclared column '" + extra +
+                "'; a column is declared for every row or it is not a column");
+        }
+    }
 }
 #endif

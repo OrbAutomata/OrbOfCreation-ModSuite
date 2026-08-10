@@ -293,7 +293,18 @@ internal static class GameMcpWorldQuery
         GameWorldState world,
         GameMcpWorldCategory category,
         object row) =>
-        WithOwnIdentity(category, ProjectListRowFields(world, category, row));
+        WithOwnIdentity(category, Declared(category, ProjectListRowFields(world, category, row)));
+
+    /// <summary>
+    /// A hand-written projection answers to its category's declared column set. A category with no
+    /// hand-written projection is already rendered from its declared field list, so it is total by
+    /// construction and has nothing to check here.
+    /// </summary>
+    private static GameMcpValue Declared(GameMcpWorldCategory category, GameMcpValue projected)
+    {
+        if (projected is GameMcpObject built) GameMcpListColumns.Verify(category.Name, built);
+        return projected;
+    }
 
     /// <summary>
     /// A composite row's identity is its own. It has no addressable UUID, so it says so and
@@ -535,10 +546,14 @@ internal static class GameMcpWorldQuery
         // An empty slot names itself under the column that would name its spell, so `occupied` is
         // not a second column for the same bit — and the id of an empty slot is the game's zero
         // Guid, which the wire drops rather than handing back an address nothing answers to.
-        var result = new JObject { ["slot"] = GameMcpSlotNumbering.Wire(slot.SlotIndex) };
-        if (slot.Occupied) result["spellRecipeId"] = slot.SpellRecipeId;
-        else result["spellRecipe"] = GameMcpListColumns.Empty;
-        result["casting"] = slot.Casting;
+        var result = new JObject
+        {
+            ["slot"] = GameMcpSlotNumbering.Wire(slot.SlotIndex),
+            ["spellRecipeId"] = slot.Occupied
+                ? slot.SpellRecipeId
+                : (object)GameMcpListColumns.Empty,
+            ["casting"] = slot.Casting,
+        };
         return result.Freeze();
     }
 
@@ -547,14 +562,14 @@ internal static class GameMcpWorldQuery
         {
             ["slot"] = GameMcpSlotNumbering.Wire(cost.SlotIndex),
             ["kind"] = cost.Kind.ToString(),
-            ["resourceId"] = cost.ResourceId,
+            ["resourceId"] = Named(cost.ResourceId),
             ["amount"] = new GameMcpDomainValue(cost.Amount),
         }.Freeze();
 
     private static GameMcpValue ProjectSnapshotSlotRow(in WorldSnapshotSlot slot) =>
         new JObject
         {
-            ["ownerId"] = slot.OwnerId,
+            ["ownerId"] = Named(slot.OwnerId),
             ["slot"] = GameMcpSlotNumbering.Wire(slot.Slot),
             ["populated"] = slot.Populated,
         }.Freeze();
@@ -562,11 +577,19 @@ internal static class GameMcpWorldQuery
     private static GameMcpValue ProjectSnapshotEntryRow(in WorldSnapshotEntry entry) =>
         new JObject
         {
-            ["ownerId"] = entry.OwnerId,
+            ["ownerId"] = Named(entry.OwnerId),
             ["slot"] = GameMcpSlotNumbering.Wire(entry.Slot),
-            ["entryId"] = entry.EntryId,
+            ["entryId"] = Named(entry.EntryId),
             ["quantity"] = entry.Quantity,
         }.Freeze();
+
+    /// <summary>
+    /// A reference column's value: the entity, or the word for naming none. The zero identity is
+    /// an address nothing answers to, and dropping it would take the column with it on a page
+    /// where no row names one.
+    /// </summary>
+    private static object Named(Guid entityId) =>
+        entityId == Guid.Empty ? GameMcpListColumns.Unset : entityId;
 
     /// <summary>
     /// A recipe the loadout does not hold has no position at all — the game stores that as a
@@ -578,7 +601,7 @@ internal static class GameMcpWorldQuery
     {
         var result = new JObject
         {
-            ["recipeId"] = decision.RecipeId,
+            ["recipeId"] = Named(decision.RecipeId),
             ["slot"] = decision.Position >= 0
                 ? GameMcpSlotNumbering.Wire(decision.Position)
                 : (object)GameMcpListColumns.Unslotted,
@@ -595,9 +618,9 @@ internal static class GameMcpWorldQuery
         // belongs; a separate `automatic` flag said the same bit a second time.
         var result = new JObject
         {
-            ["queueId"] = entry.QueueId,
+            ["queueId"] = Named(entry.QueueId),
             ["slot"] = GameMcpSlotNumbering.Wire(entry.Slot),
-            ["recipeId"] = entry.RecipeId,
+            ["recipeId"] = Named(entry.RecipeId),
             ["amount"] = new GameMcpDomainValue(entry.Amount),
             ["repetitions"] = entry.Automatic
                 ? entry.Repetitions
