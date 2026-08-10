@@ -23,8 +23,32 @@ internal static class GameMcpTooltipProjector
         AppendTooltip(primary, lines, visited, ref truncated);
         AppendTooltips(authoredNested, lines, visited, ref truncated);
         AppendTooltips(inspectedPanels, lines, visited, ref truncated);
+        DropRepeatedTail(lines);
         if (truncated) lines.Add("Tooltip truncated after 200 lines.");
         return new JObject { ["text"] = string.Join("\n", lines) };
+    }
+
+    /// <summary>
+    /// Drops a trailing block that repeats the block immediately before it. Adjacent duplicate
+    /// lines were already suppressed one at a time, which never caught a panel that painted its
+    /// whole last block twice — half a tooltip body, saying nothing the half above it had not.
+    /// </summary>
+    private static void DropRepeatedTail(List<string> lines)
+    {
+        for (var length = lines.Count / 2; length >= 2; length--)
+        {
+            var repeated = true;
+            for (var offset = 0; repeated && offset < length; offset++)
+            {
+                repeated = string.Equals(
+                    lines[lines.Count - length + offset],
+                    lines[lines.Count - (2 * length) + offset],
+                    StringComparison.Ordinal);
+            }
+            if (!repeated) continue;
+            lines.RemoveRange(lines.Count - length, length);
+            return;
+        }
     }
 
     private static void AppendTooltips(

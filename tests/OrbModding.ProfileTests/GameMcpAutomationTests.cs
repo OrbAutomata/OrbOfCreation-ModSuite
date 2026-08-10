@@ -51,7 +51,9 @@ public sealed class GameMcpAutomationTests
 
         Assert.Equal(7, rows.Count);
         Assert.Equal("auto_buy", (string?)rows[0]["feature"]);
-        Assert.Equal("Auto Buy", (string?)rows[0]["name"]);
+        // The screen name is the id in title case on six of seven rows, so a whole column repeated
+        // the column beside it. Only the row whose name is not its id still says one.
+        Assert.Null(rows[0]["name"]);
         Assert.True((bool)rows[0]["on"]!);
         Assert.Equal("Orb Mentor", (string?)rows[6]["name"]);
         Assert.True((bool)rows[6]["on"]!);

@@ -89,6 +89,34 @@ public sealed class GameMcpTooltipProjectorTests
         Assert.True(result.ToString(Newtonsoft.Json.Formatting.None).Length < 500);
     }
 
+    /// <summary>
+    /// Adjacent duplicate lines were suppressed one at a time, which never caught a panel painting
+    /// its whole last block twice — half a body saying nothing the half above it had not.
+    /// </summary>
+    [Fact]
+    public void A_body_that_paints_its_last_block_twice_says_it_once()
+    {
+        var tooltip = new FakeTooltip(
+            "Mana",
+            new TooltipNode("Quantity: 6/13"),
+            new TooltipNode("Capacity: 13"),
+            new TooltipNode("(+13, x1)"),
+            new TooltipNode("Quantity: 6/13"),
+            new TooltipNode("Capacity: 13"),
+            new TooltipNode("(+13, x1)"))
+        {
+            DisplayType = "Resource",
+            Description = "Raw magic.",
+        };
+
+        var result = GameMcpTestHarness.Json(
+            GameMcpTooltipProjector.Project(tooltip, null, null));
+
+        Assert.Equal(
+            "Mana\nResource\nRaw magic.\nQuantity: 6/13\nCapacity: 13\n(+13, x1)",
+            (string?)result["text"]);
+    }
+
     [Fact]
     public void FortyNodeDuplicateTooltipFitsTheCriticSignalBudget()
     {

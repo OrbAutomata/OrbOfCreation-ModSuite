@@ -136,7 +136,7 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.True((bool)row["loadBudget"]!["fitsAnotherSpell"]!);
         var equipped = Assert.Single(row["equipped"]!.Values<JObject>())!;
         Assert.Equal(1, (int)equipped["slot"]!);
-        Assert.Equal("Gather Knowledge", (string?)equipped["spellRecipe"]!["name"]);
+        Assert.Equal("Gather Knowledge", (string?)equipped["name"]);
     }
 
     [Theory]

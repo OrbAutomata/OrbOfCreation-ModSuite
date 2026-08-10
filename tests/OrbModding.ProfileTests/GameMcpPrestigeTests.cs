@@ -51,9 +51,7 @@ public sealed class GameMcpPrestigeTests
     public void The_challenge_screen_carries_complete_named_prestige_decision_and_current_holding()
     {
         var world = World();
-        var response = Json(GameMcpWorldQuery.ProjectChallengeState(world), world);
-
-        var prestige = response["prestige"]!;
+        var prestige = Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
         var advancements = prestige["timeAdvancements"]!;
         Assert.Equal(7, (int)advancements["atStart"]!);
         Assert.Equal(5, (int)advancements["previousStart"]!);
@@ -153,10 +151,12 @@ public sealed class GameMcpPrestigeTests
                 context.Selected, context.TimeOffers, context.PrestigeOffers),
         };
         var response = Json(GameMcpWorldQuery.ProjectChallengeState(world), world);
+        var prestige = Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
 
         Assert.Equal("Prismatic Trial", (string?)response["resetOffers"]![0]!["name"]);
-        Assert.False((bool)response["prestige"]!["available"]!);
-        Assert.Equal("ERR_REFUSED", (string?)response["prestige"]!["reasonCode"]);
+        Assert.Null(response["prestige"]);
+        Assert.False((bool)prestige["available"]!);
+        Assert.Equal("ERR_REFUSED", (string?)prestige["reasonCode"]);
     }
 
     [Fact]

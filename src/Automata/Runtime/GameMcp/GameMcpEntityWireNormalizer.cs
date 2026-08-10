@@ -197,6 +197,16 @@ internal static class GameMcpEntityWireNormalizer
         DeduplicateChildIdentity(item, "state");
         PromoteNestedPrimaryIdentity(item);
         PromoteIdentity(item);
+
+        // Both facts are read above and neither is news on the wire. A row with no `uuid` has no
+        // handle to hand back, which is the whole of what `addressable: false` said; and the
+        // category a row belongs to is the category the caller named to get the page it is on.
+        if (item["addressable"] is JValue { Type: JTokenType.Boolean } addressable &&
+            !(bool)addressable && item["uuid"] is null)
+        {
+            item.Remove("addressable");
+            item.Remove("category");
+        }
     }
 
     private static void PromoteNestedPrimaryIdentity(JObject item)
@@ -224,6 +234,13 @@ internal static class GameMcpEntityWireNormalizer
             CopyIfPresent(identity, item, "internalName");
             CopyIfPresent(identity, item, "category");
             CopyIfPresent(identity, item, "nativeType");
+
+            // The role became the row's own identity, so leaving it in place printed a third column
+            // that was the first two concatenated, on every row of the page. A row that references
+            // one other entity keeps its role named, because then the promoted pair no longer says
+            // by itself which of the two it is; and a role carrying more than a bare reference keeps
+            // its block, because only the bare reference is the duplicate.
+            if (IsIdentity(identity) && ReferenceCount(item) == 1) item.Remove(roles[index]);
             return;
         }
     }
@@ -231,6 +248,20 @@ internal static class GameMcpEntityWireNormalizer
     private static void CopyIfPresent(JObject source, JObject target, string field)
     {
         if (source[field] is JToken value) target[field] = value.DeepClone();
+    }
+
+    /// <summary>A reference and nothing else: the handle, and the player's name for it.</summary>
+    private static bool IsIdentity(JObject item) =>
+        item["uuid"] is not null &&
+        (item.Count == 1 || (item.Count == 2 && item["name"] is not null));
+
+    /// <summary>How many other entities this row names.</summary>
+    private static int ReferenceCount(JObject item)
+    {
+        var count = 0;
+        foreach (var property in item.Properties())
+            if (property.Value is JObject nested && nested["uuid"] is not null) count++;
+        return count;
     }
 
     private static void NormalizeCostRow(JObject item)
@@ -279,16 +310,19 @@ internal static class GameMcpEntityWireNormalizer
             AddIdentityFields(parent, uuid, catalog);
             return;
         }
+        // Naming the subject again under its role is the same entity a third time: the row already
+        // leads with that handle and that name, and no caller learns anything from being told the
+        // plot it just acted on is the plot.
+        if (ownUuid != Guid.Empty && ownUuid == uuid)
+        {
+            property.Remove();
+            return;
+        }
+
         if (!property.Name.EndsWith("Id", StringComparison.Ordinal) &&
             !property.Name.EndsWith("Uuid", StringComparison.Ordinal))
         {
             property.Value = Reference(uuid, catalog);
-            return;
-        }
-
-        if (ownUuid != Guid.Empty && ownUuid == uuid)
-        {
-            property.Remove();
             return;
         }
 

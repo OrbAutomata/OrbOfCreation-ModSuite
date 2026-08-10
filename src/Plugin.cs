@@ -2031,12 +2031,25 @@ public sealed class Plugin : BaseUnityPlugin
         var config = context.Configuration.Snapshot;
         var features = new GameMcpArrayBuilder();
         foreach (var feature in GameMcpAutomationFeatures.All)
-            features.Add(new GameMcpObjectBuilder
+        {
+            var row = new GameMcpObjectBuilder
             {
                 ["feature"] = feature.Name,
-                ["name"] = feature.DisplayName,
-                ["on"] = feature.IsOn(config),
-            });
+            };
+
+            // On six of seven rows the display name is the id in title case, so a whole column
+            // repeated the column beside it. The one feature whose screen name is not its id says
+            // so, and every other row is read straight off the id the verb already takes.
+            if (!string.Equals(
+                    feature.DisplayName,
+                    GameMcpAutomationFeatures.TitleCased(feature.Name),
+                    StringComparison.Ordinal))
+            {
+                row["name"] = feature.DisplayName;
+            }
+            row["on"] = feature.IsOn(config);
+            features.Add(row);
+        }
         var result = new GameMcpObjectBuilder
         {
             ["features"] = features,
@@ -2068,11 +2081,36 @@ public sealed class Plugin : BaseUnityPlugin
         return result.Freeze();
     }
 
-    private static string CanonicalConfigurationValue(string value, string settingType) =>
-        string.Equals(settingType, "Boolean", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(settingType, "bool", StringComparison.OrdinalIgnoreCase)
-            ? value.ToLowerInvariant()
-            : value;
+    private static object CanonicalConfigurationValue(string value, string settingType)
+    {
+        if (string.Equals(settingType, "Boolean", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(settingType, "bool", StringComparison.OrdinalIgnoreCase))
+        {
+            return value.ToLowerInvariant();
+        }
+
+        // An allowlist stored as joined UUIDs printed 288 characters that resolved to nothing a
+        // caller could use, on a surface that says every other id as a named handle. Written as the
+        // list it is, each entry crosses the wire the way every other entity reference does.
+        var entries = TryConfigurationIdentityList(value);
+        if (entries is null) return value;
+        var list = new GameMcpArrayBuilder();
+        for (var index = 0; index < entries.Length; index++) list.Add(entries[index]);
+        return list;
+    }
+
+    /// <summary>The whole UUIDs a joined setting holds, or nothing when it holds something else.</summary>
+    private static string[]? TryConfigurationIdentityList(string value)
+    {
+        if (value.Length == 0) return null;
+        var entries = value.Split(',');
+        for (var index = 0; index < entries.Length; index++)
+        {
+            entries[index] = entries[index].Trim();
+            if (!Guid.TryParseExact(entries[index], "D", out _)) return null;
+        }
+        return entries;
+    }
 
     private static string PlainConfigurationDomain(string value)
     {

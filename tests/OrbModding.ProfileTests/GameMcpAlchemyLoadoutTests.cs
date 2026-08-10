@@ -117,11 +117,12 @@ public sealed class GameMcpAlchemyLoadoutTests
         var instance = Assert.Single(Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(World(targetAmount: 2, position: 1), generation: 701),
             "alchemy-instances", 0, 10).Freeze())["rows"]!.Values<JObject>());
-        // An instance is not its recipe. It carries no addressable UUID and declares its own
-        // category, so world_get(row.category, row.uuid) can no longer fetch the recipe instead.
+        // An instance is not its recipe. It publishes no uuid of its own — the absence of a
+        // handle is how a row says there is nothing to hand back — so world_get can no longer be
+        // handed the recipe's id as though it were the instance's.
         Assert.Null(instance["uuid"]);
-        Assert.False((bool)instance["addressable"]!);
-        Assert.Equal("alchemy-instances", (string?)instance["category"]);
+        Assert.Null(instance["addressable"]);
+        Assert.Null(instance["category"]);
         Assert.Equal(GameMcpTestHarness.Handle(RecipeId), (string?)instance["recipe"]!["uuid"]);
         Assert.Equal("Catalyze", (string?)instance["recipe"]!["name"]);
         Assert.Equal(2, (int)instance["activeCount"]!);

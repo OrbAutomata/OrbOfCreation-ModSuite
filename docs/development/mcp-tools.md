@@ -237,7 +237,9 @@ successful rows. A typed not-found or invalid result repeats the implicated UUID
 failure evidence. Array reads have no aggregate status: each result owns its availability, while a
 category or schema failure that prevents the call from running remains a top-level refusal. Every
 row comes from the same pinned publication; the server does not issue a
-generation or retain a snapshot token across calls.
+generation or retain a snapshot token across calls. A call refused as a whole is the one-line
+refusal every other reader answers with, with no empty `results` collection beside it; the
+collection is a property of an answered batch.
 Localized collection gaps mark only the implicated list/search/get row unavailable and attach the
 partial row plus exact evidence there; unaffected rows in the same call remain ordinary results.
 `world_overview` therefore summarises those gaps in one sentence rather than restating them:
@@ -247,7 +249,8 @@ already lives on the owner's own `world_get`, as `implicatedSkippedRows`.
 
 Every paged read — `world_list`, `world_search`, `entity_catalog`, and `game_tooltips` — pages one
 way. Each takes `offset` and `limit`
-and answers with `total` plus `rows`; the collection is always present, including when it is empty.
+and answers with `total` plus `rows`; an answered page always carries the collection, including
+when it is empty, and a refused one carries the refusal line alone.
 `nextOffset` is present exactly when more rows remain, and its value is the input offset plus the
 rows actually delivered, so `nextOffset` present means "resume here" and `nextOffset` absent means
 "that was the end". There is no `truncated`, `returned`, `hasMore`, `matches`, or `tooltips`. A page
@@ -296,11 +299,15 @@ visibility, availability, or a world-category row. Lifecycle replacement clears 
 the next bind, so no prior-save Unity reference or label survives.
 
 `world_list` and `world_get` use the same deliberate player-relevant row projection. Every entity
-row leads with its primary `uuid` and `name`; composite rows promote their actionable primary
-identity while retaining separately named secondary references. A composite row with no identity of
-its own — a spell slot, a cost row, a loadout section — never borrows a nested entity's `uuid` as
-though it were addressable: it names its `category` and says `addressable: false`, so a caller
-cannot hand that UUID back as the row's handle. Rows then carry only the small set
+row leads with its primary `uuid` and `name`. A composite row with no identity of its own — a spell
+slot, a cost row, a loadout section — never borrows a nested entity's `uuid` as though it were the
+row's handle: it carries no `uuid` at all, and its nested references stay under their own role
+names. A row with no handle to hand back says nothing about that; a row's `category` is the
+category the caller named to reach the page. A composite row that does promote an actionable
+primary identity keeps every other reference separately named, and drops the promoted role's own
+name only when that reference was the row's only one, because then the promoted `uuid` and `name`
+already say which entity it was. No role repeats the row's own identity under a second name.
+Rows then carry only the small set
 of availability, unambiguous paid/bonus/total level, quantity, occupancy, readiness, or progress
 fields useful for comparing rows. Raw capture inputs, cached implementation fields,
 resource traits, rate inputs, and modifier structs stay out of world rows. `explain_entity` owns
@@ -790,13 +797,15 @@ membership, and explicit `select`, `queue`, and, when active, `abandon` decision
 selection has no resource price, so a row does not invent empty costs or affordability.
 
 `time_challenge(mode="state")` is the screen itself, answered when a caller asks for it: ordered
-fully named `selected` and `offers`, selection capacity, first-draw state, rerolls, one `reroll`
-decision, and `prestige`. It is a read, and it no longer rides challenge list/get pages — a request
+fully named `selected` and `offers`, selection capacity, first-draw state, rerolls, and one `reroll`
+decision under `challengeState`, with `prestigeState` beside it — the same top-level name and the
+same block `time_prestige` returns, said once rather than nested a second time inside the challenge
+block. It is a read, and it no longer rides challenge list/get pages — a request
 for one row at offset fifty used to come back nine tenths ambient state, repeated on every page.
 `resetOffers` appears only in the build where the Reset modal's list and the Time screen's list part
 company; they draw from the same asset, so it is normally absent rather than said twice.
 
-`state.prestige` is the persistent-reset pre-decision surface. It reports the reset's starting Time
+`prestigeState` is the persistent-reset pre-decision surface. It reports the reset's starting Time
 Advancements against the previous reset's and the difference between them (the screen's own
 subtraction), the reset count, the fully named persistent resource with its current spendable
 amount and real capacity semantics, the challenges queued for the reset, surviving rewards, and the
@@ -1725,7 +1734,10 @@ ordinary fresh-world gate.
 
 `suite_configuration` returns every writable setting as one `section/key: value` line and nothing
 else. It never reflectively serializes the runtime configuration record or exposes compiler metadata
-and internal nested policy objects.
+and internal nested policy objects. A setting whose stored value is a comma-joined list of whole
+UUIDs — an allowlist — is published as that list, so each entry crosses the wire as the named
+handle every other entity reference on this surface uses instead of as hundreds of characters of
+raw id a caller then has to resolve one by one.
 
 `mode="describe"` is where the rest lives: each setting's type, the values it accepts, and the
 sentence saying what it does. Those three do not change between calls, so the ordinary read does not
@@ -1756,9 +1768,11 @@ and the write is admitted rather than refused against a capacity nobody read.
 `suite_automation` is the seven green/gray automation buttons as booleans, because that is what
 they are: `auto_buy`, `auto_cast`, `auto_concept`, `auto_harvest`, `auto_items`, `auto_scribe`, and
 `mentor` are each a `{Disabled, Active}` setting with no third state. `mode="list"` returns every
-feature as `{feature, name, on}` and takes nothing else; it also carries the two suite-wide
+feature as `{feature, on}` and takes nothing else; it also carries the two suite-wide
 switches when either is silencing all seven, because a list of on buttons would otherwise answer a
-different question than the caller asked.
+different question than the caller asked. A row adds `name` only where the screen's name is not the
+feature id in title case — `mentor` is "Orb Mentor" — because on the other six a name column was
+the id column spelled with a capital letter.
 
 Both switches are present exactly when they are overriding, and never otherwise:
 `automationEnabled: false` appears exactly when the suite's global automation toggle is off, and
@@ -1988,7 +2002,9 @@ catalog includes the owning UUID when the assigned tooltip item is itself an ide
 entity; control-only rows retain the volatile current-screen path and name. The
 reader walks the native node, linked-tooltip, nested-tooltip, and currently inspected-panel graph
 on Unity's main thread, but its node structure, repeated paint, empty arrays, duplicate authored
-text, and identical alternate tree are wire-internal ceremony and never ship. A cycle or hard
+text, and identical alternate tree are wire-internal ceremony and never ship. A body whose closing
+block repeats the block immediately above it says it once: adjacent duplicate lines were already
+dropped one at a time, which never caught a panel that painted its whole last block twice. A cycle or hard
 depth/node bound is rendered as one explanatory line rather than recursively expanding forever.
 Unity rich-text markup is stripped. Computed text delegates run inline; the reader never clicks a
 node, renders a panel, or captures the framebuffer.

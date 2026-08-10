@@ -203,11 +203,12 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Equal(1, (int)firstSummary["slot"]!);
         Assert.Null(firstSummary["slotIndex"]);
 
-        // A slot is not the recipe it holds. It says it has no addressable identity rather than
-        // publishing the recipe's UUID as its own, which world_get then refused.
+        // A slot is not the recipe it holds, so it publishes no uuid of its own — the absence of
+        // a handle is how a row says there is nothing to hand back — and the category it belongs to
+        // is the one the caller named to get this page.
         Assert.Null(firstSummary["uuid"]);
-        Assert.False((bool)firstSummary["addressable"]!);
-        Assert.Equal("spell-slots", (string?)firstSummary["category"]);
+        Assert.Null(firstSummary["addressable"]);
+        Assert.Null(firstSummary["category"]);
         // Neither is the runtime instance it holds an address: that handle is in no catalog, so
         // every tool refused it. The recipe names the spell and does resolve.
         Assert.Null(firstSummary["spellInstance"]);

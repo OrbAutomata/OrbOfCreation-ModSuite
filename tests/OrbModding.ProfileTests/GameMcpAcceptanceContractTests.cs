@@ -301,7 +301,7 @@ public sealed class GameMcpWorldQueryTests
             .OfType<JObject>()
             .Where(item => item["uuid"] is not null)
             .ToArray();
-        Assert.Equal(6, references.Length);
+        Assert.Equal(5, references.Length);
         Assert.All(references, reference =>
         {
             Assert.False(string.IsNullOrWhiteSpace((string?)reference["name"]));

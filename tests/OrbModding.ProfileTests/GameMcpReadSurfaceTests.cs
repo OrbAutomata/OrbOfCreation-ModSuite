@@ -331,8 +331,12 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Null(schema["oneOf"]);
     }
 
+    /// <summary>
+    /// A batch refused as a whole used to carry an empty results collection beside the refusal,
+    /// four rendered lines saying nothing the refusal sentence had not already said.
+    /// </summary>
     [Fact]
-    public void WorldGetAlwaysReturnsTheOrderedResultsCollection()
+    public void A_world_get_refused_as_a_whole_answers_in_the_one_refusal_line()
     {
         var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
             GameMcpTestHarness.Context(),
@@ -341,7 +345,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
 
         Assert.Equal("unavailable", (string?)result["status"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)result["reasonCode"]);
-        Assert.Empty(result["results"]!);
+        Assert.Null(result["results"]);
     }
 
     [Fact]
@@ -831,11 +835,12 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Null(result["worldGeneration"]);
         var row = Assert.Single(result["rows"]!.Values<JObject>())!;
 
-        // The row is a price, not the priced entity. It says so instead of publishing the target's
-        // UUID as its own identity, which world_get would then refuse.
+        // The row is a price, not the priced entity. Having no `uuid` is how it says so — there
+        // is no handle to hand back — and the category it belongs to is the one the caller named
+        // to get this page, so neither is written out again.
         Assert.Null(row["uuid"]);
-        Assert.False((bool)row["addressable"]!);
-        Assert.Equal("purchase-costs", (string?)row["category"]);
+        Assert.Null(row["addressable"]);
+        Assert.Null(row["category"]);
         Assert.Equal(GameMcpTestHarness.Handle(entityId), (string?)row["target"]!["uuid"]);
         Assert.Equal(GameMcpTestHarness.Handle(resourceId), (string?)row["resource"]!["uuid"]);
         Assert.Equal("250", (string?)row["cost"]);
@@ -1152,7 +1157,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal("ERR_UNAVAILABLE", (string?)affectedMatch["reasonCode"]);
         var searchFailure = Assert.Single(
             affectedMatch["implicatedSkippedRows"]!.Values<JObject>())!;
-        Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)searchFailure["owner"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)searchFailure["uuid"]);
         Assert.Equal("Upgrade", (string?)searchFailure["ownerKind"]);
         Assert.Equal(4, (int)searchFailure["ordinal"]!);
         Assert.Equal("ListRequirement", (string?)searchFailure["conditionTypeName"]);
@@ -1210,7 +1215,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal("unavailable", (string?)requirementRow["status"]);
         var requirementFailure = Assert.Single(
             requirementRow["implicatedSkippedRows"]!.Values<JObject>())!;
-        Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)requirementFailure["owner"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)requirementFailure["uuid"]);
         Assert.Equal("ListRequirement", (string?)requirementFailure["conditionTypeName"]);
 
         // Which conditions this build authors that the suite cannot model does not change between
@@ -1344,7 +1349,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal("unavailable", (string?)incompleteRow["status"]);
         var failure = Assert.Single(
             incompleteRow["implicatedSkippedRows"]!.Values<JObject>())!;
-        Assert.Equal(GameMcpTestHarness.Handle(ownerId), (string?)failure["owner"]!["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(ownerId), (string?)failure["uuid"]);
         Assert.Equal(1, (int)failure["ordinal"]!);
         Assert.Equal("ListRequirement", (string?)failure["conditionTypeName"]);
     }

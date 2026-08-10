@@ -859,38 +859,38 @@ internal static class GameMcpWorldQuery
         IReadOnlyList<string> uuidTexts)
     {
         if (!TryWorld(state, out var publication, out var unavailable))
-            return BatchUnavailable(unavailable);
+            return unavailable;
         if (!TryCategory(categoryName, out var category, out var reason))
-            return BatchUnavailable(NotAvailable(publication, "unknown_category", reason));
+            return NotAvailable(publication, "unknown_category", reason);
         if (uuidTexts is null || uuidTexts.Count == 0 || uuidTexts.Count > MaximumBatchSize)
         {
-            return BatchUnavailable(NotAvailable(
+            return NotAvailable(
                 publication,
                 "invalid_batch_size",
                 "uuids must contain between 1 and " +
-                MaximumBatchSize.ToString(CultureInfo.InvariantCulture) + " entries"));
+                MaximumBatchSize.ToString(CultureInfo.InvariantCulture) + " entries");
         }
         if (!string.Equals(
                 category.IdentityMode,
                 "stable_entity_uuid",
                 StringComparison.Ordinal))
         {
-            return BatchUnavailable(NotAvailable(
+            return NotAvailable(
                 publication,
                 "composite_identity_required",
                 "Rows in " + category.Name + " are not addressed by one id; " +
-                "read them with world_list."));
+                "read them with world_list.");
         }
 
         var availability = Availability(publication.Snapshot, category);
         if (!availability.Available)
         {
-            return BatchUnavailable(NotAvailable(
+            return NotAvailable(
                 publication,
                 "category_not_collected",
                 availability.Reason.Length == 0
                     ? "the category was not collected"
-                    : availability.Reason));
+                    : availability.Reason);
         }
 
         var results = new JArray();
@@ -958,12 +958,6 @@ internal static class GameMcpWorldQuery
 
         var result = Envelope(publication);
         result["results"] = results;
-        return result;
-    }
-
-    private static JObject BatchUnavailable(JObject result)
-    {
-        result["results"] = new JArray();
         return result;
     }
 
@@ -5689,8 +5683,12 @@ internal static class GameMcpWorldQuery
     {
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
+        // The reset state is published once, at the top level, on both verbs that carry it. Nesting
+        // a second byte-identical copy inside the challenge block gave a caller two blocks with
+        // nothing to tell them apart, on the two responses that were already the largest.
         var result = Envelope(publication);
         result["status"] = "available";
+        result["prestigeState"] = ProjectPrestigeState(publication.Snapshot);
         result["challengeState"] = ProjectChallengeState(publication.Snapshot);
         return result;
     }
@@ -5726,7 +5724,6 @@ internal static class GameMcpWorldQuery
         if (!SameChallengeOffers(context.TimeOffers, context.PrestigeOffers))
             result["resetOffers"] = ChallengeReferences(context.PrestigeOffers);
         result["reroll"] = RerollDecision(fetchAvailable, context);
-        result["prestige"] = ProjectPrestigeState(world);
         return result.Freeze();
     }
 

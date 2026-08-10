@@ -95,7 +95,8 @@ public sealed class GameMcpSpellCompositionTests
         // The equipped spell is a runtime instance the catalog never publishes, so its handle
         // resolved for no tool. The recipe carries the same name and does resolve, so the row names
         // the spell once, by the identity a caller can look up.
-        Assert.Equal("Gather Knowledge", (string?)equipped["spellRecipe"]!["name"]);
+        Assert.Equal("Gather Knowledge", (string?)equipped["name"]);
+        Assert.Null(equipped["spellRecipe"]);
         Assert.Null(equipped["spellInstance"]);
         Assert.Null(equipped["outputLevel"]);
         Assert.Equal(6, (int)equipped["effectiveLevel"]!);
