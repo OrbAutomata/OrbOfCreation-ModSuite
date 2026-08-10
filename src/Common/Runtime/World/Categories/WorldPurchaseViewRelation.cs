@@ -260,6 +260,11 @@ internal sealed class NativePurchaseViewAdmissionResolver
     private long _snapshotEpoch;
     internal long CapturedEpoch => _snapshotEpoch;
 
+    /// <summary>How many candidates the published snapshot holds. Named by an unadmitted purchase,
+    /// where "stamped at an epoch you did not ask for" and "stamped but empty" are different
+    /// stories and the row count is what separates them.</summary>
+    internal int CapturedCount => _snapshot.Count;
+
     private NativePurchaseViewAdmissionResolver(BindingSet native) => _native = native;
 
     internal static bool TryCreate(

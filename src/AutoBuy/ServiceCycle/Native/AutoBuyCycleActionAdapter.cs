@@ -47,6 +47,13 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
     private readonly Dictionary<Guid, BigDouble> _batchSpendVariance = new();
     private readonly HashSet<Guid> _batchUnpricedResources = new();
     private ulong _journalBatch;
+
+    /// <summary>
+    /// The submission this adapter last produced, so a caller that wants the refusal's own sentence
+    /// can have it. A <see cref="ServiceActionResult"/> carries a class and no prose by design.
+    /// </summary>
+    internal AutoBuyPurchaseSubmission LastSubmission { get; private set; }
+
 #if SERVICE_CYCLE_PROFILE
     private long _diagnosedTopologyEpoch;
     private readonly AutomataProfileOperations _profileOperations;
@@ -143,6 +150,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         bool manualOwnershipProven)
     {
         BeginBatch(context.Batch.Value);
+        LastSubmission = default;
 
         if (requireAutomationPolicy &&
             (!AutoBuyConfigurationPolicy.IsOperational(config) ||
@@ -227,6 +235,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
 
+        LastSubmission = submission;
         if (!submission.Verified)
             Narrate(action.Kind, action.Uuid, submission);
         if (submission.Preflight == AutoBuyPurchasePreflight.NotAdmissible)
@@ -478,6 +487,17 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
                 return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewRelationMissing);
             case AutoBuyPurchasePreflight.OwningViewRelationUnreadable:
                 return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewRelationUnreadable);
+            case AutoBuyPurchasePreflight.OwningViewTopologyUnbound:
+                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewTopologyUnbound);
+            case AutoBuyPurchasePreflight.OwningViewTopologyUncaptured:
+                return ServiceActionResult.Rejected(
+                    AutoBuyActionResultCodes.OwningViewTopologyUncaptured);
+            case AutoBuyPurchasePreflight.OwningViewRelationStatusUnmodeled:
+                return ServiceActionResult.Rejected(
+                    AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled);
+            case AutoBuyPurchasePreflight.OwningViewAvailabilityUnreadable:
+                return ServiceActionResult.Rejected(
+                    AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable);
             case AutoBuyPurchasePreflight.OwningViewRelationContradictory:
                 return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewRelationContradictory);
             case AutoBuyPurchasePreflight.StructureUnavailable:

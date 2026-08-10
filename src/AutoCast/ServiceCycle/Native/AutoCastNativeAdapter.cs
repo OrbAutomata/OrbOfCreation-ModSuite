@@ -664,22 +664,28 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
         if (slotIndex >= slots.Count)
         {
-            reason = "the planned spell slot is no longer equipped";
+            reason = $"Spell slot {slotIndex + 1} is not on the bar right now.";
             return false;
         }
 
         var candidate = slots[slotIndex];
         if (candidate is null || candidate.GetType() != _spellType)
         {
-            reason = "the planned spell slot is no longer equipped";
+            reason = $"Spell slot {slotIndex + 1} is empty.";
             return false;
         }
 
+        // Naming the occupant is the point of this refusal. "The identity changed" leaves a caller
+        // with no next move; "the slot now holds Firebolt" says which plan to redo and against what.
         var recipe = _getReference?.Invoke(candidate, Array.Empty<object>());
         var identity = recipe is null ? null : ReflectionUtil.ReadStableId(recipe);
         if (!Guid.TryParse(identity, out var liveId) || liveId != spellRecipeId)
         {
-            reason = "the planned spell identity changed before casting";
+            reason = liveId == Guid.Empty
+                ? $"Spell slot {slotIndex + 1} no longer holds the spell that was planned, and what " +
+                  "occupies it now could not be named."
+                : $"Spell slot {slotIndex + 1} now holds " +
+                  $"{EntityIdentityFormatter.Format(liveId)}, not the spell that was planned.";
             return false;
         }
 

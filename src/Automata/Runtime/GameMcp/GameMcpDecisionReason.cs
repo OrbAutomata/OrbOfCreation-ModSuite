@@ -151,6 +151,7 @@ internal static class GameMcpDecisionReason
         "bonus_unavailable" or "develop_unavailable" or
         "immediate_required_discovery" or "reroll_already_used" or
         "switch_blocked" or "cast_in_progress" or "charge_unavailable" or
+        "batch_spend_drift" or
         "resources_uncovered" or "attuning" => ClassState,
 
         // A ceiling, a capacity, or a budget is reached; a smaller ask or a later call may work.
@@ -161,6 +162,7 @@ internal static class GameMcpDecisionReason
         "plot_quantity_insufficient" or "resource_or_headroom_insufficient" or
         "usage_budget_unavailable" or "research_leeway_exhausted" or "multi_buy_unavailable" or
         "engagement_drain_limited" or "screenshot_budget_reached" or
+        "destination_full" or
         "slot_unavailable" or "level_cap_reached" or
         "artificial_research_cap_reached" or "research_investment_cap_reached" => ClassLimit,
 
@@ -203,6 +205,9 @@ internal static class GameMcpDecisionReason
         "verification_failed" or "prerequisite_unverified" or
         "requirement_cycle" or "requirement_depth_exceeded" or "requirement_unevaluable" or
         "threshold_scaling_unavailable" or "category_not_collected" or
+        "owning_screen_unknown" or "owning_screen_unreadable" or
+        "owning_screen_contradictory" or "topology_not_captured" or
+        "owning_screen_status_unmodelled" or "owning_screen_availability_unreadable" or
         "configuration_unpublished" or "runtime_not_available" or "price_unavailable" or
         "affordability_unavailable" or "entity_catalog_unavailable" or
         "queue_not_published" or "queue_reading_inconsistent" => ClassUnavailable,

@@ -33,6 +33,20 @@ internal enum AutoBuyPurchasePreflight
     DestinationCapacityFull,
     DestinationCapacityContractUnavailable,
     DestinationCapacityIdentityMismatch,
+
+    /// <summary>The suite never bound the owning-view topology contract on this build.</summary>
+    OwningViewTopologyUnbound,
+
+    /// <summary>
+    /// The topology holds no admission evidence for the lifecycle this purchase was planned under.
+    /// </summary>
+    OwningViewTopologyUncaptured,
+
+    /// <summary>The captured relation carries a status this build does not model.</summary>
+    OwningViewRelationStatusUnmodeled,
+
+    /// <summary>The live owning-screen availability read did not answer.</summary>
+    OwningViewAvailabilityUnreadable,
 }
 
 /// <summary>
@@ -50,7 +64,8 @@ internal readonly struct AutoBuyPurchaseSubmission
         int requestedLevels,
         int committedLevels,
         in AutoBuyAdmissionDiagnosis diagnosis,
-        in AutoBuyLiveCostSnapshot liveCosts)
+        in AutoBuyLiveCostSnapshot liveCosts,
+        string reason)
     {
         Preflight = preflight;
         HasEvidence = hasEvidence;
@@ -60,9 +75,19 @@ internal readonly struct AutoBuyPurchaseSubmission
         CommittedLevels = committedLevels;
         Diagnosis = diagnosis;
         LiveCosts = liveCosts;
+        Reason = reason;
     }
 
     public AutoBuyPurchasePreflight Preflight { get; }
+
+    /// <summary>
+    /// The one sentence this refusal owes a caller, when the preflight class alone cannot carry it —
+    /// a topology refusal names the epoch it is stamped at, the epoch the plan asked for, and how
+    /// many rows it holds, because those three numbers are the whole difference between the causes.
+    /// Empty everywhere else: a class with a fixed sentence needs no second copy of it here.
+    /// </summary>
+    public string Reason { get; }
+
     public bool HasEvidence { get; }
     public NativeMutationOutcome Outcome { get; }
     public NativeMutationCallOutcome CallOutcome { get; }
@@ -91,11 +116,22 @@ internal readonly struct AutoBuyPurchaseSubmission
     public int CommittedLevels { get; }
 
     public static AutoBuyPurchaseSubmission Rejected(AutoBuyPurchasePreflight preflight) =>
-        Rejected(preflight, default);
+        Rejected(preflight, default, string.Empty);
 
     public static AutoBuyPurchaseSubmission Rejected(
         AutoBuyPurchasePreflight preflight,
-        in AutoBuyAdmissionDiagnosis diagnosis)
+        string reason) =>
+        Rejected(preflight, default, reason);
+
+    public static AutoBuyPurchaseSubmission Rejected(
+        AutoBuyPurchasePreflight preflight,
+        in AutoBuyAdmissionDiagnosis diagnosis) =>
+        Rejected(preflight, in diagnosis, string.Empty);
+
+    private static AutoBuyPurchaseSubmission Rejected(
+        AutoBuyPurchasePreflight preflight,
+        in AutoBuyAdmissionDiagnosis diagnosis,
+        string reason)
     {
         if (preflight == AutoBuyPurchasePreflight.Proceeded)
             throw new ArgumentOutOfRangeException(nameof(preflight));
@@ -108,7 +144,8 @@ internal readonly struct AutoBuyPurchaseSubmission
             0,
             0,
             in diagnosis,
-            in liveCosts);
+            in liveCosts,
+            reason);
     }
 
     public static AutoBuyPurchaseSubmission Attempted(
@@ -127,7 +164,8 @@ internal readonly struct AutoBuyPurchaseSubmission
             requestedLevels,
             committed,
             default,
-            in liveCosts);
+            in liveCosts,
+            string.Empty);
     }
 
     public static AutoBuyPurchaseSubmission Attempted(
@@ -275,9 +313,9 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         try
         {
 #endif
-        var gate = ReadLiveGate(kind, uuid, lifecycleEpoch, source, accessors);
+        var gate = ReadLiveGate(kind, uuid, lifecycleEpoch, source, accessors, out var gateReason);
         if (gate != AutoBuyPurchasePreflight.Proceeded)
-            return AutoBuyPurchaseSubmission.Rejected(gate);
+            return AutoBuyPurchaseSubmission.Rejected(gate, gateReason);
 
         // The shipped CanPurchase contracts differ materially. StructureSO checks only its
         // per-level requirements and ActionManager.CanLoadAction(); it checks neither IsAvailable()
@@ -365,18 +403,30 @@ internal sealed class AutoBuyNativePurchaseAdapter :
 #endif
     }
 
+    /// <summary>
+    /// The live owning-view gate, with each way of failing it kept apart.
+    /// </summary>
+    /// <remarks>
+    /// Five distinct facts used to leave here as one preflight and one result number: an unbound
+    /// contract, a lifecycle with no captured topology, a candidate whose chain the game refused
+    /// while the topology was being read, a status this build does not model, and a live
+    /// availability read that did not answer. Only one of those is fixed by waiting, only one is a
+    /// build problem, and the outage that motivated this split took a code trace to tell apart.
+    /// </remarks>
     private AutoBuyPurchasePreflight ReadLiveGate(
         AutoBuyCandidateKind kind,
         Guid uuid,
         long lifecycleEpoch,
         object source,
-        PurchaseAccessors accessors)
+        PurchaseAccessors accessors,
+        out string reason)
     {
         var reads = default(NativePurchaseViewAdmissionReadCounts);
+        reason = string.Empty;
         try
         {
             if (_viewAdmission is null)
-                return AutoBuyPurchasePreflight.OwningViewRelationUnreadable;
+                return AutoBuyPurchasePreflight.OwningViewTopologyUnbound;
 
             if (!_viewAdmission.TryGetCaptured(
                 kind == AutoBuyCandidateKind.Structure
@@ -385,7 +435,13 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 uuid,
                 lifecycleEpoch,
                 out var resolution))
-                return AutoBuyPurchasePreflight.OwningViewRelationUnreadable;
+            {
+                reason = AutoBuyPurchaseNarration.TopologyUncaptured(
+                    _viewAdmission.CapturedEpoch,
+                    lifecycleEpoch,
+                    _viewAdmission.CapturedCount);
+                return AutoBuyPurchasePreflight.OwningViewTopologyUncaptured;
+            }
             switch (resolution.Relation.Status)
             {
                 case WorldPurchaseViewRelationStatus.Missing:
@@ -397,14 +453,14 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 case WorldPurchaseViewRelationStatus.Resolved:
                     break;
                 default:
-                    return AutoBuyPurchasePreflight.OwningViewRelationUnreadable;
+                    return AutoBuyPurchasePreflight.OwningViewRelationStatusUnmodeled;
             }
 
             if (!_viewAdmission.TryReadAvailabilityProfiled(
                     in resolution,
                     ref reads,
                     out var viewAvailable))
-                return AutoBuyPurchasePreflight.OwningViewRelationUnreadable;
+                return AutoBuyPurchasePreflight.OwningViewAvailabilityUnreadable;
             if (!viewAvailable)
                 return AutoBuyPurchasePreflight.OwningViewUnavailable;
 
@@ -462,8 +518,13 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 accessors.InvokePurchase(source);
                 for (var level = 1; level < count; level++)
                 {
-                    if (ReadLiveGate(AutoBuyCandidateKind.Structure, uuid, lifecycleEpoch, source, accessors) !=
-                            AutoBuyPurchasePreflight.Proceeded ||
+                    if (ReadLiveGate(
+                            AutoBuyCandidateKind.Structure,
+                            uuid,
+                            lifecycleEpoch,
+                            source,
+                            accessors,
+                            out _) != AutoBuyPurchasePreflight.Proceeded ||
                         !accessors.TryReadAdmission(source, out var admitted) || !admitted ||
                         accessors.Diagnose(source).HasEnough != AutoBuyAdmissionTerm.Passed)
                         break;

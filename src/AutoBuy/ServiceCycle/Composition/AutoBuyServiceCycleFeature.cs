@@ -131,5 +131,7 @@ internal sealed class AutoBuyFeatureRuntime : IAutomataServiceCycleFeatureRuntim
         in SuiteRuntimeConfiguration config,
         in ServiceActionContext context) =>
         _actions.TryExecuteGameMcp(in action, in config, in context);
+
+    internal AutoBuyPurchaseSubmission LastGameMcpSubmission => _actions.LastSubmission;
 #endif
 }

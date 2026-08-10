@@ -321,6 +321,25 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                     }.Freeze();
                 }
             }
+
+            // The purchase and cast boundaries answer with a class the caller can branch on and a
+            // sentence carrying the fact the class cannot: which epoch the purchase topology is
+            // stamped at, or which spell now occupies the slot the plan named. Neither is derivable
+            // from the code, and a response that dropped them left a caller with a number.
+            if (command.Kind == GameMcpCommandKind.Purchase &&
+                FindFeature(command.Kind) is AutoBuyFeatureRuntime purchases)
+            {
+                var submission = purchases.LastGameMcpSubmission;
+                if (!submission.Verified && !string.IsNullOrEmpty(submission.Reason))
+                    exactReason = submission.Reason;
+            }
+            if (command.Kind == GameMcpCommandKind.Cast &&
+                FindFeature(command.Kind) is AutoCastFeatureRuntime casts)
+            {
+                var submission = casts.LastGameMcpSubmission;
+                if (!submission.Verified && !string.IsNullOrEmpty(submission.Reason))
+                    exactReason = submission.Reason;
+            }
             return GameMcpCommandResult.FromAction(
                 in result,
                 command.Kind,

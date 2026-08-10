@@ -465,6 +465,40 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Assert.Equal(0, structure.queuedQuantity);
     }
 
+    /// <summary>
+    /// A topology stamped for another run is its own refusal, and it says which run it holds.
+    /// </summary>
+    /// <remarks>
+    /// This used to share one preflight and one number with four other causes, so the twenty-seven
+    /// minutes of refused purchases it produced looked exactly like an unbound contract. All three
+    /// numbers are in the sentence because none can be inferred from the others: stamped-at-zero was
+    /// never published under a lifecycle, stamped-at-another-epoch means the game moved on, and the
+    /// row count separates both from a topology that was captured and simply holds nothing.
+    /// </remarks>
+    [Fact]
+    public void Submit_TopologyStampedForAnotherRun_NamesBothEpochsAndTheRowCount()
+    {
+        var structure = new global::StructureSO
+        {
+            uuid = Guid.NewGuid().ToString(),
+            available = true,
+            purchasable = true,
+        };
+        global::StructureSO.All.Add(structure);
+
+        var submission = NativeAdapter(lifecycleEpoch: 3).Submit(
+            AutoBuyCandidateKind.Structure,
+            Guid.Parse(structure.uuid),
+            count: 1,
+            lifecycleEpoch: 9);
+
+        Assert.Equal(AutoBuyPurchasePreflight.OwningViewTopologyUncaptured, submission.Preflight);
+        Assert.Contains("epoch 3", submission.Reason);
+        Assert.Contains("epoch 9", submission.Reason);
+        Assert.Contains("1 row(s)", submission.Reason);
+        Assert.Equal(0, structure.queuedQuantity);
+    }
+
     [Fact]
     public void Execute_LockedOwningView_RefusesForcedActionWithNamedCode()
     {
@@ -1318,7 +1352,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             Context());
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
-        Assert.Equal(AutoBuyActionResultCodes.OwningViewRelationUnreadable, result.Code);
+        Assert.Equal(AutoBuyActionResultCodes.OwningViewTopologyUncaptured, result.Code);
         Assert.Equal(5, added.queuedQuantity);
     }
 
@@ -1363,7 +1397,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             Context());
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
-        Assert.Equal(AutoBuyActionResultCodes.OwningViewRelationUnreadable, result.Code);
+        Assert.Equal(AutoBuyActionResultCodes.OwningViewTopologyUncaptured, result.Code);
         Assert.Equal(3, replacement.queuedQuantity);
     }
 

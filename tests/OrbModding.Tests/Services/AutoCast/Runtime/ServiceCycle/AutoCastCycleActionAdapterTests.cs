@@ -106,6 +106,25 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         Assert.Equal(0, frost.FireCalls);
     }
 
+    /// <summary>
+    /// The refusal names what took the slot, because that is the fact a caller replans against.
+    /// </summary>
+    /// <remarks>
+    /// "The planned spell identity changed" leaves a caller with nothing to do but read the loadout
+    /// again; naming the occupant is the whole difference between a refusal and an answer.
+    /// </remarks>
+    [Fact]
+    public void ARearrangedLoadoutNamesTheSpellThatTookTheSlot()
+    {
+        Equip(Frost);
+
+        var submission = new AutoCastNativeAdapter().Fire(0, Ember, holdFullCharge: false);
+
+        Assert.Equal(AutoCastPreflight.SlotIdentityChanged, submission.Preflight);
+        Assert.Contains("slot 1", submission.Reason);
+        Assert.Contains(Frost.ToString("D"), submission.Reason);
+    }
+
     [Fact]
     public void APositionThatIsNoLongerEquippedRefuses()
     {

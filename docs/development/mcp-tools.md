@@ -1170,11 +1170,11 @@ most, so an old code's new class can be looked up here:
 | --- | --- |
 | `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `slot_out_of_range`, `screen_match_failed`, `composite_identity_required`, `discovery_surface_ambiguous` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `recipe_has_no_core_glyph` |
-| `ERR_STATE` | `invalid_state`, `already_maxed`, `already_developing`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `charge_unavailable`, `spell_not_chargeable`, `resources_uncovered`, `attuning` |
-| `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
+| `ERR_STATE` | `invalid_state`, `already_maxed`, `already_developing`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
+| `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
 | `ERR_LOCKED` | `not_available`, `native_unavailable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `core_glyph_not_owned`, `cannot_level`, `research_leeway_exhausted`, `native_leeway_exhausted` |
-| `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable` |
+| `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused` — the game's own gate said no and reported nothing else |
 
 Three of those placements are worth reading twice, because the obvious guess is wrong.
@@ -1189,7 +1189,10 @@ supply the caller spent.
 lands there because this map has not met it is a defect in the map, not a new kind of no.
 
 A feature result number is not a wire word: it names no axis a caller can act on, so an unmapped
-native result reaches the wire as `ERR_REFUSED` with the producer's own sentence.
+native result reaches the wire as `ERR_REFUSED` with the producer's own sentence. **No response ever
+prints the integer.** A refusal that reaches the last-resort sentence says which boundary refused and
+that it gave no reason of its own — the number stays in the log, where a maintainer can trace it.
+A boundary that lands there is a defect in that producer, not a new kind of no.
 
 A check that **passed** carries no class at all, and no sentence either. There is no success code:
 every affirmative producer word — `requirement_met`, `recipe_discovered`, `visible`, `ready`,
@@ -1218,6 +1221,8 @@ What each internal code means is below; the class is how it reaches the wire.
 | `recipe_has_no_core_glyph` / `core_glyph_not_published` / `core_glyph_not_owned` / `core_glyph_not_leveled` / `core_glyph_augments_only` | The one thing wrong with the recipe's core glyph, replacing the single `core_glyphs_unavailable` that covered all five | `spell-recipes` loadout-add decisions |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `discover` decisions, pool-unlocker glyphs |
 | `projection_refused` | The suite's own resource-rate policy refuses the assignment; the game did not | `game_concept` |
+| `owning_screen_unknown` / `owning_screen_unreadable` / `owning_screen_contradictory` / `owning_screen_status_unmodelled` / `owning_screen_availability_unreadable` / `topology_not_captured` | The five distinct ways the purchase-screen admission chain says no, which used to share one number. Only `topology_not_captured` is fixed by waiting for the next lifecycle; its sentence names the epoch the topology is stamped at, the epoch the call asked for, and how many rows it holds | `game_purchase` |
+| `destination_full` | Every slot this upgrade would fill is already occupied | `game_purchase` on a slot-filling upgrade |
 | `native_rejected` | The game refused and the published world does not explain why | any native mutation, reserved for exactly that case |
 
 `native_rejected` is the last resort, not the default: a refusal the read side can already account

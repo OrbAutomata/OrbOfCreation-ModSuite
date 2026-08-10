@@ -324,7 +324,7 @@ internal sealed class GameMcpCommandResult
         var reason = status == "committed"
             ? string.Empty
             : string.IsNullOrWhiteSpace(exactReason)
-                ? GameMcpActionResultCodeNames.Reason(result.Code, commandKind, result.Disposition)
+                ? GameMcpActionResultCodeNames.Reason(result.Code, commandKind)
                 : exactReason!;
         return new GameMcpCommandResult(
             status,
@@ -450,10 +450,8 @@ internal static class GameMcpActionResultCodeNames
 {
     internal static string Reason(
         ServiceActionResultCode code,
-        GameMcpCommandKind commandKind,
-        ServiceActionDisposition disposition)
+        GameMcpCommandKind commandKind)
     {
-        var exact = code.Value;
         if (code == CommonActionResultCodes.Committed)
             return "the audited native mutation committed and its postcondition was verified";
         if (code == CommonActionResultCodes.EmergencyStop)
@@ -503,35 +501,75 @@ internal static class GameMcpActionResultCodeNames
         {
             return "the suite does not own the requested native action family";
         }
-        if (commandKind == GameMcpCommandKind.DiscoveryTreeOffer)
-            return "the Discovery Tree offer boundary returned " + disposition +
-                " with exact preflight code " + exact;
-        if (commandKind == GameMcpCommandKind.SpellWorkbench)
-            return "the spell workbench boundary returned " + disposition +
-                " with exact preflight code " + exact;
-        if (commandKind == GameMcpCommandKind.SpellComposition)
-            return "the spell composition boundary returned " + disposition +
-                " with exact preflight code " + exact;
-        if (commandKind == GameMcpCommandKind.SpellLoadout)
-            return "the spell loadout boundary returned " + disposition +
-                " with exact preflight code " + exact;
-        if (commandKind == GameMcpCommandKind.Targeting)
-            return "the targeting boundary returned " + disposition +
-                " with exact preflight code " + exact;
-        if (commandKind == GameMcpCommandKind.Consumable)
-            return "the consumable boundary returned " + disposition +
-                " with exact preflight code " + exact;
-        if (commandKind == GameMcpCommandKind.Crafting)
+        if (commandKind == GameMcpCommandKind.Purchase)
         {
-            return "the one-shot crafting boundary returned " + disposition +
-                " with exact preflight code " + exact;
+            if (code == AutoBuyActionResultCodes.OwningViewUnavailable)
+                return "The screen this is bought from is not available yet.";
+            if (code == AutoBuyActionResultCodes.OwningViewRelationMissing)
+                return "No purchase screen for this target is in this run's captured topology.";
+            if (code == AutoBuyActionResultCodes.OwningViewRelationUnreadable)
+                return "The game's purchase-screen chain for this target could not be read when " +
+                    "this run's topology was captured.";
+            if (code == AutoBuyActionResultCodes.OwningViewRelationContradictory)
+                return "This target's captured purchase-screen relation contradicts itself.";
+            if (code == AutoBuyActionResultCodes.OwningViewTopologyUnbound)
+                return "The suite could not bind the purchase-screen topology this build needs, " +
+                    "so no purchase can be admitted.";
+            if (code == AutoBuyActionResultCodes.OwningViewTopologyUncaptured)
+                return "The purchase-screen topology holds no admission evidence for this run.";
+            if (code == AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled)
+                return "This target's captured purchase-screen relation carries a status this " +
+                    "build does not model.";
+            if (code == AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable)
+                return "The game did not answer whether this target's purchase screen is " +
+                    "available right now.";
+            if (code == AutoBuyActionResultCodes.StructureUnavailable)
+                return "The game has not unlocked this structure yet.";
+            if (code == AutoBuyActionResultCodes.DestinationCapacityFull)
+                return "Every slot this upgrade would fill is already occupied.";
+            if (code == AutoBuyActionResultCodes.DestinationCapacityContractUnavailable)
+                return "The upgrade's destination-capacity contract was unreadable, so no " +
+                    "purchase was attempted.";
+            if (code == AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch)
+                return "The upgrade's destination list is not the one the suite has audited.";
+            if (code == AutoBuyActionResultCodes.BatchSpendDrift)
+                return "Earlier purchases in this batch spent the margin this one was planned " +
+                    "against.";
         }
-        if (commandKind == GameMcpCommandKind.GenericDiscovery)
-            return "the generic discovery boundary returned " + disposition +
-                " with exact preflight code " + exact;
-        return "the native action boundary returned " + disposition +
-            " with exact result code " + exact;
+        if (commandKind == GameMcpCommandKind.Cast)
+        {
+            if (code == AutoCastActionResultCodes.NativeCasterBusy)
+                return "The game's spell system is busy right now.";
+            if (code == AutoCastActionResultCodes.SlotIdentityChanged)
+                return "The spell slot no longer holds the spell this call named.";
+            if (code == AutoCastActionResultCodes.SpellNotReady)
+                return "The game refused the cast on its own readiness terms.";
+            if (code == AutoCastActionResultCodes.NoValidTarget)
+                return "This spell has nothing valid to aim at right now.";
+            if (code == AutoCastActionResultCodes.ChargeHoldRefused)
+                return "A charged-cast hold could not be established, so no cast was submitted.";
+        }
+
+        // Last resort, and deliberately number-free. Every boundary above answers with its own
+        // sentence; reaching here means one refused without supplying it, which is a defect in that
+        // producer rather than a kind of no. The integer stays in the log where a maintainer can
+        // trace it — on the wire it named no axis a caller could act on, and round 8 shipped it to
+        // a caller nine different ways.
+        return Surface(commandKind) + " refused and gave no reason of its own";
     }
+
+    private static string Surface(GameMcpCommandKind commandKind) => commandKind switch
+    {
+        GameMcpCommandKind.DiscoveryTreeOffer => "the Discovery Tree offer boundary",
+        GameMcpCommandKind.SpellWorkbench => "the spell workbench boundary",
+        GameMcpCommandKind.SpellComposition => "the spell composition boundary",
+        GameMcpCommandKind.SpellLoadout => "the spell loadout boundary",
+        GameMcpCommandKind.Targeting => "the targeting boundary",
+        GameMcpCommandKind.Consumable => "the consumable boundary",
+        GameMcpCommandKind.Crafting => "the one-shot crafting boundary",
+        GameMcpCommandKind.GenericDiscovery => "the generic discovery boundary",
+        _ => "the native action boundary",
+    };
 
     internal static string Name(
         ServiceActionResultCode code,
@@ -561,6 +599,33 @@ internal static class GameMcpActionResultCodeNames
             (commandKind == GameMcpCommandKind.Purchase ||
              commandKind == GameMcpCommandKind.SpellLevel))
             return "action_family_unavailable";
+        // Auto Buy's numbers overlap the loadout and spell-level vocabularies, so they are only
+        // correct beside the command kind that owns them.
+        if (commandKind == GameMcpCommandKind.Purchase)
+        {
+            if (code == AutoBuyActionResultCodes.OwningViewUnavailable) return "not_visible";
+            if (code == AutoBuyActionResultCodes.OwningViewRelationMissing)
+                return "owning_screen_unknown";
+            if (code == AutoBuyActionResultCodes.OwningViewRelationUnreadable)
+                return "owning_screen_unreadable";
+            if (code == AutoBuyActionResultCodes.OwningViewRelationContradictory)
+                return "owning_screen_contradictory";
+            if (code == AutoBuyActionResultCodes.OwningViewTopologyUnbound)
+                return "contract_unavailable";
+            if (code == AutoBuyActionResultCodes.OwningViewTopologyUncaptured)
+                return "topology_not_captured";
+            if (code == AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled)
+                return "owning_screen_status_unmodelled";
+            if (code == AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable)
+                return "owning_screen_availability_unreadable";
+            if (code == AutoBuyActionResultCodes.StructureUnavailable) return "not_available";
+            if (code == AutoBuyActionResultCodes.DestinationCapacityFull) return "destination_full";
+            if (code == AutoBuyActionResultCodes.DestinationCapacityContractUnavailable)
+                return "contract_unavailable";
+            if (code == AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch)
+                return "identity_unavailable";
+            if (code == AutoBuyActionResultCodes.BatchSpendDrift) return "batch_spend_drift";
+        }
         // Feature result-code numbers are namespaced per feature and deliberately reused across
         // them, so a name is only correct beside the command kind that owns the vocabulary.
         // Spell leveling shares 2048-2050 with the loadout codes, and an unscoped match named an

@@ -38,6 +38,13 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
     private readonly Func<bool> _ownsActionFamily;
     private readonly AutoCastManualPauseState _manualPause;
 
+    /// <summary>
+    /// The submission this adapter last produced, so a caller can have the refusal's own sentence.
+    /// A <see cref="ServiceActionResult"/> carries a class and no prose by design, and the sentence
+    /// is where the fact a caller acts on lives — which spell occupies the slot it planned for.
+    /// </summary>
+    internal AutoCastSubmission LastSubmission { get; private set; }
+
     public AutoCastCycleActionAdapter(
         IAutoCastNativePort casts,
         Func<long> readLifecycleEpoch,
@@ -70,6 +77,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         in ServiceActionContext context,
         bool requireAutomationPolicy)
     {
+        LastSubmission = default;
         if (requireAutomationPolicy && !AutoCastConfigurationPolicy.IsOperational(config))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
 
@@ -112,6 +120,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
 
+        LastSubmission = submission;
         Narrate(in action, in submission);
         return Map(in submission);
     }

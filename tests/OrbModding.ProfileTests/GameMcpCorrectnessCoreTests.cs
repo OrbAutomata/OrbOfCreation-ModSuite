@@ -193,6 +193,72 @@ public sealed class GameMcpCorrectnessCoreTests
             result.Reason);
     }
 
+    /// <summary>
+    /// No refusal sentence ever prints a native result number.
+    /// </summary>
+    /// <remarks>
+    /// A feature result number names no axis a caller can act on, and round 8 shipped it as prose
+    /// nine separate ways — "the native action boundary returned Rejected with exact result code
+    /// 2051" was the whole answer a caller got for a purchase that had stopped working. The sweep
+    /// covers the entire code space rather than the codes that leak today, because the leak was a
+    /// fallback: every code a producer forgets to map lands there next.
+    /// </remarks>
+    [Fact]
+    public void No_refusal_sentence_prints_a_native_result_number()
+    {
+        var reserved = new[]
+        {
+            CommonActionResultCodes.Committed,
+            CommonActionResultCodes.EmergencyStop,
+            CommonActionResultCodes.LifecycleReplaced,
+            CommonActionResultCodes.ServiceDisabled,
+            CommonActionResultCodes.NativeRejected,
+            CommonActionResultCodes.PolicyRejected,
+            CommonActionResultCodes.AdapterFault,
+            CommonActionResultCodes.Skipped,
+        };
+
+        foreach (GameMcpCommandKind kind in Enum.GetValues(typeof(GameMcpCommandKind)))
+        {
+            foreach (var code in reserved)
+                Assert.DoesNotContain(GameMcpActionResultCodeNames.Reason(code, kind), char.IsDigit);
+
+            for (var code = ServiceActionResultCode.FirstFeatureCode; code <= 4200; code++)
+            {
+                var reason = GameMcpActionResultCodeNames.Reason(
+                    new ServiceActionResultCode(code), kind);
+                Assert.DoesNotContain(reason, char.IsDigit);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The five ways the purchase-screen gate says no are five answers, not one number.
+    /// </summary>
+    [Fact]
+    public void Every_purchase_screen_refusal_answers_in_its_own_words()
+    {
+        var codes = new[]
+        {
+            AutoBuyActionResultCodes.OwningViewRelationUnreadable,
+            AutoBuyActionResultCodes.OwningViewTopologyUnbound,
+            AutoBuyActionResultCodes.OwningViewTopologyUncaptured,
+            AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled,
+            AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable,
+        };
+
+        var names = codes
+            .Select(code => GameMcpActionResultCodeNames.Name(code, GameMcpCommandKind.Purchase))
+            .ToArray();
+        var reasons = codes
+            .Select(code => GameMcpActionResultCodeNames.Reason(code, GameMcpCommandKind.Purchase))
+            .ToArray();
+
+        Assert.Equal(codes.Length, names.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(codes.Length, reasons.Distinct(StringComparer.Ordinal).Count());
+        Assert.DoesNotContain("native_rejected", names);
+    }
+
     [Fact]
     public void Native_rejection_the_read_side_can_explain_never_answers_native_rejected()
     {
