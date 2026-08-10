@@ -513,8 +513,9 @@ internal sealed class AutomataWorldCollectionCheck
             if (first.Length == 0)
             {
                 first =
-                    $"{label} ours={ours} theirs={theirs} " +
-                    $"(recompute {truth}, memo {cached}, {(isDirty ? "dirty" : "clean")})";
+                    $"{label} {VerificationValue.Sides(ours, theirs)} " +
+                    $"(recompute {VerificationValue.Format(truth)}, " +
+                    $"memo {VerificationValue.Format(cached)}, {(isDirty ? "dirty" : "clean")})";
             }
         }
 
@@ -663,8 +664,10 @@ internal sealed class AutomataWorldCollectionCheck
             {
                 first =
                     $"{Describe(entityId)}: " +
-                    $"ours=[type {published.ModifierType} amount {published.Amount} order {published.Order}] " +
-                    $"theirs=[type {theirType} amount {theirAmount} order {theirOrder}]";
+                    $"ours=[type {published.ModifierType} " +
+                    $"amount {VerificationValue.Format(published.Amount)} order {published.Order}] " +
+                    $"theirs=[type {theirType} " +
+                    $"amount {VerificationValue.Format(theirAmount)} order {theirOrder}]";
             }
         }
 
@@ -970,7 +973,7 @@ internal sealed class AutomataWorldCollectionCheck
                     worstError = error;
                     worstOffender =
                         $"{Describe(entityId)} {entry.Key}: " +
-                        $"ours={entry.Value} theirs={theirAmount}";
+                        VerificationValue.Sides(entry.Value, theirAmount);
                     worstEntity = entity;
                     worstEntityId = entityId;
                     worstResource = entry.Key;
@@ -985,7 +988,7 @@ internal sealed class AutomataWorldCollectionCheck
                 else if (firstEligibilityGap.Length == 0)
                 {
                     firstEligibilityGap =
-                        $"{Describe(entityId)}: ours={ourEnough} theirs={theirEnough}";
+                        $"{Describe(entityId)}: {VerificationValue.Sides(ourEnough, theirEnough)}";
                 }
             }
         }
@@ -1138,8 +1141,10 @@ internal sealed class AutomataWorldCollectionCheck
         {
             var theirGlobal = GameReads(globalMemo, globalDirty, globalTruth);
             _lines.Add(
-                $"    {"structure cost %",-20} ours={OrbGameMath.AsPercent(ourGlobal)} " +
-                $"theirs={OrbGameMath.AsPercent(theirGlobal)} recompute={OrbGameMath.AsPercent(globalTruth)}" +
+                $"    {"structure cost %",-20} " +
+                VerificationValue.Sides(
+                    OrbGameMath.AsPercent(ourGlobal), OrbGameMath.AsPercent(theirGlobal)) +
+                $" recompute={VerificationValue.Format(OrbGameMath.AsPercent(globalTruth))}" +
                 Verdict(ourGlobal == theirGlobal));
         }
         else
@@ -1158,10 +1163,12 @@ internal sealed class AutomataWorldCollectionCheck
         _lines.Add(
             $"    {"costPerQuantity",-20} " +
             (readOurs
-                ? $"ours=[type {ours.ModifierType} amount {ours.Amount} order {ours.Order}] "
+                ? $"ours=[type {ours.ModifierType} " +
+                  $"amount {VerificationValue.Format(ours.Amount)} order {ours.Order}] "
                 : "ours=[unresolved] ") +
             (readTheirs
-                ? $"theirs=[type {theirType} amount {theirAmount} order {theirOrder}]"
+                ? $"theirs=[type {theirType} " +
+                  $"amount {VerificationValue.Format(theirAmount)} order {theirOrder}]"
                 : "theirs=[unreadable]"));
 
         var ourCommitted = reading.Level + reading.QueuedLevels;
@@ -1171,10 +1178,11 @@ internal sealed class AutomataWorldCollectionCheck
             ? (BigDouble?)null
             : new BigDouble(Convert.ToInt64(quantity) + Convert.ToInt64(queued));
         _lines.Add(
-            $"    {"committed quantity",-20} ours={ourCommitted} " +
+            $"    {"committed quantity",-20} " +
             (theirCommitted is { } committed
-                ? $"theirs={committed}" + Verdict(ourCommitted == committed)
-                : "theirs=[unreadable]"));
+                ? VerificationValue.Sides(ourCommitted, committed) +
+                  Verdict(ourCommitted == committed)
+                : $"ours={VerificationValue.Format(ourCommitted)} theirs=[unreadable]"));
 
         BigDouble? ourNextCostMod = null;
         if (readOurs && Enum.IsDefined(typeof(GameValueModifierType), ours.ModifierType))
@@ -1204,11 +1212,14 @@ internal sealed class AutomataWorldCollectionCheck
 
         _lines.Add(
             $"    {"next cost mod",-20} " +
-            (ourNextCostMod is { } ourMod ? $"ours={ourMod} " : "ours=[not computable] ") +
-            (theirNextCostMod is { } theirMod ? $"theirs={theirMod}" : "theirs=[unreadable]") +
             (ourNextCostMod is { } left && theirNextCostMod is { } right
-                ? Verdict(left == right)
-                : string.Empty));
+                ? VerificationValue.Sides(left, right) + Verdict(left == right)
+                : (ourNextCostMod is { } ourMod
+                      ? $"ours={VerificationValue.Format(ourMod)} "
+                      : "ours=[not computable] ") +
+                  (theirNextCostMod is { } theirMod
+                      ? $"theirs={VerificationValue.Format(theirMod)}"
+                      : "theirs=[unreadable]")));
     }
 
     /// <summary>One record term: what we published, what the game reads, what a recompute would say.</summary>
@@ -1217,14 +1228,17 @@ internal sealed class AutomataWorldCollectionCheck
         var record = type.GetField(fieldName, Instance)?.GetValue(entity);
         if (record is null || !TryReadCache(record, out var memo, out var isDirty, out var recomputed))
         {
-            _lines.Add($"    {label,-20} ours={ours} (the game's record was unreadable)");
+            _lines.Add(
+                $"    {label,-20} ours={VerificationValue.Format(ours)} " +
+                "(the game's record was unreadable)");
             return;
         }
 
         var theirs = GameReads(memo, isDirty, recomputed);
         _lines.Add(
-            $"    {label,-20} ours={ours} theirs={theirs} recompute={recomputed} " +
-            $"memo={memo} {(isDirty ? "dirty" : "clean")}" +
+            $"    {label,-20} {VerificationValue.Sides(ours, theirs)} " +
+            $"recompute={VerificationValue.Format(recomputed)} " +
+            $"memo={VerificationValue.Format(memo)} {(isDirty ? "dirty" : "clean")}" +
             Verdict(ours == theirs));
     }
 
@@ -1269,8 +1283,11 @@ internal sealed class AutomataWorldCollectionCheck
             var accessor = FindNoArg(entryType, "GetValue");
             var read = accessor?.Invoke(entry, null) as BigDouble?;
             _lines.Add(
-                $"    {"authored base",-20} valueBig={big} serialized={serialized} " +
-                (read is { } theirs ? $"GetValue={theirs}" : "GetValue=[unreadable]") +
+                $"    {"authored base",-20} valueBig={VerificationValue.Format(big)} " +
+                $"serialized={VerificationValue.Format(serialized)} " +
+                (read is { } theirs
+                    ? $"GetValue={VerificationValue.Format(theirs)}"
+                    : "GetValue=[unreadable]") +
                 (read is { } right && big is BigDouble ours ? Verdict(ours == right) : string.Empty));
             return;
         }
@@ -1340,9 +1357,13 @@ internal sealed class AutomataWorldCollectionCheck
         }
 
         _lines.Add(
-            $"    {label,-20} ours={ours} " +
-            (theirs is { } mod ? $"theirs={mod} " : "theirs=[unreadable] ") +
-            $"(record {numerator} / Pow(quality {quality} as percent, bonus {bonus}) = {divisor})" +
+            $"    {label,-20} " +
+            (theirs is { } mod
+                ? VerificationValue.Sides(ours, mod) + " "
+                : $"ours={VerificationValue.Format(ours)} theirs=[unreadable] ") +
+            $"(record {VerificationValue.Format(numerator)} / " +
+            $"Pow(quality {VerificationValue.Format(quality)} as percent, " +
+            $"bonus {VerificationValue.Format(bonus)}) = {VerificationValue.Format(divisor)})" +
             (theirs is { } right ? Verdict(ours == right) : string.Empty));
     }
 
@@ -1731,8 +1752,9 @@ internal sealed class AutomataWorldCollectionCheck
                             if (foldFirst.Length == 0)
                             {
                                 foldFirst =
-                                    $"{typeName}.{field.Name} ours={ours} theirs={theirs} " +
-                                    $"(recompute {truth}, memo {cached}, " +
+                                    $"{typeName}.{field.Name} {VerificationValue.Sides(ours, theirs)} " +
+                                    $"(recompute {VerificationValue.Format(truth)}, " +
+                                    $"memo {VerificationValue.Format(cached)}, " +
                                     $"{(isDirty ? "dirty" : "clean")})";
                             }
                         }
@@ -1782,9 +1804,12 @@ internal sealed class AutomataWorldCollectionCheck
         var detail = neverCalculated > 0
             ? $"{neverCalculated} never calculated at all (memo still zero)"
             : "none uncalculated";
+        // The screen's notation, not a spelled-out decimal. A memo that has drifted by 1e121 is a
+        // real reading, and writing it out in full made the one line a reader most needs to see the
+        // one line they cannot read.
         var margin = worstLabel.Length == 0
             ? string.Empty
-            : $"; widest drift {worst * 100:0.##}% on {worstLabel}";
+            : $"; widest drift {GameScientificNumber.Format(worst * 100)}% on {worstLabel}";
 
         // Drift in the game, not error in the snapshot. A memo the game has not refreshed is still the
         // number the game acts on, so the rung above compares against it rather than against this.
@@ -2032,7 +2057,7 @@ internal sealed class AutomataWorldCollectionCheck
     private void Record(string label, object ours, object theirs, bool agreed)
     {
         if (agreed) _agreements++;
-        else Disagree($"{label}: ours={ours} theirs={theirs}");
+        else Disagree($"{label}: {VerificationValue.Sides(ours, theirs)}");
     }
 
     private void Disagree(string detail)

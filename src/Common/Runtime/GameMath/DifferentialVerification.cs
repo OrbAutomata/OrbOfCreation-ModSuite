@@ -54,7 +54,7 @@ internal readonly struct DifferentialSample
     internal DifferentialOutcome Outcome { get; }
 
     internal string Describe() =>
-        $"{Outcome}: entity {EntityId} [{Aspect}] ours={Ours} theirs={Theirs}";
+        $"{Outcome}: entity {EntityId} [{Aspect}] {VerificationValue.Sides(Ours, Theirs)}";
 }
 
 /// <summary>

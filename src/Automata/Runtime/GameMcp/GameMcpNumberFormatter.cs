@@ -1,10 +1,15 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
-using System.Globalization;
+using OrbModding.Common.Runtime.GameMath;
 
 namespace OrbAutomata.GameMcp;
 
-/// <summary>The game's Scientific display style: plain below 1,000, compact exponent above it.</summary>
+/// <summary>The wire's entry into the one Scientific display style the suite writes numbers in.</summary>
+/// <remarks>
+/// The style itself is <see cref="GameScientificNumber"/>, shared with the surfaces that print
+/// magnitudes in builds this one is compiled out of. What is MCP's own is the rule that only a
+/// <c>BigDouble</c> reaches it: a JSON number that slipped through would be a second notation.
+/// </remarks>
 internal static class GameMcpNumberFormatter
 {
     internal static string Format(object value)
@@ -15,44 +20,9 @@ internal static class GameMcpNumberFormatter
         return Format(number.Mantissa, number.Exponent);
     }
 
-    internal static string Format(double mantissa, long exponent)
-    {
-        if (double.IsNaN(mantissa)) return "nan";
-        if (double.IsPositiveInfinity(mantissa)) return "infinity";
-        if (double.IsNegativeInfinity(mantissa)) return "-infinity";
-        if (mantissa == 0d) return "0";
+    internal static string Format(double mantissa, long exponent) =>
+        GameScientificNumber.Format(mantissa, exponent);
 
-        Normalize(ref mantissa, ref exponent);
-        if (exponent < 3 && exponent >= -1)
-        {
-            var plain = mantissa * Math.Pow(10d, exponent);
-            var roundedPlain = Math.Round(plain, 2, MidpointRounding.AwayFromZero);
-            return roundedPlain.ToString("0.##", CultureInfo.InvariantCulture);
-        }
-        return Scientific(mantissa, exponent);
-    }
-
-    internal static string Format(double value) => Format(value, 0);
-
-    private static string Scientific(double mantissa, long exponent)
-    {
-        var rounded = Math.Round(mantissa, 2, MidpointRounding.AwayFromZero);
-        if (Math.Abs(rounded) >= 10d)
-        {
-            rounded /= 10d;
-            checked { exponent++; }
-        }
-        if (rounded == 0d) return "0";
-        return rounded.ToString("0.##", CultureInfo.InvariantCulture) +
-            "e" + exponent.ToString(CultureInfo.InvariantCulture);
-    }
-
-    private static void Normalize(ref double mantissa, ref long exponent)
-    {
-        var shift = (long)Math.Floor(Math.Log10(Math.Abs(mantissa)));
-        if (shift == 0) return;
-        mantissa /= Math.Pow(10d, shift);
-        checked { exponent += shift; }
-    }
+    internal static string Format(double value) => GameScientificNumber.Format(value);
 }
 #endif
