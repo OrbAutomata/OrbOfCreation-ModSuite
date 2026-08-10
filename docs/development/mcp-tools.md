@@ -227,7 +227,14 @@ rather than calling a handle the same run handed out a malformed argument.
 
 An entity is its name and its handle wherever it appears: `Constitution 006061`. An id the catalog
 cannot name renders as `(unnamed 2c20e7)` — marked, never a bare id that reads like a row whose name
-happens to be hex.
+happens to be hex. **Refusal sentences are not an exception.** A sentence that names the entity in
+the caller's way — the spell already holding the slot, the entity whose action belongs to another
+tool — names it the same way every other line does, and never as a raw UUID, a bracketed internal
+label, or a native type name.
+
+Where a refusal turns on a *second* entity, that entity is also a field, not only a phrase. A cast
+that refuses because another spell holds the slot carries the occupant under `details`, so a caller
+can act on it — explain it, unequip it — without parsing the sentence it was named in.
 
 ## Tool surface
 
@@ -619,9 +626,12 @@ reproduces that direction and never accepts the desired output UUID as the decis
 `{uuid,count}`. The server derives the target and its native type from the live resolver; there is
 no target argument to select with.
 Zero or multiple resolutions refuse (`discovery_recipe_unresolved`, `discovery_recipe_ambiguous`)
-instead of guessing, and a component that is neither an available glyph nor a published resource,
-or that asks for more uses than the glyph permits, refuses as `component_unavailable`. This is why a
-partial component write can never claim a target it did not resolve.
+instead of guessing, and a component that is neither a published glyph nor a published resource, or
+that asks for more uses than a glyph the player holds permits, refuses as `component_unavailable`.
+A glyph the player does **not** hold is a different answer with a different next move, so it refuses
+as `ERR_LOCKED` and says whether a discovery is the gate — quoting a usage ceiling of nought read as
+a clamp on something already owned. This is why a partial component write can never claim a target
+it did not resolve.
 
 Spellcraft resolves core glyphs through the audited spell resolver; the other six surfaces use the
 installed `UIDiscoverablePage` count-plus-membership semantics against exactly one published
@@ -1163,7 +1173,13 @@ The collector also captures the safe parameterized
 `Prerequisites.Container.Check(Requirements.ConditionInfo)` answer at the exact next-purchase level.
 The worker compares its graph verdict with that same-publication native answer. Missing inputs,
 unevaluable suite math, a different owner/level, or a disagreement makes the whole explanation
-`unavailable`; a disagreement returns both verdicts and `native_verdict_mismatch`. The installed
+`unavailable`; a disagreement returns both verdicts and `native_verdict_mismatch`.
+
+Requirements met while the game still holds the entity shut is not a disagreement — the authored
+rows are one gate among several, and the game folds in conditions it never published as rows. The
+block says so in that case, under `authority`: these rows are met, they are not what is holding this
+shut, and the game's own answer is the one an action would get. Without that line a caller reads a
+green requirement block beside a locked entity and concludes the suite is lying about one of them. The installed
 v1.05 contract additionally pins that a structure quantity requirement reads purchased `quantity`,
 not `selfBonusLevels` or an effective/total level.
 
@@ -1286,13 +1302,24 @@ refusal and the commit alike, and names the second in its own block (`game_agrom
 plot or element and carries the action as `action`). The same request shape never answers with one
 entity's identity when it refuses and the other's when it commits.
 
-A sentence names entities the way a player does — display name only. The asset name, the UUID, and
-the native member that decided are identity and evidence, and the same response already carries them
-as fields, so repeating them inside prose only made the sentence harder to read. Two exceptions stay
-deliberate: a sentence falls back to the UUID for an entity with no known name, because naming the
-only handle there is beats naming nothing; and a `contract_unavailable` or faulted result still names
-the native member it could not read, because that result is a defect report and the member is its
-subject.
+A sentence names entities the way a player does — display name only for the entity the request
+addressed, name plus handle for a *second* entity the sentence points at, which is an address the
+caller can act on. The asset name, the whole UUID, and the native member that decided are identity
+and evidence, and the same response already carries them as fields, so repeating them inside prose
+only made the sentence harder to read. Two exceptions stay deliberate: a sentence falls back to an
+id for an entity with no known name, because naming the only handle there is beats naming nothing;
+and a `contract_unavailable` or faulted result still names the native member it could not read,
+because that result is a defect report and the member is its subject.
+
+That rule reaches the **shared** terminals too, not only the sentences a producer writes. The eight
+outcomes every action boundary can end in — committed, emergency stop, lifecycle replaced, service
+disabled, native rejected, policy rejected, adapter fault, skipped — say what happened to a player,
+in a whole sentence: which side refused, whether anything reached the game, and whether the result
+is a fact about the world or a fact about the suite. They used to be internals labels, and
+`native_rejected`'s in particular read as an admission notice about a boundary the caller has no
+name for. Nothing on the wire ever prints a raw exception message, a stack trace, or a runtime type
+as its explanation: a fault says it could not prove what it needed to and that nothing here is a
+verdict about the game, and the exception belongs in the log.
 
 One generator writes those sentences and the wire pass every response already crosses reaches it, so
 a code that arrives without prose leaves with it. A producer holding the numbers writes the better
@@ -1306,6 +1333,20 @@ guards therefore answer one gate in one sentence — `game_research develop` say
 A refusal carries **one of eight classes** and one sentence. The class says which kind of no this is
 so a caller can branch; the sentence says everything else, and it is the part that names the target,
 the number, and the fix.
+
+**One class per fact per response.** A response never carries two classes for one fact. Where a
+response answers the same fact twice — `explain_entity` publishes an entity's row under `state` and
+its evaluated verdicts under `predicates` — the predicate block is the authority and the row keeps
+only the fact, not a second opinion about it. Two classes for one fact make the taxonomy unusable
+for control flow: a caller branching on one runs a different program than a caller branching on the
+other.
+
+**A no with no axis is a lock, not a refusal.** A read that publishes `available: false` and names
+no reason is the game holding something shut and publishing no condition for it, so it answers
+`ERR_LOCKED` and says exactly that. It used to answer `ERR_REFUSED` and a sentence announcing it had
+no information, which invented a refusal of an action nobody had asked for and disagreed with the
+predicate beside it. Where the world does publish the gate the producer names it instead — an
+unlearned glyph says whether a discovery is what stands in the way.
 
 | Class | The caller should |
 | --- | --- |
@@ -1345,8 +1386,10 @@ level gate is always a gate rather than an exhausted supply. Both leeway codes a
 not `ERR_LIMIT`: research leeway is a gate the game opens as the requirement level moves, not a
 supply the caller spent.
 
-`ERR_REFUSED` is the `native_*_refused` family and nothing else a producer can explain. A code that
-lands there because this map has not met it is a defect in the map, not a new kind of no.
+`ERR_REFUSED` is the `native_*_refused` family and nothing else a producer can explain, and it is a
+**mutation** answer: the game was asked to do something and said no. No read reaches it, because a
+read that cannot account for a shut gate has learned a lock rather than witnessed a refusal.
+A code that lands there because this map has not met it is a defect in the map, not a new kind of no.
 
 A feature result number is not a wire word: it names no axis a caller can act on, so an unmapped
 native result reaches the wire as `ERR_REFUSED` with the producer's own sentence. **No response ever
@@ -1384,6 +1427,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `owning_screen_unknown` / `owning_screen_unreadable` / `owning_screen_contradictory` / `owning_screen_status_unmodelled` / `owning_screen_availability_unreadable` / `topology_not_captured` | The five distinct ways the purchase-screen admission chain says no, which used to share one number. Only `topology_not_captured` is fixed by waiting for the next lifecycle; its sentence names the epoch the topology is stamped at, the epoch the call asked for, and how many rows it holds | `game_purchase` |
 | `destination_full` | Every slot this upgrade would fill is already occupied | `game_purchase` on a slot-filling upgrade |
 | `native_rejected` | The game refused and the published world does not explain why | any native mutation, reserved for exactly that case |
+| `native_unavailable` | The game keeps this shut and publishes no condition that would open it. The read-side counterpart of `native_rejected`, and the answer a bare `available: false` reaches | every read that publishes availability, and the glyph and component decisions that act on one |
 
 `native_rejected` is the last resort, not the default: a refusal the read side can already account
 for answers with that account's own code. A mutation refused by a gate the read side already
@@ -2243,6 +2287,16 @@ Two things about it are unlike every other read here, and both are deliberate:
 - **It refuses rather than doubling up.** A press already queued from the Runtime page runs later in
   the same frame, so a call that arrives while one is queued is refused with `ERR_STATE` and the
   sentence naming the queued press. Running both would measure caches the first run had just warmed.
+
+It compares the suite against a **running** game, so the live game's lifecycle is its precondition
+and it answers the same sentence the world reads answer when there is no run to read — the Runtime
+button reports it in the log, the tool refuses with the lifecycle class. Its passes resolve their
+types from the loaded assembly and read those types' static registries, both of which answer in the
+Start menu because the assets load with the process long before any save does; asked there without
+that precondition it dereferenced a game object that does not exist yet, and answered the runtime's
+own exception text as a tool error. No verdict line prints raw exception text either: a check that
+faults before it can compare anything says so, and says that nothing in it is a verdict about the
+game.
 
 Its passes read their comparison worlds through throwaway collectors, which get their own
 purchase-view topology because every collector does unless it is built by the session's named
