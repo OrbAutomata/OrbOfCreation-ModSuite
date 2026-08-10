@@ -48,7 +48,6 @@ public sealed class GameMcpBoundTypeTests
     [InlineData("maximumAmount")]
     [InlineData("minimumSlot")]
     [InlineData("maximumSlot")]
-    [InlineData("maximumDestination")]
     [InlineData("maximumBatch")]
     [InlineData("minimum")]
     [InlineData("maximum")]

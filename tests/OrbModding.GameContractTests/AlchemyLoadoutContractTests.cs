@@ -76,8 +76,7 @@ public sealed class AlchemyLoadoutContractTests
             "alchemy-loadout.instance-queued-action", "alchemy-loadout.instance-remaining-free-action",
             "alchemy-loadout.instance-remaining-maximum-action", "alchemy-loadout.cost-maximum-times-action",
             "alchemy-loadout.cost-empty-action", "alchemy-loadout.list-add-count-action",
-            "alchemy-loadout.list-remove-count-action", "alchemy-loadout.list-swap-action",
-            "alchemy-loadout.list-update-action",
+            "alchemy-loadout.list-remove-count-action",
         };
         Assert.All(expected, id => Assert.Single(
             manifest.Contracts,

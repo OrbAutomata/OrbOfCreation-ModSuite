@@ -190,7 +190,7 @@ rather than from the screen it is drawn on.
 | `game_craft` | Craft a recipe or control its manual/automated instance |
 | `game_discover` | Preview or confirm one composed discovery on seven surfaces, or drive one Discovery Tree offer lifecycle |
 | `game_equipment` | Equip/increase or unequip/decrease an explicit amount of one created artifact |
-| `game_alchemy` | Add, remove, or reorder one ordinary Alchemy recipe through its visible list |
+| `game_alchemy` | Add or remove uses of one ordinary Alchemy recipe through its visible list |
 | `game_ritual` | Select a Ritual, set its starting level, activate or end its battle, or cancel its duration reward |
 | `game_level` | Buy an explicit amount of paid or bonus levels from an ordinary level-list control |
 | `game_loadout` | Switch or edit the active player loadout, or save/load/clear an Equipment or Alchemy snapshot slot |
@@ -510,20 +510,21 @@ attunement are post-state evidence, never payment-verification gates.
 ### Ordinary Alchemy loadout loop
 
 An `alchemy-recipes` detail row carries `alchemyLoadout` only for the six ordinary Alchemy families.
-It reports `activeCount`, the ordered slot when active, and the next visible add, remove,
-and move decisions. An available add includes the live click-sized maximum and named per-use resource
+It reports `activeCount`, the slot the recipe occupies when active, and the next visible add and
+remove decisions. An available add includes the live click-sized maximum and named per-use resource
 costs with current spendable holdings; an unavailable add carries only its binding reason. Concept
 recipes remain on `game_concept`, composed Alchemy discovery remains on `game_discover`, and recipe
 leveling belongs to the unified level surface rather than this list lifecycle.
 
 `game_alchemy(mode="add"|"remove", uuid=..., amount=...)` applies the caller's explicit positive
-amount through the list's native counted mutation after revalidating live usage capacity.
-`mode="move"` instead requires the
-`destination` exposed by the row. Success returns only the settled `activeCount` before and after, or
-the ordered slot before and after for a move. The action boundary revalidates exact recipe identity,
-ordinary-family classification, discovery, and capacity before invoking the explicit-count core
-used by the UI wrappers, or the same list-swap route as the UI. The global multi-buy strip is never
-read or changed.
+amount through the list's native counted mutation after revalidating live usage capacity. Success
+returns only the settled `activeCount` before and after. The action boundary revalidates exact recipe
+identity, ordinary-family classification, discovery, and capacity before invoking the explicit-count
+core used by the UI wrappers. The global multi-buy strip is never read or changed.
+
+Loadout order carries no gameplay effect — nothing the game computes reads the position a recipe
+sits in — so there is no verb that reorders it, no `destination` argument on this surface, and no
+`move` decision on the read. The slot a row prints is the address the player sees on the screen.
 
 ### Ritual lifecycle
 
@@ -672,7 +673,7 @@ that callback and are not independently replayed or audited by the suite.
 ### Alchemy screen ownership
 
 Alchemy's Learn side uses `game_discover(surface="alchemy")`. Its Loadout side uses
-`game_alchemy` with the published recipe pool, ordered capacity-bounded slots, six type-capacity
+`game_alchemy` with the published recipe pool, capacity-bounded slots, six type-capacity
 counters, and the same type identity the screen filter displays. Recipe mastery and Alchemy-type
 levels are game-driven progression displays, not direct purchase buttons on this screen.
 
@@ -1280,7 +1281,6 @@ question, so none of them is a synonym for another:
 | `minimum` / `maximum` | a control's live range — a native dial, or a writable setting's declared domain | the read, the commit, **and** the refusal, in the same object as the value they bound |
 | `minimumAmount` / `maximumAmount` | the `amount` this one call admits, and on agromancy and harvest reads the game's remaining-instance headroom, never clamped by a schema cap | refusals and read-side decision blocks |
 | `minimumSlot` / `maximumSlot` | the `slot` index the live list holds | every `game_loadout` snapshot mode |
-| `maximumDestination` | the `destination` index a move accepts | `game_alchemy` and `game_spell_loadout`, read and refusal alike |
 | `maximumBatch` | how many levels one queued develop would take, the multi-buy target clamped by the queue's own room | `game_research`'s develop block, queue route only |
 
 A decision block carries a bound exactly when the verb it decides takes the input that bound caps.

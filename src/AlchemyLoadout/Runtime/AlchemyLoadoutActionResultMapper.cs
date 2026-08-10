@@ -28,7 +28,6 @@ internal static class AlchemyLoadoutActionResultMapper
         AlchemyLoadoutPreflight.AlreadyInRequestedState => AlchemyLoadoutActionResultCodes.AlreadyInRequestedState,
         AlchemyLoadoutPreflight.LoadoutFull => AlchemyLoadoutActionResultCodes.LoadoutFull,
         AlchemyLoadoutPreflight.UsageUnavailable => AlchemyLoadoutActionResultCodes.UsageUnavailable,
-        AlchemyLoadoutPreflight.DestinationOutOfRange => AlchemyLoadoutActionResultCodes.DestinationOutOfRange,
         AlchemyLoadoutPreflight.MutationPermitUnavailable => AlchemyLoadoutActionResultCodes.MutationPermitUnavailable,
         AlchemyLoadoutPreflight.PostCommitFault => AlchemyLoadoutActionResultCodes.PostCommitFault,
         AlchemyLoadoutPreflight.VerificationFailed => AlchemyLoadoutActionResultCodes.VerificationFailed,

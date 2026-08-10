@@ -17,15 +17,15 @@ public sealed class GameMcpAlchemyLoadoutTests
     private static readonly Guid ResourceId = Guid.Parse("f8000000-0000-0000-0000-000000000003");
 
     [Fact]
-    public void Tool_exposes_only_the_ui_add_remove_and_ordered_move_surface()
+    public void Tool_exposes_only_the_ui_add_and_remove_surface()
     {
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
             candidate => (string?)candidate["name"] == "game_alchemy");
 
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
-        Assert.Equal(new[] { "mode", "uuid" },
+        Assert.Equal(new[] { "mode", "uuid", "amount" },
             tool["inputSchema"]!["required"]!.Values<string>());
-        Assert.Equal(new[] { "add", "remove", "move" },
+        Assert.Equal(new[] { "add", "remove" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
         Assert.Null(tool["inputSchema"]!["properties"]!["expectedNativeType"]);
         Assert.NotNull(tool["inputSchema"]!["properties"]!["amount"]);
@@ -41,9 +41,18 @@ public sealed class GameMcpAlchemyLoadoutTests
         Assert.Equal(GameMcpOperationClass.Gameplay, operation.Classification);
     }
 
+    /// <summary>
+    /// Loadout order is cosmetic in this game, so the verb that reordered it is gone: no mode, no
+    /// destination argument, and no ceiling for one.
+    /// </summary>
     [Fact]
-    public void Modes_require_only_their_explicit_amount_or_destination()
+    public void Reordering_the_loadout_is_not_a_capability_this_tool_offers()
     {
+        var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate["name"] == "game_alchemy");
+        Assert.Null(tool["inputSchema"]!["properties"]!["destination"]);
+        Assert.Null(tool["inputSchema"]!["allOf"]);
+
         var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
         var move = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
@@ -53,9 +62,10 @@ public sealed class GameMcpAlchemyLoadoutTests
                 {
                     ["mode"] = "move",
                     ["uuid"] = RecipeId.ToString("D"),
+                    ["amount"] = 1,
                 },
             }));
-        var add = router.Handle(GameMcpAcceptanceFixture.Request(2, "tools/call",
+        var destination = router.Handle(GameMcpAcceptanceFixture.Request(2, "tools/call",
             new JObject
             {
                 ["name"] = "game_alchemy",
@@ -63,28 +73,20 @@ public sealed class GameMcpAlchemyLoadoutTests
                 {
                     ["mode"] = "add",
                     ["uuid"] = RecipeId.ToString("D"),
-                    ["destination"] = 1,
+                    ["amount"] = 1,
+                    ["destination"] = 2,
                 },
             }));
 
-        var moveError = Assert.IsType<JObject>(move.Body?["error"]);
-        var moveData = Assert.IsType<JObject>(moveError["data"]);
-        var moveErrors = Assert.IsType<JArray>(moveData["validationErrors"]);
-        var addError = Assert.IsType<JObject>(add.Body?["error"]);
-        var addData = Assert.IsType<JObject>(addError["data"]);
-        var addErrors = Assert.IsType<JArray>(addData["validationErrors"]);
-        Assert.Contains(moveErrors.Values<JObject>(),
-            error => error is not null &&
-                     (string?)error["code"] == "missing_required" &&
-                     (string?)error["field"] == "destination");
-        Assert.Contains(addErrors.Values<JObject>(),
-            error => error is not null &&
-                     (string?)error["code"] == "unexpected_for_mode" &&
-                     (string?)error["field"] == "destination");
-        Assert.Contains(addErrors.Values<JObject>(),
-            error => error is not null &&
-                     (string?)error["code"] == "missing_required" &&
-                     (string?)error["field"] == "amount");
+        Assert.Equal(
+            "mode must be one of: add, remove",
+            (string?)Assert.IsType<JObject>(move.Body?["error"])["message"]);
+        var data = Assert.IsType<JObject>(
+            Assert.IsType<JObject>(destination.Body?["error"])["data"]);
+        Assert.Contains(Assert.IsType<JArray>(data["validationErrors"]).Values<JObject>(),
+            candidate => candidate is not null &&
+                         (string?)candidate["code"] == "unexpected_field" &&
+                         (string?)candidate["field"] == "destination");
     }
 
     [Fact]
@@ -109,9 +111,7 @@ public sealed class GameMcpAlchemyLoadoutTests
         Assert.Equal("5", (string?)cost["cost"]);
         Assert.Equal("80", (string?)cost["spendableAmount"]);
         Assert.True((bool)Assert.IsType<JObject>(loadout["remove"])["available"]!);
-        var move = Assert.IsType<JObject>(loadout["move"]);
-        Assert.True((bool)move["available"]!);
-        Assert.Equal(3, (int)move["maximumDestination"]!);
+        Assert.Null(loadout["move"]);
         Assert.Null(row["level"]);
 
         var instance = Assert.Single(Json(GameMcpWorldQuery.ListRows(
@@ -129,11 +129,11 @@ public sealed class GameMcpAlchemyLoadoutTests
     }
 
     /// <summary>
-    /// The loadout list row says the same slot number the recipe detail says, and the same one the
-    /// move verb takes. It used to print the raw array position, one below both of them.
+    /// The loadout list row says the same slot number the recipe detail says. It used to print the
+    /// raw array position, one below both of them.
     /// </summary>
     [Fact]
-    public void The_loadout_list_row_names_the_same_slot_the_detail_and_the_move_verb_do()
+    public void The_loadout_list_row_names_the_same_slot_the_detail_does()
     {
         var listed = Assert.Single(Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(World(targetAmount: 2, position: 1), generation: 702),
@@ -142,22 +142,6 @@ public sealed class GameMcpAlchemyLoadoutTests
         Assert.Equal(2, (int)listed["slot"]!);
         Assert.Null(listed["position"]);
         Assert.Equal("Catalyze", (string?)listed["recipe"]!["name"]);
-    }
-
-    /// <remarks>
-    /// The read decision publishes <c>maximumDestination</c>, and the refusal that names the same
-    /// ceiling in prose used to publish nothing — so learning the ceiling from a refusal meant
-    /// reading a sentence apart. A destination is not an amount, and it does not borrow that name.
-    /// </remarks>
-    [Fact]
-    public void A_move_refused_for_its_destination_carries_the_same_ceiling_the_read_publishes()
-    {
-        var refused = GameMcpTestHarness.Json(GameMcpAlchemyLoadoutProjection.Project(
-            AlchemyLoadoutSubmission.DestinationOutOfRange(
-                "The Alchemy destination must be between 0 and 3.", 3)));
-
-        Assert.Equal(3, (int)refused["maximumDestination"]!);
-        Assert.Null(refused["maximumAmount"]);
     }
 
     [Fact]

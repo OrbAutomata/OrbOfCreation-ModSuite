@@ -382,12 +382,9 @@ internal sealed class GameMcpProtocolRouter
                 builder.Amount = RequiredInt(arguments, "amount", 1, int.MaxValue);
                 break;
             case "game_alchemy":
-                builder.Mode = RequireOneOf(arguments, "mode", "add", "remove", "move");
+                builder.Mode = RequireOneOf(arguments, "mode", "add", "remove");
                 builder.Uuid = RequireUuid(arguments, "uuid");
-                if (builder.Mode is "add" or "remove")
-                    builder.Amount = RequiredInt(arguments, "amount", 1, int.MaxValue);
-                if (builder.Mode == "move")
-                    builder.SlotIndex = RequiredInt(arguments, "destination", 1, int.MaxValue);
+                builder.Amount = RequiredInt(arguments, "amount", 1, int.MaxValue);
                 break;
             case "game_ritual":
                 builder.Mode = RequireOneOf(arguments, "mode",
@@ -908,19 +905,15 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_alchemy",
                 "Change the ordinary Alchemy loadout",
-                "Add or remove an explicit number of uses, or move one discovered ordinary Alchemy recipe through the native usage-capacity decision. Concept assignments stay on game_concept.",
-                ModeSchema(ActionSchema(
+                "Add or remove an explicit number of uses of one discovered ordinary Alchemy recipe through the native usage-capacity decision. Concept assignments stay on game_concept.",
+                ActionSchema(
                     new JObject
                     {
-                        ["mode"] = EnumSchema("add", "remove", "move"),
+                        ["mode"] = EnumSchema("add", "remove"),
                         ["uuid"] = StringSchema("Published ordinary AlchemyRecipeSO UUID."),
                         ["amount"] = IntegerSchema(1, int.MaxValue),
-                        ["destination"] = IntegerSchema(1, int.MaxValue),
                     },
-                    "mode", "uuid"),
-                    ModeRule("add", new[] { "amount" }, new[] { "destination" }),
-                    ModeRule("remove", new[] { "amount" }, new[] { "destination" }),
-                    ModeRule("move", new[] { "destination" }, new[] { "amount" })),
+                    "mode", "uuid", "amount"),
                 readOnly: false,
                 idempotent: false),
             Tool(
@@ -1321,26 +1314,6 @@ internal sealed class GameMcpProtocolRouter
                 if (hasOn) errors.Add(ValidationError("unexpected_for_mode", "on",
                     "field 'on' is accepted only for mode 'set'"));
             }
-        }
-
-        if (string.Equals(name, "game_alchemy", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-        {
-            var mode = (string?)arguments["mode"];
-            var destination = arguments.ContainsKey("destination");
-            var amount = arguments.ContainsKey("amount");
-            if (mode is "add" or "remove" && !amount)
-                errors.Add(ValidationError("missing_required", "amount",
-                    "required field 'amount' is missing for mode '" + mode + "'"));
-            else if (mode == "move" && amount)
-                errors.Add(ValidationError("unexpected_for_mode", "amount",
-                    "field 'amount' is not accepted for mode 'move'"));
-            if (mode == "move" && !destination)
-                errors.Add(ValidationError("missing_required", "destination",
-                    "required field 'destination' is missing for mode 'move'"));
-            else if (mode != "move" && destination)
-                errors.Add(ValidationError("unexpected_for_mode", "destination",
-                    "field 'destination' is accepted only for mode 'move'"));
         }
 
         if (string.Equals(name, "game_ritual", StringComparison.Ordinal) &&

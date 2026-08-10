@@ -669,11 +669,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         {
             "add" => AlchemyLoadoutActionKind.Add,
             "remove" => AlchemyLoadoutActionKind.Remove,
-            "move" => AlchemyLoadoutActionKind.Move,
             _ => throw new ArgumentException("unsupported Alchemy mode " + command.Mode),
         };
-        var destination = kind == AlchemyLoadoutActionKind.Move ? command.Amount - 1 : -1;
-        var action = new AlchemyLoadoutAction(kind, command.TargetId, destination, command.Amount,
+        var action = new AlchemyLoadoutAction(kind, command.TargetId, command.Amount,
             command.ExpectedLifecycleGeneration);
         var submission = _alchemyLoadout.Submit(in action);
         var result = AlchemyLoadoutActionResultMapper.Map(in submission);

@@ -177,7 +177,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
                         " uses with the current capacity and resources.",
                         maximumAdditional);
             }
-            else if (action.Kind == AlchemyLoadoutActionKind.Remove)
+            else
             {
                 if (beforeIndex < 0 || beforeTarget <= 0)
                     return Reject(AlchemyLoadoutPreflight.AlreadyInRequestedState,
@@ -186,24 +186,10 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
                     return Reject(AlchemyLoadoutPreflight.UsageUnavailable,
                         "This recipe has only " + beforeTarget + " active uses to remove.");
             }
-            else
-            {
-                if (beforeIndex < 0 || beforeTarget <= 0)
-                    return Reject(AlchemyLoadoutPreflight.AlreadyInRequestedState,
-                        "The recipe is not active in the Alchemy loadout.");
-                if (action.Destination < 0 || action.Destination >= values.Count)
-                    return AlchemyLoadoutSubmission.DestinationOutOfRange(
-                        "The Alchemy destination must be between 0 and " +
-                        Math.Max(values.Count - 1, 0) + ".",
-                        Math.Max(values.Count - 1, 0));
-                if (action.Destination == beforeIndex)
-                    return Reject(AlchemyLoadoutPreflight.AlreadyInRequestedState,
-                        "The recipe is already in Alchemy slot " + beforeIndex + ".");
-            }
 
             if (!_tryCaptureMutationPermit())
                 return Reject(AlchemyLoadoutPreflight.MutationPermitUnavailable, _readOwnershipFailure());
-            return Execute(in action, native, list, recipe, beforeIndex, beforeTarget);
+            return Execute(in action, native, list, recipe, beforeTarget);
         }
         catch (Exception exception) when (IsExpected(exception))
         {
@@ -228,23 +214,17 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
     }
 
     private static AlchemyLoadoutSubmission Execute(in AlchemyLoadoutAction action,
-        AlchemyLoadoutNativeBindings native, object list, object recipe,
-        int beforeIndex, int beforeTarget)
+        AlchemyLoadoutNativeBindings native, object list, object recipe, int beforeTarget)
     {
         var stage = AlchemyLoadoutNativeStage.NativeCallback;
         try
         {
             if (action.Kind == AlchemyLoadoutActionKind.Add)
                 native.AddInstances(list, recipe, action.Amount);
-            else if (action.Kind == AlchemyLoadoutActionKind.Remove)
-                native.RemoveInstances(list, recipe, action.Amount);
             else
-            {
-                native.Swap(list, beforeIndex, action.Destination);
-                native.Update(list);
-            }
+                native.RemoveInstances(list, recipe, action.Amount);
             stage = AlchemyLoadoutNativeStage.Verification;
-            return OutcomeObserved(in action, native, list, recipe, beforeIndex, beforeTarget)
+            return OutcomeObserved(in action, native, list, recipe, beforeTarget)
                 ? Verified()
                 : Fault(in action, AlchemyLoadoutPreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
@@ -252,7 +232,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            if (OutcomeObserved(in action, native, list, recipe, beforeIndex, beforeTarget))
+            if (OutcomeObserved(in action, native, list, recipe, beforeTarget))
                 return Verified();
             return Fault(in action, AlchemyLoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
@@ -262,8 +242,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
     }
 
     private static bool OutcomeObserved(in AlchemyLoadoutAction action,
-        AlchemyLoadoutNativeBindings native, object list, object recipe,
-        int beforeIndex, int beforeTarget)
+        AlchemyLoadoutNativeBindings native, object list, object recipe, int beforeTarget)
     {
         var values = native.Values(list);
         if (values is null) return false;
@@ -273,7 +252,6 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         {
             AlchemyLoadoutActionKind.Add => afterTarget > beforeTarget,
             AlchemyLoadoutActionKind.Remove => afterTarget < beforeTarget,
-            AlchemyLoadoutActionKind.Move => afterIndex == action.Destination && afterIndex != beforeIndex,
             _ => false,
         };
     }

@@ -5354,17 +5354,6 @@ internal static class GameMcpWorldQuery
         loadout["remove"] = decision.TargetAmount > 0
             ? new JObject { ["available"] = true, ["maximumAmount"] = decision.TargetAmount }
             : new JObject { ["available"] = false, ["reasonCode"] = "not_active" };
-        loadout["move"] = decision.IsActive && decision.SlotCount > 1
-            ? new JObject
-            {
-                ["available"] = true,
-                ["maximumDestination"] = decision.SlotCount - 1,
-            }
-            : new JObject
-            {
-                ["available"] = false,
-                ["reasonCode"] = decision.IsActive ? "single_slot" : "not_active",
-            };
         result["alchemyLoadout"] = loadout;
     }
 

@@ -12,7 +12,6 @@ internal static class AlchemyLoadoutActionResultCodes
     internal static readonly ServiceActionResultCode AlreadyInRequestedState = new(1965);
     internal static readonly ServiceActionResultCode LoadoutFull = new(1966);
     internal static readonly ServiceActionResultCode UsageUnavailable = new(1967);
-    internal static readonly ServiceActionResultCode DestinationOutOfRange = new(1969);
     internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(1970);
     internal static readonly ServiceActionResultCode PostCommitFault = new(1971);
     internal static readonly ServiceActionResultCode VerificationFailed = new(1972);

@@ -148,6 +148,52 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// The slots inside <c>canUse</c> are the published spell-slot rows, so they say the same
+    /// one-based number every verb takes. They used to be the raw world row, which printed the
+    /// zero-based array position beside a one-based <c>slot</c> on the same page.
+    /// </summary>
+    [Fact]
+    public void A_usable_spell_names_its_slot_the_way_every_verb_addresses_it()
+    {
+        var world = new GameWorldState
+        {
+            SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[]
+            {
+                Spell(ReadySpellId, discovered: true, hidden: false, masteryLevel: 3),
+            }),
+            SpellSlots = PublicationTable<WorldSpellSlot>.Create(new[]
+            {
+                new WorldSpellSlot(
+                    slotIndex: 6,
+                    ReadySpellId,
+                    occupied: true,
+                    casting: false,
+                    readyingCast: false,
+                    attuning: false,
+                    channeled: false,
+                    toggled: false,
+                    chargeable: true,
+                    castReady: true,
+                    chargeAvailable: true,
+                    resourcesCovered: true,
+                    currentCharges: 1,
+                    maximumCharges: 1,
+                    cooldownRemaining: BigDouble.Zero),
+            }),
+            CollectedAtEpoch = 41,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var explanation = Explain(world, ReadySpellId, generation: 941);
+
+        var slot = Assert.IsType<JObject>(Assert.Single(
+            Assert.IsType<JArray>(explanation["predicates"]!["canUse"]!["slots"])
+                .Values<JObject>()));
+        Assert.Equal(7, (int)slot["slot"]!);
+        Assert.Null(slot["slotIndex"]);
+    }
+
     [Fact]
     public void ExplanationSeparatesUnknownFromKnownButUnprojectedIdentity()
     {

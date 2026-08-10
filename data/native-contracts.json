@@ -24140,18 +24140,6 @@
       "owners": ["Automata ordinary Alchemy GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
-      "id": "alchemy-loadout.list-swap-action", "assembly": "assembly-csharp",
-      "type": "AbstractListVariable`1", "typeVisibility": "public", "kind": "method", "member": "SwapPositions",
-      "visibility": "public", "static": false, "returnType": "System.Void", "parameters": ["System.Int32", "System.Int32"],
-      "owners": ["Automata ordinary Alchemy GameAction"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "alchemy-loadout.list-update-action", "assembly": "assembly-csharp",
-      "type": "AbstractListVariable", "typeVisibility": "public", "kind": "method", "member": "UpdateObservable",
-      "visibility": "public", "static": false, "returnType": "System.Void", "parameters": [],
-      "owners": ["Automata ordinary Alchemy GameAction"], "usages": ["reflection"], "place": "action"
-    },
-    {
       "id": "ritual-lifecycle.ritual.type-action", "assembly": "assembly-csharp",
       "type": "RitualSO", "typeVisibility": "public", "kind": "type",
       "owners": ["Automata Ritual lifecycle GameAction", "Common Ritual decision world collection"],

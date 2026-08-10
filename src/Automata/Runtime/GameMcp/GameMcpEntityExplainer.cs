@@ -369,7 +369,10 @@ internal static class GameMcpEntityExplainer
                                 ? "cast_in_progress"
                                 : "native_can_cast_refused";
             }
-            slots.Add(new GameMcpDomainValue(slot));
+            // The published projection, not the raw row: the struct's own field is the zero-based
+            // array position, and printing it beside the one-based `slot` every verb takes handed a
+            // caller two numbers for one slot.
+            slots.Add(GameMcpWorldQuery.ProjectEntityState(world, "spell-slots", slot));
         }
         var result = Verdict(
             found && ready,

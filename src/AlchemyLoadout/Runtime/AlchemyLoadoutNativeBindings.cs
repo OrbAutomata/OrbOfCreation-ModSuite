@@ -24,8 +24,7 @@ internal sealed class AlchemyLoadoutNativeBindings
         "alchemy-loadout.instance-queued-action", "alchemy-loadout.instance-remaining-free-action",
         "alchemy-loadout.instance-remaining-maximum-action", "alchemy-loadout.cost-maximum-times-action",
         "alchemy-loadout.cost-empty-action", "alchemy-loadout.list-add-count-action",
-        "alchemy-loadout.list-remove-count-action", "alchemy-loadout.list-swap-action",
-        "alchemy-loadout.list-update-action",
+        "alchemy-loadout.list-remove-count-action",
     };
 
     private AlchemyLoadoutNativeBindings(Type recipeType, Type managerType,
@@ -36,8 +35,7 @@ internal sealed class AlchemyLoadoutNativeBindings
         Func<object, int> remainingFree, Func<object, int> remainingMaximum,
         Func<object, BigDouble> maximumTimes, Func<object, bool> costEmpty,
         Action<object, object, int> addInstances,
-        Action<object, object, int> removeInstances,
-        Action<object, int, int> swap, Action<object> update)
+        Action<object, object, int> removeInstances)
     {
         RecipeType = recipeType; ManagerType = managerType; Manager = manager;
         ActiveList = activeList; Discovered = discovered; UsageCost = usageCost;
@@ -45,7 +43,6 @@ internal sealed class AlchemyLoadoutNativeBindings
         InstanceRecipe = instanceRecipe; Queued = queued; RemainingFree = remainingFree;
         RemainingMaximum = remainingMaximum; MaximumTimes = maximumTimes; CostEmpty = costEmpty;
         AddInstances = addInstances; RemoveInstances = removeInstances;
-        Swap = swap; Update = update;
     }
 
     internal Type RecipeType { get; }
@@ -66,8 +63,6 @@ internal sealed class AlchemyLoadoutNativeBindings
     internal Func<object, bool> CostEmpty { get; }
     internal Action<object, object, int> AddInstances { get; }
     internal Action<object, object, int> RemoveInstances { get; }
-    internal Action<object, int, int> Swap { get; }
-    internal Action<object> Update { get; }
 
     internal static bool TryCreate(out AlchemyLoadoutNativeBindings? bindings, out string reason,
         Func<string, Type?>? resolveType = null, Func<string, bool>? includeContract = null)
@@ -107,17 +102,13 @@ internal sealed class AlchemyLoadoutNativeBindings
                 recipe, typeof(int));
             var remove = Method(20, list, "RemoveAlchemyInstances", typeof(void), includeContract,
                 recipe, typeof(int));
-            var swap = Method(21, list, "SwapPositions", typeof(void), includeContract,
-                typeof(int), typeof(int));
-            var update = Method(22, list, "UpdateObservable", typeof(void), includeContract);
 
             bindings = new AlchemyLoadoutNativeBindings(recipe, managerType,
                 StaticObject(manager), ObjectField(active), Func<bool>(discovered),
                 ObjectFunc(usage), Func<int>(free), Func<int>(maximum), Func2<bool>(canAdd),
                 ListField(values), ObjectFunc(reference), Func<int>(queued), Func<int>(remainingFree),
                 Func<int>(remainingMax), Func<BigDouble>(maximumTimes), Func<bool>(empty),
-                ActionObjectInt(add), ActionObjectInt(remove),
-                Action3(swap), Action1(update));
+                ActionObjectInt(add), ActionObjectInt(remove));
             reason = string.Empty;
             return true;
         }
@@ -198,23 +189,6 @@ internal sealed class AlchemyLoadoutNativeBindings
             Expression.Convert(target, method.DeclaringType!), method,
             Expression.Convert(argument, method.GetParameters()[0].ParameterType), amount),
             target, argument, amount).Compile();
-    }
-
-    private static Action<object, int, int> Action3(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var first = Expression.Parameter(typeof(int), "first");
-        var second = Expression.Parameter(typeof(int), "second");
-        return Expression.Lambda<Action<object, int, int>>(Expression.Call(
-            Expression.Convert(target, method.DeclaringType!), method, first, second),
-            target, first, second).Compile();
-    }
-
-    private static Action<object> Action1(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Action<object>>(Expression.Call(
-            Expression.Convert(target, method.DeclaringType!), method), target).Compile();
     }
 
     private static Func<object?> StaticObject(MemberInfo member)

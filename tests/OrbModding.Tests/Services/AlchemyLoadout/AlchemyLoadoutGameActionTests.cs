@@ -59,8 +59,12 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
         Assert.Equal(2, Assert.Single(AlchemyManager.instance!.activeAlchemy.value).queuedQuantity);
     }
 
+    /// <summary>
+    /// Loadout order is cosmetic, so the boundary never reorders the list: no swap, no observable
+    /// bump, and the two bindings that performed them are no longer bound at all.
+    /// </summary>
     [Fact]
-    public void Move_uses_the_ui_swap_and_observable_route()
+    public void The_boundary_never_reorders_the_native_list()
     {
         var first = OrdinaryRecipe(5);
         var second = OrdinaryRecipe(5);
@@ -69,11 +73,14 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
         AlchemyManager.instance.activeAlchemy.value.Add(new AlchemyInstance(second) { queuedQuantity = 1 });
         using var boundary = Boundary();
 
-        var result = Submit(boundary, first, AlchemyLoadoutActionKind.Move, destination: 1);
+        var result = Submit(boundary, first, AlchemyLoadoutActionKind.Add);
 
         Assert.True(result.Verified, result.Reason);
-        Assert.Same(first, AlchemyManager.instance.activeAlchemy.value[1].get_reference());
-        Assert.Equal(1, AlchemyManager.instance.activeAlchemy.UpdateObservableCalls);
+        Assert.Same(first, AlchemyManager.instance.activeAlchemy.value[0].get_reference());
+        Assert.Equal(0, AlchemyManager.instance.activeAlchemy.UpdateObservableCalls);
+        Assert.DoesNotContain(AlchemyLoadoutNativeBindings.ContractIds,
+            id => id.Contains("swap", StringComparison.Ordinal) ||
+                  id.Contains("update", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -139,9 +146,9 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
     }
 
     private static AlchemyLoadoutSubmission Submit(AlchemyLoadoutGameAction boundary,
-        AlchemyRecipeSO recipe, AlchemyLoadoutActionKind kind, int destination = -1, int amount = 1)
+        AlchemyRecipeSO recipe, AlchemyLoadoutActionKind kind, int amount = 1)
     {
-        var action = new AlchemyLoadoutAction(kind, recipe.GetGuid(), destination, amount, Epoch);
+        var action = new AlchemyLoadoutAction(kind, recipe.GetGuid(), amount, Epoch);
         return boundary.Submit(in action);
     }
 
