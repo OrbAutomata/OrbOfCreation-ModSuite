@@ -207,12 +207,23 @@ internal static class GameMcpWorldQuery
         // resume. A page shorter than the limit with a nextOffset is the byte budget; a page
         // shorter than the limit without one is the end of the category.
         var result = Envelope(publication);
+
+        // A page with rows shows the shape of a row of this category by showing one. A page with
+        // none has to say it, or the one read where a caller most needs to know what they were
+        // looking for answers with a count and nothing else.
+        if (rows.Count == 0) result["columns"] = ListColumns(category);
         result["rows"] = rows;
         result["total"] = total;
         var end = checked(offset + rows.Count);
         if (end < total) result["nextOffset"] = end;
         return result;
     }
+
+    private static string[] ListColumns(GameMcpWorldCategory category) =>
+        GameMcpEntityWireNormalizer.WireColumns(
+            GameMcpListColumns.TryDeclared(category.Name, out var declared)
+                ? declared
+                : ListFields(category));
 
     /// <summary>
     /// What the mastery-experience ring actually says, rather than the ring.
@@ -274,6 +285,11 @@ internal static class GameMcpWorldQuery
                 ["firstSequence"] = samples[0].Sequence,
                 ["lastSequence"] = samples[samples.Count - 1].Sequence,
             };
+        }
+        if (rows.Count == 0)
+        {
+            result["columns"] = GameMcpEntityWireNormalizer.WireColumns(
+                new[] { "count", "domain", "sourceMastery", "sourceId" });
         }
         result["rows"] = rows;
         result["total"] = keys.Count;
@@ -3087,6 +3103,11 @@ internal static class GameMcpWorldQuery
         result["total"] = totalMatches;
         if (unavailableCategories.Count > 0)
             result["unavailableCategories"] = unavailableCategories;
+        if (rows.Count == 0)
+        {
+            result["columns"] = GameMcpEntityWireNormalizer.WireColumns(
+                new[] { "entityId", "category" });
+        }
         result["rows"] = rows;
         if (offset + rows.Count < totalMatches) result["nextOffset"] = offset + rows.Count;
         return result;

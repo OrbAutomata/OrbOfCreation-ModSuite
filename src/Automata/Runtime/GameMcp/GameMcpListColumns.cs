@@ -72,6 +72,13 @@ internal static class GameMcpListColumns
     /// <summary>Every category that builds its own list rows, and therefore declares them.</summary>
     internal static IReadOnlyCollection<string> Categories => Columns.Keys;
 
+    /// <summary>
+    /// This category's declaration, where it has one. A category with no hand-written projection
+    /// renders from its declared field list instead, which is total by construction.
+    /// </summary>
+    internal static bool TryDeclared(string category, out string[] declared) =>
+        Columns.TryGetValue(category, out declared!);
+
     private static string[] Declared(string category) =>
         Columns.TryGetValue(category, out var declared)
             ? declared

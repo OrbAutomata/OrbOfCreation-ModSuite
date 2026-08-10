@@ -3640,8 +3640,13 @@ public sealed class Plugin : BaseUnityPlugin
         {
             ["scene"] = SceneManager.GetActiveScene().name,
             ["total"] = entries.Length,
-            ["rows"] = projected,
         };
+        if (projected.Count == 0)
+        {
+            details["columns"] = GameMcpEntityWireNormalizer.WireColumns(
+                new[] { "path", "name", "uuid" });
+        }
+        details["rows"] = projected;
         if (prefix.Length > 0) details["pathPrefix"] = prefix;
         if (end < entries.Length) details["nextOffset"] = end;
         return GadgetCommitted(

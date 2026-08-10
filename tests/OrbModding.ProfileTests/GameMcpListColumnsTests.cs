@@ -151,6 +151,58 @@ public sealed class GameMcpListColumnsTests
         });
     }
 
+    /// <summary>
+    /// An empty page of a category names the same columns a full page of it shows, for every
+    /// category the surface lists. That header is the only thing an empty page has instead of a
+    /// row to read the shape off, so a declaration that drifted from the rows would put its worst
+    /// header on the one read with nothing on it to say so.
+    /// </summary>
+    [Fact]
+    public void An_empty_page_of_a_category_names_the_columns_a_full_page_shows()
+    {
+        var context = GameMcpTestHarness.Context(OneRowOfEach(), generation: 4242);
+
+        Assert.All(GameMcpWorldQuery.RegisteredCategoryNames(), category =>
+        {
+            var page = GameMcpTestHarness.Json(
+                GameMcpWorldQuery.ListRows(context, category, 0, 50));
+            if (page["rows"] is not JArray rows || rows.Count == 0) return;
+            var empty = GameMcpTestHarness.Json(
+                GameMcpWorldQuery.ListRows(context, category, rows.Count, 50));
+            var emptyPage = GameMcpTextPage.Render(empty);
+
+            Assert.Empty(empty["rows"]!.Values<JObject>());
+            Assert.Equal(
+                "rows 0/" + rows.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                emptyPage.Split('\n')[0]);
+            var declared = Bracket(emptyPage)
+                .Trim('[', ']')
+                .Split(" | ", StringSplitOptions.None);
+            var shown = Bracket(GameMcpTextPage.Render(page))
+                .Trim('[', ']')
+                .Split(" | ", StringSplitOptions.None);
+
+            // The fixture's rows carry the game's zero identity, which the wire drops rather than
+            // handing back an address nothing answers to, so a page here can show fewer columns
+            // than it declares. It may never show one the declaration does not name, and never in
+            // another order — either would be a header the empty page of this category would get
+            // wrong with nothing on it to say so. The verdict pair is the one exception the
+            // declaration itself makes: a refusal explains itself in the grammar every surface
+            // shares, and no row that answers yes carries it.
+            var next = 0;
+            foreach (var column in shown)
+            {
+                if (column is "reason" or "reasonCode") continue;
+                var found = Array.IndexOf(declared, column, next);
+                Assert.True(
+                    found >= 0,
+                    category + " renders [" + string.Join(" | ", shown) + "] against declared [" +
+                    string.Join(" | ", declared) + "]");
+                next = found + 1;
+            }
+        });
+    }
+
     private static GameWorldState OneRowOfEach()
     {
         // A public category's availability also rests on the helper collections its rows are

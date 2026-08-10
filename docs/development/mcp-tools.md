@@ -141,8 +141,10 @@ same idiom and no producer invents its own formatting.
     splits the line on `, ` and then the first `=`; free prose stays in its cell, where the column
     boundary says where it ends.
   - **One delimiter.** Every table separates its columns with ` | `, whatever its cells hold.
-  - **An empty page is the same table with no rows**: `rows 0/180` and then the column set. A list
-    that is not a page still answers `spells: none`.
+  - **An empty page is the same table with no rows**: `rows 0/180` and then the column set. It has
+    no row to read that set off, so the producer states it, and a portable test holds every
+    category's stated set to the columns its full page renders. A list that is not a page still
+    answers `spells: none`.
   - Length is relaxed for page constants alone. A value identical on every row makes every row
     equally wide, so a page whose every row carries the same multi-line refusal is a table with one
     wide column rather than twenty paragraphs — while a varying value that big still costs the page
