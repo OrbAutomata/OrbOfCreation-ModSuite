@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using BepInEx.Configuration;
 using OrbAutomata;
@@ -93,7 +95,7 @@ public sealed class AutomataDifferentialVerificationShortcutTests
     public void RuntimeButtonCoalescesRequestsAndRunsOnceOnTick()
     {
         var runs = 0;
-        var control = new AutomataDifferentialVerificationControl(_ => { }, () => runs++);
+        var control = new AutomataDifferentialVerificationControl(_ => { }, _ => runs++);
 
         Assert.True(control.RequestRun());
         Assert.False(control.RequestRun());
@@ -107,6 +109,51 @@ public sealed class AutomataDifferentialVerificationShortcutTests
         Assert.Equal(2, control.Revision);
         control.Tick();
         Assert.Equal(1, runs);
+    }
+
+    /// <summary>
+    /// A caller that asks for the check gets the verdict lines back, not a pointer at the log. The
+    /// lines still reach the log too — the button's own reader is unchanged.
+    /// </summary>
+    [Fact]
+    public void AskingForTheCheckAnswersWithTheVerdictLinesItReported()
+    {
+        var logged = new List<string>();
+        var control = new AutomataDifferentialVerificationControl(
+            logged.Add,
+            report =>
+            {
+                report("Cost verification PASSED: 522 compared, 522 exact.");
+                report("Rate verification PASSED: 640 compared, 640 exact.");
+            });
+
+        Assert.True(control.TryRunNow(out var lines, out var reason));
+
+        Assert.Equal(string.Empty, reason);
+        Assert.Equal(logged, lines);
+        Assert.Equal(2, lines.Length);
+        Assert.StartsWith("Cost verification PASSED", lines[0], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// One run per frame. A press already queued from the Runtime page runs later in the same frame,
+    /// so a second run would measure caches the first one warmed rather than the game.
+    /// </summary>
+    [Fact]
+    public void ACheckAlreadyQueuedFromTheRuntimePageRefusesASecondRun()
+    {
+        var runs = 0;
+        var control = new AutomataDifferentialVerificationControl(_ => { }, _ => runs++);
+        control.RequestRun();
+
+        var admitted = control.TryRunNow(out var lines, out var reason);
+
+        Assert.False(admitted);
+        Assert.Empty(lines);
+        Assert.Equal(
+            "A game math check is already queued from the Runtime page and runs this frame.",
+            reason);
+        Assert.Equal(0, runs);
     }
 
     [Fact]

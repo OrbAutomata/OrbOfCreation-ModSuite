@@ -12,7 +12,7 @@ public sealed class GameMcpFrameRoutingContractTests
     public void EveryAdvertisedToolBuildsOneImmutableOperationForTheSoleInbox()
     {
         var tools = GameMcpAcceptanceFixture.Tools();
-        Assert.Equal(42, tools.Count);
+        Assert.Equal(43, tools.Count);
         var inbox = new GameMcpFrameInbox();
         var operations = tools
             .Select(tool => GameMcpProtocolRouter.BuildOperation(
@@ -140,6 +140,26 @@ public sealed class GameMcpFrameRoutingContractTests
         Assert.Equal(GameMcpFrameData.Configuration, savedScreenshot.RequiredData);
     }
 
+    /// <summary>
+    /// The parity check the Runtime page's action runs is reachable as a verb, takes nothing, and
+    /// captures no frame data: it reads the live game itself rather than a published world, so a
+    /// world capture beside it would only be a second, staler answer.
+    /// </summary>
+    [Fact]
+    public void CheckingGameMathIsAVerbThatTakesNothingAndCapturesNoWorld()
+    {
+        var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate["name"] == "suite_check_game_math");
+        var operation = GameMcpProtocolRouter.BuildOperation(
+            "suite_check_game_math",
+            new JObject());
+
+        Assert.Null(tool["inputSchema"]!["required"]);
+        Assert.Empty(Assert.IsType<JObject>(tool["inputSchema"]!["properties"]).Properties());
+        Assert.Equal(GameMcpOperationClass.SuiteAdministration, operation.Classification);
+        Assert.Equal(GameMcpFrameData.None, operation.RequiredData);
+    }
+
     private static JObject Arguments(string tool) => tool switch
     {
         "world_overview" or "world_categories" or "suite_configuration" or
@@ -154,7 +174,7 @@ public sealed class GameMcpFrameRoutingContractTests
         },
         "entity_catalog" or "world_search" => new JObject { ["query"] = "mana" },
         "explain_entity" => new JObject { ["uuid"] = Guid.NewGuid().ToString("D") },
-        "suite_health" => new JObject(),
+        "suite_health" or "suite_check_game_math" => new JObject(),
         "game_purchase" => new JObject
         {
             ["uuid"] = Guid.NewGuid().ToString("D"),

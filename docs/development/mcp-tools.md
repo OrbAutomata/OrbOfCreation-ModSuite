@@ -177,6 +177,7 @@ rather than from the screen it is drawn on.
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
 | `suite_configuration` | Read every writable setting's committed value; `mode=describe` adds type, domain, and purpose |
 | `trace_health` | Read trace-writer health, segment, record, and byte counters |
+| `suite_check_game_math` | Run the differential check of the suite's math against the game and return its verdict lines |
 | `game_purchase` | Buy an Attribute (`StructureSO`) or Upgrade derived from its UUID |
 | `game_cast` | Fire, release charge, or turn off one equipped toggle spell |
 | `game_concept` | Add or remove one owned concept assignment |
@@ -1918,6 +1919,30 @@ The audited manifest covers the native tooltip carrier/open/nesting shape, while
 build and installed contracts verify the source node graph that the prose renderer consumes. The
 same audited `ITooltipable.GetDescription()` contract supplies authored descriptions for
 `explain_entity` when the resolved entity implements that interface.
+
+## Checking the suite's math against the game
+
+`suite_check_game_math` takes no arguments and runs the same differential check the
+**Mods > Runtime > Check game math** action runs: every entity in every registry is compared against
+the game's own answer, one pass at a time, and each pass reports one verdict line. The answer is the
+verdict lines as plain text with no envelope — they are already one fact per line, and there is no
+handle to follow up on.
+
+Two things about it are unlike every other read here, and both are deliberate:
+
+- **It stalls the game and the call.** The whole run happens inside the frame the call is claimed
+  in, because a run spread across frames leaves each pass comparing a different frame's game state.
+  Seconds of stall is the honest cost; the button pays it too, and the stall is what tells a player
+  at the keyboard that it ran. Call it when a number looks wrong, never on a schedule.
+- **It refuses rather than doubling up.** A press already queued from the Runtime page runs later in
+  the same frame, so a call that arrives while one is queued is refused with `ERR_STATE` and the
+  sentence naming the queued press. Running both would measure caches the first run had just warmed.
+
+Its passes read their comparison worlds through throwaway collectors built on the non-production
+purchase-view topology. That is load-bearing rather than incidental: a collector built the
+production way binds the process-wide owning-view admission resolver the purchase boundary reads
+from, and a diagnostic that restamped that resolver with its own epoch would leave every later
+purchase refusing on a snapshot this check wrote.
 
 ## Trace health and probes
 

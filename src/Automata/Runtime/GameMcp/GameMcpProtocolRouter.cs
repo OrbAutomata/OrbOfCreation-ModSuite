@@ -266,6 +266,7 @@ internal sealed class GameMcpProtocolRouter
                 builder.Uuid = RequireUuid(arguments, "uuid");
                 break;
             case "suite_health":
+            case "suite_check_game_math":
                 break;
             case "game_purchase":
                 builder.Uuid = RequireUuid(arguments, "uuid");
@@ -542,7 +543,8 @@ internal sealed class GameMcpProtocolRouter
 
         // A screenshot is a capture the server performs, not a read of published state, whether or
         // not the caller also asks for it on disk. One classification keeps one status word.
-        "game_screenshot" or "suite_config_set" or "suite_emergency_stop" =>
+        "game_screenshot" or "suite_config_set" or "suite_emergency_stop" or
+            "suite_check_game_math" =>
             GameMcpOperationClass.SuiteAdministration,
         "suite_automation" when request.Mode == "set" =>
             GameMcpOperationClass.SuiteAdministration,
@@ -575,7 +577,8 @@ internal sealed class GameMcpProtocolRouter
         "game_navigate" or "game_continue" or "game_modal" =>
             GameMcpFrameData.World | GameMcpFrameData.Scene,
         "game_probe" or
-            "game_screen_catalog" or "game_tooltips" or "game_tooltip" =>
+            "game_screen_catalog" or "game_tooltips" or "game_tooltip" or
+            "suite_check_game_math" =>
             GameMcpFrameData.None,
         _ => throw new InvalidOperationException("no frame-data policy exists for tool " + name),
     };
@@ -665,6 +668,11 @@ internal sealed class GameMcpProtocolRouter
                 "trace_health",
                 "Read trace-writer health",
                 "Read bounded segment, record, and byte counters. Individual decisions remain in trace files for offline analysis.",
+                ObjectSchema()),
+            Tool(
+                "suite_check_game_math",
+                "Check the suite's math against the game",
+                "Run the Mods>Runtime \"Check game math\" differential check and return one verdict line per pass. Every entity in every registry is compared against the game's own answer, and all of it runs inside this call's frame, so the game stalls for seconds and the call takes that long to answer. It is a diagnostic, not a read: run it when a number looks wrong, not on a schedule.",
                 ObjectSchema()),
             Tool(
                 "game_purchase",

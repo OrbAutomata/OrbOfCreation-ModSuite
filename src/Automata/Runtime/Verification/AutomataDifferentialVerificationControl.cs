@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using OrbModding.Common.Runtime.Configuration;
@@ -38,13 +39,14 @@ namespace OrbAutomata;
 internal sealed class AutomataDifferentialVerificationControl : IDifferentialVerificationControl
 {
     private readonly Action<string> _report;
-    private readonly Action? _runOverride;
+    private readonly Action<Action<string>>? _runOverride;
+    private List<string>? _capture;
     private bool _runRequested;
     private long _revision;
 
     internal AutomataDifferentialVerificationControl(
         Action<string> report,
-        Action? runOverride = null)
+        Action<Action<string>>? runOverride = null)
     {
         _report = report ?? throw new ArgumentNullException(nameof(report));
         _runOverride = runOverride;
@@ -68,17 +70,63 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         if (!_runRequested) return;
         _runRequested = false;
         _revision = checked(_revision + 1);
+        Run();
+    }
+
+    /// <summary>
+    /// Runs the same check the Runtime action runs, and hands back the verdict lines rather than
+    /// leaving them in the log. The caller is on the Unity main thread inside the frame it asked
+    /// from, so the whole stall is charged to that one call — the acknowledgement a player gets
+    /// from watching the game hitch, a reader gets from waiting for the answer.
+    /// </summary>
+    /// <remarks>
+    /// A press queued from the Runtime page is the one thing this refuses: that press runs later in
+    /// the same frame, and running twice would report a second verdict measured against caches the
+    /// first run had just warmed.
+    /// </remarks>
+    internal bool TryRunNow(out string[] lines, out string reason)
+    {
+        if (_runRequested)
+        {
+            lines = Array.Empty<string>();
+            reason = "A game math check is already queued from the Runtime page and runs this frame.";
+            return false;
+        }
+        var captured = new List<string>();
+        _capture = captured;
+        try
+        {
+            Run();
+        }
+        finally
+        {
+            _capture = null;
+        }
+        lines = captured.ToArray();
+        reason = string.Empty;
+        return true;
+    }
+
+    private void Run()
+    {
         if (_runOverride is not null)
         {
-            _runOverride();
+            _runOverride(Report);
             return;
         }
         RunEverything();
     }
 
+    /// <summary>Reports one line, and keeps it when a caller asked for the lines themselves.</summary>
+    private void Report(string line)
+    {
+        _capture?.Add(line);
+        _report(line);
+    }
+
     private void RunEverything()
     {
-        _report("Verification started. Everything runs in this frame, so the game will hitch.");
+        Report("Verification started. Everything runs in this frame, so the game will hitch.");
 
         var whole = Stopwatch.StartNew();
 
@@ -108,7 +156,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         RunPass(new UsagePrerequisitePass());
 
         whole.Stop();
-        _report($"Verification finished in {whole.Elapsed.TotalMilliseconds:0.###} ms.");
+        Report($"Verification finished in {whole.Elapsed.TotalMilliseconds:0.###} ms.");
     }
 
     /// <summary>Runs one ported-math pass over every entity it can reach, then reports its verdict.</summary>
@@ -116,7 +164,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
     {
         if (!pass.TryBegin(out var entities, out var failure))
         {
-            _report($"{pass.Subject} verification unavailable: {failure}");
+            Report($"{pass.Subject} verification unavailable: {failure}");
             return;
         }
 
@@ -146,7 +194,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         }
 
         session.EndTick();
-        _report(session.Complete());
+        Report(session.Complete());
     }
 
     /// <summary>
@@ -158,14 +206,14 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
     {
         try
         {
-            foreach (var line in new AutomataWorldCollectionCheck().Run()) _report(line);
+            foreach (var line in new AutomataWorldCollectionCheck().Run()) Report(line);
         }
         catch (Exception ex)
         {
             // A throw here is itself the finding — the collector reached something on a live object
             // that no stub reproduces — so it is reported rather than allowed to take down the frame
             // the player is standing in.
-            _report($"World collection check threw: {ex.GetBaseException().Message}");
+            Report($"World collection check threw: {ex.GetBaseException().Message}");
         }
     }
 
@@ -429,7 +477,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 failure = "no Concept recipes were available. Load a save first.";
                 return false;
             }
-            var collector = new GameWorldCollector();
+            var collector = VerificationCollector();
             collector.Collect();
             _world = collector.Build();
             entities = all;
@@ -487,7 +535,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 failure = "no spell recipes were available. Load a save first.";
                 return false;
             }
-            var collector = new GameWorldCollector();
+            var collector = VerificationCollector();
             collector.Collect();
             _world = collector.Build();
             entities = all;
@@ -567,7 +615,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            var collector = new GameWorldCollector();
+            var collector = VerificationCollector();
             collector.Collect();
             _world = collector.Build();
 
@@ -624,7 +672,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            var collector = new GameWorldCollector();
+            var collector = VerificationCollector();
             collector.Collect();
             _world = collector.Build();
             entities = all;
@@ -647,6 +695,16 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
             return _verifier.TryVerify(entity, _world, run, out failure);
         }
     }
+
+    /// <summary>The throwaway collector a pass reads its comparison world from.</summary>
+    /// <remarks>
+    /// Deliberately not the parameterless constructor. That one opts into the production
+    /// purchase-view topology, which is a process-wide singleton the running suite's action boundary
+    /// reads its owning-view admissions from — so a diagnostic collector built that way restamps
+    /// that singleton with its own epoch, and every purchase afterwards refuses on a snapshot this
+    /// check wrote. A verification pass compares math; it has no business owning the live topology.
+    /// </remarks>
+    private static GameWorldCollector VerificationCollector() => new(WorldNativeTypes.Resolve);
 
     private static Type? FindType(string name)
     {

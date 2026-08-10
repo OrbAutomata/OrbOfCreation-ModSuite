@@ -1592,6 +1592,9 @@ public sealed class Plugin : BaseUnityPlugin
             case "suite_health":
                 execution = GameMcpToolExecution.Text(ProjectGameMcpHealthText(context));
                 return true;
+            case "suite_check_game_math":
+                execution = RunGameMcpGameMathCheck();
+                return true;
             case "game_screen_catalog":
                 execution = GameMcpToolExecution.Read(CaptureScreenCatalogGameMcp());
                 return true;
@@ -1830,6 +1833,38 @@ public sealed class Plugin : BaseUnityPlugin
             category,
             0,
             GameMcpWorldQuery.DefaultLimit).Freeze());
+    }
+
+    /// <summary>
+    /// Runs the differential check the Runtime page's action runs, and answers with its verdict
+    /// lines instead of leaving them in the log for a human to find.
+    /// </summary>
+    /// <remarks>
+    /// This is the whole run, in this frame, on the Unity thread — the same seconds-long stall the
+    /// button costs. It is deliberately not spread over frames: every pass would otherwise read a
+    /// different frame's game state and the verdicts would not be comparable to each other.
+    /// </remarks>
+    private GameMcpToolExecution RunGameMcpGameMathCheck()
+    {
+        if (_mathVerification is null)
+        {
+            return GameMcpToolExecution.Error(new GameMcpObjectBuilder
+            {
+                ["status"] = "unavailable",
+                ["reasonCode"] = "contract_unavailable",
+                ["reason"] = "The suite's game math check is not composed in this scene.",
+            });
+        }
+        if (!_mathVerification.TryRunNow(out var lines, out var reason))
+        {
+            return GameMcpToolExecution.Error(new GameMcpObjectBuilder
+            {
+                ["status"] = "refused",
+                ["reasonCode"] = "already_active",
+                ["reason"] = reason,
+            });
+        }
+        return GameMcpToolExecution.Text(string.Join("\n", lines));
     }
 
     internal static string ProjectGameMcpHealthText(GameMcpFrameContext context)
