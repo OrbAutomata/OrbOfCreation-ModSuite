@@ -941,6 +941,33 @@ internal static class NativeAccessorBinder
         }
     }
 
+    /// <summary>
+    /// Compiles an already-audited one-argument instance method as an unboxed typed answer. The
+    /// argument crosses as <see cref="object"/> because its type is a game type this assembly cannot
+    /// name, and is converted to the exact parameter type inside the compiled body — so neither the
+    /// argument array nor the boxed return that <see cref="MethodInfo.Invoke"/> forces is allocated.
+    /// </summary>
+    internal static Func<object, object, TValue>? CallWithObjectArgument<TValue>(MethodInfo? method)
+    {
+        if (!IsInstanceCall(method, argumentCount: 1) ||
+            method!.ReturnType != typeof(TValue)) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        var argument = Expression.Parameter(typeof(object), "argument");
+        var call = Expression.Call(
+            Expression.Convert(source, method.DeclaringType!),
+            method,
+            Expression.Convert(argument, method.GetParameters()[0].ParameterType));
+        try
+        {
+            return Expression.Lambda<Func<object, object, TValue>>(
+                call, source, argument).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Compiles an already-audited one-argument static method as the value it answers.</summary>
     internal static Func<TArgument, object?>? CallStatic<TArgument>(MethodInfo? method)
     {
