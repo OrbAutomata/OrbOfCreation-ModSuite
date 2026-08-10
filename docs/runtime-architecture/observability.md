@@ -239,6 +239,13 @@ There is deliberately no configuration toggle for the normal journal, and no res
 
 ## Other owned output paths
 
+Suite shutdown says once that it is stopping automation and leaving it stopped. The runtime engages
+the emergency stop as it tears down, deliberately as a non-clearable shutdown episode so that a
+resume cannot revive a disposed runtime, which leaves `EmergencyEntered` as the last event of every
+recording with no `EmergencyCleared` behind it — indistinguishable, to a reader, from a suite that
+died mid-run. The event has always carried its reason on the wire in its code field; the log now
+carries it in words.
+
 Every game lifecycle transition writes one line naming the epoch it produced, the kind of transition,
 the scene, the source that reported it, and the frame. The log is where that reason has to land: the
 suite invalidates every native reference on the epoch number alone, and the number is all the trace

@@ -1176,6 +1176,17 @@ public sealed class Plugin : BaseUnityPlugin
         GameLifecycleMonitor.Shared.Transitioned -= OnLifecycleTransition;
         SceneManager.activeSceneChanged -= OnActiveSceneChanged;
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        if (_serviceCycleActivation is not null)
+        {
+            // The runtime engages the emergency stop as it tears down, deliberately as a
+            // non-clearable shutdown episode so a resume cannot revive a disposed runtime. That
+            // leaves EmergencyEntered as the last thing a recording ever hears from the suite, with
+            // no EmergencyCleared behind it, which reads exactly like a suite that died mid-run.
+            Logger.LogAutomataInfo(
+                "Suite shutdown stops automation and leaves it stopped: the emergency stop entered " +
+                "here is the teardown interlock and is never cleared, because the runtime it " +
+                "protects is going away.");
+        }
         _serviceCycleActivation?.Dispose();
         _serviceCycleActivation = null;
         _automataActionFamilyOwnership?.Dispose();
