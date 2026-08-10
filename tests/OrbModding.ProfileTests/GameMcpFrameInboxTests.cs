@@ -233,6 +233,14 @@ public sealed class GameMcpFrameInboxTests
             Fault;
 
         Assert.Equal(0, GameMcpFrameBatchExecutor.Drain(inbox, capture, execute, fault));
+
+        // The claim is that an idle frame allocates nothing, which is a fact about the steady
+        // state. Measuring a cold loop instead measured the runtime promoting these methods out of
+        // tier 0 — thread-local bookkeeping this drain never asked for, whose timing depends on
+        // what the rest of the suite happened to warm first, and which turned a real invariant into
+        // a test that failed only on the first run after a build.
+        for (var index = 0; index < 10_000; index++)
+            GameMcpFrameBatchExecutor.Drain(inbox, capture, execute, fault);
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var index = 0; index < 10_000; index++)
             GameMcpFrameBatchExecutor.Drain(inbox, capture, execute, fault);
