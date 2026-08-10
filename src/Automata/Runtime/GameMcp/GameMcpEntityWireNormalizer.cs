@@ -168,6 +168,7 @@ internal static class GameMcpEntityWireNormalizer
                 NormalizeIdentity(item, property, uuid, ownUuid, catalog);
                 continue;
             }
+            if (RenameUnsetReference(item, property)) continue;
             if (property.Value is JValue text && text.Type == JTokenType.String)
             {
                 var raw = (string?)text ?? string.Empty;
@@ -290,6 +291,31 @@ internal static class GameMcpEntityWireNormalizer
             item.Remove("totalCost");
             item.Remove("amount");
         }
+    }
+
+    /// <summary>
+    /// A declared reference column that names no entity keeps the column name a filled one would
+    /// have had. Left under the raw <c>…Id</c> spelling it would be a second column for the same
+    /// fact, and a page where no row names an entity would not share a header with one where some
+    /// row does — which is the whole of what the declared column set exists to prevent.
+    /// </summary>
+    private static bool RenameUnsetReference(JObject parent, JProperty property)
+    {
+        if (property.Value is not JValue { Type: JTokenType.String } text) return false;
+        if (!string.Equals(
+                (string?)text, GameMcpListColumns.Unset, StringComparison.Ordinal))
+        {
+            return false;
+        }
+        if (property.Name is "uuid" or "entityId") return false;
+        var suffix = property.Name.EndsWith("Uuid", StringComparison.Ordinal)
+            ? 4
+            : property.Name.EndsWith("Id", StringComparison.Ordinal) ? 2 : 0;
+        if (suffix == 0) return false;
+        var role = property.Name.Substring(0, property.Name.Length - suffix);
+        property.Remove();
+        if (parent[role] is null) parent[role] = new JValue(GameMcpListColumns.Unset);
+        return true;
     }
 
     private static void NormalizeIdentity(

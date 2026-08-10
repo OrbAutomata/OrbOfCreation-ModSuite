@@ -81,15 +81,17 @@ internal static class GameMcpDocumentJsonEncoder
         return result;
     }
 
+    /// <summary>
+    /// One declared column, filled from the row or filled with the word for having nothing to fill
+    /// it with. The declaration is what the page's header promises, so skipping a path the row
+    /// happened not to carry made the header a fact about the rows rather than about the category.
+    /// </summary>
     private static void CopyPath(JObject source, JObject destination, string path)
     {
         var segments = path.Split('.');
         JToken? value = source;
-        for (var index = 0; index < segments.Length; index++)
-        {
-            value = value?[segments[index]];
-            if (value is null) return;
-        }
+        for (var index = 0; index < segments.Length && value is not null; index++)
+            value = value[segments[index]];
         var target = destination;
         for (var index = 0; index < segments.Length - 1; index++)
         {
@@ -100,7 +102,23 @@ internal static class GameMcpDocumentJsonEncoder
             }
             target = nested;
         }
-        target[segments[segments.Length - 1]] = value.DeepClone();
+        target[segments[segments.Length - 1]] = Declared(value);
+    }
+
+    /// <summary>
+    /// The value a declared column carries. A member the game published nothing under says so, and
+    /// so does one holding the zero identity — a handle that addresses nothing is not an entity,
+    /// and dropping it would take the column with it on a page where no row has one.
+    /// </summary>
+    private static JToken Declared(JToken? value)
+    {
+        if (value is null) return new JValue(GameMcpListColumns.Unset);
+        if (value is JValue { Type: JTokenType.String } text &&
+            Guid.TryParseExact((string?)text, "D", out var uuid) && uuid == Guid.Empty)
+        {
+            return new JValue(GameMcpListColumns.Unset);
+        }
+        return value.DeepClone();
     }
 }
 #endif

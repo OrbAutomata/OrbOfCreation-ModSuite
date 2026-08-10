@@ -1459,6 +1459,12 @@ absence is spelled:
 | `agromancy-processing` | `plot`, `action`, `amount`, `processing` | `empty` | `empty` (the flag) |
 | `agromancy-processing` | `capacity`, `used` | `unreadable` | — |
 
+Categories with no hand-written projection are rendered straight from their declared field list, so
+totality there is structural rather than per-category: a declared field the row carries nothing
+under reads `unset`, and so does one holding the zero identity, because a handle that addresses
+nothing is not an entity and dropping it would take the column with it. A reference column keeps
+the name a filled one would have had — `selectedLevel`, not `selectedLevelId`.
+
 A row's verdict pair — `reasonCode` and `reason` — is not part of the declared set. It is the
 refusal grammar every surface shares: present exactly where there is a no to explain, and absent
 where the answer is yes, which the row's own `available` or `affordable` column already states. That

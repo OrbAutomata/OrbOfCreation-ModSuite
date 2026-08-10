@@ -84,6 +84,55 @@ public sealed class GameMcpListColumnsTests
         Assert.Contains("remainingLevels=uncapped", header, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Most categories render straight from their declared field list, and that list is what the
+    /// header promises. Skipping a declared field the row happened to carry nothing under made the
+    /// header a fact about the page's rows instead — the same defect, one layer down and across
+    /// every category that has no hand-written projection.
+    /// </summary>
+    [Fact]
+    public void A_declared_field_the_row_carries_nothing_under_says_so()
+    {
+        var selected = Guid.Parse("44444444-4444-4444-8444-444444444444");
+        var rows = Rows(AlchemyTypes(selected, Guid.Empty));
+
+        Assert.Equal("unset", (string?)rows[1]["selectedLevel"]);
+        Assert.NotNull(rows[0]["selectedLevel"]);
+        Assert.Equal(
+            Columns(AlchemyTypes(selected, selected)),
+            Columns(AlchemyTypes(Guid.Empty, Guid.Empty)));
+    }
+
+    private static JObject AlchemyTypes(params Guid[] selectedLevels)
+    {
+        var types = new WorldAlchemyType[selectedLevels.Length];
+        for (var index = 0; index < selectedLevels.Length; index++)
+        {
+            types[index] = new WorldAlchemyType(
+                Guid.Parse("4500000" + index + "-0000-4000-8000-000000000000"),
+                selectedLevels[index],
+                maxUsageByMastery: false,
+                level: BigDouble.Zero,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        }
+        var world = new GameWorldState
+        {
+            AlchemyTypes = PublicationTable<WorldAlchemyType>.Create(types),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus(
+                    "alchemy-types", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+            }),
+            CollectedAtEpoch = 25,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        using var publisher =
+            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(734));
+        return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(publisher.ReadLatest()), "alchemy-types", 0, 50));
+    }
+
     private static JObject Page(params WorldUpgrade[] upgrades)
     {
         var world = new GameWorldState
