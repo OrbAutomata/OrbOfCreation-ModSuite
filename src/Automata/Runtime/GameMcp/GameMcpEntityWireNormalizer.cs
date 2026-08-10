@@ -236,10 +236,10 @@ internal static class GameMcpEntityWireNormalizer
             CopyIfPresent(identity, item, "nativeType");
 
             // The role became the row's own identity, so leaving it in place printed a third column
-            // that was the first two concatenated, on every row of the page. A row that references
-            // one other entity keeps its role named, because then the promoted pair no longer says
-            // by itself which of the two it is; and a role carrying more than a bare reference keeps
-            // its block, because only the bare reference is the duplicate.
+            // that was the first two concatenated, on every row of the page. A row that names a
+            // second entity keeps every role named, because then the promoted pair alone no longer
+            // says which of the two it is; and a role carrying more than a bare reference keeps its
+            // block, because only the bare reference is the duplicate.
             if (IsIdentity(identity) && ReferenceCount(item) == 1) item.Remove(roles[index]);
             return;
         }

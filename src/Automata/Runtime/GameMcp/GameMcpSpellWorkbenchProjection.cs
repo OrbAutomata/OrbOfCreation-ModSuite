@@ -53,10 +53,11 @@ internal static class GameMcpSpellWorkbenchProjection
                 ["cost"] = new GameMcpDomainValue(cost.Cost),
             });
         }
+        // The recipe is the one argument this preview takes, so naming it back is the caller's own
+        // input read aloud; the answer is the price and whether it can be paid.
         var result = new JObject
         {
             ["status"] = "available",
-            ["recipeId"] = preview.RecipeId,
             ["costs"] = costs,
             ["affordable"] = preview.Affordable,
         };

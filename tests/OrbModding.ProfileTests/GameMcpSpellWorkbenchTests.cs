@@ -177,7 +177,11 @@ public sealed class GameMcpSpellWorkbenchTests
             GameMcpSpellWorkbenchProjection.ProjectPricePreview(in preview));
 
         Assert.Equal("available", (string?)response["status"]);
-        Assert.Equal("Gather Knowledge", (string?)response["recipe"]!["name"]);
+
+        // The recipe was the caller's own argument; the answer is the price and whether it can be
+        // paid, not that same recipe read back under two names beneath its own handle.
+        Assert.Null(response["recipe"]);
+        Assert.Null(response["uuid"]);
         var cost = Assert.Single(response["costs"]!.Values<JObject>());
         Assert.Equal("Knowledge", (string?)cost["resource"]!["name"]);
         Assert.Equal("4.4e3", (string?)cost["cost"]);

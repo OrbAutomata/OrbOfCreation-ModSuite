@@ -886,8 +886,9 @@ The MCP-only base-recipe sequence is:
 3. If an equipped instance is wanted, call
    `game_spell_loadout(mode="preview", uuid=..., glyphs=[...])`. This read resolves and prices the
    submitted layout through the same native manager methods used by add, without touching the
-   player's staged UI selection. It returns the named resolved recipe, named per-resource costs,
-   overall affordability, and the named short resource when unaffordable. It runs every admission
+   player's staged UI selection. It returns named per-resource costs, overall affordability,
+   and the named short resource when unaffordable — not the recipe, which is the caller's own
+   argument read back. It runs every admission
    `add` runs before `add` stages anything — craftability, glyph duration/toggle requirements,
    usage requirements and budget, a free loadout slot, and loadout uniqueness — so a preview that
    comes back priced is a layout `add` will not refuse on the same arguments. Price stays an answer
