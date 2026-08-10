@@ -475,22 +475,30 @@ internal static class GameMcpActionResultCodeNames
         ServiceActionResultCode code,
         GameMcpCommandKind commandKind)
     {
+        // The eight outcomes every verb shares, and so the eight sentences a caller meets most.
+        // They used to describe the suite's own call sequence — admission, revalidation, epochs,
+        // adapters, postconditions — which named nothing happening in the game and left a reader
+        // with no next move. Each now says who answered and what they said, and the two that are
+        // the suite's own judgement rather than the game's say so in the first clause, because a
+        // caller's next move differs entirely between them.
         if (code == CommonActionResultCodes.Committed)
-            return "the audited native mutation committed and its postcondition was verified";
+            return "The game took this, and the change was read back afterwards.";
         if (code == CommonActionResultCodes.EmergencyStop)
-            return "the suite emergency stop rejected the action before native mutation";
+            return "The suite's emergency stop is on, so nothing was sent to the game.";
         if (code == CommonActionResultCodes.LifecycleReplaced)
-            return "the live game lifecycle no longer matches the collected world epoch";
+            return "The run changed underneath this call — a save load, reset, or new game plus — " +
+                "so nothing was sent to the game.";
         if (code == CommonActionResultCodes.ServiceDisabled)
-            return "the owning suite service is disabled";
+            return "The suite feature that performs this is switched off.";
         if (code == CommonActionResultCodes.NativeRejected)
-            return "live native admission rejected the UUID-resolved target after revalidation";
+            return "The game refused this at the moment it was asked, and gave no reason of its own.";
         if (code == CommonActionResultCodes.PolicyRejected)
-            return "the owning service policy rejected the action";
+            return "The suite's own policy refused this before the game was asked.";
         if (code == CommonActionResultCodes.AdapterFault)
-            return "the native adapter could not prove a safe, verified mutation";
+            return "The suite could not prove the game had taken this safely, so it stopped rather " +
+                "than report a change it had not seen.";
         if (code == CommonActionResultCodes.Skipped)
-            return "live revalidation or the native call produced no mutation, so the action was skipped";
+            return "Nothing changed: by the time this was asked, there was nothing left for it to do.";
         if (code == AutoCastActionResultCodes.ManualPause)
             return "the spell slot is under the player's manual-pause authority";
         if (code == AutoCastActionResultCodes.TargetingInProgress)

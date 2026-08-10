@@ -568,6 +568,51 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
             "The suite reads this requirement as Met where the game reads it as Unmet.",
             (string?)parity["reason"]);
         Assert.Equal((string?)result["reason"], (string?)parity["reason"]);
+
+        // Requirements and availability are different questions, and this fixture answers them
+        // differently: the game sells the upgrade while its prerequisite verdict reads Unmet. No
+        // judgement is being overruled, so nothing names one.
+        Assert.Null(result["requirements"]!["authority"]);
+    }
+
+    /// <summary>
+    /// Read alone, <c>suiteVerdict: Met</c> beside an entity the game is holding shut says
+    /// "requirements satisfied, go buy it" — and the purchase then refuses. Both facts are true
+    /// and the response never named the gap, which made the green light a trap. This is the
+    /// post-prestige shape: levels reset to nought, no authored condition published, and the
+    /// game's own gate shut.
+    /// </summary>
+    [Fact]
+    public void RequirementsMetOnAnEntityTheGameHoldsShutNameTheJudgementThatDecides()
+    {
+        var id = Guid.Parse("34444444-4444-4444-8444-4444444444a1");
+        var reading = new RawUpgradeSample(
+            id, level: 0, maxLevel: -1, available: false, queuedLevels: 0,
+            buildTime: BigDouble.Zero, developmentTime: 1d, cachedCostLevel: 0);
+        var world = new GameWorldState
+        {
+            Upgrades = PublicationTable<WorldUpgrade>.Create(new[]
+            {
+                new WorldUpgrade(in reading, false, false, 0, 0, false, 0d),
+            }),
+            CollectedAtEpoch = 78,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var result = Explain(world, id, 948);
+
+        Assert.False((bool)result["predicates"]!["available"]!["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)result["predicates"]!["available"]!["reasonCode"]);
+        Assert.Equal("Met", (string?)result["requirements"]!["suiteVerdict"]);
+        Assert.Equal(
+            "These authored requirement rows are met, and they are not what is holding this shut. " +
+            "The game's own gate refuses, and the game's answer is the one an action gets.",
+            (string?)result["requirements"]!["authority"]);
+
+        // One class per fact: the row keeps the fact and gives up its second opinion about it.
+        Assert.False((bool)result["state"]!["available"]!);
+        Assert.Null(result["state"]!["reasonCode"]);
+        Assert.Null(result["state"]!["reason"]);
     }
 
     [Fact]

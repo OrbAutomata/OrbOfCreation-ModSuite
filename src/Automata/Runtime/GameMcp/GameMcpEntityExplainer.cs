@@ -502,9 +502,34 @@ internal static class GameMcpEntityExplainer
             ["suiteVerdict"] = suite.ToString(),
             ["root"] = root,
         };
+
+        // Whose judgement is speaking. `suiteVerdict: Met` answers one question — are the game's
+        // authored requirement rows satisfied at this level — and beside an entity the game is
+        // holding shut it was read as a different one: requirements satisfied, go buy it. The
+        // purchase then refused. Both facts were true and the response never named the gap between
+        // them, which made the green light a trap.
+        if (suite == WorldRequirementVerdict.Met && !NativeAvailable(world, id, kind))
+        {
+            requirements["authority"] =
+                "These authored requirement rows are met, and they are not what is holding this " +
+                "shut. The game's own gate refuses, and the game's answer is the one an action gets.";
+        }
         if (parityFailure is not null) requirements["nativeParity"] = parity;
         return requirements;
     }
+
+    /// <summary>The game's own availability fact for the kinds that carry authored requirements.</summary>
+    private static bool NativeAvailable(GameWorldState world, Guid id, EntityKind kind) => kind switch
+    {
+        EntityKind.Structure =>
+            WorldLookup.TryFind(world.Structures, id, out var structure) &&
+            structure.Reading.Unlocked,
+        EntityKind.Upgrade =>
+            WorldLookup.TryFind(world.Upgrades, id, out var upgrade) && upgrade.Reading.Available,
+        EntityKind.Research =>
+            WorldLookup.TryFind(world.Research, id, out var research) && research.Available,
+        _ => true,
+    };
 
     private static JObject ProjectRequirementContainer(
         GameWorldState world,
