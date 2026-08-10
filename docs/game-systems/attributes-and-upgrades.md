@@ -60,6 +60,8 @@ Three consequences worth stating plainly:
   cap starts at 1 and the dial starts wherever it was left. Reading one as the other is the mistake
   the shape invites.
 
+## Disabled kills the effect, not the row
+
 An attribute flagged as disabled has its **effect** killed, not its purchasability: it can still be
 bought while contributing nothing.
 
