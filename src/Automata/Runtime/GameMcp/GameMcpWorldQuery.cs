@@ -1080,7 +1080,6 @@ internal static class GameMcpWorldQuery
                 command.Mode,
                 "all",
                 StringComparison.Ordinal) => ProjectSpellLevelAllPostState(state, command),
-            GameMcpCommandKind.Purchase => ProjectPurchaseDelta(state, command),
             GameMcpCommandKind.Cast => ProjectCastDelta(state, command),
             GameMcpCommandKind.Concept => ProjectConceptDelta(state, command),
             GameMcpCommandKind.Harvest => ProjectHarvestDelta(state, command, committed),
@@ -1308,66 +1307,6 @@ internal static class GameMcpWorldQuery
             ["maximum"] = output ? after.MaximumOutputLevel : after.MaximumReserveLevel,
         }.Freeze();
     }
-
-    private static GameMcpValue ProjectPurchaseDelta(
-        GameMcpFrameContext state,
-        GameMcpCommand command)
-    {
-        if (state.World is null)
-            return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
-        var after = state.World.Snapshot;
-        var before = Before(command);
-        if (command.Mode == "structure" &&
-            WorldLookup.TryFind(after.Structures, command.TargetId, out var afterStructure))
-        {
-            WorldStructure oldStructure = default;
-            var hadStructure = before is not null &&
-                WorldLookup.TryFind(before.Structures, command.TargetId, out oldStructure);
-            return PurchaseChange(
-                command.TargetId,
-                hadStructure ? oldStructure.Reading.Level.ToInt() : null,
-                afterStructure.Reading.Level.ToInt(),
-                hadStructure ? oldStructure.Reading.QueuedLevels.ToInt() : null,
-                afterStructure.Reading.QueuedLevels.ToInt());
-        }
-        if (WorldLookup.TryFind(after.Upgrades, command.TargetId, out var afterUpgrade))
-        {
-            WorldUpgrade oldUpgrade = default;
-            var hadUpgrade = before is not null &&
-                WorldLookup.TryFind(before.Upgrades, command.TargetId, out oldUpgrade);
-            return PurchaseChange(
-                command.TargetId,
-                hadUpgrade ? oldUpgrade.Reading.Level : null,
-                afterUpgrade.Reading.Level,
-                hadUpgrade ? oldUpgrade.Reading.QueuedLevels : null,
-                afterUpgrade.Reading.QueuedLevels);
-        }
-        return PostStateUnavailable("post_state_not_published",
-            "the settled world has no purchased target row");
-    }
-
-    /// <summary>
-    /// What a purchase settled, in the two counts the screen owns. A level that lands immediately
-    /// moves <c>level</c>; a level that has to be built moves <c>queuedLevels</c> and leaves the
-    /// badge where it was, so publishing only one of them is how a caller ends up reading a pair
-    /// that never moved. <c>level</c> keeps the single meaning it carries on every read — the
-    /// badge's own count, never the sum of built and building behind it.
-    /// </summary>
-    private static GameMcpValue PurchaseChange(
-        Guid uuid,
-        int? levelBefore,
-        int levelAfter,
-        int? queuedBefore,
-        int queuedAfter) => new JObject
-    {
-        ["uuid"] = uuid.ToString("D"),
-        ["level"] = new JObject { ["before"] = levelBefore, ["after"] = levelAfter },
-        ["queuedLevels"] = new JObject
-        {
-            ["before"] = queuedBefore,
-            ["after"] = queuedAfter,
-        },
-    }.Freeze();
 
     private static GameMcpValue ProjectStructureLifecycleDelta(
         GameMcpFrameContext state,
@@ -2187,34 +2126,28 @@ internal static class GameMcpWorldQuery
                 hasPrevious ? previous.SelfBonusLevels : (int?)null,
                 current.SelfBonusLevels,
                 "bonusLevel");
-        // What a develop, cancel, pause, or resume settles is the queue and the entry's state. A
-        // level takes research time to finish, so the level count is not what these verbs move —
-        // publishing it as an unconditional pair meant every commit reported the same number twice
-        // while the count that did move was nowhere on the wire. It is carried only when it moved,
-        // which is what an instantly-finishing level looks like.
-        var result = new JObject
-        {
-            ["uuid"] = command.TargetId.ToString("D"),
-            ["state"] = new JObject
-            {
-                ["before"] = hasPrevious ? ResearchState(previous) : null,
-                ["after"] = ResearchState(current),
-            },
-            ["queuedLevels"] = new JObject
-            {
-                ["before"] = hasPrevious ? ResearchQueuedLevels(previous) : (int?)null,
-                ["after"] = ResearchQueuedLevels(current),
-            },
-        };
-        if (hasPrevious && previous.TotalLevel != current.TotalLevel)
-        {
-            result["totalLevel"] = new JObject
-            {
-                ["before"] = previous.TotalLevel,
-                ["after"] = current.TotalLevel,
-            };
-        }
-        return result.Freeze();
+
+        // A develop does not finish a level, it buys research time: the levels go into the queue and
+        // the game drains them over the minutes that follow. Narrating that hop was three facts and
+        // every one of them was stale by the time a caller could read it — `state: idle -> active`
+        // and `queuedLevels: 0 -> 1` both read back as their own before-value seconds later, so the
+        // honest reading of a develop that worked was that it had not. The press queued levels; the
+        // settlement above already proved it queued exactly the count that was asked for, and where
+        // the queue stands now is a read.
+        if (command.Mode == "develop")
+            return QueuedMutation(command.TargetId, command.Amount, command.Amount);
+
+        // Cancel, pause, and resume apply when they are pressed, so each says the one fact it moved.
+        // A cancel empties the queue it was asked about; a pause and a resume move the entry's state.
+        if (command.Mode == "cancel")
+            return Change(command.TargetId,
+                hasPrevious ? ResearchQueuedLevels(previous) : (int?)null,
+                ResearchQueuedLevels(current),
+                "queuedLevels");
+        return Change(command.TargetId,
+            hasPrevious ? ResearchState(previous) : null,
+            ResearchState(current),
+            "state");
     }
 
     /// <summary>
@@ -2318,7 +2251,14 @@ internal static class GameMcpWorldQuery
                 hasPrevious ? previous.Randomized : (bool?)null,
                 current.Randomized,
                 "randomized"),
-            "use" or "cancel" => Change(
+            // A use takes the item into the game's preparation queue and it is consumed later, so
+            // the press answers that it queued. A cancel takes entries back out, which is a settled
+            // count moving now.
+            "use" => QueuedMutation(
+                command.TargetId,
+                command.Amount,
+                hasPrevious ? current.QueuedQuantity - previous.QueuedQuantity : null),
+            "cancel" => Change(
                 command.TargetId,
                 hasPrevious ? previous.QueuedQuantity : (int?)null,
                 current.QueuedQuantity,
@@ -2424,9 +2364,14 @@ internal static class GameMcpWorldQuery
             }.Freeze();
         }
         var settled = current.QueuedAmount.ToInt();
-        if (!hasBefore) return Change(command.TargetId, null, settled, "queued");
+
+        // A craft is taken into the game's crafting queue and finishes later, so the answer is the
+        // press: crafts are queued. Without a before world the count cannot be told apart from what
+        // was already waiting, and inventing one would be worse than saying only what is known.
+        if (!hasBefore) return QueuedMutation(command.TargetId, command.Amount, null);
         var started = previous.QueuedAmount.ToInt();
-        if (settled > started) return Change(command.TargetId, started, settled, "queued");
+        if (settled > started)
+            return QueuedMutation(command.TargetId, command.Amount, settled - started);
         // An unmoved queue count is the same number before and after the craft, which proves
         // nothing about it. Say what the settled world shows instead of publishing the pre-state.
         return PostStateUnavailable(
@@ -2449,6 +2394,42 @@ internal static class GameMcpWorldQuery
         ["uuid"] = uuid.ToString("D"),
         [field] = new JObject { ["before"] = before, ["after"] = after },
     }.Freeze();
+
+    /// <summary>
+    /// The one answer a mutation the game queues is allowed to give: it worked, and this much is
+    /// queued.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A queue hop is not a settled fact. The counts move again while the answer is being written and
+    /// have moved back by the time the caller reads it, so a <c>{before, after}</c> pair over them
+    /// reports a transition nobody can confirm — and the round that shipped one reported a purchase
+    /// that landed on level 1 as <c>level: 0 -&gt; 0</c>, whose honest reading is "it failed". A loop
+    /// driven off that either spins forever or buys twice. The press is what is knowable, so the
+    /// press is what is said, and where the queue stands now is a read.
+    /// </para>
+    /// <para>
+    /// A delivery short of the ask says both numbers on one line, because the difference is the whole
+    /// fact and a partial that looks like a satisfied <c>amount=1</c> is the shape a caller cannot
+    /// act on. An unknown count says only that the press queued something: naming a number the
+    /// evidence does not carry would be the same defect wearing a confident face. A count observed
+    /// as nought or less is unknown rather than nought — this is only reached once the mutation's own
+    /// sentinel has proved at least one entry was made, so a queue showing no growth has drained
+    /// already, and reporting "0 of 1 asked" for a press that landed is the very lie being fixed.
+    /// </para>
+    /// </remarks>
+    internal static GameMcpValue QueuedMutation(Guid uuid, int asked, int? queued) => new JObject
+    {
+        ["uuid"] = uuid.ToString("D"),
+        ["queued"] = QueuedValue(asked, queued),
+    }.Freeze();
+
+    private static object QueuedValue(int asked, int? queued) =>
+        queued is null or < 1 || (queued == 1 && asked == 1)
+            ? true
+            : queued < asked
+                ? queued + " of " + asked + " asked; the game took no more this press."
+                : queued.Value;
 
     private static GameMcpValue ProjectSpellLoadoutDelta(
         GameMcpFrameContext state,

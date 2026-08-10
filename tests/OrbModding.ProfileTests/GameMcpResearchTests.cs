@@ -229,11 +229,14 @@ public sealed class GameMcpResearchTests
     }
 
     /// <summary>
-    /// A level takes research time, so a develop moves the queue and leaves the level count alone.
-    /// The response has to name the count that moved instead of a level pair reading as a no-op.
+    /// A develop buys research time rather than a level: the levels enter the queue and the game
+    /// drains them over the minutes that follow. Narrating that hop published three facts that had
+    /// all reverted before the caller could read them — <c>state: idle -&gt; active</c> and
+    /// <c>queuedLevels: 0 -&gt; 1</c> both read back as their own before-value seconds later — so the
+    /// press says it queued and stops. The settlement above already proved the count.
     /// </summary>
     [Fact]
-    public void A_develop_commit_publishes_the_queue_it_moved_and_omits_the_level_it_did_not()
+    public void A_develop_commit_says_it_queued_and_narrates_no_queue_internals()
     {
         var before = World(queuedLevels: 3);
         var command = new GameMcpCommand(
@@ -247,29 +250,55 @@ public sealed class GameMcpResearchTests
             command,
             GameMcpCommandResult.Committed("committed", 41, 8)), after);
 
-        Assert.Equal(3, (int)delta["queuedLevels"]!["before"]!);
-        Assert.Equal(4, (int)delta["queuedLevels"]!["after"]!);
-        Assert.Equal("active", (string?)delta["state"]!["after"]);
+        Assert.True((bool)delta["queued"]!);
+        Assert.Null(delta["queuedLevels"]);
+        Assert.Null(delta["state"]);
         Assert.Null(delta["totalLevel"]);
     }
 
+    /// <summary>
+    /// The count rides only where there is a count to say. It is the amount that was asked for,
+    /// which the settlement predicate has already proved the queue rose by exactly.
+    /// </summary>
     [Fact]
-    public void A_level_that_finished_inside_the_commit_is_the_one_case_that_carries_totalLevel()
+    public void A_multi_level_develop_says_how_many_it_queued()
     {
-        var before = World(totalLevel: 1, queuedLevels: 4);
+        var before = World(queuedLevels: 3);
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Research, 41, 8, "develop", ResearchId, Guid.Empty,
-            "ResearchSO", 1, string.Empty, string.Empty, false,
+            "ResearchSO", 4, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
-        var after = World(totalLevel: 2, queuedLevels: 4);
+        var after = World(queuedLevels: 7);
 
         var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 52),
             command,
             GameMcpCommandResult.Committed("committed", 41, 8)), after);
 
-        Assert.Equal(1, (int)delta["totalLevel"]!["before"]!);
-        Assert.Equal(2, (int)delta["totalLevel"]!["after"]!);
+        Assert.Equal(4, (int)delta["queued"]!);
+    }
+
+    /// <summary>
+    /// Pause, resume, and cancel apply when they are pressed, so each still says the one fact it
+    /// moved. Only the queueing verb loses its pair.
+    /// </summary>
+    [Fact]
+    public void A_pause_still_reports_the_state_it_moved()
+    {
+        var before = World(isDeveloping: true, queueMode: false);
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Research, 41, 8, "pause", ResearchId, Guid.Empty,
+            "ResearchSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 51));
+        var after = World(isDeveloping: true, isActive: false, queueMode: false);
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 52),
+            command,
+            GameMcpCommandResult.Committed("committed", 41, 8)), after);
+
+        Assert.Equal("paused", (string?)delta["state"]!["after"]);
+        Assert.Null(delta["queued"]);
     }
 
     [Fact]
@@ -343,6 +372,7 @@ public sealed class GameMcpResearchTests
         double spendableAmount = 80,
         double investmentRemaining = 60,
         bool isDeveloping = true,
+        bool isActive = true,
         long? collectedAtUtcTicks = null,
         bool queueMode = true,
         bool complete = false,
@@ -378,7 +408,7 @@ public sealed class GameMcpResearchTests
         var modifiers = new RawResearchModifiers(BigDouble.Zero, BigDouble.Zero,
             new BigDouble(100), BigDouble.Zero, BigDouble.Zero);
         var research = new WorldResearch(ResearchId, 1, 2, 0, 0, 10, 60,
-            isDeveloping, true, false, true, true, complete, true, withinDevelopRange,
+            isDeveloping, isActive, false, true, true, complete, true, withinDevelopRange,
             true, true, true, true,
             1, 1, 0, totalLevel, 10, false, 2, 1, new BigDouble(60), 1, 1,
             PublicationTable<WorldResearchRequirementAdjustment>.Empty, in modifiers, in decision);

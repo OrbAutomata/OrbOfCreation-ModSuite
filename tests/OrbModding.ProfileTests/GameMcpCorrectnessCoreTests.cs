@@ -609,7 +609,7 @@ public sealed class GameMcpCorrectnessCoreTests
     }
 
     [Fact]
-    public void PlayerFacingAttributePurchaseUsesTheStructureCapabilityAndSettledLevelDelta()
+    public void PlayerFacingAttributePurchaseUsesTheStructureCapabilityAndAnswersQueued()
     {
         var attributeId = Guid.Parse("f2000000-0000-0000-0000-000000000001");
         var before = new GameWorldState
@@ -639,74 +639,53 @@ public sealed class GameMcpCorrectnessCoreTests
             payloadValue: string.Empty,
             saveCapture: false,
             frameContext: GameMcpTestHarness.Context(before));
-        var after = new GameWorldState
-        {
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(attributeId, 633),
-            }),
-        };
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            GameMcpTestHarness.Context(after),
-            command,
-            GameMcpCommandResult.Committed("committed", 9, 3)));
+        var delta = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.QueuedMutation(attributeId, asked: 1, queued: 1));
 
         Assert.Equal(GameMcpTestHarness.Handle(attributeId), (string?)delta["uuid"]);
-        Assert.Equal(632, (int)delta["level"]!["before"]!);
-        Assert.Equal(633, (int)delta["level"]!["after"]!);
-        Assert.Equal(0, (int)delta["queuedLevels"]!["before"]!);
-        Assert.Equal(0, (int)delta["queuedLevels"]!["after"]!);
+        Assert.True((bool)delta["queued"]!);
         Assert.NotNull(delta["name"]);
-        Assert.Equal(4, delta.Count);
+        Assert.Equal(3, delta.Count);
+        Assert.Equal(GameMcpCommandKind.Purchase, command.Kind);
     }
 
     /// <summary>
-    /// A purchase that has to be built leaves the badge alone, so the response has to name the
-    /// count that actually moved rather than a level pair that reads as a no-op.
+    /// A purchase does not apply when it is pressed — the game queues the levels and drains them
+    /// afterwards — so no world captured after it describes the press. The answer is the press, and
+    /// it needs no settled world at all, which is why a purchase does not wait for one.
     /// </summary>
     [Fact]
-    public void APurchaseThatOnlyQueuesLevelsReportsTheQueueMoving()
+    public void APurchaseAnswersFromItsOwnSentinelAndNeverWaitsForASettledWorld()
     {
+        Assert.False(GameMcpCommandKinds.RequiresPostStateSettlement(
+            GameMcpCommandKind.Purchase));
+
         var attributeId = Guid.Parse("f2000000-0000-0000-0000-00000000000d");
-        var before = new GameWorldState
-        {
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(attributeId, 632),
-            }),
-        };
-        var command = new GameMcpCommand(
-            1,
-            GameMcpCommandKind.Purchase,
-            expectedLifecycleGeneration: 9,
-            expectedConfigurationGeneration: 3,
-            mode: "structure",
-            targetId: attributeId,
-            secondaryId: Guid.Empty,
-            derivedNativeType: "StructureSO",
-            amount: 1,
-            payloadKey: string.Empty,
-            payloadValue: string.Empty,
-            saveCapture: false,
-            frameContext: GameMcpTestHarness.Context(before));
-        var after = new GameWorldState
-        {
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(attributeId, 632, queued: 1),
-            }),
-        };
+        var delta = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.QueuedMutation(attributeId, asked: 3, queued: 3));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            GameMcpTestHarness.Context(after),
-            command,
-            GameMcpCommandResult.Committed("committed", 9, 3)));
+        Assert.Equal(3, (int)delta["queued"]!);
+        Assert.Null(delta["level"]);
+        Assert.Null(delta["queuedLevels"]);
+    }
 
-        Assert.Equal(632, (int)delta["level"]!["before"]!);
-        Assert.Equal(632, (int)delta["level"]!["after"]!);
-        Assert.Equal(0, (int)delta["queuedLevels"]!["before"]!);
-        Assert.Equal(1, (int)delta["queuedLevels"]!["after"]!);
+    /// <summary>
+    /// The game's own purchase loop stops as soon as it cannot pay for the next level, so a caller
+    /// has to be able to tell a partial delivery from a satisfied ask. Round 9 could not: an
+    /// <c>amount=1000</c> that delivered one level was byte-identical to <c>amount=1</c>.
+    /// </summary>
+    [Fact]
+    public void APartialPurchaseSaysDeliveredAgainstAskedOnOneLine()
+    {
+        var attributeId = Guid.Parse("f2000000-0000-0000-0000-00000000000e");
+        var delta = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.QueuedMutation(attributeId, asked: 1000, queued: 1));
+
+        var queued = (string?)delta["queued"];
+        Assert.NotNull(queued);
+        Assert.StartsWith("1 of 1000 asked;", queued);
+        Assert.DoesNotContain("\n", queued);
     }
 
     /// <summary>
@@ -756,27 +735,12 @@ public sealed class GameMcpCorrectnessCoreTests
             payloadValue: string.Empty,
             saveCapture: false,
             frameContext: GameMcpTestHarness.Context(before));
-        var after = before with
-        {
-            Structures = PublicationTable<WorldStructure>.Create(new[]
-            {
-                Structure(attributeId, 125),
-            }),
-            Resources = PublicationTable<WorldResource>.Create(new[]
-            {
-                Stock(resourceId, 400),
-            }),
-        };
-
         var delta = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            GameMcpWorldQuery.ProjectGameplayPostState(
-                GameMcpTestHarness.Context(after),
-                command,
-                GameMcpCommandResult.Committed("committed", 9, 3)),
+            GameMcpWorldQuery.QueuedMutation(
+                attributeId, asked: command.Amount, queued: 25),
             identities));
 
-        Assert.Equal(100, (int)delta["level"]!["before"]!);
-        Assert.Equal(125, (int)delta["level"]!["after"]!);
+        Assert.Equal(25, (int)delta["queued"]!);
         Assert.Null(delta["paid"]);
         Assert.Null(delta["costPerLevel"]);
         Assert.Null(delta["spendableAmount"]);

@@ -260,8 +260,12 @@ public sealed class GameMcpCraftingTests
         Assert.Null(rows[1]?["automatic"]);
     }
 
+    /// <summary>
+    /// A craft is taken into the game's crafting queue and finishes later, so the press answers what
+    /// it queued rather than a pair over a count that drains on its own while nobody is looking.
+    /// </summary>
     [Fact]
-    public void CommittedPostStateIsTheNamedQueueDeltaWithoutAuditCeremony()
+    public void CommittedPostStateIsTheQueuedCountWithoutAuditCeremony()
     {
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Crafting, 15, 8, "craft", RecipeId, Guid.Empty,
@@ -271,8 +275,7 @@ public sealed class GameMcpCraftingTests
             Context(queuedAmount: 6), command, committed));
 
         Assert.Equal("Craft Sigils", (string?)postState["name"]);
-        Assert.Equal(4, (int)postState["queued"]!["before"]!);
-        Assert.Equal(6, (int)postState["queued"]!["after"]!);
+        Assert.Equal(2, (int)postState["queued"]!);
         Assert.Null(postState["nextCosts"]);
         Assert.Null(postState["queue"]);
         Assert.Null(postState["receipt"]);
@@ -360,8 +363,7 @@ public sealed class GameMcpCraftingTests
             Context(queuedAmount: 2), command, committed));
 
         Assert.Null(postState["postStateUnavailable"]);
-        Assert.Equal(0, (int)postState["queued"]!["before"]!);
-        Assert.Equal(2, (int)postState["queued"]!["after"]!);
+        Assert.Equal(2, (int)postState["queued"]!);
     }
 
     // The screen's badge, not the repetition count: repetitions 4 to 3 is a badge of 8 to 4.

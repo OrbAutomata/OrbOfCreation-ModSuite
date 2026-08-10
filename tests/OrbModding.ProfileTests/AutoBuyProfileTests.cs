@@ -248,6 +248,95 @@ public sealed class AutoBuyProfileTests : IDisposable
         },
     };
 
+    /// <summary>
+    /// An explicit request names an amount, and the honest answer to an amount that does not fit is
+    /// the one that does. Round 9 asked for a thousand levels against four levels of headroom, was
+    /// quietly given one, and the answer was byte-identical to a satisfied <c>amount=1</c> — the
+    /// clamp target was the live queue room rather than the headroom, so no correct next action was
+    /// derivable from the response at all.
+    /// </summary>
+    [Fact]
+    public void AnExplicitOverAskIsRefusedWithTheRoomInsteadOfClampedToIt()
+    {
+        var probe = new ServiceCycleProfileProbe();
+        probe.Attach(new CapturingMeasurementPort());
+        var operations = new AutomataProfileOperations(probe);
+        global::ActionManager.RemainingRoom = 3;
+
+        var purchases = new RecordingCountPort();
+        var adapter = new AutoBuyCycleActionAdapter(
+            purchases,
+            new AutoBuyNativeQueueRoomAdapter(),
+            () => PlannedEpoch,
+            () => AutoBuyCandidateKinds.All,
+            operations,
+            IgnoreRefusals.Instance,
+            null,
+            _ => true);
+
+        var result = adapter.TryExecuteGameMcp(
+            new AutoBuyCycleAction(
+                AutoBuyCandidateKind.Upgrade, Guid.NewGuid(), PlannedEpoch, count: 1000),
+            Configuration(),
+            ActionContext());
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(AutoBuyActionResultCodes.QueueRoomBelowRequest, result.Code);
+        Assert.Equal(3, adapter.LastSubmission.MaximumAmount);
+        Assert.Contains("room for 3 more levels", adapter.LastSubmission.Reason);
+        Assert.False(purchases.Submitted);
+    }
+
+    /// <summary>
+    /// The planner's own count is still clamped, because a plan that asks for what it hoped for and
+    /// takes what fits is the plan working. Only a caller-named amount is a promise.
+    /// </summary>
+    [Fact]
+    public void APlannedBatchStillTakesWhateverRoomIsLeft()
+    {
+        var probe = new ServiceCycleProfileProbe();
+        probe.Attach(new CapturingMeasurementPort());
+        var operations = new AutomataProfileOperations(probe);
+        global::ActionManager.RemainingRoom = 3;
+
+        var purchases = new RecordingCountPort();
+        var adapter = new AutoBuyCycleActionAdapter(
+            purchases,
+            new AutoBuyNativeQueueRoomAdapter(),
+            () => PlannedEpoch,
+            () => AutoBuyCandidateKinds.All,
+            operations,
+            IgnoreRefusals.Instance);
+
+        adapter.TryExecute(
+            new AutoBuyCycleAction(
+                AutoBuyCandidateKind.Upgrade, Guid.NewGuid(), PlannedEpoch, count: 1000),
+            Configuration(),
+            ActionContext());
+
+        Assert.True(purchases.Submitted);
+        Assert.Equal(3, purchases.LastCount);
+    }
+
+    private sealed class RecordingCountPort : IAutoBuyNativePurchasePort
+    {
+        internal bool Submitted { get; private set; }
+        internal int LastCount { get; private set; }
+
+        public AutoBuyPurchaseSubmission Submit(
+            AutoBuyCandidateKind kind,
+            Guid uuid,
+            int count,
+            long lifecycleEpoch,
+            in ServiceActionContext context)
+        {
+            Submitted = true;
+            LastCount = count;
+            return AutoBuyPurchaseSubmission.Rejected(
+                AutoBuyPurchasePreflight.CandidateUnavailable);
+        }
+    }
+
     private sealed class IgnoreRefusals : IAutoBuyRefusalResponsePort
     {
         internal static IgnoreRefusals Instance { get; } = new();

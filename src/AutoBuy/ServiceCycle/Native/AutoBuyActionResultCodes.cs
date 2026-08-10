@@ -56,4 +56,11 @@ internal static class AutoBuyActionResultCodes
     /// on this fresh action-boundary read.
     /// </summary>
     public static ServiceActionResultCode OwningViewAvailabilityUnreadable => new(2062);
+
+    /// <summary>
+    /// An explicit request asked for more levels than the live action queue holds above the reserve.
+    /// Only a caller-named amount reaches this: a planned batch is clamped to the room instead,
+    /// because a plan that takes what fits is the planner working.
+    /// </summary>
+    public static ServiceActionResultCode QueueRoomBelowRequest => new(2063);
 }

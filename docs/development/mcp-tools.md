@@ -443,7 +443,10 @@ the native fill bar, `remainingCost` is what that bar still owes in the units th
 `spendableAmount` is what the player actually holds. Associated
 research types carry their remaining free bonus levels and investment caps. Only currently
 UI-reachable next verbs appear: `develop`, `pause`, `resume`, `cancel`, and `bonus`. A committed
-mutation returns the changed level or state; read detail remains in `world_get`.
+`develop` answers `queued` and stops — it buys research time, not a finished level, and the queue
+counts it used to narrate had all reverted by the time a caller could read them. `pause`, `resume`,
+`cancel`, and `bonus` apply at once and each answers the single state or count it moved. Read
+detail remains in `world_get`.
 
 `crafting-recipe-types` describes the game's crafting families; `crafting-recipes` contains the
 actual recipes and is the pre-decision surface for `game_craft`. A recipe row leads with `visible`,
@@ -1166,14 +1169,27 @@ is no routine lag field on the ordinary path. If no such world arrives in time, 
 committed and the response carries the single exceptional
 `postStateUnavailable / post_state_timeout` fact instead of an empty success or the pre-mutation
 world. Reaching that path repeatedly in live play means a missing publication trigger to diagnose,
-not a timeout to lengthen.
+not a timeout to lengthen. One verb skips the wait outright: a purchase answers from the
+queued-level delta its own native verifier observed, so no later world can add to it, and waiting
+for one could only turn a purchase that verifiably committed into a timeout.
 
-Every action verb settles the same way, and there is exactly one idiom for it. A commit answers
-with the facts its own press changed, each as a `{before, after}` pair, plus any fact the press
-produced that has no "before" — a battle's result and spoils, a settled level, the price it drew.
-When the settled world cannot prove the change, the answer is `postStateUnavailable`. No verb
-re-reads a whole screen and no verb appends what is possible next: the decisions a press reopened
-are read with `world_get`, which is where every other caller reads them.
+A commit answers with the facts its own press changed, each as a `{before, after}` pair, plus any
+fact the press produced that has no "before" — a battle's result and spoils, a settled level, the
+price it drew. When the settled world cannot prove the change, the answer is `postStateUnavailable`.
+No verb re-reads a whole screen and no verb appends what is possible next: the decisions a press
+reopened are read with `world_get`, which is where every other caller reads them.
+
+**A mutation the game queues answers differently, and that is the whole rule for it: success,
+`queued`, and stop.** A purchase, a research develop, a craft, and a consumable use do not apply
+when they are pressed — the game takes them into a queue and drains it over the seconds or minutes
+that follow. Every count involved therefore moves again while the answer is being written and has
+moved back before the caller can read it, so a `{before, after}` pair over one reports a transition
+nobody can confirm: round 9 shipped `level: 0 -> 0` beside `queuedLevels: 0 -> 1` for a purchase
+that landed on level 1, and the honest reading of that pair is "it failed". These verbs say what
+the press did and nothing else — `queued: yes`, or `queued: N` where there is a count to say.
+Where the queue now stands, what the level is, and what the next one costs are reads. A delivery
+short of the ask says both numbers on one line (`queued: 1 of 1000 asked; …`), because a partial
+that looks like a satisfied `amount=1` is the one shape a caller cannot act on.
 
 A successful read uses `available`; an unavailable domain read uses `unavailable`. A successful
 mutation uses `committed`; a refused mutation uses `refused`; infrastructure or native divergence
@@ -1360,7 +1376,12 @@ with "must be N or greater" rather than with an `int.MaxValue` placeholder print
 bound the game never chose. None of the declared ceilings is read from the game, none of them is a
 running budget, and none of them appears in any response. A value inside the schema bound is
 therefore not admitted yet: the action boundary re-reads the native bound and refuses with
-`amount_unavailable` and the live `maximumAmount` when the two disagree.
+`amount_unavailable` and the live `maximumAmount` when the two disagree. `game_purchase`'s live
+bound is the game's own action queue, read at the boundary: an ask beyond the room it holds above
+the operator's reserve is refused with that room as `maximumAmount`, never clamped down to it. Auto
+Buy's planned batches still clamp, because a plan that takes what fits is the planner working — but
+a caller who names an amount is saying what it wants to have happened, and silently turning 1,000
+into 1 is indistinguishable from a satisfied `amount=1`.
 
 The two kinds never mix in one number. A published bound quotes the control or it does not ship, and
 a schema ceiling is never folded into one: an
@@ -1886,8 +1907,10 @@ shapes that earned their keep as well as the defects. Those survivors are a stan
 change that would undo one is a regression even when it is locally tidier, and the round that wants
 to touch one argues for it first. Each line names where the shape is specified.
 
-1. Settled-delta pairs as the single mutation sentinel: a commit answers with the facts its own
-   press changed, each as `{before, after}` — *Inline action results*.
+1. Settled-delta pairs for a mutation that applies when it is pressed: a commit answers with the
+   facts its own press changed, each as `{before, after}`. A mutation the game **queues** answers
+   `queued` and stops instead, because a pair over a draining queue reports a transition nobody can
+   confirm — *Inline action results*.
 2. Stop-in-same-answer: every action, configuration write, STOP transition, and gadget returns its
    terminal result in the same call. No receipts, no cursors, no polling tool — *Inline action
    results*.

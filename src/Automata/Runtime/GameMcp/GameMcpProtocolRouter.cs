@@ -687,7 +687,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_purchase",
                 "Purchase an attribute or upgrade",
-                "Live-revalidate and apply one UUID-addressed attribute (native StructureSO) or upgrade purchase; the settled level change is returned inline.",
+                "Live-revalidate and apply one UUID-addressed attribute (native StructureSO) or upgrade purchase. The game takes the levels into its action queue and builds them afterwards, so a commit answers that it queued and how many — never a level that has not moved yet. amount is honoured exactly: an ask larger than the live action queue has room for is refused naming that room, rather than quietly delivering one level of it, and a purchase the game's own loop stops early says delivered against asked on one line.",
                 ActionSchema(
                     new JObject
                     {
@@ -1037,7 +1037,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_research",
                 "Develop or manage research",
-                "Develop, queue, pause, resume, cancel, or apply a free bonus level to one exact research. amount is the number of levels a develop asks for and defaults to 1. Success returns the changed level or state.",
+                "Develop, queue, pause, resume, cancel, or apply a free bonus level to one exact research. amount is the number of levels a develop asks for and defaults to 1, and an ask beyond what this call can admit is refused with that ceiling rather than trimmed. A develop buys research time rather than a finished level, so it answers that it queued and how many; pause, resume, cancel, and bonus apply at once and answer the one state or count they moved.",
                 ModeSchema(ActionSchema(
                     new JObject
                     {

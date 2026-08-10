@@ -332,6 +332,24 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 var submission = purchases.LastGameMcpSubmission;
                 if (!submission.Verified && !string.IsNullOrEmpty(submission.Reason))
                     exactReason = submission.Reason;
+
+                // A refusal whose sentence names a ceiling carries that ceiling as a number too,
+                // read from the same live reading the sentence was written from.
+                if (submission.MaximumAmount >= 0)
+                {
+                    details = new GameMcpObjectBuilder
+                    {
+                        ["maximumAmount"] = submission.MaximumAmount,
+                    }.Freeze();
+                }
+                else if (submission.Verified)
+                {
+                    // A purchase is queued, not applied, so the answer is what the press queued and
+                    // it is complete here: the count is the mutation's own verified queued-level
+                    // delta, and no later world can add to it without contradicting it.
+                    details = GameMcpWorldQuery.QueuedMutation(
+                        command.TargetId, command.Amount, submission.CommittedLevels);
+                }
             }
             if (command.Kind == GameMcpCommandKind.Cast &&
                 FindFeature(command.Kind) is AutoCastFeatureRuntime casts)

@@ -65,8 +65,21 @@ internal static class GameMcpCommandKinds
     internal static bool IsEntityGameplayAction(GameMcpCommandKind kind) =>
         IsGameplayAction(kind) && kind != GameMcpCommandKind.ReturnToMenu;
 
+    /// <summary>
+    /// Whether a committed mutation's answer needs a world captured after it, or already holds every
+    /// fact it is going to state.
+    /// </summary>
+    /// <remarks>
+    /// A purchase answers from the queued-level delta its own native verifier observed, so there is
+    /// nothing left for a settled world to add: it queues levels the game drains over the following
+    /// seconds, and every world after the press describes a queue already draining rather than the
+    /// press. Waiting for one could only turn a purchase that verifiably committed into a
+    /// <c>post_state_timeout</c>, which is the same lie in a slower costume.
+    /// </remarks>
     internal static bool RequiresPostStateSettlement(GameMcpCommandKind kind) =>
-        IsGameplayAction(kind) && kind != GameMcpCommandKind.ReturnToMenu;
+        IsGameplayAction(kind) &&
+        kind != GameMcpCommandKind.ReturnToMenu &&
+        kind != GameMcpCommandKind.Purchase;
 
     internal static GameMcpCommandKind FromToolName(string toolName) => toolName switch
     {
@@ -532,6 +545,11 @@ internal static class GameMcpActionResultCodeNames
             if (code == AutoBuyActionResultCodes.BatchSpendDrift)
                 return "Earlier purchases in this batch spent the margin this one was planned " +
                     "against.";
+
+            // The boundary writes the better sentence, because it holds the number. This is the
+            // fallback for a result that reaches the wire without one.
+            if (code == AutoBuyActionResultCodes.QueueRoomBelowRequest)
+                return "The game's action queue has less room than this call asked for.";
         }
         if (commandKind == GameMcpCommandKind.Cast)
         {
@@ -624,6 +642,11 @@ internal static class GameMcpActionResultCodeNames
             if (code == AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch)
                 return "identity_unavailable";
             if (code == AutoBuyActionResultCodes.BatchSpendDrift) return "batch_spend_drift";
+
+            // The vocabulary a caller already learned for an over-ask: the same name the research
+            // develop verb refuses one with, carrying the same `maximumAmount` beside it. A second
+            // private name for one meaning is how an error taxonomy stops being branchable.
+            if (code == AutoBuyActionResultCodes.QueueRoomBelowRequest) return "amount_unavailable";
         }
         // Feature result-code numbers are namespaced per feature and deliberately reused across
         // them, so a name is only correct beside the command kind that owns the vocabulary.

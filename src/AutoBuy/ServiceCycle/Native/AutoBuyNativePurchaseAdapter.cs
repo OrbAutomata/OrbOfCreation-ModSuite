@@ -34,6 +34,13 @@ internal enum AutoBuyPurchasePreflight
     DestinationCapacityContractUnavailable,
     DestinationCapacityIdentityMismatch,
 
+    /// <summary>
+    /// An explicit request asked for more levels than the live action queue holds above the reserve.
+    /// Reached from the action adapter rather than the native adapter: it is decided by the live
+    /// queue reading, before a candidate is resolved and before any mutation is attempted.
+    /// </summary>
+    QueueRoomBelowRequest,
+
     /// <summary>The suite never bound the owning-view topology contract on this build.</summary>
     OwningViewTopologyUnbound,
 
@@ -65,7 +72,8 @@ internal readonly struct AutoBuyPurchaseSubmission
         int committedLevels,
         in AutoBuyAdmissionDiagnosis diagnosis,
         in AutoBuyLiveCostSnapshot liveCosts,
-        string reason)
+        string reason,
+        int maximumAmount = -1)
     {
         Preflight = preflight;
         HasEvidence = hasEvidence;
@@ -76,6 +84,7 @@ internal readonly struct AutoBuyPurchaseSubmission
         Diagnosis = diagnosis;
         LiveCosts = liveCosts;
         Reason = reason;
+        MaximumAmount = maximumAmount;
     }
 
     public AutoBuyPurchasePreflight Preflight { get; }
@@ -114,6 +123,32 @@ internal readonly struct AutoBuyPurchaseSubmission
     /// be a success; only zero is a failure.
     /// </summary>
     public int CommittedLevels { get; }
+
+    /// <summary>
+    /// The ceiling a refusal's own sentence named, or -1 where the refusal names none. A sentence
+    /// that quotes a number carries that same number as a field, read from the same reading the
+    /// sentence was written from, so the two can never disagree.
+    /// </summary>
+    public int MaximumAmount { get; }
+
+    /// <summary>
+    /// An explicit request that asked for more than the live queue holds. No mutation is attempted:
+    /// the caller named an amount, and the honest answer to an amount that does not fit is the one
+    /// that does.
+    /// </summary>
+    public static AutoBuyPurchaseSubmission RejectedOverAsk(int room, string reason) =>
+        new(
+            AutoBuyPurchasePreflight.QueueRoomBelowRequest,
+            hasEvidence: false,
+            default,
+            default,
+            0,
+            0,
+            default,
+            AutoBuyLiveCostSnapshot.Unavailable(
+                AutoBuyLiveCostReadStatus.PurchaseCostUnavailable),
+            reason,
+            room);
 
     public static AutoBuyPurchaseSubmission Rejected(AutoBuyPurchasePreflight preflight) =>
         Rejected(preflight, default, string.Empty);
