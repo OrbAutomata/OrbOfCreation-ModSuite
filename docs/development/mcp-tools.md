@@ -2020,6 +2020,10 @@ repeating some 240 identical characters of ancestor path. `pathPrefix` is presen
 returned rows share leading segments and always leaves the shortest of them one segment of its own,
 so it differs between pages of one screen. `game_tooltip` therefore resolves a row by the tail it was
 handed: any tail of a live path, matched at a segment boundary, up to and including the whole path.
+A tail naming more than one live element is refused rather than resolved to the first, and the
+refusal says to prepend the `pathPrefix` the catalog returned with that row — two scroll lists on one
+screen hand out colliding tails routinely, and the prefix is what tells them apart. A tail naming
+none says to re-read the catalog instead, because the screen has moved on.
 The reply is compact plain screen text.
 The
 catalog includes the owning UUID when the assigned tooltip item is itself an identity-bearing game

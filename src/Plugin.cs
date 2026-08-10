@@ -3650,10 +3650,17 @@ public sealed class Plugin : BaseUnityPlugin
             .ToArray();
         if (matches.Length != 1)
         {
+            // Naming the next step is the point. A tail is only as unique as the page it came from,
+            // and two scroll lists on one screen hand out colliding tails routinely; the catalog
+            // already published the prefix that separates them, so the refusal says to put it back
+            // on rather than leaving a caller to guess that a longer path exists.
             return GadgetRejected(
                 "tooltip_match_failed",
                 "tooltip path '" + requestedPath + "' matched " +
-                matches.Length + " active current-screen elements");
+                matches.Length + " active current-screen elements" +
+                (matches.Length > 1
+                    ? "; prepend the pathPrefix game_tooltips returned with this row to name one"
+                    : "; re-read game_tooltips for this screen's current paths"));
         }
         var hover = matches[0].Hover;
         if (hover.tooltipItem is null)
