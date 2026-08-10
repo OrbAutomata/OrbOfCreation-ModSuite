@@ -10,7 +10,41 @@ internal sealed record TraceDashboardDocument(
     TraceDashboardEvent[] Events,
     TraceDashboardDecision[] Decisions,
     TraceDashboardStageAggregate[] StageAggregates,
-    TraceDashboardStageSample[] StageSamples);
+    TraceDashboardStageSample[] StageSamples,
+    TraceDashboardCategories Categories);
+
+/// <summary>
+/// What the session's collection passes spent, per category, sorted by total cost.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Whole-trace rather than range-filtered, and deliberately: the spans are a distribution over the
+/// session, and a category read once per lifecycle epoch has a handful of charged passes that a
+/// narrow window would exclude entirely — leaving the structural categories reading as free.
+/// </para>
+/// <para>
+/// The spans themselves are not in <c>events</c>. One pass is sixty-odd of them at four passes a
+/// second, so putting them on the timeline would bury every other event under collection and grow the
+/// page by an order of magnitude for a view that is already an aggregate.
+/// </para>
+/// </remarks>
+internal sealed record TraceDashboardCategories(
+    TraceDashboardCategory[] Rows,
+    int Passes,
+    int Spans,
+    int ShortPasses,
+    string Discrepancy);
+
+internal sealed record TraceDashboardCategory(
+    int Category,
+    string Name,
+    int Passes,
+    double TotalMilliseconds,
+    double AverageMilliseconds,
+    double MedianMilliseconds,
+    double WorstMilliseconds,
+    int SampledLast,
+    int SampledMaximum);
 
 /// <summary>
 /// One registered service, as much of it as the capture can answer for.

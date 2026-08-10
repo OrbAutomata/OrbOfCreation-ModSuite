@@ -164,6 +164,99 @@ public sealed class TraceDashboardReaderTests
         }
     }
 
+    /// <summary>
+    /// Collect is the suite's largest main-thread cost, and until the spans existed the dashboard
+    /// could say what a capture cost but not what it went on. The view is whole-trace on purpose: a
+    /// structural category is charged by a handful of passes per session, and a narrow window would
+    /// render it free.
+    /// </summary>
+    [Fact]
+    public void CollectionSpansBecomeAPerCategoryDistributionSortedByTotalCost()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            "orb-trace-dashboard-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var run = Path.Combine(root, "run-20260101-000000-test");
+            var fullSession = Path.Combine(run, "full", "session-000000000000002a");
+            Directory.CreateDirectory(fullSession);
+            WriteFullTrace(
+                fullSession,
+                CategoryRoster(),
+                Span(1, category: 1, sampled: 2_628, frame: 100, timestampTicks: 1_000, milliseconds: 1),
+                Span(2, category: 2, sampled: 180, frame: 100, timestampTicks: 1_000, milliseconds: 4),
+                Span(3, category: 1, sampled: 2_628, frame: 101, timestampTicks: 2_000, milliseconds: 3),
+                Span(4, category: 2, sampled: 180, frame: 101, timestampTicks: 2_000, milliseconds: 0),
+                Span(5, category: 1, sampled: 16, frame: 102, timestampTicks: 3_000, milliseconds: 10),
+                Span(6, category: 2, sampled: 180, frame: 102, timestampTicks: 3_000, milliseconds: 0));
+
+            var document = TraceDashboardReader.Read(TraceCaptureLocator.Locate(run));
+
+            Assert.Equal(3, document.Categories.Passes);
+            Assert.Equal(6, document.Categories.Spans);
+            Assert.Equal(0, document.Categories.ShortPasses);
+            Assert.Equal(string.Empty, document.Categories.Discrepancy);
+
+            var scribe = document.Categories.Rows[0];
+            Assert.Equal("scribe relations", scribe.Name);
+            Assert.Equal(3, scribe.Passes);
+            Assert.Equal(14, scribe.TotalMilliseconds, 3);
+            Assert.Equal(14d / 3, scribe.AverageMilliseconds, 3);
+            Assert.Equal(3, scribe.MedianMilliseconds, 3);
+            Assert.Equal(10, scribe.WorstMilliseconds, 3);
+            // The population moved across a prestige, and the row says so rather than averaging it.
+            Assert.Equal(16, scribe.SampledLast);
+            Assert.Equal(2_628, scribe.SampledMaximum);
+
+            var effects = document.Categories.Rows[1];
+            Assert.Equal("effect blocks", effects.Name);
+            Assert.Equal(4, effects.TotalMilliseconds, 3);
+            Assert.Equal(180, effects.SampledLast);
+
+            // Spans stay out of the timeline: one pass is sixty-odd of them at four passes a second,
+            // and they are a distribution rather than events to click through.
+            Assert.Empty(document.Events);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static ServiceCycleTraceRoster CategoryRoster() => new(new[]
+    {
+        new ServiceCycleTraceRosterEntry(
+            ServiceCycleTraceRoster.ServiceKind, 3, "orbautomata.auto-buy", "Auto Buy"),
+        new ServiceCycleTraceRosterEntry(
+            ServiceCycleTraceRoster.WorldCategoryKind, 1, "scribe relations", string.Empty),
+        new ServiceCycleTraceRosterEntry(
+            ServiceCycleTraceRoster.WorldCategoryKind, 2, "effect blocks", string.Empty),
+    });
+
+    private static ServiceCycleSemanticEvent Span(
+        ulong sequence,
+        int category,
+        int sampled,
+        long frame,
+        long timestampTicks,
+        double milliseconds)
+    {
+        var payload = ServiceCycleSemanticPayload.WorldCategoryFact(
+            category,
+            sampled,
+            passCategories: 2,
+            lifecycle: 14,
+            frameIdentity: frame,
+            timestampTicks: timestampTicks,
+            durationTicks: (long)(milliseconds * TimeSpan.TicksPerMillisecond));
+        return new ServiceCycleSemanticEvent(
+            new ServiceCycleTraceEventId(new ServiceCycleTraceSessionId(101), sequence),
+            default,
+            ServiceCycleSemanticEventKind.WorldCategoryCollected,
+            in payload);
+    }
+
     private static ServiceCycleSemanticEvent PumpCompleted(
         ulong sequence,
         long frame,
@@ -213,7 +306,19 @@ public sealed class TraceDashboardReaderTests
             in payload);
     }
 
-    private static void WriteFullTrace(string session, params ServiceCycleSemanticEvent[] events)
+    private static readonly ServiceCycleTraceRoster DefaultRoster = new(new[]
+    {
+        new ServiceCycleTraceRosterEntry(
+            ServiceCycleTraceRoster.ServiceKind, 3, "orbautomata.auto-buy", "Auto Buy"),
+    });
+
+    private static void WriteFullTrace(string session, params ServiceCycleSemanticEvent[] events) =>
+        WriteFullTrace(session, DefaultRoster, events);
+
+    private static void WriteFullTrace(
+        string session,
+        ServiceCycleTraceRoster roster,
+        params ServiceCycleSemanticEvent[] events)
     {
         var fullSession = new FullTraceSessionId(42);
         var semanticSession = new ServiceCycleTraceSessionId(101);
@@ -247,14 +352,6 @@ public sealed class TraceDashboardReaderTests
         FullTraceManifestCodec.Encode(in manifest, manifestBytes);
         File.WriteAllBytes(Path.Combine(session, "manifest.oscm"), manifestBytes);
 
-        var roster = new ServiceCycleTraceRoster(new[]
-        {
-            new ServiceCycleTraceRosterEntry(
-                ServiceCycleTraceRoster.ServiceKind,
-                3,
-                "orbautomata.auto-buy",
-                "Auto Buy"),
-        });
         File.WriteAllBytes(
             Path.Combine(session, TraceRosterFormat.FileName),
             TraceRosterFormat.Encode(roster));

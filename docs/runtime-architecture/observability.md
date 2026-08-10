@@ -318,6 +318,13 @@ two passes cost the same, so a key carrying it would announce every pass. The pr
 times the pass as a single span — attribution within it belongs to the collector, because nothing
 outside the reader loop can say which category the time went on.
 
+The announce and the offline per-category view both stay, and they answer different questions. The
+announce speaks when the population moves and says what that pass cost, which is what a player's log
+can carry without becoming a stream; the dashboard speaks over a whole session and says what a
+category costs across hundreds of passes, which is the only form in which a spike is visible at all.
+Neither derives the other: three named categories in one pass cannot be averaged, and a session
+average cannot say which pass was the expensive one.
+
 Auto Buy affordability drift remains a loud refusal but does not synchronously render or write a
 bundle. Structural contradictions that disable the feature retain a full text bundle under
 `trace/diagnostics`, capped before each write at eight owned files and 1 MiB total. A collision,
@@ -387,7 +394,11 @@ reachable from a full-trace session.
   ordering, and the terminal manifest fences, holding at most one bounded segment at a time so memory
   does not limit session duration. A missing manifest is reported as `Interrupted` over the validated
   durable prefix and never promoted to complete. Names come from the session roster when the capture
-  wrote one; a capture without one is reported under its numbers rather than having names inferred.
+  wrote one; a capture without one is reported under its numbers rather than having names inferred. A
+  final view folds the collection spans into one row per category — passes, total, average, median,
+  worst, and the sampled counts that explain a change in cost — sorted by total so the first row read
+  is the one worth attacking. The spans stay out of the event timeline they would otherwise be, since
+  the aggregate is the form they answer in.
 - **`--journal <journal-directory> [report.md]`** selects an explicit third decoder route and never
   sniffs or falls through to the OSCS parser. Persistent ordinals must be contiguous; record sequences
   must be contiguous within a run; every adjacent later run begins at sequence one; and a run identity
@@ -406,7 +417,12 @@ reachable from a full-trace session.
   by service, lifecycle, and cycle id together, because cycle ids restart at one in every lifecycle
   and the pair alone let a later lifecycle overwrite an earlier one row for row. Every cycle the
   trace says started is reconciled against the rows that kept a start, and a shortfall fails the read
-  rather than rendering a table a quarter short.
+  rather than rendering a table a quarter short. The page carries the same per-category collection
+  view, and it is whole-trace rather than clipped to the window the other panels use: a structural
+  category is charged by a handful of passes in a session, and a window narrow enough to be
+  interesting would show it as free. A pass carrying fewer spans than the categories it reported is
+  named rather than quietly under-counted, in both readers — a session that ended incomplete
+  truncates its last pass legitimately, and more than one short pass is records lost.
 
 Each pump row carries the frame's own wall time beside the suite's cost inside it, differenced from
 the previous pump record. That figure is the denominator of every honest statement about what the

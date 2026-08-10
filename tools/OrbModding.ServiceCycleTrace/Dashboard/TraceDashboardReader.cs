@@ -36,6 +36,7 @@ internal static class TraceDashboardReader
 
         var pumps = new List<TraceDashboardPump>();
         var events = new List<TraceDashboardEvent>();
+        var categories = new WorldCategorySpanCollector();
         var acceptedPumps = 0;
         long? previousPumpTicks = null;
         foreach (var segment in full.Segments())
@@ -43,6 +44,7 @@ internal static class TraceDashboardReader
             foreach (var item in segment.Events)
             {
                 var payload = item.Payload;
+                if (categories.Observe(in item)) continue;
                 if (item.Kind == ServiceCycleSemanticEventKind.PumpCompleted)
                 {
                     if (payload.PumpAccepted) acceptedPumps++;
@@ -103,7 +105,7 @@ internal static class TraceDashboardReader
             profile?.Manifest.Calibration.AllocationAvailable ?? false,
             notes.ToArray());
         return new TraceDashboardDocument(
-            2,
+            3,
             metadata,
             services,
             pumps.ToArray(),
@@ -111,7 +113,8 @@ internal static class TraceDashboardReader
             events.ToArray(),
             decisions,
             aggregates.ToArray(),
-            samples.ToArray());
+            samples.ToArray(),
+            Categories(categories.Freeze(WorldCategorySpanSummary.CategoryNames(full))));
     }
 
     /// <summary>
@@ -216,6 +219,31 @@ internal static class TraceDashboardReader
             : value.PumpAccepted && value.LifecycleTransitions > 0
                 ? nameof(ServiceCycleProfileTemperature.LifecycleRebind)
                 : nameof(ServiceCycleProfileTemperature.Warm));
+
+    private static TraceDashboardCategories Categories(WorldCategorySpanSummary summary)
+    {
+        var rows = new TraceDashboardCategory[summary.Rows.Length];
+        for (var index = 0; index < rows.Length; index++)
+        {
+            var row = summary.Rows[index];
+            rows[index] = new TraceDashboardCategory(
+                row.Category,
+                row.Name,
+                row.Passes,
+                row.TotalMilliseconds,
+                row.AverageMilliseconds,
+                row.MedianMilliseconds,
+                row.WorstMilliseconds,
+                row.SampledLast,
+                row.SampledMaximum);
+        }
+        return new TraceDashboardCategories(
+            rows,
+            summary.Passes,
+            summary.Spans,
+            summary.ShortPasses,
+            summary.Discrepancy);
+    }
 
     private static TraceDashboardEvent Event(
         ServiceCycleSemanticEventKind kind,
