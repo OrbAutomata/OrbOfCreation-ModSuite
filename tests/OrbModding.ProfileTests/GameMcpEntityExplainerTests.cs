@@ -536,7 +536,12 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         var result = Explain(world, id, 947);
 
         Assert.Equal("unavailable", (string?)result["status"]);
-        Assert.False((bool)result["state"]!["complete"]!);
+
+        // An artificial cap refuses the next develop without finishing anything, so the lifecycle
+        // is untouched by it: the row is still available, and the refusal lives on the can-develop
+        // axis where it belongs.
+        Assert.Equal("available", (string?)result["state"]!["state"]);
+        Assert.Null(result["state"]!["complete"]);
         Assert.False((bool)result["predicates"]!["canDevelop"]!["available"]!);
         Assert.Equal("ERR_LIMIT", (string?)result["predicates"]!["canDevelop"]!["reasonCode"]);
         var cap = result["blockers"]!["cap"]!;
@@ -610,7 +615,10 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
             (string?)result["requirements"]!["authority"]);
 
         // One class per fact: the row keeps the fact and gives up its second opinion about it.
-        Assert.False((bool)result["state"]!["available"]!);
+        // Prerequisites unmet and nothing bought is the first of the three lifecycle words, and
+        // the entity-state block says it in the same word the page would.
+        Assert.Equal("locked", (string?)result["state"]!["state"]);
+        Assert.Null(result["state"]!["available"]);
         Assert.Null(result["state"]!["reasonCode"]);
         Assert.Null(result["state"]!["reason"]);
     }

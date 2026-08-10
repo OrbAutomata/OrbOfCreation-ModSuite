@@ -360,6 +360,7 @@ internal static class GameMcpWorldQuery
                 ["entityId"] = structure.EntityId.ToString("D"),
                 ["level"] = structure.Reading.Level.ToInt(),
                 ["queuedLevels"] = structure.Reading.QueuedLevels.ToInt(),
+                ["state"] = StructureState(in structure),
                 ["enabled"] = !structure.Reading.Disabled,
                 ["affordable"] =
                     TryPurchaseAffordability(world, structure.EntityId, out var affordable)
@@ -375,15 +376,21 @@ internal static class GameMcpWorldQuery
                 ["entityId"] = upgrade.EntityId.ToString("D"),
                 ["level"] = upgrade.Reading.Level,
                 ["queuedLevels"] = upgrade.Reading.QueuedLevels,
-                ["maxLevel"] = UpgradeCeiling(in upgrade),
-                ["remainingLevels"] = UpgradeRemaining(in upgrade),
+                ["state"] = UpgradeState(in upgrade),
+                ["maximum"] = UpgradeCeiling(in upgrade),
+                ["requirements"] = RequirementWord(
+                    WorldRequirementEvaluator.Evaluate(
+                        world,
+                        upgrade.EntityId,
+                        WorldRequirementEvaluator.UpgradeCheckLevel(in upgrade))),
                 ["affordable"] = UpgradeAffordability(world, in upgrade),
-                ["available"] = upgrade.Reading.Available && !upgrade.IsExhausted,
             };
-            // Being maxed is already said three ways across this row — `affordable` says
-            // `already_maxed`, `remainingLevels` says none, `available` says no. The verdict pair
-            // said it a fourth time as a code and a sentence, and paid for the sentence on every
-            // row of the page. The detail row keeps it; a table does not repeat itself.
+            // Being maxed used to be four columns saying one thing: `available` said no,
+            // `remainingLevels` said none, `affordable` said `already_maxed`, and the verdict pair
+            // spelled it out in a sentence. `state` says it once. `available` was the same
+            // predicate as `state == available` and is gone with it; `remainingLevels` is
+            // `maximum` minus `level` wherever a maximum exists and said `uncapped` where one does
+            // not, which is what `maximum` is for.
             return projected.Freeze();
         }
         // `created` is what separates the two things a zero equipped count meant: owning none of an
@@ -413,17 +420,24 @@ internal static class GameMcpWorldQuery
                 ["affordable"] = listedRitual.Decision.ActivationAffordable,
             }.Freeze();
 
-        // What a caller picks the next research by. `state` says complete, so `complete` does not
-        // say it again. `affordable` is the published cost verdict for the next development, which
-        // is a fact of the row rather than of the develop gate, so the scan row carries it on every
-        // row instead of only where the gate happened to be open.
+        // What a caller picks the next research by. `state` is the lifecycle the whole surface
+        // shares, so `visible`, `available` and `complete` — its three inputs — do not each say a
+        // third of it again; `development` is the separate question of what the queue is doing to
+        // it right now, which a pause moves and the lifecycle never does. `affordable` is the
+        // published cost verdict for the next development, which is a fact of the row rather than
+        // of the develop gate, so the scan row carries it on every row instead of only where the
+        // gate happened to be open.
         if (row is WorldResearch listedResearch)
             return new JObject
             {
                 ["entityId"] = listedResearch.EntityId.ToString("D"),
-                ["state"] = ResearchState(listedResearch),
+                ["state"] = ResearchLifecycle(in listedResearch),
+                ["development"] = ResearchDevelopment(in listedResearch),
                 ["totalLevel"] = listedResearch.TotalLevel,
                 ["queuedLevels"] = ResearchQueuedLevels(in listedResearch),
+                ["requirements"] = listedResearch.MeetsLevelRequirements
+                    ? GameMcpListColumns.Met
+                    : GameMcpListColumns.Unmet,
                 ["canDevelop"] = listedResearch.Decision.Available &&
                     listedResearch.Decision.LevelsAvailable > 0,
                 ["affordable"] = listedResearch.Decision.DevelopmentCostAffordable,
@@ -712,20 +726,76 @@ internal static class GameMcpWorldQuery
         upgrade.IsBounded ? upgrade.Reading.MaxLevel : GameMcpListColumns.Uncapped;
 
     /// <summary>
-    /// The distance left to the ceiling. <c>RemainingLevels</c> is zero for an unbounded upgrade
-    /// as well as for an exhausted one, so publishing the raw number would say "nothing left to
-    /// buy" about the upgrade that has the most left.
+    /// How far the player has come with this purchase, in the one vocabulary every purchasable
+    /// row shares.
     /// </summary>
-    private static object UpgradeRemaining(in WorldUpgrade upgrade) =>
-        upgrade.IsBounded ? upgrade.RemainingLevels : GameMcpListColumns.Uncapped;
+    /// <remarks>
+    /// The game's own members answer this and the suite already captures both of them.
+    /// <c>UpgradeSO.IsAvailable()</c> — which the binder reads, and which is exactly
+    /// <c>!IsMaxLevel() &amp;&amp; prerequisites.Check()</c> — is the middle state, and it is also
+    /// what <c>UIUpgradeButton</c> renders its row on, so a row the player can see and a row that
+    /// is <see cref="GameMcpListColumns.Available"/> are the same set. Exhaustion is asked first
+    /// because a finished upgrade is finished whatever its prerequisites went on to do, and
+    /// because that is the order the game's own predicate uses. Nothing here reads
+    /// <c>UpgradeSO.IsVisible()</c>: despite the name it is the prerequisite gate alone and stays
+    /// true for a maxed upgrade, so it would call a completed row locked.
+    /// </remarks>
+    private static string UpgradeState(in WorldUpgrade upgrade) =>
+        upgrade.IsExhausted ? GameMcpListColumns.Completed :
+        upgrade.Reading.Available ? GameMcpListColumns.Available :
+        GameMcpListColumns.Locked;
 
     /// <summary>
-    /// Whether the next level can be paid for, and when it cannot be priced at all, which of the
-    /// two reasons that is: the upgrade is finished, or the world published no cost for it.
+    /// The same lifecycle for research, off the same kind of captured members:
+    /// <c>ResearchSO.IsVisible()</c> is its prerequisite gate and <c>IsComplete()</c> is
+    /// <c>IsMaxLevel()</c>. Research splits visibility across two authored containers where an
+    /// upgrade uses one, but the game has already collapsed both into the single <c>visible</c>
+    /// the world captures.
+    /// </summary>
+    private static string ResearchLifecycle(in WorldResearch research) =>
+        research.Complete ? GameMcpListColumns.Completed :
+        research.Visible ? GameMcpListColumns.Available :
+        GameMcpListColumns.Locked;
+
+    /// <summary>
+    /// A structure's whole lifecycle, which is two words. <c>StructureSO</c> carries no
+    /// <c>maxLevel</c> field at all, so there is no level at which one is finished and no third
+    /// word to reach. Its soft prerequisites are a development penalty rather than a gate — a
+    /// structure builds worse with them unmet, not never — so they belong to the can-purchase
+    /// axis and never to this column.
+    /// </summary>
+    private static string StructureState(in WorldStructure structure) =>
+        structure.Reading.Unlocked
+            ? GameMcpListColumns.Available
+            : GameMcpListColumns.Locked;
+
+    /// <summary>
+    /// The per-level conditions on the next purchase, as the second half of the can-purchase axis.
+    /// </summary>
+    /// <remarks>
+    /// This is the branch <c>UIUpgradeButton.RenderContent()</c> takes when it replaces the price
+    /// with a requirements notice, and it is a fact about the next press rather than about how far
+    /// the row has come: a row whose requirements are unmet is still
+    /// <see cref="GameMcpListColumns.Available"/>, on the panel, one condition away. An
+    /// unevaluable verdict keeps its own word rather than borrowing <c>unmet</c>, because the two
+    /// resolve differently — one waits for the save to progress, the other waits for this suite.
+    /// </remarks>
+    private static string RequirementWord(WorldRequirementVerdict verdict) => verdict switch
+    {
+        WorldRequirementVerdict.Met => GameMcpListColumns.Met,
+        WorldRequirementVerdict.Unmet => GameMcpListColumns.Unmet,
+        _ => GameMcpListColumns.Unmodelled,
+    };
+
+    /// <summary>
+    /// Whether the next level can be paid for. A completed upgrade has no next level, so the world
+    /// publishes no price for one — the same absence <see cref="GameMcpListColumns.Unpriced"/>
+    /// already names. It used to answer <c>already_maxed</c> here, which was the completed state
+    /// wearing an affordability column's clothes; <c>state</c> says that now, once.
     /// </summary>
     private static object UpgradeAffordability(GameWorldState world, in WorldUpgrade upgrade)
     {
-        if (upgrade.IsExhausted) return GameMcpListColumns.AlreadyMaxed;
+        if (upgrade.IsExhausted) return GameMcpListColumns.Unpriced;
         return TryPurchaseAffordability(world, upgrade.EntityId, out var affordable)
             ? affordable
             : GameMcpListColumns.Unpriced;
@@ -2154,25 +2224,26 @@ internal static class GameMcpWorldQuery
 
         // A develop does not finish a level, it buys research time: the levels go into the queue and
         // the game drains them over the minutes that follow. Narrating that hop was three facts and
-        // every one of them was stale by the time a caller could read it — `state: idle -> active`
-        // and `queuedLevels: 0 -> 1` both read back as their own before-value seconds later, so the
-        // honest reading of a develop that worked was that it had not. The press queued levels; the
-        // settlement above already proved it queued exactly the count that was asked for, and where
-        // the queue stands now is a read.
+        // every one of them was stale by the time a caller could read it — `development: idle ->
+        // active` and `queuedLevels: 0 -> 1` both read back as their own before-value seconds
+        // later, so the honest reading of a develop that worked was that it had not. The press
+        // queued levels; the settlement above already proved it queued exactly the count that was
+        // asked for, and where the queue stands now is a read.
         if (command.Mode == "develop")
             return QueuedMutation(command.TargetId, command.Amount, command.Amount);
 
         // Cancel, pause, and resume apply when they are pressed, so each says the one fact it moved.
-        // A cancel empties the queue it was asked about; a pause and a resume move the entry's state.
+        // A cancel empties the queue it was asked about; a pause and a resume move what the queue is
+        // doing, which is never the lifecycle — a paused research is exactly as available as it was.
         if (command.Mode == "cancel")
             return Change(command.TargetId,
                 hasPrevious ? ResearchQueuedLevels(previous) : (int?)null,
                 ResearchQueuedLevels(current),
                 "queuedLevels");
         return Change(command.TargetId,
-            hasPrevious ? ResearchState(previous) : null,
-            ResearchState(current),
-            "state");
+            hasPrevious ? ResearchDevelopment(in previous) : null,
+            ResearchDevelopment(in current),
+            "development");
     }
 
     /// <summary>
@@ -2185,8 +2256,12 @@ internal static class GameMcpWorldQuery
             ? research.Decision.QueuedLevels
             : Math.Max(research.QueuedLevels + (research.IsDeveloping ? 1 : 0), 0);
 
-    private static string ResearchState(in WorldResearch research) =>
-        research.Complete ? "complete" :
+    /// <summary>
+    /// What the development queue is doing with this research right now. Completion is no longer
+    /// one of these words: it is a lifecycle state, <see cref="ResearchLifecycle"/> says it, and a
+    /// finished research is developing nothing, which is what <c>idle</c> already means.
+    /// </summary>
+    private static string ResearchDevelopment(in WorldResearch research) =>
         !research.IsDeveloping ? "idle" :
         research.IsActive ? "active" : "paused";
 
@@ -3537,7 +3612,8 @@ internal static class GameMcpWorldQuery
     /// <summary>
     /// An upgrade with no ceiling has no ceiling to report: the game marks that with a negative
     /// <c>maxLevel</c>, which becomes the word for having none rather than a plausible number.
-    /// <c>world_get</c> shares the list's shape, so both fields are published on every row.
+    /// <c>world_get</c> shares the list's vocabulary, so it says the lifecycle in the same word the
+    /// page does rather than in a second grammar of its own.
     /// </summary>
     private static GameMcpValue ProjectUpgrade(in WorldUpgrade upgrade)
     {
@@ -3545,15 +3621,13 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = upgrade.EntityId.ToString("D"),
             ["category"] = "upgrades",
-            ["available"] = upgrade.Reading.Available && !upgrade.IsExhausted,
+            ["state"] = UpgradeState(in upgrade),
             ["level"] = upgrade.Reading.Level,
-        };
-        if (upgrade.IsExhausted) result["reasonCode"] = "already_maxed";
 
-        // Nothing developing is a fact about the upgrade, not a missing reading, so zero ships.
-        result["queuedLevels"] = upgrade.Reading.QueuedLevels;
-        result["maxLevel"] = UpgradeCeiling(in upgrade);
-        result["remainingLevels"] = UpgradeRemaining(in upgrade);
+            // Nothing developing is a fact about the upgrade, not a missing reading, so zero ships.
+            ["queuedLevels"] = upgrade.Reading.QueuedLevels,
+            ["maximum"] = UpgradeCeiling(in upgrade),
+        };
         if (upgrade.IsDeveloping)
             result["developmentProgress"] = upgrade.DevelopmentProgress;
         return result.Freeze();
@@ -3584,6 +3658,9 @@ internal static class GameMcpWorldQuery
             // wire that no screen shows.
             ["level"] = structure.Reading.Level.ToInt(),
             ["queuedLevels"] = structure.Reading.QueuedLevels.ToInt(),
+
+            // Two words, and never a third: a structure has no ceiling to reach.
+            ["state"] = StructureState(in structure),
             ["enabled"] = enabled,
             ["toggle"] = toggle,
         };
@@ -4060,15 +4137,17 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = research.EntityId.ToString("D"),
             ["category"] = "research",
-            ["available"] = research.Available,
-            ["visible"] = research.Visible,
-            ["state"] = ResearchState(research),
+
+            // `visible`, `available` and `complete` were the three inputs to one lifecycle word,
+            // published beside it. The word is the answer; the inputs stay on the raw-fact scan,
+            // where reading the members the game exposes is the whole point.
+            ["state"] = ResearchLifecycle(in research),
+            ["development"] = ResearchDevelopment(in research),
             ["purchasedLevel"] = Number(research.PurchasedLevels),
             ["baseLevel"] = Number(research.BaseLevel),
             ["bonusLevel"] = Number(research.BonusLevel),
             ["totalLevel"] = Number(research.TotalLevel),
             ["queuedLevels"] = Number(queued),
-            ["complete"] = research.Complete,
             ["baseRequirementLevel"] = Number(research.BaseRequirementLevel),
             ["effectiveRequirementLevel"] = Number(research.EffectiveRequirementLevel),
             ["requirementLevelAdjustment"] = Number(research.RequirementLevelAdjustment),

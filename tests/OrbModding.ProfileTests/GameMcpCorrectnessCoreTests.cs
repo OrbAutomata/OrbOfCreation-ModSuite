@@ -853,35 +853,39 @@ public sealed class GameMcpCorrectnessCoreTests
         var unbounded = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             context, "upgrades", unboundedId.ToString("D")))["row"]!;
         Assert.Equal(7, (int)unbounded["level"]!);
-        Assert.Equal("uncapped", (string?)unbounded["maxLevel"]);
-        Assert.Equal("uncapped", (string?)unbounded["remainingLevels"]);
+        Assert.Equal("uncapped", (string?)unbounded["maximum"]);
+        Assert.Equal("available", (string?)unbounded["state"]);
         Assert.Null(unbounded["reasonCode"]);
 
         var exhausted = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             context, "upgrades", exhaustedId.ToString("D")))["row"]!;
-        Assert.Equal(10, (int)exhausted["maxLevel"]!);
-        Assert.Equal(0, (int)exhausted["remainingLevels"]!);
-        Assert.Equal("ERR_STATE", (string?)exhausted["reasonCode"]);
-        Assert.False((bool)exhausted["available"]!);
+        Assert.Equal(10, (int)exhausted["maximum"]!);
+
+        // One word, where a code, a boolean and a levels-left count used to divide the same fact
+        // between them. `get` says the lifecycle in the page's vocabulary, not a second one.
+        Assert.Equal("completed", (string?)exhausted["state"]);
+        Assert.Null(exhausted["reasonCode"]);
+        Assert.Null(exhausted["available"]);
+        Assert.Null(exhausted["remainingLevels"]);
 
         var listed = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(context, "upgrades", 0, 10));
         var rows = listed["rows"]!.Values<JObject>().ToArray();
-        Assert.Equal("uncapped", (string?)rows[0]!["maxLevel"]);
-        Assert.Equal("uncapped", (string?)rows[0]!["remainingLevels"]);
-        Assert.Equal(10, (int)rows[1]!["maxLevel"]!);
-        Assert.Equal(0, (int)rows[1]!["remainingLevels"]!);
+        Assert.Equal("uncapped", (string?)rows[0]!["maximum"]);
+        Assert.Equal("available", (string?)rows[0]!["state"]);
+        Assert.Equal(10, (int)rows[1]!["maximum"]!);
+        Assert.Equal("completed", (string?)rows[1]!["state"]);
 
-        // The row already says maxed three ways — no levels left, no price to be short of, and no.
-        // Saying it a fourth time as a code and a sentence is what the detail read above is for.
-        Assert.Equal("already_maxed", (string?)rows[1]!["affordable"]);
+        // A finished upgrade has no next level to price, and that is the whole of what the money
+        // column says about it. The state is what says it is finished, and it says it once.
+        Assert.Equal("unpriced", (string?)rows[1]!["affordable"]);
         Assert.Null(rows[1]!["reasonCode"]);
         Assert.Null(rows[1]!["reason"]);
 
         // A caller paging the list must read the ceiling the same way a get would: both surfaces
-        // publish the pair on every row, so neither can be read as the leaner one having dropped it.
+        // publish it on every row, so neither can be read as the leaner one having dropped it.
         Assert.Equal(0, (int)rows[0]!["queuedLevels"]!);
-        Assert.Equal((int?)exhausted["maxLevel"], (int?)rows[1]!["maxLevel"]);
+        Assert.Equal((int?)exhausted["maximum"], (int?)rows[1]!["maximum"]);
     }
 
     [Fact]

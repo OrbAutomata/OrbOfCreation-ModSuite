@@ -23,10 +23,9 @@ public sealed class GameMcpListColumnsTests
     private static readonly Guid Exhausted = Guid.Parse("43333333-3333-4333-8333-333333333333");
 
     /// <summary>
-    /// The round-8 defect: reading the upgrades page before a prestige listed
-    /// <c>maxLevel</c>/<c>remainingLevels</c>, and reading it after — when every upgrade was
-    /// uncapped — dropped both columns, so the one page that most needed to say caps exist was the
-    /// page that said nothing about them.
+    /// The round-8 defect: reading the upgrades page before a prestige listed the ceiling, and
+    /// reading it after — when every upgrade was uncapped — dropped the column, so the one page
+    /// that most needed to say caps exist was the page that said nothing about them.
     /// </summary>
     [Fact]
     public void An_all_uncapped_upgrades_page_shows_the_columns_a_capped_page_shows()
@@ -37,26 +36,31 @@ public sealed class GameMcpListColumnsTests
             Upgrade(Capped, bounded: false)));
 
         Assert.Equal(mixed, allUncapped);
-        Assert.Contains("maxLevel", mixed);
-        Assert.Contains("remainingLevels", mixed);
+        Assert.Contains("maximum", mixed);
+        Assert.Contains("state", mixed);
         Assert.Contains("affordable", mixed);
     }
 
     /// <summary>
     /// The ceiling a page has none of is spelled, not omitted and not invented: <c>0</c> would read
-    /// as a cap of zero and as nothing left to buy, which is the opposite of what it means.
+    /// as a cap of zero and as nothing left to buy, which is the opposite of what it means. The
+    /// column reads <c>1</c>, the finite count, or the word — nothing else.
     /// </summary>
     [Fact]
     public void An_upgrade_with_no_ceiling_says_so_instead_of_publishing_a_number()
     {
-        var row = Rows(Page(Upgrade(Uncapped, bounded: false))).Single();
-
-        Assert.Equal("uncapped", (string?)row["maxLevel"]);
-        Assert.Equal("uncapped", (string?)row["remainingLevels"]);
+        Assert.Equal(
+            "uncapped",
+            (string?)Rows(Page(Upgrade(Uncapped, bounded: false))).Single()["maximum"]);
+        Assert.Equal(
+            10,
+            (int?)Rows(Page(Upgrade(Capped, bounded: true))).Single()["maximum"]);
     }
 
     /// <summary>
-    /// The two reasons a row carries no affordability are different facts, and the cell says which.
+    /// A finished upgrade has no next level, so there is no price for one — the same absence a row
+    /// the world published no cost for has. It used to answer <c>already_maxed</c> here, which was
+    /// the completed state said a second time in a column that asks about money.
     /// </summary>
     [Fact]
     public void A_row_with_no_price_names_which_kind_of_no_price_it_is()
@@ -65,8 +69,10 @@ public sealed class GameMcpListColumnsTests
             Upgrade(Exhausted, bounded: true, exhausted: true),
             Upgrade(Uncapped, bounded: false)));
 
-        Assert.Equal("already_maxed", (string?)rows[0]["affordable"]);
+        Assert.Equal("unpriced", (string?)rows[0]["affordable"]);
+        Assert.Equal("completed", (string?)rows[0]["state"]);
         Assert.Equal("unpriced", (string?)rows[1]["affordable"]);
+        Assert.Equal("available", (string?)rows[1]["state"]);
     }
 
     /// <summary>
@@ -86,13 +92,12 @@ public sealed class GameMcpListColumnsTests
             Upgrade(Exhausted, bounded: false)));
 
         Assert.Contains(
-            "these 6 share: level=3, queuedLevels=0, maxLevel=uncapped, " +
-            "remainingLevels=uncapped, affordable=unpriced, available=yes",
+            "these 6 share: level=3, queuedLevels=0, state=available, maximum=uncapped, " +
+            "requirements=met, affordable=unpriced",
             page,
             StringComparison.Ordinal);
         Assert.Equal(
-            "[id | name | level | queuedLevels | maxLevel | remainingLevels | affordable | " +
-            "available]",
+            "[id | name | level | queuedLevels | state | maximum | requirements | affordable]",
             Bracket(page));
     }
 
@@ -214,7 +219,12 @@ public sealed class GameMcpListColumnsTests
             GameMcpListColumns.Yes,
             GameMcpListColumns.No,
             GameMcpListColumns.Uncapped,
-            GameMcpListColumns.AlreadyMaxed,
+            GameMcpListColumns.Locked,
+            GameMcpListColumns.Available,
+            GameMcpListColumns.Completed,
+            GameMcpListColumns.Met,
+            GameMcpListColumns.Unmet,
+            GameMcpListColumns.Unmodelled,
             GameMcpListColumns.Unpriced,
             GameMcpListColumns.Unevaluated,
             GameMcpListColumns.Unreadable,
@@ -236,6 +246,18 @@ public sealed class GameMcpListColumnsTests
         // One fact, one word: the game publishing no price is the same fact whether an
         // `affordable` column or an agromancy `add` cell is the one asking.
         Assert.Equal(GameMcpListColumns.Unpriced, GameMcpListColumns.Word("cost_unavailable"));
+
+        // The lifecycle is three words and no more, and none of them is `purchasable` — a word
+        // that reads as "you can buy this now" while naming a state that says nothing about price.
+        Assert.Equal(
+            new[] { "available", "completed", "locked" },
+            new[]
+            {
+                GameMcpListColumns.Locked,
+                GameMcpListColumns.Available,
+                GameMcpListColumns.Completed,
+            }.OrderBy(word => word, StringComparer.Ordinal).ToArray());
+        Assert.DoesNotContain("purchasable", vocabulary);
 
         // A code with no word is a defect, not a cell to improvise in.
         Assert.Throws<InvalidOperationException>(
@@ -321,6 +343,65 @@ public sealed class GameMcpListColumnsTests
     }
 
     /// <summary>
+    /// Every purchasable row says exactly one of three words, and it says how far the player has
+    /// come — never whether the next press would go through. A reader who sorts by <c>state</c> is
+    /// asking a progression question; a reader who sorts by <c>affordable</c> is asking a wallet
+    /// question; the page answers both without either word standing in for the other.
+    /// </summary>
+    [Fact]
+    public void An_upgrades_page_says_one_lifecycle_word_per_row_beside_a_separate_price_axis()
+    {
+        var page = GameMcpTextPage.Render(Page(
+            Upgrade(Capped, bounded: true, locked: true),
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Exhausted, bounded: true, exhausted: true)));
+        var rows = Rows(Page(
+            Upgrade(Capped, bounded: true, locked: true),
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Exhausted, bounded: true, exhausted: true)));
+
+        Assert.Equal(
+            new[] { "locked", "available", "completed" },
+            rows.Select(row => (string?)row["state"]).ToArray());
+
+        // The ceiling is the honest one on all three rows: a finite count, the word, a finite
+        // count. Nothing on this page repeats the state as a number.
+        Assert.Equal(
+            new object?[] { 10, "uncapped", 10 },
+            rows.Select(row => row["maximum"]!.Type == JTokenType.String
+                ? (object?)(string?)row["maximum"]
+                : (int?)row["maximum"]).ToArray());
+        Assert.DoesNotContain("remainingLevels", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("already_maxed", page, StringComparison.Ordinal);
+
+        // The word the whole model exists to keep off the surface.
+        Assert.DoesNotContain("purchasable", page, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(
+            "[id | name | level | queuedLevels | state | maximum | requirements | affordable]",
+            Bracket(page));
+    }
+
+    /// <summary>
+    /// A structure has no <c>maxLevel</c> field at all, so there is no level at which one is
+    /// finished. Two words is its whole lifecycle, and the third can never appear on the category
+    /// however many levels a structure is taken to.
+    /// </summary>
+    [Fact]
+    public void A_structures_page_never_reaches_the_third_lifecycle_word()
+    {
+        var rows = Rows(Structures(
+            Structure(Capped, unlocked: false),
+            Structure(Uncapped, unlocked: true, level: 2136)));
+
+        Assert.Equal(
+            new[] { "locked", "available" },
+            rows.Select(row => (string?)row["state"]).ToArray());
+        Assert.DoesNotContain(
+            "completed",
+            rows.Select(row => (string?)row["state"]).ToArray());
+    }
+
+    /// <summary>
     /// A category that builds its own rows is held to its declaration on every row it builds, so a
     /// projection edit that made one column conditional again cannot reach a page.
     /// </summary>
@@ -332,6 +413,7 @@ public sealed class GameMcpListColumnsTests
             ["entityId"] = Guid.Empty.ToString("D"),
             ["level"] = 1,
             ["queuedLevels"] = 0,
+            ["state"] = "available",
             ["enabled"] = true,
         }.Freeze();
 
@@ -414,6 +496,67 @@ public sealed class GameMcpListColumnsTests
             GameMcpTestHarness.Context(publisher.ReadLatest()), "upgrades", 0, 50));
     }
 
+    private static JObject Structures(params WorldStructure[] structures)
+    {
+        var world = new GameWorldState
+        {
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(1, new[]
+            {
+                new EntityIdentityName(Capped, "StructureSO", "Shut Hall", "shutHall"),
+                new EntityIdentityName(Uncapped, "StructureSO", "Open Hall", "openHall"),
+            }),
+            Structures = PublicationTable<WorldStructure>.Create(structures),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus(
+                    "structures", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+            }),
+            CollectedAtEpoch = 25,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        using var publisher =
+            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(734));
+        return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(publisher.ReadLatest()), "structures", 0, 50));
+    }
+
+    private static WorldStructure Structure(Guid id, bool unlocked, int level = 0)
+    {
+        var modifiers = new RawStructureModifiers(
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero);
+        var reading = new RawStructureSample(
+            id,
+            Guid.Empty,
+            new BigDouble(level),
+            BigDouble.Zero,
+            unlocked,
+            queuedEchos: 0,
+            completedEchos: 0,
+            selfBonusLevels: 0,
+            queueTimeLeft: BigDouble.Zero,
+            currentBuildTime: BigDouble.Zero,
+            flagged: false,
+            baseLevel: 0,
+            queueTimeTotal: 0,
+            debugStructure: false,
+            disabled: false,
+            observableId: 0,
+            insufficientReqPenaltyActive: false,
+            bufferDevelopedQuantity: 0,
+            costPerQuantityId: Guid.Empty,
+            in modifiers);
+        return new WorldStructure(
+            in reading,
+            new BigDouble(level),
+            hasWorkInFlight: false,
+            new BigDouble(level),
+            developmentProgress: 0);
+    }
+
     private static JObject[] Rows(JObject page) =>
         page["rows"]!.Values<JObject>().Select(row => row!).ToArray();
 
@@ -432,13 +575,20 @@ public sealed class GameMcpListColumnsTests
         .Split('\n')
         .Single(line => line.StartsWith("[", StringComparison.Ordinal));
 
-    private static WorldUpgrade Upgrade(Guid id, bool bounded, bool exhausted = false)
+    private static WorldUpgrade Upgrade(
+        Guid id,
+        bool bounded,
+        bool exhausted = false,
+        bool locked = false)
     {
         var reading = new RawUpgradeSample(
             id,
             level: exhausted ? 10 : 3,
             maxLevel: bounded ? 10 : -1,
-            available: !exhausted,
+
+            // IsAvailable() is the game's own `!IsMaxLevel() && prerequisites.Check()`, so it is
+            // false for both of the states that are not `available`, for two different reasons.
+            available: !exhausted && !locked,
             queuedLevels: 0,
             buildTime: BigDouble.Zero,
             developmentTime: 1d,

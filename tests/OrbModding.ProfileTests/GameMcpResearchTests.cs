@@ -93,7 +93,8 @@ public sealed class GameMcpResearchTests
         var row = response["row"]!;
 
         Assert.Equal("Improved Casting", (string?)row["name"]);
-        Assert.Equal("active", (string?)row["state"]);
+        Assert.Equal("available", (string?)row["state"]);
+        Assert.Equal("active", (string?)row["development"]);
         Assert.Equal(3, (int)row["queuedLevels"]!);
         Assert.Equal("queue", (string?)row["develop"]!["route"]);
         Assert.Equal(3, (int)row["develop"]!["maximumBatch"]!);
@@ -231,7 +232,7 @@ public sealed class GameMcpResearchTests
     /// <summary>
     /// A develop buys research time rather than a level: the levels enter the queue and the game
     /// drains them over the minutes that follow. Narrating that hop published three facts that had
-    /// all reverted before the caller could read them — <c>state: idle -&gt; active</c> and
+    /// all reverted before the caller could read them — <c>development: idle -&gt; active</c> and
     /// <c>queuedLevels: 0 -&gt; 1</c> both read back as their own before-value seconds later — so the
     /// press says it queued and stops. The settlement above already proved the count.
     /// </summary>
@@ -252,6 +253,7 @@ public sealed class GameMcpResearchTests
 
         Assert.True((bool)delta["queued"]!);
         Assert.Null(delta["queuedLevels"]);
+        Assert.Null(delta["development"]);
         Assert.Null(delta["state"]);
         Assert.Null(delta["totalLevel"]);
     }
@@ -280,7 +282,9 @@ public sealed class GameMcpResearchTests
 
     /// <summary>
     /// Pause, resume, and cancel apply when they are pressed, so each still says the one fact it
-    /// moved. Only the queueing verb loses its pair.
+    /// moved. Only the queueing verb loses its pair. What a pause moves is the development queue,
+    /// which is why it is not the column the lifecycle uses: a paused research is exactly as
+    /// available as it was a moment earlier.
     /// </summary>
     [Fact]
     public void A_pause_still_reports_the_state_it_moved()
@@ -297,7 +301,8 @@ public sealed class GameMcpResearchTests
             command,
             GameMcpCommandResult.Committed("committed", 41, 8)), after);
 
-        Assert.Equal("paused", (string?)delta["state"]!["after"]);
+        Assert.Equal("paused", (string?)delta["development"]!["after"]);
+        Assert.Null(delta["state"]);
         Assert.Null(delta["queued"]);
     }
 
@@ -436,9 +441,10 @@ public sealed class GameMcpResearchTests
     }
 
     /// <summary>
-    /// Choosing among 148 researches used to need a detail page per candidate. `state` already says
-    /// complete, so no second column repeats it, and the cost verdict rides every row rather than
-    /// only the rows whose develop gate happened to be open.
+    /// Choosing among 148 researches used to need a detail page per candidate. `state` is the same
+    /// lifecycle word every purchasable row on the surface says, so `visible`, `available` and
+    /// `complete` — the three facts it is derived from — do not each repeat a third of it; what the
+    /// queue is doing keeps its own column, because a pause moves that and never the lifecycle.
     /// </summary>
     [Fact]
     public void A_research_list_row_carries_what_a_caller_picks_the_next_research_by()
@@ -449,12 +455,16 @@ public sealed class GameMcpResearchTests
         var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
 
         Assert.Equal("Improved Casting", (string?)row["name"]);
-        Assert.Equal("active", (string?)row["state"]);
+        Assert.Equal("available", (string?)row["state"]);
+        Assert.Equal("active", (string?)row["development"]);
         Assert.Equal(1, (int)row["totalLevel"]!);
         Assert.Equal(3, (int)row["queuedLevels"]!);
+        Assert.Equal("met", (string?)row["requirements"]);
         Assert.False((bool)row["canDevelop"]!);
         Assert.False((bool)row["affordable"]!);
         Assert.Null(row["complete"]);
+        Assert.Null(row["visible"]);
+        Assert.Null(row["available"]);
     }
 
     [Fact]

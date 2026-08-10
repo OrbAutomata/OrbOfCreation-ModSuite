@@ -33,14 +33,55 @@ namespace OrbAutomata.GameMcp;
 /// <c>get</c> and in refusals. No cell ever carries an <c>ERR_</c> class: those name which kind of
 /// no a refusal is, and a table is not refusing anything.
 /// </para>
+/// <para>
+/// Everything the player buys moves through the same three states, so it says them with the same
+/// three words: <see cref="Locked"/>, <see cref="Available"/>, <see cref="Completed"/>. That is a
+/// lifecycle — how far the player has come with this row — and it is deliberately not the question
+/// of whether a purchase would go through right now. Affordability and per-level requirements are
+/// a second, independent axis, and they keep their own columns; a row that cannot be paid for is
+/// still <see cref="Available"/>, because next week it will be bought with no state having moved.
+/// The word <c>purchasable</c> is banned outright for confusing the two. Structures speak only the
+/// first two words: they carry no ceiling at all, so nothing about a structure is ever finished.
+/// </para>
 /// </remarks>
 internal static class GameMcpListColumns
 {
     /// <summary>No ceiling applies. The game marks this with a negative native maximum.</summary>
     internal const string Uncapped = "uncapped";
 
-    /// <summary>Nothing is left to buy, so there is no next-level price to be short of.</summary>
-    internal const string AlreadyMaxed = "already_maxed";
+    /// <summary>
+    /// Prerequisites do not hold yet: the player has not reached this far, and the game shows no
+    /// row for it.
+    /// </summary>
+    internal const string Locked = "locked";
+
+    /// <summary>
+    /// Prerequisites hold and nothing is finished: the game shows this row, and a purchase is the
+    /// next thing that could happen to it. It says nothing about whether the price can be paid —
+    /// that is the separate can-purchase axis this column never speaks for.
+    /// </summary>
+    internal const string Available = "available";
+
+    /// <summary>
+    /// Every level is bought. The game's own row disappears at this point — <c>IsAvailable()</c>
+    /// is what <c>UIUpgradeButton</c> renders on, and it is false once <c>IsMaxLevel()</c> — so
+    /// completion and hiding are one state rather than two words for the same row.
+    /// </summary>
+    internal const string Completed = "completed";
+
+    /// <summary>The next purchase's own per-level conditions all hold.</summary>
+    internal const string Met = "met";
+
+    /// <summary>At least one per-level condition does not hold yet.</summary>
+    internal const string Unmet = "unmet";
+
+    /// <summary>
+    /// A condition this suite does not model, so no verdict is honest. Distinct from
+    /// <see cref="Unevaluated"/> on purpose: that one is a missing holding beside a published
+    /// price, this one is the suite's own gap in the requirement grammar, and the two call for
+    /// different things — a gap is filed, a missing holding waits for the next generation.
+    /// </summary>
+    internal const string Unmodelled = "unmodelled";
 
     /// <summary>The publication names no price for this row.</summary>
     internal const string Unpriced = "unpriced";
@@ -148,11 +189,10 @@ internal static class GameMcpListColumns
     private static Dictionary<string, string[]> Declare() => new(StringComparer.Ordinal)
     {
         ["structures"] =
-            new[] { "entityId", "level", "queuedLevels", "enabled", "affordable" },
+            new[] { "entityId", "level", "queuedLevels", "state", "enabled", "affordable" },
         ["upgrades"] = new[]
         {
-            "entityId", "level", "queuedLevels", "maxLevel", "remainingLevels", "affordable",
-            "available",
+            "entityId", "level", "queuedLevels", "state", "maximum", "requirements", "affordable",
         },
         ["equipment"] = new[] { "entityId", "created", "equippedCount" },
         ["rituals"] = new[]
@@ -162,7 +202,8 @@ internal static class GameMcpListColumns
         },
         ["research"] = new[]
         {
-            "entityId", "state", "totalLevel", "queuedLevels", "canDevelop", "affordable",
+            "entityId", "state", "development", "totalLevel", "queuedLevels", "requirements",
+            "canDevelop", "affordable",
         },
         ["resource-types"] = new[] { "entityId", "level", "hidden" },
         ["glyphs"] = new[]

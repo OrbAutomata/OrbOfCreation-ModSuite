@@ -127,9 +127,9 @@ same idiom and no producer invents its own formatting.
 
   ```
   rows 6/229 next=6
-  these 6 share: affordable=already_maxed, available=no
-  [id | name | level | maxLevel]
-  00246c | Gather Space | 1 | 1
+  these 6 share: state=completed, maximum=1, affordable=unpriced
+  [id | name | level | state | maximum | affordable]
+  00246c | Gather Space | 1 | completed | 1 | unpriced
   ```
 
   ```
@@ -162,9 +162,9 @@ same idiom and no producer invents its own formatting.
     no table at all, so the declared column set is the whole truth — a page holding a blocked row
     is exactly as wide as the same page without one.
   - **A fact is worded once.** Where a column the row already carries states the block, that column
-    states it alone: a maxed upgrade says `affordable=already_maxed` beside `remainingLevels=0` and
-    `available=no`, and nothing repeats it. A word is only added where the row could not otherwise
-    show the fact.
+    states it alone: a finished upgrade says `state=completed` and nothing repeats it — not a
+    levels-left count of zero, not an `available=no`, not an affordability word standing in for a
+    lifecycle one. A word is only added where the row could not otherwise show the fact.
   - Length is relaxed for page constants alone. A value identical on every row makes every row
     equally wide, so a page whose every row carries the same multi-line value is a table with one
     wide column rather than twenty paragraphs — while a varying value that big still costs the page
@@ -183,7 +183,11 @@ lowercase, hold no spaces, and are facts rather than codes.
 |---|---|
 | `yes` | nothing stands in the way of what this column asks |
 | `no` | no, and the row's other columns are where the why is |
-| `already_maxed` | nothing left to buy, so there is no next price to be short of |
+| `locked` | the player has not reached this far; the game shows no row for it |
+| `available` | the game shows this, and a purchase is the next thing that could happen to it |
+| `completed` | every level is bought, which is also when the game's own row disappears |
+| `met` / `unmet` | the next purchase's own per-level conditions hold / do not hold yet |
+| `unmodelled` | a condition this suite does not model, so no verdict would be honest |
 | `unpriced` | the game publishes no price for this, so affordability cannot be read |
 | `unevaluated` | a price is published, with no same-generation holding to compare it against |
 | `no_bandwidth` | short, and the ceiling is bandwidth rather than the amount held |
@@ -416,14 +420,54 @@ written unconditionally so the header is the same one before and after a lifecyc
 | Category | Scan columns |
 | --- | --- |
 | `rituals` | `discovered`, `selected`, `reachedLevel`, `selectedLevel`, `waveTotal`, `affordable` |
-| `research` | `state`, `totalLevel`, `queuedLevels`, `canDevelop`, `affordable` |
+| `research` | `state`, `development`, `totalLevel`, `queuedLevels`, `requirements`, `canDevelop`, `affordable` |
+| `upgrades` | `level`, `queuedLevels`, `state`, `maximum`, `requirements`, `affordable` |
+| `structures` | `level`, `queuedLevels`, `state`, `enabled`, `affordable` |
 | `equipment` | `created`, `equippedCount` |
 | `resource-types` | `level`, `hidden` |
 
-`research` says `state` and never a second `complete` column, because `state` already reads
-`complete`; `canDevelop` is the develop decision the detail row publishes, and `affordable` is the
-published cost verdict for the next development, which is a fact of the row rather than of the
-develop gate — so the scan row carries it everywhere instead of only where that gate is open.
+`research` says `state` and never a second `visible`, `available` or `complete` column, because
+`state` is derived from exactly those three; `development` is the separate question of what the
+queue is doing right now, which a pause moves and the lifecycle never does; `canDevelop` is the
+develop decision the detail row publishes, and `affordable` is the published cost verdict for the
+next development, which is a fact of the row rather than of the develop gate — so the scan row
+carries it everywhere instead of only where that gate is open.
+
+#### The three-state lifecycle
+
+Everything the player buys moves through the same three states, so every purchasable row says one
+of the same three words under `state`:
+
+| word | native fact behind it |
+| --- | --- |
+| `locked` | prerequisites do not hold — `UpgradeSO`'s `prerequisites.Check()` is false, `ResearchSO.IsVisible()` is false, `StructureSO.IsAvailable()` is false |
+| `available` | prerequisites hold and nothing is finished — `UpgradeSO.IsAvailable()`, which is also what `UIUpgradeButton` renders its row on |
+| `completed` | `IsMaxLevel()`, which is also when the game's own row disappears — completion and hiding are one state, never two words |
+
+Two rules make that a lifecycle rather than a verdict:
+
+- **The can-purchase question is a separate axis.** `affordable` and `requirements` answer it, and
+  neither ever becomes a fourth state word. A row nobody can pay for is still `available`: next
+  week it is bought and no state moved. Requirements-unmet is the same — it is the branch
+  `UIUpgradeButton` takes when it shows a requirements notice in place of a price, a fact about the
+  next press. Fully-queued likewise never becomes a state.
+- **The word `purchasable` is banned.** It reads as "you can buy this now" while naming a state
+  that says nothing about price, which is the exact confusion the two axes exist to keep apart.
+
+`structures` speak only the first two words. `StructureSO` carries no `maxLevel` field at all, so
+there is no level at which a structure is finished and no third word to reach; its soft
+prerequisites are a development penalty rather than a gate — a structure with them unmet is bought
+and simply builds worse — so they belong to the can-purchase axis and never to `state`.
+
+A dial the player sets is not a lifecycle at all. The casting output and reserve levels are
+**allocations** whose maximum is the level of the `Raise …` upgrade that raised the ceiling; they
+render as `current`/`maximum` on the casting surfaces, and no allocation dial ever appears as a
+column on the upgrade list.
+
+Nothing on this surface reads `UpgradeSO.IsVisible()`. Despite the name it is the prerequisite gate
+alone and stays **true** for a maxed upgrade, so reading it as "the player can see this row" calls
+a completed upgrade locked. The binder reads `IsAvailable()`, which is the member the game's own
+row renders on.
 
 `mastery-experience` answers with a summary rather than the ring behind it. The category is a
 fixed-size window the game overwrites, and the sources feeding it repeat on a short cycle, so paging
@@ -438,16 +482,16 @@ persisted `GetBaseLevel()`, and names work still in flight separately as `queued
 always present because zero levels in flight is an answer; neither
 number is repeated under a second name. Both are exact counts on the wire: the badge draws
 `Utils.BeautifyInt`, so routing them through the large-magnitude renderer would round a
-2,136-level attribute to `2.14e3`. An `upgrades` row publishes `maxLevel`, `remainingLevels` and
-`affordable` on every row, in every world state. Where the fact does not apply the cell says which
-fact that is: an upgrade the game marks with a negative native maximum reads `uncapped` under both
-`maxLevel` and `remainingLevels` — never `0`, which would read as a cap of zero and as nothing left
-to buy. An exhausted upgrade reads `affordable: already_maxed`, because a level that cannot be
-bought has no price to be short of; one the world publishes no cost for reads `affordable:
-unpriced`. That is the whole of what a maxed row says about being maxed — `remainingLevels: 0` and
-`available: no` beside it say it twice more, and the sentence a `world_get` on the same upgrade
-answers with is not repeated into the page. `world_list` and `world_get` publish the same column
-set, so a page of uncapped upgrades still shows the columns a capped page shows.
+2,136-level attribute to `2.14e3`. An `upgrades` row publishes `state`, `maximum`, `requirements`
+and `affordable` on every row, in every world state. `maximum` is the honest ceiling and reads one
+of three ways: `1` for the 214 one-and-done upgrades, the finite `N` for the 11 repeat-grind lines,
+and `uncapped` for the four `Raise …` cap-raisers the game marks with a negative native maximum —
+never `0`, which would read as a cap of zero and as nothing left to buy. A finished upgrade reads
+`affordable: unpriced`, because a level that cannot be bought has no price to be short of, and one
+the world publishes no cost for reads the same; `state: completed` is what says it is finished, and
+it says it once. `world_list` and `world_get` publish the same vocabulary, so a page of uncapped
+upgrades still shows the columns a capped page shows and a detail read says the lifecycle in the
+page's word rather than a second grammar of its own.
 
 Every purchasable counts levels, and no two of them count the same thing. One name means one thing
 across the whole surface, reads and commits alike:

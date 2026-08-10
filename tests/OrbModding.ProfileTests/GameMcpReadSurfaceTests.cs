@@ -1221,7 +1221,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Null(page["implicatedSkippedRows"]);
         var pageRows = page["rows"]!.Values<JObject>().ToArray();
         Assert.Null(pageRows[0]["status"]);
-        Assert.Equal(10, (int)pageRows[0]["remainingLevels"]!);
+        Assert.Equal(10, (int)pageRows[0]["maximum"]!);
         Assert.Equal("unavailable", (string?)pageRows[1]["status"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)pageRows[1]["reasonCode"]);
         Assert.NotNull(pageRows[1]["partialRow"]);
