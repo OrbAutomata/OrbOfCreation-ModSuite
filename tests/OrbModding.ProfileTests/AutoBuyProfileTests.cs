@@ -127,6 +127,53 @@ public sealed class AutoBuyProfileTests : IDisposable
             Assert.Single(topology.DescribeCaptured(PlannedEpoch)));
     }
 
+    /// <summary>
+    /// A collector nobody composed for the session cannot take the live purchase topology away from
+    /// the one that was.
+    /// </summary>
+    /// <remarks>
+    /// This is the shape that cost a live save twenty-seven minutes of refused purchases: a
+    /// verification pass allocated throwaway collectors, each took the process-wide owning-view
+    /// resolver, and each restamped it at the epoch its own frame carried — zero. The adapter is
+    /// built through its production constructor on purpose. Handing it a resolver is what made the
+    /// defect invisible: an injected resolver is not the singleton the running suite reads from, so
+    /// a test that injects one cannot see the singleton being clobbered.
+    /// </remarks>
+    [Fact]
+    public void ThrowawayCollectorDoesNotUnreadTheSessionPurchaseTopology()
+    {
+        var operations = new AutomataProfileOperations(new ServiceCycleProfileProbe());
+        global::ActionManager.RemainingRoom = 64;
+        var structure = new global::StructureSO
+        {
+            uuid = Guid.NewGuid().ToString(),
+            available = true,
+            purchasable = true,
+            queuedQuantity = 3,
+        };
+        global::StructureSO.All.Add(structure);
+
+        GameWorldCollector.ForSession().Collect(
+            new GameWorldCycleFrame { CollectedAtEpoch = PlannedEpoch });
+        new GameWorldCollector().Collect();
+
+        var adapter = new AutoBuyCycleActionAdapter(
+            new AutoBuyNativePurchaseAdapter(operations),
+            new AutoBuyNativeQueueRoomAdapter(),
+            () => PlannedEpoch,
+            () => AutoBuyCandidateKinds.All,
+            operations,
+            IgnoreRefusals.Instance);
+        var result = adapter.TryExecute(
+            new AutoBuyCycleAction(
+                AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), PlannedEpoch),
+            Configuration(),
+            ActionContext());
+
+        Assert.Equal(ServiceActionDisposition.Committed, result.Disposition);
+        Assert.Equal(4, structure.queuedQuantity);
+    }
+
     private static ServiceActionResult Execute(
         AutomataProfileOperations operations,
         AutoBuyCandidateKind kind,
@@ -254,5 +301,6 @@ public sealed class AutoBuyProfileTests : IDisposable
         owningView.relevantLists.Add(upgradeList);
         global::ViewSO.All.Add(owningView);
         NativeMultiBuyScope.ResetQuarantineForTests();
+        NativePurchaseViewAdmissionResolver.ResetProductionForTests();
     }
 }

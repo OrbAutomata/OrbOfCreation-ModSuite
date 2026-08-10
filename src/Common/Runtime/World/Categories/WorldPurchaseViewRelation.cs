@@ -294,6 +294,16 @@ internal sealed class NativePurchaseViewAdmissionResolver
         return true;
     }
 
+    /// <summary>
+    /// Drops the process-wide resolver so the next production composition builds a fresh one.
+    /// </summary>
+    /// <remarks>
+    /// A test that composes the production way must start from no singleton, or it inherits another
+    /// test's registries through a snapshot it never read. The game itself never needs this: the
+    /// resolver binds member handles, not game state, and the epoch stamp is what scopes it.
+    /// </remarks>
+    internal static void ResetProductionForTests() => _production = null;
+
     /// <summary>Reads one relation row for every exact native Auto Buy candidate.</summary>
     /// <remarks>
     /// The rows always reach <paramref name="output"/>; the admission snapshot is published only
