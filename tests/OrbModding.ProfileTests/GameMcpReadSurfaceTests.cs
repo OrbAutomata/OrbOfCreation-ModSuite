@@ -476,12 +476,13 @@ public sealed class GameMcpStreamableHttpProtocolTests
 
         // The catalog is where the asset name and the runtime type still live: somebody browsing
         // asks for them, and nothing else on the surface carries them any more.
-        Assert.Equal(2, lines.Length);
-        Assert.Contains("0d0474", lines[1]);
-        Assert.Contains("AttributeSO", lines[1]);
-        Assert.Contains("HiddenComponent", lines[1]);
-        Assert.Contains("Hidden Component", lines[1]);
-        Assert.Contains("not-world-projected", lines[1]);
+        Assert.Equal(3, lines.Length);
+        Assert.StartsWith("[", lines[1]);
+        Assert.Contains("0d0474", lines[2]);
+        Assert.Contains("AttributeSO", lines[2]);
+        Assert.Contains("HiddenComponent", lines[2]);
+        Assert.Contains("Hidden Component", lines[2]);
+        Assert.Contains("not-world-projected", lines[2]);
         Assert.DoesNotContain("catalogSource", page, StringComparison.Ordinal);
         Assert.DoesNotContain("totalCatalogRows", page, StringComparison.Ordinal);
         Assert.DoesNotContain("nameSource", page, StringComparison.Ordinal);
@@ -584,10 +585,11 @@ public sealed class GameMcpStreamableHttpProtocolTests
         var page = (string)Assert.Single(
             response.Body!["result"]!["content"]!.Values<JObject>())!["text"]!;
         var lines = page.Split('\n');
-        Assert.Equal(2, lines.Length);
-        Assert.Contains("OrbAnim2", lines[1]);
-        Assert.Contains("asset", lines[1]);
-        Assert.Contains("not-world-projected", lines[1]);
+        Assert.Equal(3, lines.Length);
+        Assert.StartsWith("[", lines[1]);
+        Assert.Contains("OrbAnim2", lines[2]);
+        Assert.Contains("asset", lines[2]);
+        Assert.Contains("not-world-projected", lines[2]);
         Assert.DoesNotContain("internalName", page, StringComparison.Ordinal);
         Assert.DoesNotContain("hasDisplayName", page, StringComparison.Ordinal);
     }
@@ -932,12 +934,13 @@ public sealed class GameMcpWorldEnvelopeTests
         // Three asks, three answers, in the order they were asked: the correlation is the order, so
         // no row has to echo an index back.
         var lines = page.Split('\n');
-        Assert.Equal(4, lines.Length);
+        Assert.Equal(5, lines.Length);
         Assert.StartsWith("results 3", lines[0]);
-        Assert.Contains("value=no", lines[1]);
-        Assert.Contains("ERR_NOT_FOUND", lines[2]);
-        Assert.Contains(GameMcpTestHarness.Handle(missingId), lines[2]);
-        Assert.Contains("value=yes", lines[3]);
+        Assert.StartsWith("[", lines[1]);
+        Assert.Contains("value=no", lines[2]);
+        Assert.Contains("ERR_NOT_FOUND", lines[3]);
+        Assert.Contains(GameMcpTestHarness.Handle(missingId), lines[3]);
+        Assert.Contains("value=yes", lines[4]);
         Assert.DoesNotContain("inputIndex", page, StringComparison.Ordinal);
         Assert.DoesNotContain("worldGeneration", page, StringComparison.Ordinal);
     }

@@ -70,18 +70,30 @@ public sealed class GameMcpListColumnsTests
     }
 
     /// <summary>
-    /// A page whose every row says the same word says it once, in the header — which is what keeps a
-    /// total column set from costing a reader anything.
+    /// A page whose every row says the same word names the word once beside the count as well as in
+    /// the rows — and names the columns either way, because a reader who has only ever seen this
+    /// page still has to be able to learn from it that ceilings exist.
     /// </summary>
     [Fact]
-    public void A_page_of_uncapped_upgrades_says_uncapped_once()
+    public void A_page_of_uncapped_upgrades_says_uncapped_once_and_still_shows_both_ceiling_columns()
     {
-        var header = Header(Page(
+        var page = GameMcpTextPage.Render(Page(
             Upgrade(Uncapped, bounded: false),
-            Upgrade(Capped, bounded: false)));
+            Upgrade(Capped, bounded: false),
+            Upgrade(Exhausted, bounded: false),
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Capped, bounded: false),
+            Upgrade(Exhausted, bounded: false)));
 
-        Assert.Contains("maxLevel=uncapped", header, StringComparison.Ordinal);
-        Assert.Contains("remainingLevels=uncapped", header, StringComparison.Ordinal);
+        Assert.Contains(
+            "these 6 share: level=3, queuedLevels=0, maxLevel=uncapped, " +
+            "remainingLevels=uncapped, affordable=unpriced, available=yes",
+            page,
+            StringComparison.Ordinal);
+        Assert.Equal(
+            "[id | name | level | queuedLevels | maxLevel | remainingLevels | affordable | " +
+            "available]",
+            Bracket(page));
     }
 
     /// <summary>
@@ -304,11 +316,7 @@ public sealed class GameMcpListColumnsTests
     private static JObject[] Rows(JObject page) =>
         page["rows"]!.Values<JObject>().Select(row => row!).ToArray();
 
-    /// <summary>
-    /// Every column the page shows: the ones it prints per row, plus the ones it hoisted into the
-    /// header because they held one value throughout. Hoisting is a rendering choice, so a column
-    /// that moved into the header has not left the page.
-    /// </summary>
+    /// <summary>Every column the page's rows carry, which is every column it declares.</summary>
     private static IReadOnlyList<string> Columns(JObject page)
     {
         var names = new SortedSet<string>(StringComparer.Ordinal);
@@ -318,9 +326,10 @@ public sealed class GameMcpListColumnsTests
         return names.ToArray();
     }
 
-    private static string Header(JObject page) => GameMcpTextPage.Render(page)
+    /// <summary>The rendered column set: its own line, so a reader finds it the same way twice.</summary>
+    private static string Bracket(string page) => page
         .Split('\n')
-        .Single(line => line.Contains("rows ", StringComparison.Ordinal));
+        .Single(line => line.StartsWith("[", StringComparison.Ordinal));
 
     private static WorldUpgrade Upgrade(Guid id, bool bounded, bool exhausted = false)
     {

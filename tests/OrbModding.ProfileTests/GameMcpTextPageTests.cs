@@ -11,8 +11,12 @@ namespace OrbModding.ProfileTests;
 /// </summary>
 public sealed class GameMcpTextPageTests
 {
+    /// <summary>
+    /// The count, then what the rows share, then the columns: three header lines a reader can rely
+    /// on, and a column set that is complete whatever the page's rows happen to hold.
+    /// </summary>
     [Fact]
-    public void A_page_of_rows_says_its_keys_once_and_hoists_what_never_varies()
+    public void A_page_of_rows_names_every_column_it_has_and_then_says_them_once_per_row()
     {
         var page = Render(@"{
             'rows':[
@@ -23,32 +27,215 @@ public sealed class GameMcpTextPageTests
         Assert.Equal(
             new[]
             {
-                "rows 2/180 next=56; all category=structures, queuedLevels=0  [id name level]",
-                "006061be Constitution 2259",
-                "0a1b2c3d Wit 12",
+                "rows 2/180 next=56",
+                "[id | name | category | level | queuedLevels]",
+                "006061be | Constitution | structures | 2259 | 0",
+                "0a1b2c3d | Wit | structures | 12 | 0",
             },
             page.Split('\n'));
     }
 
     /// <summary>
-    /// Column separation follows the widest cell on the page rather than the reader's luck: one
-    /// table, one separator, and a name with a space in it cannot be mistaken for two columns.
+    /// One table dialect for the whole surface. A page whose cells happen to hold no space used to
+    /// separate its columns with one, so two categories read in one batch came back in two
+    /// grammars and the safe one was the one that got lucky with its names.
     /// </summary>
     [Fact]
-    public void A_table_holding_a_name_with_a_space_separates_every_column_the_same_way()
+    public void Every_table_separates_its_columns_the_same_way()
     {
-        var page = Render(@"{'rows':[
+        var spaced = Render(@"{'rows':[
             {'uuid':'006061be','name':'Gather Knowledge','level':3},
             {'uuid':'0a1b2c3d','name':'Wit','level':4}]}");
+        var unspaced = Render(@"{'rows':[
+            {'uuid':'526b34','name':'Harmony','reachedLevel':200},
+            {'uuid':'461dbd','name':'Fabrication','reachedLevel':200}]}");
 
         Assert.Equal(
             new[]
             {
-                "rows 2  [id | name | level]",
+                "rows 2",
+                "[id | name | level]",
                 "006061be | Gather Knowledge | 3",
                 "0a1b2c3d | Wit | 4",
             },
+            spaced.Split('\n'));
+        Assert.Equal(
+            new[]
+            {
+                "rows 2",
+                "[id | name | reachedLevel]",
+                "526b34 | Harmony | 200",
+                "461dbd | Fabrication | 200",
+            },
+            unspaced.Split('\n'));
+    }
+
+    /// <summary>
+    /// The round-9 defect, in the shape it was found in: two adjacent reads of one unchanged
+    /// category came back three columns wide and four columns wide, because the five rituals on
+    /// page one happened to share a level the next twenty-seven did not. What a page shows is a
+    /// fact about the category; only the share line is allowed to notice the coincidence.
+    /// </summary>
+    [Fact]
+    public void A_column_every_row_agrees_on_is_still_a_column()
+    {
+        var first = Render(@"{'rows':[
+            {'uuid':'526b34','name':'Harmony','reachedLevel':200,'selectedLevel':200},
+            {'uuid':'461dbd','name':'Fabrication','reachedLevel':200,'selectedLevel':7}],
+            'total':32,'nextOffset':2}");
+        var second = Render(@"{'rows':[
+            {'uuid':'7c1a90','name':'Consciousness','reachedLevel':69,'selectedLevel':69},
+            {'uuid':'8d2b01','name':'Fundamentals','reachedLevel':2,'selectedLevel':2}],
+            'total':32}");
+
+        Assert.Equal(
+            new[]
+            {
+                "rows 2/32 next=2",
+                "[id | name | reachedLevel | selectedLevel]",
+                "526b34 | Harmony | 200 | 200",
+                "461dbd | Fabrication | 200 | 7",
+            },
+            first.Split('\n'));
+        Assert.Equal(
+            "[id | name | reachedLevel | selectedLevel]",
+            second.Split('\n')[1]);
+    }
+
+    /// <summary>
+    /// The share line adds; it never subtracts, so it has to be worth its own bytes. Six rows that
+    /// repeat a long word earn it, and two rows that repeat a short one do not — which is the page
+    /// size the old header was widest on.
+    /// </summary>
+    [Fact]
+    public void The_share_line_is_said_only_when_it_is_shorter_than_the_repetition_it_names()
+    {
+        var wide = Render(@"{'rows':[
+            {'uuid':'00246c','name':'Gather Space','affordable':'already_maxed','available':false},
+            {'uuid':'00246d','name':'Gather Time','affordable':'already_maxed','available':false},
+            {'uuid':'00246e','name':'Gather Wit','affordable':'already_maxed','available':false},
+            {'uuid':'00246f','name':'Gather Will','affordable':'already_maxed','available':false},
+            {'uuid':'002470','name':'Gather Void','affordable':'already_maxed','available':false},
+            {'uuid':'002471','name':'Gather Vim','affordable':'already_maxed','available':false}],
+            'total':229,'nextOffset':6}");
+        var narrow = Render(@"{'rows':[
+            {'uuid':'00246c','name':'Gather Space','level':1,'queuedLevels':0},
+            {'uuid':'00246d','name':'Gather Time','level':4,'queuedLevels':0}],
+            'total':229}");
+
+        Assert.Equal(
+            new[]
+            {
+                "rows 6/229 next=6",
+                "these 6 share: affordable=already_maxed, available=no",
+                "[id | name | affordable | available]",
+                "00246c | Gather Space | already_maxed | no",
+                "00246d | Gather Time | already_maxed | no",
+                "00246e | Gather Wit | already_maxed | no",
+                "00246f | Gather Will | already_maxed | no",
+                "002470 | Gather Void | already_maxed | no",
+                "002471 | Gather Vim | already_maxed | no",
+            },
+            wide.Split('\n'));
+        Assert.DoesNotContain("share:", narrow, StringComparison.Ordinal);
+        Assert.Equal("[id | name | level | queuedLevels]", narrow.Split('\n')[1]);
+    }
+
+    /// <summary>
+    /// A reader splits the share line on <c>, </c> and the first <c>=</c>, so nothing on it may
+    /// carry a comma. The refusal sentence that broke this rule appeared on every page of three
+    /// categories and grew the header a phantom field; it keeps its cell, where its own column
+    /// boundary says where it ends.
+    /// </summary>
+    [Fact]
+    public void A_page_constant_holding_a_comma_stays_out_of_the_share_line()
+    {
+        const string Row =
+            "'available':false,'affordable':'already_maxed'," +
+            "'reason':'The game refused, and nothing it reports explains why.'";
+        var page = Render(@"{'rows':[
+            {'uuid':'00246c','name':'Gather Space'," + Row + @"},
+            {'uuid':'00246d','name':'Gather Time'," + Row + @"},
+            {'uuid':'00246e','name':'Gather Wit'," + Row + @"},
+            {'uuid':'00246f','name':'Gather Will'," + Row + @"},
+            {'uuid':'002470','name':'Gather Void'," + Row + @"},
+            {'uuid':'002471','name':'Gather Vim'," + Row + @"}],
+            'total':229,'nextOffset':6}");
+        var share = Array.Find(
+            page.Split('\n'),
+            line => line.StartsWith("these ", StringComparison.Ordinal));
+
+        Assert.Equal("these 6 share: available=no, affordable=already_maxed", share);
+        Assert.Contains(
+            "00246c | Gather Space | no | already_maxed | " +
+            "The game refused, and nothing it reports explains why.",
+            page,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The order the columns are named in is a fact about the category, not about which row the
+    /// page happened to start with. Round 9 paged one tooltip catalog and got
+    /// <c>[id | name | path]</c> then <c>[path | name | id]</c>, because page two's first row was
+    /// the one carrying no id.
+    /// </summary>
+    [Fact]
+    public void Two_pages_of_one_category_name_their_columns_in_one_order()
+    {
+        var declaring = @"'columns':['uuid','name','path'],";
+        var first = Render("{" + declaring + @"'rows':[
+            {'uuid':'aa11bb','name':'Arcane Glyphs','path':'LeftSide[1]'},
+            {'name':'Scroll Bar','path':'ScrollContainer[1]'}],'total':80,'nextOffset':2}");
+        var second = Render("{" + declaring + @"'rows':[
+            {'name':'Viewport','path':'Viewport[0]'},
+            {'uuid':'cc22dd','name':'Levelable List','path':'LevelableList[0]'}],'total':80}");
+        var undeclared = Render(@"{'rows':[
+            {'name':'Viewport','path':'Viewport[0]'},
+            {'uuid':'cc22dd','name':'Levelable List','path':'LevelableList[0]'}],'total':80}");
+
+        Assert.Equal("[id | name | path]", first.Split('\n')[1]);
+        Assert.Equal("[id | name | path]", second.Split('\n')[1]);
+        Assert.Equal("[id | name | path]", undeclared.Split('\n')[1]);
+        Assert.Equal("- | Viewport | Viewport[0]", second.Split('\n')[2]);
+    }
+
+    /// <summary>
+    /// One shape for a page that matched nothing: the count it would have had, and the columns it
+    /// would have shown. A sentence in a second grammar told a reader neither how many rows the
+    /// category holds nor what a row of it looks like.
+    /// </summary>
+    [Fact]
+    public void An_empty_page_is_the_same_table_with_no_rows()
+    {
+        Assert.Equal(
+            new[] { "rows 0/180", "[id | name | level]" },
+            Render(@"{'columns':['uuid','name','level'],'rows':[],'total':180}").Split('\n'));
+        Assert.Equal("rows 0/180", Render(@"{'rows':[],'total':180}"));
+        Assert.Equal("spells: none", Render(@"{'spells':[]}"));
+    }
+
+    /// <summary>
+    /// A key with nothing after it is not a value. It read as a truncated line, as an empty string
+    /// and as the token that followed it, all at once — so the page says absence the one way it
+    /// already says it.
+    /// </summary>
+    [Fact]
+    public void A_value_the_game_published_as_nothing_says_so_rather_than_ending_a_line_in_equals()
+    {
+        var page = Render(@"{'rows':[
+            {'owner':'InstantEffectBlock','ordinal':0,'effectTypeName':''},
+            {'owner':'DelayedEffectBlock','ordinal':1,'effectTypeName':''}],'total':27}");
+
+        Assert.Equal(
+            new[]
+            {
+                "rows 2/27",
+                "[owner | ordinal | effectTypeName]",
+                "InstantEffectBlock | 0 | -",
+                "DelayedEffectBlock | 1 | -",
+            },
             page.Split('\n'));
+        Assert.Equal("effectTypeName: -", Render(@"{'effectTypeName':''}"));
     }
 
     [Fact]
@@ -154,12 +341,13 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// A block too big for a cell is not too big for the header. Twenty rows carrying the same
-    /// refusal used to render as twenty paragraphs, because one constant nobody could fit in a
-    /// column disqualified the whole page from being a table.
+    /// A block too big for a cell is not too big for a cell every row fills the same way. Twenty
+    /// rows carrying the same refusal used to render as twenty paragraphs, because one constant
+    /// nobody could fit in a column disqualified the whole page from being a table; the length
+    /// relaxation that fixed it survives the column staying where it belongs.
     /// </summary>
     [Fact]
-    public void A_constant_nobody_could_fit_in_a_cell_is_still_said_once_in_the_header()
+    public void A_constant_nobody_could_fit_in_a_cell_keeps_its_column_and_its_content()
     {
         var page = Render(@"{'rows':[
             {'plot':{'uuid':'14060e','name':'Dreamberry'},'active':0,
@@ -171,14 +359,18 @@ public sealed class GameMcpTextPageTests
                     'reason':'The game only checks this prerequisite when the action is started.',
                     'checkWith':'game_agromancy add_plot_action'}}]}");
 
+        const string Refusal = "unavailable (ERR_UNAVAILABLE) " +
+            "checkWith=game_agromancy add_plot_action: The game only checks this " +
+            "prerequisite when the action is started.";
+
         Assert.Equal(
             new[]
             {
-                "rows 2; all add=unavailable (ERR_UNAVAILABLE) " +
-                "checkWith=game_agromancy add_plot_action: The game only checks this " +
-                "prerequisite when the action is started.  [plot | active]",
-                "Dreamberry 14060e | 0",
-                "Sunfruit 27b41a | 2",
+                "rows 2",
+                "these 2 share: add=" + Refusal,
+                "[plot | active | add]",
+                "Dreamberry 14060e | 0 | " + Refusal,
+                "Sunfruit 27b41a | 2 | " + Refusal,
             },
             page.Split('\n'));
     }

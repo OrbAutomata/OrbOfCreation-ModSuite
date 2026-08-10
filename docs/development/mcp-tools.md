@@ -119,17 +119,38 @@ same idiom and no producer invents its own formatting.
 
 - **One fact per line**, `key: value`. `true`/`false` read as `yes`/`no`. A page that answered at
   all is available, so a bare `status: available` is not said.
-- **Rows are a table.** A list of same-shaped rows says its keys once in a header and each row on one
-  line: `rows 56/180 next=56; all queuedLevels=0  [id name level]` then `006061 Constitution 2259`.
-  `total` and `nextOffset` live in that header, never on a row. Any column holding one value across
-  the whole page moves into the header behind `all` — a value repeated on every line is a page fact
-  wearing a row's clothes. Only a column that actually varies has to fit in a cell: a constant one is
-  said once in the header however long it is, so a page whose every row carried the same multi-line
-  refusal is a table with a long header rather than twenty paragraphs. Length is the only thing the
-  header relaxes: a constant it could render only as a count of properties or elements stays a
-  column, because constants are not repeated per row and a hoisted bare count would leave the value
-  nowhere on the page. Columns are separated by a
-  single space, or by ` | ` when any cell on the page contains one.
+- **Rows are a table**, and its header is three lines — the count, what the rows share, and the
+  columns:
+
+  ```
+  rows 6/229 next=6
+  these 6 share: affordable=already_maxed, available=no
+  [id | name | level | maxLevel]
+  00246c | Gather Space | 1 | 1
+  ```
+
+  `total` and `nextOffset` live on the count line, never on a row.
+  - **The column set is a fact about the category, not about the page.** It is complete, and in the
+    same order, on every page of every category. A column every row on this page agrees on is still
+    a column; nothing removes a column from the header or from a row. Where the producer declares
+    its columns the header is that declaration in that order, and where it does not, the page's
+    widest row settles it — so the row a page happens to start with can never reorder it.
+  - **The share line adds, it never subtracts.** It is page-scoped (`these 6 share:`, never `all`
+    beside `/229`), and it is said only when it is shorter than the repetition it names, so a page
+    never carries a summary longer than the rows under it. Its values hold no comma, so a reader
+    splits the line on `, ` and then the first `=`; free prose stays in its cell, where the column
+    boundary says where it ends.
+  - **One delimiter.** Every table separates its columns with ` | `, whatever its cells hold.
+  - **An empty page is the same table with no rows**: `rows 0/180` and then the column set. A list
+    that is not a page still answers `spells: none`.
+  - Length is relaxed for page constants alone. A value identical on every row makes every row
+    equally wide, so a page whose every row carries the same multi-line refusal is a table with one
+    wide column rather than twenty paragraphs — while a varying value that big still costs the page
+    its table. A constant the page could only render as a count of properties or elements costs it
+    the table too, because that count would leave the value nowhere.
+  - **No key with nothing after it.** A value the game published as an empty string reads as `-`,
+    the same mark an absent one gets, because `key=` before a delimiter is indistinguishable from a
+    truncated line.
 - **A refusal is one line**: `refused (ERR_NOT_FOUND): The spell Beam Burst you tried to cancel is
   not currently active.` A decision block reads the same way, verdict first and sentence last:
   `equip: no (ERR_LIMIT) maximumAmount=0: Every slot in this loadout is in use.`
