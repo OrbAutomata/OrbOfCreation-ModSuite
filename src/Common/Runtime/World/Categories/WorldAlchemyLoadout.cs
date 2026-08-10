@@ -82,7 +82,6 @@ internal static class WorldAlchemyLoadoutLookup
 internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
 {
     private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private const BindingFlags Static = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
     private readonly Type? _managerType;
     private readonly Type? _recipeType;
@@ -98,7 +97,7 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
     private readonly Func<object, object?>? _usageCost;
     private readonly Func<object, int>? _freeUses;
     private readonly Func<object, int>? _maximumUses;
-    private readonly MethodInfo? _canAdd;
+    private readonly Func<object, object, bool>? _canAdd;
     private readonly Func<object, object?>? _instanceRecipe;
     private readonly Func<object, int>? _amount;
     private readonly Func<object, int>? _targetAmount;
@@ -127,7 +126,7 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
             return;
         }
 
-        _manager = StaticObjectField(_managerType, "instance");
+        _manager = NativeAccessorBinder.StaticReference(_managerType, "instance");
         _activeList = NativeAccessorBinder.Reference(_managerType, "activeAlchemy");
         _recipeList = NativeAccessorBinder.Reference(_managerType, "allAlchemy");
         _activeValues = NativeAccessorBinder.CollectionField(listType, "value");
@@ -138,8 +137,8 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
         _usageCost = NativeAccessorBinder.CallObject(_recipeType, "GetUsageCost", costType);
         _freeUses = NativeAccessorBinder.Call<int>(_recipeType, "GetFreeUsageSlots");
         _maximumUses = NativeAccessorBinder.Call<int>(_recipeType, "GetMaxUsageSlots");
-        _canAdd = listType.GetMethod("CanAddInstance", Instance, null, new[] { _recipeType }, null);
-        if (_canAdd?.ReturnType != typeof(bool)) _canAdd = null;
+        _canAdd = NativeAccessorBinder.CallWithObjectArgument<bool>(
+            listType.GetMethod("CanAddInstance", Instance, null, new[] { _recipeType }, null));
         _instanceRecipe = NativeAccessorBinder.CallObject(_instanceType, "get_reference", _recipeType);
         _amount = NativeAccessorBinder.Field<int>(_instanceType, "quantity");
         _targetAmount = NativeAccessorBinder.Call<int>(_instanceType, "GetQueuedQuantity");
@@ -209,9 +208,7 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
                 var maximumByCost = _costIsEmpty!(cost)
                     ? int.MaxValue
                     : Math.Max((_maximumCostTimes!(cost) + new BigDouble(free)).ToInt(), 0);
-                var canAddValue = _canAdd!.Invoke(activeList, new[] { recipe });
-                if (canAddValue is not bool canAdd)
-                    throw new InvalidOperationException("AlchemyInstanceListVariable.CanAddInstance returned no Boolean value");
+                var canAdd = _canAdd!(activeList, recipe);
                 frame.AlchemyLoadout.Append(new WorldAlchemyLoadoutDecision(
                     recipeId, position, active?.Count ?? 0, instance is null ? 0 : _amount!(instance),
                     instance is null ? 0 : _targetAmount!(instance), free,
@@ -222,8 +219,12 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
             return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected,
                 sampled, skipped, firstFailure);
         }
-        catch (Exception exception) when (exception is TargetInvocationException or
-            ArgumentException or InvalidOperationException or FormatException or OverflowException)
+        // Every native fault degrades this one category rather than the pass. The allowlist this
+        // replaces led with TargetInvocationException, the wrapper MethodInfo.Invoke put around every
+        // fault the game raised; a compiled accessor hands the fault back unwrapped, so naming
+        // exception types here would let a native NullReferenceException past a collector that does
+        // not wrap reader calls. Same fail-closed answer, same granularity, still loud.
+        catch (Exception exception)
         {
             return WorldCategoryReport.Missing(Category,
                 "reading ordinary alchemy threw: " + exception.GetBaseException().Message);
@@ -258,12 +259,6 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
         id == KnownEntities.Brewing.Uuid || id == KnownEntities.Dismantle.Uuid ||
         id == KnownEntities.Enchantment.Uuid || id == KnownEntities.Refinement.Uuid ||
         id == KnownEntities.Transmutation.Uuid;
-
-    private static Func<object?>? StaticObjectField(Type owner, string name)
-    {
-        var field = owner.GetField(name, Static);
-        return field is null ? null : () => field.GetValue(null);
-    }
 
     private static void Skip(ref int skipped, ref string firstFailure, string reason)
     {

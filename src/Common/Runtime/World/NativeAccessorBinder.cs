@@ -968,6 +968,31 @@ internal static class NativeAccessorBinder
         }
     }
 
+    /// <summary>
+    /// Binds a static reference-typed field as the object it holds, for the manager singletons a
+    /// reader must reach once per pass without rediscovering the field.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Reference(Type?, string)"/>'s shape for statics, and for the same reason it returns
+    /// the object rather than a value read from it: what a caller wants is the entity, so it can
+    /// check the runtime type it got and bind members against it.
+    /// </remarks>
+    internal static Func<object?>? StaticReference(Type? owner, string name)
+    {
+        if (owner is null) return null;
+        var field = owner.GetField(name, Static);
+        if (field is null || field.FieldType.IsValueType) return null;
+        try
+        {
+            return Expression.Lambda<Func<object?>>(
+                Expression.Convert(Expression.Field(null, field), typeof(object))).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Compiles an already-audited one-argument static method as the value it answers.</summary>
     internal static Func<TArgument, object?>? CallStatic<TArgument>(MethodInfo? method)
     {
