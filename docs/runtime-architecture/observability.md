@@ -14,8 +14,9 @@ document wins wherever this one drifts from it.
    sharing budget with the newest decision-journal segments. It does not arm a recorder or ask the
    player to reproduce the problem.
 2. **Decision log** — always on, high signal, low noise: lifecycle boundaries, strategy changes,
-   configuration saves, emergency stops, service health transitions, and one compact sentinel per
-   attempted action rather than accounting summaries. The
+   configuration saves, emergency stops, service health transitions, the one-line-per-run
+   announcement of the purchase-screen topology every purchase is admitted against, and one compact
+   sentinel per attempted action rather than accounting summaries. The
    mandate is that the suite — BepInEx's own logs included — keeps at most ~100 MB on disk however long
    it runs unattended. The journal has a 64 MiB envelope and routine action success/no-op narration
    is absent; BepInEx still owns `LogOutput.log` retention, so the combined mandate is not a hard

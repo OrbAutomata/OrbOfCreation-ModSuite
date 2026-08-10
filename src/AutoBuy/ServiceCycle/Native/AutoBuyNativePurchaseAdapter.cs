@@ -203,8 +203,14 @@ internal interface IAutoBuyNativePurchasePort
 internal interface IAutoBuyPurchaseTopologyPort
 {
     void InvalidateTopology();
+
+    /// <summary>The run the published purchase-screen topology is stamped for, or zero.</summary>
+    long CapturedEpoch { get; }
+
+    /// <summary>How many candidates the published topology admits.</summary>
+    int CapturedCount { get; }
 #if SERVICE_CYCLE_PROFILE
-    bool EmitRouteDiagnostic(long lifecycleEpoch);
+    bool EmitRouteDiagnostic(long lifecycleEpoch, out string? silence);
 #endif
 }
 
@@ -252,12 +258,42 @@ internal sealed class AutoBuyNativePurchaseAdapter :
 
     public void InvalidateTopology() => _viewAdmission?.Invalidate();
 
+    public long CapturedEpoch => _viewAdmission?.CapturedEpoch ?? 0;
+
+    public int CapturedCount => _viewAdmission?.CapturedCount ?? 0;
+
 #if SERVICE_CYCLE_PROFILE
-    public bool EmitRouteDiagnostic(long lifecycleEpoch)
+    /// <summary>
+    /// Writes one route line per admitted candidate, or explains why it has nothing to write.
+    /// </summary>
+    /// <remarks>
+    /// A silence is only worth reporting once the answer cannot change on its own: a topology
+    /// stamped for another run is normal in the first frames of a lifecycle and says nothing, but a
+    /// contract that never bound, or a topology published for this run holding no routes, is why
+    /// every purchase will be refused for the rest of the run.
+    /// </remarks>
+    public bool EmitRouteDiagnostic(long lifecycleEpoch, out string? silence)
     {
-        if (_viewAdmission is null) return false;
+        silence = null;
+        if (_viewAdmission is null)
+        {
+            silence = "Auto Buy cannot describe its purchase routes: the owning-view topology " +
+                "contract never bound, so no purchase will be admitted.";
+            return false;
+        }
+
         var rows = _viewAdmission.DescribeCaptured(lifecycleEpoch);
-        if (rows.Length == 0) return false;
+        if (rows.Length == 0)
+        {
+            if (_viewAdmission.CapturedEpoch == lifecycleEpoch)
+            {
+                silence = $"Auto Buy's purchase-screen topology is published for run {lifecycleEpoch} " +
+                    "and admits nothing, so no purchase will be admitted.";
+            }
+
+            return false;
+        }
+
         for (var index = 0; index < rows.Length; index++)
             Plugin.Log?.LogAutomataInfo("Auto Buy route topology: " + rows[index]);
         return true;

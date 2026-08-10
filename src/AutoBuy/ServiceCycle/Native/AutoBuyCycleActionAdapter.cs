@@ -54,8 +54,11 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
     /// </summary>
     internal AutoBuyPurchaseSubmission LastSubmission { get; private set; }
 
+    private long _announcedTopologyEpoch;
+
 #if SERVICE_CYCLE_PROFILE
     private long _diagnosedTopologyEpoch;
+    private long _silencedTopologyEpoch;
     private readonly AutomataProfileOperations _profileOperations;
     private readonly Func<AutoBuyCandidateKind, bool> _gameMcpOwnership;
 #endif
@@ -90,10 +93,30 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
 
     internal void InvalidateTopology()
     {
+        _announcedTopologyEpoch = 0;
 #if SERVICE_CYCLE_PROFILE
         _diagnosedTopologyEpoch = 0;
+        _silencedTopologyEpoch = 0;
 #endif
         if (_purchases is IAutoBuyPurchaseTopologyPort topology) topology.InvalidateTopology();
+    }
+
+    /// <summary>
+    /// Says once per run that the purchase-screen topology was published, and for which run.
+    /// </summary>
+    /// <remarks>
+    /// The publication is the single fact every purchase is admitted against, and it used to leave no
+    /// trace at all: an outage where it was stamped under the wrong run took a source reading to
+    /// diagnose, because the log could not even say whether it had happened.
+    /// </remarks>
+    internal void AnnounceTopologyPublication()
+    {
+        if (_purchases is not IAutoBuyPurchaseTopologyPort topology) return;
+        var epoch = topology.CapturedEpoch;
+        if (epoch <= 0 || epoch == _announcedTopologyEpoch) return;
+        _announcedTopologyEpoch = epoch;
+        Plugin.Log?.LogAutomataInfo(
+            AutoBuyPurchaseNarration.TopologyPublished(epoch, topology.CapturedCount));
     }
 
 #if SERVICE_CYCLE_PROFILE
@@ -102,8 +125,15 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         if (lifecycleEpoch <= 0 || _diagnosedTopologyEpoch == lifecycleEpoch ||
             _purchases is not IAutoBuyPurchaseTopologyPort topology)
             return;
-        if (topology.EmitRouteDiagnostic(lifecycleEpoch))
+        if (topology.EmitRouteDiagnostic(lifecycleEpoch, out var silence))
+        {
             _diagnosedTopologyEpoch = lifecycleEpoch;
+            return;
+        }
+
+        if (silence is null || _silencedTopologyEpoch == lifecycleEpoch) return;
+        _silencedTopologyEpoch = lifecycleEpoch;
+        Plugin.Log?.LogAutomataWarning(silence);
     }
 #endif
 

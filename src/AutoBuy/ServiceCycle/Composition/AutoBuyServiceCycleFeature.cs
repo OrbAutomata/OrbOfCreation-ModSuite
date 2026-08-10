@@ -93,6 +93,7 @@ internal sealed class AutoBuyFeatureRuntime : IAutomataServiceCycleFeatureRuntim
 
     public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report)
     {
+        _actions.AnnounceTopologyPublication();
 #if SERVICE_CYCLE_PROFILE
         _actions.EmitRouteDiagnostic(_dependencies.ReadLifecycleEpoch());
 #endif

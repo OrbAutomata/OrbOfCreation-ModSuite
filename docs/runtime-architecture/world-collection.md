@@ -208,6 +208,8 @@ verification pass took the shared resolver and stamped it at the epoch their own
 which is zero, and the once-per-lifecycle structural gate meant nothing restamped it until the next
 lifecycle. The resolver also refuses to publish under a non-positive lifecycle epoch, keeping
 whatever the last real lifecycle stamped rather than replacing it with evidence no epoch can match.
+Publication is announced once per run in the always-on log, naming the run and how many candidates it
+admits, because that outage was invisible in the log and only readable from source.
 
 **Do not sort members into runtime state and definition constants.** The tempting fourth rule is to skip
 fields the game never writes. It was measured and rejected: classifying the 270 members remaining after
