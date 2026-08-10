@@ -5190,12 +5190,11 @@ internal static class GameMcpWorldQuery
                 ["available"] = false,
                 ["reasonCode"] = "native_remove_refused",
             };
+        // Where a spell can move is the slot list, and the slot list is one read for the whole bar.
+        // Inlining it per spell meant explaining eight spells delivered the same eight-slot roster
+        // eight times, on the verb that is called most.
         result["move"] = world.SpellSlots.Count > 1
-            ? new JObject
-            {
-                ["available"] = true,
-                ["destinations"] = ProjectSpellMoveDestinations(world, slot.SlotIndex),
-            }
+            ? new JObject { ["available"] = true }
             : new JObject
             {
                 ["available"] = false,
@@ -5281,27 +5280,6 @@ internal static class GameMcpWorldQuery
             }
         }
         return true;
-    }
-
-    /// <summary>
-    /// Where this spell can move, on one line. A destination is a slot number and who is standing in
-    /// it; as a row apiece it cost a paragraph to say what fits in a sentence.
-    /// </summary>
-    private static JArray ProjectSpellMoveDestinations(GameWorldState world, int currentSlot)
-    {
-        var destinations = new JArray();
-        for (var index = 0; index < world.SpellSlots.Count; index++)
-        {
-            var slot = world.SpellSlots[index];
-            if (slot.SlotIndex == currentSlot) continue;
-            destinations.Add(
-                GameMcpSlotNumbering.Wire(slot.SlotIndex)
-                    .ToString(CultureInfo.InvariantCulture) + " " +
-                (slot.Occupied
-                    ? GameMcpEntityHandle.Name(slot.SpellRecipeId, world.EntityIdentities)
-                    : "empty"));
-        }
-        return destinations;
     }
 
     internal static JArray ProjectEquippedSpellCosts(

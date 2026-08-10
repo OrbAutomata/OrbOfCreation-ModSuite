@@ -911,7 +911,9 @@ next decision.
 
 `spell-slots` is the pre-decision surface for `game_spell_loadout`. Each occupied detail row names
 the recipe the equipped spell was baked from, its slot, active cast/ready/attune state when
-applicable, the game's current remove verdict, and that spell's move destinations. Augment choices
+applicable, the game's current remove verdict, and whether that spell can move at all. Where it can
+move is the slot list, which is one read for the whole bar: inlined per spell, explaining eight
+spells delivered the same eight-slot roster eight times. Augment choices
 appear only on a discovered recipe's `loadoutAdd` decision. `loadBudget` — `used`, `maximum`, and
 `fitsAnotherSpell` — rides on every detailed `spell-recipes` row, so capacity is known before add.
 
@@ -1023,7 +1025,10 @@ applies to never reads like an entity nobody evaluated. Only applicable predicat
 `visible`, `available`, `canDevelop`, `canPurchase`,
 `canDiscover`, and `canUse`. Presence means applicable. Each slot answers under `available`, the same
 word every other decision on the surface answers under, and a slot that answered no carries the
-stable `reasonCode` saying why; absence means the predicate does not apply, not false. Crafting purchase uses the
+stable `reasonCode` saying why; absence means the predicate does not apply, not false. A predicate
+points at the block that holds its evidence rather than reprinting it: `canUse` lists the slot
+numbers the spell is equipped in, and the same response already carries those slots in full under
+`state.equipped`. Crafting purchase uses the
 published `CraftingRecipeSO.CanBuyAt(GetStartingQuantity())` verdict, spell use uses the equipped
 `Spell.CanCast()` reading, and structure/upgrade purchase combines published native availability
 with the one exact-cost affordability lineage. No predicate emits implementation provenance or a

@@ -388,10 +388,11 @@ internal static class GameMcpEntityExplainer
                                 ? "cast_in_progress"
                                 : "native_can_cast_refused";
             }
-            // The published projection, not the raw row: the struct's own field is the zero-based
-            // array position, and printing it beside the one-based `slot` every verb takes handed a
-            // caller two numbers for one slot.
-            slots.Add(GameMcpWorldQuery.ProjectEntityState(world, "spell-slots", slot));
+            // The slot number, not the slot. The same response already carries every equipped
+            // instance in full under `equipped`, so reprinting each one here answered a predicate by
+            // echoing the block above it; the number is what points at that block and what every
+            // spell verb takes.
+            slots.Add(GameMcpSlotNumbering.Wire(slot.SlotIndex));
         }
         var result = Verdict(
             found && ready,

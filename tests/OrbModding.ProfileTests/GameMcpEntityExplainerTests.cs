@@ -149,9 +149,9 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
     }
 
     /// <summary>
-    /// The slots inside <c>canUse</c> are the published spell-slot rows, so they say the same
-    /// one-based number every verb takes. They used to be the raw world row, which printed the
-    /// zero-based array position beside a one-based <c>slot</c> on the same page.
+    /// The slots inside <c>canUse</c> are slot numbers — the one-based number every verb takes and
+    /// the pointer into the <c>equipped</c> block the same response already carries in full. They
+    /// used to be whole slot rows, so a predicate answered by echoing the block above it.
     /// </summary>
     [Fact]
     public void A_usable_spell_names_its_slot_the_way_every_verb_addresses_it()
@@ -187,11 +187,68 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
 
         var explanation = Explain(world, ReadySpellId, generation: 941);
 
-        var slot = Assert.IsType<JObject>(Assert.Single(
-            Assert.IsType<JArray>(explanation["predicates"]!["canUse"]!["slots"])
-                .Values<JObject>()));
-        Assert.Equal(7, (int)slot["slot"]!);
-        Assert.Null(slot["slotIndex"]);
+        var slots = Assert.IsType<JArray>(explanation["predicates"]!["canUse"]!["slots"]);
+        Assert.Equal(7, (int)Assert.Single(slots)!);
+    }
+
+    /// <summary>
+    /// Where a spell can move is the slot list, and the slot list is one read for the whole bar.
+    /// Inlined per spell, explaining eight spells delivered the same roster eight times.
+    /// </summary>
+    [Fact]
+    public void A_movable_spell_says_it_can_move_and_never_inlines_the_slot_roster()
+    {
+        var world = new GameWorldState
+        {
+            SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[]
+            {
+                Spell(ReadySpellId, discovered: true, hidden: false, masteryLevel: 3),
+            }),
+            SpellSlots = PublicationTable<WorldSpellSlot>.Create(new[]
+            {
+                new WorldSpellSlot(
+                    slotIndex: 0,
+                    ReadySpellId,
+                    occupied: true,
+                    casting: false,
+                    readyingCast: false,
+                    attuning: false,
+                    channeled: false,
+                    toggled: false,
+                    chargeable: true,
+                    castReady: true,
+                    chargeAvailable: true,
+                    resourcesCovered: true,
+                    currentCharges: 1,
+                    maximumCharges: 1,
+                    cooldownRemaining: BigDouble.Zero),
+                new WorldSpellSlot(
+                    slotIndex: 1,
+                    Guid.Empty,
+                    occupied: false,
+                    casting: false,
+                    readyingCast: false,
+                    attuning: false,
+                    channeled: false,
+                    toggled: false,
+                    chargeable: false,
+                    castReady: false,
+                    chargeAvailable: false,
+                    resourcesCovered: false,
+                    currentCharges: 0,
+                    maximumCharges: 0,
+                    cooldownRemaining: BigDouble.Zero),
+            }),
+            CollectedAtEpoch = 41,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var explanation = Explain(world, ReadySpellId, generation: 942);
+        var equipped = Assert.Single(
+            Assert.IsType<JArray>(explanation["state"]!["equipped"]).Values<JObject>())!;
+
+        Assert.True((bool)equipped["move"]!["available"]!);
+        Assert.Null(equipped["move"]!["destinations"]);
     }
 
     [Fact]
