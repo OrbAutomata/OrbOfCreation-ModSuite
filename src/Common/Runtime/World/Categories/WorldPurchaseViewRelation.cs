@@ -295,6 +295,14 @@ internal sealed class NativePurchaseViewAdmissionResolver
     }
 
     /// <summary>Reads one relation row for every exact native Auto Buy candidate.</summary>
+    /// <remarks>
+    /// The rows always reach <paramref name="output"/>; the admission snapshot is published only
+    /// under a lifecycle. A snapshot stamped at a non-positive epoch is not admission evidence —
+    /// <see cref="TryGetCaptured"/> refuses one outright — so stamping it could never admit a
+    /// candidate and would only discard the evidence a real lifecycle published. This is reachable
+    /// on the session collector: a pass taken before a save is loaded reads a lifecycle epoch of
+    /// zero, and without this refusal it would replace a live snapshot with one nothing can match.
+    /// </remarks>
     internal int ReadAll(
         long lifecycleEpoch,
         WorldRelationBuffer<WorldPurchaseViewRelation> output,
@@ -374,8 +382,12 @@ internal sealed class NativePurchaseViewAdmissionResolver
                     in relation, routes, DiagnosticName(candidate.Id)));
             if (status != WorldPurchaseViewRelationStatus.Resolved) unresolved++;
         }
-        _snapshot = snapshot;
-        _snapshotEpoch = lifecycleEpoch;
+        if (lifecycleEpoch > 0)
+        {
+            _snapshot = snapshot;
+            _snapshotEpoch = lifecycleEpoch;
+        }
+
         return candidates.Count;
     }
 
