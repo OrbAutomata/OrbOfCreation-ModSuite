@@ -1647,6 +1647,17 @@ repeated fire can never look like a firing loop that is doing nothing. A running
 `active`, whether it is a toggle or not; an idle one-shot carries no `active` key, because it has no
 running state to report.
 
+The settled response reports the game's own readiness term under the name of that term,
+`castReady` — `Spell.CanCast()`, the same fact the `spell-slots` row publishes under the same name.
+It is **not** a promise that the next press lands, and must not be read as one: the game's own
+`Spell.Fire` asks `IsCasting()` before it asks `CanCast()`, so a spell that is already running
+answers `CanCast()` with true while the press starts no cast at all. `casting` beside it is what
+says a cast is under way. The field was called `ready` and could not survive the name — a fire
+answering `ready: yes, cooldown: 0` invited the press this same tool then refused on the very next
+call. Whether a press would land is not answerable from a published world at all: the remaining
+terms are a live per-spell target-selector query and a global targeting interaction, and no world
+publication holds either.
+
 `fire` takes an optional `charge`, default false, which is the player's held cast button: the spell
 charges instead of firing at once, and `release` lets it go, landing more power the longer it was
 held. The other two modes reject the argument. A charged fire answers `charging: yes` as well,

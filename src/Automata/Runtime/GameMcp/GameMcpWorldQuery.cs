@@ -1282,7 +1282,13 @@ internal static class GameMcpWorldQuery
                 ["after"] = after.CurrentCharges,
             };
         }
-        result["ready"] = after.CastReady;
+        // Named after the term it reads, because that term is not a prediction that the next press
+        // lands. The game's own Spell.Fire asks IsCasting() BEFORE it asks CanCast(), so a running
+        // spell answers CanCast() with true and answers the press with nothing — which is how a
+        // response saying `ready: yes` invited the very press this tool then refused. What a press
+        // would do additionally needs the live target selector, which no published world holds, so
+        // the field says what it measures and `casting` beside it says the rest.
+        result["castReady"] = after.CastReady;
         result["cooldown"] = new GameMcpDomainValue(
             BigDouble.Max(after.CooldownRemaining, BigDouble.Zero));
         return result.Freeze();

@@ -194,6 +194,32 @@ public sealed class GameMcpCastTests
     }
 
     /// <summary>
+    /// The readiness term is named after the term it reads, never after the press it cannot promise.
+    /// <c>Spell.Fire</c> asks <c>IsCasting()</c> before it asks <c>CanCast()</c>, so a running spell
+    /// answers <c>CanCast()</c> with true while the press starts no cast — and a field called
+    /// <c>ready</c> beside <c>cooldown: 0</c> invited exactly the press this tool then refused.
+    /// </summary>
+    [Fact]
+    public void A_fire_names_the_readiness_term_it_reads_and_never_promises_the_next_press()
+    {
+        var before = World(casting: false, cancellationEnabled: true, charges: 2);
+        var after = World(casting: true, cancellationEnabled: true, charges: 2);
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
+            "SpellRecipeSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 71));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 72),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.Null(delta["ready"]);
+        Assert.True((bool)delta["castReady"]!);
+        Assert.True((bool)delta["casting"]!);
+    }
+
+    /// <summary>
     /// A charged fire leaves the cast button held down, and nothing in the settled loadout says so.
     /// The caller has to release it, so the answer says the hold is outstanding.
     /// </summary>
