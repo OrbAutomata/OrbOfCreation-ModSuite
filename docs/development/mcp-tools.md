@@ -1559,8 +1559,11 @@ charges instead of firing at once, and `release` lets it go, landing more power 
 held. The other two modes reject the argument. A charged fire answers `charging: yes` as well,
 because a held input is a thing this call put down that the caller has to pick back up and no
 loadout row says one is outstanding. Charging is offered by the game only on spells that scale with
-it once Charged Spells is researched, so `charge` at a spell the published loadout shows without one
-is refused `spell_not_chargeable` rather than fired plain under a charged name.
+it once Charged Spells is researched, so `charge` at a spell that offers none is refused
+`spell_not_chargeable` rather than fired plain under a charged name. That question is asked of the
+live spell the named position resolves to, never of the published loadout: a slot that moved,
+emptied, or left the bar since publication answers `slot_identity_changed` saying which of those it
+was, so a caller is never told a spell has no charged cast when what actually changed was the slot.
 
 `game_casting_dial` requires `dial` plus a positive `value` and takes no UUID at all, because both
 Output Level and Reserve Level are single global variables. The boundary reads the exact global

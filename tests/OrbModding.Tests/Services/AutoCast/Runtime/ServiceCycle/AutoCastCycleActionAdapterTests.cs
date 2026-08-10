@@ -239,6 +239,53 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         Assert.False(spell.HoldingCharge);
     }
 
+    /// <summary>
+    /// "This spell has no charged cast" is a claim about the spell, so the boundary only makes it
+    /// once the position resolved to the spell the caller named — and it asks the live game, not a
+    /// published loadout a rearrangement can have outrun.
+    /// </summary>
+    [Fact]
+    public void AHoldOnASpellTheGameDoesNotChargeIsRefusedAsTheSpellFactItIs()
+    {
+        var spell = Equip(Ember);
+        spell.NativeCanCharge = false;
+
+        var result = Execute(Fire(0, Ember, chargeable: true), fullCharge: true);
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(AutoCastActionResultCodes.SpellNotChargeable, result.Code);
+        Assert.Equal(0, spell.FireCalls);
+        Assert.False(spell.HoldingCharge);
+    }
+
+    /// <summary>
+    /// A slot that moved, emptied, or fell off the bar mid-cadence answers as the position fact it
+    /// is, in its own words. Told instead that the spell cannot be charged, a caller keeps a false
+    /// belief about a capability long after the slot it was really about has been fixed.
+    /// </summary>
+    [Theory]
+    [InlineData("moved", 0, "now holds")]
+    [InlineData("absent", 3, "is not on the bar")]
+    [InlineData("empty", 0, "is empty")]
+    public void AChargedFireOnASlotThatMovedSaysSoRatherThanBlamingTheSpell(
+        string state,
+        int slotIndex,
+        string expected)
+    {
+        var occupant = Equip(state == "moved" ? Frost : Ember);
+        if (state == "empty") occupant.NativeEmpty = true;
+
+        var result = Execute(Fire(slotIndex, Ember, chargeable: true), fullCharge: true);
+        var submission = new AutoCastNativeAdapter().Fire(slotIndex, Ember, holdFullCharge: true);
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(AutoCastActionResultCodes.SlotIdentityChanged, result.Code);
+        Assert.Equal(AutoCastPreflight.SlotIdentityChanged, submission.Preflight);
+        Assert.Contains(expected, submission.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("charge", submission.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, occupant.FireCalls);
+    }
+
     [Fact]
     public void AReleaseLetsGoWithoutAskingWhetherTheSpellIsStillCharging()
     {

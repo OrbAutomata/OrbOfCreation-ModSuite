@@ -1279,6 +1279,13 @@ public class Spell
     public bool NativeCasting { get; set; }
     public bool NativeReadyingCast { get; set; }
     public bool NativeChargeAvailable { get; set; } = true;
+
+    /// <summary>
+    /// The game's own answer to whether this spell has a charged cast, settable so a boundary can be
+    /// shown refusing a hold on a spell that offers none.
+    /// </summary>
+    public bool NativeCanCharge { get; set; } = true;
+
     public bool SuppressToggleOff { get; set; }
     public bool SuppressAugmentMutation { get; set; }
     public bool ThrowBeforeAugmentMutation { get; set; }
@@ -1315,7 +1322,7 @@ public class Spell
     public bool IsChanneled() => Channeled;
     public bool IsToggledSpell() => ToggledSpell;
     public bool IsEmpty() => NativeEmpty;
-    public bool CanCharge() => true;
+    public bool CanCharge() => NativeCanCharge;
     public bool IsCasting() => NativeCasting;
     public bool IsReadyingCast() => NativeReadyingCast;
 

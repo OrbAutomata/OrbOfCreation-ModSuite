@@ -37,6 +37,15 @@ internal enum AutoCastPreflight
     /// <summary>A full-charge hold was wanted and could not be taken, so no cast was submitted.</summary>
     ChargeHoldRefused,
 
+    /// <summary>
+    /// The spell resolved in the named position, and the game says that spell has no charged cast.
+    /// </summary>
+    /// <remarks>
+    /// Asked only after the position resolved to the spell the caller named, so a moved or emptied
+    /// slot answers as the slot fact it is instead of as a claim about the spell's capabilities.
+    /// </remarks>
+    NotChargeable,
+
     /// <summary>The requested active spell is not a toggle spell.</summary>
     NotToggleable,
 
@@ -180,6 +189,8 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     private MethodInfo? _getTargetingLink;
     private MethodInfo? _submitTarget;
     private MethodInfo? _canCast;
+    private MethodInfo? _canCharge;
+    private MethodInfo? _isEmpty;
     private MethodInfo? _canFire;
     private MethodInfo? _isCasting;
     private MethodInfo? _isToggled;
@@ -218,6 +229,18 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
             if (_blockedSpells.TryGetValue(spellRecipeId, out var blocked))
                 return AutoCastSubmission.Rejected(AutoCastPreflight.ContractUnavailable, blocked);
+
+            // Asked of the spell this position actually resolved to, not of a published loadout a
+            // rearrangement can have outrun. A hold on a spell the game does not charge would set an
+            // input the game ignores and fire an ordinary cast under a charged name; a hold asked
+            // for on a slot that moved or emptied is a slot fact, and TryResolveSlot above has
+            // already said which one it was.
+            if (holdFullCharge && _canCharge!.Invoke(spell, Array.Empty<object>()) is not true)
+            {
+                return AutoCastSubmission.Rejected(
+                    AutoCastPreflight.NotChargeable,
+                    "the game offers this spell no charged cast to hold");
+            }
 
             // Spell.Fire's own first branch, asked before pressing it. A running spell answers the
             // press with a warning popup or with an end-of-cast, never with a new cast, and the
@@ -675,6 +698,15 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             return false;
         }
 
+        // The game's own emptiness, asked before the identity read. An empty socket is a live Spell
+        // carrying no recipe, so reading its identity answered "what occupies it now could not be
+        // named" — true, and no use to a caller whose slot is simply empty.
+        if (_isEmpty!.Invoke(candidate, Array.Empty<object>()) is true)
+        {
+            reason = $"Spell slot {slotIndex + 1} is empty.";
+            return false;
+        }
+
         // Naming the occupant is the point of this refusal. "The identity changed" leaves a caller
         // with no next move; "the slot now holds Firebolt" says which plan to redo and against what.
         var recipe = _getReference?.Invoke(candidate, Array.Empty<object>());
@@ -734,6 +766,8 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             _submitTarget = _targetingType.GetMethods(StaticFlags)
                 .FirstOrDefault(method => method.Name == "SubmitTarget" && method.GetParameters().Length == 1);
             _canCast = FindMethod(_spellType, "CanCast");
+            _canCharge = FindMethod(_spellType, "CanCharge");
+            _isEmpty = FindMethod(_spellType, "IsEmpty");
             _canFire = FindMethod(_spellType, "CanFire");
             _isCasting = FindMethod(_spellType, "IsCasting");
             _isToggled = FindMethod(_spellType, "IsToggledSpell");
@@ -750,7 +784,8 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
             if (_activeSpellsValue is null || _fireSpellIndex is null || _canCastASpell is null ||
                 _isTargeting is null || _getTargetingLink is null || _submitTarget is null ||
-                _canCast is null || _canFire is null || _isCasting is null ||
+                _canCast is null || _canCharge is null || _isEmpty is null ||
+                _canFire is null || _isCasting is null ||
                 _isToggled is null || _canCancelSpells is null || _setChargeInput is null)
             {
                 return Block("native cast accessors are unavailable", out reason);

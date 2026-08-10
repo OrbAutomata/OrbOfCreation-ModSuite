@@ -222,17 +222,23 @@ public sealed class GameMcpCastTests
     /// A hold asked for on a spell the game will not charge would set an input the game ignores and
     /// fire an ordinary cast under the name of a charged one, so it is refused with the reason.
     /// </summary>
+    /// <remarks>
+    /// The fact is observed at the action boundary, of the live spell the position resolves to
+    /// (<c>AutoCastCycleActionAdapterTests</c> pins that), because a published loadout is up to a
+    /// cadence old and a moved or emptied slot answered here as a claim about the spell. This pins
+    /// the class and the sentence the boundary's verdict crosses the wire as.
+    /// </remarks>
     [Fact]
     public void A_charge_the_game_does_not_offer_is_refused_rather_than_fired_plain()
     {
-        var chargeable = World(casting: false, cancellationEnabled: true, chargeable: true);
-        var plain = World(casting: false, cancellationEnabled: true, chargeable: false);
-        var other = Guid.Parse("11111111-1111-4111-8111-111111111111");
+        var code = AutoCastActionResultCodes.SpellNotChargeable;
 
-        Assert.True(AutomataServiceCycleRuntime.SpellSlotCharges(chargeable, 0, RecipeId));
-        Assert.False(AutomataServiceCycleRuntime.SpellSlotCharges(plain, 0, RecipeId));
-        Assert.False(AutomataServiceCycleRuntime.SpellSlotCharges(chargeable, 0, other));
-        Assert.False(AutomataServiceCycleRuntime.SpellSlotCharges(chargeable, 1, RecipeId));
+        Assert.Equal(
+            "spell_not_chargeable",
+            GameMcpActionResultCodeNames.Name(code, GameMcpCommandKind.Cast));
+        Assert.Equal(
+            "The game offers this spell no charged cast, so it can only be fired outright.",
+            GameMcpActionResultCodeNames.Reason(code, GameMcpCommandKind.Cast));
 
         var refusal = GameMcpTestHarness.Json(new GameMcpObjectBuilder
         {

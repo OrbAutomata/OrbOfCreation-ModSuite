@@ -54,4 +54,12 @@ internal static class AutoCastActionResultCodes
 
     /// <summary>The spell was already running, so the fire press would have started no cast.</summary>
     public static ServiceActionResultCode SpellAlreadyCasting => new(3083);
+
+    /// <summary>The game says the spell in the named position has no charged cast to hold.</summary>
+    /// <remarks>
+    /// A statement about the spell, so it is only reached once the position resolved to the spell
+    /// the caller named. A position that moved or emptied answers <see cref="SlotIdentityChanged"/>
+    /// instead, because a caller told a spell cannot be charged believes that durably.
+    /// </remarks>
+    public static ServiceActionResultCode SpellNotChargeable => new(3084);
 }

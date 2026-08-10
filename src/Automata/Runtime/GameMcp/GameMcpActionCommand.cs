@@ -545,6 +545,8 @@ internal static class GameMcpActionResultCodeNames
                 return "This spell has nothing valid to aim at right now.";
             if (code == AutoCastActionResultCodes.ChargeHoldRefused)
                 return "A charged-cast hold could not be established, so no cast was submitted.";
+            if (code == AutoCastActionResultCodes.SpellNotChargeable)
+                return "The game offers this spell no charged cast, so it can only be fired outright.";
         }
 
         // Last resort, and deliberately number-free. Every boundary above answers with its own
@@ -651,6 +653,8 @@ internal static class GameMcpActionResultCodeNames
             return "spell_already_inactive";
         if (code == AutoCastActionResultCodes.SpellAlreadyCasting)
             return "spell_already_casting";
+        if (code == AutoCastActionResultCodes.SpellNotChargeable)
+            return "spell_not_chargeable";
         if (code == AutoCastActionResultCodes.CancellationDisabled)
             return "cancellable_spells_disabled";
         if (commandKind == GameMcpCommandKind.DiscoveryTreeOffer)

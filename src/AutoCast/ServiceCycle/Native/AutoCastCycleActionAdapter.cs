@@ -201,6 +201,8 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
                 return ServiceActionResult.Rejected(AutoCastActionResultCodes.NoValidTarget);
             case AutoCastPreflight.ChargeHoldRefused:
                 return ServiceActionResult.Rejected(AutoCastActionResultCodes.ChargeHoldRefused);
+            case AutoCastPreflight.NotChargeable:
+                return ServiceActionResult.Rejected(AutoCastActionResultCodes.SpellNotChargeable);
             case AutoCastPreflight.NotToggleable:
                 return ServiceActionResult.Rejected(AutoCastActionResultCodes.SpellNotToggleable);
             case AutoCastPreflight.AlreadyInactive:
