@@ -299,6 +299,38 @@ internal static class GameMcpWorldQuery
                 ["equippedCount"] = equipment.EquippedLevel,
             }.Freeze();
 
+        // The facts the ritual screen is scanned by: which one is held, how far it has been taken,
+        // what a run would start at, how long a run is, and whether it can be paid for. Reading them
+        // one ritual at a time cost a detail page per candidate to compare a column the row had.
+        // Every field is unconditional, so the column set is the same page after a prestige.
+        if (row is WorldRitual listedRitual)
+            return new JObject
+            {
+                ["entityId"] = listedRitual.EntityId.ToString("D"),
+                ["discovered"] = listedRitual.Discovered,
+                ["selected"] = listedRitual.Decision.Selected,
+                ["reachedLevel"] = listedRitual.ReachedLevel,
+                ["selectedLevel"] = listedRitual.SelectedLevel,
+                ["waveTotal"] = listedRitual.RequiredWaves,
+                ["affordable"] = listedRitual.Decision.ActivationAffordable,
+            }.Freeze();
+
+        // What a caller picks the next research by. `state` says complete, so `complete` does not
+        // say it again. `affordable` is the published cost verdict for the next development, which
+        // is a fact of the row rather than of the develop gate, so the scan row carries it on every
+        // row instead of only where the gate happened to be open.
+        if (row is WorldResearch listedResearch)
+            return new JObject
+            {
+                ["entityId"] = listedResearch.EntityId.ToString("D"),
+                ["state"] = ResearchState(listedResearch),
+                ["totalLevel"] = listedResearch.TotalLevel,
+                ["queuedLevels"] = ResearchQueuedLevels(in listedResearch),
+                ["canDevelop"] = listedResearch.Decision.Available &&
+                    listedResearch.Decision.LevelsAvailable > 0,
+                ["affordable"] = listedResearch.Decision.DevelopmentCostAffordable,
+            }.Freeze();
+
         // The gate the detail row already publishes. A hidden resource type refuses every level
         // purchase, so a list that omits it is a list a caller must probe row by row.
         if (row is WorldResourceType resourceType)
@@ -558,7 +590,6 @@ internal static class GameMcpWorldQuery
         "resources" => new[] { "entityId", "trueQuantity" },
         "structures" => new[] { "entityId", "level", "reading.disabled" },
         "upgrades" => new[] { "entityId", "level" },
-        "research" => new[] { "entityId", "totalLevel", "complete" },
         "spell-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
         "alchemy-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
         "equipment" => new[] { "entityId", "equippedLevel" },

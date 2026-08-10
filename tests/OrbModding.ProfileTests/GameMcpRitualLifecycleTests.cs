@@ -190,6 +190,28 @@ public sealed class GameMcpRitualLifecycleTests
         Assert.Single(activate["completionCosts"]!.Values<JObject>());
     }
 
+    /// <summary>
+    /// Comparing 32 rituals used to mean 32 detail pages, because the list row carried nothing the
+    /// screen is scanned by. Every column here is written unconditionally, so the header a caller
+    /// parses is the same one after a prestige.
+    /// </summary>
+    [Fact]
+    public void A_ritual_list_row_carries_what_the_ritual_screen_is_scanned_by()
+    {
+        var world = World(selected: true, level: 3, activeInstances: 0);
+        var response = Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 806), "rituals", 0, 50).Freeze(), world);
+        var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
+
+        Assert.Equal("Moon Rite", (string?)row["name"]);
+        Assert.True((bool)row["discovered"]!);
+        Assert.True((bool)row["selected"]!);
+        Assert.Equal(6, (int)row["reachedLevel"]!);
+        Assert.Equal(3, (int)row["selectedLevel"]!);
+        Assert.Equal(10, (int)row["waveTotal"]!);
+        Assert.True((bool)row["affordable"]!);
+    }
+
     [Fact]
     public void Finished_run_leaves_its_record_on_the_row_the_next_read_returns()
     {

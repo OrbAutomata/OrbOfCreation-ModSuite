@@ -311,6 +311,22 @@ equipped none", and the only other way to tell those apart was to attempt an equ
 refusal. A `resource-types` row carries the same `hidden` gate its detail row does, because a
 hidden type refuses every level purchase and a list without it is a list a caller probes row by row.
 
+Narrower also never means a caller has to fetch a detail page per candidate to compare a column the
+row already had. A list row carries the columns its category is scanned by, and those columns are
+written unconditionally so the header is the same one before and after a lifecycle boundary:
+
+| Category | Scan columns |
+| --- | --- |
+| `rituals` | `discovered`, `selected`, `reachedLevel`, `selectedLevel`, `waveTotal`, `affordable` |
+| `research` | `state`, `totalLevel`, `queuedLevels`, `canDevelop`, `affordable` |
+| `equipment` | `created`, `equippedCount` |
+| `resource-types` | `level`, `hidden` |
+
+`research` says `state` and never a second `complete` column, because `state` already reads
+`complete`; `canDevelop` is the develop decision the detail row publishes, and `affordable` is the
+published cost verdict for the next development, which is a fact of the row rather than of the
+develop gate — so the scan row carries it everywhere instead of only where that gate is open.
+
 A `structures` row publishes `level` as the number the attribute's own badge shows, the game's
 persisted `GetBaseLevel()`, and names work still in flight separately as `queuedLevels`, which is
 always present because zero levels in flight is an answer; neither

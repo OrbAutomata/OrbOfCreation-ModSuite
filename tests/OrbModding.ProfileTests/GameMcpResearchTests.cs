@@ -409,6 +409,28 @@ public sealed class GameMcpResearchTests
         };
     }
 
+    /// <summary>
+    /// Choosing among 148 researches used to need a detail page per candidate. `state` already says
+    /// complete, so no second column repeats it, and the cost verdict rides every row rather than
+    /// only the rows whose develop gate happened to be open.
+    /// </summary>
+    [Fact]
+    public void A_research_list_row_carries_what_a_caller_picks_the_next_research_by()
+    {
+        var world = World(developmentCostAffordable: false);
+        var response = Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, 2811), "research", 0, 50).Freeze(), world);
+        var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
+
+        Assert.Equal("Improved Casting", (string?)row["name"]);
+        Assert.Equal("active", (string?)row["state"]);
+        Assert.Equal(1, (int)row["totalLevel"]!);
+        Assert.Equal(3, (int)row["queuedLevels"]!);
+        Assert.False((bool)row["canDevelop"]!);
+        Assert.False((bool)row["affordable"]!);
+        Assert.Null(row["complete"]);
+    }
+
     [Fact]
     public void Develop_over_ask_carries_the_ceiling_its_own_sentence_names()
     {
