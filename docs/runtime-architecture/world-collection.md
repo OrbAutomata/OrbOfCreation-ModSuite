@@ -13,7 +13,7 @@ configuration, world state and strategy and nothing else — is stated in
 ## The pipeline
 
 ```
-60 category readers over the game's registries
+63 category readers over the game's registries
         │  Unity thread, once per 250 ms
         ▼
 GameWorldCollector ──fills──► GameWorldCycleFrame
@@ -296,6 +296,68 @@ asset name. `ChallengeTypeSO` is why — its seven assets are effect-targetable 
 names, deliberately wordless, and an asset-name fallback would invent seven keywords the game never
 shows.
 
+## Type-level modifiers, and the trap in reading them
+
+Every taxonomy that derives from `UpgradeableObject` carries modifier records of its own — 145 of
+them across fourteen classes, 1,812 records once each class's assets are counted. `WorldTypeModifier.cs`
+publishes them as two categories rather than as members on fourteen row structs, because the shape is
+identical everywhere and a record is a record:
+
+| Category | Key | Carries |
+| --- | --- | --- |
+| `type modifiers` | type asset + record member | the record class, and the active and passive modifier counts |
+| `type modifier contributions` | type asset + record member + modifier | one row per modifier: its kind, amount, order, and the tooltipable source that added it |
+
+The counts exist so a consumer can size the contribution table before walking it. The contribution
+table is variable-size with no upper bound the audited build can state: both dictionaries are runtime
+state written by whatever effect fired, so the population in a mid-game save is not knowable from IL
+or from the serialized assets.
+
+Capture stops at the entries. A distributor holds no value of its own — its total is `Adjust(100)`,
+which is arithmetic, and arithmetic on the Unity thread is exactly what this boundary refuses. The
+fold belongs in derivation with the rest of the modifier math.
+
+> **A published type total and a published member value are not two factors.** Eleven of the fourteen
+> taxonomies reach their members by *distribution*: when a modifier lands on a
+> `MergingModifierRecord` or an `OrderedMultiplierRecord`, that record pushes a transformed copy into
+> every member record registered with `AddRecord`, and the member's own `ValueModifierRecord` — which
+> this collection already publishes, folded — carries the result. Multiplying a total derived from
+> these rows into a member value the snapshot already carries counts one bonus twice.
+> `SpellTypeSO` is the single exception: all twenty-two of its records are values, nothing
+> distributes, and `Spell.GetPower()` multiplies the type layer in as its own factor.
+
+`ValueModifierRecord` is how the two are told apart, which is why the record class is published on
+every row and pinned per member by `TypeModifierContractTests` against the audited build.
+
+### The reads that bound a type-level bonus
+
+Three more reads exist because "a type-wide bonus reaches that type's own members" is not true as
+written:
+
+- **`structure-type.sub-types`**, published in the same category. `StructureTypeSO.Initialize()`
+  calls `RegisterSubType` per entry, and that wires the parent's thirteen records into the child's
+  thirteen — so a bonus on a parent reaches the children's members too, and the covered set is the
+  transitive closure over this edge rather than one membership list.
+- **The effective spell type set.** `Spell.GetAllSpellTypes()` is
+  `SpellRecipeSO.GetNotSpellTypes()` concatenated with `Spell.augmentedSpellTypes`, and the latter is
+  seeded from the recipe's authored list and then rewritten from the equipped glyphs. So the authored
+  list answers the wrong question the moment a glyph changes. The recipe half rides the spell
+  authored graph as a fourth relation kind; the live half is published per slot as `SpellSlotTypes`,
+  because a `Spell` is the occupant of a position rather than an entity of its own. `notSpellTypes`
+  is empty on all sixty-five recipes on the audited build — a reading, not a rule, so it is bound
+  like anything else.
+- **The challenge draft's buckets.** `ChallengeTypeSO` is the one type asset family with no modifier
+  surface at all: it derives straight from `IdScriptableObject`, and its four authored fields are a
+  weight, two draft flags, and a display effect. The draft picks a type from a weighted table and
+  then a challenge from that type's bucket, so those fields decide whether a challenge can be offered
+  at all. They are published with the challenge decision state, which is the decision they belong to,
+  as `ChallengeTypes` and `ChallengeTypeMemberships`.
+
+Neither type-modifier category is structural: modifier dictionaries are runtime state, so both are
+read every pass. That is also why the three reads above are declared `per-pass` rather than
+`per-epoch` even though what they carry is authored — the cadence on a contract says how often the
+suite touches the member, and these are touched by per-pass readers.
+
 ## What is deliberately not collected
 
 An immutable publication may not carry a list, and wrapping each list in an audited table is a
@@ -376,7 +438,7 @@ freezes the generation for the same reason and with the same effect.
 One file per category under `src/Common/Runtime/World/Categories/`, each holding that category's row
 struct and its binder. The machinery lives one directory up: `WorldCategoryMachinery.cs` (buffers,
 readers, derivers), `NativeAccessorBinder.cs` (member binding), `GameWorldCollector.cs` (the pass, and
-owner of the 61-reader array), `GameWorldStateDeriver.cs` (the four derived row kinds — resource,
+owner of the 63-reader array), `GameWorldStateDeriver.cs` (the four derived row kinds — resource,
 structure, upgrade, plot node).
 
 Ten readers are **structural**: plot authoring, effect blocks, spell authoring, entity requirement

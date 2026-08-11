@@ -21,12 +21,16 @@ Four consequences carry all the weight:
 
 - A concrete asset holds references to **one or more** type assets, and each type asset holds a
   registered-member collection pointing back. Membership is a set, not a hierarchy.
-- Type assets are not global. They affect exactly the instances registered with them. A "type-wide"
-  bonus is bounded by that registration list.
+- Type assets are not global. They affect the instances registered with them — plus, for structures,
+  the members of every subtype. `StructureTypeSO.subTypes` is a real type-to-type edge:
+  `Initialize()` calls `RegisterSubType` per entry, which wires the parent's thirteen records into
+  the child's thirteen. The covered set is the transitive closure over that edge, and on the audited
+  build there is exactly one chain (`PrimalStructures` → Arcanist, Flameweaver, Stormshaper).
 - List variables are **index surfaces**, not UI lists. They are where you find live instances,
   filtered views, and registries that the type assets do not expose.
 - The same statistic can be reached through concrete → type → group → player-global layers, so a
-  broad bonus can double-apply.
+  broad bonus can double-apply — and the exact place it does is now known. See
+  [where a type bonus actually lands](#where-a-type-bonus-actually-lands).
 
 ## Base-class families and what each affords
 
@@ -99,6 +103,45 @@ augmented type lists. Spell calculations then request Power, CooldownSpeed, Cost
 **every** applicable `SpellTypeSO` via `SpellTypeSO.GetValueModifierRecord`. So a tag-targeted buff
 applies according to the spell's *effective* type set, glyph changes included — never according to
 its name or its authored tags alone.
+
+## Where a type bonus actually lands
+
+"All Cantrips +10%" is not a number stored on the Cantrip asset. A type SO carries a *record*, and
+there are three kinds:
+
+| Class | What it is | Has a value of its own? |
+|---|---|---|
+| `ValueModifierRecord` | a value: `baseValue` plus a folded memo | yes — `GetValue()` |
+| `MergingModifierRecord` | a distributor with per-entry ratio/exponent/condition/order transforms | no; its total is `Adjust(100)` |
+| `OrderedMultiplierRecord` | a distributor that first collapses itself to one multiplier per order | no; its total is `Adjust(100)` |
+
+`MergingModifierRecord.Add` keeps its own copy and then pushes a transformed copy into every member
+record registered by `AddRecord`; `OrderedMultiplierRecord` does the same after collapsing itself to
+one `StackingRaw` modifier per order. Thirteen `Register*` methods wire those pairs —
+`StructureTypeSO.RegisterStructure` alone wires thirteen of them, and the member records the suite
+already collects are the identical set.
+
+**So for a distributor, the type's contribution is already inside the member value.** A type total and
+a member value are the same bonus counted twice, not two factors to multiply. The one class where
+this does not hold is `SpellTypeSO`, which has no distributor field at all: `Spell.GetPower()`
+multiplies `Spell.GetSpellTypePowerPercent()` in as an independent layer, aggregating
+`GetPower().AsPercent()` over the spell's effective type set.
+
+What is genuinely absent from the member side is the distributor's *own* total — the `Adjust(100)`
+its tooltip prints. That is pure arithmetic over its two modifier dictionaries, both of which are
+runtime state and therefore absent from any serialized dump.
+
+One boundary inside this stays `Unresolved`: `MergeEntry`'s `mod`, `expMod`, `condition` and
+`orderAdjust` are `Func<>` delegates created at `AddRecord` time. IL proves *that* a transform is
+applied and *where*; it cannot yield the ratio without invoking it. A claim of the form "this type
+gives its members +X%" that assumes a ratio of 1 is a guessed magnitude, not a read one.
+
+`UpgradeableObject.ModifierPropertyRecord` — the `PropertyRefs` member — is a property-*name* schema
+rather than authored magnitudes: `propertyNames`, `modifierPropertyNames`, `effectPropertyNames` and
+a display/tooltip descriptor per key, built in each class's static constructor. The string keys are
+real (`SpellTypeSO.GetValueModifierRecord` is a 21-arm switch mapping `"Power"` → `power`), and they
+are how an authored effect names its target property — which is why an authored magnitude lives on
+the effect and not on the type asset.
 
 ## What IL cannot prove
 
