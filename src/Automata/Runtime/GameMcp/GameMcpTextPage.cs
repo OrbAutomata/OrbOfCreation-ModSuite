@@ -79,6 +79,8 @@ internal static class GameMcpTextPage
         // never become lines of their own — but only where there is a table to say it on.
         var paged = verdict is null ? TableProperty(item) : null;
         var declared = paged is null ? null : Declared(item);
+        var opened = lines.Count;
+        string? outcome = null;
         foreach (var property in item.Properties())
         {
             if (verdict is not null && property.Name is "status" or "reasonCode" or "reason")
@@ -88,6 +90,7 @@ internal static class GameMcpTextPage
             if (verdict is null && property.Name == "status" &&
                 (string?)property.Value is "available" or "committed")
             {
+                outcome = (string?)property.Value;
                 continue;
             }
             if (paged is not null && property.Name is "total" or "nextOffset" or "columns") continue;
@@ -101,6 +104,13 @@ internal static class GameMcpTextPage
                 indent,
                 lines);
         }
+
+        // The status word is dropped because the page beneath it already proves it. Where an action
+        // has no observable payload — a loadout swap the game exposes no read for, a menu return —
+        // there is no page beneath it, and dropping the one word it had left rendered a press that
+        // landed as the literal `(empty)`. A press that worked says so and stops; that is the whole
+        // honest answer, and inventing a second fact to sit under it would be the older lie again.
+        if (lines.Count == opened && outcome is not null) lines.Add(indent + outcome);
     }
 
     /// <summary>

@@ -436,6 +436,21 @@ public sealed class GameMcpTextPageTests
             page.Split('\n'));
     }
 
+    /// <summary>
+    /// A press that landed says so. The status word is dropped because the page under it proves the
+    /// answer, and an action the game exposes no read for has no page under it — so the one word it
+    /// had left was dropped too and a committed press rendered as the literal `(empty)`.
+    /// </summary>
+    [Fact]
+    public void A_committed_action_with_nothing_to_show_still_says_it_worked()
+    {
+        Assert.Equal("committed", Render(@"{'status':'committed'}"));
+        Assert.Equal("available", Render(@"{'status':'available'}"));
+
+        // And it is still dropped wherever the page beneath it says the same thing.
+        Assert.Equal("level: 1 -> 2", Render(@"{'status':'committed','level':{'before':1,'after':2}}"));
+    }
+
     private static string Render(string json) =>
         GameMcpTextPage.Render(JToken.Parse(json.Replace('\'', '"')));
 }

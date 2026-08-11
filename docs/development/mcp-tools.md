@@ -214,6 +214,10 @@ than printing itself into a cell.
   not currently active.` A decision block reads the same way, verdict first and sentence last:
   `equip: no (ERR_LIMIT) maximumAmount=0: Every slot in this loadout is in use.`
 - **A value beside its ceiling is `43/45`**, the way the screen shows it.
+- **A press that landed says so even when it has nothing to show for it.** The status word is
+  dropped because the page under it already proves the answer — but an action the game exposes no
+  read for has no page under it, and there the word is the whole answer: `committed`, and nothing
+  invented to sit beneath it.
 - **An envelope is not a fact.** One object wrapped in one key that names nothing the caller asked
   about is unwrapped, so an entity appears once per response.
 - **Constants live here, not in answers.** A number that is the same in every save on every call is
