@@ -459,7 +459,9 @@ two surfaces that still carry the asset name and the runtime type, because brows
 the one activity that asks for them. `category=not-world-projected`
 means that the live registry identity has no world row. `nameSource=asset` appears only when no
 player-facing name exists and the Unity asset name supplied the label; absence means the name is
-player-facing. `internalName` appears only when it differs. The same immutable
+player-facing. `internalName` appears only when it differs. An id nobody can name says so in its
+`name` cell — `(unnamed 2c20e7)`, the one form this surface has for it — and nowhere else: a second
+block saying the same thing put a refusal class in a table cell, and a table refuses nothing. The same immutable
 catalog reference is pinned with the answering world and supplies names for every MCP entity
 reference; UUID-only joins are unnecessary. Catalog membership and naming do not prove current
 visibility, availability, or a world-category row. Lifecycle replacement clears the catalog before

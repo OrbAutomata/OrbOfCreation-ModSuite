@@ -141,15 +141,11 @@ internal static class GameMcpEntityCatalog
                 out var category))
             result["category"] = category;
         else result["category"] = "not-world-projected";
-        if (!identity.HasName)
-        {
-            result["nameEvidence"] = new JObject
-            {
-                ["status"] = "not_available",
-                ["code"] = "entity_name_unavailable",
-                ["reason"] = "the live registry entry has no player-facing or asset name",
-            };
-        }
+
+        // An id nobody can name says so in its name cell — `(unnamed 2c20e7)`, the one form this
+        // surface has for it. A second block saying the same thing put a refusal class in a table
+        // cell, and a table refuses nothing: the reader who has already read `(unnamed …)` learned
+        // from `unavailable (ERR_UNAVAILABLE): …` only that the row would say it twice.
         return result;
     }
 
