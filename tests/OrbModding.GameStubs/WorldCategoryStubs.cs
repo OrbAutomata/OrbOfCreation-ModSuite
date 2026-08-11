@@ -4,6 +4,21 @@ using System.Linq;
 
 public sealed class StructureTypeSO : UpgradeableObject
 {
+    public static List<StructureTypeSO> All = new List<StructureTypeSO>();
+    public List<StructureTypeSO> subTypes = new List<StructureTypeSO>();
+    public ModifierRecord activeCostMod = new ModifierRecord();
+    public ModifierRecord attributeRankEffectMod = new ModifierRecord();
+    public ModifierRecord bonusLevels = new ModifierRecord();
+    public ModifierRecord buildSpeedMod = new ModifierRecord();
+    public ModifierRecord costScalingMod = new ModifierRecord();
+    public ModifierRecord drainCostMod = new ModifierRecord();
+    public ModifierRecord echoBuildRating = new ModifierRecord();
+    public ModifierRecord effectLevels = new ModifierRecord();
+    public ModifierRecord passiveCostMod = new ModifierRecord();
+    public ModifierRecord powerBuildRating = new ModifierRecord();
+    public ModifierRecord structurePower = new ModifierRecord();
+    public ModifierRecord structurePowerScaling = new ModifierRecord();
+    public ModifierRecord structureSpeed = new ModifierRecord();
     private List<StructureSO> structures = StructureSO.All;
 
     public void RegisterStructure(StructureSO structure) => structures.Add(structure);
@@ -705,6 +720,12 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
 
 public sealed class ConsumableTypeSO : IdScriptableObject
 {
+    public static List<ConsumableTypeSO> All = new List<ConsumableTypeSO>();
+    public ModifierRecord bonusLevels = new ModifierRecord();
+    public ModifierRecord durationMod = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public ModifierRecord prepSpeed = new ModifierRecord();
+    public ModifierRecord special = new ModifierRecord();
     public string DisplayName = string.Empty;
     public IntVariable maximumCarryLoad = new IntVariable();
 
@@ -1282,11 +1303,21 @@ public sealed class ChallengeSO : IdScriptableObject
 /// </remarks>
 public sealed class PassiveAbilityTypeSO : UpgradeableObject
 {
+    public ModifierRecord cooldown = new ModifierRecord();
+    public ModifierRecord costMod = new ModifierRecord();
+    public ModifierRecord durationMod = new ModifierRecord();
+    public ModifierRecord maxStacksMod = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
     public static List<PassiveAbilityTypeSO> All = new List<PassiveAbilityTypeSO>();
 }
 
 public sealed class TimeRuneTypeSO : UpgradeableObject
 {
+    public ModifierRecord freeUsages = new ModifierRecord();
+    public ModifierRecord masteryXpMod = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public ModifierRecord powerScalingMod = new ModifierRecord();
+    public ModifierRecord totalLevel = new ModifierRecord();
     public static List<TimeRuneTypeSO> All = new List<TimeRuneTypeSO>();
 }
 
@@ -1297,11 +1328,30 @@ public sealed class GlyphTypeSO : TooltipableObject
 
 public sealed class HarvestActionTypeSO : UpgradeableObject
 {
+    public ModifierRecord costMod = new ModifierRecord();
+    public ModifierRecord growthSizeMod = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public ModifierRecord refundRating = new ModifierRecord();
+    public ModifierRecord speed = new ModifierRecord();
     public static List<HarvestActionTypeSO> All = new List<HarvestActionTypeSO>();
 }
 
 public sealed class RitualTypeSO : UpgradeableObject
 {
+    public ModifierRecord activeRituals = new ModifierRecord();
+    public ModifierRecord chainLengthBonus = new ModifierRecord();
+    public ModifierRecord chainPower = new ModifierRecord();
+    public ModifierRecord completionCostMod = new ModifierRecord();
+    public ModifierRecord completionRateMod = new ModifierRecord();
+    public ModifierRecord critDurationMod = new ModifierRecord();
+    public ModifierRecord critPower = new ModifierRecord();
+    public ModifierRecord critRating = new ModifierRecord();
+    public ModifierRecord durationMod = new ModifierRecord();
+    public ModifierRecord echoPower = new ModifierRecord();
+    public ModifierRecord echoRating = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public ModifierRecord special = new ModifierRecord();
+    public ModifierRecord speed = new ModifierRecord();
     public static List<RitualTypeSO> All = new List<RitualTypeSO>();
 }
 
@@ -1312,16 +1362,42 @@ public sealed class CharacterTypeSO : TooltipableObject
 
 public sealed class PlotNodeTypeSO : UpgradeableObject
 {
+    public ModifierRecord actionCostMod = new ModifierRecord();
+    public ModifierRecord actionSpeed = new ModifierRecord();
+    public ModifierRecord actionXpRate = new ModifierRecord();
+    public ModifierRecord growingSpeed = new ModifierRecord();
+    public ModifierRecord qualityMod = new ModifierRecord();
+    public ModifierRecord recoverySizeMod = new ModifierRecord();
+    public ModifierRecord restingSpeed = new ModifierRecord();
+    public ModifierRecord sizeMod = new ModifierRecord();
+    public ModifierRecord specialMod = new ModifierRecord();
+    public ModifierRecord totalLevel = new ModifierRecord();
+    public ModifierRecord yieldMod = new ModifierRecord();
     public static List<PlotNodeTypeSO> All = new List<PlotNodeTypeSO>();
 }
 
 public sealed class HarvestTypeSO : UpgradeableObject
 {
+    public ModifierRecord autoGenerationMod = new ModifierRecord();
+    public ModifierRecord drainCostMod = new ModifierRecord();
+    public ModifierRecord experienceRateMod = new ModifierRecord();
+    public ModifierRecord growthSpeedMod = new ModifierRecord();
+    public ModifierRecord harvestSpeedMod = new ModifierRecord();
+    public ModifierRecord level = new ModifierRecord();
+    public ModifierRecord maxQuantity = new ModifierRecord();
+    public ModifierRecord maxRestGrowth = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public ModifierRecord qualityMod = new ModifierRecord();
+    public ModifierRecord restingGrowthSpeedMod = new ModifierRecord();
     public static List<HarvestTypeSO> All = new List<HarvestTypeSO>();
 }
 
 public sealed class ChallengeTypeSO : IdScriptableObject
 {
+    public static List<ChallengeTypeSO> All = new List<ChallengeTypeSO>();
+    public double weight;
+    public bool restrictedInstances;
+    public bool excludeFromRandomSelection;
     public bool limitedToOneInstance;
     public bool IsLimitedToOneInstance() => limitedToOneInstance;
 }

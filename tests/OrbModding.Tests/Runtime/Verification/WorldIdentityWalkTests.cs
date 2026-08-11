@@ -160,6 +160,12 @@ public sealed class WorldIdentityWalkTests
         "SpellAuthoredCosts",
         "SpellRelations",
         "EntityKeywords",
+        "TypeModifiers",
+        "TypeModifierContributions",
+        "TypeSubtypes",
+        "ChallengeTypes",
+        "ChallengeTypeMemberships",
+        "SpellSlotTypes",
     };
 
     /// <summary>

@@ -177,6 +177,9 @@ public static class AutoBuyManager
 
 public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
 {
+#pragma warning disable CS0414 // Native private field read by the collector through a bound accessor.
+    private List<SpellTypeSO> notSpellTypes = new List<SpellTypeSO>();
+#pragma warning restore CS0414
     public static List<SpellRecipeSO> All = new List<SpellRecipeSO>();
     private string stableUuid;
 
@@ -1256,6 +1259,7 @@ public class PersistentResetManager
 
 public class Spell
 {
+    public List<SpellTypeSO> augmentedSpellTypes = new List<SpellTypeSO>();
     private readonly SpellRecipeSO? reference;
     public static Action? FireSignal { get; set; }
     public string DisplayName { get; set; } = "Spell";
@@ -1937,6 +1941,13 @@ public class ResearchSO : ILevelable
 
 public class ResearchTypeSO : IdScriptableObject
 {
+    public static List<ResearchTypeSO> All = new List<ResearchTypeSO>();
+    public ModifierRecord freeBonusLevels = new ModifierRecord();
+    public ModifierRecord levelRequirementAdjust = new ModifierRecord();
+    public ModifierRecord maxInvestmentLevel = new ModifierRecord();
+    public ModifierRecord maxLevelCap = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public ModifierRecord usedBonusLevels = new ModifierRecord();
     public int FreeBonusLevels { get; set; }
     public int UsedBonusLevels { get; set; }
     public int CurrentInvestmentLevel { get; set; }

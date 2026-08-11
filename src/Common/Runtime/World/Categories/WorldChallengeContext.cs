@@ -7,6 +7,59 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
 
+/// <summary>
+/// One challenge type as the draft sees it: a weighted bucket, and whether it may appear more than
+/// once in an offer.
+/// </summary>
+/// <remarks>
+/// <c>ChallengeTypeSO</c> derives directly from <c>IdScriptableObject</c> rather than from
+/// <c>UpgradeableObject</c>, so it carries no modifier surface at all — these four authored fields
+/// and nothing else. <c>ChallengeManager.GenerateNewChallengeList</c> draws a type from a
+/// <c>WeightedTable&lt;ChallengeTypeSO&gt;</c>, then a challenge from that type's bucket, and drops a
+/// <see cref="RestrictedInstances"/> type from the pool after one pick.
+/// <see cref="ExcludeFromRandomSelection"/> keeps a type out of the draft entirely.
+/// <c>ChallengeSO.GetWeight()</c> reads the challenge's own weight, never this one.
+/// </remarks>
+internal readonly struct WorldChallengeTypeBucket
+{
+    internal WorldChallengeTypeBucket(
+        Guid challengeTypeId,
+        double weight,
+        bool restrictedInstances,
+        bool excludeFromRandomSelection)
+    {
+        ChallengeTypeId = challengeTypeId;
+        Weight = weight;
+        RestrictedInstances = restrictedInstances;
+        ExcludeFromRandomSelection = excludeFromRandomSelection;
+    }
+
+    internal Guid ChallengeTypeId { get; }
+
+    internal double Weight { get; }
+
+    internal bool RestrictedInstances { get; }
+
+    internal bool ExcludeFromRandomSelection { get; }
+}
+
+/// <summary>Which bucket a challenge is drafted out of.</summary>
+internal readonly struct WorldChallengeTypeMembership
+{
+    internal WorldChallengeTypeMembership(Guid challengeId, int ordinal, Guid challengeTypeId)
+    {
+        ChallengeId = challengeId;
+        Ordinal = ordinal;
+        ChallengeTypeId = challengeTypeId;
+    }
+
+    internal Guid ChallengeId { get; }
+
+    internal int Ordinal { get; }
+
+    internal Guid ChallengeTypeId { get; }
+}
+
 internal readonly struct WorldChallengeReference
 {
     internal WorldChallengeReference(int position, Guid challengeId, bool selectionRestricted = false)
@@ -228,8 +281,16 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
     private readonly Func<object, bool>? _getBool;
     private readonly Func<object, Guid>? _id;
     private readonly Func<object, Guid>? _resourceId;
+    private readonly Func<IList?>? _challengeTypeRegistry;
+    private readonly Func<IList?>? _challengeRegistry;
+    private readonly Func<object, IList?>? _challengeTypeList;
+    private readonly Func<object, Guid>? _challengeTypeId;
+    private readonly Func<object, double>? _challengeTypeWeight;
+    private readonly Func<object, bool>? _challengeTypeRestricted;
+    private readonly Func<object, bool>? _challengeTypeExcluded;
     private readonly string _unavailable;
     private readonly string _prestigeUnavailable;
+    private readonly string _challengeTypesUnavailable;
 
     internal WorldChallengeContextReader(Func<string, Type?> resolveType)
     {
@@ -262,6 +323,22 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
         _getBool = NativeAccessorBinder.Call<bool>(boolType, "GetValue");
         _id = NativeAccessorBinder.Call<Guid>(_challengeType, "GetGuid");
         _resourceId = NativeAccessorBinder.Call<Guid>(resourceType, "GetGuid");
+        var challengeTypeType = resolveType("ChallengeTypeSO");
+        _challengeTypeRegistry = NativeAccessorBinder.StaticListAccessor(challengeTypeType, "All");
+        _challengeRegistry = NativeAccessorBinder.StaticListAccessor(_challengeType, "All");
+        _challengeTypeList = NativeAccessorBinder.CollectionField(_challengeType, "challengeTypes");
+        _challengeTypeId = NativeAccessorBinder.Call<Guid>(challengeTypeType, "GetGuid");
+        _challengeTypeWeight = NativeAccessorBinder.Field<double>(challengeTypeType, "weight");
+        _challengeTypeRestricted =
+            NativeAccessorBinder.Field<bool>(challengeTypeType, "restrictedInstances");
+        _challengeTypeExcluded =
+            NativeAccessorBinder.Field<bool>(challengeTypeType, "excludeFromRandomSelection");
+        _challengeTypesUnavailable = challengeTypeType is null || _challengeTypeRegistry is null ||
+            _challengeRegistry is null || _challengeTypeList is null || _challengeTypeId is null ||
+            _challengeTypeWeight is null || _challengeTypeRestricted is null ||
+            _challengeTypeExcluded is null
+                ? "the complete challenge type binding set was unavailable"
+                : string.Empty;
         _unavailable = _challengeType is null || _challengeManagerType is null ||
             _resetManagerType is null || listType is null || intType is null || boolType is null ||
             _challengeManager is null || _resetManager is null || _preferred is null ||
@@ -286,11 +363,14 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
         if (frame is null) throw new ArgumentNullException(nameof(frame));
         var buffer = frame.ChallengeContext;
         buffer.Reset();
+        frame.ChallengeTypes.Reset();
+        frame.ChallengeTypeMemberships.Reset();
         if (!IsAvailable)
         {
             buffer.SetUnavailable(_unavailable);
             return WorldCategoryReport.Missing(Category, _unavailable);
         }
+        var typeFailure = CollectChallengeTypes(frame);
         try
         {
             var challengeManager = _challengeManager!();
@@ -319,8 +399,7 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
             if (_prestigeUnavailable.Length != 0)
             {
                 buffer.SetPrestigeUnavailable(_prestigeUnavailable);
-                return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected, 1, 1,
-                    _prestigeUnavailable);
+                return Collected(typeFailure, 1, _prestigeUnavailable);
             }
             try
             {
@@ -339,9 +418,9 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
             {
                 var reason = "reading prestige decisions threw: " + exception.GetBaseException().Message;
                 buffer.SetPrestigeUnavailable(reason);
-                return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected, 1, 1, reason);
+                return Collected(typeFailure, 1, reason);
             }
-            return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected, 1, 0, string.Empty);
+            return Collected(typeFailure, 0, string.Empty);
         }
         catch (Exception exception)
         {
@@ -349,6 +428,80 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
             buffer.SetUnavailable(reason);
             return WorldCategoryReport.Missing(Category, reason);
         }
+    }
+
+    private WorldCategoryReport Collected(string typeFailure, int skipped, string reason) =>
+        new(Category, WorldCategoryOutcome.Collected, 1,
+            skipped + (typeFailure.Length == 0 ? 0 : 1),
+            reason.Length != 0 ? reason : typeFailure);
+
+    /// <summary>
+    /// The draft's buckets and their members, read beside the decision state rather than as a
+    /// category of their own: a challenge type is not something a player acts on, it is the pool the
+    /// offer generator draws from before it draws a challenge.
+    /// </summary>
+    /// <remarks>
+    /// Its own availability, so a build without <c>ChallengeTypeSO</c> costs the buckets and not the
+    /// whole decision reading. A failure part-way through empties both tables rather than leaving a
+    /// short one, because a bucket list missing a bucket reads like a draft that cannot roll it.
+    /// </remarks>
+    private string CollectChallengeTypes(GameWorldCycleFrame frame)
+    {
+        if (_challengeTypesUnavailable.Length != 0) return _challengeTypesUnavailable;
+
+        try
+        {
+            var types = _challengeTypeRegistry!();
+            if (types is null) return Withhold(frame, "the ChallengeTypeSO registry was unreadable");
+
+            for (var index = 0; index < types.Count; index++)
+            {
+                var type = types[index];
+                if (type is null) continue;
+                var typeId = _challengeTypeId!(type);
+                if (typeId == Guid.Empty) continue;
+                frame.ChallengeTypes.Append(new WorldChallengeTypeBucket(
+                    typeId,
+                    _challengeTypeWeight!(type),
+                    _challengeTypeRestricted!(type),
+                    _challengeTypeExcluded!(type)));
+            }
+
+            var challenges = _challengeRegistry!();
+            if (challenges is null) return Withhold(frame, "the ChallengeSO registry was unreadable");
+
+            for (var index = 0; index < challenges.Count; index++)
+            {
+                var challenge = challenges[index];
+                if (challenge is null) continue;
+                var challengeId = _id!(challenge);
+                if (challengeId == Guid.Empty) continue;
+                var owned = _challengeTypeList!(challenge);
+                for (var ordinal = 0; ordinal < (owned?.Count ?? 0); ordinal++)
+                {
+                    var type = owned![ordinal];
+                    if (type is null) continue;
+                    var typeId = _challengeTypeId!(type);
+                    if (typeId == Guid.Empty) continue;
+                    frame.ChallengeTypeMemberships.Append(
+                        new WorldChallengeTypeMembership(challengeId, ordinal, typeId));
+                }
+            }
+
+            return string.Empty;
+        }
+        catch (Exception exception)
+        {
+            return Withhold(
+                frame, "reading challenge types threw: " + exception.GetBaseException().Message);
+        }
+    }
+
+    private static string Withhold(GameWorldCycleFrame frame, string reason)
+    {
+        frame.ChallengeTypes.Reset();
+        frame.ChallengeTypeMemberships.Reset();
+        return reason;
     }
 
     private void Append(object list, object preferred, Action<Guid, bool> append)

@@ -18,6 +18,14 @@ internal enum WorldSpellRelationKind
     SpellType = 0,
     CoreGlyph = 1,
     RecipeBook = 2,
+
+    /// <summary>
+    /// <c>SpellRecipeSO.notSpellTypes</c>. The name reads as an exclusion and is not one:
+    /// <c>Spell.GetAllSpellTypes()</c> is <c>GetNotSpellTypes().Concat(augmentedSpellTypes)</c>, so
+    /// these types are part of the set the game resonates over. It is empty on all sixty-five recipes
+    /// on the audited build, which is a reading rather than a rule, so it is bound like any other.
+    /// </summary>
+    NotSpellType = 3,
 }
 
 /// <summary>Authored cast/cooldown scalars for one spell recipe.</summary>
@@ -102,8 +110,8 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
     private readonly Func<object, IList?>? _costEntries;
     private readonly Func<object, Guid>? _costResource;
     private readonly Func<object, BigDouble>? _costAmount;
-    private readonly Func<object, IList?>[] _relations = new Func<object, IList?>[3];
-    private readonly Func<object, Guid>?[] _relationIdentities = new Func<object, Guid>?[3];
+    private readonly Func<object, IList?>[] _relations = new Func<object, IList?>[4];
+    private readonly Func<object, Guid>?[] _relationIdentities = new Func<object, Guid>?[4];
     private readonly string _unavailable;
 
     internal WorldSpellGraphReader(Type? spellType)
@@ -144,12 +152,15 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
                 var list = recipeBooks(source);
                 return list is null ? null : recipeBookEntries(list);
             };
+        _relations[3] = NativeAccessorBinder.CollectionField(spellType, "notSpellTypes")!;
         _relationIdentities[0] = NativeAccessorBinder.Call<Guid>(
             NativeAccessorBinder.CollectionElementType(spellType, "spellTypes"), "GetGuid");
         _relationIdentities[1] = NativeAccessorBinder.Call<Guid>(
             NativeAccessorBinder.CollectionElementType(spellType, "coreRecipe"), "GetGuid");
         _relationIdentities[2] = NativeAccessorBinder.Call<Guid>(
             NativeAccessorBinder.CollectionElementType(recipeBooksType, "recipeBooks"), "GetGuid");
+        _relationIdentities[3] = NativeAccessorBinder.Call<Guid>(
+            NativeAccessorBinder.CollectionElementType(spellType, "notSpellTypes"), "GetGuid");
 
         _unavailable = IsBound()
             ? string.Empty

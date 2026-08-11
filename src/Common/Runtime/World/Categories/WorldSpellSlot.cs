@@ -453,6 +453,33 @@ internal static class WorldSpellSlotDeriver
 /// answer is only available from the equipped instance, which is what <c>GetCost()</c> is.
 /// </para>
 /// </remarks>
+/// <summary>One spell type the spell in a slot currently resonates with.</summary>
+/// <remarks>
+/// <c>Spell.GetAllSpellTypes()</c> is <c>SpellRecipeSO.GetNotSpellTypes()</c> concatenated with
+/// <c>Spell.augmentedSpellTypes</c>, and <c>augmentedSpellTypes</c> is seeded from the recipe's
+/// authored list and then rewritten by <c>Spell.SetupLimitedElementalType()</c> from the equipped
+/// glyphs. So the authored list is not the set the game multiplies over, and this is the half that
+/// only a live spell can answer; the recipe half is published as
+/// <see cref="WorldSpellRelationKind.NotSpellType"/>. Keyed by slot because a <c>Spell</c> is an
+/// occupant of a position rather than an entity of its own, which is the same reason
+/// <see cref="WorldSpellSlot"/> is.
+/// </remarks>
+internal readonly struct WorldSpellSlotType
+{
+    internal WorldSpellSlotType(int slotIndex, int ordinal, Guid spellTypeId)
+    {
+        SlotIndex = slotIndex;
+        Ordinal = ordinal;
+        SpellTypeId = spellTypeId;
+    }
+
+    internal int SlotIndex { get; }
+
+    internal int Ordinal { get; }
+
+    internal Guid SpellTypeId { get; }
+}
+
 internal sealed class WorldSpellSlotReader : IWorldCategoryReader
 {
     private const BindingFlags Instance =
@@ -503,6 +530,8 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
     private readonly Func<object, IList?>? _costEntries;
     private readonly Func<object, Guid>? _entryResource;
     private readonly Func<object, BigDouble>? _entryValue;
+    private readonly Func<object, IList?>? _augmentedSpellTypes;
+    private readonly Func<object, Guid>? _augmentedSpellTypeId;
 
     internal WorldSpellSlotReader(Type? registryType, Type? listType, Func<string, Type?> resolveType)
     {
@@ -555,6 +584,12 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         _recipeMasteryLevel = spell.Call<int>("GetRecipeMasteryLevel");
         _durationSpell = spell.Call<bool>("IsDurationSpell");
         _usageRequirementsMet = spell.Call<bool>("HasMetUsageRequirements");
+        _augmentedSpellTypes = spell.CollectionField("augmentedSpellTypes");
+        _augmentedSpellTypeId = spell
+            .Elements(
+                spell.CollectionElementType("augmentedSpellTypes"),
+                "Spell.augmentedSpellTypes[]")
+            .Call<Guid>("GetGuid");
         var glyphType = resolveType("GlyphSO");
         var glyphListType = glyphType is null ? null : typeof(List<>).MakeGenericType(glyphType);
         var getAugmentGlyphs = _spellType?.GetMethod(
@@ -628,8 +663,10 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
 
         var slots = frame.SpellSlots;
         var costs = frame.SpellCosts;
+        var slotTypes = frame.SpellSlotTypes;
         slots.Reset();
         costs.Reset();
+        slotTypes.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
         var source = _registryBinding.Read();
@@ -679,7 +716,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
 
             try
             {
-                Read(entry, index, cancellationEnabled, casterAvailable, slots, costs);
+                Read(entry, index, cancellationEnabled, casterAvailable, slots, costs, slotTypes);
                 sampled++;
             }
             catch (Exception ex)
@@ -701,7 +738,8 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         bool cancellationEnabled,
         bool casterAvailable,
         WorldSpellSlotBuffer slots,
-        WorldSpellCostBuffer costs)
+        WorldSpellCostBuffer costs,
+        WorldRelationBuffer<WorldSpellSlotType> slotTypes)
     {
         var occupied = !_isEmpty!(spell);
         if (!occupied)
@@ -741,6 +779,16 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             cancellationEnabled,
             casterAvailable,
             _castCount!(spell)));
+
+        var resonant = _augmentedSpellTypes!(spell);
+        for (var ordinal = 0; ordinal < (resonant?.Count ?? 0); ordinal++)
+        {
+            var spellType = resonant![ordinal];
+            if (spellType is null) continue;
+            var spellTypeId = _augmentedSpellTypeId!(spellType);
+            if (spellTypeId == Guid.Empty) continue;
+            slotTypes.Append(new WorldSpellSlotType(index, ordinal, spellTypeId));
+        }
 
         Append(spell, index, WorldSpellCostKind.Immediate, _getCost!, costs);
         Append(spell, index, WorldSpellCostKind.Drain, _getDrainCost!, costs);

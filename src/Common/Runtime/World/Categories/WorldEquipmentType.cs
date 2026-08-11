@@ -11,10 +11,12 @@ namespace OrbModding.Common.Runtime.World;
 /// <c>ValueModifierRecord</c> — already collected, cached value and all — that carries the result.
 /// <para>
 /// So the distributed effect is not missing from the snapshot; it arrives on the members. What is
-/// absent is the distributor's own total, the <c>Adjust(100)</c> its tooltip shows. That is pure
-/// arithmetic over its two modifier dictionaries, so it is computable rather than blocked — but it
-/// needs the modifiers themselves, which are variable-size and deferred. The active count is what a
-/// fixed-size row can carry today, and it is the game's own <c>HasActiveElements()</c>.
+/// absent from this row is the distributor's own total, the <c>Adjust(100)</c> its tooltip shows.
+/// That is pure arithmetic over its two modifier dictionaries, and the entries it needs are
+/// variable-size: the <c>type modifier contributions</c> category publishes them and derivation does
+/// the fold. The count here is the game's own <c>HasActiveElements()</c>, and
+/// <see cref="WorldTypeModifier"/> says why that total must not be multiplied into a member value
+/// this snapshot already carries.
 /// </para>
 /// </remarks>
 internal readonly struct WorldEquipmentType : IWorldEntity

@@ -1572,7 +1572,8 @@
       "valueType": "System.Collections.Generic.List`1<AlchemyTypeSO>",
       "owners": [
         "Automata world collection",
-        "Automata world-collection verification"
+        "Automata world-collection verification",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1591,7 +1592,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1610,7 +1612,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1629,7 +1632,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1648,7 +1652,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1667,7 +1672,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1705,7 +1711,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1724,7 +1731,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1743,7 +1751,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1762,7 +1771,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1781,7 +1791,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1857,7 +1868,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1876,7 +1888,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1895,7 +1908,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -1914,7 +1928,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -3302,7 +3317,8 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<ChallengeSO>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -3954,7 +3970,8 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<CraftingRecipeTypeSO>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -3973,7 +3990,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -3992,7 +4010,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -4011,7 +4030,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -4049,7 +4069,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -4106,7 +4127,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -4182,7 +4204,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -4201,7 +4224,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -4220,7 +4244,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -4638,7 +4663,8 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<EquipmentTypeSO>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -4676,7 +4702,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -4733,7 +4760,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -4752,7 +4780,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -4771,7 +4800,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -6297,7 +6327,8 @@
         "Auto Items temporary-item picker",
         "Automata Auto Buy owning-view world publication",
         "Common upgrade screen world publication",
-        "Common keyword world collection"
+        "Common keyword world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -6555,7 +6586,8 @@
         "Common world collection",
         "Automata world collection",
         "Automata rate-math verification",
-        "Automata world-collection verification"
+        "Automata world-collection verification",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -6618,7 +6650,8 @@
         "Common world collection",
         "Automata world collection",
         "Automata rate-math verification",
-        "Automata world-collection verification"
+        "Automata world-collection verification",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9616,7 +9649,8 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<ResourceTypeSO>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9635,7 +9669,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9673,7 +9708,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9692,7 +9728,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9711,7 +9748,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9749,7 +9787,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9825,7 +9864,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9844,7 +9884,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9863,7 +9904,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9882,7 +9924,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9901,7 +9944,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9920,7 +9964,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9939,7 +9984,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9958,7 +10004,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9977,7 +10024,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -9996,7 +10044,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -10015,7 +10064,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -10034,7 +10084,8 @@
       "static": false,
       "valueType": "OrderedMultiplierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -10072,7 +10123,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -10091,7 +10143,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -10110,7 +10163,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -10129,7 +10183,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -10148,7 +10203,8 @@
       "static": false,
       "valueType": "MergingModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13465,7 +13521,8 @@
       "valueType": "System.Collections.Generic.List`1<SpellTypeSO>",
       "owners": [
         "Automata world collection",
-        "Automata world-collection verification"
+        "Automata world-collection verification",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13503,7 +13560,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13522,7 +13580,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13541,7 +13600,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13560,7 +13620,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13579,7 +13640,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13598,7 +13660,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13617,7 +13680,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13636,7 +13700,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13655,7 +13720,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13674,7 +13740,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13693,7 +13760,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13712,7 +13780,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13750,7 +13819,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13769,7 +13839,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13788,7 +13859,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13807,7 +13879,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13826,7 +13899,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13940,7 +14014,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13959,7 +14034,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -13978,7 +14054,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -14035,7 +14112,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -14073,7 +14151,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -16855,7 +16934,8 @@
       "owners": [
         "Common world collection",
         "Automata cost-math verification",
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -16876,7 +16956,8 @@
       "owners": [
         "Common world collection",
         "Automata cost-math verification",
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -16998,7 +17079,8 @@
       "owners": [
         "Common world collection",
         "Automata cost-math verification",
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -19364,7 +19446,8 @@
       "static": false,
       "valueType": "ITooltipable",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common type-modifier world collection"
       ],
       "usages": [
         "reflection"
@@ -26075,6 +26158,1754 @@
     {
       "id": "modal-dismiss.modal-title-action", "assembly": "assembly-csharp", "type": "UIModal", "typeVisibility": "public", "kind": "field", "member": "modalTitle",
       "visibility": "public", "static": false, "valueType": "TMPro.TextMeshProUGUI", "owners": ["Automata modal dismiss GameAction"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "ritual-type.active-rituals",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "activeRituals",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
+    },
+    {
+      "id": "ritual-type.chain-length-bonus",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "chainLengthBonus",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "ritual-type.chain-power",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "chainPower",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "ritual-type.completion-cost-mod",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "completionCostMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "ritual-type.completion-rate-mod",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "completionRateMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "ritual-type.crit-duration-mod",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "critDurationMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "ritual-type.crit-power",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "critPower",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "ritual-type.crit-rating",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "critRating",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "ritual-type.duration-mod",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "durationMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "ritual-type.echo-power",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "echoPower",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "ritual-type.echo-rating",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "echoRating",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "ritual-type.power",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "power",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "ritual-type.special",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "special",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "ritual-type.speed",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "speed",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "structure-type.active-cost-mod",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "activeCostMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "structure-type.attribute-rank-effect-mod",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "attributeRankEffectMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "structure-type.bonus-levels",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "bonusLevels",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "structure-type.build-speed-mod",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "buildSpeedMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "structure-type.cost-scaling-mod",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "costScalingMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "structure-type.drain-cost-mod",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "drainCostMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "structure-type.echo-build-rating",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "echoBuildRating",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "structure-type.effect-levels",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "effectLevels",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "structure-type.passive-cost-mod",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "passiveCostMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "structure-type.power-build-rating",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "powerBuildRating",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "structure-type.structure-power",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "structurePower",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "structure-type.structure-power-scaling",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "structurePowerScaling",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "structure-type.structure-speed",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "structureSpeed",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-type.auto-generation-mod",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "autoGenerationMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-type.drain-cost-mod",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "drainCostMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-type.experience-rate-mod",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "experienceRateMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-type.growth-speed-mod",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "growthSpeedMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-type.harvest-speed-mod",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "harvestSpeedMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-type.level",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "level",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
+    },
+    {
+      "id": "harvest-type.max-quantity",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "maxQuantity",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-type.max-rest-growth",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "maxRestGrowth",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "harvest-type.power",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "power",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-type.quality-mod",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "qualityMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-type.resting-growth-speed-mod",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "restingGrowthSpeedMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "plot-node-type.action-cost-mod",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "actionCostMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "plot-node-type.action-speed",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "actionSpeed",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "plot-node-type.action-xp-rate",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "actionXpRate",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "plot-node-type.growing-speed",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "growingSpeed",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "plot-node-type.quality-mod",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "qualityMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "plot-node-type.recovery-size-mod",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "recoverySizeMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "plot-node-type.resting-speed",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "restingSpeed",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "plot-node-type.size-mod",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "sizeMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "plot-node-type.special-mod",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "specialMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "plot-node-type.total-level",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "totalLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
+    },
+    {
+      "id": "plot-node-type.yield-mod",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "yieldMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "research-type.free-bonus-levels",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "freeBonusLevels",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
+    },
+    {
+      "id": "research-type.level-requirement-adjust",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "levelRequirementAdjust",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ModifierRecord"}
+    },
+    {
+      "id": "research-type.max-investment-level",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "maxInvestmentLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
+    },
+    {
+      "id": "research-type.max-level-cap",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "maxLevelCap",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "research-type.power",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "power",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "research-type.used-bonus-levels",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "usedBonusLevels",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
+    },
+    {
+      "id": "consumable-type.bonus-levels",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "bonusLevels",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "consumable-type.duration-mod",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "durationMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "consumable-type.power",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "power",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "consumable-type.prep-speed",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "prepSpeed",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "consumable-type.special",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "special",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-action-type.cost-mod",
+      "assembly": "assembly-csharp",
+      "type": "HarvestActionTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "costMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-action-type.growth-size-mod",
+      "assembly": "assembly-csharp",
+      "type": "HarvestActionTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "growthSizeMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-action-type.power",
+      "assembly": "assembly-csharp",
+      "type": "HarvestActionTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "power",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "harvest-action-type.refund-rating",
+      "assembly": "assembly-csharp",
+      "type": "HarvestActionTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "refundRating",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "harvest-action-type.speed",
+      "assembly": "assembly-csharp",
+      "type": "HarvestActionTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "speed",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "passive-ability-type.cooldown",
+      "assembly": "assembly-csharp",
+      "type": "PassiveAbilityTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "cooldown",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "passive-ability-type.cost-mod",
+      "assembly": "assembly-csharp",
+      "type": "PassiveAbilityTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "costMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "passive-ability-type.duration-mod",
+      "assembly": "assembly-csharp",
+      "type": "PassiveAbilityTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "durationMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "passive-ability-type.max-stacks-mod",
+      "assembly": "assembly-csharp",
+      "type": "PassiveAbilityTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "maxStacksMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "passive-ability-type.power",
+      "assembly": "assembly-csharp",
+      "type": "PassiveAbilityTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "power",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "time-rune-type.free-usages",
+      "assembly": "assembly-csharp",
+      "type": "TimeRuneTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "freeUsages",
+      "visibility": "public",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "time-rune-type.mastery-xp-mod",
+      "assembly": "assembly-csharp",
+      "type": "TimeRuneTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "masteryXpMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "time-rune-type.power",
+      "assembly": "assembly-csharp",
+      "type": "TimeRuneTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "power",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "time-rune-type.power-scaling-mod",
+      "assembly": "assembly-csharp",
+      "type": "TimeRuneTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "powerScalingMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "OrderedMultiplierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field OrderedMultiplierRecord"}
+    },
+    {
+      "id": "time-rune-type.total-level",
+      "assembly": "assembly-csharp",
+      "type": "TimeRuneTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "totalLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
+    },
+    {
+      "id": "ritual-type.all",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<RitualTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<RitualTypeSO>"}
+    },
+    {
+      "id": "structure-type.all",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<StructureTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<StructureTypeSO>"}
+    },
+    {
+      "id": "harvest-type.all",
+      "assembly": "assembly-csharp",
+      "type": "HarvestTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<HarvestTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<HarvestTypeSO>"}
+    },
+    {
+      "id": "plot-node-type.all",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<PlotNodeTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PlotNodeTypeSO>"}
+    },
+    {
+      "id": "research-type.all",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<ResearchTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ResearchTypeSO>"}
+    },
+    {
+      "id": "consumable-type.all",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<ConsumableTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ConsumableTypeSO>"}
+    },
+    {
+      "id": "harvest-action-type.all",
+      "assembly": "assembly-csharp",
+      "type": "HarvestActionTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<HarvestActionTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<HarvestActionTypeSO>"}
+    },
+    {
+      "id": "passive-ability-type.all",
+      "assembly": "assembly-csharp",
+      "type": "PassiveAbilityTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<PassiveAbilityTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PassiveAbilityTypeSO>"}
+    },
+    {
+      "id": "time-rune-type.all",
+      "assembly": "assembly-csharp",
+      "type": "TimeRuneTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<TimeRuneTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<TimeRuneTypeSO>"}
+    },
+    {
+      "id": "challenge-type.all",
+      "assembly": "assembly-csharp",
+      "type": "ChallengeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<ChallengeTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ChallengeTypeSO>"}
+    },
+    {
+      "id": "challenge-type.weight",
+      "assembly": "assembly-csharp",
+      "type": "ChallengeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "weight",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
+      "id": "challenge-type.exclude-from-random-selection",
+      "assembly": "assembly-csharp",
+      "type": "ChallengeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "excludeFromRandomSelection",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "challenge-type.restricted-instances",
+      "assembly": "assembly-csharp",
+      "type": "ChallengeTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "restrictedInstances",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "challenge.challenge-types",
+      "assembly": "assembly-csharp",
+      "type": "ChallengeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "challengeTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<ChallengeTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ChallengeTypeSO>"}
+    },
+    {
+      "id": "structure-type.sub-types",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "subTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<StructureTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<StructureTypeSO>"}
+    },
+    {
+      "id": "spell.augmented-spell-types",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "augmentedSpellTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<SpellTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<SpellTypeSO>"}
+    },
+    {
+      "id": "spell-recipe.not-spell-types",
+      "assembly": "assembly-csharp",
+      "type": "SpellRecipeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "notSpellTypes",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<SpellTypeSO>",
+      "owners": [
+        "Common type-modifier world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<SpellTypeSO>"}
     }
   ],
   "captureRoots": [

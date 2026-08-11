@@ -131,6 +131,40 @@ public sealed record GameWorldState
     internal PublicationTable<WorldEntityKeyword> EntityKeywords { get; init; } =
         PublicationTable<WorldEntityKeyword>.Empty;
 
+    /// <summary>
+    /// Every modifier record on every type asset, with how many modifiers currently sit on it.
+    /// </summary>
+    /// <remarks>
+    /// A total derived from these rows and a member value the suite already publishes are the same
+    /// bonus for every distributor-fed record; see <see cref="WorldTypeModifier"/> for which they are
+    /// and why <c>SpellTypeSO</c> is the exception.
+    /// </remarks>
+    internal PublicationTable<WorldTypeModifier> TypeModifiers { get; init; } =
+        PublicationTable<WorldTypeModifier>.Empty;
+
+    /// <summary>Every modifier entry behind those counts, with the source that put it there.</summary>
+    internal PublicationTable<WorldTypeModifierContribution> TypeModifierContributions { get; init; } =
+        PublicationTable<WorldTypeModifierContribution>.Empty;
+
+    /// <summary>Parent-to-child structure type edges, along which a parent's records are conferred.</summary>
+    internal PublicationTable<WorldTypeSubtype> TypeSubtypes { get; init; } =
+        PublicationTable<WorldTypeSubtype>.Empty;
+
+    /// <summary>The weighted buckets the challenge draft picks from, before it picks a challenge.</summary>
+    internal PublicationTable<WorldChallengeTypeBucket> ChallengeTypes { get; init; } =
+        PublicationTable<WorldChallengeTypeBucket>.Empty;
+
+    /// <summary>Which bucket each challenge is drafted out of.</summary>
+    internal PublicationTable<WorldChallengeTypeMembership> ChallengeTypeMemberships { get; init; } =
+        PublicationTable<WorldChallengeTypeMembership>.Empty;
+
+    /// <summary>
+    /// The spell types each equipped spell currently resonates with, after glyphs have rewritten the
+    /// authored set.
+    /// </summary>
+    internal PublicationTable<WorldSpellSlotType> SpellSlotTypes { get; init; } =
+        PublicationTable<WorldSpellSlotType>.Empty;
+
     /// <summary>Derived next-mastery-level cost rows, preserved in authored row order.</summary>
     internal PublicationTable<WorldMasteryCost> MasteryCosts { get; init; } =
         PublicationTable<WorldMasteryCost>.Empty;

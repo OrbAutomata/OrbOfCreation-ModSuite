@@ -99,6 +99,14 @@ internal static class WorldCategoryFakes
         ["PlotNodeSO"] = typeof(FakePlotNode),
         ["TreasurePoolSO"] = typeof(FakeTreasurePool),
         ["ValueModifierVariable"] = typeof(FakeModifierVariable),
+        ["RitualTypeSO"] = typeof(FakeRitualType),
+        ["HarvestTypeSO"] = typeof(FakeHarvestType),
+        ["PlotNodeTypeSO"] = typeof(FakePlotNodeType),
+        ["ConsumableTypeSO"] = typeof(FakeConsumableType),
+        ["HarvestActionTypeSO"] = typeof(FakeHarvestActionType),
+        ["PassiveAbilityTypeSO"] = typeof(FakePassiveAbilityType),
+        ["TimeRuneTypeSO"] = typeof(FakeTimeRuneType),
+        ["ChallengeTypeSO"] = typeof(FakeChallengeType),
 
         // Not a category either: the action queues belong to no per-type registry, so the reader
         // reaches them through the identity registry by uuid.
@@ -154,6 +162,14 @@ internal static class WorldCategoryFakes
         FakeAchievement.All.Clear();
         FakeAdvancement.All.Clear();
         FakeChallenge.All.Clear();
+        FakeChallengeType.All.Clear();
+        FakeRitualType.All.Clear();
+        FakeHarvestType.All.Clear();
+        FakePlotNodeType.All.Clear();
+        FakeConsumableType.All.Clear();
+        FakeHarvestActionType.All.Clear();
+        FakePassiveAbilityType.All.Clear();
+        FakeTimeRuneType.All.Clear();
         FakeThoughtStream.All.Clear();
         FakeTutorial.All.Clear();
         FakeView.All.Clear();
@@ -244,10 +260,24 @@ internal class FakeIdRegistry
 /// </summary>
 internal sealed class FakePassiveAbilityType : FakeIdRegistry
 {
+    public static readonly List<FakePassiveAbilityType> All = new();
+
+    public FakeModifierRecord cooldown = new(0d);
+    public FakeModifierRecord costMod = new(0d);
+    public FakeModifierRecord durationMod = new(0d);
+    public FakeModifierRecord maxStacksMod = new(0d);
+    public FakeModifierRecord power = new(0d);
 }
 
 internal sealed class FakeTimeRuneType : FakeIdRegistry
 {
+    public static readonly List<FakeTimeRuneType> All = new();
+
+    public FakeModifierRecord freeUsages = new(0d);
+    public FakeModifierRecord masteryXpMod = new(0d);
+    public FakeModifierRecord power = new(0d);
+    public FakeModifierRecord powerScalingMod = new(0d);
+    public FakeModifierRecord totalLevel = new(0d);
 }
 
 internal sealed class FakeGlyphType : FakeIdRegistry
@@ -256,10 +286,33 @@ internal sealed class FakeGlyphType : FakeIdRegistry
 
 internal sealed class FakeHarvestActionType : FakeIdRegistry
 {
+    public static readonly List<FakeHarvestActionType> All = new();
+
+    public FakeModifierRecord costMod = new(0d);
+    public FakeModifierRecord growthSizeMod = new(0d);
+    public FakeModifierRecord power = new(0d);
+    public FakeModifierRecord refundRating = new(0d);
+    public FakeModifierRecord speed = new(0d);
 }
 
 internal sealed class FakeRitualType : FakeIdRegistry
 {
+    public static readonly List<FakeRitualType> All = new();
+
+    public FakeModifierRecord activeRituals = new(0d);
+    public FakeModifierRecord chainLengthBonus = new(0d);
+    public FakeModifierRecord chainPower = new(0d);
+    public FakeModifierRecord completionCostMod = new(0d);
+    public FakeModifierRecord completionRateMod = new(0d);
+    public FakeModifierRecord critDurationMod = new(0d);
+    public FakeModifierRecord critPower = new(0d);
+    public FakeModifierRecord critRating = new(0d);
+    public FakeModifierRecord durationMod = new(0d);
+    public FakeModifierRecord echoPower = new(0d);
+    public FakeModifierRecord echoRating = new(0d);
+    public FakeModifierRecord power = new(0d);
+    public FakeModifierRecord special = new(0d);
+    public FakeModifierRecord speed = new(0d);
 }
 
 internal sealed class FakeCharacterType : FakeIdRegistry
@@ -268,10 +321,46 @@ internal sealed class FakeCharacterType : FakeIdRegistry
 
 internal sealed class FakePlotNodeType : FakeIdRegistry
 {
+    public static readonly List<FakePlotNodeType> All = new();
+
+    public FakeModifierRecord actionCostMod = new(0d);
+    public FakeModifierRecord actionSpeed = new(0d);
+    public FakeModifierRecord actionXpRate = new(0d);
+    public FakeModifierRecord growingSpeed = new(0d);
+    public FakeModifierRecord qualityMod = new(0d);
+    public FakeModifierRecord recoverySizeMod = new(0d);
+    public FakeModifierRecord restingSpeed = new(0d);
+    public FakeModifierRecord sizeMod = new(0d);
+    public FakeModifierRecord specialMod = new(0d);
+    public FakeModifierRecord totalLevel = new(0d);
+    public FakeModifierRecord yieldMod = new(0d);
 }
 
 internal sealed class FakeHarvestType : FakeIdRegistry
 {
+    public static readonly List<FakeHarvestType> All = new();
+
+    public FakeModifierRecord autoGenerationMod = new(0d);
+    public FakeModifierRecord drainCostMod = new(0d);
+    public FakeModifierRecord experienceRateMod = new(0d);
+    public FakeModifierRecord growthSpeedMod = new(0d);
+    public FakeModifierRecord harvestSpeedMod = new(0d);
+    public FakeModifierRecord level = new(0d);
+    public FakeModifierRecord maxQuantity = new(0d);
+    public FakeModifierRecord maxRestGrowth = new(0d);
+    public FakeModifierRecord power = new(0d);
+    public FakeModifierRecord qualityMod = new(0d);
+    public FakeModifierRecord restingGrowthSpeedMod = new(0d);
+}
+
+/// <summary>The draft's weighted buckets. No modifier surface at all, exactly as the game has none.</summary>
+internal sealed class FakeChallengeType : FakeIdRegistry
+{
+    public static readonly List<FakeChallengeType> All = new();
+
+    public double weight;
+    public bool restrictedInstances;
+    public bool excludeFromRandomSelection;
 }
 
 internal class FakeAbstractListVariable : FakeIdRegistry
@@ -1199,6 +1288,7 @@ internal sealed class FakeSpellLoadout
 /// <summary>One equipped spell, answering exactly what the loadout reader asks it.</summary>
 internal sealed class FakeSpell
 {
+    public List<FakeSpellType> augmentedSpellTypes = new();
     public FakeReferencedEntity guidContainer = new();
     public FakeSpellRecipe? spellReference;
     public bool empty;
@@ -1300,6 +1390,7 @@ internal struct FakeSpellCostEntry
 
 internal sealed class FakeSpellRecipe : FakeIdRegistry, global::IDiscoverable
 {
+    private List<FakeSpellType> notSpellTypes = new();
     public static readonly List<FakeSpellRecipe> All = new();
 
     public bool discovered;
@@ -1973,6 +2064,13 @@ internal sealed class FakeConsumable
 
 internal sealed class FakeConsumableType
 {
+    public static readonly List<FakeConsumableType> All = new();
+
+    public FakeModifierRecord bonusLevels = new(0d);
+    public FakeModifierRecord durationMod = new(0d);
+    public FakeModifierRecord power = new(0d);
+    public FakeModifierRecord prepSpeed = new(0d);
+    public FakeModifierRecord special = new(0d);
     public Guid Identity = Guid.NewGuid();
     public FakeConsumableVariable maximumCarryLoad = new();
     public Guid GetGuid() => Identity;
@@ -2170,6 +2268,7 @@ internal sealed class FakeAdvancement
 
 internal sealed class FakeChallenge
 {
+    public List<FakeChallengeType> challengeTypes = new();
     public static readonly List<FakeChallenge> All = new();
 
     public Guid Identity = Guid.NewGuid();

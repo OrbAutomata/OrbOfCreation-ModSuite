@@ -34,14 +34,22 @@ internal sealed class NativeModifierAdjustmentAccess
         Func<object, int> passiveCount,
         Func<object, int> activeCount,
         Func<object, WorldResearchRequirementAdjustment[], int, int> copyPassive,
-        Func<object, WorldResearchRequirementAdjustment[], int, int> copyActive)
+        Func<object, WorldResearchRequirementAdjustment[], int, int> copyActive,
+        string recordNativeType)
     {
         _record = record;
         _passiveCount = passiveCount;
         _activeCount = activeCount;
         _copyPassive = copyPassive;
         _copyActive = copyActive;
+        RecordNativeType = recordNativeType;
     }
+
+    /// <summary>
+    /// The bound field's declared record class. A caller publishing many records at once needs it to
+    /// tell a record that holds a value of its own from one that only distributes.
+    /// </summary>
+    internal string RecordNativeType { get; }
 
     internal static NativeModifierAdjustmentAccess? Bind(
         Type ownerType,
@@ -112,22 +120,48 @@ internal sealed class NativeModifierAdjustmentAccess
             passiveCount,
             activeCount,
             copyPassive,
-            copyActive);
+            copyActive,
+            recordType.Name);
     }
 
-    internal PublicationTable<WorldResearchRequirementAdjustment> Read(object owner)
+    internal PublicationTable<WorldResearchRequirementAdjustment> Read(object owner) =>
+        PublicationTable<WorldResearchRequirementAdjustment>.Create(ReadInto(owner));
+
+    /// <summary>
+    /// The owner's modifier entries, in a buffer this accessor owns and overwrites on the next call.
+    /// For a caller appending into its own table, this is the same reading as <see cref="Read"/>
+    /// without a publication allocation per record — which matters when the walk covers eighteen
+    /// hundred records a pass rather than one per entity.
+    /// </summary>
+    internal ReadOnlySpan<WorldResearchRequirementAdjustment> ReadInto(object owner)
     {
         var record = _record(owner);
-        if (record is null) return PublicationTable<WorldResearchRequirementAdjustment>.Empty;
+        if (record is null) return default;
 
         var total = _passiveCount(record) + _activeCount(record);
-        if (total <= 0) return PublicationTable<WorldResearchRequirementAdjustment>.Empty;
+        if (total <= 0) return default;
         if (_scratch.Length < total)
             _scratch = new WorldResearchRequirementAdjustment[Math.Max(total, _scratch.Length * 2)];
 
         var written = _copyPassive(record, _scratch, 0);
         written = _copyActive(record, _scratch, written);
-        return PublicationTable<WorldResearchRequirementAdjustment>.Create(_scratch, written);
+        return new ReadOnlySpan<WorldResearchRequirementAdjustment>(_scratch, 0, written);
+    }
+
+    /// <summary>
+    /// How many modifiers sit on the owner's record right now, without reading the entries. False
+    /// when the owner holds no record at all, which is a fact about the asset rather than a count.
+    /// </summary>
+    internal bool TryCount(object owner, out int passive, out int active)
+    {
+        passive = 0;
+        active = 0;
+        var record = _record(owner);
+        if (record is null) return false;
+
+        passive = _passiveCount(record);
+        active = _activeCount(record);
+        return true;
     }
 
     private static Type? DictionaryModifierType(Type recordType, string fieldName)

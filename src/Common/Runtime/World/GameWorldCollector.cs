@@ -87,6 +87,8 @@ internal sealed class GameWorldCollector
     private readonly WorldMasteryCostReader _spellLevelCosts;
     private readonly WorldSpellGraphReader _spellGraph;
     private readonly WorldEntityKeywordReader _entityKeywords;
+    private readonly WorldTypeModifierReader _typeModifiers;
+    private readonly WorldTypeModifierContributionReader _typeModifierContributions;
     private readonly WorldCategoryReader<WorldSpellType, WorldSpellType> _spellTypes;
     private readonly WorldCategoryReader<WorldEquipment, WorldEquipment> _equipment;
     private readonly WorldCategoryReader<WorldEquipmentType, WorldEquipmentType> _equipmentTypes;
@@ -262,6 +264,9 @@ internal sealed class GameWorldCollector
         _spellLevelCosts = new WorldMasteryCostReader(resolveType);
         _spellGraph = new WorldSpellGraphReader(resolveType("SpellRecipeSO"));
         _entityKeywords = new WorldEntityKeywordReader(resolveType);
+        var typeModifierBindings = new WorldTypeModifierBindings(resolveType);
+        _typeModifiers = new WorldTypeModifierReader(typeModifierBindings);
+        _typeModifierContributions = new WorldTypeModifierContributionReader(typeModifierBindings);
         _spellTypes = Reader(new WorldSpellTypeBinder(), resolveType, static frame => frame.SpellTypes);
         _equipment = Reader(new WorldEquipmentBinder(resolveType), resolveType, static frame => frame.Equipment);
         _equipmentTypes = Reader(new WorldEquipmentTypeBinder(resolveType), resolveType, static frame => frame.EquipmentTypes);
@@ -355,6 +360,7 @@ internal sealed class GameWorldCollector
             _entityRequirements, _purchaseViewRelations,
             _prerequisiteLinkTiers,
             _entityKeywords,
+            _typeModifiers, _typeModifierContributions,
         };
 
         _isStructural = new bool[_readers.Length];

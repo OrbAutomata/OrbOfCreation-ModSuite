@@ -94,6 +94,12 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldSpellAuthoredCost> SpellAuthoredCosts { get; } = new();
     internal WorldRelationBuffer<WorldSpellRelation> SpellRelations { get; } = new();
     internal WorldRelationBuffer<WorldEntityKeyword> EntityKeywords { get; } = new();
+    internal WorldRelationBuffer<WorldTypeModifier> TypeModifiers { get; } = new();
+    internal WorldRelationBuffer<WorldTypeModifierContribution> TypeModifierContributions { get; } = new();
+    internal WorldRelationBuffer<WorldTypeSubtype> TypeSubtypes { get; } = new();
+    internal WorldRelationBuffer<WorldChallengeTypeBucket> ChallengeTypes { get; } = new();
+    internal WorldRelationBuffer<WorldChallengeTypeMembership> ChallengeTypeMemberships { get; } = new();
+    internal WorldRelationBuffer<WorldSpellSlotType> SpellSlotTypes { get; } = new();
 
     internal WorldRelationBuffer<WorldAlchemyLoadoutDecision> AlchemyLoadout { get; } = new();
 
@@ -374,6 +380,50 @@ internal static class GameWorldFrameDeriver
                     if (owner != 0) return owner;
                     var source = ((int)left.Source).CompareTo((int)right.Source);
                     return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
+                }),
+            TypeModifiers = WorldRelationTableDeriver.Build(
+                frame.TypeModifiers,
+                static (left, right) =>
+                {
+                    var type = left.TypeId.CompareTo(right.TypeId);
+                    return type != 0
+                        ? type
+                        : string.CompareOrdinal(left.Property, right.Property);
+                }),
+            TypeModifierContributions = WorldRelationTableDeriver.Build(
+                frame.TypeModifierContributions,
+                static (left, right) =>
+                {
+                    var type = left.TypeId.CompareTo(right.TypeId);
+                    if (type != 0) return type;
+                    var property = string.CompareOrdinal(left.Property, right.Property);
+                    return property != 0
+                        ? property
+                        : left.Contribution.ModifierId.CompareTo(right.Contribution.ModifierId);
+                }),
+            TypeSubtypes = WorldRelationTableDeriver.Build(
+                frame.TypeSubtypes,
+                static (left, right) =>
+                {
+                    var type = left.TypeId.CompareTo(right.TypeId);
+                    return type != 0 ? type : left.Ordinal.CompareTo(right.Ordinal);
+                }),
+            ChallengeTypes = WorldRelationTableDeriver.Build(
+                frame.ChallengeTypes,
+                static (left, right) => left.ChallengeTypeId.CompareTo(right.ChallengeTypeId)),
+            ChallengeTypeMemberships = WorldRelationTableDeriver.Build(
+                frame.ChallengeTypeMemberships,
+                static (left, right) =>
+                {
+                    var challenge = left.ChallengeId.CompareTo(right.ChallengeId);
+                    return challenge != 0 ? challenge : left.Ordinal.CompareTo(right.Ordinal);
+                }),
+            SpellSlotTypes = WorldRelationTableDeriver.Build(
+                frame.SpellSlotTypes,
+                static (left, right) =>
+                {
+                    var slot = left.SlotIndex.CompareTo(right.SlotIndex);
+                    return slot != 0 ? slot : left.Ordinal.CompareTo(right.Ordinal);
                 }),
             MasteryCosts = spellLevelCosts,
             ModifierPrograms = modifierPrograms,

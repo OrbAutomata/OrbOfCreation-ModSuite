@@ -52,6 +52,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         FakeSettingsManager.CancellableSpells = true;
         FakeGlobalVariables.SetMultiBuy(1);
         WorldCategoryFakes.Clear();
+        FakeStructureType.All.Clear();
+        FakeResearchType.All.Clear();
     }
 
     private static readonly Dictionary<string, Type?> Defaults = Build();
@@ -581,13 +583,13 @@ public sealed class GameWorldCollectorTests : IDisposable
         // up only as a consumer finding nothing where there was something.
         var report = Collector().Collect();
 
-        Assert.Equal(61, report.Categories.Length);
+        Assert.Equal(63, report.Categories.Length);
         Assert.True(report.IsComplete, report.Describe());
 
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a
         // levelled grouping type.
         foreach (var category in
-                 new[] { "resources", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "prerequisite link states", "entity keywords" })
+                 new[] { "resources", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions" })
         {
             Assert.Equal(WorldCategoryOutcome.Collected, report.For(category).Outcome);
         }
@@ -1716,6 +1718,22 @@ public sealed class GameWorldCollectorTests : IDisposable
     // the property names here are free to read well.
     private sealed class FakeStructureType : FakeIdRegistry
     {
+        public static readonly List<FakeStructureType> All = new();
+
+        public List<FakeStructureType> subTypes = new();
+        public FakeModifierRecord activeCostMod = new(0d);
+        public FakeModifierRecord attributeRankEffectMod = new(0d);
+        public FakeModifierRecord bonusLevels = new(0d);
+        public FakeModifierRecord buildSpeedMod = new(0d);
+        public FakeModifierRecord costScalingMod = new(0d);
+        public FakeModifierRecord drainCostMod = new(0d);
+        public FakeModifierRecord echoBuildRating = new(0d);
+        public FakeModifierRecord effectLevels = new(0d);
+        public FakeModifierRecord passiveCostMod = new(0d);
+        public FakeModifierRecord powerBuildRating = new(0d);
+        public FakeModifierRecord structurePower = new(0d);
+        public FakeModifierRecord structurePowerScaling = new(0d);
+        public FakeModifierRecord structureSpeed = new(0d);
         internal static readonly FakeStructureType Shared = new()
         {
             structures = FakeStructure.All,
@@ -2032,6 +2050,14 @@ public sealed class GameWorldCollectorTests : IDisposable
 
     private sealed class FakeResearchType
     {
+        public static readonly List<FakeResearchType> All = new();
+
+        public FakeModifierRecord freeBonusLevels = new(0d);
+        public FakeModifierRecord levelRequirementAdjust = new(0d);
+        public FakeModifierRecord maxInvestmentLevel = new(0d);
+        public FakeModifierRecord maxLevelCap = new(0d);
+        public FakeModifierRecord power = new(0d);
+        public FakeModifierRecord usedBonusLevels = new(0d);
         public Guid Identity = Guid.NewGuid();
         public int RemainingFreeBonusLevels { get; set; }
         public int CurrentInvestmentLevel { get; set; }
@@ -4742,6 +4768,292 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         public static FakeCount GetSpellOutputLevel() => _instance.spellOutputLevel;
         public static FakeCount GetReserveLevel() => _instance.reserveLevel;
+    }
+
+    /// <summary>
+    /// A type asset publishes one row per modifier record it owns, carrying how loaded each is.
+    /// </summary>
+    /// <remarks>
+    /// The row set is the class's whole record list rather than the records that happen to carry a
+    /// modifier, because "this type has no bonus on its power" and "this type has no power record"
+    /// are different facts and only one of them is a reading.
+    /// </remarks>
+    [Fact]
+    public void ATypeAssetPublishesEveryOneOfItsModifierRecordsWithItsLoad()
+    {
+        var type = new FakeStructureType();
+        type.structurePower.activeModifiers[Guid.NewGuid()] =
+            new FakeValueModifier(FakeModifierKind.MultiStacking, 0.1d, 0);
+        type.structurePower.activeModifiers[Guid.NewGuid()] =
+            new FakeValueModifier(FakeModifierKind.MultiStacking, 0.25d, 0);
+        type.bonusLevels.passiveModifiers[Guid.NewGuid()] =
+            new FakeValueModifier(FakeModifierKind.Raw, 2d, 0);
+        FakeStructureType.All.Add(type);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+
+        var rows = TypeModifiersOf(world, type.Identity);
+        Assert.Equal(13, rows.Count);
+        Assert.All(rows, row =>
+            Assert.Equal(WorldTypeModifierOwnerKind.StructureType, row.OwnerKind));
+
+        var power = Assert.Single(rows, row => row.Property == "structurePower");
+        Assert.Equal(2, power.ActiveCount);
+        Assert.Equal(0, power.PassiveCount);
+
+        var bonusLevels = Assert.Single(rows, row => row.Property == "bonusLevels");
+        Assert.Equal(0, bonusLevels.ActiveCount);
+        Assert.Equal(1, bonusLevels.PassiveCount);
+    }
+
+    /// <summary>
+    /// Every modifier on a type record publishes its own magnitude and the source that put it there.
+    /// </summary>
+    /// <remarks>
+    /// This is the reading a distributor's total is folded from off-thread. Capture takes the
+    /// entries and stops: the fold is arithmetic, and arithmetic on the Unity thread is the thing the
+    /// capture boundary exists to refuse.
+    /// </remarks>
+    [Fact]
+    public void EveryModifierOnATypeRecordPublishesItsSourceAndItsMagnitude()
+    {
+        var modifier = Guid.NewGuid();
+        var sourceId = Guid.NewGuid();
+        var source = new global::ChallengeSO();
+        source.SetGuid(sourceId);
+
+        var type = new FakeRitualType();
+        type.power.passiveModifiers[modifier] =
+            new FakeValueModifier(FakeModifierKind.MultiStacking, 0.4d, order: 2, reference: source);
+        FakeRitualType.All.Add(type);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+
+        var contribution = Assert.Single(
+            ContributionsOf(world, type.Identity), row => row.Property == "power");
+        Assert.Equal(modifier, contribution.Contribution.ModifierId);
+        Assert.Equal(sourceId, contribution.Contribution.SourceId);
+        Assert.Equal("ChallengeSO", contribution.Contribution.SourceNativeType);
+        Assert.Equal((int)FakeModifierKind.MultiStacking, contribution.Contribution.ModifierType);
+        Assert.Equal(0.4d, contribution.Contribution.Amount.ToDouble());
+        Assert.Equal(2, contribution.Contribution.Order);
+        Assert.True(contribution.Contribution.Passive);
+    }
+
+    /// <summary>
+    /// A record carrying nothing publishes its row with a zero load and no contributions.
+    /// </summary>
+    /// <remarks>
+    /// A distributor holds no value of its own, so an empty one is indistinguishable from an absent
+    /// one unless the empty one is published. A consumer reading the counts must be able to tell "no
+    /// bonus" from "not read", which is the same reason the category withholds rather than shortens
+    /// when a member does not bind.
+    /// </remarks>
+    [Fact]
+    public void ARecordCarryingNoModifiersStillPublishesItsRow()
+    {
+        var type = new FakeTimeRuneType();
+        FakeTimeRuneType.All.Add(type);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+
+        var rows = TypeModifiersOf(world, type.Identity);
+        Assert.Equal(5, rows.Count);
+        Assert.All(rows, row =>
+        {
+            Assert.Equal(0, row.ActiveCount);
+            Assert.Equal(0, row.PassiveCount);
+        });
+        Assert.Empty(ContributionsOf(world, type.Identity));
+    }
+
+    /// <summary>
+    /// A parent structure type publishes the types it confers its records on.
+    /// </summary>
+    /// <remarks>
+    /// <c>RegisterSubType</c> wires the parent's thirteen records into the child's thirteen, so a
+    /// bonus on the parent reaches the children's members. Without this edge, "a type-wide bonus is
+    /// bounded by that type's own membership" is simply false for structures.
+    /// </remarks>
+    [Fact]
+    public void AParentStructureTypePublishesTheTypesItConfersItsRecordsOn()
+    {
+        var arcanist = new FakeStructureType();
+        var flameweaver = new FakeStructureType();
+        var stormshaper = new FakeStructureType();
+        var primal = new FakeStructureType { subTypes = { arcanist, flameweaver, stormshaper } };
+        FakeStructureType.All.Add(primal);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+
+        var edges = new List<(int Ordinal, Guid SubType)>();
+        for (var index = 0; index < world.TypeSubtypes.Count; index++)
+        {
+            var row = world.TypeSubtypes[index];
+            Assert.Equal(primal.Identity, row.TypeId);
+            edges.Add((row.Ordinal, row.SubTypeId));
+        }
+
+        Assert.Equal(
+            new[]
+            {
+                (0, arcanist.Identity),
+                (1, flameweaver.Identity),
+                (2, stormshaper.Identity),
+            },
+            edges);
+    }
+
+    /// <summary>
+    /// The challenge draft publishes its weighted buckets and which bucket each challenge is in.
+    /// </summary>
+    /// <remarks>
+    /// <c>ChallengeTypeSO</c> derives straight from <c>IdScriptableObject</c> and carries no modifier
+    /// records at all, so it is not in the type-modifier tables. What it does carry is the draft's
+    /// weighting, which is what decides whether an offer can show a challenge at all.
+    /// </remarks>
+    [Fact]
+    public void TheDraftPublishesItsWeightedBucketsAndTheBucketEachChallengeSitsIn()
+    {
+        var focus = new FakeChallengeType { weight = 4d, restrictedInstances = true };
+        var handPlaced = new FakeChallengeType { weight = 0d, excludeFromRandomSelection = true };
+        FakeChallengeType.All.Add(focus);
+        FakeChallengeType.All.Add(handPlaced);
+
+        var challenge = new FakeChallenge { challengeTypes = { focus } };
+        FakeChallenge.All.Add(challenge);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.Equal(2, world.ChallengeTypes.Count);
+
+        var buckets = new Dictionary<Guid, WorldChallengeTypeBucket>();
+        for (var index = 0; index < world.ChallengeTypes.Count; index++)
+        {
+            var row = world.ChallengeTypes[index];
+            buckets[row.ChallengeTypeId] = row;
+        }
+
+        Assert.Equal(4d, buckets[focus.Identity].Weight);
+        Assert.True(buckets[focus.Identity].RestrictedInstances);
+        Assert.False(buckets[focus.Identity].ExcludeFromRandomSelection);
+        Assert.Equal(0d, buckets[handPlaced.Identity].Weight);
+        Assert.True(buckets[handPlaced.Identity].ExcludeFromRandomSelection);
+
+        var membership = Assert.Single(
+            world.ChallengeTypeMemberships.AsSpan().ToArray());
+        Assert.Equal(challenge.Identity, membership.ChallengeId);
+        Assert.Equal(0, membership.Ordinal);
+        Assert.Equal(focus.Identity, membership.ChallengeTypeId);
+    }
+
+    /// <summary>
+    /// An equipped spell publishes the spell types it currently resonates with.
+    /// </summary>
+    /// <remarks>
+    /// The authored recipe list is not the set the game multiplies over: glyphs rewrite
+    /// <c>augmentedSpellTypes</c> on the live spell, and only that field can answer what a spell
+    /// resonates with right now.
+    /// </remarks>
+    [Fact]
+    public void AnEquippedSpellPublishesTheTypesItCurrentlyResonatesWith()
+    {
+        var cantrip = new FakeSpellType();
+        var arcane = new FakeSpellType();
+        var equipped = new FakeSpell { augmentedSpellTypes = { cantrip, arcane } };
+
+        var loadout = new FakeSpellLoadout();
+        loadout.value.Add(equipped);
+        FakeIdRegistry.RuntimeLookup[KnownEntities.ActiveSpells.Uuid] = loadout;
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+
+        var rows = new List<(int Slot, int Ordinal, Guid SpellType)>();
+        for (var index = 0; index < world.SpellSlotTypes.Count; index++)
+        {
+            var row = world.SpellSlotTypes[index];
+            rows.Add((row.SlotIndex, row.Ordinal, row.SpellTypeId));
+        }
+
+        Assert.Equal(
+            new[] { (0, 0, cantrip.Identity), (0, 1, arcane.Identity) },
+            rows);
+    }
+
+    /// <summary>
+    /// One unreadable record withholds both type-modifier tables rather than shortening either.
+    /// </summary>
+    /// <remarks>
+    /// A modifier table that is silently short a taxonomy reads exactly like a taxonomy whose types
+    /// carry no modifiers, and a strategist would act on the second reading. The reason names the
+    /// member that failed, so the build difference is diagnosable rather than merely fatal.
+    /// </remarks>
+    [Fact]
+    public void ARecordThatDoesNotBindWithholdsBothTypeModifierTables()
+    {
+        var collector = Collector(("RitualTypeSO", typeof(FakeIdRegistry)));
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.False(report.IsComplete);
+        foreach (var category in new[] { "type modifiers", "type modifier contributions" })
+        {
+            var outcome = report.For(category);
+            Assert.Equal(WorldCategoryOutcome.Unavailable, outcome.Outcome);
+            Assert.Contains("RitualTypeSO.power", outcome.FirstFailure, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(0, world.TypeModifiers.Count);
+        Assert.Equal(0, world.TypeModifierContributions.Count);
+    }
+
+    private static List<WorldTypeModifier> TypeModifiersOf(GameWorldState world, Guid typeId)
+    {
+        var rows = new List<WorldTypeModifier>();
+        for (var index = 0; index < world.TypeModifiers.Count; index++)
+        {
+            var row = world.TypeModifiers[index];
+            if (row.TypeId == typeId) rows.Add(row);
+        }
+
+        return rows;
+    }
+
+    private static List<WorldTypeModifierContribution> ContributionsOf(
+        GameWorldState world,
+        Guid typeId)
+    {
+        var rows = new List<WorldTypeModifierContribution>();
+        for (var index = 0; index < world.TypeModifierContributions.Count; index++)
+        {
+            var row = world.TypeModifierContributions[index];
+            if (row.TypeId == typeId) rows.Add(row);
+        }
+
+        return rows;
     }
 
     private sealed class FakeGlobalVariable
