@@ -1033,6 +1033,19 @@ internal sealed class FakeAlchemyRecipe
     public List<FakeAlchemyType> alchemyTypes = new();
 
     public bool discovered;
+
+    /// <summary>
+    /// Which gate this recipe's row is behind. <c>Discover</c> is what all 125 authored recipes on
+    /// the pinned build carry, and it is the branch on which <c>discovered</c> is the whole lock.
+    /// </summary>
+    public FakeVisibilityType visibilityType = FakeVisibilityType.Discover;
+
+    public enum FakeVisibilityType
+    {
+        Discover = 0,
+        Prerequisite = 1,
+    }
+
     public int maxLevel;
     public int advancementLevel;
     public int discRarityLevel;

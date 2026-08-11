@@ -473,6 +473,20 @@ public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
     public new string uuid;
     public new string name = "Alchemy";
     public bool discovered = true;
+
+    /// <summary>
+    /// Which gate this recipe's row is behind. <c>Discover</c> makes <c>IsAvailable()</c> read
+    /// <c>discovered</c>; <c>Prerequisite</c> makes it run the visibility container instead. Every
+    /// authored recipe on the pinned build is <c>Discover</c>, which is the default here too.
+    /// </summary>
+    public VisibilityTypeKind visibilityType = VisibilityTypeKind.Discover;
+
+    public enum VisibilityTypeKind
+    {
+        Discover = 0,
+        Prerequisite = 1,
+    }
+
     public int masteryLevel;
     public BigDouble masteryXp;
     public int maxLevel = 1;

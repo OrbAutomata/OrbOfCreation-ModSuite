@@ -38,11 +38,13 @@ internal readonly struct WorldAlchemyRecipe : IWorldEntity
         BigDouble cachedCompletionTime,
         BigDouble requiredExperience,
         WorldDiscoverableDecision discovery = default,
-        int currentLevel = 1)
+        int currentLevel = 1,
+        int visibilityGate = DiscoverGate)
     {
         RecipeId = recipeId;
         CoreTypeId = coreTypeId;
         Discovered = discovered;
+        VisibilityGate = visibilityGate;
         MaxLevel = maxLevel;
         AdvancementLevel = advancementLevel;
         DiscoveryRarityLevel = discoveryRarityLevel;
@@ -82,6 +84,39 @@ internal readonly struct WorldAlchemyRecipe : IWorldEntity
     internal Guid CoreTypeId { get; }
 
     internal bool Discovered { get; }
+
+    /// <summary>Which of the two gates the recipe screen shows this recipe on.</summary>
+    /// <remarks>
+    /// <para>
+    /// The row the player can click is <c>UIAlchemyRecipe.IsVisible()</c>, which is
+    /// <c>AlchemyRecipeSO.IsAvailable()</c>, which is
+    /// <c>visibilityType == Discover ? discovered : visibilityPrerequisites.Check()</c>. So
+    /// <see cref="Discovered"/> is the whole of the lock for a <c>Discover</c> recipe and none of
+    /// it for a <c>Prerequisite</c> one, and which it is cannot be read off any other published
+    /// fact. This is the selector, captured as the field it is: all 125 authored recipes on the
+    /// pinned build read <c>Discover</c>, and capturing the selector is what makes the surface's
+    /// reading right rather than coincidentally right.
+    /// </para>
+    /// <para>
+    /// The verdict itself is deliberately not captured. <c>IsAvailable()</c> would run
+    /// <c>Prerequisites.Container.Check()</c> on the other branch, which latches — a new per-pass
+    /// write at the collection boundary, which the manifest forbids outright. A recipe on that
+    /// branch therefore has a lock this suite cannot read, and the surface says so rather than
+    /// reimplementing the check or guessing past it.
+    /// </para>
+    /// <para>
+    /// Note that <c>visibilityPrerequisites</c> is authored and non-empty on <c>Discover</c>
+    /// recipes too, where <c>IsAvailable()</c> never consults it — so the prerequisite container is
+    /// not a fallback reading, it is a different question.
+    /// </para>
+    /// </remarks>
+    internal int VisibilityGate { get; }
+
+    /// <summary>
+    /// The <c>visibilityType</c> value whose lock is <see cref="Discovered"/>, mirroring
+    /// <c>AlchemyRecipeSO.VisibilityType.Discover</c>.
+    /// </summary>
+    internal const int DiscoverGate = 0;
 
     /// <summary>
     /// The highest level unlocked. The level currently selected to brew at is not here: the game
@@ -212,7 +247,7 @@ internal static class WorldAlchemyRecipeDeriver
                 sample.EffectLevels, sample.OverdrivePower, sample.OverdriveSpeed,
                 sample.OverdriveDrainCostMod, sample.OverdriveXpRate, sample.FreeUsageSlots,
                 sample.ResolvedMaxUsageSlots, sample.CachedCompletionTime,
-                sample.RequiredExperience, sample.Discovery, level);
+                sample.RequiredExperience, sample.Discovery, level, sample.VisibilityGate);
         }
     }
 }
@@ -222,6 +257,7 @@ internal sealed class WorldAlchemyRecipeBinder : WorldPlainBinder<WorldAlchemyRe
     private Func<object, Guid>? _id;
     private Func<object, Guid>? _coreTypeId;
     private Func<object, bool>? _discovered;
+    private Func<object, int>? _visibilityGate;
     private Func<object, int>? _maxLevel;
     private Func<object, int>? _advancementLevel;
     private Func<object, int>? _discRarityLevel;
@@ -261,6 +297,11 @@ internal sealed class WorldAlchemyRecipeBinder : WorldPlainBinder<WorldAlchemyRe
         _id = bind.Call<Guid>("GetGuid");
         _coreTypeId = bind.CallReferenceGuid("GetCoreType");
         _discovered = bind.Field<bool>("discovered");
+
+        // Which gate the row the player clicks is behind. IsAvailable() is the verdict, but asking
+        // for it would run Prerequisites.Container.Check() on the other branch, and that latches;
+        // the selector is a stored field and answers with nothing written.
+        _visibilityGate = bind.EnumField("visibilityType");
         _maxLevel = bind.Field<int>("maxLevel");
         _advancementLevel = bind.Field<int>("advancementLevel");
         _discRarityLevel = bind.Field<int>("discRarityLevel");
@@ -324,7 +365,9 @@ internal sealed class WorldAlchemyRecipeBinder : WorldPlainBinder<WorldAlchemyRe
             new BigDouble(_maxUsageSlots!(entity)),
             _cachedCompletionTime!(entity),
             _requiredExperience!(entity),
-            _discovery!.Read(entity));
+            _discovery!.Read(entity),
+            currentLevel: 1,
+            visibilityGate: _visibilityGate!(entity));
 
     private static string Join(string left, string right) =>
         left.Length == 0 ? right : right.Length == 0 ? left : left + "; " + right;

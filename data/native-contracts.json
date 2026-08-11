@@ -964,6 +964,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
     },
     {
+      "id": "alchemy-recipe.visibility-type",
+      "assembly": "assembly-csharp",
+      "type": "AlchemyRecipeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "visibilityType",
+      "visibility": "public",
+      "static": false,
+      "valueType": "AlchemyRecipeSO+VisibilityType",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Which gate the recipe row is behind selects which published fact is its lock, and no other published fact carries it; the verdict IsAvailable() is not taken because its other branch runs Prerequisites.Container.Check(), which latches.", "evidence": "IL: AlchemyRecipeSO.IsAvailable() -> IsDiscoveredRecipe() ? IsDiscovered() : visibilityPrerequisites.Check(); IsDiscoveredRecipe() -> visibilityType == 0"}
+    },
+    {
       "id": "alchemy-recipe.drain-cost",
       "assembly": "assembly-csharp",
       "type": "AlchemyRecipeSO",
