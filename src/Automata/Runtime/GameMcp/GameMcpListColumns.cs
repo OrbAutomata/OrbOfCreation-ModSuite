@@ -318,10 +318,7 @@ internal static class GameMcpListColumns
             "slot", "capacity", "used", "plot", "action", "amount",
         },
         ["agromancy-plot-actions"] = new[] { "plot", "action", "active", "add", "remove" },
-        ["targeting"] = new[]
-        {
-            "pending", "owner", "ownerNativeType", "selectionType", "candidates", "randomize",
-        },
+        ["targeting"] = new[] { "owner", "candidates" },
     };
 
     /// <summary>

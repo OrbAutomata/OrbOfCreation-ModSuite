@@ -531,7 +531,7 @@ internal static class GameMcpWorldQuery
             return projected.Freeze();
         }
         if (row is WorldTargetingRequest targeting)
-            return ProjectTargeting(world, in targeting, asRow: true);
+            return ProjectTargeting(world, in targeting);
         if (row is WorldChallenge challenge)
             return new JObject
             {
@@ -5637,12 +5637,31 @@ internal static class GameMcpWorldQuery
         return result.Freeze();
     }
 
+    /// <summary>
+    /// The request the game is waiting on: who asked, and every structure it will accept.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A request that is not pending has no row, so a <c>pending</c> column could only ever say
+    /// <c>yes</c> — the row's existence already is that fact, and a column with one value in every
+    /// world where it can appear costs a reader a column and tells them nothing.
+    /// </para>
+    /// <para>
+    /// <c>ownerNativeType</c> and <c>selectionType</c> were the requesting object's class and the
+    /// selection strategy's class, spelled the way the game's own code spells them. The owner is
+    /// named beside them in the words the player sees it in, and this verb offers two decisions —
+    /// submit one candidate, or let the request pick — neither of which turns on either class. So
+    /// they carried no decision fact to rename into player words, and a native type name is not
+    /// something this surface says.
+    /// </para>
+    /// <para>
+    /// Whether a random pick would land is whether there is anything to pick: the old
+    /// <c>randomize</c> column was <c>candidates</c> being non-empty, restated one column over.
+    /// The candidates are the answer, so they are the only place it is said.
+    /// </para>
+    /// </remarks>
     private static GameMcpValue ProjectTargeting(
-        GameWorldState world, in WorldTargetingRequest request) =>
-        ProjectTargeting(world, in request, asRow: false);
-
-    private static GameMcpValue ProjectTargeting(
-        GameWorldState world, in WorldTargetingRequest request, bool asRow)
+        GameWorldState world, in WorldTargetingRequest request)
     {
         var candidates = new JArray();
         for (var index = 0; index < request.Candidates.Count; index++)
@@ -5650,21 +5669,11 @@ internal static class GameMcpWorldQuery
             var candidate = request.Candidates[index];
             candidates.Add(ProjectTargetCandidate(world, candidate.StructureId, candidate.Position));
         }
-
-        // Nothing to pick from is the whole of why a roll would not land, and the candidates column
-        // beside it already shows that. On a row it is one word; a caller who asked about this
-        // request by itself still gets the sentence.
-        var randomize = new JObject { ["available"] = candidates.Count > 0 };
-        var result = new JObject
+        return new JObject
         {
-            ["pending"] = true,
             ["owner"] = request.OwnerName,
-            ["ownerNativeType"] = request.OwnerNativeType,
-            ["selectionType"] = request.SelectionNativeType,
             ["candidates"] = candidates,
-            ["randomize"] = asRow ? DecisionWord(randomize) : (object)randomize,
-        };
-        return result.Freeze();
+        }.Freeze();
     }
 
     private static GameMcpValue ProjectTargetCandidate(GameWorldState world, Guid id, int position)

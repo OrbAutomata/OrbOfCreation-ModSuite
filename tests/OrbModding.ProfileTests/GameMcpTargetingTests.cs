@@ -56,7 +56,12 @@ public sealed class GameMcpTargetingTests
         Assert.True(json["rows"] is JArray, json.ToString());
         var rows = (JArray)json["rows"]!;
         var row = Assert.IsType<JObject>(Assert.Single(rows));
-        Assert.True((bool)row["pending"]!);
+
+        // The row is the request, so its existence is the whole of "a request is pending" — and the
+        // owner is named in the words the player sees, not by the class the game's code gives it or
+        // the class of the selection it opened.
+        Assert.Equal(new[] { "owner", "candidates" },
+            row.Properties().Select(property => property.Name));
         Assert.Equal("Targeted effect", (string?)row["owner"]);
         var candidates = row["candidates"]!.OfType<JObject>().ToArray();
         Assert.Equal(
@@ -72,9 +77,9 @@ public sealed class GameMcpTargetingTests
         Assert.Null(candidates[0]["committedLevel"]);
         Assert.True((bool)candidates[0]["available"]!);
 
-        // A roll either lands or it does not, and the candidates column beside it is where the why
-        // lives. One word, no verdict pair, on the row and inside every candidate it holds.
-        Assert.Equal("yes", (string?)row["randomize"]);
+        // Whether a roll would land is whether there is anything to roll over, which the candidates
+        // are. A column restating them said nothing they did not.
+        Assert.Null(row["randomize"]);
         Assert.Null(candidates[0]["reasonCode"]);
         Assert.Null(candidates[0]["reason"]);
         Assert.Null(row["cancel"]);

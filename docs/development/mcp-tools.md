@@ -1269,13 +1269,15 @@ payment, receipt, request echo, catalog join, or post-mutation read-back.
 ### Targeting decision loop
 
 `targeting` is the pre-decision surface for `game_targeting`. It is empty while no target request
-is pending. Its active row names the requesting effect, identifies the native selection kind,
-reports the game's own `cancelAvailable` flag, and carries every eligible structure in native order.
-Each candidate is fully named and includes current committed/effective level, availability, and
-work-in-flight state — a locked candidate says `available: no` and stops there, because the row is
-not refusing anything. `randomize` answers `yes` or `no`; when it is `no` the candidates column
-beside it is empty, which is the whole of the why. Costs and affordability are absent because
-targeting spends no resource.
+is pending, so the row's existence is that fact and there is no column repeating it. The row is two
+columns: the requesting effect, named the way the player sees it, and every eligible structure in
+native order. Each candidate is fully named and includes current committed/effective level,
+availability, and work-in-flight state — a locked candidate says `available: no` and stops there,
+because the row is not refusing anything. Whether a random pick would land is whether `candidates`
+holds anything, so no column restates it. Costs and affordability are absent because targeting
+spends no resource. The requesting object's native class and the class of the selection it opened
+are not on the wire: the two decisions this verb offers — submit one candidate, or let the request
+pick — turn on neither, so they carried nothing to say in player words.
 
 The MCP-only targeting sequence is:
 
