@@ -409,6 +409,33 @@ public sealed class GameMcpTextPageTests
         Assert.Contains("d=3", page, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A count belongs to the rows it counted. A second list beside a page's rows used to be handed
+    /// the page's own total and resume offset, so a complete two-item list of what could not be read
+    /// came back as a page of a set it has nothing to do with.
+    /// </summary>
+    [Fact]
+    public void A_second_list_beside_a_page_does_not_borrow_the_page_count()
+    {
+        var page = Render(@"{
+            'unavailableCategories':[{'category':'glyphs'},{'category':'rituals'}],
+            'rows':[{'uuid':'006061','name':'Constitution','level':2}],
+            'total':174,'nextOffset':30}");
+
+        Assert.Equal(
+            new[]
+            {
+                "unavailableCategories 2",
+                "[category]",
+                "glyphs",
+                "rituals",
+                "rows 1/174 next=30",
+                "[id | name | level]",
+                "006061 | Constitution | 2",
+            },
+            page.Split('\n'));
+    }
+
     private static string Render(string json) =>
         GameMcpTextPage.Render(JToken.Parse(json.Replace('\'', '"')));
 }

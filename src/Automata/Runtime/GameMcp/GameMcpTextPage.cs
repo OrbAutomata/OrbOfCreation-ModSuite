@@ -77,8 +77,8 @@ internal static class GameMcpTextPage
 
         // Pagination describes the page, not any row in it, so the table header says it and these
         // never become lines of their own — but only where there is a table to say it on.
-        var paged = verdict is null && HasTable(item);
-        var declared = paged ? Declared(item) : null;
+        var paged = verdict is null ? TableProperty(item) : null;
+        var declared = paged is null ? null : Declared(item);
         foreach (var property in item.Properties())
         {
             if (verdict is not null && property.Name is "status" or "reasonCode" or "reason")
@@ -90,13 +90,14 @@ internal static class GameMcpTextPage
             {
                 continue;
             }
-            if (paged && property.Name is "total" or "nextOffset" or "columns") continue;
+            if (paged is not null && property.Name is "total" or "nextOffset" or "columns") continue;
+            var counted = property.Name == paged;
             WriteProperty(
                 property.Name,
                 property.Value,
-                paged ? item["total"] : null,
-                paged ? item["nextOffset"] : null,
-                declared,
+                counted ? item["total"] : null,
+                counted ? item["nextOffset"] : null,
+                counted ? declared : null,
                 indent,
                 lines);
         }
@@ -139,18 +140,30 @@ internal static class GameMcpTextPage
     }
 
     /// <summary>
-    /// Whether this object's rows are a page. An empty row array is one too: a page that matched
-    /// nothing still answers the question it was asked, so it reads as the same table with no rows
-    /// rather than as a sentence in a second grammar.
+    /// The array this page's count, next offset and declared columns describe, or nothing where the
+    /// object is not a page. An empty row array is a page too: a page that matched nothing still
+    /// answers the question it was asked, so it reads as the same table with no rows rather than as
+    /// a sentence in a second grammar.
     /// </summary>
-    private static bool HasTable(JObject item)
+    /// <remarks>
+    /// A count belongs to the rows it counted. Every array of a paged object used to be handed the
+    /// page's own <c>total</c> and <c>nextOffset</c>, so a degraded search — whose rows sit beside a
+    /// short list of the categories it could not read — headed that second list
+    /// <c>unavailableCategories 1/174 next=30</c>: a total and a resume offset belonging to an
+    /// entirely different set, on a list that is complete and has no offsets at all. The rows are
+    /// the page; a second array beside them counts itself.
+    /// </remarks>
+    private static string? TableProperty(JObject item)
     {
+        string? sole = null;
         foreach (var property in item.Properties())
         {
-            if (property.Value is JArray array && (array.Count == 0 || array[0] is JObject))
-                return true;
+            if (property.Value is not JArray array) continue;
+            if (array.Count > 0 && array[0] is not JObject) continue;
+            if (property.Name is "rows" or "results") return property.Name;
+            sole = sole is null ? property.Name : string.Empty;
         }
-        return false;
+        return sole is { Length: > 0 } ? sole : null;
     }
 
     private static void WriteProperty(

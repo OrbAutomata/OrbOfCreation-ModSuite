@@ -139,7 +139,10 @@ same idiom and no producer invents its own formatting.
   Moon Garden fd0000 | Plant Moondust fe0000 | 0 | unverified | inactive
   ```
 
-  `total` and `nextOffset` live on the count line, never on a row.
+  `total` and `nextOffset` live on the count line, never on a row — and on the count line of the
+  rows they counted. A page that carries a second list beside its rows (the categories a degraded
+  search could not read) counts that list on its own, because a total and a resume offset belong to
+  the set they were measured over.
   - **The column set is a fact about the category, not about the page.** It is complete, and in the
     same order, on every page of every category. A column every row on this page agrees on is still
     a column; nothing removes a column from the header or from a row. Where the producer declares
