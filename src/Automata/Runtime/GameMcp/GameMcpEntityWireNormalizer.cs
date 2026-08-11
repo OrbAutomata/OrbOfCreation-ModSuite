@@ -296,16 +296,14 @@ internal static class GameMcpEntityWireNormalizer
         {
             item["spendableAmount"] = held;
             item.Remove("amount");
-            return;
         }
-        if (item["cost"] is null && item["spendableAmount"] is not null &&
+        else if (item["cost"] is null && item["spendableAmount"] is not null &&
             item["amount"] is JToken price)
         {
             item["cost"] = price;
             item.Remove("amount");
-            return;
         }
-        if (item["cost"] is null && item["effectiveCost"] is JToken effective &&
+        else if (item["cost"] is null && item["effectiveCost"] is JToken effective &&
             item["amount"] is JToken spendable)
         {
             item["cost"] = effective;
@@ -314,7 +312,35 @@ internal static class GameMcpEntityWireNormalizer
             item.Remove("totalCost");
             item.Remove("amount");
         }
+        OrderPriceColumns(item);
     }
+
+    /// <summary>
+    /// One price shape wherever a price is said: what it asks, what you hold, whether that covers
+    /// it — and the resource it is about, which every reference lands after.
+    /// </summary>
+    /// <remarks>
+    /// A producer that published the price under <c>amount</c> had it renamed here, and a renamed
+    /// member is written where a new one goes: last. So the same three facts came back
+    /// <c>cost | spendableAmount | affordable</c> from one verb and <c>cost | affordable |
+    /// spendableAmount</c> from the next, and a reader scanning two price tables in one session
+    /// read the second one positionally and got the wrong column. The columns a price is made of
+    /// are a fact about prices, not about which producer happened to build this one, so they are
+    /// put in that order once, here, after every rename that could disturb it — the same order
+    /// <c>purchase-costs</c> declares for its own page.
+    /// </remarks>
+    private static void OrderPriceColumns(JObject item)
+    {
+        for (var index = PriceColumns.Length - 1; index >= 0; index--)
+        {
+            if (item.Property(PriceColumns[index]) is not JProperty property) continue;
+            var value = property.Value;
+            property.Remove();
+            item.AddFirst(new JProperty(PriceColumns[index], value));
+        }
+    }
+
+    private static readonly string[] PriceColumns = { "cost", "spendableAmount", "affordable" };
 
     /// <summary>
     /// A declared reference column naming no entity says so in a word, and keeps the column name a

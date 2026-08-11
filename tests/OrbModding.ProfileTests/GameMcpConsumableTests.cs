@@ -89,6 +89,14 @@ public sealed class GameMcpConsumableTests
         Assert.Equal("Toxicity", (string?)cost["resource"]!["name"]);
         Assert.Equal("250", (string?)cost["cost"]);
         Assert.Equal("9e6", (string?)cost["spendableAmount"]);
+
+        // One price shape wherever a price is said: what it asks, what you hold, then the resource
+        // it is about. A producer that published the price under `amount` had it renamed on the
+        // wire, and a rename is written where a new member goes — last — so this verb and the next
+        // spelled the same three facts in two orders.
+        Assert.Equal(
+            new[] { "cost", "spendableAmount", "affordable", "resource" },
+            cost.Properties().Select(property => property.Name));
         Assert.True((bool)row["cancel"]!["available"]!);
         Assert.Equal(3, (int)row["discard"]!["maximumAmount"]!);
         Assert.False((bool)row["randomization"]!["enabled"]!);

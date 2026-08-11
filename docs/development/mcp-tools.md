@@ -223,6 +223,12 @@ than printing itself into a cell.
   invented to sit beneath it.
 - **An envelope is not a fact.** One object wrapped in one key that names nothing the caller asked
   about is unwrapped, so an entity appears once per response.
+- **One price shape.** Every cost row on the surface says what it asks, what you hold, whether that
+  covers it, and the resource it is about — `cost`, `spendableAmount`, `affordable`, `resource` — in
+  that order, in a list named `costs`. A producer that published the price under a different member
+  has it renamed on the wire, and a rename used to be written where a new member goes, last, so two
+  verbs spelled the same three facts in two orders and a reader scanning the second one positionally
+  read the wrong column.
 - **Constants live here, not in answers.** A number that is the same in every save on every call is
   documentation. The casting dials publish `current` and `maximum` and not the floor, which is 1 for
   both; `suite_configuration` publishes values and not the sentence describing each setting.
@@ -2337,6 +2343,9 @@ to touch one argues for it first. Each line names where the shape is specified.
     on a repeat — *Screenshots and navigation*.
 21. `game_tooltips` scope discipline: a dismissed modal leaves the catalog, and `total` is stable
     across repeated calls on an unchanged screen — *Tooltip explorer*.
+22. One price shape wherever a price is said — `cost`, `spendableAmount`, `affordable`, then the
+    resource — whichever verb built the row and whichever member the producer read it from —
+    *How a response reads*.
 
 Four shapes this list used to protect are retired, and a round that reintroduces one is undoing a
 ruling rather than restoring a contract:
