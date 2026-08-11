@@ -5030,6 +5030,97 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(0, world.TypeModifierContributions.Count);
     }
 
+    /// <summary>
+    /// A type's own total and the member value it already sits inside are published side by side, and
+    /// nothing multiplies them together.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The whole design turns on this. <c>StructureTypeSO.RegisterStructure</c> wires
+    /// <c>structurePower</c> into <c>StructureSO.power</c>, so a modifier landing on the type is
+    /// pushed into the member and the member's own record already carries it. A consumer reading both
+    /// and multiplying would square the bonus, and every number on the way would stay plausible.
+    /// </para>
+    /// <para>
+    /// So the assertion is not that the total is right — it is that the product never appears. The
+    /// sweep is reflective rather than a written-out list of members, because a magnitude added to a
+    /// derived row later has to inherit this rule rather than escape it by having been written after
+    /// the test.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void NoDerivationMultipliesATypeTotalIntoTheMemberValueItAlreadySitsIn()
+    {
+        var type = new FakeStructureType();
+        type.structurePower.activeModifiers[Guid.NewGuid()] =
+            new FakeValueModifier(FakeModifierKind.Raw, 50d, 0);
+        FakeStructureType.All.Add(type);
+
+        var structure = new FakeStructure
+        {
+            structureType = type,
+            power = new FakeModifierRecord(250d),
+        };
+        FakeStructure.All.Add(structure);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+
+        // The type's own total: Adjust(100) over one Raw +50.
+        Assert.True(WorldTypeModifierTotalLookup.TryFindProperty(
+            world.TypeModifierTotals, type.Identity, "structurePower", out var total));
+        Assert.Equal(150d, total.DistributedTotalPercent.ToDouble(), 9);
+        Assert.Equal(1.5d, total.DistributedTotalMultiplier.ToDouble(), 9);
+
+        // The member value, published exactly as captured and untouched by any of it.
+        Assert.True(WorldLookup.TryFind(world.Structures, structure.Identity, out var published));
+        Assert.Equal(250d, published.Reading.Modifiers.Power.ToDouble(), 9);
+
+        // What the keyword is worth is the type's total across its members, not a product with them.
+        Assert.True(WorldKeywordModifierLookup.TryFind(
+            world.KeywordModifiers, type.Identity, out var start, out var count));
+        var keyword = Assert.Single(
+            Enumerable.Range(start, count)
+                .Select(index => world.KeywordModifiers[index])
+                .Where(row => row.Property == "structurePower"));
+        Assert.Equal(150d, keyword.DistributedTotalPercent.ToDouble(), 9);
+        Assert.Equal(1, keyword.MemberCount);
+
+        var derived = DerivedMagnitudes(world).ToArray();
+        Assert.NotEmpty(derived);
+        Assert.DoesNotContain(375d, derived);    // the member value times the total as a multiplier
+        Assert.DoesNotContain(37500d, derived);  // the member value times the total as a percent
+    }
+
+    private static IEnumerable<double> DerivedMagnitudes(GameWorldState world) =>
+        Magnitudes(world.TypeModifierTotals)
+            .Concat(Magnitudes(world.KeywordModifiers))
+            .Concat(Magnitudes(world.SpellTypeResonance));
+
+    private static IEnumerable<double> Magnitudes<TRow>(PublicationTable<TRow> table)
+        where TRow : struct
+    {
+        var magnitudes = typeof(TRow)
+            .GetProperties(
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.NonPublic)
+            .Where(property => property.PropertyType == typeof(BigDouble))
+            .ToArray();
+
+        for (var index = 0; index < table.Count; index++)
+        {
+            object row = table[index];
+            foreach (var magnitude in magnitudes)
+            {
+                yield return ((BigDouble)magnitude.GetValue(row)!).ToDouble();
+            }
+        }
+    }
+
     private static List<WorldTypeModifier> TypeModifiersOf(GameWorldState world, Guid typeId)
     {
         var rows = new List<WorldTypeModifier>();
