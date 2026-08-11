@@ -1425,8 +1425,50 @@ build evaluates detail for. A call with no published world refuses as a whole an
 lifecycle state, so the menu never yields a half-answered block.
 
 An id resolves its own table, so the categories this build evaluates no verdicts for still answer —
-with their identity and their row, and no decision blocks. "There is nothing more to say about this
-one" and "this one could not be read" are different answers, and a missing block used to say both.
+with their row, whose own handle and name are the identity in that case, and no decision blocks.
+"There is nothing more to say about this one" and "this one could not be read" are different
+answers, and a missing block used to say both.
+
+#### What a keyword is worth
+
+A keyword is a type asset, so "what is Ember worth" and "which spells are Embers" are one object
+asked two ways. A detail read on a type carries a `worth` block; every other entity's block is
+byte-identical to what it was, because no published type record names it.
+
+`properties` is one entry per modifier record the type carries, and each entry states exactly one
+magnitude under the name that says which kind it is. `distributedTotalPercent` is a record that
+*hands its bonus down* — the moment a modifier lands, a transformed copy is pushed into every
+member, so the member value the surface already publishes **already contains it**. Reading it beside
+a member's number and multiplying is how one bonus becomes two. `value` is a record holding a number
+of its own, which applies on top of whatever wears the type; all twenty-two `SpellTypeSO` records are
+these, and they appear nowhere else on the wire. `howToRead` says the rule that fits the block it
+sits on, so a spell type never reads about handed-down totals it has none of. `sources` names every
+modifier currently on that record: who placed it, its amount in the game's own notation, which of the
+five folds it is (`raw`, `diminishing`, `stacking`, `reduction`, `exponent`), and its order. A
+distributor carrying nothing totals to a flat `100`, which is a reading rather than an absence.
+
+`members` says how many things the keyword reaches, per class of thing, with the structure subtype
+chain already closed over — a bonus on a parent type reaches every child's members too. It is absent
+for a type nothing wears a keyword edge to, which includes every spell type: a spell's types are
+published as spell-graph relations instead, and "0 things" would be a count of the wrong table.
+
+```
+row: uuid=a0f000, name=Ember, typeLevel=0, typeXp=0, isVisible=yes, isElemental=no
+worth:
+  howToRead: These are this type's own numbers, and they apply on top of whatever wears the type.
+  properties 4:
+    property: cooldownSpeed
+    value: 100
+
+    property: power
+    value: 150
+    sources 1
+    [amount | effect | order | source]
+    50 | diminishing | 0 | Deep Insight a0d000
+```
+
+Search rows are untouched by all of this. What a type is worth changes every time anything is
+bought, it belongs to the reader who asked a detail question, and a list stays durable facts only.
 
 Detail is per id and nothing is truncated: 200 ids is the ceiling and a 200-id batch answers at 200
 ids of detail. Bytes lose to predictability here on purpose — a get has no offset to resume from, so
