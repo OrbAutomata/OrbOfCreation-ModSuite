@@ -262,7 +262,7 @@ rather than from the screen it is drawn on.
 | `world_get` | Read an ordered 1–200 UUID list from one pinned immutable publication |
 | `entity_catalog` | Search every live-registry identity and available player-facing name, including loaded entities hidden by progression |
 | `explain_entity` | Evaluate one UUID's gates, requirement graph, exact costs, and blockers from one pinned immutable publication |
-| `world_search` | Search stable-UUID entity categories; composite diagnostic rows are excluded |
+| `world_search` | Find a term across every entity category at once: name, keywords, category, most relevant first |
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
 | `suite_configuration` | Read every writable setting's committed value; `mode=describe` adds type, domain, and purpose |
 | `trace_health` | Read trace-writer health, segment, record, and byte counters |
@@ -349,31 +349,71 @@ than a fraction of one.
 `game_tooltips` pages the screen's live hover elements rather than a published table, so `limit` is
 its only page bound.
 
-**A `world_list` category of 25 rows or fewer comes back whole**, when the caller named no `limit` of
-its own: neither the default page size nor the 12 KB bound cuts a category that small into pieces, so
+**A `world_list` category — or a `world_search` result — of 25 rows or fewer comes back whole**, when
+the caller named no `limit` of
+its own: neither the default page size nor the 12 KB bound cuts a set that small into pieces, so
 there is no `nextOffset` and no second call. The count line still reads `rows N/N` — how many rows a
 category holds is a fact whether or not any were withheld. A caller that *does* name a `limit` gets
 the page it named, `nextOffset` and all: the rule never raises a page above what was asked for, it
-only stops lowering one below the whole of a category nobody asked to have cut up. The threshold is
+only stops lowering one below the whole of a set nobody asked to have cut up. The threshold is
 `GameMcpWorldQuery.WholeCategoryRows`.
-`world_search` deduplicates by entity identity before paging, so one entity that matches in two
+`world_search` deduplicates by entity identity before sorting, so one entity that matches in two
 categories occupies one row and one page slot.
 
-A `world_search` row is `uuid`, `name`, and `category`, on every row and with no other column. A
-search page holds hits from every category at once, so borrowing each category's own scan columns
-unioned every heading onto one table and left about nine cells in ten empty — while `category`, the
-column that says which read verb can follow the hit up, was filled only on rows that had no identity
-of their own. Widening is `world_list`'s job, on a page whose columns all apply to every row.
+### What search searches, and what it cannot
 
-The two search tools page in different orders and are not interchangeable at the same offset.
-`world_search` walks the published world category by category in `world_list` order and, inside a
-category, in publication order; `entity_catalog` walks the whole live registry in UUID order. They
-also answer different questions: `world_search` sees only entities the published world carries a row
-for and additionally matches a category's own name and native type, so a category name selects every
-row in it, while `entity_catalog` sees every loaded UUID — including the ones no world row covers,
-which read `category=not-world-projected` — and matches only that entity's own identity fields.
-Equal totals for one query mean the query happened to select the same set, not that the tools have
-the same scope.
+A `world_search` row is `id`, `name`, `category`, `keywords`, on every row of every category and with
+no other column. A search page holds hits from every category at once, so borrowing each category's
+own scan columns unioned every heading onto one table and left about nine cells in ten empty — while
+`category`, the column that says which read verb can follow the hit up, was filled only on rows that
+had no identity of their own. Widening is `world_list`'s job, on a page whose columns all apply to
+every row.
+
+The `keywords` cell is the entity's authored word line — the type assets whose display names the game
+prints as `ITooltipable.GetDisplayType()` — joined with `, ` in the order the game prints them, and
+**empty where the game authors none**. Upgrades, challenges, views, achievements, advancements,
+recipe books and crafting recipes all spell that line as a constant string with no type field behind
+it, so their cell reads `-` and nothing is synthesized from the category, the screen, or the name.
+The words come from four published tables: the `entity keywords` collection (thirteen classes),
+research's own type rows, the consumable type relations, and the spell relations of kind `SpellType`.
+A type asset the game left nameless contributes no word at all — the seven `ChallengeTypeSO` are
+effect-targetable but deliberately wordless, and the asset-name fallback other surfaces may walk
+would print seven keywords no player has ever seen.
+
+**Search does not search descriptions.** The published world captures no entity description text at
+all — for any class — so a word appearing only in an entity's description finds nothing here. A
+description is read live, per entity, by `explain_entity`. This is a real gap and it is stated rather
+than papered over: relevance therefore bands in three, not four.
+
+A hit is ranked by *why* it matched, and the reason is a sort key rather than a column: an entity's
+own identity (player-facing name, internal asset name, or id) first, then a keyword, then the
+category name or the native type behind it. Inside a band, rows are in id order, so two pages of one
+result agree. Matching is case-insensitive substring on the whole query, which is the rule the game's
+own search box uses — `FilterVariable.MatchesSearchStrings` lowercases both sides and asks
+`Contains`, with no tokenising and no whole-word test.
+
+`state` narrows to one of the three purchasable lifecycle words, and only `upgrades`, `research` and
+`structures` carry one. A category with no lifecycle model does not match a state filter and is not
+excluded from an unfiltered search: inventing a lifecycle word here for rows whose own list page
+never says one would be a second grammar for the same fact. `challenges` also declares a `state`
+column and is deliberately not read by this filter — its words are a run's outcome, not how far the
+player has come. `category` narrows to one searchable category; naming a composite one is refused by
+name rather than answering an empty page.
+
+`keywordHits` appears when the query hit more than one distinct keyword, and says how the whole
+result set splits between them: `keywordHits: Charm=2, Charm Focus=1`. It counts only the keywords
+the query itself matched, so it is short by construction rather than by a cap, and one keyword is no
+split at all. The counts are over the whole result — the `M` of the `rows N/M` line below it — not
+over the page.
+
+The two search tools are not interchangeable at the same offset. `world_search` sorts the whole
+result by relevance and then by id; `entity_catalog` walks the whole live registry in UUID order.
+They also answer different questions: `world_search` sees only entities the published world carries a
+row for and additionally matches a category's own name and native type, so a category name selects
+every row in it, while `entity_catalog` sees every loaded UUID — including the ones no world row
+covers, which read `category=not-world-projected` — and matches only that entity's own identity
+fields. Equal totals for one query mean the query happened to select the same set, not that the tools
+have the same scope.
 
 `entity_catalog` complements `world_search` with the game's complete live runtime identity registry.
 At the first stable Playing world capture after `RuntimeReady`, the suite validates and copies that
@@ -703,10 +743,7 @@ authoritative empty entity result; `world_list(entity-requirements)` retains the
 owner, ordinal, and runtime type evidence. If a searchable entity row itself is returned and that
 entity owns an unmodeled leaf, the search result is explicitly incomplete for that entity. Its
 `total` counts only stable-identity matches that the response can actually return, counted after
-identity deduplication so the total and the pages agree. A match is the same row
-`world_list(category=...)` returns for that entity — named, scanned, and carrying its category and
-native type — rather than a bare pointer that costs a second call to learn anything about what was
-just found.
+identity deduplication so the total and the pages agree.
 
 ### Discovery decision loop
 

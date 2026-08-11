@@ -84,12 +84,26 @@ internal static class GameMcpEntityCatalog
         return unavailable;
     }
 
-    internal static bool Matches(
+    /// <summary>
+    /// Whether this id's own identity answers the query: what the player calls it, what the asset is
+    /// called, or the id itself.
+    /// </summary>
+    /// <remarks>
+    /// The runtime type is deliberately not here. It is the kind of thing this is rather than which
+    /// thing it is, and a surface that ranks matches must not rank <c>UpgradeSO</c> against two
+    /// hundred rows as if each of them were named that.
+    /// </remarks>
+    internal static bool MatchesIdentity(
         EntityIdentityCatalogSnapshot catalog,
         Guid uuid,
         string query) =>
         catalog.TryGet(uuid, out var row)
-            ? Matches(in row, query ?? string.Empty)
+            ? row.EntityId.ToString("D").IndexOf(
+                  query ?? string.Empty, StringComparison.OrdinalIgnoreCase) >= 0 ||
+              row.AssetName.IndexOf(
+                  query ?? string.Empty, StringComparison.OrdinalIgnoreCase) >= 0 ||
+              row.DisplayName.IndexOf(
+                  query ?? string.Empty, StringComparison.OrdinalIgnoreCase) >= 0
             : uuid.ToString("D").IndexOf(
                 query ?? string.Empty,
                 StringComparison.OrdinalIgnoreCase) >= 0;

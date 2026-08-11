@@ -380,14 +380,15 @@ public sealed class GameMcpWorldQueryTests
             GameMcpAcceptanceFixture.SpellId.ToString("D"),
             0,
             5));
-        // A match names the entity and the category that reads the rest of it. Borrowing each
-        // category's scan columns unioned every category's headings onto one page and left nine
-        // cells in ten empty, on the tool whose whole job is routing the caller to the right read.
+        // A match names the entity, the category that reads the rest of it, and the words the game
+        // prints on it. Borrowing each category's scan columns unioned every category's headings
+        // onto one page and left nine cells in ten empty, on the tool whose whole job is routing
+        // the caller to the right read.
         var match = Assert.Single(search["rows"]!.Values<JObject>())!;
         Assert.Equal((string?)scan["uuid"], (string?)match["uuid"]);
         Assert.Equal((string?)scan["name"], (string?)match["name"]);
         Assert.Equal("spell-recipes", (string?)match["category"]);
-        Assert.Equal(3, match.Properties().Count());
+        Assert.Equal(4, match.Properties().Count());
 
         var exact = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             state,

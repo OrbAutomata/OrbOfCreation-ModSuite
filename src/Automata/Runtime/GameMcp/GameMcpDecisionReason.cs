@@ -106,6 +106,7 @@ internal static class GameMcpDecisionReason
         "invalid_purchase_amount" or "unknown_category" or "unknown_discovery_surface" or
         "query_required" or "mutually_exclusive" or "missing_required" or "unexpected_field" or
         "unexpected_for_mode" or "argument_validation_failed" or "filter_not_supported" or
+        "invalid_state" or "category_not_searchable" or
         "component_count_too_large" or "unsupported_type" or "composition_unsupported" or
         "wrong_mode" or "wrong_alchemy_surface" or "wrong_level_surface" or
         "wrong_loadout_surface" or "wrong_selection" or

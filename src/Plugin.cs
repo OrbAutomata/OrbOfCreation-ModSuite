@@ -1600,7 +1600,13 @@ public sealed class Plugin : BaseUnityPlugin
             case "world_search":
                 execution = GameMcpToolExecution.Read(
                     GameMcpWorldQuery.Search(
-                        context, request.Query, request.Offset, request.Limit).Freeze());
+                        context,
+                        request.Query,
+                        request.Offset,
+                        request.Limit,
+                        request.Category,
+                        request.StateFilter,
+                        request.LimitFromCaller).Freeze());
                 return true;
             case "suite_health":
                 execution = GameMcpToolExecution.Text(ProjectGameMcpHealthText(context));

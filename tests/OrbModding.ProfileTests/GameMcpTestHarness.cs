@@ -174,7 +174,13 @@ internal static class GameMcpTestHarness
                     request.Uuid.ToString("D")).Freeze()),
             "world_search" => GameMcpToolExecution.Read(
                 GameMcpWorldQuery.Search(
-                    context, request.Query, request.Offset, request.Limit).Freeze()),
+                    context,
+                    request.Query,
+                    request.Offset,
+                    request.Limit,
+                    request.Category,
+                    request.StateFilter,
+                    request.LimitFromCaller).Freeze()),
             _ => GameMcpToolExecution.Error(new GameMcpObjectBuilder
             {
                 ["status"] = "not_available",

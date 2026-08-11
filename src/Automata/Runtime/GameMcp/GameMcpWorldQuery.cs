@@ -321,13 +321,32 @@ internal static class GameMcpWorldQuery
         return result;
     }
 
-    /// <summary>One search hit: which entity it is, and which category can be read for the rest.</summary>
-    private static GameMcpValue ProjectSearchMatch(GameMcpWorldCategory category, Guid identity) =>
+    /// <summary>
+    /// One search hit: which entity it is, what kind of thing it is, and the words the game prints
+    /// on it.
+    /// </summary>
+    /// <remarks>
+    /// The same four columns for every category, because a search page holds hits from all of them
+    /// at once and borrowing each category's own scan columns unioned seventeen headings onto one
+    /// table with about nine cells in ten empty. Widening is <c>world_list</c>'s job, on a page whose
+    /// columns all apply to every row. The keywords cell is empty where the game authors no words —
+    /// upgrades, challenges, views, achievements, advancements, recipe books and crafting recipes all
+    /// spell their type line as a constant — and an empty cell prints as the absence mark rather than
+    /// borrowing a word from somewhere the player would not recognise it.
+    /// </remarks>
+    private static GameMcpValue ProjectSearchMatch(
+        GameMcpWorldCategory category,
+        Guid identity,
+        string keywords) =>
         new JObject
         {
             ["entityId"] = identity.ToString("D"),
             ["category"] = category.Name,
+            ["keywords"] = keywords,
         }.Freeze();
+
+    /// <summary>What a search page promises to say about every hit, whatever category it came from.</summary>
+    private static readonly string[] SearchColumns = { "entityId", "category", "keywords" };
 
     private static GameMcpValue ProjectListRow(
         GameWorldState world,
@@ -3164,11 +3183,33 @@ internal static class GameMcpWorldQuery
         return result.Freeze();
     }
 
+    /// <summary>
+    /// One search hit before it is projected: enough to sort the whole result set, and nothing else.
+    /// </summary>
+    private readonly struct GameMcpSearchHit
+    {
+        internal GameMcpSearchHit(GameMcpSearchTier tier, Guid identity, int category, int row)
+        {
+            Tier = tier;
+            Identity = identity;
+            Category = category;
+            Row = row;
+        }
+
+        internal GameMcpSearchTier Tier { get; }
+        internal Guid Identity { get; }
+        internal int Category { get; }
+        internal int Row { get; }
+    }
+
     internal static JObject Search(
         GameMcpFrameContext state,
         string query,
         int offset,
-        int limit)
+        int limit,
+        string categoryName = "",
+        string stateFilter = "",
+        bool limitFromCaller = true)
     {
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
@@ -3186,28 +3227,51 @@ internal static class GameMcpWorldQuery
                 MaximumPageSize.ToString(CultureInfo.InvariantCulture));
         }
 
+        var scope = (categoryName ?? string.Empty).Trim();
+        GameMcpWorldCategory? only = null;
+        if (scope.Length > 0)
+        {
+            if (!TryCategory(scope, out var scoped, out var reason))
+                return NotAvailable(publication, "unknown_category", reason);
+            if (!IsSearchable(scoped))
+            {
+                return NotAvailable(
+                    publication,
+                    "category_not_searchable",
+                    "category " + scoped.Name + " has no stable entity identity of its own, so " +
+                    "search cannot address its rows; read it with world_list");
+            }
+            only = scoped;
+        }
+
+        var wanted = (stateFilter ?? string.Empty).Trim();
+        if (wanted.Length > 0 &&
+            wanted is not (GameMcpListColumns.Locked or GameMcpListColumns.Available
+                or GameMcpListColumns.Completed))
+        {
+            return NotAvailable(
+                publication,
+                "invalid_state",
+                "state must be one of " + GameMcpListColumns.Locked + ", " +
+                GameMcpListColumns.Available + ", " + GameMcpListColumns.Completed);
+        }
+
         // Search is deliberately an entity-catalog surface. Composite diagnostic categories are
         // readable through world_list, where their full identity and localized partiality survive.
         // One entity is one match however many categories publish it: identity is deduplicated
-        // before paging, so a repeat can never eat a slot the caller paid for.
-        var rows = new JArray();
-        var totalMatches = 0;
-        var scanned = 0;
+        // before the sort, so a repeat can never eat a slot the caller paid for.
+        var world = publication.Snapshot;
+        var keywords = GameMcpKeywordIndex.Build(world);
+        var hits = new List<GameMcpSearchHit>();
+        var keywordHits = new List<KeyValuePair<string, int>>();
         var seen = new HashSet<Guid>();
-        var estimatedBytes = 128;
-        var byteBudgetReached = false;
         var unavailableCategories = new JArray();
         for (var categoryIndex = 0; categoryIndex < Categories.Length; categoryIndex++)
         {
             var category = Categories[categoryIndex];
-            if (!string.Equals(
-                    category.IdentityMode,
-                    "stable_entity_uuid",
-                    StringComparison.Ordinal))
-            {
-                continue;
-            }
-            var availability = Availability(publication.Snapshot, category);
+            if (!IsSearchable(category)) continue;
+            if (only is not null && !ReferenceEquals(category, only)) continue;
+            var availability = Availability(world, category);
             if (!availability.Available)
             {
                 unavailableCategories.Add(new JObject
@@ -3217,74 +3281,211 @@ internal static class GameMcpWorldQuery
                 });
                 continue;
             }
-            var count = category.Count(publication.Snapshot);
+            var count = category.Count(world);
             for (var rowIndex = 0; rowIndex < count; rowIndex++)
             {
-                var row = category.Row(publication.Snapshot, rowIndex);
-                if (!Matches(publication.Snapshot, category, row, normalized)) continue;
+                var row = category.Row(world, rowIndex);
                 if (!category.TryIdentity(row, out var identity)) continue;
-                if (!seen.Add(identity)) continue;
-                totalMatches++;
-                scanned++;
-                if (scanned <= offset || rows.Count >= limit || byteBudgetReached) continue;
-                // A search page holds rows from every category at once, so borrowing each
-                // category's own scan columns unioned seventeen headings across the page and left
-                // about nine cells in ten empty — and the one column that says which read verb can
-                // follow up on a hit was blank on almost every row, because only rows without an
-                // identity were carrying it. A match says what it is and what kind of thing it is;
-                // widening is world_list's job, on a page whose columns all apply.
-                var projected = ProjectSearchMatch(category, identity);
-                var local = LocalizedRequirementImplications(
-                    publication.Snapshot, new HashSet<Guid> { identity });
-                var localOffers = LocalizedDiscoveryOfferImplications(
-                    publication.Snapshot, new HashSet<Guid> { identity });
-                var matchBytes = EstimateListRowBytes(
-                    publication.Snapshot, category, row, projected);
-                GameMcpValue match;
-                if (local.Count == 0 && localOffers.Count == 0)
+                if (wanted.Length > 0 &&
+                    !string.Equals(SearchLifecycle(row), wanted, StringComparison.Ordinal))
                 {
-                    match = projected;
-                }
-                else
-                {
-                    var incomplete = new JObject
-                    {
-                        ["status"] = "not_available",
-                        ["code"] = local.Count > 0
-                            ? "entity_data_incomplete"
-                            : "discovery_offer_read_incomplete",
-                        ["reason"] = local.Count > 0
-                            ? "this match has incomplete published requirement evidence"
-                            : "this discovery tree has an offer absent from the published entity rows",
-                        ["partialRow"] = projected,
-                    };
-                    if (local.Count > 0) incomplete["implicatedSkippedRows"] = local;
-                    if (localOffers.Count > 0) incomplete["implicatedOffers"] = localOffers;
-                    match = incomplete.Freeze();
-                    matchBytes = checked(
-                        matchBytes + 192 + local.Count * 128 + localOffers.Count * 128);
-                }
-                if (rows.Count > 0 && estimatedBytes + matchBytes > MaximumListResponseBytes)
-                {
-                    byteBudgetReached = true;
                     continue;
                 }
-                estimatedBytes += matchBytes;
-                rows.Add(match);
+                if (!TryTier(world, category, identity, keywords, normalized, out var tier))
+                    continue;
+                if (!seen.Add(identity)) continue;
+                hits.Add(new GameMcpSearchHit(tier, identity, categoryIndex, rowIndex));
+                CountKeywordHits(keywords.Words(identity), normalized, keywordHits);
             }
         }
+
+        // Relevance first, then the id — the thing called that, then the things filed under that
+        // word, then the heap the word merely names, and inside each band an order that does not
+        // move between two pages of one result.
+        hits.Sort(static (left, right) =>
+        {
+            var tier = ((int)left.Tier).CompareTo((int)right.Tier);
+            return tier != 0 ? tier : left.Identity.CompareTo(right.Identity);
+        });
+
+        // A small result is the whole answer or it is not an answer, exactly as a small category is.
+        var whole = !limitFromCaller && hits.Count <= WholeCategoryRows;
+        var rows = new JArray();
+        var estimatedBytes = 128;
+        for (var index = offset; index < hits.Count; index++)
+        {
+            if (rows.Count >= limit && !whole) break;
+            var hit = hits[index];
+            var category = Categories[hit.Category];
+            var row = category.Row(world, hit.Row);
+            var projected = ProjectSearchMatch(
+                category, hit.Identity, keywords.Line(hit.Identity));
+            var local = LocalizedRequirementImplications(
+                world, new HashSet<Guid> { hit.Identity });
+            var localOffers = LocalizedDiscoveryOfferImplications(
+                world, new HashSet<Guid> { hit.Identity });
+            var matchBytes = EstimateListRowBytes(world, category, row, projected);
+            GameMcpValue match;
+            if (local.Count == 0 && localOffers.Count == 0)
+            {
+                match = projected;
+            }
+            else
+            {
+                var incomplete = new JObject
+                {
+                    ["status"] = "not_available",
+                    ["code"] = local.Count > 0
+                        ? "entity_data_incomplete"
+                        : "discovery_offer_read_incomplete",
+                    ["reason"] = local.Count > 0
+                        ? "this match has incomplete published requirement evidence"
+                        : "this discovery tree has an offer absent from the published entity rows",
+                    ["partialRow"] = projected,
+                };
+                if (local.Count > 0) incomplete["implicatedSkippedRows"] = local;
+                if (localOffers.Count > 0) incomplete["implicatedOffers"] = localOffers;
+                match = incomplete.Freeze();
+                matchBytes = checked(
+                    matchBytes + 192 + local.Count * 128 + localOffers.Count * 128);
+            }
+            if (rows.Count > 0 && !whole &&
+                estimatedBytes + matchBytes > MaximumListResponseBytes)
+            {
+                break;
+            }
+            estimatedBytes += matchBytes;
+            rows.Add(match);
+        }
+
         var result = Envelope(publication);
-        result["total"] = totalMatches;
+        result["total"] = hits.Count;
         if (unavailableCategories.Count > 0)
             result["unavailableCategories"] = unavailableCategories;
+        var summary = KeywordHitSummary(keywordHits);
+        if (summary.Length > 0) result["keywordHits"] = summary;
         if (rows.Count == 0)
-        {
-            result["columns"] = GameMcpEntityWireNormalizer.WireColumns(
-                new[] { "entityId", "category" });
-        }
+            result["columns"] = GameMcpEntityWireNormalizer.WireColumns(SearchColumns);
         result["rows"] = rows;
-        if (offset + rows.Count < totalMatches) result["nextOffset"] = offset + rows.Count;
+        if (offset + rows.Count < hits.Count) result["nextOffset"] = offset + rows.Count;
         return result;
+    }
+
+    /// <summary>
+    /// Whether search can address this category's rows at all: it indexes entities, and a composite
+    /// diagnostic row has no identity of its own to return.
+    /// </summary>
+    private static bool IsSearchable(GameMcpWorldCategory category) =>
+        string.Equals(category.IdentityMode, "stable_entity_uuid", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The lifecycle word this row says on its own list page, or nothing where its category has no
+    /// lifecycle to say.
+    /// </summary>
+    /// <remarks>
+    /// The three purchasable categories are the whole of it, because they are the three that carry
+    /// the word. A category with no lifecycle model does not match a state filter and is not
+    /// excluded from an unfiltered search — the alternative is a second lifecycle grammar invented
+    /// here for rows whose own page never speaks it, which is exactly what one vocabulary per fact
+    /// forbids. <c>challenges</c> also has a <c>state</c> column and is deliberately not read here:
+    /// its words are a run's outcome, not how far the player has come.
+    /// </remarks>
+    private static string SearchLifecycle(object row) => row switch
+    {
+        WorldUpgrade upgrade => UpgradeState(in upgrade),
+        WorldResearch research => ResearchLifecycle(in research),
+        WorldStructure structure => StructureState(in structure),
+        _ => string.Empty,
+    };
+
+    /// <summary>
+    /// Why this entity answers the query, or that it does not. Case-insensitive substring, which is
+    /// the rule the game's own search box uses: <c>FilterVariable.MatchesSearchStrings</c> lowercases
+    /// both sides and asks <c>Contains</c>, with no tokenising and no whole-word test, so a caller
+    /// who learned what "cant" finds in the game learns nothing new here.
+    /// </summary>
+    private static bool TryTier(
+        GameWorldState world,
+        GameMcpWorldCategory category,
+        Guid identity,
+        GameMcpKeywordIndex keywords,
+        string query,
+        out GameMcpSearchTier tier)
+    {
+        if (GameMcpEntityCatalog.MatchesIdentity(world.EntityIdentities, identity, query))
+        {
+            tier = GameMcpSearchTier.Name;
+            return true;
+        }
+        var words = keywords.Words(identity);
+        for (var index = 0; index < words.Count; index++)
+        {
+            if (words[index].IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0) continue;
+            tier = GameMcpSearchTier.Keyword;
+            return true;
+        }
+        if (category.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
+            category.RowTypeName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
+            category.ExpectedNativeType.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            tier = GameMcpSearchTier.Category;
+            return true;
+        }
+        tier = GameMcpSearchTier.Name;
+        return false;
+    }
+
+    private static void CountKeywordHits(
+        IReadOnlyList<string> words,
+        string query,
+        List<KeyValuePair<string, int>> counts)
+    {
+        for (var index = 0; index < words.Count; index++)
+        {
+            if (words[index].IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0) continue;
+            var found = false;
+            for (var slot = 0; slot < counts.Count; slot++)
+            {
+                if (!string.Equals(counts[slot].Key, words[index], StringComparison.Ordinal))
+                    continue;
+                counts[slot] = new KeyValuePair<string, int>(
+                    counts[slot].Key, counts[slot].Value + 1);
+                found = true;
+                break;
+            }
+            if (!found) counts.Add(new KeyValuePair<string, int>(words[index], 1));
+        }
+    }
+
+    /// <summary>
+    /// How the whole result set splits across the keywords the query itself hit, when it split at
+    /// all.
+    /// </summary>
+    /// <remarks>
+    /// The line answers the question a cross-category search actually raises — a word the player
+    /// heard once turns out to name two families, and which one they meant is the next thing they
+    /// need. It counts only the keywords the query matched, so it is short by construction rather
+    /// than by a cap, and one keyword is no split at all: a line saying the count already on the
+    /// count line is a line that says nothing.
+    /// </remarks>
+    private static string KeywordHitSummary(List<KeyValuePair<string, int>> counts)
+    {
+        if (counts.Count < 2) return string.Empty;
+        counts.Sort(static (left, right) =>
+        {
+            var byCount = right.Value.CompareTo(left.Value);
+            return byCount != 0
+                ? byCount
+                : string.Compare(left.Key, right.Key, StringComparison.Ordinal);
+        });
+        var line = new StringBuilder();
+        for (var index = 0; index < counts.Count; index++)
+        {
+            if (index > 0) line.Append(", ");
+            line.Append(counts[index].Key).Append('=')
+                .Append(counts[index].Value.ToString(CultureInfo.InvariantCulture));
+        }
+        return line.ToString();
     }
 
     internal static JObject NotAvailableWithoutWorld(GameMcpFrameContext state, string code, string reason)
@@ -7031,22 +7232,6 @@ internal static class GameMcpWorldQuery
         }
         failures = localized.ToArray();
         return true;
-    }
-
-    private static bool Matches(
-        GameWorldState world,
-        GameMcpWorldCategory category,
-        object row,
-        string query)
-    {
-        if (category.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
-            category.RowTypeName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
-            category.ExpectedNativeType.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-        {
-            return true;
-        }
-        return category.TryIdentity(row, out var identity) &&
-            GameMcpEntityCatalog.Matches(world.EntityIdentities, identity, query);
     }
 
     private static bool TryCategory(

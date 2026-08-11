@@ -70,6 +70,7 @@ internal sealed class GameMcpOperationRequest
         Path = source.Path ?? string.Empty;
         Probe = source.Probe ?? string.Empty;
         AffordableOnly = source.AffordableOnly;
+        StateFilter = source.StateFilter ?? string.Empty;
         SaveCapture = source.SaveCapture;
         ResourceUri = source.ResourceUri ?? string.Empty;
         Tab = source.Tab;
@@ -104,6 +105,9 @@ internal sealed class GameMcpOperationRequest
     internal string Path { get; }
     internal string Probe { get; }
     internal bool AffordableOnly { get; }
+
+    /// <summary>The one lifecycle word a search was narrowed to, or nothing.</summary>
+    internal string StateFilter { get; }
     internal bool SaveCapture { get; }
     internal string ResourceUri { get; }
     internal GameMcpNavigationSelector? Tab { get; }
@@ -133,6 +137,7 @@ internal sealed class GameMcpOperationRequestBuilder
     internal string Path { get; set; } = string.Empty;
     internal string Probe { get; set; } = string.Empty;
     internal bool AffordableOnly { get; set; }
+    internal string StateFilter { get; set; } = string.Empty;
     internal bool SaveCapture { get; set; }
     internal string ResourceUri { get; set; } = string.Empty;
     internal GameMcpNavigationSelector? Tab { get; set; }
