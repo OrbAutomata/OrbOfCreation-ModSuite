@@ -106,7 +106,10 @@ public sealed class WorldIdentityWalkTests
     /// and its members are both entities other tables already claim, and the row itself is the
     /// membership between them. <c>UpgradeListMemberships</c> is the same shape for the upgrade
     /// panels: both the upgrade and the authored list it sits on are claimed elsewhere, and the row
-    /// is only the edge between them.
+    /// is only the edge between them. <c>EntityKeywords</c> is the same shape again: the entity and
+    /// the type asset whose display name is the keyword are both claimed elsewhere — the entity by its
+    /// own category and the type by the lifecycle identity catalog — and the row is only the authored
+    /// membership between them.
     /// <para>
     /// <c>ActionQueues</c> is not among them: a queue is a list variable with a uuid of its own that
     /// no other category collects, so it is walked like any other entity.
@@ -156,6 +159,7 @@ public sealed class WorldIdentityWalkTests
         "HarvestLifecycleCosts",
         "SpellAuthoredCosts",
         "SpellRelations",
+        "EntityKeywords",
     };
 
     /// <summary>

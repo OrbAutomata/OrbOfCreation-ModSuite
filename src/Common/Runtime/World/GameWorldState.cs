@@ -124,6 +124,13 @@ public sealed record GameWorldState
     internal PublicationTable<WorldSpellRelation> SpellRelations { get; init; } =
         PublicationTable<WorldSpellRelation>.Empty;
 
+    /// <summary>
+    /// Every authored keyword edge: the entity, and the type asset whose display name the game prints
+    /// in its tooltip word line.
+    /// </summary>
+    internal PublicationTable<WorldEntityKeyword> EntityKeywords { get; init; } =
+        PublicationTable<WorldEntityKeyword>.Empty;
+
     /// <summary>Derived next-mastery-level cost rows, preserved in authored row order.</summary>
     internal PublicationTable<WorldMasteryCost> MasteryCosts { get; init; } =
         PublicationTable<WorldMasteryCost>.Empty;

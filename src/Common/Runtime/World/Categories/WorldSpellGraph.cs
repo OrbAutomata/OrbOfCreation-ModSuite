@@ -308,7 +308,8 @@ internal static class WorldSpellGraphLookup
     }
 }
 
-internal static class WorldSpellGraphDeriver
+/// <summary>Sorts one relation buffer into its published table. Shared by every relation category.</summary>
+internal static class WorldRelationTableDeriver
 {
     internal static PublicationTable<T> Build<T>(WorldRelationBuffer<T> buffer, Comparison<T> comparison)
         where T : struct

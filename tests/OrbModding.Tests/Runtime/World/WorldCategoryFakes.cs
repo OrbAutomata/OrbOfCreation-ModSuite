@@ -145,6 +145,7 @@ internal static class WorldCategoryFakes
         FakeScribeRecipe.All.Clear();
         FakeCraftingStructure.All.Clear();
         FakeHarvestElement.All.Clear();
+        FakeHarvestAction.All.Clear();
         FakeTimeRune.All.Clear();
         FakeGlyph.All.Clear();
         FakeConsumable.All.Clear();
@@ -236,6 +237,41 @@ internal class FakeIdRegistry
     public Guid Identity = Guid.NewGuid();
 
     public Guid GetGuid() => Identity;
+}
+
+/// <summary>
+/// Stand-ins for the keyword taxonomies the keyword capture reads identity alone from.
+/// </summary>
+internal sealed class FakePassiveAbilityType : FakeIdRegistry
+{
+}
+
+internal sealed class FakeTimeRuneType : FakeIdRegistry
+{
+}
+
+internal sealed class FakeGlyphType : FakeIdRegistry
+{
+}
+
+internal sealed class FakeHarvestActionType : FakeIdRegistry
+{
+}
+
+internal sealed class FakeRitualType : FakeIdRegistry
+{
+}
+
+internal sealed class FakeCharacterType : FakeIdRegistry
+{
+}
+
+internal sealed class FakePlotNodeType : FakeIdRegistry
+{
+}
+
+internal sealed class FakeHarvestType : FakeIdRegistry
+{
 }
 
 internal class FakeAbstractListVariable : FakeIdRegistry
@@ -905,6 +941,7 @@ internal sealed class FakeAlchemyRecipe
     : FakeIdRegistry, global::IDiscoverable
 {
     public static readonly List<FakeAlchemyRecipe> All = new();
+    public List<FakeAlchemyType> alchemyTypes = new();
 
     public bool discovered;
     public int maxLevel;
@@ -1447,6 +1484,7 @@ internal sealed class FakeSpellType
 internal sealed class FakeEquipment : FakeIdRegistry, global::IDiscoverable
 {
     public static readonly List<FakeEquipment> All = new();
+    public List<FakeEquipmentType> subEquipmentTypes = new();
 
     public bool isCreated;
     public int discRarityLevel;
@@ -1635,6 +1673,7 @@ internal sealed class FakeCraftingRecipeType
 internal sealed class FakeResource
 {
     public static readonly List<FakeResource> All = new();
+    public List<FakeResourceType> resourceTypes = new();
 
     public Guid Identity = Guid.NewGuid();
     public BigDouble Quantity;
@@ -1714,6 +1753,7 @@ internal sealed class FakeResource
 internal sealed class FakeHarvestElement
 {
     public static readonly List<FakeHarvestElement> All = new();
+    public List<FakeHarvestType> harvestTypes = new();
 
     public Guid Identity = Guid.NewGuid();
     public BigDouble masteryXp;
@@ -1758,6 +1798,9 @@ internal sealed class FakeHarvestElement
 
 internal sealed class FakeHarvestAction
 {
+    public static readonly List<FakeHarvestAction> All = new();
+
+    public List<FakeHarvestActionType> actionTypes = new();
     public Guid Identity = Guid.NewGuid();
     public bool Visible = true;
     public FakeCraftingResourceCostList DrainCost = new();
@@ -1803,6 +1846,7 @@ internal sealed class FakeHarvestActionList
 internal sealed class FakeTimeRune : global::IDiscoverable
 {
     public static readonly List<FakeTimeRune> All = new();
+    public List<FakeTimeRuneType> timeRuneTypes = new();
 
     public Guid Identity = Guid.NewGuid();
     public bool discovered;
@@ -1843,6 +1887,7 @@ internal sealed class FakeTimeRune : global::IDiscoverable
 internal sealed class FakeGlyph : global::IDiscoverable
 {
     public static readonly List<FakeGlyph> All = new();
+    public List<FakeGlyphType> glyphTypes = new();
 
     public Guid Identity = Guid.NewGuid();
     public int level;
@@ -1991,6 +2036,7 @@ internal sealed class FakeConsumableCount
 internal sealed class FakeRitual : global::IDiscoverable
 {
     public static readonly List<FakeRitual> All = new();
+    public List<FakeRitualType> ritualTypes = new();
 
     public Guid Identity = Guid.NewGuid();
     public bool discovered;
@@ -2179,6 +2225,7 @@ internal sealed class FakeView : FakeIdRegistry
 internal sealed class FakePlotNodeAction
 {
     public static readonly List<FakePlotNodeAction> All = new();
+    public List<FakeHarvestActionType> actionTypes = new();
 
     public Guid Identity = Guid.NewGuid();
     public bool hasBeenUsed;
@@ -2285,6 +2332,7 @@ internal sealed class FakePrerequisites
 internal sealed class FakePassiveAbility
 {
     public static readonly List<FakePassiveAbility> All = new();
+    public List<FakePassiveAbilityType> passiveTypes = new();
 
     public Guid Identity = Guid.NewGuid();
     public bool muted;
@@ -2308,6 +2356,7 @@ internal sealed class FakePassiveAbility
 internal sealed class FakeCharacter
 {
     public static readonly List<FakeCharacter> All = new();
+    public List<FakeCharacterType> characterTypes = new();
 
     public Guid Identity = Guid.NewGuid();
     public bool discovered;
@@ -2389,6 +2438,7 @@ internal sealed class FakeRecipeBook
 internal sealed class FakePlotNode
 {
     public static readonly List<FakePlotNode> All = new();
+    public List<FakePlotNodeType> nodeTypes = new();
 
     public Guid Identity = Guid.NewGuid();
     public bool visible;

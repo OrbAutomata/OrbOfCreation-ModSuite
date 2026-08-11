@@ -173,8 +173,10 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(report.IsComplete, report.Describe());
         // Five primary entities, two purchase-view relations, two Scribe queues, eight complete
         // zero-candidate Scroll-target evidence rows, one frame-local challenge-decision context
-        // row, and the two empty snapshot-list owners.
-        Assert.Equal(20, report.TotalSampled);
+        // row, the two empty snapshot-list owners, and the two entities the keyword walk visits —
+        // the resource and the structure — which are sampled for their authored keywords whether or
+        // not the fixture gave them any.
+        Assert.Equal(22, report.TotalSampled);
 
         Assert.True(WorldLookup.TryFind(world.Resources, mana, out var resource));
         Assert.Equal(60d, resource.Reading.Quantity.ToDouble());
@@ -568,7 +570,9 @@ public sealed class GameWorldCollectorTests : IDisposable
         // recipes' separately refreshed live state and player-action decisions, which are second
         // walks of cached lifecycle bindings rather than registries of their own, the challenge
         // decision context captured from its managers in the same frame, the
-        // plot-and-action pairs, which belong to neither side, and
+        // plot-and-action pairs, which belong to neither side, the authored keyword membership of the
+        // thirteen classes whose type lists no other category binds — one walk rather than thirteen,
+        // because the word line is one player concept spanning all of them — and
         // the two that belong to no per-type registry at all and are reached by uuid: the action
         // queues, the equipped spell loadout, the paired Concept registries, and the current
         // targeting request, plus the two ordered consumable lists, their frame-local use gate, and
@@ -577,13 +581,13 @@ public sealed class GameWorldCollectorTests : IDisposable
         // up only as a consumer finding nothing where there was something.
         var report = Collector().Collect();
 
-        Assert.Equal(60, report.Categories.Length);
+        Assert.Equal(61, report.Categories.Length);
         Assert.True(report.IsComplete, report.Describe());
 
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a
         // levelled grouping type.
         foreach (var category in
-                 new[] { "resources", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "prerequisite link states" })
+                 new[] { "resources", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "prerequisite link states", "entity keywords" })
         {
             Assert.Equal(WorldCategoryOutcome.Collected, report.For(category).Outcome);
         }
@@ -1783,6 +1787,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         public static readonly List<FakeStructure> All = new();
 
         public FakeStructureType structureType = FakeStructureType.Shared;
+        public List<FakeStructureType> structureSubTypes = new();
         public int Level;
         public int Queued;
         public bool Available = true;
@@ -3669,6 +3674,145 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         Assert.True(WorldLookup.TryFind(world.PlotNodes, node, out var row));
         Assert.Equal(3, row.Reading.TotalQuantity);
+    }
+
+    /// <summary>
+    /// A structure publishes every word its tooltip shows, not only its primary type.
+    /// </summary>
+    /// <remarks>
+    /// This is the first of the two bindings the keyword census found <em>lossy</em> rather than
+    /// merely narrow: the tooltip prints <c>GetAllTypes()</c>, which is the subtypes prepended with
+    /// the primary type, while the suite bound the primary type alone. On the pinned build that cost
+    /// 138 of 180 structures one or two of their displayed words.
+    /// </remarks>
+    [Fact]
+    public void AStructurePublishesItsPrimaryTypeAndEverySubtype()
+    {
+        var primary = new FakeStructureType();
+        var firstSub = new FakeStructureType();
+        var secondSub = new FakeStructureType();
+        var structure = new FakeStructure
+        {
+            structureType = primary,
+            structureSubTypes = { firstSub, secondSub },
+            Available = true,
+        };
+        FakeStructure.All.Add(structure);
+
+        var collector = Collector();
+        collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(WorldEntityKeywordLookup.TryFind(
+            world.EntityKeywords, structure.Identity, out var start, out var count));
+        Assert.Equal(3, count);
+        var rows = new List<(WorldKeywordSource Source, int Ordinal, Guid Keyword)>();
+        for (var index = start; index < start + count; index++)
+        {
+            var row = world.EntityKeywords[index];
+            Assert.Equal(WorldKeywordOwnerKind.Structure, row.OwnerKind);
+            rows.Add((row.Source, row.Ordinal, row.KeywordId));
+        }
+
+        Assert.Equal(
+            new[]
+            {
+                (WorldKeywordSource.PrimaryType, 0, primary.Identity),
+                (WorldKeywordSource.TypeList, 0, firstSub.Identity),
+                (WorldKeywordSource.TypeList, 1, secondSub.Identity),
+            },
+            rows);
+    }
+
+    /// <summary>
+    /// An alchemy recipe publishes both of its authored types, not only the core one.
+    /// </summary>
+    /// <remarks>
+    /// The second lossy binding. <c>GetCoreType()</c> is <c>alchemyTypes.Last()</c>, and every recipe
+    /// on the pinned build authors exactly two types, so binding the core type alone dropped one word
+    /// from all 125 of them. The core-type binding stays where it is — it is a real game concept with
+    /// its own consumers — and the full list is published alongside it.
+    /// </remarks>
+    [Fact]
+    public void AnAlchemyRecipePublishesEveryAuthoredTypeNotOnlyItsCore()
+    {
+        var first = new FakeAlchemyType();
+        var core = new FakeAlchemyType();
+        FakeAlchemyType.All.AddRange(new[] { first, core });
+        var recipe = new FakeAlchemyRecipe
+        {
+            alchemyTypes = { first, core },
+            coreType = core,
+        };
+        FakeAlchemyRecipe.All.Add(recipe);
+
+        var collector = Collector();
+        collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(WorldEntityKeywordLookup.TryFind(
+            world.EntityKeywords, recipe.Identity, out var start, out var count));
+        Assert.Equal(2, count);
+        Assert.Equal(first.Identity, world.EntityKeywords[start].KeywordId);
+        Assert.Equal(core.Identity, world.EntityKeywords[start + 1].KeywordId);
+        Assert.True(WorldLookup.TryFind(world.AlchemyRecipes, recipe.Identity, out var published));
+        Assert.Equal(core.Identity, published.CoreTypeId);
+    }
+
+    /// <summary>
+    /// A class whose type list nothing bound before is published whole.
+    /// </summary>
+    /// <remarks>
+    /// Rituals stand in for the eleven classes the suite could not see any keyword of at all. The
+    /// prior census reported that rituals carry no types; they carry <c>ritualTypes</c>, and every
+    /// ritual on the pinned build has one.
+    /// </remarks>
+    [Fact]
+    public void APreviouslyUnboundClassPublishesItsAuthoredKeywords()
+    {
+        var strength = new FakeRitualType();
+        var ritual = new FakeRitual { ritualTypes = { strength } };
+        FakeRitual.All.Add(ritual);
+
+        var collector = Collector();
+        collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(WorldEntityKeywordLookup.TryFind(
+            world.EntityKeywords, ritual.Identity, out var start, out var count));
+        Assert.Equal(1, count);
+        Assert.Equal(WorldKeywordOwnerKind.Ritual, world.EntityKeywords[start].OwnerKind);
+        Assert.Equal(strength.Identity, world.EntityKeywords[start].KeywordId);
+    }
+
+    /// <summary>
+    /// One unreadable member withholds the whole keyword category and names what failed.
+    /// </summary>
+    /// <remarks>
+    /// A keyword table that is silently short one class reads exactly like a table whose entities
+    /// genuinely have no keywords, and the census proved that telling those two apart is the whole
+    /// question. So the category fails closed rather than publishing a partial vocabulary.
+    /// </remarks>
+    [Fact]
+    public void OneUnreadableTypeListWithholdsEveryKeyword()
+    {
+        var collector = Collector(("RitualSO", typeof(FakeKeywordlessRitual)));
+
+        var report = collector.Collect();
+
+        var keywords = report.For("entity keywords");
+        Assert.Equal(WorldCategoryOutcome.Unavailable, keywords.Outcome);
+        Assert.Contains("ritualTypes", keywords.FirstFailure);
+        Assert.Empty(collector.Build().EntityKeywords.AsSpan().ToArray());
+    }
+
+    private sealed class FakeKeywordlessRitual
+    {
+        public static readonly List<FakeKeywordlessRitual> All = new();
+
+        public Guid Identity = Guid.NewGuid();
+
+        public Guid GetGuid() => Identity;
     }
 
     /// <summary>

@@ -762,7 +762,8 @@
       "owners": [
         "Common Alchemy classifier",
         "Automata world collection",
-        "Automata Auto Concept action boundary"
+        "Automata Auto Concept action boundary",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
@@ -781,7 +782,8 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<AlchemyRecipeSO>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
@@ -3471,13 +3473,33 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<CharacterSO>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<CharacterSO>"}
+    },
+    {
+      "id": "character.character-types",
+      "assembly": "assembly-csharp",
+      "type": "CharacterSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "characterTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<CharacterTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<CharacterTypeSO>"}
     },
     {
       "id": "character.discovered",
@@ -4769,13 +4791,52 @@
       "valueType": "System.Collections.Generic.List`1<EquipmentSO>",
       "owners": [
         "Mentor artifacts",
-        "Automata world collection"
+        "Automata world collection",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<EquipmentSO>"}
+    },
+    {
+      "id": "equipment.equipment-type-capture",
+      "assembly": "assembly-csharp",
+      "type": "EquipmentSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "equipmentType",
+      "visibility": "public",
+      "static": false,
+      "valueType": "EquipmentTypeSO",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field EquipmentTypeSO"}
+    },
+    {
+      "id": "equipment.sub-equipment-types",
+      "assembly": "assembly-csharp",
+      "type": "EquipmentSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "subEquipmentTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<EquipmentTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<EquipmentTypeSO>"}
     },
     {
       "id": "equipment.attunement-time-left",
@@ -5422,13 +5483,33 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<GlyphSO>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<GlyphSO>"}
+    },
+    {
+      "id": "glyph.glyph-types",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "glyphTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<GlyphTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<GlyphTypeSO>"}
     },
     {
       "id": "glyph.augments-spells",
@@ -5784,13 +5865,71 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<HarvestElementSO>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<HarvestElementSO>"}
+    },
+    {
+      "id": "harvest-element.harvest-types",
+      "assembly": "assembly-csharp",
+      "type": "HarvestElementSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "harvestTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<HarvestTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<HarvestTypeSO>"}
+    },
+    {
+      "id": "harvest-action.all",
+      "assembly": "assembly-csharp",
+      "type": "HarvestActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<HarvestActionSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<HarvestActionSO>"}
+    },
+    {
+      "id": "harvest-action.action-types",
+      "assembly": "assembly-csharp",
+      "type": "HarvestActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "actionTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<HarvestActionTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<HarvestActionTypeSO>"}
     },
     {
       "id": "harvest-element.auto-generation-mod",
@@ -6157,7 +6296,8 @@
         "Common world collection",
         "Auto Items temporary-item picker",
         "Automata Auto Buy owning-view world publication",
-        "Common upgrade screen world publication"
+        "Common upgrade screen world publication",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
@@ -6536,13 +6676,33 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<PassiveAbilitySO>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PassiveAbilitySO>"}
+    },
+    {
+      "id": "passive-ability.passive-types",
+      "assembly": "assembly-csharp",
+      "type": "PassiveAbilitySO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "passiveTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PassiveAbilityTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PassiveAbilityTypeSO>"}
     },
     {
       "id": "passive-ability.apply-while-recharging",
@@ -6965,13 +7125,33 @@
       "valueType": "System.Collections.Generic.List`1<PlotNodeActionSO>",
       "owners": [
         "Automata world collection",
-        "Common world collection"
+        "Common world collection",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PlotNodeActionSO>"}
+    },
+    {
+      "id": "plot-node-action.action-types",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "actionTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<HarvestActionTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<HarvestActionTypeSO>"}
     },
     {
       "id": "plot-node-action.base-time",
@@ -7479,13 +7659,33 @@
       "valueType": "System.Collections.Generic.List`1<PlotNodeSO>",
       "owners": [
         "Automata world collection",
-        "Common world collection"
+        "Common world collection",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PlotNodeSO>"}
+    },
+    {
+      "id": "plot-node.node-types",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "nodeTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PlotNodeTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PlotNodeTypeSO>"}
     },
     {
       "id": "plot-node.available-actions",
@@ -9969,13 +10169,33 @@
       "owners": [
         "Automata world collection",
         "Automata game-math verification",
-        "Automata world-collection verification"
+        "Automata world-collection verification",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ResourceSO>"}
+    },
+    {
+      "id": "resource.resource-types",
+      "assembly": "assembly-csharp",
+      "type": "ResourceSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "resourceTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<ResourceTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ResourceTypeSO>"}
     },
     {
       "id": "resource.applied-levels",
@@ -11485,13 +11705,33 @@
       "valueType": "System.Collections.Generic.List`1<RitualSO>",
       "owners": [
         "Automata world collection",
-        "Automata world-collection verification"
+        "Automata world-collection verification",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<RitualSO>"}
+    },
+    {
+      "id": "ritual.ritual-types",
+      "assembly": "assembly-csharp",
+      "type": "RitualSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "ritualTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<RitualTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<RitualTypeSO>"}
     },
     {
       "id": "ritual.base-waves",
@@ -14351,7 +14591,8 @@
         "Automata cost-math verification",
         "Automata world collection",
         "Automata world-collection verification",
-        "Automata Auto Buy owning-view world publication"
+        "Automata Auto Buy owning-view world publication",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
@@ -15091,13 +15332,33 @@
       "valueType": "StructureTypeSO",
       "owners": [
         "Automata world collection",
-        "Automata Auto Buy owning-view world publication"
+        "Automata Auto Buy owning-view world publication",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field StructureTypeSO"}
+    },
+    {
+      "id": "structure.structure-sub-types",
+      "assembly": "assembly-csharp",
+      "type": "StructureSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "structureSubTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<StructureTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<StructureTypeSO>"}
     },
     {
       "id": "target-link.get-random",
@@ -15267,13 +15528,33 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<TimeRuneSO>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<TimeRuneSO>"}
+    },
+    {
+      "id": "time-rune.time-rune-types",
+      "assembly": "assembly-csharp",
+      "type": "TimeRuneSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "timeRuneTypes",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<TimeRuneTypeSO>",
+      "owners": [
+        "Common keyword world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<TimeRuneTypeSO>"}
     },
     {
       "id": "time-rune.disc-rarity-level",
@@ -25803,6 +26084,7 @@
     "_craftingRecipeAuthoring",
     "_craftingRecipeTypes",
     "_effectBlocks",
+    "_entityKeywords",
     "_entityRequirements",
     "_plotAuthoring",
     "_purchaseCosts",

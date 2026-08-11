@@ -425,6 +425,7 @@ public sealed class EnchantmentInstance : AbstractRefInstance<EnchantmentSO>
 public sealed class HarvestElementSO : UpgradeableObject
 {
     public static List<HarvestElementSO> All = new List<HarvestElementSO>();
+    public List<HarvestTypeSO> harvestTypes = new List<HarvestTypeSO>();
     public BigDouble masteryXp;
     public int masteryLevel;
     public double harvestTime;
@@ -466,6 +467,8 @@ public sealed class HarvestElementSO : UpgradeableObject
 
 public sealed class HarvestActionSO : UpgradeableObject
 {
+    public static List<HarvestActionSO> All = new List<HarvestActionSO>();
+    public List<HarvestActionTypeSO> actionTypes = new List<HarvestActionTypeSO>();
     public bool visible = true;
     public ResourceCostList DrainCost = new ResourceCostList();
     public BigDouble NextDrainPercent = new BigDouble(100);
@@ -550,6 +553,7 @@ public sealed class HarvestActionInstanceListVariable : GenericListVariable<Harv
 public sealed class TimeRuneSO : UpgradeableObject, IDiscoverable, ILevelable
 {
     public static List<TimeRuneSO> All = new List<TimeRuneSO>();
+    public List<TimeRuneTypeSO> timeRuneTypes = new List<TimeRuneTypeSO>();
     public bool discovered;
     public int level;
     public int discRarityLevel;
@@ -604,6 +608,7 @@ public sealed class TimeRuneSO : UpgradeableObject, IDiscoverable, ILevelable
 public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, ILevelable, ILevelableHasFree
 {
     public static List<GlyphSO> All = new List<GlyphSO>();
+    public List<GlyphTypeSO> glyphTypes = new List<GlyphTypeSO>();
     public string DisplayName = string.Empty;
     public string Description = string.Empty;
     public int level;
@@ -940,6 +945,7 @@ public sealed class ConsumableRefListVariable : GenericListVariable<ConsumableSO
 public sealed class RitualSO : IdScriptableObject, IDiscoverable
 {
     public static List<RitualSO> All = new List<RitualSO>();
+    public List<RitualTypeSO> ritualTypes = new List<RitualTypeSO>();
     public bool discovered;
     public bool inBattle;
     public int lastReachedLevel;
@@ -1266,6 +1272,54 @@ public sealed class ChallengeSO : IdScriptableObject
     }
 }
 
+/// <summary>
+/// The keyword taxonomies whose only member the suite reads is the stable identity behind the word.
+/// </summary>
+/// <remarks>
+/// A real type asset is a full modifier-bearing sibling entity; these carry identity alone because
+/// the keyword capture reads identity alone. The members that make them modifier-bearing belong to
+/// whichever category publishes their bonus math.
+/// </remarks>
+public sealed class PassiveAbilityTypeSO : UpgradeableObject
+{
+    public static List<PassiveAbilityTypeSO> All = new List<PassiveAbilityTypeSO>();
+}
+
+public sealed class TimeRuneTypeSO : UpgradeableObject
+{
+    public static List<TimeRuneTypeSO> All = new List<TimeRuneTypeSO>();
+}
+
+public sealed class GlyphTypeSO : TooltipableObject
+{
+    public static List<GlyphTypeSO> All = new List<GlyphTypeSO>();
+}
+
+public sealed class HarvestActionTypeSO : UpgradeableObject
+{
+    public static List<HarvestActionTypeSO> All = new List<HarvestActionTypeSO>();
+}
+
+public sealed class RitualTypeSO : UpgradeableObject
+{
+    public static List<RitualTypeSO> All = new List<RitualTypeSO>();
+}
+
+public sealed class CharacterTypeSO : TooltipableObject
+{
+    public static List<CharacterTypeSO> All = new List<CharacterTypeSO>();
+}
+
+public sealed class PlotNodeTypeSO : UpgradeableObject
+{
+    public static List<PlotNodeTypeSO> All = new List<PlotNodeTypeSO>();
+}
+
+public sealed class HarvestTypeSO : UpgradeableObject
+{
+    public static List<HarvestTypeSO> All = new List<HarvestTypeSO>();
+}
+
 public sealed class ChallengeTypeSO : IdScriptableObject
 {
     public bool limitedToOneInstance;
@@ -1348,6 +1402,8 @@ public sealed class TutorialSO : IdScriptableObject
 
 public sealed class PlotNodeActionSO : IdScriptableObject
 {
+    public List<HarvestActionTypeSO> actionTypes = new List<HarvestActionTypeSO>();
+
     /// <summary>How an action charges its element cost. The game nests this here.</summary>
     public enum CostType
     {
@@ -1464,6 +1520,7 @@ public sealed class FilterEffectMod
 public sealed class PassiveAbilitySO : IdScriptableObject
 {
     public static List<PassiveAbilitySO> All = new List<PassiveAbilitySO>();
+    public List<PassiveAbilityTypeSO> passiveTypes = new List<PassiveAbilityTypeSO>();
     public bool muted;
     public bool touched;
     public bool hidden;
@@ -1484,6 +1541,7 @@ public sealed class PassiveAbilitySO : IdScriptableObject
 public sealed class CharacterSO : IdScriptableObject
 {
     public static List<CharacterSO> All = new List<CharacterSO>();
+    public List<CharacterTypeSO> characterTypes = new List<CharacterTypeSO>();
     public bool discovered;
 
     /// <summary>A double in the game too: the count runs past what an int holds.</summary>
@@ -1731,6 +1789,7 @@ public sealed class RecipeBookSO : IdScriptableObject
 public sealed class PlotNodeSO : IdScriptableObject
 {
     public static List<PlotNodeSO> All = new List<PlotNodeSO>();
+    public List<PlotNodeTypeSO> nodeTypes = new List<PlotNodeTypeSO>();
     public bool visible;
     public BigDouble currentTime;
     public BigDouble nextErraticTime;

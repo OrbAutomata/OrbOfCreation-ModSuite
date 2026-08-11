@@ -93,6 +93,7 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldSpellRecipeAuthoring> SpellRecipeAuthoring { get; } = new();
     internal WorldRelationBuffer<WorldSpellAuthoredCost> SpellAuthoredCosts { get; } = new();
     internal WorldRelationBuffer<WorldSpellRelation> SpellRelations { get; } = new();
+    internal WorldRelationBuffer<WorldEntityKeyword> EntityKeywords { get; } = new();
 
     internal WorldRelationBuffer<WorldAlchemyLoadoutDecision> AlchemyLoadout { get; } = new();
 
@@ -344,10 +345,10 @@ internal static class GameWorldFrameDeriver
             SpellRecipes = frame.SpellRecipes.Build(new WorldSpellRecipeDeriver(spellLevelCosts)),
             SpellWorkbench = frame.SpellWorkbench.Build(),
             Targeting = frame.Targeting.Build(),
-            SpellRecipeAuthoring = WorldSpellGraphDeriver.Build(
+            SpellRecipeAuthoring = WorldRelationTableDeriver.Build(
                 frame.SpellRecipeAuthoring,
                 static (left, right) => left.RecipeId.CompareTo(right.RecipeId)),
-            SpellAuthoredCosts = WorldSpellGraphDeriver.Build(
+            SpellAuthoredCosts = WorldRelationTableDeriver.Build(
                 frame.SpellAuthoredCosts,
                 static (left, right) =>
                 {
@@ -356,7 +357,7 @@ internal static class GameWorldFrameDeriver
                     var kind = ((int)left.Kind).CompareTo((int)right.Kind);
                     return kind != 0 ? kind : left.Ordinal.CompareTo(right.Ordinal);
                 }),
-            SpellRelations = WorldSpellGraphDeriver.Build(
+            SpellRelations = WorldRelationTableDeriver.Build(
                 frame.SpellRelations,
                 static (left, right) =>
                 {
@@ -364,6 +365,15 @@ internal static class GameWorldFrameDeriver
                     if (recipe != 0) return recipe;
                     var kind = ((int)left.Kind).CompareTo((int)right.Kind);
                     return kind != 0 ? kind : left.Ordinal.CompareTo(right.Ordinal);
+                }),
+            EntityKeywords = WorldRelationTableDeriver.Build(
+                frame.EntityKeywords,
+                static (left, right) =>
+                {
+                    var owner = left.OwnerId.CompareTo(right.OwnerId);
+                    if (owner != 0) return owner;
+                    var source = ((int)left.Source).CompareTo((int)right.Source);
+                    return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
                 }),
             MasteryCosts = spellLevelCosts,
             ModifierPrograms = modifierPrograms,

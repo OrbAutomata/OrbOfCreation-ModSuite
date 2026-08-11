@@ -86,6 +86,7 @@ internal sealed class GameWorldCollector
     private readonly WorldCategoryReader<RawSpellRecipeSample, WorldSpellRecipe> _spellRecipes;
     private readonly WorldMasteryCostReader _spellLevelCosts;
     private readonly WorldSpellGraphReader _spellGraph;
+    private readonly WorldEntityKeywordReader _entityKeywords;
     private readonly WorldCategoryReader<WorldSpellType, WorldSpellType> _spellTypes;
     private readonly WorldCategoryReader<WorldEquipment, WorldEquipment> _equipment;
     private readonly WorldCategoryReader<WorldEquipmentType, WorldEquipmentType> _equipmentTypes;
@@ -260,6 +261,7 @@ internal sealed class GameWorldCollector
         _spellRecipes = Reader(new WorldSpellRecipeBinder(), resolveType, static frame => frame.SpellRecipes);
         _spellLevelCosts = new WorldMasteryCostReader(resolveType);
         _spellGraph = new WorldSpellGraphReader(resolveType("SpellRecipeSO"));
+        _entityKeywords = new WorldEntityKeywordReader(resolveType);
         _spellTypes = Reader(new WorldSpellTypeBinder(), resolveType, static frame => frame.SpellTypes);
         _equipment = Reader(new WorldEquipmentBinder(resolveType), resolveType, static frame => frame.Equipment);
         _equipmentTypes = Reader(new WorldEquipmentTypeBinder(resolveType), resolveType, static frame => frame.EquipmentTypes);
@@ -352,6 +354,7 @@ internal sealed class GameWorldCollector
             _plotAuthoring, _effectBlocks,
             _entityRequirements, _purchaseViewRelations,
             _prerequisiteLinkTiers,
+            _entityKeywords,
         };
 
         _isStructural = new bool[_readers.Length];
@@ -362,6 +365,7 @@ internal sealed class GameWorldCollector
                 ReferenceEquals(_readers[index], _plotAuthoring) ||
                 ReferenceEquals(_readers[index], _effectBlocks) ||
                 ReferenceEquals(_readers[index], _spellGraph) ||
+                ReferenceEquals(_readers[index], _entityKeywords) ||
                 ReferenceEquals(_readers[index], _entityRequirements) ||
                 ReferenceEquals(_readers[index], _purchaseViewRelations) ||
                 ReferenceEquals(_readers[index], _craftingRecipeTypes) ||

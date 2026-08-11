@@ -912,6 +912,7 @@ public class StructureSO : UpgradeableObject, Targeting.ITargetable, IActionable
 {
     public static List<StructureSO> All = new List<StructureSO>();
     public StructureTypeSO structureType = new StructureTypeSO();
+    public List<StructureTypeSO> structureSubTypes = new List<StructureTypeSO>();
     public EnchantmentSO.EnchantTable enchantTable = new EnchantmentSO.EnchantTable();
 
     /// <summary>The standing effects the structure applies once built.</summary>
@@ -1669,6 +1670,7 @@ public class ResourceSO : UpgradeableObject
     // The per-type registry the game keeps for every entity category, and the traversal entry point
     // world collection uses. Tests populate it directly.
     public static List<ResourceSO> All = new List<ResourceSO>();
+    public List<ResourceTypeSO> resourceTypes = new List<ResourceTypeSO>();
     public new string name = "Resource";
     public BigDouble quantity = new BigDouble(1.0, 3);
     public BigDouble trueRate = new BigDouble(0.0, 0);
@@ -2657,6 +2659,7 @@ public sealed class EquipmentSO : IdScriptableObject, IDiscoverable
     public int discRarityLevel;
     public bool isCreated = true;
     public EquipmentTypeSO equipmentType = new EquipmentTypeSO();
+    public List<EquipmentTypeSO> subEquipmentTypes = new List<EquipmentTypeSO>();
     public ResourceCostList createCost = new ResourceCostList();
     public List<GlyphSO> glyphRecipe = new List<GlyphSO>();
     public List<ResourceSO> resourceRecipe = new List<ResourceSO>();
