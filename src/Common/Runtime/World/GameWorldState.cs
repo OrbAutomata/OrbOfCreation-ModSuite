@@ -165,6 +165,32 @@ public sealed record GameWorldState
     internal PublicationTable<WorldSpellSlotType> SpellSlotTypes { get; init; } =
         PublicationTable<WorldSpellSlotType>.Empty;
 
+    /// <summary>
+    /// What each type-level record that holds no value of its own currently adds up to.
+    /// </summary>
+    /// <remarks>
+    /// Derived, never captured: the fold is arithmetic, and arithmetic belongs off the Unity thread.
+    /// The magnitudes are named <c>DistributedTotal…</c> while the member value they already sit
+    /// inside keeps the plain property name — see <see cref="WorldTypeModifierTotal"/> for why
+    /// multiplying the two is the mistake this shape exists to make hard.
+    /// </remarks>
+    internal PublicationTable<WorldTypeModifierTotal> TypeModifierTotals { get; init; } =
+        PublicationTable<WorldTypeModifierTotal>.Empty;
+
+    /// <summary>
+    /// What each keyword is currently worth, and how many members of each kind it reaches once the
+    /// structure subtype chain is followed.
+    /// </summary>
+    internal PublicationTable<WorldKeywordModifier> KeywordModifiers { get; init; } =
+        PublicationTable<WorldKeywordModifier>.Empty;
+
+    /// <summary>
+    /// The spell type layer of each equipped spell — the one type total the game itself multiplies
+    /// into a member's number.
+    /// </summary>
+    internal PublicationTable<WorldSpellTypeResonance> SpellTypeResonance { get; init; } =
+        PublicationTable<WorldSpellTypeResonance>.Empty;
+
     /// <summary>Derived next-mastery-level cost rows, preserved in authored row order.</summary>
     internal PublicationTable<WorldMasteryCost> MasteryCosts { get; init; } =
         PublicationTable<WorldMasteryCost>.Empty;

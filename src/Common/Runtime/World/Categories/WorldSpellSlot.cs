@@ -480,6 +480,34 @@ internal readonly struct WorldSpellSlotType
     internal Guid SpellTypeId { get; }
 }
 
+/// <summary>
+/// The run of types one loadout position resonates with, in the authored order the game concatenates.
+/// </summary>
+internal static class WorldSpellSlotTypeLookup
+{
+    internal static bool TryFind(
+        PublicationTable<WorldSpellSlotType> table,
+        int slotIndex,
+        out int start,
+        out int count)
+    {
+        var rows = table.AsSpan();
+        var low = 0;
+        var high = rows.Length - 1;
+        while (low <= high)
+        {
+            var middle = low + ((high - low) / 2);
+            if (rows[middle].SlotIndex < slotIndex) low = middle + 1;
+            else high = middle - 1;
+        }
+
+        start = low;
+        count = 0;
+        while (start + count < rows.Length && rows[start + count].SlotIndex == slotIndex) count++;
+        return count > 0;
+    }
+}
+
 internal sealed class WorldSpellSlotReader : IWorldCategoryReader
 {
     private const BindingFlags Instance =

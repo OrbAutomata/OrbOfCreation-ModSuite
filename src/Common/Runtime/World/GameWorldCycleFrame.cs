@@ -327,6 +327,72 @@ internal static class GameWorldFrameDeriver
             frame.PurchaseViewRelations,
             frame.PurchaseViewRoutes);
 
+        // The modifier tables are built here rather than in the initializer because three derived
+        // tables read them and one reads another. A type's own total is arithmetic over the captured
+        // entries, what a keyword is worth joins that total to the membership and the subtype chain,
+        // and the spell type layer is a product over an effective set that spans three tables. All of
+        // it is the fold the capture path deliberately left undone.
+        var spellRelations = WorldRelationTableDeriver.Build(
+            frame.SpellRelations,
+            static (left, right) =>
+            {
+                var recipe = left.RecipeId.CompareTo(right.RecipeId);
+                if (recipe != 0) return recipe;
+                var kind = ((int)left.Kind).CompareTo((int)right.Kind);
+                return kind != 0 ? kind : left.Ordinal.CompareTo(right.Ordinal);
+            });
+        var entityKeywords = WorldRelationTableDeriver.Build(
+            frame.EntityKeywords,
+            static (left, right) =>
+            {
+                var owner = left.OwnerId.CompareTo(right.OwnerId);
+                if (owner != 0) return owner;
+                var source = ((int)left.Source).CompareTo((int)right.Source);
+                return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
+            });
+        var typeModifiers = WorldRelationTableDeriver.Build(
+            frame.TypeModifiers,
+            static (left, right) =>
+            {
+                var type = left.TypeId.CompareTo(right.TypeId);
+                return type != 0
+                    ? type
+                    : string.CompareOrdinal(left.Property, right.Property);
+            });
+        var typeModifierContributions = WorldRelationTableDeriver.Build(
+            frame.TypeModifierContributions,
+            static (left, right) =>
+            {
+                var type = left.TypeId.CompareTo(right.TypeId);
+                if (type != 0) return type;
+                var property = string.CompareOrdinal(left.Property, right.Property);
+                return property != 0
+                    ? property
+                    : left.Contribution.ModifierId.CompareTo(right.Contribution.ModifierId);
+            });
+        var typeSubtypes = WorldRelationTableDeriver.Build(
+            frame.TypeSubtypes,
+            static (left, right) =>
+            {
+                var type = left.TypeId.CompareTo(right.TypeId);
+                return type != 0 ? type : left.Ordinal.CompareTo(right.Ordinal);
+            });
+        var spellSlotTypes = WorldRelationTableDeriver.Build(
+            frame.SpellSlotTypes,
+            static (left, right) =>
+            {
+                var slot = left.SlotIndex.CompareTo(right.SlotIndex);
+                return slot != 0 ? slot : left.Ordinal.CompareTo(right.Ordinal);
+            });
+        var spellSlots = WorldSpellSlotDeriver.Build(frame.SpellSlots);
+        var spellTypes = frame.SpellTypes.Build(WorldIdentityDeriver<WorldSpellType>.Shared);
+        var typeModifierTotals =
+            WorldTypeModifierTotalDeriver.Build(typeModifiers, typeModifierContributions);
+        var keywordModifiers =
+            WorldKeywordModifierDeriver.Build(typeModifierTotals, entityKeywords, typeSubtypes);
+        var spellTypeResonance = WorldSpellTypeResonanceDeriver.Build(
+            spellSlots, spellSlotTypes, spellRelations, spellTypes);
+
         return new GameWorldState
         {
             EntityIdentities = frame.EntityIdentities,
@@ -363,51 +429,14 @@ internal static class GameWorldFrameDeriver
                     var kind = ((int)left.Kind).CompareTo((int)right.Kind);
                     return kind != 0 ? kind : left.Ordinal.CompareTo(right.Ordinal);
                 }),
-            SpellRelations = WorldRelationTableDeriver.Build(
-                frame.SpellRelations,
-                static (left, right) =>
-                {
-                    var recipe = left.RecipeId.CompareTo(right.RecipeId);
-                    if (recipe != 0) return recipe;
-                    var kind = ((int)left.Kind).CompareTo((int)right.Kind);
-                    return kind != 0 ? kind : left.Ordinal.CompareTo(right.Ordinal);
-                }),
-            EntityKeywords = WorldRelationTableDeriver.Build(
-                frame.EntityKeywords,
-                static (left, right) =>
-                {
-                    var owner = left.OwnerId.CompareTo(right.OwnerId);
-                    if (owner != 0) return owner;
-                    var source = ((int)left.Source).CompareTo((int)right.Source);
-                    return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
-                }),
-            TypeModifiers = WorldRelationTableDeriver.Build(
-                frame.TypeModifiers,
-                static (left, right) =>
-                {
-                    var type = left.TypeId.CompareTo(right.TypeId);
-                    return type != 0
-                        ? type
-                        : string.CompareOrdinal(left.Property, right.Property);
-                }),
-            TypeModifierContributions = WorldRelationTableDeriver.Build(
-                frame.TypeModifierContributions,
-                static (left, right) =>
-                {
-                    var type = left.TypeId.CompareTo(right.TypeId);
-                    if (type != 0) return type;
-                    var property = string.CompareOrdinal(left.Property, right.Property);
-                    return property != 0
-                        ? property
-                        : left.Contribution.ModifierId.CompareTo(right.Contribution.ModifierId);
-                }),
-            TypeSubtypes = WorldRelationTableDeriver.Build(
-                frame.TypeSubtypes,
-                static (left, right) =>
-                {
-                    var type = left.TypeId.CompareTo(right.TypeId);
-                    return type != 0 ? type : left.Ordinal.CompareTo(right.Ordinal);
-                }),
+            SpellRelations = spellRelations,
+            EntityKeywords = entityKeywords,
+            TypeModifiers = typeModifiers,
+            TypeModifierContributions = typeModifierContributions,
+            TypeSubtypes = typeSubtypes,
+            TypeModifierTotals = typeModifierTotals,
+            KeywordModifiers = keywordModifiers,
+            SpellTypeResonance = spellTypeResonance,
             ChallengeTypes = WorldRelationTableDeriver.Build(
                 frame.ChallengeTypes,
                 static (left, right) => left.ChallengeTypeId.CompareTo(right.ChallengeTypeId)),
@@ -418,17 +447,11 @@ internal static class GameWorldFrameDeriver
                     var challenge = left.ChallengeId.CompareTo(right.ChallengeId);
                     return challenge != 0 ? challenge : left.Ordinal.CompareTo(right.Ordinal);
                 }),
-            SpellSlotTypes = WorldRelationTableDeriver.Build(
-                frame.SpellSlotTypes,
-                static (left, right) =>
-                {
-                    var slot = left.SlotIndex.CompareTo(right.SlotIndex);
-                    return slot != 0 ? slot : left.Ordinal.CompareTo(right.Ordinal);
-                }),
+            SpellSlotTypes = spellSlotTypes,
             MasteryCosts = spellLevelCosts,
             ModifierPrograms = modifierPrograms,
             ModifierProgramEntries = modifierProgramEntries,
-            SpellTypes = frame.SpellTypes.Build(WorldIdentityDeriver<WorldSpellType>.Shared),
+            SpellTypes = spellTypes,
             Equipment = frame.Equipment.Build(WorldIdentityDeriver<WorldEquipment>.Shared),
             EquipmentTypes = frame.EquipmentTypes.Build(WorldIdentityDeriver<WorldEquipmentType>.Shared),
             ResourceTypes = frame.ResourceTypes.Build(WorldIdentityDeriver<WorldResourceType>.Shared),
@@ -560,7 +583,7 @@ internal static class GameWorldFrameDeriver
             PlotActionInstances = WorldPlotActionInstanceDeriver.Build(frame.PlotActionInstances),
             ActionQueues = frame.ActionQueues.Build(new WorldActionQueueDeriver(intVariables)),
             ActionQueueSlots = WorldActionQueueSlotDeriver.Build(frame.ActionQueueSlots),
-            SpellSlots = WorldSpellSlotDeriver.Build(frame.SpellSlots),
+            SpellSlots = spellSlots,
             SpellCosts = WorldSpellCostDeriver.Build(frame.SpellCosts),
             MasteryExperience = WorldMasteryExperienceDeriver.Build(frame.MasteryExperience),
             ConceptRecipes = WorldAlchemyRowDeriver.Build(frame.ConceptRecipes),
