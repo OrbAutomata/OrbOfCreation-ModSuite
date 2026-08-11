@@ -112,6 +112,86 @@ internal readonly struct WorldTypeModifierContribution
     internal WorldResearchRequirementAdjustment Contribution { get; }
 }
 
+/// <summary>Reaches one type's records, which sort together by type then property.</summary>
+internal static class WorldTypeModifierLookup
+{
+    /// <summary>The run of rows belonging to <paramref name="typeId"/>.</summary>
+    internal static bool TryFind(
+        PublicationTable<WorldTypeModifier> table,
+        Guid typeId,
+        out int start,
+        out int count)
+    {
+        var rows = table.AsSpan();
+        start = LowerBound(rows, typeId);
+        count = 0;
+        while (start + count < rows.Length && rows[start + count].TypeId == typeId) count++;
+        return count > 0;
+    }
+
+    private static int LowerBound(ReadOnlySpan<WorldTypeModifier> rows, Guid typeId)
+    {
+        var low = 0;
+        var high = rows.Length - 1;
+        while (low <= high)
+        {
+            var middle = low + ((high - low) / 2);
+            if (rows[middle].TypeId.CompareTo(typeId) < 0) low = middle + 1;
+            else high = middle - 1;
+        }
+
+        return low;
+    }
+}
+
+/// <summary>
+/// Reaches the modifiers sitting on one record of one type, which sort together by type then
+/// property.
+/// </summary>
+internal static class WorldTypeModifierContributionLookup
+{
+    /// <summary>The run of entries behind one type's named record.</summary>
+    internal static bool TryFind(
+        PublicationTable<WorldTypeModifierContribution> table,
+        Guid typeId,
+        string property,
+        out int start,
+        out int count)
+    {
+        if (property is null) throw new ArgumentNullException(nameof(property));
+        var rows = table.AsSpan();
+        start = LowerBound(rows, typeId, property);
+        count = 0;
+        while (start + count < rows.Length &&
+               rows[start + count].TypeId == typeId &&
+               string.Equals(rows[start + count].Property, property, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count > 0;
+    }
+
+    private static int LowerBound(
+        ReadOnlySpan<WorldTypeModifierContribution> rows,
+        Guid typeId,
+        string property)
+    {
+        var low = 0;
+        var high = rows.Length - 1;
+        while (low <= high)
+        {
+            var middle = low + ((high - low) / 2);
+            var type = rows[middle].TypeId.CompareTo(typeId);
+            var order = type != 0 ? type : string.CompareOrdinal(rows[middle].Property, property);
+            if (order < 0) low = middle + 1;
+            else high = middle - 1;
+        }
+
+        return low;
+    }
+}
+
 /// <summary>One parent structure type and one type it confers its records on.</summary>
 /// <remarks>
 /// <c>StructureTypeSO.Initialize()</c> calls <c>RegisterSubType</c> for every entry, which wires the
