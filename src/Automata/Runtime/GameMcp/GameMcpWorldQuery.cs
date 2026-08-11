@@ -1376,6 +1376,11 @@ internal static class GameMcpWorldQuery
         }
 
         GameMcpEntityExplainer.AddDetail(item, world, uuid);
+
+        // A keyword is a type asset, and what a type is worth is the one thing its own row cannot
+        // say. Silent for every id no type record names, which is every id the explainer answers
+        // for — the two blocks never meet on one entity.
+        GameMcpTypeWorth.AddWorth(item, world, uuid);
         return item;
     }
 
