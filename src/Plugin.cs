@@ -3616,46 +3616,52 @@ public sealed class Plugin : BaseUnityPlugin
                 "tooltip_offset_invalid",
                 "the immutable tooltip catalog offset could not be decoded");
         }
-        var end = (int)Math.Min(entries.Length, (long)offset + command.Amount);
-
-        // The prefix is the ancestry the returned rows share, not the ancestry of the whole screen.
-        // Taken over the screen it collapsed to about ten characters precisely when the page was
-        // long, so every row of a deep panel repeated some 240 identical characters of ancestor
-        // path — the densest tokens on the wire, and about 95% of what the call spent.
-        var prefix = TooltipPathPrefix(entries, offset, end);
+        // A page is a stretch of panels, not a stretch of elements. One prefix over a mixed page is
+        // only as deep as its most distant pair of rows, so a page holding three panels factored out
+        // a canvas name and left every row carrying its own panel's ancestry in full. Each panel now
+        // says the ancestry its own rows share, once and before them, and its rows are leaves — so
+        // the prefix a row is read against is the line directly above it rather than a line 25 rows
+        // below, and a screen that used to take four pages of repeated path fits in one call.
+        var paths = new string[entries.Length];
+        for (var index = 0; index < entries.Length; index++) paths[index] = entries[index].Path;
+        var panels = NativeObjectPath.Runs(paths);
+        var end = (int)Math.Min(panels.Count, (long)offset + command.Amount);
         var projected = new GameMcpArrayBuilder();
-        for (var index = offset; index < end; index++)
+        for (var index = Math.Max(offset, 0); index < end; index++)
         {
-            var entry = entries[index];
-            var hover = entry.Hover;
-            var item = hover.tooltipItem!;
-            if (!nativeAccess.TryReadSubTooltips(hover, out var children, out var readFailure))
+            var panel = panels[index];
+            var elements = new GameMcpArrayBuilder();
+            for (var member = panel.Start; member < panel.Start + panel.Count; member++)
             {
-                return GadgetRejected(
-                    "tooltip_contract_unavailable",
-                    readFailure);
+                var entry = entries[member];
+                var hover = entry.Hover;
+                var item = hover.tooltipItem!;
+                if (!nativeAccess.TryReadSubTooltips(hover, out var children, out var readFailure))
+                {
+                    return GadgetRejected(
+                        "tooltip_contract_unavailable",
+                        readFailure);
+                }
+                var tooltip = new GameMcpObjectBuilder
+                {
+                    ["path"] = NativeObjectPath.Relative(entry.Path, panel.Prefix),
+                    ["name"] = item.GetName(),
+                };
+                AddTooltipIdentity(tooltip, item);
+                elements.Add(tooltip);
             }
-            var tooltip = new GameMcpObjectBuilder
-            {
-                ["path"] = NativeObjectPath.Relative(entry.Path, prefix),
-                ["name"] = item.GetName(),
-            };
-            AddTooltipIdentity(tooltip, item);
-            projected.Add(tooltip);
+            var group = new GameMcpObjectBuilder();
+            if (panel.Prefix.Length > 0) group["pathPrefix"] = panel.Prefix;
+            group["elements"] = elements;
+            projected.Add(group);
         }
         var details = new GameMcpObjectBuilder
         {
             ["scene"] = SceneManager.GetActiveScene().name,
-            ["total"] = entries.Length,
+            ["total"] = panels.Count,
+            ["rows"] = projected,
         };
-        if (projected.Count == 0)
-        {
-            details["columns"] = GameMcpEntityWireNormalizer.WireColumns(
-                new[] { "path", "name", "uuid" });
-        }
-        details["rows"] = projected;
-        if (prefix.Length > 0) details["pathPrefix"] = prefix;
-        if (end < entries.Length) details["nextOffset"] = end;
+        if (end < panels.Count) details["nextOffset"] = end;
         return GadgetCommitted(
             "tooltip_catalog_read",
             details);
@@ -3764,14 +3770,6 @@ public sealed class Plugin : BaseUnityPlugin
             .Select(static hover => new TooltipElement(hover, NativeObjectPath.Locate(hover)))
             .OrderBy(static entry => entry.Placement.OrderKey, StringComparer.Ordinal)
             .ToArray();
-
-    private static string TooltipPathPrefix(IReadOnlyList<TooltipElement> entries, int start, int end)
-    {
-        var paths = new List<string>();
-        for (var index = Math.Max(start, 0); index < Math.Min(end, entries.Count); index++)
-            paths.Add(entries[index].Path);
-        return NativeObjectPath.CommonPrefix(paths.ToArray());
-    }
 
     private static void AddTooltipIdentity(
         GameMcpObjectBuilder result,

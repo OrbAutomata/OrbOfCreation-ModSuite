@@ -5,87 +5,83 @@ using Xunit;
 namespace OrbModding.ProfileTests;
 
 /// <summary>
-/// One screen's tooltip paths descend from one canvas, so the catalog says the shared part once.
+/// A screen's tooltip elements hang off a handful of panels, so the catalog says each panel's
+/// ancestry once and its elements carry only their own last segment.
 /// </summary>
 /// <remarks>
 /// The tooltip catalog was the round's largest text payload, and most of it was the same Unity
-/// hierarchy prefix repeated verbatim on thirty consecutive rows. The prefix is derived from the
+/// hierarchy path repeated verbatim on consecutive rows. One prefix over a mixed page is only as
+/// deep as its most distant pair of rows, so a page spanning three panels factored out a canvas
+/// name and left every row holding its own panel's ancestry in full. The paths are derived from the
 /// live screen on both the catalog and the read side, so a row's path resolves as handed out.
 /// </remarks>
 public sealed class NativeObjectPathTests
 {
     [Fact]
-    public void The_shared_leading_path_is_said_once()
+    public void Each_stretch_of_siblings_says_its_own_parent_once()
     {
-        var prefix = NativeObjectPath.CommonPrefix(new[]
+        var paths = new[]
         {
-            "Canvas[0]/HUD[1]/Panel[0]/Row[0]/Button[0]",
-            "Canvas[0]/HUD[1]/Panel[0]/Row[1]/Button[0]",
-            "Canvas[0]/HUD[1]/Panel[0]/Header[2]",
-        });
+            "Canvas[0]/HUD[1]/Glyphs[0]/Item[0]",
+            "Canvas[0]/HUD[1]/Glyphs[0]/Item[1]",
+            "Canvas[0]/HUD[1]/Spells[2]/Button[0]",
+        };
 
-        Assert.Equal("Canvas[0]/HUD[1]/Panel[0]", prefix);
-        Assert.Equal(
-            "Row[1]/Button[0]",
-            NativeObjectPath.Relative("Canvas[0]/HUD[1]/Panel[0]/Row[1]/Button[0]", prefix));
+        var runs = NativeObjectPath.Runs(paths);
+
+        Assert.Equal(2, runs.Count);
+        Assert.Equal("Canvas[0]/HUD[1]/Glyphs[0]", runs[0].Prefix);
+        Assert.Equal(0, runs[0].Start);
+        Assert.Equal(2, runs[0].Count);
+        Assert.Equal("Canvas[0]/HUD[1]/Spells[2]", runs[1].Prefix);
+        Assert.Equal(2, runs[1].Start);
+        Assert.Equal(1, runs[1].Count);
+        Assert.Equal("Item[1]", NativeObjectPath.Relative(paths[1], runs[0].Prefix));
+        Assert.Equal("Button[0]", NativeObjectPath.Relative(paths[2], runs[1].Prefix));
     }
 
     /// <remarks>
-    /// Sibling indices are what make repeated clone rows addressable, so the prefix stops at whole
-    /// segments — a shared spelling inside one segment is not a shared ancestor.
+    /// Sibling indices are what make repeated clone rows addressable, so a stretch is bounded by
+    /// whole segments: two panels spelled alike are two panels, and one panel's rows never join the
+    /// next panel's because their leaf names happen to match.
     /// </remarks>
     [Fact]
-    public void A_shared_spelling_inside_one_segment_is_not_a_shared_ancestor()
+    public void A_panel_and_the_panel_beside_it_are_two_stretches()
     {
-        var prefix = NativeObjectPath.CommonPrefix(new[]
+        var runs = NativeObjectPath.Runs(new[]
         {
-            "Canvas[0]/Slot[0]",
-            "Canvas[0]/Slot[1]",
+            "Canvas[0]/List[0]/Item(Clone)[0]",
+            "Canvas[0]/List[1]/Item(Clone)[0]",
         });
 
-        Assert.Equal("Canvas[0]", prefix);
+        Assert.Equal(2, runs.Count);
+        Assert.Equal("Canvas[0]/List[0]", runs[0].Prefix);
+        Assert.Equal("Canvas[0]/List[1]", runs[1].Prefix);
     }
 
     /// <remarks>
-    /// A prefix that swallowed a whole path would hand a caller an empty handle, so it always
-    /// leaves the shortest listed path one segment of its own.
+    /// A prefix that swallowed a whole path would hand a caller an empty handle, so an element with
+    /// no ancestry left to factor keeps the whole of the path it was found at.
     /// </remarks>
     [Fact]
-    public void Every_row_keeps_a_segment_of_its_own()
+    public void A_top_level_element_keeps_its_whole_path()
     {
-        var prefix = NativeObjectPath.CommonPrefix(new[]
-        {
-            "Canvas[0]/HUD[1]",
-            "Canvas[0]/HUD[1]/Panel[0]",
-        });
+        var runs = NativeObjectPath.Runs(new[] { "Canvas[0]", "Overlay[3]" });
 
-        Assert.Equal("Canvas[0]", prefix);
-        Assert.Equal("HUD[1]", NativeObjectPath.Relative("Canvas[0]/HUD[1]", prefix));
+        Assert.Single(runs);
+        Assert.Equal(string.Empty, runs[0].Prefix);
+        Assert.Equal(2, runs[0].Count);
+        Assert.Equal("Canvas[0]", NativeObjectPath.Relative("Canvas[0]", runs[0].Prefix));
     }
 
     [Fact]
-    public void Screens_that_share_no_ancestor_keep_their_whole_paths()
-    {
-        var prefix = NativeObjectPath.CommonPrefix(new[]
-        {
-            "Canvas[0]/HUD[1]/Panel[0]",
-            "Overlay[3]/Modal[0]/Panel[0]",
-        });
-
-        Assert.Equal(string.Empty, prefix);
-        Assert.Equal(
-            "Canvas[0]/HUD[1]/Panel[0]",
-            NativeObjectPath.Relative("Canvas[0]/HUD[1]/Panel[0]", prefix));
-    }
-
-    [Fact]
-    public void An_empty_screen_has_no_prefix() =>
-        Assert.Equal(string.Empty, NativeObjectPath.CommonPrefix(System.Array.Empty<string>()));
+    public void An_empty_screen_has_no_panels() =>
+        Assert.Empty(NativeObjectPath.Runs(System.Array.Empty<string>()));
 
     /// <summary>
-    /// A catalog page factors the ancestry its own rows share, so which prefix a row was handed
-    /// depends on which page it came from. The read verb therefore resolves a row by the tail it
-    /// was given — at a segment boundary, so a longer sibling name never answers for a shorter one.
+    /// A catalog page factors the ancestry each panel's rows share, so a row is handed the tail its
+    /// own panel did not already say. The read verb therefore resolves a row by that tail — at a
+    /// segment boundary, so a longer sibling name never answers for a shorter one.
     /// </summary>
     [Fact]
     public void A_row_addresses_its_element_by_the_tail_the_page_handed_out()

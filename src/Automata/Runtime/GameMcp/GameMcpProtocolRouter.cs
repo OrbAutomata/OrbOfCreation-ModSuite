@@ -1166,7 +1166,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_tooltips",
                 "Discover visible tooltips",
-                "Page through the tooltip-bearing elements the player can hover right now — the current screen, its persistent chrome, and any open modal — by sibling-indexed native path. Each row's path is relative to the response's pathPrefix, present exactly when the returned rows share one. A closed modal stays instantiated and is not listed. nextOffset is present exactly when more rows remain, and is the offset to resume from.",
+                "Page through the tooltip-bearing elements the player can hover right now — the current screen, its persistent chrome, and any open modal — by sibling-indexed native path. A row is one panel: its pathPrefix, printed first, is the ancestry its own elements share, and each element under it carries only what that prefix does not already say. offset, limit, total and nextOffset all count panels, and a factored screen is small enough that one call usually returns all of them. A closed modal stays instantiated and is not listed. nextOffset is present exactly when more rows remain, and is the offset to resume from.",
                 ObjectSchema(new JObject
                 {
                     ["offset"] = IntegerSchema(0, int.MaxValue),

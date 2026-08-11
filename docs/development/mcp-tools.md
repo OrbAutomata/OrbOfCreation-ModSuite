@@ -379,7 +379,9 @@ a short page with a `nextOffset` is that bound, and a short page without one is 
 The bound is charged against each row as it is built, so a full page is a real 12 KB page rather
 than a fraction of one.
 `game_tooltips` pages the screen's live hover elements rather than a published table, so `limit` is
-its only page bound.
+its only page bound — and it pages them by the panel they hang off, so its `total` is the screen's
+panel count and a row is one panel with its own elements under it. Factored that way a whole screen
+is small, so the usual call is one.
 
 **A `world_list` category — or a `world_search` result — of 25 rows or fewer comes back whole**, when
 the caller named no `limit` of
@@ -2485,16 +2487,18 @@ a native hierarchy path whose sibling indices disambiguate repeated Unity clone 
 scope is what the player can hover: the screen's own controls, the persistent chrome that outlives
 navigation, and any open modal. Closing a modal only drops its canvas group's alpha and raycasts, so
 every panel the session ever opened stays active in the hierarchy — the catalog reads the game's own
-`UIModal.IsOpen()` up each element's ancestry and lists none of them, and `total` therefore counts
-hoverable elements rather than instantiated ones.
-A screen's elements descend from one canvas, so the catalog says the shared leading path once as
-`pathPrefix` and each row carries only what that prefix does not already say. The prefix is taken
-over the rows the page actually returns, not over the whole screen: taken over the screen it
-collapsed to a canvas name precisely when the page was long, leaving every row of a deep panel
-repeating some 240 identical characters of ancestor path. `pathPrefix` is present exactly when the
-returned rows share leading segments and always leaves the shortest of them one segment of its own,
-so it differs between pages of one screen. `game_tooltip` therefore resolves a row by the tail it was
-handed: any tail of a live path, matched at a segment boundary, up to and including the whole path.
+`UIModal.IsOpen()` up each element's ancestry and lists none of them, so what it counts is what the
+player can hover rather than what is instantiated.
+A screen's elements hang off a handful of panels, so the catalog is a list of panels: each says the
+ancestry its own elements share once, as `pathPrefix` and before them, and each element under it
+carries only its own last segment. The shared part is computed over the panel rather than over the
+page, because one prefix over a mixed page is only as deep as its most distant pair of rows — taken
+over a page spanning three panels it collapsed to a canvas name, leaving every row of every panel
+repeating some 150 identical characters of its own panel's ancestry. `pathPrefix` is present on a
+panel exactly when its elements have ancestry above their own last segment, and it is printed above
+the elements it explains rather than below them, which is where a key a reader needs to read row one
+belongs. `game_tooltip` therefore resolves a row by the tail it was handed: any tail of a live path,
+matched at a segment boundary, up to and including the whole path.
 A tail naming more than one live element is refused rather than resolved to the first, and the
 refusal says to prepend the `pathPrefix` the catalog returned with that row — two scroll lists on one
 screen hand out colliding tails routinely, and the prefix is what tells them apart. A tail naming

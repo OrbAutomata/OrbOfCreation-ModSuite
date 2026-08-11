@@ -120,35 +120,59 @@ internal static class NativeObjectPath
         return new Placement(string.Join("/", segments), string.Join("/", order));
     }
 
-    /// <summary>
-    /// The leading segments every listed path shares, held to a proper prefix so each path keeps at
-    /// least one segment of its own. A screen's selectors descend from one canvas, so this is the
-    /// part a page would otherwise repeat verbatim on every row.
-    /// </summary>
-    public static string CommonPrefix(IReadOnlyList<string> paths)
+    /// <summary>One stretch of consecutive paths that hang off one parent, and that parent.</summary>
+    public readonly struct Run
     {
-        if (paths is null || paths.Count == 0) return string.Empty;
-
-        var shared = paths[0].Split('/');
-        var common = shared.Length;
-        var shortest = shared.Length;
-        for (var index = 1; index < paths.Count; index++)
+        public Run(int start, int count, string prefix)
         {
-            var candidate = paths[index].Split('/');
-            if (candidate.Length < shortest) shortest = candidate.Length;
-            if (candidate.Length < common) common = candidate.Length;
-            for (var segment = 0; segment < common; segment++)
-            {
-                if (string.Equals(shared[segment], candidate[segment], StringComparison.Ordinal))
-                    continue;
-                common = segment;
-                break;
-            }
-            if (common == 0) return string.Empty;
+            Start = start;
+            Count = count;
+            Prefix = prefix ?? string.Empty;
         }
 
-        if (common >= shortest) common = shortest - 1;
-        return common <= 0 ? string.Empty : string.Join("/", shared, 0, common);
+        public int Start { get; }
+        public int Count { get; }
+        public string Prefix { get; }
+    }
+
+    /// <summary>
+    /// Hierarchy-ordered paths split into the stretches that share a parent.
+    /// </summary>
+    /// <remarks>
+    /// One prefix over a whole page is only as deep as its most distant pair of rows, so a page
+    /// spanning three panels factored out a canvas name and left every row of every panel carrying
+    /// its panel's whole ancestry — the eleven rows of one glyph list repeated some 150 identical
+    /// characters, and two more stretches beside them did the same. The shared part of a stretch is
+    /// what the rows in it actually share, so it is computed over the stretch: siblings arrive
+    /// adjacent in hierarchy order, so a stretch is the consecutive run under one parent, and each
+    /// of its rows is left holding only its own last segment.
+    /// </remarks>
+    public static IReadOnlyList<Run> Runs(IReadOnlyList<string> paths)
+    {
+        var result = new List<Run>();
+        if (paths is null || paths.Count == 0) return result;
+        var start = 0;
+        var parent = Parent(paths[0]);
+        for (var index = 1; index <= paths.Count; index++)
+        {
+            if (index < paths.Count &&
+                string.Equals(Parent(paths[index]), parent, StringComparison.Ordinal))
+            {
+                continue;
+            }
+            result.Add(new Run(start, index - start, parent));
+            if (index >= paths.Count) break;
+            start = index;
+            parent = Parent(paths[index]);
+        }
+        return result;
+    }
+
+    /// <summary>The ancestry a path's siblings share: everything above its own last segment.</summary>
+    private static string Parent(string path)
+    {
+        var cut = path is null ? -1 : path.LastIndexOf('/');
+        return cut <= 0 ? string.Empty : path!.Substring(0, cut);
     }
 
     /// <summary>
