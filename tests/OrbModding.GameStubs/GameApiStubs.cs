@@ -1097,6 +1097,16 @@ public class Player
 
     public static DoubleVariable GetStructureCost() => StructureCost;
 
+    // The fifth frame-wide term, and the exponent the game raises a resource's quality to when
+    // discounting that resource's attribute cost. Same accessor shape as the other four —
+    // `static DoubleVariable GetX()` over an instance field on the singleton — so a reader that
+    // binds five accessors of one shape binds all five here too. Authored at zero, which is what
+    // the game ships it at until the research that raises it: an exponent of zero leaves quality
+    // out of attribute prices entirely.
+    public static DoubleVariable AttributeQualityBonus { get; set; } = new DoubleVariable();
+
+    public static DoubleVariable GetAttributeQualityBonus() => AttributeQualityBonus;
+
     public void ManagerStart()
     {
     }

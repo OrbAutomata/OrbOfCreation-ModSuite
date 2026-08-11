@@ -417,10 +417,18 @@ internal sealed class GameWorldCollector
     }
 
     /// <summary>Whether every category resolved. False means the snapshot will be partial by design.</summary>
+    /// <remarks>
+    /// The frame globals are not a category and never appear in a report row, but they bind against
+    /// the game by name exactly as a category does, so a build that renamed one of their accessors is
+    /// the same kind of shortfall. Leaving them out let the whole set degrade unnoticed: the reader
+    /// yields neutral terms rather than throwing, so nothing else says a word about it.
+    /// </remarks>
     internal bool IsFullyAvailable
     {
         get
         {
+            if (!_rateGlobals.IsAvailable) return false;
+
             foreach (var reader in _readers)
             {
                 if (!reader.IsAvailable) return false;

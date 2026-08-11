@@ -1448,6 +1448,22 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(collector.IsFullyAvailable, report.Describe());
     }
 
+    /// <summary>
+    /// The frame globals bind by name like a category does, so a build that renamed one of their five
+    /// accessors is the same shortfall — and the only one nothing else reports, because the reader
+    /// answers with neutral terms instead of refusing. A complete report is therefore not full
+    /// availability.
+    /// </summary>
+    [Fact]
+    public void RenamingAFrameGlobalsAccessorCostsFullAvailabilityThoughEveryCategoryStillBinds()
+    {
+        var collector = Collector(("Player", typeof(FakePlayerGlobalsMissingTheQualityBonus)));
+        var report = collector.Collect();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.False(collector.IsFullyAvailable);
+    }
+
     [Fact]
     public void AMissingCategoryDegradesOnlyItself()
     {
@@ -4767,6 +4783,38 @@ public sealed class GameWorldCollectorTests : IDisposable
         public static FakeGlobalVariable GetAttributeQualityBonus() => _attributeQualityBonus;
 
         public static FakeCount GetSpellOutputLevel() => _instance.spellOutputLevel;
+        public static FakeCount GetReserveLevel() => _instance.reserveLevel;
+    }
+
+    /// <summary>
+    /// A build that renamed the fifth globals accessor and nothing else: every category still binds,
+    /// so only the globals reader is short.
+    /// </summary>
+    private sealed class FakePlayerGlobalsMissingTheQualityBonus
+    {
+        private static readonly FakePlayerGlobalsMissingTheQualityBonus _instance = new();
+        private FakeCount spellOutputLevel = new(1);
+        public FakeCount maxSpellOutputLevel = new(100);
+        private FakeCount reserveLevel = new(1);
+        public FakeCount maxReserveLevel = new(100);
+
+        private FakePlayerGlobalsMissingTheQualityBonus()
+        {
+        }
+
+        public static FakeGlobalVariable GetResourceOverflow() =>
+            FakePlayerGlobals.GetResourceOverflow();
+
+        public static FakeGlobalVariable GetResourceOverflowLoss() =>
+            FakePlayerGlobals.GetResourceOverflowLoss();
+
+        public static FakeGlobalVariable GetResetTimePassed() =>
+            FakePlayerGlobals.GetResetTimePassed();
+
+        public static FakeGlobalVariable GetStructureCost() => FakePlayerGlobals.GetStructureCost();
+
+        public static FakeCount GetSpellOutputLevel() => _instance.spellOutputLevel;
+
         public static FakeCount GetReserveLevel() => _instance.reserveLevel;
     }
 

@@ -133,6 +133,13 @@ public sealed class WorldFrameGlobalsReaderTests : IDisposable
     }
 
     /// <summary>Stands in for the game's <c>Player</c>: five static accessors of one shape.</summary>
+    /// <remarks>
+    /// Not the shared <c>GameStubs</c> <c>Player</c>, which now carries all five. This is the file
+    /// that varies them, and two of the things it varies that stub cannot express: an accessor here
+    /// has to be able to answer with nothing, and the fifth has to be able to be absent altogether —
+    /// see <see cref="PartialGlobals"/>. Its statics are also the process-wide ones every other test
+    /// collects through, so emptying one here to prove a degradation would empty it there too.
+    /// </remarks>
     private sealed class Globals
     {
         internal static global::DoubleVariable? Overflow;
