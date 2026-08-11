@@ -20,12 +20,54 @@ internal static class GameMcpTooltipProjector
         var lines = new List<string>();
         var visited = new HashSet<ITooltipable>(ReferenceComparer.Instance);
         var truncated = false;
-        AppendTooltip(primary, lines, visited, ref truncated);
-        AppendTooltips(authoredNested, lines, visited, ref truncated);
-        AppendTooltips(inspectedPanels, lines, visited, ref truncated);
+        AppendSource(primary, lines, visited, ref truncated);
+        AppendSources(authoredNested, lines, visited, ref truncated);
+        AppendSources(inspectedPanels, lines, visited, ref truncated);
         DropRepeatedTail(lines);
         if (truncated) lines.Add("Tooltip truncated after 200 lines.");
         return new JObject { ["text"] = string.Join("\n", lines) };
+    }
+
+    /// <summary>
+    /// One of the graphs this body is built from, appended only if it says something the body does
+    /// not already say.
+    /// </summary>
+    /// <remarks>
+    /// An inspected panel paints the same entity the hovered element does, from its own object, so
+    /// reference identity does not recognise it and the body carried every statistic twice — once
+    /// beside its description and once as a bare value block, which was 40% of the response and the
+    /// half with nothing in it. Whole-source is the level this can be judged at: dropping a repeated
+    /// <em>line</em> would take the second statistic that happens to read <c>0</c> and leave its
+    /// label with no value under it, while a source every line of which is already on the page adds
+    /// nothing to remove.
+    /// </remarks>
+    private static void AppendSource(
+        ITooltipable tooltip,
+        List<string> lines,
+        HashSet<ITooltipable> visited,
+        ref bool truncated)
+    {
+        var start = lines.Count;
+        AppendTooltip(tooltip, lines, visited, ref truncated);
+        for (var index = start; index < lines.Count; index++)
+        {
+            var said = false;
+            for (var earlier = 0; !said && earlier < start; earlier++)
+                said = string.Equals(lines[earlier], lines[index], StringComparison.Ordinal);
+            if (!said) return;
+        }
+        lines.RemoveRange(start, lines.Count - start);
+    }
+
+    private static void AppendSources(
+        IEnumerable<ITooltipable>? tooltips,
+        List<string> lines,
+        HashSet<ITooltipable> visited,
+        ref bool truncated)
+    {
+        if (tooltips is null) return;
+        foreach (var tooltip in tooltips)
+            if (tooltip is not null) AppendSource(tooltip, lines, visited, ref truncated);
     }
 
     /// <summary>

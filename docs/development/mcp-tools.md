@@ -2511,9 +2511,17 @@ reader walks the native node, linked-tooltip, nested-tooltip, and currently insp
 on Unity's main thread, but its node structure, repeated paint, empty arrays, duplicate authored
 text, and identical alternate tree are wire-internal ceremony and never ship. A body whose closing
 block repeats the block immediately above it says it once: adjacent duplicate lines were already
-dropped one at a time, which never caught a panel that painted its whole last block twice. A cycle or hard
+dropped one at a time, which never caught a panel that painted its whole last block twice. Nor did
+either catch an inspected panel painting the same entity from its own object, which is not the same
+reference and so was appended in full — every statistic a second time as a bare value block, 40% of
+the response and the half with nothing in it. **A source every line of which the body already says
+is not appended at all.** Whole-source is the level this is judged at: dropping a repeated *line*
+would take the second statistic that happens to read `0` and leave its label with nothing under it. A cycle or hard
 depth/node bound is rendered as one explanatory line rather than recursively expanding forever.
-Unity rich-text markup is stripped. Computed text delegates run inline; the reader never clicks a
+Unity rich-text markup is stripped. The list of tags is closed so that prose holding an angle
+bracket survives, which means it has to hold every word the pinned build actually authors: a census
+of `data/game-data.json` finds eight — `emph`, `emph2`, `deemph`, `warn`, `lore`, `negative`,
+`positive`, `color` — and a portable test holds each of them to being stripped. Computed text delegates run inline; the reader never clicks a
 node, renders a panel, or captures the framebuffer.
 
 ```sh

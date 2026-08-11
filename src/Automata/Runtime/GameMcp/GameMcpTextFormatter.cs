@@ -29,6 +29,19 @@ internal static class GameMcpTextFormatter
         return result.ToString();
     }
 
+    /// <summary>
+    /// Whether a bracketed word is layout rather than something the player is meant to read.
+    /// </summary>
+    /// <remarks>
+    /// The list is closed on purpose: prose that happens to hold an angle bracket has to survive,
+    /// so a tag is stripped because it is known to be one. Which means the list has to hold every
+    /// word the pinned build actually authors, and it did not — a census of every lowercase tag in
+    /// <c>data/game-data.json</c> found eight, of which <c>lore</c> (332 uses), <c>emph2</c> (168),
+    /// <c>negative</c> (4) and <c>positive</c> (2) were absent, so 506 authored spans shipped their
+    /// markup to a caller reading what a tool advertises as plain screen text. The other four —
+    /// <c>emph</c>, <c>deemph</c>, <c>warn</c>, <c>color</c> — were already here, as are the Unity
+    /// built-ins the game does not currently use.
+    /// </remarks>
     private static bool IsUnityMarkup(string tag)
     {
         var normalized = tag.Trim().TrimStart('/');
@@ -36,7 +49,8 @@ internal static class GameMcpTextFormatter
         if (normalized[0] == '#') return true;
         var separator = normalized.IndexOfAny(new[] { '=', ' ' });
         var name = separator < 0 ? normalized : normalized.Substring(0, separator);
-        return name is "color" or "emph" or "deemph" or "warn" or
+        return name is "color" or "emph" or "emph2" or "deemph" or "warn" or
+            "lore" or "negative" or "positive" or
             "b" or "i" or "u" or "s" or "size" or "alpha" or "align" or
             "font" or "line-height" or "link" or "mark" or "material" or
             "nobr" or "space" or "sprite" or "style" or "voffset" or "width" or "br";
