@@ -231,7 +231,11 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         var drift = collection.Drift;
         var window =
             $"generation={_generation()} frame={_frame()} " +
-            $"entities={collection.Entities} categories={collection.Categories} " +
+            // `categories` was the world collector's own reader count, and `world_categories`
+            // publishes a different, smaller set under that exact word — so two reads a minute
+            // apart said 61 and 57 of "categories" with nothing to tell a reader they were
+            // counting different things. This one counts collectors, and says so.
+            $"entities={collection.Entities} collectors={collection.Categories} " +
             $"collect={collection.CollectMilliseconds:0.###}ms " +
             $"ported={Milliseconds(_ourTicks)}ms native={Milliseconds(_theirTicks)}ms " +
             $"elapsed={elapsedMilliseconds:0.###}ms " +

@@ -641,7 +641,9 @@ it row by row cost four full pages to deliver about fifteen distinct facts with 
 as the only column that varied. The page publishes one row per distinct `domain`/`sourceMastery`/
 source with the `count` of window samples it earned, and one `window` block — `samples`,
 `firstSequence`, `lastSequence` — so a caller can tell one read's window from the next. `total`,
-`offset`, and `nextOffset` count summary rows.
+`offset`, and `nextOffset` count summary rows, and so does the `count` `world_categories` advertises
+for it: the count a caller reads to decide whether to list a category is the number that read will
+answer with, never the raw ring behind it.
 
 A `structures` row publishes `level` as the number the attribute's own badge shows, the game's
 persisted `GetBaseLevel()`, and names work still in flight separately as `queuedLevels`, which is
@@ -1452,7 +1454,10 @@ appears only when it is a problem: `runtime:`, `native contracts:`, `game_craft:
 each cost a line exactly when they read `unavailable`, followed by the reason that names why,
 `agent settings:` costs a line exactly while the last load could not normalize the settings every
 documented verb assumes, and feature and service names are grouped by state and reason code. Seven identical NotReady features
-therefore occupy one line, not seven objects. It returns no structured payload because none of those
+therefore occupy one line, not seven objects. Features and services are named by the id
+`suite_automation` takes as an argument — `auto_buy`, not `Auto Buy` — so the nine features health
+reports on are recognisably the seven that verb lists plus the two with no on/off button, rather
+than a second vocabulary counting a differently sized set. It returns no structured payload because none of those
 labels is a handle for another call. It reads those owners only for the requested operation and
 reports no MCP queue internals.
 
@@ -2555,7 +2560,7 @@ everything the run compared:
 
 ```
 AGREE — 8442 facts compared, 8442 agree, 0 differ.
-window: generation=3 frame=48213 entities=6683 categories=60 collect=41.213ms ported=118.4ms native=2249.1ms elapsed=2407.741ms memos=5677 drifted=730 dirty=3558 uncalculated=612 widestDrift=2.46e121%@StructureSO.passiveCostMod
+window: generation=3 frame=48213 entities=6683 collectors=61 collect=41.213ms ported=118.4ms native=2249.1ms elapsed=2407.741ms memos=5677 drifted=730 dirty=3558 uncalculated=612 widestDrift=2.46e121%@StructureSO.passiveCostMod
 ```
 
 Those two lines are the whole response when everything agreed. The rules that make them so:

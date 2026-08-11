@@ -1975,8 +1975,20 @@ public sealed class Plugin : BaseUnityPlugin
         return result.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// The one name a suite feature answers to, on health and on the automation list alike.
+    /// </summary>
+    /// <remarks>
+    /// Health said <c>Auto Buy</c> and the automation list said <c>auto_buy</c> for one feature, and
+    /// health names nine where the list names seven — so a caller comparing them had a naming
+    /// difference and a count difference at once and no way to see that one set contains the other.
+    /// Both now speak the ids the automation verb takes as arguments, and the two extra names on
+    /// health read as the two features that have no on/off button rather than as a contradiction.
+    /// </remarks>
     private static string CanonicalGameMcpFeatureName(string name) =>
-        string.Equals(name, "Orb Mentor", StringComparison.Ordinal) ? "Mentor" : name;
+        string.Equals(name, "Orb Mentor", StringComparison.Ordinal)
+            ? "mentor"
+            : GameMcpEntityWireNormalizer.Snake(name);
 
     /// <summary>
     /// The committed value of every writable setting, one setting per line.

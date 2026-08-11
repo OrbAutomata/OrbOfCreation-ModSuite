@@ -259,15 +259,15 @@ internal static class GameMcpWorldQuery
     /// each distinct source once with how many of the window's samples it earned, and names the
     /// window itself so a caller can tell one read's window from the next.
     /// </remarks>
-    private static JObject MasteryExperienceSummary(
-        WorldPublication<GameWorldState> publication,
-        int offset,
-        int limit)
+    /// <summary>
+    /// The distinct sources in the ring's current window, and how many samples each earned.
+    /// </summary>
+    private static void MasteryExperienceSources(
+        GameWorldState world,
+        List<(MasteryExperienceDomain Domain, Guid SourceId, int SourceMastery)> keys,
+        List<int> counts)
     {
-        var world = publication.Snapshot;
         var samples = world.MasteryExperience;
-        var keys = new List<(MasteryExperienceDomain Domain, Guid SourceId, int SourceMastery)>();
-        var counts = new List<int>();
         for (var index = 0; index < samples.Count; index++)
         {
             var sample = samples[index];
@@ -284,6 +284,18 @@ internal static class GameMcpWorldQuery
             keys.Add(key);
             counts.Add(1);
         }
+    }
+
+    private static JObject MasteryExperienceSummary(
+        WorldPublication<GameWorldState> publication,
+        int offset,
+        int limit)
+    {
+        var world = publication.Snapshot;
+        var samples = world.MasteryExperience;
+        var keys = new List<(MasteryExperienceDomain Domain, Guid SourceId, int SourceMastery)>();
+        var counts = new List<int>();
+        MasteryExperienceSources(world, keys, counts);
 
         var rows = new JArray();
         var end = Math.Min(keys.Count, checked(offset + limit));
@@ -3833,11 +3845,31 @@ internal static class GameMcpWorldQuery
         var result = new JObject
         {
             ["category"] = category.Name,
-            ["count"] = category.Count(world),
+            ["count"] = CategoryRowCount(world, category),
             ["available"] = availability.Available,
         };
         if (availability.Reason.Length > 0) result["reason"] = availability.Reason;
         return result;
+    }
+
+    /// <summary>
+    /// How many rows listing this category answers with.
+    /// </summary>
+    /// <remarks>
+    /// The count is read to decide whether to list a category, so it has to be the number that read
+    /// will give. For every category but one it is the publication's own row count. The
+    /// mastery-experience ring is the exception: the list says each distinct source once, so the
+    /// ring's 256 raw samples were advertised against a page that answers with 17 rows — two true
+    /// numbers, one word, and nothing on either page saying they counted different things.
+    /// </remarks>
+    private static int CategoryRowCount(GameWorldState world, GameMcpWorldCategory category)
+    {
+        if (!string.Equals(category.Name, "mastery-experience", StringComparison.Ordinal))
+            return category.Count(world);
+        var keys = new List<(MasteryExperienceDomain Domain, Guid SourceId, int SourceMastery)>();
+        var counts = new List<int>();
+        MasteryExperienceSources(world, keys, counts);
+        return keys.Count;
     }
 
     private static GameMcpCategoryAvailability Availability(

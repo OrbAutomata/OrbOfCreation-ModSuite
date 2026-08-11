@@ -627,8 +627,10 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.Matches(
             @"(?m)^build: \S+ dll sha256 [0-9a-f]{12}$",
             compact);
-        Assert.Contains("features configuration_disabled: Auto Buy", compact, StringComparison.Ordinal);
-        Assert.Contains("features operational: Mentor", compact, StringComparison.Ordinal);
+        // One name per feature across the two verbs that list features, so the seven suite_automation
+        // takes as arguments are recognisable inside the nine health reports on.
+        Assert.Contains("features configuration_disabled: auto_buy", compact, StringComparison.Ordinal);
+        Assert.Contains("features operational: mentor", compact, StringComparison.Ordinal);
         Assert.Contains("game_craft: unavailable", compact, StringComparison.Ordinal);
         Assert.Contains("game_modal: unavailable", compact, StringComparison.Ordinal);
         Assert.DoesNotContain("Orb Mentor", compact, StringComparison.Ordinal);
