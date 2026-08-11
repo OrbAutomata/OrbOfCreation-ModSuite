@@ -52,8 +52,23 @@ namespace OrbAutomata.GameMcp;
 /// of whether a purchase would go through right now. Affordability and per-level requirements are
 /// a second, independent axis, and they keep their own columns; a row that cannot be paid for is
 /// still <see cref="Available"/>, because next week it will be bought with no state having moved.
-/// The word <c>purchasable</c> is banned outright for confusing the two. Structures speak only the
-/// first two words: they carry no ceiling at all, so nothing about a structure is ever finished.
+/// The word <c>purchasable</c> is banned outright for confusing the two.
+/// </para>
+/// <para>
+/// The word belongs to every category in which the player can meet a locked thing, not only the
+/// ones that are bought. What the player experiences as lockedness is the fact, and where the game
+/// hides a row or swaps a placeholder in front of it rather than greying it, that hiding <em>is</em>
+/// the locked state. So alchemy recipes, glyphs, rituals, plot nodes and challenges say it too, each
+/// off the member the game's own row renderer asks.
+/// </para>
+/// <para>
+/// How many of the three words a category reaches is a fact about the category rather than a shape
+/// imposed on it. Only <see cref="Completed"/> needs a ceiling to exist, and most of these have
+/// none: a structure has no <c>maxLevel</c> field, <c>GlyphSO.CanLevel()</c> is the constant
+/// <c>true</c>, an alchemy recipe's <c>maxLevel</c> is the level it has reached rather than one it
+/// stops at, a ritual is re-run forever, and a plot node grows mastery without end. Two words is
+/// the honest whole of those categories; inventing a third would be worse than lacking one. Only
+/// upgrades, research and challenges reach all three.
 /// </para>
 /// </remarks>
 internal static class GameMcpListColumns
@@ -173,6 +188,30 @@ internal static class GameMcpListColumns
 
     internal static Guid EveryUpgradeList => KnownEntities.UpgradesAll.Uuid;
 
+    /// <summary>
+    /// What a challenge's own run is doing, which is not a lifecycle and never wears its word.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// These five are <c>ChallengeSO.ChallengeState</c>, whose own tooltips the game names
+    /// <c>ChallengeInactive</c>, <c>ChallengeQueued</c>, <c>ChallengeActive</c>,
+    /// <c>ChallengePassed</c> and <c>ChallengeFailed</c>. They say how one attempt went, and a
+    /// challenge passed at level three is neither finished nor further along than a challenge
+    /// nobody has entered — it is simply between runs. That is why the column they live in is
+    /// <c>run</c> rather than <c>state</c>: the lifecycle word belongs to the same question every
+    /// other category answers with it, and two vocabularies cannot share one column name.
+    /// </para>
+    /// <para>
+    /// The words themselves are unchanged from before the rename. They were already right for the
+    /// fact; only the column they sat in was wrong.
+    /// </para>
+    /// </remarks>
+    internal const string RunIdle = "idle";
+    internal const string RunQueued = "queued";
+    internal const string RunActive = "active";
+    internal const string RunPassed = "passed";
+    internal const string RunFailed = "failed";
+
     /// <summary>The slot holds nothing.</summary>
     internal const string Empty = "empty";
 
@@ -276,9 +315,10 @@ internal static class GameMcpListColumns
         ["equipment"] = new[] { "entityId", "created", "equippedCount" },
         ["rituals"] = new[]
         {
-            "entityId", "discovered", "selected", "reachedLevel", "selectedLevel", "waveTotal",
+            "entityId", "state", "selected", "reachedLevel", "selectedLevel", "waveTotal",
             "affordable",
         },
+        ["alchemy-recipes"] = new[] { "entityId", "state", "masteryLevel" },
         ["research"] = new[]
         {
             "entityId", "state", "paused", "totalLevel", "queuedLevels", "requirements",
@@ -287,15 +327,15 @@ internal static class GameMcpListColumns
         ["resource-types"] = new[] { "entityId", "level", "hidden" },
         ["glyphs"] = new[]
         {
-            "entityId", "discovered", "available", "paidLevel", "bonusLevel", "totalLevel",
+            "entityId", "state", "discovered", "paidLevel", "bonusLevel", "totalLevel",
         },
         ["plot-nodes"] = new[]
         {
-            "entityId", "visible", "masteryLevel", "quantity", "availableQuantity",
+            "entityId", "state", "masteryLevel", "quantity", "availableQuantity",
         },
         ["purchase-costs"] =
             new[] { "resourceId", "cost", "spendableAmount", "affordable", "targetId" },
-        ["challenges"] = new[] { "entityId", "state", "level" },
+        ["challenges"] = new[] { "entityId", "state", "run", "level" },
         ["crafting-recipes"] = new[] { "entityId", "startingAmount" },
         ["discovery-trees"] = new[] { "entityId", "mode" },
         ["resources"] = new[]

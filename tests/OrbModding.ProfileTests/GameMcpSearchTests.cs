@@ -41,6 +41,12 @@ public sealed class GameMcpSearchTests
     /// upgrade's cell is not filled from its category, its screen, or its name — the game prints no
     /// type line on one, so neither does this.
     /// </summary>
+    /// <remarks>
+    /// The recipe answers under <c>alchemy-recipes</c> rather than <c>concept-recipes</c>: one
+    /// entity is one hit however many categories republish it, and the first category holding it
+    /// wins. This row used to read <c>concept-recipes</c> only because the fixture published the
+    /// concept republication without the alchemy row the real world always carries beside it.
+    /// </remarks>
     [Fact]
     public void A_search_across_categories_says_the_same_four_things_about_every_hit()
     {
@@ -53,7 +59,7 @@ public sealed class GameMcpSearchTests
                 "81b000 | Alchemy Mastery | upgrades | -",
                 "81c000 | Alchemy Refinement | upgrades | -",
                 "82a000 | Alchemy Lab | structures | Building, Alchemical",
-                "80a000 | Concept of Fire | concept-recipes | Alchemical, Structure Focus",
+                "80a000 | Concept of Fire | alchemy-recipes | Alchemical, Structure Focus",
             }),
             Render(Search("alchemy")));
     }
@@ -73,20 +79,23 @@ public sealed class GameMcpSearchTests
     }
 
     /// <summary>
-    /// The lifecycle filter answers "what have I not unlocked yet" using the same three words the
-    /// purchasable pages say, and only for the categories that say them. A concept recipe matches
-    /// this query unfiltered and cannot match a state filter, because its own list page has no
-    /// lifecycle on it and inventing one here would be a second grammar for the same fact.
+    /// The lifecycle filter answers "what have I not unlocked yet" using the same words the pages
+    /// say, for every category that says them — which is now every category the player can meet a
+    /// locked thing in, alchemy recipes included. The filter reads the row's own word rather than
+    /// deriving one here, so its reach follows the column rather than a second list beside it.
     /// </summary>
     [Fact]
     public void A_state_filter_selects_the_rows_whose_own_page_says_that_word()
     {
+        // The motivating case: a recipe the alchemy screen shows no row for is locked, and the
+        // filter finds it beside the locked upgrade rather than seeing only the purchasables.
         Assert.Equal(
             string.Join('\n', new[]
             {
-                "rows 1/1",
+                "rows 2/2",
                 "[id | name | category | keywords]",
                 "81b000 | Alchemy Mastery | upgrades | -",
+                "80a000 | Concept of Fire | alchemy-recipes | Alchemical, Structure Focus",
             }),
             Render(Search("alchemy", state: "locked")));
 
@@ -298,6 +307,14 @@ public sealed class GameMcpSearchTests
             {
                 new WorldConceptRecipe(Concept, Guid.Empty, canAddNow: true, slotCount: 4),
             }),
+
+            // The recipe the concept row republishes, as its own alchemy row and undiscovered: the
+            // alchemy screen shows the player no row for it at all, which is exactly what the
+            // filter has to be able to find.
+            AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new[]
+            {
+                Recipe(Concept, discovered: false),
+            }),
             EntityKeywords = PublicationTable<WorldEntityKeyword>.Create(Sorted(
                 Keyword(Lab, WorldKeywordSource.PrimaryType, 0, Building),
                 Keyword(Lab, WorldKeywordSource.TypeList, 0, Alchemical),
@@ -352,6 +369,42 @@ public sealed class GameMcpSearchTests
             .Select(name => new WorldCollectionCategoryStatus(
                 name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
             .ToArray();
+
+    /// <summary>
+    /// One alchemy recipe on the gate every authored recipe of the pinned build carries, where
+    /// <c>discovered</c> is the whole of what <c>AlchemyRecipeSO.IsAvailable()</c> reads.
+    /// </summary>
+    private static WorldAlchemyRecipe Recipe(Guid id, bool discovered) => new(
+        id,
+        Guid.Empty,
+        discovered,
+        maxLevel: 1,
+        advancementLevel: 0,
+        discoveryRarityLevel: 0,
+        masteryXp: BigDouble.Zero,
+        masteryLevel: 0,
+        recipeTime: BigDouble.One,
+        isRequiredDiscovery: false,
+        isCompletionRecipe: false,
+        isAdvancementRecipe: false,
+        completionTime: 0,
+        isDebugAlchemy: false,
+        power: BigDouble.Zero,
+        speed: BigDouble.Zero,
+        drainCostMod: BigDouble.Zero,
+        special: BigDouble.Zero,
+        timeReqMod: BigDouble.Zero,
+        timeScalingMod: BigDouble.Zero,
+        masteryXpRate: BigDouble.Zero,
+        effectLevels: BigDouble.Zero,
+        overdrivePower: BigDouble.Zero,
+        overdriveSpeed: BigDouble.Zero,
+        overdriveDrainCostMod: BigDouble.Zero,
+        overdriveXpRate: BigDouble.Zero,
+        freeUsageSlots: BigDouble.Zero,
+        maxUsageSlots: BigDouble.One,
+        cachedCompletionTime: BigDouble.Zero,
+        requiredExperience: BigDouble.One);
 
     private static WorldResearch ResearchRow(Guid id, params Guid[] types) => new(
         id,

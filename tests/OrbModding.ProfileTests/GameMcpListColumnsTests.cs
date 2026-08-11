@@ -236,6 +236,11 @@ public sealed class GameMcpListColumnsTests
             GameMcpListColumns.Unslotted,
             GameMcpListColumns.Unset,
             GameMcpListColumns.ScreenAll,
+            GameMcpListColumns.RunIdle,
+            GameMcpListColumns.RunQueued,
+            GameMcpListColumns.RunActive,
+            GameMcpListColumns.RunPassed,
+            GameMcpListColumns.RunFailed,
         }
             .Concat(GameMcpListColumns.Screens.Select(screen => screen.Word))
             .Concat(BlockedCodes.Select(GameMcpListColumns.Word))
@@ -265,6 +270,23 @@ public sealed class GameMcpListColumnsTests
                 GameMcpListColumns.Completed,
             }.OrderBy(word => word, StringComparer.Ordinal).ToArray());
         Assert.DoesNotContain("purchasable", vocabulary);
+
+        // The run vocabulary is a fifth of the surface's words and none of it is a lifecycle word:
+        // the two shared the column name `state` on challenges, and that is the collision the
+        // rename resolved. `active` in particular is not `available` in disguise.
+        var run = new[]
+        {
+            GameMcpListColumns.RunIdle, GameMcpListColumns.RunQueued,
+            GameMcpListColumns.RunActive, GameMcpListColumns.RunPassed,
+            GameMcpListColumns.RunFailed,
+        };
+        Assert.Equal(5, run.Distinct(StringComparer.Ordinal).Count());
+        Assert.Empty(run.Intersect(new[]
+        {
+            GameMcpListColumns.Locked,
+            GameMcpListColumns.Available,
+            GameMcpListColumns.Completed,
+        }, StringComparer.Ordinal));
 
         // The screen vocabulary is closed and every word in it is distinct: one authored list, one
         // word, and the catch-all is not one of the eight screens.
@@ -329,6 +351,7 @@ public sealed class GameMcpListColumnsTests
             Research = PublicationTable<WorldResearch>.Create(new WorldResearch[1]),
             ResourceTypes = PublicationTable<WorldResourceType>.Create(new WorldResourceType[1]),
             Glyphs = PublicationTable<WorldGlyph>.Create(new WorldGlyph[1]),
+            AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new WorldAlchemyRecipe[1]),
             PlotNodes = PublicationTable<WorldPlotNode>.Create(new WorldPlotNode[1]),
             PurchaseCosts = PublicationTable<WorldPurchaseCost>.Create(new WorldPurchaseCost[1]),
             Challenges = PublicationTable<WorldChallenge>.Create(new WorldChallenge[1]),
@@ -513,6 +536,118 @@ public sealed class GameMcpListColumnsTests
         Assert.DoesNotContain(
             "completed",
             rows.Select(row => (string?)row["state"]).ToArray());
+    }
+
+    /// <summary>
+    /// The lifecycle word belongs to every category the player can meet a locked thing in, and each
+    /// of these five says it off the member the game's own row renderer asks — so a row this page
+    /// calls <c>locked</c> is exactly a row the player is shown no way to click.
+    /// </summary>
+    /// <remarks>
+    /// Before this, each of the five said its own half of the answer in its own grammar:
+    /// <c>discovered</c> for a recipe and a ritual, <c>available</c> for a glyph, <c>visible</c> for
+    /// a plot node, and for a challenge nothing at all — its <c>state</c> column was the run.
+    /// </remarks>
+    [Fact]
+    public void Every_category_a_locked_thing_can_be_met_in_says_the_lifecycle_word()
+    {
+        var context = GameMcpTestHarness.Context(LockedAndOpen(), generation: 4243);
+
+        Assert.All(
+            new[] { "alchemy-recipes", "glyphs", "rituals", "plot-nodes", "challenges" },
+            category =>
+            {
+                var rows = GameMcpTestHarness
+                    .Json(GameMcpWorldQuery.ListRows(context, category, 0, 50))["rows"]!
+                    .Values<JObject>()
+                    .Select(row => (string?)row!["state"])
+                    .ToArray();
+                Assert.Equal(new[] { "locked", "available" }, rows);
+            });
+    }
+
+    /// <summary>
+    /// Two words is the honest whole of four of them. Only a ceiling makes <c>completed</c>
+    /// reachable, and a recipe's <c>maxLevel</c> is the level it has reached, a glyph's
+    /// <c>CanLevel()</c> is the constant <c>true</c>, a ritual is re-run forever and a plot node's
+    /// mastery has no top — so the word is absent because the fact is, not because it was withheld.
+    /// </summary>
+    [Fact]
+    public void A_category_with_no_ceiling_never_reaches_the_third_word()
+    {
+        var context = GameMcpTestHarness.Context(LockedAndOpen(), generation: 4244);
+
+        Assert.All(
+            new[] { "alchemy-recipes", "glyphs", "rituals", "plot-nodes" },
+            category => Assert.DoesNotContain(
+                "completed",
+                GameMcpTestHarness
+                    .Json(GameMcpWorldQuery.ListRows(context, category, 0, 50))["rows"]!
+                    .Values<JObject>()
+                    .Select(row => (string?)row!["state"])
+                    .ToArray()));
+
+        // Challenges do have one — ChallengeSO.IsMaxLevel() — so they reach all three, and it is
+        // asked before availability exactly as the game's own IsAvailableToRun() asks it.
+        var challenges = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(ChallengeWorld(
+                Challenge(Capped, availableToRun: false, maxLevelReached: false, run: 0),
+                Challenge(Uncapped, availableToRun: true, maxLevelReached: false, run: 3),
+                Challenge(Exhausted, availableToRun: false, maxLevelReached: true, run: 3)),
+                generation: 4245),
+            "challenges", 0, 50));
+
+        Assert.Equal(
+            new[] { "locked", "available", "completed" },
+            challenges["rows"]!.Values<JObject>()
+                .Select(row => (string?)row!["state"]).ToArray());
+    }
+
+    /// <summary>
+    /// The collision the rename exists for: a challenge whose last run passed is <c>available</c>
+    /// again at the next level, so the two columns disagree on the same row and neither is the
+    /// other's synonym. One name meant both facts before, on the one category that has both.
+    /// </summary>
+    [Fact]
+    public void A_challenge_says_its_lifecycle_and_its_run_in_two_columns_that_disagree()
+    {
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(ChallengeWorld(
+                Challenge(Uncapped, availableToRun: true, maxLevelReached: false, run: 3),
+                Challenge(Capped, availableToRun: true, maxLevelReached: false, run: 3)),
+                generation: 4246),
+            "challenges", 0, 50));
+        var page = GameMcpTextPage.Render(response);
+        var row = Rows(response)[0];
+
+        Assert.Equal("available", (string?)row["state"]);
+        Assert.Equal("passed", (string?)row["run"]);
+        Assert.Contains("| available | passed |", page, StringComparison.Ordinal);
+        Assert.Equal("[id | name | state | run | level]", Bracket(page));
+    }
+
+    /// <summary>
+    /// A recipe behind a visibility prerequisite has a lock this suite cannot read without making
+    /// the game latch a prerequisite container mid-collection, so the cell says the read failed
+    /// rather than calling it locked. No authored recipe on the pinned build is on that branch; the
+    /// word exists so that a build where one was would say so.
+    /// </summary>
+    [Fact]
+    public void A_recipe_whose_gate_this_suite_cannot_read_says_so_instead_of_guessing()
+    {
+        var rows = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(
+                AlchemyWorld(
+                    Recipe(Capped, discovered: true, gate: 1),
+                    Recipe(Uncapped, discovered: false, gate: 1)),
+                generation: 4247),
+            "alchemy-recipes", 0, 50))["rows"]!.Values<JObject>().ToArray();
+
+        // Both branches of `discovered` answer the same way, because `discovered` is not what the
+        // game reads for this recipe at all.
+        Assert.Equal(
+            new[] { "unreadable", "unreadable" },
+            rows.Select(row => (string?)row!["state"]).ToArray());
     }
 
     /// <summary>
@@ -810,6 +945,190 @@ public sealed class GameMcpListColumnsTests
             new BigDouble(level),
             developmentProgress: 0);
     }
+
+    /// <summary>
+    /// One shut row and one open row in each of the five categories the player can meet a locked
+    /// thing in, each shut through the member that category's own screen renders on.
+    /// </summary>
+    private static GameWorldState LockedAndOpen() => new()
+    {
+        AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new[]
+        {
+            Recipe(Capped, discovered: false),
+            Recipe(Uncapped, discovered: true),
+        }),
+        Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+        {
+            Glyph(Capped, learned: false),
+            Glyph(Uncapped, learned: true),
+        }),
+        Rituals = PublicationTable<WorldRitual>.Create(new[]
+        {
+            Ritual(Capped, discovered: false),
+            Ritual(Uncapped, discovered: true),
+        }),
+        PlotNodes = PublicationTable<WorldPlotNode>.Create(new[]
+        {
+            Plot(Capped, visible: false),
+            Plot(Uncapped, visible: true),
+        }),
+        Challenges = PublicationTable<WorldChallenge>.Create(new[]
+        {
+            Challenge(Capped, availableToRun: false, maxLevelReached: false, run: 0),
+            Challenge(Uncapped, availableToRun: true, maxLevelReached: false, run: 0),
+        }),
+        CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(Reports(
+            "alchemy-recipes", "glyphs", "rituals", "plot-nodes", "challenges")),
+        CollectedAtEpoch = 25,
+        CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+    };
+
+    private static GameWorldState AlchemyWorld(params WorldAlchemyRecipe[] recipes) => new()
+    {
+        AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(recipes),
+        CollectionCategories =
+            PublicationTable<WorldCollectionCategoryStatus>.Create(Reports("alchemy-recipes")),
+        CollectedAtEpoch = 25,
+        CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+    };
+
+    private static GameWorldState ChallengeWorld(params WorldChallenge[] challenges) => new()
+    {
+        Challenges = PublicationTable<WorldChallenge>.Create(challenges),
+        CollectionCategories =
+            PublicationTable<WorldCollectionCategoryStatus>.Create(Reports("challenges")),
+        CollectedAtEpoch = 25,
+        CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+    };
+
+    private static WorldCollectionCategoryStatus[] Reports(params string[] categories) => categories
+        .Select(name => new WorldCollectionCategoryStatus(
+            name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
+        .ToArray();
+
+    private static WorldAlchemyRecipe Recipe(
+        Guid id,
+        bool discovered,
+        int gate = WorldAlchemyRecipe.DiscoverGate) => new(
+        id,
+        Guid.Empty,
+        discovered,
+        maxLevel: 1,
+        advancementLevel: 0,
+        discoveryRarityLevel: 0,
+        masteryXp: BigDouble.Zero,
+        masteryLevel: 0,
+        recipeTime: BigDouble.One,
+        isRequiredDiscovery: false,
+        isCompletionRecipe: false,
+        isAdvancementRecipe: false,
+        completionTime: 0,
+        isDebugAlchemy: false,
+        power: BigDouble.Zero,
+        speed: BigDouble.Zero,
+        drainCostMod: BigDouble.Zero,
+        special: BigDouble.Zero,
+        timeReqMod: BigDouble.Zero,
+        timeScalingMod: BigDouble.Zero,
+        masteryXpRate: BigDouble.Zero,
+        effectLevels: BigDouble.Zero,
+        overdrivePower: BigDouble.Zero,
+        overdriveSpeed: BigDouble.Zero,
+        overdriveDrainCostMod: BigDouble.Zero,
+        overdriveXpRate: BigDouble.Zero,
+        freeUsageSlots: BigDouble.Zero,
+        maxUsageSlots: BigDouble.One,
+        cachedCompletionTime: BigDouble.Zero,
+        requiredExperience: BigDouble.One,
+        discovery: default,
+        currentLevel: 1,
+        visibilityGate: gate);
+
+    /// <summary>
+    /// <c>learned</c> is the binder's name for <c>GlyphSO.IsAvailable()</c>, which is the whole of
+    /// what the picker renders a glyph on.
+    /// </summary>
+    private static WorldGlyph Glyph(Guid id, bool learned) => new(
+        id,
+        level: 0,
+        freeLevels: 0,
+        discoveryRarityLevel: 0,
+        learned,
+        discoverable: true,
+        discoveryRequired: true,
+        augmentsSpells: false,
+        requiresDuration: false,
+        requiresToggleable: false,
+        masteryReqCount: 0,
+        freeUsages: BigDouble.Zero,
+        freeLoadoutUsages: BigDouble.Zero,
+        maxUsages: BigDouble.Zero);
+
+    private static WorldRitual Ritual(Guid id, bool discovered)
+    {
+        var modifiers = default(RawRitualModifiers);
+        return new WorldRitual(
+            id,
+            discovered,
+            inBattle: false,
+            activeInstances: 0,
+            reachedLevel: 0,
+            lastReachedLevel: 0,
+            selectedLevel: 1,
+            wavesCompleted: 0,
+            discoveryRarityLevel: 0,
+            critLevel: 0,
+            echoLevel: 0,
+            chainLevel: 0,
+            durationRewardBlocks: 0,
+            battleTotalWeight: BigDouble.Zero,
+            in modifiers,
+            hideEndScreenResults: false,
+            isDiscoverRequired: false,
+            forceLevel: false,
+            forceLevelValue: 0,
+            baseWaves: 0,
+            maxWaves: 0,
+            requiredWaves: 0,
+            baseWeight: 0,
+            minimumEffectLevel: 0,
+            failedRun: false);
+    }
+
+    private static WorldPlotNode Plot(Guid id, bool visible)
+    {
+        var reading = new RawPlotNodeSample(
+            id, visible, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            masteryLevel: 0, noMastery: false, noSizeDisplay: false, useVisibilityPrereq: true,
+            hasErraticGrowth: false, debugMode: false, erraticQuantity: 0,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            lastQuantity: 0, idleQuantity: 0, totalQuantity: 0);
+        return new WorldPlotNode(in reading, remainingQuantity: 0, remainingTotalQuantity: 0);
+    }
+
+    /// <summary>
+    /// <c>run</c> is <c>ChallengeSO.state</c> — 0 idle, 3 passed — and it moves without the
+    /// lifecycle moving, which is the whole reason the two are separate columns.
+    /// </summary>
+    private static WorldChallenge Challenge(
+        Guid id,
+        bool availableToRun,
+        bool maxLevelReached,
+        int run) => new(
+        id,
+        level: 0,
+        state: run,
+        seen: true,
+        rewardQueued: false,
+        maxLevel: 5,
+        weight: 0,
+        difficulty: 0,
+        baseReward: 0,
+        availableToRun,
+        completedOnce: run == 3,
+        maxLevelReached);
 
     private static JObject[] Rows(JObject page) =>
         page["rows"]!.Values<JObject>().Select(row => row!).ToArray();

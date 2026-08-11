@@ -74,7 +74,11 @@ public sealed class GameMcpChallengeTests
         var first = Assert.Single(response["rows"]!.Values<JObject>(),
             row => (string?)row?["uuid"] == GameMcpTestHarness.Handle(First))!;
         Assert.Equal("Prismatic Trial", (string?)first["name"]);
-        Assert.Equal("queued", (string?)first["state"]);
+
+        // Two questions on one row: how far the player has come with this challenge, and what its
+        // own run is doing. They used to share the name `state`, which is why the run word moved.
+        Assert.Equal("available", (string?)first["state"]);
+        Assert.Equal("queued", (string?)first["run"]);
         Assert.Equal("1", (string?)first["level"]);
         Assert.Null(first["select"]);
         var exact = Json(GameMcpWorldQuery.GetRow(

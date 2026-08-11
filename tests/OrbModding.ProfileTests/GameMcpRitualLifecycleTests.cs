@@ -199,7 +199,11 @@ public sealed class GameMcpRitualLifecycleTests
         var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
 
         Assert.Equal("Moon Rite", (string?)row["name"]);
-        Assert.True((bool)row["discovered"]!);
+
+        // `discovered` said the lifecycle under its own name: RitualSO.IsAvailable() and
+        // IsVisible() are both IsDiscovered(), so the row says it once, in the shared word.
+        Assert.Equal("available", (string?)row["state"]);
+        Assert.Null(row["discovered"]);
         Assert.True((bool)row["selected"]!);
         Assert.Equal(6, (int)row["reachedLevel"]!);
         Assert.Equal(3, (int)row["selectedLevel"]!);

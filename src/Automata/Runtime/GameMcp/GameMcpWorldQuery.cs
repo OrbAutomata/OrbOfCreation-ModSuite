@@ -464,11 +464,14 @@ internal static class GameMcpWorldQuery
         // what a run would start at, how long a run is, and whether it can be paid for. Reading them
         // one ritual at a time cost a detail page per candidate to compare a column the row had.
         // Every field is unconditional, so the column set is the same page after a prestige.
+        //
+        // `discovered` folded into `state`: RitualSO.IsAvailable() and IsVisible() are both
+        // IsDiscovered(), so the column said the lifecycle in a second grammar of its own.
         if (row is WorldRitual listedRitual)
             return new JObject
             {
                 ["entityId"] = listedRitual.EntityId.ToString("D"),
-                ["discovered"] = listedRitual.Discovered,
+                ["state"] = RitualState(in listedRitual),
                 ["selected"] = listedRitual.Decision.Selected,
                 ["reachedLevel"] = listedRitual.ReachedLevel,
                 ["selectedLevel"] = listedRitual.SelectedLevel,
@@ -513,12 +516,16 @@ internal static class GameMcpWorldQuery
                 ["level"] = resourceType.LevelDecision.TotalLevel,
                 ["hidden"] = resourceType.SpecialHidden,
             }.Freeze();
+        // `available` folded into `state`: it was `Learned`, which is `GlyphSO.IsAvailable()`, which
+        // is exactly the predicate the lifecycle word is. `discovered` stays because it is a
+        // different fact — a pool unlocker is available off an authored prerequisite while never
+        // having been discovered at all, and the pair is what tells those two kinds of glyph apart.
         if (row is WorldGlyph glyph)
             return new JObject
             {
                 ["entityId"] = glyph.EntityId.ToString("D"),
+                ["state"] = GlyphState(in glyph),
                 ["discovered"] = glyph.Discovered,
-                ["available"] = glyph.Learned,
                 ["paidLevel"] = glyph.LevelDecision.TotalLevel - glyph.LevelDecision.BonusLevels,
                 ["bonusLevel"] = glyph.LevelDecision.BonusLevels,
                 ["totalLevel"] = glyph.LevelDecision.TotalLevel,
@@ -527,11 +534,14 @@ internal static class GameMcpWorldQuery
         // from. How many sit in the Idle phase is not one of them: it is the game's `GetQuantity()`,
         // a phase timer's count, and it moves while nobody plays. A caller who needs the phase reads
         // the scan or the node's own detail, both of which still carry it.
+        //
+        // `visible` folded into `state`: PlotNodeSO.IsVisible() is that field, and it is what
+        // UIPlotNode renders the row on, so the two columns were one fact under two names.
         if (row is WorldPlotNode plot)
             return new JObject
             {
                 ["entityId"] = plot.EntityId.ToString("D"),
-                ["visible"] = plot.Reading.Visible,
+                ["state"] = PlotNodeState(in plot),
                 ["masteryLevel"] = plot.Reading.MasteryLevel,
                 ["quantity"] = plot.Reading.TotalQuantity,
                 ["availableQuantity"] = plot.RemainingTotalQuantity,
@@ -544,12 +554,27 @@ internal static class GameMcpWorldQuery
         }
         if (row is WorldTargetingRequest targeting)
             return ProjectTargeting(world, in targeting);
+        // Two questions, two columns, and they used to share a name. `state` is how far the player
+        // has come, the word every other category says it in; `run` is what this challenge's own
+        // attempt did, which the game keeps in `ChallengeSO.state` and which never moves the
+        // lifecycle — passing one run raises the level and hands the challenge straight back.
         if (row is WorldChallenge challenge)
             return new JObject
             {
                 ["entityId"] = challenge.EntityId.ToString("D"),
-                ["state"] = ChallengeState(challenge.State),
+                ["state"] = ChallengeLifecycle(in challenge),
+                ["run"] = ChallengeRun(challenge.State),
                 ["level"] = new GameMcpDomainValue(new BigDouble(challenge.Level)),
+            }.Freeze();
+        // `discovered` folded into `state`: it is what AlchemyRecipeSO.IsAvailable() reads, and
+        // that is the member UIAlchemyRecipe renders each row on, so the recipe a player cannot
+        // click and the recipe this page calls locked are one set.
+        if (row is WorldAlchemyRecipe listedAlchemyRecipe)
+            return new JObject
+            {
+                ["entityId"] = listedAlchemyRecipe.EntityId.ToString("D"),
+                ["state"] = AlchemyRecipeState(in listedAlchemyRecipe),
+                ["masteryLevel"] = listedAlchemyRecipe.MasteryLevel,
             }.Freeze();
         if (row is WorldCraftingStation station)
         {
@@ -895,6 +920,75 @@ internal static class GameMcpWorldQuery
         structure.Reading.Unlocked
             ? GameMcpListColumns.Available
             : GameMcpListColumns.Locked;
+
+    /// <summary>
+    /// A recipe the alchemy screen will not show is one the player cannot reach, and that is the
+    /// whole of this category's lifecycle: <c>UIAlchemyRecipe.IsVisible()</c> is
+    /// <c>AlchemyRecipeSO.IsAvailable()</c>, and a recipe is never finished — <c>maxLevel</c> is the
+    /// level it has been taken to, not a ceiling it stops at.
+    /// </summary>
+    /// <remarks>
+    /// <c>IsAvailable()</c> reads <c>discovered</c> for a <c>Discover</c> recipe and
+    /// <c>visibilityPrerequisites.Check()</c> for a <c>Prerequisite</c> one, so the published
+    /// <c>Discovered</c> is the answer only on the first branch. The gate is captured rather than
+    /// assumed, and the second branch is a lock this suite cannot read without making the game latch
+    /// a prerequisite container during collection — so it says
+    /// <see cref="GameMcpListColumns.Unreadable"/> rather than guessing. All 125 authored recipes on
+    /// the pinned build are <c>Discover</c>, so no row reaches that word today; the branch exists so
+    /// that a build where one did would say so instead of quietly calling it locked.
+    /// </remarks>
+    private static string AlchemyRecipeState(in WorldAlchemyRecipe recipe) =>
+        recipe.VisibilityGate != WorldAlchemyRecipe.DiscoverGate
+            ? GameMcpListColumns.Unreadable
+            : recipe.Discovered
+                ? GameMcpListColumns.Available
+                : GameMcpListColumns.Locked;
+
+    /// <summary>
+    /// Whether the glyph picker offers this glyph. <c>UIGlyphListItem.IsVisible()</c> is
+    /// <c>GlyphSO.IsAvailable()</c>, which the binder already reads as <c>Learned</c>, and
+    /// <c>GlyphSO.IsVisible()</c> is the same method again. A glyph has no ceiling —
+    /// <c>CanLevel()</c> is the constant <c>true</c> — so two words are its whole lifecycle.
+    /// </summary>
+    private static string GlyphState(in WorldGlyph glyph) =>
+        glyph.Learned ? GameMcpListColumns.Available : GameMcpListColumns.Locked;
+
+    /// <summary>
+    /// Whether the ritual screen shows the ritual rather than the undiscovered placeholder that
+    /// stands in for it. <c>RitualSO.IsAvailable()</c>, <c>IsVisible()</c> and <c>IsDiscovered()</c>
+    /// are one member three times over, and it is the field the world already publishes. A ritual is
+    /// re-run without end, so nothing about one is ever finished.
+    /// </summary>
+    private static string RitualState(in WorldRitual ritual) =>
+        ritual.Discovered ? GameMcpListColumns.Available : GameMcpListColumns.Locked;
+
+    /// <summary>
+    /// Whether the harvest screen lists this node. <c>UIPlotNode.IsVisible()</c> is
+    /// <c>PlotNodeSO.IsVisible()</c>, which is the <c>visible</c> field the game latches from the
+    /// node's own visibility prerequisite. Mastery grows without a ceiling, so there is no third
+    /// word.
+    /// </summary>
+    private static string PlotNodeState(in WorldPlotNode plot) =>
+        plot.Reading.Visible ? GameMcpListColumns.Available : GameMcpListColumns.Locked;
+
+    /// <summary>
+    /// How far the player has come with one challenge — the one category here that reaches all
+    /// three words.
+    /// </summary>
+    /// <remarks>
+    /// <c>ChallengeSO.IsMaxLevel()</c> is <c>HasMaxLevel() &amp;&amp; GetQueuedLevel() &gt;=
+    /// maxLevel</c>, a real ceiling, and it is asked first for the same reason exhaustion is asked
+    /// first for an upgrade: <c>IsAvailableToRun()</c> opens with <c>if (IsMaxLevel()) return
+    /// false</c>, so the game's own predicate composes in that order. <c>IsAvailableToRun()</c> is
+    /// then <c>availabilityPrerequisites.Check(level)</c> and every previous challenge completed —
+    /// a genuine lock the player meets, which is why this category gets the word at all. It is not
+    /// the same question as the run column beside it: a challenge whose last run passed is
+    /// <see cref="GameMcpListColumns.Available"/> again at the next level.
+    /// </remarks>
+    private static string ChallengeLifecycle(in WorldChallenge challenge) =>
+        challenge.MaximumLevelReached ? GameMcpListColumns.Completed :
+        challenge.AvailableToRun ? GameMcpListColumns.Available :
+        GameMcpListColumns.Locked;
 
     /// <summary>
     /// The per-level conditions on the next purchase, as the second half of the can-purchase axis.
@@ -2970,13 +3064,16 @@ internal static class GameMcpWorldQuery
         var priorWorld = Before(command);
         var beforeState = priorWorld is not null && WorldLookup.TryFind(
             priorWorld.Challenges, command.TargetId, out var previous)
-            ? ChallengeState(previous.State)
+            ? ChallengeRun(previous.State)
             : null;
+
+        // A queue press moves the run, never the lifecycle — reporting it under `state` would be
+        // the one place on the surface where that word meant the other question.
         return Change(
             command.TargetId,
             beforeState,
-            ChallengeState(current.State),
-            "state");
+            ChallengeRun(current.State),
+            "run");
     }
 
     /// <summary>
@@ -3482,18 +3579,30 @@ internal static class GameMcpWorldQuery
     /// lifecycle to say.
     /// </summary>
     /// <remarks>
-    /// The three purchasable categories are the whole of it, because they are the three that carry
-    /// the word. A category with no lifecycle model does not match a state filter and is not
-    /// excluded from an unfiltered search — the alternative is a second lifecycle grammar invented
-    /// here for rows whose own page never speaks it, which is exactly what one vocabulary per fact
-    /// forbids. <c>challenges</c> also has a <c>state</c> column and is deliberately not read here:
-    /// its words are a run's outcome, not how far the player has come.
+    /// <para>
+    /// This reads the word the row's own list page says and never derives one of its own, so the
+    /// filter's reach is a consequence of which categories carry the column rather than a second
+    /// list maintained beside them. Every category the player can meet a locked thing in now carries
+    /// it, which is what the filter reaches: the three purchasables plus alchemy recipes, glyphs,
+    /// rituals, plot nodes and challenges.
+    /// </para>
+    /// <para>
+    /// A category with no lifecycle model still does not match a state filter, and is still not
+    /// excluded from an unfiltered search — inventing a word here for a row whose page never speaks
+    /// one is exactly what one vocabulary per fact forbids. <c>challenges</c> is now read, because
+    /// it now has a lifecycle to read: its run words moved to <c>run</c>, which this never consults.
+    /// </para>
     /// </remarks>
     private static string SearchLifecycle(object row) => row switch
     {
         WorldUpgrade upgrade => UpgradeState(in upgrade),
         WorldResearch research => ResearchLifecycle(in research),
         WorldStructure structure => StructureState(in structure),
+        WorldAlchemyRecipe recipe => AlchemyRecipeState(in recipe),
+        WorldGlyph glyph => GlyphState(in glyph),
+        WorldRitual ritual => RitualState(in ritual),
+        WorldPlotNode plot => PlotNodeState(in plot),
+        WorldChallenge challenge => ChallengeLifecycle(in challenge),
         _ => string.Empty,
     };
 
@@ -6040,7 +6149,12 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = recipe.EntityId.ToString("D"),
             ["category"] = "alchemy-recipes",
-            ["discovered"] = recipe.Discovered,
+
+            // `discovered` was this row's lifecycle under another name — it is what
+            // AlchemyRecipeSO.IsAvailable() reads for every recipe the pinned build authors — so it
+            // says it once, in the word the rest of the surface says it in. The raw field stays on
+            // the category's fact scan.
+            ["state"] = AlchemyRecipeState(in recipe),
             ["masteryLevel"] = recipe.MasteryLevel,
         };
         if (recipe.MaxLevel >= 0) result["maximumLevel"] = recipe.MaxLevel;
@@ -6228,13 +6342,12 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = challenge.EntityId.ToString("D"),
             ["category"] = "challenges",
-            ["state"] = ChallengeState(challenge.State),
+            ["state"] = ChallengeLifecycle(in challenge),
+            ["run"] = ChallengeRun(challenge.State),
             ["level"] = new GameMcpDomainValue(new BigDouble(challenge.Level)),
             ["seen"] = challenge.Seen,
             ["rewardQueued"] = challenge.RewardQueued,
             ["completedOnce"] = challenge.CompletedOnce,
-            ["maximumLevelReached"] = challenge.MaximumLevelReached,
-            ["availableToRun"] = challenge.AvailableToRun,
             ["nextDifficulty"] = new GameMcpDomainValue(challenge.NextDifficulty),
             ["nextReward"] = new GameMcpDomainValue(challenge.NextReward),
             ["selected"] = selected,
@@ -6272,13 +6385,18 @@ internal static class GameMcpWorldQuery
         return result.Freeze();
     }
 
-    private static string ChallengeState(int state) => state switch
+    /// <summary>
+    /// What this challenge's own run did, in the game's own five words for it. Not a lifecycle:
+    /// <c>passed</c> is one attempt cleared, after which the challenge is offered again a level
+    /// higher, so it says nothing about how far the player has come.
+    /// </summary>
+    private static string ChallengeRun(int state) => state switch
     {
-        0 => "idle",
-        1 => "queued",
-        2 => "active",
-        3 => "passed",
-        4 => "failed",
+        0 => GameMcpListColumns.RunIdle,
+        1 => GameMcpListColumns.RunQueued,
+        2 => GameMcpListColumns.RunActive,
+        3 => GameMcpListColumns.RunPassed,
+        4 => GameMcpListColumns.RunFailed,
         _ => "unknown",
     };
 
@@ -6470,8 +6588,8 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = glyph.EntityId.ToString("D"),
             ["category"] = "glyphs",
+            ["state"] = GlyphState(in glyph),
             ["discovered"] = glyph.Discovered,
-            ["available"] = glyph.Learned,
             ["usableCount"] = glyph.MaximumUsages,
         };
 
@@ -6535,7 +6653,7 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = ritual.EntityId.ToString("D"),
             ["category"] = "rituals",
-            ["discovered"] = ritual.Discovered,
+            ["state"] = RitualState(in ritual),
             ["inBattle"] = ritual.InBattle,
             ["activeInstances"] = ritual.ActiveInstances,
             ["reachedLevel"] = ritual.ReachedLevel,

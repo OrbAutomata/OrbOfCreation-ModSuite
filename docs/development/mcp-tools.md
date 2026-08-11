@@ -434,13 +434,21 @@ result agree. Matching is case-insensitive substring on the whole query, which i
 own search box uses — `FilterVariable.MatchesSearchStrings` lowercases both sides and asks
 `Contains`, with no tokenising and no whole-word test.
 
-`state` narrows to one of the three purchasable lifecycle words, and only `upgrades`, `research` and
-`structures` carry one. A category with no lifecycle model does not match a state filter and is not
-excluded from an unfiltered search: inventing a lifecycle word here for rows whose own list page
-never says one would be a second grammar for the same fact. `challenges` also declares a `state`
-column and is deliberately not read by this filter — its words are a run's outcome, not how far the
-player has come. `category` narrows to one searchable category; naming a composite one is refused by
-name rather than answering an empty page.
+`state` narrows to one of the three lifecycle words, and it reaches every category that carries the
+column: `upgrades`, `research`, `structures`, `alchemy-recipes`, `glyphs`, `rituals`, `plot-nodes`
+and `challenges`. The filter reads the word the row's own list page says and never derives one of its
+own, so its reach is a consequence of which pages carry the column rather than a list maintained
+beside them — extend the column and the filter follows.
+
+A category with no lifecycle model still does not match a state filter, and is still not excluded
+from an unfiltered search: inventing a word here for rows whose own page never says one would be a
+second grammar for the same fact. `challenges` is read now because it now has a lifecycle to read —
+its `state` column used to hold the five run words, which moved to `run`. `category` narrows to one
+searchable category; naming a composite one is refused by name rather than answering an empty page.
+
+One entity is one hit however many categories publish it, and the first category holding it wins. An
+alchemy recipe therefore answers under `alchemy-recipes` rather than under the `concept-recipes`
+republication of the same 125 rows.
 
 `keywordHits` appears when the query hit more than one distinct keyword, and says how the whole
 result set splits between them: `keywordHits: Charm=2, Charm Focus=1`. It counts only the keywords
@@ -511,10 +519,14 @@ written unconditionally so the header is the same one before and after a lifecyc
 
 | Category | Scan columns |
 | --- | --- |
-| `rituals` | `discovered`, `selected`, `reachedLevel`, `selectedLevel`, `waveTotal`, `affordable` |
+| `rituals` | `state`, `selected`, `reachedLevel`, `selectedLevel`, `waveTotal`, `affordable` |
 | `research` | `state`, `paused`, `totalLevel`, `queuedLevels`, `requirements`, `canDevelop`, `affordable` |
 | `upgrades` | `level`, `queuedLevels`, `screen`, `state`, `maximum`, `requirements`, `affordable` |
 | `structures` | `level`, `queuedLevels`, `state`, `enabled`, `affordable` |
+| `alchemy-recipes` | `state`, `masteryLevel` |
+| `glyphs` | `state`, `discovered`, `paidLevel`, `bonusLevel`, `totalLevel` |
+| `plot-nodes` | `state`, `masteryLevel`, `quantity`, `availableQuantity` |
+| `challenges` | `state`, `run`, `level` |
 | `equipment` | `created`, `equippedCount` |
 | `resource-types` | `level`, `hidden` |
 
@@ -612,6 +624,50 @@ of the same three words under `state`:
 | `available` | prerequisites hold and nothing is finished — `UpgradeSO.IsAvailable()`, which is also what `UIUpgradeButton` renders its row on |
 | `completed` | `IsMaxLevel()`, which is also when the game's own row disappears — completion and hiding are one state, never two words |
 
+**The word is not only for what the player buys.** What the player experiences as lockedness is the
+fact, and where the game hides a row, or shows a placeholder in front of it, rather than greying it,
+that hiding *is* the locked state. So every category in which a locked thing can be met says the
+word, each derived from the member that category's own row renderer decides on:
+
+| category | `locked` means the player sees | native member behind the word | words it reaches |
+| --- | --- | --- | --- |
+| `alchemy-recipes` | no row on the alchemy screen | `UIAlchemyRecipe.IsVisible()` = `AlchemyRecipeSO.IsAvailable()` = `visibilityType == Discover ? discovered : visibilityPrerequisites.Check()` | two |
+| `glyphs` | no row in the glyph picker | `UIGlyphListItem.IsVisible()` = `GlyphSO.IsAvailable()` = `discoverable ? discovered : prerequisites.Check()`, which is also `GlyphSO.IsVisible()` | two |
+| `rituals` | the undiscovered placeholder where the ritual would be | `UIRitual.IsVisible()` = `RitualSO.IsDiscovered()`; `IsAvailable()` and `IsVisible()` are the same member again | two |
+| `plot-nodes` | no row on the harvest screen | `UIPlotNode.IsVisible()` = `PlotNodeSO.IsVisible()` = the `visible` field the game latches from `visibilityPrereq` | two |
+| `challenges` | a challenge the draft will never offer | `ChallengeSO.IsAvailableToRun()` = `!IsMaxLevel() && availabilityPrerequisites.Check(level)` and every previous challenge completed | three |
+
+How many words a category reaches is a fact about the category, not a shape imposed on it. Only
+`completed` needs a ceiling, and most of these have none — a structure has no `maxLevel` field,
+`GlyphSO.CanLevel()` is the constant `true`, a recipe's `maxLevel` is the level it has *reached*
+rather than one it stops at, a ritual is re-run forever, and a plot node's mastery has no top. Two
+words is the honest whole of those categories; a third would have to be invented. Only `upgrades`,
+`research` and `challenges` reach all three, and each asks its ceiling first, because that is the
+order the game's own predicate composes in — `ChallengeSO.IsAvailableToRun()` opens by returning
+false the moment `IsMaxLevel()` holds.
+
+Where the new word made a raw column redundant on a list page, that column died and the raw fact
+stayed in the category's fact scan: `rituals` dropped `discovered`, `plot-nodes` dropped `visible`,
+`glyphs` dropped `available`, and `alchemy-recipes` dropped `discovered` — each was the lifecycle
+predicate under its own name. `glyphs` **kept** `discovered`, because for a glyph it is a different
+fact: a pool unlocker is available off an authored prerequisite while never having been discovered at
+all, and the pair is what tells those two kinds of glyph apart.
+
+**A recipe whose lock this suite cannot read says so.** `AlchemyRecipeSO.IsAvailable()` reads
+`discovered` on the `Discover` branch and runs a prerequisite container on the other, and only
+`visibilityType` says which — so that selector is captured (`alchemy-recipe.visibility-type`) rather
+than the verdict, because asking for the verdict would make the game latch that container during a
+per-pass capture. All 125 authored recipes on the pinned build are `Discover`, so no row reaches it
+today, but a recipe on the other branch reads `state: unreadable` rather than being quietly called
+locked.
+
+**`challenges` says two things, in two columns.** `state` is the lifecycle above; `run` is
+`ChallengeSO.state` — `idle`, `queued`, `active`, `passed`, `failed`, the game's own five, one
+tooltip per value. They are not the same question and they disagree on the same row: a challenge
+whose last run `passed` is `available` again at the next level. The two shared the name `state`
+before, which is why the run word is the one that moved; a queue commit's post-state reports `run`
+for the same reason.
+
 Two rules make that a lifecycle rather than a verdict:
 
 - **The can-purchase question is a separate axis.** `affordable` and `requirements` answer it, and
@@ -622,10 +678,10 @@ Two rules make that a lifecycle rather than a verdict:
 - **The word `purchasable` is banned.** It reads as "you can buy this now" while naming a state
   that says nothing about price, which is the exact confusion the two axes exist to keep apart.
 
-`structures` speak only the first two words. `StructureSO` carries no `maxLevel` field at all, so
-there is no level at which a structure is finished and no third word to reach; its soft
-prerequisites are a development penalty rather than a gate — a structure with them unmet is bought
-and simply builds worse — so they belong to the can-purchase axis and never to `state`.
+`structures` are one of the two-word categories above: `StructureSO` carries no `maxLevel` field at
+all, so there is no level at which a structure is finished. Its soft prerequisites are a development
+penalty rather than a gate — a structure with them unmet is bought and simply builds worse — so they
+belong to the can-purchase axis and never to `state`.
 
 A dial the player sets is not a lifecycle at all. The casting output and reserve levels are
 **allocations** whose maximum is the level of the `Raise …` upgrade that raised the ceiling; they

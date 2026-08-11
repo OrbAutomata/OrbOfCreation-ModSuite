@@ -136,7 +136,7 @@ public sealed class GameMcpGenericLevelTests
         var glyph = Row(world, "glyphs", GlyphId);
         var resourceType = Row(world, "resource-types", ResourceTypeId);
 
-        Assert.False((bool)glyph["available"]!);
+        Assert.Equal("locked", (string?)glyph["state"]);
         Assert.False((bool)glyph["purchase"]!["available"]!);
         Assert.Equal("ERR_LOCKED", (string?)glyph["purchase"]!["reasonCode"]);
         Assert.False((bool)resourceType["purchase"]!["available"]!);
@@ -164,7 +164,7 @@ public sealed class GameMcpGenericLevelTests
             "glyphs",
             GlyphId);
 
-        Assert.False((bool)glyph["available"]!);
+        Assert.Equal("locked", (string?)glyph["state"]);
         Assert.Equal(expectedClass, (string?)glyph["reasonCode"]);
         Assert.Equal(expectedReason, (string?)glyph["reason"]);
     }
@@ -177,7 +177,10 @@ public sealed class GameMcpGenericLevelTests
             "glyphs",
             GlyphId);
 
-        Assert.True((bool)glyph["available"]!);
+        // The pair the two columns exist for: the picker offers this glyph, and it was never
+        // discovered — `state` answers the first and `discovered` still answers the second, which
+        // is why the glyph list kept both.
+        Assert.Equal("available", (string?)glyph["state"]);
         Assert.False((bool)glyph["discovered"]!);
 
         // An absent block read as "not discovered yet", the opposite of the truth here: this glyph
