@@ -18,6 +18,22 @@ internal static class GameMcpWorldQuery
 {
     private const int DefaultPageSize = 50;
     private const int MaximumPageSize = 200;
+
+    /// <summary>
+    /// A category holding at most this many rows is read whole, in one call, when the caller named
+    /// no page size of its own.
+    /// </summary>
+    /// <remarks>
+    /// Ruled with the durable-row doctrine (verb-surface spec §2, 2026-08-10): a category this small
+    /// is one screen of the game, and paging it is ceremony charged for nothing — a caller pays a
+    /// second call, and every reader pays the thinking that a `next=` demands, to learn that there
+    /// was never a second page. The count line still says <c>rows N/N</c>, because how many rows
+    /// there are is a fact whether or not any of them were withheld. A caller that asks for fewer
+    /// gets fewer: this raises no page above what was asked for, it only stops lowering one below
+    /// what the whole category is.
+    /// </remarks>
+    internal const int WholeCategoryRows = 25;
+
     /// <summary>One page budget for every paged read, so short pages mean the same thing on all of them.</summary>
     internal const int MaximumListResponseBytes = 12 * 1024;
     internal const int MaximumBatchSize = 200;
@@ -102,7 +118,8 @@ internal static class GameMcpWorldQuery
         string categoryName,
         int offset,
         int limit,
-        bool affordableOnly = false)
+        bool affordableOnly = false,
+        bool limitFromCaller = true)
     {
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
@@ -146,6 +163,12 @@ internal static class GameMcpWorldQuery
             return MasteryExperienceSummary(publication, offset, limit);
 
         var count = category.Count(world);
+
+        // A small category is the whole answer or it is not an answer. Nobody named a page size, and
+        // the category fits in one, so neither the default nor the byte budget cuts it in two.
+        var wholeCategory = !limitFromCaller && count <= WholeCategoryRows;
+        if (wholeCategory) limit = Math.Max(count, 1);
+
         var rows = new JArray();
         var total = 0;
         var full = false;
@@ -161,7 +184,8 @@ internal static class GameMcpWorldQuery
             if (ordinal < offset || rows.Count >= limit || full) continue;
             var projected = ProjectListRow(world, category, row);
             var rowBytes = EstimateListRowBytes(world, category, row, projected);
-            if (rows.Count > 0 && estimatedBytes + rowBytes > MaximumListResponseBytes)
+            if (rows.Count > 0 && !wholeCategory &&
+                estimatedBytes + rowBytes > MaximumListResponseBytes)
             {
                 full = true;
                 continue;
@@ -422,17 +446,22 @@ internal static class GameMcpWorldQuery
 
         // What a caller picks the next research by. `state` is the lifecycle the whole surface
         // shares, so `visible`, `available` and `complete` — its three inputs — do not each say a
-        // third of it again; `development` is the separate question of what the queue is doing to
-        // it right now, which a pause moves and the lifecycle never does. `affordable` is the
-        // published cost verdict for the next development, which is a fact of the row rather than
-        // of the develop gate, so the scan row carries it on every row instead of only where the
-        // gate happened to be open.
+        // third of it again. `affordable` is the published cost verdict for the next development,
+        // which is a fact of the row rather than of the develop gate, so the scan row carries it on
+        // every row instead of only where the gate happened to be open.
+        //
+        // `paused` is the player's own switch on this entry, the game's saved `isActive` field
+        // inverted, and it is the durable half of what the retired `development` column said. The
+        // other half was not durable: `idle`-versus-`active` is only "is a level in flight", which
+        // drains to `idle` while nobody plays and which `queuedLevels` already counts on the same
+        // row. What the queue is doing this moment is still the whole three-word answer on the
+        // detail row and on the pause response — the surfaces a caller asks that question of.
         if (row is WorldResearch listedResearch)
             return new JObject
             {
                 ["entityId"] = listedResearch.EntityId.ToString("D"),
                 ["state"] = ResearchLifecycle(in listedResearch),
-                ["development"] = ResearchDevelopment(in listedResearch),
+                ["paused"] = !listedResearch.IsActive,
                 ["totalLevel"] = listedResearch.TotalLevel,
                 ["queuedLevels"] = ResearchQueuedLevels(in listedResearch),
                 ["requirements"] = listedResearch.MeetsLevelRequirements
@@ -462,6 +491,10 @@ internal static class GameMcpWorldQuery
                 ["bonusLevel"] = glyph.LevelDecision.BonusLevels,
                 ["totalLevel"] = glyph.LevelDecision.TotalLevel,
             }.Freeze();
+        // How many of this node exist and how many are uncommitted are the two counts a plan is made
+        // from. How many sit in the Idle phase is not one of them: it is the game's `GetQuantity()`,
+        // a phase timer's count, and it moves while nobody plays. A caller who needs the phase reads
+        // the scan or the node's own detail, both of which still carry it.
         if (row is WorldPlotNode plot)
             return new JObject
             {
@@ -469,7 +502,6 @@ internal static class GameMcpWorldQuery
                 ["visible"] = plot.Reading.Visible,
                 ["masteryLevel"] = plot.Reading.MasteryLevel,
                 ["quantity"] = plot.Reading.TotalQuantity,
-                ["idleQuantity"] = plot.Reading.IdleQuantity,
                 ["availableQuantity"] = plot.RemainingTotalQuantity,
             }.Freeze();
         if (row is WorldPurchaseCost purchaseCost)
@@ -574,6 +606,14 @@ internal static class GameMcpWorldQuery
     /// take it. The equipped spell's own runtime id stays off the row: it is in no catalog, so it
     /// resolves for nobody, and the recipe carries the same name.
     /// </summary>
+    /// <remarks>
+    /// Whether the slot is casting right now is not on the row. It is the transient this table's
+    /// rule was written from: a live round caught the column present on one page of a scan and
+    /// absent on the next, with nothing about the request changed, because the cast started between
+    /// two reads. The fact keeps every surface that answers for the instant — the scan, the
+    /// <c>world_get</c> detail, and the <c>game_cast</c> response, which is the one a caller
+    /// deciding its next press should be reading anyway.
+    /// </remarks>
     private static GameMcpValue ProjectSpellSlotSummary(in WorldSpellSlot slot)
     {
         // An empty slot names itself under the column that would name its spell, so `occupied` is
@@ -585,7 +625,6 @@ internal static class GameMcpWorldQuery
             ["spellRecipeId"] = slot.Occupied
                 ? slot.SpellRecipeId
                 : (object)GameMcpListColumns.Empty,
-            ["casting"] = slot.Casting,
         };
         return result.Freeze();
     }
@@ -3607,7 +3646,8 @@ internal static class GameMcpWorldQuery
                 row,
                 category.ScanFields,
                 category.Name,
-                category.ExpectedNativeType);
+                category.ExpectedNativeType,
+                tableRow: false);
 
     /// <summary>
     /// An upgrade with no ceiling has no ceiling to report: the game marks that with a negative
@@ -3786,6 +3826,11 @@ internal static class GameMcpWorldQuery
     {
         // The occupant columns say `empty` where there is no occupant, which is what the separate
         // `empty` flag used to say — one bit on five columns. What fills the slot answers it.
+        //
+        // Whether the occupant is under way rather than merely present — the game's `IsEngaged()` —
+        // is not a column. It is the same fact as a spell's `casting`: a flag the game turns over on
+        // its own between two reads of one scan, so a page of it plans nothing. What the slot holds
+        // and how much of it are the standing facts, and they are here.
         var queueFound = WorldLookup.TryFind(world.ActionQueues, slot.QueueId, out var queue);
         var result = new JObject
         {
@@ -3799,7 +3844,6 @@ internal static class GameMcpWorldQuery
                 ? GameMcpListColumns.Empty
                 : EntityReference(world, slot.PlotNodeActionId),
             ["amount"] = slot.Empty ? (object)GameMcpListColumns.Empty : slot.Quantity,
-            ["processing"] = slot.Empty ? (object)GameMcpListColumns.Empty : slot.Engaged,
         };
         return result.Freeze();
     }
@@ -4524,12 +4568,15 @@ internal static class GameMcpWorldQuery
     {
         // `drainReadable` was a column whose only job was to explain the absence of the column
         // beside it. The ratio now carries both answers, so the page says it once.
+        //
+        // `settled` is gone for two reasons that agree: it is `activeCount == queuedCount`, which
+        // the two columns beside it already show, and the only thing it ever reports is that a
+        // change is still in flight — which the next read resolves without anyone doing anything.
         var result = new JObject
         {
             ["recipe"] = EntityReference(world, instance.RecipeId),
             ["activeCount"] = instance.Quantity,
             ["queuedCount"] = instance.QueuedQuantity,
-            ["settled"] = instance.IsSettled,
             ["drainRatio"] = instance.DrainReadable
                 ? new GameMcpDomainValue(instance.DrainRatio)
                 : (object)GameMcpListColumns.Unreadable,
@@ -5232,9 +5279,11 @@ internal static class GameMcpWorldQuery
         var result = new JObject();
         if (submittedTarget != Guid.Empty)
             result["submittedTarget"] = ProjectTargetCandidate(world, submittedTarget, -1);
-        if (world.Targeting.Count == 0)
-            result["targeting"] = new JObject { ["pending"] = false };
-        else
+
+        // A block that would only say nothing is pending does not appear. The game asks for a target
+        // by putting a request up, so the block is the request, and no block is the answer that no
+        // request is waiting — the same silence a spell with nothing to toggle already answers with.
+        if (world.Targeting.Count > 0)
         {
             var request = world.Targeting[0];
             result["targeting"] = ProjectTargeting(world, in request);

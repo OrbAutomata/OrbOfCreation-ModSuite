@@ -203,13 +203,15 @@ internal sealed class GameMcpProjectedDomainValue : GameMcpValue
         string[] paths,
         string category,
         string nativeType,
-        bool addressable = true)
+        bool addressable = true,
+        bool tableRow = true)
     {
         Value = value ?? throw new ArgumentNullException(nameof(value));
         Paths = paths is null ? Array.Empty<string>() : (string[])paths.Clone();
         Category = category ?? string.Empty;
         NativeType = nativeType ?? string.Empty;
         Addressable = addressable;
+        TableRow = tableRow;
     }
 
     internal object Value { get; }
@@ -218,8 +220,17 @@ internal sealed class GameMcpProjectedDomainValue : GameMcpValue
     internal string NativeType { get; }
     internal bool Addressable { get; }
 
+    /// <summary>
+    /// Whether this projection is a row of a table, where the declared paths are the header's
+    /// promise and every one of them appears whether or not this row filled it. A detail block is
+    /// not a table: it has no header to keep honest and no siblings to line up with, so a path the
+    /// row carries nothing under is simply absent there, which is what absence means everywhere
+    /// outside a table.
+    /// </summary>
+    internal bool TableRow { get; }
+
     internal GameMcpProjectedDomainValue WithoutAddressableIdentity() =>
-        new(Value, Paths, Category, NativeType, addressable: false);
+        new(Value, Paths, Category, NativeType, addressable: false, tableRow: TableRow);
 }
 
 internal sealed class GameMcpNull : GameMcpValue

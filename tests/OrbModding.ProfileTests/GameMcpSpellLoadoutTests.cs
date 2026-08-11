@@ -225,6 +225,34 @@ public sealed class GameMcpSpellLoadoutTests
     }
 
     /// <summary>
+    /// A slot's row says what is in it, and never what it is doing this instant. Whether a spell is
+    /// mid-cast turns over on its own between two reads — a live round caught the column on one page
+    /// of a scan and gone from the next with nothing about the request changed — so a page of it
+    /// plans nothing and is not a page. The whole row is two columns, asserted here in full.
+    /// </summary>
+    [Fact]
+    public void A_spell_slot_row_says_what_the_slot_holds_and_not_what_it_is_doing()
+    {
+        var world = World();
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world),
+            "spell-slots",
+            0,
+            10));
+        var rows = response["rows"]!.Values<JObject>().ToArray();
+
+        Assert.All(rows, row => Assert.Equal(
+            new[] { "slot", "spellRecipe" },
+            row.Children<JProperty>().Select(property => property.Name)));
+
+        // The fact itself is not deleted, only the column: the slot's own detail row still answers
+        // for the instant, and so does every cast response. Slot two of this bar is mid-cast.
+        var detail = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
+            world, "spell-slots", world.SpellSlots[1]));
+        Assert.True((bool)detail["casting"]!);
+    }
+
+    /// <summary>
     /// A move onto an occupied slot is a swap, and the answer names both halves. Reporting only
     /// the spell the caller asked about left the other one somewhere the caller's model did not
     /// have it, and the next cast at the old address was refused with nothing explaining it.

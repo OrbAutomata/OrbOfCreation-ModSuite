@@ -443,9 +443,14 @@ public sealed class GameMcpResearchTests
     /// <summary>
     /// Choosing among 148 researches used to need a detail page per candidate. `state` is the same
     /// lifecycle word every purchasable row on the surface says, so `visible`, `available` and
-    /// `complete` — the three facts it is derived from — do not each repeat a third of it; what the
-    /// queue is doing keeps its own column, because a pause moves that and never the lifecycle.
+    /// `complete` — the three facts it is derived from — do not each repeat a third of it.
     /// </summary>
+    /// <remarks>
+    /// What the queue is doing this moment is not on the row. `development` said
+    /// `idle`/`active`/`paused`, and only the pause in that was durable: the other half turned over
+    /// on its own as a level finished, and said no more than `queuedLevels` was already saying on
+    /// the same row. `paused` is what is left, and it is the player's own saved switch.
+    /// </remarks>
     [Fact]
     public void A_research_list_row_carries_what_a_caller_picks_the_next_research_by()
     {
@@ -456,7 +461,7 @@ public sealed class GameMcpResearchTests
 
         Assert.Equal("Improved Casting", (string?)row["name"]);
         Assert.Equal("available", (string?)row["state"]);
-        Assert.Equal("active", (string?)row["development"]);
+        Assert.False((bool)row["paused"]!);
         Assert.Equal(1, (int)row["totalLevel"]!);
         Assert.Equal(3, (int)row["queuedLevels"]!);
         Assert.Equal("met", (string?)row["requirements"]);
@@ -465,6 +470,28 @@ public sealed class GameMcpResearchTests
         Assert.Null(row["complete"]);
         Assert.Null(row["visible"]);
         Assert.Null(row["available"]);
+        Assert.Null(row["development"]);
+    }
+
+    /// <summary>
+    /// The pause the row reports is the player's saved switch, not a reading of the queue: a
+    /// research nobody has queued anything into is not paused, and a paused one says so whether or
+    /// not a level happens to be in flight. The retired `development` column could not say the
+    /// second of those — it reached `paused` only while developing, so the one row a planner most
+    /// wants to find, a stalled entry with an empty pipeline, read exactly like a healthy one.
+    /// </summary>
+    [Fact]
+    public void A_paused_research_says_so_whether_or_not_a_level_is_in_flight()
+    {
+        foreach (var developing in new[] { true, false })
+        {
+            var world = World(developmentCostAffordable: false, isActive: false, isDeveloping: developing);
+            var response = Json(GameMcpWorldQuery.ListRows(
+                GameMcpTestHarness.Context(world, 2811), "research", 0, 50).Freeze(), world);
+            var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
+
+            Assert.True((bool)row["paused"]!, "developing: " + developing);
+        }
     }
 
     [Fact]

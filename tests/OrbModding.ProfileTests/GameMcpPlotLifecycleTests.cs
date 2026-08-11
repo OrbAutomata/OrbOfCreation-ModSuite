@@ -69,6 +69,13 @@ public sealed class GameMcpPlotLifecycleTests
         Assert.Equal(4, (int)processing["capacity"]!);
         Assert.Equal(1, (int)processing["used"]!);
 
+        // Whether the occupant is under way rather than merely present is the game's `IsEngaged()`,
+        // and it turns over between two reads with nobody playing. What the slot holds and how much
+        // of it are what a plan is made of, and they are the whole row.
+        Assert.Equal(
+            new[] { "slot", "capacity", "used", "plot", "action", "amount" },
+            processing.Children<JProperty>().Select(property => property.Name));
+
         var blockedWorld = World(prerequisitesReady: false, active: 0);
         var blocked = Assert.Single(Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(blockedWorld, generation: 912),

@@ -348,6 +348,14 @@ The bound is charged against each row as it is built, so a full page is a real 1
 than a fraction of one.
 `game_tooltips` pages the screen's live hover elements rather than a published table, so `limit` is
 its only page bound.
+
+**A `world_list` category of 25 rows or fewer comes back whole**, when the caller named no `limit` of
+its own: neither the default page size nor the 12 KB bound cuts a category that small into pieces, so
+there is no `nextOffset` and no second call. The count line still reads `rows N/N` — how many rows a
+category holds is a fact whether or not any were withheld. A caller that *does* name a `limit` gets
+the page it named, `nextOffset` and all: the rule never raises a page above what was asked for, it
+only stops lowering one below the whole of a category nobody asked to have cut up. The threshold is
+`GameMcpWorldQuery.WholeCategoryRows`.
 `world_search` deduplicates by entity identity before paging, so one entity that matches in two
 categories occupies one row and one page slot.
 
@@ -420,18 +428,54 @@ written unconditionally so the header is the same one before and after a lifecyc
 | Category | Scan columns |
 | --- | --- |
 | `rituals` | `discovered`, `selected`, `reachedLevel`, `selectedLevel`, `waveTotal`, `affordable` |
-| `research` | `state`, `development`, `totalLevel`, `queuedLevels`, `requirements`, `canDevelop`, `affordable` |
+| `research` | `state`, `paused`, `totalLevel`, `queuedLevels`, `requirements`, `canDevelop`, `affordable` |
 | `upgrades` | `level`, `queuedLevels`, `state`, `maximum`, `requirements`, `affordable` |
 | `structures` | `level`, `queuedLevels`, `state`, `enabled`, `affordable` |
 | `equipment` | `created`, `equippedCount` |
 | `resource-types` | `level`, `hidden` |
 
 `research` says `state` and never a second `visible`, `available` or `complete` column, because
-`state` is derived from exactly those three; `development` is the separate question of what the
-queue is doing right now, which a pause moves and the lifecycle never does; `canDevelop` is the
-develop decision the detail row publishes, and `affordable` is the published cost verdict for the
-next development, which is a fact of the row rather than of the develop gate — so the scan row
-carries it everywhere instead of only where that gate is open.
+`state` is derived from exactly those three; `paused` is the player's own saved switch on the entry,
+which a pause moves and the lifecycle never does; `canDevelop` is the develop decision the detail row
+publishes, and `affordable` is the published cost verdict for the next development, which is a fact
+of the row rather than of the develop gate — so the scan row carries it everywhere instead of only
+where that gate is open.
+
+#### A list row carries durable facts only
+
+A list read answers a planning question, so the test a column has to pass is whether **two reads
+seconds apart, with nobody playing between them, would agree**. A column that turns over on its own —
+casting-now, engaged-this-tick, a queue that has not landed yet — fails it, and the answer is to
+delete the column rather than to smooth it. Such a column is stale before the caller finishes reading
+it, and it does worse than mislead: the page-constant hoist lifts whichever columns a page happens to
+agree on, so a fact that flips mid-scan changes the *header* between two pages of one read. A live
+round caught exactly that on spell-slots' `casting`, with nothing about the request changed.
+
+Nothing is deleted from the world. The raw-fact scan keeps every one of these facts, `world_get`
+keeps them where a reader asked about one row, and the action responses keep them because an action
+question is precisely what they answer.
+
+| Category | Deleted column | Why it is not durable | Where the fact still lives |
+| --- | --- | --- | --- |
+| `spell-slots` | `casting` | `Spell.IsCasting()` — true only while a cast runs | scan, `world_get`, every `game_cast` response |
+| `agromancy-processing` | `processing` | `IsEngaged()` — under way rather than merely present | scan, `world_get` |
+| `alchemy-instances` | `settled` | `activeCount == queuedCount`; reports only that a change has not landed yet, which the two columns beside it already show | scan, `world_get` |
+| `plot-nodes` | `idleQuantity` | the game's `GetQuantity()` is a phase timer's count, and it moves while nobody plays | scan (`reading.idleQuantity`), `world_get` |
+| `research` | `development` | `idle`/`active` was "is a level in flight", which drains on its own and which `queuedLevels` counts on the same row | scan (`isDeveloping`), `world_get`, the pause response |
+
+`research`'s column had one durable half and one transient half, so the durable half kept a column
+under its own name: **`paused`** is the game's saved `isActive` field inverted — the player's own
+switch on the entry. It is strictly better at the job `development` was kept for. `development`
+reached `paused` only while a level was in flight, so the one row a planner most wants to find, a
+stalled entry with an empty pipeline, read exactly like a healthy one.
+
+Two columns that a strict reading of the test would also condemn are **kept on purpose**, because
+deleting them would answer no planning question at all: a `resources` row's `amount` and
+`netRatePerSecond`, and every `queuedLevels`. A resource holding is what every purchase decision is
+made against — it is the same class of fact as `affordable`, which is ruled in — and the development
+queue is what binds progression early, so how much is in flight is the question, not noise around it.
+Both accumulate rather than flip: they are live measurements of a standing position, not a report of
+what the game is doing at the instant it was asked.
 
 #### The three-state lifecycle
 
@@ -861,10 +905,11 @@ postcondition is the exact pair's game-written active quantity moving in the req
 refund behavior on cancellation is neither recomputed nor verified.
 
 `agromancy-processing` is the screen's top processing strip in screen order. Each row reports its
-slot, the strip `capacity` and `used` count, and its occupant: the named `plot`, named `action`,
-`amount`, and whether it is `processing`. A free slot reads `empty` under all four, which is what a
-separate `empty` flag used to say about the four columns beside it; a strip whose queue the world
-did not publish reads `unreadable` under `capacity` and `used`. The former helper categories for harvest
+slot, the strip `capacity` and `used` count, and its occupant: the named `plot`, named `action`, and
+`amount`. A free slot reads `empty` under all three, which is what a separate `empty` flag used to
+say about the three columns beside it; a strip whose queue the world did not publish reads
+`unreadable` under `capacity` and `used`. Whether the occupant is engaged right now is not on the
+row — it turns over between two reads with nobody playing. The former helper categories for harvest
 controls/resources, plot instances, and raw action-queue internals are not public MCP categories;
 their facts are joined into these three player-facing surfaces.
 
@@ -1613,7 +1658,6 @@ fact does not apply, using a word, never a number that would be read as one.
 | Word | The fact the cell names |
 | --- | --- |
 | `uncapped` | no ceiling applies — the game's marker is a negative native maximum |
-| `already_maxed` | nothing is left to buy, so there is no next-level price |
 | `unpriced` | the publication names no price for this row |
 | `unevaluated` | a price is published, but this generation carried no same-generation holding to compare it against |
 | `unreadable` | the suite could not read this fact from the game this generation |
@@ -1623,9 +1667,9 @@ fact does not apply, using a word, never a number that would be read as one.
 | `unset` | the game published no value under the member this column names |
 
 This costs almost nothing to read, because a column holding one value across a page is said once in
-the header: a page of uncapped upgrades renders `all maxLevel=uncapped, remainingLevels=uncapped`
-on one line. What it buys is that the header stops shifting with world state — the page that taught
-nothing about caps was exactly the page whose every upgrade was uncapped.
+the header: a page of uncapped upgrades renders `these 6 share: maximum=uncapped` on one line. What
+it buys is that the header stops shifting with world state — the page that taught nothing about caps
+was exactly the page whose every upgrade was uncapped.
 
 Where one column already answered a second column's question, the second is gone rather than
 totalized — a flag whose only job was to explain the absence beside it says nothing once the
@@ -1633,8 +1677,8 @@ absence is spelled:
 
 | Category | Column | Says instead of going absent | Column deleted with it |
 | --- | --- | --- | --- |
-| `upgrades` | `maxLevel`, `remainingLevels` | `uncapped` | — |
-| `upgrades` | `affordable` | `already_maxed`, `unpriced` | — |
+| `upgrades` | `maximum` | `uncapped` | `remainingLevels`, `available` |
+| `upgrades` | `affordable` | `unpriced` | — |
 | `structures` | `affordable` | `unpriced` | — |
 | `resources` | `capacity`, `atCapacity` | `uncapped` | — |
 | `purchase-costs` | `spendableAmount`, `affordable` | `unevaluated` | — |
@@ -1642,8 +1686,7 @@ absence is spelled:
 | `alchemy-loadout` | `slot` | `unslotted` | — |
 | `crafting-queue-entries` | `repetitions` | `manual` | `automatic` |
 | `spell-slots` | `spellRecipe` | `empty` | `occupied` |
-| `spell-slots` | `casting` | `no` | — |
-| `agromancy-processing` | `plot`, `action`, `amount`, `processing` | `empty` | `empty` (the flag) |
+| `agromancy-processing` | `plot`, `action`, `amount` | `empty` | `empty` (the flag) |
 | `agromancy-processing` | `capacity`, `used` | `unreadable` | — |
 
 Categories with no hand-written projection are rendered straight from their declared field list, so
@@ -1651,6 +1694,26 @@ totality there is structural rather than per-category: a declared field the row 
 under reads `unset`, and so does one holding the zero identity, because a handle that addresses
 nothing is not an entity and dropping it would take the column with it. A reference column keeps
 the name a filled one would have had — `selectedLevel`, not `selectedLevelId`.
+
+#### Outside a table, absence is silence
+
+`unset` is a table word and only a table word. In a table there is a header promising a column and
+sibling rows to line up with, so a cell has to say something. A detail block, a `world_get` row, an
+explainer's state block and a mutation's post-state have none of that, and there the same fact reads
+the way absence reads everywhere else on this surface: **the key is simply not there**. This is the
+`game_cast` policy — a spell with nothing to toggle publishes no `toggleOff` — generalized to every
+non-table surface, and it also ends a split spelling of one fact, because the wire normalizer already
+drops the zero identity from every projection that declares no paths.
+
+For the same reason a block with nothing to say is omitted rather than rendered empty. A targeting
+post-state used to carry `targeting: pending=no` on every response where nothing was pending; the
+block is the request, so no block is the answer that no request is waiting.
+
+Two things this does **not** touch. An empty *collection* stays present and empty — a collection that
+was collected and is genuinely empty is evidence, and that is a separate ruled distinction from a
+block that had nothing to say. And a block published with its verdict — `predicates.<slot>`, the
+blocker blocks — stays published when the verdict is no: absent there means the predicate does not
+apply to this entity, which is a different fact from a predicate that applies and passes.
 
 A row carries no verdict pair at all. `reasonCode` and `reason` are the refusal grammar, and a
 table refuses nothing: what blocks a row is one word in the column that asks, or the column that

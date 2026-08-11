@@ -125,6 +125,13 @@ public sealed class GameMcpAlchemyLoadoutTests
         Assert.Equal("Catalyze", (string?)instance["recipe"]!["name"]);
         Assert.Equal(2, (int)instance["activeCount"]!);
         Assert.Equal(2, (int)instance["queuedCount"]!);
+
+        // `settled` was `activeCount == queuedCount` — the two columns beside it — and the only
+        // thing it ever reported was that a change had not landed yet, which the next read resolves
+        // without anyone doing anything. Both reasons say the same thing: it is not a column.
+        Assert.Equal(
+            new[] { "recipe", "activeCount", "queuedCount", "drainRatio" },
+            instance.Children<JProperty>().Select(property => property.Name));
     }
 
     /// <summary>

@@ -72,7 +72,7 @@ internal static class GameMcpDocumentJsonEncoder
 
         result = new JObject();
         for (var index = 0; index < source.Paths.Length; index++)
-            CopyPath(complete, result, source.Paths[index]);
+            CopyPath(complete, result, source.Paths[index], source.TableRow);
         if (!source.Addressable && result["uuid"] is null)
         {
             result["category"] = source.Category;
@@ -82,16 +82,23 @@ internal static class GameMcpDocumentJsonEncoder
     }
 
     /// <summary>
-    /// One declared column, filled from the row or filled with the word for having nothing to fill
-    /// it with. The declaration is what the page's header promises, so skipping a path the row
-    /// happened not to carry made the header a fact about the rows rather than about the category.
+    /// One declared path, filled from the row — or, in a table, filled with the word for having
+    /// nothing to fill it with. The declaration is what the page's header promises, so skipping a
+    /// path the row happened not to carry made the header a fact about the rows rather than about
+    /// the category. A detail block promises no header, so it says nothing instead.
     /// </summary>
-    private static void CopyPath(JObject source, JObject destination, string path)
+    private static void CopyPath(
+        JObject source,
+        JObject destination,
+        string path,
+        bool tableRow)
     {
         var segments = path.Split('.');
         JToken? value = source;
         for (var index = 0; index < segments.Length && value is not null; index++)
             value = value[segments[index]];
+        var filled = Declared(value, tableRow);
+        if (filled is null) return;
         var target = destination;
         for (var index = 0; index < segments.Length - 1; index++)
         {
@@ -102,21 +109,28 @@ internal static class GameMcpDocumentJsonEncoder
             }
             target = nested;
         }
-        target[segments[segments.Length - 1]] = Declared(value);
+        target[segments[segments.Length - 1]] = filled;
     }
 
     /// <summary>
-    /// The value a declared column carries. A member the game published nothing under says so, and
-    /// so does one holding the zero identity — a handle that addresses nothing is not an entity,
-    /// and dropping it would take the column with it on a page where no row has one.
+    /// The value a declared path carries, or nothing at all.
     /// </summary>
-    private static JToken Declared(JToken? value)
+    /// <remarks>
+    /// In a table, a member the game published nothing under says so, and so does one holding the
+    /// zero identity — a handle that addresses nothing is not an entity, and dropping it would take
+    /// the column with it on a page where no row has one. Outside a table there is no column to
+    /// take: silence is what "does not apply" reads as on every other block of the surface, and a
+    /// detail block that spelled a gap the reader never asked about was the one place this surface
+    /// answered a question nobody put. It also ends a split spelling of one fact — the wire
+    /// normalizer already drops the zero identity from every projection that declares no paths.
+    /// </remarks>
+    private static JToken? Declared(JToken? value, bool tableRow)
     {
-        if (value is null) return new JValue(GameMcpListColumns.Unset);
+        if (value is null) return tableRow ? new JValue(GameMcpListColumns.Unset) : null;
         if (value is JValue { Type: JTokenType.String } text &&
             Guid.TryParseExact((string?)text, "D", out var uuid) && uuid == Guid.Empty)
         {
-            return new JValue(GameMcpListColumns.Unset);
+            return tableRow ? new JValue(GameMcpListColumns.Unset) : null;
         }
         return value.DeepClone();
     }

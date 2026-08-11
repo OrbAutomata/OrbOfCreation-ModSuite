@@ -258,6 +258,7 @@ internal sealed class GameMcpProtocolRouter
                 builder.Offset = OptionalInt(arguments, "offset", 0);
                 builder.Limit = OptionalInt(
                     arguments, "limit", GameMcpWorldQuery.DefaultLimit);
+                builder.LimitFromCaller = arguments.ContainsKey("limit");
                 builder.AffordableOnly = OptionalBool(arguments, "affordable", false);
                 break;
             case "world_get":
@@ -611,7 +612,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "world_list",
                 "List exact world rows",
-                "Page through one discoverable category from one immutable published world. limit is an upper bound: a page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from. Set affordable=true on a category whose rows carry a price to page only the rows you can buy right now.",
+                "Page through one discoverable category from one immutable published world. Rows carry durable planning facts; what the game is doing at this instant is on world_get and on the action responses. Omit limit and a category of 25 rows or fewer comes back whole, with no nextOffset. Name a limit and it is an upper bound: the page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from. Set affordable=true on a category whose rows carry a price to page only the rows you can buy right now.",
                 ObjectSchema(
                     new JObject
                     {

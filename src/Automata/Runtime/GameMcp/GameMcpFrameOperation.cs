@@ -61,6 +61,7 @@ internal sealed class GameMcpOperationRequest
         Mode = source.Mode ?? string.Empty;
         Offset = source.Offset;
         Limit = source.Limit;
+        LimitFromCaller = source.LimitFromCaller;
         Amount = source.Amount;
         SlotIndex = source.SlotIndex;
         Section = source.Section ?? string.Empty;
@@ -87,6 +88,14 @@ internal sealed class GameMcpOperationRequest
     internal string Mode { get; }
     internal int Offset { get; }
     internal int Limit { get; }
+
+    /// <summary>
+    /// Whether <see cref="Limit"/> is the caller's own page size or the one the surface picked for
+    /// them. A read that asked for no page size is free to be given the whole of a small category;
+    /// one that asked for five rows gets five, and the difference is not readable from the number.
+    /// </summary>
+    internal bool LimitFromCaller { get; }
+
     internal int Amount { get; }
     internal int SlotIndex { get; }
     internal string Section { get; }
@@ -115,6 +124,7 @@ internal sealed class GameMcpOperationRequestBuilder
     internal string Mode { get; set; } = string.Empty;
     internal int Offset { get; set; }
     internal int Limit { get; set; } = 1;
+    internal bool LimitFromCaller { get; set; }
     internal int Amount { get; set; } = 1;
     internal int SlotIndex { get; set; }
     internal string Section { get; set; } = string.Empty;

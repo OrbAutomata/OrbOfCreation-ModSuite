@@ -1575,7 +1575,8 @@ public sealed class Plugin : BaseUnityPlugin
                     request.Category,
                     request.Offset,
                     request.Limit,
-                    request.AffordableOnly).Freeze());
+                    request.AffordableOnly,
+                    request.LimitFromCaller).Freeze());
                 return true;
             case "world_get":
                 execution = GameMcpToolExecution.Read(
@@ -1844,7 +1845,8 @@ public sealed class Plugin : BaseUnityPlugin
             context,
             category,
             0,
-            GameMcpWorldQuery.DefaultLimit).Freeze());
+            GameMcpWorldQuery.DefaultLimit,
+            limitFromCaller: false).Freeze());
     }
 
     /// <summary>

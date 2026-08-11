@@ -440,7 +440,104 @@ public sealed class GameMcpListColumnsTests
         Assert.Contains("mood", refusal.Message, StringComparison.Ordinal);
     }
 
-    private static JObject AlchemyTypes(params Guid[] selectedLevels)
+    /// <summary>
+    /// A list read answers a planning question, and the test for a column is whether two reads
+    /// seconds apart with nobody playing between them would agree. These five did not: each named
+    /// what the game was doing at the instant it was asked, so a page of them was stale on arrival
+    /// and — as a live round caught with spell-slots' <c>casting</c> — could change the header
+    /// between two pages of one scan. They are named here so a later edit cannot bring one back by
+    /// only looking at the row in front of it.
+    /// </summary>
+    [Fact]
+    public void No_declared_column_names_what_the_game_is_doing_this_instant()
+    {
+        var transient = new[]
+        {
+            ("spell-slots", "casting"),
+            ("agromancy-processing", "processing"),
+            ("alchemy-instances", "settled"),
+            ("plot-nodes", "idleQuantity"),
+            ("research", "development"),
+        };
+
+        Assert.All(transient, pair =>
+        {
+            Assert.True(
+                GameMcpListColumns.TryDeclared(pair.Item1, out var declared),
+                pair.Item1 + " stopped declaring its columns");
+            Assert.DoesNotContain(pair.Item2, declared);
+        });
+
+        // The durable half of the one column that had both keeps its own name: a pause is the
+        // player's saved switch, and it is the fact a planner scans this category for.
+        Assert.True(GameMcpListColumns.TryDeclared("research", out var research));
+        Assert.Contains("paused", research);
+    }
+
+    /// <summary>
+    /// A category small enough to read in one call is read in one call. Paging it charges a second
+    /// request, and charges every reader the thought a <c>next=</c> demands, to discover that there
+    /// was never a second page. The count line still says how many rows there are, because that is
+    /// a fact whether or not any were withheld.
+    /// </summary>
+    [Fact]
+    public void A_category_small_enough_to_read_whole_is_not_paged()
+    {
+        var context = GameMcpTestHarness.Context(
+            UpgradesWorld(
+                Upgrade(Capped, bounded: true),
+                Upgrade(Uncapped, bounded: false),
+                Upgrade(Exhausted, bounded: true, exhausted: true)),
+            generation: 735);
+
+        var whole = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            context, "upgrades", 0, GameMcpWorldQuery.DefaultLimit, limitFromCaller: false));
+
+        Assert.Equal(3, Rows(whole).Length);
+        Assert.Equal(3, (int)whole["total"]!);
+        Assert.Null(whole["nextOffset"]);
+        Assert.Equal("rows 3/3", GameMcpTextPage.Render(whole).Split('\n')[0]);
+
+        // A caller that named a smaller page gets the page it named, and is told where to resume.
+        // The rule raises no page above what was asked for; it only stops lowering one below the
+        // whole of a category nobody asked to have cut up.
+        var asked = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            context, "upgrades", 0, 2, limitFromCaller: true));
+
+        Assert.Equal(2, Rows(asked).Length);
+        Assert.Equal(2, (int)asked["nextOffset"]!);
+    }
+
+    /// <summary>
+    /// Absence says one thing per surface. In a table it is a word, because the header promised a
+    /// column and a page that dropped it would be a header about its rows. Outside a table there is
+    /// no header to keep and no siblings to line up with, so absence is silence — the same answer a
+    /// spell with nothing to toggle already gives, and the same one the wire normalizer already
+    /// gives for the zero identity on every projection that declares no paths.
+    /// </summary>
+    [Fact]
+    public void A_member_the_row_carries_nothing_under_is_a_word_in_a_table_and_silence_outside_one()
+    {
+        var identity = Guid.Parse("45000000-0000-4000-8000-000000000000");
+        var context = GameMcpTestHarness.Context(
+            AlchemyTypesWorld(Guid.Empty), generation: 736);
+
+        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            context, "alchemy-types", 0, 50))["rows"]!.Values<JObject>());
+        Assert.Equal("unset", (string?)row!["selectedLevel"]);
+
+        var detail = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            context, "alchemy-types", new[] { identity.ToString("D") }));
+        var got = Assert.Single(detail["results"]!.Values<JObject>())!["row"]!;
+
+        Assert.Null(got["selectedLevel"]);
+        Assert.DoesNotContain(
+            "unset",
+            GameMcpTextPage.Render(detail),
+            StringComparison.Ordinal);
+    }
+
+    private static GameWorldState AlchemyTypesWorld(params Guid[] selectedLevels)
     {
         var types = new WorldAlchemyType[selectedLevels.Length];
         for (var index = 0; index < selectedLevels.Length; index++)
@@ -452,7 +549,7 @@ public sealed class GameMcpListColumnsTests
                 level: BigDouble.Zero,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
-        var world = new GameWorldState
+        return new GameWorldState
         {
             AlchemyTypes = PublicationTable<WorldAlchemyType>.Create(types),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
@@ -463,16 +560,19 @@ public sealed class GameMcpListColumnsTests
             CollectedAtEpoch = 25,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
+    }
+
+    private static JObject AlchemyTypes(params Guid[] selectedLevels)
+    {
         using var publisher =
             new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(734));
+        publisher.Publish(AlchemyTypesWorld(selectedLevels), new WorldGeneration(734));
         return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(publisher.ReadLatest()), "alchemy-types", 0, 50));
     }
 
-    private static JObject Page(params WorldUpgrade[] upgrades)
-    {
-        var world = new GameWorldState
+    private static GameWorldState UpgradesWorld(params WorldUpgrade[] upgrades) =>
+        new()
         {
             EntityIdentities = EntityIdentityCatalogSnapshot.Bound(1, new[]
             {
@@ -489,9 +589,12 @@ public sealed class GameMcpListColumnsTests
             CollectedAtEpoch = 25,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
+
+    private static JObject Page(params WorldUpgrade[] upgrades)
+    {
         using var publisher =
             new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(733));
+        publisher.Publish(UpgradesWorld(upgrades), new WorldGeneration(733));
         return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(publisher.ReadLatest()), "upgrades", 0, 50));
     }

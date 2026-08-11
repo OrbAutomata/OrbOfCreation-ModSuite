@@ -10,6 +10,17 @@ namespace OrbAutomata.GameMcp;
 /// </summary>
 /// <remarks>
 /// <para>
+/// Every column here answers a planning question, and the test for whether it may exist is whether
+/// two reads seconds apart, with nobody touching the game between them, would agree. A column that
+/// turns over on its own — casting-now, engaged-this-tick, the queue has-not-landed-yet — fails it,
+/// and the answer is to delete the column rather than to smooth it: a page of such a column plans
+/// nothing, and it was already false when the caller read it. A live round caught spell-slots'
+/// <c>casting</c> present on one page of a scan and absent on the next with nothing about the
+/// request changed, which is the shape of the whole problem. Nothing is deleted from the world:
+/// the raw-fact scan keeps every one of these, <c>world_get</c> keeps them where a reader asked
+/// about one row, and the action responses keep them because an action question is what they answer.
+/// </para>
+/// <para>
 /// A category's columns are a declared, total set: every row fills every column, in every world
 /// state. The alternative — publishing a field only where it has a value — makes the header the
 /// union of whatever the page's rows happened to carry, so a page loses exactly the columns whose
@@ -202,7 +213,7 @@ internal static class GameMcpListColumns
         },
         ["research"] = new[]
         {
-            "entityId", "state", "development", "totalLevel", "queuedLevels", "requirements",
+            "entityId", "state", "paused", "totalLevel", "queuedLevels", "requirements",
             "canDevelop", "affordable",
         },
         ["resource-types"] = new[] { "entityId", "level", "hidden" },
@@ -212,8 +223,7 @@ internal static class GameMcpListColumns
         },
         ["plot-nodes"] = new[]
         {
-            "entityId", "visible", "masteryLevel", "quantity", "idleQuantity",
-            "availableQuantity",
+            "entityId", "visible", "masteryLevel", "quantity", "availableQuantity",
         },
         ["purchase-costs"] =
             new[] { "resourceId", "cost", "spendableAmount", "affordable", "targetId" },
@@ -230,14 +240,14 @@ internal static class GameMcpListColumns
         ["snapshot-entries"] = new[] { "ownerId", "slot", "entryId", "quantity" },
         ["crafting-queue-entries"] =
             new[] { "queueId", "slot", "recipeId", "amount", "repetitions" },
-        ["spell-slots"] = new[] { "slot", "spellRecipeId", "casting" },
+        ["spell-slots"] = new[] { "slot", "spellRecipeId" },
         ["spell-costs"] = new[] { "slot", "kind", "resourceId", "amount" },
         ["alchemy-instances"] =
-            new[] { "recipe", "activeCount", "queuedCount", "settled", "drainRatio" },
+            new[] { "recipe", "activeCount", "queuedCount", "drainRatio" },
         ["alchemy-loadout"] = new[] { "recipeId", "slot", "slotCount", "amount" },
         ["agromancy-processing"] = new[]
         {
-            "slot", "capacity", "used", "plot", "action", "amount", "processing",
+            "slot", "capacity", "used", "plot", "action", "amount",
         },
         ["agromancy-plot-actions"] = new[] { "plot", "action", "active", "add", "remove" },
         ["targeting"] = new[]
