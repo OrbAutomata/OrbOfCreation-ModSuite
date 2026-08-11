@@ -2610,10 +2610,11 @@ Two things about it are unlike every other read here, and both are deliberate:
 It compares the suite against a **running** game, so the live game's lifecycle is its precondition
 and it answers the same sentence the world reads answer when there is no run to read — the Runtime
 button reports it in the log, the tool refuses with the lifecycle class. Its passes resolve their
-types from the loaded assembly and read those types' static registries, both of which answer in the
-Start menu because the assets load with the process long before any save does; asked there without
-that precondition it dereferenced a game object that does not exist yet, and answered the runtime's
-own exception text as a tool error. No finding prints raw exception text either: a check that faults
+types from the loaded assembly and read those types' static registries — or, where the entity is a
+loadout position rather than a registered asset, the list the identity registry answers for that
+loadout — all of which answer in the Start menu because the assets load with the process long before
+any save does; asked there without that precondition it dereferenced a game object that does not
+exist yet, and answered the runtime's own exception text as a tool error. No finding prints raw exception text either: a check that faults
 before it can compare anything answers `INCONCLUSIVE`, says that nothing in it is a verdict about
 the game, and names only the exception's type.
 

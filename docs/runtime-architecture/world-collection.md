@@ -119,9 +119,9 @@ leave no way to attribute a differential failure to either.
 
 `AutomataDifferentialVerificationControl.RunEverything()` is the list, and it is the whole list: the
 world collection check, then one pass per ported chain — Concept drain, spell level cost, spell level
-affordability, structure cost, the upgrade cost curve, resource rate, requirement verdicts for
-upgrades, structures, research and prerequisite-link tiers, Concept usage prerequisites, and the two
-plot-node quantities. The world collection check additionally compares every published purchase price
+affordability, the spell type layer, structure cost, the upgrade cost curve, resource rate,
+requirement verdicts for upgrades, structures, research and prerequisite-link tiers, Concept usage
+prerequisites, and the two plot-node quantities. The world collection check additionally compares every published purchase price
 and eligibility verdict against `GetPurchaseCost()` and `HasEnough()`, every resource's display
 coordinate and capacity verdict, the ritual/consumable/resource predicates, reference edges,
 identities, and cache staleness.
@@ -149,6 +149,10 @@ that nobody has to infer them from a comparison count:
   transcription on both sides of the comparison.
 - **The grouped multi-level structure projection.** Grouped amounts price several successive levels by
   advancing the committed quantity, and the game answers only for the level the structure stands on.
+- **The cost and cooldown-speed halves of the spell type layer.** The power layer answers to
+  `Spell.GetSpellTypePowerPercent()`; the other two run the same aggregate over the same set through
+  a different fetch closure, and each would need its own declared oracle to be checked rather than
+  assumed to follow.
 - **Plot and harvest action element costs** — `WorldPlotAction.TryComputeElementCost`.
 - **Derived level facts** — `committedLevel`, `effectiveLevel`, `developmentProgress`, `isBounded`,
   `isExhausted`, `remainingLevels`, `isDeveloping` — and the derived capacity facts other than the two
@@ -343,6 +347,16 @@ both halves multiplies twice — with each type's value taken `AsPercent`, and, 
 types' elemental resonances is not approximately one, every `IsElemental()` type's percent raised to
 that resonance first. A slot naming a type the world did not publish gets no row: a product short one
 factor is a smaller number that still reads like an answer.
+
+Its power half is the one derived table with a native oracle behind it. The **Spell type layer** pass
+compares `TypePowerPercent` against `Spell.GetSpellTypePowerPercent()` for each occupied position,
+which is the number `Spell.GetPower()` multiplies in — so a faithful reproduction of the aggregate is
+told from a plausible one by the game rather than by the transcription's own reading of it. The pass
+takes its positions from the list the identity registry answers for `ActiveSpells`, the same list the
+collector read, so a position it compares and a row the world published are the same position rather
+than two lists assumed to agree. An empty position is an expected skip and a loadout of them reports
+that nothing could be verified; an occupied position the deriver failed closed on is reported as
+unreadable, because a slot the game will answer for and the suite will not is the finding.
 
 > **A published type total and a published member value are not two factors.** Eleven of the fourteen
 > taxonomies reach their members by *distribution*: when a modifier lands on a
