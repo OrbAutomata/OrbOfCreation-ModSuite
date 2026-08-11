@@ -1699,6 +1699,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             lifecycleEpoch,
             new OrbModding.Common.Runtime.World.WorldRelationBuffer<WorldPurchaseViewRelation>(),
             new OrbModding.Common.Runtime.World.WorldRelationBuffer<WorldPurchaseViewRoute>(),
+            new OrbModding.Common.Runtime.World.WorldRelationBuffer<
+                OrbModding.Common.Runtime.World.WorldUpgradeListMembership>(),
+            out _,
             out _,
             out _);
         return new AutoBuyNativePurchaseAdapter(topology);

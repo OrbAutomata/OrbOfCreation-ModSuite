@@ -38,6 +38,14 @@ reads the number out of the audited assembly: the harvest discriminants by their
 enum ordinals, and `PlotNodeActionInstance.GetMaximumInstances` by the literal
 its body returns.
 
+Not every mirrored dependency is a number. `UIUpgradeList.listViews` and
+`ListViewSwapper<T>.GetActiveList` are mirrored because the suite's pinned
+list-to-screen-word map is only correct while the upgrade panel still holds one
+authored `UpgradeListVariable` chosen by the active view. Nothing reflects on
+either member and there is no literal to copy; what the row buys is that a build
+which stopped grouping upgrades that way fails the manifest instead of leaving
+the published list membership describing a panel that is gone.
+
 The manifest proves native shape, not runtime behavior. Adapters still resolve
 and validate their complete binding sets and fail closed. The source audit asks
 whether every literal selector is declared somewhere; it intentionally does not

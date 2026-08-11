@@ -129,6 +129,12 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldPurchaseViewRelation> PurchaseViewRelations { get; } = new();
     internal WorldRelationBuffer<WorldPurchaseViewRoute> PurchaseViewRoutes { get; } = new();
 
+    /// <summary>
+    /// Which authored list each upgrade sits on — the game's own grouping axis, and the only fact
+    /// that says which screen shows a row. Filled by the same authored walk, and equally structural.
+    /// </summary>
+    internal WorldRelationBuffer<WorldUpgradeListMembership> UpgradeListMemberships { get; } = new();
+
     /// <summary>The volatile active/passive gates around the structural prerequisite-link graph.</summary>
     internal WorldPrerequisiteLinkTierBuffer PrerequisiteLinkTiers { get; } = new();
     internal WorldSampleBuffer<WorldAlchemyRecipe, WorldAlchemyRecipe> AlchemyRecipes { get; } = new();
@@ -482,6 +488,8 @@ internal static class GameWorldFrameDeriver
             Views = frame.Views.Build(WorldIdentityDeriver<WorldView>.Shared),
             PurchaseViewRelations = purchaseViews.Relations,
             PurchaseViewRoutes = purchaseViews.Routes,
+            UpgradeListMemberships =
+                WorldUpgradeListMembershipDeriver.Build(frame.UpgradeListMemberships),
             PlotNodeActions = plotNodeActions,
             PassiveAbilities = frame.PassiveAbilities.Build(WorldIdentityDeriver<WorldPassiveAbility>.Shared),
             Characters = frame.Characters.Build(WorldIdentityDeriver<WorldCharacter>.Shared),

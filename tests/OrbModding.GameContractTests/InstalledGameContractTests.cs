@@ -168,6 +168,44 @@ public sealed class InstalledGameContractTests
         AssertMethod(assembly, "IdScriptableObject", "GetGuid", false, "System.Guid");
     }
 
+    /// <summary>
+    /// Reaching an authored upgrade panel that no view names, and reading who is on it.
+    /// </summary>
+    /// <remarks>
+    /// Three of the game's nine <c>UpgradeListVariable</c> assets are named only by prefab swapper
+    /// data, so the identity registry is the one door to them: the pinned uuid goes in, an
+    /// <c>UpgradeListVariable</c> has to come out, and its <c>value</c> has to be the upgrades it
+    /// holds. Every member of that path is asserted here against the audited copy, because a screen
+    /// word derived through a path the build no longer has would be a confident lie rather than a
+    /// missing cell.
+    /// </remarks>
+    [GameAssemblyFact]
+    public void UpgradeScreenMembership_MatchesPinnedListResolutionContracts()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.Equal(
+            "System.Collections.Generic.Dictionary`2<System.Guid,IdScriptableObject>",
+            assembly.GetFieldType("IdScriptableObject", "RuntimeLookup"));
+        AssertMethod(assembly, "IdScriptableObject", "GetGuid", false, "System.Guid");
+        Assert.True(assembly.HasType("UpgradeListVariable"));
+        Assert.Equal(
+            "GenericListVariable`1<UpgradeSO>",
+            assembly.GetBaseType("UpgradeListVariable"));
+        Assert.Equal(
+            "System.Collections.Generic.List`1<!0>",
+            assembly.GetFieldType("AbstractListVariable`1", "value"));
+
+        // The panel the lists are swapped into, and the swap that makes membership a screen fact.
+        // Nothing reads these — the map they walk is prefab data — but a build that stopped
+        // grouping upgrades this way would make the pinned words describe a UI that is gone.
+        Assert.Equal(
+            "ListViewSwapper`1<UpgradeListVariable>",
+            assembly.GetFieldType("UIUpgradeList", "listViews"));
+        AssertMethod(
+            assembly, "ListViewSwapper`1", "GetActiveList", false, "!0");
+    }
+
     [GameAssemblyFact]
     public void AutoCast_MatchesNativeLoadoutCastResourceAndTargetContracts()
     {

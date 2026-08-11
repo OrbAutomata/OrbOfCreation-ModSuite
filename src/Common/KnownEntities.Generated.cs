@@ -25,6 +25,7 @@ internal readonly struct ResourceSOContract { }
 internal readonly struct ScalingWeightSOContract { }
 internal readonly struct SpellListVariableContract { }
 internal readonly struct TreasurePoolSOContract { }
+internal readonly struct UpgradeListVariableContract { }
 internal readonly struct UpgradeSOContract { }
 internal readonly struct ViewListVariableContract { }
 internal readonly struct ViewSOContract { }
@@ -105,6 +106,15 @@ internal static class KnownEntities
     public static readonly KnownEntity<PlotNodeSOContract> TreasureTreePlot = new(new Guid("2d41cfc1-bffa-43b5-b3a8-5e4d5ad85434"), "PlotNodeSO", "PlotTreasureTree");
     public static readonly KnownEntity<TreasurePoolSOContract> TreasureTreeRewardPool = new(new Guid("1a370ff9-fea7-4a2a-bca7-57fdb2862356"), "TreasurePoolSO", "CoreTreasurePool");
     public static readonly KnownEntity<UpgradeSOContract> UnlockLevelAllSpells = new(new Guid("b5efd19a-9655-4359-ad27-f391bb86c2e4"), "UpgradeSO", "UnlockLevelAllSpells");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesAlchemyScreen = new(new Guid("3a609f91-a7b0-4061-abdf-bba47399c38f"), "UpgradeListVariable", "AlchemyUpgradesList");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesAll = new(new Guid("6c47753b-cc11-4157-a194-64345c406c9d"), "UpgradeListVariable", "AllUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesAspectsScreen = new(new Guid("e36e1a05-8b98-41ab-adef-b888f090f02a"), "UpgradeListVariable", "AspectUpgradesList");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesMagicScreen = new(new Guid("8b90d935-be4e-4389-98b6-60e1db2551e2"), "UpgradeListVariable", "MagicScreenUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesRitualScreen = new(new Guid("8c82ee01-42ef-46c3-93ad-639036ddaa52"), "UpgradeListVariable", "RItualScreenUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesScholarScreen = new(new Guid("297aae92-8d7e-4879-bdcf-3cbe614128e3"), "UpgradeListVariable", "ScholarScreenUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesTimeScreen = new(new Guid("32c8ff0a-cbf5-41b3-88d8-52a2c28f7fa9"), "UpgradeListVariable", "TimeScreenUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesWorkshopScreen = new(new Guid("0b19f88b-8ab8-4c59-8c9c-34c3a577c6d3"), "UpgradeListVariable", "WorkshopScreenUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesWorldScreen = new(new Guid("d9cbbc6b-b8c6-4fa6-9bea-3551a2107eae"), "UpgradeListVariable", "WorldScreenUpgrades");
     public static readonly KnownEntity<ViewSOContract> WorkshopArtifact = new(new Guid("668a2a7a-468f-4e0e-b182-979b12a4b0ad"), "ViewSO", "WorkshopArtifact");
     public static readonly KnownEntity<IntVariableContract> WorldAspectSlots = new(new Guid("4b1bb2de-723a-4360-827c-8e4483f3ff8d"), "IntVariable", "WorldAspectSlots");
 }

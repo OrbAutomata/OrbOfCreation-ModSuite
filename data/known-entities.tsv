@@ -59,5 +59,14 @@ TreasureTreeCollect	3eb68f6f-c2f2-405a-88d2-e5c80345aeb4	PNATreasureTreeCollect	
 TreasureTreePlot	2d41cfc1-bffa-43b5-b3a8-5e4d5ad85434	PlotTreasureTree	PlotNodeSO
 TreasureTreeRewardPool	1a370ff9-fea7-4a2a-bca7-57fdb2862356	CoreTreasurePool	TreasurePoolSO
 UnlockLevelAllSpells	b5efd19a-9655-4359-ad27-f391bb86c2e4	UnlockLevelAllSpells	UpgradeSO
+UpgradesAlchemyScreen	3a609f91-a7b0-4061-abdf-bba47399c38f	AlchemyUpgradesList	UpgradeListVariable
+UpgradesAll	6c47753b-cc11-4157-a194-64345c406c9d	AllUpgrades	UpgradeListVariable
+UpgradesAspectsScreen	e36e1a05-8b98-41ab-adef-b888f090f02a	AspectUpgradesList	UpgradeListVariable
+UpgradesMagicScreen	8b90d935-be4e-4389-98b6-60e1db2551e2	MagicScreenUpgrades	UpgradeListVariable
+UpgradesRitualScreen	8c82ee01-42ef-46c3-93ad-639036ddaa52	RItualScreenUpgrades	UpgradeListVariable
+UpgradesScholarScreen	297aae92-8d7e-4879-bdcf-3cbe614128e3	ScholarScreenUpgrades	UpgradeListVariable
+UpgradesTimeScreen	32c8ff0a-cbf5-41b3-88d8-52a2c28f7fa9	TimeScreenUpgrades	UpgradeListVariable
+UpgradesWorkshopScreen	0b19f88b-8ab8-4c59-8c9c-34c3a577c6d3	WorkshopScreenUpgrades	UpgradeListVariable
+UpgradesWorldScreen	d9cbbc6b-b8c6-4fa6-9bea-3551a2107eae	WorldScreenUpgrades	UpgradeListVariable
 WorkshopArtifact	668a2a7a-468f-4e0e-b182-979b12a4b0ad	WorkshopArtifact	ViewSO
 WorldAspectSlots	4b1bb2de-723a-4360-827c-8e4483f3ff8d	WorldAspectSlots	IntVariable

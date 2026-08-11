@@ -104,7 +104,9 @@ public sealed class WorldIdentityWalkTests
     /// structures already owned by the structures table, while the request itself has no UUID.
     /// <c>RequirementListMembers</c> is one row per position in an authored list variable: the list
     /// and its members are both entities other tables already claim, and the row itself is the
-    /// membership between them.
+    /// membership between them. <c>UpgradeListMemberships</c> is the same shape for the upgrade
+    /// panels: both the upgrade and the authored list it sits on are claimed elsewhere, and the row
+    /// is only the edge between them.
     /// <para>
     /// <c>ActionQueues</c> is not among them: a queue is a list variable with a uuid of its own that
     /// no other category collects, so it is walked like any other entity.
@@ -115,6 +117,7 @@ public sealed class WorldIdentityWalkTests
         "CollectionCategories",
         "PurchaseCosts",
         "PurchaseViewRoutes",
+        "UpgradeListMemberships",
         "PlotActions",
         "PlotActionInstances",
         "ActionQueueSlots",

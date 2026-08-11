@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
 using Xunit;
 
@@ -47,8 +50,10 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
         Author();
         var relations = new WorldRelationBuffer<WorldPurchaseViewRelation>();
         var routes = new WorldRelationBuffer<WorldPurchaseViewRoute>();
+        var memberships = new WorldRelationBuffer<WorldUpgradeListMembership>();
 
-        var sampled = Resolver().ReadAll(0, relations, routes, out var unresolved, out var skipped);
+        var sampled = Resolver().ReadAll(
+            0, relations, routes, memberships, out var unresolved, out var skipped, out _);
 
         Assert.Equal(1, sampled);
         Assert.Equal(1, relations.Count);
@@ -88,8 +93,106 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
             lifecycleEpoch,
             new WorldRelationBuffer<WorldPurchaseViewRelation>(),
             new WorldRelationBuffer<WorldPurchaseViewRoute>(),
+            new WorldRelationBuffer<WorldUpgradeListMembership>(),
+            out _,
             out _,
             out _);
+
+    /// <summary>
+    /// The Scholar screen's list is named by no view anywhere in the game, so nothing the view walk
+    /// can reach ever mentions its twenty-seven upgrades. Reading it through the identity it carries
+    /// is the whole difference between the column saying <c>scholar</c> and saying nothing.
+    /// </summary>
+    [Fact]
+    public void AnUpgradeListNoViewNamesIsStillReadThroughTheIdentityItCarries()
+    {
+        var upgrade = AuthorUpgrade();
+        AuthorPinnedUpgradeLists(upgrade);
+        var relations = new WorldRelationBuffer<WorldPurchaseViewRelation>();
+        var routes = new WorldRelationBuffer<WorldPurchaseViewRoute>();
+        var memberships = new WorldRelationBuffer<WorldUpgradeListMembership>();
+
+        Resolver().ReadAll(
+            Lifecycle, relations, routes, memberships, out _, out _, out var failure);
+
+        Assert.Equal(string.Empty, failure);
+        Assert.Equal(
+            new[] { KnownEntities.UpgradesAll.Uuid, KnownEntities.UpgradesScholarScreen.Uuid }
+                .OrderBy(id => id)
+                .ToArray(),
+            Rows(memberships)
+                .Where(row => row.UpgradeId == upgrade.GetGuid())
+                .Select(row => row.ListId)
+                .OrderBy(id => id)
+                .ToArray());
+    }
+
+    /// <summary>
+    /// A pinned list that no longer answers to its identity withholds the whole table rather than
+    /// publishing the part that read: a row absent from a partial table is indistinguishable from a
+    /// row on no screen, and the column would word the second one as fact.
+    /// </summary>
+    [Fact]
+    public void AnUnresolvablePinnedListWithholdsEveryMembershipAndNamesWhy()
+    {
+        var upgrade = AuthorUpgrade();
+        AuthorPinnedUpgradeLists(upgrade);
+        global::IdScriptableObject.RuntimeLookup.Remove(KnownEntities.UpgradesTimeScreen.Uuid);
+        var memberships = new WorldRelationBuffer<WorldUpgradeListMembership>();
+
+        Resolver().ReadAll(
+            Lifecycle,
+            new WorldRelationBuffer<WorldPurchaseViewRelation>(),
+            new WorldRelationBuffer<WorldPurchaseViewRoute>(),
+            memberships,
+            out _,
+            out _,
+            out var failure);
+
+        Assert.Equal(0, memberships.Count);
+        Assert.Contains(
+            KnownEntities.UpgradesTimeScreen.Uuid.ToString("D"), failure, StringComparison.Ordinal);
+    }
+
+    private static IReadOnlyList<WorldUpgradeListMembership> Rows(
+        WorldRelationBuffer<WorldUpgradeListMembership> buffer)
+    {
+        var rows = new List<WorldUpgradeListMembership>(buffer.Count);
+        for (var index = 0; index < buffer.Count; index++) rows.Add(buffer[index]);
+        return rows;
+    }
+
+    private static global::UpgradeSO AuthorUpgrade()
+    {
+        var upgrade = new global::UpgradeSO { uuid = Guid.NewGuid().ToString() };
+        global::UpgradeSO.All.Add(upgrade);
+        return upgrade;
+    }
+
+    /// <summary>
+    /// All nine authored panels, of which only the catch-all is on a view — exactly the shape the
+    /// pinned build has, where the Scholar, aspect and Time lists are prefab-only.
+    /// </summary>
+    private static void AuthorPinnedUpgradeLists(global::UpgradeSO scholarly)
+    {
+        foreach (var listId in WorldUpgradeScreenLists.All)
+        {
+            var list = new global::UpgradeListVariable();
+            list.SetGuid(listId);
+            global::IdScriptableObject.RuntimeLookup[listId] = list;
+            if (listId == KnownEntities.UpgradesAll.Uuid)
+            {
+                list.value.Add(scholarly);
+                var view = new global::ViewSO { available = true };
+                view.relevantLists.Add(list);
+                global::ViewSO.All.Add(view);
+            }
+            else if (listId == KnownEntities.UpgradesScholarScreen.Uuid)
+            {
+                list.value.Add(scholarly);
+            }
+        }
+    }
 
     private static Guid Author()
     {
@@ -112,5 +215,6 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
         global::StructureSO.All.Clear();
         global::UpgradeSO.All.Clear();
         global::ViewSO.All.Clear();
+        global::IdScriptableObject.RuntimeLookup.Clear();
     }
 }

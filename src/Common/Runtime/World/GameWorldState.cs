@@ -299,6 +299,14 @@ public sealed record GameWorldState
     internal PublicationTable<WorldPurchaseViewRoute> PurchaseViewRoutes { get; init; } =
         PublicationTable<WorldPurchaseViewRoute>.Empty;
 
+    /// <summary>
+    /// Which authored <c>UpgradeListVariable</c> each upgrade sits on. Empty means the read did not
+    /// land, never that the upgrades sit on nothing: membership is published whole or withheld
+    /// whole, so no row can be quietly demoted to "on no screen".
+    /// </summary>
+    internal PublicationTable<WorldUpgradeListMembership> UpgradeListMemberships { get; init; } =
+        PublicationTable<WorldUpgradeListMembership>.Empty;
+
     internal PublicationTable<WorldPlotNodeAction> PlotNodeActions { get; init; } =
         PublicationTable<WorldPlotNodeAction>.Empty;
 

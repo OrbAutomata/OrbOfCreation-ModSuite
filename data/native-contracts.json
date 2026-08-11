@@ -6156,7 +6156,8 @@
         "Automata world-collection verification",
         "Common world collection",
         "Auto Items temporary-item picker",
-        "Automata Auto Buy owning-view world publication"
+        "Automata Auto Buy owning-view world publication",
+        "Common upgrade screen world publication"
       ],
       "usages": [
         "reflection"
@@ -6198,7 +6199,8 @@
       "owners": [
         "Common typed registry resolver",
         "Common world collection",
-        "Common live entity identity catalog"
+        "Common live entity identity catalog",
+        "Common upgrade screen world publication"
       ],
       "usages": [
         "reflection"
@@ -15775,6 +15777,43 @@
       "place": "mirrored"
     },
     {
+      "id": "ui.upgrade-list.view-swapper",
+      "assembly": "assembly-csharp",
+      "type": "UIUpgradeList",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "listViews",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ListViewSwapper`1<UpgradeListVariable>",
+      "owners": [
+        "Common upgrade screen world publication"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "ui.list-view-swapper.active-list",
+      "assembly": "assembly-csharp",
+      "type": "ListViewSwapper`1",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetActiveList",
+      "visibility": "public",
+      "static": false,
+      "returnType": "!0",
+      "parameters": [],
+      "owners": [
+        "Common upgrade screen world publication"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
       "id": "ui.content-area.canvas",
       "assembly": "assembly-csharp",
       "type": "UIContentArea",
@@ -18021,6 +18060,23 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
     },
     {
+      "id": "upgrade-screen.list-type",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeListVariable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "GenericListVariable`1<UpgradeSO>",
+      "owners": [
+        "Automata Auto Buy owning-view world publication",
+        "Common upgrade screen world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
       "id": "auto-buy.owning-view.relevant-lists-capture",
       "assembly": "assembly-csharp",
       "type": "ViewSO",
@@ -18088,7 +18144,8 @@
       "static": false,
       "valueType": "System.Collections.Generic.List`1<!0>",
       "owners": [
-        "Automata Auto Buy owning-view world publication"
+        "Automata Auto Buy owning-view world publication",
+        "Common upgrade screen world publication"
       ],
       "usages": [
         "reflection"

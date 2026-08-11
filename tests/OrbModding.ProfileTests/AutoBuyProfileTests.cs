@@ -211,8 +211,10 @@ public sealed class AutoBuyProfileTests : IDisposable
             PlannedEpoch,
             relations,
             routes,
+            new WorldRelationBuffer<WorldUpgradeListMembership>(),
             out var unresolved,
-            out var skipped);
+            out var skipped,
+            out _);
         Assert.Equal(0, unresolved);
         Assert.Equal(0, skipped);
         return topology;
