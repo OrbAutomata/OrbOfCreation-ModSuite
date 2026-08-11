@@ -116,6 +116,7 @@ internal static class GameMcpDocumentJsonEncoder
     /// The value a declared path carries, or nothing at all.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// In a table, a member the game published nothing under says so, and so does one holding the
     /// zero identity — a handle that addresses nothing is not an entity, and dropping it would take
     /// the column with it on a page where no row has one. Outside a table there is no column to
@@ -123,14 +124,24 @@ internal static class GameMcpDocumentJsonEncoder
     /// detail block that spelled a gap the reader never asked about was the one place this surface
     /// answered a question nobody put. It also ends a split spelling of one fact — the wire
     /// normalizer already drops the zero identity from every projection that declares no paths.
+    /// </para>
+    /// <para>
+    /// A member the game published as an empty string is one of those gaps and not a value: an
+    /// effect block whose script names no effect type has no effect type, the same way a row with
+    /// no such member has none. The page already reads both as <c>-</c> in a table, so the
+    /// document now agrees with the page it renders into — and outside a table the empty string
+    /// goes quiet with every other absence rather than being the one that still spoke.
+    /// </para>
     /// </remarks>
     private static JToken? Declared(JToken? value, bool tableRow)
     {
         if (value is null) return tableRow ? new JValue(GameMcpListColumns.Unset) : null;
-        if (value is JValue { Type: JTokenType.String } text &&
-            Guid.TryParseExact((string?)text, "D", out var uuid) && uuid == Guid.Empty)
+        if (value is JValue { Type: JTokenType.String } text)
         {
-            return tableRow ? new JValue(GameMcpListColumns.Unset) : null;
+            var published = (string?)text ?? string.Empty;
+            if (published.Length == 0) return tableRow ? value.DeepClone() : null;
+            if (Guid.TryParseExact(published, "D", out var uuid) && uuid == Guid.Empty)
+                return tableRow ? new JValue(GameMcpListColumns.Unset) : null;
         }
         return value.DeepClone();
     }

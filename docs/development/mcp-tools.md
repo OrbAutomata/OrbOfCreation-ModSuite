@@ -1833,7 +1833,10 @@ the name a filled one would have had — `selectedLevel`, not `selectedLevelId`.
 #### Outside a table, absence is silence
 
 `unset` is a table word and only a table word. In a table there is a header promising a column and
-sibling rows to line up with, so a cell has to say something. A `world_get` block, the row inside it
+sibling rows to line up with, so a cell has to say something — which is also where a member the game
+published as an empty string is answered, with the `-` an absent one gets, because the column has to
+survive. Outside a table that member is one more absence and reads the way every other absence does:
+the key is simply not there. A `world_get` block, the row inside it
 and a mutation's post-state have none of that, and there the same fact reads
 the way absence reads everywhere else on this surface: **the key is simply not there**. This is the
 `game_cast` policy — a spell with nothing to toggle publishes no `toggleOff` — generalized to every
