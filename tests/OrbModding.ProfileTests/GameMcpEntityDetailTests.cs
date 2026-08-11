@@ -19,7 +19,7 @@ public sealed class GameMcpNativeRegistryCollection
 }
 
 [Collection(GameMcpNativeRegistryCollection.Name)]
-public sealed class GameMcpEntityExplainerTests : IDisposable
+public sealed class GameMcpEntityDetailTests : IDisposable
 {
     private static readonly Guid ReadySpellId =
         Guid.Parse("10000000-0000-4000-8000-000000000001");
@@ -34,7 +34,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
     private static readonly Guid BlockedCraftingId =
         Guid.Parse("30000000-0000-4000-8000-000000000002");
 
-    public GameMcpEntityExplainerTests() => ClearRegistries();
+    public GameMcpEntityDetailTests() => ClearRegistries();
 
     public void Dispose() => ClearRegistries();
 
@@ -96,22 +96,16 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         }, new WorldGeneration(910));
 
-        var readySpell = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(pinned, ReadySpellId.ToString("D")));
-        var waitingSpell = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(pinned, WaitingSpellId.ToString("D")));
-        var readyResearch = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(pinned, ReadyResearchId.ToString("D")));
-        var blockedResearch = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(pinned, BlockedResearchId.ToString("D")));
-        var readyCrafting = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(pinned, ReadyCraftingId.ToString("D")));
-        var blockedCrafting = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(pinned, BlockedCraftingId.ToString("D")));
+        var readySpell = GameMcpTestHarness.Detail(pinned, ReadySpellId);
+        var waitingSpell = GameMcpTestHarness.Detail(pinned, WaitingSpellId);
+        var readyResearch = GameMcpTestHarness.Detail(pinned, ReadyResearchId);
+        var blockedResearch = GameMcpTestHarness.Detail(pinned, BlockedResearchId);
+        var readyCrafting = GameMcpTestHarness.Detail(pinned, ReadyCraftingId);
+        var blockedCrafting = GameMcpTestHarness.Detail(pinned, BlockedCraftingId);
 
         Assert.Null(readySpell["worldGeneration"]);
         Assert.Null(readySpell["lifecycleGeneration"]);
-        Assert.Equal(3, (int)readySpell["state"]!["masteryLevel"]!);
+        Assert.Equal(3, (int)readySpell["row"]!["masteryLevel"]!);
         // A predicate that holds is published holding. Dropping the passing ones made absence mean
         // "true" on one key and "this entity has no such predicate" on the next.
         Assert.True(Predicate(readySpell, "visible"));
@@ -245,7 +239,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
 
         var explanation = Explain(world, ReadySpellId, generation: 942);
         var equipped = Assert.Single(
-            Assert.IsType<JArray>(explanation["state"]!["equipped"]).Values<JObject>())!;
+            Assert.IsType<JArray>(explanation["row"]!["equipped"]).Values<JObject>())!;
 
         Assert.True((bool)equipped["move"]!["available"]!);
         Assert.Null(equipped["move"]!["destinations"]);
@@ -263,12 +257,8 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         };
         var context = GameMcpTestHarness.Context(world, generation: 911);
 
-        var knownResult = GameMcpTestHarness.Json(GameMcpEntityExplainer.Explain(
-            context,
-            known.ToString("D")));
-        var unknownResult = GameMcpTestHarness.Json(GameMcpEntityExplainer.Explain(
-            context,
-            unknown.ToString("D")));
+        var knownResult = GameMcpTestHarness.Detail(context, known);
+        var unknownResult = GameMcpTestHarness.Detail(context, unknown);
 
         Assert.Equal("ERR_NOT_FOUND", (string?)knownResult["reasonCode"]);
         Assert.Equal("InventoryUnlocked", (string?)knownResult["name"]);
@@ -306,9 +296,9 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
             }),
         };
 
-        var result = GameMcpTestHarness.Json(GameMcpEntityExplainer.Explain(
+        var result = GameMcpTestHarness.Detail(
             GameMcpTestHarness.Context(world, generation: 913),
-            instance.ToString("D")));
+            instance);
 
         Assert.Equal("ERR_NOT_FOUND", (string?)result["reasonCode"]);
         Assert.Equal("world_list", (string?)result["readWith"]!["tool"]);
@@ -394,7 +384,11 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
             result.ToString(Newtonsoft.Json.Formatting.None));
         Assert.True(responseBytes < 3_402, "explanation was " + responseBytes + " bytes");
 
-        Assert.Equal("available", (string?)result["status"]);
+        // A block that answered carries no verdict line. Inside a batch that silence is what
+        // separates it from the block beside it that refused.
+        Assert.Null(result["status"]);
+        Assert.Null(result["reasonCode"]);
+        Assert.NotNull(result["row"]);
         var requirements = Assert.IsType<JObject>(result["requirements"]);
         Assert.Null(requirements["applicable"]);
         Assert.Equal(1, (long)requirements["checkLevel"]!);
@@ -540,8 +534,9 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         // An artificial cap refuses the next develop without finishing anything, so the lifecycle
         // is untouched by it: the row is still available, and the refusal lives on the can-develop
         // axis where it belongs.
-        Assert.Equal("available", (string?)result["state"]!["state"]);
-        Assert.Null(result["state"]!["complete"]);
+        Assert.Equal("available", (string?)result["row"]!["state"]);
+        Assert.Null(result["state"]);
+        Assert.Null(result["row"]!["complete"]);
         Assert.False((bool)result["predicates"]!["canDevelop"]!["available"]!);
         Assert.Equal("ERR_LIMIT", (string?)result["predicates"]!["canDevelop"]!["reasonCode"]);
         var cap = result["blockers"]!["cap"]!;
@@ -617,10 +612,11 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         // One class per fact: the row keeps the fact and gives up its second opinion about it.
         // Prerequisites unmet and nothing bought is the first of the three lifecycle words, and
         // the entity-state block says it in the same word the page would.
-        Assert.Equal("locked", (string?)result["state"]!["state"]);
-        Assert.Null(result["state"]!["available"]);
-        Assert.Null(result["state"]!["reasonCode"]);
-        Assert.Null(result["state"]!["reason"]);
+        Assert.Equal("locked", (string?)result["row"]!["state"]);
+        Assert.Null(result["state"]);
+        Assert.Null(result["row"]!["available"]);
+        Assert.Null(result["row"]!["reasonCode"]);
+        Assert.Null(result["row"]!["reason"]);
     }
 
     [Fact]
@@ -743,12 +739,9 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         };
         var state = Snapshot(world, 930);
 
-        var upgradeResult = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(state, upgradeId.ToString("D")));
-        var researchResult = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(state, ReadyResearchId.ToString("D")));
-        var craftingResult = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(state, ReadyCraftingId.ToString("D")));
+        var upgradeResult = GameMcpTestHarness.Detail(state, upgradeId);
+        var researchResult = GameMcpTestHarness.Detail(state, ReadyResearchId);
+        var craftingResult = GameMcpTestHarness.Detail(state, ReadyCraftingId);
 
         // This world is assembled by hand, so no live entity carries the identity and the game has
         // no answer to compare against. The parity block says which, rather than going missing.
@@ -853,6 +846,118 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         Assert.Empty(explanation["requirements"]!["root"]!["children"]!.Values<JObject>());
     }
 
+    /// <summary>
+    /// One call, three ids, three blocks in the order they were asked. The id nothing carries
+    /// refuses on its own and takes neither of its neighbours down with it, and no block echoes an
+    /// index back because the order is the correlation.
+    /// </summary>
+    [Fact]
+    public void A_batch_answers_every_id_it_can_and_refuses_only_the_one_it_could_not()
+    {
+        var upgradeId = Guid.Parse("2442ff7c-5630-4f7f-ac8f-1ea5f3b7a7cc");
+        var glyphId = Guid.Parse("cc1cb602-2427-41c3-a2f4-421b4eef2ab4");
+        var missing = Guid.Parse("00000000-0000-4000-8000-0000000000aa");
+        var rawUpgrade = new RawUpgradeSample(
+            upgradeId,
+            level: 1,
+            maxLevel: 10,
+            available: true,
+            queuedLevels: 0,
+            buildTime: BigDouble.Zero,
+            developmentTime: 1,
+            cachedCostLevel: 1);
+        var world = new GameWorldState
+        {
+            Upgrades = PublicationTable<WorldUpgrade>.Create(new[]
+            {
+                GameWorldStateDeriver.Derive(in rawUpgrade),
+            }),
+            Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+            {
+                new WorldGlyph(
+                    glyphId, 0, 0, 1, false, true, false, false, false, false,
+                    0, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero),
+            }),
+            CollectedAtEpoch = 51,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            Snapshot(world, 949),
+            string.Empty,
+            new[]
+            {
+                glyphId.ToString("D"), missing.ToString("D"), upgradeId.ToString("D"),
+            }));
+        var blocks = response["results"]!.Values<JObject>().ToArray();
+
+        Assert.Equal(3, blocks.Length);
+        Assert.DoesNotContain(
+            "inputIndex", response.ToString(Newtonsoft.Json.Formatting.None),
+            StringComparison.Ordinal);
+
+        // Two categories in one call: neither block was told which table to look in.
+        Assert.Equal("glyphs", (string?)blocks[0]!["category"]);
+        Assert.Equal("Accursed", (string?)blocks[0]!["name"]);
+        Assert.NotNull(blocks[0]!["predicates"]);
+        Assert.Equal("upgrades", (string?)blocks[2]!["category"]);
+        Assert.Equal("Alchemist", (string?)blocks[2]!["name"]);
+        Assert.Equal("available", (string?)blocks[2]!["row"]!["state"]);
+        Assert.NotNull(blocks[2]!["requirements"]);
+
+        Assert.Equal("unavailable", (string?)blocks[1]!["status"]);
+        Assert.Equal("ERR_NOT_FOUND", (string?)blocks[1]!["reasonCode"]);
+        Assert.Equal(
+            GameMcpTestHarness.Handle(missing), (string?)blocks[1]!["uuid"]);
+        Assert.Equal("world_categories", (string?)blocks[1]!["readWith"]!["tool"]);
+        Assert.Null(blocks[1]!["row"]);
+        Assert.Null(blocks[1]!["predicates"]);
+    }
+
+    /// <summary>
+    /// An id carries its own table, so a caller holding one from a search, a refusal or an action
+    /// response reads it without first learning where it lives — and gets the same block either way.
+    /// </summary>
+    [Fact]
+    public void An_id_resolves_its_own_table_and_naming_that_table_changes_nothing()
+    {
+        var glyphId = Guid.Parse("cc1cb602-2427-41c3-a2f4-421b4eef2ab4");
+        var world = new GameWorldState
+        {
+            Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+            {
+                new WorldGlyph(
+                    glyphId, 0, 0, 1, false, true, false, false, false, false,
+                    0, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero),
+            }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus(
+                    "glyphs", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+                new WorldCollectionCategoryStatus(
+                    "upgrades", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+            }),
+            CollectedAtEpoch = 52,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        var state = Snapshot(world, 950);
+
+        var resolved = GameMcpTestHarness.Detail(state, glyphId);
+        var addressed = GameMcpTestHarness.Detail(state, "glyphs", glyphId);
+
+        Assert.Equal(
+            resolved.ToString(Newtonsoft.Json.Formatting.None),
+            addressed.ToString(Newtonsoft.Json.Formatting.None));
+        Assert.Equal("glyphs", (string?)resolved["category"]);
+
+        // A table the id is not in is the caller insisting, and it is answered as a miss in that
+        // table rather than quietly resolved into the one they did not name.
+        var elsewhere = GameMcpTestHarness.Detail(state, "upgrades", glyphId);
+        Assert.Equal("unavailable", (string?)elsewhere["status"]);
+        Assert.Equal("ERR_NOT_FOUND", (string?)elsewhere["reasonCode"]);
+        Assert.Equal("upgrades", (string?)elsewhere["readWith"]!["category"]);
+    }
+
     private static WorldPurchaseCost PriceLine(
         Guid ownerId,
         Guid resourceId,
@@ -879,9 +984,7 @@ public sealed class GameMcpEntityExplainerTests : IDisposable
         (bool)explanation["predicates"]![name]!["available"]!;
 
     private static JObject Explain(GameWorldState world, Guid id, ulong generation) =>
-        GameMcpTestHarness.Json(GameMcpEntityExplainer.Explain(
-            Snapshot(world, generation),
-            id.ToString("D")));
+        GameMcpTestHarness.Detail(Snapshot(world, generation), id);
 
     private static GameMcpFrameContext Snapshot(GameWorldState world, ulong generation)
     {

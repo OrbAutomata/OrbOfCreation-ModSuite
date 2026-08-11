@@ -12,7 +12,7 @@ namespace OrbModding.ProfileTests;
 /// <summary>
 /// The Concept slot budget, on the two surfaces a caller reaches it through. A refusal to assign
 /// used to arrive as a bare <c>canAdd: no</c>, with the capacity behind it inferable only by
-/// counting assignment rows, and <c>explain_entity</c> on the same uuid answered as a plain alchemy
+/// counting assignment rows, and the detail read on the same uuid answered as a plain alchemy
 /// recipe with the assignment state dropped entirely.
 /// </summary>
 public sealed class GameMcpConceptSlotTests
@@ -75,20 +75,18 @@ public sealed class GameMcpConceptSlotTests
     }
 
     /// <summary>
-    /// One uuid is both an alchemy recipe and a Concept recipe. Explaining it under the one kind and
+    /// One uuid is both an alchemy recipe and a Concept recipe. Answering it under the one category and
     /// dropping the other half answered a question the caller did not ask.
     /// </summary>
     [Fact]
-    public void Explaining_a_concept_recipe_keeps_its_assignment_state()
+    public void Reading_a_concept_recipe_keeps_its_assignment_state()
     {
         var context = GameMcpTestHarness.Context(World(canAdd: false, slots: 2), generation: 3104);
 
-        var concept = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(context, AnalyzeBlooming.ToString("D")));
-        var plain = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(context, AnalyzeBuilding.ToString("D")));
+        var concept = GameMcpTestHarness.Detail(context, AnalyzeBlooming);
+        var plain = GameMcpTestHarness.Detail(context, AnalyzeBuilding);
 
-        Assert.Equal("alchemy_recipe", (string?)concept["kind"]);
+        Assert.Equal("alchemy-recipes", (string?)concept["category"]);
         var state = concept["concept"]!;
         Assert.Equal(1, (int)state["assignedCount"]!);
         Assert.Equal(2, (int)state["usedSlots"]!);

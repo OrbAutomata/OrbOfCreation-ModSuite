@@ -107,7 +107,7 @@ public sealed class GameMcpDecisionReasonTests
     }
 
     /// <summary>
-    /// One class per fact per response. <c>explain_entity</c> published an entity's row and its
+    /// One class per fact per response. The detail read published an entity's row and its
     /// evaluated predicates side by side and let both answer availability, with different classes:
     /// a caller branching on the row's code ran a different program than one branching on the
     /// predicate. The predicate block is the verdict surface and keeps the answer.
@@ -118,7 +118,7 @@ public sealed class GameMcpDecisionReasonTests
         var encoded = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
             new GameMcpObjectBuilder
             {
-                ["state"] = new GameMcpObjectBuilder
+                ["row"] = new GameMcpObjectBuilder
                 {
                     ["available"] = false,
                     ["level"] = 0,
@@ -134,10 +134,10 @@ public sealed class GameMcpDecisionReasonTests
             }.Freeze(),
             GameMcpTestHarness.EntityCatalog));
 
-        var state = (JObject)encoded["state"]!;
-        Assert.False((bool)state["available"]!);
-        Assert.Null(state["reasonCode"]);
-        Assert.Null(state["reason"]);
+        var row = (JObject)encoded["row"]!;
+        Assert.False((bool)row["available"]!);
+        Assert.Null(row["reasonCode"]);
+        Assert.Null(row["reason"]);
 
         var predicate = (JObject)encoded["predicates"]!["available"]!;
         Assert.Equal("ERR_LOCKED", (string?)predicate["reasonCode"]);

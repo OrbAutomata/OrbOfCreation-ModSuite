@@ -126,6 +126,18 @@ internal static class GameMcpTestHarness
         Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
             value, EntityCatalog));
 
+    /// <summary>
+    /// One id's block of the detail read, resolved the way a caller with only an id resolves it.
+    /// </summary>
+    internal static JObject Detail(GameMcpFrameContext state, Guid uuid) =>
+        Detail(state, string.Empty, uuid);
+
+    /// <summary>One id's block of the detail read, addressed to one named table.</summary>
+    internal static JObject Detail(GameMcpFrameContext state, string category, Guid uuid) =>
+        Assert.Single(
+            Json(GameMcpWorldQuery.GetRows(state, category, new[] { uuid.ToString("D") }))
+                ["results"]!.Values<JObject>())!;
+
     internal static GameMcpProtocolResponse Handle(
         GameMcpProtocolRouter router,
         GameMcpFrameInbox inbox,
@@ -168,10 +180,6 @@ internal static class GameMcpTestHarness
                     request.Query,
                     request.Offset,
                     request.Limit).Freeze()),
-            "explain_entity" => GameMcpToolExecution.Read(
-                GameMcpEntityExplainer.Explain(
-                    context,
-                    request.Uuid.ToString("D")).Freeze()),
             "world_search" => GameMcpToolExecution.Read(
                 GameMcpWorldQuery.Search(
                     context,

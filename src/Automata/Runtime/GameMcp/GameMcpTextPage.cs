@@ -265,10 +265,17 @@ internal static class GameMcpTextPage
 
         lines.Add(indent + name + " " +
             (countSuffix ?? array.Count.ToString(CultureInfo.InvariantCulture)) + ":");
+
+        // Elements too big to be one line each need a boundary between them, or two answers read as
+        // one. A detail read's batch is the case that made this loud: two blocks of a dozen lines
+        // ran together and nothing said where the first one stopped. One-line elements never had
+        // the problem and gain nothing from a gap, so they keep the tighter list.
         for (var index = 0; index < array.Count; index++)
         {
+            var before = lines.Count;
             if (array[index] is JObject item) WriteObject(item, indent + Indent, lines);
             else lines.Add(indent + Indent + Scalar(array[index]));
+            if (index + 1 < array.Count && lines.Count - before > 1) lines.Add(string.Empty);
         }
     }
 

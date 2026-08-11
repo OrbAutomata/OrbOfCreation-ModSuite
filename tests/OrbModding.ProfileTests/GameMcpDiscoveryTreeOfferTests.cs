@@ -391,12 +391,10 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.Null(read["row"]!["treeId"]);
         Assert.Null(read["row"]!["debugMode"]);
         Assert.Null(read["row"]!["overrideChoicesId"]);
-        var explanation = GameMcpTestHarness.Json(GameMcpEntityExplainer.Explain(
-            context,
-            treeId.ToString("D")));
-        Assert.Equal("available", (string?)explanation["status"]);
-        Assert.Equal("discovery_tree", (string?)explanation["kind"]);
-        Assert.Equal("idle", (string?)explanation["state"]!["mode"]);
+        var explanation = GameMcpTestHarness.Detail(context, treeId);
+        Assert.Null(explanation["status"]);
+        Assert.Equal("discovery-trees", (string?)explanation["category"]);
+        Assert.Equal("idle", (string?)explanation["row"]!["mode"]);
         Assert.True(GameMcpEntityCapabilityMap.Contains(
             world,
             treeId,
@@ -520,9 +518,8 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var runeRead = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             context, "time-runes", runeId.ToString("D")));
         Assert.Equal("available", (string?)runeRead["status"]);
-        var explanation = GameMcpTestHarness.Json(
-            GameMcpEntityExplainer.Explain(context, runeId.ToString("D")));
-        Assert.Equal("available", (string?)explanation["status"]);
+        var explanation = GameMcpTestHarness.Detail(context, runeId);
+        Assert.Null(explanation["status"]);
         Assert.Equal("Ability Persist", (string?)explanation["name"]);
 
         // The offered rune passes every predicate, and says so rather than going silent.
@@ -726,10 +723,9 @@ public sealed class GameMcpDiscoveryTreeOfferTests
 
             foreach (var readOffer in readOffers)
             {
-                var explanation = GameMcpTestHarness.Json(
-                    GameMcpEntityExplainer.Explain(rerollContext, readOffer.ToString("D")));
+                var explanation = GameMcpTestHarness.Detail(rerollContext, readOffer);
                 calls++;
-                Assert.Equal("available", (string?)explanation["status"]);
+                Assert.Null(explanation["status"]);
                 Assert.NotNull(explanation["name"]);
                 Assert.Equal(
                     readOffer == secondId,

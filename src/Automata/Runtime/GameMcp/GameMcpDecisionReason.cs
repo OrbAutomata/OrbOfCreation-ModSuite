@@ -81,7 +81,7 @@ internal static class GameMcpDecisionReason
     /// <remarks>
     /// Every affirmative half of a producer pair belongs here, not only the ones spelled
     /// <c>passed</c>. A met requirement leaf carries <c>requirement_met</c>, and while that code sat
-    /// outside this list every satisfied leaf in <c>explain_entity</c> — the tool's primary content —
+    /// outside this list every satisfied leaf in <c>world_get</c> — the detail read's primary content —
     /// rendered as a refusal, which is the exact confusion this method exists to end.
     /// </remarks>
     internal static bool IsPassing(string reasonCode) => reasonCode switch

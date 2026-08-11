@@ -8,7 +8,11 @@ using JArray = OrbAutomata.GameMcp.GameMcpArrayBuilder;
 
 namespace OrbAutomata.GameMcp;
 
-/// <summary>Evaluated, one-publication explanation for one stable entity identity.</summary>
+/// <summary>
+/// The evaluated half of one entity's detail read: what the game will let a player do with this id,
+/// why, at what price, and what is holding it. <c>world_get</c> owns the identity and the published
+/// row and calls in here for the rest, so one id answers once.
+/// </summary>
 internal static class GameMcpEntityExplainer
 {
     private const int MaximumRequirementExpansionDepth = 32;
@@ -22,98 +26,44 @@ internal static class GameMcpEntityExplainer
     private static WorldRequirementNativeVerdictProbe NativeVerdicts =>
         _nativeVerdicts ??= new WorldRequirementNativeVerdictProbe();
 
-    internal static JObject Explain(GameMcpFrameContext state, string uuidText)
+    /// <summary>Whether this build evaluates decisions, requirements and blockers for this id.</summary>
+    internal static bool HasDetail(GameWorldState world, Guid uuid) =>
+        TryResolve(
+            world ?? throw new ArgumentNullException(nameof(world)),
+            uuid,
+            out _,
+            out _,
+            out _);
+
+    /// <summary>
+    /// The authored description the game itself would print on this entity's tooltip, read live for
+    /// this one id. Empty for an entity this build publishes no evaluated detail for: the read is
+    /// exactly as wide as it has always been, and the merge gave it no new reach.
+    /// </summary>
+    internal static string ReadDescription(GameWorldState world, Guid uuid)
     {
-        if (!Guid.TryParseExact(uuidText ?? string.Empty, "D", out var uuid) || uuid == Guid.Empty)
-        {
-            return GameMcpWorldQuery.NotAvailableWithoutWorld(
-                state,
-                "invalid_uuid",
-                "uuid must be a non-empty canonical D-format GUID");
-        }
-        var publication = state.World;
-        if (publication is null || publication.Generation.Value <= 1 ||
-            publication.Snapshot.CollectedAtUtcTicks <= 0)
-        {
-            return GameMcpWorldQuery.NotAvailableWithoutWorld(
-                state,
-                "world_not_published",
-                state.RuntimeNotAvailableReason.Length == 0
-                    ? "the world collector has not published a captured world yet"
-                    : state.RuntimeNotAvailableReason);
-        }
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        return TryResolve(world, uuid, out _, out _, out var nativeType)
+            ? TryReadNativeDescription(uuid, nativeType)
+            : string.Empty;
+    }
 
-        var world = publication.Snapshot;
-        if (!TryResolve(world, uuid, out var kind, out var row, out var nativeType))
-        {
-            var known = world.EntityIdentities.TryGet(uuid, out var identity);
+    /// <summary>
+    /// Everything a detail read says beyond identity and the published row: the decisions the game
+    /// will accept, the requirement graph behind them, the exact price and what is holding it.
+    /// </summary>
+    /// <remarks>
+    /// Silent for an id whose category this build evaluates no verdicts for. That id still answers
+    /// — with its identity and its row — because "there is nothing more to say about this one" and
+    /// "this one could not be read" are different answers and a missing block said both.
+    /// </remarks>
+    internal static void AddDetail(JObject result, GameWorldState world, Guid uuid)
+    {
+        if (result is null) throw new ArgumentNullException(nameof(result));
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        if (!TryResolve(world, uuid, out var kind, out _, out _)) return;
 
-            // A runtime instance is not a loaded asset, so the asset catalog does not know it —
-            // but the world published it minutes earlier inside a composite row. Answering
-            // "nothing in this process knows this UUID" was wrong about the process and pointed at
-            // a registry that could never resolve it.
-            if (!known && TryOwningList(world, uuid, out var owningCategory))
-            {
-                return GameMcpWorldQuery.WithEnvelope(state, new JObject
-                {
-                    ["status"] = "not_available",
-                    ["code"] = "not_world_projected",
-                    ["reason"] =
-                        "this is a runtime member of a published row rather than an entity of " +
-                        "its own; read the row that owns it",
-                    ["uuid"] = uuid.ToString("D"),
-                    ["readWith"] = new JObject
-                    {
-                        ["tool"] = "world_list",
-                        ["category"] = owningCategory,
-                    },
-                });
-            }
-            var code = known ? "not_world_projected" : "unknown_uuid";
-
-            // An id this build never published is the one case where a caller has no name to search
-            // with — the missing name is the whole problem — so pointing at a name search sent them
-            // to a tool that could not answer. The categories are what they can actually page.
-            var reason = known
-                ? "This exists but has no detailed explanation; read its row with world_get"
-                : "no entity in this build carries this id; page world_categories for the category " +
-                    "you meant, or check the id you copied";
-            var remedy = new JObject { ["tool"] = known ? "entity_catalog" : "world_categories" };
-            if (known && GameMcpEntityCapabilityMap.TryCategoryForNativeType(
-                    identity.RuntimeType,
-                    out var knownCategory))
-            {
-                remedy["tool"] = "world_get";
-                remedy["category"] = knownCategory;
-            }
-            return GameMcpWorldQuery.WithEnvelope(state, new JObject
-            {
-                ["status"] = "not_available",
-                ["code"] = code,
-                ["reason"] = reason,
-                ["uuid"] = uuid.ToString("D"),
-                ["readWith"] = remedy,
-            });
-        }
-
-        var predicates = Predicates(world, uuid, kind);
-        var requirements = Requirements(
-            world, uuid, kind, out var parityFailure, out var parityFailureCode);
-        var result = new JObject
-        {
-            ["status"] = parityFailure is null ? "available" : "not_available",
-        };
-        var description = TryReadNativeDescription(uuid, nativeType);
-        if (description.Length > 0) result["description"] = description;
-        result.CopyFrom(GameMcpEntityCatalog.Lookup(world.EntityIdentities, uuid));
-        result["kind"] = kind.ToString();
-        result["state"] = GameMcpEntityCapabilityMap.TryCategoryForNativeType(
-            nativeType,
-            out var category)
-                ? GameMcpWorldQuery.ProjectEntityState(world, category, row)
-                : new GameMcpDomainValue(row);
-
-        // A Concept recipe is an alchemy recipe the game also lets you assign to a slot. Explaining
+        // A Concept recipe is an alchemy recipe the game also lets you assign to a slot. Answering
         // it under the one kind and dropping the other half answered a question the caller did not
         // ask, and the assignment state was reachable only from a second read.
         if (WorldConceptRecipeLookup.TryFind(world.ConceptRecipes, uuid, out var conceptRecipe))
@@ -131,20 +81,91 @@ internal static class GameMcpEntityExplainer
         }
         // Both blocks are always present. An entity with no applicable predicate and one whose
         // predicates were never evaluated are different answers, and an omitted key said both.
-        result["predicates"] = predicates;
+        result["predicates"] = Predicates(world, uuid, kind);
+        var requirements = Requirements(
+            world, uuid, kind, out var parityFailure, out var parityFailureCode);
         if (requirements is not null) result["requirements"] = requirements;
         var researchThresholds = ResearchThresholds(world, uuid, kind);
         if (researchThresholds is not null) result["researchThresholds"] = researchThresholds;
         var purchase = Purchase(world, uuid, kind);
         if (purchase is not null) result["purchase"] = purchase;
         result["blockers"] = Blockers(world, uuid, kind);
-        if (parityFailure is not null)
-        {
-            result["code"] = parityFailureCode;
-            result["reason"] = parityFailure;
-        }
-        return GameMcpWorldQuery.WithEnvelope(state, result);
+        if (parityFailure is null) return;
+        result["status"] = "not_available";
+        result["code"] = parityFailureCode;
+        result["reason"] = parityFailure;
     }
+
+    /// <summary>
+    /// The refusal for an id no published category is addressed by, naming which kind of miss it is
+    /// and the read that does carry the id.
+    /// </summary>
+    internal static JObject UnresolvedEntity(GameWorldState world, Guid uuid)
+    {
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        var known = world.EntityIdentities.TryGet(uuid, out var identity);
+
+        // A runtime instance is not a loaded asset, so the asset catalog does not know it — but the
+        // world published it minutes earlier inside a composite row. Answering "nothing in this
+        // process knows this UUID" was wrong about the process and pointed at a registry that could
+        // never resolve it.
+        if (!known && TryOwningList(world, uuid, out var owningCategory))
+        {
+            return Unresolved(
+                uuid,
+                "not_world_projected",
+                "this is a runtime member of a published row rather than an entity of its own; " +
+                "read the row that owns it",
+                new JObject
+                {
+                    ["tool"] = "world_list",
+                    ["category"] = owningCategory,
+                });
+        }
+        if (!known)
+        {
+            // An id this build never published is the one case where a caller has no name to search
+            // with — the missing name is the whole problem — so pointing at a name search sent them
+            // to a tool that could not answer. The categories are what they can actually page.
+            return Unresolved(
+                uuid,
+                "unknown_uuid",
+                "no entity in this build carries this id; page world_categories for the category " +
+                "you meant, or check the id you copied",
+                new JObject { ["tool"] = "world_categories" });
+        }
+        if (GameMcpEntityCapabilityMap.TryCategoryForNativeType(
+                identity.RuntimeType,
+                out var knownCategory))
+        {
+            return Unresolved(
+                uuid,
+                "not_world_projected",
+                "this is loaded in this build, but no published row is addressed by this id; the " +
+                "rows that carry it are in " + knownCategory,
+                new JObject
+                {
+                    ["tool"] = "world_list",
+                    ["category"] = knownCategory,
+                });
+        }
+        return Unresolved(
+            uuid,
+            "not_world_projected",
+            "this is loaded in this build, but the published world has no row of its own for it; " +
+            "its identity is all there is to read",
+            new JObject { ["tool"] = "entity_catalog" });
+    }
+
+    private static JObject Unresolved(Guid uuid, string code, string reason, JObject readWith) =>
+        new()
+        {
+            ["status"] = "not_available",
+            ["code"] = code,
+            ["reason"] = reason,
+            ["uuid"] = uuid.ToString("D"),
+            ["readWith"] = readWith,
+        };
 
     /// <summary>
     /// The published list whose rows carry this UUID as a member rather than as their own identity.

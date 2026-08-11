@@ -262,7 +262,8 @@ internal sealed class GameMcpProtocolRouter
                 builder.AffordableOnly = OptionalBool(arguments, "affordable", false);
                 break;
             case "world_get":
-                builder.Category = RequireString(arguments, "category");
+                if (arguments.ContainsKey("category"))
+                    builder.Category = RequireString(arguments, "category");
                 if (arguments.ContainsKey("uuids"))
                     builder.Uuids = ReadEntityIdArray(
                         arguments, "uuids", GameMcpWorldQuery.MaximumBatchSize);
@@ -288,9 +289,6 @@ internal sealed class GameMcpProtocolRouter
                     builder.StateFilter = RequireOneOf(
                         arguments, "state", "locked", "available", "completed");
                 }
-                break;
-            case "explain_entity":
-                builder.Uuid = RequireUuid(arguments, "uuid");
                 break;
             case "suite_health":
             case "suite_check_game_math":
@@ -575,7 +573,7 @@ internal sealed class GameMcpProtocolRouter
     {
         "entity_catalog" => GameMcpFrameData.None,
         "world_overview" or "world_categories" or "world_list" or "world_get" or
-            "world_search" or "explain_entity" => GameMcpFrameData.World,
+            "world_search" => GameMcpFrameData.World,
         "suite_health" => GameMcpFrameData.World | GameMcpFrameData.Configuration |
             GameMcpFrameData.FeatureHealth | GameMcpFrameData.ServiceHealth |
             GameMcpFrameData.Scene | GameMcpFrameData.NativeContractHealth,
@@ -639,8 +637,8 @@ internal sealed class GameMcpProtocolRouter
                     "category")),
             Tool(
                 "world_get",
-                "Get exact world rows",
-                "Read one or more stable UUIDs as one ordered result list from one immutable published world.",
+                "Read one id in full",
+                "Everything one id says, for one id or a batch of them in a single call, from one immutable published world. A block answers what the thing is and what the player calls it, its published row — the same durable columns world_list pages for that category — and, for the categories this build evaluates, the description the game prints on its own tooltip, every decision it will accept or refuse with the reason for each, the recursive requirement graph and which judgement decides, the exact per-resource price and whether you can pay it, and what is holding it shut. Ids answer in the order you asked, so nothing echoes an index back; one id failing refuses that block alone and every other block still answers. category is optional and names which table the row is read from: an id already carries its own category, so name one only to address a table whose native type belongs to more than one, or to insist on the table you meant. The description is a live read of the game's tooltip text for that one entity rather than a captured fact, so it is there only while a save is loaded and only for the categories carrying evaluated detail; with no published world the whole call refuses and names the lifecycle state instead. Detail is per id and nothing is truncated, so a 200-id batch — the ceiling — answers at 200 ids of detail.",
                 WorldGetSchema()),
             Tool(
                 "entity_catalog",
@@ -655,19 +653,9 @@ internal sealed class GameMcpProtocolRouter
                     },
                     "query")),
             Tool(
-                "explain_entity",
-                "Explain one entity",
-                "Evaluate visibility, availability, player verbs, recursive prerequisites, thresholds, exact costs, affordability, and typed blockers for one UUID from one immutable published world.",
-                ObjectSchema(
-                    new JObject
-                    {
-                        ["uuid"] = StringSchema("Canonical stable entity UUID."),
-                    },
-                    "uuid")),
-            Tool(
                 "world_search",
                 "Search published entities",
-                "Search every stable-UUID entity category at once and answer with one uniform row: id, name, category, keywords. A query is matched case-insensitively as a substring — the same rule the game's own search box uses — against the entity's player-facing name, its internal asset name, its id, the keywords the game prints on its tooltip type line, and the category and native type it belongs to. Hits come back most relevant first: name matches, then keyword matches, then category matches, with id order inside each band. It does NOT search descriptions: the published world captures no entity descriptions at all, so a word that appears only in an entity's description text finds nothing here; read one entity's description with explain_entity. Keywords are empty for the classes the game authors none for (upgrades, challenges, views, achievements, advancements, recipe books, crafting recipes) and nothing is synthesized to fill the cell. state narrows to one purchasable lifecycle word and only upgrades, research and structures carry one, so a state filter never returns rows of any other category. category narrows to one searchable category. An entity the published world has no row for is not here, and composite diagnostic categories are intentionally excluded; use world_list for those rows and their localized partiality evidence. A result of 25 rows or fewer comes back whole when you name no limit. limit is otherwise an upper bound: a page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from. keywordHits appears when the query hit more than one keyword, and says how the whole result splits between them.",
+                "Search every stable-UUID entity category at once and answer with one uniform row: id, name, category, keywords. A query is matched case-insensitively as a substring — the same rule the game's own search box uses — against the entity's player-facing name, its internal asset name, its id, the keywords the game prints on its tooltip type line, and the category and native type it belongs to. Hits come back most relevant first: name matches, then keyword matches, then category matches, with id order inside each band. It does NOT search descriptions: the published world captures no entity descriptions at all, so a word that appears only in an entity's description text finds nothing here; read one entity's description with world_get. Keywords are empty for the classes the game authors none for (upgrades, challenges, views, achievements, advancements, recipe books, crafting recipes) and nothing is synthesized to fill the cell. state narrows to one purchasable lifecycle word and only upgrades, research and structures carry one, so a state filter never returns rows of any other category. category narrows to one searchable category. An entity the published world has no row for is not here, and composite diagnostic categories are intentionally excluded; use world_list for those rows and their localized partiality evidence. A result of 25 rows or fewer comes back whole when you name no limit. limit is otherwise an upper bound: a page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from. keywordHits appears when the query hit more than one keyword, and says how the whole result splits between them.",
                 ObjectSchema(
                     new JObject
                     {
@@ -1216,15 +1204,17 @@ internal sealed class GameMcpProtocolRouter
         return ObjectSchema(
             new JObject
             {
-                ["category"] = StringSchema("Exact name returned by world_categories."),
                 ["uuids"] = ArraySchema(
                     StringSchema("Canonical D-format stable UUID."),
                     1,
                     GameMcpWorldQuery.MaximumBatchSize),
                 ["uuid"] = StringSchema(
                     "Singular alias for one canonical UUID; do not combine with uuids."),
-            },
-            "category");
+                ["category"] = StringSchema(
+                    "Optional. Exact name returned by world_categories, naming which table the " +
+                    "row is read from. An id resolves its own category, so this is only needed " +
+                    "to address a table whose native type belongs to more than one."),
+            });
     }
 
     private static void ValidateToolArguments(string name, JObject arguments)

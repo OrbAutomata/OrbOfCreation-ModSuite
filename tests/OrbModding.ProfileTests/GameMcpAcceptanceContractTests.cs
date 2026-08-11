@@ -130,16 +130,19 @@ public sealed class GameMcpWorldQueryTests
             GameMcpTestHarness.Context(world, generation: 1003),
             "resources",
             new[] { resourceId.ToString("D") }));
-        var row = Assert.Single(response["results"]!.Values<JObject>())!["row"]!;
+        var block = Assert.Single(response["results"]!.Values<JObject>())!;
+        var row = block["row"]!;
 
+        // Identity is said once, on the block, and the row under it carries only its own columns.
+        // The row used to repeat the same handle, name and category the block already published.
         Assert.Equal(
-            new[]
-            {
-                "uuid", "name", "category", "amount", "capacity",
-                "netRatePerSecond", "atCapacity",
-            },
+            new[] { "uuid", "name", "category", "nativeType", "row", "predicates" },
+            block.Children<JProperty>().Select(property => property.Name));
+        Assert.Equal(
+            new[] { "amount", "capacity", "netRatePerSecond", "atCapacity" },
             row.Children<JProperty>().Select(property => property.Name));
-        Assert.Equal("Knowledge", (string?)row["name"]);
+        Assert.Equal("Knowledge", (string?)block["name"]);
+        Assert.Equal("resources", (string?)block["category"]);
         Assert.Equal("5e24", (string?)row["amount"]);
         Assert.Equal("8e26", (string?)row["capacity"]);
         Assert.Equal("1.4e21", (string?)row["netRatePerSecond"]);
@@ -150,7 +153,9 @@ public sealed class GameMcpWorldQueryTests
         Assert.Null(row["rateInputs"]);
         Assert.Null(row["traits"]);
         Assert.Null(row["modifiers"]);
-        Assert.Equal(162, System.Text.Encoding.UTF8.GetByteCount(
+        // The detail read costs what the detail costs: identity said once and the decisions the
+        // merge folded in, on top of the row a list page would have shown.
+        Assert.Equal(263, System.Text.Encoding.UTF8.GetByteCount(
             response.ToString(Newtonsoft.Json.Formatting.None)));
 
         var list = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
@@ -493,7 +498,11 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.Contains("game_tooltips", names);
         Assert.Contains("game_tooltip", names);
         Assert.Contains("game_screenshot", names);
-        Assert.Contains("explain_entity", names);
+
+        // A retired name stays retired: no alias, no tombstone verb, no second door onto
+        // the detail read. The tool list simply stops carrying it.
+        Assert.DoesNotContain("explain_entity", names);
+        Assert.Contains("world_get", names);
     }
 
     [Fact]
@@ -546,17 +555,22 @@ public sealed class GameMcpProtocolSurfaceTests
         }
     }
 
+    /// <summary>
+    /// The detail read takes an id and nothing else is required. A caller holding an id from a
+    /// search, a refusal or an action response can read it without first learning which table it
+    /// lives in, which is the whole of what naming a category used to cost them.
+    /// </summary>
     [Fact]
-    public void EntityExplanationSchemaRequiresCanonicalUuidAndHasNoIdAlias()
+    public void DetailReadRequiresNoCategoryAndHasNoIdAlias()
     {
-        var explanation = Assert.Single(
+        var detail = Assert.Single(
             GameMcpAcceptanceFixture.Tools(),
-            tool => (string?)tool["name"] == "explain_entity");
-        Assert.Equal(
-            new[] { "uuid" },
-            explanation["inputSchema"]!["required"]!.Values<string>().ToArray());
-        var properties = Assert.IsType<JObject>(explanation["inputSchema"]!["properties"]);
+            tool => (string?)tool["name"] == "world_get");
+        Assert.Null(detail["inputSchema"]!["required"]);
+        var properties = Assert.IsType<JObject>(detail["inputSchema"]!["properties"]);
         Assert.NotNull(properties["uuid"]);
+        Assert.NotNull(properties["uuids"]);
+        Assert.NotNull(properties["category"]);
         Assert.Null(properties["id"]);
 
         var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
@@ -565,7 +579,7 @@ public sealed class GameMcpProtocolSurfaceTests
             "tools/call",
             new JObject
             {
-                ["name"] = "explain_entity",
+                ["name"] = "world_get",
                 ["arguments"] = new JObject { ["uuid"] = "not-a-guid" },
             }));
         Assert.Equal(

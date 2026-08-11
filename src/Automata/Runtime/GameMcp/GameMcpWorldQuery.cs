@@ -1102,10 +1102,27 @@ internal static class GameMcpWorldQuery
     }
 
     /// <summary>
-    /// Resolve many stable identities from the one immutable publication already pinned by the
-    /// router. Results preserve input order; only a failing row repeats its UUID because that
-    /// identity is needed to act on the failure. No publication token or state survives this call.
+    /// The detail read: one id, or a batch of them, answered from the one immutable publication the
+    /// router already pinned. Each block says what the thing is, what the game calls it, its
+    /// published row, and — where this build evaluates them — the decisions, requirements, price and
+    /// blockers behind it.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Results preserve input order, so nothing has to echo an index back; only a failing block
+    /// repeats its UUID, because that identity is what a caller needs to act on the failure. One id
+    /// failing refuses that block alone and the rest still answer.
+    /// </para>
+    /// <para>
+    /// <paramref name="categoryName"/> is optional and names which table the row is read from. An id
+    /// carries its own category, so a caller who has an id from a search or a refusal never has to
+    /// know one; naming it addresses a specific table — which is the only way to reach a row whose
+    /// native type belongs to more than one of them.
+    /// </para>
+    /// <para>
+    /// No publication token or state survives this call.
+    /// </para>
+    /// </remarks>
     internal static JObject GetRows(
         GameMcpFrameContext state,
         string categoryName,
@@ -1113,8 +1130,6 @@ internal static class GameMcpWorldQuery
     {
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
-        if (!TryCategory(categoryName, out var category, out var reason))
-            return NotAvailable(publication, "unknown_category", reason);
         if (uuidTexts is null || uuidTexts.Count == 0 || uuidTexts.Count > MaximumBatchSize)
         {
             return NotAvailable(
@@ -1123,95 +1138,167 @@ internal static class GameMcpWorldQuery
                 "uuids must contain between 1 and " +
                 MaximumBatchSize.ToString(CultureInfo.InvariantCulture) + " entries");
         }
-        if (!string.Equals(
-                category.IdentityMode,
-                "stable_entity_uuid",
-                StringComparison.Ordinal))
-        {
-            return NotAvailable(
-                publication,
-                "composite_identity_required",
-                "Rows in " + category.Name + " are not addressed by one id; " +
-                "read them with world_list.");
-        }
 
-        var availability = Availability(publication.Snapshot, category);
-        if (!availability.Available)
+        GameMcpWorldCategory? requested = null;
+        if (!string.IsNullOrEmpty(categoryName))
         {
-            return NotAvailable(
-                publication,
-                "category_not_collected",
-                availability.Reason.Length == 0
-                    ? "the category was not collected"
-                    : availability.Reason);
+            if (!TryCategory(categoryName, out var named, out var reason))
+                return NotAvailable(publication, "unknown_category", reason);
+            if (!string.Equals(
+                    named.IdentityMode,
+                    "stable_entity_uuid",
+                    StringComparison.Ordinal))
+            {
+                return NotAvailable(
+                    publication,
+                    "composite_identity_required",
+                    "Rows in " + named.Name + " are not addressed by one id; " +
+                    "read them with world_list.");
+            }
+            var namedAvailability = Availability(publication.Snapshot, named);
+            if (!namedAvailability.Available)
+            {
+                return NotAvailable(
+                    publication,
+                    "category_not_collected",
+                    namedAvailability.Reason.Length == 0
+                        ? "the category was not collected"
+                        : namedAvailability.Reason);
+            }
+            requested = named;
         }
 
         var results = new JArray();
         for (var inputIndex = 0; inputIndex < uuidTexts.Count; inputIndex++)
-        {
-            var uuidText = uuidTexts[inputIndex] ?? string.Empty;
-            var item = new JObject();
-            if (!Guid.TryParseExact(uuidText, "D", out var uuid) || uuid == Guid.Empty)
-            {
-                item["status"] = "not_available";
-                item["code"] = "invalid_uuid";
-                item["reason"] = "That is not a valid id, and the all-zero id names nothing.";
-                item["uuid"] = uuidText;
-                results.Add(item);
-                continue;
-            }
-
-            object? matched = null;
-            var count = category.Count(publication.Snapshot);
-            for (var rowIndex = 0; rowIndex < count; rowIndex++)
-            {
-                var row = category.Row(publication.Snapshot, rowIndex);
-                if (!category.TryIdentity(row, out var rowIdentity) || rowIdentity != uuid)
-                    continue;
-                matched = row;
-                break;
-            }
-            if (matched is null)
-            {
-                item["status"] = "not_available";
-                item["code"] = "unknown_uuid";
-                item["reason"] = "There is no " + category.Name + " entry with that id.";
-                item["uuid"] = uuid.ToString("D");
-            }
-            else
-            {
-                var implicated = LocalizedRequirementImplications(
-                    publication.Snapshot,
-                    new HashSet<Guid> { uuid });
-                var implicatedOffers = LocalizedDiscoveryOfferImplications(
-                    publication.Snapshot,
-                    new HashSet<Guid> { uuid });
-                if (implicated.Count == 0 && implicatedOffers.Count == 0)
-                {
-                    item["row"] = ProjectRow(publication.Snapshot, category, matched);
-                }
-                else
-                {
-                    item["status"] = "not_available";
-                    item["code"] = implicated.Count > 0
-                        ? "entity_data_incomplete"
-                        : "discovery_offer_read_incomplete";
-                    item["reason"] =
-                        implicated.Count > 0
-                            ? "this entity has incomplete published requirement evidence"
-                            : "this discovery tree has an offer UUID absent from all published " +
-                              "explainable entity categories";
-                    item["partialRow"] = ProjectRow(publication.Snapshot, category, matched);
-                    if (implicated.Count > 0) item["implicatedSkippedRows"] = implicated;
-                    if (implicatedOffers.Count > 0) item["implicatedOffers"] = implicatedOffers;
-                }
-            }
-            results.Add(item);
-        }
+            results.Add(GetOne(publication.Snapshot, requested, uuidTexts[inputIndex]));
 
         var result = Envelope(publication);
         result["results"] = results;
         return result;
+    }
+
+    /// <summary>One id's block of the detail read, refusing on its own without failing the batch.</summary>
+    private static JObject GetOne(
+        GameWorldState world,
+        GameMcpWorldCategory? requested,
+        string? uuidText)
+    {
+        if (!Guid.TryParseExact(uuidText ?? string.Empty, "D", out var uuid) || uuid == Guid.Empty)
+        {
+            return new JObject
+            {
+                ["status"] = "not_available",
+                ["code"] = "invalid_uuid",
+                ["reason"] = "That is not a valid id, and the all-zero id names nothing.",
+                ["uuid"] = uuidText ?? string.Empty,
+            };
+        }
+
+        // A category the caller named is gated as a whole above, because naming a page asks about
+        // the page. A category an id resolved into is not: partial collection is answered per id by
+        // the localized evidence below, and refusing every upgrade because one unrelated upgrade row
+        // was skipped is the blunt answer that mechanism exists to replace.
+        var category = requested;
+        if (category is null && !TryEntityCategory(world, uuid, out category))
+            return GameMcpEntityExplainer.UnresolvedEntity(world, uuid);
+
+        object? matched = null;
+        var count = category.Count(world);
+        for (var rowIndex = 0; rowIndex < count; rowIndex++)
+        {
+            var row = category.Row(world, rowIndex);
+            if (!category.TryIdentity(row, out var rowIdentity) || rowIdentity != uuid) continue;
+            matched = row;
+            break;
+        }
+        if (matched is null)
+        {
+            return new JObject
+            {
+                ["status"] = "not_available",
+                ["code"] = "unknown_uuid",
+                ["reason"] = "There is no " + category.Name + " entry with that id.",
+                ["uuid"] = uuid.ToString("D"),
+                ["readWith"] = new JObject
+                {
+                    ["tool"] = "world_list",
+                    ["category"] = category.Name,
+                },
+            };
+        }
+
+        // A block that answered says nothing about having answered. Silence is the yes on every
+        // other read on this surface, and inside a batch it is also what separates the blocks that
+        // answered from the one that refused beside them.
+        var item = new JObject();
+
+        // Identity rides the detail read and only the detail read. What the asset is called and what
+        // native type answers for it are catalog-browsing facts, so they are published where someone
+        // browsing asks for them, and never stamped on a table's rows.
+        if (GameMcpEntityExplainer.HasDetail(world, uuid) &&
+            world.EntityIdentities.TryGet(uuid, out _))
+        {
+            item.CopyFrom(GameMcpEntityCatalog.Lookup(world.EntityIdentities, uuid));
+
+            // The category the world actually publishes this id in, not the one the catalog's
+            // runtime type implies: they disagree exactly where a caller most needs the truth.
+            item["category"] = category.Name;
+            var description = GameMcpEntityExplainer.ReadDescription(world, uuid);
+            if (description.Length > 0) item["description"] = description;
+        }
+
+        var implicated = LocalizedRequirementImplications(world, new HashSet<Guid> { uuid });
+        var implicatedOffers = LocalizedDiscoveryOfferImplications(world, new HashSet<Guid> { uuid });
+        if (implicated.Count == 0 && implicatedOffers.Count == 0)
+        {
+            item["row"] = ProjectRow(world, category, matched);
+        }
+        else
+        {
+            item["status"] = "not_available";
+            item["code"] = implicated.Count > 0
+                ? "entity_data_incomplete"
+                : "discovery_offer_read_incomplete";
+            item["reason"] =
+                implicated.Count > 0
+                    ? "this entity has incomplete published requirement evidence"
+                    : "this discovery tree has an offer UUID absent from all published " +
+                      "explainable entity categories";
+            item["partialRow"] = ProjectRow(world, category, matched);
+            if (implicated.Count > 0) item["implicatedSkippedRows"] = implicated;
+            if (implicatedOffers.Count > 0) item["implicatedOffers"] = implicatedOffers;
+        }
+
+        GameMcpEntityExplainer.AddDetail(item, world, uuid);
+        return item;
+    }
+
+    /// <summary>
+    /// The published table an id belongs to, without the caller naming one. What the world itself
+    /// publishes decides it; the live catalog's runtime type answers for the categories this build
+    /// evaluates no detail for.
+    /// </summary>
+    private static bool TryEntityCategory(
+        GameWorldState world,
+        Guid uuid,
+        out GameMcpWorldCategory category)
+    {
+        if (GameMcpEntityExplainer.TryDescribePublishedEntity(
+                world, uuid, out var published, out _, out _) &&
+            TryCategory(published, out category, out _))
+        {
+            return true;
+        }
+        if (world.EntityIdentities.TryGet(uuid, out var identity) &&
+            GameMcpEntityCapabilityMap.TryCategoryForNativeType(
+                identity.RuntimeType, out var implied) &&
+            TryCategory(implied, out category, out _) &&
+            string.Equals(category.IdentityMode, "stable_entity_uuid", StringComparison.Ordinal))
+        {
+            return true;
+        }
+        category = null!;
+        return false;
     }
 
     /// <summary>

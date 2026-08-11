@@ -308,7 +308,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     }
 
     [Fact]
-    public void WorldGetSchemaRequiresCategoryAndAcceptsSingularOrBatchIdentity()
+    public void WorldGetSchemaTakesIdentityAloneAndAcceptsSingularOrBatchIdentity()
     {
         var tool = Assert.Single(
             GameMcpAcceptanceFixture.Tools(),
@@ -316,9 +316,11 @@ public sealed class GameMcpStreamableHttpProtocolTests
         var schema = (JObject)tool["inputSchema"]!;
         var properties = (JObject)schema["properties"]!;
 
-        Assert.Equal(new[] { "category" }, schema["required"]!.Values<string>());
+        // Identity leads, because identity is the whole ask; the table an id lives in is a
+        // disambiguator the id itself answers for.
+        Assert.Null(schema["required"]);
         Assert.Equal(
-            new[] { "category", "uuids", "uuid" },
+            new[] { "uuids", "uuid", "category" },
             properties.Properties().Select(property => property.Name));
         Assert.Equal("string", (string?)properties["uuid"]?["type"]);
         Assert.Equal("array", (string?)properties["uuids"]?["type"]);
@@ -1208,7 +1210,16 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Null(batch["found"]);
         Assert.Null(batch["incomplete"]);
         var batchRows = batch["results"]!.OfType<JObject>().ToArray();
-        Assert.Null(batchRows[0]["status"]);
+
+        // The unaffected owner is not poisoned by its neighbour's unmodelled leaf: it keeps its own
+        // row and names nothing implicated. What its block does say is its own miss — this world is
+        // assembled by hand, so no live upgrade carries the identity and the game has no
+        // prerequisite verdict of its own to compare the suite's against.
+        Assert.NotNull(batchRows[0]["row"]);
+        Assert.Null(batchRows[0]["implicatedSkippedRows"]);
+        Assert.Equal(
+            "ERR_UNAVAILABLE",
+            (string?)batchRows[0]["requirements"]!["nativeParity"]!["reasonCode"]);
         Assert.Equal("unavailable", (string?)batchRows[1]["status"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)batchRows[1]["reasonCode"]);
         Assert.Single(batchRows[1]["implicatedSkippedRows"]!.Values<JObject>());

@@ -217,8 +217,8 @@ internal static class GameMcpEntityWireNormalizer
                 inRow || string.Equals(property.Name, "rows", StringComparison.Ordinal));
         }
 
-        DeduplicateChildIdentity(item, "state");
-        DeduplicateStateVerdict(item);
+        DeduplicateChildIdentity(item, "row");
+        DeduplicateRowVerdict(item);
         PromoteNestedPrimaryIdentity(item);
         PromoteIdentity(item);
 
@@ -395,7 +395,7 @@ internal static class GameMcpEntityWireNormalizer
     /// identity in the system. Across one live round that was 28.9 KB — 21.1% of everything the
     /// server said — and no caller read one of them once. Where a name came from and what the game
     /// calls it internally are catalog-browsing facts, and <c>entity_catalog</c> and
-    /// <c>explain_entity</c> publish them there, where someone actually browsing asks for them.
+    /// <c>world_get</c> publish them there, where someone actually browsing asks for them.
     /// </para>
     /// <para>
     /// A UUID the catalog cannot name is marked, never quietly reduced to a bare id: the row that
@@ -473,9 +473,9 @@ internal static class GameMcpEntityWireNormalizer
     }
 
     /// <summary>
-    /// One class per fact per response. A response that publishes an entity's row under
-    /// <c>state</c> and its evaluated verdicts under <c>predicates</c> answered availability twice,
-    /// and the two answers disagreed about which kind of no it was: <c>state.reasonCode</c> read
+    /// One class per fact per response. A response that publishes an entity's row under <c>row</c>
+    /// and its evaluated verdicts under <c>predicates</c> answered availability twice, and the two
+    /// answers disagreed about which kind of no it was: the row's <c>reasonCode</c> read
     /// ERR_REFUSED where <c>predicates.available</c> read ERR_LOCKED, for one entity, in one
     /// payload. A caller branching on the first got a different program than one branching on the
     /// second, which makes the taxonomy useless for control flow — the failure this deletes.
@@ -486,17 +486,17 @@ internal static class GameMcpEntityWireNormalizer
     /// keeps the fact itself — <c>available</c> stays — and gives up only the second opinion about
     /// it, which the block below states in full.
     /// </remarks>
-    private static void DeduplicateStateVerdict(JObject item)
+    private static void DeduplicateRowVerdict(JObject item)
     {
         if (item["predicates"] is not JObject predicates ||
             predicates["available"] is not JObject ||
-            item["state"] is not JObject state ||
-            state["available"] is null)
+            item["row"] is not JObject row ||
+            row["available"] is null)
         {
             return;
         }
-        state.Remove("reasonCode");
-        state.Remove("reason");
+        row.Remove("reasonCode");
+        row.Remove("reason");
     }
 
     private static void DeduplicateChildIdentity(JObject item, string field)

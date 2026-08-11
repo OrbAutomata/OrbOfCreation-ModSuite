@@ -1591,12 +1591,6 @@ public sealed class Plugin : BaseUnityPlugin
                         EntityIdentities(context), request.Query, request.Offset,
                         request.Limit).Freeze());
                 return true;
-            case "explain_entity":
-                execution = GameMcpToolExecution.Read(
-                    GameMcpEntityExplainer.Explain(
-                        context,
-                        request.Uuid.ToString("D")).Freeze());
-                return true;
             case "world_search":
                 execution = GameMcpToolExecution.Read(
                     GameMcpWorldQuery.Search(

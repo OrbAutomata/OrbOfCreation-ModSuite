@@ -204,6 +204,9 @@ lowercase, hold no spaces, and are facts rather than codes.
 The sentence behind a word is not lost — it is what `get` and a refusal answer with, which is where
 a caller who wants prose has asked for it. A decision code with no word here fails the read rather
 than printing itself into a cell.
+- **A list whose elements are each more than one line puts a blank line between them.** Two answers
+  at the same indent with nothing between them read as one; a `world_get` batch is where that got
+  loud. One-line elements never had the problem and keep the tighter list.
 - **A refusal is one line**: `refused (ERR_NOT_FOUND): The spell Beam Burst you tried to cancel is
   not currently active.` A decision block reads the same way, verdict first and sentence last:
   `equip: no (ERR_LIMIT) maximumAmount=0: Every slot in this loadout is in use.`
@@ -248,6 +251,21 @@ can act on it — explain it, unequip it — without parsing the sentence it was
 The registry is exactly 42 tools. It is built once per lifecycle and never changes mid-session, so
 there is no `tools/list_changed` notification. The rows below are in `tools/list` order.
 
+Reading is three primitives, organized around what a player is doing rather than around the game's
+internal type system:
+
+- **`world_search`** — cross-category, one uniform row, identity plus keywords. It finds the thing
+  you heard a word for and did not know you were looking for.
+- **`world_list`** — one category, that category's own declared columns, filter nouns. Durable
+  planning facts only, with a database-table feel.
+- **`world_get`** — one id, or a batch of them: everything. What it is, its description, its state,
+  its price, its effects, what is holding it. This is *the* detail verb, and the only read that
+  answers prose.
+
+`game_tooltip` is not a fourth: it reads the live screen, which is a different question from what an
+id is. `entity_catalog` and `world_categories` are not reads of entities at all — they answer
+inventory questions about what this build loaded and what this world published.
+
 A tool's prefix names the screen it acts on: `world_` reads the published world, `suite_` acts on
 the mod suite, `time_` acts on the Time tab, and `game_` is everything else the player screen owns.
 The one exception is `game_level`, which buys levels from any ordinary level list — including Time
@@ -259,9 +277,8 @@ rather than from the screen it is drawn on.
 | `world_overview` | Compact collection, economy, progression, and running-state summary |
 | `world_categories` | Discover every published table and exact collection availability |
 | `world_list` | Page compact identity-plus-scan rows in one category |
-| `world_get` | Read an ordered 1–200 UUID list from one pinned immutable publication |
+| `world_get` | Read everything one id says — row, description, gates, requirement graph, exact costs, blockers — for one id or a batch |
 | `entity_catalog` | Search every live-registry identity and available player-facing name, including loaded entities hidden by progression |
-| `explain_entity` | Evaluate one UUID's gates, requirement graph, exact costs, and blockers from one pinned immutable publication |
 | `world_search` | Find a term across every entity category at once: name, keywords, category, most relevant first |
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
 | `suite_configuration` | Read every writable setting's committed value; `mode=describe` adds type, domain, and purpose |
@@ -314,9 +331,14 @@ refused as `filter_not_supported` on a category with no price rather than quietl
 
 `world_categories` is the authoritative inventory. Each row reports `category`, native type,
 identity mode, row count, and exact availability. Internal world-property and row-type names are
-not protocol data. `world_get` always requires `category` plus either a `uuids` list or the singular
-`uuid` alias; supplying both is a `mutually_exclusive` validation failure, and either form returns
-the same list shape.
+not protocol data. `world_get` takes either a `uuids` list or the singular `uuid` alias; supplying
+both is a `mutually_exclusive` validation failure, and either form returns the same list shape. It
+requires nothing else: an id resolves its own table, so a caller holding one from a search, a
+refusal, or an action response reads it without first learning where it lives. `category` stays
+accepted and optional, and names which table the row is read from — the only way to reach a row
+whose native type belongs to more than one table, and the way to insist on the table you meant. A
+named table that does not hold the id answers a miss in that table rather than quietly resolving
+into the one the caller did not name.
 Composite tables cannot be addressed by an arbitrary related UUID; use `world_list`.
 
 Supply `uuids` with 1–200 canonical UUIDs. Results preserve input order without repeating an index or UUID on
@@ -382,7 +404,7 @@ would print seven keywords no player has ever seen.
 
 **Search does not search descriptions.** The published world captures no entity description text at
 all — for any class — so a word appearing only in an entity's description finds nothing here. A
-description is read live, per entity, by `explain_entity`. This is a real gap and it is stated rather
+description is read live, per entity, by `world_get`. This is a real gap and it is stated rather
 than papered over: relevance therefore bands in three, not four.
 
 A hit is ranked by *why* it matched, and the reason is a sort key rather than a column: an entity's
@@ -422,7 +444,7 @@ player-facing `GetName()`, so loaded entities hidden or not yet revealed by prog
 without navigation. Before that bind, or when its declared contracts fail, the tool returns
 `unavailable` rather than substituting the build-time TSV fixtures.
 
-A match contains `uuid`, `name`, `nativeType`, and one `category` — this and `explain_entity` are the
+A match contains `uuid`, `name`, `nativeType`, and one `category` — this and `world_get` are the
 two surfaces that still carry the asset name and the runtime type, because browsing the catalog is
 the one activity that asks for them. `category=not-world-projected`
 means that the live registry identity has no world row. `nameSource=asset` appears only when no
@@ -445,8 +467,8 @@ already say which entity it was. No role repeats the row's own identity under a 
 Rows then carry only the small set
 of availability, unambiguous paid/bonus/total level, quantity, occupancy, readiness, or progress
 fields useful for comparing rows. Raw capture inputs, cached implementation fields,
-resource traits, rate inputs, and modifier structs stay out of world rows. `explain_entity` owns
-deeper evaluated evidence. Purchase-cost rows are composite and therefore remain a `world_list`
+resource traits, rate inputs, and modifier structs stay out of world rows. A `world_get` block owns
+the deeper evaluated evidence, beside that same row. Purchase-cost rows are composite and therefore remain a `world_list`
 surface.
 
 One fact has one name and one shape across every read that carries it. A scan row is a narrower
@@ -636,7 +658,7 @@ across the whole surface, reads and commits alike:
 
 No surface publishes the sum of built and building levels under a single name: the retired
 `committedLevel` was exactly that, and a number no screen shows cannot be checked against one. That
-holds on every surface, `game_targeting` candidates and the `explain_entity` research `cap` block
+holds on every surface, `game_targeting` candidates and the `world_get` research `cap` block
 included, and both name their levels waiting as `queuedLevels` like every other row. A separate
 work-in-flight flag beside that count is not published either — it only restates the count.
 
@@ -772,7 +794,7 @@ affordability, and resource true quantity. The MCP worker only projects the immu
 UUID must resolve in the same generation as an alchemy recipe, equipment, glyph, ritual, spell
 recipe, or time rune. If it does not, only the implicated tree read returns
 `discovery_offer_read_incomplete` with `implicatedOffers`; the UUID is never silently omitted.
-Current offers are also resolvable through `world_get` and `explain_entity`, including authored
+Current offers are also resolvable through `world_get`, including authored
 metadata and applicable discovery predicates.
 
 ### Generic discovery decisions
@@ -849,10 +871,10 @@ recipe. The sentence says which of the two situations it is and leaves the count
 beside it, so the budget is stated once. The budget is published because assignments are only the
 filled slots — counting `alchemy-instances` rows can never reveal the capacity behind them.
 
-A Concept recipe is also an alchemy recipe, so `explain_entity` on one answers `kind:
-alchemy_recipe` and carries a `concept` block with `assignedCount`, the same slot pair, and the
-`canAdd` decision. Explaining the id under the one kind and dropping the other half answered a
-question the caller did not ask. `predicates.canAdd` names that block — its value is the path
+A Concept recipe is also an alchemy recipe, so `world_get` on one answers
+`category: alchemy-recipes` and carries a `concept` block with `assignedCount`, the same slot pair,
+and the `canAdd` decision. Answering the id under the one category and dropping the other half
+answered a question the caller did not ask. `predicates.canAdd` names that block — its value is the path
 `concept.canAdd` — rather than reprinting the verdict beside it, so one decision is published once.
 
 ### Ritual lifecycle
@@ -1112,7 +1134,7 @@ The MCP-only offer sequence is seven calls when two offers need explanations:
 3. Call `offer_reroll` when `reroll.available` is true; a false one names which of the tree's
    states — no offers, a discovery to take first, no rerolls left, a reroll already spent — is
    refusing. Its terminal response is the restarted craft, settled the same way.
-4. Call `explain_entity` for the candidates that require comparison. No catalog name joins are
+4. Call `world_get` for the candidates that require comparison. No catalog name joins are
    needed because every reference already carries its name.
 5. Call `offer_select` with that `offerUuid`; its terminal response is the settled tree naming
    `selectedOffer`. It omits `offers`: a selection changes which offer is held, not what is
@@ -1293,16 +1315,40 @@ recipe without one stable loaded authored page refuses rather than guessing a qu
 native work names the one missing direct, instant-stock, or queued-recipe outcome. Auto Scribe calls the same GameAction with
 its own existing planner, so MCP crafting does not create a second Scribe implementation.
 
-### Entity explanation
+### The detail read
 
-`explain_entity` accepts one canonical `uuid` and pins the latest immutable world publication before
-it resolves or evaluates anything. Its entity row, predicates, requirements, costs, and blockers
-all come from that one publication;
-the tool neither retains a snapshot token nor follows a newer publication during the call.
-Named identity appears once. When the resolved native entity implements the audited `ITooltipable`
-contract, its authored `GetDescription()` text leads the explanation after identity; no description
-is invented when that source is absent. The `state` row uses the same curated player surface as
-world reads rather than serializing the collector's complete internal struct.
+`world_get` accepts one canonical `uuid`, or a batch of them, and pins the latest immutable world
+publication before it resolves or evaluates anything. Every block's row, predicates, requirements,
+costs, and blockers come from that one publication; the tool neither retains a snapshot token nor
+follows a newer publication during the call.
+
+One block per id, in the order they were asked, so nothing echoes an index back. A block that
+answered says nothing about having answered — silence is the yes, and inside a batch that silence is
+also what separates the blocks that answered from any block that refused beside them. One id failing
+refuses that block alone with the ordinary refusal grammar and every other block still answers.
+
+Named identity appears once, on the block: the row underneath carries only its own columns, and the
+handle, name, category and native type the block already published are not repeated in it. The
+`category` a block names is the one the world actually publishes the id in, not the one its runtime
+type implies — those disagree exactly where a caller most needs the truth. The `row` is the same
+curated player surface `world_list` pages for that category rather than the collector's complete
+internal struct, so the lifecycle word a page shows is the word a detail read shows, said once, in
+one place.
+
+When the resolved native entity implements the audited `ITooltipable` contract, its authored
+`GetDescription()` text leads the block after identity; no description is invented when that source
+is absent. That description is a **live read of the game's own tooltip text for that one entity**,
+not a captured fact: it is present only while a save is loaded, and only for the categories this
+build evaluates detail for. A call with no published world refuses as a whole and names the
+lifecycle state, so the menu never yields a half-answered block.
+
+An id resolves its own table, so the categories this build evaluates no verdicts for still answer —
+with their identity and their row, and no decision blocks. "There is nothing more to say about this
+one" and "this one could not be read" are different answers, and a missing block used to say both.
+
+Detail is per id and nothing is truncated: 200 ids is the ceiling and a 200-id batch answers at 200
+ids of detail. Bytes lose to predictability here on purpose — a get has no offset to resume from, so
+a budget could only drop answers a caller asked for by name.
 
 The `predicates` and `blockers` blocks are always present, empty or not, so an entity nothing
 applies to never reads like an entity nobody evaluated. Only applicable predicate slots are inside:
@@ -1312,23 +1358,24 @@ word every other decision on the surface answers under, and a slot that answered
 stable `reasonCode` saying why; absence means the predicate does not apply, not false. A predicate
 points at the block that holds its evidence rather than reprinting it: `canUse` lists the slot
 numbers the spell is equipped in, and the same response already carries those slots in full under
-`state.equipped`; `canAdd` is the path `concept.canAdd`, where the whole decision is published.
+`row.equipped`; `canAdd` is the path `concept.canAdd`, where the whole decision is published.
 Crafting purchase uses the
 published `CraftingRecipeSO.CanBuyAt(GetStartingQuantity())` verdict, spell use uses the equipped
 `Spell.CanCast()` reading, and structure/upgrade purchase combines published native availability
 with the one exact-cost affordability lineage. No predicate emits implementation provenance or a
 permanent never-evaluated apology.
 
-Discovery trees are explainable entities: their explanation carries the same decision row as
-`world_get(discovery-trees)`. Both misses are `ERR_NOT_FOUND`, and the sentence and the `readWith`
-remedy are what separate them: a UUID absent from the live identity registry says no entity in this
-build carries it and points at `world_categories`, because the caller has no name to search with; a
-catalog-known UUID with no explainable row says the entity exists without a detailed explanation and
-names the read surface that does carry it. A UUID the asset catalog does not know but the world
-published inside a composite row — an equipped spell instance is a runtime object, not a loaded
-asset — is that second case, not the first: it points at `readWith: {tool: "world_list", category:
-"spell-slots"}`. The surface never claims the process is ignorant of a UUID it published, and never
-points a runtime instance at the asset registry that cannot resolve it.
+A miss is `ERR_NOT_FOUND`, and the sentence and the `readWith` remedy are what separate the kinds of
+miss. A UUID absent from the live identity registry says no entity in this build carries it and
+points at `world_categories`, because the caller has no name to search with. A UUID in a table the
+caller named that the table does not hold says so and points back at that table's page. A
+catalog-known UUID no published table is addressed by says it is loaded in this build and points at
+the rows that do carry it, or — when its runtime type belongs to no published table — says its
+identity is all there is to read and points at `entity_catalog`. A UUID the asset catalog does not
+know but the world published inside a composite row — an equipped spell instance is a runtime
+object, not a loaded asset — points at `readWith: {tool: "world_list", category: "spell-slots"}`.
+The surface never claims the process is ignorant of a UUID it published, and never points a runtime
+instance at the asset registry that cannot resolve it.
 
 Per-level structure, upgrade, and Research requirements preserve the implicit container `AND`,
 explicit native `AND`/`OR` nodes, authored order, and recursively expanded prerequisite-link tiers.
@@ -1342,7 +1389,7 @@ scaled, and effective thresholds. Unsupported comparisons return a structured un
 The collector also captures the safe parameterized
 `Prerequisites.Container.Check(Requirements.ConditionInfo)` answer at the exact next-purchase level.
 The worker compares its graph verdict with that same-publication native answer. Missing inputs,
-unevaluable suite math, a different owner/level, or a disagreement makes the whole explanation
+unevaluable suite math, a different owner/level, or a disagreement makes that id's whole block
 `unavailable`; a disagreement returns both verdicts and `native_verdict_mismatch`.
 
 Requirements met while the game still holds the entity shut is not a disagreement — the authored
@@ -1353,7 +1400,7 @@ green requirement block beside a locked entity and concludes the suite is lying 
 v1.05 contract additionally pins that a structure quantity requirement reads purchased `quantity`,
 not `selfBonusLevels` or an effective/total level.
 
-Research explanations separate base, scaled, and native effective requirement thresholds and retain
+Research blocks separate base, scaled, and native effective requirement thresholds and retain
 every direct adjustment's UUID, source native type, modifier type, amount, order, and passive state,
 including challenge sources. Their `levelPrerequisites` graph uses the native
 `GetRequirementLevel()` as its check level. A Research prerequisite leaf selects the target's native
@@ -1505,8 +1552,8 @@ so a caller can branch; the sentence says everything else, and it is the part th
 the number, and the fix.
 
 **One class per fact per response.** A response never carries two classes for one fact. Where a
-response answers the same fact twice — `explain_entity` publishes an entity's row under `state` and
-its evaluated verdicts under `predicates` — the predicate block is the authority and the row keeps
+response answers the same fact twice — `world_get` publishes an entity's row under `row` and its
+evaluated verdicts under `predicates` — the predicate block is the authority and the row keeps
 only the fact, not a second opinion about it. Two classes for one fact make the taxonomy unusable
 for control flow: a caller branching on one runs a different program than a caller branching on the
 other.
@@ -1581,7 +1628,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `unaffordable` | One or more named resources fall short. The sentence names every one of them: `Needs <cost> <Resource> (have <held>); …` | every purchase-shaped mutation and every read-side cost decision |
 | `amount_unavailable` | The exact amount asked for exceeds what this call admits, and a smaller amount is what fixes it. Carries `maximumAmount` | `game_research develop`, `game_concept`, `game_equipment`, `game_alchemy`, `game_agromancy` |
 | `not_active` | The target has nothing active to remove, so no amount succeeds. It used to share `amount_unavailable` with three refusals a smaller amount does fix | `game_agromancy` removes |
-| `automation_full` | Every automation slot on the queue is in use. Only a queue genuinely out of room answers this; an undiscovered recipe answers `hidden_or_undiscovered` | `explain_entity`/`world_get` crafting rows, `game_craft automate` |
+| `automation_full` | Every automation slot on the queue is in use. Only a queue genuinely out of room answers this; an undiscovered recipe answers `hidden_or_undiscovered` | `world_get` crafting rows, `game_craft automate` |
 | `switch_blocked` | The game refuses a loadout swap right now (`LoadoutManager.CanSwapLoadouts()`) | `game_loadout select`, the `canSelect` read |
 | `saved_entry_unavailable` | A saved snapshot's stored entry cannot be restored | `game_loadout snapshot_save`, `game_loadout snapshot_load` |
 | `slot_empty` | The named snapshot slot holds nothing to load or clear | `game_loadout snapshot_load`, `game_loadout snapshot_clear` |
@@ -1776,8 +1823,8 @@ the name a filled one would have had — `selectedLevel`, not `selectedLevelId`.
 #### Outside a table, absence is silence
 
 `unset` is a table word and only a table word. In a table there is a header promising a column and
-sibling rows to line up with, so a cell has to say something. A detail block, a `world_get` row, an
-explainer's state block and a mutation's post-state have none of that, and there the same fact reads
+sibling rows to line up with, so a cell has to say something. A `world_get` block, the row inside it
+and a mutation's post-state have none of that, and there the same fact reads
 the way absence reads everywhere else on this surface: **the key is simply not there**. This is the
 `game_cast` policy — a spell with nothing to toggle publishes no `toggleOff` — generalized to every
 non-table surface, and it also ends a split spelling of one fact, because the wire normalizer already
@@ -1807,7 +1854,7 @@ one: it keeps the whole declared set under `partialRow` and states the incomplet
 
 An identity is a handle and a name, and nothing else. The asset name (`internalName`), the runtime
 type (`nativeType`), the category the type implies, and where a name came from (`nameSource`) are
-catalog-browsing facts: `entity_catalog` and `explain_entity` publish them, and no world row or
+catalog-browsing facts: `entity_catalog` and a `world_get` block publish them, and no world row or
 reference carries them. Stamped on every identity they cost 21.1% of one live round for a fact
 nothing on that round read.
 
@@ -2287,7 +2334,7 @@ ruling rather than restoring a contract:
   *Inline action results*.
 - **Identity preambles.** The asset name, the runtime type, and the category the type implies rode
   every identity for 21.1% of one live round and nothing read them. They live on
-  `entity_catalog`/`explain_entity` now — *Presence semantics*.
+  `entity_catalog` and the `world_get` block now — *Presence semantics*.
 - **`paid[]` and `costPerLevel[]`.** A commit reports the levels it bought; what a level costs and
   what the next one asks are read on `world_get` and `purchase-costs`, where the whole curve is —
   *Presence semantics*.
@@ -2456,7 +2503,7 @@ tools/game-mcp-client.py tooltip 'PATH/FROM/CATALOG/ROW'
 The audited manifest covers the native tooltip carrier/open/nesting shape, while the real-reference
 build and installed contracts verify the source node graph that the prose renderer consumes. The
 same audited `ITooltipable.GetDescription()` contract supplies authored descriptions for
-`explain_entity` when the resolved entity implements that interface.
+`world_get` when the resolved entity implements that interface.
 
 ## Checking the suite's math against the game
 
