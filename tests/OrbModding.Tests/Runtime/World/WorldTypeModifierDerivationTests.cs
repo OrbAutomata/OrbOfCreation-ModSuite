@@ -428,6 +428,43 @@ public sealed class WorldTypeModifierDerivationTests
         Assert.Equal(typeRecord, Assert.Single(totals.AsSpan().ToArray()).Property);
     }
 
+    /// <summary>
+    /// The two lookups a reader reaches these tables through find the last run in the table and
+    /// answer an empty one without walking off it. Both bisect, so the ends are where they break.
+    /// </summary>
+    [Fact]
+    public void TheReadSideLookupsFindTheLastRunAndSurviveAnEmptyTable()
+    {
+        var first = Guid.Parse("11111111-0000-4000-8000-000000000001");
+        var last = Guid.Parse("99999999-0000-4000-8000-000000000001");
+        var records = Records(
+            (first, "power", Ordered), (last, "power", Ordered), (last, "speed", Merging));
+        var contributions = Contributions(
+            (first, "power", Kind.Raw, 10d, 0),
+            (last, "speed", Kind.Raw, 20d, 0),
+            (last, "speed", Kind.MultiStacking, 2d, 1));
+
+        Assert.True(WorldTypeModifierLookup.TryFind(records, last, out var start, out var count));
+        Assert.Equal(2, count);
+        Assert.Equal("power", records[start].Property);
+
+        Assert.True(WorldTypeModifierContributionLookup.TryFind(
+            contributions, last, "speed", out var entry, out var entries));
+        Assert.Equal(2, entries);
+        Assert.Equal(last, contributions[entry].TypeId);
+
+        // A record the last type carries no modifier on is not the run that follows it.
+        Assert.False(WorldTypeModifierContributionLookup.TryFind(
+            contributions, last, "power", out _, out _));
+        Assert.False(WorldTypeModifierLookup.TryFind(
+            records, Guid.Parse("aaaaaaaa-0000-4000-8000-000000000001"), out _, out _));
+
+        Assert.False(WorldTypeModifierLookup.TryFind(
+            PublicationTable<WorldTypeModifier>.Empty, first, out _, out _));
+        Assert.False(WorldTypeModifierContributionLookup.TryFind(
+            PublicationTable<WorldTypeModifierContribution>.Empty, first, "power", out _, out _));
+    }
+
     private const BindingFlags Members =
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
