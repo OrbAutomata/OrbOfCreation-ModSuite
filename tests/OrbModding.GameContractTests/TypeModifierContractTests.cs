@@ -274,4 +274,26 @@ public sealed class TypeModifierContractTests
         Assert.NotEmpty(assembly.GetMethods("SpellRecipeSO", "GetNotSpellTypes"));
         Assert.NotEmpty(assembly.GetMethods("Spell", "GetAllSpellTypes"));
     }
+
+    /// <summary>
+    /// The spell type layer has a native oracle, and it is the whole product rather than a term of it.
+    /// </summary>
+    /// <remarks>
+    /// The derived layer reproduces <c>GetResonantPercent</c>, and the only thing that can tell a
+    /// faithful reproduction from a plausible one is the number the game itself multiplies into
+    /// <c>Spell.GetPower()</c>. The exact shape is the contract: an overload taking arguments, or one
+    /// answering in a narrower numeric type, would be a different question wearing the same name, and
+    /// the verifier binds on this shape alone.
+    /// </remarks>
+    [GameAssemblyFact]
+    public void TheSpellTypePowerLayerHasOneNativeOracleToAnswerTo()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        var oracle = Assert.Single(assembly.GetMethods("Spell", "GetSpellTypePowerPercent"));
+        Assert.Equal("public", oracle.Visibility);
+        Assert.False(oracle.IsStatic);
+        Assert.Equal("BigDouble", oracle.ReturnType);
+        Assert.Empty(oracle.ParameterTypes);
+    }
 }
