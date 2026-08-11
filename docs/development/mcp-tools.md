@@ -245,7 +245,9 @@ constant with no runtime recompute. A portable test recounts it against `data/en
 so a build whose published id set moved fails the gate rather than shipping a colliding handle.
 
 Every id argument accepts the whole canonical UUID **or** any prefix that names exactly one
-published id — the handle a response just printed is always one of those. A prefix that matches
+published id — the handle a response just printed is always one of those, and the tool schemas say
+so: an id parameter is described as the id a row prints, never as a canonical UUID an agent would
+then fan out to resolve. A prefix that matches
 several answers `ERR_INPUT` and names the ids it matched; nothing is guessed. A handle resolves
 against the catalog the current run publishes, so when no catalog is published the refusal says
 that — `ERR_UNAVAILABLE`, the same lifecycle fact the whole UUID for the same entity answers with —

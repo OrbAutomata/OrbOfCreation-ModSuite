@@ -696,7 +696,7 @@ internal sealed class GameMcpProtocolRouter
                 ActionSchema(
                     new JObject
                     {
-                        ["uuid"] = StringSchema("Canonical UUID from structures (shown in game as attributes) or upgrades; kind is derived."),
+                        ["uuid"] = StringSchema("Structure (shown in game as an attribute) or upgrade id; kind is derived."),
                         ["amount"] = IntegerSchema(1, 1000),
                     },
                     "uuid", "amount")),
@@ -709,7 +709,7 @@ internal sealed class GameMcpProtocolRouter
                     {
                         ["mode"] = EnumSchema("fire", "release", "toggle_off"),
                         ["slot"] = IntegerSchema(1, 256),
-                        ["uuid"] = StringSchema("Spell recipe UUID currently occupying the slot."),
+                        ["uuid"] = StringSchema("Spell recipe id currently occupying the slot."),
                         ["charge"] = BooleanSchema(
                             "Hold the cast button down so the spell charges; release with mode=release."),
                     },
@@ -724,7 +724,7 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["mode"] = EnumSchema("add", "remove_owned"),
-                        ["uuid"] = StringSchema("Alchemy recipe UUID."),
+                        ["uuid"] = StringSchema("Alchemy recipe id."),
                         ["amount"] = IntegerSchema(1, 1_000_000),
                     },
                     "mode", "uuid", "amount")),
@@ -739,7 +739,7 @@ internal sealed class GameMcpProtocolRouter
                             "add_plot_action", "remove_plot_action",
                             "add_element", "remove_element", "add_element_action",
                             "remove_element_action"),
-                        ["uuid"] = StringSchema("Published plot or harvest-element UUID."),
+                        ["uuid"] = StringSchema("Published plot or harvest-element id."),
                         ["actionUuid"] = StringSchema(
                             "Published action UUID offered by that plot or element."),
                         ["amount"] = IntegerSchema(1, 10_000),
@@ -761,7 +761,7 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["mode"] = EnumSchema("enable", "disable"),
-                        ["uuid"] = StringSchema("Published structure UUID; shown in game as an attribute."),
+                        ["uuid"] = StringSchema("Published structure id; shown in game as an attribute."),
                     },
                     "mode", "uuid"),
                     ModeRule("enable"),
@@ -776,7 +776,7 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["mode"] = EnumSchema("single", "all"),
-                        ["uuid"] = StringSchema("Required only for single; a published spell-recipe UUID."),
+                        ["uuid"] = StringSchema("Required only for single; a published spell-recipe id."),
                     },
                     "mode"),
                     ModeRule("single", new[] { "uuid" }),
@@ -803,11 +803,11 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["mode"] = EnumSchema("staged", "preview", "add", "remove", "move"),
-                        ["uuid"] = StringSchema("A discovered recipe UUID, for preview and add."),
+                        ["uuid"] = StringSchema("A discovered recipe id, for preview and add."),
                         ["glyphs"] = ArraySchema(
                             ObjectSchema(new JObject
                             {
-                                ["uuid"] = StringSchema("Published augment GlyphSO UUID."),
+                                ["uuid"] = StringSchema("Published augment glyph id."),
                                 ["count"] = IntegerSchema(1, int.MaxValue),
                             }, "uuid", "count"), 0, 64),
                         ["slot"] = IntegerSchema(1, 256),
@@ -836,7 +836,7 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["mode"] = EnumSchema("submit", "randomize"),
-                        ["uuid"] = StringSchema("Required only for submit; use an eligible named targeting candidate UUID."),
+                        ["uuid"] = StringSchema("Required only for submit; an eligible named targeting candidate id."),
                     },
                     "mode"),
                     ModeRule("submit", new[] { "uuid" }),
@@ -852,7 +852,7 @@ internal sealed class GameMcpProtocolRouter
                     {
                         ["mode"] = EnumSchema(
                             "use", "cancel", "discard", "set_randomization", "move"),
-                        ["uuid"] = StringSchema("Published ConsumableSO UUID."),
+                        ["uuid"] = StringSchema("Published consumable id."),
                         ["amount"] = IntegerSchema(1, int.MaxValue),
                         ["enabled"] = BooleanSchema("Requested randomization state."),
                         ["list"] = EnumSchema("inventory", "hotbar"),
@@ -875,7 +875,7 @@ internal sealed class GameMcpProtocolRouter
                     {
                         ["mode"] = EnumSchema(
                             "craft", "automate", "cancel_manual", "cancel_automation"),
-                        ["uuid"] = StringSchema("Published CraftingRecipeSO UUID."),
+                        ["uuid"] = StringSchema("Published crafting recipe id."),
                     },
                     "uuid"),
                     ModeRule("craft"),
@@ -896,10 +896,10 @@ internal sealed class GameMcpProtocolRouter
                         ["components"] = ArraySchema(
                             ObjectSchema(new JObject
                             {
-                                ["uuid"] = StringSchema("A component UUID selected on the discovery screen."),
+                                ["uuid"] = StringSchema("A component id selected on the discovery screen."),
                                 ["count"] = IntegerSchema(1, int.MaxValue),
                             }, "uuid", "count"), 1, 64),
-                        ["uuid"] = StringSchema("Required for offer modes; a published DiscoveryTreeSO UUID."),
+                        ["uuid"] = StringSchema("Required for offer modes; a published discovery tree id."),
                         ["offerUuid"] = StringSchema("Required for offer_select and offer_confirm."),
                     },
                     "mode"),
@@ -919,7 +919,7 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["mode"] = EnumSchema("equip", "unequip"),
-                        ["uuid"] = StringSchema("Published EquipmentSO UUID."),
+                        ["uuid"] = StringSchema("Published equipment id."),
                         ["amount"] = IntegerSchema(1, int.MaxValue),
                     },
                     "mode", "uuid", "amount"),
@@ -933,7 +933,7 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["mode"] = EnumSchema("add", "remove"),
-                        ["uuid"] = StringSchema("Published ordinary AlchemyRecipeSO UUID."),
+                        ["uuid"] = StringSchema("Published ordinary alchemy recipe id."),
                         ["amount"] = IntegerSchema(1, int.MaxValue),
                     },
                     "mode", "uuid", "amount"),
@@ -948,7 +948,7 @@ internal sealed class GameMcpProtocolRouter
                     {
                         ["mode"] = EnumSchema(
                             "select", "deselect", "set_level", "activate", "cancel_duration", "end"),
-                        ["uuid"] = StringSchema("Published RitualSO UUID."),
+                        ["uuid"] = StringSchema("Published ritual id."),
                         ["level"] = IntegerSchema(
                             WorldRitualDecision.NativeMinimumStartingLevel, int.MaxValue - 1),
                     },
@@ -969,7 +969,7 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["mode"] = EnumSchema("purchase", "bonus"),
-                        ["uuid"] = StringSchema("Published levelable entity UUID."),
+                        ["uuid"] = StringSchema("Published levelable entity id."),
                         ["amount"] = IntegerSchema(1, 1000),
                     },
                     "mode", "uuid", "amount"),
@@ -1017,7 +1017,7 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["mode"] = EnumSchema("select", "queue", "abandon", "reroll", "state"),
-                        ["uuid"] = StringSchema("Required for select, queue, and abandon; a published ChallengeSO UUID."),
+                        ["uuid"] = StringSchema("Required for select, queue, and abandon; a published challenge id."),
                     },
                     "mode"),
                     ModeRule("select", new[] { "uuid" }),
@@ -1047,7 +1047,7 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["mode"] = EnumSchema("develop", "pause", "resume", "cancel", "bonus"),
-                        ["uuid"] = StringSchema("Published ResearchSO UUID."),
+                        ["uuid"] = StringSchema("Published research id."),
                         ["amount"] = IntegerSchema(1, int.MaxValue),
                     },
                     "mode", "uuid"),
@@ -1157,7 +1157,7 @@ internal sealed class GameMcpProtocolRouter
                     {
                         ["screen"] = StringSchema("Exact player-facing top-level screen name."),
                         ["subtab"] = StringSchema("Optional exact player-facing subtab name."),
-                        ["uuid"] = StringSchema("Optional published plot UUID to select after navigation."),
+                        ["uuid"] = StringSchema("Optional published plot id to select after navigation."),
                     },
                     "screen"),
                 readOnly: false,
@@ -1204,12 +1204,18 @@ internal sealed class GameMcpProtocolRouter
         return ObjectSchema(
             new JObject
             {
+                // The schema said "canonical D-format UUID" while every row on the surface printed a
+                // six-character handle and this verb resolved it — so an agent that believed the
+                // contract fanned out to recover whole UUIDs it never needed. The rule is said once
+                // here, on the verb every id is carried to, and every other id argument is named
+                // for what a row calls it.
                 ["uuids"] = ArraySchema(
-                    StringSchema("Canonical D-format stable UUID."),
+                    StringSchema(
+                        "An entity id: the short handle a row printed, or the whole UUID."),
                     1,
                     GameMcpWorldQuery.MaximumBatchSize),
                 ["uuid"] = StringSchema(
-                    "Singular alias for one canonical UUID; do not combine with uuids."),
+                    "Singular alias for one id; do not combine with uuids."),
                 ["category"] = StringSchema(
                     "Optional. Exact name returned by world_categories, naming which table the " +
                     "row is read from. An id resolves its own category, so this is only needed " +
