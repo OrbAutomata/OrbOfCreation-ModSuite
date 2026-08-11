@@ -559,8 +559,16 @@ internal static class GameMcpTextPage
         if (IsIdentity(item)) return Identity(item);
         if (item["current"] is { } current && item["maximum"] is { } maximum && item.Count == 2)
             return Scalar(current) + "/" + Scalar(maximum);
+        // A pair whose halves are equal describes a move that did not happen, and an arrow is how
+        // this page says one did. `on: no -> no` on a toggle that was already off spends a whole
+        // transition saying nothing changed; where the value is the same on both sides the value is
+        // the fact, so the page states it once and the arrow is kept for the moves that earn it.
         if (item["before"] is { } before && item["after"] is { } after && item.Count == 2)
-            return Scalar(before) + " -> " + Scalar(after);
+        {
+            return JToken.DeepEquals(before, after)
+                ? Scalar(after)
+                : Scalar(before) + " -> " + Scalar(after);
+        }
 
         // A requirement node with nothing under it is the answer, not the frame around one: naming
         // the operator, the tier and the owner of an empty tree said everything except that.

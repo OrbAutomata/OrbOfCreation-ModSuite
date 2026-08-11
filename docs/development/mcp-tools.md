@@ -213,7 +213,10 @@ than printing itself into a cell.
 - **A refusal is one line**: `refused (ERR_NOT_FOUND): The spell Beam Burst you tried to cancel is
   not currently active.` A decision block reads the same way, verdict first and sentence last:
   `equip: no (ERR_LIMIT) maximumAmount=0: Every slot in this loadout is in use.`
-- **A value beside its ceiling is `43/45`**, the way the screen shows it.
+- **A value beside its ceiling is `43/45`**, the way the screen shows it, and **a value that moved
+  is `1 -> 2`**. A pair whose halves are equal describes a move that did not happen, so the page
+  states the value once: a toggle that was already off answers `on: no`, never `on: no -> no`. The
+  pair still rides wherever the fact rides; what it no longer does is spend an arrow on nothing.
 - **A press that landed says so even when it has nothing to show for it.** The status word is
   dropped because the page under it already proves the answer — but an action the game exposes no
   read for has no page under it, and there the word is the whole answer: `committed`, and nothing

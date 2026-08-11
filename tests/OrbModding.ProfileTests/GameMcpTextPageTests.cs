@@ -451,6 +451,24 @@ public sealed class GameMcpTextPageTests
         Assert.Equal("level: 1 -> 2", Render(@"{'status':'committed','level':{'before':1,'after':2}}"));
     }
 
+    /// <summary>
+    /// An arrow is how this page says something moved, so a pair whose halves are equal spends one
+    /// on a move that did not happen. The value is the fact; the arrow is kept for the moves.
+    /// </summary>
+    [Fact]
+    public void A_value_that_did_not_move_is_stated_once_rather_than_pointed_at_itself()
+    {
+        Assert.Equal(
+            "feature: auto_buy\non: no",
+            Render(@"{'feature':'auto_buy','on':{'before':false,'after':false}}"));
+        Assert.Equal(
+            "feature: auto_buy\non: no -> yes",
+            Render(@"{'feature':'auto_buy','on':{'before':false,'after':true}}"));
+        Assert.Equal(
+            "uuid: cd5465\nlevel: 20",
+            Render(@"{'uuid':'cd5465','level':{'before':20,'after':20}}"));
+    }
+
     private static string Render(string json) =>
         GameMcpTextPage.Render(JToken.Parse(json.Replace('\'', '"')));
 }
