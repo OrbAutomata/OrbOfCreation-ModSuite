@@ -242,6 +242,60 @@ refusal from the other side, being the base of the power the modifier is divided
 price at infinity. Either way the entity publishes no price, and a consumer that finds none falls
 back rather than reading a zero as cheap.
 
+## Entity keywords
+
+The word line under a tooltip title is `ITooltipable.GetDisplayType()`, and sixteen classes author it
+by joining the display names of a list of type assets — the words a player means by "all Cantrips" or
+"every Druidry structure". A type asset is not a tag: it is a modifier-bearing sibling entity, so the
+keyword and the bonus that rides on it are the same object.
+
+`WorldEntityKeyword.cs` publishes that membership for the thirteen classes no other category binds,
+as one table keyed by the entity rather than as a column on thirteen row structs, because the word
+line is one player concept spanning all of them. Three of the sixteen are absent by design: research,
+consumable, and spell-recipe types are already bound whole by their own categories and carry more
+than the keyword — investment levels, carry loads, graph edges — so re-reading them here would
+publish one native member twice under two owners.
+
+Two of the thirteen were previously published *lossily* rather than merely narrowly, which is the
+reason this table exists at all:
+
+| Entity | Was published | What the tooltip shows |
+| --- | --- | --- |
+| Structure | `structureType` alone | `GetAllTypes()` — the subtypes prepended with the primary type |
+| Alchemy recipe | `GetCoreType()`, which is `alchemyTypes.Last()` | every authored type; each recipe has exactly two |
+
+Both older bindings stay: a structure's primary type and a recipe's core type are real game concepts
+with their own consumers. The full lists are published beside them.
+
+Each row names the authored member it came from and that member's own ordinal, so the table's order
+is **not** display order. The two composite classes compose in opposite directions —
+`StructureSO.GetAllTypes()` prepends the primary type, `EquipmentSO.GetAllEquipmentTypes()` appends
+it — so flattening them during capture would bake one class's order into the other's. Assembling the
+line is a derivation.
+
+The category is whole-or-withheld: one unbindable member withholds every keyword, with the failing
+members named. A partial keyword table is indistinguishable from a table whose entities genuinely
+have no keywords, and telling those two apart is the only question it exists to answer. Upgrades are
+the large surface that genuinely has none — 229 of them author a constant string and read no type
+field — so an empty keyword list is a real answer and must stay trustworthy.
+
+### Keyword ids resolve to words, and only through the display name
+
+Capture publishes identities and never words, so a keyword id becomes a word through the live entity
+identity catalog like any other id. That works because every one of the sixteen taxonomies derives
+from `IdScriptableObject`, which is what puts its assets in `RuntimeLookup` with a stable uuid;
+`KeywordVocabularyContractTests` pins exactly that against the audited build, together with each
+taxonomy's `All` registry — the enumerable vocabulary, including the words no entity carries and the
+global catch-all type every member is also registered against.
+
+This is the one place the catalog's names are **not** diagnostics. Elsewhere a display name is
+presentation metadata and an empty one costs nothing; a type asset's display name *is* the
+player-visible keyword, so an empty one is a lost word rather than a cosmetic gap. The consequence is
+narrow and specific: keyword resolution must read the display name and must not fall back to the
+asset name. `ChallengeTypeSO` is why — its seven assets are effect-targetable with empty display
+names, deliberately wordless, and an asset-name fallback would invent seven keywords the game never
+shows.
+
 ## What is deliberately not collected
 
 An immutable publication may not carry a list, and wrapping each list in an audited table is a
@@ -322,12 +376,12 @@ freezes the generation for the same reason and with the same effect.
 One file per category under `src/Common/Runtime/World/Categories/`, each holding that category's row
 struct and its binder. The machinery lives one directory up: `WorldCategoryMachinery.cs` (buffers,
 readers, derivers), `NativeAccessorBinder.cs` (member binding), `GameWorldCollector.cs` (the pass, and
-owner of the 60-reader array), `GameWorldStateDeriver.cs` (the four derived row kinds — resource,
+owner of the 61-reader array), `GameWorldStateDeriver.cs` (the four derived row kinds — resource,
 structure, upgrade, plot node).
 
-Nine readers are **structural**: plot authoring, effect blocks, spell authoring, entity requirement
+Ten readers are **structural**: plot authoring, effect blocks, spell authoring, entity requirement
 graphs, purchase view relations, crafting recipe types, crafting recipe authored edges, structure
-costs, and upgrade costs describe what the game's authors wrote rather than what the player has done, so they re-read only when the frame
+costs, upgrade costs, and entity keywords describe what the game's authors wrote rather than what the player has done, so they re-read only when the frame
 arrives under a lifecycle epoch this collector has not already read for. Immutable output tables are
 still derived on the worker for every publication — only the repeated Unity/native traversal is
 skipped. Their paired live facts remain ordinary 250-millisecond collection: prerequisite-link and
@@ -357,7 +411,7 @@ its registry and fallback rules are normative in the
 
 Most tables are one row per entity and are walked by the identity check. Which tables the walk skips is
 stated in exactly one place — `NotIdentityTables` in
-`tests/OrbModding.Tests/Runtime/Verification/WorldIdentityWalkTests.cs`, currently 41 names — because
+`tests/OrbModding.Tests/Runtime/Verification/WorldIdentityWalkTests.cs`, currently 42 names — because
 every second reading of an entity another table already claims lands there. Five exclusions have reasons
 worth knowing:
 

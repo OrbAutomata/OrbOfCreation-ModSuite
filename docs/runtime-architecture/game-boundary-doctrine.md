@@ -101,6 +101,15 @@ After bind, a missing label reports one UUID-only warning per `(generation, UUID
 back to authored bootstrap metadata. MCP entity references, refusal receipts, feature diagnostics,
 logs, and traces all use this same substrate; names remain diagnostics and never identity authority.
 
+One class of entity is the exception, and it is an exception about *meaning*, not about authority. A
+`*TypeSO` asset's display name is the keyword word the game prints in a tooltip's word line, so for
+the sixteen keyword taxonomies the display name is player-facing content that a consumer is entitled
+to read as the word itself. Identity authority is unchanged — the uuid is still the key and the name
+still proves nothing — but two things follow that do not hold for ordinary entities: an empty name is
+a lost keyword rather than a cosmetic gap, and the fallback ladder must not be walked, because an
+asset name is a diagnostic and would be shown as a word the game never prints. See
+[world collection](world-collection.md#keyword-ids-resolve-to-words-and-only-through-the-display-name).
+
 Portable and installed-contract gates prove this shape and its exact native members. Stability of
 the live registry at `RuntimeReady` remains a supervised promotion check; this lane does not claim
 live UAT and does not launch the game.
