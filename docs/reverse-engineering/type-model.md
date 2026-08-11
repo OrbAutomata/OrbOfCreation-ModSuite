@@ -127,9 +127,16 @@ this does not hold is `SpellTypeSO`, which has no distributor field at all: `Spe
 multiplies `Spell.GetSpellTypePowerPercent()` in as an independent layer, aggregating
 `GetPower().AsPercent()` over the spell's effective type set.
 
-What is genuinely absent from the member side is the distributor's *own* total — the `Adjust(100)`
-its tooltip prints. That is pure arithmetic over its two modifier dictionaries, both of which are
-runtime state and therefore absent from any serialized dump.
+The distributor's *own* total — the `Adjust(100)` its tooltip prints — is absent from the member side
+and from any serialized dump, because it is arithmetic over two dictionaries that are pure runtime
+state. The suite folds it on the worker from the captured entries and publishes it as
+`TypeModifierTotals`, under names (`DistributedTotal…`) that cannot be mistaken for a member value;
+see [world collection](../runtime-architecture/world-collection.md).
+
+A fourth record class is easy to miss: `ResearchTypeSO.levelRequirementAdjust` is a plain
+`ModifierRecord`. It holds no value of its own like a distributor, but `RegisterResearch` wires only
+`power` and `maxLevelCap` into members, so it distributes to nothing — and its total is therefore the
+one that genuinely is *not* already inside a member value.
 
 One boundary inside this stays `Unresolved`: `MergeEntry`'s `mod`, `expMod`, `condition` and
 `orderAdjust` are `Func<>` delegates created at `AddRecord` time. IL proves *that* a transform is

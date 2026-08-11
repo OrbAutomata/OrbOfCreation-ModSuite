@@ -72,6 +72,45 @@ Two facts make that the cheaper side of the trade, and both are load-bearing tog
 This is recorded so it is not re-litigated. A future reviewer proposing to move it is proposing the
 allocation, and has to answer for that instead of for the arithmetic.
 
+The type-level fold is **not** that exception and must not be confused with it. A type's own record
+holds no value, has no dirty flag and no memo, and the game recomputes its total every time it is
+asked for — so there is nothing to short-circuit and nothing to copy across a boundary that capture
+has not already published. `WorldTypeModifierTotalDeriver` folds the published contribution rows on
+the worker, which is where owned math belongs by default. Capture takes entries; derivation takes
+totals.
+
+### A type total and a member value are one bonus, and the names say so
+
+Eleven of the fourteen modifier-bearing taxonomies reach their members by **distribution**: a
+modifier landing on a `MergingModifierRecord` or an `OrderedMultiplierRecord` is pushed, transformed,
+into every member record registered with `AddRecord`, so the member's own `ValueModifierRecord` —
+which this suite already collects and folds — carries the result. Multiplying a derived type total
+into a member value the snapshot already publishes counts one bonus twice, and every number along the
+way stays plausible.
+
+Publishing the total anyway is the answer world collection gives everywhere else — publish the facts,
+not a goal-shaped subset of them. Withholding the totals whose members happen to be well covered
+would drop `structurePower`, which is the single most useful number
+for "is this attribute worth investing in", precisely because it is well covered. The guard is a
+naming convention plus a test rather than a withheld fact:
+
+- **A distributor's total is only ever reachable as `DistributedTotal…`.** The member value keeps the
+  plain property name. `Property` cannot carry the distinction on its own — nine of the thirteen
+  structure pairs name the type record and the member record identically — so the magnitude's own
+  name has to, and a consumer that wrote `total.Power` does not compile.
+- **`RecordNativeType` says which kind of record it was.** A `ValueModifierRecord` gets no derived
+  total at all, because it is folded where it is published. `ResearchTypeSO.levelRequirementAdjust`
+  is the one plain `ModifierRecord`: it holds no value *and* distributes to nothing, so its total is
+  the only one that is not also inside a member value.
+- **The rule is a test, not a comment.** `NoDerivationMultipliesATypeTotalIntoTheMemberValueItAlreadySitsIn`
+  sweeps every magnitude on every derived modifier row reflectively, so a magnitude added later
+  inherits the rule instead of escaping it.
+
+`SpellTypeSO` is the single exception in the other direction: all twenty-two of its records are
+values, nothing distributes, and `Spell.GetPower()` multiplies the type layer in as its own factor.
+That product is derived as `SpellTypeResonance`, and it is the one place combining a type's number
+into a member's is correct.
+
 ### Live entity identity catalog
 
 `RuntimeIdentityRegistryBinding` is the one Common-owned binding for

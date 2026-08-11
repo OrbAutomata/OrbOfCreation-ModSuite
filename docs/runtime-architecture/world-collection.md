@@ -315,7 +315,34 @@ or from the serialized assets.
 
 Capture stops at the entries. A distributor holds no value of its own — its total is `Adjust(100)`,
 which is arithmetic, and arithmetic on the Unity thread is exactly what this boundary refuses. The
-fold belongs in derivation with the rest of the modifier math.
+fold runs on the worker instead, and publishes three derived tables:
+
+| Table | Key | Carries |
+| --- | --- | --- |
+| `TypeModifierTotals` | type asset + record member | `DistributedTotalPercent` (`Adjust(100)`), the same total as a multiplier, and how many entries it folded |
+| `KeywordModifiers` | type asset + member kind + record member | that total again, with how many members of that kind the keyword reaches |
+| `SpellTypeResonance` | loadout position | the power, cost and cooldown-speed factors the spell's live type set multiplies in |
+
+The seed is 100 because that is what the game passes: `OrderedMultiplierRecord.GetTotalPercent()` is
+`Adjust((BigDouble)100)` beautified with a percent sign, and `GetTotalMultiplier()` is `AsPercent` of
+that same number. `MergingModifierRecord` has no `GetTotal…` pair of its own — it inherits the same
+`ModifierRecord.Adjust` and holds no `baseValue` to seed with instead — so that seed is the only
+honest one for it too. A `ValueModifierRecord` gets no derived total: it is folded where it is
+published, and folding it again from these entries would be a second answer to a settled question.
+
+`KeywordModifiers` counts members from the authored membership `entity keywords` publishes, closed
+transitively over the subtype edge, and never from a type's runtime registration list — reading that
+would publish one fact twice under two owners and would still miss the edge. A member named by
+several rungs of a chain counts once. A type nothing wears gets no row; its total is still on
+`TypeModifierTotals`. Spell types have no rows here at all, because none of their records
+distributes and a spell's types are published as spell-graph relations rather than keyword edges.
+
+`SpellTypeResonance` reproduces `Spell.GetResonantPercent`: a product over `GetNotSpellTypes()`
+**concatenated with** `augmentedSpellTypes` — a concatenation and not a set union, so a type named by
+both halves multiplies twice — with each type's value taken `AsPercent`, and, when the product of the
+types' elemental resonances is not approximately one, every `IsElemental()` type's percent raised to
+that resonance first. A slot naming a type the world did not publish gets no row: a product short one
+factor is a smaller number that still reads like an answer.
 
 > **A published type total and a published member value are not two factors.** Eleven of the fourteen
 > taxonomies reach their members by *distribution*: when a modifier lands on a
@@ -328,6 +355,21 @@ fold belongs in derivation with the rest of the modifier math.
 
 `ValueModifierRecord` is how the two are told apart, which is why the record class is published on
 every row and pinned per member by `TypeModifierContractTests` against the audited build.
+
+The rule is enforced by the names rather than left to a reader's memory: a derived type total is only
+ever reachable as `DistributedTotal…`, while the member value keeps the plain property name. The
+record member's own name cannot carry the distinction — nine of the thirteen structure pairs name the
+type record and the member record identically — so a consumer that wrote `total.Power` does not
+compile.
+`NoDerivationMultipliesATypeTotalIntoTheMemberValueItAlreadySitsIn` sweeps every magnitude on every
+derived modifier row reflectively and asserts the product appears nowhere, so a magnitude added later
+inherits the rule instead of escaping it. The naming convention is normative in the
+[game boundary doctrine](game-boundary-doctrine.md#a-type-total-and-a-member-value-are-one-bonus-and-the-names-say-so).
+
+One record holds no value *and* distributes to nothing: `ResearchTypeSO.levelRequirementAdjust` is a
+plain `ModifierRecord`, and `RegisterResearch` wires only `power` and `maxLevelCap` into its members.
+Its total is the single one on `TypeModifierTotals` that is not also inside a member value, and
+`RecordNativeType` is what says so.
 
 ### The reads that bound a type-level bonus
 
@@ -439,7 +481,11 @@ One file per category under `src/Common/Runtime/World/Categories/`, each holding
 struct and its binder. The machinery lives one directory up: `WorldCategoryMachinery.cs` (buffers,
 readers, derivers), `NativeAccessorBinder.cs` (member binding), `GameWorldCollector.cs` (the pass, and
 owner of the 63-reader array), `GameWorldStateDeriver.cs` (the four derived row kinds — resource,
-structure, upgrade, plot node).
+structure, upgrade, plot node). Derivation that reads more than one published table is assembled in
+`GameWorldCycleFrame.cs`, where such tables are built as locals before the snapshot is composed:
+`WorldTypeModifierTotal.cs`, `WorldKeywordModifier.cs`, and `WorldSpellTypeResonance.cs` are the
+modifier half of that, and they add no reader and no category — a derived table has no
+`WorldCategoryReport` to publish.
 
 Ten readers are **structural**: plot authoring, effect blocks, spell authoring, entity requirement
 graphs, purchase view relations, crafting recipe types, crafting recipe authored edges, structure
@@ -473,7 +519,7 @@ its registry and fallback rules are normative in the
 
 Most tables are one row per entity and are walked by the identity check. Which tables the walk skips is
 stated in exactly one place — `NotIdentityTables` in
-`tests/OrbModding.Tests/Runtime/Verification/WorldIdentityWalkTests.cs`, currently 42 names — because
+`tests/OrbModding.Tests/Runtime/Verification/WorldIdentityWalkTests.cs`, currently 51 names — because
 every second reading of an entity another table already claims lands there. Five exclusions have reasons
 worth knowing:
 
