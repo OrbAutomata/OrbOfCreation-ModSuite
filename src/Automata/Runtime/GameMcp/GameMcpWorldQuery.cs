@@ -400,6 +400,7 @@ internal static class GameMcpWorldQuery
                 ["entityId"] = upgrade.EntityId.ToString("D"),
                 ["level"] = upgrade.Reading.Level,
                 ["queuedLevels"] = upgrade.Reading.QueuedLevels,
+                ["screen"] = UpgradeScreen(world, upgrade.EntityId),
                 ["state"] = UpgradeState(in upgrade),
                 ["maximum"] = UpgradeCeiling(in upgrade),
                 ["requirements"] = RequirementWord(
@@ -763,6 +764,62 @@ internal static class GameMcpWorldQuery
     /// </summary>
     private static object UpgradeCeiling(in WorldUpgrade upgrade) =>
         upgrade.IsBounded ? upgrade.Reading.MaxLevel : GameMcpListColumns.Uncapped;
+
+    /// <summary>
+    /// Which screen's upgrade panel shows this row, from the authored list it is a member of.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The panel a player opens is one <c>UIUpgradeList</c> whose contents swap with the active
+    /// screen, so membership in an authored list <em>is</em> the screen fact. Every upgrade is on
+    /// the catch-all list, which is what makes the catch-all worthless as an answer wherever a
+    /// screen list also carries the row — and exactly right where none does.
+    /// </para>
+    /// <para>
+    /// Three things fail closed to <see cref="GameMcpListColumns.Unreadable"/> rather than to a
+    /// plausible word: a withheld membership publication, a row the publication does not mention,
+    /// and a row two screen panels both claim. The last is impossible on the pinned build — the
+    /// eight screen lists are disjoint — which is the point: if it ever stops being impossible, the
+    /// column says so instead of picking a winner.
+    /// </para>
+    /// </remarks>
+    private static string UpgradeScreen(GameWorldState world, Guid upgradeId)
+    {
+        if (!WorldUpgradeListMembershipLookup.TryFindRange(
+                world.UpgradeListMemberships, upgradeId, out var start, out var count))
+        {
+            return GameMcpListColumns.Unreadable;
+        }
+
+        var screen = string.Empty;
+        var everyUpgradeList = false;
+        for (var index = 0; index < count; index++)
+        {
+            var listId = world.UpgradeListMemberships[start + index].ListId;
+            if (listId == GameMcpListColumns.EveryUpgradeList)
+            {
+                everyUpgradeList = true;
+                continue;
+            }
+
+            var word = string.Empty;
+            for (var screenIndex = 0; screenIndex < GameMcpListColumns.Screens.Length; screenIndex++)
+            {
+                if (GameMcpListColumns.Screens[screenIndex].ListId != listId) continue;
+                word = GameMcpListColumns.Screens[screenIndex].Word;
+                break;
+            }
+            if (word.Length == 0 || (screen.Length > 0 && screen != word))
+                return GameMcpListColumns.Unreadable;
+            screen = word;
+        }
+
+        return screen.Length > 0
+            ? screen
+            : everyUpgradeList
+                ? GameMcpListColumns.ScreenAll
+                : GameMcpListColumns.Unreadable;
+    }
 
     /// <summary>
     /// How far the player has come with this purchase, in the one vocabulary every purchasable
@@ -3593,7 +3650,7 @@ internal static class GameMcpWorldQuery
             : row is WorldStructure structure
             ? ProjectStructure(in structure)
             : row is WorldUpgrade upgrade
-            ? ProjectUpgrade(in upgrade)
+            ? ProjectUpgrade(world, in upgrade)
             : row is WorldPurchaseCost purchaseCost
             ? ProjectPurchaseCost(world, in purchaseCost).Freeze()
             : row is WorldCraftingRecipe craftingRecipe
@@ -3655,12 +3712,13 @@ internal static class GameMcpWorldQuery
     /// <c>world_get</c> shares the list's vocabulary, so it says the lifecycle in the same word the
     /// page does rather than in a second grammar of its own.
     /// </summary>
-    private static GameMcpValue ProjectUpgrade(in WorldUpgrade upgrade)
+    private static GameMcpValue ProjectUpgrade(GameWorldState world, in WorldUpgrade upgrade)
     {
         var result = new JObject
         {
             ["entityId"] = upgrade.EntityId.ToString("D"),
             ["category"] = "upgrades",
+            ["screen"] = UpgradeScreen(world, upgrade.EntityId),
             ["state"] = UpgradeState(in upgrade),
             ["level"] = upgrade.Reading.Level,
 

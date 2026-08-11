@@ -429,7 +429,7 @@ written unconditionally so the header is the same one before and after a lifecyc
 | --- | --- |
 | `rituals` | `discovered`, `selected`, `reachedLevel`, `selectedLevel`, `waveTotal`, `affordable` |
 | `research` | `state`, `paused`, `totalLevel`, `queuedLevels`, `requirements`, `canDevelop`, `affordable` |
-| `upgrades` | `level`, `queuedLevels`, `state`, `maximum`, `requirements`, `affordable` |
+| `upgrades` | `level`, `queuedLevels`, `screen`, `state`, `maximum`, `requirements`, `affordable` |
 | `structures` | `level`, `queuedLevels`, `state`, `enabled`, `affordable` |
 | `equipment` | `created`, `equippedCount` |
 | `resource-types` | `level`, `hidden` |
@@ -440,6 +440,46 @@ which a pause moves and the lifecycle never does; `canDevelop` is the develop de
 publishes, and `affordable` is the published cost verdict for the next development, which is a fact
 of the row rather than of the develop gate — so the scan row carries it everywhere instead of only
 where that gate is open.
+
+#### Which screen shows an upgrade
+
+The Upgrades panel is the persistent right-hand strip, and **what it holds changes with the screen
+you are on**: the game swaps one of nine hand-authored membership lists into it as the active screen
+changes. Membership in one of those lists is therefore the whole fact about where a row is found,
+and `screen` is that fact in the game's own tab word:
+
+| word | list | rows | where the player finds them |
+| --- | --- | --- | --- |
+| `magic` | `MagicScreenUpgrades` | 61 | Magic |
+| `workshop` | `WorkshopScreenUpgrades` | 43 | Workshop |
+| `world` | `WorldScreenUpgrades` | 40 | World |
+| `alchemy` | `AlchemyUpgradesList` | 30 | Alchemy |
+| `scholar` | `ScholarScreenUpgrades` | 27 | Scholar |
+| `rituals` | `RItualScreenUpgrades` | 21 | Rituals |
+| `aspects` | `AspectUpgradesList` | 3 | World > Aspects, the three pedestals |
+| `time` | `TimeScreenUpgrades` | 0 | Time |
+| `all` | `AllUpgrades` | 4 | nowhere in particular — see below |
+
+The eight screen lists are disjoint and cover 225 of the 229 upgrades. `all` is **not** a ninth
+screen: `AllUpgrades` holds every upgrade in the game, so saying it about a row a screen list also
+carries would say the same thing about all 229 rows. It is the word only where it is the whole
+truth — the four `Raise …` cap-raisers, which no screen panel groups and which the player meets in
+the ungrouped Upgrades list and in the alert badge the game gives them of their own.
+
+Three of the nine lists — Scholar's 27, the 3 aspects, and the empty Time list — are named by **no**
+`ViewSO` anywhere in the game's object graph. Their only consumer is prefab `ListViewSwapper` data,
+outside both the assembly and the serialized dump, which is why deriving the column from captured
+view routes alone would have marked Scholar's 27 upgrades exactly like the 4 that genuinely sit on
+no screen. Those three lists are reached instead by the identity they carry: the pinned uuid goes
+into the game's own identity registry and an `UpgradeListVariable` has to come back out. That makes
+the pairing of list to word a constant of the pinned build rather than a guess, and every authored
+upgrade list is pinned, so a build that adds a tenth panel fails the suite's own tests rather than
+quietly wording its rows as if it did not exist.
+
+A row the suite could not read the membership of says `unreadable` and never a plausible screen.
+Membership is published whole or withheld whole for the same reason: a row missing from a partial
+table is indistinguishable from a row on no screen, and one of those is a fact the column is
+entitled to state.
 
 #### A list row carries durable facts only
 
@@ -530,7 +570,8 @@ number is repeated under a second name. Both are exact counts on the wire: the b
 and `affordable` on every row, in every world state. `maximum` is the honest ceiling and reads one
 of three ways: `1` for the 214 one-and-done upgrades, the finite `N` for the 11 repeat-grind lines,
 and `uncapped` for the four `Raise …` cap-raisers the game marks with a negative native maximum —
-never `0`, which would read as a cap of zero and as nothing left to buy. A finished upgrade reads
+never `0`, which would read as a cap of zero and as nothing left to buy. `screen` says where the
+game shows the row. A finished upgrade reads
 `affordable: unpriced`, because a level that cannot be bought has no price to be short of, and one
 the world publishes no cost for reads the same; `state: completed` is what says it is finished, and
 it says it once. `world_list` and `world_get` publish the same vocabulary, so a page of uncapped

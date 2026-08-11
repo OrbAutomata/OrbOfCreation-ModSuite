@@ -1,6 +1,7 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
 using System.Collections.Generic;
+using OrbModding.Common;
 
 namespace OrbAutomata.GameMcp;
 
@@ -106,6 +107,72 @@ internal static class GameMcpListColumns
     /// <summary>The suite could not read this fact from the game this generation.</summary>
     internal const string Unreadable = "unreadable";
 
+    /// <summary>
+    /// Which screen's upgrade panel groups this row, in the player's own word for that screen.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The game's grouping axis for upgrades is the screen, and it spells it as nine hand-authored
+    /// <c>UpgradeListVariable</c> assets swapped into one panel by <c>ListViewSwapper</c> on the
+    /// active view. Eight of them are disjoint screen panels; the ninth, <c>AllUpgrades</c>, holds
+    /// every upgrade in the game, so membership in it is not a screen fact at all. That is why it is
+    /// not the word for a row a real screen also carries: it would say the same thing about all 229
+    /// rows and so say nothing. It is the word only where it is the whole truth — the four
+    /// cap-raisers, which no screen panel carries and which the player therefore finds only on the
+    /// Upgrades screen.
+    /// </para>
+    /// <para>
+    /// Each word is the game's own tab label, lowercased — the seven top-bar screens plus the one
+    /// subtab that sells upgrades of its own, World &gt; Aspects. Naming that subtab rather than its
+    /// screen is the more useful truth: the three aspects are not on the World panel, and a reader
+    /// told <c>world</c> would look for them there.
+    /// </para>
+    /// <para>
+    /// The words are pinned against list identities rather than read off a name. Six of the nine
+    /// lists carry no authored display name at all, and a name is a diagnostic under the boundary
+    /// doctrine either way; the identity is the stable key, and the pinned build is what makes the
+    /// pairing a constant rather than a guess. A row whose membership the suite could not read says
+    /// <see cref="Unreadable"/> and never a plausible screen: membership is published whole or
+    /// withheld whole, so a guess here would be indistinguishable from the truth.
+    /// </para>
+    /// </remarks>
+    internal const string ScreenMagic = "magic";
+    internal const string ScreenWorkshop = "workshop";
+    internal const string ScreenWorld = "world";
+    internal const string ScreenAlchemy = "alchemy";
+    internal const string ScreenRituals = "rituals";
+    internal const string ScreenScholar = "scholar";
+    internal const string ScreenAspects = "aspects";
+    internal const string ScreenTime = "time";
+
+    /// <summary>The catch-all Upgrades panel, and the word only for a row no screen panel carries.</summary>
+    internal const string ScreenAll = "all";
+
+    /// <summary>
+    /// The authored list identity behind each screen word, and the one list that is not a screen.
+    /// </summary>
+    /// <remarks>
+    /// Three of these lists — Scholar's twenty-seven upgrades, the three world aspects, and the
+    /// empty Time list — are named by no <c>ViewSO</c> anywhere in the serialized object graph:
+    /// their only consumer is prefab swapper data that lives outside both the assembly and the
+    /// dump. Pinning the identity is what reaches them, and it is why Scholar's upgrades say
+    /// <see cref="ScreenScholar"/> here instead of disappearing into the same blank the four
+    /// cap-raisers would have left.
+    /// </remarks>
+    internal static readonly (Guid ListId, string Word)[] Screens =
+    {
+        (KnownEntities.UpgradesMagicScreen.Uuid, ScreenMagic),
+        (KnownEntities.UpgradesWorkshopScreen.Uuid, ScreenWorkshop),
+        (KnownEntities.UpgradesWorldScreen.Uuid, ScreenWorld),
+        (KnownEntities.UpgradesAlchemyScreen.Uuid, ScreenAlchemy),
+        (KnownEntities.UpgradesRitualScreen.Uuid, ScreenRituals),
+        (KnownEntities.UpgradesScholarScreen.Uuid, ScreenScholar),
+        (KnownEntities.UpgradesAspectsScreen.Uuid, ScreenAspects),
+        (KnownEntities.UpgradesTimeScreen.Uuid, ScreenTime),
+    };
+
+    internal static Guid EveryUpgradeList => KnownEntities.UpgradesAll.Uuid;
+
     /// <summary>The slot holds nothing.</summary>
     internal const string Empty = "empty";
 
@@ -203,7 +270,8 @@ internal static class GameMcpListColumns
             new[] { "entityId", "level", "queuedLevels", "state", "enabled", "affordable" },
         ["upgrades"] = new[]
         {
-            "entityId", "level", "queuedLevels", "state", "maximum", "requirements", "affordable",
+            "entityId", "level", "queuedLevels", "screen", "state", "maximum", "requirements",
+            "affordable",
         },
         ["equipment"] = new[] { "entityId", "created", "equippedCount" },
         ["rituals"] = new[]

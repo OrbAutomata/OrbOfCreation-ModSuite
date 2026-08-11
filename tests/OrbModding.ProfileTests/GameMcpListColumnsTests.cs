@@ -21,6 +21,8 @@ public sealed class GameMcpListColumnsTests
     private static readonly Guid Capped = Guid.Parse("41111111-1111-4111-8111-111111111111");
     private static readonly Guid Uncapped = Guid.Parse("42222222-2222-4222-8222-222222222222");
     private static readonly Guid Exhausted = Guid.Parse("43333333-3333-4333-8333-333333333333");
+    private static readonly Guid Scholarly = Guid.Parse("44444444-4444-4444-8444-444444444445");
+    private static readonly Guid Aspect = Guid.Parse("45555555-5555-4555-8555-555555555555");
 
     /// <summary>
     /// The round-8 defect: reading the upgrades page before a prestige listed the ceiling, and
@@ -92,12 +94,13 @@ public sealed class GameMcpListColumnsTests
             Upgrade(Exhausted, bounded: false)));
 
         Assert.Contains(
-            "these 6 share: level=3, queuedLevels=0, state=available, maximum=uncapped, " +
-            "requirements=met, affordable=unpriced",
+            "these 6 share: level=3, queuedLevels=0, screen=magic, state=available, " +
+            "maximum=uncapped, requirements=met, affordable=unpriced",
             page,
             StringComparison.Ordinal);
         Assert.Equal(
-            "[id | name | level | queuedLevels | state | maximum | requirements | affordable]",
+            "[id | name | level | queuedLevels | screen | state | maximum | requirements | " +
+            "affordable]",
             Bracket(page));
     }
 
@@ -232,7 +235,11 @@ public sealed class GameMcpListColumnsTests
             GameMcpListColumns.Manual,
             GameMcpListColumns.Unslotted,
             GameMcpListColumns.Unset,
-        }.Concat(BlockedCodes.Select(GameMcpListColumns.Word)).ToArray();
+            GameMcpListColumns.ScreenAll,
+        }
+            .Concat(GameMcpListColumns.Screens.Select(screen => screen.Word))
+            .Concat(BlockedCodes.Select(GameMcpListColumns.Word))
+            .ToArray();
 
         Assert.All(vocabulary, word =>
         {
@@ -258,6 +265,28 @@ public sealed class GameMcpListColumnsTests
                 GameMcpListColumns.Completed,
             }.OrderBy(word => word, StringComparer.Ordinal).ToArray());
         Assert.DoesNotContain("purchasable", vocabulary);
+
+        // The screen vocabulary is closed and every word in it is distinct: one authored list, one
+        // word, and the catch-all is not one of the eight screens.
+        Assert.Equal(8, GameMcpListColumns.Screens.Length);
+        Assert.Equal(
+            new[]
+            {
+                "alchemy", "aspects", "magic", "rituals", "scholar", "time", "workshop", "world",
+            },
+            GameMcpListColumns.Screens
+                .Select(screen => screen.Word)
+                .OrderBy(word => word, StringComparer.Ordinal)
+                .ToArray());
+        Assert.Equal(
+            GameMcpListColumns.Screens.Length,
+            GameMcpListColumns.Screens.Select(screen => screen.ListId).Distinct().Count());
+        Assert.DoesNotContain(
+            GameMcpListColumns.EveryUpgradeList,
+            GameMcpListColumns.Screens.Select(screen => screen.ListId));
+        Assert.DoesNotContain(
+            GameMcpListColumns.ScreenAll,
+            GameMcpListColumns.Screens.Select(screen => screen.Word));
 
         // A code with no word is a defect, not a cell to improvise in.
         Assert.Throws<InvalidOperationException>(
@@ -377,8 +406,93 @@ public sealed class GameMcpListColumnsTests
         // The word the whole model exists to keep off the surface.
         Assert.DoesNotContain("purchasable", page, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(
-            "[id | name | level | queuedLevels | state | maximum | requirements | affordable]",
+            "[id | name | level | queuedLevels | screen | state | maximum | requirements | " +
+            "affordable]",
             Bracket(page));
+    }
+
+    /// <summary>
+    /// Every row says which screen shows it, including the twenty-seven Scholar upgrades and the
+    /// three aspects whose lists no view in the game points at.
+    /// </summary>
+    /// <remarks>
+    /// This is the page the column exists for. Before it, deriving the screen from the captured
+    /// view routes would have left Scholar's upgrades blank — indistinguishable from the four
+    /// cap-raisers that genuinely sit on no screen panel — which is why the column was held back
+    /// rather than built from routes alone. The Scholar and aspect words come from pinned list
+    /// identities, and they are exactly as much of a fact as the routed ones.
+    /// </remarks>
+    [Fact]
+    public void An_upgrades_page_names_the_screen_that_shows_each_row_including_the_prefab_only_lists()
+    {
+        var memberships = new[]
+        {
+            new WorldUpgradeListMembership(Capped, KnownEntities.UpgradesMagicScreen.Uuid),
+            new WorldUpgradeListMembership(Capped, KnownEntities.UpgradesAll.Uuid),
+            new WorldUpgradeListMembership(Scholarly, KnownEntities.UpgradesScholarScreen.Uuid),
+            new WorldUpgradeListMembership(Scholarly, KnownEntities.UpgradesAll.Uuid),
+            new WorldUpgradeListMembership(Aspect, KnownEntities.UpgradesAspectsScreen.Uuid),
+            new WorldUpgradeListMembership(Aspect, KnownEntities.UpgradesAll.Uuid),
+            new WorldUpgradeListMembership(Uncapped, KnownEntities.UpgradesAll.Uuid),
+        };
+        var upgrades = new[]
+        {
+            Upgrade(Capped, bounded: true),
+            Upgrade(Scholarly, bounded: true),
+            Upgrade(Aspect, bounded: true),
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Exhausted, bounded: true, exhausted: true),
+        };
+
+        var rows = Rows(Page(memberships, upgrades));
+
+        Assert.Equal(
+            new[] { "magic", "scholar", "aspects", "all", "unreadable" },
+            rows.Select(row => (string?)row["screen"]).ToArray());
+
+        // The catch-all carries every upgrade in the game, so it is never the word for a row a
+        // screen panel also carries — only for the row no screen panel carries at all.
+        Assert.Equal("magic", (string?)rows[0]["screen"]);
+        Assert.Equal(
+            "[id | name | level | queuedLevels | screen | state | maximum | requirements | " +
+            "affordable]",
+            Bracket(GameMcpTextPage.Render(Page(memberships, upgrades))));
+    }
+
+    /// <summary>
+    /// A membership publication that did not land says so on every row instead of demoting thirty
+    /// upgrades to "on no screen", which is a different and equally sayable fact.
+    /// </summary>
+    [Fact]
+    public void A_withheld_membership_publication_never_reads_as_a_screen()
+    {
+        var rows = Rows(Page(
+            Array.Empty<WorldUpgradeListMembership>(),
+            Upgrade(Capped, bounded: true),
+            Upgrade(Uncapped, bounded: false)));
+
+        Assert.Equal(
+            new[] { "unreadable", "unreadable" },
+            rows.Select(row => (string?)row["screen"]).ToArray());
+    }
+
+    /// <summary>
+    /// Two screen panels claiming one row is not a screen fact this suite is entitled to pick a
+    /// winner for. It cannot happen on the pinned build — the eight lists are disjoint — and the
+    /// column is what would say so if it ever did.
+    /// </summary>
+    [Fact]
+    public void A_row_two_screens_both_claim_is_refused_rather_than_worded()
+    {
+        var rows = Rows(Page(
+            new[]
+            {
+                new WorldUpgradeListMembership(Capped, KnownEntities.UpgradesMagicScreen.Uuid),
+                new WorldUpgradeListMembership(Capped, KnownEntities.UpgradesWorldScreen.Uuid),
+            },
+            Upgrade(Capped, bounded: true)));
+
+        Assert.Equal("unreadable", (string?)rows.Single()["screen"]);
     }
 
     /// <summary>
@@ -571,7 +685,36 @@ public sealed class GameMcpListColumnsTests
             GameMcpTestHarness.Context(publisher.ReadLatest()), "alchemy-types", 0, 50));
     }
 
+    /// <summary>
+    /// The authored list each fixture upgrade sits on. All three share one screen so the pages that
+    /// pin a share line still hoist every column; the screen vocabulary itself is pinned by the page
+    /// that gives each row its own list.
+    /// </summary>
+    private static WorldUpgradeListMembership[] OneScreen() => new[]
+    {
+        new WorldUpgradeListMembership(Capped, KnownEntities.UpgradesMagicScreen.Uuid),
+        new WorldUpgradeListMembership(Uncapped, KnownEntities.UpgradesMagicScreen.Uuid),
+        new WorldUpgradeListMembership(Exhausted, KnownEntities.UpgradesMagicScreen.Uuid),
+    };
+
+    /// <summary>
+    /// The membership table exactly as the world publishes it, through the production deriver, so a
+    /// fixture cannot hand the surface an ordering the collector would never produce.
+    /// </summary>
+    private static PublicationTable<WorldUpgradeListMembership> Published(
+        WorldUpgradeListMembership[] memberships)
+    {
+        var buffer = new WorldRelationBuffer<WorldUpgradeListMembership>();
+        foreach (var membership in memberships) buffer.Append(membership);
+        return WorldUpgradeListMembershipDeriver.Build(buffer);
+    }
+
     private static GameWorldState UpgradesWorld(params WorldUpgrade[] upgrades) =>
+        UpgradesWorld(OneScreen(), upgrades);
+
+    private static GameWorldState UpgradesWorld(
+        WorldUpgradeListMembership[] memberships,
+        WorldUpgrade[] upgrades) =>
         new()
         {
             EntityIdentities = EntityIdentityCatalogSnapshot.Bound(1, new[]
@@ -579,8 +722,11 @@ public sealed class GameMcpListColumnsTests
                 new EntityIdentityName(Capped, "UpgradeSO", "Capped Rite", "cappedRite"),
                 new EntityIdentityName(Uncapped, "UpgradeSO", "Endless Rite", "endlessRite"),
                 new EntityIdentityName(Exhausted, "UpgradeSO", "Spent Rite", "spentRite"),
+                new EntityIdentityName(Scholarly, "UpgradeSO", "Scribism Scrolls II", "scribeScroll2"),
+                new EntityIdentityName(Aspect, "UpgradeSO", "Aspect: Rituals", "aspectRituals"),
             }),
             Upgrades = PublicationTable<WorldUpgrade>.Create(upgrades),
+            UpgradeListMemberships = Published(memberships),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus(
@@ -590,11 +736,16 @@ public sealed class GameMcpListColumnsTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
 
-    private static JObject Page(params WorldUpgrade[] upgrades)
+    private static JObject Page(params WorldUpgrade[] upgrades) =>
+        Page(OneScreen(), upgrades);
+
+    private static JObject Page(
+        WorldUpgradeListMembership[] memberships,
+        params WorldUpgrade[] upgrades)
     {
         using var publisher =
             new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(UpgradesWorld(upgrades), new WorldGeneration(733));
+        publisher.Publish(UpgradesWorld(memberships, upgrades), new WorldGeneration(733));
         return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(publisher.ReadLatest()), "upgrades", 0, 50));
     }
