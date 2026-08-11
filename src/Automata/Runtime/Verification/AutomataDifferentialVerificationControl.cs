@@ -198,6 +198,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         RunPass(new ConceptDrainPass());
         RunPass(new SpellLevelPass(compareAffordability: false));
         RunPass(new SpellLevelPass(compareAffordability: true));
+        RunPass(new SpellTypeLayerPass());
         RunPass(new CostPass());
         RunPass(new UpgradeCostPass());
         RunPass(new RatePass());
@@ -662,6 +663,117 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
             return _compareAffordability
                 ? _verifier.TryVerifyAffordability(entity, _world, run, session, out failure)
                 : _verifier.TryVerifyCost(entity, _world, run, session, out failure);
+        }
+    }
+
+    /// <summary>
+    /// Checks the derived spell type layer against the game's own factor, one loadout position at a
+    /// time.
+    /// </summary>
+    /// <remarks>
+    /// The only pass whose entities are positions rather than registry entries, because a loadout
+    /// position has no identity of its own and two of them may hold the same spell. It reads the
+    /// loadout the collector reads — the list the identity registry answers for <c>ActiveSpells</c> —
+    /// so a position here and a published row there are the same position by construction, rather
+    /// than by an assumption about which list a manager field happens to point at.
+    /// </remarks>
+    private sealed class SpellTypeLayerPass : IVerificationPass
+    {
+        private AutomataSpellTypeLayerVerifier? _verifier;
+        private GameWorldState? _world;
+
+        public string Subject => "Spell type layer";
+
+        public bool TryBegin(out IList entities, out string failure)
+        {
+            entities = Array.Empty<object>();
+
+            var source = RuntimeIdentityRegistryBinding.Shared.Read();
+            if (!source.IsReady || source.Registry is null)
+            {
+                failure = source.Reason;
+                return false;
+            }
+
+            var loadout = source.Registry[KnownEntities.ActiveSpells.Uuid];
+            if (loadout is null)
+            {
+                failure = "the equipped spell loadout is not registered yet. Load a save first.";
+                return false;
+            }
+
+            var loadoutType = loadout.GetType();
+            var spellType = NativeAccessorBinder.CollectionElementType(loadoutType, "value");
+            var readPositions = NativeAccessorBinder.CollectionField(loadoutType, "value");
+            if (spellType is null || readPositions is null)
+            {
+                failure = "this build does not expose the equipped loadout's positions.";
+                return false;
+            }
+
+            _verifier = new AutomataSpellTypeLayerVerifier(spellType);
+            if (!_verifier.IsAvailable)
+            {
+                failure = "this build does not expose the expected spell type layer oracle.";
+                return false;
+            }
+
+            // The same two entries the collector passes over, skipped for the same two reasons, so
+            // that every position reaching the comparison has a published row to compare against.
+            var positions = readPositions(loadout);
+            var count = positions?.Count ?? 0;
+            var occupants = new List<object>(count);
+            for (var index = 0; index < count; index++)
+            {
+                var occupant = positions![index];
+                if (occupant is null || occupant.GetType() != spellType) continue;
+                occupants.Add(new LoadoutPosition(index, occupant));
+            }
+
+            if (occupants.Count == 0)
+            {
+                failure = "no spell loadout positions were available. Load a save first.";
+                return false;
+            }
+
+            var collector = VerificationCollector();
+            collector.Collect();
+            _world = collector.Build();
+
+            entities = occupants;
+            failure = string.Empty;
+            return true;
+        }
+
+        public bool TryVerify(
+            object entity,
+            DifferentialRun run,
+            DifferentialVerificationSession session,
+            out string failure)
+        {
+            if (_verifier is null || _world is null)
+            {
+                failure = "the spell type layer verifier was not started.";
+                return false;
+            }
+
+            var position = (LoadoutPosition)entity;
+            return _verifier.TryVerify(
+                position.Spell, position.SlotIndex, _world, run, session, out failure);
+        }
+
+        /// <summary>One loadout position and what stands in it.</summary>
+        private sealed class LoadoutPosition
+        {
+            internal LoadoutPosition(int slotIndex, object spell)
+            {
+                SlotIndex = slotIndex;
+                Spell = spell;
+            }
+
+            internal int SlotIndex { get; }
+
+            internal object Spell { get; }
         }
     }
 

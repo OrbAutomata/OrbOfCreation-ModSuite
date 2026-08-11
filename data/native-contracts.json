@@ -27889,6 +27889,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<SpellTypeSO>"}
     },
     {
+      "id": "spell.get-spell-type-power-percent",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetSpellTypePowerPercent",
+      "visibility": "public",
+      "static": false,
+      "returnType": "BigDouble",
+      "parameters": [],
+      "owners": [
+        "Automata spell type layer verification"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "spell-recipe.not-spell-types",
       "assembly": "assembly-csharp",
       "type": "SpellRecipeSO",
