@@ -524,7 +524,7 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `upgrades` | `level`, `queuedLevels`, `screen`, `state`, `maximum`, `requirements`, `affordable` |
 | `structures` | `level`, `queuedLevels`, `state`, `enabled`, `affordable` |
 | `alchemy-recipes` | `state`, `masteryLevel` |
-| `glyphs` | `state`, `discovered`, `paidLevel`, `bonusLevel`, `totalLevel` |
+| `glyphs` | `population`, `state`, `discovered`, `paidLevel`, `bonusLevel`, `totalLevel` |
 | `plot-nodes` | `state`, `masteryLevel`, `quantity`, `availableQuantity` |
 | `challenges` | `state`, `run`, `level` |
 | `equipment` | `created`, `equippedCount` |
@@ -651,7 +651,28 @@ stayed in the category's fact scan: `rituals` dropped `discovered`, `plot-nodes`
 `glyphs` dropped `available`, and `alchemy-recipes` dropped `discovered` — each was the lifecycle
 predicate under its own name. `glyphs` **kept** `discovered`, because for a glyph it is a different
 fact: a pool unlocker is available off an authored prerequisite while never having been discovered at
-all, and the pair is what tells those two kinds of glyph apart.
+all.
+
+**Every glyph row says which of the two populations it belongs to**, because that is what makes its
+other columns readable. `population: augment` is one of the 22 the Magic screen's glyph grid draws
+from — discovered, then spent on spells. `population: unlocker` is one of the 25 that carry a recipe
+book and open a family of recipes, each held off one authored requirement edge rather than by
+discovery. The word comes from `GlyphSO.discoverable`, which splits them exactly and agrees row for
+row with membership of the authored `AugmentSpellGlyphs` list and with carrying an
+`associatedRecipeBook`. It is **not** `augmentsSpells`: that field reads false for Distinct, Weak and
+Wrath — three discoverable, book-less augments — so it splits 19/28 rather than 22/25, and every
+surface that gated on it (the compose resolver's core-glyph check, a spell's core-slot verdict, and
+the owned-augment options a loadout offers) mistook those three for core glyphs. The `glyphs`
+category is **not** split in two: glyphs are one player concept and one verifiable count of 47, and
+the population is a column on the row.
+
+**A glyph's `visible` predicate is its `available` predicate.** `GlyphSO.IsVisible()` is a call to
+`GlyphSO.IsAvailable()`, and the picker tile's own `IsVisible()` calls `IsAvailable()` too, so the
+game cannot show a glyph it will not offer and the two verdicts are one fact with one reason. They
+used to disagree on all 25 unlockers, because `visible` was answered from `discovered || currently
+offered` — for an unlocker the raw `discovered` field is not what availability reads, and no unlocker
+is ever a discovery-tree offer. Whether an undiscovered augment is on offer right now is a real fact
+and rides on the row's own `discover` block as `offered`.
 
 **A recipe whose lock this suite cannot read says so.** `AlchemyRecipeSO.IsAvailable()` reads
 `discovered` on the `Discover` branch and runs a prerequisite container on the other, and only
@@ -1287,8 +1308,8 @@ changed dial as `before` and `after` plus the `maximum` the read publishes.
 
 There is deliberately no in-place augment editor. The visible game has none: glyph layout is chosen
 on the library candidate before add, and changing it is remove → relayout → re-add. A discovered
-recipe's `loadoutAdd.augmentOptions` names owned spell-augment glyphs only where choosing them is the
-next decision.
+recipe's `loadoutAdd.augmentOptions` names the owned augments — the discoverable population, all 22
+of them — only where choosing them is the next decision.
 
 ### Spell loadout loop
 

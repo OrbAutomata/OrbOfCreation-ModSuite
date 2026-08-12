@@ -519,11 +519,13 @@ internal static class GameMcpWorldQuery
         // `available` folded into `state`: it was `Learned`, which is `GlyphSO.IsAvailable()`, which
         // is exactly the predicate the lifecycle word is. `discovered` stays because it is a
         // different fact — a pool unlocker is available off an authored prerequisite while never
-        // having been discovered at all, and the pair is what tells those two kinds of glyph apart.
+        // having been discovered at all — and `population` is what says which of those two a row is
+        // without the reader having to infer it from that pair.
         if (row is WorldGlyph glyph)
             return new JObject
             {
                 ["entityId"] = glyph.EntityId.ToString("D"),
+                ["population"] = GlyphPopulation(in glyph),
                 ["state"] = GlyphState(in glyph),
                 ["discovered"] = glyph.Discovered,
                 ["paidLevel"] = glyph.LevelDecision.TotalLevel - glyph.LevelDecision.BonusLevels,
@@ -952,6 +954,16 @@ internal static class GameMcpWorldQuery
     /// </summary>
     private static string GlyphState(in WorldGlyph glyph) =>
         glyph.Learned ? GameMcpListColumns.Available : GameMcpListColumns.Locked;
+
+    /// <summary>
+    /// Which family of glyph this is, off the authored boolean that splits them exactly. See
+    /// <see cref="GameMcpListColumns.PopulationAugment"/> for why it is this field and not
+    /// <c>augmentsSpells</c>.
+    /// </summary>
+    private static string GlyphPopulation(in WorldGlyph glyph) =>
+        glyph.Discoverable
+            ? GameMcpListColumns.PopulationAugment
+            : GameMcpListColumns.PopulationUnlocker;
 
     /// <summary>
     /// Whether the ritual screen shows the ritual rather than the undiscovered placeholder that
@@ -5685,8 +5697,12 @@ internal static class GameMcpWorldQuery
         for (var index = 0; index < components.Length; index++)
         {
             var component = components[index];
+            // `discoverable` is the population split — the augments are the 22 discoverable ones and
+            // the core glyphs the 25 that are not. `augmentsSpells` reads false for three members of
+            // the augment list, so gating on it admitted Distinct, Weak and Wrath here as though
+            // they were core glyphs.
             if (!WorldLookup.TryFind(world.Glyphs, component.Uuid, out var glyph) ||
-                glyph.AugmentsSpells || !glyph.Learned)
+                glyph.Discoverable || !glyph.Learned)
             {
                 reason = "Component " +
                     EntityIdentityFormatter.PlayerName(component.Uuid, world.EntityIdentities) +
@@ -5939,7 +5955,10 @@ internal static class GameMcpWorldQuery
         for (var index = 0; index < world.Glyphs.Count; index++)
         {
             var glyph = world.Glyphs[index];
-            if (!glyph.AugmentsSpells || !glyph.Learned || glyph.Level <= 0) continue;
+
+            // The augments are the discoverable population, all 22 of them. Gating on
+            // `augmentsSpells` dropped Distinct, Weak and Wrath from the options a player holds.
+            if (!glyph.Discoverable || !glyph.Learned || glyph.Level <= 0) continue;
             var option = new JObject
             {
                 ["glyphId"] = glyph.GlyphId.ToString("D"),
@@ -5988,7 +6007,9 @@ internal static class GameMcpWorldQuery
                 reasonCode = "core_glyph_not_leveled";
                 return false;
             }
-            if (glyph.AugmentsSpells)
+            // Same population split as the compose resolver: a recipe's core slot holds one of the
+            // 25 non-discoverable unlockers, and three augments read `augmentsSpells` false.
+            if (glyph.Discoverable)
             {
                 reasonCode = "core_glyph_augments_only";
                 return false;
@@ -6593,6 +6614,7 @@ internal static class GameMcpWorldQuery
         {
             ["entityId"] = glyph.EntityId.ToString("D"),
             ["category"] = "glyphs",
+            ["population"] = GlyphPopulation(in glyph),
             ["state"] = GlyphState(in glyph),
             ["discovered"] = glyph.Discovered,
             ["usableCount"] = glyph.MaximumUsages,
@@ -6612,7 +6634,12 @@ internal static class GameMcpWorldQuery
         AddLevelDecision(world, result, glyph.LevelDecision,
             glyph.Learned,
             "not_available");
-        AddDiscoveryDecision(world, result, glyph.Discovery, glyph.Discoverable);
+        AddDiscoveryDecision(
+            world,
+            result,
+            glyph.Discovery,
+            glyph.Discoverable,
+            glyph.Discoverable && !glyph.Discovered && IsCurrentDiscoveryOffer(world, glyph.EntityId));
         return result.Freeze();
     }
 
@@ -7001,7 +7028,8 @@ internal static class GameMcpWorldQuery
         GameWorldState world,
         JObject result,
         WorldDiscoverableDecision decision,
-        bool nativeDiscoverable = true)
+        bool nativeDiscoverable = true,
+        bool offered = false)
     {
         var available = nativeDiscoverable && decision.Visible && decision.CanDiscover &&
             !decision.Discovered && decision.Affordable;
@@ -7039,7 +7067,23 @@ internal static class GameMcpWorldQuery
             discover["costs"] = costs;
         }
         if (decision.Required) discover["required"] = true;
+        if (offered) discover["offered"] = true;
         result["discover"] = discover;
+    }
+
+    /// <summary>
+    /// Whether one of the discovery trees is offering this entity a slot right now — the fact that
+    /// separates "you could discover this next" from "this is in the pool somewhere".
+    /// </summary>
+    private static bool IsCurrentDiscoveryOffer(GameWorldState world, Guid id)
+    {
+        for (var treeIndex = 0; treeIndex < world.DiscoveryTrees.Count; treeIndex++)
+        {
+            var offers = world.DiscoveryTrees[treeIndex].CurrentOfferIds;
+            for (var offerIndex = 0; offerIndex < offers.Count; offerIndex++)
+                if (offers[offerIndex] == id) return true;
+        }
+        return false;
     }
 
     /// <summary>

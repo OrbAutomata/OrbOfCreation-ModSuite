@@ -332,10 +332,27 @@ internal static class GameMcpEntityExplainer
             case EntityKind.Glyph:
             {
                 WorldLookup.TryFind(world.Glyphs, id, out var glyph);
-                AddDiscoveryPredicates(result, world, id, glyph.Discovered, glyph.Discoverable);
-                result["available"] = Verdict(
+
+                // The game cannot show a glyph it will not offer: GlyphSO.IsVisible() is a call to
+                // IsAvailable(), and the picker tile's own IsVisible() calls IsAvailable() too. The
+                // two verdicts are one fact, so the discovery-shaped predicate that used to stand in
+                // for `visible` contradicted `state` on all 25 unlockers at once — for them the raw
+                // discovered field is not what availability reads, and no unlocker is ever a
+                // discovery-tree offer, so both of that predicate's inputs were the wrong facts.
+                // Whether an undiscovered augment is on offer right now is a real fact and rides on
+                // the row's own `discover` block.
+                var picker = Verdict(
                     glyph.Learned,
                     glyph.Discoverable ? "not_discovered" : "prerequisites_unmet");
+                result["visible"] = picker;
+                result["available"] = picker;
+                result["canDiscover"] = Verdict(
+                    !glyph.Discovered && glyph.Discoverable,
+                    glyph.Discovered
+                        ? "already_discovered"
+                        : !glyph.Discoverable
+                            ? "native_not_discoverable"
+                            : "discovery_unavailable");
                 break;
             }
             case EntityKind.Equipment:

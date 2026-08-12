@@ -461,7 +461,7 @@ public sealed class GameMcpSpellWorkbenchTests
             {
                 Glyph(SecondGlyphId, 3),
                 Glyph(FirstGlyphId, coreLevel),
-                Glyph(AugmentGlyphId, 1, augmentsSpells: true),
+                Glyph(AugmentGlyphId, 1, augment: true),
             }),
             SpellWorkbench = new WorldSpellWorkbench(
                 equipped ? 1 : 0,
@@ -492,15 +492,19 @@ public sealed class GameMcpSpellWorkbenchTests
         };
     }
 
-    private static WorldGlyph Glyph(Guid id, int level, bool augmentsSpells = false) => new(
+    /// <summary>
+    /// One glyph of either population, as the game authors them: an augment is discoverable and
+    /// spent on spells, a core glyph is neither and is held off an authored requirement edge.
+    /// </summary>
+    private static WorldGlyph Glyph(Guid id, int level, bool augment = false) => new(
         id,
         level,
         0,
         0,
         true,
-        true,
+        augment,
         false,
-        augmentsSpells,
+        augment,
         false,
         false,
         0,

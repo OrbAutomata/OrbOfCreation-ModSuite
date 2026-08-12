@@ -123,6 +123,39 @@ internal static class GameMcpListColumns
     internal const string Unreadable = "unreadable";
 
     /// <summary>
+    /// Which of the two families of glyph a row belongs to, and therefore which question its other
+    /// columns are answers to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The 47 glyphs are two populations wearing one word. Twenty-two are <b>augments</b>: the
+    /// discovery-tree pool the Magic screen's glyph grid draws from, acquired by discovering them
+    /// and then spent on spells. Twenty-five are <b>unlockers</b>: each carries an authored recipe
+    /// book, each is gated by one authored requirement edge, and each opens a family of recipes on
+    /// the screen that composes with it. Every count a reader takes off the page — how many are
+    /// available, how many discovered, how many tiles the grid shows — is a different number for the
+    /// two, and a page that does not say which is which made a round read the whole category wrong.
+    /// </para>
+    /// <para>
+    /// The word comes from <c>GlyphSO.discoverable</c>, which splits the two exactly (22 true, 25
+    /// false) and agrees row for row with both of the other authored discriminators: membership of
+    /// the <c>AugmentSpellGlyphs</c> list, and carrying an <c>associatedRecipeBook</c>. It is not
+    /// <c>augmentsSpells</c>, which reads false for Distinct, Weak and Wrath — three glyphs that are
+    /// discoverable, book-less members of the augment list — and so splits 19/28 rather than 22/25.
+    /// </para>
+    /// <para>
+    /// The category is not split in two. Glyphs are one player concept and one verifiable count of
+    /// 47; the population is a column on the row, which is what makes the spread between those
+    /// counts self-explaining without scattering the concept across two rows of
+    /// <c>world_categories</c>.
+    /// </para>
+    /// </remarks>
+    internal const string PopulationAugment = "augment";
+
+    /// <summary>A glyph that unlocks a recipe family rather than augmenting a spell.</summary>
+    internal const string PopulationUnlocker = "unlocker";
+
+    /// <summary>
     /// Which screen's upgrade panel groups this row, in the player's own word for that screen.
     /// </summary>
     /// <remarks>
@@ -327,7 +360,8 @@ internal static class GameMcpListColumns
         ["resource-types"] = new[] { "entityId", "level", "hidden" },
         ["glyphs"] = new[]
         {
-            "entityId", "state", "discovered", "paidLevel", "bonusLevel", "totalLevel",
+            "entityId", "population", "state", "discovered", "paidLevel", "bonusLevel",
+            "totalLevel",
         },
         ["plot-nodes"] = new[]
         {

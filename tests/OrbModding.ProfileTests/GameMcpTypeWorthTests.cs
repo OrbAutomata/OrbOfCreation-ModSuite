@@ -210,7 +210,8 @@ public sealed class GameMcpTypeWorthTests
         Assert.Null(detail["worth"]);
         Assert.Equal(
             "{\"uuid\":\"a1c000\",\"name\":\"Focus Ward\",\"internalName\":\"focusWard\"," +
-            "\"category\":\"glyphs\",\"nativeType\":\"GlyphSO\",\"row\":{\"state\":\"locked\"," +
+            "\"category\":\"glyphs\",\"nativeType\":\"GlyphSO\",\"row\":{" +
+            "\"population\":\"augment\",\"state\":\"locked\"," +
             "\"discovered\":false,\"usableCount\":0,\"reasonCode\":\"ERR_LOCKED\"," +
             "\"paidLevel\":0,\"totalLevel\":0,\"purchase\":{\"available\":false," +
             "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"The game has not unlocked this yet.\"}," +
@@ -218,7 +219,7 @@ public sealed class GameMcpTypeWorthTests
             "\"reason\":\"The game is not showing this yet.\"},\"reason\":\"The game keeps this " +
             "locked, and says nothing about what would unlock it.\"},\"predicates\":{" +
             "\"visible\":{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
-            "\"reason\":\"Not discovered or offered.\"},\"available\":{\"available\":false," +
+            "\"reason\":\"This has not been discovered yet.\"},\"available\":{\"available\":false," +
             "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"This has not been discovered yet.\"}," +
             "\"canDiscover\":{\"available\":true}}}",
             detail.ToString(Formatting.None));

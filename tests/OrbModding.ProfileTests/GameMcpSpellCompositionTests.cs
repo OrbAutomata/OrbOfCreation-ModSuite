@@ -451,13 +451,17 @@ public sealed class GameMcpSpellCompositionTests
         new BigDouble(maximum, 0),
         maximum);
 
+    /// <summary>
+    /// A core glyph as the game authors one: an unlocker, so <c>discoverable</c> is false and it is
+    /// held off an authored requirement edge rather than by discovery.
+    /// </summary>
     private static WorldGlyph CoreGlyph(Guid id) => new(
         id,
         1,
         0,
         0,
         true,
-        true,
+        false,
         false,
         false,
         false,
