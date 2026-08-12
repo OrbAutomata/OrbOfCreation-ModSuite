@@ -15,8 +15,10 @@ namespace OrbModding.Common.Runtime.GameMath;
 /// degraded one was one word buried sixty lines in.
 /// </para>
 /// <para>
-/// Only disagreements render. An all-agree response is the verdict word, the count line, and the
-/// provenance line: three lines that say everything a ninety-line body said.
+/// Every check renders one line — its verdict word and its counts — and only a check that did not
+/// agree renders anything more. Agreeing lines are not noise: a check that ran and agreed and a check
+/// that never ran are the same silence otherwise, and a reader who cannot tell them apart cannot tell
+/// what the top-line verdict is a verdict over. The body stays one line per check either way.
 /// </para>
 /// <para>
 /// Nothing that changes between two identical calls appears in the comparison body. Frame numbers,
@@ -108,9 +110,8 @@ internal sealed class VerificationReport
 
         foreach (var finding in _findings)
         {
-            if (finding.Verdict == VerificationVerdict.Agree) continue;
-
             lines.Add(finding.Headline());
+            if (finding.Note.Length > 0) lines.Add(finding.Note);
             foreach (var detail in finding.Detail) lines.Add("  " + detail);
         }
 

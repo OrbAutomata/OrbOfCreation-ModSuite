@@ -127,7 +127,8 @@ coordinate and capacity verdict, the ritual/consumable/resource predicates, refe
 identities, and cache staleness.
 
 Every one of them reports a `VerificationFinding` rather than writing a line, and one renderer turns
-the set into the answer: the verdict word first, then only the checks that did not agree, then one
+the set into the answer: the verdict word first, then one line per check — the agreeing ones
+included, so that a check which ran and a check which is missing cannot read alike — then one
 `window:` line carrying everything that moves between two calls over an unchanged world. The
 vocabulary and the rendering rules are in
 [MCP tools](../development/mcp-tools.md#checking-the-suites-math-against-the-game).
@@ -531,7 +532,10 @@ replacement. It is attached metadata, not a fourth ServiceCycle publication and 
 its registry and fallback rules are normative in the
 [game boundary doctrine](game-boundary-doctrine.md#live-entity-identity-catalog).
 
-Most tables are one row per entity and are walked by the identity check. Which tables the walk skips is
+Most tables are one row per entity and are walked by the identity check, which asserts that no table
+holds two rows under one identity and that no row went out unidentified. Sharing an identity between
+tables is not what it checks: the per-owner detail tables key their rows by the entity they describe
+on purpose, so that reaches the answer as a named, non-scoring line. Which tables the walk skips is
 stated in exactly one place — `NotIdentityTables` in
 `tests/OrbModding.Tests/Runtime/Verification/WorldIdentityWalkTests.cs`, currently 51 names — because
 every second reading of an entity another table already claims lands there. Five exclusions have reasons

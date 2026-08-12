@@ -301,7 +301,7 @@ rather than from the screen it is drawn on.
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
 | `suite_configuration` | Read every writable setting's committed value; `mode=describe` adds type, domain, and purpose |
 | `trace_health` | Read trace-writer health, segment, record, and byte counters |
-| `suite_check_game_math` | Run the differential check of the suite's math against the game and answer with one verdict word, the disagreements, and one provenance line |
+| `suite_check_game_math` | Run the differential check of the suite's math against the game and answer with one verdict word, one line per check, and one provenance line |
 | `game_purchase` | Buy an Attribute (`StructureSO`) or Upgrade derived from its UUID |
 | `game_cast` | Fire, release charge, or turn off one equipped toggle spell |
 | `game_concept` | Add or remove one owned concept assignment |
@@ -2656,14 +2656,21 @@ the game's own answer. The answer is plain text with no envelope — it is alrea
 and there is no handle to follow up on.
 
 **The verdict is the first word of the first line**, followed by the count that accounts for
-everything the run compared:
+everything the run compared, then one line per check in the order the checks ran, then the
+provenance line. An excerpt of an all-agree run — the middle checks are elided here, not by the
+tool:
 
 ```
 AGREE — 8442 facts compared, 8442 agree, 0 differ.
+Category binding AGREE: 63 compared.
+Category traversal AGREE: 63 compared.
+Identities AGREE: 3323 compared, 0 empty, 0 repeated within a table.
+Shared identities: 1934 entities, 1389 detail rows filed under one of them (largest: PurchaseViewRelations 409, AlchemyLoadout 125, SpellRecipeAuthoring 65).
+Spell type layer AGREE: 6 compared.
 window: generation=3 frame=48213 entities=6683 collectors=61 collect=41.213ms ported=118.4ms native=2249.1ms elapsed=2407.741ms memos=5677 drifted=730 dirty=3558 uncalculated=612 widestDrift=2.46e121%@StructureSO.passiveCostMod
 ```
 
-Those two lines are the whole response when everything agreed. The rules that make them so:
+The rules that make it read that way:
 
 - **One verdict vocabulary, four words, everywhere.** `AGREE` — everything compared agreed, and
   everything in scope was compared. `DISAGREE` — at least one comparison found the two sides
@@ -2671,9 +2678,22 @@ Those two lines are the whole response when everything agreed. The rules that ma
   be read, so a pass over a subset is not reported as a pass. `INCONCLUSIVE` — nothing could be
   compared, so there is no verdict to have. A response never mixes vocabularies between its summary
   and its checks, and no check says `PASSED`, `FAILED`, `MISMATCH` or "all agree" any more.
-- **Only checks that did not agree render.** A check that agreed contributes its count to the
-  summary line and nothing else. Its disagreements, when it has them, follow its own headline
-  indented by two spaces.
+- **Every check renders its own line — verdict word and counts — including the ones that agreed.**
+  A check that ran and agreed and a check that never ran are otherwise the same silence, and a
+  reader who cannot tell them apart cannot tell what the top-line verdict is a verdict over.
+  Disagreements, where a check has them, follow its headline indented by two spaces; an agreeing
+  check is its one line and nothing else.
+- **A check may state its own counts, and may publish one fact it does not score.** Where agreement
+  rests on more than one count, the check says which counts in its own words rather than through a
+  bare total. A non-scoring line sits directly beneath the headline, unindented, and carries a fact
+  about the snapshot's shape rather than a verdict — `Shared identities:` is the one such line
+  today.
+- **`Identities` asserts uniqueness within one table, not across the snapshot.** Two rows under one
+  id in one table make a lookup return an arbitrary member of the pair, so that — and a row
+  published with no identity at all — is what `DISAGREE` means here, named with the table it
+  happened in. One entity reaching several tables is the design: a dozen per-owner detail tables key
+  their rows by the entity they describe, so that sharing is reported on the `Shared identities:`
+  line, with the tables holding the most such rows named, and scores nothing.
 - **Agreement is a count, disagreement is a row.** A comparison that agreed only within
   floating-point tolerance is agreement; it is counted on the summary line
   (`N agree only within tolerance`) and never given a row, because such a row printed two

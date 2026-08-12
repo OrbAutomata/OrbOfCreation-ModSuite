@@ -30,7 +30,9 @@ internal readonly struct VerificationFinding
         int differed,
         int withinTolerance,
         string reason,
-        IReadOnlyList<string>? detail)
+        IReadOnlyList<string>? detail,
+        string counts = "",
+        string note = "")
     {
         Subject = string.IsNullOrEmpty(subject) ? "Game math" : subject;
         Verdict = verdict;
@@ -39,6 +41,8 @@ internal readonly struct VerificationFinding
         WithinTolerance = withinTolerance;
         Reason = reason ?? string.Empty;
         Detail = detail ?? Nothing;
+        Counts = counts ?? string.Empty;
+        Note = note ?? string.Empty;
     }
 
     internal string Subject { get; }
@@ -66,11 +70,48 @@ internal readonly struct VerificationFinding
     /// <summary>The disagreements, rendered only when this finding is not an agreement.</summary>
     internal IReadOnlyList<string> Detail { get; }
 
-    internal static VerificationFinding Agree(string subject, int compared, int withinTolerance = 0) =>
+    /// <summary>
+    /// This check's own count clause, replacing the generic one when what it counted is not simply
+    /// "facts compared".
+    /// </summary>
+    /// <remarks>
+    /// A check whose agreement rests on two separate counts — none empty and none repeated within a
+    /// table, say — cannot say so through a single total, and an agreeing line that does not say what
+    /// it asserted is indistinguishable from a check that never ran.
+    /// </remarks>
+    internal string Counts { get; }
+
+    /// <summary>
+    /// A fact this check publishes without scoring it, on its own line under the headline.
+    /// </summary>
+    /// <remarks>
+    /// Some numbers are worth seeing and are not accusations — a count of the snapshot's own shape
+    /// rather than of anything wrong with it. Rendering one as a finding would drag the run's verdict
+    /// down for describing the design; leaving it out would hide a number nobody could otherwise
+    /// attribute.
+    /// </remarks>
+    internal string Note { get; }
+
+    internal static VerificationFinding Agree(
+        string subject,
+        int compared,
+        int withinTolerance = 0,
+        string counts = "") =>
         compared == 0
             ? Inconclusive(subject, "nothing was comparable.")
             : new VerificationFinding(
-                subject, VerificationVerdict.Agree, compared, 0, withinTolerance, string.Empty, null);
+                subject,
+                VerificationVerdict.Agree,
+                compared,
+                0,
+                withinTolerance,
+                string.Empty,
+                null,
+                counts);
+
+    /// <summary>The same finding, carrying one non-scoring line beneath it.</summary>
+    internal VerificationFinding WithNote(string note) =>
+        new(Subject, Verdict, Compared, Differed, WithinTolerance, Reason, Detail, Counts, note);
 
     internal static VerificationFinding Disagree(
         string subject,
@@ -107,6 +148,8 @@ internal readonly struct VerificationFinding
             $"{Subject} INCOMPLETE: {Compared} compared, all agree — {Reason}",
         VerificationVerdict.Disagree =>
             $"{Subject} DISAGREE: {Compared} compared, {Agreed} agree, {Differed} differ.",
-        _ => $"{Subject} AGREE: {Compared} compared.",
+        _ => Counts.Length == 0
+            ? $"{Subject} AGREE: {Compared} compared."
+            : $"{Subject} AGREE: {Counts}",
     };
 }

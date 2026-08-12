@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using System.Text;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -222,46 +223,7 @@ internal sealed class AutomataWorldCollectionCheck
                 gaps));
     }
 
-    /// <summary>
-    /// Identity is claimed once across every category, so a collision silently costs one of the two
-    /// entities. The collector already refuses an empty or repeated identity; this states whether
-    /// either happened against the game's own identities, which is where it would.
-    /// </summary>
-    /// <remarks>
-    /// The walk reflects over the snapshot's tables rather than naming them, so a category added
-    /// later is covered without anyone remembering to add it here. Missing a table would make this
-    /// check quietly weaker rather than fail, which is the failure mode worth designing out.
-    /// </remarks>
-    private void CheckIdentities(GameWorldState world)
-    {
-        var seen = new HashSet<Guid>();
-        var duplicates = 0;
-        var empties = 0;
-        var total = 0;
-        var firstDuplicate = Guid.Empty;
-
-        foreach (var id in WorldIdentityWalk.Enumerate(world))
-        {
-            total++;
-            if (id == Guid.Empty)
-            {
-                empties++;
-            }
-            else if (!seen.Add(id))
-            {
-                duplicates++;
-                if (firstDuplicate == Guid.Empty) firstDuplicate = id;
-            }
-        }
-
-        Add(empties == 0 && duplicates == 0
-            ? VerificationFinding.Agree("Identities", total)
-            : VerificationFinding.Disagree(
-                "Identities",
-                total,
-                empties + duplicates,
-                $"{empties} empty, {duplicates} duplicated (first {firstDuplicate})."));
-    }
+    private void CheckIdentities(GameWorldState world) => Add(WorldIdentityAudit.Audit(world));
 
     /// <summary>
     /// The parity check proper. Every comparison here reads a field on one side and calls the game's
@@ -2163,8 +2125,30 @@ internal sealed class AutomataWorldCollectionCheck
     }
 }
 
+/// <summary>One identity, and the published table it was read from.</summary>
+/// <remarks>
+/// The table travels with the identity because the two questions worth asking about a snapshot's
+/// identities are answered at different scopes. "Can a lookup return the wrong row" is a question
+/// about one table, and "how many rows are extra detail about something already listed" is a
+/// question about the schema; an identity with no table attached can answer neither.
+/// </remarks>
+internal readonly struct WorldIdentitySighting
+{
+    internal WorldIdentitySighting(string table, Guid id)
+    {
+        Table = table;
+        Id = id;
+    }
+
+    /// <summary>The snapshot property the row was published under.</summary>
+    internal string Table { get; }
+
+    internal Guid Id { get; }
+}
+
 /// <summary>
-/// Every identity in a snapshot, whichever tables it happens to have.
+/// Every identity in a snapshot, whichever tables it happens to have, each under the table it came
+/// from and in table order.
 /// </summary>
 /// <remarks>
 /// Reflection rather than a written-out list of tables, because the check this feeds is a
@@ -2182,7 +2166,7 @@ internal static class WorldIdentityWalk
     private static readonly MethodInfo ReadTable = typeof(WorldIdentityWalk)
         .GetMethod(nameof(Identities), BindingFlags.Static | BindingFlags.NonPublic)!;
 
-    internal static IEnumerable<Guid> Enumerate(GameWorldState world)
+    internal static IEnumerable<WorldIdentitySighting> Enumerate(GameWorldState world)
     {
         if (world is null) throw new ArgumentNullException(nameof(world));
 
@@ -2205,7 +2189,7 @@ internal static class WorldIdentityWalk
                 .MakeGenericMethod(row)
                 .Invoke(null, new[] { table })!;
 
-            foreach (var id in identities) yield return id;
+            foreach (var id in identities) yield return new WorldIdentitySighting(property.Name, id);
         }
     }
 
@@ -2213,5 +2197,126 @@ internal static class WorldIdentityWalk
         where TRow : struct, IWorldEntity
     {
         for (var index = 0; index < table.Count; index++) yield return table[index].EntityId;
+    }
+}
+
+/// <summary>
+/// Whether any lookup in a snapshot is ambiguous, and how much of the snapshot is detail about
+/// something it already published.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Identity is claimed once <em>within</em> a table, because that is the invariant a lookup rests on:
+/// two rows under one id in one table make <see cref="WorldLookup.TryFind"/> return an arbitrary
+/// member of the pair. That, and a row that went out unidentified, are what this scores.
+/// </para>
+/// <para>
+/// One identity reaching more than one table is the design rather than a defect: a dozen per-owner
+/// detail tables key their rows by the owning entity on purpose — spell-recipe authoring by its
+/// recipe, purchase-view relations by their candidate, harvest resources by their resource. Scored as
+/// collisions they read as "1389 things are broken" when they mean "1389 rows are extra detail about
+/// something already listed", and they took the whole run's verdict down with them while every read
+/// surface built on the same identities was correct. So the sharing is published as a named,
+/// non-scoring line, with the tables that account for most of it named — an aggregate nobody can
+/// attribute is exactly what made the old number cost an investigation.
+/// </para>
+/// <para>
+/// The narrow claim that remains is worth having and is live. Relation tables reach publication
+/// through <c>WorldRelationTableDeriver.Build</c>, which calls <c>PublicationTable.Create</c>
+/// directly and so bypasses the sort-and-reject guard in <see cref="WorldTable.Create"/> that every
+/// catalog table passes through. A within-table repeat or an unidentified row there would reach a
+/// consumer, and nothing else in the suite would notice.
+/// </para>
+/// </remarks>
+internal static class WorldIdentityAudit
+{
+    internal static VerificationFinding Audit(GameWorldState world)
+    {
+        var withinTable = new HashSet<Guid>();
+        var everywhere = new HashSet<Guid>();
+        var sharing = new List<TableIdentityCount>();
+        var detail = new List<string>();
+        var table = string.Empty;
+        var sharedHere = 0;
+        var total = 0;
+        var empties = 0;
+        var repeated = 0;
+        var shared = 0;
+
+        foreach (var sighting in WorldIdentityWalk.Enumerate(world))
+        {
+            if (!string.Equals(sighting.Table, table, StringComparison.Ordinal))
+            {
+                if (sharedHere > 0) sharing.Add(new TableIdentityCount(table, sharedHere));
+                table = sighting.Table;
+                sharedHere = 0;
+                withinTable.Clear();
+            }
+
+            total++;
+            if (sighting.Id == Guid.Empty)
+            {
+                empties++;
+                detail.Add($"{table} published a row with no identity.");
+                continue;
+            }
+
+            if (!withinTable.Add(sighting.Id))
+            {
+                repeated++;
+                detail.Add($"{table} published {sighting.Id} twice, so a lookup for it is ambiguous.");
+                continue;
+            }
+
+            if (everywhere.Add(sighting.Id)) continue;
+            shared++;
+            sharedHere++;
+        }
+
+        if (sharedHere > 0) sharing.Add(new TableIdentityCount(table, sharedHere));
+
+        return (empties == 0 && repeated == 0
+                ? VerificationFinding.Agree(
+                    "Identities",
+                    total,
+                    counts: $"{total} compared, {empties} empty, {repeated} repeated within a table.")
+                : VerificationFinding.Disagree("Identities", total, empties + repeated, detail))
+            .WithNote(SharedLine(everywhere.Count, shared, sharing));
+    }
+
+    /// <summary>
+    /// How much of the snapshot is detail about something it already published, and which tables that
+    /// is. Not a verdict: it is the publication schema's shape, and it reads the same on a run that
+    /// agreed.
+    /// </summary>
+    private static string SharedLine(int entities, int shared, List<TableIdentityCount> sharing)
+    {
+        var line = $"Shared identities: {entities} {(entities == 1 ? "entity" : "entities")}, " +
+            $"{shared} detail {(shared == 1 ? "row" : "rows")} filed under one of them";
+        if (shared == 0) return line + ".";
+
+        sharing.Sort(static (left, right) => right.Rows.CompareTo(left.Rows));
+        var largest = new StringBuilder();
+        for (var index = 0; index < sharing.Count && index < 3; index++)
+        {
+            if (index > 0) largest.Append(", ");
+            largest.Append(sharing[index].Table).Append(' ').Append(sharing[index].Rows);
+        }
+
+        return line + " (largest: " + largest + ").";
+    }
+
+    /// <summary>One table, and how many of its rows were filed under an identity already published.</summary>
+    private readonly struct TableIdentityCount
+    {
+        internal TableIdentityCount(string table, int rows)
+        {
+            Table = table;
+            Rows = rows;
+        }
+
+        internal string Table { get; }
+
+        internal int Rows { get; }
     }
 }

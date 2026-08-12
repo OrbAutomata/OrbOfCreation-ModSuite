@@ -39,7 +39,32 @@ public sealed class WorldIdentityWalkTests
 
         Assert.Equal(
             new[] { mana, stone, hoard }.OrderBy(id => id),
-            WorldIdentityWalk.Enumerate(world).OrderBy(id => id));
+            WorldIdentityWalk.Enumerate(world).Select(sighting => sighting.Id).OrderBy(id => id));
+    }
+
+    /// <summary>
+    /// Every sighting names the table it came from, because the check downstream asserts uniqueness
+    /// inside one table and reports sharing across tables — neither of which a bare identity supports.
+    /// </summary>
+    [Fact]
+    public void EveryIdentityIsReportedUnderTheTableItWasPublishedIn()
+    {
+        var mana = Guid.NewGuid();
+        var hoard = Guid.NewGuid();
+
+        var world = new GameWorldState
+        {
+            IntVariables = WorldTable.Create(
+                new WorldNumberVariable(mana, new BigDouble(1d), isPercent: false)),
+            TreasurePools = WorldTable.Create(
+                new WorldTreasurePool(hoard, 3, new BigDouble(0.5d), false, 1, false)),
+        };
+
+        Assert.Equal(
+            new[] { ("IntVariables", mana), ("TreasurePools", hoard) }.OrderBy(row => row.Item1),
+            WorldIdentityWalk.Enumerate(world)
+                .Select(sighting => (sighting.Table, sighting.Id))
+                .OrderBy(row => row.Table));
     }
 
     /// <summary>
@@ -59,7 +84,7 @@ public sealed class WorldIdentityWalkTests
                 new WorldNumberVariable(shared, new BigDouble(2d), isPercent: false)),
         };
 
-        Assert.Equal(2, WorldIdentityWalk.Enumerate(world).Count(id => id == shared));
+        Assert.Equal(2, WorldIdentityWalk.Enumerate(world).Count(sighting => sighting.Id == shared));
     }
 
     /// <summary>

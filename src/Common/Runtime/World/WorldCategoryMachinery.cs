@@ -27,7 +27,10 @@ namespace OrbModding.Common.Runtime.World;
 /// </remarks>
 internal interface IWorldEntity
 {
-    /// <summary>The entity's stable UUID, unique across every category in one snapshot.</summary>
+    /// <summary>
+    /// The entity's stable UUID, unique within any one published table. Several tables may file rows
+    /// under it: a per-owner detail table keys its rows by the entity they describe, on purpose.
+    /// </summary>
     Guid EntityId { get; }
 }
 
