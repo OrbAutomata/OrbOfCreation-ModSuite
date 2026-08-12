@@ -635,6 +635,10 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
     public bool augmentsSpells;
     public bool requiresDuration;
     public bool requiresToggleable;
+
+    // GlyphSO.IsAvailable() returns `discovered` when `discoverable` is set and this container's
+    // Check() otherwise, so only the second population authors anything here.
+    public Prerequisites.Container prerequisites = new Prerequisites.Container();
     public bool NativeAvailable { get; set; } = true;
     public bool NativeVisible { get; set; } = true;
     public ResourceCostList discoveryCost = new ResourceCostList();

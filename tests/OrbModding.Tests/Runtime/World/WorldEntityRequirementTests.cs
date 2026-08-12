@@ -76,6 +76,49 @@ public sealed class WorldEntityRequirementTests : IDisposable
     }
 
     /// <summary>
+    /// <c>GlyphSO.IsAvailable()</c> answers <c>prerequisites.Check()</c> for every glyph that is not
+    /// discoverable, so the twenty-five unlockers each carry the one authored condition that is the
+    /// whole of what holds them shut. Uncaptured, the surfaces could only report an unexplained lock.
+    /// </summary>
+    [Fact]
+    public void AGlyphsUnlockConditionIsPublishedAsItsOwnKindOfOwner()
+    {
+        var arcane = new global::GlyphSO();
+        global::GlyphSO.All.Add(arcane);
+        var researchArcane = new global::ResearchSO();
+        global::ResearchSO.All.Add(researchArcane);
+        arcane.prerequisites.prerequisites.Add(new Requirements.ResearchRequirement
+        {
+            item = researchArcane,
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+            value = new Requirements.LeveledValue { baseValue = 0d },
+        });
+
+        var row = Single(Collect());
+
+        Assert.Equal(arcane.GetGuid(), row.OwnerId);
+        Assert.Equal(WorldRequirementOwnerKind.Glyph, row.OwnerKind);
+        Assert.Equal(WorldRequirementConditionKind.Research, row.Kind);
+        Assert.Equal(researchArcane.GetGuid(), row.TargetId);
+    }
+
+    /// <summary>
+    /// The twenty-two discoverable glyphs author no container at all — the game reads their
+    /// <c>discovered</c> field instead — so the walk must publish nothing for them rather than a row
+    /// a consumer would read as a gate.
+    /// </summary>
+    [Fact]
+    public void ADiscoverableGlyphPublishesNoUnlockCondition()
+    {
+        var fortunate = new global::GlyphSO { discoverable = true };
+        global::GlyphSO.All.Add(fortunate);
+
+        var world = Collect();
+
+        Assert.Equal(0, world.EntityRequirements.Count);
+    }
+
+    /// <summary>
     /// The common case, and it is a fact rather than a gap: an empty container's <c>Check</c> passes
     /// unconditionally, so an entity with no rows has nothing gating its next level.
     /// </summary>
@@ -564,6 +607,7 @@ public sealed class WorldEntityRequirementTests : IDisposable
         global::AlchemyRecipeSO.All.Clear();
         global::IntVariable.All.Clear();
         global::PrerequisiteLinkSO.All.Clear();
+        global::GlyphSO.All.Clear();
         global::GameManager.currentFrame = 0;
     }
 

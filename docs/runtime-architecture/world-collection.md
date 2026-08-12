@@ -554,8 +554,10 @@ worth knowing:
   index and is exempt. Neither is reached by a registry walk — both queues resolve by uuid through the
   identity registry, which keeps the action-manager singleton out of the collector.
 - **Entity requirements.** `WorldEntityRequirement.cs` reads every upgrade's, structure's, and
-  research entry's per-level prerequisite container, so a row is one condition keyed by an entity its
-  own category already claimed.
+  research entry's per-level prerequisite container, plus every glyph's unlock container, so a row is
+  one condition keyed by an entity its own category already claimed. A glyph's belongs here because
+  `GlyphSO.IsAvailable()` runs that container for the 25 glyphs that are not discoverable, which makes
+  its one condition the whole of what holds them shut.
   Its list is `[SerializeReference]`, so accessors compile per concrete condition class on first sight,
   and a class that does not bind yields a row of kind `Unknown` rather than none — an unmodelled
   condition must be visible as a requirement nobody can evaluate rather than as an entity with no

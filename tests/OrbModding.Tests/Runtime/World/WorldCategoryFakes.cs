@@ -2005,6 +2005,11 @@ internal sealed class FakeGlyph : global::IDiscoverable
     public bool augmentsSpells;
     public bool requiresDuration;
     public bool requiresToggleable;
+
+    // The one authored condition an unlocker carries, in the container type the requirement reader
+    // walks for every other owner — a second container type at the same name would not be readable
+    // by the accessor bound against the first.
+    public FakePrerequisites prerequisites = new();
     public int masteryReqCount;
     public FakeModifierRecord freeUsages = new(0d);
     public FakeModifierRecord freeLoadoutUsages = new(0d);

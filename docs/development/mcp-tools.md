@@ -674,6 +674,18 @@ offered` — for an unlocker the raw `discovered` field is not what availability
 is ever a discovery-tree offer. Whether an undiscovered augment is on offer right now is a real fact
 and rides on the row's own `discover` block as `offered`.
 
+**A locked glyph's reason is its own population's gate.** `GlyphSO.IsAvailable()` returns
+`discovered` for an augment and `prerequisites.Check()` for an unlocker, so an unlearned augment
+answers *this has not been discovered yet* and an unlearned unlocker names the authored condition its
+container holds — *Learn Formation unlocks this glyph, and it is not reached yet* — with `blockedBy`
+carrying that entity. The 25 containers hold one condition each, a research, an upgrade or a
+prerequisite link, and the world publishes them under owner kind `Glyph` (`glyph.prerequisites`). The
+honest-unknown sentence — *the game keeps this locked, and says nothing about what would unlock it* —
+is what is left when neither gate is readable, which means a condition class this suite does not
+model. It used to be the answer on 45 of the 47 rows, because the reason branched on
+`GlyphSO.discoveryRequired`; that field is true for exactly two glyphs, and its only reader,
+`GlyphSO.IsDiscoverRequired()`, is called by nothing in the game.
+
 **A recipe whose lock this suite cannot read says so.** `AlchemyRecipeSO.IsAvailable()` reads
 `discovered` on the `Discover` branch and runs a prerequisite container on the other, and only
 `visibilityType` says which — so that selector is captured (`alchemy-recipe.visibility-type`) rather
@@ -921,8 +933,9 @@ Zero or multiple resolutions refuse (`discovery_recipe_unresolved`, `discovery_r
 instead of guessing, and a component that is neither a published glyph nor a published resource, or
 that asks for more uses than a glyph the player holds permits, refuses as `component_unavailable`.
 A glyph the player does **not** hold is a different answer with a different next move, so it refuses
-as `ERR_LOCKED` and says whether a discovery is the gate — quoting a usage ceiling of nought read as
-a clamp on something already owned. This is why a partial component write can never claim a target
+as `ERR_LOCKED` and says which gate holds it — a discovery for an augment, the named authored
+condition for an unlocker — where quoting a usage ceiling of nought read as a clamp on something
+already owned. This is why a partial component write can never claim a target
 it did not resolve.
 
 Spellcraft resolves core glyphs through the audited spell resolver; the other six surfaces use the

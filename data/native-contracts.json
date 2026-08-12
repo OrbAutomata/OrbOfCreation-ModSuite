@@ -5790,6 +5790,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
     },
     {
+      "id": "glyph.prerequisites",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "prerequisites",
+      "visibility": "public",
+      "static": false,
+      "valueType": "Prerequisites+Container",
+      "owners": [
+        "Common world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side. GlyphSO.IsAvailable() answers this container's conditions for every glyph that is not discoverable, so reading it is what lets an unlocker name what holds it shut instead of reporting a lock with no condition behind it.", "evidence": "kind:field Prerequisites+Container"}
+    },
+    {
       "id": "glyph.requires-toggleable",
       "assembly": "assembly-csharp",
       "type": "GlyphSO",

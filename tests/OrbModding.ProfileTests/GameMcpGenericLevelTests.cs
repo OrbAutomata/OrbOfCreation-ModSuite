@@ -144,23 +144,24 @@ public sealed class GameMcpGenericLevelTests
     }
 
     /// <summary>
-    /// A glyph the picker will not offer says which of the two reasons it is. A pool unlocker is
-    /// held shut by an authored edge the world states no condition for, and that is the whole of
-    /// what is known; a glyph behind a discovery has a gate the player can go and act on. Unnamed,
-    /// both answered the backstop's contentless sentence, on every unlearned glyph in the game.
+    /// A glyph the picker will not offer says which of the two reasons it is, and the two are the
+    /// two populations: an augment waits on a discovery, an unlocker on the authored condition its
+    /// container holds. This world publishes no condition for the unlocker, which is the one case
+    /// the honest-unknown sentence is written for. Unnamed, both answered that sentence, on every
+    /// unlearned glyph in the game.
     /// </summary>
     [Theory]
     [InlineData(false, "ERR_LOCKED",
         "The game keeps this locked, and says nothing about what would unlock it.")]
     [InlineData(true, "ERR_LOCKED", "This has not been discovered yet.")]
     public void An_unlearned_glyph_names_the_gate_the_game_actually_published(
-        bool discoveryRequired,
+        bool discoverable,
         string expectedClass,
         string expectedReason)
     {
         var glyph = Row(
             World(5, 2, purchaseAffordable: true, glyphLearned: false,
-                glyphDiscoveryRequired: discoveryRequired),
+                glyphDiscoverable: discoverable),
             "glyphs",
             GlyphId);
 

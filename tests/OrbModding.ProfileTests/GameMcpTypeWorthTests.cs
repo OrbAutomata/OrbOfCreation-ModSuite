@@ -216,8 +216,8 @@ public sealed class GameMcpTypeWorthTests
             "\"paidLevel\":0,\"totalLevel\":0,\"purchase\":{\"available\":false," +
             "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"The game has not unlocked this yet.\"}," +
             "\"discover\":{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
-            "\"reason\":\"The game is not showing this yet.\"},\"reason\":\"The game keeps this " +
-            "locked, and says nothing about what would unlock it.\"},\"predicates\":{" +
+            "\"reason\":\"The game is not showing this yet.\"},\"reason\":\"This has not been " +
+            "discovered yet.\"},\"predicates\":{" +
             "\"visible\":{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
             "\"reason\":\"This has not been discovered yet.\"},\"available\":{\"available\":false," +
             "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"This has not been discovered yet.\"}," +

@@ -328,7 +328,8 @@ internal sealed class GameWorldCollector
             resolveType("StructureSO"),
             resolveType("ResearchSO"),
             resolveType("PrerequisiteLinkSO"),
-            resolveType("AlchemyRecipeSO"));
+            resolveType("AlchemyRecipeSO"),
+            resolveType("GlyphSO"));
         _purchaseViewRelations = new WorldPurchaseViewRelationReader(
             resolveType,
             productionPurchaseTopology);

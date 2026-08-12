@@ -22,6 +22,14 @@ internal enum WorldRequirementOwnerKind
     PrerequisiteLink = 3,
     Research = 4,
     AlchemyRecipe = 5,
+
+    /// <summary>
+    /// A glyph the game unlocks rather than offers for discovery. <c>GlyphSO.IsAvailable()</c> returns
+    /// <c>discovered</c> when <c>discoverable</c> is set and <c>prerequisites.Check()</c> otherwise, so
+    /// only the second population authors a container here, and its single condition is the whole of
+    /// what holds that glyph shut.
+    /// </summary>
+    Glyph = 6,
 }
 
 internal enum WorldRequirementProgramKind
@@ -775,8 +783,11 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     private readonly Type? _researchType;
     private readonly Type? _prerequisiteLinkType;
     private readonly Type? _alchemyType;
+    private readonly Type? _glyphType;
     private readonly string _unavailable;
 
+    private readonly Func<object, Guid>? _glyphId;
+    private readonly Func<object, object?>? _glyphContainer;
     private readonly Func<object, Guid>? _upgradeId;
     private readonly Func<object, object?>? _upgradeContainer;
     private readonly Func<object, Guid>? _structureId;
@@ -817,15 +828,17 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         Type? structureType,
         Type? researchType,
         Type? prerequisiteLinkType,
-        Type? alchemyType)
+        Type? alchemyType,
+        Type? glyphType)
     {
         _upgradeType = upgradeType;
         _structureType = structureType;
         _researchType = researchType;
         _prerequisiteLinkType = prerequisiteLinkType;
         _alchemyType = alchemyType;
+        _glyphType = glyphType;
         if (upgradeType is null || structureType is null || researchType is null ||
-            prerequisiteLinkType is null || alchemyType is null)
+            prerequisiteLinkType is null || alchemyType is null || glyphType is null)
         {
             _unavailable = upgradeType is null
                 ? "the UpgradeSO type was not found on this build"
@@ -835,7 +848,9 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                         ? "the ResearchSO type was not found on this build"
                         : prerequisiteLinkType is null
                             ? "the PrerequisiteLinkSO type was not found on this build"
-                            : "the AlchemyRecipeSO type was not found on this build";
+                            : alchemyType is null
+                                ? "the AlchemyRecipeSO type was not found on this build"
+                                : "the GlyphSO type was not found on this build";
             return;
         }
 
@@ -851,6 +866,10 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         var research = new WorldMemberBinding(researchType, "ResearchSO");
         _researchId = research.Call<Guid>("GetGuid");
         _researchContainer = NativeAccessorBinder.Reference(researchType, "levelPrerequisites");
+
+        var glyph = new WorldMemberBinding(glyphType, "GlyphSO");
+        _glyphId = glyph.Call<Guid>("GetGuid");
+        _glyphContainer = NativeAccessorBinder.Reference(glyphType, "prerequisites");
 
         var link = new WorldMemberBinding(prerequisiteLinkType, "PrerequisiteLinkSO");
         _prerequisiteLinkId = link.Call<Guid>("GetGuid");
@@ -872,10 +891,11 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             _researchId is null || _researchContainer is null ||
             _prerequisiteLinkId is null || _prerequisiteLinkTiers is null ||
             _prerequisiteLinkTierContainer is null || _conditions is null ||
-            _alchemyUsageContainer is null || _alchemyConditions is null)
+            _alchemyUsageContainer is null || _alchemyConditions is null ||
+            _glyphId is null || _glyphContainer is null)
         {
-            _unavailable = "UpgradeSO, StructureSO, ResearchSO, PrerequisiteLinkSO, and " +
-                "AlchemyRecipeSO did not " +
+            _unavailable = "UpgradeSO, StructureSO, ResearchSO, PrerequisiteLinkSO, " +
+                "AlchemyRecipeSO, and GlyphSO did not " +
                 "expose the complete prerequisite graph on this build";
             return;
         }
@@ -885,7 +905,9 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                 ? structure.Failure
                 : research.Failure.Length > 0
                     ? research.Failure
-                    : link.Failure;
+                    : link.Failure.Length > 0
+                        ? link.Failure
+                        : glyph.Failure;
     }
 
     public string Category => "entity requirements";
@@ -893,7 +915,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     public bool IsAvailable =>
         _upgradeType is not null && _structureType is not null &&
         _researchType is not null && _prerequisiteLinkType is not null &&
-        _alchemyType is not null &&
+        _alchemyType is not null && _glyphType is not null &&
         _unavailable.Length == 0;
 
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
@@ -948,6 +970,15 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             WorldRequirementOwnerKind.Structure,
             _structureId!,
             _structureContainer!,
+            buffer,
+            ref sampled,
+            ref unmodelled,
+            ref firstFailure);
+        Walk(
+            NativeAccessorBinder.StaticList(_glyphType, "All"),
+            WorldRequirementOwnerKind.Glyph,
+            _glyphId!,
+            _glyphContainer!,
             buffer,
             ref sampled,
             ref unmodelled,

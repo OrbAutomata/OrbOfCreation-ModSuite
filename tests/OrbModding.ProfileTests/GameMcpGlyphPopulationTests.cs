@@ -220,4 +220,123 @@ public sealed class GameMcpGlyphPopulationTests
         Assert.False((bool)GameMcpTestHarness.Detail(context, offered)
             ["predicates"]!["visible"]!["available"]!);
     }
+
+    /// <summary>
+    /// Each of the twenty-five unlockers carries one authored condition — Formation wants
+    /// <c>LearnFormation</c>, Arcane wants <c>ResearchArcane</c> — and the world now publishes it, so
+    /// the row names what to go and do instead of saying the game explains nothing.
+    /// </summary>
+    [Fact]
+    public void An_unlocker_names_the_authored_upgrade_that_unlocks_it()
+    {
+        var context = GameMcpTestHarness.Context(Gated(
+            World(Glyph(FormationId, discoverable: false, learned: false, augmentsSpells: false)),
+            WorldRequirementConditionKind.Upgrade));
+
+        var row = GameMcpTestHarness.Detail(context, FormationId)["row"]!;
+
+        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
+        Assert.Equal(
+            "Learn Formation unlocks this glyph, and it is not reached yet.",
+            (string?)row["reason"]);
+        Assert.Equal(
+            GameMcpTestHarness.Handle(LearnFormationId),
+            (string?)row["blockedBy"]!["uuid"]);
+        Assert.Equal("Learn Formation", (string?)row["blockedBy"]!["name"]);
+    }
+
+    /// <summary>
+    /// An augment's own gate is <c>discovered</c>, which the row already carries, so it says that and
+    /// never borrows the sentence written for a lock nobody can explain.
+    /// </summary>
+    [Fact]
+    public void An_undiscovered_augment_says_it_is_undiscovered()
+    {
+        var context = GameMcpTestHarness.Context(World(
+            Glyph(AugmentId, discoverable: true, learned: false, augmentsSpells: true, level: 0)));
+
+        var row = GameMcpTestHarness.Detail(context, AugmentId)["row"]!;
+
+        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
+        Assert.Equal("This has not been discovered yet.", (string?)row["reason"]);
+        Assert.Null(row["blockedBy"]);
+    }
+
+    /// <summary>
+    /// The honest-unknown sentence is what is left when neither population's gate is readable: an
+    /// unlocker whose authored condition this suite cannot model has no blocker to name, and
+    /// inventing one would be worse than the silence.
+    /// </summary>
+    [Fact]
+    public void An_unlocker_whose_condition_is_unmodelled_keeps_the_honest_unknown_sentence()
+    {
+        var context = GameMcpTestHarness.Context(Gated(
+            World(Glyph(FormationId, discoverable: false, learned: false, augmentsSpells: false)),
+            WorldRequirementConditionKind.Unknown));
+
+        var row = GameMcpTestHarness.Detail(context, FormationId)["row"]!;
+
+        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
+        Assert.Equal(
+            "The game keeps this locked, and says nothing about what would unlock it.",
+            (string?)row["reason"]);
+        Assert.Null(row["blockedBy"]);
+    }
+
+    /// <summary>The shipped Formation glyph and the shipped upgrade its container names.</summary>
+    private static readonly Guid FormationId =
+        Guid.Parse("02e0cda8-1c4b-4d93-b9d5-7d318cd352ad");
+
+    private static readonly Guid LearnFormationId =
+        Guid.Parse("3ee502aa-8d21-4b5d-9893-398eadbd9d38");
+
+    /// <summary>
+    /// One unlocker behind one unbought upgrade, which is the shape eighteen of the twenty-five
+    /// have. <c>reqType</c> 0 is the game's "at least one level", and the upgrade sits at zero.
+    /// </summary>
+    private static GameWorldState Gated(
+        GameWorldState world,
+        WorldRequirementConditionKind kind)
+    {
+        var scaling = default(WorldRequirementScaling);
+        var raw = new RawUpgradeSample(
+            LearnFormationId,
+            level: 0,
+            maxLevel: 1,
+            available: true,
+            queuedLevels: 0,
+            buildTime: BigDouble.Zero,
+            developmentTime: 1d,
+            cachedCostLevel: 0);
+        return world with
+        {
+            Upgrades = PublicationTable<WorldUpgrade>.Create(new[]
+            {
+                new WorldUpgrade(
+                    in raw,
+                    isBounded: true,
+                    isExhausted: false,
+                    remainingLevels: 1,
+                    committedLevel: 0,
+                    isDeveloping: false,
+                    developmentProgress: 0d),
+            }),
+            EntityRequirements = PublicationTable<WorldEntityRequirement>.Create(new[]
+            {
+                new WorldEntityRequirement(
+                    FormationId,
+                    WorldRequirementOwnerKind.Glyph,
+                    ordinal: 0,
+                    kind,
+                    kind == WorldRequirementConditionKind.Upgrade
+                        ? "UpgradeRequirement"
+                        : "ListRequirement",
+                    LearnFormationId,
+                    reqType: 0,
+                    baseValue: 0d,
+                    in scaling,
+                    in scaling),
+            }),
+        };
+    }
 }

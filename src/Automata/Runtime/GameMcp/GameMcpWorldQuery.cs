@@ -966,6 +966,47 @@ internal static class GameMcpWorldQuery
             : GameMcpListColumns.PopulationUnlocker;
 
     /// <summary>
+    /// The authored condition holding an unlocker shut, named. Each of the twenty-five carries one
+    /// condition in <c>GlyphSO.prerequisites</c> — a research, an upgrade, or a prerequisite link —
+    /// and <c>Prerequisites.Container.Check()</c> asks all of them at level zero, which is the level
+    /// this evaluates at. The first unmet one is the answer: they are a flat AND, so any of them
+    /// refusing is a complete reason, and naming the first keeps one sentence per row.
+    /// </summary>
+    private static bool TryNameGlyphBlocker(
+        GameWorldState world,
+        Guid glyphId,
+        out string name,
+        out Guid blockerId)
+    {
+        name = string.Empty;
+        blockerId = Guid.Empty;
+        if (!WorldEntityRequirementLookup.TryFindRange(
+                world.EntityRequirements, glyphId, out var start, out var count))
+        {
+            return false;
+        }
+
+        var rows = world.EntityRequirements.AsSpan();
+        for (var offset = 0; offset < count; offset++)
+        {
+            ref readonly var row = ref rows[start + offset];
+            if (row.NodeKind != WorldRequirementNodeKind.Leaf) continue;
+            if (WorldRequirementEvaluator.Evaluate(world, in row, level: 0) !=
+                WorldRequirementVerdict.Unmet)
+            {
+                continue;
+            }
+            var identity = EntityIdentityFormatter.Describe(row.TargetId, world.EntityIdentities);
+            if (!identity.HasName) continue;
+            name = identity.Name;
+            blockerId = row.TargetId;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Whether the ritual screen shows the ritual rather than the undiscovered placeholder that
     /// stands in for it. <c>RitualSO.IsAvailable()</c>, <c>IsVisible()</c> and <c>IsDiscovered()</c>
     /// are one member three times over, and it is the field the world already publishes. A ritual is
@@ -5515,13 +5556,25 @@ internal static class GameMcpWorldQuery
                     // clamp on something they own.
                     if (!glyph.Learned)
                     {
-                        var undiscovered = glyph.DiscoveryRequired && !glyph.Discovered;
-                        reasonCode = undiscovered ? "undiscovered" : "native_unavailable";
-                        reason = "Glyph " +
-                            EntityIdentityFormatter.PlayerName(component.Uuid, world.EntityIdentities) +
-                            (undiscovered
-                                ? " has not been discovered yet."
-                                : " is locked, and the game says nothing about what would unlock it.");
+                        var glyphName = EntityIdentityFormatter.PlayerName(
+                            component.Uuid, world.EntityIdentities);
+                        if (glyph.Discoverable)
+                        {
+                            reasonCode = "undiscovered";
+                            reason = "Glyph " + glyphName + " has not been discovered yet.";
+                        }
+                        else if (TryNameGlyphBlocker(world, component.Uuid, out var blocker, out _))
+                        {
+                            reasonCode = "prerequisites_unmet";
+                            reason = "Glyph " + glyphName + " is unlocked by " + blocker +
+                                ", which is not reached yet.";
+                        }
+                        else
+                        {
+                            reasonCode = "native_unavailable";
+                            reason = "Glyph " + glyphName +
+                                " is locked, and the game says nothing about what would unlock it.";
+                        }
                         return false;
                     }
                     if (component.Count > glyph.MaximumUsages)
@@ -6620,16 +6673,28 @@ internal static class GameMcpWorldQuery
             ["usableCount"] = glyph.MaximumUsages,
         };
 
-        // The glyph the picker will not offer says which of the two reasons it is. A glyph behind a
-        // discovery has a gate a player can go and do something about; a pool unlocker has an
-        // authored edge the world states no condition for, and saying so is the whole of what is
-        // known. Left unnamed, every unlearned glyph in the game answered the same contentless
-        // sentence, which is what a whole page of them read as.
+        // The glyph the picker will not offer says which of the two reasons it is, and the two are
+        // the two populations: GlyphSO.IsAvailable() returns `discovered` for a discoverable glyph
+        // and `prerequisites.Check()` for every other. So an augment is waiting on a discovery, and
+        // an unlocker is waiting on the one authored condition it carries — which the world now
+        // publishes, and which this names. The honest-unknown sentence is what is left when neither
+        // holds: a glyph the game refuses with no readable condition behind it.
         if (!glyph.Learned)
         {
-            result["reasonCode"] = glyph.DiscoveryRequired && !glyph.Discovered
-                ? "undiscovered"
-                : "native_unavailable";
+            if (glyph.Discoverable)
+            {
+                result["reasonCode"] = "undiscovered";
+            }
+            else if (TryNameGlyphBlocker(world, glyph.EntityId, out var blocker, out var blockerId))
+            {
+                result["reasonCode"] = "prerequisites_unmet";
+                result["reason"] = blocker + " unlocks this glyph, and it is not reached yet.";
+                result["blockedBy"] = EntityReference(world, blockerId);
+            }
+            else
+            {
+                result["reasonCode"] = "native_unavailable";
+            }
         }
         AddLevelDecision(world, result, glyph.LevelDecision,
             glyph.Learned,
