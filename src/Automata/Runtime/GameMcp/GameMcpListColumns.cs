@@ -170,10 +170,14 @@ internal static class GameMcpListColumns
     /// Upgrades screen.
     /// </para>
     /// <para>
-    /// Each word is the game's own tab label, lowercased — the seven top-bar screens plus the one
-    /// subtab that sells upgrades of its own, World &gt; Aspects. Naming that subtab rather than its
-    /// screen is the more useful truth: the three aspects are not on the World panel, and a reader
-    /// told <c>world</c> would look for them there.
+    /// Each word is a destination <c>game_navigate</c> accepts, spelled the way that tool takes it:
+    /// the game's own tab label exactly, or <c>screen/subtab</c> where the destination is a subtab.
+    /// <c>game_navigate</c> matches the live catalog's label with <c>StringComparison.Ordinal</c>, so
+    /// a lowercased word was never a destination — a reader who copied <c>magic</c> into the tool got
+    /// a no-match refusal, and the column read as a label rather than as the move it names. Naming
+    /// World &gt; Aspects as the subtab rather than as its screen is the more useful truth besides:
+    /// the three aspects are not on the World panel, and a reader told <c>World</c> would look for
+    /// them there.
     /// </para>
     /// <para>
     /// The words are pinned against list identities rather than read off a name. Six of the nine
@@ -184,16 +188,20 @@ internal static class GameMcpListColumns
     /// withheld whole, so a guess here would be indistinguishable from the truth.
     /// </para>
     /// </remarks>
-    internal const string ScreenMagic = "magic";
-    internal const string ScreenWorkshop = "workshop";
-    internal const string ScreenWorld = "world";
-    internal const string ScreenAlchemy = "alchemy";
-    internal const string ScreenRituals = "rituals";
-    internal const string ScreenScholar = "scholar";
-    internal const string ScreenAspects = "aspects";
-    internal const string ScreenTime = "time";
+    internal const string ScreenMagic = "Magic";
+    internal const string ScreenWorkshop = "Workshop";
+    internal const string ScreenWorld = "World";
+    internal const string ScreenAlchemy = "Alchemy";
+    internal const string ScreenRituals = "Rituals";
+    internal const string ScreenScholar = "Scholar";
+    internal const string ScreenAspects = "World/Aspects";
+    internal const string ScreenTime = "Time";
 
-    /// <summary>The catch-all Upgrades panel, and the word only for a row no screen panel carries.</summary>
+    /// <summary>
+    /// The catch-all Upgrades panel, and the word only for a row no screen panel carries. It is the
+    /// one value in the column that is not a destination, which is why it is the one lowercase word:
+    /// nothing in the live catalog is labelled <c>all</c>, so it cannot be mistaken for one.
+    /// </summary>
     internal const string ScreenAll = "all";
 
     /// <summary>

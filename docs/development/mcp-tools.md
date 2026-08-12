@@ -542,19 +542,27 @@ where that gate is open.
 The Upgrades panel is the persistent right-hand strip, and **what it holds changes with the screen
 you are on**: the game swaps one of nine hand-authored membership lists into it as the active screen
 changes. Membership in one of those lists is therefore the whole fact about where a row is found,
-and `screen` is that fact in the game's own tab word:
+and `screen` is that fact in the word `game_navigate` takes:
 
 | word | list | rows | where the player finds them |
 | --- | --- | --- | --- |
-| `magic` | `MagicScreenUpgrades` | 61 | Magic |
-| `workshop` | `WorkshopScreenUpgrades` | 43 | Workshop |
-| `world` | `WorldScreenUpgrades` | 40 | World |
-| `alchemy` | `AlchemyUpgradesList` | 30 | Alchemy |
-| `scholar` | `ScholarScreenUpgrades` | 27 | Scholar |
-| `rituals` | `RItualScreenUpgrades` | 21 | Rituals |
-| `aspects` | `AspectUpgradesList` | 3 | World > Aspects, the three pedestals |
-| `time` | `TimeScreenUpgrades` | 0 | Time |
+| `Magic` | `MagicScreenUpgrades` | 61 | Magic |
+| `Workshop` | `WorkshopScreenUpgrades` | 43 | Workshop |
+| `World` | `WorldScreenUpgrades` | 40 | World |
+| `Alchemy` | `AlchemyUpgradesList` | 30 | Alchemy |
+| `Scholar` | `ScholarScreenUpgrades` | 27 | Scholar |
+| `Rituals` | `RItualScreenUpgrades` | 21 | Rituals |
+| `World/Aspects` | `AspectUpgradesList` | 3 | World > Aspects, the three pedestals |
+| `Time` | `TimeScreenUpgrades` | 0 | Time |
 | `all` | `AllUpgrades` | 4 | nowhere in particular — see below |
+
+**The screen grammar is `game_navigate`'s own.** A `screen` cell is either a screen label exactly as
+the live catalog spells it, or `Screen/Subtab` where the destination is a subtab, or the documented
+sentinel `all`. `game_navigate` matches labels with `StringComparison.Ordinal`, so the words used to
+be lowercase copies of labels rather than the labels: a reader who pasted `magic` into the tool got a
+no-match refusal, and `aspects` named a destination the tool has no top-level entry for at all. The
+sentinel stays lowercase on purpose, because nothing in the catalog is labelled `all` and that is
+what keeps it from reading as a place to go.
 
 The eight screen lists are disjoint and cover 225 of the 229 upgrades. `all` is **not** a ninth
 screen: `AllUpgrades` holds every upgrade in the game, so saying it about a row a screen list also

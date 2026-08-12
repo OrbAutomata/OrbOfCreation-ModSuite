@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using OrbAutomata.GameMcp;
@@ -94,7 +95,7 @@ public sealed class GameMcpListColumnsTests
             Upgrade(Exhausted, bounded: false)));
 
         Assert.Contains(
-            "these 6 share: level=3, queuedLevels=0, screen=magic, state=available, " +
+            "these 6 share: level=3, queuedLevels=0, screen=Magic, state=available, " +
             "maximum=uncapped, requirements=met, affordable=unpriced",
             page,
             StringComparison.Ordinal);
@@ -214,6 +215,12 @@ public sealed class GameMcpListColumnsTests
     /// made the reader parse prose out of a column; a cell that carried an <c>ERR_</c> class made
     /// them look the class up. Both are gone, and this is the shape of what replaced them.
     /// </summary>
+    /// <remarks>
+    /// The <c>screen</c> column is not in this vocabulary and is pinned by
+    /// <see cref="Every_screen_word_is_a_destination_game_navigate_accepts"/> instead: its cells are
+    /// not facts about the row, they are destinations, and a destination has to be spelled the way
+    /// the tool that takes it spells it.
+    /// </remarks>
     [Fact]
     public void Every_word_a_cell_can_carry_is_one_lowercase_fact()
     {
@@ -235,14 +242,12 @@ public sealed class GameMcpListColumnsTests
             GameMcpListColumns.Manual,
             GameMcpListColumns.Unslotted,
             GameMcpListColumns.Unset,
-            GameMcpListColumns.ScreenAll,
             GameMcpListColumns.RunIdle,
             GameMcpListColumns.RunQueued,
             GameMcpListColumns.RunActive,
             GameMcpListColumns.RunPassed,
             GameMcpListColumns.RunFailed,
         }
-            .Concat(GameMcpListColumns.Screens.Select(screen => screen.Word))
             .Concat(BlockedCodes.Select(GameMcpListColumns.Word))
             .ToArray();
 
@@ -287,28 +292,6 @@ public sealed class GameMcpListColumnsTests
             GameMcpListColumns.Available,
             GameMcpListColumns.Completed,
         }, StringComparer.Ordinal));
-
-        // The screen vocabulary is closed and every word in it is distinct: one authored list, one
-        // word, and the catch-all is not one of the eight screens.
-        Assert.Equal(8, GameMcpListColumns.Screens.Length);
-        Assert.Equal(
-            new[]
-            {
-                "alchemy", "aspects", "magic", "rituals", "scholar", "time", "workshop", "world",
-            },
-            GameMcpListColumns.Screens
-                .Select(screen => screen.Word)
-                .OrderBy(word => word, StringComparer.Ordinal)
-                .ToArray());
-        Assert.Equal(
-            GameMcpListColumns.Screens.Length,
-            GameMcpListColumns.Screens.Select(screen => screen.ListId).Distinct().Count());
-        Assert.DoesNotContain(
-            GameMcpListColumns.EveryUpgradeList,
-            GameMcpListColumns.Screens.Select(screen => screen.ListId));
-        Assert.DoesNotContain(
-            GameMcpListColumns.ScreenAll,
-            GameMcpListColumns.Screens.Select(screen => screen.Word));
 
         // A code with no word is a defect, not a cell to improvise in.
         Assert.Throws<InvalidOperationException>(
@@ -470,17 +453,68 @@ public sealed class GameMcpListColumnsTests
         var rows = Rows(Page(memberships, upgrades));
 
         Assert.Equal(
-            new[] { "magic", "scholar", "aspects", "all", "unreadable" },
+            new[] { "Magic", "Scholar", "World/Aspects", "all", "unreadable" },
             rows.Select(row => (string?)row["screen"]).ToArray());
 
         // The catch-all carries every upgrade in the game, so it is never the word for a row a
         // screen panel also carries — only for the row no screen panel carries at all.
-        Assert.Equal("magic", (string?)rows[0]["screen"]);
+        Assert.Equal("Magic", (string?)rows[0]["screen"]);
         Assert.Equal(
             "[id | name | level | queuedLevels | screen | state | maximum | requirements | " +
             "affordable]",
             Bracket(GameMcpTextPage.Render(Page(memberships, upgrades))));
     }
+
+    /// <summary>
+    /// A `screen` cell answers "where do I go", so its value has to be something the tool that goes
+    /// there accepts. `game_navigate` matches the live catalog label with
+    /// <c>StringComparison.Ordinal</c>, so the grammar is the game's own label exactly, or
+    /// <c>Screen/Subtab</c> where the destination is a subtab, or the sentinel `all` — which is
+    /// deliberately not any label, so it can never be mistaken for a destination.
+    /// </summary>
+    [Fact]
+    public void Every_screen_word_is_a_destination_game_navigate_accepts()
+    {
+        var labels = ViewLabels();
+
+        Assert.Equal(
+            new[]
+            {
+                "Magic", "Workshop", "World", "Alchemy",
+                "Rituals", "Scholar", "World/Aspects", "Time",
+            },
+            GameMcpListColumns.Screens.Select(screen => screen.Word).ToArray());
+
+        Assert.All(GameMcpListColumns.Screens, screen =>
+        {
+            var segments = screen.Word.Split('/');
+            Assert.InRange(segments.Length, 1, 2);
+            Assert.All(segments, segment => Assert.Contains(segment, labels));
+        });
+
+        Assert.DoesNotContain(GameMcpListColumns.ScreenAll, labels);
+
+        // The screen vocabulary is closed and every word in it is distinct: one authored list, one
+        // word, and the catch-all is not one of the eight screens.
+        Assert.Equal(
+            GameMcpListColumns.Screens.Length,
+            GameMcpListColumns.Screens.Select(screen => screen.ListId).Distinct().Count());
+        Assert.DoesNotContain(
+            GameMcpListColumns.EveryUpgradeList,
+            GameMcpListColumns.Screens.Select(screen => screen.ListId));
+        Assert.DoesNotContain(
+            GameMcpListColumns.ScreenAll,
+            GameMcpListColumns.Screens.Select(screen => screen.Word));
+    }
+
+    /// <summary>Every label the authored view graph offers a navigator, from the shipped mapping.</summary>
+    private static HashSet<string> ViewLabels() => File
+        .ReadLines(Path.Combine(AppContext.BaseDirectory, "data", "entity-display-names.tsv"))
+        .Skip(1)
+        .Select(line => line.Split('\t'))
+        .Where(cells => cells.Length > 3 && string.Equals(cells[1], "ViewSO", StringComparison.Ordinal))
+        .Select(cells => cells[3])
+        .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>
     /// A membership publication that did not land says so on every row instead of demoting thirty
