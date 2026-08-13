@@ -14,9 +14,14 @@ roll: a pool enriched before you draw from it gives better options for the same 
 Glyph Discoveries is its own discovery tree with its own price ladder, separate from Spell
 Discoveries; see [discovery-pricing.md](discovery-pricing.md).
 
-The socketable augment is called a glyph too. The reliable test is what it does — unlockers expand
-what you can later roll, augments change a spell you already own. See
-[vocabulary.md](vocabulary.md).
+The socketable augment is called a glyph too. Tell them apart by the keyword on the glyph's type
+line: unlockers carry **Elemental**, **Forging**, **Alchemical** or **Manifestation**, while
+augments carry a keyword beginning `Spell `. See [vocabulary.md](vocabulary.md).
+
+Observed on one endgame save: 25 of the 47 glyphs are unlockers, split Elemental 7, Forging 10,
+Alchemical 5, Manifestation 3. Most carry the name of a same-named entry in the recipe-book list —
+the glyph *Arcane* and the recipe book *Arcane* are the two faces of one unlocker — though the book
+list is longer than the glyph list, so the pairing is not one-to-one.
 
 **Code shape:** the Spellcraft picker asks `GlyphSO.IsAvailable()`. Discoverable glyphs answer
 from their discovery state; non-discoverable pool unlockers answer from their authored `Learn X`

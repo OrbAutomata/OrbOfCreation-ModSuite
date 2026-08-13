@@ -4,8 +4,18 @@ Augments are the socketable modifiers attached to a spell. They are crafted at *
 of the discovery surfaces (see [discovery.md](discovery.md)), and the **Augment Table** upgrade
 raises your maximum number of augment slots by one each time it is bought.
 
-Augments are deliberately double-edged. Two worked examples — not the set; the authored catalogue is
-unknown (see [open-questions.md](open-questions.md)):
+The augment catalogue is **22 glyphs** — every glyph whose type line carries a keyword beginning
+`Spell ` (`Spell Augment` or `Spell Elemental`); see [vocabulary.md](vocabulary.md) for the test
+that separates these from the pool unlockers sharing the word "glyph". They are Accursed, Blooming,
+Bright, Dilated, Distinct, Efficient, Extended, Fortunate, Heavy, Important, Magnified, Precise,
+Quick, Repeating, Resourceful, Scholar, Small, Strong, Surged, Weak, Weighted and Wrath.
+
+Only the ones already unlocked appear on the **Magic > Upgrade** grid — observed at 9 of the 22 on
+one endgame save, with the other 13 still locked. A glyph that is unlocked but missing from that
+grid is an unlocker, not an augment.
+
+Augments are deliberately double-edged. Two worked examples; the remaining effects are unrecorded
+(see [open-questions.md](open-questions.md)):
 
 | Augment | Effect on the spell it is socketed into |
 |---|---|
