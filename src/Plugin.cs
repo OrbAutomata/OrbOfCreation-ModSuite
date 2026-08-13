@@ -1459,9 +1459,22 @@ public sealed class Plugin : BaseUnityPlugin
         GameMcpFrameOperation operation,
         GameMcpFrameContext context)
     {
+        // Every operation the frame answers itself writes its own ledger line here, so the sequence
+        // has no holes in it: a read used to draw an operation number and never write a completion,
+        // and a command refused inside its claiming frame did the same. A command that leaves the
+        // frame — a gadget, or a mutation waiting for post-state settlement — returns null and is
+        // written when it completes instead, so nothing is written twice.
+        var startedAtRawTicks = System.Diagnostics.Stopwatch.GetTimestamp();
         if (!TryExecuteGameMcpFrameOperation(operation, context, out var result))
             return null;
-        return result.WithEntityIdentities(EntityIdentities(context));
+        var answered = result.WithEntityIdentities(EntityIdentities(context));
+        Logger.LogAutomataInfo(GameMcpOperationLedger.DescribeAnswered(
+            operation,
+            answered,
+            Time.frameCount,
+            (System.Diagnostics.Stopwatch.GetTimestamp() - startedAtRawTicks) * 1000.0 /
+                System.Diagnostics.Stopwatch.Frequency));
+        return answered;
     }
 
     private static GameMcpToolExecution ProjectGameMcpFrameOperationFault(

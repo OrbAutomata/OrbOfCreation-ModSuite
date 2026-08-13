@@ -297,7 +297,18 @@ Each completed Game MCP operation writes one ledger line naming the verb, the di
 duration, and the frame it finished on. The frame is what makes the line correlatable: pump and
 capture records carry the same counter, so a line resolves to an exact trace offset rather than
 needing a wall-clock anchor. The code appears beside the disposition only when it says something the
-disposition does not, and the reason only when there is one.
+disposition does not, and the reason only when there is one; a refusal is written as a sentence and
+the line does not double its full stop.
+
+Every operation, not only the ones that mutate. A read drew an operation number and wrote no
+completion, so the sequence had holes in it and what a read cost was answerable on no surface — one
+session sized a two-hundred-id batch by watching the frame counter against a wall clock. A line for
+an operation the frame answered itself carries two things a mutation's does not: a summary of what
+was asked for — the category, the page, the filters, and the number of ids, never the ids
+themselves — and how much came back, as rows when the answer is a page and bytes when it is text. An
+answer that is one block claims no size rather than inventing one. Commands answered inside their
+claiming frame are written here too and keep the mutation vocabulary; a command that leaves its
+frame is written when it completes, so nothing is written twice.
 
 The suite does not use `LogOutput.log` as an action ledger. Verified successes and ordinary preflight
 no-actions emit no per-action line; the action journal and Runtime outcome projection own those facts.
