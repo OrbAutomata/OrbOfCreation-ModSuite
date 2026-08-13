@@ -3634,12 +3634,25 @@ public sealed class Plugin : BaseUnityPlugin
         var paths = new string[entries.Length];
         for (var index = 0; index < entries.Length; index++) paths[index] = entries[index].Path;
         var panels = NativeObjectPath.Runs(paths);
+        var first = Math.Max(offset, 0);
         var end = (int)Math.Min(panels.Count, (long)offset + command.Amount);
+
+        // The ancestry this page's panels all hang off, said once at the top and then never again.
+        // Every prefix on a screen opens with the same canvas and content area, and on a list screen
+        // it goes far deeper than that — a round measured a third of the whole tooltip surface as
+        // address rather than content, half of it this repetition. What each row carries is what the
+        // root does not already say, so an absolute path is the root and the row's own text joined
+        // in that order, and nothing is lost.
+        var pagePrefixes = new List<string>();
+        for (var index = first; index < end; index++) pagePrefixes.Add(panels[index].Prefix);
+        var root = NativeObjectPath.CommonPrefix(pagePrefixes);
         var projected = new GameMcpArrayBuilder();
-        for (var index = Math.Max(offset, 0); index < end; index++)
+        for (var index = first; index < end; index++)
         {
             var panel = panels[index];
             var elements = new GameMcpArrayBuilder();
+            GameMcpObjectBuilder? sole = null;
+            var soleTail = string.Empty;
             for (var member = panel.Start; member < panel.Start + panel.Count; member++)
             {
                 var entry = entries[member];
@@ -3658,18 +3671,36 @@ public sealed class Plugin : BaseUnityPlugin
                 };
                 AddTooltipIdentity(tooltip, item);
                 elements.Add(tooltip);
+                sole = tooltip;
+                soleTail = NativeObjectPath.Relative(entry.Path, root);
+            }
+
+            // A panel holding one element has no shared ancestry to name apart from that element:
+            // naming it anyway spent two lines and a prefix on a row whose whole content was one
+            // name. Round ten's worst page was six panels of one element each, two thirds of it
+            // address. So the panel says that element's own path and the element's own words, and a
+            // panel that really groups several keeps the prefix its rows share.
+            if (sole is not null && panel.Count == 1)
+            {
+                sole["path"] = soleTail;
+                projected.Add(sole);
+                continue;
             }
             var group = new GameMcpObjectBuilder();
-            if (panel.Prefix.Length > 0) group["pathPrefix"] = panel.Prefix;
+            var prefix = string.Equals(panel.Prefix, root, StringComparison.Ordinal)
+                ? string.Empty
+                : NativeObjectPath.Relative(panel.Prefix, root);
+            if (prefix.Length > 0) group["pathPrefix"] = prefix;
             group["elements"] = elements;
             projected.Add(group);
         }
         var details = new GameMcpObjectBuilder
         {
             ["scene"] = SceneManager.GetActiveScene().name,
-            ["total"] = panels.Count,
-            ["rows"] = projected,
         };
+        if (root.Length > 0) details["pathRoot"] = root;
+        details["total"] = panels.Count;
+        details["rows"] = projected;
         if (end < panels.Count) details["nextOffset"] = end;
         return GadgetCommitted(
             "tooltip_catalog_read",
@@ -3698,7 +3729,8 @@ public sealed class Plugin : BaseUnityPlugin
                 "tooltip path '" + requestedPath + "' matched " +
                 matches.Length + " active current-screen elements" +
                 (matches.Length > 1
-                    ? "; prepend the pathPrefix game_tooltips returned with this row to name one"
+                    ? "; prepend the pathRoot and pathPrefix game_tooltips returned with this row " +
+                      "to name one"
                     : "; re-read game_tooltips for this screen's current paths"));
         }
         var hover = matches[0].Hover;

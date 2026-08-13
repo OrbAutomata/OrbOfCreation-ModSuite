@@ -79,6 +79,74 @@ public sealed class NativeObjectPathTests
         Assert.Empty(NativeObjectPath.Runs(System.Array.Empty<string>()));
 
     /// <summary>
+    /// One page, one root: the ancestry every panel on the page hangs off is said once at the top,
+    /// each panel says only what the root did not, and every absolute path is those two and the
+    /// element's own tail joined in that order. Nothing is lost, and nothing is said twice.
+    /// </summary>
+    /// <remarks>
+    /// A round measured a third of the whole tooltip surface as address rather than content, and
+    /// half of that was this one repetition: every panel prefix on a screen opens with the same
+    /// canvas and content area, and on a list screen it goes far deeper than that. The rule is
+    /// pinned by rebuilding the absolute paths from what the wire carries and comparing them to the
+    /// paths the screen was read at, because a page that saves bytes by losing an address is not a
+    /// saving — it is a catalog whose rows the read verb cannot resolve.
+    /// </remarks>
+    [Fact]
+    public void A_page_says_its_root_once_and_every_row_still_rebuilds_its_whole_path()
+    {
+        var paths = new[]
+        {
+            "Canvas[0]/Content[2]/Magic[0]/Spells[1]/Row[0]",
+            "Canvas[0]/Content[2]/Magic[0]/Spells[1]/Row[1]",
+            "Canvas[0]/Content[2]/Magic[0]/Glyphs[3]/Row[0]",
+            "Canvas[0]/Content[2]/Header[4]/Title[0]",
+        };
+
+        var panels = NativeObjectPath.Runs(paths);
+        var prefixes = new System.Collections.Generic.List<string>();
+        for (var index = 0; index < panels.Count; index++) prefixes.Add(panels[index].Prefix);
+        var root = NativeObjectPath.CommonPrefix(prefixes);
+
+        Assert.Equal("Canvas[0]/Content[2]", root);
+
+        // What the wire carries: the root once, then per panel the part of its own prefix the root
+        // did not say, then per element the part of its path its panel did not say.
+        var rebuilt = new System.Collections.Generic.List<string>();
+        for (var index = 0; index < panels.Count; index++)
+        {
+            var panel = panels[index];
+            var prefix = NativeObjectPath.Relative(panel.Prefix, root);
+            for (var member = panel.Start; member < panel.Start + panel.Count; member++)
+            {
+                rebuilt.Add(panel.Count == 1
+
+                    // A panel holding one element has no ancestry to name apart from that element,
+                    // so it says the element's own tail against the root and no prefix line at all.
+                    ? Join(root, NativeObjectPath.Relative(paths[member], root))
+                    : Join(Join(root, prefix), NativeObjectPath.Relative(paths[member], panel.Prefix)));
+            }
+        }
+
+        Assert.Equal(paths, rebuilt);
+        Assert.Equal(
+            new[] { "Magic[0]/Spells[1]", "Magic[0]/Glyphs[3]", "Header[4]" },
+            new[]
+            {
+                NativeObjectPath.Relative(panels[0].Prefix, root),
+                NativeObjectPath.Relative(panels[1].Prefix, root),
+                NativeObjectPath.Relative(panels[2].Prefix, root),
+            });
+
+        // A page whose panels share nothing above them says no root, and the rows are unchanged.
+        Assert.Equal(
+            string.Empty,
+            NativeObjectPath.CommonPrefix(new[] { "Canvas[0]/A[0]", "Overlay[1]/B[0]" }));
+    }
+
+    private static string Join(string head, string tail) =>
+        head.Length == 0 ? tail : tail.Length == 0 ? head : head + "/" + tail;
+
+    /// <summary>
     /// A catalog page factors the ancestry each panel's rows share, so a row is handed the tail its
     /// own panel did not already say. The read verb therefore resolves a row by that tail — at a
     /// segment boundary, so a longer sibling name never answers for a shorter one.

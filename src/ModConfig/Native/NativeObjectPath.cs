@@ -168,6 +168,37 @@ internal static class NativeObjectPath
         return result;
     }
 
+    /// <summary>
+    /// The deepest ancestry every one of these paths hangs off, as whole segments.
+    /// </summary>
+    /// <remarks>
+    /// A page of panels repeats its own screen's ancestry once per panel, and on a list screen that
+    /// ancestry is nearly the whole address: 58 of one round's 70 panel prefixes opened with the
+    /// same three segments, and half of the entire path payload was that repetition. Said once at
+    /// the top of the response, each panel is left with only what it does not share. Segment-wise on
+    /// purpose — a character-wise prefix would cut <c>PlotNodeItem(Clone)[1]</c> and
+    /// <c>PlotNodeItem(Clone)[11]</c> mid-index and produce an address naming nothing.
+    /// </remarks>
+    public static string CommonPrefix(IReadOnlyList<string> paths)
+    {
+        if (paths is null || paths.Count == 0) return string.Empty;
+        var common = (paths[0] ?? string.Empty).Split('/');
+        var length = common.Length;
+        for (var index = 1; index < paths.Count && length > 0; index++)
+        {
+            var segments = (paths[index] ?? string.Empty).Split('/');
+            if (segments.Length < length) length = segments.Length;
+            for (var segment = 0; segment < length; segment++)
+            {
+                if (string.Equals(common[segment], segments[segment], StringComparison.Ordinal))
+                    continue;
+                length = segment;
+                break;
+            }
+        }
+        return length == 0 ? string.Empty : string.Join("/", common, 0, length);
+    }
+
     /// <summary>The ancestry a path's siblings share: everything above its own last segment.</summary>
     private static string Parent(string path)
     {

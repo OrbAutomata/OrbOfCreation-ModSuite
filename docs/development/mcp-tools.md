@@ -2867,12 +2867,29 @@ over a page spanning three panels it collapsed to a canvas name, leaving every r
 repeating some 150 identical characters of its own panel's ancestry. `pathPrefix` is present on a
 panel exactly when its elements have ancestry above their own last segment, and it is printed above
 the elements it explains rather than below them, which is where a key a reader needs to read row one
-belongs. `game_tooltip` therefore resolves a row by the tail it was handed: any tail of a live path,
-matched at a segment boundary, up to and including the whole path.
+belongs.
+
+**The page says its own root once.** Every panel prefix on a screen opens with the same canvas and
+content area, and on a list screen it goes far deeper than that — a round measured a third of the
+whole tooltip surface as address rather than content, half of it this one repetition. The response
+states that shared ancestry once as `pathRoot`, and each panel's `pathPrefix` is what the root did
+not already say. An absolute path is `pathRoot`, then the row's `pathPrefix`, then the element's own
+`path`, joined with `/` in that order; nothing is lost and nothing is said twice. The root is
+computed over the page that is actually being sent, so a resumed page states its own. A page whose
+panels share no ancestry states no `pathRoot` at all.
+
+**A panel holding one element inlines it.** Naming the panel anyway spent a prefix line and an
+indent level on a row whose whole content was one name — round ten's worst page was six panels of
+one element each, two thirds of it address. Such a panel is printed as the element itself, its
+`path` stated against the `pathRoot`; a panel that really groups several rows keeps the prefix its
+rows share.
+
+`game_tooltip` resolves a row by the tail it was handed: any tail of a live path, matched at a
+segment boundary, up to and including the whole path.
 A tail naming more than one live element is refused rather than resolved to the first, and the
-refusal says to prepend the `pathPrefix` the catalog returned with that row — two scroll lists on one
-screen hand out colliding tails routinely, and the prefix is what tells them apart. A tail naming
-none says to re-read the catalog instead, because the screen has moved on.
+refusal says to prepend the `pathRoot` and `pathPrefix` the catalog returned with that row — two
+scroll lists on one screen hand out colliding tails routinely, and the prefix is what tells them
+apart. A tail naming none says to re-read the catalog instead, because the screen has moved on.
 The reply is compact plain screen text.
 The
 catalog includes the owning UUID when the assigned tooltip item is itself an identity-bearing game
