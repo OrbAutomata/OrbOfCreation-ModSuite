@@ -6369,20 +6369,21 @@
       "returnType": "System.Guid",
       "parameters": [],
       "owners": [
-        "Common typed registry resolver",
-        "Common live entity identity catalog",
-        "Common Alchemy classifier",
-        "Automata identity",
-        "Mentor identity",
-        "Automata cost-math verification",
-        "Automata world collection",
-        "Automata world-collection verification",
-        "Common world collection",
         "Auto Items temporary-item picker",
         "Automata Auto Buy owning-view world publication",
-        "Common upgrade screen world publication",
+        "Automata cost-math verification",
+        "Automata identity",
+        "Automata world collection",
+        "Automata world-collection verification",
+        "Common Alchemy classifier",
         "Common keyword world collection",
-        "Common type-modifier world collection"
+        "Common live entity identity catalog",
+        "Common type roster world collection",
+        "Common type-modifier world collection",
+        "Common typed registry resolver",
+        "Common upgrade screen world publication",
+        "Common world collection",
+        "Mentor identity"
       ],
       "usages": [
         "reflection"
@@ -26224,6 +26225,7 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -26832,6 +26834,7 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27117,6 +27120,7 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27155,6 +27159,7 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27193,6 +27198,7 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27250,6 +27256,7 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27630,6 +27637,7 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27649,6 +27657,7 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<RitualTypeSO>",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27656,6 +27665,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<RitualTypeSO>"}
+    },
+    {
+      "id": "ritual-type.initiated",
+      "assembly": "assembly-csharp",
+      "type": "RitualTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "initiated",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
     },
     {
       "id": "structure-type.all",
@@ -27668,6 +27696,7 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<StructureTypeSO>",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27687,6 +27716,7 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<HarvestTypeSO>",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27706,6 +27736,7 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<PlotNodeTypeSO>",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27725,6 +27756,7 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<ResearchTypeSO>",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27732,6 +27764,234 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ResearchTypeSO>"}
+    },
+    {
+      "id": "research-type.linked-develop-cost",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "linkedDevelopCost",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "research-type.linked-resource-cost",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "linkedResourceCost",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "research-type.linked-research-time",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "linkedResearchTime",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "research-type.ignore-when-level-dependent",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "ignoreWhenLevelDependent",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "research-type.persist-through-reset",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "persistThroughReset",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "research-type.cached-total-level",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "cachedTotalLevel",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "research-type.cached-peak-level",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "cachedPeakLevel",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "research-type.cached-queued-level",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "cachedQueuedLevel",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "research-type.cached-developing-level",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "cachedDevelopingLevel",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "research-type.cached-queued-value",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "cachedQueuedValue",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "research-type.cached-investment-level",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "cachedInvestmentLevel",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "research-type.cached-purchased-level",
+      "assembly": "assembly-csharp",
+      "type": "ResearchTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "cachedPurchasedLevel",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
       "id": "consumable-type.all",
@@ -27744,6 +28004,7 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<ConsumableTypeSO>",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27751,6 +28012,44 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ConsumableTypeSO>"}
+    },
+    {
+      "id": "consumable-type.hidden",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "hidden",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "consumable-type.sort-order",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "sortOrder",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
       "id": "harvest-action-type.all",
@@ -27763,6 +28062,7 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<HarvestActionTypeSO>",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27782,6 +28082,7 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<PassiveAbilityTypeSO>",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27801,6 +28102,7 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<TimeRuneTypeSO>",
       "owners": [
+        "Common type roster world collection",
         "Common type-modifier world collection"
       ],
       "usages": [
@@ -27808,6 +28110,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads the registry list the game already keeps; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<TimeRuneTypeSO>"}
+    },
+    {
+      "id": "time-rune-type.initialized",
+      "assembly": "assembly-csharp",
+      "type": "TimeRuneTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "initialized",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
     },
     {
       "id": "challenge-type.all",
@@ -27922,6 +28243,82 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<StructureTypeSO>"}
+    },
+    {
+      "id": "structure-type.base-effect-level",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "baseEffectLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "structure-type.base-build-time",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "baseBuildTime",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
+      "id": "structure-type.override-rank-default",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "overrideRankDefault",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "structure-type.override-rank",
+      "assembly": "assembly-csharp",
+      "type": "StructureTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "overrideRank",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Common type roster world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
       "id": "spell.augmented-spell-types",

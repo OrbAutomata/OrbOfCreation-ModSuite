@@ -524,6 +524,19 @@ internal static class GameMcpEntityCapabilityMap
         D("equipment-types", "EquipmentTypeSO", GameMcpCommandKind.GenericLevel),
         D("resource-types", "ResourceTypeSO", GameMcpCommandKind.GenericLevel),
         D("crafting-recipe-types", "CraftingRecipeTypeSO"),
+
+        // The nine taxonomies whose types the game gives no verb of their own: nothing buys,
+        // levels or equips a structure type, so each descriptor carries no capability and exists
+        // to make the id resolvable to a category a read can answer.
+        D("structure-types", "StructureTypeSO"),
+        D("ritual-types", "RitualTypeSO"),
+        D("agromancy-element-types", "HarvestTypeSO"),
+        D("plot-node-types", "PlotNodeTypeSO"),
+        D("research-types", "ResearchTypeSO"),
+        D("consumable-types", "ConsumableTypeSO"),
+        D("plot-node-action-types", "HarvestActionTypeSO"),
+        D("passive-ability-types", "PassiveAbilityTypeSO"),
+        D("time-rune-types", "TimeRuneTypeSO"),
         D("crafting-recipes", "CraftingRecipeSO", GameMcpCommandKind.Crafting),
         D("crafting-queue-entries", "CraftingInstance"),
         D("player-loadouts", "PlayerLoadout", GameMcpCommandKind.Loadout),

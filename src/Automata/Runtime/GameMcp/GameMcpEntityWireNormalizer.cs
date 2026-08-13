@@ -626,6 +626,12 @@ internal static class GameMcpEntityWireNormalizer
         child.Remove("internalName");
         child.Remove("category");
         child.Remove("nativeType");
+
+        // A type asset whose every record distributes into its members captures nothing beyond its
+        // own handle, so the identity just lifted out was the whole row. The empty object left
+        // behind printed as `row: -`, which reads as a fact the game withheld rather than as a
+        // class that has no column of its own.
+        if (child.Count == 0) item.Remove(field);
     }
 
     private static readonly string[] Identity =

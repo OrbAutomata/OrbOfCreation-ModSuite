@@ -1168,7 +1168,9 @@ public sealed class GameMcpWorldEnvelopeTests
                 "harvest-elements",
                 "plot-actions",
                 "action-queue-slots",
-            })
+                            // The three type rosters whose wire name is not their collector's name.
+                "harvest-types", "harvest-action-types", "consumable-families",
+})
             .Distinct(StringComparer.Ordinal)
             .Select(category => string.Equals(
                     category,
@@ -1321,7 +1323,9 @@ public sealed class GameMcpWorldEnvelopeTests
                 "plot-actions",
                 "action-queue-slots",
                 "loadouts",
-            })
+                            // The three type rosters whose wire name is not their collector's name.
+                "harvest-types", "harvest-action-types", "consumable-families",
+})
             .Distinct(StringComparer.Ordinal)
             .Select(Clean)
             .ToArray();
@@ -1377,7 +1381,9 @@ public sealed class GameMcpWorldEnvelopeTests
                 "plot-actions",
                 "action-queue-slots",
                 "loadouts",
-            })
+                            // The three type rosters whose wire name is not their collector's name.
+                "harvest-types", "harvest-action-types", "consumable-families",
+})
             .Distinct(StringComparer.Ordinal)
             .Select(category => string.Equals(
                     category,

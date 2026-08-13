@@ -296,6 +296,7 @@ internal sealed class FakeTimeRuneType : FakeIdRegistry
 {
     public static readonly List<FakeTimeRuneType> All = new();
 
+    public bool initialized;
     public FakeModifierRecord freeUsages = new(0d);
     public FakeModifierRecord masteryXpMod = new(0d);
     public FakeModifierRecord power = new(0d);
@@ -322,6 +323,7 @@ internal sealed class FakeRitualType : FakeIdRegistry
 {
     public static readonly List<FakeRitualType> All = new();
 
+    public bool initiated;
     public FakeModifierRecord activeRituals = new(0d);
     public FakeModifierRecord chainLengthBonus = new(0d);
     public FakeModifierRecord chainPower = new(0d);
@@ -2113,6 +2115,8 @@ internal sealed class FakeConsumableType
 {
     public static readonly List<FakeConsumableType> All = new();
 
+    public bool hidden;
+    public int sortOrder;
     public FakeModifierRecord bonusLevels = new(0d);
     public FakeModifierRecord durationMod = new(0d);
     public FakeModifierRecord power = new(0d);

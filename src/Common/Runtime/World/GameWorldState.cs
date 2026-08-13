@@ -218,6 +218,37 @@ public sealed record GameWorldState
         PublicationTable<WorldCraftingRecipeType>.Empty;
 
     /// <summary>
+    /// The nine type taxonomies that carry modifier records and, until now, no row of their own. See
+    /// <see cref="WorldStructureType"/> for why a row here holds identity and value records only.
+    /// </summary>
+    internal PublicationTable<WorldStructureType> StructureTypes { get; init; } =
+        PublicationTable<WorldStructureType>.Empty;
+
+    internal PublicationTable<WorldRitualType> RitualTypes { get; init; } =
+        PublicationTable<WorldRitualType>.Empty;
+
+    internal PublicationTable<WorldHarvestType> HarvestTypes { get; init; } =
+        PublicationTable<WorldHarvestType>.Empty;
+
+    internal PublicationTable<WorldPlotNodeType> PlotNodeTypes { get; init; } =
+        PublicationTable<WorldPlotNodeType>.Empty;
+
+    internal PublicationTable<WorldResearchType> ResearchTypes { get; init; } =
+        PublicationTable<WorldResearchType>.Empty;
+
+    internal PublicationTable<WorldConsumableFamily> ConsumableFamilies { get; init; } =
+        PublicationTable<WorldConsumableFamily>.Empty;
+
+    internal PublicationTable<WorldHarvestActionType> HarvestActionTypes { get; init; } =
+        PublicationTable<WorldHarvestActionType>.Empty;
+
+    internal PublicationTable<WorldPassiveAbilityType> PassiveAbilityTypes { get; init; } =
+        PublicationTable<WorldPassiveAbilityType>.Empty;
+
+    internal PublicationTable<WorldTimeRuneType> TimeRuneTypes { get; init; } =
+        PublicationTable<WorldTimeRuneType>.Empty;
+
+    /// <summary>
     /// Every concrete crafting recipe with authored inputs/outputs and current native visibility,
     /// purchase, output-capacity, bandwidth, and engagement-drain evidence.
     /// </summary>

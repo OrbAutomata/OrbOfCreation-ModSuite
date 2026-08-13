@@ -160,6 +160,15 @@ internal sealed class GameWorldCycleFrame
     internal WorldSampleBuffer<WorldEquipmentType, WorldEquipmentType> EquipmentTypes { get; } = new();
     internal WorldSampleBuffer<WorldResourceType, WorldResourceType> ResourceTypes { get; } = new();
     internal WorldSampleBuffer<WorldCraftingRecipeType, WorldCraftingRecipeType> CraftingRecipeTypes { get; } = new();
+    internal WorldSampleBuffer<WorldStructureType, WorldStructureType> StructureTypes { get; } = new();
+    internal WorldSampleBuffer<WorldRitualType, WorldRitualType> RitualTypes { get; } = new();
+    internal WorldSampleBuffer<WorldHarvestType, WorldHarvestType> HarvestTypes { get; } = new();
+    internal WorldSampleBuffer<WorldPlotNodeType, WorldPlotNodeType> PlotNodeTypes { get; } = new();
+    internal WorldSampleBuffer<WorldResearchType, WorldResearchType> ResearchTypes { get; } = new();
+    internal WorldSampleBuffer<WorldConsumableFamily, WorldConsumableFamily> ConsumableFamilies { get; } = new();
+    internal WorldSampleBuffer<WorldHarvestActionType, WorldHarvestActionType> HarvestActionTypes { get; } = new();
+    internal WorldSampleBuffer<WorldPassiveAbilityType, WorldPassiveAbilityType> PassiveAbilityTypes { get; } = new();
+    internal WorldSampleBuffer<WorldTimeRuneType, WorldTimeRuneType> TimeRuneTypes { get; } = new();
     internal WorldRelationBuffer<RawCraftingRecipeSample> CraftingRecipes { get; } = new();
     internal WorldRelationBuffer<WorldCraftingRecipeTypeLink> CraftingRecipeTypeLinks { get; } = new();
     internal WorldRelationBuffer<RawCraftingRecipeResource> CraftingRecipeResources { get; } = new();
@@ -462,6 +471,17 @@ internal static class GameWorldFrameDeriver
             EquipmentTypes = frame.EquipmentTypes.Build(WorldIdentityDeriver<WorldEquipmentType>.Shared),
             ResourceTypes = frame.ResourceTypes.Build(WorldIdentityDeriver<WorldResourceType>.Shared),
             CraftingRecipeTypes = frame.CraftingRecipeTypes.Build(WorldIdentityDeriver<WorldCraftingRecipeType>.Shared),
+            StructureTypes = frame.StructureTypes.Build(WorldIdentityDeriver<WorldStructureType>.Shared),
+            RitualTypes = frame.RitualTypes.Build(WorldIdentityDeriver<WorldRitualType>.Shared),
+            HarvestTypes = frame.HarvestTypes.Build(WorldIdentityDeriver<WorldHarvestType>.Shared),
+            PlotNodeTypes = frame.PlotNodeTypes.Build(WorldIdentityDeriver<WorldPlotNodeType>.Shared),
+            ResearchTypes = frame.ResearchTypes.Build(WorldIdentityDeriver<WorldResearchType>.Shared),
+            ConsumableFamilies = frame.ConsumableFamilies.Build(WorldIdentityDeriver<WorldConsumableFamily>.Shared),
+            HarvestActionTypes =
+                frame.HarvestActionTypes.Build(WorldIdentityDeriver<WorldHarvestActionType>.Shared),
+            PassiveAbilityTypes =
+                frame.PassiveAbilityTypes.Build(WorldIdentityDeriver<WorldPassiveAbilityType>.Shared),
+            TimeRuneTypes = frame.TimeRuneTypes.Build(WorldIdentityDeriver<WorldTimeRuneType>.Shared),
             CraftingRecipes = WorldCraftingRecipeDeriver.Build(
                 frame.CraftingRecipes,
                 frame.CraftingRecipeTypeLinks,

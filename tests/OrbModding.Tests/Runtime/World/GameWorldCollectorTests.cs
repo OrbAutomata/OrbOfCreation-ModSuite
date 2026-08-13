@@ -579,18 +579,19 @@ public sealed class GameWorldCollectorTests : IDisposable
         // the two that belong to no per-type registry at all and are reached by uuid: the action
         // queues, the equipped spell loadout, the paired Concept registries, and the current
         // targeting request, plus the two ordered consumable lists, their frame-local use gate, and
-        // the runtime Brewing Station selector/lifecycle surface.
+        // the runtime Brewing Station selector/lifecycle surface, and the nine type rosters, whose
+        // modifier records were already walked but whose assets had no row of their own.
         // A pass that quietly stopped covering one would show
         // up only as a consumer finding nothing where there was something.
         var report = Collector().Collect();
 
-        Assert.Equal(64, report.Categories.Length);
+        Assert.Equal(73, report.Categories.Length);
         Assert.True(report.IsComplete, report.Describe());
 
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a
         // levelled grouping type.
         foreach (var category in
-                 new[] { "resources", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "glyph lists", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions" })
+                 new[] { "resources", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "glyph lists", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions", "structure types", "ritual types", "harvest types", "plot node types", "research types", "consumable families", "harvest action types", "passive ability types", "time rune types" })
         {
             Assert.Equal(WorldCategoryOutcome.Collected, report.For(category).Outcome);
         }
@@ -1738,6 +1739,10 @@ public sealed class GameWorldCollectorTests : IDisposable
         public static readonly List<FakeStructureType> All = new();
 
         public List<FakeStructureType> subTypes = new();
+        public int baseEffectLevel;
+        public double baseBuildTime;
+        public bool overrideRankDefault;
+        public int overrideRank;
         public FakeModifierRecord activeCostMod = new(0d);
         public FakeModifierRecord attributeRankEffectMod = new(0d);
         public FakeModifierRecord bonusLevels = new(0d);
@@ -2069,6 +2074,18 @@ public sealed class GameWorldCollectorTests : IDisposable
     {
         public static readonly List<FakeResearchType> All = new();
 
+        public bool linkedDevelopCost;
+        public bool linkedResourceCost;
+        public bool linkedResearchTime;
+        public bool ignoreWhenLevelDependent;
+        public bool persistThroughReset;
+        public int cachedTotalLevel;
+        public int cachedPeakLevel;
+        public int cachedQueuedLevel;
+        public int cachedDevelopingLevel;
+        public int cachedQueuedValue;
+        public int cachedInvestmentLevel;
+        public int cachedPurchasedLevel;
         public FakeModifierRecord freeBonusLevels = new(0d);
         public FakeModifierRecord levelRequirementAdjust = new(0d);
         public FakeModifierRecord maxInvestmentLevel = new(0d);

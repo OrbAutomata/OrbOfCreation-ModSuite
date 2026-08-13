@@ -6,6 +6,10 @@ public sealed class StructureTypeSO : UpgradeableObject
 {
     public static List<StructureTypeSO> All = new List<StructureTypeSO>();
     public List<StructureTypeSO> subTypes = new List<StructureTypeSO>();
+    public int baseEffectLevel;
+    public double baseBuildTime;
+    public bool overrideRankDefault;
+    public int overrideRank;
     public ModifierRecord activeCostMod = new ModifierRecord();
     public ModifierRecord attributeRankEffectMod = new ModifierRecord();
     public ModifierRecord bonusLevels = new ModifierRecord();
@@ -725,6 +729,8 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
 public sealed class ConsumableTypeSO : IdScriptableObject
 {
     public static List<ConsumableTypeSO> All = new List<ConsumableTypeSO>();
+    public bool hidden;
+    public int sortOrder;
     public ModifierRecord bonusLevels = new ModifierRecord();
     public ModifierRecord durationMod = new ModifierRecord();
     public ModifierRecord power = new ModifierRecord();
@@ -1317,11 +1323,14 @@ public sealed class PassiveAbilityTypeSO : UpgradeableObject
 
 public sealed class TimeRuneTypeSO : UpgradeableObject
 {
+    public bool initialized;
     public ModifierRecord freeUsages = new ModifierRecord();
     public ModifierRecord masteryXpMod = new ModifierRecord();
     public ModifierRecord power = new ModifierRecord();
     public ModifierRecord powerScalingMod = new ModifierRecord();
-    public ModifierRecord totalLevel = new ModifierRecord();
+    // The pinned build declares this one a ValueModifierRecord: it holds a number of its own
+    // rather than distributing one into members. See docs/reverse-engineering/type-model.md.
+    public ValueModifierRecord totalLevel = new ValueModifierRecord(new BigDouble(0.0, 0));
     public static List<TimeRuneTypeSO> All = new List<TimeRuneTypeSO>();
 }
 
@@ -1342,7 +1351,11 @@ public sealed class HarvestActionTypeSO : UpgradeableObject
 
 public sealed class RitualTypeSO : UpgradeableObject
 {
-    public ModifierRecord activeRituals = new ModifierRecord();
+    public bool initiated;
+
+    // The pinned build declares this one a ValueModifierRecord: it holds a number of its own
+    // rather than distributing one into members. See docs/reverse-engineering/type-model.md.
+    public ValueModifierRecord activeRituals = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ModifierRecord chainLengthBonus = new ModifierRecord();
     public ModifierRecord chainPower = new ModifierRecord();
     public ModifierRecord completionCostMod = new ModifierRecord();
@@ -1375,7 +1388,9 @@ public sealed class PlotNodeTypeSO : UpgradeableObject
     public ModifierRecord restingSpeed = new ModifierRecord();
     public ModifierRecord sizeMod = new ModifierRecord();
     public ModifierRecord specialMod = new ModifierRecord();
-    public ModifierRecord totalLevel = new ModifierRecord();
+    // The pinned build declares this one a ValueModifierRecord: it holds a number of its own
+    // rather than distributing one into members. See docs/reverse-engineering/type-model.md.
+    public ValueModifierRecord totalLevel = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ModifierRecord yieldMod = new ModifierRecord();
     public static List<PlotNodeTypeSO> All = new List<PlotNodeTypeSO>();
 }
@@ -1387,7 +1402,9 @@ public sealed class HarvestTypeSO : UpgradeableObject
     public ModifierRecord experienceRateMod = new ModifierRecord();
     public ModifierRecord growthSpeedMod = new ModifierRecord();
     public ModifierRecord harvestSpeedMod = new ModifierRecord();
-    public ModifierRecord level = new ModifierRecord();
+    // The pinned build declares this one a ValueModifierRecord: it holds a number of its own
+    // rather than distributing one into members. See docs/reverse-engineering/type-model.md.
+    public ValueModifierRecord level = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ModifierRecord maxQuantity = new ModifierRecord();
     public ModifierRecord maxRestGrowth = new ModifierRecord();
     public ModifierRecord power = new ModifierRecord();

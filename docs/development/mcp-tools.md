@@ -1627,6 +1627,16 @@ A keyword is a type asset, so "what is Ember worth" and "which spells are Embers
 asked two ways. A detail read on a type carries a `worth` block; every other entity's block is
 byte-identical to what it was, because no published type record names it.
 
+Every taxonomy the block covers is addressable. Beyond `equipment-types`, `spell-types`,
+`alchemy-types`, `resource-types` and `crafting-recipe-types`, a type id also resolves under
+`structure-types`, `ritual-types`, `agromancy-element-types`, `plot-node-types`, `research-types`,
+`consumable-types`, `plot-node-action-types`, `passive-ability-types` and `time-rune-types`. Those
+nine are read-only rosters: nothing is bought, levelled or equipped through a type asset, so their
+capability map is empty and their pages carry no decision blocks. A row is every scalar the class
+stores; agromancy action types and passive ability types store none at all — every record they hold
+hands its bonus down — so their page carries no `row` line and the `worth` block is the whole
+answer.
+
 `properties` is one entry per modifier record the type carries, and each entry states exactly one
 magnitude under the name that says which kind it is. `property` is the word the game's own tooltip
 prints for that record — `Artifact Power`, not `powerMod` — so a reader compares the wire against

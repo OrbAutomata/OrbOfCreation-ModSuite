@@ -246,6 +246,44 @@ internal static class GameMcpTypeWorth
                     return false;
                 value = craftingType.MagnitudeIncrement;
                 return true;
+            case WorldTypeModifierOwnerKind.RitualType:
+                if (!string.Equals(property, "activeRituals", StringComparison.Ordinal)) return false;
+                if (!WorldLookup.TryFind(world.RitualTypes, typeId, out var ritualType)) return false;
+                value = ritualType.ActiveRituals;
+                return true;
+            case WorldTypeModifierOwnerKind.HarvestType:
+                if (!string.Equals(property, "level", StringComparison.Ordinal)) return false;
+                if (!WorldLookup.TryFind(world.HarvestTypes, typeId, out var harvestType)) return false;
+                value = harvestType.Level;
+                return true;
+            case WorldTypeModifierOwnerKind.PlotNodeType:
+                if (!string.Equals(property, "totalLevel", StringComparison.Ordinal)) return false;
+                if (!WorldLookup.TryFind(world.PlotNodeTypes, typeId, out var plotNodeType)) return false;
+                value = plotNodeType.TotalLevel;
+                return true;
+            case WorldTypeModifierOwnerKind.TimeRuneType:
+                if (!string.Equals(property, "totalLevel", StringComparison.Ordinal)) return false;
+                if (!WorldLookup.TryFind(world.TimeRuneTypes, typeId, out var timeRuneType)) return false;
+                value = timeRuneType.TotalLevel;
+                return true;
+            case WorldTypeModifierOwnerKind.ResearchType:
+                if (!WorldLookup.TryFind(world.ResearchTypes, typeId, out var researchType))
+                    return false;
+                switch (property)
+                {
+                    case "freeBonusLevels":
+                        value = researchType.FreeBonusLevels;
+                        return true;
+                    case "usedBonusLevels":
+                        value = researchType.UsedBonusLevels;
+                        return true;
+                    case "maxInvestmentLevel":
+                        value = researchType.MaxInvestmentLevel;
+                        return true;
+                    default:
+                        return false;
+                }
+
             case WorldTypeModifierOwnerKind.EquipmentType:
                 if (!WorldLookup.TryFind(world.EquipmentTypes, typeId, out var equipmentType))
                     return false;

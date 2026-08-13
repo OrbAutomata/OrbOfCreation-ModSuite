@@ -8016,6 +8016,18 @@ internal static class GameMcpWorldQuery
             Entity(nameof(GameWorldState.EquipmentTypes), world => world.EquipmentTypes),
             Entity(nameof(GameWorldState.ResourceTypes), world => world.ResourceTypes),
             Entity(nameof(GameWorldState.CraftingRecipeTypes), world => world.CraftingRecipeTypes),
+            Entity(nameof(GameWorldState.StructureTypes), world => world.StructureTypes),
+            Entity(nameof(GameWorldState.RitualTypes), world => world.RitualTypes),
+            Entity("agromancy-element-types", nameof(GameWorldState.HarvestTypes),
+                world => world.HarvestTypes),
+            Entity(nameof(GameWorldState.PlotNodeTypes), world => world.PlotNodeTypes),
+            Entity(nameof(GameWorldState.ResearchTypes), world => world.ResearchTypes),
+            Entity("consumable-types", nameof(GameWorldState.ConsumableFamilies),
+                world => world.ConsumableFamilies),
+            Entity("plot-node-action-types", nameof(GameWorldState.HarvestActionTypes),
+                world => world.HarvestActionTypes),
+            Entity(nameof(GameWorldState.PassiveAbilityTypes), world => world.PassiveAbilityTypes),
+            Entity(nameof(GameWorldState.TimeRuneTypes), world => world.TimeRuneTypes),
             Entity(nameof(GameWorldState.CraftingRecipes), world => world.CraftingRecipes),
             Composite(
                 nameof(GameWorldState.CraftingQueueEntries),
@@ -8256,6 +8268,32 @@ internal static class GameMcpWorldQuery
         {
             "entityId", "startingLevel", "maxStartingLevel", "craftVerb",
             "initiated",
+        },
+
+        // The nine taxonomies whose assets are the types themselves. Every fact the world captured
+        // for one of them is on its row, because there is no second place any of them is already
+        // said. What is deliberately not here is the distributors' magnitude: that is a total
+        // derived from the contribution rows and it is read through the worth block, where the
+        // sentence that stops a reader multiplying it into a member sits beside it. Two classes
+        // store nothing at all, so their row is their handle and the worth block is the answer.
+        "harvest-action-types" or "passive-ability-types" => new[] { "entityId" },
+        "structure-types" => new[]
+        {
+            "entityId", "baseEffectLevel", "baseBuildTime", "overrideRankDefault",
+            "overrideRank",
+        },
+        "consumable-families" => new[] { "entityId", "hidden", "sortOrder" },
+        "ritual-types" => new[] { "entityId", "initiated", "activeRituals" },
+        "harvest-types" => new[] { "entityId", "level" },
+        "plot-node-types" => new[] { "entityId", "totalLevel" },
+        "time-rune-types" => new[] { "entityId", "initialized", "totalLevel" },
+        "research-types" => new[]
+        {
+            "entityId", "linkedDevelopCost", "linkedResourceCost", "linkedResearchTime",
+            "ignoreWhenLevelDependent", "persistThroughReset", "cachedTotalLevel",
+            "cachedPeakLevel", "cachedQueuedLevel", "cachedDevelopingLevel",
+            "cachedQueuedValue", "cachedInvestmentLevel", "cachedPurchasedLevel",
+            "freeBonusLevels", "usedBonusLevels", "maxInvestmentLevel",
         },
         "crafting-recipes" => new[]
         {

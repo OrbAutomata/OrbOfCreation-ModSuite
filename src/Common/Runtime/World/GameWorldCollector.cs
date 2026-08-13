@@ -95,6 +95,15 @@ internal sealed class GameWorldCollector
     private readonly WorldCategoryReader<WorldEquipmentType, WorldEquipmentType> _equipmentTypes;
     private readonly WorldCategoryReader<WorldResourceType, WorldResourceType> _resourceTypes;
     private readonly WorldCategoryReader<WorldCraftingRecipeType, WorldCraftingRecipeType> _craftingRecipeTypes;
+    private readonly WorldCategoryReader<WorldStructureType, WorldStructureType> _structureTypes;
+    private readonly WorldCategoryReader<WorldRitualType, WorldRitualType> _ritualTypes;
+    private readonly WorldCategoryReader<WorldHarvestType, WorldHarvestType> _harvestTypes;
+    private readonly WorldCategoryReader<WorldPlotNodeType, WorldPlotNodeType> _plotNodeTypes;
+    private readonly WorldCategoryReader<WorldResearchType, WorldResearchType> _researchTypes;
+    private readonly WorldCategoryReader<WorldConsumableFamily, WorldConsumableFamily> _consumableFamilies;
+    private readonly WorldCategoryReader<WorldHarvestActionType, WorldHarvestActionType> _harvestActionTypes;
+    private readonly WorldCategoryReader<WorldPassiveAbilityType, WorldPassiveAbilityType> _passiveAbilityTypes;
+    private readonly WorldCategoryReader<WorldTimeRuneType, WorldTimeRuneType> _timeRuneTypes;
     private readonly WorldCraftingRecipeAuthoringReader _craftingRecipeAuthoring;
     private readonly WorldCraftingRecipeReader _craftingRecipes;
     private readonly WorldCraftingDecisionReader _craftingDecisions;
@@ -273,6 +282,15 @@ internal sealed class GameWorldCollector
         _equipmentTypes = Reader(new WorldEquipmentTypeBinder(resolveType), resolveType, static frame => frame.EquipmentTypes);
         _resourceTypes = Reader(new WorldResourceTypeBinder(resolveType), resolveType, static frame => frame.ResourceTypes);
         _craftingRecipeTypes = Reader(new WorldCraftingRecipeTypeBinder(), resolveType, static frame => frame.CraftingRecipeTypes);
+        _structureTypes = Reader(new WorldStructureTypeBinder(), resolveType, static frame => frame.StructureTypes);
+        _ritualTypes = Reader(new WorldRitualTypeBinder(), resolveType, static frame => frame.RitualTypes);
+        _harvestTypes = Reader(new WorldHarvestTypeBinder(), resolveType, static frame => frame.HarvestTypes);
+        _plotNodeTypes = Reader(new WorldPlotNodeTypeBinder(), resolveType, static frame => frame.PlotNodeTypes);
+        _researchTypes = Reader(new WorldResearchTypeBinder(), resolveType, static frame => frame.ResearchTypes);
+        _consumableFamilies = Reader(new WorldConsumableFamilyBinder(), resolveType, static frame => frame.ConsumableFamilies);
+        _harvestActionTypes = Reader(new WorldHarvestActionTypeBinder(), resolveType, static frame => frame.HarvestActionTypes);
+        _passiveAbilityTypes = Reader(new WorldPassiveAbilityTypeBinder(), resolveType, static frame => frame.PassiveAbilityTypes);
+        _timeRuneTypes = Reader(new WorldTimeRuneTypeBinder(), resolveType, static frame => frame.TimeRuneTypes);
         _craftingRecipes = new WorldCraftingRecipeReader(resolveType);
         _craftingDecisions = new WorldCraftingDecisionReader(resolveType);
         _craftingStations = new WorldCraftingStationReader(resolveType);
@@ -345,6 +363,8 @@ internal sealed class GameWorldCollector
             _doubleVariables, _intVariables, _boolVariables, _modifierVariables,
             _alchemyRecipes, _alchemyTypes, _spellRecipes, _spellLevelCosts, _spellGraph, _spellTypes,
             _equipment, _equipmentTypes, _resourceTypes, _craftingRecipeTypes,
+            _structureTypes, _ritualTypes, _harvestTypes, _plotNodeTypes, _researchTypes,
+            _consumableFamilies, _harvestActionTypes, _passiveAbilityTypes, _timeRuneTypes,
             _craftingRecipeAuthoring, _craftingRecipes,
             _craftingDecisions,
             _craftingStations,
