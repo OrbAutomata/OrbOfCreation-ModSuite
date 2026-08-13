@@ -737,7 +737,7 @@ internal static class GameMcpWorldQuery
     /// where no row names one.
     /// </summary>
     private static object Named(Guid entityId) =>
-        entityId == Guid.Empty ? GameMcpListColumns.Unset : entityId;
+        entityId == Guid.Empty ? GameMcpListColumns.Absent : entityId;
 
     /// <summary>
     /// A recipe the loadout does not hold has no position at all — the game stores that as a

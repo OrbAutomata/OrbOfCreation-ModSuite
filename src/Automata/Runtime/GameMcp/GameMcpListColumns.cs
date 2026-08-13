@@ -302,7 +302,10 @@ internal static class GameMcpListColumns
     internal const string RunPassed = "passed";
     internal const string RunFailed = "failed";
 
-    /// <summary>The slot holds nothing.</summary>
+    /// <summary>
+    /// A slot exists here and holds nothing. Not absence: the slot is the fact, and a spell bar
+    /// with three of these has three places to equip into.
+    /// </summary>
     internal const string Empty = "empty";
 
     /// <summary>The entry is not automated, so it repeats no number of times.</summary>
@@ -311,8 +314,18 @@ internal static class GameMcpListColumns
     /// <summary>The loadout does not hold this recipe, so it occupies no position.</summary>
     internal const string Unslotted = "unslotted";
 
-    /// <summary>The game published no value under the member this column names.</summary>
-    internal const string Unset = "unset";
+    /// <summary>
+    /// Nothing is here — the one mark for plain absence, everywhere the wire says it.
+    /// </summary>
+    /// <remarks>
+    /// A reader met five spellings of nothing in one round (<c>-</c>, <c>empty</c>, <c>unset</c>,
+    /// <c>none</c>, <c>uncapped</c>) and had to learn which surface spoke which. Two of those state
+    /// a fact and stay: <see cref="Empty"/> says a slot exists and holds nothing, and
+    /// <see cref="Uncapped"/> says no ceiling exists. The rest meant only "nothing here" and are
+    /// this mark: a column the game published no value under, an empty collection in a cell, and a
+    /// table cell with nothing in it all read the same, so a reader learns the rule once.
+    /// </remarks>
+    internal const string Absent = "-";
 
     /// <summary>Nothing stands in the way of what this column asks about.</summary>
     internal const string Yes = "yes";

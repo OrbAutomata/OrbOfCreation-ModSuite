@@ -157,7 +157,7 @@ same idiom and no producer invents its own formatting.
   - **An empty page is the same table with no rows**: `rows 0/180` and then the column set. It has
     no row to read that set off, so the producer states it, and a portable test holds every
     category's stated set to the columns its full page renders. A list that is not a page still
-    answers `spells: none`.
+    answers `spells: -`.
   - **A cell carries one word, never a sentence.** A blocked row names what blocks it with one
     short lowercase fact from the vocabulary below, and a row that is not blocked says so in the
     column that asked. No cell ever holds an `ERR_` class: those say which kind of no a *refusal*
@@ -176,6 +176,14 @@ same idiom and no producer invents its own formatting.
   - **No key with nothing after it.** A value the game published as an empty string reads as `-`,
     the same mark an absent one gets, because `key=` before a delimiter is indistinguishable from a
     truncated line.
+  - **One mark for absence, and it is `-`.** A column the game published no value under, a cell
+    holding an empty collection, a value that is an empty string, and a table cell with nothing in
+    it all read `-`. A round that met five spellings of nothing in one session — `-`, `empty`,
+    `unset`, `none`, `uncapped` — made a reader learn which surface spoke which before they could
+    tell absence from a fact. Only two of those five were facts, and only those two stay: `empty`
+    says *a slot exists here and holds nothing*, so a bar with three of them has three places to
+    equip into, and `uncapped` says *no ceiling exists*, which is not the same as a ceiling nobody
+    published. `unset` and `none` said only "nothing here" and are the mark.
 
 #### The cell vocabulary
 
@@ -202,7 +210,8 @@ lowercase, hold no spaces, and are facts rather than codes.
 | `unverified` | the game only checks this when the action starts; it cannot be read ahead |
 | `uncapped` | no ceiling applies |
 | `unreadable` | the suite could not read this fact from the game this generation |
-| `empty` / `unslotted` / `manual` / `unset` | the slot holds nothing / occupies no position / repeats no number of times / the game published no value here |
+| `empty` / `unslotted` / `manual` | a slot exists here and holds nothing / the loadout holds this nowhere / the entry is not automated |
+| `-` | nothing here — the one mark for absence, and never a word |
 
 The sentence behind a word is not lost — it is what `get` and a refusal answer with, which is where
 a caller who wants prose has asked for it. A decision code with no word here fails the read rather
@@ -1210,7 +1219,7 @@ choices are no longer available. Success returns the observed selection change a
 selected loadout, and — when the swap moved the spell bar — a `spellBar` block naming the
 `equipped` count as a pair plus the spells `unequipped` and `equippedNow`. The bar is player state
 rather than loadout contents, so a select that empties it says so at the top of its own answer
-instead of leaving `spells: none` inside the loadout's description to be read as the effect; a
+instead of leaving `spells: -` inside the loadout's description to be read as the effect; a
 select that leaves the bar alone publishes no `spellBar` at all.
 
 The selected player row also owns the three controls visible in the editor:
@@ -2054,7 +2063,7 @@ fact does not apply, using a word, never a number that would be read as one.
 | `empty` | the slot holds nothing |
 | `manual` | the entry is not automated, so it repeats no number of times |
 | `unslotted` | the loadout does not hold this recipe, so it occupies no position |
-| `unset` | the game published no value under the member this column names |
+| `-` | nothing here: no value published, an empty collection, an empty string, or a cell with nothing in it |
 
 This costs almost nothing to read, because a column holding one value across a page is said once in
 the header: a page of uncapped upgrades renders `these 6 share: maximum=uncapped` on one line. What
@@ -2081,19 +2090,18 @@ absence is spelled:
 
 Categories with no hand-written projection are rendered straight from their declared field list, so
 totality there is structural rather than per-category: a declared field the row carries nothing
-under reads `unset`, and so does one holding the zero identity, because a handle that addresses
+under reads `-`, and so does one holding the zero identity, because a handle that addresses
 nothing is not an entity and dropping it would take the column with it. A reference column keeps
 the name a filled one would have had — `selectedLevel`, not `selectedLevelId`.
 
 #### Outside a table, absence is silence
 
-`unset` is a table word and only a table word. In a table there is a header promising a column and
-sibling rows to line up with, so a cell has to say something — which is also where a member the game
-published as an empty string is answered, with the `-` an absent one gets, because the column has to
-survive. Outside a table that member is one more absence and reads the way every other absence does:
-the key is simply not there. A `world_get` block, the row inside it
-and a mutation's post-state have none of that, and there the same fact reads
-the way absence reads everywhere else on this surface: **the key is simply not there**. This is the
+The `-` mark is a table mark and only a table mark. In a table there is a header promising a column
+and sibling rows to line up with, so a cell has to say something, and a member the game published as
+an empty string gets the same mark an absent one gets, because the column has to survive. A
+`world_get` block, the row inside it and a mutation's post-state have none of that, and there the
+same fact reads the way absence reads everywhere else on this surface: **the key is simply not
+there**. This is the
 `game_cast` policy — a spell with nothing to toggle publishes no `toggleOff` — generalized to every
 non-table surface, and it also ends a split spelling of one fact, because the wire normalizer already
 drops the zero identity from every projection that declares no paths.

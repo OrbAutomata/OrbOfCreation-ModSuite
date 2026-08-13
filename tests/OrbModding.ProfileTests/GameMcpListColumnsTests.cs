@@ -117,7 +117,7 @@ public sealed class GameMcpListColumnsTests
         var selected = Guid.Parse("44444444-4444-4444-8444-444444444444");
         var rows = Rows(AlchemyTypes(selected, Guid.Empty));
 
-        Assert.Equal("unset", (string?)rows[1]["selectedLevel"]);
+        Assert.Equal("-", (string?)rows[1]["selectedLevel"]);
         Assert.NotNull(rows[0]["selectedLevel"]);
         Assert.Equal(
             Columns(AlchemyTypes(selected, selected)),
@@ -241,7 +241,6 @@ public sealed class GameMcpListColumnsTests
             GameMcpListColumns.Empty,
             GameMcpListColumns.Manual,
             GameMcpListColumns.Unslotted,
-            GameMcpListColumns.Unset,
             GameMcpListColumns.RunIdle,
             GameMcpListColumns.RunQueued,
             GameMcpListColumns.RunActive,
@@ -263,6 +262,15 @@ public sealed class GameMcpListColumnsTests
         // One fact, one word: the game publishing no price is the same fact whether an
         // `affordable` column or an agromancy `add` cell is the one asking.
         Assert.Equal(GameMcpListColumns.Unpriced, GameMcpListColumns.Word("cost_unavailable"));
+
+        // Absence is not a word in this vocabulary; it is the one mark, and no word may spell it a
+        // second time. `empty` and `uncapped` are here because each states a fact — a slot exists
+        // and holds nothing, a ceiling does not exist — and neither means "nothing here".
+        Assert.Equal("-", GameMcpListColumns.Absent);
+        Assert.DoesNotContain(GameMcpListColumns.Absent, vocabulary);
+        Assert.DoesNotContain("unset", vocabulary);
+        Assert.DoesNotContain("none", vocabulary);
+        Assert.Contains(GameMcpListColumns.Empty, vocabulary);
 
         // The lifecycle is three words and no more, and none of them is `purchasable` — a word
         // that reads as "you can buy this now" while naming a state that says nothing about price.
@@ -824,14 +832,15 @@ public sealed class GameMcpListColumnsTests
     }
 
     /// <summary>
-    /// Absence says one thing per surface. In a table it is a word, because the header promised a
-    /// column and a page that dropped it would be a header about its rows. Outside a table there is
-    /// no header to keep and no siblings to line up with, so absence is silence — the same answer a
-    /// spell with nothing to toggle already gives, and the same one the wire normalizer already
-    /// gives for the zero identity on every projection that declares no paths.
+    /// Absence says one thing per surface, in one mark. In a table it is printed, because the
+    /// header promised a column and a page that dropped it would be a header about its rows.
+    /// Outside a table there is no header to keep and no siblings to line up with, so absence is
+    /// silence — the same answer a spell with nothing to toggle already gives, and the same one the
+    /// wire normalizer already gives for the zero identity on every projection that declares no
+    /// paths.
     /// </summary>
     [Fact]
-    public void A_member_the_row_carries_nothing_under_is_a_word_in_a_table_and_silence_outside_one()
+    public void A_member_the_row_carries_nothing_under_is_marked_in_a_table_and_silent_outside_one()
     {
         var identity = Guid.Parse("45000000-0000-4000-8000-000000000000");
         var context = GameMcpTestHarness.Context(
@@ -839,7 +848,7 @@ public sealed class GameMcpListColumnsTests
 
         var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             context, "alchemy-types", 0, 50))["rows"]!.Values<JObject>());
-        Assert.Equal("unset", (string?)row!["selectedLevel"]);
+        Assert.Equal("-", (string?)row!["selectedLevel"]);
 
         var detail = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
             context, "alchemy-types", new[] { identity.ToString("D") }));
@@ -847,7 +856,7 @@ public sealed class GameMcpListColumnsTests
 
         Assert.Null(got["selectedLevel"]);
         Assert.DoesNotContain(
-            "unset",
+            "selectedLevel",
             GameMcpTextPage.Render(detail),
             StringComparison.Ordinal);
     }

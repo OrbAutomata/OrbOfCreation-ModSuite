@@ -220,7 +220,7 @@ public sealed class GameMcpLoadoutTests
 
     /// <summary>
     /// Swapping loadouts re-equips the spell bar, and one select unequipped five spells with no
-    /// word about it in the answer: the only trace was <c>spells: none</c> inside the selected
+    /// word about it in the answer: the only trace was <c>spells: -</c> inside the selected
     /// loadout's own contents, which reads as what that loadout stores rather than as what the
     /// player now has. The bar is the player's, so the swap names it.
     /// </summary>

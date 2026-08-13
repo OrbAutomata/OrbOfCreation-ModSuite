@@ -213,7 +213,7 @@ public sealed class GameMcpTextPageTests
             new[] { "rows 0/180", "[id | name | level]" },
             Render(@"{'columns':['uuid','name','level'],'rows':[],'total':180}").Split('\n'));
         Assert.Equal("rows 0/180", Render(@"{'rows':[],'total':180}"));
-        Assert.Equal("spells: none", Render(@"{'spells':[]}"));
+        Assert.Equal("spells: -", Render(@"{'spells':[]}"));
     }
 
     /// <summary>

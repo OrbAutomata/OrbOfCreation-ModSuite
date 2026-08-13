@@ -267,13 +267,13 @@ internal static class GameMcpTextPage
     {
         if (array.Count == 0)
         {
-            // A list that is not a page says its emptiness the way it says any other value: an
-            // unequipped loadout's `spells: none` is the whole answer. A page says how many rows
-            // the category holds and what its columns are, because "no rows here" and "no such
-            // shape" are different facts and a reader who gets the sentence learns neither.
+            // A list that is not a page says its emptiness the way it says any other absence: an
+            // unequipped loadout's `spells: -` is the whole answer. A page says how many rows the
+            // category holds and what its columns are, because "no rows here" and "no such shape"
+            // are different facts and a reader who gets the sentence learns neither.
             if (countSuffix is null)
             {
-                lines.Add(indent + name + ": none");
+                lines.Add(indent + name + ": " + GameMcpListColumns.Absent);
                 return;
             }
             lines.Add(indent + name + " " + countSuffix);
@@ -451,7 +451,9 @@ internal static class GameMcpTextPage
                     continue;
                 }
                 var cell = row[columns[column]];
-                line[column] = cell is null || cell.Type == JTokenType.Null ? "-" : Cell(cell);
+                line[column] = cell is null || cell.Type == JTokenType.Null
+                    ? GameMcpListColumns.Absent
+                    : Cell(cell);
             }
             cells.Add(line);
         }
@@ -549,7 +551,7 @@ internal static class GameMcpTextPage
         {
             case JArray array:
             {
-                if (array.Count == 0) return "none";
+                if (array.Count == 0) return GameMcpListColumns.Absent;
                 var scalars = AllScalars(array);
                 if (scalars is not null) return scalars;
                 if (TryIdentityList(array, out var identities)) return identities;
@@ -572,7 +574,7 @@ internal static class GameMcpTextPage
 
     private static string? TryInline(JObject item, int budget)
     {
-        if (item.Count == 0) return "none";
+        if (item.Count == 0) return GameMcpListColumns.Absent;
         if (IsIdentity(item)) return Identity(item);
         if (item["current"] is { } current && item["maximum"] is { } maximum && item.Count == 2)
             return Scalar(current) + "/" + Scalar(maximum);
@@ -615,7 +617,9 @@ internal static class GameMcpTextPage
                     return null;
                 case JArray array when AllScalars(array) is { } scalars:
                     parts.Add(property.Name + "=" +
-                        (array.Count == 0 ? "none" : "[" + scalars + "]"));
+                        (array.Count == 0
+                            ? GameMcpListColumns.Absent
+                            : "[" + scalars + "]"));
                     break;
                 case JArray array when TryIdentityList(array, out var identities):
                     parts.Add(property.Name + "=[" + identities + "]");
@@ -638,7 +642,7 @@ internal static class GameMcpTextPage
                 line.Append(": ").Append(sentence);
             body = line.ToString();
         }
-        else if (parts.Count == 0) body = "none";
+        else if (parts.Count == 0) body = GameMcpListColumns.Absent;
         return body.Length > budget ? null : body;
     }
 
@@ -690,7 +694,7 @@ internal static class GameMcpTextPage
     }
 
     /// <summary>
-    /// One value, and one word for having none. A member the game published as an empty string left
+    /// One value, and one mark for having none. A member the game published as an empty string left
     /// a key with nothing after it — a line a reader cannot tell from a truncated one — so absence
     /// reads as the mark the page already uses for it, whichever way the absence arrived.
     /// </summary>
@@ -701,7 +705,7 @@ internal static class GameMcpTextPage
             case JTokenType.Boolean:
                 return (bool)value ? "yes" : "no";
             case JTokenType.Null:
-                return "-";
+                return GameMcpListColumns.Absent;
             case JTokenType.Float:
                 return Convert.ToDouble(((JValue)value).Value, CultureInfo.InvariantCulture)
                     .ToString("R", CultureInfo.InvariantCulture);
@@ -712,10 +716,10 @@ internal static class GameMcpTextPage
             // rendered correctly, which is how the defect was pinned to this line.
             case JTokenType.String:
                 var raw = (string?)((JValue)value).Value ?? string.Empty;
-                return raw.Length == 0 ? "-" : raw;
+                return raw.Length == 0 ? GameMcpListColumns.Absent : raw;
             default:
                 var text = value.ToString(Newtonsoft.Json.Formatting.None).Trim('"');
-                return text.Length == 0 ? "-" : text;
+                return text.Length == 0 ? GameMcpListColumns.Absent : text;
         }
     }
 }

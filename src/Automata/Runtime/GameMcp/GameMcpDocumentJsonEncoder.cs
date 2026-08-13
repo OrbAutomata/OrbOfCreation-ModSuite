@@ -135,13 +135,13 @@ internal static class GameMcpDocumentJsonEncoder
     /// </remarks>
     private static JToken? Declared(JToken? value, bool tableRow)
     {
-        if (value is null) return tableRow ? new JValue(GameMcpListColumns.Unset) : null;
+        if (value is null) return tableRow ? new JValue(GameMcpListColumns.Absent) : null;
         if (value is JValue { Type: JTokenType.String } text)
         {
             var published = (string?)text ?? string.Empty;
             if (published.Length == 0) return tableRow ? value.DeepClone() : null;
             if (Guid.TryParseExact(published, "D", out var uuid) && uuid == Guid.Empty)
-                return tableRow ? new JValue(GameMcpListColumns.Unset) : null;
+                return tableRow ? new JValue(GameMcpListColumns.Absent) : null;
         }
         return value.DeepClone();
     }
