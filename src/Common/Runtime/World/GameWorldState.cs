@@ -374,6 +374,14 @@ public sealed record GameWorldState
     internal PublicationTable<WorldUpgradeListMembership> UpgradeListMemberships { get; init; } =
         PublicationTable<WorldUpgradeListMembership>.Empty;
 
+    /// <summary>
+    /// Which authored <c>GlyphListVariable</c> each glyph sits on, for the four lists that are a
+    /// population rather than a runtime selection or the whole registry. Withheld whole for the same
+    /// reason as the upgrade table above: a partial one reads exactly like a glyph on no list.
+    /// </summary>
+    internal PublicationTable<WorldGlyphListMembership> GlyphListMemberships { get; init; } =
+        PublicationTable<WorldGlyphListMembership>.Empty;
+
     internal PublicationTable<WorldPlotNodeAction> PlotNodeActions { get; init; } =
         PublicationTable<WorldPlotNodeAction>.Empty;
 

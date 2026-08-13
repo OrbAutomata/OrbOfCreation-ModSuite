@@ -78,6 +78,7 @@ internal sealed class GameWorldCollector
     private readonly WorldPlotAuthoringReader _plotAuthoring;
     private readonly WorldEffectBlockReader _effectBlocks;
     private readonly WorldEntityRequirementReader _entityRequirements;
+    private readonly WorldGlyphListMembershipReader _glyphLists;
     private readonly WorldPurchaseViewRelationReader _purchaseViewRelations;
     private readonly WorldPrerequisiteLinkTierReader _prerequisiteLinkTiers;
     private readonly IWorldMasteryExperienceSource _masteryExperience;
@@ -330,6 +331,7 @@ internal sealed class GameWorldCollector
             resolveType("PrerequisiteLinkSO"),
             resolveType("AlchemyRecipeSO"),
             resolveType("GlyphSO"));
+        _glyphLists = new WorldGlyphListMembershipReader(resolveType);
         _purchaseViewRelations = new WorldPurchaseViewRelationReader(
             resolveType,
             productionPurchaseTopology);
@@ -358,7 +360,7 @@ internal sealed class GameWorldCollector
             _targeting,
             _actionQueues, _spellSlots, _alchemyInstances, _alchemyLoadout,
             _plotAuthoring, _effectBlocks,
-            _entityRequirements, _purchaseViewRelations,
+            _entityRequirements, _purchaseViewRelations, _glyphLists,
             _prerequisiteLinkTiers,
             _entityKeywords,
             _typeModifiers, _typeModifierContributions,
@@ -375,6 +377,7 @@ internal sealed class GameWorldCollector
                 ReferenceEquals(_readers[index], _entityKeywords) ||
                 ReferenceEquals(_readers[index], _entityRequirements) ||
                 ReferenceEquals(_readers[index], _purchaseViewRelations) ||
+                ReferenceEquals(_readers[index], _glyphLists) ||
                 ReferenceEquals(_readers[index], _craftingRecipeTypes) ||
                 ReferenceEquals(_readers[index], _craftingRecipeAuthoring) ||
                 ReferenceEquals(_readers[index], _purchaseCosts) ||

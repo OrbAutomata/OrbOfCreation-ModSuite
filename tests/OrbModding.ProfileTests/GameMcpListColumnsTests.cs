@@ -507,6 +507,38 @@ public sealed class GameMcpListColumnsTests
             GameMcpListColumns.Screens.Select(screen => screen.Word));
     }
 
+    /// <summary>
+    /// The glyph column is the same column and therefore the same grammar: every word it can say is
+    /// a destination <c>game_navigate</c> accepts, one level deep, and its own sentinel is no label.
+    /// </summary>
+    [Fact]
+    public void Every_glyph_screen_word_is_a_destination_game_navigate_accepts()
+    {
+        var labels = ViewLabels();
+
+        Assert.Equal(
+            new[] { "Magic/Augments", "Magic/Spellbook", "Alchemy/Alchemy" },
+            GameMcpListColumns.GlyphScreens.Select(screen => screen.Word).ToArray());
+
+        Assert.All(GameMcpListColumns.GlyphScreens, screen =>
+        {
+            var segments = screen.Word.Split('/');
+            Assert.Equal(2, segments.Length);
+            Assert.All(segments, segment => Assert.Contains(segment, labels));
+        });
+
+        Assert.DoesNotContain(GameMcpListColumns.ScreenNoPage, labels);
+        Assert.Equal(
+            GameMcpListColumns.GlyphScreens.Length,
+            GameMcpListColumns.GlyphScreens.Select(screen => screen.ListId).Distinct().Count());
+
+        // The fourth authored population is deliberately absent: no view names EquipmentGlyphs, so
+        // there is no word for it to carry and the rows it alone holds say the sentinel instead.
+        Assert.DoesNotContain(
+            KnownEntities.GlyphsEquipment.Uuid,
+            GameMcpListColumns.GlyphScreens.Select(screen => screen.ListId));
+    }
+
     /// <summary>Every label the authored view graph offers a navigator, from the shipped mapping.</summary>
     private static HashSet<string> ViewLabels() => File
         .ReadLines(Path.Combine(AppContext.BaseDirectory, "data", "entity-display-names.tsv"))

@@ -142,6 +142,12 @@ internal sealed class GameWorldCycleFrame
     /// </summary>
     internal WorldRelationBuffer<WorldUpgradeListMembership> UpgradeListMemberships { get; } = new();
 
+    /// <summary>
+    /// Which authored <c>GlyphListVariable</c> each glyph sits on — the same grouping axis one level
+    /// over, and equally structural. A glyph may sit on several at once, which an upgrade never does.
+    /// </summary>
+    internal WorldRelationBuffer<WorldGlyphListMembership> GlyphListMemberships { get; } = new();
+
     /// <summary>The volatile active/passive gates around the structural prerequisite-link graph.</summary>
     internal WorldPrerequisiteLinkTierBuffer PrerequisiteLinkTiers { get; } = new();
     internal WorldSampleBuffer<WorldAlchemyRecipe, WorldAlchemyRecipe> AlchemyRecipes { get; } = new();
@@ -573,6 +579,8 @@ internal static class GameWorldFrameDeriver
             PurchaseViewRoutes = purchaseViews.Routes,
             UpgradeListMemberships =
                 WorldUpgradeListMembershipDeriver.Build(frame.UpgradeListMemberships),
+            GlyphListMemberships =
+                WorldGlyphListMembershipDeriver.Build(frame.GlyphListMemberships),
             PlotNodeActions = plotNodeActions,
             PassiveAbilities = frame.PassiveAbilities.Build(WorldIdentityDeriver<WorldPassiveAbility>.Shared),
             Characters = frame.Characters.Build(WorldIdentityDeriver<WorldCharacter>.Shared),

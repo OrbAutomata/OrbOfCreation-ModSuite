@@ -66,6 +66,7 @@ internal static class WorldCategoryFakes
         ["HarvestActionInstanceListVariable"] = typeof(FakeHarvestActionList),
         ["TimeRuneSO"] = typeof(FakeTimeRune),
         ["GlyphSO"] = typeof(FakeGlyph),
+        ["GlyphListVariable"] = typeof(FakeGlyphList),
         ["ConsumableSO"] = typeof(FakeConsumable),
         ["EnchantmentSO"] = typeof(FakeScribeEnchantment),
         ["EnchantmentSO+EnchantTable"] = typeof(FakeScribeEnchantTable),
@@ -185,6 +186,7 @@ internal static class WorldCategoryFakes
         UnityEngine.Resources.Objects.Clear();
         SeedScribeRelations();
         SeedHarvestLifecycle();
+        SeedGlyphLists();
     }
 
     private static void SeedScribeRelations()
@@ -230,6 +232,27 @@ internal static class WorldCategoryFakes
 
     internal static FakeHarvestElementList ActiveHarvestElements { get; private set; } = new();
     internal static FakeHarvestActionList ActiveHarvestActions { get; private set; } = new();
+
+    internal static FakeGlyphList AugmentSpellGlyphs { get; private set; } = new();
+
+    /// <summary>
+    /// The four pinned lists always resolve, because the reader publishes membership whole or
+    /// withholds it whole and a fake world that omitted one would report the whole category missing.
+    /// </summary>
+    private static void SeedGlyphLists()
+    {
+        AugmentSpellGlyphs = new FakeGlyphList { Identity = KnownEntities.GlyphsAugmentSpell.Uuid };
+        FakeIdRegistry.RuntimeLookup[KnownEntities.GlyphsAugmentSpell.Uuid] = AugmentSpellGlyphs;
+        foreach (var listId in new[]
+                 {
+                     KnownEntities.GlyphsCoreSpell.Uuid,
+                     KnownEntities.GlyphsCoreAlchemy.Uuid,
+                     KnownEntities.GlyphsEquipment.Uuid,
+                 })
+        {
+            FakeIdRegistry.RuntimeLookup[listId] = new FakeGlyphList { Identity = listId };
+        }
+    }
 
     private static void SeedHarvestLifecycle()
     {
@@ -365,6 +388,12 @@ internal sealed class FakeChallengeType : FakeIdRegistry
 
 internal class FakeAbstractListVariable : FakeIdRegistry
 {
+}
+
+/// <summary>One of the four authored glyph populations, reached by the identity it carries.</summary>
+internal sealed class FakeGlyphList : FakeIdRegistry
+{
+    public List<FakeGlyph> value = new();
 }
 
 internal class FakeAbstractListVariable<T> : FakeAbstractListVariable

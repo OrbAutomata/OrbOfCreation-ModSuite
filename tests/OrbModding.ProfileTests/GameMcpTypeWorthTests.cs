@@ -211,7 +211,7 @@ public sealed class GameMcpTypeWorthTests
         Assert.Equal(
             "{\"uuid\":\"a1c000\",\"name\":\"Focus Ward\",\"internalName\":\"focusWard\"," +
             "\"category\":\"glyphs\",\"nativeType\":\"GlyphSO\",\"row\":{" +
-            "\"population\":\"augment\",\"state\":\"locked\"," +
+            "\"population\":\"augment\",\"screen\":\"unreadable\",\"state\":\"locked\"," +
             "\"discovered\":false,\"usableCount\":0,\"reasonCode\":\"ERR_LOCKED\"," +
             "\"paidLevel\":0,\"totalLevel\":0,\"purchase\":{\"available\":false," +
             "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"The game has not unlocked this yet.\"}," +

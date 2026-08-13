@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using OrbAutomata.GameMcp;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 using Xunit;
@@ -282,6 +283,89 @@ public sealed class GameMcpGlyphPopulationTests
             (string?)row["reason"]);
         Assert.Null(row["blockedBy"]);
     }
+
+    /// <summary>
+    /// One unlocker opens recipes on three benches, so "which page" has more than one answer and the
+    /// cell gives all of them in the pinned order. Refusing the way the upgrade column refuses a row
+    /// two screens claim would throw away a fact the game plainly authored.
+    /// </summary>
+    [Fact]
+    public void A_glyph_several_pages_carry_names_every_page_it_is_on()
+    {
+        var context = GameMcpTestHarness.Context(Listed(
+            World(Glyph(UnlockerId, discoverable: false, learned: true, augmentsSpells: false)),
+            (UnlockerId, KnownEntities.GlyphsEquipment.Uuid),
+            (UnlockerId, KnownEntities.GlyphsCoreAlchemy.Uuid),
+            (UnlockerId, KnownEntities.GlyphsCoreSpell.Uuid)));
+
+        Assert.Equal(
+            "Magic/Spellbook, Alchemy/Alchemy",
+            (string?)GameMcpTestHarness.Detail(context, UnlockerId)["row"]!["screen"]);
+    }
+
+    /// <summary>
+    /// An augment is met on one page, and it is the subtab <c>game_navigate</c> reaches rather than
+    /// the grid two levels down that no cold navigation can select.
+    /// </summary>
+    [Fact]
+    public void An_augment_names_the_subtab_the_navigation_tool_accepts()
+    {
+        var context = GameMcpTestHarness.Context(Listed(
+            World(Glyph(AugmentId, discoverable: true, learned: true, augmentsSpells: true)),
+            (AugmentId, KnownEntities.GlyphsAugmentSpell.Uuid)));
+
+        Assert.Equal(
+            "Magic/Augments",
+            (string?)GameMcpTestHarness
+                .Json(GameMcpWorldQuery.ListRows(context, "glyphs", 0, 50))["rows"]!
+                .Values<JObject>()
+                .Single()!["screen"]);
+    }
+
+    /// <summary>
+    /// The ten forging glyphs are on <c>EquipmentGlyphs</c> and nothing else, and that list is named
+    /// by no view anywhere in the object graph. The membership read perfectly; the game names no
+    /// page for it, which is a different fact from an unreadable one and says so in its own word.
+    /// </summary>
+    [Fact]
+    public void A_glyph_whose_only_list_no_view_names_says_the_game_names_no_page()
+    {
+        var context = GameMcpTestHarness.Context(Listed(
+            World(Glyph(UnlockerId, discoverable: false, learned: true, augmentsSpells: false)),
+            (UnlockerId, KnownEntities.GlyphsEquipment.Uuid)));
+
+        Assert.Equal(
+            "no_page",
+            (string?)GameMcpTestHarness.Detail(context, UnlockerId)["row"]!["screen"]);
+    }
+
+    /// <summary>
+    /// Membership is published whole or withheld whole, so a withheld publication reads as a suite
+    /// gap rather than demoting all 47 rows to "the game names no page".
+    /// </summary>
+    [Fact]
+    public void A_withheld_membership_publication_never_reads_as_a_page()
+    {
+        var context = GameMcpTestHarness.Context(World(
+            Glyph(UnlockerId, discoverable: false, learned: true, augmentsSpells: false)));
+
+        Assert.Equal(
+            "unreadable",
+            (string?)GameMcpTestHarness.Detail(context, UnlockerId)["row"]!["screen"]);
+    }
+
+    private static GameWorldState Listed(
+        GameWorldState world,
+        params (Guid GlyphId, Guid ListId)[] edges) =>
+        world with
+        {
+            GlyphListMemberships = PublicationTable<WorldGlyphListMembership>.Create(
+                edges
+                    .OrderBy(edge => edge.GlyphId)
+                    .ThenBy(edge => edge.ListId)
+                    .Select(edge => new WorldGlyphListMembership(edge.GlyphId, edge.ListId))
+                    .ToArray()),
+        };
 
     /// <summary>The shipped Formation glyph and the shipped upgrade its container names.</summary>
     private static readonly Guid FormationId =

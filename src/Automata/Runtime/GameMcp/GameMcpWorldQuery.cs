@@ -526,6 +526,7 @@ internal static class GameMcpWorldQuery
             {
                 ["entityId"] = glyph.EntityId.ToString("D"),
                 ["population"] = GlyphPopulation(in glyph),
+                ["screen"] = GlyphScreen(world, glyph.EntityId),
                 ["state"] = GlyphState(in glyph),
                 ["discovered"] = glyph.Discovered,
                 ["paidLevel"] = glyph.LevelDecision.TotalLevel - glyph.LevelDecision.BonusLevels,
@@ -964,6 +965,36 @@ internal static class GameMcpWorldQuery
         glyph.Discoverable
             ? GameMcpListColumns.PopulationAugment
             : GameMcpListColumns.PopulationUnlocker;
+
+    /// <summary>
+    /// Which page shows this glyph, from the authored lists it is a member of. See
+    /// <see cref="GameMcpListColumns.ScreenAugments"/> for why several destinations is an answer
+    /// here and a refusal in the upgrade column beside it.
+    /// </summary>
+    private static string GlyphScreen(GameWorldState world, Guid glyphId)
+    {
+        if (!WorldGlyphListMembershipLookup.TryFindRange(
+                world.GlyphListMemberships, glyphId, out var start, out var count))
+        {
+            return world.GlyphListMemberships.Count == 0
+                ? GameMcpListColumns.Unreadable
+                : GameMcpListColumns.ScreenNoPage;
+        }
+
+        var screens = string.Empty;
+        for (var pinned = 0; pinned < GameMcpListColumns.GlyphScreens.Length; pinned++)
+        {
+            var candidate = GameMcpListColumns.GlyphScreens[pinned];
+            for (var offset = 0; offset < count; offset++)
+            {
+                if (world.GlyphListMemberships[start + offset].ListId != candidate.ListId) continue;
+                screens = screens.Length == 0 ? candidate.Word : screens + ", " + candidate.Word;
+                break;
+            }
+        }
+
+        return screens.Length > 0 ? screens : GameMcpListColumns.ScreenNoPage;
+    }
 
     /// <summary>
     /// The authored condition holding an unlocker shut, named. Each of the twenty-five carries one
@@ -6668,6 +6699,7 @@ internal static class GameMcpWorldQuery
             ["entityId"] = glyph.EntityId.ToString("D"),
             ["category"] = "glyphs",
             ["population"] = GlyphPopulation(in glyph),
+            ["screen"] = GlyphScreen(world, glyph.EntityId),
             ["state"] = GlyphState(in glyph),
             ["discovered"] = glyph.Discovered,
             ["usableCount"] = glyph.MaximumUsages,

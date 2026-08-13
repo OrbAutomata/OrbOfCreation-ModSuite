@@ -230,6 +230,55 @@ internal static class GameMcpListColumns
     internal static Guid EveryUpgradeList => KnownEntities.UpgradesAll.Uuid;
 
     /// <summary>
+    /// Where the player meets this glyph, in the same <c>game_navigate</c> grammar the upgrade
+    /// column uses.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A glyph page is bound to a <c>GlyphListVariable</c> through <c>ViewSO.relevantLists</c>, so
+    /// membership of an authored list is the screen fact here exactly as it is for upgrades. Four
+    /// lists are authored populations: <c>AugmentSpellGlyphs</c> (22 rows), <c>CoreSpellGlyphs</c>
+    /// (10), <c>CoreAlchemyGlyphs</c> (12) and <c>EquipmentGlyphs</c> (17), 61 edges over 47 glyphs
+    /// with no glyph off every list. The remaining five <c>GlyphListVariable</c> assets are not
+    /// populations: four are runtime selections the player fills, and <c>AllGlyphs</c> holds every
+    /// glyph, which would say the same thing about all 47 rows.
+    /// </para>
+    /// <para>
+    /// Unlike an upgrade, a glyph is routinely on several of them — Arcane, Dragon, Expansion, Flow,
+    /// Nature, Psionic and Storm are on all three unlocker lists at once, because one unlocker opens
+    /// recipes on three different benches. Several pages is the truth for those rows, so the cell is
+    /// an ordered set of destinations rather than a refusal: refusing, the way the upgrade column
+    /// refuses a row two screens claim, would throw away a fact the game plainly authored. The order
+    /// is the pinned list order, so two reads of the same row spell it the same way.
+    /// </para>
+    /// <para>
+    /// <c>EquipmentGlyphs</c> is named by no <c>ViewSO</c>, no <c>DiscoveryTreeSO</c> and no
+    /// structure anywhere in the serialized object graph — its only mention is its own name. The ten
+    /// glyphs that are on it and nothing else therefore say <see cref="ScreenNoPage"/>: the suite
+    /// read the membership perfectly and the game names no page for it, which is a different fact
+    /// from <see cref="Unreadable"/> and gets a different word. Guessing Workshop &gt; Artifacts from
+    /// the glyphs' own names would be inference dressed as a game fact.
+    /// </para>
+    /// </remarks>
+    internal const string ScreenAugments = "Magic/Augments";
+    internal const string ScreenSpellbook = "Magic/Spellbook";
+    internal const string ScreenAlchemyLearn = "Alchemy/Alchemy";
+
+    /// <summary>
+    /// The row's authored list is real and read, and the pinned build names no page for it. Lowercase
+    /// and underscored like <see cref="ScreenAll"/> so it cannot be read as a destination.
+    /// </summary>
+    internal const string ScreenNoPage = "no_page";
+
+    /// <summary>The authored glyph list identities that a page is bound to, in pinned order.</summary>
+    internal static readonly (Guid ListId, string Word)[] GlyphScreens =
+    {
+        (KnownEntities.GlyphsAugmentSpell.Uuid, ScreenAugments),
+        (KnownEntities.GlyphsCoreSpell.Uuid, ScreenSpellbook),
+        (KnownEntities.GlyphsCoreAlchemy.Uuid, ScreenAlchemyLearn),
+    };
+
+    /// <summary>
     /// What a challenge's own run is doing, which is not a lifecycle and never wears its word.
     /// </summary>
     /// <remarks>
@@ -368,7 +417,7 @@ internal static class GameMcpListColumns
         ["resource-types"] = new[] { "entityId", "level", "hidden" },
         ["glyphs"] = new[]
         {
-            "entityId", "population", "state", "discovered", "paidLevel", "bonusLevel",
+            "entityId", "population", "screen", "state", "discovered", "paidLevel", "bonusLevel",
             "totalLevel",
         },
         ["plot-nodes"] = new[]

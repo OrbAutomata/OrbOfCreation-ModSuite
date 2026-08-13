@@ -131,7 +131,8 @@ public sealed class WorldIdentityWalkTests
     /// and its members are both entities other tables already claim, and the row itself is the
     /// membership between them. <c>UpgradeListMemberships</c> is the same shape for the upgrade
     /// panels: both the upgrade and the authored list it sits on are claimed elsewhere, and the row
-    /// is only the edge between them. <c>EntityKeywords</c> is the same shape again: the entity and
+    /// is only the edge between them, and <c>GlyphListMemberships</c> is that same edge for the
+    /// authored glyph populations. <c>EntityKeywords</c> is the same shape again: the entity and
     /// the type asset whose display name is the keyword are both claimed elsewhere — the entity by its
     /// own category and the type by the lifecycle identity catalog — and the row is only the authored
     /// membership between them.
@@ -150,6 +151,7 @@ public sealed class WorldIdentityWalkTests
         "PurchaseCosts",
         "PurchaseViewRoutes",
         "UpgradeListMemberships",
+        "GlyphListMemberships",
         "PlotActions",
         "PlotActionInstances",
         "ActionQueueSlots",

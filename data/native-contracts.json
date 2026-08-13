@@ -5790,6 +5790,22 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
     },
     {
+      "id": "glyph-screen.list-type",
+      "assembly": "assembly-csharp",
+      "type": "GlyphListVariable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "StackableListVariable`1<GlyphSO>",
+      "owners": [
+        "Common glyph screen world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
       "id": "glyph.prerequisites",
       "assembly": "assembly-csharp",
       "type": "GlyphSO",
@@ -27974,6 +27990,7 @@
     "_effectBlocks",
     "_entityKeywords",
     "_entityRequirements",
+    "_glyphLists",
     "_plotAuthoring",
     "_purchaseCosts",
     "_purchaseViewRelations",

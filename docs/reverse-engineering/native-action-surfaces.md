@@ -792,6 +792,44 @@ The two combined predicates take the **expanded** list — counts unrolled into 
 a distinct set. Passing distinct glyphs understates the stack and admits compositions the game
 refuses.
 
+### A glyph's visibility is its availability, and its list is its page
+
+`GlyphSO.IsVisible()` is a call to `GlyphSO.IsAvailable()` and nothing else, and
+`UIGlyphListItem.IsVisible()` loads its item and calls the same method (`StaticallyVerified`). The
+game therefore cannot show a glyph it will not offer, and any surface reporting available ≠ visible
+for a glyph is reporting its own defect.
+
+`GlyphSO.IsDiscoverRequired()` has **no callers anywhere in the assembly** (`StaticallyVerified`), so
+the authored `discoveryRequired` field — true for exactly two glyphs, Quick and Heavy, the only two
+carrying a `discoveryCost` — decides nothing on this build and is not a population discriminator.
+
+The population split is `GlyphSO.discoverable`, 22 true against 25 false, and it agrees row for row
+with two other authored facts (`SerializedAssetVerified`): membership of `AugmentSpellGlyphs`, and
+carrying an `associatedRecipeBook` (null for all 22, set for all 25). `GlyphSO.augmentsSpells` is
+**not** the split — Distinct, Weak and Wrath are discoverable, book-less members of the augment list
+that carry it false, so it divides 19/28. No `DiscoveryTreeSO` names a glyph directly — the one tree
+that offers glyphs names the whole `AugmentSpellGlyphs` list — and each of the 25 non-discoverable
+glyphs carries exactly one authored condition in `GlyphSO.prerequisites`: a
+`ResearchRequirement`, an `UpgradeRequirement` or a `PrerequisiteLinkRequirement` — which
+`Prerequisites.Container.Check()` evaluates at level 0, that being what the no-argument overload
+passes to `ConditionInfo.Adjust`.
+
+Which page shows a glyph is the list it is on, through the same `ViewSO.relevantLists` edge the
+owning-view chain above uses. Nine `GlyphListVariable` assets ship; four are authored populations and
+the rest are runtime selections plus the whole-catalogue `AllGlyphs` (`SerializedAssetVerified`):
+
+| list | members | named by |
+|---|---|---|
+| `AugmentSpellGlyphs` | 22 | `MagicGlyphsUpgrade`, `MagicSpellbookLoadout`, `GlyphDiscoveryTree.discoverList` |
+| `CoreSpellGlyphs` | 10 | `MagicSpellbook`, `MagicSpellbookLearn`, `BrewingStation.ingredientLists` |
+| `CoreAlchemyGlyphs` | 12 | `AlchAlchemyDiscover` |
+| `EquipmentGlyphs` | 17 | **nothing** — its only mention in the serialized graph is its own name |
+
+The four hold 61 edges over the 47 glyphs, and no glyph is off all of them. Seven — Arcane, Dragon,
+Expansion, Flow, Nature, Psionic and Storm — are on all three unlocker lists at once, and ten are on
+`EquipmentGlyphs` alone. A view names a glyph list and never a glyph, so a glyph's page cannot be
+read from the item: it is read from the list, exactly as a structure's tab is.
+
 ---
 
 ## Equipped-spell removal and reorder

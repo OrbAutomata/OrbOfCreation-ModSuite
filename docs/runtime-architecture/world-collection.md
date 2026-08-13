@@ -13,7 +13,7 @@ configuration, world state and strategy and nothing else — is stated in
 ## The pipeline
 
 ```
-63 category readers over the game's registries
+64 category readers over the game's registries
         │  Unity thread, once per 250 ms
         ▼
 GameWorldCollector ──fills──► GameWorldCycleFrame
@@ -567,6 +567,15 @@ worth knowing:
   differential oracle, never a replacement for the graph and never an admission result; the explainer
   fails loud if its graph verdict disagrees. How that overload differs from the parameterless latch is
   recorded in [requirements](../reverse-engineering/requirements.md).
+- **Glyph lists.** `WorldGlyphListMembership.cs` publishes which authored `GlyphListVariable` each glyph
+  is on, once per lifecycle, because a glyph page is bound to a list and membership is therefore the
+  whole of where the player meets a row. No walk reaches these assets — a list is named by
+  `ViewSO.relevantLists` and by prefab data, neither of which is a registry — so the four authored
+  populations are reached by the identity they carry, against the pinned build. A glyph is routinely on
+  several at once, unlike an upgrade. Membership is published whole or withheld whole: the first list
+  that will not read empties the table and names why, and the category still reports itself collected,
+  because a partial table is indistinguishable from a glyph that genuinely sits on no list and a
+  consumer reading an empty table can say so instead of guessing.
 - **Spell slots and costs.** `WorldSpellSlot.cs` publishes the equipped loadout and `WorldSpellCost.cs`
   what casting out of it costs, both from one reader, because a slot's price is only answerable from the
   same equipped instance the slot was read from. Neither is identity-keyed: a position may be unfilled

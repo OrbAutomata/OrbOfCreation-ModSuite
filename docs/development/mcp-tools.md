@@ -524,7 +524,7 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `upgrades` | `level`, `queuedLevels`, `screen`, `state`, `maximum`, `requirements`, `affordable` |
 | `structures` | `level`, `queuedLevels`, `state`, `enabled`, `affordable` |
 | `alchemy-recipes` | `state`, `masteryLevel` |
-| `glyphs` | `population`, `state`, `discovered`, `paidLevel`, `bonusLevel`, `totalLevel` |
+| `glyphs` | `population`, `screen`, `state`, `discovered`, `paidLevel`, `bonusLevel`, `totalLevel` |
 | `plot-nodes` | `state`, `masteryLevel`, `quantity`, `availableQuantity` |
 | `challenges` | `state`, `run`, `level` |
 | `equipment` | `created`, `equippedCount` |
@@ -556,13 +556,14 @@ and `screen` is that fact in the word `game_navigate` takes:
 | `Time` | `TimeScreenUpgrades` | 0 | Time |
 | `all` | `AllUpgrades` | 4 | nowhere in particular — see below |
 
-**The screen grammar is `game_navigate`'s own.** A `screen` cell is either a screen label exactly as
-the live catalog spells it, or `Screen/Subtab` where the destination is a subtab, or the documented
-sentinel `all`. `game_navigate` matches labels with `StringComparison.Ordinal`, so the words used to
-be lowercase copies of labels rather than the labels: a reader who pasted `magic` into the tool got a
-no-match refusal, and `aspects` named a destination the tool has no top-level entry for at all. The
-sentinel stays lowercase on purpose, because nothing in the catalog is labelled `all` and that is
-what keeps it from reading as a place to go.
+**The screen grammar is `game_navigate`'s own**, in every column that uses it. A `screen` cell is
+either a screen label exactly as the live catalog spells it, or `Screen/Subtab` where the destination
+is a subtab, or one of the two documented sentinels — `all` on an upgrade row and `no_page` on a
+glyph row. `game_navigate` matches labels with `StringComparison.Ordinal`, so the words used to be
+lowercase copies of labels rather than the labels: a reader who pasted `magic` into the tool got a
+no-match refusal, and `aspects` named a destination the tool has no top-level entry for at all. Both
+sentinels stay lowercase on purpose, because nothing in the catalog is labelled `all` or `no_page`
+and that is what keeps them from reading as places to go.
 
 The eight screen lists are disjoint and cover 225 of the 229 upgrades. `all` is **not** a ninth
 screen: `AllUpgrades` holds every upgrade in the game, so saying it about a row a screen list also
@@ -584,6 +585,39 @@ A row the suite could not read the membership of says `unreadable` and never a p
 Membership is published whole or withheld whole for the same reason: a row missing from a partial
 table is indistinguishable from a row on no screen, and one of those is a fact the column is
 entitled to state.
+
+#### Which page shows a glyph
+
+A glyph page is bound to a `GlyphListVariable` through `ViewSO.relevantLists`, so the same fact
+answers the same question for glyphs, in the same grammar. Four of the nine authored lists are
+populations; the other five are the four runtime selections the player fills and `AllGlyphs`, which
+would say the same thing about all 47 rows:
+
+| word | list | rows | where the player finds them |
+| --- | --- | --- | --- |
+| `Magic/Augments` | `AugmentSpellGlyphs` | 22 | Magic > Augments — the Glyphcraft and Upgrade grids |
+| `Magic/Spellbook` | `CoreSpellGlyphs` | 10 | Magic > Spellbook — the Unlock page and its core slots |
+| `Alchemy/Alchemy` | `CoreAlchemyGlyphs` | 12 | Alchemy > Alchemy — the Learn page |
+| `no_page` | `EquipmentGlyphs` | 17 | the game names no page for this list — see below |
+
+The word names the subtab `game_navigate` reaches, not the grid two levels below it: the Augments
+strip only exists once Augments is selected, so `Magic/Upgrade` would be a destination a cold
+navigation cannot take, while `Magic/Augments` is one it always can.
+
+**Several pages is an answer here, not a refusal.** 61 membership edges cover the 47 glyphs, because
+one unlocker opens recipes on several benches — Arcane, Dragon, Expansion, Flow, Nature, Psionic and
+Storm are on all three unlocker lists at once. Their cell is the ordered set,
+`Magic/Spellbook, Alchemy/Alchemy`, in pinned list order. This is the one place the column differs
+from the upgrade column beside it, which refuses a row two screens claim: for an upgrade that is
+impossible on the pinned build and worth a tripwire, and for a glyph it is the authored norm, so
+refusing would throw away a fact the game plainly states.
+
+**`no_page` is not `unreadable`.** `EquipmentGlyphs` is mentioned by nothing in the serialized object
+graph but its own name — no `ViewSO`, no `DiscoveryTreeSO`, no structure — so the ten glyphs it alone
+carries (Amulet, Bag, Cloak, Conductor, Gloves, Helm, Ring, Runic, Tool, Weapon) have a membership the
+suite read perfectly and a page the game does not name. Guessing Workshop > Artifacts from the
+glyphs' own names would be inference wearing a game fact's clothes. `unreadable` stays reserved for
+the withheld publication, exactly as on an upgrade row.
 
 #### A list row carries durable facts only
 
