@@ -469,6 +469,51 @@ public sealed class GameMcpTextPageTests
             Render(@"{'uuid':'cd5465','level':{'before':20,'after':20}}"));
     }
 
+    /// <summary>
+    /// The page is not JSON and never wears JSON's escapes. A description the game authors with a
+    /// real paragraph break used to arrive as the two literal characters <c>\</c> and <c>n</c>,
+    /// because every scalar was serialized to JSON and then unquoted — while the same text through
+    /// <c>game_tooltip</c>, which never took that detour, rendered correctly.
+    /// </summary>
+    [Fact]
+    public void A_multi_paragraph_value_renders_as_paragraphs_and_never_as_escape_characters()
+    {
+        var page = GameMcpTextPage.Render(new JObject
+        {
+            ["name"] = "Raise Druidry Lv",
+            ["description"] =
+                "Increases the maximum speed for harvesting and maximum size for weaving.\n\n" +
+                "This makes you faster but significantly less efficient.",
+        });
+
+        Assert.DoesNotContain("\\n", page);
+        Assert.Equal(
+            new[]
+            {
+                "name: Raise Druidry Lv",
+                "description:",
+                "  Increases the maximum speed for harvesting and maximum size for weaving.",
+                string.Empty,
+                "  This makes you faster but significantly less efficient.",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// A one-line value keeps its one line: the paragraph rule must not push every description onto
+    /// a key line of its own.
+    /// </summary>
+    [Fact]
+    public void A_single_paragraph_value_stays_on_the_key_line()
+    {
+        var page = GameMcpTextPage.Render(new JObject
+        {
+            ["description"] = "Binds mana to unseen energies.",
+        });
+
+        Assert.Equal("description: Binds mana to unseen energies.", page);
+    }
+
     private static string Render(string json) =>
         GameMcpTextPage.Render(JToken.Parse(json.Replace('\'', '"')));
 }

@@ -208,8 +208,25 @@ internal static class GameMcpTextPage
                 return;
             }
             default:
-                lines.Add(indent + name + ": " + Scalar(value));
+            {
+                var scalar = Scalar(value);
+                // A value the game wrote as several paragraphs is rendered as several paragraphs.
+                // Continuation lines are indented so a paragraph can never be mistaken for the next
+                // key, which is the one thing the flat page grammar needs from them.
+                if (scalar.IndexOf('\n') < 0)
+                {
+                    lines.Add(indent + name + ": " + scalar);
+                    return;
+                }
+                lines.Add(indent + name + ":");
+                var paragraphs = scalar.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+                for (var index = 0; index < paragraphs.Length; index++)
+                {
+                    var paragraph = paragraphs[index].TrimEnd();
+                    lines.Add(paragraph.Length == 0 ? string.Empty : indent + Indent + paragraph);
+                }
                 return;
+            }
         }
     }
 
@@ -688,6 +705,14 @@ internal static class GameMcpTextPage
             case JTokenType.Float:
                 return Convert.ToDouble(((JValue)value).Value, CultureInfo.InvariantCulture)
                     .ToString("R", CultureInfo.InvariantCulture);
+            // A string is taken as it is rather than serialized and unquoted. Round-tripping it
+            // through JSON put JSON's escapes on a page that is not JSON: a description the game
+            // authors with a real paragraph break arrived as the two literal characters `\` and
+            // `n`, and the same text through `game_tooltip` — which never took that detour —
+            // rendered correctly, which is how the defect was pinned to this line.
+            case JTokenType.String:
+                var raw = (string?)((JValue)value).Value ?? string.Empty;
+                return raw.Length == 0 ? "-" : raw;
             default:
                 var text = value.ToString(Newtonsoft.Json.Formatting.None).Trim('"');
                 return text.Length == 0 ? "-" : text;

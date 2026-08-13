@@ -67,7 +67,13 @@ internal static class GameMcpWorldQuery
         {
             ["actionQueues"] = world.ActionQueues.Count,
             ["occupiedActionQueueSlots"] = CountOccupiedActionQueueSlots(world),
-            ["equippedSpellSlots"] = world.SpellSlots.Count,
+            // Two numbers, because the question is "have I a free lane" and one of them cannot
+            // answer it. `equippedSpellSlots` was the slot count and read as the equipped count —
+            // the field name promised the count and delivered the cap, and it delivered it in the
+            // direction that matters, so a strategist sizing its loadout saw a full bar that was
+            // five of eight.
+            ["equippedSpells"] = CountEquippedSpellSlots(world),
+            ["maximumSpellSlots"] = world.SpellSlots.Count,
             ["activeConceptAssignments"] = world.AlchemyInstances.Count,
         };
         if (world.SpellWorkbench.MaximumOutputLevel > 0)
@@ -96,6 +102,16 @@ internal static class GameMcpWorldQuery
         for (var index = 0; index < world.ActionQueueSlots.Count; index++)
         {
             if (!world.ActionQueueSlots[index].Empty) occupied++;
+        }
+        return occupied;
+    }
+
+    private static int CountEquippedSpellSlots(GameWorldState world)
+    {
+        var occupied = 0;
+        for (var index = 0; index < world.SpellSlots.Count; index++)
+        {
+            if (world.SpellSlots[index].Occupied) occupied++;
         }
         return occupied;
     }
@@ -1358,9 +1374,13 @@ internal static class GameMcpWorldQuery
             requested = named;
         }
 
+        // Built once for the whole call. It is an index over the world's whole keyword table, and a
+        // 200-id batch that rebuilt it per block would pay for that table two hundred times.
+        var keywordIndex = GameMcpKeywordIndex.Build(publication.Snapshot);
         var results = new JArray();
         for (var inputIndex = 0; inputIndex < uuidTexts.Count; inputIndex++)
-            results.Add(GetOne(publication.Snapshot, requested, uuidTexts[inputIndex]));
+            results.Add(GetOne(
+                publication.Snapshot, requested, uuidTexts[inputIndex], keywordIndex));
 
         var result = Envelope(publication);
         result["results"] = results;
@@ -1371,7 +1391,8 @@ internal static class GameMcpWorldQuery
     private static JObject GetOne(
         GameWorldState world,
         GameMcpWorldCategory? requested,
-        string? uuidText)
+        string? uuidText,
+        GameMcpKeywordIndex keywordIndex)
     {
         if (!Guid.TryParseExact(uuidText ?? string.Empty, "D", out var uuid) || uuid == Guid.Empty)
         {
@@ -1435,6 +1456,21 @@ internal static class GameMcpWorldQuery
             item["category"] = category.Name;
             var description = GameMcpEntityExplainer.ReadDescription(world, uuid);
             if (description.Length > 0) item["description"] = description;
+
+            // The words the game prints on this thing's type line, under the same name and in the
+            // same spelling `world_search` prints them. One fact, one name, both verbs.
+            //
+            // This was the round's costliest miss. A glyph's detail block published state,
+            // discovery, visibility and price and never said `keywords: Elemental` — the one fact
+            // that decides which family the glyph is in and therefore which page it renders on — so
+            // a reader working from the detail block concluded the read surface contradicted the
+            // screen, and held that finding for two hours. The search row ten minutes earlier had
+            // carried the word plainly. Where a category also publishes a richer relation block
+            // (`belongsTo` on spell recipes) that block stays; this line rides beside it, because a
+            // reader should not have to know which of three treatments a category happens to give
+            // one fact.
+            var keywords = keywordIndex.Line(uuid);
+            if (keywords.Length > 0) item["keywords"] = keywords;
         }
 
         var implicated = LocalizedRequirementImplications(world, new HashSet<Guid> { uuid });

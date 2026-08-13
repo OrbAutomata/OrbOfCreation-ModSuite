@@ -265,6 +265,25 @@ public sealed class GameMcpLoadoutTests
         Assert.Null(delta["spellBar"]);
     }
 
+    /// <summary>
+    /// The overview counted spell slots and called the number <c>equippedSpellSlots</c>, so a bar
+    /// with two spells in three slots published the three and a reader took it for the two. The
+    /// two facts a player reads off that bar are how many spells are on it and how many places
+    /// there are to put one, so the overview publishes both, each under the name of what it counts.
+    /// </summary>
+    [Fact]
+    public void The_overview_counts_the_spells_on_the_bar_apart_from_the_slots_that_hold_them()
+    {
+        var world = World(selected: true, populatedSnapshot: false, equippedSpells: 2);
+
+        var running = (JObject)GameMcpTestHarness.Json(
+            GameMcpWorldQuery.Overview(Context(world, 98)))["running"]!;
+
+        Assert.Null(running["equippedSpellSlots"]);
+        Assert.Equal(2, (int)running["equippedSpells"]!);
+        Assert.Equal(3, (int)running["maximumSpellSlots"]!);
+    }
+
     private static GameWorldState World(
         bool selected,
         bool populatedSnapshot,

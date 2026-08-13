@@ -211,6 +211,10 @@ internal readonly struct WorldResearch : IWorldEntity
 
 internal readonly struct WorldResearchDecision
 {
+    private readonly PublicationTable<WorldResearchCost>? _developmentCosts;
+    private readonly PublicationTable<WorldResearchInvestment>? _investment;
+    private readonly PublicationTable<WorldResearchTypeDecision>? _researchTypes;
+
     internal WorldResearchDecision(bool queueMode, int multiBuy, int queuedLevels,
         int levelsAvailable, int currentInvestmentLevel, BigDouble currentTime, BigDouble remainingTime,
         BigDouble timeRatio, bool canApplyBonusLevel, int freeBonusLevels,
@@ -231,9 +235,9 @@ internal readonly struct WorldResearchDecision
         CanApplyBonusLevel = canApplyBonusLevel;
         FreeBonusLevels = Math.Max(freeBonusLevels, 0);
         DevelopmentCostAffordable = developmentCostAffordable;
-        DevelopmentCosts = developmentCosts ?? PublicationTable<WorldResearchCost>.Empty;
-        Investment = investment ?? PublicationTable<WorldResearchInvestment>.Empty;
-        ResearchTypes = researchTypes ?? PublicationTable<WorldResearchTypeDecision>.Empty;
+        _developmentCosts = developmentCosts ?? PublicationTable<WorldResearchCost>.Empty;
+        _investment = investment ?? PublicationTable<WorldResearchInvestment>.Empty;
+        _researchTypes = researchTypes ?? PublicationTable<WorldResearchTypeDecision>.Empty;
     }
 
     internal bool Available { get; }
@@ -249,9 +253,21 @@ internal readonly struct WorldResearchDecision
     internal bool CanApplyBonusLevel { get; }
     internal int FreeBonusLevels { get; }
     internal bool DevelopmentCostAffordable { get; }
-    internal PublicationTable<WorldResearchCost> DevelopmentCosts { get; }
-    internal PublicationTable<WorldResearchInvestment> Investment { get; }
-    internal PublicationTable<WorldResearchTypeDecision> ResearchTypes { get; }
+
+    /// <summary>
+    /// The three tables a decision carries. Each answers empty rather than null on a decision that
+    /// was never collected: a research row published through the no-decision constructor leaves
+    /// this whole struct at <c>default</c>, which no constructor guard can reach, and a reader
+    /// walking the tables then faulted on a row the world had deliberately published without one.
+    /// </summary>
+    internal PublicationTable<WorldResearchCost> DevelopmentCosts =>
+        _developmentCosts ?? PublicationTable<WorldResearchCost>.Empty;
+
+    internal PublicationTable<WorldResearchInvestment> Investment =>
+        _investment ?? PublicationTable<WorldResearchInvestment>.Empty;
+
+    internal PublicationTable<WorldResearchTypeDecision> ResearchTypes =>
+        _researchTypes ?? PublicationTable<WorldResearchTypeDecision>.Empty;
 }
 
 internal readonly struct WorldResearchCost

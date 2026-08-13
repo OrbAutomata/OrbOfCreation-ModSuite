@@ -1501,7 +1501,11 @@ answered says nothing about having answered — silence is the yes, and inside a
 also what separates the blocks that answered from any block that refused beside them. One id failing
 refuses that block alone with the ordinary refusal grammar and every other block still answers.
 
-Named identity appears once, on the block: the row underneath carries only its own columns, and the
+Named identity appears once, on the block, and carries the same `keywords` cell `world_search`
+prints for that entity — same words, same order, same `, ` join. The family an entity belongs to is
+part of its identity rather than a search-only decoration, and a detail block that omitted it read
+as a contradiction of the search row that had just named it. The cell is absent, not empty, where
+the game authors no words. The row underneath carries only its own columns, and the
 handle, name, category and native type the block already published are not repeated in it. The
 `category` a block names is the one the world actually publishes the id in, not the one its runtime
 type implies — those disagree exactly where a caller most needs the truth. The `row` is the same

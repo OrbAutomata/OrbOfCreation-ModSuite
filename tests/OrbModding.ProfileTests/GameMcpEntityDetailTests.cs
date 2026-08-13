@@ -1049,6 +1049,47 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             affordable: false,
             affordabilityReasonCode: "unaffordable");
 
+    /// <summary>
+    /// The round's costliest miss. A glyph's detail block published state, discovery, visibility
+    /// and price and never said `keywords: Elemental` — the fact that decides which family the
+    /// glyph belongs to and therefore which page renders it. A reader working from that block
+    /// concluded the read surface contradicted the screen and held the wrong finding for two hours,
+    /// while the search row ten minutes earlier had carried the word plainly. One fact, one name,
+    /// both verbs.
+    /// </summary>
+    [Fact]
+    public void A_detail_block_carries_the_same_keywords_line_the_search_row_prints()
+    {
+        var glyphId = Guid.Parse("cc1cb602-2427-41c3-a2f4-421b4eef2ab4");
+        var elemental = Guid.Parse("61ee89dd-f896-4863-b3ff-1d07e7cf8896");
+        var augment = Guid.Parse("12eb2437-5bd7-4069-b02a-e6f1eee8f0c6");
+        var world = new GameWorldState
+        {
+            Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+            {
+                new WorldGlyph(
+                    glyphId, 0, 0, 1, false, true, false, false, false, false,
+                    0, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero),
+            }),
+            EntityKeywords = PublicationTable<WorldEntityKeyword>.Create(new[]
+            {
+                new WorldEntityKeyword(
+                    glyphId, WorldKeywordOwnerKind.Glyph,
+                    WorldKeywordSource.PrimaryType, 0, elemental),
+                new WorldEntityKeyword(
+                    glyphId, WorldKeywordOwnerKind.Glyph,
+                    WorldKeywordSource.TypeList, 0, augment),
+            }),
+            CollectedAtEpoch = 44,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var block = Explain(world, glyphId, 944);
+
+        Assert.Equal("Accursed", (string?)block["name"]);
+        Assert.Equal("Elemental, Spell Augment", (string?)block["keywords"]);
+    }
+
     private static bool Predicate(JObject explanation, string name) =>
         (bool)explanation["predicates"]![name]!["available"]!;
 
