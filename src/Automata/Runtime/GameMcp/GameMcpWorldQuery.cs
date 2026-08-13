@@ -4936,14 +4936,16 @@ internal static class GameMcpWorldQuery
                 var value = decision.Investment[index];
 
                 // `invested` and `required` are the native fill bar, both raw. `GetRemaining()` is
-                // what is still owed after the resource's own quality conversion — a remaining
-                // price, not a pool — so it is named as one and published beside the actual pool.
+                // what is still owed after the resource's own quality conversion — a price, in the
+                // units the player spends, read exactly the way every other price on this surface
+                // is read. So it says `cost`, under the same word, and the two fill-bar numbers ride
+                // beside it as the extra this one table has: a richer table, not a fourth dialect.
                 var row = new JObject
                 {
                     ["resourceId"] = value.ResourceId.ToString("D"),
+                    ["cost"] = new GameMcpDomainValue(value.Remaining),
                     ["invested"] = new GameMcpDomainValue(value.Invested),
                     ["required"] = new GameMcpDomainValue(value.Required),
-                    ["remainingCost"] = new GameMcpDomainValue(value.Remaining),
                 };
                 if (TryFindResource(world, value.ResourceId, out var pool))
                     row["spendableAmount"] = new GameMcpDomainValue(
@@ -7216,6 +7218,16 @@ internal static class GameMcpWorldQuery
         result["bonus"] = bonus;
     }
 
+    /// <summary>
+    /// A level's price, in the one price shape.
+    /// </summary>
+    /// <remarks>
+    /// These rows used to say three of the four columns and hoist <c>affordable</c> out to a
+    /// sibling key on the decision, so a glyph's price and a research's price read as two different
+    /// tables in one session and a caller scanning them positionally read the second one wrong. The
+    /// sibling key is a different fact and stays — it answers whether the whole purchase is payable
+    /// — while the column answers it per resource, which is what names the one that is short.
+    /// </remarks>
     private static JArray ProjectLevelCosts(
         GameWorldState world,
         PublicationTable<WorldLevelableCost> costs)
@@ -7230,9 +7242,17 @@ internal static class GameMcpWorldQuery
                 ["cost"] = new GameMcpDomainValue(
                     PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
             };
+
+            // What is held and whether it covers the price are the same reading, so they are
+            // published together or not at all: a resource the world carries no row for has no
+            // holding to state, and standing zero in for it would say the player has none.
             if (WorldLookup.TryFind(world.Resources, cost.ResourceId, out var resource))
+            {
+                var held = resource.Reading.Quantity;
                 row["spendableAmount"] = new GameMcpDomainValue(
-                    SpendableAmount(world, cost.ResourceId, resource.Reading.Quantity));
+                    SpendableAmount(world, cost.ResourceId, held));
+                row["affordable"] = CanAfford(world, cost.ResourceId, cost.Amount, held);
+            }
             result.Add(row);
         }
         return result;

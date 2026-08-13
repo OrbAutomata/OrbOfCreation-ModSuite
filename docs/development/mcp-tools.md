@@ -261,7 +261,13 @@ than printing itself into a cell.
   that order, in a list named `costs`. A producer that published the price under a different member
   has it renamed on the wire, and a rename used to be written where a new member goes, last, so two
   verbs spelled the same three facts in two orders and a reader scanning the second one positionally
-  read the wrong column.
+  read the wrong column. A row that holds one of the four says all four: hoisting `affordable` out
+  to a sibling key left a three-column price beside four-column prices in the same session. The
+  sibling key is a different fact and stays — it answers whether the whole purchase is payable,
+  where the column answers it per resource and so names the one that is short. A table with more to
+  say keeps its extra columns and still spells the price `cost`: research's `investment` carries the
+  native fill bar (`invested`, `required`) beside the same words, which is a richer table rather
+  than a fourth dialect.
 - **Constants live here, not in answers.** A number that is the same in every save on every call is
   documentation. The casting dials publish `current` and `maximum` and not the floor, which is 1 for
   both; `suite_configuration` publishes values and not the sentence describing each setting.
@@ -911,8 +917,9 @@ refusal whose `reasonCode` is `unaffordable` — a row refused for its price pub
 refused it, rather than naming the blocking resource only inside the sentence.
 While development is active it includes elapsed/required/remaining progress and,
 per resource, the drain that pays for the research already in flight: `invested` and `required` are
-the native fill bar, `remainingCost` is what that bar still owes in the units the player spends, and
-`spendableAmount` is what the player actually holds. Associated
+the native fill bar, `cost` is what that bar still owes in the units the player spends — the same
+word and the same reading every other price on this surface uses — and `spendableAmount` is what the
+player actually holds. Associated
 research types carry their remaining free bonus levels and investment caps. Only currently
 UI-reachable next verbs appear: `develop`, `pause`, `resume`, `cancel`, and `bonus`. A committed
 `develop` answers `queued` and stops — it buys research time, not a finished level, and the queue

@@ -56,6 +56,18 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal("Knowledge", (string?)cost["resource"]!["name"]);
         Assert.Equal("5", (string?)cost["cost"]);
         Assert.Equal("80", (string?)cost["spendableAmount"]);
+
+        // One price shape: what it asks, what is held, whether that covers it, and the resource. A
+        // level price used to say three of the four and leave affordability to a sibling key on the
+        // decision, so a glyph's price and a research's price read as two different tables in one
+        // session. The sibling key stays because it is a different fact — the game's own answer for
+        // the whole purchase — while the column answers per resource and so names the one that is
+        // short. Here they disagree, which is exactly why neither can stand in for the other.
+        Assert.Equal(
+            new[] { "cost", "spendableAmount", "affordable", "resource" },
+            cost.Properties().Select(property => property.Name).ToArray());
+        Assert.True((bool)cost["affordable"]!);
+        Assert.False((bool)glyph["purchase"]!["affordable"]!);
     }
 
     [Fact]

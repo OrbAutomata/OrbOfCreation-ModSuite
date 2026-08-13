@@ -137,10 +137,14 @@ public sealed class GameMcpResearchTests
 
         Assert.Equal("40", (string?)investment["invested"]);
         Assert.Equal("100", (string?)investment["required"]);
-        Assert.Equal("60", (string?)investment["remainingCost"]);
         Assert.Equal("90", (string?)investment["spendableAmount"]);
         Assert.Null(investment["availableToInvest"]);
-        Assert.Null(investment["cost"]);
+
+        // A price is spelled `cost` wherever the surface prints one. This table is richer than the
+        // four-column form beside it, and the extra columns are what make it richer — but the
+        // column that says what to pay reads the same word here as on a glyph or a develop.
+        Assert.Equal("60", (string?)investment["cost"]);
+        Assert.Null(investment["remainingCost"]);
     }
 
     [Fact]
@@ -151,7 +155,7 @@ public sealed class GameMcpResearchTests
             "research", ResearchId.ToString("D")).Freeze(), world);
         var investment = Assert.Single(response["row"]!["investment"]!).Value<JObject>()!;
 
-        Assert.Equal("60", (string?)investment["remainingCost"]);
+        Assert.Equal("60", (string?)investment["cost"]);
         Assert.Null(investment["spendableAmount"]);
     }
 
