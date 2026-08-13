@@ -484,9 +484,9 @@ without navigation. Before that bind, or when its declared contracts fail, the t
 A match contains `uuid`, `name`, `nativeType`, and one `category` — this and `world_get` are the
 two surfaces that still carry the asset name and the runtime type, because browsing the catalog is
 the one activity that asks for them. `category=not-world-projected`
-means that the live registry identity has no world row. `nameSource=asset` appears only when no
-player-facing name exists and the Unity asset name supplied the label; absence means the name is
-player-facing. `internalName` appears only when it differs. An id nobody can name says so in its
+means that the live registry identity has no world row. `name` is present exactly when the game
+authors a player-facing word, so its absence is that fact and needs no flag beside it;
+`internalName` carries the Unity asset id whenever it is not that same word. An id nobody can name says so in its
 `name` cell — `(unnamed 2c20e7)`, the one form this surface has for it — and nowhere else: a second
 block saying the same thing put a refusal class in a table cell, and a table refuses nothing. The same immutable
 catalog reference is pinned with the answering world and supplies names for every MCP entity
@@ -2129,10 +2129,19 @@ projection already has. A row the suite could not fully read is a different shap
 one: it keeps the whole declared set under `partialRow` and states the incompleteness beside it.
 
 An identity is a handle and a name, and nothing else. The asset name (`internalName`), the runtime
-type (`nativeType`), the category the type implies, and where a name came from (`nameSource`) are
-catalog-browsing facts: `entity_catalog` and a `world_get` block publish them, and no world row or
-reference carries them. Stamped on every identity they cost 21.1% of one live round for a fact
-nothing on that round read.
+type (`nativeType`) and the category the type implies are catalog-browsing facts: `entity_catalog`
+and a `world_get` block publish them, and no world row or reference carries them. Stamped on every
+identity they cost 21.1% of one live round for a fact nothing on that round read.
+
+**`name` is the word the game shows a player, or it is not there.** About five hundred of the
+catalog's assets — the variables, the list holders, the scaling weights, the tutorials — carry no
+authored word at all, and the surface used to stand the Unity asset id in for one: a page of
+`int-variables` read `SummonedLevel`, `QuickConsumableSlots`, `MaxRasterizedThoughts` in the column
+every other page fills with a real name, and nothing on the row said which kind of label it was.
+Now such a row publishes no `name` — `-` in a table, absent in a block — and carries the asset id
+under `internalName`, which is where that fact already lived. Nothing is lost: the row is addressed
+by its id either way. The `nameSource: asset` flag that used to admit the substitution is gone with
+the substitution.
 
 Absence therefore never doubles as a value. Every key that once used it to mean "no" now says so:
 

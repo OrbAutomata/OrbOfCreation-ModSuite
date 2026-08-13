@@ -561,8 +561,15 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Equal("ERR_INPUT", (string?)result["reasonCode"]);
     }
 
+    /// <summary>
+    /// An asset the game authors no word for has no name to publish. It used to borrow the Unity
+    /// asset id for the <c>name</c> cell and flag the borrowing with <c>nameSource: asset</c>, so
+    /// <c>name</c> was the player's word on most rows and an internal identifier on others, and
+    /// only that flag told them apart — a flag the entity rows never carried at all. The asset id
+    /// goes where it belongs, and <c>name</c> says what absence says.
+    /// </summary>
     [Fact]
-    public void LiveCatalogUsesAssetNameWhenPlayerFacingNameIsAbsent()
+    public void LiveCatalogNamesNothingWhereTheGameAuthorsNoWord()
     {
         var inbox = new GameMcpFrameInbox();
         var router = new GameMcpProtocolRouter(inbox);
@@ -590,11 +597,12 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Equal(3, lines.Length);
         Assert.StartsWith("[", lines[1]);
         Assert.Contains("OrbAnim2", lines[2]);
-        Assert.Contains("asset", lines[2]);
         Assert.Contains("not-world-projected", lines[2]);
-        Assert.DoesNotContain("internalName", page, StringComparison.Ordinal);
+        Assert.Contains("internalName", lines[1], StringComparison.Ordinal);
+        Assert.DoesNotContain("nameSource", page, StringComparison.Ordinal);
         Assert.DoesNotContain("hasDisplayName", page, StringComparison.Ordinal);
     }
+
 
     [Fact]
     public void WrongUuidIsRejectedByToolBoundary()
@@ -1882,6 +1890,46 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal(101L, (long)page["window"]!["firstSequence"]!);
         Assert.Equal(104L, (long)page["window"]!["lastSequence"]!);
         Assert.Null(rows[0]!["sequence"]);
+    }
+
+    /// <summary>
+    /// The variable categories were the loudest case: a page of them read `SummonedLevel`,
+    /// `QuickConsumableSlots`, `MaxRasterizedThoughts` in the `name` column, and a reader who had
+    /// not memorised which categories the game authors words for could not tell those from the real
+    /// names every other page prints there. `name` is a player-facing word or it is absent, and the
+    /// asset id it stood in for keeps its own column.
+    /// </summary>
+    [Fact]
+    public void A_variable_the_game_authors_no_word_for_names_nothing_in_its_name_column()
+    {
+        var unworded = Guid.Parse("18c498f5-e4a7-4549-b093-117e206cc043");
+        var worded = Guid.Parse("37a84399-98b5-463c-b858-c1ecf2f9bf34");
+        var world = new GameWorldState
+        {
+            IntVariables = PublicationTable<WorldNumberVariable>.Create(new[]
+            {
+                new WorldNumberVariable(unworded, new BigDouble(4), isPercent: false),
+                new WorldNumberVariable(worded, new BigDouble(1), isPercent: false),
+            }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                Clean("int-variables"),
+            }),
+            CollectedAtEpoch = 47,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        using var publisher =
+            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(947));
+
+        var rows = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            Snapshot(publisher.ReadLatest()), "int-variables", 0, 10))["rows"]!
+            .Values<JObject>()
+            .ToArray();
+
+        Assert.Null(rows[0]!["name"]);
+        Assert.Equal("SummonedLevel", (string?)rows[0]!["internalName"]);
+        Assert.Equal("MultiBuy", (string?)rows[1]!["name"]);
     }
 
     private static WorldCollectionCategoryStatus Clean(string category) =>

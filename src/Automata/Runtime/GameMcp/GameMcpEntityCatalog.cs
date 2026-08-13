@@ -130,11 +130,15 @@ internal static class GameMcpEntityCatalog
             ["uuid"] = row.EntityId.ToString("D"),
             ["nativeType"] = row.RuntimeType,
         };
-        if (identity.HasName) result["name"] = identity.Name;
-        if (identity.Source == EntityIdentityNameSource.LiveAssetName)
-            result["nameSource"] = "asset";
+        // A row whose only label is the Unity asset id has no player-facing name, so it publishes
+        // none: `name` is the word the game shows or it is absent, on this surface and on every
+        // other. `nameSource: asset` was the flag that admitted the substitution one surface made
+        // and the entity rows made silently; with the substitution gone there is nothing to flag.
+        var named = identity.HasName &&
+            identity.Source != EntityIdentityNameSource.LiveAssetName;
+        if (named) result["name"] = identity.Name;
         if (row.AssetName.Length > 0 &&
-            !string.Equals(identity.Name, row.AssetName, StringComparison.Ordinal))
+            !(named && string.Equals(identity.Name, row.AssetName, StringComparison.Ordinal)))
             result["internalName"] = row.AssetName;
         if (GameMcpEntityCapabilityMap.TryCategoryForNativeType(
                 row.RuntimeType,

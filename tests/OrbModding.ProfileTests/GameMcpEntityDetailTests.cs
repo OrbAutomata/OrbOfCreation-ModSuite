@@ -321,7 +321,10 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var unknownResult = GameMcpTestHarness.Detail(context, unknown);
 
         Assert.Equal("ERR_NOT_FOUND", (string?)knownResult["reasonCode"]);
-        Assert.Equal("InventoryUnlocked", (string?)knownResult["name"]);
+        // The catalog knows this id and the game authors no word for it, so the block identifies it
+        // by the only label there is and does not dress that label up as a name.
+        Assert.Null(knownResult["name"]);
+        Assert.Equal("InventoryUnlocked", (string?)knownResult["internalName"]);
         Assert.Equal("entity_catalog", (string?)knownResult["readWith"]!["tool"]);
         Assert.Null(knownResult["nameEvidence"]);
         Assert.Equal("ERR_NOT_FOUND", (string?)unknownResult["reasonCode"]);

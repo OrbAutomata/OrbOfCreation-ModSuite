@@ -490,6 +490,18 @@ internal static class GameMcpEntityWireNormalizer
         bool inventUnnamed = true)
     {
         var identity = EntityIdentityFormatter.Describe(uuid, catalog);
+
+        // `name` is the word the game shows a player, or it is nothing. Five hundred of the
+        // catalog's assets — the variables, list holders, scaling weights, tutorials — carry no
+        // authored word at all, and standing the Unity asset id in for one published
+        // `SummonedLevel` and `ScalingBase` under the field every other row spells a real name in.
+        // Nothing is lost: the asset id is a different fact and says so under its own key, beside
+        // the id the row is addressed by.
+        if (identity.Source == EntityIdentityNameSource.LiveAssetName)
+        {
+            if (target["internalName"] is null) target["internalName"] = identity.AssetName;
+            return;
+        }
         if (identity.HasName)
         {
             target["name"] = identity.Name;
