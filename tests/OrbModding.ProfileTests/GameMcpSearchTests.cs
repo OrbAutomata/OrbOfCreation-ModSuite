@@ -28,6 +28,9 @@ public sealed class GameMcpSearchTests
     private static readonly Guid Quiet = Guid.Parse("82c00000-0000-4000-8000-000000000001");
     private static readonly Guid Font = Guid.Parse("82d00000-0000-4000-8000-000000000001");
 
+    private static readonly Guid Idle = Guid.Parse("83a00000-0000-4000-8000-000000000001");
+    private static readonly Guid Passed = Guid.Parse("83b00000-0000-4000-8000-000000000001");
+
     private static readonly Guid Building = Guid.Parse("90a00000-0000-4000-8000-000000000001");
     private static readonly Guid Alchemical = Guid.Parse("90b00000-0000-4000-8000-000000000001");
     private static readonly Guid Charm = Guid.Parse("90c00000-0000-4000-8000-000000000001");
@@ -36,10 +39,12 @@ public sealed class GameMcpSearchTests
     private static readonly Guid StructureFocus = Guid.Parse("90f00000-0000-4000-8000-000000000001");
 
     /// <summary>
-    /// The page a cross-category search actually returns: four columns whatever category a hit came
+    /// The page a cross-category search actually returns: five columns whatever category a hit came
     /// from, and an honest empty keywords cell on the classes the game authors no words for. An
     /// upgrade's cell is not filled from its category, its screen, or its name — the game prints no
-    /// type line on one, so neither does this.
+    /// type line on one, so neither does this. <c>matchedOn</c> is the fifth: the row's own field
+    /// the query hit, which is what tells a reader the hit is the thing they meant rather than a
+    /// coincidence in a string they never see.
     /// </summary>
     /// <remarks>
     /// The recipe answers under <c>alchemy-recipes</c> rather than <c>concept-recipes</c>: one
@@ -48,18 +53,18 @@ public sealed class GameMcpSearchTests
     /// concept republication without the alchemy row the real world always carries beside it.
     /// </remarks>
     [Fact]
-    public void A_search_across_categories_says_the_same_four_things_about_every_hit()
+    public void A_search_across_categories_says_the_same_five_things_about_every_hit()
     {
         Assert.Equal(
             string.Join('\n', new[]
             {
                 "rows 5/5",
-                "[id | name | category | keywords]",
-                "81a000 | Alchemy Insight | upgrades | -",
-                "81b000 | Alchemy Mastery | upgrades | -",
-                "81c000 | Alchemy Refinement | upgrades | -",
-                "82a000 | Alchemy Lab | structures | Building, Alchemical",
-                "80a000 | Concept of Fire | alchemy-recipes | Alchemical, Structure Focus",
+                "[id | name | category | keywords | matchedOn]",
+                "81a000 | Alchemy Insight | upgrades | - | name",
+                "81b000 | Alchemy Mastery | upgrades | - | name",
+                "81c000 | Alchemy Refinement | upgrades | - | name",
+                "82a000 | Alchemy Lab | structures | Building, Alchemical | name",
+                "80a000 | Concept of Fire | alchemy-recipes | Alchemical, Structure Focus | category",
             }),
             Render(Search("alchemy")));
     }
@@ -93,9 +98,9 @@ public sealed class GameMcpSearchTests
             string.Join('\n', new[]
             {
                 "rows 2/2",
-                "[id | name | category | keywords]",
-                "81b000 | Alchemy Mastery | upgrades | -",
-                "80a000 | Concept of Fire | alchemy-recipes | Alchemical, Structure Focus",
+                "[id | name | category | keywords | matchedOn]",
+                "81b000 | Alchemy Mastery | upgrades | - | name",
+                "80a000 | Concept of Fire | alchemy-recipes | Alchemical, Structure Focus | category",
             }),
             Render(Search("alchemy", state: "locked")));
 
@@ -154,10 +159,11 @@ public sealed class GameMcpSearchTests
             {
                 "keywordHits: Charm=2, Charm Focus=1",
                 "rows 3/3",
-                "[id | name | category | keywords]",
-                "82b000 | Warded Hall | structures | Charm, Primary",
-                "82c000 | Quiet Circle | structures | Charm Focus",
-                "82d000 | Still Font | structures | Charm",
+                "these 3 share: category=structures, matchedOn=keywords",
+                "[id | name | keywords]",
+                "82b000 | Warded Hall | Charm, Primary",
+                "82c000 | Quiet Circle | Charm Focus",
+                "82d000 | Still Font | Charm",
             }),
             Render(Search("charm")));
 
@@ -188,6 +194,92 @@ public sealed class GameMcpSearchTests
             Context(), "alchemy", 0, 50, "no-such-category"));
         Assert.Equal("ERR_INPUT", (string?)unknown["reasonCode"]);
         Assert.Contains("unknown category", (string?)unknown["reason"]);
+    }
+
+    /// <summary>
+    /// "What have I not unlocked yet" is a whole question and it names nothing. Requiring a query
+    /// beside the filter made a caller invent a word broad enough to reach everything they meant
+    /// and then hope it had — a reach nobody could characterise, sitting under a count the whole
+    /// sweep was judged on. A call that names at least one filter is a call.
+    /// </summary>
+    [Fact]
+    public void A_call_that_names_only_a_filter_asks_a_whole_question()
+    {
+        var locked = Json(GameMcpWorldQuery.Search(
+            Context(), string.Empty, 0, 50, string.Empty, "locked"));
+
+        Assert.Equal(
+            new[] { "80a000", "81b000", "82c000" },
+            Rows(locked)
+                .Select(row => (string?)row["uuid"])
+                .OrderBy(handle => handle, StringComparer.Ordinal)
+                .ToArray());
+
+        // Nothing was matched by name, so the column that says what matched says the absence mark
+        // rather than naming a field the caller never asked anything about.
+        Assert.All(Rows(locked), row => Assert.Equal("-", (string?)row["matchedOn"]));
+
+        // Naming neither a query nor a filter is still not a question, and the refusal says what
+        // would have made it one.
+        var nothing = Json(GameMcpWorldQuery.Search(Context(), string.Empty, 0, 50));
+        Assert.Equal("ERR_INPUT", (string?)nothing["reasonCode"]);
+        Assert.Equal(
+            "name something to search for: a query, or a category, state or run filter",
+            (string?)nothing["reason"]);
+    }
+
+    /// <summary>
+    /// <c>run</c> is a column like <c>state</c> is, so it narrows a search like one. A caller who
+    /// wants the challenge they left running had to read the whole challenges page to find it.
+    /// </summary>
+    [Fact]
+    public void The_run_column_narrows_a_search_the_way_the_lifecycle_word_does()
+    {
+        Assert.Equal(
+            new[] { "83b000" },
+            Rows(Json(GameMcpWorldQuery.Search(
+                    Context(), string.Empty, 0, 50, string.Empty, string.Empty, "passed")))
+                .Select(row => (string?)row["uuid"])
+                .ToArray());
+        Assert.Equal(
+            new[] { "83a000" },
+            Rows(Json(GameMcpWorldQuery.Search(
+                    Context(), string.Empty, 0, 50, "challenges", string.Empty, "idle")))
+                .Select(row => (string?)row["uuid"])
+                .ToArray());
+
+        // One category publishes the column, so a call that narrows to another is told which one
+        // rather than being handed an empty page to read as "there are none".
+        var elsewhere = Json(GameMcpWorldQuery.Search(
+            Context(), string.Empty, 0, 50, "upgrades", string.Empty, "idle"));
+        Assert.Equal("ERR_INPUT", (string?)elsewhere["reasonCode"]);
+        Assert.Equal(
+            "run is a challenges column and no other category publishes one, so it cannot narrow " +
+            "upgrades; drop the category or drop the run filter",
+            (string?)elsewhere["reason"]);
+    }
+
+    /// <summary>
+    /// The tool description is the only account of the surface a caller reads before using it, so
+    /// the two filters and the optional query are named there in the same words the tool answers in.
+    /// </summary>
+    [Fact]
+    public void The_search_tool_describes_the_filter_only_call_and_the_run_column()
+    {
+        var description = (string?)Assert.Single(
+            GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate!["name"] == "world_search")!["description"] ??
+            string.Empty;
+        var schema = Assert.Single(
+            GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate!["name"] == "world_search")!["inputSchema"]!;
+
+        Assert.Contains("matchedOn", description, StringComparison.Ordinal);
+        Assert.Contains("run", description, StringComparison.Ordinal);
+        Assert.Null(schema["required"]);
+        Assert.Equal(
+            new[] { "idle", "queued", "active", "passed", "failed" },
+            schema["properties"]!["run"]!["enum"]!.Values<string>());
     }
 
     /// <summary>
@@ -300,6 +392,8 @@ public sealed class GameMcpSearchTests
             new EntityIdentityName(Warded, "StructureSO", "Warded Hall", "wardedHall"),
             new EntityIdentityName(Quiet, "StructureSO", "Quiet Circle", "quietCircle"),
             new EntityIdentityName(Font, "StructureSO", "Still Font", "stillFont"),
+            new EntityIdentityName(Idle, "ChallengeSO", "Trial of Ash", "trialAsh"),
+            new EntityIdentityName(Passed, "ChallengeSO", "Trial of Frost", "trialFrost"),
             new EntityIdentityName(Building, "StructureTypeSO", "Building", "buildingType"),
             new EntityIdentityName(Alchemical, "StructureTypeSO", "Alchemical", "alchemicalType"),
             new EntityIdentityName(Charm, "StructureTypeSO", "Charm", "charmType"),
@@ -328,6 +422,11 @@ public sealed class GameMcpSearchTests
                 Structure(Warded, unlocked: true),
                 Structure(Quiet, unlocked: false),
                 Structure(Font, unlocked: true),
+            }),
+            Challenges = PublicationTable<WorldChallenge>.Create(new[]
+            {
+                Challenge(Idle, run: 0),
+                Challenge(Passed, run: 3),
             }),
             ConceptRecipes = PublicationTable<WorldConceptRecipe>.Create(new[]
             {
@@ -363,6 +462,24 @@ public sealed class GameMcpSearchTests
         publisher.Publish(world, new WorldGeneration(861));
         return GameMcpTestHarness.Context(publisher.ReadLatest());
     }
+
+    /// <summary>
+    /// <c>run</c> is <c>ChallengeSO.state</c> and it moves without the lifecycle moving, so both
+    /// rows here are <c>available</c> and differ only in the column this filter reads.
+    /// </summary>
+    private static WorldChallenge Challenge(Guid id, int run) => new(
+        id,
+        level: 0,
+        state: run,
+        seen: true,
+        rewardQueued: false,
+        maxLevel: 5,
+        weight: 0,
+        difficulty: 0,
+        baseReward: 0,
+        availableToRun: true,
+        completedOnce: run == 3,
+        maximumLevelReached: false);
 
     private static WorldEntityKeyword Keyword(
         Guid owner,

@@ -231,8 +231,9 @@ public sealed class GameMcpTypeWorthTests
     }
 
     /// <summary>
-    /// Search rows are four columns and stay four columns. What a type is worth is volatile, it
-    /// belongs to the reader who asked a detail question, and a list stays durable facts only.
+    /// Search rows say the same things about every hit and gain nothing here. What a type is worth
+    /// is volatile, it belongs to the reader who asked a detail question, and a list stays durable
+    /// facts only.
     /// </summary>
     [Fact]
     public void A_search_row_says_nothing_new_now_that_a_type_can_price_itself()
@@ -241,12 +242,13 @@ public sealed class GameMcpTypeWorthTests
             string.Join('\n', new[]
             {
                 "rows 2/2",
-                "[id | name | category | keywords]",
-                "a0a000 | Focus | equipment-types | -",
-                "a1c000 | Focus Ward | glyphs | -",
+                "these 2 share: keywords=-, matchedOn=name",
+                "[id | name | category]",
+                "a0a000 | Focus | equipment-types",
+                "a1c000 | Focus Ward | glyphs",
             }),
             Render(Json(GameMcpWorldQuery.Search(
-                Context(World()), "focus", 0, 50, string.Empty, string.Empty,
+                Context(World()), "focus", 0, 50, string.Empty, string.Empty, string.Empty,
                 limitFromCaller: false))));
     }
 

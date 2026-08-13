@@ -443,12 +443,16 @@ categories occupies one row and one page slot.
 
 ### What search searches, and what it cannot
 
-A `world_search` row is `id`, `name`, `category`, `keywords`, on every row of every category and with
-no other column. A search page holds hits from every category at once, so borrowing each category's
-own scan columns unioned every heading onto one table and left about nine cells in ten empty — while
-`category`, the column that says which read verb can follow the hit up, was filled only on rows that
-had no identity of their own. Widening is `world_list`'s job, on a page whose columns all apply to
-every row.
+A `world_search` row is `id`, `name`, `category`, `keywords`, `matchedOn`, on every row of every
+category and with no other column. A search page holds hits from every category at once, so
+borrowing each category's own scan columns unioned every heading onto one table and left about nine
+cells in ten empty — while `category`, the column that says which read verb can follow the hit up,
+was filled only on rows that had no identity of their own. Widening is `world_list`'s job, on a page
+whose columns all apply to every row.
+
+`matchedOn` names the field the query hit — `name`, `internalName`, `id`, `keywords`, `category` or
+`nativeType` — which is what separates the row a reader meant from a coincidence in a string they
+never see. It is the absence mark on a call that ran no query, because nothing was matched.
 
 The `keywords` cell is the entity's authored word line — the type assets whose display names the game
 prints as `ITooltipable.GetDisplayType()` — joined with `, ` in the order the game prints them, and
@@ -473,11 +477,23 @@ result agree. Matching is case-insensitive substring on the whole query, which i
 own search box uses — `FilterVariable.MatchesSearchStrings` lowercases both sides and asks
 `Contains`, with no tokenising and no whole-word test.
 
+**`query` is optional when a filter is present.** "What have I not unlocked yet" is a whole
+question and it names nothing; requiring a word beside the filter made a caller invent one broad
+enough to reach everything they meant and then hope it had. A call that names a query, a category, a
+state or a run is a call; a call that names none of them is refused and the refusal lists all four.
+
 `state` narrows to one of the three lifecycle words, and it reaches every category that carries the
 column: `upgrades`, `research`, `structures`, `alchemy-recipes`, `glyphs`, `rituals`, `plot-nodes`
 and `challenges`. The filter reads the word the row's own list page says and never derives one of its
 own, so its reach is a consequence of which pages carry the column rather than a list maintained
 beside them — extend the column and the filter follows.
+
+`run` narrows the same way on the one category that publishes the column: `idle`, `queued`,
+`active`, `passed`, `failed` on `challenges`. It is a different axis from `state` — a challenge whose
+last run passed is `available` again at the next level — which is why the two are separate columns
+and separate filters. A call that narrows to some other category *and* names a run is refused by
+name, because no other category has the column to answer with and an empty page would read as
+"there are none".
 
 A category with no lifecycle model still does not match a state filter, and is still not excluded
 from an unfiltered search: inventing a word here for rows whose own page never says one would be a
@@ -511,9 +527,9 @@ player-facing `GetName()`, so loaded entities hidden or not yet revealed by prog
 without navigation. Before that bind, or when its declared contracts fail, the tool returns
 `unavailable` rather than substituting the build-time TSV fixtures.
 
-A match contains `uuid`, `name`, `nativeType`, and one `category` — this and `world_get` are the
-two surfaces that still carry the asset name and the runtime type, because browsing the catalog is
-the one activity that asks for them. `category=not-world-projected`
+A match contains `uuid`, `name`, `nativeType`, and one `category` — this is the surface that still
+carries the runtime type unconditionally, because browsing the catalog is the one activity that asks
+for it and a browser names no category to imply it from. `category=not-world-projected`
 means that the live registry identity has no world row. `name` is present exactly when the game
 authors a player-facing word, so its absence is that fact and needs no flag beside it;
 `internalName` carries the Unity asset id whenever it is not that same word. An id nobody can name says so in its

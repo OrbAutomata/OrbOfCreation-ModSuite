@@ -1600,6 +1600,7 @@ public sealed class Plugin : BaseUnityPlugin
                         request.Limit,
                         request.Category,
                         request.StateFilter,
+                        request.RunFilter,
                         request.LimitFromCaller).Freeze());
                 return true;
             case "suite_health":

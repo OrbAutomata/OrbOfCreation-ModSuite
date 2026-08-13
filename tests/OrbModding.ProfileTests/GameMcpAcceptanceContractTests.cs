@@ -396,7 +396,8 @@ public sealed class GameMcpWorldQueryTests
         Assert.Equal((string?)scan["uuid"], (string?)match["uuid"]);
         Assert.Equal((string?)scan["name"], (string?)match["name"]);
         Assert.Equal("spell-recipes", (string?)match["category"]);
-        Assert.Equal(4, match.Properties().Count());
+        Assert.Equal("id", (string?)match["matchedOn"]);
+        Assert.Equal(5, match.Properties().Count());
 
         var exact = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             state,

@@ -277,7 +277,11 @@ internal sealed class GameMcpProtocolRouter
                     arguments, "limit", GameMcpWorldQuery.DefaultLimit);
                 break;
             case "world_search":
-                builder.Query = RequireString(arguments, "query");
+                // A query is one way to name what you want and a filter is another, so neither is
+                // required on its own. Demanding a query to reach a filter taught a round to invent
+                // one-letter searches whose reach nobody could state.
+                if (arguments.ContainsKey("query"))
+                    builder.Query = RequireString(arguments, "query");
                 builder.Offset = OptionalInt(arguments, "offset", 0);
                 builder.Limit = OptionalInt(
                     arguments, "limit", GameMcpWorldQuery.DefaultLimit);
@@ -288,6 +292,11 @@ internal sealed class GameMcpProtocolRouter
                 {
                     builder.StateFilter = RequireOneOf(
                         arguments, "state", "locked", "available", "completed");
+                }
+                if (arguments.ContainsKey("run"))
+                {
+                    builder.RunFilter = RequireOneOf(
+                        arguments, "run", "idle", "queued", "active", "passed", "failed");
                 }
                 break;
             case "suite_health":
@@ -655,18 +664,21 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "world_search",
                 "Search published entities",
-                "Search every stable-UUID entity category at once and answer with one uniform row: id, name, category, keywords. A query is matched case-insensitively as a substring — the same rule the game's own search box uses — against the entity's player-facing name, its internal asset name, its id, the keywords the game prints on its tooltip type line, and the category and native type it belongs to. Hits come back most relevant first: name matches, then keyword matches, then category matches, with id order inside each band. It does NOT search descriptions: the published world captures no entity descriptions at all, so a word that appears only in an entity's description text finds nothing here; read one entity's description with world_get. Keywords are empty for the classes the game authors none for (upgrades, challenges, views, achievements, advancements, recipe books, crafting recipes) and nothing is synthesized to fill the cell. state narrows to one lifecycle word and reaches every category whose own list page carries that column: upgrades, research, structures, alchemy-recipes, glyphs, rituals, plot-nodes and challenges. A category with no lifecycle model matches no state filter, and no word is derived for it. category narrows to one searchable category. An entity the published world has no row for is not here, and composite diagnostic categories are intentionally excluded; use world_list for those rows and their localized partiality evidence. A result of 25 rows or fewer comes back whole when you name no limit. limit is otherwise an upper bound: a page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from. keywordHits appears when the query hit more than one keyword, and says how the whole result splits between them.",
+                "Search every stable-UUID entity category at once and answer with one uniform row: id, name, category, keywords, matchedOn. A query is matched case-insensitively as a substring — the same rule the game's own search box uses — against the entity's player-facing name, its internal asset name, its id, the keywords the game prints on its tooltip type line, and the category and native type it belongs to. matchedOn names which of those the query actually hit on this row, so a hit whose name does not visibly contain the query says where it did: name, internalName, id, keywords, category or nativeType. Hits come back most relevant first: name matches, then keyword matches, then category matches, with id order inside each band. It does NOT search descriptions: the published world captures no entity descriptions at all, so a word that appears only in an entity's description text finds nothing here; read one entity's description with world_get. Keywords are empty for the classes the game authors none for (upgrades, challenges, views, achievements, advancements, recipe books, crafting recipes) and nothing is synthesized to fill the cell. query is optional whenever at least one filter is named: a filter-only call is the whole category or the whole state, matchedOn reads - because no query was applied, and no keywordHits line is emitted. Naming neither a query nor a filter is refused. state narrows to one lifecycle word and reaches every category whose own list page carries that column: upgrades, research, structures, alchemy-recipes, glyphs, rituals, plot-nodes and challenges. A category with no lifecycle model matches no state filter, and no word is derived for it. run narrows to one challenge run word — idle, queued, active, passed or failed — and challenges are the only category that publishes that column, so a run filter beside any other category is refused naming it. category narrows to one searchable category. An entity the published world has no row for is not here, and composite diagnostic categories are intentionally excluded; use world_list for those rows and their localized partiality evidence. A result of 25 rows or fewer comes back whole when you name no limit. limit is otherwise an upper bound: a page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from. keywordHits appears when the query hit more than one keyword, and says how the whole result splits between them.",
                 ObjectSchema(
                     new JObject
                     {
-                        ["query"] = StringSchema("Case-insensitive text or UUID fragment."),
+                        ["query"] = StringSchema(
+                            "Case-insensitive text or UUID fragment. Optional when a category, " +
+                            "state or run filter is named."),
                         ["category"] = StringSchema(
                             "Narrow to one category from world_categories."),
                         ["state"] = EnumSchema("locked", "available", "completed"),
+                        ["run"] = EnumSchema(
+                            "idle", "queued", "active", "passed", "failed"),
                         ["offset"] = IntegerSchema(0, int.MaxValue),
                         ["limit"] = IntegerSchema(1, 200),
-                    },
-                    "query")),
+                    })),
             Tool(
                 "suite_health",
                 "Read suite runtime health",

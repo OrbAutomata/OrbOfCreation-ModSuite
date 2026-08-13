@@ -124,6 +124,36 @@ internal static class GameMcpEntityCatalog
                 query ?? string.Empty,
                 StringComparison.OrdinalIgnoreCase) >= 0;
 
+    /// <summary>
+    /// Which of an entity's own identity fields the query hit, or nothing where none did.
+    /// </summary>
+    /// <remarks>
+    /// The player's word first, then the asset's, then the id — so a row that matches on more than
+    /// one names the one a reader would have meant. Saying only that the identity matched was not
+    /// enough: three of these are different facts, and the field that matched is what tells a caller
+    /// whether the hit is the thing they were looking for or a coincidence in a string they never
+    /// see.
+    /// </remarks>
+    internal static string MatchedIdentityField(
+        EntityIdentityCatalogSnapshot catalog,
+        Guid uuid,
+        string query)
+    {
+        var text = query ?? string.Empty;
+        if (!catalog.TryGet(uuid, out var row))
+        {
+            return uuid.ToString("D").IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
+                ? "id"
+                : string.Empty;
+        }
+        if (row.DisplayName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0) return "name";
+        if (row.AssetName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0)
+            return "internalName";
+        return row.EntityId.ToString("D").IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
+            ? "id"
+            : string.Empty;
+    }
+
     private static bool Matches(in EntityIdentityName row, string query) =>
         row.EntityId.ToString("D").IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
         row.RuntimeType.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||

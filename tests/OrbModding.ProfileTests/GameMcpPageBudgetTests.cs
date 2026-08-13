@@ -38,9 +38,11 @@ public sealed class GameMcpPageBudgetTests
 
     /// <summary>
     /// A search page mixes categories, so borrowing each category's scan columns unioned them all
-    /// and padded the rest with dashes. The four columns here apply to every hit whatever category
-    /// it came from: `category` says which read verb can follow the hit up, and `keywords` says the
-    /// words the game prints on it — empty on a class the game authors none for, never widened.
+    /// and padded the rest with dashes. The five columns here apply to every hit whatever category
+    /// it came from: `category` says which read verb can follow the hit up, `keywords` says the
+    /// words the game prints on it — empty on a class the game authors none for, never widened —
+    /// and `matchedOn` says which of the row's own fields the query hit, which is what separates a
+    /// row the reader meant from a coincidence in a string they never see.
     /// </summary>
     [Fact]
     public void A_search_match_names_the_entity_and_the_category_that_reads_the_rest()
@@ -58,8 +60,9 @@ public sealed class GameMcpPageBudgetTests
         Assert.Equal((string?)listed["uuid"], (string?)match["uuid"]);
         Assert.Equal((string?)listed["name"], (string?)match["name"]);
         Assert.Equal("resources", (string?)match["category"]);
+        Assert.Equal("name", (string?)match["matchedOn"]);
         Assert.Equal(
-            new[] { "uuid", "name", "category", "keywords" },
+            new[] { "uuid", "name", "category", "keywords", "matchedOn" },
             match.Properties().Select(p => p.Name));
     }
 

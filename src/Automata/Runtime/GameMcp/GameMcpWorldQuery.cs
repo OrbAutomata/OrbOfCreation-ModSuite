@@ -365,16 +365,28 @@ internal static class GameMcpWorldQuery
     private static GameMcpValue ProjectSearchMatch(
         GameMcpWorldCategory category,
         Guid identity,
-        string keywords) =>
+        string keywords,
+        string matchedOn) =>
         new JObject
         {
             ["entityId"] = identity.ToString("D"),
             ["category"] = category.Name,
             ["keywords"] = keywords,
+            ["matchedOn"] = matchedOn,
         }.Freeze();
 
-    /// <summary>What a search page promises to say about every hit, whatever category it came from.</summary>
-    private static readonly string[] SearchColumns = { "entityId", "category", "keywords" };
+    /// <summary>
+    /// What a search page promises to say about every hit, whatever category it came from.
+    /// </summary>
+    /// <remarks>
+    /// <c>matchedOn</c> names the field the query hit, because the row alone does not show it: a
+    /// round searched for the letter "a" and got back Conductor, Runic, Tool and Ring under the
+    /// keyword Forging, where the letter appears in none of the four names, none of the keywords and
+    /// not in the category — and nothing in the reply said where it did appear. A filter-only call
+    /// applied no query, so the column says the mark for nothing rather than naming a field.
+    /// </remarks>
+    private static readonly string[] SearchColumns =
+        { "entityId", "category", "keywords", "matchedOn" };
 
     private static GameMcpValue ProjectListRow(
         GameWorldState world,
@@ -3545,18 +3557,27 @@ internal static class GameMcpWorldQuery
     /// </summary>
     private readonly struct GameMcpSearchHit
     {
-        internal GameMcpSearchHit(GameMcpSearchTier tier, Guid identity, int category, int row)
+        internal GameMcpSearchHit(
+            GameMcpSearchTier tier,
+            Guid identity,
+            int category,
+            int row,
+            string matchedOn)
         {
             Tier = tier;
             Identity = identity;
             Category = category;
             Row = row;
+            MatchedOn = matchedOn;
         }
 
         internal GameMcpSearchTier Tier { get; }
         internal Guid Identity { get; }
         internal int Category { get; }
         internal int Row { get; }
+
+        /// <summary>The field the query hit, or the absence mark where no query was applied.</summary>
+        internal string MatchedOn { get; }
     }
 
     internal static JObject Search(
@@ -3566,13 +3587,12 @@ internal static class GameMcpWorldQuery
         int limit,
         string categoryName = "",
         string stateFilter = "",
+        string runFilter = "",
         bool limitFromCaller = true)
     {
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
         var normalized = (query ?? string.Empty).Trim();
-        if (normalized.Length == 0)
-            return NotAvailable(publication, "query_required", "query must not be empty");
         if (offset < 0)
             return NotAvailable(publication, "invalid_offset", "offset must be zero or greater");
         if (limit <= 0 || limit > MaximumPageSize)
@@ -3613,6 +3633,29 @@ internal static class GameMcpWorldQuery
                 GameMcpListColumns.Available + ", " + GameMcpListColumns.Completed);
         }
 
+        var wantedRun = (runFilter ?? string.Empty).Trim();
+        if (wantedRun.Length > 0 && only is not null &&
+            !string.Equals(only.Name, "challenges", StringComparison.Ordinal))
+        {
+            return NotAvailable(
+                publication,
+                "run_filter_out_of_scope",
+                "run is a challenges column and no other category publishes one, so it cannot " +
+                "narrow " + only.Name + "; drop the category or drop the run filter");
+        }
+
+        // A query is what a caller asks for by name; a filter is what they ask for by shape. One of
+        // the two has to be there, and requiring both made a round invent eight filler queries — a
+        // reach nobody could characterise, sitting under a count the whole sweep was judged on.
+        if (normalized.Length == 0 && scope.Length == 0 && wanted.Length == 0 &&
+            wantedRun.Length == 0)
+        {
+            return NotAvailable(
+                publication,
+                "query_required",
+                "name something to search for: a query, or a category, state or run filter");
+        }
+
         // Search is deliberately an entity-catalog surface. Composite diagnostic categories are
         // readable through world_list, where their full identity and localized partiality survive.
         // One entity is one match however many categories publish it: identity is deduplicated
@@ -3648,11 +3691,23 @@ internal static class GameMcpWorldQuery
                 {
                     continue;
                 }
-                if (!TryTier(world, category, identity, keywords, normalized, out var tier))
+                if (wantedRun.Length > 0 &&
+                    !string.Equals(SearchRun(row), wantedRun, StringComparison.Ordinal))
+                {
                     continue;
+                }
+                var tier = GameMcpSearchTier.Name;
+                var matchedOn = GameMcpListColumns.Absent;
+                if (normalized.Length > 0 &&
+                    !TryTier(
+                        world, category, identity, keywords, normalized, out tier, out matchedOn))
+                {
+                    continue;
+                }
                 if (!seen.Add(identity)) continue;
-                hits.Add(new GameMcpSearchHit(tier, identity, categoryIndex, rowIndex));
-                CountKeywordHits(keywords.Words(identity), normalized, keywordHits);
+                hits.Add(new GameMcpSearchHit(tier, identity, categoryIndex, rowIndex, matchedOn));
+                if (normalized.Length > 0)
+                    CountKeywordHits(keywords.Words(identity), normalized, keywordHits);
             }
         }
 
@@ -3676,7 +3731,7 @@ internal static class GameMcpWorldQuery
             var category = Categories[hit.Category];
             var row = category.Row(world, hit.Row);
             var projected = ProjectSearchMatch(
-                category, hit.Identity, keywords.Line(hit.Identity));
+                category, hit.Identity, keywords.Line(hit.Identity), hit.MatchedOn);
             var local = LocalizedRequirementImplications(
                 world, new HashSet<Guid> { hit.Identity });
             var localOffers = LocalizedDiscoveryOfferImplications(
@@ -3779,9 +3834,12 @@ internal static class GameMcpWorldQuery
         Guid identity,
         GameMcpKeywordIndex keywords,
         string query,
-        out GameMcpSearchTier tier)
+        out GameMcpSearchTier tier,
+        out string matchedOn)
     {
-        if (GameMcpEntityCatalog.MatchesIdentity(world.EntityIdentities, identity, query))
+        matchedOn = GameMcpEntityCatalog.MatchedIdentityField(
+            world.EntityIdentities, identity, query);
+        if (matchedOn.Length > 0)
         {
             tier = GameMcpSearchTier.Name;
             return true;
@@ -3791,18 +3849,38 @@ internal static class GameMcpWorldQuery
         {
             if (words[index].IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0) continue;
             tier = GameMcpSearchTier.Keyword;
+            matchedOn = "keywords";
             return true;
         }
-        if (category.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
-            category.RowTypeName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
+        if (category.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            tier = GameMcpSearchTier.Category;
+            matchedOn = "category";
+            return true;
+        }
+        if (category.RowTypeName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
             category.ExpectedNativeType.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
         {
             tier = GameMcpSearchTier.Category;
+            matchedOn = "nativeType";
             return true;
         }
         tier = GameMcpSearchTier.Name;
+        matchedOn = GameMcpListColumns.Absent;
         return false;
     }
+
+    /// <summary>
+    /// What this row's own attempt is doing, or nothing where its category runs nothing.
+    /// </summary>
+    /// <remarks>
+    /// Challenges are the one category that publishes a second lifecycle column, and until now only
+    /// the first of the two could be filtered. A round that wanted the rows reading
+    /// <c>run: passed</c> had to page all 98 by hand — four calls with hand-computed offsets — to
+    /// prove a negative. This reads the word the challenge's own list row says and derives none.
+    /// </remarks>
+    private static string SearchRun(object row) =>
+        row is WorldChallenge challenge ? ChallengeRun(challenge.State) : string.Empty;
 
     private static void CountKeywordHits(
         IReadOnlyList<string> words,

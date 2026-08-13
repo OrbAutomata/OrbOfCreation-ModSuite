@@ -188,6 +188,7 @@ internal static class GameMcpTestHarness
                     request.Limit,
                     request.Category,
                     request.StateFilter,
+                    request.RunFilter,
                     request.LimitFromCaller).Freeze()),
             _ => GameMcpToolExecution.Error(new GameMcpObjectBuilder
             {
