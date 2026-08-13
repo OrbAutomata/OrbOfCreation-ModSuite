@@ -852,7 +852,38 @@ public sealed class GameMcpListColumnsTests
             StringComparison.Ordinal);
     }
 
-    private static GameWorldState AlchemyTypesWorld(params Guid[] selectedLevels)
+    /// <summary>
+    /// One response, one notation. A type's level reached its row as a plain <c>10300</c> beside
+    /// the same quantity written <c>1.03e4</c> in the worth block below it, because the wire
+    /// rewrote the screen's own spelling back into an integer for every field named like a count.
+    /// The rewrite also invented precision it could not have: <c>1.03e4</c> is a rounded reading,
+    /// so the exact-looking <c>10300</c> was a number the game never held. A count small enough
+    /// that the screen writes it plainly still ships as the integer a caller can hand back.
+    /// </summary>
+    [Fact]
+    public void A_level_the_screen_writes_as_an_exponent_stays_the_way_the_screen_writes_it()
+    {
+        var identity = Guid.Parse("45000000-0000-4000-8000-000000000000");
+        var big = GameMcpTestHarness.Context(
+            AlchemyTypesWorld(new BigDouble(10300), Guid.Empty), generation: 737);
+        var small = GameMcpTestHarness.Context(
+            AlchemyTypesWorld(new BigDouble(7), Guid.Empty), generation: 738);
+
+        Assert.Equal("1.03e4", (string?)TypeRow(big, identity)["level"]);
+        Assert.Equal(7, (int?)TypeRow(small, identity)["level"]);
+    }
+
+    private static JObject TypeRow(GameMcpFrameContext context, Guid identity) =>
+        (JObject)Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            context, "alchemy-types", new[] { identity.ToString("D") }))["results"]!
+            .Values<JObject>())!["row"]!;
+
+    private static GameWorldState AlchemyTypesWorld(params Guid[] selectedLevels) =>
+        AlchemyTypesWorld(BigDouble.Zero, selectedLevels);
+
+    private static GameWorldState AlchemyTypesWorld(
+        BigDouble level,
+        params Guid[] selectedLevels)
     {
         var types = new WorldAlchemyType[selectedLevels.Length];
         for (var index = 0; index < selectedLevels.Length; index++)
@@ -861,7 +892,7 @@ public sealed class GameMcpListColumnsTests
                 Guid.Parse("4500000" + index + "-0000-4000-8000-000000000000"),
                 selectedLevels[index],
                 maxUsageByMastery: false,
-                level: BigDouble.Zero,
+                level: level,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
         return new GameWorldState

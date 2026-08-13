@@ -1679,6 +1679,15 @@ those bindings at all. Whether a game exists is the `lifecycle:` line — the sa
 `game_probe` reports — and whether a world is published is the `world:` line: the live publication's
 generation, or `not published`.
 
+**The lifecycle generation counts lifecycle events, not games.** Every accepted observation bumps it
+by one, and there are nine kinds — scene entered, scene exited, runtime ready, save-load started,
+save loaded, reset started, reset completed, NG+ started, registry rebuilt — of which a single save
+load fires several. One load moving it 2 → 9, and a teardown adding two more, are both correct
+readings; the step size is not a count of anything a player did. Only comparison is meaningful: two
+readings that agree describe the same run, and two that differ mean every handle, id and world fact
+held across them is void. That is why `time_prestige` reports it as `{before, after}` beside a sentence
+saying what happened rather than as a number to subtract.
+
 A lifecycle boundary trashes the published world, so `world:` returns to `not published` the moment
 the run it described ends, and the Start-menu reading before a run and after one are identical. On a
 lifecycle that is not `Playing`, every world-backed read answers `status: unavailable` with a
@@ -2013,6 +2022,15 @@ weight budget publishes `maximumCarry` beside `used`, because `maximum` is spoke
 everywhere else and one key cannot be both. Where a declared domain does ship as `minimum`/`maximum`
 — a native dial, a writable setting — it states both ends in the setting's own type, so an integer
 setting's range is two integers.
+
+That rule has one boundary, and it is the screen's. A `level` is a bounded cardinal for every
+category that keeps one in an `int`, but the type assets hold theirs as a magnitude, and a magnitude
+at or above a thousand is written in the screen's Scientific style — a rounded two-digit reading.
+Turning that reading back into a JSON number published two notations for one quantity in a single
+response (`level=10300` on the row, `value: 1.03e4` in the worth block below it) and invented a
+precision it never had, since every level from 10,250 to 10,349 reads `1.03e4`. So the cardinal
+shape is taken only where the published string is already that integer's plain spelling, which is
+every count the screen writes plainly and no reading it rounds.
 
 ### Presence semantics
 

@@ -208,7 +208,8 @@ internal static class GameMcpEntityWireNormalizer
                 if (IsBoundedCardinal(property.Name) &&
                     double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var cardinal) &&
                     cardinal >= int.MinValue && cardinal <= int.MaxValue &&
-                    cardinal == Math.Truncate(cardinal))
+                    cardinal == Math.Truncate(cardinal) &&
+                    IsPlainSpelling(raw, (int)cardinal))
                 {
                     property.Value = new JValue((int)cardinal);
                     continue;
@@ -734,6 +735,23 @@ internal static class GameMcpEntityWireNormalizer
     private static bool IsArrayReadResult(JObject item) =>
         item["rows"] is JArray || item["results"] is JArray ||
         item["categories"] is JArray;
+
+    /// <summary>
+    /// Whether the published string is already the plain decimal spelling of that integer, which is
+    /// the only case the cardinal rewrite may take.
+    /// </summary>
+    /// <remarks>
+    /// A producer that holds a count as a magnitude publishes it in the screen's Scientific style,
+    /// where anything at or above a thousand is a rounded two-digit reading. Re-parsing that reading
+    /// into an <c>int</c> did two things at once: it put the same quantity on the wire in two
+    /// notations in one response (a type's <c>level=10300</c> beside <c>value: 1.03e4</c> in the
+    /// worth block under it), and it published a precision the reading never carried — every level
+    /// from 10,250 to 10,349 came back as exactly <c>10300</c>. Below a thousand the screen writes
+    /// the number plainly, the two spellings are the same characters, and the rewrite is free.
+    /// </remarks>
+    private static bool IsPlainSpelling(string raw, int cardinal) =>
+        string.Equals(
+            cardinal.ToString(CultureInfo.InvariantCulture), raw, StringComparison.Ordinal);
 
     private static bool IsBoundedCardinal(string field) => field switch
     {
