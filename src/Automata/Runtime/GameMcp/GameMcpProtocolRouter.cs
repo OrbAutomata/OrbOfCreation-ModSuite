@@ -1922,6 +1922,19 @@ internal sealed class GameMcpProtocolRouter
     /// </summary>
     private static Guid ReadEntityId(string text, string name)
     {
+        // The all-zero UUID is well formed and names nothing, and it used to collide with the
+        // sentinel this reader uses for "the caller sent no id at all" — so a caller who sent a
+        // perfectly shaped id was told their id was malformed and went off to debug a string that
+        // was fine. What is wrong with it is that nothing carries it, which is a not-found.
+        if (Guid.TryParseExact(text?.Trim() ?? string.Empty, "D", out var canonical) &&
+            canonical == Guid.Empty)
+        {
+            throw new GameMcpInvalidParamsException(
+                "no entity in this build carries the id given for " + name +
+                "; page world_categories for the category you meant, or check the id you copied",
+                "unknown_uuid");
+        }
+
         var outcome = GameMcpEntityHandle.Resolve(
             text, EntityIdentityCatalogPublication.Current, out var uuid, out var candidates);
         if (outcome == GameMcpEntityHandle.ResolutionOutcome.Ambiguous)

@@ -620,6 +620,34 @@ public sealed class GameMcpStreamableHttpProtocolTests
     }
 
     /// <summary>
+    /// The all-zero UUID is perfectly well formed and names nothing. It used to collide with the
+    /// sentinel the id reader uses for "no id was sent", so a live round probing it was told its id
+    /// was malformed and went off to debug a string that was fine. What is wrong with it is that
+    /// nothing carries it.
+    /// </summary>
+    [Fact]
+    public void A_well_formed_uuid_that_names_nothing_refuses_as_unknown_rather_than_malformed()
+    {
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var response = router.Handle(Request(
+            8,
+            "tools/call",
+            new JObject
+            {
+                ["name"] = "world_get",
+                ["arguments"] = new JObject
+                {
+                    ["uuid"] = "00000000-0000-0000-0000-000000000000",
+                },
+            }));
+
+        Assert.Equal(
+            "refused (ERR_NOT_FOUND): no entity in this build carries the id given for " +
+            "uuid; page world_categories for the category you meant, or check the id you copied",
+            GameMcpTestHarness.Page(response));
+    }
+
+    /// <summary>
     /// A handle valid ninety seconds earlier used to read as a typo the moment the run ended, so a
     /// caller had reason to throw away good ids after any teardown. It now says the same lifecycle
     /// fact the whole UUID for the same entity already answered with.

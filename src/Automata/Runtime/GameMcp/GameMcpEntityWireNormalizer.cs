@@ -75,6 +75,13 @@ internal static class GameMcpEntityWireNormalizer
             item.Remove("position");
         NormalizeCostRow(item);
 
+        // Read before the code is replaced by its class: only the producer's own word tells an id
+        // this build never published apart from one it published somewhere else, and both arrive at
+        // the identity pass below wearing the same ERR_NOT_FOUND.
+        var producerCode = item["code"] is JValue producer
+            ? Snake((string?)producer ?? string.Empty)
+            : string.Empty;
+
         if (item["status"] is JValue statusValue)
         {
             var status = (string?)statusValue ?? string.Empty;
@@ -191,7 +198,7 @@ internal static class GameMcpEntityWireNormalizer
             if (property.Value is JValue { Type: JTokenType.String } scalar &&
                 Guid.TryParseExact((string?)scalar, "D", out var uuid))
             {
-                NormalizeIdentity(item, property, uuid, ownUuid, catalog);
+                NormalizeIdentity(item, property, uuid, ownUuid, catalog, producerCode);
                 continue;
             }
             if (RenameWordReference(item, property)) continue;
@@ -379,7 +386,8 @@ internal static class GameMcpEntityWireNormalizer
         JProperty property,
         Guid uuid,
         Guid ownUuid,
-        EntityIdentityCatalogSnapshot catalog)
+        EntityIdentityCatalogSnapshot catalog,
+        string producerCode = "")
     {
         if (uuid == Guid.Empty)
         {
@@ -388,8 +396,20 @@ internal static class GameMcpEntityWireNormalizer
         }
         if (property.Name == "uuid")
         {
-            property.Value = new JValue(GameMcpEntityHandle.Format(uuid));
-            AddIdentityFields(parent, uuid, catalog);
+            var unresolved = IsUnresolvedIdentity(parent);
+            // A block whose whole answer is "nothing in this build carries this id" hands the id
+            // back exactly as it was sent, all thirty-six characters. Shortening it to a handle
+            // asked the caller to match a six-character stub against what they had typed — and a
+            // handle is an address into a published set this id is by definition not in.
+            if (!unresolved ||
+                !string.Equals(producerCode, "unknown_uuid", StringComparison.Ordinal))
+            {
+                property.Value = new JValue(GameMcpEntityHandle.Format(uuid));
+            }
+            // No invented name on any of these blocks. `name: (unnamed deadbe)` dressed a thing
+            // with no row as a row whose name happens to be missing. A known-but-unprojected id
+            // still says the name the catalog really holds for it.
+            AddIdentityFields(parent, uuid, catalog, inventUnnamed: !unresolved);
             return;
         }
         // Naming the subject again under its role is the same entity a third time: the row already
@@ -449,10 +469,24 @@ internal static class GameMcpEntityWireNormalizer
         };
     }
 
+    /// <summary>
+    /// A block that exists to say the id names nothing: it answers <c>not_available</c> and points
+    /// at the tool that could resolve it. There is no row behind it to name or to address, so the
+    /// identity rules that turn a published id into a handle plus a name do not apply.
+    /// </summary>
+    private static bool IsUnresolvedIdentity(JObject item) =>
+        item["readWith"] is JObject &&
+        item["status"] is JValue { Type: JTokenType.String } status &&
+        // The producers write `not_available`; the status rewrite above has already turned it into
+        // the wire's `unavailable` by the time the identity pass runs. Both spellings answer here
+        // so the rule does not depend on which side of that rewrite it is read from.
+        (string?)status is "unavailable" or "not_available";
+
     private static void AddIdentityFields(
         JObject target,
         Guid uuid,
-        EntityIdentityCatalogSnapshot catalog)
+        EntityIdentityCatalogSnapshot catalog,
+        bool inventUnnamed = true)
     {
         var identity = EntityIdentityFormatter.Describe(uuid, catalog);
         if (identity.HasName)
@@ -469,6 +503,7 @@ internal static class GameMcpEntityWireNormalizer
         {
             return;
         }
+        if (!inventUnnamed) return;
         target["name"] = GameMcpEntityHandle.Unnamed(uuid);
     }
 

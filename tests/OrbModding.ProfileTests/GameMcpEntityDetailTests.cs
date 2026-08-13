@@ -328,10 +328,16 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // The name is the missing thing, so a name search is the one remedy that cannot work.
         Assert.Equal("world_categories", (string?)unknownResult["readWith"]!["tool"]);
         Assert.DoesNotContain("entity_catalog", (string?)unknownResult["reason"]);
-        Assert.Equal(
-            "(unnamed " + unknown.ToString("D").Substring(0, 6) + ")",
-            (string?)unknownResult["name"]);
+        // Nothing carries this id, so the block hands it back whole and names nothing. It used to
+        // shorten the id to a handle — an address into a published set this id is not in — and add
+        // `name: (unnamed 000000)`, which reads as a row whose name went missing rather than as an
+        // id with no row at all.
+        Assert.Equal(unknown.ToString("D"), (string?)unknownResult["uuid"]);
+        Assert.Null(unknownResult["name"]);
         Assert.Null(unknownResult["nameEvidence"]);
+        // The known-but-unprojected block is the other case and keeps both: the catalog really does
+        // hold that name, and the id really is one this build published.
+        Assert.Equal(known.ToString("D").Substring(0, 6), (string?)knownResult["uuid"]);
     }
 
     /// <remarks>
@@ -966,8 +972,12 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         Assert.Equal("unavailable", (string?)blocks[1]!["status"]);
         Assert.Equal("ERR_NOT_FOUND", (string?)blocks[1]!["reasonCode"]);
-        Assert.Equal(
-            GameMcpTestHarness.Handle(missing), (string?)blocks[1]!["uuid"]);
+        // The one block in the batch that answers "nothing carries this" echoes the whole id the
+        // caller sent and names nothing. A six-character stub of a thirty-six character argument is
+        // not something a caller can match against what they typed, and the `(unnamed …)` name it
+        // used to carry made an id with no row read as a row missing its name.
+        Assert.Equal(missing.ToString("D"), (string?)blocks[1]!["uuid"]);
+        Assert.Null(blocks[1]!["name"]);
         Assert.Equal("world_categories", (string?)blocks[1]!["readWith"]!["tool"]);
         Assert.Null(blocks[1]!["row"]);
         Assert.Null(blocks[1]!["predicates"]);
