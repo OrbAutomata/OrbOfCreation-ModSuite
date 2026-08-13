@@ -1697,10 +1697,13 @@ that follow. Every count involved therefore moves again while the answer is bein
 moved back before the caller can read it, so a `{before, after}` pair over one reports a transition
 nobody can confirm: round 9 shipped `level: 0 -> 0` beside `queuedLevels: 0 -> 1` for a purchase
 that landed on level 1, and the honest reading of that pair is "it failed". These verbs say what
-the press did and nothing else — `queued: yes`, or `queued: N` where there is a count to say.
-Where the queue now stands, what the level is, and what the next one costs are reads. A delivery
-short of the ask says both numbers on one line (`queued: 1 of 1000 asked; …`), because a partial
-that looks like a satisfied `amount=1` is the one shape a caller cannot act on.
+the press did and nothing else — `queued: N`, the count the mutation's own sentinel observed, and
+`queued: yes` only where no count is knowable. The count of one is said as `1` like every other:
+these verbs promise "how many", so answering the commonest press with a bare `yes` throws away the
+observation it was holding and sends the caller back to re-read the entity. Where the queue now
+stands, what the level is, and what the next one costs are reads. A delivery short of the ask says
+both numbers on one line (`queued: 1 of 1000 asked; …`), because a partial that looks like a
+satisfied `amount=1` is the one shape a caller cannot act on.
 
 A successful read uses `available`; an unavailable domain read uses `unavailable`. A successful
 mutation uses `committed`; a refused mutation uses `refused`; infrastructure or native divergence
@@ -2079,18 +2082,18 @@ Absence therefore never doubles as a value. Every key that once used it to mean 
 than a gap: an empty array on every screen read would spend bytes on the ordinary case to describe
 the rare one.
 
-A committed purchase reports the two counts the screen owns, `level` and `queuedLevels`, each as a
-`{before, after}` pair. Which one moved is the answer: a level that lands immediately moves the
-badge, a level that has to be built moves the queue and leaves the badge where it was. Publishing
-their sum under one name — the retired `committedLevel` — put a number on the wire that no screen
-shows and hid which of the two the purchase actually did.
+A committed purchase reports one count, `queued`, and the queue rule above is why: the two counts
+the screen owns, `level` and `queuedLevels`, both move again while the answer is being written, so a
+`{before, after}` pair over either reports a transition nobody can confirm. Publishing their sum
+under one name — the retired `committedLevel` — was worse still: a number no screen shows, hiding
+which of the two the purchase actually did.
 
 A committed purchase reports the levels it bought and nothing about what it charged. It used to
 carry `paid[]` and `costPerLevel[]`, and both were bookkeeping rather than an answer: the paid rows
 priced the game's own multi-buy setting at capture time rather than the count the call turned out to
 commit, so an `amount=25` call reported one level of a rising ladder as though it were the whole
 charge — understating spend, and understating it in the direction of believing there is more left.
-`level {before, after}` is what says how many levels were bought. What a level costs and what the
+`queued` is what says how many levels were bought. What a level costs and what the
 next one asks are read where the whole curve lives, on `world_get` and the `purchase-costs`
 category, which is also where Auto Buy plans from. A refusal that could not afford something still
 names every short resource, its price, and what is held, in its own sentence.
@@ -2204,9 +2207,16 @@ all. The game writes that counter when a cast *completes*, frames after the pres
 before the next world is published, so it was the same number whether the press landed or was
 dropped. A press at a spell that is already running is refused rather than committed silently — the
 game's own button answers it with a warning popup or an end-of-cast, never with a new cast — so a
-repeated fire can never look like a firing loop that is doing nothing. A running spell reports
-`active`, whether it is a toggle or not; an idle one-shot carries no `active` key, because it has no
-running state to report.
+repeated fire can never look like a firing loop that is doing nothing. `casting` is a `fire`-only
+key, and deliberately: it is the one mode with a native delta behind it, a release being a native
+call with nothing to verify a cast start against and a toggle-off's own sentinel being a cast
+ending, so neither of those may claim the fact in either direction.
+
+Every mode answers with the same keys, and a key that can be `yes` says `no` rather than
+disappearing. `active` — the settled running state — and `charging` — whether this press left a
+charge held — ride on all three. Both used to vanish when they were false, so a `release` response
+was silent about the very hold it had just let go of, and a caller could not tell "the hold is over"
+from "this mode does not speak about holds".
 
 The settled response reports the game's own readiness term under the name of that term,
 `castReady` — `Spell.CanCast()`, the same fact the `spell-slots` row publishes under the same name.

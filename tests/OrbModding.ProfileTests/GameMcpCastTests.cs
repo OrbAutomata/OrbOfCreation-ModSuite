@@ -190,7 +190,7 @@ public sealed class GameMcpCastTests
         Assert.Equal(JTokenType.Boolean, delta["casting"]!.Type);
         Assert.True((bool)delta["casting"]!);
         Assert.Null(delta["casts"]);
-        Assert.Null(delta["charging"]);
+        Assert.False((bool)delta["charging"]!);
     }
 
     /// <summary>
@@ -328,8 +328,13 @@ public sealed class GameMcpCastTests
         Assert.True((bool)delta["active"]!);
     }
 
+    /// <summary>
+    /// An idle one-shot used to drop <c>active</c> and let the silence carry the answer, which is
+    /// the absence-as-value the surface bans everywhere else. The settled slot always knows whether
+    /// the spell is running, so the key is always there and says which.
+    /// </summary>
     [Fact]
-    public void An_idle_non_toggle_spell_reports_no_running_state_it_never_entered()
+    public void An_idle_non_toggle_spell_says_it_is_not_running_rather_than_dropping_the_key()
     {
         var before = World(casting: false, cancellationEnabled: true, charges: 2, toggled: false);
         var after = World(casting: false, cancellationEnabled: true, charges: 2, toggled: false);
@@ -343,7 +348,43 @@ public sealed class GameMcpCastTests
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
-        Assert.Null(delta["active"]);
+        Assert.Equal(JTokenType.Boolean, delta["active"]!.Type);
+        Assert.False((bool)delta["active"]!);
+    }
+
+    /// <summary>
+    /// One verb, one key set. A live round watched <c>release</c> drop both <c>casting</c> and
+    /// <c>charging</c> rather than say <c>no</c>, so the response that exists to end a hold was
+    /// silent about the hold — indistinguishable from a mode that does not speak about holds at
+    /// all. <c>active</c> and <c>charging</c> ride every mode; <c>casting</c> is fire's own verified
+    /// sentinel and no mode without a native delta behind it claims the fact either way.
+    /// </summary>
+    [Theory]
+    [InlineData("fire")]
+    [InlineData("release")]
+    [InlineData("toggle_off")]
+    public void Every_cast_mode_answers_with_the_same_keys(string mode)
+    {
+        var before = World(
+            casting: true, cancellationEnabled: true, charges: 2, chargeable: true);
+        var after = World(
+            casting: true, cancellationEnabled: true, charges: 2, chargeable: true);
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Cast, 9, 3, mode, RecipeId, Guid.Empty,
+            "SpellRecipeSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 63));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 64),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.Equal(JTokenType.Boolean, delta["active"]!.Type);
+        Assert.Equal(JTokenType.Boolean, delta["charging"]!.Type);
+        Assert.False((bool)delta["charging"]!);
+        Assert.NotNull(delta["castReady"]);
+        Assert.NotNull(delta["cooldown"]);
+        Assert.Equal(mode == "fire", delta["casting"] is not null);
     }
 
     /// <summary>

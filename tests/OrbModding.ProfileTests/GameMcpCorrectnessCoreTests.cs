@@ -644,7 +644,7 @@ public sealed class GameMcpCorrectnessCoreTests
             GameMcpWorldQuery.QueuedMutation(attributeId, asked: 1, queued: 1));
 
         Assert.Equal(GameMcpTestHarness.Handle(attributeId), (string?)delta["uuid"]);
-        Assert.True((bool)delta["queued"]!);
+        Assert.Equal(1, (int)delta["queued"]!);
         Assert.NotNull(delta["name"]);
         Assert.Equal(3, delta.Count);
         Assert.Equal(GameMcpCommandKind.Purchase, command.Kind);
@@ -686,6 +686,27 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.NotNull(queued);
         Assert.StartsWith("1 of 1000 asked;", queued);
         Assert.DoesNotContain("\n", queued);
+    }
+
+    /// <summary>
+    /// These verbs promise "it queued and how many", and the commonest press of all — one level —
+    /// used to answer a bare <c>yes</c>: the observation the sentinel had already made was spent on
+    /// a word that says nothing, and a live round had to re-read the entity to learn what its own
+    /// commit did. An observed count is always the number. Only a count the evidence does not carry
+    /// stays a bare yes, because inventing one would be the worse defect.
+    /// </summary>
+    [Fact]
+    public void AQueuedMutationSaysTheCountItObservedIncludingTheCountOfOne()
+    {
+        var attributeId = Guid.Parse("f2000000-0000-0000-0000-00000000000f");
+
+        var one = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.QueuedMutation(attributeId, asked: 1, queued: 1));
+        Assert.Equal(1, (int)one["queued"]!);
+
+        var unknown = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.QueuedMutation(attributeId, asked: 1, queued: null));
+        Assert.True((bool)unknown["queued"]!);
     }
 
     /// <summary>

@@ -1736,7 +1736,8 @@ internal static class GameMcpWorldQuery
             ["uuid"] = command.TargetId.ToString("D"),
             ["slot"] = GameMcpSlotNumbering.Wire(slotIndex),
         };
-        if (string.Equals(command.Mode, "fire", StringComparison.Ordinal))
+        var fire = string.Equals(command.Mode, "fire", StringComparison.Ordinal);
+        if (fire)
         {
             var costs = ProjectEquippedSpellCosts(
                 state.World.Snapshot, slotIndex, WorldSpellCostKind.Immediate);
@@ -1749,17 +1750,23 @@ internal static class GameMcpWorldQuery
             // game increments it when a cast completes, not when one starts, so a cast shorter than
             // the world cadence and a cast that never happened produced the same number — a landed
             // press and a dropped press read byte-identical.
+            //
+            // Fire is the only mode that carries it, because it is the only mode with a native
+            // delta behind it: a release is a native call with nothing to verify a start against,
+            // and a toggle-off's own sentinel is a cast ending. Neither may claim one either way.
             result["casting"] = true;
-            // A held charge is an input this call put down that the caller has to pick back up.
-            // Nothing in the settled loadout says a hold is outstanding, and a caller who never
-            // learns of one leaves the spell charging forever.
-            if (string.Equals(command.PayloadValue, "charge", StringComparison.Ordinal))
-                result["charging"] = true;
         }
-        // Whether the spell is running, as the boolean the read surface publishes. A toggle spell
-        // always says it, because a caller maintaining one needs the state even when nothing moved;
-        // an ordinary spell says it only while it is up.
-        if (after.Toggled || after.Casting) result["active"] = after.Casting;
+        // Whether this press left a charge held — an input the caller has to pick back up, which no
+        // loadout row records. It rides on every mode as yes or no rather than vanishing between
+        // them: `release` exists precisely to end a hold, and a response that drops the key instead
+        // of saying `no` leaves a caller unable to tell "the hold is over" from "this mode does not
+        // speak about holds", which is the same absence-as-value the surface bans everywhere else.
+        result["charging"] = fire &&
+            string.Equals(command.PayloadValue, "charge", StringComparison.Ordinal);
+        // Whether the spell is running, as the boolean the read surface publishes. Every mode says
+        // it: the settled slot always knows, and an idle one-shot that dropped the key made its
+        // silence carry the answer.
+        result["active"] = after.Casting;
         if (hasBefore && prior.CurrentCharges != after.CurrentCharges)
         {
             result["charges"] = new JObject
@@ -2908,11 +2915,15 @@ internal static class GameMcpWorldQuery
     /// <para>
     /// A delivery short of the ask says both numbers on one line, because the difference is the whole
     /// fact and a partial that looks like a satisfied <c>amount=1</c> is the shape a caller cannot
-    /// act on. An unknown count says only that the press queued something: naming a number the
-    /// evidence does not carry would be the same defect wearing a confident face. A count observed
-    /// as nought or less is unknown rather than nought — this is only reached once the mutation's own
-    /// sentinel has proved at least one entry was made, so a queue showing no growth has drained
-    /// already, and reporting "0 of 1 asked" for a press that landed is the very lie being fixed.
+    /// act on. An observed count is always said as that number, including the count of one: these
+    /// verbs promise "how many", and answering the commonest press with a bare <c>yes</c> spends the
+    /// one word that could carry the observation on saying nothing, leaving a caller to re-read the
+    /// entity to learn what its own commit did. An unknown count says only that the press queued
+    /// something: naming a number the evidence does not carry would be the same defect wearing a
+    /// confident face. A count observed as nought or less is unknown rather than nought — this is
+    /// only reached once the mutation's own sentinel has proved at least one entry was made, so a
+    /// queue showing no growth has drained already, and reporting "0 of 1 asked" for a press that
+    /// landed is the very lie being fixed.
     /// </para>
     /// </remarks>
     internal static GameMcpValue QueuedMutation(Guid uuid, int asked, int? queued) => new JObject
@@ -2922,7 +2933,7 @@ internal static class GameMcpWorldQuery
     }.Freeze();
 
     private static object QueuedValue(int asked, int? queued) =>
-        queued is null or < 1 || (queued == 1 && asked == 1)
+        queued is null or < 1
             ? true
             : queued < asked
                 ? queued + " of " + asked + " asked; the game took no more this press."
