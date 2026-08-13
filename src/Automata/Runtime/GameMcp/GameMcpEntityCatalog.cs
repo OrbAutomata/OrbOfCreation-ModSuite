@@ -65,7 +65,22 @@ internal static class GameMcpEntityCatalog
         return result;
     }
 
-    internal static JObject Lookup(EntityIdentityCatalogSnapshot catalog, Guid uuid)
+    /// <summary>
+    /// One id's identity block.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="impliedNativeType"/> is the native type the caller's own category declares
+    /// for every row it holds. Where the row's runtime type is that type, the category beside it
+    /// already says it and the block does not say it twice — the map from category to native type
+    /// is what <c>world_categories</c> publishes. The moment a row's runtime type is something its
+    /// category does not declare, the implication is not one-to-one for that row and
+    /// <c>nativeType</c> stays, which is the only case where it carries a fact the category cannot.
+    /// A caller browsing the catalog names no category and is told both.
+    /// </remarks>
+    internal static JObject Lookup(
+        EntityIdentityCatalogSnapshot catalog,
+        Guid uuid,
+        string impliedNativeType = "")
     {
         if (!catalog.IsBound)
             return NotAvailable(
@@ -73,7 +88,8 @@ internal static class GameMcpEntityCatalog
                 catalog.FailureReason.Length > 0
                     ? catalog.FailureReason
                     : "the live entity catalog has not bound in this playing lifecycle yet");
-        if (catalog.TryGet(uuid, out var row)) return Project(catalog, in row);
+        if (catalog.TryGet(uuid, out var row))
+            return Project(catalog, in row, impliedNativeType);
 
         // The id is on the row already; a sentence that repeats it spends the caller's line on a
         // string it just sent.
@@ -122,14 +138,16 @@ internal static class GameMcpEntityCatalog
 
     private static JObject Project(
         EntityIdentityCatalogSnapshot catalog,
-        in EntityIdentityName row)
+        in EntityIdentityName row,
+        string impliedNativeType = "")
     {
         var identity = EntityIdentityFormatter.Describe(row.EntityId, catalog);
         var result = new JObject
         {
             ["uuid"] = row.EntityId.ToString("D"),
-            ["nativeType"] = row.RuntimeType,
         };
+        if (!string.Equals(row.RuntimeType, impliedNativeType, StringComparison.Ordinal))
+            result["nativeType"] = row.RuntimeType;
         // A row whose only label is the Unity asset id has no player-facing name, so it publishes
         // none: `name` is the word the game shows or it is absent, on this surface and on every
         // other. `nameSource: asset` was the flag that admitted the substitution one surface made

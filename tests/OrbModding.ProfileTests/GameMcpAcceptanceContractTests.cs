@@ -135,8 +135,10 @@ public sealed class GameMcpWorldQueryTests
 
         // Identity is said once, on the block, and the row under it carries only its own columns.
         // The row used to repeat the same handle, name and category the block already published.
+        // `nativeType` is gone from a block a category names: `resources` is one native class and
+        // `world_categories` publishes which, so the block said the same fact twice.
         Assert.Equal(
-            new[] { "uuid", "name", "category", "nativeType", "row", "predicates" },
+            new[] { "uuid", "name", "category", "row", "predicates" },
             block.Children<JProperty>().Select(property => property.Name));
         Assert.Equal(
             new[] { "amount", "capacity", "netRatePerSecond", "atCapacity" },
@@ -154,8 +156,9 @@ public sealed class GameMcpWorldQueryTests
         Assert.Null(row["traits"]);
         Assert.Null(row["modifiers"]);
         // The detail read costs what the detail costs: identity said once and the decisions the
-        // merge folded in, on top of the row a list page would have shown.
-        Assert.Equal(263, System.Text.Encoding.UTF8.GetByteCount(
+        // merge folded in, on top of the row a list page would have shown. It costs 26 bytes less
+        // than it did for saying `nativeType: ResourceSO` beside a category that means exactly that.
+        Assert.Equal(237, System.Text.Encoding.UTF8.GetByteCount(
             response.ToString(Newtonsoft.Json.Formatting.None)));
 
         var list = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(

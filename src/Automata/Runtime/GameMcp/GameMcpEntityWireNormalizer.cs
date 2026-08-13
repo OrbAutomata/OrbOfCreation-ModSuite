@@ -29,11 +29,12 @@ internal static class GameMcpEntityWireNormalizer
     private static void NormalizeToken(
         JToken token,
         EntityIdentityCatalogSnapshot catalog,
-        bool inRow)
+        bool inRow,
+        bool inTable = false)
     {
         if (token is JObject item)
         {
-            NormalizeObject(item, catalog, inRow);
+            NormalizeObject(item, catalog, inRow, inTable);
             return;
         }
         if (token is not JArray array) return;
@@ -47,17 +48,23 @@ internal static class GameMcpEntityWireNormalizer
                 array[index] = Reference(uuid, catalog);
                 continue;
             }
-            if (value is not null) NormalizeToken(value, catalog, inRow);
+
+            // Anything in a list may be rendered as a row, and a row answers to a header: a column
+            // the header promises is said on every row of the page, so a default may not be dropped
+            // from one of them. Only a block of its own may leave a default out.
+            if (value is not null) NormalizeToken(value, catalog, inRow, inTable: true);
         }
     }
 
     private static void NormalizeObject(
         JObject item,
         EntityIdentityCatalogSnapshot catalog,
-        bool inRow)
+        bool inRow,
+        bool inTable = false)
     {
         FlattenDetails(item);
         FlattenReading(item);
+        if (!inTable) DropDefaults(item);
         Rename(item, "unlocked", "available");
         Rename(item, "quantity", "amount");
         Rename(item, "availableAmount", "amount");
@@ -518,6 +525,31 @@ internal static class GameMcpEntityWireNormalizer
         }
         if (!inventUnnamed) return;
         target["name"] = GameMcpEntityHandle.Unnamed(uuid);
+    }
+
+    /// <summary>
+    /// The two flags a detail block stops spelling out when they read the way they almost always
+    /// read: absence is the default, and the default is documented where the shape is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A live round spent 3,712 bytes on <c>isPercent: no</c> — 76% of every time it was said — and
+    /// 726 on <c>order: 0</c>, which was the value on 100% of the rows that carried it. Neither is
+    /// a reading that could be missing: the game holds a bool and an int, so absence has exactly
+    /// one meaning and <c>docs/development/mcp-tools.md</c> states it beside the field.
+    /// </para>
+    /// <para>
+    /// A block only, never a row. A table's header promises a column on every row of the page, so
+    /// dropping a default there would leave <c>-</c> where the game published <c>0</c> — absence
+    /// standing in for a number, which is the one thing the absence mark may never mean.
+    /// </para>
+    /// </remarks>
+    private static void DropDefaults(JObject item)
+    {
+        if (item["isPercent"] is JValue { Type: JTokenType.Boolean } percent && !(bool)percent)
+            item.Remove("isPercent");
+        if (item["order"] is JValue { Type: JTokenType.Integer } order && (long)order == 0)
+            item.Remove("order");
     }
 
     private static void FlattenDetails(JObject item)

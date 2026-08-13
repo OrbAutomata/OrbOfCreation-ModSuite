@@ -193,6 +193,15 @@ same idiom and no producer invents its own formatting.
     says *a slot exists here and holds nothing*, so a bar with three of them has three places to
     equip into, and `uncapped` says *no ceiling exists*, which is not the same as a ceiling nobody
     published. `unset` and `none` said only "nothing here" and are the mark.
+  - **Outside a table, a documented default is absence.** A block prints `isPercent` only when it is
+    `yes` and `order` only when it is not `0`; a missing one is that default rather than an unknown.
+    A block also omits `nativeType` where the `category` beside it names exactly one native class —
+    the map is what `world_categories` publishes — and keeps it wherever that implication is not
+    one-to-one, which is the only case where it says something the category cannot. This applies to
+    blocks alone. Inside a table the header already promised the column, so it prints on every row
+    including the ones holding the default: `double-variables` and `int-variables` pages carry
+    `isPercent` for exactly that reason, and a caller who reads it there never re-fetches two
+    hundred blocks to learn one flag per row.
 
 #### The cell vocabulary
 
@@ -553,6 +562,11 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `challenges` | `state`, `run`, `level` |
 | `equipment` | `created`, `equippedCount` |
 | `resource-types` | `level`, `hidden` |
+| `double-variables`, `int-variables` | `value`, `isPercent` |
+
+A number variable's `isPercent` is on the page because reading `25` without it is reading the wrong
+number: the same row means twenty-five and twenty-five percent depending on one flag, and a round
+spent 22% of its whole wire re-fetching two hundred blocks to learn it per row.
 
 `research` says `state` and never a second `visible`, `available` or `complete` column, because
 `state` is derived from exactly those three; `paused` is the player's own saved switch on the entry,
@@ -1538,12 +1552,24 @@ answered says nothing about having answered — silence is the yes, and inside a
 also what separates the blocks that answered from any block that refused beside them. One id failing
 refuses that block alone with the ordinary refusal grammar and every other block still answers.
 
+**One block has one shape.** Identity is at the top level, the published row is under `row:`, and
+the evaluated sections follow wherever this build has them — for every category, and whether the
+call named one id or two hundred. Three layouts used to live at once: a category with no evaluated
+sections answered as a bare field dump with no `category` and no lifecycle word while its own list
+page said `locked`; an equipment type carried its `uuid`, `name` and `category` *inside* `row:`
+because nothing had claimed the top level; and a single-id read whose block held only flat fields
+rendered as a one-row table while the same id inside a batch rendered as an indented block. A
+category with no predicates simply has no `predicates:` section — the same skeleton, honestly
+empty, never a different dialect.
+
 Named identity appears once, on the block, and carries the same `keywords` cell `world_search`
 prints for that entity — same words, same order, same `, ` join. The family an entity belongs to is
 part of its identity rather than a search-only decoration, and a detail block that omitted it read
 as a contradiction of the search row that had just named it. The cell is absent, not empty, where
 the game authors no words. The row underneath carries only its own columns, and the
-handle, name, category and native type the block already published are not repeated in it. The
+handle, name, category and native type the block already published are not repeated in it.
+`nativeType` is itself absent where the block's `category` names exactly one native class, which is
+every category on this build but the ones whose rows are of mixed classes. The
 `category` a block names is the one the world actually publishes the id in, not the one its runtime
 type implies — those disagree exactly where a caller most needs the truth. The `row` is the same
 curated player surface `world_list` pages for that category rather than the collector's complete

@@ -1129,6 +1129,13 @@ internal static class GameMcpWorldQuery
     private static string[] ListFields(GameMcpWorldCategory category) => category.Name switch
     {
         "resources" => new[] { "entityId", "trueQuantity" },
+
+        // Whether the number is a percentage decides what the number means, and the page that lists
+        // the numbers is where a reader meets them. Without it a live round paid for two 200-id
+        // detail batches — 22% of the whole round's wire — over rows it had already read, almost
+        // entirely to fetch this one flag for each of them.
+        "double-variables" or "int-variables" =>
+            new[] { "entityId", "value", "isPercent" },
         "structures" => new[] { "entityId", "level", "reading.disabled" },
         "upgrades" => new[] { "entityId", "level" },
         "spell-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
@@ -1445,37 +1452,51 @@ internal static class GameMcpWorldQuery
         // A block that answered says nothing about having answered. Silence is the yes on every
         // other read on this surface, and inside a batch it is also what separates the blocks that
         // answered from the one that refused beside them.
-        var item = new JObject();
-
+        //
         // Identity rides the detail read and only the detail read. What the asset is called and what
         // native type answers for it are catalog-browsing facts, so they are published where someone
         // browsing asks for them, and never stamped on a table's rows.
-        if (GameMcpEntityExplainer.HasDetail(world, uuid) &&
-            world.EntityIdentities.TryGet(uuid, out _))
+        //
+        // One skeleton for every category: identity at the top, the published row under `row:`, and
+        // the evaluated sections below it wherever this build has them. It used to be gated twice
+        // over — on the category having evaluated sections, and on the live catalog holding a name
+        // for the id — so three layouts lived at once and no caller could write one reader for
+        // them. A plot node, which has no sections, answered as a bare field dump with no category
+        // and no lifecycle word while its own list page said `locked`; an equipment type carried
+        // its uuid, name and category INSIDE `row:` because nothing had claimed the top level; and
+        // a variable, which the catalog names nothing, answered as a lone `row:` envelope that the
+        // page then flattened into a field list. The id and the table are facts this call already
+        // holds, so the top level is published from them and the catalog only adds what it knows.
+        // A category with no predicates now simply has no predicates section.
+        var item = new JObject
         {
-            item.CopyFrom(GameMcpEntityCatalog.Lookup(world.EntityIdentities, uuid));
-
-            // The category the world actually publishes this id in, not the one the catalog's
-            // runtime type implies: they disagree exactly where a caller most needs the truth.
-            item["category"] = category.Name;
-            var description = GameMcpEntityExplainer.ReadDescription(world, uuid);
-            if (description.Length > 0) item["description"] = description;
-
-            // The words the game prints on this thing's type line, under the same name and in the
-            // same spelling `world_search` prints them. One fact, one name, both verbs.
-            //
-            // This was the round's costliest miss. A glyph's detail block published state,
-            // discovery, visibility and price and never said `keywords: Elemental` — the one fact
-            // that decides which family the glyph is in and therefore which page it renders on — so
-            // a reader working from the detail block concluded the read surface contradicted the
-            // screen, and held that finding for two hours. The search row ten minutes earlier had
-            // carried the word plainly. Where a category also publishes a richer relation block
-            // (`belongsTo` on spell recipes) that block stays; this line rides beside it, because a
-            // reader should not have to know which of three treatments a category happens to give
-            // one fact.
-            var keywords = keywordIndex.Line(uuid);
-            if (keywords.Length > 0) item["keywords"] = keywords;
+            ["uuid"] = uuid.ToString("D"),
+        };
+        if (world.EntityIdentities.TryGet(uuid, out _))
+        {
+            item.CopyFrom(GameMcpEntityCatalog.Lookup(
+                world.EntityIdentities, uuid, category.ExpectedNativeType));
         }
+
+        // The category the world actually publishes this id in, not the one the catalog's runtime
+        // type implies: they disagree exactly where a caller most needs the truth.
+        item["category"] = category.Name;
+        var description = GameMcpEntityExplainer.ReadDescription(world, uuid);
+        if (description.Length > 0) item["description"] = description;
+
+        // The words the game prints on this thing's type line, under the same name and in the same
+        // spelling `world_search` prints them. One fact, one name, both verbs.
+        //
+        // This was the round's costliest miss. A glyph's detail block published state, discovery,
+        // visibility and price and never said `keywords: Elemental` — the one fact that decides
+        // which family the glyph is in and therefore which page it renders on — so a reader working
+        // from the detail block concluded the read surface contradicted the screen, and held that
+        // finding for two hours. The search row ten minutes earlier had carried the word plainly.
+        // Where a category also publishes a richer relation block (`belongsTo` on spell recipes)
+        // that block stays; this line rides beside it, because a reader should not have to know
+        // which of three treatments a category happens to give one fact.
+        var keywords = keywordIndex.Line(uuid);
+        if (keywords.Length > 0) item["keywords"] = keywords;
 
         var implicated = LocalizedRequirementImplications(world, new HashSet<Guid> { uuid });
         var implicatedOffers = LocalizedDiscoveryOfferImplications(world, new HashSet<Guid> { uuid });
@@ -4264,6 +4285,8 @@ internal static class GameMcpWorldQuery
             ? ProjectSnapshotLoadout(world, in snapshotLoadout)
             : row is WorldHarvestElement harvestElement
             ? ProjectHarvestElement(world, in harvestElement)
+            : row is WorldPlotNode plotNode
+            ? ProjectPlotNode(in plotNode)
             : row is WorldPlotAction plotAction
             ? ProjectPlotAction(world, in plotAction)
             : row is WorldActionQueueSlot processingSlot
@@ -4299,6 +4322,36 @@ internal static class GameMcpWorldQuery
             result["developmentProgress"] = upgrade.DevelopmentProgress;
         return result.Freeze();
     }
+
+    /// <summary>
+    /// One harvest node's own page, in the words every other category's page uses.
+    /// </summary>
+    /// <remarks>
+    /// It used to have none: no hand-written projection existed, so the block was the reflective
+    /// dump of the scan's field list — <c>remainingQuantity</c>, <c>visible</c>, <c>masteryLevel</c>,
+    /// <c>currentTime</c>, <c>idleQuantity</c>, <c>totalQuantity</c> and nothing else. A live round
+    /// read <c>locked</c> off the node's list row, opened its page, and found no lifecycle word
+    /// anywhere on it. Every fact is the one the list row already computes; only the words are new
+    /// here, and <c>visible</c> is folded into <c>state</c> exactly as it is on that row, because
+    /// <c>PlotNodeSO.IsVisible()</c> is what both are read from.
+    /// </remarks>
+    private static GameMcpValue ProjectPlotNode(in WorldPlotNode plot) =>
+        new JObject
+        {
+            ["entityId"] = plot.EntityId.ToString("D"),
+            ["category"] = "plot-nodes",
+            ["state"] = PlotNodeState(in plot),
+            ["masteryLevel"] = plot.Reading.MasteryLevel,
+            ["masteryXp"] = new GameMcpDomainValue(plot.Reading.MasteryXp),
+
+            // Three counts the harvest screen shows side by side: how many of the node exist, how
+            // many are sitting idle right now, and how many an action may still be started on.
+            ["quantity"] = plot.Reading.TotalQuantity,
+            ["idleQuantity"] = plot.Reading.IdleQuantity,
+            ["availableQuantity"] = plot.RemainingTotalQuantity,
+            ["availableIdleQuantity"] = plot.RemainingQuantity,
+            ["currentTime"] = new GameMcpDomainValue(plot.Reading.CurrentTime),
+        }.Freeze();
 
     private static GameMcpValue ProjectStructure(in WorldStructure structure)
     {

@@ -164,6 +164,91 @@ public sealed class GameMcpPlotLifecycleTests
         };
     }
 
+    /// <summary>
+    /// A harvest node's own page says what it is, where it stands and what it holds, in the same
+    /// words every other category's page uses. It used to be the reflective dump of the scan's
+    /// field list — no `category`, no `state` — so a live round read `locked` off the node's list
+    /// row, opened its page, and found no lifecycle word anywhere on it.
+    /// </summary>
+    /// <remarks>
+    /// Every fact here is one the list row already computes. Nothing new is read from the game;
+    /// what changed is that the block says the same things under the same names.
+    /// </remarks>
+    [Fact]
+    public void A_harvest_node_page_says_its_lifecycle_in_the_word_its_own_list_row_says()
+    {
+        var world = PlotNodeWorld(visible: false);
+        var context = GameMcpTestHarness.Context(world, generation: 914);
+        var listed = Assert.Single(
+            Json(GameMcpWorldQuery.ListRows(context, "plot-nodes", 0, 10).Freeze(), world)["rows"]!
+                .Values<JObject>())!;
+        var block = Assert.Single(Json(
+            GameMcpWorldQuery.GetRows(context, "plot-nodes", new[] { PlotId.ToString("D") })
+                .Freeze(),
+            world)["results"]!.Values<JObject>())!;
+
+        Assert.Equal("locked", (string?)listed["state"]);
+
+        // Same words, same values: every fact the page adds is one the list row did not carry, and
+        // not one is a second spelling of a fact it did.
+        Assert.Equal(
+            "uuid, name, state, masteryLevel, availableQuantity, amount",
+            string.Join(", ", listed.Children<JProperty>().Select(property => property.Name)));
+
+        // The one skeleton: identity at the top, the row under `row:`. `nativeType` is absent
+        // because `plot-nodes` is one native class and `world_categories` publishes which.
+        Assert.Equal(
+            new[] { "uuid", "name", "category", "row" },
+            block.Children<JProperty>().Select(property => property.Name));
+        Assert.Equal("Moon Garden", (string?)block["name"]);
+        Assert.Equal("plot-nodes", (string?)block["category"]);
+        Assert.Equal(
+            "state, masteryLevel, masteryXp, idleQuantity, availableQuantity, " +
+            "availableIdleQuantity, currentTime, amount",
+            string.Join(", ", block["row"]!.Children<JProperty>().Select(p => p.Name)));
+        Assert.Equal((string?)listed["state"], (string?)block["row"]!["state"]);
+
+        var open = PlotNodeWorld(visible: true);
+        Assert.Equal(
+            "available",
+            (string?)Assert.Single(Json(
+                GameMcpWorldQuery.GetRows(
+                    GameMcpTestHarness.Context(open, generation: 915),
+                    "plot-nodes",
+                    new[] { PlotId.ToString("D") }).Freeze(),
+                open)["results"]!.Values<JObject>())!["row"]!["state"]);
+    }
+
+    private static GameWorldState PlotNodeWorld(bool visible)
+    {
+        var reading = new RawPlotNodeSample(
+            PlotId, visible, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            masteryLevel: 2, noMastery: false, noSizeDisplay: false, useVisibilityPrereq: true,
+            hasErraticGrowth: false, debugMode: false, erraticQuantity: 0,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            lastQuantity: 0, idleQuantity: 3, totalQuantity: 5);
+        return new GameWorldState
+        {
+            CollectedAtEpoch = 9,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, new[]
+            {
+                new EntityIdentityName(PlotId, "PlotNodeSO", "Moon Garden", "moonGarden"),
+            }),
+            PlotNodes = PublicationTable<WorldPlotNode>.Create(new[]
+            {
+                new WorldPlotNode(in reading, remainingQuantity: 3, remainingTotalQuantity: 5),
+            }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus(
+                    "plot-nodes", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+            }),
+        };
+    }
+
     /// <summary>The same pair as a detail projection: the shape a mutation and an explanation read.</summary>
     private static JObject Detail(GameWorldState world) =>
         Json(GameMcpWorldQuery.ProjectEntityState(

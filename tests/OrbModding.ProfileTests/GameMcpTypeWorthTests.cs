@@ -48,10 +48,11 @@ public sealed class GameMcpTypeWorthTests
         Assert.Equal(
             string.Join('\n', new[]
             {
+                "uuid: a0a000",
+                "name: Focus",
+                "internalName: focusType",
+                "category: equipment-types",
                 "row:",
-                "  uuid: a0a000",
-                "  name: Focus",
-                "  category: equipment-types",
                 "  baseUsage: 2",
                 "  masteryLevel: 5",
                 "  maximumSlots: 2",
@@ -99,8 +100,12 @@ public sealed class GameMcpTypeWorthTests
         Assert.Equal(
             string.Join('\n', new[]
             {
-                "row: uuid=a0f000, name=Ember, typeLevel=0, typeXp=0, isVisible=yes, " +
-                "isElemental=no, isLoadoutUnique=no",
+                "uuid: a0f000",
+                "name: Ember",
+                "internalName: emberType",
+                "category: spell-types",
+                "row: typeLevel=0, typeXp=0, isVisible=yes, isElemental=no, " +
+                "isLoadoutUnique=no",
                 "worth:",
                 "  howToRead: These are this type's own numbers, and they apply on top of " +
                 "whatever wears the type.",
@@ -210,7 +215,7 @@ public sealed class GameMcpTypeWorthTests
         Assert.Null(detail["worth"]);
         Assert.Equal(
             "{\"uuid\":\"a1c000\",\"name\":\"Focus Ward\",\"internalName\":\"focusWard\"," +
-            "\"category\":\"glyphs\",\"nativeType\":\"GlyphSO\",\"row\":{" +
+            "\"category\":\"glyphs\",\"row\":{" +
             "\"population\":\"augment\",\"screen\":\"unreadable\",\"state\":\"locked\"," +
             "\"discovered\":false,\"usableCount\":0,\"reasonCode\":\"ERR_LOCKED\"," +
             "\"paidLevel\":0,\"totalLevel\":0,\"purchase\":{\"available\":false," +

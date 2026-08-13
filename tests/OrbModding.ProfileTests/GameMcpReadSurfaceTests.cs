@@ -970,15 +970,22 @@ public sealed class GameMcpWorldEnvelopeTests
             response.Body!["result"]!["content"]!.Values<JObject>())!["text"]!;
 
         // Three asks, three answers, in the order they were asked: the correlation is the order, so
-        // no row has to echo an index back.
+        // no row has to echo an index back. Each answer is the one detail skeleton — identity at the
+        // top, the published row under `row:` — whether the call named one id or three. A batch used
+        // to be a table of comma-joined field lists, which is a shape the same id read on its own
+        // never had.
         var lines = page.Split('\n');
-        Assert.Equal(5, lines.Length);
-        Assert.StartsWith("results 3", lines[0]);
-        Assert.StartsWith("[", lines[1]);
-        Assert.Contains("value=no", lines[2]);
-        Assert.Contains("ERR_NOT_FOUND", lines[3]);
-        Assert.Contains(GameMcpTestHarness.Handle(missingId), lines[3]);
-        Assert.Contains("value=yes", lines[4]);
+        Assert.Equal(14, lines.Length);
+        Assert.Equal("results 3:", lines[0]);
+        Assert.Equal("  uuid: " + GameMcpTestHarness.Handle(secondId), lines[1]);
+        Assert.Equal("  category: bool-variables", lines[3]);
+        Assert.Equal("  row: value=no, initialValue=no, isSaved=yes", lines[4]);
+        Assert.Equal(string.Empty, lines[5]);
+        Assert.Contains("ERR_NOT_FOUND", lines[6]);
+        Assert.Contains(GameMcpTestHarness.Handle(missingId), lines[7]);
+        Assert.Equal("  uuid: " + GameMcpTestHarness.Handle(firstId), lines[10]);
+        Assert.Equal("  category: bool-variables", lines[12]);
+        Assert.Equal("  row: value=yes, initialValue=no, isSaved=yes", lines[13]);
         Assert.DoesNotContain("inputIndex", page, StringComparison.Ordinal);
         Assert.DoesNotContain("worldGeneration", page, StringComparison.Ordinal);
     }
@@ -1930,6 +1937,67 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Null(rows[0]!["name"]);
         Assert.Equal("SummonedLevel", (string?)rows[0]!["internalName"]);
         Assert.Equal("MultiBuy", (string?)rows[1]!["name"]);
+    }
+
+    /// <summary>
+    /// A percent variable and a plain one read identically once the flag is gone, so the scan
+    /// column carries it: round ten spent 22% of its whole wire on two 200-id detail re-reads whose
+    /// only new fact was this one word per row, because the page that listed them did not say it.
+    /// The detail block says the same fact by saying nothing — `isPercent` is printed when it is
+    /// `yes` and silent when it is `no` — because a documented default spelled out on every block
+    /// of a batch is most of that batch.
+    /// </summary>
+    /// <remarks>
+    /// The two rules are one rule seen from both sides: a table's header promised the column, so
+    /// the column prints on every row of it including the ones holding the default; a block
+    /// promised nothing, so the default is absence. What makes the second readable is that it is
+    /// written down where the shape is — <c>docs/development/mcp-tools.md</c> — and a caller who
+    /// has read it knows a missing `isPercent` is `no` rather than unknown.
+    /// </remarks>
+    [Fact]
+    public void A_percent_variable_says_so_in_its_row_and_a_plain_one_says_so_by_being_silent()
+    {
+        var percent = Guid.Parse("18c498f5-e4a7-4549-b093-117e206cc043");
+        var plain = Guid.Parse("37a84399-98b5-463c-b858-c1ecf2f9bf34");
+        var world = new GameWorldState
+        {
+            DoubleVariables = PublicationTable<WorldNumberVariable>.Create(new[]
+            {
+                new WorldNumberVariable(percent, new BigDouble(25), isPercent: true),
+                new WorldNumberVariable(plain, new BigDouble(3), isPercent: false),
+            }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                Clean("double-variables"),
+            }),
+            CollectedAtEpoch = 48,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        using var publisher =
+            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(948));
+        var context = Snapshot(publisher.ReadLatest());
+
+        var page = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.ListRows(context, "double-variables", 0, 10));
+        var rows = page["rows"]!.Values<JObject>().ToArray();
+
+        Assert.True((bool)rows[0]!["isPercent"]!);
+        Assert.False((bool)rows[1]!["isPercent"]!);
+        Assert.Equal(
+            "[id | internalName | value | isPercent | name]",
+            GameMcpTextPage.Render(page).Split('\n')[1]);
+
+        var blocks = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            context,
+            "double-variables",
+            new[] { percent.ToString("D"), plain.ToString("D") }))["results"]!
+            .Values<JObject>()
+            .ToArray();
+
+        Assert.True((bool)blocks[0]!["row"]!["isPercent"]!);
+        Assert.Null(blocks[1]!["row"]!["isPercent"]);
+        Assert.NotNull(blocks[1]!["row"]!["value"]);
     }
 
     private static WorldCollectionCategoryStatus Clean(string category) =>
