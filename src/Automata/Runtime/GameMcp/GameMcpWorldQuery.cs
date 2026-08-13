@@ -40,6 +40,18 @@ internal static class GameMcpWorldQuery
     private static readonly GameMcpWorldCategory[] Categories = CreateCategories();
     private static readonly Dictionary<string, GameMcpWorldCategory> ByName = IndexCategories();
 
+    /// <summary>
+    /// Every collection report at least one listable category is built from.
+    /// </summary>
+    /// <remarks>
+    /// The collector runs more categories than this surface lists, and a listable category is often
+    /// built from several of them, so the two counts never matched and nothing said which collectors
+    /// the difference was. A collector missing from this set publishes no table of its own, and
+    /// <see cref="ListCategories"/> gives it a row saying exactly that rather than leaving it to be
+    /// inferred from arithmetic in a diagnostic nobody runs.
+    /// </remarks>
+    private static readonly HashSet<string> ListedReportCategories = CollectReportCategories();
+
     internal static JObject Overview(GameMcpFrameContext state)
     {
         if (!TryWorld(state, out var publication, out var unavailable))
@@ -122,10 +134,98 @@ internal static class GameMcpWorldQuery
             return unavailable;
         var result = Envelope(publication);
         result["status"] = "available";
-        var categories = new JArray();
+        var rows = new List<(string Name, JObject Row)>(
+            Categories.Length + publication.Snapshot.CollectionCategories.Count);
         for (var index = 0; index < Categories.Length; index++)
-            categories.Add(DescribeCategory(publication.Snapshot, Categories[index]));
+        {
+            rows.Add((
+                Categories[index].Name,
+                DescribeCategory(publication.Snapshot, Categories[index])));
+        }
+        AddUnlistableCollectors(publication.Snapshot, rows);
+        rows.Sort(static (left, right) =>
+            string.Compare(left.Name, right.Name, StringComparison.Ordinal));
+        var categories = new JArray();
+        for (var index = 0; index < rows.Count; index++) categories.Add(rows[index].Row);
         result["categories"] = categories;
+        return result;
+    }
+
+    /// <summary>
+    /// One row per collector this surface cannot list, so the inventory holds every category the
+    /// world actually collects.
+    /// </summary>
+    /// <remarks>
+    /// A collector whose rows never become a table was invisible here: the page named the tables it
+    /// could page and said nothing at all about the rest, so a reader chasing a category the game
+    /// plainly has — the type modifiers behind every worth block, the keywords on every row — found
+    /// no row, no reason, and no way to tell an absent collector from an unlistable one. These rows
+    /// make no collector listable. They say it runs, how many rows it produced, and why paging it is
+    /// refused, in the same availability vocabulary every other row on this page speaks.
+    /// </remarks>
+    private static void AddUnlistableCollectors(
+        GameWorldState world,
+        List<(string Name, JObject Row)> rows)
+    {
+        for (var index = 0; index < world.CollectionCategories.Count; index++)
+        {
+            var report = world.CollectionCategories[index];
+            var name = Normalize(report.Category);
+
+            // A name this page already answers to keeps the one row it has. Two rows under one
+            // category would make the inventory contradict itself, and a reader looking that name
+            // up still finds it.
+            if (name.Length == 0 ||
+                ListedReportCategories.Contains(name) ||
+                ByName.ContainsKey(name))
+            {
+                continue;
+            }
+            rows.Add((name, new JObject
+            {
+                ["category"] = name,
+                ["count"] = report.Sampled,
+                ["available"] = false,
+                ["reason"] = UnlistableReason(report),
+            }));
+        }
+    }
+
+    private static string UnlistableReason(WorldCollectionCategoryStatus report)
+    {
+        const string unlistable =
+            "this collector publishes no table of its own, so world_list cannot page it; its rows " +
+            "reach the wire inside the reads that carry them";
+        if (report.Outcome == WorldCategoryOutcome.Unavailable)
+        {
+            return unlistable + ", and it did not bind on this build: " +
+                (report.FirstFailure.Length == 0
+                    ? "the collector published no failure reason"
+                    : report.FirstFailure);
+        }
+        if (report.Skipped > 0)
+        {
+            return unlistable + ", and collection is partial: " +
+                report.Skipped.ToString(CultureInfo.InvariantCulture) +
+                " native rows were skipped; first failure: " +
+                (report.FirstFailure.Length == 0
+                    ? "the collector did not publish a failure reason"
+                    : report.FirstFailure);
+        }
+        return unlistable;
+    }
+
+    private static HashSet<string> CollectReportCategories()
+    {
+        var result = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < Categories.Length; index++)
+        {
+            var category = Categories[index];
+            for (var required = 0; required < category.ReportCategories.Length; required++)
+                result.Add(category.ReportCategories[required]);
+            for (var only = 0; only < category.FailureOnlyReportCategories.Length; only++)
+                result.Add(category.FailureOnlyReportCategories[only]);
+        }
         return result;
     }
 
@@ -8372,6 +8472,18 @@ internal static class GameMcpWorldQuery
         var result = new string[Categories.Length];
         for (var index = 0; index < Categories.Length; index++)
             result[index] = Categories[index].Name;
+        return result;
+    }
+
+    /// <summary>
+    /// The collection reports a listable category is built from, so a census can state which
+    /// collectors this surface reaches through a table and which need a row of their own.
+    /// </summary>
+    internal static string[] ListedCollectionReportNames()
+    {
+        var result = new string[ListedReportCategories.Count];
+        ListedReportCategories.CopyTo(result);
+        Array.Sort(result, StringComparer.Ordinal);
         return result;
     }
 

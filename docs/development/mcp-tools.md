@@ -332,7 +332,7 @@ rather than from the screen it is drawn on.
 | Tool | Purpose |
 |---|---|
 | `world_overview` | Compact collection, economy, progression, and running-state summary |
-| `world_categories` | Discover every published table and exact collection availability |
+| `world_categories` | Discover every category the world collects, which of them list, and exact collection availability |
 | `world_list` | Page compact identity-plus-scan rows in one category |
 | `world_get` | Read everything one id says — row, description, gates, requirement graph, exact costs, blockers — for one id or a batch |
 | `entity_catalog` | Search every live-registry identity and available player-facing name, including loaded entities hidden by progression |
@@ -386,9 +386,19 @@ and the same on `upgrades` page only the rows whose price is met right now, so t
 rows agree and the offset, `total`, and `nextOffset` all speak in matching rows. `affordable` is
 refused as `filter_not_supported` on a category with no price rather than quietly ignored.
 
-`world_categories` is the authoritative inventory. Each row reports `category`, native type,
-identity mode, row count, and exact availability. Internal world-property and row-type names are
-not protocol data. `world_get` takes either a `uuids` list or the singular `uuid` alias; supplying
+`world_categories` is the authoritative inventory of what the world collects, not only of what it
+lists. Each row reports `category`, its row `count`, whether it is `available`, and — when it is not
+— the `reason`, in one alphabetical list. Internal world-property and row-type names are not
+protocol data.
+
+The collector runs more categories than this surface pages, and a listable category is often built
+from several of them, so the two counts never matched. Every collector gets a row: one it is reached
+through, or one of its own saying it publishes no table, how many rows it read, and that
+`world_list` cannot page it — plus its bind failure or its skipped rows when it has either. No
+collector becomes listable by having a row; the row is how a reader tells an unlistable collector
+from an absent one without subtracting one diagnostic's collector count from this page's row count.
+
+`world_get` takes either a `uuids` list or the singular `uuid` alias; supplying
 both is a `mutually_exclusive` validation failure, and either form returns the same list shape. It
 requires nothing else: an id resolves its own table, so a caller holding one from a search, a
 refusal, or an action response reads it without first learning where it lives. `category` stays

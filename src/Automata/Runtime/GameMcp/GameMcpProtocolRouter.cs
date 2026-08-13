@@ -629,7 +629,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "world_categories",
                 "Discover world categories",
-                "List every collected world table, native type, row count, and exact availability reason.",
+                "List every category the world collects, in one alphabetical set: its row count, whether it is available to list, and the exact reason when it is not. A collector that publishes no table of its own says so on its own row rather than being left out, so nothing the world reads is invisible here.",
                 ObjectSchema()),
             Tool(
                 "world_list",
