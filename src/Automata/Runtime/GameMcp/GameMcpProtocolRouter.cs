@@ -594,7 +594,9 @@ internal sealed class GameMcpProtocolRouter
         // never queue under, and the queue's capacity is the game's to say.
         "suite_config_set" => GameMcpFrameData.World | GameMcpFrameData.Configuration |
             GameMcpFrameData.WritableConfiguration,
-        "trace_health" => GameMcpFrameData.TraceWriterHealth,
+        // The world too: what each category cost the pass that produced it travels on the
+        // publication, and that is the half of trace health a session driving the game can act on.
+        "trace_health" => GameMcpFrameData.TraceWriterHealth | GameMcpFrameData.World,
         "suite_emergency_stop" or "suite_automation" => GameMcpFrameData.Configuration,
         "game_spell_loadout" when request?.Mode == "staged" => GameMcpFrameData.None,
         "game_purchase" or "game_cast" or "game_concept" or "game_agromancy" or
@@ -693,8 +695,8 @@ internal sealed class GameMcpProtocolRouter
                     new JObject { ["mode"] = EnumSchema("list", "describe") })),
             Tool(
                 "trace_health",
-                "Read trace-writer health",
-                "Read bounded segment, record, and byte counters. Individual decisions remain in trace files for offline analysis.",
+                "Read trace-writer health and what world collection cost",
+                "Read bounded segment, record, and byte counters, then what the collection pass behind the published world spent on each category — dearest first, with the categories that charged nothing and the ones that did not bind named. The spans are one pass, not a session distribution; individual decisions and the per-session distribution remain in trace files for offline analysis.",
                 ObjectSchema()),
             Tool(
                 "suite_check_game_math",

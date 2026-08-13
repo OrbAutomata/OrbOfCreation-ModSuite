@@ -339,7 +339,7 @@ rather than from the screen it is drawn on.
 | `world_search` | Find a term across every entity category at once: name, keywords, category, most relevant first |
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
 | `suite_configuration` | Read every writable setting's committed value; `mode=describe` adds type, domain, and purpose |
-| `trace_health` | Read trace-writer health, segment, record, and byte counters |
+| `trace_health` | Read trace-writer health, segment, record, and byte counters, and what the collection pass behind the published world spent per category |
 | `suite_check_game_math` | Run the differential check of the suite's math against the game and answer with one verdict word, one line per check, and one provenance line |
 | `game_purchase` | Buy an Attribute (`StructureSO`) or Upgrade derived from its UUID |
 | `game_cast` | Fire, release charge, or turn off one equipped toggle spell |
@@ -3029,6 +3029,18 @@ being produced, and is retention or a writer fault active? It deliberately does 
 individual automation decisions. The answer is compact text because it exposes no follow-up
 handle. Individual decisions belong to the trace folder and offline analysis, where
 high-volume repeated decisions can be filtered without spending strategist context.
+
+The same page carries what world collection cost. A `collection:` line names the pass total, how
+many categories it reported, how many rows they produced, and the world generation they produced;
+under it one line per category that charged something, dearest first, with its milliseconds and its
+rows. A category that charged nothing this pass is named on one line rather than dropped — a
+structural category is read once per lifecycle epoch, so it is absent from the pass rather than free
+within it — and a category that did not bind is named on another. Every number is the one the
+collector already charged on the pass that published the world; nothing here measures anything, and
+the window is that one pass. A mean, a median and a worst are facts about many passes, nothing at
+runtime folds them, and the session distribution stays the offline dashboard's answer. With no world
+published the line reads `unavailable` with the reason beside it, and the writer's own counters and
+the spans are independent: an absent writer still answers what the last pass cost.
 
 `game_probe` has exactly three names:
 

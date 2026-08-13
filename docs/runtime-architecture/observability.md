@@ -129,6 +129,12 @@ build carries a null check and no allocation. The category names come from the c
 written into the session roster as `world-category` rows, so a category added to the collector is
 named by that alone and no second table can drift from it.
 
+A recording is not the only way to read the distribution's newest point. The per-category cost of the
+pass that produced the published world travels on that publication, and `trace_health` serves it —
+so a session driving the game reads where a pass went without recording a trace, stopping to open a
+dashboard, or being able to reach either. It is one pass: the fold over many is the recording's, and
+this publishes what is already measured rather than growing a second accumulator to duplicate it.
+
 ### Artifacts
 
 Format v1 publishes `segment-{ordinal}.oscs` files with a 96-byte header, at most 3,640 unchanged

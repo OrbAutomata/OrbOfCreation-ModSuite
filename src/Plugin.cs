@@ -2151,7 +2151,13 @@ public sealed class Plugin : BaseUnityPlugin
     {
         var status = context.TraceWriterStatus;
         if (status.State == DecisionJournalStatusState.Unavailable)
-            return "unavailable\nreason: the decision journal writer is not active in this runtime";
+        {
+            // The writer and the collection pass are two independent facts, and the pass is the one
+            // a session driving the game asks about. Returning here on the writer alone made the
+            // spans unreadable in exactly the runs that had no trace to open afterwards.
+            return "unavailable\nreason: the decision journal writer is not active in this runtime\n" +
+                GameMcpCollectionSpans.Describe(context);
+        }
         var result = new StringBuilder()
             .AppendLine("available")
             .Append("trace writer: ").AppendLine(
@@ -2185,8 +2191,9 @@ public sealed class Plugin : BaseUnityPlugin
         if (status.FaultMessage.Length > 0)
             result.Append("fault: ").AppendLine(
                 GameMcpTextFormatter.Plain(status.FaultMessage));
-        result.Append("revision: ").Append(
+        result.Append("revision: ").AppendLine(
             context.TraceWriterRevision.ToString(CultureInfo.InvariantCulture));
+        result.Append(GameMcpCollectionSpans.Describe(context));
         return result.ToString();
     }
 
