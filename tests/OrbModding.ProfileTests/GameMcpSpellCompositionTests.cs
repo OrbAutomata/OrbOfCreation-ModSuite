@@ -283,11 +283,21 @@ public sealed class GameMcpSpellCompositionTests
         var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")))["row"]!;
 
-        Assert.Equal(2, (int)row["casting"]!["castType"]!);
+        // Words, not the game's ordinals: `castType: 2` and `rechargeProcessorType: 0` were the two
+        // cells in this block a reader could not use, sitting beside the spell's type in plain
+        // player words. `rechargeMultiplier: 1` and `repeatEffectRate: 1` said nothing about what
+        // one of them meant, and the second was worse than silent — the game hands that "rate"
+        // straight to a tick timer as the seconds BETWEEN repeats, so the obvious reading of it is
+        // the reciprocal of the truth.
+        Assert.Equal("aura", (string?)row["casting"]!["castType"]);
+        Assert.Equal("spell-casts", (string?)row["casting"]!["rechargeCountsIn"]);
+        Assert.Null(row["casting"]!["rechargeProcessorType"]);
         Assert.Equal(12d, (double)row["casting"]!["rechargeSeconds"]!);
-        Assert.Equal(1.5d, (double)row["casting"]!["rechargeMultiplier"]!);
+        Assert.Equal(1.5d, (double)row["casting"]!["rechargeUnitMultiplier"]!);
+        Assert.Null(row["casting"]!["rechargeMultiplier"]);
         Assert.Equal(30d, (double)row["casting"]!["maximumChannelSeconds"]!);
         Assert.Null(row["casting"]!["repeatEffectRate"]);
+        Assert.Null(row["casting"]!["repeatEffectSeconds"]);
 
         var cast = Assert.Single(row["authoredCosts"]!["cast"]!.Values<JObject>())!;
         Assert.Equal("Knowledge", (string?)cast["name"]);
@@ -309,6 +319,52 @@ public sealed class GameMcpSpellCompositionTests
             row["belongsTo"]!["coreGlyphs"]!.Values<JObject>()
                 .Select(entry => (string?)entry!["uuid"]));
         Assert.Null(row["belongsTo"]!["recipeBooks"]);
+    }
+
+    /// <summary>
+    /// Each native enum's words are pinned to what the game's own code does with the ordinal, not
+    /// to the declaration order a decompiler prints — <c>SpellRecipeSO.CastType</c> lists Aura
+    /// first and Aura is 2. An ordinal outside the pinned build's vocabulary throws: a sixth kind
+    /// is a game change to model, never a number to pass through to a cell.
+    /// </summary>
+    [Fact]
+    public void Every_native_enum_the_surface_prints_has_a_closed_vocabulary()
+    {
+        Assert.Equal("instant", GameMcpNativeVocabulary.CastType(0));
+        Assert.Equal("channel", GameMcpNativeVocabulary.CastType(1));
+        Assert.Equal("aura", GameMcpNativeVocabulary.CastType(2));
+        Assert.Throws<InvalidOperationException>(() => GameMcpNativeVocabulary.CastType(3));
+
+        Assert.Equal("time", GameMcpNativeVocabulary.RechargeProcessorType(0));
+        Assert.Equal("spell-casts", GameMcpNativeVocabulary.RechargeProcessorType(1));
+        Assert.Equal("attributes-developed", GameMcpNativeVocabulary.RechargeProcessorType(2));
+        Assert.Throws<InvalidOperationException>(
+            () => GameMcpNativeVocabulary.RechargeProcessorType(3));
+
+        Assert.Equal("raw", GameMcpNativeVocabulary.ModifierEffect(0));
+        Assert.Equal("exponent", GameMcpNativeVocabulary.ModifierEffect(4));
+        Assert.Throws<InvalidOperationException>(() => GameMcpNativeVocabulary.ModifierEffect(5));
+
+        // One ordinal, three meanings, chosen by the condition class it rode in on.
+        Assert.Equal(
+            "at-least-level",
+            GameMcpNativeVocabulary.RequirementCheck(WorldRequirementConditionKind.Upgrade, 2));
+        Assert.Equal(
+            "at-least-mastery-level",
+            GameMcpNativeVocabulary.RequirementCheck(WorldRequirementConditionKind.Spell, 2));
+        Assert.Equal(
+            "any-available",
+            GameMcpNativeVocabulary.RequirementCheck(WorldRequirementConditionKind.List, 2));
+
+        // The two kinds whose reqType is a suite sentinel rather than a native check say nothing.
+        Assert.Null(
+            GameMcpNativeVocabulary.RequirementCheck(WorldRequirementConditionKind.Unknown, -1));
+        Assert.Null(
+            GameMcpNativeVocabulary.RequirementCheck(WorldRequirementConditionKind.Literal, 1));
+
+        Assert.Throws<InvalidOperationException>(
+            () => GameMcpNativeVocabulary.RequirementCheck(
+                WorldRequirementConditionKind.Ritual, 2));
     }
 
     private static GameWorldState World(int outputLevel = 4)

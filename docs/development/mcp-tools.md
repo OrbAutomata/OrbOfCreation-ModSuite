@@ -1314,12 +1314,28 @@ that is actually wrong with the core glyph — `recipe_has_no_core_glyph`, `core
 target-first `create`: the game exposes neither.
 
 A detailed row also carries the recipe's authored half, which is what the spell is before any
-modifier touches it: `casting` (cast type, recharge seconds and multiplier, recharge processor type,
-and — only where the recipe has them — maximum channel seconds and repeat effect rate),
-`authoredCosts` split into `cast` / `upkeep` / `hold` with each named resource and its unmodified
-price, and `belongsTo` naming the recipe's `spellTypes`, `coreGlyphs`, and `recipeBooks`. These are
-authored facts, so they do not move within a run; the live price a cast will actually pay is the
-`castCosts` on the equipped instance, not `authoredCosts`.
+modifier touches it: `casting`, `authoredCosts` split into `cast` / `upkeep` / `hold` with each
+named resource and its unmodified price, and `belongsTo` naming the recipe's `spellTypes`,
+`coreGlyphs`, and `recipeBooks`. These are authored facts, so they do not move within a run; the
+live price a cast will actually pay is the `castCosts` on the equipped instance, not
+`authoredCosts`.
+
+The `casting` block says what it means rather than what the game stores:
+
+| Key | What it says |
+| --- | --- |
+| `castType` | `instant`, `channel`, or `aura` |
+| `rechargeSeconds` | the authored recharge period |
+| `rechargeCountsIn` | what the recharge counts down in: `time`, `spell-casts`, or `attributes-developed` |
+| `rechargeUnitMultiplier` | what one counted unit is worth against the recharge. The game's own `Duration.Entry.GetMultiplier()` forces exactly `1` whenever `rechargeCountsIn` is `time` |
+| `maximumChannelSeconds` | present only where the recipe authors one |
+| `repeatEffectSeconds` | present only where the recipe authors one: the seconds **between** re-applications while a toggle is held |
+
+Two of those names are deliberately not the game's. `rechargeProcessorType` named the processor
+class the game constructs rather than the question a reader has, and it shipped as the raw ordinal
+`0`. `repeatInstantEffectRate` is a naming trap: `Spell.InitializePersistence` hands it straight to
+`TickTimer(tickTime, …)` as an interval floored at `0.01`, so the field the game calls a rate is a
+period, and the obvious reading of a bare `repeatEffectRate: 1` is the reciprocal of the truth.
 
 The MCP-only base-recipe sequence is:
 
@@ -1585,6 +1601,18 @@ the requirement UUID and native type, comparison kind, exact published value sel
 evaluator (`purchased_level`, `total_level`, `purchased_quantity`, discovery, mastery, recipe,
 advancement, reached, numeric, or link gate), current and required values, met verdict, and base,
 scaled, and effective thresholds. Unsupported comparisons return a structured unevaluable result.
+
+A leaf says what it compares under `checks`, in words: `at-least-level`, `at-maximum-level`,
+`any-level`, `visible`, `discovered`, `at-least-quantity`, `available`, `at-least-mastery-level`,
+`at-least-mastery-ready-level`, `at-least-maximum-level`, `at-least-advancement-level`,
+`at-least-reached-level`, `at-least-value`, `at-least-count`, `any-visible`, `any-available`,
+`first-tier-enabled`, `named-tier-enabled`. The game's own `reqType` ordinal is not published,
+because it is not one vocabulary but ten — every condition class declares its own enum, and `2`
+means "at least this level" on an upgrade, "at least this mastery level" on a spell, and "any
+available" on a list. Each map is pinned from that class's own `InternalIsValid` switch, and an
+ordinal outside it throws rather than reaching a cell. Two node kinds carry no `checks` at all: an
+unmodelled condition class, whose row has nothing read to word, and an authored empty composite,
+where the same slot holds the group's Any/All identity rather than a comparison.
 
 The collector also captures the safe parameterized
 `Prerequisites.Container.Check(Requirements.ConditionInfo)` answer at the exact next-purchase level.

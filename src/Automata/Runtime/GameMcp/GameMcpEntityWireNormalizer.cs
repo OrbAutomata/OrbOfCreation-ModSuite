@@ -159,6 +159,15 @@ internal static class GameMcpEntityWireNormalizer
         }
         if (item["kind"] is JValue { Type: JTokenType.String } kind)
             item["kind"] = Snake((string?)kind ?? string.Empty);
+        // One native enum, one word, wherever it surfaces. `modifierType` reaches the wire from two
+        // producers — a research requirement adjustment and a modifier-variables row — and both
+        // shipped the game's raw ordinal while the worth block beside them had been saying `raw` /
+        // `diminishing` / `stacking` for the same enum all along.
+        if (item["modifierType"] is JValue { Type: JTokenType.Integer } modifierType)
+        {
+            item["modifierType"] =
+                GameMcpNativeVocabulary.ModifierEffect((int)modifierType);
+        }
         NormalizeCode(item, "outcome");
         NormalizeCode(item, "execution");
 

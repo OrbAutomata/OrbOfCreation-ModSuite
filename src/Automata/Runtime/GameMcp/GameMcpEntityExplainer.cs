@@ -701,7 +701,6 @@ internal static class GameMcpEntityExplainer
             ["conditionType"] = row.ConditionTypeName,
             ["conditionKind"] = row.Kind.ToString(),
             ["requirementNativeType"] = RequirementNativeType(row.Kind),
-            ["reqType"] = row.ReqType,
             ["selectedValueKind"] = evaluated.SelectedValueKind,
             ["current"] = ProjectNumber(evaluated.Current),
             ["required"] = ProjectNumber(evaluated.Required),
@@ -712,6 +711,12 @@ internal static class GameMcpEntityExplainer
             ["scaledThreshold"] = ProjectNumber(evaluated.ScaledThreshold),
             ["effectiveThreshold"] = ProjectNumber(evaluated.EffectiveThreshold),
         };
+        // What this row compares, in words. It shipped as the game's raw `reqType` ordinal, which
+        // is not one vocabulary but ten — the same `2` is "at least this level" on an upgrade, "at
+        // least this mastery level" on a spell, and "any available" on a list — so the cell could
+        // not be read at all without knowing the condition class and having the game's source.
+        var check = GameMcpNativeVocabulary.RequirementCheck(row.Kind, row.ReqType);
+        if (check is not null) leaf["checks"] = check;
         if (row.TargetId != Guid.Empty)
             leaf["requirementUuid"] = row.TargetId.ToString("D");
         if (row.Kind == WorldRequirementConditionKind.PrerequisiteLink)

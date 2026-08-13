@@ -290,22 +290,13 @@ internal static class GameMcpTypeWorth
 
     /// <summary>
     /// What the modifier does to the number, in the vocabulary
-    /// <c>docs/game-systems/modifiers.md</c> names the five kinds by. An ordinal with no word is a
-    /// defect rather than a cell, the way an unworded list code is.
+    /// <c>docs/game-systems/modifiers.md</c> names the five kinds by. One map for the whole surface
+    /// now lives in <see cref="GameMcpNativeVocabulary"/>: the same ordinal was reaching research
+    /// adjustments and the modifier-variables rows as a bare number while this block was already
+    /// saying the word.
     /// </summary>
-    private static string Effect(int modifierType) => modifierType switch
-    {
-        (int)GameValueModifierType.Raw => "raw",
-        (int)GameValueModifierType.MultiDiminishing => "diminishing",
-        (int)GameValueModifierType.MultiStacking => "stacking",
-        (int)GameValueModifierType.Reduction => "reduction",
-        (int)GameValueModifierType.Exponent => "exponent",
-        _ => throw new InvalidOperationException(
-            "a type modifier reached fold kind '" +
-            modifierType.ToString(System.Globalization.CultureInfo.InvariantCulture) +
-            "' with no word for it; the five kinds are the whole vocabulary and a sixth is a " +
-            "game change, not a cell."),
-    };
+    private static string Effect(int modifierType) =>
+        GameMcpNativeVocabulary.ModifierEffect(modifierType);
 
     /// <summary>
     /// The class of thing a keyword reaches, in the word the rest of the surface calls that class

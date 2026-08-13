@@ -5365,17 +5365,35 @@ internal static class GameMcpWorldQuery
         if (WorldSpellGraphLookup.TryFindAuthoring(
                 world.SpellRecipeAuthoring, recipeId, out var authoring))
         {
+            // Words, not the game's ordinals. The block already names this spell's type in player
+            // words a few lines up, so a bare `castType: 2` beside them was the one cell a reader
+            // could not use.
             var casting = new JObject
             {
-                ["castType"] = authoring.CastType,
+                ["castType"] = GameMcpNativeVocabulary.CastType(authoring.CastType),
                 ["rechargeSeconds"] = authoring.RechargeDuration,
-                ["rechargeMultiplier"] = authoring.RechargeMultiplier,
-                ["rechargeProcessorType"] = authoring.RechargeProcessorType,
+                // What one counted unit is worth against the recharge. `1` means one cast (or one
+                // attribute developed) advances it by one, and the game's own
+                // `Duration.Entry.GetMultiplier()` forces exactly 1 whenever the recharge counts in
+                // time, so the key beside `rechargeCountsIn: time` is always the identity. It
+                // shipped as `rechargeMultiplier: 1` with nothing saying what it multiplied.
+                ["rechargeUnitMultiplier"] = authoring.RechargeMultiplier,
+                // What the recharge counts down in, rather than which processor class the game
+                // builds for it: `Duration.ProcessorType`'s own labels are "Time", "Number of
+                // Casts" and "Attributes Developed", and that is the question a reader has.
+                ["rechargeCountsIn"] = GameMcpNativeVocabulary.RechargeProcessorType(
+                    authoring.RechargeProcessorType),
             };
             if (authoring.MaximumChannelBase != 0d)
                 casting["maximumChannelSeconds"] = authoring.MaximumChannelBase;
+            // The name carries the unit, and the game's own name for it is a trap: the field is
+            // called a "rate" and `Spell.InitializePersistence` hands it straight to
+            // `TickTimer(tickTime, …)` as the seconds BETWEEN re-applications, floored at 0.01. It
+            // shipped as a bare `repeatEffectRate: 1`, where the one reading a player would guess —
+            // once per second, which happens to be right at 1 and wrong everywhere else — is the
+            // reciprocal of what it means.
             if (authoring.RepeatInstantEffectRateBase != 0d)
-                casting["repeatEffectRate"] = authoring.RepeatInstantEffectRateBase;
+                casting["repeatEffectSeconds"] = authoring.RepeatInstantEffectRateBase;
             result["casting"] = casting;
         }
 
