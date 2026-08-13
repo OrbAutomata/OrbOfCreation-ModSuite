@@ -12,13 +12,7 @@ using Xunit;
 
 namespace OrbModding.ProfileTests;
 
-[CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class GameMcpNativeRegistryCollection
-{
-    public const string Name = "Game MCP native registries";
-}
-
-[Collection(GameMcpNativeRegistryCollection.Name)]
+[Collection(NativeRegistryCollection.Name)]
 public sealed class GameMcpEntityDetailTests : IDisposable
 {
     private static readonly Guid ReadySpellId =

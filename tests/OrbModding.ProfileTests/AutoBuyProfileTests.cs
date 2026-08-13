@@ -12,6 +12,7 @@ using static OrbModding.ProfileTests.AutoHarvestProfileTestSupport;
 
 namespace OrbModding.ProfileTests;
 
+[Collection(NativeRegistryCollection.Name)]
 public sealed class AutoBuyProfileTests : IDisposable
 {
     private const long PlannedEpoch = 7;
