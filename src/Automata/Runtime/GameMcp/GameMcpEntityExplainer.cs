@@ -469,13 +469,15 @@ internal static class GameMcpEntityExplainer
             _ => StructureCheckLevel(world, id),
         };
         var suite = WorldRequirementEvaluator.Evaluate(world, id, checkLevel);
+        var unmet = new JArray();
         var root = ProjectRequirementContainer(
             world,
             id,
             containerIndex: 0,
             checkLevel,
             new HashSet<RequirementKey>(),
-            depth: 0);
+            depth: 0,
+            unmet);
         var parity = new JObject
         {
             ["suiteVerdict"] = suite.ToString(),
@@ -536,10 +538,17 @@ internal static class GameMcpEntityExplainer
 
         var requirements = new JObject
         {
-            ["checkLevel"] = checkLevel,
             ["suiteVerdict"] = suite.ToString(),
-            ["root"] = root,
         };
+
+        // The line a player can act on, first. Everything a locked entity is waiting for, each row
+        // naming the thing, what it asks and what is held — read straight off the leaves below, so
+        // it can never disagree with them. A round read one of these out of column ten of a
+        // twenty-column table and wrote down that it was buried; a reader who needs no more than
+        // this now stops at the second line of the block.
+        if (unmet.Count > 0) requirements["unmet"] = unmet;
+        requirements["checkLevel"] = checkLevel;
+        requirements["root"] = root;
 
         // No `authority` paragraph. It was 178 bytes of fixed prose asserting that the authored
         // rows are met and are not what holds the entity shut — the claim `suiteVerdict: Met`
@@ -557,7 +566,8 @@ internal static class GameMcpEntityExplainer
         int containerIndex,
         long checkLevel,
         HashSet<RequirementKey> trail,
-        int depth)
+        int depth,
+        JArray unmet)
     {
         var key = new RequirementKey(ownerId, containerIndex);
         if (depth > MaximumRequirementExpansionDepth)
@@ -573,7 +583,7 @@ internal static class GameMcpEntityExplainer
                 if (count > 0 && rows[start].OwnerKind != WorldRequirementOwnerKind.PrerequisiteLink)
                 {
                     ProjectFlatRequirementGroups(
-                        world, rows, start, count, checkLevel, trail, depth, children);
+                        world, rows, start, count, checkLevel, trail, depth, children, unmet);
                 }
                 else
                 {
@@ -582,7 +592,8 @@ internal static class GameMcpEntityExplainer
                         ref readonly var row = ref rows[start + offset];
                         if (row.ParentOrdinal >= 0) continue;
                         children.Add(ProjectRequirementNode(
-                            world, rows, start, count, in row, checkLevel, trail, depth + 1));
+                            world, rows, start, count, in row, checkLevel, trail, depth + 1,
+                            unmet));
                     }
                 }
             }
@@ -613,7 +624,8 @@ internal static class GameMcpEntityExplainer
         long checkLevel,
         HashSet<RequirementKey> trail,
         int depth,
-        JArray destination)
+        JArray destination,
+        JArray unmet)
     {
         var priorGroup = -1;
         for (var offset = 0; offset < count; offset++)
@@ -637,7 +649,7 @@ internal static class GameMcpEntityExplainer
                     continue;
                 }
                 var projected = ProjectRequirementNode(
-                    world, rows, start, count, in candidate, checkLevel, trail, depth + 1);
+                    world, rows, start, count, in candidate, checkLevel, trail, depth + 1, unmet);
                 singleton = projected;
                 groupChildren.Add(projected);
             }
@@ -649,12 +661,15 @@ internal static class GameMcpEntityExplainer
             }
             destination.Add(new JObject
             {
-                ["nodeKind"] = "group",
-                ["ordinal"] = first.GroupOrdinal,
-                ["parentOrdinal"] = -1,
-                ["depth"] = 0,
                 ["operator"] = first.GroupKind == WorldRequirementGroupKind.Any ? "OR" : "AND",
                 ["children"] = groupChildren,
+                ["diagnostics"] = new JObject
+                {
+                    ["nodeKind"] = "group",
+                    ["ordinal"] = first.GroupOrdinal,
+                    ["parentOrdinal"] = -1,
+                    ["depth"] = 0,
+                },
             });
         }
     }
@@ -667,7 +682,8 @@ internal static class GameMcpEntityExplainer
         in WorldEntityRequirement row,
         long checkLevel,
         HashSet<RequirementKey> trail,
-        int depth)
+        int depth,
+        JArray unmet)
     {
         if (row.NodeKind == WorldRequirementNodeKind.Group)
         {
@@ -677,22 +693,72 @@ internal static class GameMcpEntityExplainer
                 ref readonly var child = ref rows[start + offset];
                 if (child.ParentOrdinal != row.Ordinal) continue;
                 children.Add(ProjectRequirementNode(
-                    world, rows, start, count, in child, checkLevel, trail, depth + 1));
+                    world, rows, start, count, in child, checkLevel, trail, depth + 1, unmet));
             }
             var group = new JObject
             {
-                ["nodeKind"] = "group",
-                ["ordinal"] = row.Ordinal,
-                ["parentOrdinal"] = row.ParentOrdinal,
-                ["depth"] = row.Depth,
                 ["operator"] = row.Operator.ToString().ToUpperInvariant(),
                 ["children"] = children,
+                ["diagnostics"] = new JObject
+                {
+                    ["nodeKind"] = "group",
+                    ["ordinal"] = row.Ordinal,
+                    ["parentOrdinal"] = row.ParentOrdinal,
+                    ["depth"] = row.Depth,
+                },
             };
             return group;
         }
 
         var evaluated = WorldRequirementEvaluator.ExplainLeaf(world, in row, checkLevel);
+
+        // The four facts a player acts on lead, in the order they answer the question: does this
+        // hold, what does it compare, what is held, and what it wants. A live round met these in
+        // column ten of twenty, under a header that opened `nodeKind | ordinal | parentOrdinal |
+        // depth | conditionType | …`, and wrote down that the one line it could use was buried.
         var leaf = new JObject
+        {
+            ["met"] = evaluated.Met,
+        };
+
+        // What this row compares, in words. It shipped as the game's raw `reqType` ordinal, which
+        // is not one vocabulary but ten — the same `2` is "at least this level" on an upgrade, "at
+        // least this mastery level" on a spell, and "any available" on a list — so the cell could
+        // not be read at all without knowing the condition class and having the game's source.
+        var check = GameMcpNativeVocabulary.RequirementCheck(row.Kind, row.ReqType);
+        if (check is not null) leaf["checks"] = check;
+        leaf["current"] = ProjectNumber(evaluated.Current);
+        leaf["required"] = ProjectNumber(evaluated.Required);
+        leaf["verdict"] = evaluated.Verdict.ToString();
+        leaf["reasonCode"] = evaluated.ReasonCode;
+
+        if (row.TargetId != Guid.Empty)
+        {
+            leaf["requirementUuid"] = row.TargetId.ToString("D");
+            if (!evaluated.Met)
+            {
+                unmet.Add(new JObject
+                {
+                    ["requirementUuid"] = row.TargetId.ToString("D"),
+                    ["checks"] = check ?? GameMcpListColumns.Absent,
+                    ["current"] = ProjectNumber(evaluated.Current),
+                    ["required"] = ProjectNumber(evaluated.Required),
+                });
+            }
+        }
+        if (row.Kind == WorldRequirementConditionKind.PrerequisiteLink)
+        {
+            var tiers = ProjectLinkTiers(
+                world, in row, checkLevel, evaluated, trail, depth + 1, unmet);
+            if (tiers.Count > 0) leaf["prerequisiteLinkTiers"] = tiers;
+        }
+
+        // The rest is how the suite reached that answer: where the row sits in the authored tree,
+        // which native class it came from, and the three thresholds the scaling passes through.
+        // None of it is a thing a player does anything about, and all of it is what a defect in
+        // this evaluation is diagnosed from — so it keeps every field, under a name that says which
+        // of the two it is.
+        leaf["diagnostics"] = new JObject
         {
             ["nodeKind"] = "leaf",
             ["ordinal"] = row.Ordinal,
@@ -702,29 +768,10 @@ internal static class GameMcpEntityExplainer
             ["conditionKind"] = row.Kind.ToString(),
             ["requirementNativeType"] = RequirementNativeType(row.Kind),
             ["selectedValueKind"] = evaluated.SelectedValueKind,
-            ["current"] = ProjectNumber(evaluated.Current),
-            ["required"] = ProjectNumber(evaluated.Required),
-            ["met"] = evaluated.Met,
-            ["verdict"] = evaluated.Verdict.ToString(),
-            ["reasonCode"] = evaluated.ReasonCode,
             ["baseThreshold"] = ProjectNumber(evaluated.BaseThreshold),
             ["scaledThreshold"] = ProjectNumber(evaluated.ScaledThreshold),
             ["effectiveThreshold"] = ProjectNumber(evaluated.EffectiveThreshold),
         };
-        // What this row compares, in words. It shipped as the game's raw `reqType` ordinal, which
-        // is not one vocabulary but ten — the same `2` is "at least this level" on an upgrade, "at
-        // least this mastery level" on a spell, and "any available" on a list — so the cell could
-        // not be read at all without knowing the condition class and having the game's source.
-        var check = GameMcpNativeVocabulary.RequirementCheck(row.Kind, row.ReqType);
-        if (check is not null) leaf["checks"] = check;
-        if (row.TargetId != Guid.Empty)
-            leaf["requirementUuid"] = row.TargetId.ToString("D");
-        if (row.Kind == WorldRequirementConditionKind.PrerequisiteLink)
-        {
-            var tiers = ProjectLinkTiers(
-                world, in row, checkLevel, evaluated, trail, depth + 1);
-            if (tiers.Count > 0) leaf["prerequisiteLinkTiers"] = tiers;
-        }
         return leaf;
     }
 
@@ -734,7 +781,8 @@ internal static class GameMcpEntityExplainer
         long checkLevel,
         in WorldRequirementLeafEvaluation evaluation,
         HashSet<RequirementKey> trail,
-        int depth)
+        int depth,
+        JArray unmet)
     {
         var selectedTier = row.ReqType == 0
             ? 0L
@@ -759,7 +807,8 @@ internal static class GameMcpEntityExplainer
                     tier.TierIndex,
                     checkLevel,
                     trail,
-                    depth),
+                    depth,
+                    unmet),
             });
         }
         return tiers;

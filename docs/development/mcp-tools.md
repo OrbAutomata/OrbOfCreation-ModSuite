@@ -1670,11 +1670,26 @@ instance at the asset registry that cannot resolve it.
 Per-level structure, upgrade, and Research requirements preserve the implicit container `AND`,
 explicit native `AND`/`OR` nodes, authored order, and recursively expanded prerequisite-link tiers.
 Every operator node carries its `children` list, so an entity with no requirements reads as an
-empty list rather than as an operator over an unstated set. Every leaf names
-the requirement UUID and native type, comparison kind, exact published value selected by the native
-evaluator (`purchased_level`, `total_level`, `purchased_quantity`, discovery, mastery, recipe,
-advancement, reached, numeric, or link gate), current and required values, met verdict, and base,
-scaled, and effective thresholds. Unsupported comparisons return a structured unevaluable result.
+empty list rather than as an operator over an unstated set.
+
+**A leaf leads with the four facts a player acts on**, in the order they answer the question: `met`,
+what this row `checks`, what is `current`, and what is `required`, then the `verdict` and its class.
+Everything else is how the suite reached that answer — where the row sits in the authored tree
+(`nodeKind`, `ordinal`, `parentOrdinal`, `depth`), which native class it came from
+(`conditionType`, `conditionKind`, `requirementNativeType`), the value the native evaluator selected
+(`selectedValueKind`: `purchased_level`, `total_level`, `purchased_quantity`, discovery, mastery,
+recipe, advancement, reached, numeric, or link gate), and the three thresholds the scaling passes
+through (`baseThreshold`, `scaledThreshold`, `effectiveThreshold`). None of that is a thing a player
+does anything about and all of it is what a defect in this evaluation is diagnosed from, so it keeps
+every field under `diagnostics`, at the tail of the leaf, where a name says which of the two it is.
+A live round met the one usable line in column ten of twenty under a header opening `nodeKind |
+ordinal | parentOrdinal | depth | conditionType | …` and wrote down that it was buried.
+
+A `requirements` block therefore leads with `suiteVerdict`, then `unmet` — one entry per unsatisfied
+leaf naming the requirement, what it checks, what is held and what is wanted — and only then the
+`checkLevel` and the whole authored `root`. `unmet` is absent when nothing is unmet, so its presence
+is the answer to "what is stopping this" and its contents are the answer to "by how much".
+Unsupported comparisons return a structured unevaluable result.
 
 A leaf says what it compares under `checks`, in words: `at-least-level`, `at-maximum-level`,
 `any-level`, `visible`, `discovered`, `at-least-quantity`, `available`, `at-least-mastery-level`,

@@ -403,17 +403,30 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Equal(2, top.Length);
         Assert.Equal("OR", (string?)top[0]["operator"]);
         var orChildren = top[0]["children"]!.OfType<JObject>().ToArray();
-        Assert.Equal("AndRequirement", (string?)orChildren[1]["conditionType"]);
+        Assert.Equal(
+            "AndRequirement",
+            (string?)orChildren[1]["diagnostics"]!["conditionType"]);
         Assert.Equal("Unevaluable", (string?)orChildren[1]["verdict"]);
 
+        // The player's four facts lead the leaf; the authored-tree and native-class evidence sits
+        // under `diagnostics`, where a reader knows it is here to diagnose the suite rather than to
+        // be acted on.
         var firstLeaf = orChildren[0];
         Assert.Equal(GameMcpTestHarness.Handle(research.GetGuid()),
             (string?)firstLeaf["requirement"]!["uuid"]);
-        Assert.Equal("ResearchSO", (string?)firstLeaf["requirementNativeType"]);
-        Assert.Equal("total_level", (string?)firstLeaf["selectedValueKind"]);
+        Assert.Equal(
+            "ResearchSO",
+            (string?)firstLeaf["diagnostics"]!["requirementNativeType"]);
+        Assert.Equal("total_level", (string?)firstLeaf["diagnostics"]!["selectedValueKind"]);
         Assert.NotNull(firstLeaf["current"]);
         Assert.NotNull(firstLeaf["required"]);
         Assert.False((bool)firstLeaf["met"]!);
+        Assert.Equal(
+            new[] { "met", "checks", "current", "required", "verdict", "reasonCode",
+                "diagnostics", "reason", "requirement" },
+            firstLeaf.Children<Newtonsoft.Json.Linq.JProperty>()
+                .Select(property => property.Name)
+                .ToArray());
 
         var tiers = top[1]["prerequisiteLinkTiers"]!.OfType<JObject>().ToArray();
         Assert.Equal(new[] { 0, 1 }, tiers.Select(tier => (int)tier["tierIndex"]!).ToArray());
@@ -461,7 +474,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var leaves = orGroup["children"]!.OfType<JObject>().ToArray();
         Assert.Equal(2, leaves.Length);
         Assert.Equal(GameMcpTestHarness.Handle(wizardryId), (string?)leaves[0]["requirement"]!["uuid"]);
-        Assert.Equal("total_level", (string?)leaves[0]["selectedValueKind"]);
+        Assert.Equal("total_level", (string?)leaves[0]["diagnostics"]!["selectedValueKind"]);
         Assert.Equal("5", (string?)leaves[0]["current"]);
         Assert.Equal("5", (string?)leaves[0]["required"]);
         Assert.True((bool)leaves[0]["met"]!);
