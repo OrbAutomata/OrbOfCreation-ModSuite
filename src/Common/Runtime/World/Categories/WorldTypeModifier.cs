@@ -314,6 +314,35 @@ internal sealed class WorldTypeModifierBindings
         "freeUsages", "masteryXpMod", "power", "powerScalingMod", "totalLevel",
     };
 
+    /// <summary>
+    /// Every record this binding walks on one taxonomy, so a consumer can answer for the whole set
+    /// rather than for whichever ones a fixture happened to build.
+    /// </summary>
+    /// <remarks>
+    /// The arrays are the census of the pinned build and the only source of the property names a
+    /// type page can print, which is what lets the wire's word table be checked as total against
+    /// them instead of against a hand-kept second list.
+    /// </remarks>
+    internal static string[] Records(WorldTypeModifierOwnerKind kind) => kind switch
+    {
+        WorldTypeModifierOwnerKind.SpellType => SpellTypeRecords,
+        WorldTypeModifierOwnerKind.ResourceType => ResourceTypeRecords,
+        WorldTypeModifierOwnerKind.AlchemyType => AlchemyTypeRecords,
+        WorldTypeModifierOwnerKind.CraftingRecipeType => CraftingRecipeTypeRecords,
+        WorldTypeModifierOwnerKind.EquipmentType => EquipmentTypeRecords,
+        WorldTypeModifierOwnerKind.RitualType => RitualTypeRecords,
+        WorldTypeModifierOwnerKind.StructureType => StructureTypeRecords,
+        WorldTypeModifierOwnerKind.HarvestType => HarvestTypeRecords,
+        WorldTypeModifierOwnerKind.PlotNodeType => PlotNodeTypeRecords,
+        WorldTypeModifierOwnerKind.ResearchType => ResearchTypeRecords,
+        WorldTypeModifierOwnerKind.ConsumableType => ConsumableTypeRecords,
+        WorldTypeModifierOwnerKind.HarvestActionType => HarvestActionTypeRecords,
+        WorldTypeModifierOwnerKind.PassiveAbilityType => PassiveAbilityTypeRecords,
+        WorldTypeModifierOwnerKind.TimeRuneType => TimeRuneTypeRecords,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(kind), kind, "no type-modifier record census for this taxonomy"),
+    };
+
     internal WorldTypeModifierBindings(Func<string, Type?> resolveType)
     {
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));

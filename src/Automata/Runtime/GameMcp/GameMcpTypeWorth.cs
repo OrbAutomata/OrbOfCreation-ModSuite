@@ -91,9 +91,17 @@ internal static class GameMcpTypeWorth
     /// modifier currently sitting on it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A record with neither a magnitude nor a source has nothing to say and is omitted, which is
     /// what silence means outside a table. A distributor carrying nothing still has one: its total
     /// is a flat hundred percent, and that is a reading rather than an absence.
+    /// </para>
+    /// <para>
+    /// The name is the game's own word for the record wherever the game authors one; see
+    /// <see cref="GameMcpModifierPropertyWords"/>. Rows keep the order the world table holds them
+    /// in, which is by internal name: that name is the record's stable identity, so the page's order
+    /// does not move when a word is added to the census.
+    /// </para>
     /// </remarks>
     private static JObject? Property(
         GameWorldState world,
@@ -101,7 +109,10 @@ internal static class GameMcpTypeWorth
         ref bool handedDown,
         ref bool own)
     {
-        var entry = new JObject { ["property"] = record.Property };
+        var entry = new JObject
+        {
+            ["property"] = GameMcpModifierPropertyWords.Word(record.OwnerKind, record.Property),
+        };
         var said = false;
 
         if (string.Equals(

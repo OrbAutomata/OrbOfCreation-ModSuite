@@ -19,6 +19,12 @@ namespace OrbModding.ProfileTests;
 /// who paid in. The two magnitudes never share a key, because one of them is already inside the
 /// member numbers a caller is holding beside it.
 /// </summary>
+/// <remarks>
+/// Each record is named by the word the game's own tooltip prints for it, so a reader compares the
+/// wire against the screen rather than against a field name only the assembly says. A record the
+/// game words nowhere keeps its internal name and is pinned as such — see
+/// <see cref="GameMcpModifierPropertyWordsTests"/> for the whole census.
+/// </remarks>
 public sealed class GameMcpTypeWorthTests
 {
     private static readonly Guid Focus = Guid.Parse("a0a00000-0000-4000-8000-000000000001");
@@ -37,10 +43,11 @@ public sealed class GameMcpTypeWorthTests
     /// whoever placed it.
     /// </summary>
     /// <remarks>
-    /// <c>powerMod</c> is hand-computed off the pinned fold: seed 100, Raw +20, then one
-    /// MultiDiminishing multiply of 1 + 0.5, which is 180 and not 100 × 1.2 × 1.5 read in the other
-    /// order. <c>experienceRateMod</c> carries nothing and totals to a flat 100, which is a reading
-    /// rather than an absence.
+    /// "Artifact Power" is <c>powerMod</c> under the game's own word, hand-computed off the pinned
+    /// fold: seed 100, Raw +20, then one MultiDiminishing multiply of 1 + 0.5, which is 180 and not
+    /// 100 × 1.2 × 1.5 read in the other order. <c>experienceRateMod</c> carries nothing and totals
+    /// to a flat 100, which is a reading rather than an absence; it and <c>masteryLevel</c> keep
+    /// their internal names because this class authors no display word for either.
     /// </remarks>
     [Fact]
     public void A_type_says_what_each_record_is_worth_and_names_everyone_who_paid_in()
@@ -76,10 +83,10 @@ public sealed class GameMcpTypeWorthTests
                 "    [amount | effect | order | source]",
                 "    2 | raw | 0 | Deep Insight a0d000",
                 "",
-                "    property: maxTypeSlots",
+                "    property: Type Slots",
                 "    value: 2",
                 "",
-                "    property: powerMod",
+                "    property: Artifact Power",
                 "    distributedTotalPercent: 180",
                 "    sources 2",
                 "    [amount | effect | order | source]",
@@ -94,6 +101,11 @@ public sealed class GameMcpTypeWorthTests
     /// numbers are its own, they appear nowhere else on the wire, and the block says so under a
     /// different key.
     /// </summary>
+    /// <remarks>
+    /// This is the class the game words most fully: all four records here print the tooltip's own
+    /// name rather than <c>cooldownSpeed</c>, <c>costMod</c>, <c>elementalResonance</c> and
+    /// <c>power</c>.
+    /// </remarks>
     [Fact]
     public void A_spell_type_answers_with_its_own_numbers_and_never_a_handed_down_total()
     {
@@ -110,16 +122,16 @@ public sealed class GameMcpTypeWorthTests
                 "  howToRead: These are this type's own numbers, and they apply on top of " +
                 "whatever wears the type.",
                 "  properties 4:",
-                "    property: cooldownSpeed",
+                "    property: Cooldown Speed",
                 "    value: 100",
                 "",
-                "    property: costMod",
+                "    property: Spell Cost",
                 "    value: 80",
                 "",
-                "    property: elementalResonance",
+                "    property: Elemental Resonance",
                 "    value: 200",
                 "",
-                "    property: power",
+                "    property: Spell Power",
                 "    value: 150",
                 "    sources 1",
                 "    [amount | effect | order | source]",
@@ -148,6 +160,12 @@ public sealed class GameMcpTypeWorthTests
     /// record actually holds. A record whose class is not mapped here would answer with sources and
     /// no magnitude, which reads as a distributor whose total went missing.
     /// </summary>
+    /// <remarks>
+    /// The expected name comes from the word table rather than a second list here, so the twenty-two
+    /// records answer under whatever disposition the census gave each of them — twenty a game word,
+    /// and <c>bonusFlashRate</c> and <c>flashEffectMod</c> their own names, because the pinned build
+    /// declares a display string for both and then routes neither.
+    /// </remarks>
     [Theory]
     [InlineData("augmentResonance")]
     [InlineData("bonusCritRate")]
@@ -180,13 +198,17 @@ public sealed class GameMcpTypeWorthTests
         var block = Assert.Single(results.Values<JObject>())!;
         var row = Assert.Single(block["worth"]!["properties"]!.Values<JObject>())!;
 
-        Assert.Equal(property, (string?)row["property"]);
+        Assert.Equal(
+            GameMcpModifierPropertyWords.Word(WorldTypeModifierOwnerKind.SpellType, property),
+            (string?)row["property"]);
         Assert.NotNull(row["value"]);
     }
 
     /// <summary>
     /// The two other classes whose records include a value: an alchemy type's level and a crafting
     /// type's magnitude increment are numbers those types hold, not bonuses they handed anywhere.
+    /// The crafting record prints "Magnitude" because the game prints it; the alchemy level stands
+    /// under its own name because the game prints nothing for it.
     /// </summary>
     [Fact]
     public void The_other_value_records_answer_with_the_number_their_own_type_holds()
@@ -198,7 +220,7 @@ public sealed class GameMcpTypeWorthTests
 
         var crafting = Assert.Single(
             Detail(Bench)["worth"]!["properties"]!.Values<JObject>())!;
-        Assert.Equal("magnitudeIncrement", (string?)crafting["property"]);
+        Assert.Equal("Magnitude", (string?)crafting["property"]);
         Assert.Equal("7", (string?)crafting["value"]);
     }
 
@@ -446,7 +468,9 @@ public sealed class GameMcpTypeWorthTests
                 "plot-node-actions", "concept-instances", "plot-authoring",
                 "crafting-recipe-state", "crafting-decisions", "consumable-inventory",
                 "loadouts", "harvest-elements", "plot-actions", "action-queue-slots",
-            })
+                            // The three type rosters whose wire name is not their collector's name.
+                "harvest-types", "harvest-action-types", "consumable-families",
+})
             .Distinct(StringComparer.Ordinal)
             .Select(name => new WorldCollectionCategoryStatus(
                 name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))

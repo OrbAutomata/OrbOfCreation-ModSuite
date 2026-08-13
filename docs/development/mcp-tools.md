@@ -1628,7 +1628,11 @@ asked two ways. A detail read on a type carries a `worth` block; every other ent
 byte-identical to what it was, because no published type record names it.
 
 `properties` is one entry per modifier record the type carries, and each entry states exactly one
-magnitude under the name that says which kind it is. `distributedTotalPercent` is a record that
+magnitude under the name that says which kind it is. `property` is the word the game's own tooltip
+prints for that record — `Artifact Power`, not `powerMod` — so a reader compares the wire against
+the screen. Where the pinned build authors no display word, the internal name stands exactly as it
+is rather than being translated into an invented one, and a record nobody has ruled on is refused
+rather than passed through under its field name. `distributedTotalPercent` is a record that
 *hands its bonus down* — the moment a modifier lands, a transformed copy is pushed into every
 member, so the member value the surface already publishes **already contains it**. Reading it beside
 a member's number and multiplying is how one bonus becomes two. `value` is a record holding a number
@@ -1649,10 +1653,10 @@ row: uuid=a0f000, name=Ember, typeLevel=0, typeXp=0, isVisible=yes, isElemental=
 worth:
   howToRead: These are this type's own numbers, and they apply on top of whatever wears the type.
   properties 4:
-    property: cooldownSpeed
+    property: Cooldown Speed
     value: 100
 
-    property: power
+    property: Spell Power
     value: 150
     sources 1
     [amount | effect | order | source]
