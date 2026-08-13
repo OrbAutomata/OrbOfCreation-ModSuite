@@ -128,15 +128,15 @@ same idiom and no producer invents its own formatting.
   ```
   rows 6/229 next=6
   these 6 share: state=completed, maximum=1, affordable=unpriced
-  [id | name | level | state | maximum | affordable]
-  00246c | Gather Space | 1 | completed | 1 | unpriced
+  [id | name | level]
+  00246c | Gather Space | 1
   ```
 
   ```
   rows 20/20
   these 20 share: active=0, add=unverified, remove=inactive
-  [plot | action | active | add | remove]
-  Moon Garden fd0000 | Plant Moondust fe0000 | 0 | unverified | inactive
+  [plot | action]
+  Moon Garden fd0000 | Plant Moondust fe0000
   ```
 
   `total` and `nextOffset` live on the count line, never on a row — and on the count line of the
@@ -144,15 +144,24 @@ same idiom and no producer invents its own formatting.
   search could not read) counts that list on its own, because a total and a resume offset belong to
   the set they were measured over.
   - **The column set is a fact about the category, not about the page.** It is complete, and in the
-    same order, on every page of every category. A column every row on this page agrees on is still
-    a column; nothing removes a column from the header or from a row. Where the producer declares
-    its columns the header is that declaration in that order, and where it does not, the page's
-    widest row settles it — so the row a page happens to start with can never reorder it.
+    same order, on every page of every category — but it is named across *both* header lines. The
+    share line takes the columns this page holds one value for, in declaration order; the header
+    names the rest, in declaration order. Between the two, every declared column is named exactly
+    once, so a reader who has only ever seen this page still learns that the category has them.
+    Where the producer declares its columns that declaration is the order, and where it does not,
+    the page's widest row settles it — so the row a page happens to start with can never reorder it.
+  - **A column the share line settled leaves the rows, and a column that varies is never settled.**
+    The two are one rule read from both sides. A page that printed `uncapped` on twenty rows under
+    a line that had just said all twenty share it said one fact twenty-one times; a page that
+    hoisted a column whose values differ would be lying about them. Neither is a judgement call:
+    one value over the whole page means the line, anything else means a column.
   - **The share line adds, it never subtracts.** It is page-scoped (`these 6 share:`, never `all`
-    beside `/229`), and it is said only when it is shorter than the repetition it names, so a page
-    never carries a summary longer than the rows under it. Its values hold no comma, so a reader
-    splits the line on `, ` and then the first `=`; free prose stays in its cell, where the column
-    boundary says where it ends.
+    beside `/229`), and it is said only when it is shorter than what it takes off the page, so a
+    page never carries a summary longer than the repetition it replaces. It never takes the last
+    column either: a page whose every column is constant keeps its table, because rows with nothing
+    left in them are not rows. Its values hold no comma, so a reader splits the line on `, ` and
+    then the first `=`; free prose stays in its cell, where the column boundary says where it
+    ends.
   - **One delimiter.** Every table separates its columns with ` | `, whatever its cells hold.
   - **An empty page is the same table with no rows**: `rows 0/180` and then the column set. It has
     no row to read that set off, so the producer states it, and a portable test holds every
@@ -222,6 +231,12 @@ than printing itself into a cell.
 - **A refusal is one line**: `refused (ERR_NOT_FOUND): The spell Beam Burst you tried to cancel is
   not currently active.` A decision block reads the same way, verdict first and sentence last:
   `equip: no (ERR_LIMIT) maximumAmount=0: Every slot in this loadout is in use.`
+- **A canned sentence is said once per response.** The first line carrying a given `ERR_` sentence
+  carries the whole of it; every later line in the same response that would repeat that exact
+  sentence carries the class alone. A response with one refusal in it is therefore byte-identical
+  to what it was, and a batch of two hundred blocked rows stops paying for the same paragraph two
+  hundred times. Sentences a producer wrote for the occasion — the ones holding this row's own
+  numbers — are not canned and are never deduplicated.
 - **A value beside its ceiling is `43/45`**, the way the screen shows it, and **a value that moved
   is `1 -> 2`**. A pair whose halves are equal describes a move that did not happen, so the page
   states the value once: a toggle that was already off answers `on: no`, never `on: no -> no`. The
@@ -2078,10 +2093,11 @@ fact does not apply, using a word, never a number that would be read as one.
 | `unslotted` | the loadout does not hold this recipe, so it occupies no position |
 | `-` | nothing here: no value published, an empty collection, an empty string, or a cell with nothing in it |
 
-This costs almost nothing to read, because a column holding one value across a page is said once in
-the header: a page of uncapped upgrades renders `these 6 share: maximum=uncapped` on one line. What
-it buys is that the header stops shifting with world state — the page that taught nothing about caps
-was exactly the page whose every upgrade was uncapped.
+This costs almost nothing to read, because a column holding one value across a page is said once on
+the share line and then not on any row: a page of uncapped upgrades renders `these 6 share:
+maximum=uncapped` and the column is not in the bracket below it. What it buys is that the set of
+columns a category has stops shifting with world state — the page that taught nothing about caps was
+exactly the page whose every upgrade was uncapped.
 
 Where one column already answered a second column's question, the second is gone rather than
 totalized — a flag whose only job was to explain the absence beside it says nothing once the

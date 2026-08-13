@@ -79,12 +79,13 @@ public sealed class GameMcpListColumnsTests
     }
 
     /// <summary>
-    /// A page whose every row says the same word names the word once beside the count as well as in
-    /// the rows — and names the columns either way, because a reader who has only ever seen this
-    /// page still has to be able to learn from it that ceilings exist.
+    /// A page whose every row says the same word names the word once beside the count instead of on
+    /// every row — and still names the columns, because a reader who has only ever seen this page
+    /// has to be able to learn from it that ceilings exist. The share line and the header together
+    /// are the declared set, in declaration order; neither on its own is.
     /// </summary>
     [Fact]
-    public void A_page_of_uncapped_upgrades_says_uncapped_once_and_still_shows_both_ceiling_columns()
+    public void A_page_of_uncapped_upgrades_says_uncapped_once_and_still_names_both_ceiling_columns()
     {
         var page = GameMcpTextPage.Render(Page(
             Upgrade(Uncapped, bounded: false),
@@ -99,10 +100,11 @@ public sealed class GameMcpListColumnsTests
             "maximum=uncapped, requirements=met, affordable=unpriced",
             page,
             StringComparison.Ordinal);
-        Assert.Equal(
-            "[id | name | level | queuedLevels | screen | state | maximum | requirements | " +
-            "affordable]",
-            Bracket(page));
+
+        // Every column the share line settled leaves the rows: a page that printed `uncapped` six
+        // more times under a line that just said all six share it is the same fact said seven times.
+        Assert.Equal("[id | name]", Bracket(page));
+        Assert.DoesNotContain("| uncapped |", page, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -419,10 +421,14 @@ public sealed class GameMcpListColumnsTests
 
         // The word the whole model exists to keep off the surface.
         Assert.DoesNotContain("purchasable", page, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(
-            "[id | name | level | queuedLevels | screen | state | maximum | requirements | " +
-            "affordable]",
-            Bracket(page));
+
+        // The two axes this test is about both vary here, so both are columns. The four that do not
+        // vary are named once above the rows, and between the two lines the declared set is whole.
+        Assert.Contains(
+            "these 3 share: queuedLevels=0, screen=Magic, requirements=met, affordable=unpriced",
+            page,
+            StringComparison.Ordinal);
+        Assert.Equal("[id | name | level | state | maximum]", Bracket(page));
     }
 
     /// <summary>
@@ -467,10 +473,15 @@ public sealed class GameMcpListColumnsTests
         // The catch-all carries every upgrade in the game, so it is never the word for a row a
         // screen panel also carries — only for the row no screen panel carries at all.
         Assert.Equal("Magic", (string?)rows[0]["screen"]);
-        Assert.Equal(
-            "[id | name | level | queuedLevels | screen | state | maximum | requirements | " +
-            "affordable]",
-            Bracket(GameMcpTextPage.Render(Page(memberships, upgrades))));
+
+        // Five rows, five different answers, so the column that this page exists for is on the page
+        // rather than settled above it — the share line takes constants and nothing else.
+        var page = GameMcpTextPage.Render(Page(memberships, upgrades));
+        Assert.Contains(
+            "these 5 share: queuedLevels=0, requirements=met, affordable=unpriced",
+            page,
+            StringComparison.Ordinal);
+        Assert.Equal("[id | name | level | screen | state | maximum]", Bracket(page));
     }
 
     /// <summary>
@@ -688,7 +699,7 @@ public sealed class GameMcpListColumnsTests
         var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(ChallengeWorld(
                 Challenge(Uncapped, availableToRun: true, maxLevelReached: false, run: 3),
-                Challenge(Capped, availableToRun: true, maxLevelReached: false, run: 3)),
+                Challenge(Capped, availableToRun: false, maxLevelReached: false, run: 0)),
                 generation: 4246),
             "challenges", 0, 50));
         var page = GameMcpTextPage.Render(response);
@@ -696,7 +707,13 @@ public sealed class GameMcpListColumnsTests
 
         Assert.Equal("available", (string?)row["state"]);
         Assert.Equal("passed", (string?)row["run"]);
+        Assert.Equal("locked", (string?)Rows(response)[1]["state"]);
+        Assert.Equal("idle", (string?)Rows(response)[1]["run"]);
+
+        // Two columns that move apart from each other are two columns on the page: neither can be
+        // settled above the rows, because neither holds one value for the whole page.
         Assert.Contains("| available | passed |", page, StringComparison.Ordinal);
+        Assert.Contains("| locked | idle |", page, StringComparison.Ordinal);
         Assert.Equal("[id | name | state | run | level]", Bracket(page));
     }
 

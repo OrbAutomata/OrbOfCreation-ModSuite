@@ -13,10 +13,12 @@ public sealed class GameMcpTextPageTests
 {
     /// <summary>
     /// The count, then what the rows share, then the columns: three header lines a reader can rely
-    /// on, and a column set that is complete whatever the page's rows happen to hold.
+    /// on, and a column set that is complete whatever the page's rows happen to hold. Complete
+    /// across both lines — a column the share line states is named there, with its value, and never
+    /// again on the rows beneath it.
     /// </summary>
     [Fact]
-    public void A_page_of_rows_names_every_column_it_has_and_then_says_them_once_per_row()
+    public void A_page_of_rows_names_every_column_once_and_never_twice()
     {
         var page = Render(@"{
             'rows':[
@@ -28,9 +30,95 @@ public sealed class GameMcpTextPageTests
             new[]
             {
                 "rows 2/180 next=56",
-                "[id | name | category | level | queuedLevels]",
-                "006061be | Constitution | structures | 2259 | 0",
-                "0a1b2c3d | Wit | structures | 12 | 0",
+                "these 2 share: category=structures, queuedLevels=0",
+                "[id | name | level]",
+                "006061be | Constitution | 2259",
+                "0a1b2c3d | Wit | 12",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// The T3 contract, both ways at once, on the shape a live round found it in: the worth block
+    /// printed <c>these 32 share: effect=raw, order=0</c> and then <c>| raw | 0</c> on all 32 rows,
+    /// while the one column that varied — who each contribution came from — was the column it left
+    /// out. A declared-constant column leaves the rows; a varying column is never omitted.
+    /// </summary>
+    [Fact]
+    public void A_share_line_takes_the_constant_columns_and_never_the_varying_one()
+    {
+        var page = Render(@"{'sources':[
+            {'source':'Alchemic Study','amount':322,'effect':'raw','order':0},
+            {'source':'Refined Practice','amount':331,'effect':'raw','order':0},
+            {'source':'Tempered Insight','amount':347,'effect':'raw','order':0},
+            {'source':'Deep Reading','amount':350,'effect':'raw','order':0}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "sources 4",
+                "these 4 share: effect=raw, order=0",
+                "[source | amount]",
+                "Alchemic Study | 322",
+                "Refined Practice | 331",
+                "Tempered Insight | 347",
+                "Deep Reading | 350",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// Two pages of one category still name one column set: what the share line says plus what the
+    /// header says is the declaration, in declaration order, on every page. A narrower header is
+    /// never a column silently dropped — the line directly above it says which column went and what
+    /// it read there.
+    /// </summary>
+    [Fact]
+    public void The_share_line_and_the_header_together_name_the_whole_declared_set()
+    {
+        const string Declaring = "'columns':['uuid','name','state','run','level'],";
+        var first = Render("{" + Declaring + @"'rows':[
+            {'uuid':'011677','name':'Specialization: Storm','state':'available','run':'idle','level':1},
+            {'uuid':'0f75c0','name':'Focus: Inventory','state':'available','run':'idle','level':1},
+            {'uuid':'1a2b3c','name':'Weakened Scholar','state':'available','run':'idle','level':2},
+            {'uuid':'2b3c4d','name':'Speed: Scholar','state':'available','run':'idle','level':3}],
+            'total':98,'nextOffset':4}");
+        var second = Render("{" + Declaring + @"'rows':[
+            {'uuid':'3c4d5e','name':'Speed: Workshop','state':'locked','run':'idle','level':0},
+            {'uuid':'4d5e6f','name':'Increased Difficulty','state':'available','run':'queued','level':2},
+            {'uuid':'5e6f70','name':'Speed: Rituals','state':'locked','run':'idle','level':0},
+            {'uuid':'6f7081','name':'Weakened Zeal','state':'available','run':'queued','level':1}],
+            'total':98}");
+
+        Assert.Equal("these 4 share: state=available, run=idle", first.Split('\n')[1]);
+        Assert.Equal("[id | name | level]", first.Split('\n')[2]);
+        Assert.Equal("[id | name | state | run | level]", second.Split('\n')[1]);
+        Assert.DoesNotContain("share:", second, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A page whose every column is constant keeps its table. Rows with nothing left in them are
+    /// not rows, and a share line that emptied them would have said the page had four of something
+    /// while showing four blank lines.
+    /// </summary>
+    [Fact]
+    public void A_page_whose_every_column_is_constant_keeps_its_table()
+    {
+        var page = Render(@"{'rows':[
+            {'category':'upgrades','affordable':'already_maxed'},
+            {'category':'upgrades','affordable':'already_maxed'},
+            {'category':'upgrades','affordable':'already_maxed'},
+            {'category':'upgrades','affordable':'already_maxed'}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "rows 4",
+                "[category | affordable]",
+                "upgrades | already_maxed",
+                "upgrades | already_maxed",
+                "upgrades | already_maxed",
+                "upgrades | already_maxed",
             },
             page.Split('\n'));
     }
@@ -71,10 +159,10 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// The round-9 defect, in the shape it was found in: two adjacent reads of one unchanged
-    /// category came back three columns wide and four columns wide, because the five rituals on
-    /// page one happened to share a level the next twenty-seven did not. What a page shows is a
-    /// fact about the category; only the share line is allowed to notice the coincidence.
+    /// A coincidence too small to be worth a line is not one. Two rituals happening to share a
+    /// level is a column the share line would spend more characters naming than the rows spend
+    /// repeating, so the page keeps its whole header and says the value twice — which is also what
+    /// keeps a two-row page and a twenty-row page of one category looking alike.
     /// </summary>
     [Fact]
     public void A_column_every_row_agrees_on_is_still_a_column()
@@ -103,12 +191,12 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// The share line adds; it never subtracts, so it has to be worth its own bytes. Six rows that
-    /// repeat a long word earn it, and two rows that repeat a short one do not — which is the page
-    /// size the old header was widest on.
+    /// The share line has to be worth its own bytes, measured against what it takes off the page:
+    /// the column's label out of the header and its value out of every row. Six rows that repeat a
+    /// long word earn it, and two rows that repeat a short one do not.
     /// </summary>
     [Fact]
-    public void The_share_line_is_said_only_when_it_is_shorter_than_the_repetition_it_names()
+    public void The_share_line_is_said_only_when_it_is_shorter_than_what_it_takes_off_the_page()
     {
         var wide = Render(@"{'rows':[
             {'uuid':'00246c','name':'Gather Space','affordable':'already_maxed','available':false},
@@ -128,13 +216,13 @@ public sealed class GameMcpTextPageTests
             {
                 "rows 6/229 next=6",
                 "these 6 share: affordable=already_maxed, available=no",
-                "[id | name | affordable | available]",
-                "00246c | Gather Space | already_maxed | no",
-                "00246d | Gather Time | already_maxed | no",
-                "00246e | Gather Wit | already_maxed | no",
-                "00246f | Gather Will | already_maxed | no",
-                "002470 | Gather Void | already_maxed | no",
-                "002471 | Gather Vim | already_maxed | no",
+                "[id | name]",
+                "00246c | Gather Space",
+                "00246d | Gather Time",
+                "00246e | Gather Wit",
+                "00246f | Gather Will",
+                "002470 | Gather Void",
+                "002471 | Gather Vim",
             },
             wide.Split('\n'));
         Assert.DoesNotContain("share:", narrow, StringComparison.Ordinal);
@@ -168,8 +256,9 @@ public sealed class GameMcpTextPageTests
             line => line.StartsWith("these ", StringComparison.Ordinal));
 
         Assert.Equal("these 6 share: available=no, affordable=already_maxed", share);
+        Assert.Equal("[id | name | reason]", page.Split('\n')[2]);
         Assert.Contains(
-            "00246c | Gather Space | no | already_maxed | " +
+            "00246c | Gather Space | " +
             "The game keeps this locked, and says nothing about what would unlock it.",
             page,
             StringComparison.Ordinal);
@@ -343,15 +432,15 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// A block too big for a cell is not too big for a cell every row fills the same way. Twenty
-    /// rows carrying the same refusal used to render as twenty paragraphs, because one constant
-    /// nobody could fit in a column disqualified the whole page from being a table; the length
-    /// relaxation that fixed it survives the column staying where it belongs. The agromancy page
-    /// this was found on now says two words instead, so the fixture is the retired shape and the
-    /// rule is what still has to hold for any long page constant.
+    /// A block too big for a cell is not too big for a share line. Twenty rows carrying the same
+    /// refusal used to render as twenty paragraphs, because one constant nobody could fit in a
+    /// column disqualified the whole page from being a table; the length relaxation that fixed it
+    /// now pays for itself, because the long constant is said once instead of once per row. The
+    /// agromancy page this was found on now says two words instead, so the fixture is the retired
+    /// shape and the rule is what still has to hold for any long page constant.
     /// </summary>
     [Fact]
-    public void A_constant_nobody_could_fit_in_a_cell_keeps_its_column_and_its_content()
+    public void A_constant_nobody_could_fit_in_a_cell_is_said_once_on_the_share_line()
     {
         var page = Render(@"{'rows':[
             {'plot':{'uuid':'14060e','name':'Dreamberry'},'active':0,
@@ -372,9 +461,9 @@ public sealed class GameMcpTextPageTests
             {
                 "rows 2",
                 "these 2 share: add=" + Refusal,
-                "[plot | active | add]",
-                "Dreamberry 14060e | 0 | " + Refusal,
-                "Sunfruit 27b41a | 2 | " + Refusal,
+                "[plot | active]",
+                "Dreamberry 14060e | 0",
+                "Sunfruit 27b41a | 2",
             },
             page.Split('\n'));
     }
@@ -512,6 +601,106 @@ public sealed class GameMcpTextPageTests
         });
 
         Assert.Equal("description: Binds mana to unseen energies.", page);
+    }
+
+    /// <summary>
+    /// A canned refusal sentence is said once per response. The class rides every occurrence,
+    /// because that is what a caller branches on; the sentence explains the class, and a reader who
+    /// met it four lines up learns nothing from meeting it again. A live round paid for nine
+    /// distinct sentences fifty-nine times.
+    /// </summary>
+    [Fact]
+    public void A_canned_refusal_sentence_is_said_once_per_response()
+    {
+        const string Locked = "The game keeps this locked, and says nothing about what would " +
+            "unlock it.";
+        var page = Render(@"{'results':[
+            {'uuid':'01273b','name':'Fortunate',
+             'purchase':{'available':false,'reasonCode':'ERR_LOCKED','reason':'" + Locked + @"'}},
+            {'uuid':'02e0cd','name':'Formation',
+             'purchase':{'available':false,'reasonCode':'ERR_LOCKED','reason':'" + Locked + @"'}},
+            {'uuid':'03f1de','name':'Psionic',
+             'purchase':{'available':false,'reasonCode':'ERR_LOCKED','reason':'" + Locked + @"'}}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "results 3:",
+                "  uuid: 01273b",
+                "  name: Fortunate",
+                "  purchase: no (ERR_LOCKED): " + Locked,
+                string.Empty,
+                "  uuid: 02e0cd",
+                "  name: Formation",
+                "  purchase: no (ERR_LOCKED)",
+                string.Empty,
+                "  uuid: 03f1de",
+                "  name: Psionic",
+                "  purchase: no (ERR_LOCKED)",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// A response holding one refusal is byte for byte what it always was, and a refusal with no
+    /// class to carry it keeps its sentence however often it is said — the class is what makes the
+    /// short form readable, so without one there is no short form.
+    /// </summary>
+    [Fact]
+    public void A_lone_refusal_and_a_classless_one_keep_their_whole_sentence()
+    {
+        Assert.Equal(
+            "refused (ERR_STATE): This is already running.",
+            Render(@"{'status':'refused','reasonCode':'ERR_STATE','reason':'This is already running.'}"));
+        Assert.Equal(
+            new[] { "equip: no: Nothing says why.", "unequip: no: Nothing says why." },
+            Render(@"{
+                'equip':{'available':false,'reason':'Nothing says why.'},
+                'unequip':{'available':false,'reason':'Nothing says why.'}}").Split('\n'));
+    }
+
+    /// <summary>
+    /// One entity page has one shape however many ids the call named. A block whose fields are all
+    /// flat satisfied every test for a one-row table, so the same plot node came back as an
+    /// indented block inside a two-id batch and as a <c>[row]</c> header over one comma-joined
+    /// <c>key=value</c> line when asked for alone. <c>results</c> holds documents, and a document is
+    /// never a row.
+    /// </summary>
+    [Fact]
+    public void One_id_and_the_same_id_in_a_batch_render_the_same_block()
+    {
+        const string Oak = @"{'uuid':'2163ef','name':'Oak Tree','category':'plot-nodes',
+            'row':{'state':'available','remainingQuantity':12,'masteryLevel':4}}";
+        var alone = Render(@"{'results':[" + Oak + "]}");
+        var batched = Render(@"{'results':[" + Oak + @",
+            {'uuid':'f05fdf','name':'Water Spring','category':'plot-nodes',
+             'row':{'state':'locked','remainingQuantity':0,'masteryLevel':0}}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "results 1:",
+                "  uuid: 2163ef",
+                "  name: Oak Tree",
+                "  category: plot-nodes",
+                "  row: state=available, remainingQuantity=12, masteryLevel=4",
+            },
+            alone.Split('\n'));
+        Assert.Equal(
+            new[]
+            {
+                "results 2:",
+                "  uuid: 2163ef",
+                "  name: Oak Tree",
+                "  category: plot-nodes",
+                "  row: state=available, remainingQuantity=12, masteryLevel=4",
+                string.Empty,
+                "  uuid: f05fdf",
+                "  name: Water Spring",
+                "  category: plot-nodes",
+                "  row: state=locked, remainingQuantity=0, masteryLevel=0",
+            },
+            batched.Split('\n'));
     }
 
     private static string Render(string json) =>

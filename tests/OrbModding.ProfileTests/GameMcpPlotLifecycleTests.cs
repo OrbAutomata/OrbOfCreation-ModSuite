@@ -103,8 +103,10 @@ public sealed class GameMcpPlotLifecycleTests
     /// The page this lane was called for. Twenty pairs whose prerequisite the game will not
     /// evaluate until the action starts used to repeat a 133-character sentence and its
     /// <c>ERR_</c> class in two columns of every row — 6,710 bytes for twenty rows of five facts.
-    /// Words carry the same two decisions, the page stays one table with every column on it, and
-    /// what a reader has to hold in their head is a vocabulary instead of a paragraph.
+    /// Words carry the same two decisions, and what a reader has to hold in their head is a
+    /// vocabulary instead of a paragraph. The three the whole page agrees on are said once above
+    /// the rows and then not said again: a share line that named them and left them on every row
+    /// under it was the same fact printed twenty-one times.
     /// </summary>
     [Fact]
     public void A_page_of_blocked_pairs_says_the_block_in_one_word_per_cell()
@@ -117,9 +119,8 @@ public sealed class GameMcpPlotLifecycleTests
 
         Assert.Equal("rows 20/20", lines[0]);
         Assert.Equal("these 20 share: active=0, add=unverified, remove=inactive", lines[1]);
-        Assert.Equal("[plot | action | active | add | remove]", lines[2]);
-        Assert.Equal("Moon Garden 0 fd0000 | Plant Moondust 0 fe0000 | 0 | unverified | inactive",
-            lines[3]);
+        Assert.Equal("[plot | action]", lines[2]);
+        Assert.Equal("Moon Garden 0 fd0000 | Plant Moondust 0 fe0000", lines[3]);
         Assert.Equal(23, lines.Length);
 
         // The regression this retires, in the units it was reported in.
