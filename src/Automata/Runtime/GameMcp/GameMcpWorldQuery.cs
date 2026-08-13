@@ -1082,8 +1082,12 @@ internal static class GameMcpWorldQuery
     /// false</c>, so the game's own predicate composes in that order. <c>IsAvailableToRun()</c> is
     /// then <c>availabilityPrerequisites.Check(level)</c> and every previous challenge completed —
     /// a genuine lock the player meets, which is why this category gets the word at all. It is not
-    /// the same question as the run column beside it: a challenge whose last run passed is
-    /// <see cref="GameMcpListColumns.Available"/> again at the next level.
+    /// the same question as the run column beside it, and it is not the same question as
+    /// <c>level</c> either: <c>PassChallenge()</c> increments <c>level</c> and sets the run word to
+    /// <c>passed</c>, and <c>ChallengeListVariable.CycleOut()</c> calls <c>EmptyState()</c>, which
+    /// returns that word to <c>idle</c> at the boundary that ends the run. So the run word is
+    /// in-run status alone, <c>level</c> is the durable count of wins, and a challenge that has been
+    /// beaten is <see cref="GameMcpListColumns.Available"/> again at the next level.
     /// </remarks>
     private static string ChallengeLifecycle(in WorldChallenge challenge) =>
         challenge.MaximumLevelReached ? GameMcpListColumns.Completed :

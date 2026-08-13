@@ -104,26 +104,6 @@ internal static class GameMcpAutomationFeatures
         return names;
     }
 
-    /// <summary>The display name a feature id already spells, so a row can tell when it is news.</summary>
-    internal static string TitleCased(string name)
-    {
-        var result = new System.Text.StringBuilder(name.Length);
-        var startOfWord = true;
-        for (var index = 0; index < name.Length; index++)
-        {
-            var character = name[index];
-            if (character == '_')
-            {
-                result.Append(' ');
-                startOfWord = true;
-                continue;
-            }
-            result.Append(startOfWord ? char.ToUpperInvariant(character) : character);
-            startOfWord = false;
-        }
-        return result.ToString();
-    }
-
     /// <summary>
     /// The two suite-wide switches that silence every feature at once. Every answer about what is
     /// on carries them under the same condition, whether it lists the buttons or commits a flip.

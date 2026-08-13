@@ -2066,16 +2066,12 @@ public sealed class Plugin : BaseUnityPlugin
                 ["feature"] = feature.Name,
             };
 
-            // On six of seven rows the display name is the id in title case, so a whole column
-            // repeated the column beside it. The one feature whose screen name is not its id says
-            // so, and every other row is read straight off the id the verb already takes.
-            if (!string.Equals(
-                    feature.DisplayName,
-                    GameMcpAutomationFeatures.TitleCased(feature.Name),
-                    StringComparison.Ordinal))
-            {
-                row["name"] = feature.DisplayName;
-            }
+            // Every row names its feature the way the Mods rail names it. Publishing the name only
+            // where it was not the id in title case saved a column and left `-` on six of seven
+            // rows, which reads as a feature the suite could not name, while the reader was
+            // silently expected to derive the other six by a rule the page never stated. The name
+            // is a suite-side constant and the same one `suite_health` and a commit already print.
+            row["name"] = feature.DisplayName;
             row["on"] = feature.IsOn(config);
             features.Add(row);
         }

@@ -745,12 +745,20 @@ per-pass capture. All 125 authored recipes on the pinned build are `Discover`, s
 today, but a recipe on the other branch reads `state: unreadable` rather than being quietly called
 locked.
 
-**`challenges` says two things, in two columns.** `state` is the lifecycle above; `run` is
+**`challenges` says three things, in three columns.** `state` is the lifecycle above; `run` is
 `ChallengeSO.state` — `idle`, `queued`, `active`, `passed`, `failed`, the game's own five, one
-tooltip per value. They are not the same question and they disagree on the same row: a challenge
-whose last run `passed` is `available` again at the next level. The two shared the name `state`
-before, which is why the run word is the one that moved; a queue commit's post-state reports `run`
-for the same reason.
+tooltip per value; `level` is how many times this challenge has been beaten. The two shared the
+name `state` before, which is why the run word is the one that moved; a queue commit's post-state
+reports `run` for the same reason.
+
+**`run` is in-run status, and only that. The durable "I have beaten this" fact is `level ≥ 1`.**
+`ChallengeSO.PassChallenge()` increments `level` and then sets the run word to `passed`, and
+`ChallengeListVariable.CycleOut()` calls `EmptyState()`, which puts the run word back to `idle` at
+the world-cycle boundary that ends the run. So `passed` survives only the window between winning
+and the next cycle — a read of 98 challenges on a save with fourteen at `level: 1` and one at
+`level: 2` found `run` reading `idle` or `queued` on every single row. A caller told to look for
+`state: available` beside `run: passed` is looking in the column that has already been cleared;
+`level` is the one that remembers.
 
 Two rules make that a lifecycle rather than a verdict:
 
@@ -1249,10 +1257,15 @@ artifact however deep its stack, matching native `EquipmentListVariable.GetTypes
 ### Challenge decision loop
 
 The `challenges` category is both the per-entity read and the pre-decision surface for
-`time_challenge`. Every row carries the native idle/queued/active/passed/failed state, current and
-maximum level, native next difficulty/reward, availability/completion verdicts, selection and offer
-membership, and explicit `select`, `queue`, and, when active, `abandon` decisions. Challenge
+`time_challenge`. Every row carries the native idle/queued/active/passed/failed run word, current
+and maximum level, native next difficulty/reward, availability/completion verdicts, selection and
+offer membership, and explicit `select`, `queue`, and, when active, `abandon` decisions. Challenge
 selection has no resource price, so a row does not invent empty costs or affordability.
+
+To read "which of these have I already beaten, and can I run them again?", page `challenges` and
+read two columns: `level` — one per win, so `level: 1` is beaten once and `level: 0` is never — and
+`state`, which says `available` while the challenge can be selected again. `run` answers a
+different question, the one the *current* run is in, and it is `idle` on every row outside a run.
 
 `time_challenge(mode="state")` is the screen itself, answered when a caller asks for it: ordered
 fully named `selected` and `offers`, selection capacity, first-draw state, rerolls, and one `reroll`
@@ -2536,11 +2549,12 @@ and the write is admitted rather than refused against a capacity nobody read.
 `suite_automation` is the seven green/gray automation buttons as booleans, because that is what
 they are: `auto_buy`, `auto_cast`, `auto_concept`, `auto_harvest`, `auto_items`, `auto_scribe`, and
 `mentor` are each a `{Disabled, Active}` setting with no third state. `mode="list"` returns every
-feature as `{feature, on}` and takes nothing else; it also carries the two suite-wide
+feature as `{feature, name, on}` and takes nothing else; it also carries the two suite-wide
 switches when either is silencing all seven, because a list of on buttons would otherwise answer a
-different question than the caller asked. A row adds `name` only where the screen's name is not the
-feature id in title case — `mentor` is "Orb Mentor" — because on the other six a name column was
-the id column spelled with a capital letter.
+different question than the caller asked. Every row carries the name the Mods rail renders — "Auto
+Buy", "Orb Mentor" — because a page that published one only where it was not the feature id in
+title case left `-` on six of seven rows, which reads as a feature the suite could not name, and
+asked the reader to derive the rest by a rule the page never stated.
 
 Both switches are present exactly when they are overriding, and never otherwise:
 `automationEnabled: false` appears exactly when the suite's global automation toggle is off, and

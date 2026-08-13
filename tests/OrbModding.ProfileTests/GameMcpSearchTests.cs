@@ -116,6 +116,32 @@ public sealed class GameMcpSearchTests
     }
 
     /// <summary>
+    /// The tool description is the only account of the filter a caller reads before using it, and it
+    /// went on promising the three purchasables long after the filter reached eight categories — so
+    /// a caller who believed it never asked for the locked alchemy recipe the filter would have
+    /// found. The description names every category the filter reads a word from, and the two are
+    /// held together here.
+    /// </summary>
+    [Fact]
+    public void The_search_tool_describes_the_state_filter_it_actually_has()
+    {
+        var description = (string?)Assert.Single(
+            GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate!["name"] == "world_search")!["description"] ??
+            string.Empty;
+
+        Assert.All(
+            new[]
+            {
+                "upgrades", "research", "structures", "alchemy-recipes",
+                "glyphs", "rituals", "plot-nodes", "challenges",
+            },
+            category => Assert.Contains(category, description, StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            "only upgrades, research and structures", description, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// One word the player heard can name two families, and which one they meant is the next thing
     /// they need. The line counts only the keywords the query itself hit, so it stays short without
     /// a cap, and it is silent when there was nothing to split.
