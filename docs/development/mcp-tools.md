@@ -2804,9 +2804,15 @@ block repeats the block immediately above it says it once: adjacent duplicate li
 dropped one at a time, which never caught a panel that painted its whole last block twice. Nor did
 either catch an inspected panel painting the same entity from its own object, which is not the same
 reference and so was appended in full — every statistic a second time as a bare value block, 40% of
-the response and the half with nothing in it. **A source every line of which the body already says
-is not appended at all.** Whole-source is the level this is judged at: dropping a repeated *line*
-would take the second statistic that happens to read `0` and leave its label with nothing under it. A cycle or hard
+the response and the half with nothing in it. **A block every line of which the body already says
+is not appended at all.** Block is the level this is judged at: dropping a repeated *line* would
+take the second statistic that happens to read `0` and leave its label with nothing under it. The
+alt tree is one such block rather than a special case — it used to be kept whenever it differed from
+the primary block as a *sequence*, which is exactly what a resource pill does: it threads its values
+through the nested statistic definitions that explain them and its alt paints the same values bare,
+so the two sequences differ line for line while the alt says nothing new. That body ended in the
+same five numbers twice with nothing to tell the copies apart, and the closing-block pass could not
+reach it because the earlier copy was interleaved rather than adjacent. A cycle or hard
 depth/node bound is rendered as one explanatory line rather than recursively expanding forever.
 Unity rich-text markup is stripped. The list of tags is closed so that prose holding an angle
 bracket survives, which means it has to hold every word the pinned build actually authors: a census

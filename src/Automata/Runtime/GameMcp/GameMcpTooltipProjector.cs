@@ -49,14 +49,34 @@ internal static class GameMcpTooltipProjector
     {
         var start = lines.Count;
         AppendTooltip(tooltip, lines, visited, ref truncated);
-        for (var index = start; index < lines.Count; index++)
+        if (SaysNothingNew(lines, start, lines, start, lines.Count))
+            lines.RemoveRange(start, lines.Count - start);
+    }
+
+    /// <summary>
+    /// Whether every line of a candidate block already appears in the body before
+    /// <paramref name="bodyLength"/> — the one rule this projector drops a block by.
+    /// </summary>
+    /// <remarks>
+    /// Judged per block rather than per line on purpose: dropping a repeated <em>line</em> would
+    /// take the second statistic that happens to read <c>0</c> and leave its label with no value
+    /// under it, while a block every line of which is already on the page adds nothing to remove.
+    /// </remarks>
+    private static bool SaysNothingNew(
+        IReadOnlyList<string> lines,
+        int bodyLength,
+        IReadOnlyList<string> candidate,
+        int candidateStart,
+        int candidateEnd)
+    {
+        for (var index = candidateStart; index < candidateEnd; index++)
         {
             var said = false;
-            for (var earlier = 0; !said && earlier < start; earlier++)
-                said = string.Equals(lines[earlier], lines[index], StringComparison.Ordinal);
-            if (!said) return;
+            for (var earlier = 0; !said && earlier < bodyLength; earlier++)
+                said = string.Equals(lines[earlier], candidate[index], StringComparison.Ordinal);
+            if (!said) return false;
         }
-        lines.RemoveRange(start, lines.Count - start);
+        return true;
     }
 
     private static void AppendSources(
@@ -127,23 +147,28 @@ internal static class GameMcpTooltipProjector
         AppendLine(lines, tooltip.GetName(), ref truncated);
         AppendLine(lines, tooltip.GetDisplayType(), ref truncated);
         AppendLine(lines, tooltip.GetDescription(), ref truncated);
-        var primaryStart = lines.Count;
         AppendNodes(tooltip.GetTooltipNodes(), lines, visited, ref truncated);
-        if (tooltip.HasAltTooltips())
+        if (!tooltip.HasAltTooltips()) return;
+
+        // The alt block is one more block, judged by the one rule. Comparing it to the primary
+        // block as a whole sequence was too narrow: a resource pill's alt paints the bare values a
+        // reader has already seen threaded through the nested statistic definitions, so the two
+        // sequences differ line for line while the alt says nothing new — and the whole body ended
+        // in the same five numbers twice with nothing to tell the copies apart. The repeated-tail
+        // pass could not reach it either, because the earlier copy was interleaved rather than
+        // adjacent.
+        var alternate = new List<string>();
+        var alternateVisited = new HashSet<ITooltipable>(visited, ReferenceComparer.Instance);
+        var alternateTruncated = false;
+        AppendNodes(
+            tooltip.GetAltTooltipNodes(), alternate, alternateVisited, ref alternateTruncated);
+        if (!SaysNothingNew(lines, lines.Count, alternate, 0, alternate.Count))
         {
-            var alternate = new List<string>();
-            var alternateVisited = new HashSet<ITooltipable>(visited, ReferenceComparer.Instance);
-            var alternateTruncated = false;
-            AppendNodes(
-                tooltip.GetAltTooltipNodes(), alternate, alternateVisited, ref alternateTruncated);
-            if (!SameLines(lines, primaryStart, alternate))
-            {
-                for (var index = 0; index < alternate.Count; index++)
-                    AppendLine(lines, alternate[index], ref truncated);
-                visited.UnionWith(alternateVisited);
-            }
-            if (alternateTruncated) truncated = true;
+            for (var index = 0; index < alternate.Count; index++)
+                AppendLine(lines, alternate[index], ref truncated);
+            visited.UnionWith(alternateVisited);
         }
+        if (alternateTruncated) truncated = true;
     }
 
     private static void AppendNodes(
@@ -189,21 +214,6 @@ internal static class GameMcpTooltipProjector
             return;
         }
         lines.Add(plain);
-    }
-
-    private static bool SameLines(
-        IReadOnlyList<string> primary,
-        int primaryStart,
-        IReadOnlyList<string> alternate)
-    {
-        if (primary.Count - primaryStart != alternate.Count) return false;
-        for (var index = 0; index < alternate.Count; index++)
-            if (!string.Equals(
-                    primary[primaryStart + index],
-                    alternate[index],
-                    StringComparison.Ordinal))
-                return false;
-        return true;
     }
 
     private sealed class ReferenceComparer : IEqualityComparer<ITooltipable>

@@ -90,6 +90,71 @@ public sealed class GameMcpTooltipProjectorTests
     }
 
     /// <summary>
+    /// The shape the whole-source rule could not reach. A resource pill threads its values through
+    /// the nested statistic definitions that explain them, and its alt tree paints the same values
+    /// bare. The two sequences differ line for line, so comparing them as sequences kept the alt,
+    /// and the earlier copy was interleaved rather than adjacent, so the repeated-tail pass could
+    /// not see it either — the body ended in the same numbers twice with nothing to tell the copies
+    /// apart. The rule is the same one every other block is judged by: a block whose every line is
+    /// already on the page adds nothing.
+    /// </summary>
+    [Fact]
+    public void An_alternate_tree_that_repeats_values_already_threaded_through_the_body_is_dropped()
+    {
+        var tooltip = new FakeTooltip(
+            "Glyph Upgrades",
+            new TooltipNode("Quantity:"),
+            new TooltipNode("How many you are holding."),
+            new TooltipNode("58/193"),
+            new TooltipNode("Capacity:"),
+            new TooltipNode("The most you can hold."),
+            new TooltipNode("193"),
+            new TooltipNode("(+193, x1)"))
+        {
+            DisplayType = "Advancement Resource",
+            Description = "Spent on advancements.",
+        };
+        tooltip.AltNodes.Add(new TooltipNode("Quantity:"));
+        tooltip.AltNodes.Add(new TooltipNode("58/193"));
+        tooltip.AltNodes.Add(new TooltipNode("Capacity:"));
+        tooltip.AltNodes.Add(new TooltipNode("193"));
+        tooltip.AltNodes.Add(new TooltipNode("(+193, x1)"));
+
+        var result = GameMcpTestHarness.Json(
+            GameMcpTooltipProjector.Project(tooltip, null, null));
+
+        Assert.Equal(
+            "Glyph Upgrades\nAdvancement Resource\nSpent on advancements.\n" +
+            "Quantity:\nHow many you are holding.\n58/193\n" +
+            "Capacity:\nThe most you can hold.\n193\n(+193, x1)",
+            (string?)result["text"]);
+    }
+
+    /// <summary>
+    /// An alt tree that says one new thing is kept whole, including the lines it shares with the
+    /// body — dropping those would leave the new line under a label that is no longer there.
+    /// </summary>
+    [Fact]
+    public void An_alternate_tree_with_one_new_line_is_kept_whole()
+    {
+        var tooltip = new FakeTooltip("Ward", new TooltipNode("Shield:"), new TooltipNode("4"))
+        {
+            DisplayType = "Effect",
+            Description = "Absorbs damage.",
+        };
+        tooltip.AltNodes.Add(new TooltipNode("Shield:"));
+        tooltip.AltNodes.Add(new TooltipNode("4"));
+        tooltip.AltNodes.Add(new TooltipNode("Next tier: 9"));
+
+        var result = GameMcpTestHarness.Json(
+            GameMcpTooltipProjector.Project(tooltip, null, null));
+
+        Assert.Equal(
+            "Ward\nEffect\nAbsorbs damage.\nShield:\n4\nShield:\n4\nNext tier: 9",
+            (string?)result["text"]);
+    }
+
+    /// <summary>
     /// Adjacent duplicate lines were suppressed one at a time, which never caught a panel painting
     /// its whole last block twice — half a body saying nothing the half above it had not.
     /// </summary>
