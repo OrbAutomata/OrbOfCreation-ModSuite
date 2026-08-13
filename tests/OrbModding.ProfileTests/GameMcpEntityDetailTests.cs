@@ -186,6 +186,66 @@ public sealed class GameMcpEntityDetailTests : IDisposable
     }
 
     /// <summary>
+    /// The game develops research on leeway **or** on being below both caps, so a spent leeway
+    /// under open caps blocks nothing. `blocked` was computed from the whole gate while the reason
+    /// was picked off the leeway term alone, and a live round read `blocked: no` sitting beside
+    /// "Native leeway exhausted." — the block contradicting itself in two adjacent fields. Three
+    /// states, three words, and the middle one passes.
+    /// </summary>
+    [Fact]
+    public void A_spent_leeway_under_open_caps_says_it_is_not_what_blocks()
+    {
+        var world = new GameWorldState
+        {
+            Research = PublicationTable<WorldResearch>.Create(new[]
+            {
+                Research(
+                    ReadyResearchId, available: true, level: 4, maxLevel: 20,
+                    baseRequirement: 5, effectiveRequirement: 5, leeway: 0,
+                    stillHasLeeway: false),
+            }),
+            CollectedAtEpoch = 43,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var leeway = Assert.IsType<JObject>(
+            Explain(world, ReadyResearchId, generation: 943)["blockers"]!["leeway"]);
+
+        // A check that passed carries no class and no sentence, so the block says `blocked: no`
+        // and stops. What it must never do again is say `no` and then explain a block.
+        Assert.False((bool)leeway["blocked"]!);
+        Assert.Null(leeway["reasonCode"]);
+        Assert.Null(leeway["reason"]);
+        Assert.True(GameMcpDecisionReason.IsPassing("native_develops_below_caps"));
+    }
+
+    /// <summary>
+    /// A spell in no slot used to refuse with the artifact loadout's sentence — "None of this
+    /// artifact is equipped." on a spell recipe, read straight off the wire in a live round. Two
+    /// different things are equipped in two different places, so the sentence names which.
+    /// </summary>
+    [Fact]
+    public void An_unequipped_spell_refuses_in_spell_words_not_artifact_words()
+    {
+        var world = new GameWorldState
+        {
+            SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[]
+            {
+                Spell(ReadySpellId, discovered: true, hidden: false, masteryLevel: 3),
+            }),
+            CollectedAtEpoch = 42,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var canUse = Assert.IsType<JObject>(
+            Explain(world, ReadySpellId, generation: 942)["predicates"]!["canUse"]);
+
+        Assert.False((bool)canUse["available"]!);
+        Assert.Equal("ERR_NOT_FOUND", (string?)canUse["reasonCode"]);
+        Assert.Equal("This spell is not in any spell slot.", (string?)canUse["reason"]);
+    }
+
+    /// <summary>
     /// Where a spell can move is the slot list, and the slot list is one read for the whole bar.
     /// Inlined per spell, explaining eight spells delivered the same roster eight times.
     /// </summary>
@@ -576,14 +636,16 @@ public sealed class GameMcpEntityDetailTests : IDisposable
     }
 
     /// <summary>
-    /// Read alone, <c>suiteVerdict: Met</c> beside an entity the game is holding shut says
-    /// "requirements satisfied, go buy it" — and the purchase then refuses. Both facts are true
-    /// and the response never named the gap, which made the green light a trap. This is the
-    /// post-prestige shape: levels reset to nought, no authored condition published, and the
-    /// game's own gate shut.
+    /// The gap between "the authored rows are met" and "the game still refuses" is named by the
+    /// two fields that already carry it: <c>suiteVerdict</c>, scoped to the rows it read, and
+    /// <c>predicates.available</c> with the game's own no. The <c>authority</c> paragraph that used
+    /// to sit between them said the first of those again in prose, and a live round emitted it nine
+    /// times byte-identical — eight of them on entities whose <c>root</c> is "no conditions", where
+    /// it declared a set of authored rows met that does not exist. This is the post-prestige shape:
+    /// levels reset to nought, no authored condition published, and the game's own gate shut.
     /// </summary>
     [Fact]
-    public void RequirementsMetOnAnEntityTheGameHoldsShutNameTheJudgementThatDecides()
+    public void RequirementsMetOnAnEntityTheGameHoldsShutCarryNoRestatingParagraph()
     {
         var id = Guid.Parse("34444444-4444-4444-8444-4444444444a1");
         var reading = new RawUpgradeSample(
@@ -604,10 +666,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.False((bool)result["predicates"]!["available"]!["available"]!);
         Assert.Equal("ERR_LOCKED", (string?)result["predicates"]!["available"]!["reasonCode"]);
         Assert.Equal("Met", (string?)result["requirements"]!["suiteVerdict"]);
-        Assert.Equal(
-            "These authored requirement rows are met, and they are not what is holding this shut. " +
-            "The game's own gate refuses, and the game's answer is the one an action gets.",
-            (string?)result["requirements"]!["authority"]);
+        Assert.Null(result["requirements"]!["authority"]);
 
         // One class per fact: the row keeps the fact and gives up its second opinion about it.
         // Prerequisites unmet and nothing bought is the first of the three lifecycle words, and
@@ -1045,7 +1104,8 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         int baseRequirement,
         int effectiveRequirement,
         int leeway,
-        PublicationTable<WorldResearchRequirementAdjustment>? adjustments = null) => new(
+        PublicationTable<WorldResearchRequirementAdjustment>? adjustments = null,
+        bool stillHasLeeway = true) => new(
             id,
             level,
             queuedLevels: 0,
@@ -1062,7 +1122,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             canDevelop: available && (maxLevel <= 0 || level < maxLevel),
             withinDevelopRange: available && (maxLevel <= 0 || level < maxLevel),
             meetsLevelRequirements: level + leeway >= effectiveRequirement,
-            stillHasLeeway: true,
+            stillHasLeeway,
             belowArtificialMaxLevel: true,
             belowMaxInvestmentLevel: maxLevel <= 0 || level < maxLevel,
             purchasedLevels: level,

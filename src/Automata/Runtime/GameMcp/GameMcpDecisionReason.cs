@@ -89,6 +89,7 @@ internal static class GameMcpDecisionReason
         "passed" or "native_verdict_matched" or "committed" or
         "queue_room_available" or "below_level_cap" or
         "requirement_met" or "recipe_discovered" or "native_leeway_available" or
+        "native_develops_below_caps" or
         "below_research_cap" or "visible" or "ready" or "can_buy" or
         "drain_available" or "output_capacity_available" => true,
         _ => false,
@@ -124,7 +125,8 @@ internal static class GameMcpDecisionReason
         // The named thing is not there.
         "unknown_uuid" or "not_world_projected" or
         "offer_not_in_explainable_world" or "resource_not_published" or
-        "automation_entry_not_published" or "not_created" or "not_equipped" or "none_owned" or
+        "automation_entry_not_published" or "not_created" or "not_equipped" or
+        "spell_not_equipped" or "none_owned" or
         "not_active" or "not_a_duration_ritual" or
         "no_cancellable_usage" or "nothing_to_discard" or "no_pending_request" or
         "no_pending_target" or "no_valid_target" or "no_open_modal" or "no_other_slot" or
@@ -263,7 +265,12 @@ internal static class GameMcpDecisionReason
             "The game's own headroom for this is below what the call asked for.",
         "equipment_type_full" => "Every slot this artifact type may occupy is in use.",
         "maximum_stacks" => "This artifact is already equipped to its stack limit.",
+        // Two things are equipped in this game and they are equipped in different places, so the
+        // sentence has to name which one it is talking about. One code covered both, and a live
+        // round read "None of this artifact is equipped." off a spell recipe's `canUse` — the
+        // artifact loadout is not where spells live, so the reader was sent to the wrong screen.
         "not_equipped" => "None of this artifact is equipped.",
+        "spell_not_equipped" => "This spell is not in any spell slot.",
         "not_created" => "This artifact has not been crafted yet.",
         "single_slot" => "There is no other slot to move to.",
         "no_other_slot" => "There is no other spell slot to move to.",
@@ -300,6 +307,9 @@ internal static class GameMcpDecisionReason
         "requirements_unmet" => "This does not meet its level requirements yet.",
         "research_leeway_exhausted" =>
             "This research has no leeway left and is at one of its caps.",
+        "native_develops_below_caps" =>
+            "This research has no leeway left, but both its caps are open, " +
+            "which is the game's other route to developing it.",
         "develop_range_refused" =>
             "The game's own develop gate is shut on this research.",
         "cancellable_spells_disabled" =>

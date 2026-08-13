@@ -340,6 +340,44 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.Contains("maximum level", result.Reason, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A live round read this refusal as `Aspect: Workshop [AspectWorkshop]
+    /// (d9f1a5c3-d7de-4819-b234-a15781190650) is already at its maximum level.` — a log line served
+    /// as player prose. The sentence says the player's word for the thing; the asset name and the
+    /// id are identity and ride as the response's own fields.
+    /// </summary>
+    [Fact]
+    public void Maxed_purchase_refusal_names_the_player_word_and_leaks_no_asset_name_or_uuid()
+    {
+        var target = Guid.Parse("d9f1a5c3-d7de-4819-b234-a15781190650");
+        var reading = new RawUpgradeSample(
+            target, level: 10, maxLevel: 10, available: true, queuedLevels: 0,
+            buildTime: BigDouble.Zero, developmentTime: 1d, cachedCostLevel: 10);
+        var world = new GameWorldState
+        {
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(1, new[]
+            {
+                new EntityIdentityName(
+                    target, "UpgradeSO", "Aspect: Workshop", "AspectWorkshop"),
+            }),
+            Upgrades = PublicationTable<WorldUpgrade>.Create(new[]
+            {
+                new WorldUpgrade(in reading, true, true, 0, 10, false, 0d),
+            }),
+        };
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Purchase, 1, 1, "upgrade", target, Guid.Empty,
+            "UpgradeSO", 1, string.Empty, string.Empty, false);
+
+        var result = AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
+            command, world, ServiceActionResult.Skipped(CommonActionResultCodes.Skipped),
+            1, 1);
+
+        Assert.NotNull(result);
+        Assert.Equal(
+            "Aspect: Workshop is already at its maximum level.", result!.Reason);
+    }
+
     [Fact]
     public void Wrong_tool_redirect_uses_the_created_equipments_player_action()
     {

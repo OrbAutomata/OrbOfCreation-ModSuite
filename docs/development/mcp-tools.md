@@ -1593,12 +1593,13 @@ unevaluable suite math, a different owner/level, or a disagreement makes that id
 `unavailable`; a disagreement returns both verdicts and `native_verdict_mismatch`.
 
 Requirements met while the game still holds the entity shut is not a disagreement — the authored
-rows are one gate among several, and the game folds in conditions it never published as rows. The
-block says so in that case, under `authority`: these rows are met, they are not what is holding this
-shut, and the game's own answer is the one an action would get. Without that line a caller reads a
-green requirement block beside a locked entity and concludes the suite is lying about one of them. The installed
-v1.05 contract additionally pins that a structure quantity requirement reads purchased `quantity`,
-not `selfBonusLevels` or an effective/total level.
+rows are one gate among several, and the game folds in conditions it never published as rows.
+`suiteVerdict` scopes itself to the rows it read, and `predicates.available` says what the game's
+own gate answers, with its reason code. There is no `authority` paragraph beside them: it restated
+`suiteVerdict: Met` in prose, and eight of its nine appearances in a live round sat under `root: no
+conditions`, declaring a set of authored rows met for entities that have no rows at all. The
+installed v1.05 contract additionally pins that a structure quantity requirement reads purchased
+`quantity`, not `selfBonusLevels` or an effective/total level.
 
 Research blocks separate base, scaled, and native effective requirement thresholds and retain
 every direct adjustment's UUID, source native type, modifier type, amount, order, and passive state,
@@ -1823,7 +1824,15 @@ A boundary that lands there is a defect in that producer, not a new kind of no.
 A check that **passed** carries no class at all, and no sentence either. There is no success code:
 every affirmative producer word — `requirement_met`, `recipe_discovered`, `visible`, `ready`,
 `can_buy`, `below_level_cap`, `below_research_cap`, `native_leeway_available`,
-`queue_room_available`, `drain_available`, `output_capacity_available` — renders as a bare `yes`.
+`native_develops_below_caps`, `queue_room_available`, `drain_available`,
+`output_capacity_available` — renders as a bare `yes`.
+
+A blocker's reason states the same verdict its `blocked` flag does. Research leeway is the case that
+proved the rule needed writing down: the game develops on leeway **or** on being below both caps, so
+a spent leeway under open caps blocks nothing. The reason used to be picked off the leeway term
+alone while `blocked` was computed from the whole gate, and the block published `blocked: no` beside
+"Native leeway exhausted." — a field contradicting its neighbour. That third state now has its own
+word, `native_develops_below_caps`, and it is a passing one.
 
 What each internal code means is below; the class is how it reaches the wire.
 
