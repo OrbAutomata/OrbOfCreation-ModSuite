@@ -1826,13 +1826,15 @@ those bindings at all. Whether a game exists is the `lifecycle:` line — the sa
 `game_probe` reports — and whether a world is published is the `world:` line: the live publication's
 generation, or `not published`.
 
-**The lifecycle generation counts lifecycle events, not games.** Every accepted observation bumps it
-by one, and there are nine kinds — scene entered, scene exited, runtime ready, save-load started,
-save loaded, reset started, reset completed, NG+ started, registry rebuilt — of which a single save
-load fires several. One load moving it 2 → 9, and a teardown adding two more, are both correct
-readings; the step size is not a count of anything a player did. Only comparison is meaningful: two
-readings that agree describe the same run, and two that differ mean every handle, id and world fact
-held across them is void. That is why `time_prestige` reports it as `{before, after}` beside a sentence
+**The lifecycle generation is an invalidation token, not a counter of loads or games.** Every
+accepted lifecycle observation bumps it by one, and there are nine kinds — scene entered, scene
+exited, runtime ready, save-load started, save loaded, reset started, reset completed, NG+ started,
+registry rebuilt. One thing a player does raises several of them: a scene change is two (exited then
+entered), an initialization is two (registry rebuilt then runtime ready), and a menu-to-save load
+fans out to seven, which is why a load moving it 2 → 9 is a correct reading. The step size answers no
+question and is not a count of anything a player did. Only comparison is meaningful: two readings
+that agree describe the same run, and two that differ mean every handle, id and world fact held
+across them is void. That is why `time_prestige` reports it as `{before, after}` beside a sentence
 saying what happened rather than as a number to subtract.
 
 A lifecycle boundary trashes the published world, so `world:` returns to `not published` the moment

@@ -68,12 +68,13 @@ public readonly struct GameLifecycleSnapshot
     public GameLifecycleState State { get; }
 
     /// <summary>
-    /// One per accepted lifecycle observation — not one per game, load, or reset. All nine
-    /// <see cref="GameLifecycleTransitionKind"/> values bump it by one, and several of them fire for
-    /// a single save load, so a load that moves it 2 to 9 is a correct reading and the step size
-    /// answers no question. Only equality is meaningful: two readings that agree describe the same
-    /// run, and two that differ mean every native reference, id and world fact held across them is
-    /// void.
+    /// An invalidation token, bumped once per accepted lifecycle observation — not once per game,
+    /// load, or reset. All nine <see cref="GameLifecycleTransitionKind"/> values bump it by one, and
+    /// one thing a player does raises several: a scene change is two, an initialization is two, and
+    /// a menu-to-save load fans out to seven, so a load that moves it 2 to 9 is a correct reading and
+    /// the step size answers no question. Only equality is meaningful: two readings that agree
+    /// describe the same run, and two that differ mean every native reference, id and world fact held
+    /// across them is void.
     /// </summary>
     public long Generation { get; }
 
