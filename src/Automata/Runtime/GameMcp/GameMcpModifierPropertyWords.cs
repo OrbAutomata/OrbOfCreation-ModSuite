@@ -35,6 +35,16 @@ namespace OrbAutomata.GameMcp;
 /// word on (see <see cref="WorldTypeModifierLiveness"/>), so a word here would be a name for a
 /// control nothing is wired to. Four records are in that position on the pinned build.
 /// </para>
+/// <para>
+/// One pair is worded rather than copied, and it is the only one. <c>RitualTypeSO</c>'s static
+/// constructor authors the display string <c>"Ritual Speed"</c> twice — once for the ref named
+/// <c>Speed</c> (backing <c>speed</c>, tooltip id <c>RitualSpeed</c>) and once for the ref named
+/// <c>CompletionRate</c> (backing <c>completionRateMod</c>). Copying the game exactly makes a ritual
+/// type page print one word over two different numbers, which tells a reader less than the internal
+/// names would. So <c>speed</c> keeps the word — it is the ref the game itself named <c>Speed</c> —
+/// and <c>completionRateMod</c> is worded from the game's own ref name instead. The screen still
+/// says "Ritual Speed" for both; a reader comparing the page against it should expect that.
+/// </para>
 /// </remarks>
 internal static class GameMcpModifierPropertyWords
 {
@@ -143,7 +153,9 @@ internal static class GameMcpModifierPropertyWords
                 "chainLengthBonus" => "Ritual Chain Length",
                 "chainPower" => "Ritual Chain Power",
                 "completionCostMod" => "Ritual Cost",
-                "completionRateMod" => "Ritual Speed",
+
+                // The game prints "Ritual Speed" here too; see the class remark.
+                "completionRateMod" => "Ritual Completion Rate",
                 "critDurationMod" => "Ritual Crit Duration",
                 "critPower" => "Ritual Crit Power",
                 "critRating" => "Ritual Crit Rating",

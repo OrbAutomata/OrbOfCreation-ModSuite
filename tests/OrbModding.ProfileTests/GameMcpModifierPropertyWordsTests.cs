@@ -179,25 +179,26 @@ public sealed class GameMcpModifierPropertyWordsTests
     }
 
     /// <summary>
-    /// The game itself prints one word for two ritual records, and the wire says what the game says
-    /// rather than inventing a second word to tell them apart. Pinned because it is the one place a
-    /// reader meets the same name twice in one block, and because a future census that "fixed" it
-    /// would be publishing a word no tooltip has ever shown.
+    /// The game authors "Ritual Speed" for two different ritual records, so copying it exactly makes
+    /// one type page print one word over two numbers. The record the game itself named <c>Speed</c>
+    /// keeps the word; the other is worded from the game's own ref name. Pinned because it is the one
+    /// invented word on the wire, and because a page that shows one word twice cannot be told apart
+    /// from a page that lost a record.
     /// </summary>
     [Fact]
-    public void Two_ritual_records_share_the_one_word_the_game_authors_for_both()
+    public void The_one_word_the_game_authors_twice_becomes_two_a_page_can_tell_apart()
     {
         var words = WorldTypeModifierBindings.Records(WorldTypeModifierOwnerKind.RitualType)
             .Select(property => GameMcpModifierPropertyWords.Word(
                 WorldTypeModifierOwnerKind.RitualType, property))
             .ToArray();
 
-        Assert.Equal(2, words.Count(word => word == "Ritual Speed"));
+        Assert.Equal(words.Length, words.Distinct().Count());
         Assert.Equal(
             "Ritual Speed",
             GameMcpModifierPropertyWords.Word(WorldTypeModifierOwnerKind.RitualType, "speed"));
         Assert.Equal(
-            "Ritual Speed",
+            "Ritual Completion Rate",
             GameMcpModifierPropertyWords.Word(
                 WorldTypeModifierOwnerKind.RitualType, "completionRateMod"));
     }
