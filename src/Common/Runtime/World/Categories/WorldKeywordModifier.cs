@@ -15,13 +15,15 @@ namespace OrbModding.Common.Runtime.World;
 /// every entity.
 /// </para>
 /// <para>
-/// <b>The count is a reach, not a registration.</b> It comes from the authored membership the
-/// keyword category publishes, closed transitively over the structure subtype edge — a bonus on
-/// <c>PrimalStructures</c> reaches Arcanist, Flameweaver and Stormshaper members too, because
+/// <b>The count is a reach, not a registration.</b> It comes from
+/// <see cref="WorldKeywordMembership"/> — the authored membership every published table carries,
+/// closed transitively over the structure subtype edge, so a bonus on <c>PrimalStructures</c>
+/// reaches Arcanist, Flameweaver and Stormshaper members too, because
 /// <c>StructureTypeSO.Initialize()</c> wires a parent's thirteen records into each child's thirteen.
 /// Reading a type's runtime registration list instead would publish one fact twice under two owners
 /// and would still miss that edge. Members are counted once no matter how many of a chain's rungs
-/// name them.
+/// name them, and the same index answers the filter that walks the edge, so the count and the rows
+/// are one derivation.
 /// </para>
 /// <para>
 /// <b>The total is still not a factor for a member value.</b> It is
@@ -76,15 +78,13 @@ internal static class WorldKeywordModifierDeriver
     internal static PublicationTable<WorldKeywordModifier> Build(
         PublicationTable<WorldTypeModifierTotal> totals,
         PublicationTable<WorldEntityKeyword> keywords,
+        PublicationTable<WorldResearch> research,
         PublicationTable<WorldTypeSubtype> subtypes)
     {
-        if (totals.Count == 0 || keywords.Count == 0)
-        {
-            return PublicationTable<WorldKeywordModifier>.Empty;
-        }
+        if (totals.Count == 0) return PublicationTable<WorldKeywordModifier>.Empty;
 
-        var membership = MembershipByKeyword(keywords);
-        var children = ChildrenByParent(subtypes);
+        var membership = WorldKeywordMembership.Build(keywords, research, subtypes);
+        if (membership.IsEmpty) return PublicationTable<WorldKeywordModifier>.Empty;
 
         var rows = new List<WorldKeywordModifier>();
         var reach = new Dictionary<WorldKeywordOwnerKind, HashSet<Guid>>();
@@ -99,7 +99,7 @@ internal static class WorldKeywordModifierDeriver
             if (index == 0 || total.TypeId != current)
             {
                 current = total.TypeId;
-                Reach(current, membership, children, reach, kinds, walked, pending);
+                membership.Reach(current, reach, kinds, walked, pending);
             }
 
             for (var slot = 0; slot < kinds.Count; slot++)
@@ -127,98 +127,6 @@ internal static class WorldKeywordModifierDeriver
         });
 
         return PublicationTable<WorldKeywordModifier>.Create(published, published.Length);
-    }
-
-    /// <summary>
-    /// Every member the keyword reaches, by kind: its own, plus every descendant's, counted once.
-    /// </summary>
-    /// <remarks>
-    /// The walk carries a visited set rather than trusting the edge to be acyclic. The audited build
-    /// authors one chain of depth one, but a cycle would be a hang rather than a wrong number, and
-    /// this is derivation running on a worker thread the cycle would take with it.
-    /// </remarks>
-    private static void Reach(
-        Guid keywordId,
-        Dictionary<Guid, List<WorldEntityKeyword>> membership,
-        Dictionary<Guid, List<Guid>> children,
-        Dictionary<WorldKeywordOwnerKind, HashSet<Guid>> reach,
-        List<WorldKeywordOwnerKind> kinds,
-        HashSet<Guid> walked,
-        Stack<Guid> pending)
-    {
-        reach.Clear();
-        kinds.Clear();
-        walked.Clear();
-        pending.Clear();
-
-        pending.Push(keywordId);
-        walked.Add(keywordId);
-
-        while (pending.Count > 0)
-        {
-            var type = pending.Pop();
-
-            if (membership.TryGetValue(type, out var members))
-            {
-                foreach (var member in members)
-                {
-                    if (!reach.TryGetValue(member.OwnerKind, out var owners))
-                    {
-                        owners = new HashSet<Guid>();
-                        reach.Add(member.OwnerKind, owners);
-                        kinds.Add(member.OwnerKind);
-                    }
-
-                    owners.Add(member.OwnerId);
-                }
-            }
-
-            if (!children.TryGetValue(type, out var descendants)) continue;
-            foreach (var child in descendants)
-            {
-                if (walked.Add(child)) pending.Push(child);
-            }
-        }
-
-        kinds.Sort(static (left, right) => ((int)left).CompareTo((int)right));
-    }
-
-    private static Dictionary<Guid, List<WorldEntityKeyword>> MembershipByKeyword(
-        PublicationTable<WorldEntityKeyword> keywords)
-    {
-        var membership = new Dictionary<Guid, List<WorldEntityKeyword>>();
-        for (var index = 0; index < keywords.Count; index++)
-        {
-            var keyword = keywords[index];
-            if (!membership.TryGetValue(keyword.KeywordId, out var members))
-            {
-                members = new List<WorldEntityKeyword>();
-                membership.Add(keyword.KeywordId, members);
-            }
-
-            members.Add(keyword);
-        }
-
-        return membership;
-    }
-
-    private static Dictionary<Guid, List<Guid>> ChildrenByParent(
-        PublicationTable<WorldTypeSubtype> subtypes)
-    {
-        var children = new Dictionary<Guid, List<Guid>>();
-        for (var index = 0; index < subtypes.Count; index++)
-        {
-            var edge = subtypes[index];
-            if (!children.TryGetValue(edge.TypeId, out var descendants))
-            {
-                descendants = new List<Guid>();
-                children.Add(edge.TypeId, descendants);
-            }
-
-            descendants.Add(edge.SubTypeId);
-        }
-
-        return children;
     }
 }
 

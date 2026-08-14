@@ -401,10 +401,11 @@ internal static class GameWorldFrameDeriver
             });
         var spellSlots = WorldSpellSlotDeriver.Build(frame.SpellSlots);
         var spellTypes = frame.SpellTypes.Build(WorldIdentityDeriver<WorldSpellType>.Shared);
+        var research = frame.Research.Build(WorldIdentityDeriver<WorldResearch>.Shared);
         var typeModifierTotals =
             WorldTypeModifierTotalDeriver.Build(typeModifiers, typeModifierContributions);
-        var keywordModifiers =
-            WorldKeywordModifierDeriver.Build(typeModifierTotals, entityKeywords, typeSubtypes);
+        var keywordModifiers = WorldKeywordModifierDeriver.Build(
+            typeModifierTotals, entityKeywords, research, typeSubtypes);
         var spellTypeResonance = WorldSpellTypeResonanceDeriver.Build(
             spellSlots, spellSlotTypes, spellRelations, spellTypes);
 
@@ -421,7 +422,7 @@ internal static class GameWorldFrameDeriver
             Structures = structures,
             PurchaseCosts = purchaseCosts,
             Upgrades = upgrades,
-            Research = frame.Research.Build(WorldIdentityDeriver<WorldResearch>.Shared),
+            Research = research,
             DoubleVariables = frame.DoubleVariables.Build(WorldIdentityDeriver<WorldNumberVariable>.Shared),
             IntVariables = intVariables,
             BoolVariables = frame.BoolVariables.Build(WorldIdentityDeriver<WorldBoolVariable>.Shared),

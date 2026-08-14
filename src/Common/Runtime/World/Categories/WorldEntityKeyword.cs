@@ -5,7 +5,14 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
 
-/// <summary>Which class authored a keyword row.</summary>
+/// <summary>Which class wears a keyword.</summary>
+/// <remarks>
+/// Thirteen of these author their membership as <see cref="WorldEntityKeyword"/> rows.
+/// <see cref="Research"/> is the fourteenth and has none: <c>ResearchSO.researchTypes</c> is
+/// published inside the research category, with each type's investment levels beside it, so this
+/// enum reaches a class the keyword table itself never emits. See
+/// <see cref="WorldKeywordMembership"/>, which is what joins the two.
+/// </remarks>
 internal enum WorldKeywordOwnerKind
 {
     Structure = 0,
@@ -21,6 +28,7 @@ internal enum WorldKeywordOwnerKind
     PlotNode = 10,
     HarvestElement = 11,
     HarvestAction = 12,
+    Research = 13,
 }
 
 /// <summary>Which authored member a keyword row came off.</summary>
@@ -305,6 +313,189 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
         internal Func<object, IList?>? TypeList { get; }
         internal Func<object, Guid>? KeywordId { get; }
         internal string Failure { get; }
+    }
+}
+
+/// <summary>
+/// Every member one keyword reaches, closed over the subtype chain: the far side of the edge a
+/// type's page names.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The membership edge is the union of two published tables rather than one.
+/// <see cref="WorldEntityKeywordReader"/> publishes thirteen classes; research publishes its own
+/// inside its category, because <c>ResearchSO.researchTypes</c> carries each type's investment
+/// levels there and reading it twice would file one native member under two owners. It is the same
+/// edge either way: <c>ResearchSO.GetBaseDisplayType()</c> joins those types into the word line the
+/// game prints, exactly as <c>StructureSO.GetDisplayType()</c> joins a structure's.
+/// </para>
+/// <para>
+/// One index answers both the count a page prints and the rows a filter returns, so the two cannot
+/// disagree — a page saying eleven things wear this word beside a filtered list handing back ten
+/// would be two answers to one question.
+/// </para>
+/// </remarks>
+internal sealed class WorldKeywordMembership
+{
+    private readonly Dictionary<Guid, List<Member>> _membership;
+    private readonly Dictionary<Guid, List<Guid>> _children;
+
+    private WorldKeywordMembership(
+        Dictionary<Guid, List<Member>> membership,
+        Dictionary<Guid, List<Guid>> children)
+    {
+        _membership = membership;
+        _children = children;
+    }
+
+    /// <summary>One thing that wears a keyword, and the class it belongs to.</summary>
+    internal readonly struct Member
+    {
+        internal Member(Guid ownerId, WorldKeywordOwnerKind ownerKind)
+        {
+            OwnerId = ownerId;
+            OwnerKind = ownerKind;
+        }
+
+        internal Guid OwnerId { get; }
+
+        internal WorldKeywordOwnerKind OwnerKind { get; }
+    }
+
+    internal static WorldKeywordMembership Build(
+        PublicationTable<WorldEntityKeyword> keywords,
+        PublicationTable<WorldResearch> research,
+        PublicationTable<WorldTypeSubtype> subtypes)
+    {
+        var membership = new Dictionary<Guid, List<Member>>();
+        for (var index = 0; index < keywords.Count; index++)
+        {
+            var keyword = keywords[index];
+            Add(membership, keyword.KeywordId, keyword.OwnerId, keyword.OwnerKind);
+        }
+
+        for (var index = 0; index < research.Count; index++)
+        {
+            var entry = research[index];
+            var types = entry.Decision.ResearchTypes;
+            for (var type = 0; type < types.Count; type++)
+            {
+                Add(
+                    membership,
+                    types[type].ResearchTypeId,
+                    entry.EntityId,
+                    WorldKeywordOwnerKind.Research);
+            }
+        }
+
+        var children = new Dictionary<Guid, List<Guid>>();
+        for (var index = 0; index < subtypes.Count; index++)
+        {
+            var edge = subtypes[index];
+            if (!children.TryGetValue(edge.TypeId, out var descendants))
+            {
+                descendants = new List<Guid>();
+                children.Add(edge.TypeId, descendants);
+            }
+
+            descendants.Add(edge.SubTypeId);
+        }
+
+        return new WorldKeywordMembership(membership, children);
+    }
+
+    /// <summary>Whether any published table names a member at all.</summary>
+    internal bool IsEmpty => _membership.Count == 0;
+
+    /// <summary>
+    /// Every member the keyword reaches, by kind: its own, plus every descendant's, counted once.
+    /// </summary>
+    /// <remarks>
+    /// The walk carries a visited set rather than trusting the edge to be acyclic. The audited build
+    /// authors one chain of depth one, but a cycle would be a hang rather than a wrong number, and
+    /// this runs on a worker thread the cycle would take with it. The scratch collections are the
+    /// caller's because the deriver asks this once per published record.
+    /// </remarks>
+    internal void Reach(
+        Guid keywordId,
+        Dictionary<WorldKeywordOwnerKind, HashSet<Guid>> reach,
+        List<WorldKeywordOwnerKind> kinds,
+        HashSet<Guid> walked,
+        Stack<Guid> pending)
+    {
+        if (reach is null) throw new ArgumentNullException(nameof(reach));
+        if (kinds is null) throw new ArgumentNullException(nameof(kinds));
+        if (walked is null) throw new ArgumentNullException(nameof(walked));
+        if (pending is null) throw new ArgumentNullException(nameof(pending));
+
+        reach.Clear();
+        kinds.Clear();
+        walked.Clear();
+        pending.Clear();
+
+        pending.Push(keywordId);
+        walked.Add(keywordId);
+
+        while (pending.Count > 0)
+        {
+            var type = pending.Pop();
+
+            if (_membership.TryGetValue(type, out var members))
+            {
+                foreach (var member in members)
+                {
+                    if (!reach.TryGetValue(member.OwnerKind, out var owners))
+                    {
+                        owners = new HashSet<Guid>();
+                        reach.Add(member.OwnerKind, owners);
+                        kinds.Add(member.OwnerKind);
+                    }
+
+                    owners.Add(member.OwnerId);
+                }
+            }
+
+            if (!_children.TryGetValue(type, out var descendants)) continue;
+            foreach (var child in descendants)
+            {
+                if (walked.Add(child)) pending.Push(child);
+            }
+        }
+
+        kinds.Sort(static (left, right) => ((int)left).CompareTo((int)right));
+    }
+
+    /// <summary>
+    /// Every member the keyword reaches, of every kind, in one set — the same reach the counts are
+    /// taken over, so a caller walking the edge lands on exactly what the page counted.
+    /// </summary>
+    internal HashSet<Guid> Members(Guid keywordId)
+    {
+        var reach = new Dictionary<WorldKeywordOwnerKind, HashSet<Guid>>();
+        Reach(keywordId, reach, new List<WorldKeywordOwnerKind>(), new HashSet<Guid>(), new Stack<Guid>());
+        var members = new HashSet<Guid>();
+        foreach (var owners in reach.Values)
+        {
+            foreach (var owner in owners) members.Add(owner);
+        }
+
+        return members;
+    }
+
+    private static void Add(
+        Dictionary<Guid, List<Member>> membership,
+        Guid keywordId,
+        Guid ownerId,
+        WorldKeywordOwnerKind ownerKind)
+    {
+        if (keywordId == Guid.Empty || ownerId == Guid.Empty) return;
+        if (!membership.TryGetValue(keywordId, out var members))
+        {
+            members = new List<Member>();
+            membership.Add(keywordId, members);
+        }
+
+        members.Add(new Member(ownerId, ownerKind));
     }
 }
 

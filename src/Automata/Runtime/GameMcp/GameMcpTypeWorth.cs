@@ -205,9 +205,16 @@ internal static class GameMcpTypeWorth
 
     /// <summary>
     /// How many things this keyword reaches, per class of thing, with the structure subtype chain
-    /// already closed over. Absent for a type nothing wears a keyword edge to, which includes every
-    /// spell type: a spell's types are published as spell-graph relations rather than keyword rows.
+    /// already closed over. Absent for a type no derived total indexes, which is every spell type:
+    /// all twenty-two <c>SpellTypeSO</c> records hold values rather than distributing, so there is
+    /// no total to key a row off.
     /// </summary>
+    /// <remarks>
+    /// Research types read this like their sibling taxonomies, off the same index. Their membership
+    /// is authored on <c>ResearchSO.researchTypes</c> and published inside the research category,
+    /// beside each type's investment levels, rather than in the keyword table;
+    /// <see cref="WorldKeywordMembership"/> is where the two tables meet.
+    /// </remarks>
     private static JArray? Members(GameWorldState world, Guid keywordId)
     {
         if (!WorldKeywordModifierLookup.TryFind(
@@ -382,6 +389,7 @@ internal static class GameMcpTypeWorth
         WorldKeywordOwnerKind.PlotNode => "plot-nodes",
         WorldKeywordOwnerKind.HarvestElement => "agromancy-elements",
         WorldKeywordOwnerKind.HarvestAction => "agromancy-actions",
+        WorldKeywordOwnerKind.Research => "research",
         _ => throw new InvalidOperationException(
             "a keyword reached member kind '" + kind + "' with no word for it."),
     };

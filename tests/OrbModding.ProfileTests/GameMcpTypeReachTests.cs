@@ -33,6 +33,8 @@ public sealed class GameMcpTypeReachTests
     private static readonly Guid Study = Guid.Parse("c1b00000-0000-4000-8000-000000000001");
     private static readonly Guid Garden = Guid.Parse("c1c00000-0000-4000-8000-000000000001");
     private static readonly Guid Aura = Guid.Parse("c1d00000-0000-4000-8000-000000000001");
+    private static readonly Guid Technology = Guid.Parse("c1e00000-0000-4000-8000-000000000001");
+    private static readonly Guid Metallurgy = Guid.Parse("c1f00000-0000-4000-8000-000000000001");
 
     /// <summary>
     /// The whole Workshop page, line for line. <c>structurePower</c> is hand-computed off the pinned
@@ -175,10 +177,13 @@ public sealed class GameMcpTypeReachTests
         Assert.Equal(
             string.Join('\n', new[]
             {
-                "rows 2/2",
+                "rows 5/5",
                 "[id | name | category | keywords | matchedOn]",
                 "c0c000 | Arcanist | structure-types | - | name",
                 "c1c000 | Garden | agromancy-element-types | - | name",
+                "c1e000 | Technology | research-types | - | internalName",
+                "c0f000 | Font | structures | Arcanist | keywords",
+                "c1f000 | Metallurgy | research | Technology | category",
             }),
             Render(Json(GameMcpWorldQuery.Search(
                 Context(World()), "ar", 0, 50, string.Empty, string.Empty, string.Empty,
@@ -186,11 +191,53 @@ public sealed class GameMcpTypeReachTests
     }
 
     /// <summary>
-    /// Two of the nine store no scalar and no value record whatever, so their page carries no
-    /// <c>row</c> at all rather than an empty one. An empty block printed as a bare dash, which
-    /// reads as a fact the game withheld instead of as a class that has no column of its own — and
-    /// the page a reader wanted is entirely the worth block underneath it.
+    /// A research type names its members like its sibling taxonomies do. The edge is
+    /// <c>ResearchSO.researchTypes</c> — the list <c>GetBaseDisplayType()</c> joins into the word
+    /// line the game prints — published inside the research category because each type's investment
+    /// levels ride there rather than in the keyword table.
     /// </summary>
+    [Fact]
+    public void A_research_type_names_its_members_like_every_other_taxonomy()
+    {
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "uuid: c1e000",
+                "name: Technology",
+                "internalName: technologyResearchType",
+                "category: research-types",
+                "row:",
+                "  linkedDevelopCost: no",
+                "  linkedResourceCost: no",
+                "  linkedResearchTime: no",
+                "  ignoreWhenLevelDependent: no",
+                "  persistThroughReset: no",
+                "  cachedTotalLevel: 0",
+                "  cachedPeakLevel: 0",
+                "  cachedQueuedLevel: 0",
+                "  cachedDevelopingLevel: 0",
+                "  cachedQueuedValue: 0",
+                "  cachedInvestmentLevel: 0",
+                "  cachedPurchasedLevel: 0",
+                "  freeBonusLevels: 0",
+                "  usedBonusLevels: 0",
+                "  maxInvestmentLevel: 0",
+                "worth:",
+                "  howToRead: These totals are already inside each member's own numbers: read them " +
+                "to compare types, and never multiply one into a member.",
+                "  members 1",
+                "  [kind | count]",
+                "  research | 1",
+                "  properties 1:",
+                "    property: Requirements",
+                "    distributedTotalPercent: 130",
+                "    sources 1",
+                "    [amount | effect | order | source]",
+                "    30 | raw | 0 | Deep Insight c1a000",
+            }),
+            Render(Detail(Technology)));
+    }
+
     [Fact]
     public void A_type_the_game_stores_nothing_else_for_answers_with_its_worth_alone()
     {
@@ -239,6 +286,9 @@ public sealed class GameMcpTypeReachTests
             new EntityIdentityName(Garden, "HarvestTypeSO", "Garden", "gardenHarvestType"),
             new EntityIdentityName(
                 Aura, "PassiveAbilityTypeSO", "Aura", "auraPassiveAbilityType"),
+            new EntityIdentityName(
+                Technology, "ResearchTypeSO", "Technology", "technologyResearchType"),
+            new EntityIdentityName(Metallurgy, "ResearchSO", "Metallurgy", "metallurgy"),
         });
 
     private static GameMcpFrameContext Context(GameWorldState world)
@@ -250,9 +300,11 @@ public sealed class GameMcpTypeReachTests
 
     /// <summary>
     /// Three structure types — one worn by two structures, one parent, one child worn by a third —
-    /// plus one agromancy element type carrying a value record and one passive ability type carrying
-    /// nothing at all. Totals and membership come off the real derivers rather than being asserted
-    /// into the fixture.
+    /// plus one agromancy element type carrying a value record, one passive ability type carrying
+    /// nothing at all, and one research type worn by one research entry. Totals and membership come
+    /// off the real derivers rather than being asserted into the fixture, and every entity a keyword
+    /// row names is published as a row of its own category, because a member a page counts is a
+    /// member a caller can walk to.
     /// </summary>
     private static GameWorldState World()
     {
@@ -265,12 +317,15 @@ public sealed class GameMcpTypeReachTests
                 "MergingModifierRecord"),
             (Garden, WorldTypeModifierOwnerKind.HarvestType, "level", "ValueModifierRecord"),
             (Aura, WorldTypeModifierOwnerKind.PassiveAbilityType, "cooldown",
-                "OrderedMultiplierRecord"));
+                "OrderedMultiplierRecord"),
+            (Technology, WorldTypeModifierOwnerKind.ResearchType, "levelRequirementAdjust",
+                "ModifierRecord"));
 
         var contributions = Contributions(
             (Workshop, "structurePower", GameValueModifierType.Raw, 40d, Insight),
             (Workshop, "structurePower", GameValueModifierType.MultiDiminishing, 0.25d, Study),
-            (Primal, "structurePower", GameValueModifierType.Raw, 10d, Insight));
+            (Primal, "structurePower", GameValueModifierType.Raw, 10d, Insight),
+            (Technology, "levelRequirementAdjust", GameValueModifierType.Raw, 30d, Insight));
 
         var keywords = Keywords(
             new WorldEntityKeyword(
@@ -284,11 +339,23 @@ public sealed class GameMcpTypeReachTests
         {
             new WorldTypeSubtype(Primal, 0, Arcanist),
         });
+        var research = PublicationTable<WorldResearch>.Create(new[] { Research(Metallurgy, Technology) });
         var totals = WorldTypeModifierTotalDeriver.Build(records, contributions);
 
         return new GameWorldState
         {
             EntityIdentities = Catalog,
+            Structures = PublicationTable<WorldStructure>.Create(new[]
+            {
+                Structure(Forge), Structure(Anvil), Structure(Font),
+            }),
+            Research = research,
+            ResearchTypes = PublicationTable<WorldResearchType>.Create(new[]
+            {
+                new WorldResearchType(
+                    Technology, false, false, false, false, false, 0, 0, 0, 0, 0, 0, 0,
+                    BigDouble.Zero, BigDouble.Zero, BigDouble.Zero),
+            }),
             StructureTypes = PublicationTable<WorldStructureType>.Create(Sorted(
                 new WorldStructureType(Workshop, 1, 12d, overrideRankDefault: false, 0),
                 new WorldStructureType(Primal, 0, 0d, overrideRankDefault: true, 3),
@@ -306,13 +373,75 @@ public sealed class GameMcpTypeReachTests
             TypeModifierContributions = contributions,
             TypeModifierTotals = totals,
             TypeSubtypes = subtypes,
-            KeywordModifiers = WorldKeywordModifierDeriver.Build(totals, keywords, subtypes),
+            KeywordModifiers = WorldKeywordModifierDeriver.Build(
+                totals, keywords, research, subtypes),
             CollectionCategories =
                 PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
             CollectedAtEpoch = 62,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
     }
+
+    /// <summary>One published structure row: the member a keyword count is a count of.</summary>
+    private static WorldStructure Structure(Guid id)
+    {
+        var modifiers = new RawStructureModifiers(
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero);
+        var reading = new RawStructureSample(
+            id,
+            Guid.Empty,
+            BigDouble.Zero,
+            BigDouble.Zero,
+            unlocked: true,
+            queuedEchos: 0,
+            completedEchos: 0,
+            selfBonusLevels: 0,
+            queueTimeLeft: BigDouble.Zero,
+            currentBuildTime: BigDouble.Zero,
+            flagged: false,
+            baseLevel: 0,
+            queueTimeTotal: 0,
+            debugStructure: false,
+            disabled: false,
+            observableId: 0,
+            insufficientReqPenaltyActive: false,
+            bufferDevelopedQuantity: 0,
+            costPerQuantityId: Guid.Empty,
+            in modifiers);
+        return new WorldStructure(
+            in reading, BigDouble.Zero, hasWorkInFlight: false, BigDouble.Zero,
+            developmentProgress: 0);
+    }
+
+    /// <summary>
+    /// One research entry wearing one research type, which is where that membership is published:
+    /// the keyword table leaves the class out because the research row already carries each type's
+    /// investment levels beside it.
+    /// </summary>
+    private static WorldResearch Research(Guid id, params Guid[] types) => new(
+        id, 0, 0, 0, 0, 0, 0d, false, false, false, false, false, false, false, false, false,
+        false, false, false, 0, 0, 0, 0, 0, false, 0, 0, BigDouble.Zero, 0, 0,
+        PublicationTable<WorldResearchRequirementAdjustment>.Empty,
+        default,
+        new WorldResearchDecision(
+            queueMode: false,
+            multiBuy: 0,
+            queuedLevels: 0,
+            levelsAvailable: 0,
+            currentInvestmentLevel: 0,
+            currentTime: BigDouble.Zero,
+            remainingTime: BigDouble.Zero,
+            timeRatio: BigDouble.Zero,
+            canApplyBonusLevel: false,
+            freeBonusLevels: 0,
+            developmentCostAffordable: false,
+            PublicationTable<WorldResearchCost>.Empty,
+            PublicationTable<WorldResearchInvestment>.Empty,
+            PublicationTable<WorldResearchTypeDecision>.Create(
+                types.Select(type => new WorldResearchTypeDecision(type, 0, 0, 0)).ToArray())));
 
     private static WorldStructureType[] Sorted(params WorldStructureType[] rows)
     {

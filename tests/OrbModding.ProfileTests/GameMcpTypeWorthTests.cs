@@ -495,7 +495,10 @@ public sealed class GameMcpTypeWorthTests
             TypeModifierContributions = contributions,
             TypeModifierTotals = totals,
             KeywordModifiers = WorldKeywordModifierDeriver.Build(
-                totals, keywords, PublicationTable<WorldTypeSubtype>.Empty),
+                totals,
+                keywords,
+                PublicationTable<WorldResearch>.Empty,
+                PublicationTable<WorldTypeSubtype>.Empty),
             CollectionCategories =
                 PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
             CollectedAtEpoch = 61,

@@ -168,6 +168,7 @@ public sealed class WorldTypeModifierDerivationTests
                 (Guid.NewGuid(), WorldKeywordOwnerKind.Structure, arcanist),
                 (Guid.NewGuid(), WorldKeywordOwnerKind.Structure, arcanist),
                 (Guid.NewGuid(), WorldKeywordOwnerKind.Structure, flameweaver)),
+            Research(),
             Subtypes((primal, arcanist), (primal, flameweaver)));
 
         var row = Assert.Single(keywords.AsSpan().ToArray());
@@ -195,6 +196,7 @@ public sealed class WorldTypeModifierDerivationTests
             Keywords(
                 (both, WorldKeywordOwnerKind.Structure, parent),
                 (both, WorldKeywordOwnerKind.Structure, child)),
+            Research(),
             Subtypes((parent, child)));
 
         Assert.Equal(1, Assert.Single(keywords.AsSpan().ToArray()).MemberCount);
@@ -215,6 +217,7 @@ public sealed class WorldTypeModifierDerivationTests
                 (Guid.NewGuid(), WorldKeywordOwnerKind.HarvestElement, type),
                 (Guid.NewGuid(), WorldKeywordOwnerKind.HarvestElement, type),
                 (Guid.NewGuid(), WorldKeywordOwnerKind.HarvestAction, type)),
+            Research(),
             Subtypes());
 
         var rows = keywords.AsSpan().ToArray();
@@ -238,9 +241,40 @@ public sealed class WorldTypeModifierDerivationTests
         var keywords = WorldKeywordModifierDeriver.Build(
             totals,
             Keywords((Guid.NewGuid(), WorldKeywordOwnerKind.Structure, Guid.NewGuid())),
+            Research(),
             Subtypes());
 
         Assert.Equal(0, keywords.Count);
+    }
+
+    /// <summary>
+    /// A research type reaches its entries like every other taxonomy reaches its members. The edge
+    /// is <c>ResearchSO.researchTypes</c> — the same list <c>GetBaseDisplayType()</c> joins into the
+    /// word line the game prints — and it is published inside the research category rather than in
+    /// the keyword table, which is the only reason the count used to be missing.
+    /// </summary>
+    [Fact]
+    public void AResearchTypeCountsTheEntriesThatWearIt()
+    {
+        var technology = Guid.NewGuid();
+        var arcana = Guid.NewGuid();
+        var totals = WorldTypeModifierTotalDeriver.Build(
+            Records((technology, "power", Ordered)),
+            Contributions((technology, "power", Kind.Raw, 25d, 0)));
+
+        var keywords = WorldKeywordModifierDeriver.Build(
+            totals,
+            Keywords(),
+            Research(
+                (Guid.NewGuid(), new[] { technology }),
+                (Guid.NewGuid(), new[] { technology, arcana }),
+                (Guid.NewGuid(), new[] { arcana })),
+            Subtypes());
+
+        var row = Assert.Single(keywords.AsSpan().ToArray());
+        Assert.Equal(technology, row.KeywordId);
+        Assert.Equal(WorldKeywordOwnerKind.Research, row.MemberKind);
+        Assert.Equal(2, row.MemberCount);
     }
 
     /// <summary>
@@ -539,6 +573,46 @@ public sealed class WorldTypeModifierDerivationTests
         return rows.Length == 0
             ? PublicationTable<WorldEntityKeyword>.Empty
             : PublicationTable<WorldEntityKeyword>.Create(rows, rows.Length);
+    }
+
+    /// <summary>
+    /// Research entries wearing their types, which is where that edge is published: the keyword
+    /// table deliberately leaves the class out because a research row already carries each type's
+    /// investment levels beside it.
+    /// </summary>
+    private static PublicationTable<WorldResearch> Research(
+        params (Guid ResearchId, Guid[] Types)[] entries)
+    {
+        var rows = entries
+            .Select(entry => new WorldResearch(
+                entry.ResearchId, 0, 0, 0, 0, 0, 0d, false, false, false, false, false, false,
+                false, false, false, false, false, false, 0, 0, 0, 0, 0, false, 0, 0,
+                BigDouble.Zero, 0, 0,
+                PublicationTable<WorldResearchRequirementAdjustment>.Empty,
+                default,
+                new WorldResearchDecision(
+                    queueMode: false,
+                    multiBuy: 0,
+                    queuedLevels: 0,
+                    levelsAvailable: 0,
+                    currentInvestmentLevel: 0,
+                    currentTime: BigDouble.Zero,
+                    remainingTime: BigDouble.Zero,
+                    timeRatio: BigDouble.Zero,
+                    canApplyBonusLevel: false,
+                    freeBonusLevels: 0,
+                    developmentCostAffordable: false,
+                    PublicationTable<WorldResearchCost>.Empty,
+                    PublicationTable<WorldResearchInvestment>.Empty,
+                    PublicationTable<WorldResearchTypeDecision>.Create(
+                        entry.Types
+                            .Select(type => new WorldResearchTypeDecision(type, 0, 0, 0))
+                            .ToArray()))))
+            .ToArray();
+        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
+        return rows.Length == 0
+            ? PublicationTable<WorldResearch>.Empty
+            : PublicationTable<WorldResearch>.Create(rows, rows.Length);
     }
 
     private static PublicationTable<WorldTypeSubtype> Subtypes(
