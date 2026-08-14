@@ -1295,6 +1295,12 @@ internal static class GameMcpWorldQuery
         },
         "plot-nodes" => new[] { "entityId", "reading.masteryLevel" },
         "challenges" => new[] { "entityId", "level", "state" },
+
+        // Six rows, and the three numbers are the whole comparison between them: a bonus on an
+        // action type distributes into exactly these, so this page is where a reader sees which of
+        // the six a type bonus actually landed on. Withholding two of the three behind a detail read
+        // would cost six calls to compare six rows on the only facts the class holds.
+        "agromancy-actions" => new[] { "entityId", "power", "speed", "costMod" },
         _ => FirstDecisionFields(category),
     };
 
@@ -8167,6 +8173,8 @@ internal static class GameMcpWorldQuery
             Composite(nameof(GameWorldState.SnapshotEntries), world => world.SnapshotEntries),
             Entity("agromancy-elements", nameof(GameWorldState.HarvestElements),
                 world => world.HarvestElements),
+            Entity("agromancy-actions", nameof(GameWorldState.HarvestActions),
+                world => world.HarvestActions),
             Entity(nameof(GameWorldState.TimeRunes), world => world.TimeRunes),
             Entity(nameof(GameWorldState.Glyphs), world => world.Glyphs),
             Entity(nameof(GameWorldState.Consumables), world => world.Consumables),
@@ -8461,6 +8469,11 @@ internal static class GameMcpWorldQuery
             "entityId", "masteryLevel", "masteryXp", "instances", "harvestTime",
             "growthTime", "harvestRate",
         },
+
+        // Every scalar the class stores, which is the whole of what a bonus on this verb can move:
+        // GetScalingInfo() loads exactly these three, with costMod standing in for the drain
+        // modifier as well. Which types the verb wears is the keywords cell, not a column.
+        "harvest-actions" => new[] { "entityId", "power", "speed", "costMod" },
         "harvest-resources" => new[]
         {
             "entityId", "elementId", "resource.entityId", "resource.reading.visible",

@@ -546,6 +546,10 @@ internal static class GameMcpEntityCapabilityMap
         D("snapshot-slots", "AlchemySnapshot|EquipmentSnapshot"),
         D("snapshot-entries", "EquipmentSO|AlchemyRecipeSO"),
         D("agromancy-elements", "HarvestElementSO", GameMcpCommandKind.HarvestLifecycle),
+
+        // The base verb itself carries no capability: game_agromancy acts on an element/action
+        // pair, so the element owns the lifecycle and this roster is read-only.
+        D("agromancy-actions", "HarvestActionSO"),
         D("time-runes", "TimeRuneSO", GameMcpCommandKind.GenericDiscovery,
             GameMcpCommandKind.GenericLevel),
         D("glyphs", "GlyphSO", GameMcpCommandKind.GenericDiscovery,

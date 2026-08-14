@@ -38,6 +38,9 @@ public sealed class GameMcpTypeReachTests
     private static readonly Guid Elixirs = Guid.Parse("c3a00000-0000-4000-8000-000000000001");
     private static readonly Guid Ember = Guid.Parse("c3b00000-0000-4000-8000-000000000001");
     private static readonly Guid Dusk = Guid.Parse("c3c00000-0000-4000-8000-000000000001");
+    private static readonly Guid Weave = Guid.Parse("c4a00000-0000-4000-8000-000000000001");
+    private static readonly Guid Create = Guid.Parse("c4b00000-0000-4000-8000-000000000001");
+    private static readonly Guid Plant = Guid.Parse("c4c00000-0000-4000-8000-000000000001");
 
     /// <summary>
     /// The whole Workshop page, line for line. <c>structurePower</c> is hand-computed off the pinned
@@ -174,19 +177,27 @@ public sealed class GameMcpTypeReachTests
     /// type answers in the same five things every other hit says, under its own category, and the
     /// page's shape is the shape it already had.
     /// </summary>
+    /// <remarks>
+    /// The two agromancy actions and their type ride here because the fixture publishes them, and
+    /// all three are real hits — two on their internal names, one on its native type — rather than
+    /// a widened row: a member a page counts is a member every read surface can reach.
+    /// </remarks>
     [Fact]
     public void Search_finds_the_new_types_and_says_nothing_new_about_them()
     {
         Assert.Equal(
             string.Join('\n', new[]
             {
-                "rows 5/5",
+                "rows 8/8",
                 "[id | name | category | keywords | matchedOn]",
                 "c0c000 | Arcanist | structure-types | - | name",
                 "c1c000 | Garden | agromancy-element-types | - | name",
                 "c1e000 | Technology | research-types | - | internalName",
+                "c4b000 | Create | agromancy-actions | Weave | internalName",
+                "c4c000 | Plant | agromancy-actions | Weave | internalName",
                 "c0f000 | Font | structures | Arcanist | keywords",
                 "c1f000 | Metallurgy | research | Technology | category",
+                "c4a000 | Weave | plot-node-action-types | - | nativeType",
             }),
             Render(Json(GameMcpWorldQuery.Search(
                 Context(World()), "ar", 0, 50, string.Empty, string.Empty, string.Empty,
@@ -252,7 +263,18 @@ public sealed class GameMcpTypeReachTests
             }),
             Render(Walk(Elixirs, "consumables")));
 
-        foreach (var type in new[] { Workshop, Primal, Technology, Elixirs })
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "rows 2/2",
+                "these 2 share: category=agromancy-actions, keywords=Weave, matchedOn=-",
+                "[id | name]",
+                "c4b000 | Create",
+                "c4c000 | Plant",
+            }),
+            Render(Walk(Weave, "agromancy-actions")));
+
+        foreach (var type in new[] { Workshop, Primal, Technology, Elixirs, Weave })
         {
             foreach (var member in Detail(type)["worth"]!["members"]!.Values<JObject>())
             {
@@ -309,6 +331,70 @@ public sealed class GameMcpTypeReachTests
                 "    30 | raw | 0 | Deep Insight c1a000",
             }),
             Render(Detail(Technology)));
+    }
+
+    /// <summary>
+    /// An agromancy action type's members line names a kind that now has a page behind it. The count
+    /// was always printed; until this category existed it named six things <c>world_list</c> could
+    /// not page and the keyword filter could not return, which is the one gap on this surface a
+    /// filter could not close.
+    /// </summary>
+    [Fact]
+    public void An_agromancy_action_type_names_members_a_caller_can_now_page()
+    {
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "uuid: c4a000",
+                "name: Weave",
+                "internalName: weaveActionType",
+                "category: plot-node-action-types",
+                "worth:",
+                "  howToRead: These totals are already inside each member's own numbers: read them " +
+                "to compare types, and never multiply one into a member.",
+                "  members 1",
+                "  [kind | count]",
+                "  agromancy_actions | 2",
+                "  properties 1:",
+                "    property: Agromancy Power",
+                "    distributedTotalPercent: 125",
+                "    sources 1",
+                "    [amount | effect | order | source]",
+                "    25 | raw | 0 | Deep Insight c1a000",
+            }),
+            Render(Detail(Weave)));
+    }
+
+    /// <summary>
+    /// The page the members line now points at. Six is the whole roster on the pinned build, so the
+    /// list is the whole answer, and each row carries every number the class stores — the three
+    /// records <c>GetScalingInfo()</c> loads, which is exactly what a type bonus distributes into.
+    /// </summary>
+    [Fact]
+    public void The_agromancy_action_page_carries_every_number_the_class_stores()
+    {
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "rows 2/2",
+                "[id | name | power | speed | costMod]",
+                "c4b000 | Create | 125 | 100 | 100",
+                "c4c000 | Plant | 125 | 100 | 90",
+            }),
+            Render(Json(GameMcpWorldQuery.ListRows(
+                Context(World()), "agromancy-actions", 0, 50, limitFromCaller: false))));
+
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "uuid: c4b000",
+                "name: Create",
+                "internalName: createHarvestAction",
+                "category: agromancy-actions",
+                "keywords: Weave",
+                "row: power=125, speed=100, costMod=100",
+            }),
+            Render(Detail(Create)));
     }
 
     /// <summary>
@@ -429,6 +515,9 @@ public sealed class GameMcpTypeReachTests
             new EntityIdentityName(Elixirs, "ConsumableTypeSO", "Elixirs", "elixirConsumables"),
             new EntityIdentityName(Ember, "ConsumableSO", "Ember Tonic", "emberTonic"),
             new EntityIdentityName(Dusk, "ConsumableSO", "Dusk Philtre", "duskPhiltre"),
+            new EntityIdentityName(Weave, "HarvestActionTypeSO", "Weave", "weaveActionType"),
+            new EntityIdentityName(Create, "HarvestActionSO", "Create", "createHarvestAction"),
+            new EntityIdentityName(Plant, "HarvestActionSO", "Plant", "plantHarvestAction"),
         });
 
     private static GameMcpFrameContext Context(GameWorldState world)
@@ -460,14 +549,17 @@ public sealed class GameMcpTypeReachTests
                 "OrderedMultiplierRecord"),
             (Technology, WorldTypeModifierOwnerKind.ResearchType, "levelRequirementAdjust",
                 "ModifierRecord"),
-            (Elixirs, WorldTypeModifierOwnerKind.ConsumableType, "power", "ModifierRecord"));
+            (Elixirs, WorldTypeModifierOwnerKind.ConsumableType, "power", "ModifierRecord"),
+            (Weave, WorldTypeModifierOwnerKind.HarvestActionType, "power",
+                "OrderedMultiplierRecord"));
 
         var contributions = Contributions(
             (Workshop, "structurePower", GameValueModifierType.Raw, 40d, Insight),
             (Workshop, "structurePower", GameValueModifierType.MultiDiminishing, 0.25d, Study),
             (Primal, "structurePower", GameValueModifierType.Raw, 10d, Insight),
             (Technology, "levelRequirementAdjust", GameValueModifierType.Raw, 30d, Insight),
-            (Elixirs, "power", GameValueModifierType.Raw, 20d, Insight));
+            (Elixirs, "power", GameValueModifierType.Raw, 20d, Insight),
+            (Weave, "power", GameValueModifierType.Raw, 25d, Insight));
 
         var keywords = Keywords(
             new WorldEntityKeyword(
@@ -475,7 +567,14 @@ public sealed class GameMcpTypeReachTests
             new WorldEntityKeyword(
                 Anvil, WorldKeywordOwnerKind.Structure, WorldKeywordSource.PrimaryType, 0, Workshop),
             new WorldEntityKeyword(
-                Font, WorldKeywordOwnerKind.Structure, WorldKeywordSource.PrimaryType, 0, Arcanist));
+                Font, WorldKeywordOwnerKind.Structure, WorldKeywordSource.PrimaryType, 0, Arcanist),
+
+            // The far side of a members line that counted six things no category published. The
+            // edge was always in the keyword table; what it lacked was a row to arrive at.
+            new WorldEntityKeyword(
+                Create, WorldKeywordOwnerKind.HarvestAction, WorldKeywordSource.TypeList, 0, Weave),
+            new WorldEntityKeyword(
+                Plant, WorldKeywordOwnerKind.HarvestAction, WorldKeywordSource.TypeList, 0, Weave));
 
         var subtypes = PublicationTable<WorldTypeSubtype>.Create(new[]
         {
@@ -517,6 +616,17 @@ public sealed class GameMcpTypeReachTests
             PassiveAbilityTypes = PublicationTable<WorldPassiveAbilityType>.Create(new[]
             {
                 new WorldPassiveAbilityType(Aura),
+            }),
+            HarvestActionTypes = PublicationTable<WorldHarvestActionType>.Create(new[]
+            {
+                new WorldHarvestActionType(Weave),
+            }),
+            HarvestActions = PublicationTable<WorldHarvestAction>.Create(new[]
+            {
+                new WorldHarvestAction(Create, new BigDouble(125), new BigDouble(100),
+                    new BigDouble(100)),
+                new WorldHarvestAction(Plant, new BigDouble(125), new BigDouble(100),
+                    new BigDouble(90)),
             }),
             Consumables = PublicationTable<WorldConsumable>.Create(new[]
             {
@@ -697,7 +807,8 @@ public sealed class GameMcpTypeReachTests
             {
                 "plot-node-actions", "concept-instances", "plot-authoring",
                 "crafting-recipe-state", "crafting-decisions", "consumable-inventory",
-                "loadouts", "harvest-elements", "plot-actions", "action-queue-slots",
+                "loadouts", "harvest-elements", "harvest-actions", "plot-actions",
+                "action-queue-slots",
 
                 // The three type rosters whose wire name is not their collector's name.
                 "harvest-types", "harvest-action-types", "consumable-families",
