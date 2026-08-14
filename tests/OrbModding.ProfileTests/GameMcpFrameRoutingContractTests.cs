@@ -160,6 +160,24 @@ public sealed class GameMcpFrameRoutingContractTests
         Assert.Equal(GameMcpFrameData.None, operation.RequiredData);
     }
 
+    /// <summary>
+    /// The tooltip catalog claims the world, because a casting-bar row says which loadout slot
+    /// holds the spell it shows and the loadout is a published fact. The single tooltip read claims
+    /// none: it is screen prose about one element and joins against nothing.
+    /// </summary>
+    [Fact]
+    public void TheTooltipCatalogClaimsTheWorldItJoinsAgainstAndTheSingleReadClaimsNone()
+    {
+        Assert.Equal(
+            GameMcpFrameData.World,
+            GameMcpProtocolRouter.BuildOperation("game_tooltips", new JObject()).RequiredData);
+        Assert.Equal(
+            GameMcpFrameData.None,
+            GameMcpProtocolRouter.BuildOperation(
+                "game_tooltip",
+                new JObject { ["path"] = "CastingBar[3]/Button[0]" }).RequiredData);
+    }
+
     private static JObject Arguments(string tool) => tool switch
     {
         "world_overview" or "world_categories" or "suite_configuration" or

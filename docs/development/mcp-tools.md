@@ -3091,9 +3091,29 @@ refusal says to prepend the `pathRoot` and `pathPrefix` the catalog returned wit
 scroll lists on one screen hand out colliding tails routinely, and the prefix is what tells them
 apart. A tail naming none says to re-read the catalog instead, because the screen has moved on.
 The reply is compact plain screen text.
+
+**Every panel says `[id | name | path]`, and a casting-bar row says its slot.** A row's `id` is the
+entity the element is about. Most panels are assigned the asset itself, which carries its own id;
+the two panels holding what a player actually casts are assigned a live instance instead — the
+casting bar a `Spell`, the passive bar a `PassiveAbility` — and neither is an `IdScriptableObject`.
+Both are one audited accessor from the recipe asset they were built from, the same asset whose name
+the button already prints, so those rows carry the id every sibling panel carries. A row about
+nothing but a control carries no `id`, and a live instance whose reference is gone carries none
+either: it keeps its name and path rather than an id nothing answers to.
+
+`slot` is the loadout position every cast verb takes, and it is a **join, never the path**. The
+bracket index in a path is a Unity sibling ordinal; on the round that named this papercut it read
+exactly `slot − 1`, because the loadout's one empty position was the missing bracket, and a cast at
+the number it suggested was refused. What answers instead is the published loadout: the recipe the
+row is about, matched against the recipe each occupied slot holds. A row carries `slot` exactly
+when one occupied slot holds that recipe. A spell no slot holds — the spellbook, a recipe page — is
+silent, and so is a recipe **two** slots hold, because then every button showing it joins to both
+and naming either would address the position the reader was not looking at. Passives have no slot
+at all: the loadout has positions for spells and none for them, so their panel carries the three
+columns and no fourth. With no world published there is no join, and the catalog still lists what
+the player can hover, because that is a screen fact rather than a save one.
+
 The
-catalog includes the owning UUID when the assigned tooltip item is itself an identity-bearing game
-entity; control-only rows retain the volatile current-screen path and name. The
 reader walks the native node, linked-tooltip, nested-tooltip, and currently inspected-panel graph
 on Unity's main thread, but its node structure, repeated paint, empty arrays, duplicate authored
 text, and identical alternate tree are wire-internal ceremony and never ship. A body whose closing
@@ -3122,7 +3142,8 @@ tools/game-mcp-client.py tooltips --limit 25
 tools/game-mcp-client.py tooltip 'PATH/FROM/CATALOG/ROW'
 ```
 
-The audited manifest covers the native tooltip carrier/open/nesting shape, while the real-reference
+The audited manifest covers the native tooltip carrier/open/nesting shape and the two recipe
+accessors the casting-bar and passive rows take their id from, while the real-reference
 build and installed contracts verify the source node graph that the prose renderer consumes. The
 same audited `ITooltipable.GetDescription()` contract supplies authored descriptions for
 `world_get` when the resolved entity implements that interface.

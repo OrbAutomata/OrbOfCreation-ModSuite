@@ -291,6 +291,8 @@ public sealed class Plugin : BaseUnityPlugin
 #if SERVICE_CYCLE_PROFILE
         if (!GameMcpTooltipNativeAccess.TryCreate(
                 typeof(HoverTooltip),
+                typeof(Spell),
+                typeof(PassiveAbility),
                 out _gameMcpTooltipNativeAccess,
                 out _gameMcpTooltipContractFailure))
         {
@@ -3688,12 +3690,17 @@ public sealed class Plugin : BaseUnityPlugin
                         "tooltip_contract_unavailable",
                         readFailure);
                 }
-                var tooltip = new GameMcpObjectBuilder
+                if (!nativeAccess.TryReadEntityId(item, out var entityId, out var identityFailure))
                 {
-                    ["path"] = NativeObjectPath.Relative(entry.Path, panel.Prefix),
-                    ["name"] = item.GetName(),
-                };
-                AddTooltipIdentity(tooltip, item);
+                    return GadgetRejected(
+                        "tooltip_contract_unavailable",
+                        identityFailure);
+                }
+                var tooltip = GameMcpTooltipPanelRow.Project(
+                    NativeObjectPath.Relative(entry.Path, panel.Prefix),
+                    item.GetName(),
+                    entityId,
+                    command.FrameContext?.World?.Snapshot);
                 elements.Add(tooltip);
                 sole = tooltip;
                 soleTail = NativeObjectPath.Relative(entry.Path, root);
@@ -3781,6 +3788,12 @@ public sealed class Plugin : BaseUnityPlugin
             .Where(panel => panel is not null && panel.item is not null)
             .Select(panel => panel.item!)
             .ToArray() ?? Array.Empty<ITooltipable>();
+        if (!nativeAccess.TryReadEntityId(hover.tooltipItem, out var entityId, out var identityFailure))
+        {
+            return GadgetRejected(
+                "tooltip_contract_unavailable",
+                identityFailure);
+        }
         GameMcpObjectBuilder details;
         try
         {
@@ -3788,7 +3801,7 @@ public sealed class Plugin : BaseUnityPlugin
                 hover.tooltipItem,
                 children,
                 inspected);
-            AddTooltipIdentity(details, hover.tooltipItem);
+            if (entityId != Guid.Empty) details["uuid"] = entityId.ToString("D");
         }
         catch (Exception exception)
         {
@@ -3835,15 +3848,6 @@ public sealed class Plugin : BaseUnityPlugin
             .Select(static hover => new TooltipElement(hover, NativeObjectPath.Locate(hover)))
             .OrderBy(static entry => entry.Placement.OrderKey, StringComparer.Ordinal)
             .ToArray();
-
-    private static void AddTooltipIdentity(
-        GameMcpObjectBuilder result,
-        ITooltipable item)
-    {
-        if (item is not IdScriptableObject entity) return;
-        var uuid = entity.GetGuid();
-        if (uuid != Guid.Empty) result["uuid"] = uuid.ToString("D");
-    }
 
     private GameMcpCommandResult ProbeGameMcp(GameMcpCommand command)
     {

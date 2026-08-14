@@ -611,8 +611,13 @@ internal sealed class GameMcpProtocolRouter
         "game_screenshot" => GameMcpFrameData.Configuration,
         "game_navigate" or "game_continue" or "game_modal" =>
             GameMcpFrameData.World | GameMcpFrameData.Scene,
+        // The tooltip catalog joins the spell a casting-bar button is about to the loadout slot the
+        // cast verbs address it by, and the loadout is a published world fact. With no world there
+        // is no join and those rows carry no slot; the catalog still answers, because what the
+        // player can hover is a screen fact rather than a save one.
+        "game_tooltips" => GameMcpFrameData.World,
         "game_probe" or
-            "game_screen_catalog" or "game_tooltips" or "game_tooltip" or
+            "game_screen_catalog" or "game_tooltip" or
             "suite_check_game_math" =>
             GameMcpFrameData.None,
         _ => throw new InvalidOperationException("no frame-data policy exists for tool " + name),
@@ -1185,7 +1190,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_tooltips",
                 "Discover visible tooltips",
-                "Page through the tooltip-bearing elements the player can hover right now — the current screen, its persistent chrome, and any open modal — by sibling-indexed native path. pathRoot, printed once at the top, is the ancestry every panel on this page hangs off. A row is one panel: its pathPrefix is what that panel adds to the root, and each element under it carries only what the root and the prefix do not already say, so any element's absolute path is those three joined with / in that order. A panel holding exactly one element has no ancestry of its own worth naming, so it says that element directly — its path already relative to the root — instead of a prefix over a list of one. offset, limit, total and nextOffset all count panels, and a factored screen is small enough that one call usually returns all of them. A closed modal stays instantiated and is not listed. nextOffset is present exactly when more rows remain, and is the offset to resume from.",
+                "Page through the tooltip-bearing elements the player can hover right now — the current screen, its persistent chrome, and any open modal — by sibling-indexed native path. pathRoot, printed once at the top, is the ancestry every panel on this page hangs off. A row is one panel: its pathPrefix is what that panel adds to the root, and each element under it carries only what the root and the prefix do not already say, so any element's absolute path is those three joined with / in that order. A panel holding exactly one element has no ancestry of its own worth naming, so it says that element directly — its path already relative to the root — instead of a prefix over a list of one. An element about a game entity carries that entity's id, including the casting-bar and passive buttons, whose id is the recipe asset the live instance was built from — the same asset whose name the button prints. An element about nothing but a control carries no id. A button showing a spell the loadout holds in exactly one slot also carries that slot, which is the number every cast verb takes; the bracket index in a path is a Unity sibling ordinal and is never it. offset, limit, total and nextOffset all count panels, and a factored screen is small enough that one call usually returns all of them. A closed modal stays instantiated and is not listed. nextOffset is present exactly when more rows remain, and is the offset to resume from.",
                 ObjectSchema(new JObject
                 {
                     ["offset"] = IntegerSchema(0, int.MaxValue),

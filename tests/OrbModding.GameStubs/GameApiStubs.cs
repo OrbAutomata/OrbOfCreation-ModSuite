@@ -1281,7 +1281,7 @@ public class PersistentResetManager
     }
 }
 
-public class Spell
+public class Spell : ITooltipable
 {
     public List<SpellTypeSO> augmentedSpellTypes = new List<SpellTypeSO>();
     private readonly SpellRecipeSO? reference;
@@ -1348,6 +1348,13 @@ public class Spell
 
     public string GetName() => DisplayName;
     public UnityEngine.Sprite GetIcon() => Icon;
+    public string GetDisplayType() => "Spell";
+    public UnityEngine.Color GetColor() => UnityEngine.Color.white;
+    public bool IsColoredIcon() => false;
+    public bool HasAltTooltips() => false;
+    public string GetDescription() => string.Empty;
+    public List<TooltipNode> GetTooltipNodes() => new List<TooltipNode>();
+    public List<TooltipNode> GetAltTooltipNodes() => new List<TooltipNode>();
     public bool IsChanneled() => Channeled;
     public bool IsToggledSpell() => ToggledSpell;
     public bool IsEmpty() => NativeEmpty;

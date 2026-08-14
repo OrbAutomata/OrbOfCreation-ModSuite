@@ -17082,6 +17082,50 @@
       "place": "action"
     },
     {
+      "id": "game-mcp-tooltip-catalog.spell-reference",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "get_reference",
+      "visibility": "public",
+      "static": false,
+      "returnType": "SpellRecipeSO",
+      "parameters": [],
+      "owners": [
+        "Game MCP tooltip explorer"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "sourceTokens": [
+        "GetGuid"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-catalog.passive-ability-reference",
+      "assembly": "assembly-csharp",
+      "type": "PassiveAbility",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "get_reference",
+      "visibility": "public",
+      "static": false,
+      "returnType": "PassiveAbilitySO",
+      "parameters": [],
+      "owners": [
+        "Game MCP tooltip explorer"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "sourceTokens": [
+        "GetGuid"
+      ],
+      "place": "action"
+    },
+    {
       "id": "game-mcp-tooltip-catalog.modal-open-action",
       "assembly": "assembly-csharp",
       "type": "UIModal",

@@ -1634,6 +1634,30 @@ public sealed class PassiveAbilitySO : IdScriptableObject
     public ValueModifierRecord tokenRate = new ValueModifierRecord(new BigDouble(0.0, 0));
 }
 
+/// <summary>
+/// The live passive the passive bar's buttons are assigned, as far as its identity goes. The game's
+/// <c>PassiveAbility</c> is not an <see cref="IdScriptableObject"/> and reaches its asset through
+/// <c>reference</c>, which is the accessor the tooltip catalog binds to give those rows an id.
+/// </summary>
+public sealed class PassiveAbility : ITooltipable
+{
+    private readonly PassiveAbilitySO? reference;
+
+    public PassiveAbility(PassiveAbilitySO? reference) => this.reference = reference;
+
+    public PassiveAbilitySO? get_reference() => reference;
+
+    public string GetName() => "Passive";
+    public string GetDisplayType() => "Passive Ability";
+    public UnityEngine.Sprite GetIcon() => new UnityEngine.Sprite();
+    public UnityEngine.Color GetColor() => UnityEngine.Color.white;
+    public bool IsColoredIcon() => false;
+    public bool HasAltTooltips() => false;
+    public string GetDescription() => string.Empty;
+    public List<TooltipNode> GetTooltipNodes() => new List<TooltipNode>();
+    public List<TooltipNode> GetAltTooltipNodes() => new List<TooltipNode>();
+}
+
 
 public sealed class CharacterSO : IdScriptableObject
 {

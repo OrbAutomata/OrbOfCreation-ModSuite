@@ -13,16 +13,31 @@ namespace OrbAutomata.GameMcp;
 internal sealed class GameMcpTooltipNativeAccess
 {
     private readonly Func<object, IList?> _subTooltips;
+    private readonly Type _spellType;
+    private readonly Func<object, Guid> _spellRecipeId;
+    private readonly Type _passiveAbilityType;
+    private readonly Func<object, Guid> _passiveAbilityId;
     private readonly int _mainThreadId;
 
-    private GameMcpTooltipNativeAccess(Func<object, IList?> subTooltips)
+    private GameMcpTooltipNativeAccess(
+        Func<object, IList?> subTooltips,
+        Type spellType,
+        Func<object, Guid> spellRecipeId,
+        Type passiveAbilityType,
+        Func<object, Guid> passiveAbilityId)
     {
         _subTooltips = subTooltips;
+        _spellType = spellType;
+        _spellRecipeId = spellRecipeId;
+        _passiveAbilityType = passiveAbilityType;
+        _passiveAbilityId = passiveAbilityId;
         _mainThreadId = Environment.CurrentManagedThreadId;
     }
 
     internal static bool TryCreate(
         Type? hoverTooltipType,
+        Type? spellType,
+        Type? passiveAbilityType,
         out GameMcpTooltipNativeAccess access,
         out string reason)
     {
@@ -42,8 +57,74 @@ internal sealed class GameMcpTooltipNativeAccess
             return false;
         }
 
-        access = new GameMcpTooltipNativeAccess(read);
+        var spellRecipeId = NativeAccessorBinder.CallReferenceGuid(spellType, "get_reference");
+        if (spellType is null || spellRecipeId is null)
+        {
+            reason = "Spell.get_reference was not the exact audited recipe accessor";
+            return false;
+        }
+        var passiveAbilityId =
+            NativeAccessorBinder.CallReferenceGuid(passiveAbilityType, "get_reference");
+        if (passiveAbilityType is null || passiveAbilityId is null)
+        {
+            reason = "PassiveAbility.get_reference was not the exact audited passive accessor";
+            return false;
+        }
+
+        access = new GameMcpTooltipNativeAccess(
+            read, spellType, spellRecipeId, passiveAbilityType, passiveAbilityId);
         reason = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// The stable UUID of the entity a hovered element is about, or <see cref="Guid.Empty"/> when
+    /// the element is about no entity at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Most panels assign the asset itself, which carries its own id. The two panels holding the
+    /// things a player casts do not: the casting bar assigns the live <c>Spell</c> and the passive
+    /// bar the live <c>PassiveAbility</c>, and neither is an <c>IdScriptableObject</c>. Both are
+    /// one accessor away from the recipe asset they were built from — the same asset whose name
+    /// they already print, because <c>GetName()</c> forwards to it — so the id on those rows is the
+    /// game's own reference rather than anything reconstructed from the screen.
+    /// </para>
+    /// <para>
+    /// A tooltipable of any other shape, and a live instance whose reference is null, answer empty:
+    /// the row then carries no id rather than an id nothing answers to. A binding that cannot be
+    /// taken at all is a contract failure and refuses the whole call, which is why that is
+    /// <see langword="false"/> here and an empty id is not.
+    /// </para>
+    /// </remarks>
+    internal bool TryReadEntityId(ITooltipable? item, out Guid uuid, out string reason)
+    {
+        uuid = Guid.Empty;
+        if (Environment.CurrentManagedThreadId != _mainThreadId)
+        {
+            reason = "tooltip native access was rejected off the Unity startup thread";
+            return false;
+        }
+        reason = string.Empty;
+        if (item is null) return true;
+        if (item is IdScriptableObject entity)
+        {
+            uuid = entity.GetGuid();
+            return true;
+        }
+
+        try
+        {
+            if (_spellType.IsInstanceOfType(item)) uuid = _spellRecipeId(item);
+            else if (_passiveAbilityType.IsInstanceOfType(item)) uuid = _passiveAbilityId(item);
+        }
+        catch (Exception exception)
+        {
+            uuid = Guid.Empty;
+            reason = "reading the bound tooltip item's recipe reference failed: " +
+                exception.GetBaseException().Message;
+            return false;
+        }
         return true;
     }
 
