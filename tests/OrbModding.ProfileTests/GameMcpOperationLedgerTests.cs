@@ -19,7 +19,29 @@ public sealed class GameMcpOperationLedgerTests
             elapsedMilliseconds: 12.34);
 
         Assert.Equal(
-            "Game MCP operation 85 (world_overview) completed committed in 12.3 ms at frame 48815.",
+            "Game MCP operation 85 (world_overview mode=single) completed committed in 12.3 ms " +
+            "at frame 48815.",
+            line);
+    }
+
+    /// <summary>
+    /// A verb whose modes do different things says which one it did, on the lines that landed as
+    /// well as on the ones that did not. The offer fetch is the press that made this loud: it
+    /// arms a whole challenge set and unlocks the reset, and its committed line read exactly like
+    /// a queue toggle's.
+    /// </summary>
+    [Fact]
+    public void ACommittedMutationNamesTheModeItPressed()
+    {
+        var line = GameMcpOperationLedger.Describe(
+            Command(72, "time_challenge", mode: "reroll"),
+            GameMcpCommandResult.Committed("committed", 4, 7),
+            frame: 20780,
+            elapsedMilliseconds: 298.5);
+
+        Assert.Equal(
+            "Game MCP operation 72 (time_challenge mode=reroll) completed committed in 298.5 ms " +
+            "at frame 20780.",
             line);
     }
 
@@ -33,8 +55,8 @@ public sealed class GameMcpOperationLedgerTests
             elapsedMilliseconds: 0.4);
 
         Assert.Equal(
-            "Game MCP operation 86 (game_purchase) completed refused (not_affordable) in 0.4 ms " +
-            "at frame 48820: the price rose before the frame ran.",
+            "Game MCP operation 86 (game_purchase mode=single) completed refused " +
+            "(not_affordable) in 0.4 ms at frame 48820: the price rose before the frame ran.",
             line);
     }
 
@@ -217,7 +239,7 @@ public sealed class GameMcpOperationLedgerTests
         return operation!;
     }
 
-    private static GameMcpCommand Command(long sequence, string? tool)
+    private static GameMcpCommand Command(long sequence, string? tool, string mode = "single")
     {
         GameMcpFrameOperation? operation = null;
         if (tool is not null)
@@ -235,7 +257,7 @@ public sealed class GameMcpOperationLedgerTests
             GameMcpCommandKind.Purchase,
             1,
             1,
-            "single",
+            mode,
             System.Guid.Empty,
             System.Guid.Empty,
             string.Empty,

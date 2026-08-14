@@ -703,6 +703,127 @@ public sealed class GameMcpTextPageTests
             batched.Split('\n'));
     }
 
+    /// <summary>
+    /// A price with one resource in it is said on the line that names it. The table around it was
+    /// three lines of frame for one row, and a live round paid that frame 106 times: 11,540 bytes
+    /// of table to deliver 4,613 bytes of price.
+    /// </summary>
+    [Fact]
+    public void A_price_with_one_resource_in_it_is_said_on_one_line()
+    {
+        var page = Render(@"{'purchase':{'available':true,'affordable':true,'costs':[
+            {'cost':'6','spendableAmount':'131','affordable':true,
+             'resource':{'uuid':'9dd2cf','name':'Artifact Upgrades'}}]}}");
+
+        Assert.Equal(
+            new[]
+            {
+                "available: yes",
+                "affordable: yes",
+                "cost: 6 of 131 Artifact Upgrades 9dd2cf",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// The per-row affordability word is <c>spendableAmount &gt;= cost</c> on its own row and the
+    /// block above it already answers the whole purchase, so it is worth a reader's attention only
+    /// where it says no — and that is where it is said, in the word the column used.
+    /// </summary>
+    [Fact]
+    public void A_price_that_falls_short_says_so_and_one_that_does_not_stays_quiet()
+    {
+        var page = Render(@"{'purchase':{'costs':[
+            {'cost':'400','spendableAmount':'12','affordable':false,
+             'resource':{'uuid':'9dd2cf','name':'Artifact Upgrades'}}]}}");
+
+        Assert.Equal(
+            new[] { "cost: 400 of 12 Artifact Upgrades 9dd2cf affordable=no" },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// Two resources is what columns are for, so the table stays exactly as it was.
+    /// </summary>
+    [Fact]
+    public void A_price_naming_more_than_one_resource_keeps_its_table()
+    {
+        var page = Render(@"{'costs':[
+            {'cost':'6','spendableAmount':'131','affordable':true,
+             'resource':{'uuid':'9dd2cf','name':'Artifact Upgrades'}},
+            {'cost':'9','spendableAmount':'2','affordable':false,
+             'resource':{'uuid':'11ab00','name':'Arcana'}}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "costs 2",
+                "[cost | spendableAmount | affordable | resource]",
+                "6 | 131 | yes | Artifact Upgrades 9dd2cf",
+                "9 | 2 | no | Arcana 11ab00",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// The share line only ever fired on a column that was constant to the last row, so a
+    /// ninety-eight-row page spent 1,076 bytes printing one word ninety-five times and the three
+    /// rows that mattered had to be found by eye. The majority is named once and the rows that are
+    /// not it are named beside it, by the handle the page addresses them with.
+    /// </summary>
+    [Fact]
+    public void A_column_nearly_every_row_agrees_on_names_the_majority_and_then_the_exceptions()
+    {
+        var page = Render(@"{'rows':[
+            {'uuid':'011677','state':'available'},
+            {'uuid':'050187','state':'available'},
+            {'uuid':'0cb332','state':'available'},
+            {'uuid':'8191b9','state':'completed'},
+            {'uuid':'41aad0','state':'available'},
+            {'uuid':'8412b4','state':'available'},
+            {'uuid':'96074f','state':'available'}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "rows 7",
+                "6 of 7 share: state=available; 8191b9 completed",
+                "[id]",
+                "011677",
+                "050187",
+                "0cb332",
+                "8191b9",
+                "41aad0",
+                "8412b4",
+                "96074f",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// The hoist is measured against the page it would produce rather than against a formula about
+    /// it. On a short table the share line costs more than the column it lifts, and the eighteen of
+    /// one round's twenty-seven hoists that lost bytes were all of them tables of four rows or
+    /// fewer.
+    /// </summary>
+    [Fact]
+    public void A_table_too_short_for_the_share_line_to_pay_keeps_its_columns()
+    {
+        var page = Render(@"{'rows':[
+            {'uuid':'a1','keywords':'-','matchedOn':'-'},
+            {'uuid':'a2','keywords':'-','matchedOn':'-'}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "rows 2",
+                "[id | keywords | matchedOn]",
+                "a1 | - | -",
+                "a2 | - | -",
+            },
+            page.Split('\n'));
+    }
+
     private static string Render(string json) =>
         GameMcpTextPage.Render(JToken.Parse(json.Replace('\'', '"')));
 }

@@ -107,13 +107,19 @@ internal static class GameMcpDecisionReason
         "invalid_purchase_amount" or "unknown_category" or "unknown_discovery_surface" or
         "query_required" or "mutually_exclusive" or "missing_required" or "unexpected_field" or
         "unexpected_for_mode" or "argument_validation_failed" or "filter_not_supported" or
-        "invalid_state" or "category_not_searchable" or "run_filter_out_of_scope" or
+        // The word the caller passed is not one this filter takes. Named apart from
+        // `invalid_state`, which is the target being in the wrong state for a verb: one producer
+        // code cannot mean both, and while they shared a spelling this table answered the first
+        // arm it met, so every already-run challenge and every wrong-state research refused as
+        // though the caller's own argument had been malformed.
+        "invalid_state_filter" or
+        "category_not_searchable" or "run_filter_out_of_scope" or
         "component_count_too_large" or "unsupported_type" or "composition_unsupported" or
         "wrong_mode" or "wrong_alchemy_surface" or "wrong_level_surface" or
         "wrong_loadout_surface" or "wrong_selection" or
         "discovery_recipe_unresolved" or "discovery_recipe_ambiguous" or "ambiguous_offer" or
         "ambiguous_handle" or "screen_match_failed" or "subtab_match_failed" or
-        "multiple_modals_open" or "page_relation_ambiguous" or
+        "page_relation_ambiguous" or
         "level_out_of_range" or "slot_out_of_range" or "destination_out_of_range" or
         "name_out_of_range" or "discovery_surface_ambiguous" or
         // A value outside the range its setting accepts is the same kind of no as a dial value
@@ -144,6 +150,9 @@ internal static class GameMcpDecisionReason
         "already_active" or "already_stopped" or "already_developing" or
         "already_discovered" or "already_in_requested_state" or "already_maxed" or
         "cooldown_active" or "inventory_busy" or "native_caster_busy" or
+        // The call named no argument at all: what blocks it is that the screen has two modals open
+        // right now, which is a state and moves on its own.
+        "multiple_modals_open" or
         "targeting_in_progress" or "transition_in_progress" or "manual_pause" or
         "ritual_battle_active" or "wrong_active_ritual" or "wrong_scene" or
         "spell_already_inactive" or "spell_already_casting" or
@@ -186,6 +195,7 @@ internal static class GameMcpDecisionReason
         "core_glyph_not_leveled" or "core_glyph_augments_only" or "selection_restricted" or
         "selection_hidden" or "cannot_level" or "resources_hidden" or
         "recipe_not_discovered" or "prerequisites_unmet" or "not_discovered_or_offered" or
+        "collector_not_listable" or
         "native_hidden" or "hidden_discovery" or "requirement_unmet" or
         "native_unavailable" or "native_leeway_exhausted" => ClassLocked,
 
@@ -224,6 +234,21 @@ internal static class GameMcpDecisionReason
         // is the native_*_refused family: the game's own gate said no and reported nothing else.
         _ => ClassRefused,
     };
+
+    /// <summary>
+    /// Codes whose sentence a response says once, beside the table, rather than on every row that
+    /// carries the code.
+    /// </summary>
+    /// <remarks>
+    /// The sentence is a property of the code rather than of the row: fourteen rows of one page
+    /// spent the same 132 characters saying one thing about the suite's own collectors, 38% of that
+    /// whole response. Where that is true the producer states it once and every row carries the
+    /// class, which is the canned-sentence-once shape a refusal already has. A code is here only
+    /// when its sentence can carry no per-row detail at all — anything a row could add belongs on
+    /// the row, and the row still says it.
+    /// </remarks>
+    internal static bool IsStatedOncePerResponse(string reasonCode) =>
+        reasonCode is "collector_not_listable";
 
     /// <summary>
     /// The player sentence for one decision code. Unknown codes are rendered rather than dropped:
@@ -297,7 +322,11 @@ internal static class GameMcpDecisionReason
         "cooldown_active" => "This is still on cooldown.",
         "inventory_busy" => "The inventory is busy, so nothing can be used right now.",
         "invalid_state" => "This is not in a state where that action does anything.",
-        "already_ran" => "This challenge has already run, so queueing it does nothing.",
+        // The rule, not this press's effect. "Does nothing" reads as a shrug about the button the
+        // caller just pressed, so a live round spent a second mutation finding out whether the
+        // next row would behave the same way; the standing rule answers both at once.
+        "already_ran" =>
+            "A challenge that has already run cannot be queued again until the next reset.",
         "no_cancellable_usage" => "Nothing is queued that could be cancelled.",
         "level_locked" => "The game fixes this ritual's starting level, so it cannot be set.",
         "ritual_battle_active" => "A ritual battle is running.",
@@ -315,6 +344,9 @@ internal static class GameMcpDecisionReason
         "cancellable_spells_disabled" =>
             "Cancellable spells are switched off, so this cast cannot be toggled off.",
         "progression_locked" => "The progression that unlocks this is not reached yet.",
+        "collector_not_listable" =>
+            "this collector publishes no table of its own, so world_list cannot page it; its rows " +
+            "reach the wire inside the reads that carry them",
 
         // The lock the game states and does not explain. It is the honest floor under every other
         // sentence here: those name a condition because the world published one, and this one is

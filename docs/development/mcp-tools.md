@@ -162,11 +162,33 @@ same idiom and no producer invents its own formatting.
     left in them are not rows. Its values hold no comma, so a reader splits the line on `, ` and
     then the first `=`; free prose stays in its cell, where the column boundary says where it
     ends.
+  - **Worth is measured, not estimated.** The page a hoist would produce and the page it would
+    replace are both built and both counted, and the hoist happens when the first is shorter. A
+    formula about the saving is what this used to be, and on one live round eighteen of its
+    twenty-seven hoists cost more bytes than the column they lifted — every table of four rows or
+    fewer lost. Columns are weighed until nothing more pays, because the share line's own opening
+    is paid by whichever column is taken first and the second one is cheaper for it.
+  - **A near-constant column is named the same way, with its exceptions.** Where most rows agree and
+    a few do not, the page says `95 of 98 share: state=available; 8191b9 completed, 41aad0 passed`
+    and the column leaves the header: the reading is the majority unless that line names the row.
+    Exceptions are named by the handle the page addresses them with, so a table with no `uuid`
+    column keeps every value on its rows. This is measured like every other hoist, and a table under
+    six rows is a short list rather than a majority, so it is never taken there. A ninety-eight-row
+    page used to spend 1,076 bytes printing one word ninety-five times, and the three rows a reader
+    was scanning for had to be found by eye down the wall of sameness — a live round read that wall
+    as a truncated answer and misread a name out of it.
   - **One delimiter.** Every table separates its columns with ` | `, whatever its cells hold.
   - **An empty page is the same table with no rows**: `rows 0/180` and then the column set. It has
     no row to read that set off, so the producer states it, and a portable test holds every
     category's stated set to the columns its full page renders. A list that is not a page still
     answers `spells: -`.
+  - **A one-resource price is a line, not a table.** A cost list with exactly one row reads
+    `cost: 6 of 131 Artifact Upgrades 9dd2cf` — the price, what is held, and the resource, in the
+    table's own order and the table's own words. Two or more rows keep the table, because then the
+    columns are doing what columns are for. The per-row `affordable` word rides that line only where
+    it says no (`affordable=no`): on its own row it is `spendableAmount >= cost`, and the block
+    around the price states its own `affordable:` either way. A live round paid three lines of table
+    frame 106 times to deliver 106 prices of one resource each.
   - **A cell carries one word, never a sentence.** A blocked row names what blocks it with one
     short lowercase fact from the vocabulary below, and a row that is not blocked says so in the
     column that asked. No cell ever holds an `ERR_` class: those say which kind of no a *refusal*
@@ -379,7 +401,8 @@ detailed read: collection completeness with total successfully read and skipped 
 unavailable categories, resource-row count, unlocked
 structure count, affordable-structure and affordable-upgrade counts, discovered/mastery-ready recipe
 counts, available views, visible plots, current action/spell/concept/plot occupancy, and the two
-global casting dials with their purchased maximums. Exact rows remain in list/get/search.
+global casting dials — `castingDials.outputLevel` and `castingDials.reserveLevel` — with their
+purchased maximums. Exact rows remain in list/get/search.
 
 The two affordable counts have a matching read: `world_list(category="structures", affordable=true)`
 and the same on `upgrades` page only the rows whose price is met right now, so the count and the
@@ -388,13 +411,19 @@ refused as `filter_not_supported` on a category with no price rather than quietl
 
 `world_categories` is the authoritative inventory of what the world collects, not only of what it
 lists. Each row reports `category`, its row `count`, whether it is `available`, and — when it is not
-— the `reason`, in one alphabetical list. Internal world-property and row-type names are not
-protocol data.
+— the class that says why, in one alphabetical list. Internal world-property and row-type names are
+not protocol data.
+
+**The unlistable sentence is said once per response, above the table.** It is a property of the
+suite's own code rather than of any row — identical on every row that carries it — and fourteen rows
+of one 4,797-byte response spent 38% of the whole answer repeating it. The response states it once
+under `unlistable:`, every such row carries `ERR_LOCKED`, and a row with something of its own to add
+— a collector that did not bind, one whose pass was partial — still says that on the row.
 
 The collector runs more categories than this surface pages, and a listable category is often built
 from several of them, so the two counts never matched. Every collector gets a row: one it is reached
-through, or one of its own saying it publishes no table, how many rows it read, and that
-`world_list` cannot page it — plus its bind failure or its skipped rows when it has either. No
+through, or one of its own saying `world_list` cannot page it and how many rows it read — plus its
+bind failure or its skipped rows when it has either. No
 collector becomes listable by having a row; the row is how a reader tells an unlistable collector
 from an absent one without subtracting one diagnostic's collector count from this page's row count.
 
@@ -542,7 +571,11 @@ carries the runtime type unconditionally, because browsing the catalog is the on
 for it and a browser names no category to imply it from. `category=not-world-projected`
 means that the live registry identity has no world row. `name` is present exactly when the game
 authors a player-facing word, so its absence is that fact and needs no flag beside it;
-`internalName` carries the Unity asset id whenever it is not that same word. An id nobody can name says so in its
+`internalName` carries the Unity asset id **only where it is not the `name` with its spaces and
+punctuation taken out** — `Specialization: Storm` implies `SpecializationStorm`, so that row does
+not spell it twice, and absence means exactly that reconstruction rather than "unknown". The
+identifiers that genuinely differ still ship, which is the whole reason the field exists. An id
+nobody can name says so in its
 `name` cell — `(unnamed 2c20e7)`, the one form this surface has for it — and nowhere else: a second
 block saying the same thing put a refusal class in a table cell, and a table refuses nothing. The same immutable
 catalog reference is pinned with the answering world and supplies names for every MCP entity
@@ -593,8 +626,18 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `plot-nodes` | `state`, `masteryLevel`, `quantity`, `availableQuantity` |
 | `challenges` | `state`, `run`, `level` |
 | `equipment` | `created`, `equippedCount` |
-| `resource-types` | `level`, `hidden` |
+| `resource-types` | `totalLevel`, `hidden` |
+| `equipment-types` | `totalLevel` |
 | `double-variables`, `int-variables` | `value`, `isPercent` |
+
+**One word per concept across the type taxonomies.** A level a taxonomy list shows is the number its
+own page spells under the same word, so `equipment-types` and `resource-types` both say `totalLevel`
+rather than a bare `level` for the figure their pages print as `totalLevel`. `equipment-types` used
+to say `level` while its page carried `masteryLevel`, `paidLevel`, `bonusLevel` and `totalLevel`,
+and a live round could not settle from the list which of the four it had been handed; `masteryLevel`
+means one thing wherever it appears, and it appears in no taxonomy list column. The other type
+taxonomies' list columns already name what their pages name — `structure-types` says
+`baseEffectLevel`, `ritual-types` says `initiated`, `research-types` says `linkedDevelopCost`.
 
 A number variable's `isPercent` is on the page because reading `25` without it is reading the wrong
 number: the same row means twenty-five and twenty-five percent depending on one flag, and a round
@@ -622,18 +665,35 @@ and `screen` is that fact in the word `game_navigate` takes:
 | `Alchemy` | `AlchemyUpgradesList` | 30 | Alchemy |
 | `Scholar` | `ScholarScreenUpgrades` | 27 | Scholar |
 | `Rituals` | `RItualScreenUpgrades` | 21 | Rituals |
-| `World/Aspects` | `AspectUpgradesList` | 3 | World > Aspects, the three pedestals |
+| `World/Aspects` | `AspectUpgradesList` | 3 | World/Aspects, the three pedestals |
 | `Time` | `TimeScreenUpgrades` | 0 | Time |
 | `all` | `AllUpgrades` | 4 | nowhere in particular — see below |
 
-**The screen grammar is `game_navigate`'s own**, in every column that uses it. A `screen` cell is
-either a screen label exactly as the live catalog spells it, or `Screen/Subtab` where the destination
-is a subtab, or one of the two documented sentinels — `all` on an upgrade row and `no_page` on a
-glyph row. `game_navigate` matches labels with `StringComparison.Ordinal`, so the words used to be
-lowercase copies of labels rather than the labels: a reader who pasted `magic` into the tool got a
-no-match refusal, and `aspects` named a destination the tool has no top-level entry for at all. Both
-sentinels stay lowercase on purpose, because nothing in the catalog is labelled `all` or `no_page`
-and that is what keeps them from reading as places to go.
+#### Screen words: two vocabularies
+
+Two different kinds of word on this surface are read off a screen, and they are not the same kind of
+fact:
+
+- A **navigation word** is a label out of the game's own view catalog, and a cell holding one prints
+  the **whole catalog path** — `Screen`, or `Screen/Subtab` where the destination is a subtab —
+  spelled exactly as `game_navigate` takes it, so a reader pastes the cell into the tool and
+  arrives. `screen` on an upgrade row and on a glyph row is this. The separator is `/` everywhere
+  it is written, including inside a refusal that names a destination: `World/Agromancy`, never
+  `World > Agromancy`, because a caller who copies what a refusal spells must reach the place it
+  named.
+- A **concept word** is the label the player reads on the surface that owns the concept: a lifecycle
+  state, a challenge run, a modifier property, a resource name. It names what a thing is, not where
+  to go, and it is never a path.
+
+No cell mixes them, and neither is ever a suite invention: every navigation word is pinned against a
+shipped `ViewSO`, and every concept word is the game's own. The two deliberate non-destinations are
+lowercase and underscored — `all` on an upgrade row, `no_page` on a glyph row — so they cannot be
+read as places to go.
+
+**The screen grammar is `game_navigate`'s own**, in every column that uses it. `game_navigate`
+matches labels with `StringComparison.Ordinal`, so the words used to be lowercase copies of labels
+rather than the labels: a reader who pasted `magic` into the tool got a no-match refusal, and
+`aspects` named a destination the tool has no top-level entry for at all.
 
 The eight screen lists are disjoint and cover 225 of the 229 upgrades. `all` is **not** a ninth
 screen: `AllUpgrades` holds every upgrade in the game, so saying it about a row a screen list also
@@ -665,9 +725,9 @@ would say the same thing about all 47 rows:
 
 | word | list | rows | where the player finds them |
 | --- | --- | --- | --- |
-| `Magic/Augments` | `AugmentSpellGlyphs` | 22 | Magic > Augments — the Glyphcraft and Upgrade grids |
-| `Magic/Spellbook` | `CoreSpellGlyphs` | 10 | Magic > Spellbook — the Unlock page and its core slots |
-| `Alchemy/Alchemy` | `CoreAlchemyGlyphs` | 12 | Alchemy > Alchemy — the Learn page |
+| `Magic/Augments` | `AugmentSpellGlyphs` | 22 | Magic/Augments — the Glyphcraft and Upgrade grids |
+| `Magic/Spellbook` | `CoreSpellGlyphs` | 10 | Magic/Spellbook — the Unlock page and its core slots |
+| `Alchemy/Alchemy` | `CoreAlchemyGlyphs` | 12 | Alchemy/Alchemy — the Learn page |
 | `no_page` | `EquipmentGlyphs` | 17 | the game names no page for this list — see below |
 
 The word names the subtab `game_navigate` reaches, not the grid two levels below it: the Augments
@@ -685,7 +745,7 @@ refusing would throw away a fact the game plainly states.
 **`no_page` is not `unreadable`.** `EquipmentGlyphs` is mentioned by nothing in the serialized object
 graph but its own name — no `ViewSO`, no `DiscoveryTreeSO`, no structure — so the ten glyphs it alone
 carries (Amulet, Bag, Cloak, Conductor, Gloves, Helm, Ring, Runic, Tool, Weapon) have a membership the
-suite read perfectly and a page the game does not name. Guessing Workshop > Artifacts from the
+suite read perfectly and a page the game does not name. Guessing Workshop/Artifacts from the
 glyphs' own names would be inference wearing a game fact's clothes. `unreadable` stays reserved for
 the withheld publication, exactly as on an upgrade row.
 
@@ -1324,19 +1384,35 @@ and maximum level, native next difficulty/reward, availability/completion verdic
 offer membership, and explicit `select`, `queue`, and, when active, `abandon` decisions. Challenge
 selection has no resource price, so a row does not invent empty costs or affordability.
 
+A gate states its verdict and its class and stops there: `select` and `queue` no longer suffix
+`selected=` and `queued=`, because the row directly above them already carries `selected` and `run`
+and the two agreed on all hundred blocks of a live round. And **`select` never predicts a refusal
+the verb performs**: the selection budget is the game's own gate, the published world carries no
+reading of it, and a page that said `select: no (ERR_LIMIT)` was answered by the verb performing the
+swap seconds later. What this page refuses on is what the world states outright — a challenge in
+neither offer list, and one the offer set itself marks restricted; the budget is the verb's answer
+to give.
+
 To read "which of these have I already beaten, and can I run them again?", page `challenges` and
 read two columns: `level` — one per win, so `level: 1` is beaten once and `level: 0` is never — and
 `state`, which says `available` while the challenge can be selected again. `run` answers a
 different question, the one the *current* run is in, and it is `idle` on every row outside a run.
 
 `time_challenge(mode="state")` is the screen itself, answered when a caller asks for it: ordered
-fully named `selected` and `offers`, selection capacity, first-draw state, rerolls, and one `reroll`
-decision under `challengeState`, with `prestigeState` beside it — the same top-level name and the
-same block `time_prestige` returns, said once rather than nested a second time inside the challenge
+fully named `selected`, selection capacity, first-draw state, rerolls, and one `reroll` decision
+under `challengeState`, with `prestigeState` beside it — the same top-level name and the same block
+`time_prestige` returns, said once rather than nested a second time inside the challenge
 block. It is a read, and it no longer rides challenge list/get pages — a request
 for one row at offset fifty used to come back nine tenths ambient state, repeated on every page.
 `resetOffers` appears only in the build where the Reset modal's list and the Time screen's list part
 company; they draw from the same asset, so it is normally absent rather than said twice.
+
+**`offers` is published exactly while `challengesFetched` is yes.** The game does not clear its
+offer list when a cycle ends, so the same five names sat under `offers:` beside
+`challengesFetched: no` after a reset while all five were *running*, and before a cycle's first
+fetch they were the previous cycle's draw — one list, two readings, neither of them this cycle's
+offers. Which challenges are running is the `run` column's answer on the rows that own it, so the
+offer list is absent until there is one and no reader plans off a stale draw.
 
 `prestigeState` is the persistent-reset pre-decision surface. It reports the reset count, the fully
 named persistent resource with its current spendable amount and real capacity semantics, the
@@ -1361,10 +1437,16 @@ The MCP-only sequence is:
    than one is held, which to give up is the caller's choice and the refusal says so.
 3. Call `queue` to move an offered target between idle and queued, or `abandon` for one the reset
    started. A queued challenge starts running at the next reset, not immediately.
-4. Only when a different offer set is wanted, call `reroll` without a UUID. It is the game's one
-   new-challenges button: free the first press of a world cycle, one reroll every press after. The
-   terminal response returns what the press cost (`rerollsLeft` and `challengesFetched` as
-   `{before, after}`), whether the offers moved (`changed`), and the replacement offer list.
+4. Call `reroll` without a UUID. It is the game's one new-challenges button and it carries the
+   whole weight of the offer fetch: **the first press of a world cycle costs no reroll, draws this
+   cycle's offers, arms every challenge it drew to run at the next reset, and unlocks the reset that
+   refuses `challenges_not_fetched` until then.** Every later press costs one reroll, redraws, and
+   arms what it draws the same way. The terminal response says which of the two presses it was
+   (`press: offer_fetch` or `press: reroll`), what the press cost (`rerollsLeft` and
+   `challengesFetched` as `{before, after}`), whether the offers moved (`changed`), the replacement
+   offer list, what is now armed (`queuedForReset`), and whether the reset opened (`reset` as
+   `{before, after}`). A live round pressed this, read `changed: yes` beside a fresh five, and had
+   to go to a second verb to find out that five challenges were queued and the reset had unlocked.
 5. When the prestige decision is available, call `time_prestige(confirm=true)`. Success waits for a
    newer world after the native scene reload and returns the new scene, `prestigeState`, and the
    challenge state inline. The explicit boolean prevents an empty or accidental call from
@@ -1456,8 +1538,12 @@ stanza, receipt poll, or post-mutation `world_get` is required.
 ### Casting dial loop
 
 Output Level and Reserve Level are the two sibling global steppers on the Casting screen, not
-per-spell settings. `world_overview` carries them as `casting.output` and `casting.reserve`, each as
-`current`/`maximum`; the block is absent until the Output maximum is nonzero. **The floor of both
+per-spell settings. `world_overview` carries them as `castingDials.outputLevel` and
+`castingDials.reserveLevel`, each as `current`/`maximum` — the dial the screen shows beside the
+ceiling it has been raised to, under the words that screen prints. The old spelling said `casting:
+output 259/259` and named neither what it counted nor where a player would see it, and a live round
+read `casting: output 1/1` beside a mana bar of 133/133 and left the two unreconciled. The block is
+absent until the Output maximum is nonzero. **The floor of both
 dials is 1**, in every save and on every call, so it is documented here rather than repeated in
 every overview a caller reads.
 Raising a cap is an ordinary `game_purchase` against the corresponding upgrade UUID, so the dial
@@ -1658,8 +1744,15 @@ these, and the twenty this build can read appear nowhere else on the wire. `howT
 that fits the block it sits on, so a spell type never reads about handed-down totals it has none of.
 `sources` names every modifier currently on that record: who placed it, its amount in the game's own
 notation, which of the five folds it is (`raw`, `diminishing`, `stacking`, `reduction`, `exponent`),
-and its order. A distributor carrying nothing totals to a flat `100`, which is a reading rather than
-an absence.
+and its order.
+
+A distributor carrying nothing totals to a flat `100`, which is a reading rather than an absence —
+and it is a reading with one bit in it, so it is not a stanza. Every such record is named on one
+`unmodified:` line for the whole block: which records the type publishes and that nothing modifies
+them both survive, and the record leaves that line for a `properties` entry of its own the moment
+anything lands on it. Forty-one of these stanzas cost a live round three lines each to say one
+thing forty-one times. A block whose every record is unmodified is that single line and no
+`howToRead`, because there is no magnitude on the page to give a reading rule for.
 
 **Worth is what a purchase can move, so a record the game cannot read is not one of its properties.**
 Four of the 145 records on this build have no path into any of the game's own computations — no
@@ -1981,12 +2074,12 @@ most, so an old code's new class can be looked up here:
 
 | Class | Internal codes that reach it |
 | --- | --- |
-| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `slot_out_of_range`, `configuration_write_rejected`, `screen_match_failed`, `composite_identity_required`, `discovery_surface_ambiguous` |
+| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `screen_match_failed`, `composite_identity_required`, `discovery_surface_ambiguous` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `recipe_has_no_core_glyph` |
-| `ERR_STATE` | `invalid_state`, `already_maxed`, `already_developing`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
+| `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
-| `ERR_LOCKED` | `not_available`, `native_unavailable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `core_glyph_not_owned`, `cannot_level`, `research_leeway_exhausted`, `native_leeway_exhausted` |
+| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `core_glyph_not_owned`, `cannot_level`, `research_leeway_exhausted`, `native_leeway_exhausted` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused` — the game's own gate said no and reported nothing else |
 
@@ -2078,14 +2171,15 @@ Every numeric input has two different kinds of limit and they are not interchang
 
 A **native bound** is the game's own limit on a control, read live from the native member that owns
 it. Native bounds are published in pairs — a value never ships with only its ceiling — and appear in
-both the read and the committed response: `casting.output`/`casting.reserve` carry `current` and
+both the read and the committed response: `castingDials.outputLevel`/`castingDials.reserveLevel`
+carry `current` and
 `maximum`, a ritual's `setLevel` carries `minimum` and `maximum`, a snapshot slot refusal
 carries `minimumSlot` and `maximumSlot` read from the live list the sentence was written from, and
 `maximumAmount` is the live per-call admission ceiling described above. A caller can act on these:
 they are what the game will accept this instant.
 
 Two floors are the exception and are named here rather than left to look like the rest. The ritual
-`setLevel.minimum` and the two `casting` dial minimums are all the constant `1`, held by the suite
+`setLevel.minimum` and the two casting-dial minimums are all the constant `1`, held by the suite
 and matching the control the player presses rather than read from it each time. Only one of them
 still rides an answer, and the split is deliberate: the dial floor left the overview and the dial
 commit for the *Casting dial loop* tool doc, because a number that is 1 in every save on every call
@@ -2272,7 +2366,16 @@ one: it keeps the whole declared set under `partialRow` and states the incomplet
 An identity is a handle and a name, and nothing else. The asset name (`internalName`), the runtime
 type (`nativeType`) and the category the type implies are catalog-browsing facts: `entity_catalog`
 and a `world_get` block publish them, and no world row or reference carries them. Stamped on every
-identity they cost 21.1% of one live round for a fact nothing on that round read.
+identity they cost 21.1% of one live round for a fact nothing on that round read. `internalName` is
+published there only where it is not the `name` with its spaces and punctuation stripped, so absence
+means that reconstruction: 110 of one round's 143 of them were derivable from the line directly
+above, and the identifiers that genuinely differ still ship.
+
+**`reason` sits immediately under the `reasonCode` it explains**, on every block, whether the
+producer wrote both or the sentence generator supplied one. A locked glyph published the two seven
+lines apart with three decision blocks wedged between them, so the trailing sentence read as though
+it belonged to the `discover: yes` above it, and a round spent an extra read on two other rows to
+learn which shape was the real one. The pair is one pair, and it is never a bare code.
 
 **`name` is the word the game shows a player, or it is not there.** About five hundred of the
 catalog's assets — the variables, the list holders, the scaling weights, the tutorials — carry no
@@ -2547,7 +2650,11 @@ faults that attempt; a throw after the exact transition commits.
 `time_challenge` requires one of `select`, `queue`, `abandon`, `reroll`, or `state`. The three
 target modes require a published `ChallengeSO` `uuid`; `reroll` and `state` reject it. `queue` is
 what the screen's "activate" button does — the challenge starts at the next reset, not now — and
-`abandon` names the only state a challenge can be abandoned from, the one a reset started. The
+`abandon` names the only state a challenge can be abandoned from, the one a reset started. A queue
+press at a challenge whose run is over is refused `ERR_STATE` with the standing rule, "A challenge
+that has already run cannot be queued again until the next reset": the input was valid and the state
+was the blocker, and the older wording — "its queue toggle does nothing" — read as a shrug about
+that one press, so a round spent a second mutation asking whether the next row behaved the same. The
 boundary rereads the exact manager/list graph and target state on Unity's main thread, checks offer
 membership, selection room/restrictions, active/queued state, world-cycle completion, and rerolls,
 then captures the `ChallengeLifecycle` permit last. Select verifies exact membership inversion;

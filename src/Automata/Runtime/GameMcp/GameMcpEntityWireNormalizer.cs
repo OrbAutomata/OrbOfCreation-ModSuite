@@ -166,9 +166,16 @@ internal static class GameMcpEntityWireNormalizer
             {
                 // A code without a sentence taught callers to fire the mutation just to read the
                 // sentence. Producers that hold the numbers write the better sentence themselves
-                // and keep it; every other code is answered here, so none ships a bare one.
-                if (item["reason"] is null) item["reason"] = GameMcpDecisionReason.For(code);
+                // and keep it; every other code is answered here, so none ships a bare one — except
+                // the handful whose sentence the response has already stated once for every row
+                // that carries the code.
+                if (item["reason"] is null &&
+                    !GameMcpDecisionReason.IsStatedOncePerResponse(code))
+                {
+                    item["reason"] = GameMcpDecisionReason.For(code);
+                }
                 item["reasonCode"] = GameMcpDecisionReason.Class(code);
+                KeepReasonBesideItsCode(item);
             }
         }
         if (item["kind"] is JValue { Type: JTokenType.String } kind)
@@ -572,6 +579,29 @@ internal static class GameMcpEntityWireNormalizer
                 item[property.Name] = property.Value;
         }
         item.Remove("reading");
+    }
+
+    /// <summary>
+    /// The sentence sits under the code it explains, wherever the two arrived from.
+    /// </summary>
+    /// <remarks>
+    /// A block that publishes both adjacently reads as one fact; one that does not reads as two. A
+    /// live round met a locked glyph whose <c>reasonCode</c> and <c>reason</c> sat seven lines
+    /// apart with three decisions wedged between them — the sentence ending up beside an unrelated
+    /// <c>discover: yes</c> — and could not tell whether the trailing sentence was that block's
+    /// blocker or a stray, so it spent a second read on two other rows to learn the shape. The pair
+    /// is one pair on every page now, whether the producer wrote both or this pass supplied one.
+    /// </remarks>
+    private static void KeepReasonBesideItsCode(JObject item)
+    {
+        if (item.Property("reasonCode") is not { } code ||
+            item.Property("reason") is not { } sentence)
+        {
+            return;
+        }
+        if (ReferenceEquals(code.Next, sentence)) return;
+        sentence.Remove();
+        code.AddAfterSelf(sentence);
     }
 
     private static void Rename(JObject item, string from, string to)

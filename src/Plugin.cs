@@ -3210,11 +3210,14 @@ public sealed class Plugin : BaseUnityPlugin
                 request.Tab.Label,
                 request.Subtab?.Label))
         {
-            var requestedDestination = request.Tab.Label + " > " +
-                (request.Subtab?.Label ?? "no subtab");
+            // One spelling for one destination: the catalog path this tool takes, the same way
+            // every screen cell on the surface prints it.
+            var requestedDestination = request.Subtab is null
+                ? request.Tab.Label
+                : request.Tab.Label + "/" + request.Subtab.Label;
             failure = GadgetRejected(
                 "plot_destination_mismatch",
-                "Agromancy plots can be selected only on World > Agromancy, not " +
+                "Agromancy plots can be selected only on World/Agromancy, not " +
                 requestedDestination);
             return false;
         }

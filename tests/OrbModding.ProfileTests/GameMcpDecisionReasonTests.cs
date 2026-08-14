@@ -208,6 +208,86 @@ public sealed class GameMcpDecisionReasonTests
     public void A_value_outside_its_range_is_one_class_on_every_verb(string reasonCode) =>
         Assert.Equal(GameMcpDecisionReason.ClassInput, GameMcpDecisionReason.Class(reasonCode));
 
+    /// <summary>
+    /// A refusal whose argument was fine and whose state was the blocker is a state refusal. Two of
+    /// them wore ERR_INPUT: a challenge that has already run — because one producer word,
+    /// <c>invalid_state</c>, was spelled into the input arm as well as the state arm and the first
+    /// arm won — and a dismiss call that named nothing at all while two modals happened to be open.
+    /// </summary>
+    [Theory]
+    [InlineData("invalid_state")]
+    [InlineData("already_ran")]
+    [InlineData("multiple_modals_open")]
+    public void A_valid_argument_blocked_by_the_state_is_a_state_refusal(string reasonCode) =>
+        Assert.Equal(GameMcpDecisionReason.ClassState, GameMcpDecisionReason.Class(reasonCode));
+
+    /// <summary>
+    /// The caller's own filter word is still the caller's own filter word: a state filter naming a
+    /// lifecycle word this surface has none of is an input refusal, under a code of its own so the
+    /// two meanings can never share one again.
+    /// </summary>
+    [Fact]
+    public void A_filter_word_this_surface_does_not_take_is_an_input_refusal() =>
+        Assert.Equal(
+            GameMcpDecisionReason.ClassInput,
+            GameMcpDecisionReason.Class("invalid_state_filter"));
+
+    /// <summary>
+    /// The rule, not this press's effect: "does nothing" read as a shrug about the button just
+    /// pressed, so a round spent a second mutation asking whether the next row behaved the same.
+    /// </summary>
+    [Fact]
+    public void A_challenge_that_has_run_states_the_standing_rule() =>
+        Assert.Equal(
+            "A challenge that has already run cannot be queued again until the next reset.",
+            GameMcpDecisionReason.For("already_ran"));
+
+    /// <summary>
+    /// A sentence that is a property of the code rather than of the row is said once by the
+    /// response carrying the rows, so the fallback leaves it alone and every row keeps the class a
+    /// caller branches on.
+    /// </summary>
+    [Fact]
+    public void A_sentence_the_response_states_once_is_not_repeated_onto_every_row()
+    {
+        Assert.True(GameMcpDecisionReason.IsStatedOncePerResponse("collector_not_listable"));
+        Assert.False(GameMcpDecisionReason.IsStatedOncePerResponse("already_ran"));
+
+        var encoded = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            new GameMcpObjectBuilder
+            {
+                ["available"] = false,
+                ["reasonCode"] = "collector_not_listable",
+            }.Freeze(),
+            GameMcpTestHarness.EntityCatalog));
+
+        Assert.Equal("ERR_LOCKED", (string?)encoded["reasonCode"]);
+        Assert.Null(encoded["reason"]);
+    }
+
+    /// <summary>
+    /// The sentence sits under the code it explains. A locked glyph published the two seven lines
+    /// apart with three decisions wedged between them, and the trailing sentence read as though it
+    /// belonged to the decision above it.
+    /// </summary>
+    [Fact]
+    public void The_sentence_sits_immediately_under_the_code_it_explains()
+    {
+        var encoded = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            new GameMcpObjectBuilder
+            {
+                ["state"] = "locked",
+                ["reasonCode"] = "undiscovered",
+                ["paidLevel"] = 1,
+                ["discover"] = new GameMcpObjectBuilder { ["available"] = true }.Freeze(),
+            }.Freeze(),
+            GameMcpTestHarness.EntityCatalog));
+
+        Assert.Equal(
+            new[] { "state", "reasonCode", "reason", "paidLevel", "discover" },
+            encoded.Properties().Select(property => property.Name).ToArray());
+    }
+
     [Fact]
     public void The_shortfall_names_every_resource_that_is_actually_short()
     {

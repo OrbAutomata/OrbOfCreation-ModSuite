@@ -240,7 +240,7 @@ internal sealed class ChallengeGameAction : IDisposable
             if (!before.InTimeOffers && !before.InPrestigeOffers)
             { reason = "The challenge is not in either current offer list."; return ChallengePreflight.OfferUnavailable; }
             if (before.TargetState is not (0 or 1))
-            { reason = "This challenge has already run, so its queue toggle does nothing."; return ChallengePreflight.InvalidState; }
+            { reason = "A challenge that has already run cannot be queued again until the next reset."; return ChallengePreflight.InvalidState; }
             return ChallengePreflight.Proceeded;
         }
         if (kind == ChallengeActionKind.Abandon)

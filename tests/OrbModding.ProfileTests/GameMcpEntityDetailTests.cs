@@ -423,7 +423,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.False((bool)firstLeaf["met"]!);
         Assert.Equal(
             new[] { "met", "checks", "current", "required", "verdict", "reasonCode",
-                "diagnostics", "reason", "requirement" },
+                "reason", "diagnostics", "requirement" },
             firstLeaf.Children<Newtonsoft.Json.Linq.JProperty>()
                 .Select(property => property.Name)
                 .ToArray());

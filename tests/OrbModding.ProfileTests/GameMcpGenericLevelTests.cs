@@ -219,7 +219,10 @@ public sealed class GameMcpGenericLevelTests
         var entry = Assert.Single(listed["rows"]!.Values<JObject>())!;
         Assert.True((bool)entry["hidden"]!);
         Assert.Equal((bool)detail["hidden"]!, (bool)entry["hidden"]!);
-        Assert.Equal((int)detail["totalLevel"]!, (int)entry["level"]!);
+        // One word per concept: the list column is named for the number it carries, which is the
+        // one the detail row spells under the same word.
+        Assert.Equal((int)detail["totalLevel"]!, (int)entry["totalLevel"]!);
+        Assert.Null(entry["level"]);
     }
 
     private static JObject Row(

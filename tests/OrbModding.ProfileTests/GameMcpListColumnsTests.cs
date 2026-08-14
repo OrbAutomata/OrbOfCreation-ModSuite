@@ -345,6 +345,7 @@ public sealed class GameMcpListColumnsTests
             Rituals = PublicationTable<WorldRitual>.Create(new WorldRitual[1]),
             Research = PublicationTable<WorldResearch>.Create(new WorldResearch[1]),
             ResourceTypes = PublicationTable<WorldResourceType>.Create(new WorldResourceType[1]),
+            EquipmentTypes = PublicationTable<WorldEquipmentType>.Create(new WorldEquipmentType[1]),
             Glyphs = PublicationTable<WorldGlyph>.Create(new WorldGlyph[1]),
             AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new WorldAlchemyRecipe[1]),
             PlotNodes = PublicationTable<WorldPlotNode>.Create(new WorldPlotNode[1]),
@@ -771,7 +772,7 @@ public sealed class GameMcpListColumnsTests
         var extra = new GameMcpObjectBuilder
         {
             ["entityId"] = Guid.Empty.ToString("D"),
-            ["level"] = 1,
+            ["totalLevel"] = 1,
             ["hidden"] = false,
             ["mood"] = "curious",
         }.Freeze();

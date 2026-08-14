@@ -271,22 +271,135 @@ public sealed class GameMcpChallengeTests
         Assert.Single(refused.Properties());
     }
 
+    /// <summary>
+    /// One button, two presses' worth of weight. The cycle's first press is the offer fetch: it
+    /// costs no reroll, arms every challenge it drew for the reset, and opens the reset that was
+    /// refusing. A round pressed it, read <c>changed: yes</c> beside a fresh five, and had to go to
+    /// a second verb to find out that five challenges were queued and the reset had unlocked.
+    /// </summary>
+    [Fact]
+    public void The_offer_fetch_names_the_press_what_it_armed_and_the_reset_it_opened()
+    {
+        var fetch = Reroll(
+            before: World(challengesFetched: false, rerollsLeft: 3),
+            after: World(challengesFetched: true, rerollsLeft: 3, thirdState: 1));
+        var later = Reroll(
+            before: World(challengesFetched: true, rerollsLeft: 3, thirdState: 1),
+            after: World(challengesFetched: true, rerollsLeft: 2, thirdState: 1));
+
+        Assert.Equal("offer_fetch", (string?)fetch["press"]);
+        Assert.Equal("Temporal Trial", (string?)fetch["queuedForReset"]![0]!["name"]);
+        Assert.False((bool)fetch["reset"]!["before"]!);
+        Assert.True((bool)fetch["reset"]!["after"]!);
+
+        Assert.Equal("reroll", (string?)later["press"]);
+        Assert.True((bool)later["reset"]!["before"]!);
+        Assert.True((bool)later["reset"]!["after"]!);
+    }
+
+    /// <summary>
+    /// An offer is an offer of this cycle's. The game never clears the list, so after a reset the
+    /// same five names sat under <c>offers:</c> beside <c>challengesFetched: no</c> while all five
+    /// were running, and before the first fetch they were the previous cycle's draw. Which
+    /// challenges are running is the <c>run</c> column's answer, on the rows that own it.
+    /// </summary>
+    [Fact]
+    public void A_cycle_whose_offers_are_not_fetched_publishes_no_offer_list()
+    {
+        var unfetched = World(challengesFetched: false);
+        var fetched = World();
+
+        var closed = Json(GameMcpWorldQuery.ProjectChallengeState(unfetched), unfetched);
+        var open = Json(GameMcpWorldQuery.ProjectChallengeState(fetched), fetched);
+
+        Assert.False((bool)closed["challengesFetched"]!);
+        Assert.Null(closed["offers"]);
+        Assert.Null(closed["resetOffers"]);
+        Assert.Equal("Prismatic Trial", (string?)closed["selected"]![0]!["name"]);
+
+        Assert.Equal("Prismatic Trial", (string?)open["offers"]![0]!["name"]);
+    }
+
+    /// <summary>
+    /// The gate says whether the press is open and why not; the row beside it already says where
+    /// the challenge stands. <c>selected=</c> and <c>queued=</c> agreed with the row's own
+    /// <c>selected</c> and <c>run</c> columns on all hundred blocks of one round.
+    /// </summary>
+    [Fact]
+    public void A_gate_states_its_verdict_without_restating_the_row_beside_it()
+    {
+        var world = World();
+        var row = (JObject)Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 2504),
+            "challenges", First.ToString("D")).Freeze(), world)["row"]!;
+
+        Assert.True((bool)row["selected"]!);
+        Assert.Equal("queued", (string?)row["run"]);
+        Assert.Equal(
+            new[] { "available" },
+            ((JObject)row["select"]!).Properties().Select(property => property.Name).ToArray());
+        Assert.Equal(
+            new[] { "available" },
+            ((JObject)row["queue"]!).Properties().Select(property => property.Name).ToArray());
+    }
+
+    /// <summary>
+    /// The selection budget is the game's own gate and the published world carries no reading of
+    /// it: a round read <c>select: no (ERR_LIMIT)</c> off a page and then watched the verb perform
+    /// the swap. The page refuses on what the world states outright and leaves the rest to the verb.
+    /// </summary>
+    [Fact]
+    public void The_page_never_predicts_a_selection_refusal_the_verb_performs()
+    {
+        var full = World(selectionMaximum: 1);
+        var row = (JObject)Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(full, generation: 2505),
+            "challenges", Second.ToString("D")).Freeze(), full)["row"]!;
+
+        Assert.False((bool)row["selected"]!);
+        Assert.Equal(1, (int)Json(
+            GameMcpWorldQuery.ProjectChallengeState(full), full)["selectionMaximum"]!);
+        Assert.True((bool)row["select"]!["available"]!);
+    }
+
+    /// <summary>
+    /// A challenge whose run is over is refused by the standing rule, under the class that says the
+    /// state was the blocker rather than the caller's argument.
+    /// </summary>
+    [Fact]
+    public void A_challenge_that_has_already_run_is_refused_as_a_state()
+    {
+        var world = World(firstState: 3);
+        var row = (JObject)Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 2506),
+            "challenges", First.ToString("D")).Freeze(), world)["row"]!;
+
+        Assert.False((bool)row["queue"]!["available"]!);
+        Assert.Equal("ERR_STATE", (string?)row["queue"]!["reasonCode"]);
+        Assert.Equal(
+            "A challenge that has already run cannot be queued again until the next reset.",
+            (string?)row["queue"]!["reason"]);
+    }
+
     private static GameWorldState World(
         bool selected = true,
         int rerollsLeft = 2,
         bool challengesFetched = true,
         Guid[]? timeOffers = null,
-        Guid[]? prestigeOffers = null)
+        Guid[]? prestigeOffers = null,
+        int selectionMaximum = 3,
+        int firstState = 1,
+        int thirdState = 2)
     {
         timeOffers ??= new[] { First, Second };
         prestigeOffers ??= new[] { Third };
         var rows = new[]
         {
-            new WorldChallenge(First, 1, 1, true, false, 5, 10, 12, 30,
+            new WorldChallenge(First, 1, firstState, true, false, 5, 10, 12, 30,
                 true, true, false, new BigDouble(12), new BigDouble(30)),
             new WorldChallenge(Second, 0, 0, true, false, 5, 10, 15, 40,
                 true, false, false, new BigDouble(15), new BigDouble(40)),
-            new WorldChallenge(Third, 2, 2, true, false, 5, 10, 20, 50,
+            new WorldChallenge(Third, 2, thirdState, true, false, 5, 10, 20, 50,
                 true, true, false, new BigDouble(20), new BigDouble(50)),
         };
         var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
@@ -302,7 +415,7 @@ public sealed class GameMcpChallengeTests
             EntityIdentities = EntityIdentityCatalogSnapshot.Bound(21, identities),
             Challenges = PublicationTable<WorldChallenge>.Create(rows),
             ChallengeContext = new WorldChallengeContext(
-                true, string.Empty, true, challengesFetched, rerollsLeft, 3, 3,
+                true, string.Empty, true, challengesFetched, rerollsLeft, 3, selectionMaximum,
                 selected
                     ? PublicationTable<WorldChallengeReference>.Create(new[]
                     {

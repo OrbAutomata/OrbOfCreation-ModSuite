@@ -185,8 +185,7 @@ internal static class GameMcpEntityCatalog
         var named = identity.HasName &&
             identity.Source != EntityIdentityNameSource.LiveAssetName;
         if (named) result["name"] = identity.Name;
-        if (row.AssetName.Length > 0 &&
-            !(named && string.Equals(identity.Name, row.AssetName, StringComparison.Ordinal)))
+        if (row.AssetName.Length > 0 && !(named && IsDeSpacedName(identity.Name, row.AssetName)))
             result["internalName"] = row.AssetName;
         if (GameMcpEntityCapabilityMap.TryCategoryForNativeType(
                 row.RuntimeType,
@@ -199,6 +198,31 @@ internal static class GameMcpEntityCatalog
         // cell, and a table refuses nothing: the reader who has already read `(unnamed …)` learned
         // from `unavailable (ERR_UNAVAILABLE): …` only that the row would say it twice.
         return result;
+    }
+
+    /// <summary>
+    /// Whether the Unity asset id is the player's own word with its spaces and punctuation taken
+    /// out — <c>Specialization: Storm</c> against <c>SpecializationStorm</c> — and so says nothing
+    /// the name beside it has not already said.
+    /// </summary>
+    /// <remarks>
+    /// Most assets are named that way, and the field was published on every one of them: a live
+    /// round carried 143 of these and 110 were this, byte for byte derivable from the line above.
+    /// The rule is stated in the verb's contract, so absence means "the de-spaced name" rather than
+    /// "unknown", and the identifiers that genuinely differ — the camel-cased internals, the
+    /// renamed assets — still ship, which is the whole reason the field exists.
+    /// </remarks>
+    private static bool IsDeSpacedName(string name, string assetName)
+    {
+        var read = 0;
+        for (var index = 0; index < name.Length; index++)
+        {
+            var character = name[index];
+            if (!char.IsLetterOrDigit(character)) continue;
+            if (read >= assetName.Length || assetName[read] != character) return false;
+            read++;
+        }
+        return read == assetName.Length;
     }
 
     private static JObject NotAvailable(string code, string reason) => new()

@@ -66,15 +66,19 @@ internal static class GameMcpTypeWorth
             return;
 
         var properties = new JArray();
+        var unmodified = new JArray();
         var handedDown = false;
         var own = false;
         for (var index = 0; index < count; index++)
         {
-            var entry = Property(world, world.TypeModifiers[start + index], ref handedDown, ref own);
-            if (entry is not null) properties.Add(entry);
+            var entry = Property(
+                world, world.TypeModifiers[start + index], ref handedDown, ref own, out var neutral);
+            if (entry is null) continue;
+            if (neutral) unmodified.Add(entry["property"]!);
+            else properties.Add(entry);
         }
 
-        if (properties.Count == 0) return;
+        if (properties.Count == 0 && unmodified.Count == 0) return;
 
         var worth = new JObject();
 
@@ -85,7 +89,14 @@ internal static class GameMcpTypeWorth
             worth["howToRead"] = handedDown && own ? Both : handedDown ? HandedDown : OwnNumbers;
         var members = Members(world, uuid);
         if (members is not null) worth["members"] = members;
-        worth["properties"] = properties;
+        if (properties.Count > 0) worth["properties"] = properties;
+
+        // A distributor at a flat hundred percent with nothing sitting on it is the reading "this
+        // type publishes this record and nothing modifies it". Forty-one of them cost a live round
+        // a three-line stanza each to say that forty-one times over; the two facts a reader takes
+        // from them — which records exist, and that none is loaded — both fit on one line, and the
+        // moment anything does load one it leaves this line for a stanza of its own.
+        if (unmodified.Count > 0) worth["unmodified"] = unmodified;
         result["worth"] = worth;
     }
 
@@ -117,8 +128,10 @@ internal static class GameMcpTypeWorth
         GameWorldState world,
         in WorldTypeModifier record,
         ref bool handedDown,
-        ref bool own)
+        ref bool own,
+        out bool neutral)
     {
+        neutral = false;
         if (!WorldTypeModifierLiveness.IsLive(record.OwnerKind, record.Property)) return null;
 
         var entry = new JObject
@@ -126,6 +139,7 @@ internal static class GameMcpTypeWorth
             ["property"] = GameMcpModifierPropertyWords.Word(record.OwnerKind, record.Property),
         };
         var said = false;
+        var flatHundred = false;
 
         if (string.Equals(
                 record.RecordNativeType,
@@ -144,7 +158,7 @@ internal static class GameMcpTypeWorth
         {
             entry["distributedTotalPercent"] =
                 new GameMcpDomainValue(total.DistributedTotalPercent);
-            handedDown = true;
+            flatHundred = total.DistributedTotalPercent == NeutralPercent;
             said = true;
         }
 
@@ -155,8 +169,14 @@ internal static class GameMcpTypeWorth
             said = true;
         }
 
-        return said ? entry : null;
+        if (!said) return null;
+        neutral = flatHundred && sources is null && entry["value"] is null;
+        if (!neutral && entry["distributedTotalPercent"] is not null) handedDown = true;
+        return entry;
     }
+
+    /// <summary>The total a distributor reads when nothing has been added to it.</summary>
+    private static readonly BigDouble NeutralPercent = new(100d);
 
     /// <summary>Every modifier on one record, each under the name of whoever put it there.</summary>
     private static JArray? Sources(GameWorldState world, Guid typeId, string property)

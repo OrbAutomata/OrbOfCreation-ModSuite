@@ -68,10 +68,34 @@ public sealed class GameMcpCollectorAccountabilityTests
         var row = Assert.Single(page, item => (string?)item["category"] == "type-modifiers");
         Assert.Equal(63, (int)row["count"]!);
         Assert.False((bool)row["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
+
+        // The sentence belongs to the code, so the response says it once and no row repeats it. A
+        // row with nothing of its own to add adds nothing.
+        Assert.Null(row["reason"]);
+    }
+
+    [Fact]
+    public void TheUnlistableSentenceIsSaidOncePerResponseAndOnlyWhereItApplies()
+    {
         Assert.Equal(
             "this collector publishes no table of its own, so world_list cannot page it; its rows " +
             "reach the wire inside the reads that carry them",
-            (string?)row["reason"]);
+            Unlistable(World(
+                new WorldCollectionCategoryStatus(
+                    "type modifiers",
+                    WorldCategoryOutcome.Collected,
+                    sampled: 63,
+                    skipped: 0,
+                    firstFailure: string.Empty))));
+
+        Assert.Null(Unlistable(World(
+            new WorldCollectionCategoryStatus(
+                "resources",
+                WorldCategoryOutcome.Collected,
+                sampled: 80,
+                skipped: 0,
+                firstFailure: string.Empty))));
     }
 
     [Fact]
@@ -88,10 +112,9 @@ public sealed class GameMcpCollectorAccountabilityTests
         var row = Assert.Single(page, item => (string?)item["category"] == "crafting-stations");
         Assert.Equal(0, (int)row["count"]!);
         Assert.False((bool)row["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
         Assert.Equal(
-            "this collector publishes no table of its own, so world_list cannot page it; its rows " +
-            "reach the wire inside the reads that carry them, and it did not bind on this build: " +
-            "CraftingStationSO did not resolve on this build",
+            "It did not bind on this build: CraftingStationSO did not resolve on this build",
             (string?)row["reason"]);
     }
 
@@ -107,10 +130,10 @@ public sealed class GameMcpCollectorAccountabilityTests
                 firstFailure: "one keyword list was unreadable")));
 
         var row = Assert.Single(page, item => (string?)item["category"] == "entity-keywords");
+        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
         Assert.Equal(
-            "this collector publishes no table of its own, so world_list cannot page it; its rows " +
-            "reach the wire inside the reads that carry them, and collection is partial: 3 native " +
-            "rows were skipped; first failure: one keyword list was unreadable",
+            "Collection is partial: 3 native rows were skipped; first failure: one keyword list " +
+            "was unreadable",
             (string?)row["reason"]);
     }
 
@@ -148,6 +171,9 @@ public sealed class GameMcpCollectorAccountabilityTests
 
     private static List<string> Names(GameMcpFrameContext context) =>
         Categories(context).Select(row => (string)row["category"]!).ToList();
+
+    private static string? Unlistable(GameMcpFrameContext context) =>
+        (string?)GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(context))["unlistable"];
 
     private static List<JObject> Categories(GameMcpFrameContext context) =>
         GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(context))["categories"]!

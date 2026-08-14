@@ -53,7 +53,7 @@ internal static class GameMcpOperationLedger
         return Line(
             command.Sequence,
             command.ToolName,
-            string.Empty,
+            Arguments(command),
             result.Status,
             result.Code,
             string.Empty,
@@ -120,6 +120,25 @@ internal static class GameMcpOperationLedger
         // itself only when the trailer did not.
         var last = text[text.Length - 1];
         return last is '.' or '!' or '?' ? text.ToString() : text.Append('.').ToString();
+    }
+
+    /// <summary>
+    /// Which press this was, for a mutation that left the frame it was claimed on.
+    /// </summary>
+    /// <remarks>
+    /// A verb whose modes do different things says which one it did. The refused and the read lines
+    /// already carried <c>mode=</c>, so the ledger named the mode of every challenge press except
+    /// the ones that landed: five committed <c>time_challenge</c> lines in one session said only
+    /// that the verb had committed, and the offer fetch — the heaviest press the verb has — read
+    /// exactly like a queue toggle.
+    /// </remarks>
+    private static string Arguments(GameMcpCommand command)
+    {
+        var text = new StringBuilder();
+        Add(text, "mode", command.Mode ?? string.Empty);
+        if (command.Amount > 1)
+            Add(text, "amount", command.Amount.ToString(CultureInfo.InvariantCulture));
+        return text.ToString();
     }
 
     /// <summary>What the caller asked for, in the arguments that change which rows come back.</summary>

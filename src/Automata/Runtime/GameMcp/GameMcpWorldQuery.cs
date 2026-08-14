@@ -89,16 +89,21 @@ internal static class GameMcpWorldQuery
             ["activeConceptAssignments"] = world.AlchemyInstances.Count,
         };
         if (world.SpellWorkbench.MaximumOutputLevel > 0)
-            // The floor is the same number on every dial in every save, so it belongs in the
-            // casting-dial tool's documentation, not in an answer a caller reads every few calls.
-            result["casting"] = new JObject
+            // The two dials on Magic > Casting, under the words that screen prints beside them —
+            // Output Lv and Reserve Lv — and the ceiling each has been raised to. A bare `output`
+            // said neither what it counted nor where the player would see it, and a live round
+            // read `casting: output 1/1` beside a mana bar of 133/133 and left the two
+            // unreconciled. The floor is the same number on every dial in every save, so it
+            // belongs in the casting-dial tool's documentation, not in an answer a caller reads
+            // every few calls.
+            result["castingDials"] = new JObject
             {
-                ["output"] = new JObject
+                ["outputLevel"] = new JObject
                 {
                     ["current"] = world.SpellWorkbench.OutputLevel,
                     ["maximum"] = world.SpellWorkbench.MaximumOutputLevel,
                 },
-                ["reserve"] = new JObject
+                ["reserveLevel"] = new JObject
                 {
                     ["current"] = world.SpellWorkbench.ReserveLevel,
                     ["maximum"] = world.SpellWorkbench.MaximumReserveLevel,
@@ -142,11 +147,21 @@ internal static class GameMcpWorldQuery
                 Categories[index].Name,
                 DescribeCategory(publication.Snapshot, Categories[index])));
         }
-        AddUnlistableCollectors(publication.Snapshot, rows);
+        var unlistable = AddUnlistableCollectors(publication.Snapshot, rows);
         rows.Sort(static (left, right) =>
             string.Compare(left.Name, right.Name, StringComparison.Ordinal));
         var categories = new JArray();
         for (var index = 0; index < rows.Count; index++) categories.Add(rows[index].Row);
+
+        // Said once, above the table, because it is a property of the suite's own code and not of
+        // any row: fourteen rows repeating it spent 38% of this whole response on one fact. Each
+        // of those rows carries the class, and a row with something of its own to add — a
+        // collector that did not bind, one whose pass was partial — still says that on the row.
+        if (unlistable)
+        {
+            result["unlistable"] =
+                GameMcpDecisionReason.For("collector_not_listable");
+        }
         result["categories"] = categories;
         return result;
     }
@@ -163,10 +178,11 @@ internal static class GameMcpWorldQuery
     /// make no collector listable. They say it runs, how many rows it produced, and why paging it is
     /// refused, in the same availability vocabulary every other row on this page speaks.
     /// </remarks>
-    private static void AddUnlistableCollectors(
+    private static bool AddUnlistableCollectors(
         GameWorldState world,
         List<(string Name, JObject Row)> rows)
     {
+        var any = false;
         for (var index = 0; index < world.CollectionCategories.Count; index++)
         {
             var report = world.CollectionCategories[index];
@@ -181,38 +197,44 @@ internal static class GameMcpWorldQuery
             {
                 continue;
             }
-            rows.Add((name, new JObject
+            any = true;
+            var row = new JObject
             {
                 ["category"] = name,
                 ["count"] = report.Sampled,
                 ["available"] = false,
-                ["reason"] = UnlistableReason(report),
-            }));
+                ["reasonCode"] = "collector_not_listable",
+            };
+            var detail = UnlistableDetail(report);
+            if (detail.Length > 0) row["reason"] = detail;
+            rows.Add((name, row));
         }
+        return any;
     }
 
-    private static string UnlistableReason(WorldCollectionCategoryStatus report)
+    /// <summary>
+    /// What this collector adds to the standing reason, or nothing where it adds none. The standing
+    /// sentence is the response's, said once; what belongs on a row is what only that row can say.
+    /// </summary>
+    private static string UnlistableDetail(WorldCollectionCategoryStatus report)
     {
-        const string unlistable =
-            "this collector publishes no table of its own, so world_list cannot page it; its rows " +
-            "reach the wire inside the reads that carry them";
         if (report.Outcome == WorldCategoryOutcome.Unavailable)
         {
-            return unlistable + ", and it did not bind on this build: " +
+            return "It did not bind on this build: " +
                 (report.FirstFailure.Length == 0
                     ? "the collector published no failure reason"
                     : report.FirstFailure);
         }
         if (report.Skipped > 0)
         {
-            return unlistable + ", and collection is partial: " +
+            return "Collection is partial: " +
                 report.Skipped.ToString(CultureInfo.InvariantCulture) +
                 " native rows were skipped; first failure: " +
                 (report.FirstFailure.Length == 0
                     ? "the collector did not publish a failure reason"
                     : report.FirstFailure);
         }
-        return unlistable;
+        return string.Empty;
     }
 
     private static HashSet<string> CollectReportCategories()
@@ -635,13 +657,25 @@ internal static class GameMcpWorldQuery
                 ["affordable"] = listedResearch.Decision.DevelopmentCostAffordable,
             }.Freeze();
 
+        // One word per concept across the type taxonomies. The reflected fallback took this row's
+        // first scan field and printed the native member's name for it, so the list column read
+        // `level` over the number the type's own page spells `totalLevel` — one quantity, two
+        // words, and a live round could not settle from the list which of the page's four level
+        // fields it had been handed. The number is read off the same decision the page prints,
+        // so the two cannot drift.
+        if (row is WorldEquipmentType equipmentTypeRow)
+            return new JObject
+            {
+                ["entityId"] = equipmentTypeRow.EntityId.ToString("D"),
+                ["totalLevel"] = equipmentTypeRow.LevelDecision.TotalLevel,
+            }.Freeze();
         // The gate the detail row already publishes. A hidden resource type refuses every level
         // purchase, so a list that omits it is a list a caller must probe row by row.
         if (row is WorldResourceType resourceType)
             return new JObject
             {
                 ["entityId"] = resourceType.EntityId.ToString("D"),
-                ["level"] = resourceType.LevelDecision.TotalLevel,
+                ["totalLevel"] = resourceType.LevelDecision.TotalLevel,
                 ["hidden"] = resourceType.SpecialHidden,
             }.Freeze();
         // `available` folded into `state`: it was `Learned`, which is `GlyphSO.IsAvailable()`, which
@@ -3350,7 +3384,7 @@ internal static class GameMcpWorldQuery
     }
 
     /// <summary>
-    /// What one press of the challenge-offer button spent. The game's own button decrements
+    /// What one press of the challenge-offer button did. The game's own button decrements
     /// <c>challengeRerollsLeft</c> when <c>hasFetchedChallenges</c> is already set and otherwise sets
     /// that flag, so both facts ship as pairs on every commit: a caller must never have to infer
     /// from an absent key whether a scarce reroll left the budget. <c>changed</c> answers the other
@@ -3358,14 +3392,26 @@ internal static class GameMcpWorldQuery
     /// spend, not a different set: a pool small enough to redraw itself is a legitimate outcome, and
     /// the caller reads it here instead of diffing two offer lists itself.
     /// </summary>
+    /// <remarks>
+    /// The press is one button and it is two presses' worth of weight. The cycle's first press is
+    /// the offer fetch: it costs no reroll, and besides redrawing it arms every challenge it
+    /// fetched for the reset and unlocks the reset decision that was refusing until then. A live
+    /// round pressed it, read <c>changed: yes</c> beside a fresh five, and had to go to a second
+    /// verb to discover that five challenges were now queued and the reset had opened — a commit
+    /// of that size hiding behind a word about whether a list moved. So the answer says which of
+    /// the two presses this was, what it armed, and what it unlocked, from the same world the
+    /// state read answers from.
+    /// </remarks>
     private static GameMcpValue ProjectChallengeRerollDelta(
         GameWorldState world,
         GameWorldState? before)
     {
         var after = world.ChallengeContext;
         var prior = before?.ChallengeContext;
+        var firstOfCycle = prior is { Available: true } && !prior.Value.ChallengesFetched;
         var result = new JObject
         {
+            ["press"] = firstOfCycle ? "offer_fetch" : "reroll",
             ["rerollsLeft"] = new JObject
             {
                 ["before"] = prior is { Available: true } ? Number(prior.Value.RerollsLeft) : (int?)null,
@@ -3380,6 +3426,14 @@ internal static class GameMcpWorldQuery
         if (prior is { Available: true } settled && after.Available)
             result["changed"] = !SameChallengeOffers(settled.TimeOffers, after.TimeOffers);
         result["offers"] = ChallengeReferences(after.TimeOffers);
+        result["queuedForReset"] = PrestigeChallenges(world, queuedRewards: false);
+        result["reset"] = new JObject
+        {
+            ["before"] = prior is { Available: true }
+                ? prior.Value.WorldCycleComplete && prior.Value.ChallengesFetched
+                : (bool?)null,
+            ["after"] = after.WorldCycleComplete && after.ChallengesFetched,
+        };
         return result.Freeze();
     }
 
@@ -3728,7 +3782,7 @@ internal static class GameMcpWorldQuery
         {
             return NotAvailable(
                 publication,
-                "invalid_state",
+                "invalid_state_filter",
                 "state must be one of " + GameMcpListColumns.Locked + ", " +
                 GameMcpListColumns.Available + ", " + GameMcpListColumns.Completed);
         }
@@ -6749,7 +6803,6 @@ internal static class GameMcpWorldQuery
         var inTime = Contains(context.TimeOffers, challenge.EntityId, out var timeRestricted);
         var inPrestige = Contains(context.PrestigeOffers, challenge.EntityId, out var prestigeRestricted);
         var restricted = timeRestricted || prestigeRestricted;
-        var selectionRoom = context.Selected.Count < context.SelectionMaximum;
         var result = new JObject
         {
             ["entityId"] = challenge.EntityId.ToString("D"),
@@ -6767,28 +6820,34 @@ internal static class GameMcpWorldQuery
             ["inPrestigeOffers"] = inPrestige,
         };
         if (challenge.MaxLevel >= 0) result["maximumLevel"] = challenge.MaxLevel;
+
+        // The selection budget is the game's own gate and the published world carries no reading of
+        // it: `SelectionMaximum` is the list's declared maximum, and the press asks
+        // `HasEmptySpot()`, which on a full list is still a yes for the swap the verb performs.
+        // The page said no where the verb then said yes — a predicted refusal a caller planned
+        // around for nothing — so the budget is no longer a clause here. What this page refuses on
+        // is what the world states outright: an unoffered challenge, and one the offer set itself
+        // marks restricted. Everything else is the verb's answer to give.
         var selectable = context.Available && (selected || inTime || inPrestige) &&
-            (selected || (selectionRoom && !restricted));
-        var select = new JObject { ["available"] = selectable, ["selected"] = selected };
+            (selected || !restricted);
+        var select = new JObject { ["available"] = selectable };
         if (!selectable)
             select["reasonCode"] = !context.Available
                 ? "challenge_state_unavailable"
                 : !selected && !inTime && !inPrestige
                     ? "not_offered"
-                    : !selectionRoom
-                        ? "selection_full"
-                        : "selection_restricted";
+                    : "selection_restricted";
         result["select"] = select;
 
         // The button reads "activate" on the screen but it queues: the challenge starts at the next
         // reset, not now. Naming the verb after the press taught callers to expect a running
         // challenge and to read the queued state as a failure.
+        // The gate says whether the press is open and why not; the row beside it already says where
+        // the challenge stands. `selected=` and `queued=` on these two lines agreed with the row's
+        // own `selected` and `run` columns on every one of a live round's hundred blocks, which is
+        // what a restatement is.
         var queueAvailable = context.Available && (inTime || inPrestige) && challenge.State is 0 or 1;
-        var queue = new JObject
-        {
-            ["available"] = queueAvailable,
-            ["queued"] = challenge.State == 1,
-        };
+        var queue = new JObject { ["available"] = queueAvailable };
         if (!queueAvailable)
             queue["reasonCode"] = !inTime && !inPrestige ? "not_offered" : "already_ran";
         result["queue"] = queue;
@@ -6858,14 +6917,24 @@ internal static class GameMcpWorldQuery
             ["rerollsMaximum"] = Number(context.RerollsMaximum),
             ["selectionMaximum"] = Number(context.SelectionMaximum),
             ["selected"] = ChallengeReferences(context.Selected),
-            ["offers"] = ChallengeReferences(context.TimeOffers),
         };
 
+        // An offer is an offer of this cycle's, and the game does not clear the list when a cycle
+        // ends: after a reset the same five names sat under `offers:` beside
+        // `challengesFetched: no` while every one of them was running, and before the first fetch
+        // they were the previous cycle's draw. Both readings are the same lie in two places, so
+        // the list is published exactly while it is the offer set: what the running challenges are
+        // is the `run` column's answer, on the rows that own it.
+        //
         // The Reset modal draws from the same list asset the Time screen does, so it is said once.
         // A build where the two ever part company says the second one out loud rather than quietly
         // planning off the first.
-        if (!SameChallengeOffers(context.TimeOffers, context.PrestigeOffers))
-            result["resetOffers"] = ChallengeReferences(context.PrestigeOffers);
+        if (context.ChallengesFetched)
+        {
+            result["offers"] = ChallengeReferences(context.TimeOffers);
+            if (!SameChallengeOffers(context.TimeOffers, context.PrestigeOffers))
+                result["resetOffers"] = ChallengeReferences(context.PrestigeOffers);
+        }
         result["reroll"] = RerollDecision(fetchAvailable, context);
         return result.Freeze();
     }

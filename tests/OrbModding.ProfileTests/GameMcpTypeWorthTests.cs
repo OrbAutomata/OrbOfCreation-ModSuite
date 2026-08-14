@@ -76,10 +76,7 @@ public sealed class GameMcpTypeWorthTests
                 "  members 1",
                 "  [kind | count]",
                 "  equipment | 2",
-                "  properties 3:",
-                "    property: experienceRateMod",
-                "    distributedTotalPercent: 100",
-                "",
+                "  properties 2:",
                 "    property: Type Slots",
                 "    value: 2",
                 "",
@@ -89,6 +86,7 @@ public sealed class GameMcpTypeWorthTests
                 "    [amount | effect | order | source]",
                 "    20 | raw | 0 | Deep Insight a0d000",
                 "    0.5 | diminishing | 0 | Focused Study a0e000",
+                "  unmodified: experienceRateMod",
             }),
             Render(Detail(Focus)));
     }
@@ -328,16 +326,34 @@ public sealed class GameMcpTypeWorthTests
             "\"category\":\"glyphs\",\"row\":{" +
             "\"population\":\"augment\",\"screen\":\"unreadable\",\"state\":\"locked\"," +
             "\"discovered\":false,\"usableCount\":0,\"reasonCode\":\"ERR_LOCKED\"," +
+            "\"reason\":\"This has not been discovered yet.\"," +
             "\"paidLevel\":0,\"totalLevel\":0,\"purchase\":{\"available\":false," +
             "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"The game has not unlocked this yet.\"}," +
             "\"discover\":{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
-            "\"reason\":\"The game is not showing this yet.\"},\"reason\":\"This has not been " +
-            "discovered yet.\"},\"predicates\":{" +
+            "\"reason\":\"The game is not showing this yet.\"}},\"predicates\":{" +
             "\"visible\":{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
             "\"reason\":\"This has not been discovered yet.\"},\"available\":{\"available\":false," +
             "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"This has not been discovered yet.\"}," +
             "\"canDiscover\":{\"available\":true}}}",
             detail.ToString(Formatting.None));
+    }
+
+    /// <summary>
+    /// One word per concept across the type taxonomies. The list column read <c>level</c> over the
+    /// number the type's own page spells <c>totalLevel</c>, and a round could not settle from the
+    /// list which of the page's four level fields it had been handed.
+    /// </summary>
+    [Fact]
+    public void An_equipment_type_list_row_names_the_level_it_carries_the_way_its_page_does()
+    {
+        var world = World();
+        var listed = Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 6101), "equipment-types", 0, 50));
+        var row = Assert.Single(listed["rows"]!.Values<JObject>())!;
+        var page = Detail(Focus);
+
+        Assert.Equal((int)page["row"]!["totalLevel"]!, (int)row["totalLevel"]!);
+        Assert.Null(row["level"]);
     }
 
     /// <summary>
@@ -352,10 +368,9 @@ public sealed class GameMcpTypeWorthTests
             string.Join('\n', new[]
             {
                 "rows 2/2",
-                "these 2 share: keywords=-, matchedOn=name",
-                "[id | name | category]",
-                "a0a000 | Focus | equipment-types",
-                "a1c000 | Focus Ward | glyphs",
+                "[id | name | category | keywords | matchedOn]",
+                "a0a000 | Focus | equipment-types | - | name",
+                "a1c000 | Focus Ward | glyphs | - | name",
             }),
             Render(Json(GameMcpWorldQuery.Search(
                 Context(World()), "focus", 0, 50, string.Empty, string.Empty, string.Empty,

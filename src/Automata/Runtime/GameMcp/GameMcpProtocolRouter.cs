@@ -745,7 +745,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_agromancy",
                 "Use the Agromancy screen",
-                "Add or remove a plot action, harvest element, or element action shown on World > Agromancy.",
+                "Add or remove a plot action, harvest element, or element action shown on World/Agromancy.",
                 ModeSchema(ActionSchema(
                     new JObject
                     {
@@ -1026,7 +1026,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "time_challenge",
                 "Select, queue, abandon, or reroll challenges",
-                "Drive one exact native challenge decision on the game's Time tab. select presses a challenge's preferred toggle: it selects an unselected challenge and gives up a selected one, and where the selections are full and exactly one is held it gives that one up and takes this one in a single call. queue presses the row's queue toggle, which moves it between idle and queued; a queued challenge starts running at the next reset, and only a running one can be abandoned. reroll presses the offer screen's own new-challenges button, free once per world cycle and one reroll every time after. state returns the offers, the reroll budget, the selections, and the reset decision.",
+                "Drive one exact native challenge decision on the game's Time tab. select presses a challenge's preferred toggle: it selects an unselected challenge and gives up a selected one, and where the selections are full and exactly one is held it gives that one up and takes this one in a single call. queue presses the row's queue toggle, which moves it between idle and queued; a queued challenge starts running at the next reset, and only a running one can be abandoned, and a challenge that has already run cannot be queued again until the next reset. reroll presses the offer screen's own new-challenges button, and the first press of a world cycle is the offer fetch: it costs no reroll, it draws this cycle's offers, it arms every challenge it drew to run at the next reset, and it unlocks the reset that refuses until the offers are fetched. Every later press costs one reroll, redraws the offers, and arms what it draws the same way. The answer names which of the two presses it was, what is armed for the reset afterwards, and whether the reset opened. state returns the reroll budget, the selections, the reset decision, and this cycle's offers once they have been fetched.",
                 ModeSchema(ActionSchema(
                     new JObject
                     {

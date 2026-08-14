@@ -160,6 +160,17 @@ internal static class GameMcpListColumns
     /// </summary>
     /// <remarks>
     /// <para>
+    /// <b>Two vocabularies, and this is the navigation one.</b> A NAVIGATION word is a label out of
+    /// the game's own view catalog, and a cell holding one prints the whole catalog path —
+    /// <c>screen</c>, or <c>screen/subtab</c> where the destination is a subtab — spelled exactly
+    /// as <c>game_navigate</c> takes it, so a reader pastes the cell and arrives. A CONCEPT word is
+    /// the different thing: the label the player reads on the surface that owns the concept, which
+    /// is what a state, a run or a property is named by. The two never share a cell, and neither is
+    /// ever a suite invention: every word here is pinned against a shipped <c>ViewSO</c>, and the
+    /// two words that are deliberately not destinations — <see cref="ScreenAll"/> and
+    /// <see cref="ScreenNoPage"/> — are lowercase and underscored so they cannot be read as one.
+    /// </para>
+    /// <para>
     /// The game's grouping axis for upgrades is the screen, and it spells it as nine hand-authored
     /// <c>UpgradeListVariable</c> assets swapped into one panel by <c>ListViewSwapper</c> on the
     /// active view. Eight of them are disjoint screen panels; the ninth, <c>AllUpgrades</c>, holds
@@ -427,7 +438,8 @@ internal static class GameMcpListColumns
             "entityId", "state", "paused", "totalLevel", "queuedLevels", "requirements",
             "canDevelop", "affordable",
         },
-        ["resource-types"] = new[] { "entityId", "level", "hidden" },
+        ["equipment-types"] = new[] { "entityId", "totalLevel" },
+        ["resource-types"] = new[] { "entityId", "totalLevel", "hidden" },
         ["glyphs"] = new[]
         {
             "entityId", "population", "screen", "state", "discovered", "paidLevel", "bonusLevel",

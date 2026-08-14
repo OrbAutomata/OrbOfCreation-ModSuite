@@ -343,12 +343,21 @@ internal static class GameMcpTextPage
             lines.Add(indent + name + ": " + identities);
             return;
         }
+        if (TrySoleCost(name, array, out var sole))
+        {
+            lines.Add(indent + sole);
+            return;
+        }
         if (!IsDetailBlocks(name) &&
-            TryTable(array, declared, said, out var columns, out var shared, out var cells))
+            TryTable(
+                array, declared, said,
+                out var columns, out var shared, out var majorities, out var cells))
         {
             lines.Add(indent + name + " " +
                 (countSuffix ?? array.Count.ToString(CultureInfo.InvariantCulture)));
             if (shared.Count > 0) lines.Add(indent + ShareLine(array.Count, shared));
+            for (var index = 0; index < majorities.Count; index++)
+                lines.Add(indent + majorities[index]);
             lines.Add(indent + Bracket(columns));
             for (var index = 0; index < cells.Count; index++)
                 lines.Add(indent + string.Join(Delimiter, cells[index]));
@@ -369,6 +378,48 @@ internal static class GameMcpTextPage
             else lines.Add(indent + Indent + Scalar(array[index]));
             if (index + 1 < array.Count && lines.Count - before > 1) lines.Add(string.Empty);
         }
+    }
+
+    /// <summary>
+    /// A price with exactly one resource in it, said on the line that names it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A table is three lines of frame — a count, a header naming four columns, and the row — and a
+    /// live round paid that frame 106 times for 106 prices of one resource each: 11,540 bytes to
+    /// deliver 4,613. Every word is the one the table used and in the table's order, so a reader
+    /// who has read one shape has read the other; only the frame is gone. Two or more resources
+    /// keep the table, because then the columns are doing what columns are for.
+    /// </para>
+    /// <para>
+    /// <c>affordable</c> is the one column that does not ride the line unconditionally. On its own
+    /// row it is <c>spendableAmount &gt;= cost</c> — 116 of 116 agreements in that round — and the
+    /// block around the price states its own <c>affordable</c> besides, so the word is worth a
+    /// reader's attention only where it says no, and that is where it is said.
+    /// </para>
+    /// </remarks>
+    private static bool TrySoleCost(string name, JArray array, out string rendered)
+    {
+        rendered = string.Empty;
+        if (!name.EndsWith("osts", StringComparison.Ordinal) || array.Count != 1) return false;
+        if (array[0] is not JObject row) return false;
+        if (row["cost"] is not { } cost || row["resource"] is not JObject resource) return false;
+        if (!IsIdentity(resource)) return false;
+        foreach (var property in row.Properties())
+        {
+            if (property.Name is "cost" or "spendableAmount" or "affordable" or "resource") continue;
+            return false;
+        }
+        var line = new StringBuilder(name.Substring(0, name.Length - 1))
+            .Append(": ")
+            .Append(Cell(cost, said: null));
+        if (row["spendableAmount"] is { } held)
+            line.Append(" of ").Append(Cell(held, said: null));
+        line.Append(' ').Append(Identity(resource));
+        if (row["affordable"] is JValue { Type: JTokenType.Boolean } affordable && !(bool)affordable)
+            line.Append(" affordable=").Append(GameMcpListColumns.No);
+        rendered = line.ToString();
+        return true;
     }
 
     private static string Bracket(IReadOnlyList<string> columns)
@@ -417,19 +468,62 @@ internal static class GameMcpTextPage
     }
 
     /// <summary>
-    /// What naming these columns on the share line takes off the page: their labels out of the
-    /// header, and their value plus one delimiter out of every row.
+    /// What a column reads on the page when nearly every row says the same thing: the reading the
+    /// majority share, and then each row that does not, by the handle it is addressed with.
     /// </summary>
-    private static int SharedSaving(int rowCount, List<KeyValuePair<string, string>> shared)
+    /// <remarks>
+    /// The share line only ever fired on a column that was constant to the last row, so a
+    /// ninety-eight-row page spent 1,076 bytes printing <c>available</c> ninety-five times and
+    /// 566 more printing <c>idle</c> ninety-four times — and the three rows that were not available
+    /// had to be found by eye down a wall of the same word. A live round read that wall as a
+    /// truncated answer and misread a name out of it. Naming the majority once and then naming the
+    /// exceptions puts the rows that differ where a reader is already looking, and every row's
+    /// value is still recoverable exactly: it is the majority unless the line says otherwise.
+    /// </remarks>
+    private static string MajorityLine(
+        int majorityCount,
+        int rowCount,
+        string column,
+        string value,
+        List<KeyValuePair<string, string>> exceptions)
     {
-        var saved = 0;
-        for (var index = 0; index < shared.Count; index++)
+        var line = new StringBuilder()
+            .Append(majorityCount.ToString(CultureInfo.InvariantCulture))
+            .Append(" of ")
+            .Append(rowCount.ToString(CultureInfo.InvariantCulture))
+            .Append(" share: ")
+            .Append(column)
+            .Append('=')
+            .Append(value)
+            .Append("; ");
+        for (var index = 0; index < exceptions.Count; index++)
         {
-            saved = checked(saved +
-                shared[index].Key.Length + Delimiter.Length +
-                (rowCount * (shared[index].Value.Length + Delimiter.Length)));
+            if (index > 0) line.Append(", ");
+            line.Append(exceptions[index].Key).Append(' ').Append(exceptions[index].Value);
         }
-        return saved;
+        return line.ToString();
+    }
+
+    /// <summary>
+    /// What one row of a table costs on the page: the cells this plan keeps, and the delimiter
+    /// between each neighbouring pair.
+    /// </summary>
+    private static int RowLength(string[] row, List<int> kept)
+    {
+        if (kept.Count == 0) return 0;
+        var length = (kept.Count - 1) * Delimiter.Length;
+        for (var index = 0; index < kept.Count; index++) length += row[kept[index]].Length;
+        return length;
+    }
+
+    /// <summary>What the header costs for the columns this plan keeps.</summary>
+    private static int HeaderLength(List<string> columns, List<int> kept)
+    {
+        if (kept.Count == 0) return 0;
+        var length = 2 + ((kept.Count - 1) * Delimiter.Length);
+        for (var index = 0; index < kept.Count; index++)
+            length += Label(columns[kept[index]]).Length;
+        return length;
     }
 
     /// <summary>
@@ -472,10 +566,12 @@ internal static class GameMcpTextPage
         HashSet<string> said,
         out List<string> columns,
         out List<KeyValuePair<string, string>> shared,
+        out List<string> majorities,
         out List<string[]> cells)
     {
         columns = new List<string>();
         shared = new List<KeyValuePair<string, string>>();
+        majorities = new List<string>();
         cells = new List<string[]>();
         var present = new HashSet<string>(StringComparer.Ordinal);
         var widest = 0;
@@ -497,7 +593,6 @@ internal static class GameMcpTextPage
         // same sentences for the first time there.
         var tableSaid = new HashSet<string>(said, StringComparer.Ordinal);
         var uniform = new string?[columns.Count];
-        var hoisted = new List<int>();
         for (var index = 0; index < columns.Count; index++)
         {
             var first = ((JObject)array[0])[columns[index]];
@@ -508,12 +603,6 @@ internal static class GameMcpTextPage
             {
                 if (!SayableInOneCell(first!)) return false;
                 uniform[index] = HeaderCell(first!, tableSaid);
-                if (Shareable(uniform[index]!))
-                {
-                    hoisted.Add(index);
-                    shared.Add(
-                        new KeyValuePair<string, string>(Label(columns[index]), uniform[index]!));
-                }
                 continue;
             }
             for (var row = 0; row < array.Count; row++)
@@ -523,33 +612,43 @@ internal static class GameMcpTextPage
             }
         }
 
-        if (hoisted.Count == columns.Count ||
-            ShareLine(array.Count, shared).Length >= SharedSaving(array.Count, shared))
-        {
-            hoisted.Clear();
-            shared.Clear();
-        }
-
-        var kept = new List<int>(columns.Count);
-        for (var index = 0; index < columns.Count; index++)
-            if (!hoisted.Contains(index)) kept.Add(index);
-
+        // Every cell of the whole table, rendered once. The plans below differ only in which of
+        // these columns reach the page, so what each one costs is arithmetic over strings that
+        // already exist rather than a formula about them — which is what the old worth test was,
+        // and it fired on eighteen of one round's twenty-seven tables where it did not pay.
+        var full = new List<string[]>(array.Count);
         for (var index = 0; index < array.Count; index++)
         {
             var row = (JObject)array[index];
-            var line = new string[kept.Count];
-            for (var column = 0; column < kept.Count; column++)
+            var line = new string[columns.Count];
+            for (var column = 0; column < columns.Count; column++)
             {
-                if (uniform[kept[column]] is { } settled)
+                if (uniform[column] is { } settled)
                 {
                     line[column] = settled;
                     continue;
                 }
-                var cell = row[columns[kept[column]]];
+                var cell = row[columns[column]];
                 line[column] = cell is null || cell.Type == JTokenType.Null
                     ? GameMcpListColumns.Absent
                     : Cell(cell, tableSaid);
             }
+            full.Add(line);
+        }
+
+        var taken = new bool[columns.Count];
+        var cost = PlanCost(columns, full, taken, shared, majorities);
+        TakeConstants(columns, full, uniform, taken, shared, majorities, ref cost);
+        TakeMajorities(columns, full, uniform, taken, shared, majorities, ref cost);
+
+        var kept = new List<int>(columns.Count);
+        for (var index = 0; index < columns.Count; index++)
+            if (!taken[index]) kept.Add(index);
+
+        for (var index = 0; index < full.Count; index++)
+        {
+            var line = new string[kept.Count];
+            for (var column = 0; column < kept.Count; column++) line[column] = full[index][kept[column]];
             cells.Add(line);
         }
 
@@ -558,6 +657,176 @@ internal static class GameMcpTextPage
         columns = header;
         said.UnionWith(tableSaid);
         return true;
+    }
+
+    /// <summary>What this plan puts on the page, in characters.</summary>
+    private static int PlanCost(
+        List<string> columns,
+        List<string[]> full,
+        bool[] taken,
+        List<KeyValuePair<string, string>> shared,
+        List<string> majorities)
+    {
+        var kept = new List<int>(columns.Count);
+        for (var index = 0; index < columns.Count; index++)
+            if (!taken[index]) kept.Add(index);
+        var cost = HeaderLength(columns, kept);
+        for (var index = 0; index < full.Count; index++) cost += RowLength(full[index], kept);
+        if (shared.Count > 0) cost += ShareLine(full.Count, shared).Length;
+        for (var index = 0; index < majorities.Count; index++) cost += majorities[index].Length;
+        return cost;
+    }
+
+    /// <summary>
+    /// The page-constant columns worth naming on the share line, taken one at a time and kept only
+    /// while the page is getting shorter. The last column is never taken: rows with nothing left in
+    /// them are not rows.
+    /// </summary>
+    private static void TakeConstants(
+        List<string> columns,
+        List<string[]> full,
+        string?[] uniform,
+        bool[] taken,
+        List<KeyValuePair<string, string>> shared,
+        List<string> majorities,
+        ref int cost)
+    {
+        // A page whose every column is constant keeps its table: rows with nothing left in them are
+        // not rows, and one column of the same word repeated is not a page a share line improves.
+        for (var index = 0; index < columns.Count; index++)
+            if (uniform[index] is null) break;
+            else if (index + 1 == columns.Count) return;
+
+        // Passes until nothing more pays. A column is judged against the page as it stands, and the
+        // share line's own opening is paid by whichever column is taken first — so the first column
+        // weighed alone can look dearer than it is, and the second pass is where it is weighed
+        // beside the line that now exists.
+        var moved = true;
+        while (moved)
+        {
+            moved = false;
+            for (var index = 0; index < columns.Count; index++)
+            {
+                if (taken[index]) continue;
+                if (uniform[index] is not { } settled || !Shareable(settled)) continue;
+                if (Remaining(taken) <= 1) return;
+                taken[index] = true;
+                var slot = InsertionPoint(columns, shared, index);
+                shared.Insert(slot, new KeyValuePair<string, string>(Label(columns[index]), settled));
+                var candidate = PlanCost(columns, full, taken, shared, majorities);
+                if (candidate < cost)
+                {
+                    cost = candidate;
+                    moved = true;
+                    continue;
+                }
+                taken[index] = false;
+                shared.RemoveAt(slot);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Where this column belongs on the share line: in the page's own column order, so the share
+    /// line and the header together name the declared set in the order it was declared however the
+    /// hoists were arrived at.
+    /// </summary>
+    private static int InsertionPoint(
+        List<string> columns,
+        List<KeyValuePair<string, string>> shared,
+        int column)
+    {
+        for (var index = 0; index < shared.Count; index++)
+        {
+            var placed = columns.FindIndex(name => string.Equals(
+                Label(name), shared[index].Key, StringComparison.Ordinal));
+            if (placed > column) return index;
+        }
+        return shared.Count;
+    }
+
+    /// <summary>
+    /// The near-constant columns worth naming once with their exceptions listed, on the same terms:
+    /// taken only while the page is getting shorter, and only where every row can be named.
+    /// </summary>
+    /// <remarks>
+    /// A row is named by the handle the page already addresses it with, so a reader who wants the
+    /// exception's other columns has the id to find its line. Without that handle there is nothing
+    /// to hang an exception on, and the column stays where every row spells it out.
+    /// </remarks>
+    private static void TakeMajorities(
+        List<string> columns,
+        List<string[]> full,
+        string?[] uniform,
+        bool[] taken,
+        List<KeyValuePair<string, string>> shared,
+        List<string> majorities,
+        ref int cost)
+    {
+        var handle = columns.IndexOf("uuid");
+        if (handle < 0 || full.Count < MajorityFloor) return;
+        for (var index = 0; index < columns.Count; index++)
+        {
+            if (index == handle || taken[index] || uniform[index] is not null) continue;
+            if (Remaining(taken) <= 1) return;
+            if (!TryMajority(full, index, out var value, out var majorityCount)) continue;
+            var exceptions = new List<KeyValuePair<string, string>>();
+            for (var row = 0; row < full.Count; row++)
+            {
+                if (string.Equals(full[row][index], value, StringComparison.Ordinal)) continue;
+                exceptions.Add(
+                    new KeyValuePair<string, string>(full[row][handle], full[row][index]));
+            }
+            taken[index] = true;
+            majorities.Add(MajorityLine(
+                majorityCount, full.Count, Label(columns[index]), value, exceptions));
+            var candidate = PlanCost(columns, full, taken, shared, majorities);
+            if (candidate < cost)
+            {
+                cost = candidate;
+                continue;
+            }
+            taken[index] = false;
+            majorities.RemoveAt(majorities.Count - 1);
+        }
+    }
+
+
+    /// <summary>Below this many rows a majority is not a majority, it is a short list.</summary>
+    private const int MajorityFloor = 6;
+
+    /// <summary>
+    /// The reading most of this column's rows share, where one of them does and every cell in it is
+    /// short enough and plain enough to be named on a line of its own.
+    /// </summary>
+    private static bool TryMajority(
+        List<string[]> full,
+        int column,
+        out string value,
+        out int count)
+    {
+        value = string.Empty;
+        count = 0;
+        for (var row = 0; row < full.Count; row++)
+            if (!Shareable(full[row][column])) return false;
+        for (var row = 0; row < full.Count; row++)
+        {
+            var candidate = full[row][column];
+            var seen = 0;
+            for (var other = 0; other < full.Count; other++)
+                if (string.Equals(full[other][column], candidate, StringComparison.Ordinal)) seen++;
+            if (seen <= count) continue;
+            count = seen;
+            value = candidate;
+        }
+        return count > 0 && count < full.Count;
+    }
+
+    private static int Remaining(bool[] taken)
+    {
+        var left = 0;
+        for (var index = 0; index < taken.Length; index++) if (!taken[index]) left++;
+        return left;
     }
 
     /// <summary>

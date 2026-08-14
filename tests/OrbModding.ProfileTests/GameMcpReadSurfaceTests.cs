@@ -482,8 +482,11 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.StartsWith("[", lines[1]);
         Assert.Contains("0d0474", lines[2]);
         Assert.Contains("AttributeSO", lines[2]);
-        Assert.Contains("HiddenComponent", lines[2]);
         Assert.Contains("Hidden Component", lines[2]);
+
+        // The asset id here is the name with its space taken out, which the verb contract says
+        // absence means, so the row does not spell it twice.
+        Assert.DoesNotContain("HiddenComponent", lines[2]);
         Assert.Contains("not-world-projected", lines[2]);
         Assert.DoesNotContain("catalogSource", page, StringComparison.Ordinal);
         Assert.DoesNotContain("totalCatalogRows", page, StringComparison.Ordinal);

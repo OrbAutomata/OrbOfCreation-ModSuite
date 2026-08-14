@@ -83,10 +83,12 @@ public sealed class GameMcpSpellCompositionTests
         var equipped = Assert.Single(row["equipped"]!.Values<JObject>())!;
         var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(context));
 
-        Assert.Equal(4, (int)overview["casting"]!["output"]!["current"]!);
-        Assert.Equal(12, (int)overview["casting"]!["output"]!["maximum"]!);
-        Assert.Equal(3, (int)overview["casting"]!["reserve"]!["current"]!);
-        Assert.Equal(9, (int)overview["casting"]!["reserve"]!["maximum"]!);
+        // The two dials the Casting screen shows, under the words it prints beside them.
+        Assert.Equal(4, (int)overview["castingDials"]!["outputLevel"]!["current"]!);
+        Assert.Equal(12, (int)overview["castingDials"]!["outputLevel"]!["maximum"]!);
+        Assert.Equal(3, (int)overview["castingDials"]!["reserveLevel"]!["current"]!);
+        Assert.Equal(9, (int)overview["castingDials"]!["reserveLevel"]!["maximum"]!);
+        Assert.Null(overview["casting"]);
         Assert.Null(row["outputLevel"]);
         // The equipped spell is a runtime instance the catalog never publishes, so its handle
         // resolved for no tool. The recipe carries the same name and does resolve, so the row names

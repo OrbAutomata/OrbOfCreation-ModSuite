@@ -61,16 +61,14 @@ public sealed class GameMcpTypeReachTests
                 "  members 1",
                 "  [kind | count]",
                 "  structures | 2",
-                "  properties 2:",
-                "    property: Develop Speed",
-                "    distributedTotalPercent: 100",
-                "",
+                "  properties 1:",
                 "    property: Power",
                 "    distributedTotalPercent: 175",
                 "    sources 2",
                 "    [amount | effect | order | source]",
                 "    40 | raw | 0 | Deep Insight c1a000",
                 "    0.25 | diminishing | 0 | Focused Study c1b000",
+                "  unmodified: Develop Speed",
             }),
             Render(Detail(Workshop)));
     }
@@ -178,10 +176,9 @@ public sealed class GameMcpTypeReachTests
             string.Join('\n', new[]
             {
                 "rows 2/2",
-                "these 2 share: keywords=-, matchedOn=name",
-                "[id | name | category]",
-                "c0c000 | Arcanist | structure-types",
-                "c1c000 | Garden | agromancy-element-types",
+                "[id | name | category | keywords | matchedOn]",
+                "c0c000 | Arcanist | structure-types | - | name",
+                "c1c000 | Garden | agromancy-element-types | - | name",
             }),
             Render(Json(GameMcpWorldQuery.Search(
                 Context(World()), "ar", 0, 50, string.Empty, string.Empty, string.Empty,
@@ -205,12 +202,10 @@ public sealed class GameMcpTypeReachTests
                 "name: Aura",
                 "internalName: auraPassiveAbilityType",
                 "category: passive-ability-types",
-                "worth:",
-                "  howToRead: These totals are already inside each member's own numbers: read them " +
-                "to compare types, and never multiply one into a member.",
-                "  properties 1",
-                "  [property | distributedTotalPercent]",
-                "  Cooldown | 100",
+                // Nothing is loaded onto this type's one record, so the whole block is the one
+                // line that says which record exists and that nothing modifies it. There is no
+                // magnitude on the page, so there is no reading rule to give for one.
+                "worth: unmodified=[Cooldown]",
             }),
             Render(Detail(Aura)));
         Assert.Equal(
