@@ -146,9 +146,37 @@ gives its members +X%" that assumes a ratio of 1 is a guessed magnitude, not a r
 `UpgradeableObject.ModifierPropertyRecord` — the `PropertyRefs` member — is a property-*name* schema
 rather than authored magnitudes: `propertyNames`, `modifierPropertyNames`, `effectPropertyNames` and
 a display/tooltip descriptor per key, built in each class's static constructor. The string keys are
-real (`SpellTypeSO.GetValueModifierRecord` is a 21-arm switch mapping `"Power"` → `power`), and they
+real (`SpellTypeSO.GetValueModifierRecord` is a 20-arm switch mapping `"Power"` → `power`), and they
 are how an authored effect names its target property — which is why an authored magnitude lives on
 the effect and not on the type asset.
+
+## Four records the build carries and cannot read
+
+A record is **live** when some path exists for the game to reach it: an accessor arm resolving an
+authored ref name onto it, a reachable getter or pull site loading it, or a `Register*` site loading
+it to push its modifiers into member records. That is capability, not current usage — a record an
+authored upgrade *could* name through a router arm is live even when nothing names it today.
+
+Four of the 145 records have no path at all on 1.0.5. Every place their fields are touched is a
+store in the constructor, a load handed straight to `ModifierRecord.Clear()` by `ResetData`, or a
+load inside a method the assembly dispatches to from nowhere:
+
+| Record | Why nothing can read it |
+|---|---|
+| `SpellTypeSO.bonusFlashRate` | 22 refs, 20 router arms; `"Flash Rating"` falls to `ldnull`. `GetBonusFlashRate()` has no callers, and `Spell.GetSpellTypeBonusFlashRate` reads `GetBonusCritRate()` instead |
+| `SpellTypeSO.flashEffectMod` | the same router gap for `"Flash Effect"`; `GetFlashEffectMod()` has no callers |
+| `EquipmentTypeSO.masteryLevel` | the class's whole router is `"Power"` and `"TypeSlots"`; no getter, no registration, no load anywhere in the assembly |
+| `PlotNodeTypeSO.totalLevel` | its only reader is `AddToLevel`, non-virtual with no callers; `PlotNodeTypeSO.GetLevel()` returns a constant `1` |
+
+The router gap is what makes the flash pair unreachable rather than merely unused:
+`UpgradeableObject.UpgradeEffectModifier.Execute` asks the router by name, so a name it will not
+resolve is a property no authored effect can target, and `GetFilteredPropertyNames` drops those same
+names from the tooltip because their accessor reports `HasNoInfo()`. The game shows neither and can
+move neither.
+
+The default runs the other way. IL proves a path exists; it cannot prove one absent through a
+reflective or data-driven route it never sees. A record whose liveness is undecidable is therefore
+live, and only a record with no path at all is dead.
 
 ## What IL cannot prove
 

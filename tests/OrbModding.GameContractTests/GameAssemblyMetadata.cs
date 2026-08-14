@@ -388,6 +388,116 @@ internal sealed class GameAssemblyMetadata : IDisposable
         return references.OrderBy(reference => reference.Offset).ToArray();
     }
 
+    /// <summary>
+    /// Every instruction in the assembly that touches one of the named fields, with the opcode class
+    /// that touched it and the member the value was handed straight to.
+    /// </summary>
+    /// <remarks>
+    /// Whole-assembly rather than per-method because the question this answers is the inverse of
+    /// <see cref="GetMethodBodyDefinitionReferences(string, string)"/>: not "what does this method
+    /// read" but "who reads this field, if anyone". The whole set is scanned in one walk because a
+    /// walk per field would re-read every method body once per field.
+    /// </remarks>
+    public IReadOnlyList<FieldUseSite> GetFieldUseSites(
+        IReadOnlyCollection<(string Type, string Field)> fields)
+    {
+        var named = new Dictionary<int, (string Type, string Field)>();
+        foreach (var field in fields)
+            named[MetadataTokens.GetToken(RequireField(field.Type, field.Field))] = field;
+
+        var sites = new List<FieldUseSite>();
+        foreach (var typeHandle in Reader.TypeDefinitions)
+        {
+            var type = Reader.GetTypeDefinition(typeHandle);
+            var typeName = GetFullTypeName(typeHandle);
+            foreach (var methodHandle in type.GetMethods())
+            {
+                var method = Reader.GetMethodDefinition(methodHandle);
+                if (method.RelativeVirtualAddress == 0) continue;
+                var il = _peReader.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
+                if (il is null) continue;
+                for (var offset = 1; offset + 4 <= il.Length; offset++)
+                {
+                    var token = il[offset] | (il[offset + 1] << 8) |
+                        (il[offset + 2] << 16) | (il[offset + 3] << 24);
+                    if (!named.TryGetValue(token, out var field)) continue;
+                    sites.Add(new FieldUseSite(
+                        field.Type,
+                        field.Field,
+                        typeName,
+                        Reader.GetString(method.Name),
+                        MetadataTokens.GetToken(methodHandle),
+                        (method.Attributes & MethodAttributes.Virtual) != 0,
+                        FieldOpcodeClass(il[offset - 1]),
+                        CalledMemberName(il, offset + 4)));
+                }
+            }
+        }
+
+        return sites;
+    }
+
+    /// <summary>
+    /// Which of the given method tokens appear in some other method's body, by <c>call</c>,
+    /// <c>callvirt</c> or <c>ldftn</c> alike.
+    /// </summary>
+    /// <remarks>
+    /// A definition token in a body is the only dispatch IL states outright. It says nothing about
+    /// virtual dispatch through a base slot or about a reflective call, so an empty answer for one
+    /// token is evidence only when the method is neither virtual nor an entry point the runtime
+    /// calls by name.
+    /// </remarks>
+    public IReadOnlySet<int> GetReferencedMethodTokens(IReadOnlyCollection<int> candidates)
+    {
+        var wanted = new HashSet<int>(candidates);
+        var referenced = new HashSet<int>();
+        foreach (var typeHandle in Reader.TypeDefinitions)
+        {
+            var type = Reader.GetTypeDefinition(typeHandle);
+            foreach (var methodHandle in type.GetMethods())
+            {
+                var method = Reader.GetMethodDefinition(methodHandle);
+                if (method.RelativeVirtualAddress == 0) continue;
+                var own = MetadataTokens.GetToken(methodHandle);
+                var il = _peReader.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
+                if (il is null) continue;
+                for (var offset = 0; offset + 4 <= il.Length; offset++)
+                {
+                    var token = il[offset] | (il[offset + 1] << 8) |
+                        (il[offset + 2] << 16) | (il[offset + 3] << 24);
+                    if (token != own && wanted.Contains(token)) referenced.Add(token);
+                }
+            }
+        }
+
+        return referenced;
+    }
+
+    private static string FieldOpcodeClass(byte opcode) => opcode switch
+    {
+        0x7B or 0x7C or 0x7E or 0x7F => "load",
+        0x7D or 0x80 => "store",
+        _ => "other",
+    };
+
+    /// <summary>The member a <c>call</c> or <c>callvirt</c> at this offset dispatches to.</summary>
+    private string CalledMemberName(byte[] il, int offset)
+    {
+        if (offset + 5 > il.Length) return string.Empty;
+        if (il[offset] != 0x28 && il[offset] != 0x6F) return string.Empty;
+        var token = il[offset + 1] | (il[offset + 2] << 8) |
+            (il[offset + 3] << 16) | (il[offset + 4] << 24);
+        var handle = MetadataTokens.EntityHandle(token);
+        return handle.Kind switch
+        {
+            HandleKind.MethodDefinition => Reader.GetString(
+                Reader.GetMethodDefinition((MethodDefinitionHandle)handle).Name),
+            HandleKind.MemberReference => Reader.GetString(
+                Reader.GetMemberReference((MemberReferenceHandle)handle).Name),
+            _ => string.Empty,
+        };
+    }
+
     private static string GetTypeVisibility(TypeAttributes attributes) =>
         (attributes & TypeAttributes.VisibilityMask) switch
         {
@@ -579,6 +689,17 @@ internal sealed record MethodBodyDefinitionReference(
     string Kind,
     string DeclaringType,
     string MemberName);
+
+/// <summary>One instruction that touches a named field, and what it does with it.</summary>
+internal sealed record FieldUseSite(
+    string FieldOwner,
+    string FieldName,
+    string MethodOwner,
+    string MethodName,
+    int MethodToken,
+    bool MethodIsVirtual,
+    string Use,
+    string CalledMember);
 
 internal sealed record MethodDispatchContract(
     bool IsVirtual,

@@ -36,6 +36,17 @@ public sealed class TypeModifierContractTests
         "ModifierRecord",
     };
 
+    /// <summary>
+    /// Method names the runtime reaches without any call site in the assembly, so an absent caller
+    /// says nothing about them.
+    /// </summary>
+    private static readonly HashSet<string> EntryPoints = new(StringComparer.Ordinal)
+    {
+        ".ctor", ".cctor", "Awake", "Start", "OnEnable", "OnDisable", "OnDestroy", "Update",
+        "FixedUpdate", "LateUpdate", "OnValidate", "Reset", "OnApplicationQuit",
+        "OnApplicationPause",
+    };
+
     private static readonly Dictionary<string, string[]> Records = new(StringComparer.Ordinal)
     {
         ["SpellTypeSO"] = new[]
@@ -188,6 +199,92 @@ public sealed class TypeModifierContractTests
         Assert.Equal(
             Records[taxonomy].OrderBy(entry => entry, StringComparer.Ordinal).ToArray(),
             declared);
+    }
+
+    /// <summary>
+    /// The records this build carries but cannot read, re-derived from the pinned assembly.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A record is live when some path exists for the game to reach it, and the assembly says which:
+    /// an accessor arm resolving an authored ref name onto it, a reachable getter or pull site
+    /// loading it, or a <c>Register*</c> site loading it to push its modifiers into member records.
+    /// This census asks the inverse question of every record at once and keeps only the ones with no
+    /// path at all, which is what the suite's own liveness table must say.
+    /// </para>
+    /// <para>
+    /// Three kinds of touch are not a read into a computation and are excluded by name: a store,
+    /// which authors the record rather than consuming it; a load handed straight to
+    /// <c>ModifierRecord.Clear()</c>, which is <c>ResetData</c> wiping the record on a lifecycle
+    /// boundary; and a load inside a method the assembly dispatches to from nowhere. Every other
+    /// touch counts, and every ambiguity counts as a read — a virtual method, a constructor, a Unity
+    /// message and anything referenced anywhere all keep their record alive, because IL can prove a
+    /// path exists and cannot prove one absent through a route it never sees. The census therefore
+    /// fails open: it can only ever find fewer dead records than really are.
+    /// </para>
+    /// </remarks>
+    [GameAssemblyFact]
+    public void FourRecordsExistOnThisBuildWithNoPathForTheGameToReadThem()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        var fields = Records
+            .SelectMany(taxonomy => taxonomy.Value.Select(
+                entry => (Type: taxonomy.Key, Field: entry.Split(':')[0])))
+            .ToArray();
+        var sites = assembly.GetFieldUseSites(fields);
+        var reads = sites
+            .Where(site => site.Use == "load" && site.CalledMember != "Clear")
+            .ToArray();
+        var dispatched = assembly.GetReferencedMethodTokens(
+            reads.Select(read => read.MethodToken).Distinct().ToArray());
+
+        var dead = fields
+            .Where(field => !reads.Any(read =>
+                read.FieldOwner == field.Type &&
+                read.FieldName == field.Field &&
+                (read.MethodIsVirtual ||
+                 EntryPoints.Contains(read.MethodName) ||
+                 dispatched.Contains(read.MethodToken))))
+            .Select(field => field.Type + "." + field.Field)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(
+            new[]
+            {
+                "EquipmentTypeSO.masteryLevel",
+                "PlotNodeTypeSO.totalLevel",
+                "SpellTypeSO.bonusFlashRate",
+                "SpellTypeSO.flashEffectMod",
+            },
+            dead);
+    }
+
+    /// <summary>
+    /// The one arm that decides the flash pair: the router answers twenty-two ref names with twenty
+    /// records, and both flash names fall through to null.
+    /// </summary>
+    /// <remarks>
+    /// Without this, "no reachable reader" would be the whole case, and a reader could reasonably
+    /// suppose an authored upgrade still reaches the record by naming it. It does not: the router is
+    /// the only way an effect names a property, and <c>GetFilteredPropertyNames</c> drops a name
+    /// whose accessor <c>HasNoInfo()</c> from the tooltip for the same reason.
+    /// </remarks>
+    [GameAssemblyFact]
+    public void TheSpellTypeRouterResolvesNeitherFlashRecord()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.True(assembly.MethodReferencesField(
+            "SpellTypeSO", "GetValueModifierRecord", "SpellTypeSO", "power"));
+        Assert.False(assembly.MethodReferencesField(
+            "SpellTypeSO", "GetValueModifierRecord", "SpellTypeSO", "bonusFlashRate"));
+        Assert.False(assembly.MethodReferencesField(
+            "SpellTypeSO", "GetValueModifierRecord", "SpellTypeSO", "flashEffectMod"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "UpgradeableObject+UpgradeEffectModifier", "Execute",
+            "UpgradeableObject", "GetUpgradeModAccessor"));
     }
 
     /// <summary>
