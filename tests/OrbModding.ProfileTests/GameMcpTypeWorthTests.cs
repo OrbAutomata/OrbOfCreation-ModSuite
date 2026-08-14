@@ -225,6 +225,49 @@ public sealed class GameMcpTypeWorthTests
     }
 
     /// <summary>
+    /// A type's row is the scalars the type itself stores. How loaded each of its records is is not
+    /// among them: that is one row per record on <c>type modifiers</c>, and the block under the row
+    /// is where a reader meets it.
+    /// </summary>
+    [Fact]
+    public void A_type_row_carries_the_type_s_own_scalars_and_never_its_modifier_load()
+    {
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "uuid: a1a000",
+                "name: Tonic",
+                "internalName: tonicType",
+                "category: alchemy-types",
+                "row: level=4, maxUsageByMastery=no",
+                "worth:",
+                "  howToRead: These are this type's own numbers, and they apply on top of " +
+                "whatever wears the type.",
+                "  properties 1",
+                "  [property | value]",
+                "  level | 4",
+            }),
+            Render(Detail(Tonic)));
+
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "uuid: a1b000",
+                "name: Bench",
+                "internalName: benchType",
+                "category: crafting-recipe-types",
+                "row: startingLevel=1, maxStartingLevel=4, craftVerb=craft, initiated=yes",
+                "worth:",
+                "  howToRead: These are this type's own numbers, and they apply on top of " +
+                "whatever wears the type.",
+                "  properties 1",
+                "  [property | value]",
+                "  Magnitude | 7",
+            }),
+            Render(Detail(Bench)));
+    }
+
+    /// <summary>
     /// An entity that is not a type is answered exactly as it was answered before types learned to
     /// say what they are worth — same keys, same bytes, no empty block standing in for the one it
     /// has no reason to carry.
