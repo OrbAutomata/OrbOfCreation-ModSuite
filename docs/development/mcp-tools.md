@@ -1637,21 +1637,36 @@ stores; agromancy action types and passive ability types store none at all — e
 hands its bonus down — so their page carries no `row` line and the `worth` block is the whole
 answer.
 
-`properties` is one entry per modifier record the type carries, and each entry states exactly one
-magnitude under the name that says which kind it is. `property` is the word the game's own tooltip
-prints for that record — `Artifact Power`, not `powerMod` — so a reader compares the wire against
-the screen. Where the pinned build authors no display word, the internal name stands exactly as it
-is rather than being translated into an invented one, and a record nobody has ruled on is refused
-rather than passed through under its field name. `distributedTotalPercent` is a record that
-*hands its bonus down* — the moment a modifier lands, a transformed copy is pushed into every
+`properties` is one entry per modifier record the game itself can read, and each entry states
+exactly one magnitude under the name that says which kind it is. `property` is the word the game's
+own tooltip prints for that record — `Artifact Power`, not `powerMod` — so a reader compares the
+wire against the screen. Where the pinned build authors no display word, the internal name stands
+exactly as it is rather than being translated into an invented one, and a record nobody has ruled on
+is refused rather than passed through under its field name. `distributedTotalPercent` is a record
+that *hands its bonus down* — the moment a modifier lands, a transformed copy is pushed into every
 member, so the member value the surface already publishes **already contains it**. Reading it beside
 a member's number and multiplying is how one bonus becomes two. `value` is a record holding a number
 of its own, which applies on top of whatever wears the type; all twenty-two `SpellTypeSO` records are
-these, and they appear nowhere else on the wire. `howToRead` says the rule that fits the block it
-sits on, so a spell type never reads about handed-down totals it has none of. `sources` names every
-modifier currently on that record: who placed it, its amount in the game's own notation, which of the
-five folds it is (`raw`, `diminishing`, `stacking`, `reduction`, `exponent`), and its order. A
-distributor carrying nothing totals to a flat `100`, which is a reading rather than an absence.
+these, and the twenty this build can read appear nowhere else on the wire. `howToRead` says the rule
+that fits the block it sits on, so a spell type never reads about handed-down totals it has none of.
+`sources` names every modifier currently on that record: who placed it, its amount in the game's own
+notation, which of the five folds it is (`raw`, `diminishing`, `stacking`, `reduction`, `exponent`),
+and its order. A distributor carrying nothing totals to a flat `100`, which is a reading rather than
+an absence.
+
+**Worth is what a purchase can move, so a record the game cannot read is not one of its properties.**
+Four of the 145 records on this build have no path into any of the game's own computations — no
+accessor arm resolves an authored ref name onto them, no reachable code loads them, no registration
+pushes them anywhere — so nothing a player buys can change their numbers:
+`SpellTypeSO.bonusFlashRate`, `SpellTypeSO.flashEffectMod`, `EquipmentTypeSO.masteryLevel` and
+`PlotNodeTypeSO.totalLevel`. They are still captured, and where a type's `row` carries one as a
+scalar it still shows it, because a row says what the build holds. They are simply not priced: they
+carry no total, no `sources`, no entry under `properties`, and no word — printing one would label a
+control that is wired to nothing. The classification is re-derived from the pinned assembly by the
+contract census rather than kept by hand, so a build that adds the missing accessor arms flips those
+records back into `properties` by re-census. It fails open: a record whose liveness IL cannot decide
+stays priced. See [the type model](../reverse-engineering/type-model.md) for the per-record
+evidence.
 
 `members` says how many things the keyword reaches, per class of thing, with the structure subtype
 chain already closed over — a bonus on a parent type reaches every child's members too. It is absent
@@ -3017,6 +3032,13 @@ The per-category entity census, the bind and cold-collect timings, the per-pass 
 breakdown and the per-type drift percentages are not part of the answer and are not printed: each
 answers a performance or inventory question this verb is not asked, and each moved between two calls
 over an unchanged world.
+
+Nothing here moved when the four records the game cannot read left the worth block. `Spell type
+layer` reproduces `Spell.GetSpellTypePowerPercent()` and its cost and cooldown-speed siblings, which
+aggregate `power`, `costMod`, `cooldownSpeed` and `elementalResonance` only, so the dead records
+were never a term in anything it compares and its counts are what they were. There was no oracle to
+reconcile against, because a record with no path into the game's own computations has no game-side
+answer to disagree with.
 
 Two things about it are unlike every other read here, and both are deliberate:
 

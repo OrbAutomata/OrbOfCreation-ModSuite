@@ -9,13 +9,15 @@ namespace OrbModding.ProfileTests;
 
 /// <summary>
 /// Every record a type page can print has a disposition somebody chose: the word the game's own
-/// tooltip prints, or the internal name left standing because the game prints no word for it.
+/// tooltip prints, or the internal name left standing because the game prints no word for it. A
+/// record no type page can print has none at all.
 /// </summary>
 /// <remarks>
 /// This is the whole guard. The failure it exists to stop is silent: a record added to the world's
 /// census keeps its camelCase name on the wire and reads exactly like a record the game genuinely
 /// has no word for, so the surface degrades one property at a time with nothing to notice. The map
-/// throws instead, and this says so for all one hundred and forty-five of them at once.
+/// throws instead, and this says so for all one hundred and forty-five of them at once — one hundred
+/// and forty-one with a disposition, and four dead ones the map refuses to name.
 /// </remarks>
 public sealed class GameMcpModifierPropertyWordsTests
 {
@@ -44,8 +46,37 @@ public sealed class GameMcpModifierPropertyWordsTests
         Assert.NotEmpty(records);
         foreach (var property in records)
         {
+            if (!WorldTypeModifierLiveness.IsLive(kind, property)) continue;
             var word = GameMcpModifierPropertyWords.Word(kind, property);
             Assert.False(string.IsNullOrWhiteSpace(word));
+        }
+    }
+
+    /// <summary>
+    /// A record the game cannot read has no word, and asking for one says why rather than handing
+    /// back a name.
+    /// </summary>
+    /// <remarks>
+    /// The two tables have to agree in both directions. A dead record with a word would be a label
+    /// waiting for a page it never reaches, and a live record without one is the silent camelCase
+    /// failure the census exists to stop; keeping the word table total over exactly the live records
+    /// is what makes each of those a test failure rather than a wire surprise.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Taxonomies))]
+    public void A_record_the_game_cannot_read_has_no_word_because_it_reaches_no_page(
+        string taxonomy)
+    {
+        var kind = Enum.Parse<WorldTypeModifierOwnerKind>(taxonomy);
+        foreach (var property in WorldTypeModifierBindings.Records(kind))
+        {
+            if (WorldTypeModifierLiveness.IsLive(kind, property)) continue;
+            var thrown = Assert.Throws<InvalidOperationException>(
+                () => GameMcpModifierPropertyWords.Word(kind, property));
+            Assert.Contains(
+                kind + "." + property + " is dead on this build",
+                thrown.Message,
+                StringComparison.Ordinal);
         }
     }
 
@@ -81,19 +112,15 @@ public sealed class GameMcpModifierPropertyWordsTests
     }
 
     /// <summary>
-    /// The ten records the pinned build authors no word for, named one by one. A word arriving for
-    /// any of them is a game change to census, and a word quietly disappearing from the map would
-    /// otherwise look identical to one of these.
+    /// The six live records the pinned build authors no word for, named one by one. A word arriving
+    /// for any of them is a game change to census, and a word quietly disappearing from the map
+    /// would otherwise look identical to one of these.
     /// </summary>
     [Theory]
-    [InlineData("SpellType", "bonusFlashRate")]
-    [InlineData("SpellType", "flashEffectMod")]
     [InlineData("AlchemyType", "level")]
     [InlineData("EquipmentType", "experienceRateMod")]
-    [InlineData("EquipmentType", "masteryLevel")]
     [InlineData("RitualType", "activeRituals")]
     [InlineData("HarvestType", "level")]
-    [InlineData("PlotNodeType", "totalLevel")]
     [InlineData("ResearchType", "usedBonusLevels")]
     [InlineData("TimeRuneType", "totalLevel")]
     public void A_record_the_game_words_nowhere_keeps_its_internal_name(
@@ -107,12 +134,14 @@ public sealed class GameMcpModifierPropertyWordsTests
     }
 
     /// <summary>
-    /// Exactly ten stand as-is across the whole census, so a new silent record cannot be added
-    /// alongside the ruled ones without this saying so.
+    /// Of the hundred and forty-five records the world binds, four are dead and six of the
+    /// remaining hundred and forty-one stand as-is, so neither a new silent record nor a record
+    /// quietly losing its path can be added alongside the ruled ones without this saying so.
     /// </summary>
     [Fact]
-    public void Ten_of_the_hundred_and_forty_five_records_stand_under_their_internal_name()
+    public void Four_records_are_dead_and_six_live_ones_stand_under_their_internal_name()
     {
+        var dead = new List<string>();
         var silent = new List<string>();
         var total = 0;
         foreach (var kind in Enum.GetValues<WorldTypeModifierOwnerKind>())
@@ -120,6 +149,12 @@ public sealed class GameMcpModifierPropertyWordsTests
             foreach (var property in WorldTypeModifierBindings.Records(kind))
             {
                 total++;
+                if (!WorldTypeModifierLiveness.IsLive(kind, property))
+                {
+                    dead.Add(kind + "." + property);
+                    continue;
+                }
+
                 if (string.Equals(
                         GameMcpModifierPropertyWords.Word(kind, property),
                         property,
@@ -131,7 +166,16 @@ public sealed class GameMcpModifierPropertyWordsTests
         }
 
         Assert.Equal(145, total);
-        Assert.Equal(10, silent.Count);
+        Assert.Equal(
+            new[]
+            {
+                "SpellType.bonusFlashRate",
+                "SpellType.flashEffectMod",
+                "EquipmentType.masteryLevel",
+                "PlotNodeType.totalLevel",
+            },
+            dead);
+        Assert.Equal(6, silent.Count);
     }
 
     /// <summary>

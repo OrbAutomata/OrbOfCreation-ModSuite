@@ -372,6 +372,17 @@ unreadable, because a slot the game will answer for and the suite will not is th
 `ValueModifierRecord` is how the two are told apart, which is why the record class is published on
 every row and pinned per member by `TypeModifierContractTests` against the audited build.
 
+**Capture carries every record; anything derived from one carries only the records the game can
+read.** A record is live when some path exists for the game to reach it — an accessor arm resolving
+an authored ref name onto it, a reachable getter or pull site loading it, or a `Register*` site
+loading it to push its modifiers into members — and four of the 145 on this build have none, so no
+purchase can move their numbers. Their rows stay in `TypeModifiers` and their scalars stay on
+whatever row already carried them, because publication says what the build holds. Nothing derives
+from them and no surface prices them, because the suite computes what the game computes and here the
+game computes nothing. `WorldTypeModifierLiveness` is the table; the contract census re-derives it
+from the pinned assembly rather than trusting it, and it fails open — a record IL cannot decide
+stays live.
+
 The rule is enforced by the names rather than left to a reader's memory: a derived type total is only
 ever reachable as `DistributedTotal…`, while the member value keeps the plain property name. The
 record member's own name cannot carry the distinction — nine of the thirteen structure pairs name the

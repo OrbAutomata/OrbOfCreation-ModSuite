@@ -29,7 +29,10 @@ namespace OrbAutomata.GameMcp;
 /// Spell types are the whole of the second case among the classes a detail read reaches: all
 /// twenty-two <c>SpellTypeSO</c> records hold values, they hand nothing down, and a spell's power
 /// really is multiplied by the product of the types it resonates with. Their numbers appear nowhere
-/// else on the wire, so this block is where they are said.
+/// else on the wire, so this block is where they are said — for the twenty of them the game can
+/// read. The rest of the surface prints only what a purchase could move, which is why a record with
+/// no path into any of the game's own computations is absent from here and present in the raw
+/// capture; see <see cref="WorldTypeModifierLiveness"/>.
 /// </para>
 /// </remarks>
 internal static class GameMcpTypeWorth
@@ -97,6 +100,13 @@ internal static class GameMcpTypeWorth
     /// is a flat hundred percent, and that is a reading rather than an absence.
     /// </para>
     /// <para>
+    /// A record the game itself cannot read is omitted whatever it holds. Worth is what investment
+    /// can move, and machinery with no path into any computation — see
+    /// <see cref="WorldTypeModifierLiveness"/> — moves for nobody: a number beside it would offer a
+    /// lever that is not connected to anything. The record stays captured, because publication
+    /// carries what the build holds; it simply is not a property worth has.
+    /// </para>
+    /// <para>
     /// The name is the game's own word for the record wherever the game authors one; see
     /// <see cref="GameMcpModifierPropertyWords"/>. Rows keep the order the world table holds them
     /// in, which is by internal name: that name is the record's stable identity, so the page's order
@@ -109,6 +119,8 @@ internal static class GameMcpTypeWorth
         ref bool handedDown,
         ref bool own)
     {
+        if (!WorldTypeModifierLiveness.IsLive(record.OwnerKind, record.Property)) return null;
+
         var entry = new JObject
         {
             ["property"] = GameMcpModifierPropertyWords.Word(record.OwnerKind, record.Property),
@@ -256,11 +268,6 @@ internal static class GameMcpTypeWorth
                 if (!WorldLookup.TryFind(world.HarvestTypes, typeId, out var harvestType)) return false;
                 value = harvestType.Level;
                 return true;
-            case WorldTypeModifierOwnerKind.PlotNodeType:
-                if (!string.Equals(property, "totalLevel", StringComparison.Ordinal)) return false;
-                if (!WorldLookup.TryFind(world.PlotNodeTypes, typeId, out var plotNodeType)) return false;
-                value = plotNodeType.TotalLevel;
-                return true;
             case WorldTypeModifierOwnerKind.TimeRuneType:
                 if (!string.Equals(property, "totalLevel", StringComparison.Ordinal)) return false;
                 if (!WorldLookup.TryFind(world.TimeRuneTypes, typeId, out var timeRuneType)) return false;
@@ -285,20 +292,11 @@ internal static class GameMcpTypeWorth
                 }
 
             case WorldTypeModifierOwnerKind.EquipmentType:
+                if (!string.Equals(property, "maxTypeSlots", StringComparison.Ordinal)) return false;
                 if (!WorldLookup.TryFind(world.EquipmentTypes, typeId, out var equipmentType))
                     return false;
-                switch (property)
-                {
-                    case "masteryLevel":
-                        value = equipmentType.MasteryLevel;
-                        return true;
-                    case "maxTypeSlots":
-                        value = equipmentType.MaxTypeSlots;
-                        return true;
-                    default:
-                        return false;
-                }
-
+                value = equipmentType.MaxTypeSlots;
+                return true;
             default:
                 return false;
         }
@@ -314,7 +312,6 @@ internal static class GameMcpTypeWorth
             case "augmentResonance": value = spellType.AugmentResonance; return true;
             case "bonusCritRate": value = spellType.BonusCritRate; return true;
             case "bonusDoubleCastRate": value = spellType.BonusDoubleCastRate; return true;
-            case "bonusFlashRate": value = spellType.BonusFlashRate; return true;
             case "chargeEffectMod": value = spellType.ChargeEffectMod; return true;
             case "chargeSpecialMod": value = spellType.ChargeSpecialMod; return true;
             case "chargeTimeMod": value = spellType.ChargeTimeMod; return true;
@@ -327,7 +324,6 @@ internal static class GameMcpTypeWorth
             case "drainCostMod": value = spellType.DrainCostMod; return true;
             case "durationMod": value = spellType.DurationMod; return true;
             case "elementalResonance": value = spellType.ElementalResonance; return true;
-            case "flashEffectMod": value = spellType.FlashEffectMod; return true;
             case "maxStacksMod": value = spellType.MaxStacksMod; return true;
             case "power": value = spellType.Power; return true;
             case "scalingMod": value = spellType.ScalingMod; return true;

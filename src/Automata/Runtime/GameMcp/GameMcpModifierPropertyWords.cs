@@ -14,9 +14,8 @@ namespace OrbAutomata.GameMcp;
 /// Those strings are the whole of this table: read off the pinned assembly, joined to the record
 /// field through the class's own <c>GetUpgradeModAccessorInternal</c> /
 /// <c>GetValueModifierRecord</c> switch, and copied here verbatim. A record the game declares no
-/// ref for, or declares one the accessor switch never routes to a field, keeps its internal name —
-/// an invented translation would be a word the player has never seen, which is the one thing this
-/// may not produce.
+/// ref for keeps its internal name — an invented translation would be a word the player has never
+/// seen, which is the one thing this may not produce.
 /// </para>
 /// <para>
 /// The key is the taxonomy <em>and</em> the property, because the same field name is a different
@@ -25,10 +24,16 @@ namespace OrbAutomata.GameMcp;
 /// them and been wrong on the other.
 /// </para>
 /// <para>
-/// Closed and total over the records <see cref="WorldTypeModifierBindings"/> binds, and a pair with
-/// no disposition throws rather than falling through to its internal name. Silence has to be
-/// deliberate: a record that quietly kept its camelCase name is indistinguishable from one the
-/// census missed, and only one of those is honest.
+/// Closed and total over the <em>live</em> records <see cref="WorldTypeModifierBindings"/> binds,
+/// and a pair with no disposition throws rather than falling through to its internal name. Silence
+/// has to be deliberate: a record that quietly kept its camelCase name is indistinguishable from one
+/// the census missed, and only one of those is honest.
+/// </para>
+/// <para>
+/// A record the game cannot read has no disposition at all, and asking for one throws rather than
+/// answering. It is not that no word was chosen — it is that the record reaches no page to carry a
+/// word on (see <see cref="WorldTypeModifierLiveness"/>), so a word here would be a name for a
+/// control nothing is wired to. Four records are in that position on the pinned build.
 /// </para>
 /// </remarks>
 internal static class GameMcpModifierPropertyWords
@@ -39,6 +44,7 @@ internal static class GameMcpModifierPropertyWords
     internal static string Word(WorldTypeModifierOwnerKind kind, string property)
     {
         if (property is null) throw new ArgumentNullException(nameof(property));
+        if (!WorldTypeModifierLiveness.IsLive(kind, property)) throw Dead(kind, property);
         return kind switch
         {
             WorldTypeModifierOwnerKind.SpellType => property switch
@@ -63,10 +69,6 @@ internal static class GameMcpModifierPropertyWords
                 "scalingMod" => "Effect Scaling",
                 "typeXpMod" => "Type Xp",
                 "usageCostReduction" => "Spell Weight Reduction",
-
-                // The game authors no word for these. The internal name stands.
-                "bonusFlashRate" => property,
-                "flashEffectMod" => property,
                 _ => throw Unworded(kind, property),
             },
             WorldTypeModifierOwnerKind.ResourceType => property switch
@@ -132,9 +134,8 @@ internal static class GameMcpModifierPropertyWords
                 "maxTypeSlots" => "Type Slots",
                 "powerMod" => "Artifact Power",
 
-                // The game authors no word for these. The internal name stands.
+                // The game authors no word for this one. The internal name stands.
                 "experienceRateMod" => property,
-                "masteryLevel" => property,
                 _ => throw Unworded(kind, property),
             },
             WorldTypeModifierOwnerKind.RitualType => property switch
@@ -203,9 +204,6 @@ internal static class GameMcpModifierPropertyWords
                 "sizeMod" => "Size",
                 "specialMod" => "Special",
                 "yieldMod" => "Yield",
-
-                // The game authors no word for this one. The internal name stands.
-                "totalLevel" => property,
                 _ => throw Unworded(kind, property),
             },
             WorldTypeModifierOwnerKind.ResearchType => property switch
@@ -260,6 +258,17 @@ internal static class GameMcpModifierPropertyWords
             },
             _ => throw Unworded(kind, property),
         };
+    }
+
+    private static InvalidOperationException Dead(
+        WorldTypeModifierOwnerKind kind,
+        string property)
+    {
+        return new InvalidOperationException(
+            "the type record " + kind + "." + property + " is dead on this build and has no word " +
+            "because it reaches no page: nothing in the game reads it into a computation, so " +
+            "nothing a player buys can move it. A word for it would be a label on a control that " +
+            "is not wired to anything.");
     }
 
     private static InvalidOperationException Unworded(

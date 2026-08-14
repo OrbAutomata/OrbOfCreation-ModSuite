@@ -46,8 +46,11 @@ public sealed class GameMcpTypeWorthTests
     /// "Artifact Power" is <c>powerMod</c> under the game's own word, hand-computed off the pinned
     /// fold: seed 100, Raw +20, then one MultiDiminishing multiply of 1 + 0.5, which is 180 and not
     /// 100 × 1.2 × 1.5 read in the other order. <c>experienceRateMod</c> carries nothing and totals
-    /// to a flat 100, which is a reading rather than an absence; it and <c>masteryLevel</c> keep
-    /// their internal names because this class authors no display word for either.
+    /// to a flat 100, which is a reading rather than an absence, and keeps its internal name because
+    /// this class authors no display word for it. <c>masteryLevel</c> is the fourth record this type
+    /// carries and is not among the properties: nothing in the game reads it, so no purchase can
+    /// move it, and worth says only what a purchase can move. The row above still carries it,
+    /// because the row is what the build holds.
     /// </remarks>
     [Fact]
     public void A_type_says_what_each_record_is_worth_and_names_everyone_who_paid_in()
@@ -73,15 +76,9 @@ public sealed class GameMcpTypeWorthTests
                 "  members 1",
                 "  [kind | count]",
                 "  equipment | 2",
-                "  properties 4:",
+                "  properties 3:",
                 "    property: experienceRateMod",
                 "    distributedTotalPercent: 100",
-                "",
-                "    property: masteryLevel",
-                "    value: 5",
-                "    sources 1",
-                "    [amount | effect | order | source]",
-                "    2 | raw | 0 | Deep Insight a0d000",
                 "",
                 "    property: Type Slots",
                 "    value: 2",
@@ -104,7 +101,9 @@ public sealed class GameMcpTypeWorthTests
     /// <remarks>
     /// This is the class the game words most fully: all four records here print the tooltip's own
     /// name rather than <c>cooldownSpeed</c>, <c>costMod</c>, <c>elementalResonance</c> and
-    /// <c>power</c>.
+    /// <c>power</c>. Six records are captured on this type, not four — <c>bonusFlashRate</c> and
+    /// <c>flashEffectMod</c> hold 35 and 240 and appear nowhere, because the pinned build routes
+    /// neither name and reads neither field, so nothing a player buys can change either number.
     /// </remarks>
     [Fact]
     public void A_spell_type_answers_with_its_own_numbers_and_never_a_handed_down_total()
@@ -156,39 +155,85 @@ public sealed class GameMcpTypeWorthTests
     }
 
     /// <summary>
+    /// A record the game cannot read stays captured and is priced nowhere. Publication carries what
+    /// the build holds; worth carries what a purchase can move, and these two are not the same set.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the whole shape of the ruling in one place. Dropping the rows from the capture would
+    /// have been the other way to make the page right, and it would have made the world lie about
+    /// the assembly; printing them was the way it was wrong before, and it offered a number no
+    /// investment could ever change.
+    /// </para>
+    /// <para>
+    /// The derived side needs no liveness rule of its own today, and the last assertion is what says
+    /// so: every dead record on the pinned build is a <c>ValueModifierRecord</c>, which the total
+    /// deriver already passes over because such a record is folded where it is published. A build
+    /// that leaves a <i>distributor</i> dead breaks this rather than quietly publishing a total for
+    /// machinery nothing reads, which is why the outcome is asserted instead of a branch being added
+    /// that cannot fire.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void A_record_the_game_cannot_read_is_captured_and_priced_nowhere()
+    {
+        var world = World();
+        Assert.True(WorldTypeModifierLookup.TryFind(
+            world.TypeModifiers, Ember, out var start, out var count));
+        var captured = Enumerable.Range(start, count)
+            .Select(index => world.TypeModifiers[index].Property)
+            .ToArray();
+        Assert.Contains("bonusFlashRate", captured);
+        Assert.Contains("flashEffectMod", captured);
+
+        var printed = Detail(Ember)["worth"]!["properties"]!.Values<JObject>()
+            .Select(row => (string?)row!["property"])
+            .ToArray();
+        Assert.DoesNotContain("bonusFlashRate", printed);
+        Assert.DoesNotContain("flashEffectMod", printed);
+
+        for (var index = 0; index < world.TypeModifierTotals.Count; index++)
+        {
+            var total = world.TypeModifierTotals[index];
+            Assert.True(
+                WorldTypeModifierLiveness.IsLive(total.OwnerKind, total.Property),
+                total.OwnerKind + "." + total.Property + " is dead and was given a derived total.");
+        }
+    }
+
+    /// <summary>The twenty spell type records the game can read, from the world's own census.</summary>
+    public static TheoryData<string> LiveSpellTypeRecords()
+    {
+        var data = new TheoryData<string>();
+        foreach (var property in WorldTypeModifierBindings.Records(
+                     WorldTypeModifierOwnerKind.SpellType))
+        {
+            if (WorldTypeModifierLiveness.IsLive(WorldTypeModifierOwnerKind.SpellType, property))
+                data.Add(property);
+        }
+
+        return data;
+    }
+
+    /// <summary>
     /// Every value record the five detail-readable type classes carry resolves to the number the
     /// record actually holds. A record whose class is not mapped here would answer with sources and
     /// no magnitude, which reads as a distributor whose total went missing.
     /// </summary>
     /// <remarks>
-    /// The expected name comes from the word table rather than a second list here, so the twenty-two
-    /// records answer under whatever disposition the census gave each of them — twenty a game word,
-    /// and <c>bonusFlashRate</c> and <c>flashEffectMod</c> their own names, because the pinned build
-    /// declares a display string for both and then routes neither.
+    /// <para>
+    /// The expected name comes from the word table rather than a second list here, so each record
+    /// answers under whatever disposition the census gave it.
+    /// </para>
+    /// <para>
+    /// The cases come from the world's own record census filtered by liveness rather than from a
+    /// hand-kept list, so a build that routes a flash name adds its case here the moment the
+    /// liveness table is re-censused — and the case fails until this block learns to read that
+    /// record's value. A hand-kept list would have let the record go live and stay unpriced.
+    /// </para>
     /// </remarks>
     [Theory]
-    [InlineData("augmentResonance")]
-    [InlineData("bonusCritRate")]
-    [InlineData("bonusDoubleCastRate")]
-    [InlineData("bonusFlashRate")]
-    [InlineData("chargeEffectMod")]
-    [InlineData("chargeSpecialMod")]
-    [InlineData("chargeTimeMod")]
-    [InlineData("cooldownSpeed")]
-    [InlineData("cooldownTime")]
-    [InlineData("costMod")]
-    [InlineData("critDurationMod")]
-    [InlineData("critEffectMod")]
-    [InlineData("doubleCastEffectMod")]
-    [InlineData("drainCostMod")]
-    [InlineData("durationMod")]
-    [InlineData("elementalResonance")]
-    [InlineData("flashEffectMod")]
-    [InlineData("maxStacksMod")]
-    [InlineData("power")]
-    [InlineData("scalingMod")]
-    [InlineData("typeXpMod")]
-    [InlineData("usageCostReduction")]
+    [MemberData(nameof(LiveSpellTypeRecords))]
     public void Every_spell_type_record_the_game_authors_has_a_number_on_the_wire(string property)
     {
         var results = Json(GameMcpWorldQuery.GetRows(
@@ -379,6 +424,13 @@ public sealed class GameMcpTypeWorthTests
                     "ValueModifierRecord"),
                 (Ember, WorldTypeModifierOwnerKind.SpellType, "elementalResonance",
                     "ValueModifierRecord"),
+
+                // Captured exactly like the four above, and printed by nothing: the pinned build
+                // routes neither, so no purchase can move either.
+                (Ember, WorldTypeModifierOwnerKind.SpellType, "bonusFlashRate",
+                    "ValueModifierRecord"),
+                (Ember, WorldTypeModifierOwnerKind.SpellType, "flashEffectMod",
+                    "ValueModifierRecord"),
             }
             : extraRecords).ToArray());
 
@@ -497,12 +549,17 @@ public sealed class GameMcpTypeWorthTests
         return rows;
     }
 
+    /// <summary>
+    /// The two flash records carry numbers on purpose: the point is that a captured magnitude the
+    /// game cannot read is still not printed, which a pair of zeroes would not have shown.
+    /// </summary>
     private static WorldSpellType SpellType(Guid id) =>
         new(
             id, 0, default, 0d, 0d, false, false, false, false, true, false,
             default, new BigDouble(150), new BigDouble(100), default, new BigDouble(80),
             default, default, new BigDouble(200), default, default, default, default, default,
-            default, default, default, default, default, default, default, default, default);
+            default, default, default, default, default, default, default,
+            new BigDouble(35), new BigDouble(240));
 
     private static WorldCollectionCategoryStatus[] CleanReports() =>
         GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
