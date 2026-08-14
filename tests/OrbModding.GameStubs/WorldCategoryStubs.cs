@@ -488,6 +488,9 @@ public sealed class HarvestActionSO : UpgradeableObject
 {
     public static List<HarvestActionSO> All = new List<HarvestActionSO>();
     public List<HarvestActionTypeSO> actionTypes = new List<HarvestActionTypeSO>();
+    public ValueModifierRecord power = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public ValueModifierRecord speed = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public ValueModifierRecord costMod = new ValueModifierRecord(new BigDouble(0.0, 0));
     public bool visible = true;
     public ResourceCostList DrainCost = new ResourceCostList();
     public BigDouble NextDrainPercent = new BigDouble(100);

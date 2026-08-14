@@ -696,7 +696,7 @@ public sealed class NativeContractManifestTests
         // top-level, so it matched three variable binders, found their contracts, and passed — while
         // twenty-nine categories went unchecked. NotEmpty cannot tell "everything is declared" from
         // "almost nothing was looked at". Update the number when a category is added or removed.
-        Assert.Equal(43, collected.Length);
+        Assert.Equal(44, collected.Length);
 
         var declared = manifest.Contracts
             .Where(contract => contract.Assembly == "assembly-csharp")

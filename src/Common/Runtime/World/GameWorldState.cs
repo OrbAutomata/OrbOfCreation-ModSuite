@@ -291,6 +291,13 @@ public sealed record GameWorldState
         PublicationTable<WorldHarvestElement>.Empty;
 
     /// <summary>
+    /// The six base agromancy verbs an element offers. Their type linkage is a keyword row rather
+    /// than a column here; see <see cref="WorldHarvestAction"/>.
+    /// </summary>
+    internal PublicationTable<WorldHarvestAction> HarvestActions { get; init; } =
+        PublicationTable<WorldHarvestAction>.Empty;
+
+    /// <summary>
     /// The resource each harvest element owns. Separate from <see cref="Resources"/> because the game
     /// keeps it out of <c>ResourceSO.All</c> and out of every global aggregate; see
     /// <see cref="RawHarvestResourceSample"/>.

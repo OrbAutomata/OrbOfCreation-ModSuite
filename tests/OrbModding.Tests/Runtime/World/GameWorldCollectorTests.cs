@@ -579,19 +579,21 @@ public sealed class GameWorldCollectorTests : IDisposable
         // the two that belong to no per-type registry at all and are reached by uuid: the action
         // queues, the equipped spell loadout, the paired Concept registries, and the current
         // targeting request, plus the two ordered consumable lists, their frame-local use gate, and
-        // the runtime Brewing Station selector/lifecycle surface, and the nine type rosters, whose
-        // modifier records were already walked but whose assets had no row of their own.
+        // the runtime Brewing Station selector/lifecycle surface, the nine type rosters, whose
+        // modifier records were already walked but whose assets had no row of their own, and the
+        // six base agromancy verbs, whose keyword rows were walked while the assets a members line
+        // counts had no row to be reached at.
         // A pass that quietly stopped covering one would show
         // up only as a consumer finding nothing where there was something.
         var report = Collector().Collect();
 
-        Assert.Equal(73, report.Categories.Length);
+        Assert.Equal(74, report.Categories.Length);
         Assert.True(report.IsComplete, report.Describe());
 
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a
         // levelled grouping type.
         foreach (var category in
-                 new[] { "resources", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "glyph lists", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions", "structure types", "ritual types", "harvest types", "plot node types", "research types", "consumable families", "harvest action types", "passive ability types", "time rune types" })
+                 new[] { "resources", "harvest actions", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "glyph lists", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions", "structure types", "ritual types", "harvest types", "plot node types", "research types", "consumable families", "harvest action types", "passive ability types", "time rune types" })
         {
             Assert.Equal(WorldCategoryOutcome.Collected, report.For(category).Outcome);
         }
@@ -2353,6 +2355,34 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         // And it stays out of the resource table, because the game keeps it out of the registry.
         Assert.Equal(0, world.Resources.Count);
+    }
+
+    /// <summary>
+    /// The base agromancy verbs are a registry of their own, and every scalar the class stores is on
+    /// the row: <c>HarvestActionSO.GetScalingInfo()</c> loads exactly <c>power</c>, <c>speed</c> and
+    /// <c>costMod</c>, so a row that carried fewer would leave a bonus on this verb unreadable.
+    /// </summary>
+    [Fact]
+    public void AHarvestActionPublishesTheThreeRecordsThatScaleIt()
+    {
+        var action = new FakeHarvestAction
+        {
+            power = new FakeModifierRecord(140d),
+            speed = new FakeModifierRecord(110d),
+            costMod = new FakeModifierRecord(90d),
+        };
+        FakeHarvestAction.All.Add(action);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.Equal(1, world.HarvestActions.Count);
+        Assert.True(WorldLookup.TryFind(world.HarvestActions, action.Identity, out var row));
+        Assert.Equal(140d, row.Power.ToDouble());
+        Assert.Equal(110d, row.Speed.ToDouble());
+        Assert.Equal(90d, row.CostMod.ToDouble());
     }
 
     [Fact]

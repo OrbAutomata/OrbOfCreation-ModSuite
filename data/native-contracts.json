@@ -5988,13 +5988,71 @@
       "static": true,
       "valueType": "System.Collections.Generic.List`1<HarvestActionSO>",
       "owners": [
+        "Automata world collection",
         "Common keyword world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<HarvestActionSO>"}
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<HarvestActionSO>"}
+    },
+    {
+      "id": "harvest-action.power",
+      "assembly": "assembly-csharp",
+      "type": "HarvestActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "power",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
+    },
+    {
+      "id": "harvest-action.speed",
+      "assembly": "assembly-csharp",
+      "type": "HarvestActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "speed",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
+    },
+    {
+      "id": "harvest-action.cost-mod",
+      "assembly": "assembly-csharp",
+      "type": "HarvestActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "costMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
     },
     {
       "id": "harvest-action.action-types",

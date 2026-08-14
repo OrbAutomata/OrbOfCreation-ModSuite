@@ -186,6 +186,7 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldSnapshotSlot> SnapshotSlots { get; } = new();
     internal WorldRelationBuffer<WorldSnapshotEntry> SnapshotEntries { get; } = new();
     internal WorldSampleBuffer<WorldHarvestElement, WorldHarvestElement> HarvestElements { get; } = new();
+    internal WorldSampleBuffer<WorldHarvestAction, WorldHarvestAction> HarvestActions { get; } = new();
     internal WorldSampleBuffer<RawHarvestResourceSample, WorldHarvestResource> HarvestResources { get; } = new();
     internal WorldRelationBuffer<WorldHarvestElementControl> HarvestElementControls { get; } = new();
     internal WorldRelationBuffer<WorldHarvestActionControl> HarvestActionControls { get; } = new();
@@ -522,6 +523,7 @@ internal static class GameWorldFrameDeriver
             SnapshotSlots = WorldLoadoutDeriver.BuildSlots(frame.SnapshotSlots),
             SnapshotEntries = WorldLoadoutDeriver.BuildSnapshotEntries(frame.SnapshotEntries),
             HarvestElements = frame.HarvestElements.Build(WorldIdentityDeriver<WorldHarvestElement>.Shared),
+            HarvestActions = frame.HarvestActions.Build(WorldIdentityDeriver<WorldHarvestAction>.Shared),
             HarvestResources = frame.HarvestResources.Build(new WorldHarvestResourceDeriver(frame.FrameGlobals)),
             HarvestElementControls = WorldHarvestLifecycleDeriver.BuildElements(
                 frame.HarvestElementControls),

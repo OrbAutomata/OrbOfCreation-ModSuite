@@ -275,7 +275,7 @@ public sealed class WorldIdentityWalkTests
         Assert.Equal(
             new[] { "MasteryCosts", "ModifierProgramEntries", "ModifierPrograms" },
             composite);
-        Assert.Equal(59, walked);
+        Assert.Equal(60, walked);
     }
 
     /// <summary>

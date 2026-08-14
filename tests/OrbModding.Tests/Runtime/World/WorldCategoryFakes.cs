@@ -1936,6 +1936,9 @@ internal sealed class FakeHarvestAction
     public static readonly List<FakeHarvestAction> All = new();
 
     public List<FakeHarvestActionType> actionTypes = new();
+    public FakeModifierRecord power = new(0d);
+    public FakeModifierRecord speed = new(0d);
+    public FakeModifierRecord costMod = new(0d);
     public Guid Identity = Guid.NewGuid();
     public bool Visible = true;
     public FakeCraftingResourceCostList DrainCost = new();

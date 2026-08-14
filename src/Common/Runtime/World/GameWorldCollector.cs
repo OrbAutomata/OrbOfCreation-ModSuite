@@ -110,6 +110,7 @@ internal sealed class GameWorldCollector
     private readonly WorldCraftingStationReader _craftingStations;
     private readonly WorldLoadoutReader _loadouts;
     private readonly WorldCategoryReader<WorldHarvestElement, WorldHarvestElement> _harvestElements;
+    private readonly WorldCategoryReader<WorldHarvestAction, WorldHarvestAction> _harvestActions;
     private readonly WorldCategoryReader<RawHarvestResourceSample, WorldHarvestResource> _harvestResources;
     private readonly WorldHarvestLifecycleReader _harvestLifecycle;
     private readonly WorldCategoryReader<WorldTimeRune, WorldTimeRune> _timeRunes;
@@ -297,6 +298,7 @@ internal sealed class GameWorldCollector
         _loadouts = new WorldLoadoutReader(resolveType);
         _craftingRecipeAuthoring = new WorldCraftingRecipeAuthoringReader(_craftingRecipes);
         _harvestElements = Reader(new WorldHarvestElementBinder(), resolveType, static frame => frame.HarvestElements);
+        _harvestActions = Reader(new WorldHarvestActionBinder(), resolveType, static frame => frame.HarvestActions);
         _harvestResources = Reader(new WorldHarvestResourceBinder(), resolveType, static frame => frame.HarvestResources);
         _harvestLifecycle = new WorldHarvestLifecycleReader(resolveType);
         _timeRunes = Reader(new WorldTimeRuneBinder(resolveType), resolveType, static frame => frame.TimeRunes);
@@ -369,7 +371,8 @@ internal sealed class GameWorldCollector
             _craftingDecisions,
             _craftingStations,
             _loadouts,
-            _harvestElements, _harvestResources, _harvestLifecycle, _timeRunes, _glyphs, _consumables,
+            _harvestElements, _harvestActions, _harvestResources, _harvestLifecycle, _timeRunes,
+            _glyphs, _consumables,
             _consumableInventory,
             _scribeRelations,
             _rituals, _achievements, _advancements, _challenges, _challengeContext,
