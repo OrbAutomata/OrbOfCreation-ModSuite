@@ -324,7 +324,7 @@ public sealed class GameMcpGenericLevelTests
             PublicationTable<WorldLevelableCost>.Empty);
         var equipmentType = new WorldEquipmentType(
             EquipmentTypeId, total - bonus, bonus, 1, new BigDouble(4),
-            new BigDouble(8), 0, 0, withBonus);
+            new BigDouble(8), withBonus);
         var glyph = new WorldGlyph(GlyphId, total - bonus, bonus, 0, glyphLearned,
             glyphDiscoverable, glyphDiscoveryRequired, false, false, false, 0, BigDouble.Zero,
             BigDouble.Zero, BigDouble.Zero, maximumUsages, levelDecision: withBonus);

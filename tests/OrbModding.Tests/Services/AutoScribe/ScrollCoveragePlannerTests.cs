@@ -560,14 +560,7 @@ public sealed class ScrollCoveragePlannerTests
                 initiated: true,
                 magnitudeLoss: 0,
                 magnitudeTime: 0,
-                magnitudeIncrement: BigDouble.Zero,
-                powerModifiers: 0,
-                speedModifiers: 0,
-                costModModifiers: 0,
-                costIncrementModModifiers: 0,
-                efficiencyModModifiers: 0,
-                autoPenaltyModModifiers: 0,
-                multiPenaltyModModifiers: 0)),
+                magnitudeIncrement: BigDouble.Zero)),
         };
     }
 
@@ -641,14 +634,7 @@ public sealed class ScrollCoveragePlannerTests
             initiated: true,
             magnitudeLoss: 0,
             magnitudeTime: 0,
-            magnitudeIncrement: BigDouble.Zero,
-            powerModifiers: 0,
-            speedModifiers: 0,
-            costModModifiers: 0,
-            costIncrementModModifiers: 0,
-            efficiencyModModifiers: 0,
-            autoPenaltyModModifiers: 0,
-            multiPenaltyModModifiers: 0);
+            magnitudeIncrement: BigDouble.Zero);
 
     private static PublicationTable<T> Table<T>(params T[] rows)
         where T : struct =>

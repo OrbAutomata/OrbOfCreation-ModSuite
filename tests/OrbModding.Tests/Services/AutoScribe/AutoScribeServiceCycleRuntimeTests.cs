@@ -159,14 +159,7 @@ public sealed class AutoScribeServiceCycleRuntimeTests
                 initiated: true,
                 magnitudeLoss: 0,
                 magnitudeTime: 0,
-                magnitudeIncrement: BigDouble.Zero,
-                powerModifiers: 0,
-                speedModifiers: 0,
-                costModModifiers: 0,
-                costIncrementModModifiers: 0,
-                efficiencyModModifiers: 0,
-                autoPenaltyModModifiers: 0,
-                multiPenaltyModModifiers: 0)),
+                magnitudeIncrement: BigDouble.Zero)),
         };
     }
 

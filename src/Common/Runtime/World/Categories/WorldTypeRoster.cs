@@ -18,9 +18,9 @@ namespace OrbModding.Common.Runtime.World;
 /// scalar the class stores, and each <c>ValueModifierRecord</c> it holds a number of its own in. The
 /// distributors are deliberately absent. Their magnitude is a total derived off-thread from the
 /// contribution rows, and a per-record count beside it would republish
-/// <see cref="WorldTypeModifier"/>'s own <c>ActiveCount</c> under a second name — the duplication
-/// the type-modifier design named as a deletion on the older type rows, not one to spread further.
-/// Two of the nine store no scalar and no value record at all, so their row is the handle alone.
+/// <see cref="WorldTypeModifier"/>'s own <c>ActiveCount</c> under a second name, which no type row
+/// does. Two of the nine store no scalar and no value record at all, so their row is the handle
+/// alone.
 /// </para>
 /// </remarks>
 internal readonly struct WorldStructureType : IWorldEntity

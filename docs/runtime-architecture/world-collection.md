@@ -237,8 +237,9 @@ side of this trade.
 value — they push modifiers, transformed, into the member records handed to them by `AddRecord`, so the
 distributed effect reaches the snapshot through those members under the memo rule. What the distributor
 alone knows is its own total, the `Adjust(100)` its tooltip prints as a percentage; `Adjust` is pure, so
-computing it would not breach D16, but it needs the two variable-size modifier dictionaries. Until a
-named service wants that number, the row carries the active-modifier count.
+computing it would not breach D16, but it needs the two variable-size modifier dictionaries. How loaded
+each record is has exactly one home — the `type modifiers` category below, which carries it for all
+fourteen taxonomies alike — so a type's own row carries no count of it.
 
 **A reading the chain cannot price honestly publishes no price.** A zero `attributeCostMod` is
 authored at parity, so whatever produced the zero, multiplying by it makes the entity free — the one

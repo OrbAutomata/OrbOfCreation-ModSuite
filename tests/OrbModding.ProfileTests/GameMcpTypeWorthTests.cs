@@ -400,7 +400,7 @@ public sealed class GameMcpTypeWorthTests
             EntityIdentities = Catalog,
             EquipmentTypes = PublicationTable<WorldEquipmentType>.Create(new[]
             {
-                new WorldEquipmentType(Focus, 3, 1, 2, new BigDouble(5), new BigDouble(2), 2, 0),
+                new WorldEquipmentType(Focus, 3, 1, 2, new BigDouble(5), new BigDouble(2)),
             }),
             Glyphs = PublicationTable<WorldGlyph>.Create(new[]
             {
@@ -415,14 +415,13 @@ public sealed class GameMcpTypeWorthTests
             AlchemyTypes = PublicationTable<WorldAlchemyType>.Create(new[]
             {
                 new WorldAlchemyType(
-                    Tonic, Guid.Empty, maxUsageByMastery: false, level: new BigDouble(4),
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                    Tonic, Guid.Empty, maxUsageByMastery: false, level: new BigDouble(4)),
             }),
             CraftingRecipeTypes = PublicationTable<WorldCraftingRecipeType>.Create(new[]
             {
                 new WorldCraftingRecipeType(
                     Bench, 1, 4, "craft", isLevelType: true, initiated: true, 0d, 0d,
-                    new BigDouble(7), 0, 0, 0, 0, 0, 0, 0),
+                    new BigDouble(7)),
             }),
             EntityKeywords = keywords,
             TypeModifiers = records,

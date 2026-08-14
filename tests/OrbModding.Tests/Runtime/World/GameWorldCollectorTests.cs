@@ -2316,30 +2316,6 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     /// <summary>
-    /// An OrderedMultiplierRecord and a MergingModifierRecord are distributors rather than values:
-    /// they hold modifiers and push them into the member records registered with <c>AddRecord</c>, so
-    /// the effect arrives on the members and is already in the snapshot. What a fixed-size row can
-    /// carry about the distributor itself is how many active modifiers it holds — the game's own
-    /// <c>HasActiveElements()</c> — and that is what it carries.
-    /// </summary>
-    [Fact]
-    public void AComposedRecordTravelsAsItsActiveModifierCountRatherThanAValue()
-    {
-        var type = new FakeAlchemyType();
-        type.power = new FakeModifierRecord(0d, activeCount: 3);
-        FakeAlchemyType.All.Add(type);
-
-        var collector = Collector();
-        var report = collector.Collect();
-        var world = collector.Build();
-
-        Assert.True(report.IsComplete, report.Describe());
-        Assert.True(WorldLookup.TryFind(world.AlchemyTypes, type.Identity, out var row));
-        Assert.Equal(3, row.PowerModifiers);
-        Assert.Equal(0, row.SpeedModifiers);
-    }
-
-    /// <summary>
     /// A harvest element owns a resource outright: it creates one with
     /// <c>ScriptableObject.CreateInstance</c>, never registers it, and marks it excluded from
     /// globals. The resource registry therefore cannot see it, and reading it through its owner is

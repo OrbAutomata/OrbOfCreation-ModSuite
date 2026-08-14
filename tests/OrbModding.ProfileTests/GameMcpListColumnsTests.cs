@@ -920,8 +920,7 @@ public sealed class GameMcpListColumnsTests
                 Guid.Parse("4500000" + index + "-0000-4000-8000-000000000000"),
                 selectedLevels[index],
                 maxUsageByMastery: false,
-                level: level,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                level: level);
         }
         return new GameWorldState
         {
