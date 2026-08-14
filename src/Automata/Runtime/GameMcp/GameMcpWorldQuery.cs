@@ -3835,7 +3835,11 @@ internal static class GameMcpWorldQuery
             }
 
             worn = WorldKeywordMembership
-                .Build(world.EntityKeywords, world.Research, world.TypeSubtypes)
+                .Build(
+                    world.EntityKeywords,
+                    world.Research,
+                    world.ConsumableTypes,
+                    world.TypeSubtypes)
                 .Members(keywordFilter);
         }
 

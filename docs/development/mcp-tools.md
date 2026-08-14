@@ -1800,10 +1800,12 @@ evidence.
 chain already closed over — a bonus on a parent type reaches every child's members too. It is absent
 for a type no total indexes, which includes every spell type: all twenty-two `SpellTypeSO` records
 hold values rather than distributing, so there is no total to index, and "0 things" would be a count
-of the wrong table. Research types read the line like their siblings: their membership is authored on
-`ResearchSO.researchTypes` — the same list `GetBaseDisplayType()` joins into the word line the game
-prints — and published inside the research category, beside each type's investment levels, rather
-than in the keyword table.
+of the wrong table. Research types and consumable families read the line like their siblings even
+though the keyword table emits neither class: their membership is authored on
+`ResearchSO.researchTypes` and `ConsumableSO.consumableTypes` — the same lists the word line is
+joined from — and published inside those categories, beside each research type's investment levels
+and as the family relation the item verbs already pick by. One index unions the three tables, so a
+count and the rows behind it stay one derivation whichever table carried the edge.
 
 **Every count here is walkable**: `world_search` with `keyword` set to the type's id and `category`
 set to the kind the line named returns exactly the things it counted. That filter is the far side of

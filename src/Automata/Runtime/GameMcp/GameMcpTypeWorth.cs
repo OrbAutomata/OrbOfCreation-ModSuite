@@ -210,10 +210,11 @@ internal static class GameMcpTypeWorth
     /// no total to key a row off.
     /// </summary>
     /// <remarks>
-    /// Research types read this like their sibling taxonomies, off the same index. Their membership
-    /// is authored on <c>ResearchSO.researchTypes</c> and published inside the research category,
-    /// beside each type's investment levels, rather than in the keyword table;
-    /// <see cref="WorldKeywordMembership"/> is where the two tables meet.
+    /// Research types and consumable families read this like their sibling taxonomies, off the same
+    /// index. Their membership is authored on <c>ResearchSO.researchTypes</c> and
+    /// <c>ConsumableSO.consumableTypes</c> and published inside those categories — beside each
+    /// type's investment levels, and as the family relation the item verbs pick by — rather than in
+    /// the keyword table; <see cref="WorldKeywordMembership"/> is where the three tables meet.
     /// </remarks>
     private static JArray? Members(GameWorldState world, Guid keywordId)
     {
@@ -390,6 +391,7 @@ internal static class GameMcpTypeWorth
         WorldKeywordOwnerKind.HarvestElement => "agromancy-elements",
         WorldKeywordOwnerKind.HarvestAction => "agromancy-actions",
         WorldKeywordOwnerKind.Research => "research",
+        WorldKeywordOwnerKind.Consumable => "consumables",
         _ => throw new InvalidOperationException(
             "a keyword reached member kind '" + kind + "' with no word for it."),
     };

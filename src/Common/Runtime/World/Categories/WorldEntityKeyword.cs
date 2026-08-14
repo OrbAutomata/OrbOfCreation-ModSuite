@@ -8,10 +8,11 @@ namespace OrbModding.Common.Runtime.World;
 /// <summary>Which class wears a keyword.</summary>
 /// <remarks>
 /// Thirteen of these author their membership as <see cref="WorldEntityKeyword"/> rows.
-/// <see cref="Research"/> is the fourteenth and has none: <c>ResearchSO.researchTypes</c> is
-/// published inside the research category, with each type's investment levels beside it, so this
-/// enum reaches a class the keyword table itself never emits. See
-/// <see cref="WorldKeywordMembership"/>, which is what joins the two.
+/// <see cref="Research"/> and <see cref="Consumable"/> have none: their edges are published inside
+/// their own categories — <c>ResearchSO.researchTypes</c> beside each type's investment levels, and
+/// <c>ConsumableSO.consumableTypes</c> as the family relation the item verbs pick by — so this enum
+/// reaches two classes the keyword table itself never emits. See
+/// <see cref="WorldKeywordMembership"/>, which is what joins the three.
 /// </remarks>
 internal enum WorldKeywordOwnerKind
 {
@@ -29,6 +30,7 @@ internal enum WorldKeywordOwnerKind
     HarvestElement = 11,
     HarvestAction = 12,
     Research = 13,
+    Consumable = 14,
 }
 
 /// <summary>Which authored member a keyword row came off.</summary>
@@ -322,12 +324,15 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
 /// </summary>
 /// <remarks>
 /// <para>
-/// The membership edge is the union of two published tables rather than one.
-/// <see cref="WorldEntityKeywordReader"/> publishes thirteen classes; research publishes its own
-/// inside its category, because <c>ResearchSO.researchTypes</c> carries each type's investment
-/// levels there and reading it twice would file one native member under two owners. It is the same
-/// edge either way: <c>ResearchSO.GetBaseDisplayType()</c> joins those types into the word line the
-/// game prints, exactly as <c>StructureSO.GetDisplayType()</c> joins a structure's.
+/// The membership edge is the union of three published tables rather than one.
+/// <see cref="WorldEntityKeywordReader"/> publishes thirteen classes; research and consumables
+/// publish their own inside their categories, because <c>ResearchSO.researchTypes</c> carries each
+/// type's investment levels there and <c>ConsumableSO.consumableTypes</c> is the relation the item
+/// verbs already pick a family by — reading either twice would file one native member under two
+/// owners. It is the same edge whichever table carries it:
+/// <c>ResearchSO.GetBaseDisplayType()</c> and <c>ConsumableSO.GetDisplayType()</c> join those
+/// types into the word line the game prints, exactly as <c>StructureSO.GetDisplayType()</c> joins
+/// a structure's.
 /// </para>
 /// <para>
 /// One index answers both the count a page prints and the rows a filter returns, so the two cannot
@@ -365,6 +370,7 @@ internal sealed class WorldKeywordMembership
     internal static WorldKeywordMembership Build(
         PublicationTable<WorldEntityKeyword> keywords,
         PublicationTable<WorldResearch> research,
+        PublicationTable<WorldConsumableType> consumableTypes,
         PublicationTable<WorldTypeSubtype> subtypes)
     {
         var membership = new Dictionary<Guid, List<Member>>();
@@ -386,6 +392,12 @@ internal sealed class WorldKeywordMembership
                     entry.EntityId,
                     WorldKeywordOwnerKind.Research);
             }
+        }
+
+        for (var index = 0; index < consumableTypes.Count; index++)
+        {
+            var edge = consumableTypes[index];
+            Add(membership, edge.TypeId, edge.ConsumableId, WorldKeywordOwnerKind.Consumable);
         }
 
         var children = new Dictionary<Guid, List<Guid>>();

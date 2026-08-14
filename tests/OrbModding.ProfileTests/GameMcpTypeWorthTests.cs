@@ -498,6 +498,7 @@ public sealed class GameMcpTypeWorthTests
                 totals,
                 keywords,
                 PublicationTable<WorldResearch>.Empty,
+                PublicationTable<WorldConsumableType>.Empty,
                 PublicationTable<WorldTypeSubtype>.Empty),
             CollectionCategories =
                 PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),

@@ -402,10 +402,11 @@ internal static class GameWorldFrameDeriver
         var spellSlots = WorldSpellSlotDeriver.Build(frame.SpellSlots);
         var spellTypes = frame.SpellTypes.Build(WorldIdentityDeriver<WorldSpellType>.Shared);
         var research = frame.Research.Build(WorldIdentityDeriver<WorldResearch>.Shared);
+        var consumableTypes = WorldConsumableRelationDeriver.Build(frame.ConsumableTypes);
         var typeModifierTotals =
             WorldTypeModifierTotalDeriver.Build(typeModifiers, typeModifierContributions);
         var keywordModifiers = WorldKeywordModifierDeriver.Build(
-            typeModifierTotals, entityKeywords, research, typeSubtypes);
+            typeModifierTotals, entityKeywords, research, consumableTypes, typeSubtypes);
         var spellTypeResonance = WorldSpellTypeResonanceDeriver.Build(
             spellSlots, spellSlotTypes, spellRelations, spellTypes);
 
@@ -539,7 +540,7 @@ internal static class GameWorldFrameDeriver
                     : 0,
                 consumableCosts,
                 resources)),
-            ConsumableTypes = WorldConsumableRelationDeriver.Build(frame.ConsumableTypes),
+            ConsumableTypes = consumableTypes,
             ConsumableCosts = consumableCosts,
             ConsumableUsages = WorldConsumableRelationDeriver.Build(frame.ConsumableUsages),
             ConsumableCounts = WorldConsumableRelationDeriver.Build(frame.ConsumableCounts),

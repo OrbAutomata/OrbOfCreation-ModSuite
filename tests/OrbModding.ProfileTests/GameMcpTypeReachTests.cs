@@ -35,6 +35,9 @@ public sealed class GameMcpTypeReachTests
     private static readonly Guid Aura = Guid.Parse("c1d00000-0000-4000-8000-000000000001");
     private static readonly Guid Technology = Guid.Parse("c1e00000-0000-4000-8000-000000000001");
     private static readonly Guid Metallurgy = Guid.Parse("c1f00000-0000-4000-8000-000000000001");
+    private static readonly Guid Elixirs = Guid.Parse("c3a00000-0000-4000-8000-000000000001");
+    private static readonly Guid Ember = Guid.Parse("c3b00000-0000-4000-8000-000000000001");
+    private static readonly Guid Dusk = Guid.Parse("c3c00000-0000-4000-8000-000000000001");
 
     /// <summary>
     /// The whole Workshop page, line for line. <c>structurePower</c> is hand-computed off the pinned
@@ -238,7 +241,18 @@ public sealed class GameMcpTypeReachTests
             Context(World()), "Primal", 0, 50, "structures", limitFromCaller: false))
             ["rows"]!.Values<JObject>());
 
-        foreach (var type in new[] { Workshop, Primal, Technology })
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "rows 2/2",
+                "these 2 share: category=consumables, keywords=Elixirs, matchedOn=-",
+                "[id | name]",
+                "c3b000 | Ember Tonic",
+                "c3c000 | Dusk Philtre",
+            }),
+            Render(Walk(Elixirs, "consumables")));
+
+        foreach (var type in new[] { Workshop, Primal, Technology, Elixirs })
         {
             foreach (var member in Detail(type)["worth"]!["members"]!.Values<JObject>())
             {
@@ -295,6 +309,39 @@ public sealed class GameMcpTypeReachTests
                 "    30 | raw | 0 | Deep Insight c1a000",
             }),
             Render(Detail(Technology)));
+    }
+
+    /// <summary>
+    /// A consumable family names its members like its sibling taxonomies do. The edge is
+    /// <c>ConsumableSO.consumableTypes</c> — the list the word line is joined from, and the same
+    /// relation the item verbs pick a family by — published inside the consumable category rather
+    /// than in the keyword table, which is why the family page printed no count at all.
+    /// </summary>
+    [Fact]
+    public void A_consumable_family_names_its_members_like_every_other_taxonomy()
+    {
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "uuid: c3a000",
+                "name: Elixirs",
+                "internalName: elixirConsumables",
+                "category: consumable-types",
+                "row: hidden=no, sortOrder=0",
+                "worth:",
+                "  howToRead: These totals are already inside each member's own numbers: read them " +
+                "to compare types, and never multiply one into a member.",
+                "  members 1",
+                "  [kind | count]",
+                "  consumables | 2",
+                "  properties 1:",
+                "    property: Power",
+                "    distributedTotalPercent: 120",
+                "    sources 1",
+                "    [amount | effect | order | source]",
+                "    20 | raw | 0 | Deep Insight c1a000",
+            }),
+            Render(Detail(Elixirs)));
     }
 
     /// <summary>
@@ -379,6 +426,9 @@ public sealed class GameMcpTypeReachTests
             new EntityIdentityName(
                 Technology, "ResearchTypeSO", "Technology", "technologyResearchType"),
             new EntityIdentityName(Metallurgy, "ResearchSO", "Metallurgy", "metallurgy"),
+            new EntityIdentityName(Elixirs, "ConsumableTypeSO", "Elixirs", "elixirConsumables"),
+            new EntityIdentityName(Ember, "ConsumableSO", "Ember Tonic", "emberTonic"),
+            new EntityIdentityName(Dusk, "ConsumableSO", "Dusk Philtre", "duskPhiltre"),
         });
 
     private static GameMcpFrameContext Context(GameWorldState world)
@@ -409,13 +459,15 @@ public sealed class GameMcpTypeReachTests
             (Aura, WorldTypeModifierOwnerKind.PassiveAbilityType, "cooldown",
                 "OrderedMultiplierRecord"),
             (Technology, WorldTypeModifierOwnerKind.ResearchType, "levelRequirementAdjust",
-                "ModifierRecord"));
+                "ModifierRecord"),
+            (Elixirs, WorldTypeModifierOwnerKind.ConsumableType, "power", "ModifierRecord"));
 
         var contributions = Contributions(
             (Workshop, "structurePower", GameValueModifierType.Raw, 40d, Insight),
             (Workshop, "structurePower", GameValueModifierType.MultiDiminishing, 0.25d, Study),
             (Primal, "structurePower", GameValueModifierType.Raw, 10d, Insight),
-            (Technology, "levelRequirementAdjust", GameValueModifierType.Raw, 30d, Insight));
+            (Technology, "levelRequirementAdjust", GameValueModifierType.Raw, 30d, Insight),
+            (Elixirs, "power", GameValueModifierType.Raw, 20d, Insight));
 
         var keywords = Keywords(
             new WorldEntityKeyword(
@@ -430,6 +482,14 @@ public sealed class GameMcpTypeReachTests
             new WorldTypeSubtype(Primal, 0, Arcanist),
         });
         var research = PublicationTable<WorldResearch>.Create(new[] { Research(Metallurgy, Technology) });
+
+        // The family edge, published where the item verbs already read it: one relation row per
+        // consumable per family, sorted by the consumable the way the collector emits it.
+        var consumableTypes = PublicationTable<WorldConsumableType>.Create(new[]
+        {
+            new WorldConsumableType(Ember, Elixirs),
+            new WorldConsumableType(Dusk, Elixirs),
+        });
         var totals = WorldTypeModifierTotalDeriver.Build(records, contributions);
 
         return new GameWorldState
@@ -458,13 +518,22 @@ public sealed class GameMcpTypeReachTests
             {
                 new WorldPassiveAbilityType(Aura),
             }),
+            Consumables = PublicationTable<WorldConsumable>.Create(new[]
+            {
+                Consumable(Ember), Consumable(Dusk),
+            }),
+            ConsumableTypes = consumableTypes,
+            ConsumableFamilies = PublicationTable<WorldConsumableFamily>.Create(new[]
+            {
+                new WorldConsumableFamily(Elixirs, hidden: false, 0),
+            }),
             EntityKeywords = keywords,
             TypeModifiers = records,
             TypeModifierContributions = contributions,
             TypeModifierTotals = totals,
             TypeSubtypes = subtypes,
             KeywordModifiers = WorldKeywordModifierDeriver.Build(
-                totals, keywords, research, subtypes),
+                totals, keywords, research, consumableTypes, subtypes),
             CollectionCategories =
                 PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
             CollectedAtEpoch = 62,
@@ -504,6 +573,30 @@ public sealed class GameMcpTypeReachTests
         return new WorldStructure(
             in reading, BigDouble.Zero, hasWorkInFlight: false, BigDouble.Zero,
             developmentProgress: 0);
+    }
+
+    /// <summary>One published consumable row: the member a family's count is a count of.</summary>
+    private static WorldConsumable Consumable(Guid id)
+    {
+        var modifiers = default(RawConsumableModifiers);
+        return new WorldConsumable(
+            id,
+            visible: true,
+            randomized: false,
+            quantity: 1,
+            queuedQuantity: 0,
+            maximumCarryLoad: 5,
+            gainedSince: 0,
+            maxCreatedLevel: 0,
+            currentPrepTime: BigDouble.Zero,
+            currentCooldown: BigDouble.Zero,
+            currentCooldownTime: BigDouble.Zero,
+            in modifiers,
+            preparationTime: 0d,
+            canBeRandomized: false,
+            hasDuration: false,
+            durationBase: 0d,
+            queueOnStart: false);
     }
 
     /// <summary>

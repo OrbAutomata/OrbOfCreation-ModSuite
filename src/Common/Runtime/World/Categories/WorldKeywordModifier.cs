@@ -79,11 +79,13 @@ internal static class WorldKeywordModifierDeriver
         PublicationTable<WorldTypeModifierTotal> totals,
         PublicationTable<WorldEntityKeyword> keywords,
         PublicationTable<WorldResearch> research,
+        PublicationTable<WorldConsumableType> consumableTypes,
         PublicationTable<WorldTypeSubtype> subtypes)
     {
         if (totals.Count == 0) return PublicationTable<WorldKeywordModifier>.Empty;
 
-        var membership = WorldKeywordMembership.Build(keywords, research, subtypes);
+        var membership =
+            WorldKeywordMembership.Build(keywords, research, consumableTypes, subtypes);
         if (membership.IsEmpty) return PublicationTable<WorldKeywordModifier>.Empty;
 
         var rows = new List<WorldKeywordModifier>();

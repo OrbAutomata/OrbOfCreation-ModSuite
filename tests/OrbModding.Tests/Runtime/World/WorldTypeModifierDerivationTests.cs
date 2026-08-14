@@ -169,6 +169,7 @@ public sealed class WorldTypeModifierDerivationTests
                 (Guid.NewGuid(), WorldKeywordOwnerKind.Structure, arcanist),
                 (Guid.NewGuid(), WorldKeywordOwnerKind.Structure, flameweaver)),
             Research(),
+            Families(),
             Subtypes((primal, arcanist), (primal, flameweaver)));
 
         var row = Assert.Single(keywords.AsSpan().ToArray());
@@ -197,6 +198,7 @@ public sealed class WorldTypeModifierDerivationTests
                 (both, WorldKeywordOwnerKind.Structure, parent),
                 (both, WorldKeywordOwnerKind.Structure, child)),
             Research(),
+            Families(),
             Subtypes((parent, child)));
 
         Assert.Equal(1, Assert.Single(keywords.AsSpan().ToArray()).MemberCount);
@@ -218,6 +220,7 @@ public sealed class WorldTypeModifierDerivationTests
                 (Guid.NewGuid(), WorldKeywordOwnerKind.HarvestElement, type),
                 (Guid.NewGuid(), WorldKeywordOwnerKind.HarvestAction, type)),
             Research(),
+            Families(),
             Subtypes());
 
         var rows = keywords.AsSpan().ToArray();
@@ -242,6 +245,7 @@ public sealed class WorldTypeModifierDerivationTests
             totals,
             Keywords((Guid.NewGuid(), WorldKeywordOwnerKind.Structure, Guid.NewGuid())),
             Research(),
+            Families(),
             Subtypes());
 
         Assert.Equal(0, keywords.Count);
@@ -269,12 +273,74 @@ public sealed class WorldTypeModifierDerivationTests
                 (Guid.NewGuid(), new[] { technology }),
                 (Guid.NewGuid(), new[] { technology, arcana }),
                 (Guid.NewGuid(), new[] { arcana })),
+            Families(),
             Subtypes());
 
         var row = Assert.Single(keywords.AsSpan().ToArray());
         Assert.Equal(technology, row.KeywordId);
         Assert.Equal(WorldKeywordOwnerKind.Research, row.MemberKind);
         Assert.Equal(2, row.MemberCount);
+    }
+
+    /// <summary>
+    /// A consumable family reaches its items the same way. The edge is
+    /// <c>ConsumableSO.consumableTypes</c> — the relation the item verbs already pick a family by —
+    /// and it is published inside the consumable category rather than in the keyword table, which is
+    /// the only reason a family page printed no count.
+    /// </summary>
+    [Fact]
+    public void AConsumableFamilyCountsTheItemsThatWearIt()
+    {
+        var elixirs = Guid.NewGuid();
+        var scrolls = Guid.NewGuid();
+        var totals = WorldTypeModifierTotalDeriver.Build(
+            Records((elixirs, "power", Ordered)),
+            Contributions((elixirs, "power", Kind.Raw, 25d, 0)));
+
+        var keywords = WorldKeywordModifierDeriver.Build(
+            totals,
+            Keywords(),
+            Research(),
+            Families(
+                (Guid.NewGuid(), elixirs),
+                (Guid.NewGuid(), elixirs),
+                (Guid.NewGuid(), scrolls)),
+            Subtypes());
+
+        var row = Assert.Single(keywords.AsSpan().ToArray());
+        Assert.Equal(elixirs, row.KeywordId);
+        Assert.Equal(WorldKeywordOwnerKind.Consumable, row.MemberKind);
+        Assert.Equal(2, row.MemberCount);
+    }
+
+    /// <summary>
+    /// An item wearing two families is a member of both, counted once in each: the relation is a
+    /// list on the item and the game joins every entry into its word line.
+    /// </summary>
+    [Fact]
+    public void AnItemInTwoFamiliesIsAMemberOfBoth()
+    {
+        var elixirs = Guid.NewGuid();
+        var scrolls = Guid.NewGuid();
+        var item = Guid.NewGuid();
+        var totals = WorldTypeModifierTotalDeriver.Build(
+            Records((elixirs, "power", Ordered), (scrolls, "power", Ordered)),
+            Contributions());
+
+        var keywords = WorldKeywordModifierDeriver.Build(
+            totals,
+            Keywords(),
+            Research(),
+            Families((item, elixirs), (item, scrolls)),
+            Subtypes());
+
+        var rows = keywords.AsSpan().ToArray();
+        Assert.Equal(2, rows.Length);
+        Assert.All(rows, entry =>
+        {
+            Assert.Equal(WorldKeywordOwnerKind.Consumable, entry.MemberKind);
+            Assert.Equal(1, entry.MemberCount);
+        });
     }
 
     /// <summary>
@@ -613,6 +679,23 @@ public sealed class WorldTypeModifierDerivationTests
         return rows.Length == 0
             ? PublicationTable<WorldResearch>.Empty
             : PublicationTable<WorldResearch>.Create(rows, rows.Length);
+    }
+
+    /// <summary>
+    /// The consumable family edge, published inside the consumable category the way the collector
+    /// emits it: one relation row per item per family, sorted by the item.
+    /// </summary>
+    private static PublicationTable<WorldConsumableType> Families(
+        params (Guid ConsumableId, Guid FamilyId)[] edges)
+    {
+        var rows = edges
+            .Select(edge => new WorldConsumableType(edge.ConsumableId, edge.FamilyId))
+            .ToArray();
+        Array.Sort(rows, static (left, right) =>
+            left.ConsumableId.CompareTo(right.ConsumableId));
+        return rows.Length == 0
+            ? PublicationTable<WorldConsumableType>.Empty
+            : PublicationTable<WorldConsumableType>.Create(rows, rows.Length);
     }
 
     private static PublicationTable<WorldTypeSubtype> Subtypes(
