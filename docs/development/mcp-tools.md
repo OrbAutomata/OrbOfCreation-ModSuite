@@ -1295,6 +1295,14 @@ prerequisite is not readable at all — the game latches it only when the action
 that `add` is an unavailable read rather than a false one: it carries `status: "unavailable"`,
 `reasonCode: "prerequisite_unverified"`, and `checkWith`, and never claims `available: false`.
 
+`agromancy-actions` is the six base verbs themselves — Plant, Woodcutting, Mining, Create,
+Transmorgify, Expand — read-only, because nothing is bought or levelled through a verb: an element
+offers it, and `game_agromancy` acts on the element/action pair. A row is every number the class
+stores, which is the three records `HarvestActionSO.GetScalingInfo()` loads: `power`, `speed` and
+`costMod`, the last of which is the drain modifier as well. Those three are exactly what a bonus on
+an agromancy action type distributes into, so this page is where a reader sees which of the six a
+type bonus landed on, and the `keywords` cell says which types each verb wears.
+
 Call `game_agromancy(mode="add_element"|"remove_element", uuid=..., amount=...)` for one exact
 `HarvestElementSO`. The `add_element_action` and `remove_element_action` modes additionally require
 `actionUuid` naming an action actually
@@ -1814,11 +1822,12 @@ It closes the subtype chain the count closes, which is why a query cannot stand 
 type's members wear the *child* type's word, so searching `Primal` by name finds none of the
 structures its page counts.
 
-One kind on this line has no page behind it. `plot-node-action-types` reach the six `HarvestActionSO`
-of this build as well as the 38 `PlotNodeActionSO`, and the world publishes a category for the second
-only — so a `members / agromancy-actions` count names things `world_list` cannot page and the
-`keyword` filter cannot return. A filter cannot close that; the far side has to become a category
-first.
+Every kind on this line has a page behind it. `plot-node-action-types` reach the six
+`HarvestActionSO` of this build as well as the 38 `PlotNodeActionSO`, and both classes are now
+published — the second as `plot-node-actions`, the first as `agromancy-actions` — so the count and
+the walk agree for this kind exactly as they do for the rest. A `kind` cell is a wire code, so it
+spells a multi-word category with underscores (`agromancy_actions`); `category` takes either
+spelling, and the word off the line is the word the filter accepts.
 
 ```
 row: uuid=a0f000, name=Ember, typeLevel=0, typeXp=0, isVisible=yes, isElemental=no
