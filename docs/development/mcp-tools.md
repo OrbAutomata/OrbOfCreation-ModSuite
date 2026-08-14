@@ -1338,11 +1338,18 @@ for one row at offset fifty used to come back nine tenths ambient state, repeate
 `resetOffers` appears only in the build where the Reset modal's list and the Time screen's list part
 company; they draw from the same asset, so it is normally absent rather than said twice.
 
-`prestigeState` is the persistent-reset pre-decision surface. It reports the reset's starting Time
-Advancements against the previous reset's and the difference between them (the screen's own
-subtraction), the reset count, the fully named persistent resource with its current spendable
-amount and real capacity semantics, the challenges queued for the reset, surviving rewards, and the
-exact `reset.available` decision. No attempt/refusal is needed to learn whether a reset can run.
+`prestigeState` is the persistent-reset pre-decision surface. It reports the reset count, the fully
+named persistent resource with its current spendable amount and real capacity semantics, the
+challenges queued for the reset, surviving rewards, the exact `reset.available` decision, and a
+`timeAdvancements` block. No attempt/refusal is needed to learn whether a reset can run.
+
+`timeAdvancements` carries the game's three Time Advancement figures under the game's own three
+display names. `starting` is "Starting Time Advancements": what a reset would start with, a live
+projection that keeps moving during a run rather than a record of one. `previous` is "Previous Time
+Advancements": what the previous reset actually banked, which right after a reset equals `starting`
+by construction. `new` is "New Time Advancements": how many more than the previous reset, read from
+the game rather than subtracted here, so a caller comparing the block against the screen never finds
+a number the screen does not print.
 
 The MCP-only sequence is:
 

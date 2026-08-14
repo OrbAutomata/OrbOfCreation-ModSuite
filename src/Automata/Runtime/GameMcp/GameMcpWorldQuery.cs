@@ -6871,14 +6871,26 @@ internal static class GameMcpWorldQuery
     }
 
     /// <summary>
-    /// The reset decision, in the numbers the Reset screen itself shows.
+    /// The reset decision, in the numbers the Reset screen itself shows, under the names it shows
+    /// them under.
     /// </summary>
     /// <remarks>
-    /// The screen says "Starting Time Advancements: 94" and "20 more than last time", and both are
-    /// the same subtraction: what a reset would start with, less what the previous one started with.
-    /// This block used to publish the game's third figure under the screen's label and subtract the
-    /// wrong pair from it, so the one number that decides whether to reset arrived negative when the
-    /// screen showed a gain — a stall an unattended caller had nothing to catch it with.
+    /// <para>
+    /// The game keeps three Time Advancement figures and names all three: "Starting Time
+    /// Advancements" (what a reset would start with — a live projection that keeps moving during a
+    /// run), "Previous Time Advancements" (what the previous reset actually banked), and "New Time
+    /// Advancements" (how many more than that reset, which the game computes itself). The block
+    /// carries them under those three words.
+    /// </para>
+    /// <para>
+    /// Both earlier shapes misled. Publishing the projection under the screen's label and
+    /// subtracting the wrong pair from it made the one number that decides whether to reset arrive
+    /// negative while the screen showed a gain. Naming the pair <c>atStart</c> and
+    /// <c>previousStart</c> then read as history — "what the run I just finished started with" —
+    /// which is a fact the game overwrites at every reset and no longer holds anywhere. The gain is
+    /// read from the game rather than subtracted here for the same reason: the screen prints the
+    /// game's figure, and a caller comparing the two must not find a third number.
+    /// </para>
     /// </remarks>
     internal static GameMcpValue ProjectPrestigeState(GameWorldState world)
     {
@@ -6905,9 +6917,9 @@ internal static class GameMcpWorldQuery
         {
             ["timeAdvancements"] = new JObject
             {
-                ["atStart"] = context.PersistenceCurrent,
-                ["previousStart"] = context.PersistencePrevious,
-                ["change"] = context.PersistenceCurrent - context.PersistencePrevious,
+                ["starting"] = context.PersistenceCurrent,
+                ["previous"] = context.PersistencePrevious,
+                ["new"] = context.PersistenceProjected,
             },
             ["resetCount"] = context.ResetCount,
 
