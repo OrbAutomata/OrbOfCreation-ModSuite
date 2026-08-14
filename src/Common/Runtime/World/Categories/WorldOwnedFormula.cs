@@ -310,6 +310,8 @@ internal readonly struct WorldMasteryCost : IWorldEntity
     }
     internal Guid RecipeId { get; }
     public Guid EntityId => RecipeId;
+
+    [WorldRowKeyPart(0)]
     internal int Position { get; }
     internal Guid ResourceId { get; }
     internal BigDouble Amount { get; }

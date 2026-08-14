@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 
@@ -112,11 +113,52 @@ internal sealed class VerificationReport
         {
             lines.Add(finding.Headline());
             if (finding.Note.Length > 0) lines.Add(finding.Note);
-            foreach (var detail in finding.Detail) lines.Add("  " + detail);
+            foreach (var detail in Collapse(finding.Detail)) lines.Add("  " + detail);
         }
 
         lines.Add("window: " + window);
         return lines;
+    }
+
+    /// <summary>
+    /// One line per distinct finding, in the order they were found, each carrying how many rows it
+    /// was found on.
+    /// </summary>
+    /// <remarks>
+    /// A check writes one row per fact it walked, which is right — the fact is where the defect is.
+    /// It is also how one real defect becomes a response nobody can read: a table whose rows are
+    /// keyed per owner wrote the same sentence six times per owner, 458 of 610 lines identical to the
+    /// line above them, and 97.5% of a 64 KB answer was one sentence template. Collapsing is not a
+    /// budget trick — a reader learns nothing from the sixth copy that the count does not tell them,
+    /// and every distinct finding, with every uuid in it, still gets its own line. Findings arrive
+    /// grouped by the collector that raised them, so the collapsed list stays grouped that way too.
+    /// </remarks>
+    private static IReadOnlyList<string> Collapse(IReadOnlyList<string> detail)
+    {
+        if (detail.Count < 2) return detail;
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var order = new List<string>(detail.Count);
+        foreach (var line in detail)
+        {
+            if (counts.TryGetValue(line, out var seen)) counts[line] = seen + 1;
+            else
+            {
+                counts[line] = 1;
+                order.Add(line);
+            }
+        }
+
+        if (order.Count == detail.Count) return detail;
+
+        var collapsed = new List<string>(order.Count);
+        foreach (var line in order)
+        {
+            var seen = counts[line];
+            collapsed.Add(seen == 1 ? line : $"{Count(seen)}× {line}");
+        }
+
+        return collapsed;
     }
 
     private string CountLine()

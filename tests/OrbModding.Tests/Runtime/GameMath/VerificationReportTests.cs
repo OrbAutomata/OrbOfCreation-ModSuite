@@ -14,7 +14,8 @@ public sealed class VerificationReportTests
     private const string Window =
         "generation=3 frame=48213 entities=6683 categories=60 collect=41.213ms " +
         "ported=118.4ms native=2249.1ms elapsed=2407.741ms memos=5677 drifted=730 dirty=3558 " +
-        "uncalculated=612 widestDrift=2.46e121%@StructureSO.passiveCostMod";
+        "uncalculated=612 widestDrift=StructureSO.passiveCostMod memo=100 " +
+        "recompute=4.44e-115 orders=116.4";
 
     [Fact]
     public void An_all_agree_run_is_the_verdict_word_then_one_line_for_every_check_that_ran()
@@ -185,6 +186,68 @@ public sealed class VerificationReportTests
                 "Rate AGREE: 640 compared.",
                 "Cost INCOMPLETE: 500 compared, all agree — 22 of 522 entities could not be read — " +
                 "the cost contract was unavailable",
+                "window: " + Window,
+            },
+            report.Render(Window));
+    }
+
+    /// <summary>
+    /// The shape that keeps a genuine flood readable. A check writes one row per fact it walked, so
+    /// one defect on a table with six rows per owner wrote the same sentence six times — 97.5% of a
+    /// 64 KB answer was one template. Each distinct finding keeps its own line and its uuid; the
+    /// repetition becomes a count in front of it.
+    /// </summary>
+    [Fact]
+    public void A_finding_found_on_many_rows_is_said_once_with_how_many_rows_it_was_found_on()
+    {
+        var report = new VerificationReport();
+        report.Add(VerificationFinding.Disagree(
+            "Identities",
+            3412,
+            5,
+            new[]
+            {
+                "ModifierPrograms published 0a86c04e Role=ConceptDrain twice.",
+                "ModifierPrograms published 0a86c04e Role=ConceptDrain twice.",
+                "ModifierPrograms published 0a86c04e Role=ConceptDrain twice.",
+                "MasteryCosts published 067aaa29 Position=1 twice.",
+                "ModifierPrograms published 117e6039 Role=ConceptSpeed twice.",
+            }));
+
+        Assert.Equal(
+            new[]
+            {
+                "DISAGREE — 3412 facts compared, 3407 agree, 5 differ.",
+                "Identities DISAGREE: 3412 compared, 3407 agree, 5 differ.",
+                "  3× ModifierPrograms published 0a86c04e Role=ConceptDrain twice.",
+                "  MasteryCosts published 067aaa29 Position=1 twice.",
+                "  ModifierPrograms published 117e6039 Role=ConceptSpeed twice.",
+                "window: " + Window,
+            },
+            report.Render(Window));
+    }
+
+    /// <summary>
+    /// A list with nothing repeated in it is left exactly as the check wrote it, so the collapsing
+    /// is invisible until there is something to collapse.
+    /// </summary>
+    [Fact]
+    public void A_list_of_distinct_findings_is_rendered_untouched()
+    {
+        var report = new VerificationReport();
+        report.Add(VerificationFinding.Disagree(
+            "Rate",
+            640,
+            2,
+            new[] { "Water: ours=1e3 theirs=2e3", "Stone: ours=4e2 theirs=5e2" }));
+
+        Assert.Equal(
+            new[]
+            {
+                "DISAGREE — 640 facts compared, 638 agree, 2 differ.",
+                "Rate DISAGREE: 640 compared, 638 agree, 2 differ.",
+                "  Water: ours=1e3 theirs=2e3",
+                "  Stone: ours=4e2 theirs=5e2",
                 "window: " + Window,
             },
             report.Render(Window));

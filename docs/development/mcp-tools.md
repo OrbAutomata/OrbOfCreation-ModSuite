@@ -2982,10 +2982,11 @@ tool:
 AGREE — 8442 facts compared, 8442 agree, 0 differ.
 Category binding AGREE: 63 compared.
 Category traversal AGREE: 63 compared.
-Identities AGREE: 3323 compared, 0 empty, 0 repeated within a table.
+Empty on purpose: targeting samples only while a native targeting request is open, and none was; crafting stations counts stations in play, and this build authors none it can reach.
+Identities AGREE: 3323 compared, 0 empty, 0 repeated within a table, 3 tables keyed on more than the identity.
 Shared identities: 1934 entities, 1389 detail rows filed under one of them (largest: PurchaseViewRelations 409, AlchemyLoadout 125, SpellRecipeAuthoring 65).
 Spell type layer AGREE: 6 compared.
-window: generation=3 frame=48213 entities=6683 collectors=61 collect=41.213ms ported=118.4ms native=2249.1ms elapsed=2407.741ms memos=5677 drifted=730 dirty=3558 uncalculated=612 widestDrift=2.46e121%@StructureSO.passiveCostMod
+window: generation=3 frame=48213 entities=6683 collectors=61 collect=41.213ms ported=118.4ms native=2249.1ms elapsed=2407.741ms memos=5677 drifted=730 dirty=3558 uncalculated=612 widestDrift=StructureSO.passiveCostMod memo=100 recompute=4.44e-115 orders=116.4
 ```
 
 The rules that make it read that way:
@@ -3006,12 +3007,24 @@ The rules that make it read that way:
   bare total. A non-scoring line sits directly beneath the headline, unindented, and carries a fact
   about the snapshot's shape rather than a verdict — `Shared identities:` is the one such line
   today.
-- **`Identities` asserts uniqueness within one table, not across the snapshot.** Two rows under one
-  id in one table make a lookup return an arbitrary member of the pair, so that — and a row
-  published with no identity at all — is what `DISAGREE` means here, named with the table it
-  happened in. One entity reaching several tables is the design: a dozen per-owner detail tables key
-  their rows by the entity they describe, so that sharing is reported on the `Shared identities:`
-  line, with the tables holding the most such rows named, and scores nothing.
+- **`Identities` asserts uniqueness of a key within one table, not across the snapshot.** Two rows
+  under one key in one table make a lookup return an arbitrary member of the pair, so that — and a
+  row published with no identity at all — is what `DISAGREE` means here, named with the table it
+  happened in. Most tables are keyed by the entity id alone; three key rows on more than that
+  (modifier programs by role, their entries by role, set and position, mastery costs by position),
+  are searched that way by every reader of them, and are audited on the whole key, which the count
+  line says out loud. One entity reaching several tables is the design: a dozen per-owner detail
+  tables key their rows by the entity they describe, so that sharing is reported on the
+  `Shared identities:` line, with the tables holding the most such rows named, and scores nothing.
+- **A category that reads nothing is a gap unless zero is what it counts.** Most collectors count
+  entities in the world, and zero of those is a real shortfall reported under `Category traversal`.
+  Two count something else — targeting samples only while a native request is open, crafting stations
+  count instances of content this build never creates — so they are named on the non-scoring
+  `Empty on purpose:` line with the reason, instead of accusing the build of losing them.
+- **One line per distinct finding, however many rows it was found on.** A check writes a row per fact
+  it walked; where the same sentence comes back on many rows it is said once with the count in front
+  of it (`6× …`), keeping every uuid and every distinct finding. One defect on a per-owner table once
+  wrote 579 rows of one sentence, 97.5% of a 64 KB answer.
 - **Agreement is a count, disagreement is a row.** A comparison that agreed only within
   floating-point tolerance is agreement; it is counted on the summary line
   (`N agree only within tolerance`) and never given a row, because such a row printed two
@@ -3026,7 +3039,11 @@ The rules that make it read that way:
   the numbers were read from, how much was read, what the run cost, and how far the game's own
   modifier memos had drifted from a fresh recompute when it was taken. Memo drift is the game's
   state rather than an error in the suite — the suite reads the memo because the game acts on the
-  memo — so it is a condition of the run, not a verdict about it.
+  memo — so it is a condition of the run, not a verdict about it. `widestDrift` names the record and
+  prints both sides with the orders of magnitude between them; a recompute of exactly zero reads
+  `orders=unbounded`. It is orders rather than a percentage because deep cost reduction drives a
+  percentage field toward `1e-114`, and dividing by that produced figures like `2.25e118%` that said
+  only that the denominator was small.
 
 The per-category entity census, the bind and cold-collect timings, the per-pass millisecond
 breakdown and the per-type drift percentages are not part of the answer and are not printed: each

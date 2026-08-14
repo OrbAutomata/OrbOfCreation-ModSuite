@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using OrbAutomata;
+using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using Xunit;
 using OrbModding.Common.Runtime.World;
@@ -234,5 +235,90 @@ public sealed class WorldIdentityWalkTests
         Assert.True(
             unreadable.Count == 0,
             $"these tables hold rows without an identity the walk can read: {string.Join(", ", unreadable)}");
+    }
+
+    /// <summary>
+    /// Which walked tables hold several rows per owner, pinned by name and by how many tables the
+    /// walk sees at all.
+    /// </summary>
+    /// <remarks>
+    /// A table whose rows are searched by owner-and-something and is audited on the owner alone
+    /// reports one accusation per row after the first — 579 of them on a real save, all of them the
+    /// schema working. The rot this pins is a new table of that shape landing with nothing declared:
+    /// the count moves, this fails, and somebody decides what the row's key is rather than reading
+    /// the flood as a defect. The direction that is not pinned cannot go quiet — an unannotated
+    /// composite table is audited on the identity and fails loudly.
+    /// </remarks>
+    [Fact]
+    public void TheTablesKeyedOnMoreThanTheIdentityAreNamedAndTheRestAreCounted()
+    {
+        var composite = new List<string>();
+        var walked = 0;
+
+        var properties = typeof(GameWorldState).GetProperties(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+        foreach (var property in properties)
+        {
+            var type = property.PropertyType;
+            if (!type.IsGenericType) continue;
+            if (type.GetGenericTypeDefinition() != typeof(PublicationTable<>)) continue;
+
+            var row = type.GetGenericArguments()[0];
+            if (!typeof(IWorldEntity).IsAssignableFrom(row)) continue;
+
+            walked++;
+            if (WorldRowKey.Of(row).IsComposite) composite.Add(property.Name);
+        }
+
+        composite.Sort(StringComparer.Ordinal);
+        Assert.Equal(
+            new[] { "MasteryCosts", "ModifierProgramEntries", "ModifierPrograms" },
+            composite);
+        Assert.Equal(59, walked);
+    }
+
+    /// <summary>
+    /// The key is written out in its declared order, because the only place it is read is the
+    /// sentence naming the row that repeated — and "the second entry of the passive set" is
+    /// something a reader can go and look at, while a hash is not.
+    /// </summary>
+    [Fact]
+    public void ARowKeyedOnMoreThanTheIdentityCarriesTheRestOfItsKeyInOrder()
+    {
+        var owner = Guid.NewGuid();
+        var buffer = new WorldModifierProgramEntryBuffer();
+        buffer.Append(new WorldModifierProgramEntry(
+            owner,
+            WorldModifierProgramRole.ConceptDrain,
+            WorldModifierProgramEntrySet.Passive,
+            2,
+            Guid.NewGuid(),
+            GameValueModifierType.Raw,
+            0,
+            BigDouble.Zero));
+
+        var world = new GameWorldState
+        {
+            ModifierProgramEntries = WorldModifierProgramDeriver.Build(buffer),
+        };
+
+        var sighting = Assert.Single(WorldIdentityWalk.Enumerate(world));
+        Assert.Equal("ModifierProgramEntries", sighting.Table);
+        Assert.Equal(owner, sighting.Id);
+        Assert.Equal("Role=ConceptDrain Set=Passive Position=2", sighting.KeyWithinEntity);
+    }
+
+    /// <summary>A catalog row is its identity and nothing else, and says so with an empty key.</summary>
+    [Fact]
+    public void ACatalogRowCarriesNoKeyBeyondItsIdentity()
+    {
+        var world = new GameWorldState
+        {
+            IntVariables = WorldTable.Create(
+                new WorldNumberVariable(Guid.NewGuid(), new BigDouble(1d), isPercent: false)),
+        };
+
+        Assert.Equal(string.Empty, Assert.Single(WorldIdentityWalk.Enumerate(world)).KeyWithinEntity);
     }
 }

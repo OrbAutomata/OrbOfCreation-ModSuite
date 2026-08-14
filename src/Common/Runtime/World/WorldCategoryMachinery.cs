@@ -28,10 +28,36 @@ namespace OrbModding.Common.Runtime.World;
 internal interface IWorldEntity
 {
     /// <summary>
-    /// The entity's stable UUID, unique within any one published table. Several tables may file rows
-    /// under it: a per-owner detail table keys its rows by the entity they describe, on purpose.
+    /// The entity's stable UUID, unique within any one published table unless the row declares more
+    /// key with <see cref="WorldRowKeyPartAttribute"/>. Several tables may file rows under it: a
+    /// per-owner detail table keys its rows by the entity they describe, on purpose.
     /// </summary>
     Guid EntityId { get; }
+}
+
+/// <summary>One more member of a row's key, beyond the entity the row is filed under.</summary>
+/// <remarks>
+/// <para>
+/// A few detail tables hold several rows per owner on purpose — one modifier program per role, one
+/// entry per position inside it, one mastery cost per position of a spell's leveling tuple — and
+/// every reader of them searches on the whole key rather than on the id alone. There
+/// <see cref="IWorldEntity.EntityId"/> is the owner half of the key and nothing more.
+/// </para>
+/// <para>
+/// The row declares that here rather than a checker keeping a list of table names, because a list is
+/// a second place to remember and the only symptom of forgetting is a check that accuses an honest
+/// table or excuses a broken one. Annotated, the key travels with the shape it belongs to: a new key
+/// member is declared where it is added, and a table nobody annotates is still audited on the id
+/// alone — which fails loudly rather than passing quietly.
+/// </para>
+/// </remarks>
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+internal sealed class WorldRowKeyPartAttribute : Attribute
+{
+    internal WorldRowKeyPartAttribute(int order) => Order = order;
+
+    /// <summary>Where this member sits in the key, ascending, so one key reads in one fixed order.</summary>
+    internal int Order { get; }
 }
 
 /// <summary>Construction of one category's published table, with the invariants lookups depend on.</summary>

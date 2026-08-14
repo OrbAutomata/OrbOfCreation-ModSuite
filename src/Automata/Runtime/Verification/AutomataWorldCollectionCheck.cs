@@ -184,6 +184,7 @@ internal sealed class AutomataWorldCollectionCheck
     {
         var unavailable = new List<string>();
         var gaps = new List<string>();
+        var quiet = new List<string>();
         var bound = 0;
 
         foreach (var category in report.Categories)
@@ -200,7 +201,10 @@ internal sealed class AutomataWorldCollectionCheck
                 gaps.Add($"{category.Category} lost {category.Skipped} — {category.FirstFailure}");
             }
 
-            if (category.Sampled == 0) gaps.Add($"{category.Category} bound and found nothing");
+            if (category.Sampled != 0) continue;
+            var expected = EmptySampleIsExpected(category.Category);
+            if (expected.Length == 0) gaps.Add($"{category.Category} bound and found nothing");
+            else quiet.Add($"{category.Category} {expected}");
         }
 
         // Per-category counts are a census rather than a verdict, and the totals ride on the
@@ -214,14 +218,45 @@ internal sealed class AutomataWorldCollectionCheck
                 $"{unavailable.Count} categories did not bind against this build",
                 unavailable));
 
-        Add(gaps.Count == 0
+        var traversal = gaps.Count == 0
             ? VerificationFinding.Agree("Category traversal", bound)
             : VerificationFinding.Incomplete(
                 "Category traversal",
                 bound,
                 $"{gaps.Count} bound categories came up short",
-                gaps));
+                gaps);
+        Add(quiet.Count == 0 ? traversal : traversal.WithNote("Empty on purpose: " + string.Join("; ", quiet) + "."));
     }
+
+    /// <summary>
+    /// Why a category can read nothing without anything being wrong, in the reader's words, or the
+    /// empty string when zero really is a shortfall.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Most collectors count entities in the world, and zero of those is the one failure a bound
+    /// collector can still have: every member resolved, nothing degraded, and the registry simply was
+    /// not where it looked. Two of them count something else, and reporting them as shortfalls cost
+    /// two rounds of investigation each to re-derive the same answer.
+    /// </para>
+    /// <para>
+    /// This is deliberately a closed list rather than a rule read off the collector: a category that
+    /// nobody has ruled on keeps the loud gap, so the way to be wrong here is to explain too little
+    /// rather than to excuse too much.
+    /// </para>
+    /// </remarks>
+    internal static string EmptySampleIsExpected(string category) => category switch
+    {
+        // Sampled counts open requests, not targets: the reader returns zero the moment
+        // TargetingManager.IsTargeting() is false, which is nearly every frame there is.
+        "targeting" => "samples only while a native targeting request is open, and none was",
+
+        // Sampled counts station instances. Nothing on the pinned build ever creates one:
+        // CraftingStructureSO.CreateInstance has one caller, AddInstance.Create, which has no
+        // callers of its own and appears in no dumped asset.
+        "crafting stations" => "counts stations in play, and this build authors none it can reach",
+        _ => string.Empty,
+    };
 
     private void CheckIdentities(GameWorldState world) => Add(WorldIdentityAudit.Audit(world));
 
@@ -1775,6 +1810,8 @@ internal sealed class AutomataWorldCollectionCheck
     {
         var worst = 0d;
         var worstLabel = string.Empty;
+        var worstMemo = BigDouble.Zero;
+        var worstRecompute = BigDouble.Zero;
         var surveyed = 0;
         var dirty = 0;
         var wrong = 0;
@@ -1840,11 +1877,13 @@ internal sealed class AutomataWorldCollectionCheck
                         continue;
                     }
 
-                    var error = RelativeError(cached, truth);
-                    if (error <= worst) continue;
+                    var apart = DriftOrders(cached, truth);
+                    if (apart <= worst) continue;
 
-                    worst = error;
+                    worst = apart;
                     worstLabel = $"{typeName}.{field.Name}";
+                    worstMemo = cached;
+                    worstRecompute = truth;
                 }
             }
         }
@@ -1867,10 +1906,11 @@ internal sealed class AutomataWorldCollectionCheck
         // recompute. That makes the drift a condition of the run rather than a verdict about it —
         // and it moves by thousands between two calls over an unchanged world, which is exactly the
         // kind of number that invites a false diff when it sits in a comparison body. It rides on
-        // the provenance line, magnitude in the screen's own notation.
+        // the provenance line, both sides in the screen's own notation.
         var widest = worstLabel.Length == 0
             ? string.Empty
-            : $"{GameScientificNumber.Format(worst * 100)}%@{worstLabel}";
+            : $"{worstLabel} memo={VerificationValue.Format(worstMemo)} " +
+              $"recompute={VerificationValue.Format(worstRecompute)} orders={Orders(worst)}";
 
         return new CacheStalenessSurvey(
             fold,
@@ -1904,6 +1944,34 @@ internal sealed class AutomataWorldCollectionCheck
         truth = (BigDouble)adjust.Invoke(record, new object[] { new BigDouble((double)baseField.GetValue(record)!) })!;
         return true;
     }
+
+    /// <summary>How far apart a memo and its recompute are, in orders of magnitude.</summary>
+    /// <remarks>
+    /// <para>
+    /// A share of the truth cannot rank endgame numbers: this game's deep cost reduction drives a
+    /// percentage field toward <c>1e-114</c>, and dividing by that made a stale hundred read as
+    /// <c>2.25e118%</c> — a figure that says only that the denominator was small, in a notation with
+    /// no ceiling. Orders of magnitude are the same comparison with the exponent taken out, so the
+    /// widest record stays a number a reader can hold, and the two sides beside it say the rest.
+    /// </para>
+    /// <para>
+    /// A recompute of exactly zero is unbounded orders away from any memo, and that is the honest
+    /// reading rather than an edge to suppress: the game is acting on a number its own recalculation
+    /// says is nothing. Values that are not finite cannot be ranked at all and never win.
+    /// </para>
+    /// </remarks>
+    internal static double DriftOrders(BigDouble memo, BigDouble recompute)
+    {
+        if (recompute == BigDouble.Zero) return memo == BigDouble.Zero ? 0d : double.PositiveInfinity;
+        if (memo == BigDouble.Zero) return double.PositiveInfinity;
+
+        var apart = Math.Abs(BigDouble.AbsLog10(memo) - BigDouble.AbsLog10(recompute));
+        return double.IsNaN(apart) || double.IsInfinity(apart) ? 0d : apart;
+    }
+
+    /// <summary>The drift magnitude as the window line prints it.</summary>
+    internal static string Orders(double apart) =>
+        double.IsPositiveInfinity(apart) ? "unbounded" : apart.ToString("0.#");
 
     /// <summary>
     /// How far a cached value sits from the truth, as a share of the truth. Falls back to an absolute
@@ -2134,16 +2202,75 @@ internal sealed class AutomataWorldCollectionCheck
 /// </remarks>
 internal readonly struct WorldIdentitySighting
 {
-    internal WorldIdentitySighting(string table, Guid id)
+    internal WorldIdentitySighting(string table, Guid id, string keyWithinEntity = "")
     {
         Table = table;
         Id = id;
+        KeyWithinEntity = keyWithinEntity ?? string.Empty;
     }
 
     /// <summary>The snapshot property the row was published under.</summary>
     internal string Table { get; }
 
     internal Guid Id { get; }
+
+    /// <summary>
+    /// The rest of this row's key, written out, and empty when the identity is the whole of it.
+    /// </summary>
+    /// <remarks>
+    /// Read from the row's own <see cref="WorldRowKeyPartAttribute"/> members, so a table that keys
+    /// several rows to one owner is scored on what its readers actually search by. Written rather
+    /// than packed because the only place it is ever read is a sentence naming the row that
+    /// repeated, and a reader cannot act on a hash.
+    /// </remarks>
+    internal string KeyWithinEntity { get; }
+}
+
+/// <summary>The members beyond the identity that one row type keys on, in their declared order.</summary>
+internal sealed class WorldRowKey
+{
+    private static readonly PropertyInfo[] None = Array.Empty<PropertyInfo>();
+
+    private readonly PropertyInfo[] _parts;
+
+    private WorldRowKey(PropertyInfo[] parts) => _parts = parts;
+
+    /// <summary>Whether this row is filed under more than its identity.</summary>
+    internal bool IsComposite => _parts.Length > 0;
+
+    internal static WorldRowKey Of(Type row)
+    {
+        if (row is null) throw new ArgumentNullException(nameof(row));
+
+        var parts = new List<KeyValuePair<int, PropertyInfo>>();
+        foreach (var property in row.GetProperties(
+                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            var part = property.GetCustomAttribute<WorldRowKeyPartAttribute>();
+            if (part is not null) parts.Add(new KeyValuePair<int, PropertyInfo>(part.Order, property));
+        }
+
+        if (parts.Count == 0) return new WorldRowKey(None);
+        parts.Sort(static (left, right) => left.Key.CompareTo(right.Key));
+        var ordered = new PropertyInfo[parts.Count];
+        for (var index = 0; index < ordered.Length; index++) ordered[index] = parts[index].Value;
+        return new WorldRowKey(ordered);
+    }
+
+    /// <summary>This row's key beyond its identity, or the empty string when it has none.</summary>
+    internal string Read(object row)
+    {
+        if (_parts.Length == 0) return string.Empty;
+
+        var text = new StringBuilder();
+        for (var index = 0; index < _parts.Length; index++)
+        {
+            if (index > 0) text.Append(' ');
+            text.Append(_parts[index].Name).Append('=').Append(_parts[index].GetValue(row));
+        }
+
+        return text.ToString();
+    }
 }
 
 /// <summary>
@@ -2185,18 +2312,25 @@ internal static class WorldIdentityWalk
             var table = property.GetValue(world);
             if (table is null) continue;
 
-            var identities = (IEnumerable<Guid>)ReadTable
+            var sightings = (IEnumerable<WorldIdentitySighting>)ReadTable
                 .MakeGenericMethod(row)
-                .Invoke(null, new[] { table })!;
+                .Invoke(null, new[] { table, property.Name })!;
 
-            foreach (var id in identities) yield return new WorldIdentitySighting(property.Name, id);
+            foreach (var sighting in sightings) yield return sighting;
         }
     }
 
-    private static IEnumerable<Guid> Identities<TRow>(PublicationTable<TRow> table)
+    private static IEnumerable<WorldIdentitySighting> Identities<TRow>(
+        PublicationTable<TRow> table,
+        string name)
         where TRow : struct, IWorldEntity
     {
-        for (var index = 0; index < table.Count; index++) yield return table[index].EntityId;
+        var key = WorldRowKey.Of(typeof(TRow));
+        for (var index = 0; index < table.Count; index++)
+        {
+            var row = table[index];
+            yield return new WorldIdentitySighting(name, row.EntityId, key.Read(row));
+        }
     }
 }
 
@@ -2206,9 +2340,18 @@ internal static class WorldIdentityWalk
 /// </summary>
 /// <remarks>
 /// <para>
-/// Identity is claimed once <em>within</em> a table, because that is the invariant a lookup rests on:
-/// two rows under one id in one table make <see cref="WorldLookup.TryFind"/> return an arbitrary
-/// member of the pair. That, and a row that went out unidentified, are what this scores.
+/// A key is claimed once <em>within</em> a table, because that is the invariant a lookup rests on:
+/// two rows under one key in one table make the search for it return an arbitrary member of the
+/// pair. That, and a row that went out unidentified, are what this scores.
+/// </para>
+/// <para>
+/// The key is the identity plus whatever the row declares with
+/// <see cref="WorldRowKeyPartAttribute"/>. Most tables declare nothing and are keyed by identity
+/// alone, which is what <see cref="WorldLookup.TryFind"/> searches them by. Three of them —
+/// modifier programs by role, their entries by role, set and position, mastery costs by position —
+/// hold several rows per owner by design and are read by composite and range searches, never by
+/// identity; scored on the identity alone they reported one line per row after the first, 579 of
+/// them, and took a whole run's verdict down for describing the schema correctly.
 /// </para>
 /// <para>
 /// One identity reaching more than one table is the design rather than a defect: a dozen per-owner
@@ -2232,28 +2375,33 @@ internal static class WorldIdentityAudit
 {
     internal static VerificationFinding Audit(GameWorldState world)
     {
-        var withinTable = new HashSet<Guid>();
+        var withinTable = new HashSet<(Guid Id, string Key)>();
         var everywhere = new HashSet<Guid>();
         var sharing = new List<TableIdentityCount>();
         var detail = new List<string>();
         var table = string.Empty;
         var sharedHere = 0;
+        var compositeHere = false;
         var total = 0;
         var empties = 0;
         var repeated = 0;
         var shared = 0;
+        var composite = 0;
 
         foreach (var sighting in WorldIdentityWalk.Enumerate(world))
         {
             if (!string.Equals(sighting.Table, table, StringComparison.Ordinal))
             {
                 if (sharedHere > 0) sharing.Add(new TableIdentityCount(table, sharedHere));
+                if (compositeHere) composite++;
                 table = sighting.Table;
                 sharedHere = 0;
+                compositeHere = false;
                 withinTable.Clear();
             }
 
             total++;
+            if (sighting.KeyWithinEntity.Length > 0) compositeHere = true;
             if (sighting.Id == Guid.Empty)
             {
                 empties++;
@@ -2261,10 +2409,13 @@ internal static class WorldIdentityAudit
                 continue;
             }
 
-            if (!withinTable.Add(sighting.Id))
+            if (!withinTable.Add((sighting.Id, sighting.KeyWithinEntity)))
             {
                 repeated++;
-                detail.Add($"{table} published {sighting.Id} twice, so a lookup for it is ambiguous.");
+                detail.Add(sighting.KeyWithinEntity.Length == 0
+                    ? $"{table} published {sighting.Id} twice, so a lookup for it is ambiguous."
+                    : $"{table} published {sighting.Id} {sighting.KeyWithinEntity} twice, " +
+                      "so a lookup for it is ambiguous.");
                 continue;
             }
 
@@ -2274,12 +2425,15 @@ internal static class WorldIdentityAudit
         }
 
         if (sharedHere > 0) sharing.Add(new TableIdentityCount(table, sharedHere));
+        if (compositeHere) composite++;
 
         return (empties == 0 && repeated == 0
                 ? VerificationFinding.Agree(
                     "Identities",
                     total,
-                    counts: $"{total} compared, {empties} empty, {repeated} repeated within a table.")
+                    counts: $"{total} compared, {empties} empty, {repeated} repeated within a table, " +
+                        $"{composite} {(composite == 1 ? "table" : "tables")} keyed on more than " +
+                        "the identity.")
                 : VerificationFinding.Disagree("Identities", total, empties + repeated, detail))
             .WithNote(SharedLine(everywhere.Count, shared, sharing));
     }
