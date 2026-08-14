@@ -224,7 +224,7 @@ public sealed class GameMcpSearchTests
         var nothing = Json(GameMcpWorldQuery.Search(Context(), string.Empty, 0, 50));
         Assert.Equal("ERR_INPUT", (string?)nothing["reasonCode"]);
         Assert.Equal(
-            "name something to search for: a query, or a category, state or run filter",
+            "name something to search for: a query, or a category, state, run or keyword filter",
             (string?)nothing["reason"]);
     }
 
@@ -261,7 +261,7 @@ public sealed class GameMcpSearchTests
 
     /// <summary>
     /// The tool description is the only account of the surface a caller reads before using it, so
-    /// the two filters and the optional query are named there in the same words the tool answers in.
+    /// every filter and the optional query are named there in the same words the tool answers in.
     /// </summary>
     [Fact]
     public void The_search_tool_describes_the_filter_only_call_and_the_run_column()
@@ -276,10 +276,16 @@ public sealed class GameMcpSearchTests
 
         Assert.Contains("matchedOn", description, StringComparison.Ordinal);
         Assert.Contains("run", description, StringComparison.Ordinal);
+        Assert.Contains("keyword", description, StringComparison.Ordinal);
         Assert.Null(schema["required"]);
         Assert.Equal(
             new[] { "idle", "queued", "active", "passed", "failed" },
             schema["properties"]!["run"]!["enum"]!.Values<string>());
+
+        // The keyword filter takes an id rather than a word, and the schema says so where a caller
+        // reads it: a type asset's name is not unique enough to name a node with.
+        Assert.Equal("string", (string?)schema["properties"]!["keyword"]!["type"]);
+        Assert.Null(schema["properties"]!["keyword"]!["enum"]);
     }
 
     /// <summary>

@@ -191,6 +191,65 @@ public sealed class GameMcpTypeReachTests
     }
 
     /// <summary>
+    /// The count a type prints and the rows a caller can reach are one derivation, so naming the
+    /// type as a keyword filter returns exactly what its members line counted — for every kind on
+    /// every type this world publishes one for.
+    /// </summary>
+    /// <remarks>
+    /// The parent type is the case a query could not answer at all: Primal reaches Font through
+    /// Arcanist, and Font's word line says Arcanist, so searching the parent's own name finds
+    /// nothing while its page says one structure is there.
+    /// </remarks>
+    [Fact]
+    public void A_keyword_filter_walks_to_exactly_the_members_the_count_named()
+    {
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "rows 2/2",
+                "these 2 share: category=structures, keywords=Workshop, matchedOn=-",
+                "[id | name]",
+                "c0d000 | Forge",
+                "c0e000 | Anvil",
+            }),
+            Render(Walk(Workshop, "structures")));
+
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "rows 1/1",
+                "[id | name | category | keywords | matchedOn]",
+                "c0f000 | Font | structures | Arcanist | -",
+            }),
+            Render(Walk(Primal, "structures")));
+
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "rows 1/1",
+                "[id | name | category | keywords | matchedOn]",
+                "c1f000 | Metallurgy | research | Technology | -",
+            }),
+            Render(Walk(Technology, "research")));
+
+        // The word a parent is spelled with is on none of its children's members, so the query this
+        // filter replaces answers nothing at all.
+        Assert.Empty(Json(GameMcpWorldQuery.Search(
+            Context(World()), "Primal", 0, 50, "structures", limitFromCaller: false))
+            ["rows"]!.Values<JObject>());
+
+        foreach (var type in new[] { Workshop, Primal, Technology })
+        {
+            foreach (var member in Detail(type)["worth"]!["members"]!.Values<JObject>())
+            {
+                Assert.Equal(
+                    (int?)member!["count"],
+                    (int?)Walk(type, (string?)member["kind"] ?? string.Empty)["total"]);
+            }
+        }
+    }
+
+    /// <summary>
     /// A research type names its members like its sibling taxonomies do. The edge is
     /// <c>ResearchSO.researchTypes</c> — the list <c>GetBaseDisplayType()</c> joins into the word
     /// line the game prints — published inside the research category because each type's investment
@@ -238,6 +297,37 @@ public sealed class GameMcpTypeReachTests
             Render(Detail(Technology)));
     }
 
+    /// <summary>
+    /// An id whose page counts no members narrows nothing, and the refusal says what that id is
+    /// instead of handing back an empty page to read as "there are none". The guard is the members
+    /// block's own, so the filter answers for exactly the ids a page printed a count on.
+    /// </summary>
+    [Fact]
+    public void A_keyword_filter_naming_something_with_no_members_is_refused_by_name()
+    {
+        var refused = Json(GameMcpWorldQuery.Search(
+            Context(World()), string.Empty, 0, 50, string.Empty, string.Empty, string.Empty,
+            Insight, limitFromCaller: false));
+
+        Assert.Equal("ERR_INPUT", (string?)refused["reasonCode"]);
+        Assert.Equal(
+            "Deep Insight c1a000 is published under upgrades and its page counts no members, so " +
+            "it cannot narrow anything; name the type asset a members line counted",
+            (string?)refused["reason"]);
+    }
+
+    /// <summary>One keyword's far side, in one category, exactly as a caller would ask for it.</summary>
+    private static JObject Walk(Guid keyword, string category) =>
+        Json(GameMcpWorldQuery.Search(
+            Context(World()), string.Empty, 0, 200, category, string.Empty, string.Empty,
+            keyword, limitFromCaller: false));
+
+    /// <summary>
+    /// Two of the nine store no scalar and no value record whatever, so their page carries no
+    /// <c>row</c> at all rather than an empty one. An empty block printed as a bare dash, which
+    /// reads as a fact the game withheld instead of as a class that has no column of its own — and
+    /// the page a reader wanted is entirely the worth block underneath it.
+    /// </summary>
     [Fact]
     public void A_type_the_game_stores_nothing_else_for_answers_with_its_worth_alone()
     {

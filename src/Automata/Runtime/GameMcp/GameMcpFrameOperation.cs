@@ -72,6 +72,7 @@ internal sealed class GameMcpOperationRequest
         AffordableOnly = source.AffordableOnly;
         StateFilter = source.StateFilter ?? string.Empty;
         RunFilter = source.RunFilter ?? string.Empty;
+        KeywordFilter = source.KeywordFilter;
         SaveCapture = source.SaveCapture;
         ResourceUri = source.ResourceUri ?? string.Empty;
         Tab = source.Tab;
@@ -112,6 +113,9 @@ internal sealed class GameMcpOperationRequest
 
     /// <summary>The one challenge run word a search was narrowed to, or nothing.</summary>
     internal string RunFilter { get; }
+
+    /// <summary>The one type asset whose members a search was narrowed to, or nothing.</summary>
+    internal Guid KeywordFilter { get; }
     internal bool SaveCapture { get; }
     internal string ResourceUri { get; }
     internal GameMcpNavigationSelector? Tab { get; }
@@ -143,6 +147,7 @@ internal sealed class GameMcpOperationRequestBuilder
     internal bool AffordableOnly { get; set; }
     internal string StateFilter { get; set; } = string.Empty;
     internal string RunFilter { get; set; } = string.Empty;
+    internal Guid KeywordFilter { get; set; }
     internal bool SaveCapture { get; set; }
     internal string ResourceUri { get; set; } = string.Empty;
     internal GameMcpNavigationSelector? Tab { get; set; }

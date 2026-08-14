@@ -3742,6 +3742,7 @@ internal static class GameMcpWorldQuery
         string categoryName = "",
         string stateFilter = "",
         string runFilter = "",
+        Guid keywordFilter = default,
         bool limitFromCaller = true)
     {
         if (!TryWorld(state, out var publication, out var unavailable))
@@ -3802,19 +3803,46 @@ internal static class GameMcpWorldQuery
         // the two has to be there, and requiring both made a round invent eight filler queries — a
         // reach nobody could characterise, sitting under a count the whole sweep was judged on.
         if (normalized.Length == 0 && scope.Length == 0 && wanted.Length == 0 &&
-            wantedRun.Length == 0)
+            wantedRun.Length == 0 && keywordFilter == Guid.Empty)
         {
             return NotAvailable(
                 publication,
                 "query_required",
-                "name something to search for: a query, or a category, state or run filter");
+                "name something to search for: a query, or a category, state, run or keyword " +
+                "filter");
+        }
+
+        // The far side of the count a type's page prints, walked from the same index the count is
+        // taken over. A word is a substring and a keyword is a node: a query for "Primal" reads the
+        // structures spelled that and misses every Arcanist the parent type reaches, which is the
+        // one edge on this surface a query could not walk at all.
+        var world = publication.Snapshot;
+        HashSet<Guid>? worn = null;
+        if (keywordFilter != Guid.Empty)
+        {
+            // The guard is the members block's own: this answers for exactly the ids whose page
+            // prints a count, so "the filter reaches it" and "the page counted it" are one fact
+            // rather than two that could drift apart.
+            if (!WorldKeywordModifierLookup.TryFind(world.KeywordModifiers, keywordFilter, out _, out _))
+            {
+                return NotAvailable(
+                    publication,
+                    "keyword_not_worn",
+                    GameMcpEntityHandle.Name(keywordFilter, world.EntityIdentities) + " " +
+                    GameMcpEntityHandle.Format(keywordFilter) + " is " +
+                    KeywordScope(world, keywordFilter) + " and its page counts no members, so it " +
+                    "cannot narrow anything; name the type asset a members line counted");
+            }
+
+            worn = WorldKeywordMembership
+                .Build(world.EntityKeywords, world.Research, world.TypeSubtypes)
+                .Members(keywordFilter);
         }
 
         // Search is deliberately an entity-catalog surface. Composite diagnostic categories are
         // readable through world_list, where their full identity and localized partiality survive.
         // One entity is one match however many categories publish it: identity is deduplicated
         // before the sort, so a repeat can never eat a slot the caller paid for.
-        var world = publication.Snapshot;
         var keywords = GameMcpKeywordIndex.Build(world);
         var hits = new List<GameMcpSearchHit>();
         var keywordHits = new List<KeyValuePair<string, int>>();
@@ -3840,6 +3868,7 @@ internal static class GameMcpWorldQuery
             {
                 var row = category.Row(world, rowIndex);
                 if (!category.TryIdentity(row, out var identity)) continue;
+                if (worn is not null && !worn.Contains(identity)) continue;
                 if (wanted.Length > 0 &&
                     !string.Equals(SearchLifecycle(row), wanted, StringComparison.Ordinal))
                 {
@@ -3936,6 +3965,20 @@ internal static class GameMcpWorldQuery
         if (offset + rows.Count < hits.Count) result["nextOffset"] = offset + rows.Count;
         return result;
     }
+
+    /// <summary>
+    /// What the id a keyword filter named turned out to be, by the category that publishes it — the
+    /// same way the run filter names the scope it could not narrow.
+    /// </summary>
+    /// <remarks>
+    /// A spell type lands here rather than as an error: all twenty-two hold values instead of
+    /// distributing, so no total indexes them and their pages print no members line. So does an id
+    /// that is no type at all, and an id the world published no row for.
+    /// </remarks>
+    private static string KeywordScope(GameWorldState world, Guid uuid) =>
+        TryEntityCategory(world, uuid, out var category)
+            ? "published under " + category.Name
+            : "published under no category this world holds";
 
     /// <summary>
     /// Whether search can address this category's rows at all: it indexes entities, and a composite
