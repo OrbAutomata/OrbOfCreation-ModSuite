@@ -294,6 +294,25 @@ than printing itself into a cell.
   documentation. The casting dials publish `current` and `maximum` and not the floor, which is 1 for
   both; `suite_configuration` publishes values and not the sentence describing each setting.
 
+### The world is a graph
+
+Every node names its edges, and every named edge is walkable. A page that says a keyword reaches
+twenty-seven rituals, that a glyph is held shut by a container it names, or that a modifier came
+from an upgrade has named a far side, and naming one is a promise: an id the wire printed goes
+straight into `world_get`, and a *set* the wire counted comes back whole from `world_search`
+narrowed by a filter that names the node. Closing a gap in that promise is a filter
+on a verb that already exists — never a new tool, never a new category, and never a new column
+beyond what the filter needs. A walk a caller has to learn a new verb for is a walk they will not
+take.
+
+The count and the walk are one derivation, not two. The page that says how many things a keyword
+reaches and the filter that returns them read the same index, so a page saying eleven beside a
+filtered list handing back ten is not a shape this surface can produce.
+
+**No response unfurls the graph.** A node carries counts and names; the detail behind any one of
+them is one `world_get` away. A page that inlined what it pointed at would carry the whole world in
+every answer, and the reader who wanted one number would pay for all of it.
+
 ### Entity handles
 
 The wire says an entity id as a **handle**: the shortest prefix that is unique across every
@@ -519,7 +538,8 @@ own search box uses — `FilterVariable.MatchesSearchStrings` lowercases both si
 **`query` is optional when a filter is present.** "What have I not unlocked yet" is a whole
 question and it names nothing; requiring a word beside the filter made a caller invent one broad
 enough to reach everything they meant and then hope it had. A call that names a query, a category, a
-state or a run is a call; a call that names none of them is refused and the refusal lists all four.
+state, a run or a keyword is a call; a call that names none of them is refused and the refusal lists
+all five.
 
 `state` narrows to one of the three lifecycle words, and it reaches every category that carries the
 column: `upgrades`, `research`, `structures`, `alchemy-recipes`, `glyphs`, `rituals`, `plot-nodes`
@@ -533,6 +553,14 @@ last run passed is `available` again at the next level — which is why the two 
 and separate filters. A call that narrows to some other category *and* names a run is refused by
 name, because no other category has the column to answer with and an empty page would read as
 "there are none".
+
+`keyword` narrows to the things that wear one type asset, named by that asset's **id** rather than
+by its word. It is the far side of the `members` count a type's `world_get` prints, taken from the
+same reach, so it closes the structure subtype chain that count closes and a query for the type's
+name cannot stand in for it. Its guard is the members block's own: an id whose page counts no
+members is refused naming what that id is instead — `Deep Insight c1a000 is published under upgrades
+and its page counts no members, so it cannot narrow anything`. Handing back an empty page there would
+read as "there are none".
 
 A category with no lifecycle model still does not match a state filter, and is still not excluded
 from an unfiltered search: inventing a word here for rows whose own page never says one would be a
@@ -1770,8 +1798,25 @@ evidence.
 
 `members` says how many things the keyword reaches, per class of thing, with the structure subtype
 chain already closed over — a bonus on a parent type reaches every child's members too. It is absent
-for a type nothing wears a keyword edge to, which includes every spell type: a spell's types are
-published as spell-graph relations instead, and "0 things" would be a count of the wrong table.
+for a type no total indexes, which includes every spell type: all twenty-two `SpellTypeSO` records
+hold values rather than distributing, so there is no total to index, and "0 things" would be a count
+of the wrong table. Research types read the line like their siblings: their membership is authored on
+`ResearchSO.researchTypes` — the same list `GetBaseDisplayType()` joins into the word line the game
+prints — and published inside the research category, beside each type's investment levels, rather
+than in the keyword table.
+
+**Every count here is walkable**: `world_search` with `keyword` set to the type's id and `category`
+set to the kind the line named returns exactly the things it counted. That filter is the far side of
+this count and reads the same index, so `members / structures | 26` and a 26-row page are one fact.
+It closes the subtype chain the count closes, which is why a query cannot stand in for it — a parent
+type's members wear the *child* type's word, so searching `Primal` by name finds none of the
+structures its page counts.
+
+One kind on this line has no page behind it. `plot-node-action-types` reach the six `HarvestActionSO`
+of this build as well as the 38 `PlotNodeActionSO`, and the world publishes a category for the second
+only — so a `members / agromancy-actions` count names things `world_list` cannot page and the
+`keyword` filter cannot return. A filter cannot close that; the far side has to become a category
+first.
 
 ```
 row: uuid=a0f000, name=Ember, typeLevel=0, typeXp=0, isVisible=yes, isElemental=no
