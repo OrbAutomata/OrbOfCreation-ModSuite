@@ -396,7 +396,7 @@ rather than from the screen it is drawn on.
 | `entity_catalog` | Search what this build loaded that the published world has no row for — the combat glossary, the stat groups, the authored oddities — including ones progression has not revealed |
 | `world_search` | Find a term across every entity category at once: name, keywords, category, most relevant first |
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
-| `suite_configuration` | Read every writable setting's committed value; `mode=describe` adds type, domain, and purpose |
+| `suite_configuration` | Read every writable setting's committed value, or one `section`'s in one go; `mode=describe` adds type, domain, and purpose |
 | `trace_health` | Read trace-writer health, segment, record, and byte counters, and what the collection pass behind the published world spent per category |
 | `suite_check_game_math` | Run the differential check of the suite's math against the game and answer with one verdict word, one line per check, and one provenance line |
 | `game_purchase` | Buy an Attribute (`StructureSO`) or Upgrade derived from its UUID |
@@ -3113,12 +3113,38 @@ mutation proof.
 STOP closes MCP native admission exactly as it closes automation. Resume still requires the host's
 ordinary fresh-world gate.
 
-`suite_configuration` returns every writable setting as one `section/key: value` line and nothing
-else. It never reflectively serializes the runtime configuration record or exposes compiler metadata
-and internal nested policy objects. A setting whose stored value is a comma-joined list of whole
-UUIDs — an allowlist — is published as that list, so each entry crosses the wire as the named
-handle every other entity reference on this surface uses instead of as hundreds of characters of
-raw id a caller then has to resolve one by one.
+`suite_configuration` returns every writable setting as one `section/key: value` line, under a
+`sections` line naming the grouping words those lines use, and nothing else. It never reflectively
+serializes the runtime configuration record or exposes compiler metadata and internal nested policy
+objects. A setting whose stored value is a comma-joined list of whole UUIDs — an allowlist — is
+published as that list, so each entry crosses the wire as the named handle every other entity
+reference on this surface uses instead of as hundreds of characters of raw id a caller then has to
+resolve one by one.
+
+`section` is how one feature's settings are read in one go. The section is the word every row
+already wears in its own name, so there is no second vocabulary to learn and a narrowed row is
+spelled exactly as the whole catalog spells it — `section="AutoBuy"` is every Auto Buy setting and
+nothing else:
+
+```
+AutoBuy/Mode: Active
+AutoBuy/AffordabilityMode: Excess100
+AutoBuy/UpgradeAffordabilityMode: Excess100
+AutoBuy/IncludeStructures: True
+AutoBuy/IncludeUpgrades: True
+AutoBuy/AutoLevelSpells: True
+AutoBuy/LeaveQueueSlots: 1
+```
+
+It narrows `mode="describe"` the same way, because the longest answer is the one worth narrowing.
+The word is read off the surface rather than guessed at: an answer nobody narrowed leads with the
+sections it holds, and a narrowed one drops that line because the caller has already named one. A
+section nothing is filed under is refused as `ERR_INPUT` with the real ones in the sentence, so the
+fix is on the page that refused rather than a round trip away:
+
+```
+unavailable (ERR_INPUT): unknown section 'autobuy_settings'; the sections are General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, AutoScribe, Reserves
+```
 
 `mode="describe"` is where the rest lives: each setting's type, the values it accepts, and the
 sentence saying what it does. Those three do not change between calls, so the ordinary read does not
