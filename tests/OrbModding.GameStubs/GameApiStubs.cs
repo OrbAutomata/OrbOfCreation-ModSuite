@@ -961,6 +961,9 @@ public class UpgradeSO : IdScriptableObject, IActionable
     public bool purchasable = true;
     public ResourceCostList purchaseCost = new ResourceCostList();
 
+    /// <summary>What one level of this upgrade permanently applies.</summary>
+    public PersistentEffectDeprecated permanentEffects = new PersistentEffectDeprecated();
+
     // The authored cost and the list it grows by per level, which together are what the suite
     // computes GetPurchaseCost() from instead of calling it. An upgrade prices on an entirely
     // different chain than a structure, so it names entirely different fields.
@@ -1186,6 +1189,19 @@ public class Player
 
     public static IntVariable GetSpellOutputLevel() => _instance.spellOutputLevel;
     public static IntVariable GetReserveLevel() => _instance.reserveLevel;
+
+    // The four variables a glyph's critical and echo slots print against. They are serialized
+    // fields on the singleton rather than assets in a registry, so the accessor is the only way
+    // to learn which variable a slot means.
+    public DoubleVariable spellCriticalCastRating = new DoubleVariable();
+    public DoubleVariable spellCriticalCastEffect = new DoubleVariable();
+    public DoubleVariable spellDoubleCastRating = new DoubleVariable();
+    public DoubleVariable spellDoubleCastEffect = new DoubleVariable();
+
+    public static DoubleVariable GetSpellCriticalCastRating() => _instance.spellCriticalCastRating;
+    public static DoubleVariable GetSpellCriticalCastEffect() => _instance.spellCriticalCastEffect;
+    public static DoubleVariable GetSpellDoubleCastRating() => _instance.spellDoubleCastRating;
+    public static DoubleVariable GetSpellDoubleCastEffect() => _instance.spellDoubleCastEffect;
 
     private static IntVariable bulkDevelopment =
         IntVariable.Register(KnownVariableIds.BulkDevelopment);
@@ -1608,7 +1624,7 @@ public abstract class UpgradeableObject : TooltipableObject
     /// type's authored property record rather than from a shared enum, so two types can name
     /// different sets and the same name can mean the same thing across them.
     /// </remarks>
-    public sealed class UpgradeEffectModifier
+    public sealed class UpgradeEffectModifier : IPersistentEffectScript
     {
         public UpgradeableObject? upgradeableObject;
         public string propertyType = string.Empty;
@@ -1643,6 +1659,43 @@ public class PersistentEffectDeprecated
 
     public List<UpgradeableObject.UpgradeEffectModifier> upgradeableObjectEffects =
         new List<UpgradeableObject.UpgradeEffectModifier>();
+
+    public List<TupleMod<NumberVariable>> numberVariableEffects =
+        new List<TupleMod<NumberVariable>>();
+}
+
+/// <summary>
+/// The base the game's scalar variables share, modelled only as far as an effect's reference edge
+/// reads it: the identity the published row carries instead of the object.
+/// </summary>
+public class NumberVariable
+{
+    public Guid uuid = Guid.NewGuid();
+
+    public Guid GetGuid() => uuid;
+
+    /// <summary>One effect's standing modification of one variable.</summary>
+    public sealed class PersistentEffect : IPersistentEffectScript
+    {
+        public NumberVariable? numberVariable;
+        public ValueModifier modifier;
+    }
+}
+
+/// <summary>
+/// One authored (thing, modifier) pair. The deprecated container stores its variable effects this
+/// way rather than as a script class, so the thing is named <c>item</c> here and nothing else is.
+/// </summary>
+public sealed class TupleMod<T>
+    where T : class
+{
+    public T? item;
+    public ValueModifier modifier;
+}
+
+/// <summary>Every script an effect block may hold that applies a standing modifier.</summary>
+public interface IPersistentEffectScript
+{
 }
 
 public class ResourceCostList
@@ -1805,7 +1858,7 @@ public class ResourceSO : UpgradeableObject
     }
 
     /// <summary>One structure's standing effect on one property of one resource.</summary>
-    public sealed class PersistentEffect
+    public sealed class PersistentEffect : IPersistentEffectScript
     {
         public ResourceSO? resource;
         public ModifiableType upgradeType;

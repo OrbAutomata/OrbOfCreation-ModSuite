@@ -204,7 +204,8 @@ internal sealed class GameMcpProjectedDomainValue : GameMcpValue
         string category,
         string nativeType,
         bool addressable = true,
-        bool tableRow = true)
+        bool tableRow = true,
+        GameMcpObject? attached = null)
     {
         Value = value ?? throw new ArgumentNullException(nameof(value));
         Paths = paths is null ? Array.Empty<string>() : (string[])paths.Clone();
@@ -212,6 +213,7 @@ internal sealed class GameMcpProjectedDomainValue : GameMcpValue
         NativeType = nativeType ?? string.Empty;
         Addressable = addressable;
         TableRow = tableRow;
+        Attached = attached;
     }
 
     internal object Value { get; }
@@ -219,6 +221,18 @@ internal sealed class GameMcpProjectedDomainValue : GameMcpValue
     internal string Category { get; }
     internal string NativeType { get; }
     internal bool Addressable { get; }
+
+    /// <summary>
+    /// Blocks a hand-written producer adds to a reflected projection, or nothing where it adds none.
+    /// </summary>
+    /// <remarks>
+    /// A category whose rows are rendered from a declared field list has no hand-written projection
+    /// to hang a related table's block on, and writing one out by hand just to add a block would
+    /// restate every field the declaration already promises — and drift from it the first time
+    /// either side changed. The declared fields still come from the row; this is what the producer
+    /// knows and the row does not.
+    /// </remarks>
+    internal GameMcpObject? Attached { get; }
 
     /// <summary>
     /// Whether this projection is a row of a table, where the declared paths are the header's
@@ -230,7 +244,11 @@ internal sealed class GameMcpProjectedDomainValue : GameMcpValue
     internal bool TableRow { get; }
 
     internal GameMcpProjectedDomainValue WithoutAddressableIdentity() =>
-        new(Value, Paths, Category, NativeType, addressable: false, tableRow: TableRow);
+        new(Value, Paths, Category, NativeType, addressable: false, tableRow: TableRow,
+            attached: Attached);
+
+    internal GameMcpProjectedDomainValue With(GameMcpObject blocks) =>
+        new(Value, Paths, Category, NativeType, Addressable, TableRow, blocks);
 }
 
 internal sealed class GameMcpNull : GameMcpValue

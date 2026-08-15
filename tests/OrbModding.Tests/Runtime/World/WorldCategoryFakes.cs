@@ -135,6 +135,12 @@ internal static class WorldCategoryFakes
         // knows how to read are reached by name.
         ["ScalingWeightEffectMod"] = typeof(FakeScalingWeightMod),
         ["TreasurePoolInstantEffect"] = typeof(FakeTreasureEffect),
+
+        // Nor are the three record classes an authored effect applies a modifier through. Every
+        // block list is typed as an interface, so the reader reaches each by name the same way.
+        ["UpgradeableObject+UpgradeEffectModifier"] = typeof(FakeObjectPropertyEffect),
+        ["NumberVariable+PersistentEffect"] = typeof(FakeVariableEffect),
+        ["ResourceSO+PersistentEffect"] = typeof(FakeResourceEffect),
     };
 
     /// <summary>Empties every registry, so one test cannot see another's entities.</summary>
@@ -1618,6 +1624,9 @@ internal sealed class FakeSpellType
 {
     public static readonly List<FakeSpellType> All = new();
 
+    /// <summary>What one more level of the type buys.</summary>
+    public List<FakeEffectBlock> perLevelEffects = new();
+
     public Guid Identity = Guid.NewGuid();
     public int typeLevel;
     public BigDouble typeXp;
@@ -1698,6 +1707,9 @@ internal sealed class FakeEquipmentType
 {
     public static readonly List<FakeEquipmentType> All = new();
 
+    /// <summary>What one more level of the type buys.</summary>
+    public List<FakeEffectBlock> levelEffects = new();
+
     public Guid Identity = Guid.NewGuid();
     public int level;
     public int freeLevels;
@@ -1771,6 +1783,9 @@ internal sealed class FakeEquipmentManager
 internal sealed class FakeResourceType
 {
     public static readonly List<FakeResourceType> All = new();
+
+    /// <summary>What one more level of the type buys.</summary>
+    public List<FakeEffectBlock> levelEffects = new();
 
     public Guid Identity = Guid.NewGuid();
     public int level;
@@ -2023,6 +2038,9 @@ internal sealed class FakeHarvestActionList
 internal sealed class FakeTimeRune : global::IDiscoverable
 {
     public static readonly List<FakeTimeRune> All = new();
+
+    /// <summary>What one more level of the rune applies, which on the pinned build is never a modifier.</summary>
+    public List<FakeEffectBlock> onLevelEffects = new();
     public List<FakeTimeRuneType> timeRuneTypes = new();
 
     public Guid Identity = Guid.NewGuid();
@@ -2064,6 +2082,9 @@ internal sealed class FakeTimeRune : global::IDiscoverable
 internal sealed class FakeGlyph : global::IDiscoverable
 {
     public static readonly List<FakeGlyph> All = new();
+
+    /// <summary>What one more level of the glyph buys, as against what it does at any level.</summary>
+    public List<FakeEffectBlock> levelingEffects = new();
     public List<FakeGlyphType> glyphTypes = new();
 
     public Guid Identity = Guid.NewGuid();
@@ -2486,6 +2507,80 @@ internal sealed class FakeEffectBlock
     public FakePrerequisites prerequisites = new();
     public List<object> effectMods = new();
     public List<object> effectScripts = new();
+}
+
+/// <summary>
+/// The entity an authored effect points at, modelled only as far as the reference edge reads it:
+/// the identity the published row carries instead of the object.
+/// </summary>
+internal sealed class FakeUpgradeableObject
+{
+    public Guid Identity = Guid.NewGuid();
+
+    public Guid GetGuid() => Identity;
+}
+
+/// <summary>One effect's modification of one named property of one upgradeable object.</summary>
+internal sealed class FakeObjectPropertyEffect
+{
+    public FakeUpgradeableObject? upgradeableObject;
+    public string propertyType = string.Empty;
+    public FakeValueModifier modifier;
+}
+
+/// <summary>One effect's modification of one scalar variable, which has no property to name.</summary>
+internal sealed class FakeVariableEffect
+{
+    public FakeNumberVariable? numberVariable;
+    public FakeValueModifier modifier;
+}
+
+/// <summary>One effect's modification of one of a resource's modifiable properties.</summary>
+internal sealed class FakeResourceEffect
+{
+    public FakeResource? resource;
+    public FakeResourceModifiableType upgradeType;
+    public FakeValueModifier modifier;
+}
+
+/// <summary>
+/// Positionally identical to the game's ResourceSO.ModifiableType, whose member names reach the wire
+/// because an ordinal says nothing to a reader.
+/// </summary>
+internal enum FakeResourceModifiableType
+{
+    Rate,
+    MaxQuantity,
+    Quality,
+}
+
+/// <summary>The base the game's scalar variables share, read only for its identity.</summary>
+internal sealed class FakeNumberVariable
+{
+    public Guid Identity = Guid.NewGuid();
+
+    public Guid GetGuid() => Identity;
+}
+
+/// <summary>
+/// One authored (thing, modifier) pair. The deprecated container stores its variable effects this
+/// way rather than as a script class, so the thing is named <c>item</c> here and nothing else is.
+/// </summary>
+internal sealed class FakeTupleMod
+{
+    public FakeNumberVariable? item;
+    public FakeValueModifier modifier;
+}
+
+/// <summary>
+/// The deprecated container an upgrade authors its permanent effects in: three typed lists rather
+/// than one list of scripts, which is why the upgrade is walked apart from the five block holders.
+/// </summary>
+internal sealed class FakePermanentEffects
+{
+    public List<FakeTupleMod> numberVariableEffects = new();
+    public List<FakeObjectPropertyEffect> upgradeableObjectEffects = new();
+    public List<FakeResourceEffect> resourceEffects = new();
 }
 
 /// <summary>An effect modifier that scales what it applies by an authored weight.</summary>

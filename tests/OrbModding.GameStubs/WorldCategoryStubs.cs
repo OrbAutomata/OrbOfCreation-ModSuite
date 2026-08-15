@@ -36,6 +36,9 @@ public sealed class StructureTypeSO : UpgradeableObject
 public sealed class SpellTypeSO : IdScriptableObject
 {
     public static List<SpellTypeSO> All = new List<SpellTypeSO>();
+
+    /// <summary>What one more level of the type buys.</summary>
+    public List<PersistentEffectBlock> perLevelEffects = new List<PersistentEffectBlock>();
     public int typeLevel;
     public BigDouble typeXp;
     public double typeXpRequiredBase;
@@ -82,6 +85,9 @@ public interface ILevelableHasFree
 public sealed class EquipmentTypeSO : IdScriptableObject, ILevelable, ILevelableHasFree
 {
     public static List<EquipmentTypeSO> All = new List<EquipmentTypeSO>();
+
+    /// <summary>What one more level of the type buys.</summary>
+    public List<PersistentEffectBlock> levelEffects = new List<PersistentEffectBlock>();
     public int level;
     public int freeLevels;
     public int baseUsage;
@@ -112,6 +118,9 @@ public sealed class EquipmentTypeSO : IdScriptableObject, ILevelable, ILevelable
 public sealed class ResourceTypeSO : IdScriptableObject, ILevelable, ILevelableHasFree
 {
     public static List<ResourceTypeSO> All = new List<ResourceTypeSO>();
+
+    /// <summary>What one more level of the type buys.</summary>
+    public List<PersistentEffectBlock> levelEffects = new List<PersistentEffectBlock>();
     public int level;
     public int freeLevels;
     public bool specialHidden;
@@ -575,6 +584,10 @@ public sealed class HarvestActionInstanceListVariable : GenericListVariable<Harv
 public sealed class TimeRuneSO : UpgradeableObject, IDiscoverable, ILevelable
 {
     public static List<TimeRuneSO> All = new List<TimeRuneSO>();
+
+    // The one holder whose per-level list is instant rather than persistent: on the pinned build
+    // every block here grants advancement experience and none applies a modifier.
+    public List<InstantEffectBlock> onLevelEffects = new List<InstantEffectBlock>();
     public List<TimeRuneTypeSO> timeRuneTypes = new List<TimeRuneTypeSO>();
     public bool discovered;
     public int level;
@@ -684,6 +697,9 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
     public bool NativeCanLevel = true;
     public bool SuppressLevelPurchase;
     public bool SuppressBonusPurchase;
+
+    /// <summary>What one more level of the glyph buys, as against what it does at any level.</summary>
+    public List<PersistentEffectBlock> levelingEffects = new List<PersistentEffectBlock>();
 
     public string GetName() => DisplayName;
     public bool IsAvailable() => NativeAvailable;
@@ -1600,6 +1616,7 @@ public partial class ConsumableSO
 
 public class PersistentEffectBlock : EffectBlock
 {
+    public List<IPersistentEffectScript> effectScripts = new List<IPersistentEffectScript>();
 }
 
 /// <summary>The weight a completion effect scales its payout by.</summary>

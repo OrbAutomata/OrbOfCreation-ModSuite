@@ -67,6 +67,7 @@ internal static class GameMcpDocumentJsonEncoder
             result = complete;
             result["mcpCategory"] = source.Category;
             if (!source.Addressable && result["uuid"] is null) result["addressable"] = false;
+            Attach(result, source.Attached);
             return result;
         }
 
@@ -78,7 +79,24 @@ internal static class GameMcpDocumentJsonEncoder
             result["category"] = source.Category;
             result["addressable"] = false;
         }
+        Attach(result, source.Attached);
         return result;
+    }
+
+    /// <summary>
+    /// The producer's own blocks, beside the fields the declaration filled. A block never displaces
+    /// a declared field: the declaration is the row's own answer, and this is what a related table
+    /// says about it.
+    /// </summary>
+    private static void Attach(JObject result, GameMcpObject? attached)
+    {
+        if (attached is null) return;
+        for (var index = 0; index < attached.Properties.Count; index++)
+        {
+            var property = attached.Properties[index];
+            if (result[property.Name] is not null) continue;
+            result[property.Name] = EncodeValue(property.Value);
+        }
     }
 
     /// <summary>

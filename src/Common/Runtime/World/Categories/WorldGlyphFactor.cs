@@ -44,6 +44,7 @@ internal readonly struct WorldGlyphFactor
         Guid glyphId,
         string property,
         Guid statisticId,
+        Guid variableId,
         int modifierType,
         BigDouble amount,
         int order)
@@ -51,6 +52,7 @@ internal readonly struct WorldGlyphFactor
         GlyphId = glyphId;
         Property = property ?? string.Empty;
         StatisticId = statisticId;
+        VariableId = variableId;
         ModifierType = modifierType;
         Amount = amount;
         Order = order;
@@ -68,11 +70,27 @@ internal readonly struct WorldGlyphFactor
     /// </summary>
     /// <remarks>
     /// Empty is a published fact rather than a dropped row: four slots point the tooltip at a
-    /// <c>DoubleVariable</c> on the player instead of at a statistic, and one is applied to a
-    /// resource cost list under no name at all. Those rows still carry their slot and their numbers,
-    /// and a reader meets the same shape whether or not the edge exists.
+    /// <c>DoubleVariable</c> on the player instead of at a statistic — those carry
+    /// <see cref="VariableId"/> instead — and one is applied to a resource cost list under no name
+    /// at all. Those rows still carry their slot and their numbers, and a reader meets the same
+    /// shape whether or not the edge exists.
     /// </remarks>
     internal Guid StatisticId { get; }
+
+    /// <summary>
+    /// The player variable the game prints this slot against, or <see cref="Guid.Empty"/> where the
+    /// slot names a statistic instead or names nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// The four critical and echo-cast slots have no <c>globalDefinition</c> to join a statistic on,
+    /// because the game prints them against a <c>DoubleVariable</c> it reads off the player. That
+    /// variable is a published entity in its own right, so the row carries its identity in exactly
+    /// the shape <see cref="StatisticId"/> carries a statistic's — a followable edge rather than a
+    /// blank the reader has to guess the far side of. <c>creationCostMod</c> stays blank in both
+    /// columns on purpose: it is applied to a <c>ResourceCostList</c>, which is not an entity and has
+    /// no identity to point at.
+    /// </remarks>
+    internal Guid VariableId { get; }
 
     /// <summary>
     /// The game's <c>ValueModifierType</c> as its underlying integer, exactly as
@@ -104,10 +122,13 @@ internal readonly struct WorldGlyphFactor
 /// Five slots have no key and it is not an omission. Four of them —
 /// <c>spellCriticalRating</c>, <c>spellCriticalEffect</c>, <c>spellDoubleCastRating</c> and
 /// <c>spellDoubleCastEffect</c> — are printed against a <c>DoubleVariable</c> the game reads off the
-/// player rather than against a statistic, so no <c>globalDefinition</c> key exists to join on. The
-/// fifth, <c>creationCostMod</c>, is never printed as a named factor at all: it is applied straight
-/// to a <c>ResourceCostList</c>. Inventing a statistic for any of the five would hand a reader an
-/// edge the game does not author.
+/// player rather than against a statistic, so no <c>globalDefinition</c> key exists to join on. Those
+/// four name their far side through <see cref="Slot.PlayerAccessor"/> instead, which is the same
+/// discipline one register over: the game's own accessor hands the variable back, and the row carries
+/// its identity under <see cref="WorldGlyphFactor.VariableId"/>. The fifth,
+/// <c>creationCostMod</c>, is never printed as a named factor at all: it is applied straight to a
+/// <c>ResourceCostList</c>, which has no identity to point at, so it carries neither edge. Inventing
+/// one for any of the five would hand a reader an edge the game does not author.
 /// </para>
 /// <para>
 /// Two slots share one key. <c>spellCooldown</c> and <c>spellBaseCooldown</c> are both printed under
@@ -117,19 +138,30 @@ internal readonly struct WorldGlyphFactor
 /// </remarks>
 internal static class WorldGlyphFactorSlots
 {
-    /// <summary>The slot's field on <c>GlyphSO</c> and the statistic key the game prints it under.</summary>
+    /// <summary>
+    /// The slot's field on <c>GlyphSO</c>, the statistic key the game prints it under, and — for the
+    /// four that have no statistic — the <c>Player</c> accessor whose variable it prints against.
+    /// </summary>
     internal readonly struct Slot
     {
-        internal Slot(string field, string statisticKey)
+        internal Slot(string field, string statisticKey, string playerAccessor = "")
         {
             Field = field;
             StatisticKey = statisticKey;
+            PlayerAccessor = playerAccessor;
         }
 
         internal string Field { get; }
 
         /// <summary>Empty where the game names no statistic for the slot.</summary>
         internal string StatisticKey { get; }
+
+        /// <summary>
+        /// Empty except on the four slots the game prints against a player variable. Each named
+        /// method is a single stored-field read on the <c>Player</c> singleton in the pinned
+        /// assembly, so the variable it answers with is the game's own choice of far side.
+        /// </summary>
+        internal string PlayerAccessor { get; }
     }
 
     internal static readonly Slot[] All =
@@ -144,10 +176,10 @@ internal static class WorldGlyphFactorSlots
         new("spellCastSpeed", "CastingSpeed"),
         new("spellExperienceRate", "ExperienceRate"),
         new("spellSpellCharges", "SpellStocks"),
-        new("spellCriticalRating", ""),
-        new("spellCriticalEffect", ""),
-        new("spellDoubleCastRating", ""),
-        new("spellDoubleCastEffect", ""),
+        new("spellCriticalRating", "", "GetSpellCriticalCastRating"),
+        new("spellCriticalEffect", "", "GetSpellCriticalCastEffect"),
+        new("spellDoubleCastRating", "", "GetSpellDoubleCastRating"),
+        new("spellDoubleCastEffect", "", "GetSpellDoubleCastEffect"),
         new("creationCostMod", ""),
     };
 }
@@ -187,6 +219,7 @@ internal static class WorldGlyphFactorDeriver
                 row.GlyphId,
                 row.Property,
                 statisticId,
+                row.VariableId,
                 row.ModifierType,
                 row.Amount,
                 row.Order);
@@ -258,114 +291,5 @@ internal static class WorldGlyphFactorLookup
         while (end < table.Count && table[end].GlyphId == glyphId) end++;
         count = end - found;
         return true;
-    }
-}
-
-/// <summary>
-/// A second walk of the glyph registry, for the authored factors each glyph applies. It claims no
-/// identities: the glyphs are already claimed by their own category.
-/// </summary>
-/// <remarks>
-/// A slot is published only when the game itself would print it, and the game's own predicate is
-/// <c>ValueModifier.IsEmpty()</c> — the amount equals its type's identity, which is one for the
-/// multiplicative kinds and zero for the rest. <see cref="GameValueModifier.IsEmpty"/> is that
-/// method ported, so the rows are exactly the lines a glyph's tooltip carries rather than a
-/// convenient approximation of them.
-/// </remarks>
-internal sealed class WorldGlyphFactorReader : IWorldCategoryReader
-{
-    private readonly Type? _glyphType;
-    private readonly string _unavailable;
-    private readonly Func<object, Guid>? _glyphId;
-    private readonly Func<object, int>[] _types;
-    private readonly Func<object, BigDouble>[] _amounts;
-    private readonly Func<object, int>[] _orders;
-
-    internal WorldGlyphFactorReader(Type? glyphType)
-    {
-        _glyphType = glyphType;
-        var slots = WorldGlyphFactorSlots.All;
-        _types = new Func<object, int>[slots.Length];
-        _amounts = new Func<object, BigDouble>[slots.Length];
-        _orders = new Func<object, int>[slots.Length];
-        if (glyphType is null)
-        {
-            _unavailable = "the GlyphSO type was not found on this build";
-            return;
-        }
-
-        var bind = new WorldMemberBinding(glyphType, "GlyphSO");
-        _glyphId = bind.Call<Guid>("GetGuid");
-        for (var index = 0; index < slots.Length; index++)
-        {
-            var field = slots[index].Field;
-            _types[index] = bind.NestedEnumField(field, "type")!;
-            _amounts[index] = bind.NestedField<BigDouble>(field, "adjustReal")!;
-            _orders[index] = bind.NestedField<int>(field, "order")!;
-        }
-
-        _unavailable = bind.Failure;
-    }
-
-    public string Category => "glyph effects";
-
-    public bool IsAvailable => _glyphType is not null && _unavailable.Length == 0;
-
-    public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
-    {
-        var buffer = frame.GlyphEffects;
-        buffer.Reset();
-        if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
-
-        var glyphs = NativeAccessorBinder.StaticList(_glyphType, "All");
-        if (glyphs is null)
-            return WorldCategoryReport.Missing(Category, "the GlyphSO registry was unreadable");
-
-        var sampled = 0;
-        var skipped = 0;
-        var firstFailure = string.Empty;
-
-        for (var index = 0; index < glyphs.Count; index++)
-        {
-            var glyph = glyphs[index];
-            if (glyph is null) continue;
-
-            try
-            {
-                sampled += Read(glyph, buffer);
-            }
-            catch (Exception ex)
-            {
-                skipped++;
-                if (firstFailure.Length == 0)
-                    firstFailure = "reading a glyph's factors threw: " + ex.GetBaseException().Message;
-            }
-        }
-
-        return new WorldCategoryReport(
-            Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
-    }
-
-    private int Read(object glyph, WorldRelationBuffer<WorldGlyphFactor> buffer)
-    {
-        var glyphId = _glyphId!(glyph);
-        if (glyphId == Guid.Empty) return 0;
-
-        var slots = WorldGlyphFactorSlots.All;
-        var appended = 0;
-        for (var index = 0; index < slots.Length; index++)
-        {
-            var modifierType = _types[index](glyph);
-            var amount = _amounts[index](glyph);
-            var order = _orders[index](glyph);
-            var modifier = new GameValueModifier((GameValueModifierType)modifierType, amount, order);
-            if (modifier.IsEmpty()) continue;
-
-            buffer.Append(new WorldGlyphFactor(
-                glyphId, slots[index].Field, Guid.Empty, modifierType, amount, order));
-            appended++;
-        }
-
-        return appended;
     }
 }

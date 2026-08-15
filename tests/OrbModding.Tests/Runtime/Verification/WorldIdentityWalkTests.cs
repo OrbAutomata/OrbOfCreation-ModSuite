@@ -136,7 +136,10 @@ public sealed class WorldIdentityWalkTests
     /// authored glyph populations. <c>EntityKeywords</c> is the same shape again: the entity and
     /// the type asset whose display name is the keyword are both claimed elsewhere — the entity by its
     /// own category and the type by the lifecycle identity catalog — and the row is only the authored
-    /// membership between them.
+    /// membership between them. <c>GlyphEffects</c> and <c>LevelEffects</c> are the authored modifier
+    /// tuples of an owner some other table already claims — a glyph's inline factors and the six
+    /// per-level holders' blocks — and both ends of each row, the owner and the thing it modifies,
+    /// are entities their own categories own.
     /// <c>TypeModifierTotals</c>, <c>KeywordModifiers</c> and <c>SpellTypeResonance</c> are derived
     /// arithmetic rather than entities: the first two are keyed by a type asset the identity catalog
     /// already claims and by the record name on it, and the third is keyed by a loadout position,
@@ -154,6 +157,7 @@ public sealed class WorldIdentityWalkTests
         "UpgradeListMemberships",
         "GlyphListMemberships",
         "GlyphEffects",
+        "LevelEffects",
         "PlotActions",
         "PlotActionInstances",
         "ActionQueueSlots",

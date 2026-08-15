@@ -4829,6 +4829,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
     },
     {
+      "id": "equipment-type.level-effects",
+      "assembly": "assembly-csharp",
+      "type": "EquipmentTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "levelEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
       "id": "equipment.all",
       "assembly": "assembly-csharp",
       "type": "EquipmentSO",
@@ -6281,6 +6300,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
+      "id": "glyph.leveling-effects",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "levelingEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
       "id": "guid-container.guid",
       "assembly": "assembly-csharp",
       "type": "GuidContainer",
@@ -7695,6 +7733,86 @@
       ],
       "place": "capture",
       "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game builds an aggregate the reader then walks; the walk is what the suite wants, and the aggregate is how the game hands it over.", "evidence": "kind:method returning DoubleVariable; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "player.get-spell-critical-cast-rating",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetSpellCriticalCastRating",
+      "visibility": "public",
+      "static": true,
+      "returnType": "DoubleVariable",
+      "parameters": [],
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellCriticalCastRating; ret"}
+    },
+    {
+      "id": "player.get-spell-critical-cast-effect",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetSpellCriticalCastEffect",
+      "visibility": "public",
+      "static": true,
+      "returnType": "DoubleVariable",
+      "parameters": [],
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellCriticalCastEffect; ret"}
+    },
+    {
+      "id": "player.get-spell-double-cast-rating",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetSpellDoubleCastRating",
+      "visibility": "public",
+      "static": true,
+      "returnType": "DoubleVariable",
+      "parameters": [],
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellDoubleCastRating; ret"}
+    },
+    {
+      "id": "player.get-spell-double-cast-effect",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetSpellDoubleCastEffect",
+      "visibility": "public",
+      "static": true,
+      "returnType": "DoubleVariable",
+      "parameters": [],
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellDoubleCastEffect; ret"}
     },
     {
       "id": "plot-node-action.all",
@@ -10761,6 +10879,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field MergingModifierRecord"}
+    },
+    {
+      "id": "resource-type.level-effects",
+      "assembly": "assembly-csharp",
+      "type": "ResourceTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "levelEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "resource.all",
@@ -14711,6 +14848,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
     },
     {
+      "id": "spell-type.per-level-effects",
+      "assembly": "assembly-csharp",
+      "type": "SpellTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "perLevelEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
       "id": "spell.can-cast",
       "assembly": "assembly-csharp",
       "type": "Spell",
@@ -16395,6 +16551,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
     },
     {
+      "id": "time-rune.on-level-effects",
+      "assembly": "assembly-csharp",
+      "type": "TimeRuneSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "onLevelEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<InstantEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<InstantEffectBlock>"}
+    },
+    {
       "id": "timer-list.quantity",
       "assembly": "assembly-csharp",
       "type": "TimerList",
@@ -17234,6 +17409,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ModifierListRef"}
+    },
+    {
+      "id": "upgrade.permanent-effects",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "permanentEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "PersistentEffectDeprecated",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field PersistentEffectDeprecated"}
     },
     {
       "id": "value-modifier-list.exponents",
@@ -28924,6 +29118,177 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ChallengeTypeSO>"}
     },
     {
+      "id": "number-variable-effect.number-variable",
+      "assembly": "assembly-csharp",
+      "type": "NumberVariable+PersistentEffect",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "numberVariable",
+      "visibility": "public",
+      "static": false,
+      "valueType": "NumberVariable",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field NumberVariable"}
+    },
+    {
+      "id": "number-variable-effect.modifier",
+      "assembly": "assembly-csharp",
+      "type": "NumberVariable+PersistentEffect",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "modifier",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "persistent-effect-block.effect-scripts",
+      "assembly": "assembly-csharp",
+      "type": "PersistentEffectBlock",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "effectScripts",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<IPersistentEffectScript>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<IPersistentEffectScript>"}
+    },
+    {
+      "id": "persistent-effect-deprecated.number-variable-effects",
+      "assembly": "assembly-csharp",
+      "type": "PersistentEffectDeprecated",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "numberVariableEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<TupleMod`1<NumberVariable>>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<TupleMod`1<NumberVariable>>"}
+    },
+    {
+      "id": "persistent-effect-deprecated.upgradeable-object-effects",
+      "assembly": "assembly-csharp",
+      "type": "PersistentEffectDeprecated",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "upgradeableObjectEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<UpgradeableObject+UpgradeEffectModifier>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<UpgradeableObject+UpgradeEffectModifier>"}
+    },
+    {
+      "id": "persistent-effect-deprecated.resource-effects",
+      "assembly": "assembly-csharp",
+      "type": "PersistentEffectDeprecated",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "resourceEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<ResourceSO+PersistentEffect>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ResourceSO+PersistentEffect>"}
+    },
+    {
+      "id": "resource-persistent-effect.resource",
+      "assembly": "assembly-csharp",
+      "type": "ResourceSO+PersistentEffect",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "resource",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ResourceSO",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ResourceSO"}
+    },
+    {
+      "id": "resource-persistent-effect.upgrade-type",
+      "assembly": "assembly-csharp",
+      "type": "ResourceSO+PersistentEffect",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "upgradeType",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ResourceSO+ModifiableType",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ResourceSO+ModifiableType"}
+    },
+    {
+      "id": "resource-persistent-effect.modifier",
+      "assembly": "assembly-csharp",
+      "type": "ResourceSO+PersistentEffect",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "modifier",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
       "id": "structure-type.sub-types",
       "assembly": "assembly-csharp",
       "type": "StructureTypeSO",
@@ -29074,6 +29439,101 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<SpellTypeSO>"}
+    },
+    {
+      "id": "tuple-mod.item",
+      "assembly": "assembly-csharp",
+      "type": "TupleMod`1",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "item",
+      "visibility": "public",
+      "static": false,
+      "valueType": "!0",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field !0"}
+    },
+    {
+      "id": "tuple-mod.modifier",
+      "assembly": "assembly-csharp",
+      "type": "TupleMod`1",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "modifier",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "upgrade-effect-modifier.property-type",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+UpgradeEffectModifier",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "propertyType",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.String",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.String"}
+    },
+    {
+      "id": "upgrade-effect-modifier.upgradeable-object",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+UpgradeEffectModifier",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "upgradeableObject",
+      "visibility": "public",
+      "static": false,
+      "valueType": "UpgradeableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field UpgradeableObject"}
+    },
+    {
+      "id": "upgrade-effect-modifier.modifier",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+UpgradeEffectModifier",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "modifier",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     }
   ],
   "captureRoots": [

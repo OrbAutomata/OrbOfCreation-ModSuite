@@ -435,6 +435,13 @@ public sealed record GameWorldState
     internal PublicationTable<WorldGlyphFactor> GlyphEffects { get; init; } =
         PublicationTable<WorldGlyphFactor>.Empty;
 
+    /// <summary>
+    /// What one more level of a levelable entity buys, as the authored modifier tuples it applies.
+    /// Sorted by owner and then by authored position, so one entity's tuples are a contiguous range.
+    /// </summary>
+    internal PublicationTable<WorldLevelEffect> LevelEffects { get; init; } =
+        PublicationTable<WorldLevelEffect>.Empty;
+
     internal PublicationTable<WorldPlotNodeAction> PlotNodeActions { get; init; } =
         PublicationTable<WorldPlotNodeAction>.Empty;
 

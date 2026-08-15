@@ -1429,13 +1429,6 @@ internal static class GameMcpWorldQuery
         // and the sentence is the whole reason a reader opens this category.
         "statistics" => new[] { "entityId", "displayType", "isPercent", "description" },
 
-        // A factor withheld behind a detail read is a factor nobody reads: the four-column default
-        // would cut `amount` and `order`, which is the whole of what the row says, and leave a page
-        // that names fifteen slots and no magnitudes. The row is six narrow cells; it lists whole.
-        "glyph-effects" => new[]
-        {
-            "glyphId", "property", "statisticId", "modifierType", "amount", "order",
-        },
         "structures" => new[] { "entityId", "level", "reading.disabled" },
         "upgrades" => new[] { "entityId", "level" },
         "spell-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
@@ -4045,6 +4038,7 @@ internal static class GameMcpWorldQuery
         // One entity is one match however many categories publish it: identity is deduplicated
         // before the sort, so a repeat can never eat a slot the caller paid for.
         var keywords = GameMcpKeywordIndex.Build(world);
+        var effects = GameMcpEffectWordIndex.Build(world);
         var hits = new List<GameMcpSearchHit>();
         var keywordHits = new List<KeyValuePair<string, int>>();
         var seen = new HashSet<Guid>();
@@ -4084,7 +4078,8 @@ internal static class GameMcpWorldQuery
                 var matchedOn = GameMcpListColumns.Absent;
                 if (normalized.Length > 0 &&
                     !TryTier(
-                        world, category, identity, keywords, normalized, out tier, out matchedOn))
+                        world, category, identity, keywords, effects, normalized, out tier,
+                        out matchedOn))
                 {
                     continue;
                 }
@@ -4260,6 +4255,7 @@ internal static class GameMcpWorldQuery
         GameMcpWorldCategory category,
         Guid identity,
         GameMcpKeywordIndex keywords,
+        GameMcpEffectWordIndex effects,
         string query,
         out GameMcpSearchTier tier,
         out string matchedOn)
@@ -4290,6 +4286,17 @@ internal static class GameMcpWorldQuery
         {
             tier = GameMcpSearchTier.Category;
             matchedOn = "nativeType";
+            return true;
+        }
+
+        // What the thing does, when nothing about what it is called said so. This is the answer to
+        // "what affects my X": the query is matched against the property each authored effect moves
+        // and the name of the entity it moves it on, so a reader who knows the effect and not the
+        // name still finds it, and the row says that is why it is here.
+        if (effects.Matches(identity, query))
+        {
+            tier = GameMcpSearchTier.Effect;
+            matchedOn = "effects";
             return true;
         }
         tier = GameMcpSearchTier.Name;
@@ -4738,7 +4745,63 @@ internal static class GameMcpWorldQuery
         GameWorldState world,
         GameMcpWorldCategory category,
         object row) =>
-        WithOwnIdentity(category, ProjectRowFields(world, category, row));
+        WithLevelEffects(
+            world, category, row, WithOwnIdentity(category, ProjectRowFields(world, category, row)));
+
+    /// <summary>
+    /// What one more level of this thing buys, on the answer a reader already asked for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Six classes author per-level modifier tuples and they answer the same question on all six —
+    /// "what do I get for the next level" — so the block rides every owner's own read rather than
+    /// becoming a table of its own. There is no cross-owner page here on purpose: a single read says
+    /// what the tooltip says, a list does not, and "what affects my X" is a search rather than a
+    /// table.
+    /// </para>
+    /// <para>
+    /// Attached here rather than inside each of the six projections, because two of the six are
+    /// rendered from a declared field list and have no hand-written projection to add it to. The
+    /// owner is the row's own identity in both shapes and the block is keyed on nothing else.
+    /// </para>
+    /// </remarks>
+    private static GameMcpValue WithLevelEffects(
+        GameWorldState world,
+        GameMcpWorldCategory category,
+        object row,
+        GameMcpValue projected)
+    {
+        if (!category.TryIdentity(row, out var ownerId)) return projected;
+        if (!WorldLevelEffectLookup.TryFindRange(
+                world.LevelEffects, ownerId, out var start, out var count))
+        {
+            return projected;
+        }
+
+        var effects = new JArray();
+        for (var index = 0; index < count; index++)
+        {
+            var effect = world.LevelEffects[start + index];
+            var entry = new JObject();
+
+            // Absent rather than blank where the game authors no property word: a number-variable
+            // tuple has none, because the variable it names is the whole of what moves.
+            if (effect.Property.Length > 0) entry["property"] = effect.Property;
+            entry["modifiesId"] = effect.TargetId.ToString("D");
+            entry["modifierType"] = effect.ModifierType;
+            entry["amount"] = new GameMcpDomainValue(effect.Amount);
+            entry["order"] = effect.Order;
+            effects.Add(entry);
+        }
+
+        if (projected is GameMcpProjectedDomainValue reflected)
+            return reflected.With(new JObject { ["levelEffects"] = effects }.Freeze());
+        if (projected is not GameMcpObject frozen) return projected;
+        var result = new JObject();
+        result.CopyFrom(frozen);
+        result["levelEffects"] = effects;
+        return result.Freeze();
+    }
 
     private static GameMcpValue ProjectRowFields(
         GameWorldState world,
@@ -7604,17 +7667,23 @@ internal static class GameMcpWorldQuery
         return result.Freeze();
     }
 
-    /// <summary>
-    /// What the glyph does, on the glyph's own answer, from the same table
-    /// <c>world_list glyph-effects</c> pages.
-    /// </summary>
+    /// <summary>What the glyph does, on the glyph's own answer.</summary>
     /// <remarks>
+    /// <para>
     /// The node names its edge by carrying it. A glyph fills between one and five of fifteen slots,
     /// so its whole factor set is smaller than the sentence that would point at it, and the read
     /// that asks "should I socket this" is the read that needs it — the round that found this gap
     /// had a glyph's row priced and levelled with nothing on it about what the glyph does. Nothing
     /// is unfurled: a factor has no identity of its own, and the statistic it names stays a
     /// reference for <c>world_get</c> to follow rather than a block copied in here.
+    /// </para>
+    /// <para>
+    /// This is the only place the factors reach the wire. They were a listable table as well and the
+    /// maintainer retired it: an extra table for one very specific concept, beside generic reads
+    /// that answer for every concept in the world, is a table to remove once the concept has moved
+    /// onto them. The cross-glyph question it existed for — which glyphs move Cooldown — is a
+    /// <c>world_search</c> query now, because search matches the words these rows carry.
+    /// </para>
     /// </remarks>
     private static void AddGlyphFactors(GameWorldState world, JObject result, Guid glyphId)
     {
@@ -7632,6 +7701,12 @@ internal static class GameMcpWorldQuery
             {
                 ["property"] = factor.Property,
                 ["statisticId"] = factor.StatisticId.ToString("D"),
+
+                // The four slots the game prints against a player variable instead of a statistic.
+                // They used to carry a blank where an edge belonged, which told a reader the factor
+                // moved something the game would not name — and the game does name it, through the
+                // accessor its own tooltip calls.
+                ["variableId"] = factor.VariableId.ToString("D"),
                 ["modifierType"] = factor.ModifierType,
                 ["amount"] = new GameMcpDomainValue(factor.Amount),
                 ["order"] = factor.Order,
@@ -8673,7 +8748,6 @@ internal static class GameMcpWorldQuery
             Composite(nameof(GameWorldState.AlchemyUsageCosts), world => world.AlchemyUsageCosts),
             Composite(nameof(GameWorldState.PlotAuthoring), world => world.PlotAuthoring),
             Composite(nameof(GameWorldState.PlotPhaseDescriptors), world => world.PlotPhaseDescriptors),
-            Composite(nameof(GameWorldState.GlyphEffects), world => world.GlyphEffects),
             Composite(nameof(GameWorldState.EffectBlocks), world => world.EffectBlocks),
             Composite(nameof(GameWorldState.EntityRequirements), world => world.EntityRequirements),
             Entity(nameof(GameWorldState.TreasurePools), world => world.TreasurePools),
@@ -9075,13 +9149,6 @@ internal static class GameMcpWorldQuery
         {
             "plotNodeId", "ordinal", "phase", "phaseTimeSeconds", "processType",
             "exitPhase",
-        },
-        // The whole row. A factor is five facts and none of them is redundant: the slot says which
-        // of the glyph's fifteen it is, the statistic is the edge to what the number means, and the
-        // three the modifier arithmetic is made of are the arithmetic.
-        "glyph-effects" => new[]
-        {
-            "glyphId", "property", "statisticId", "modifierType", "amount", "order",
         },
         "effect-blocks" => new[]
         {

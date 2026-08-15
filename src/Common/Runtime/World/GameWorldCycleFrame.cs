@@ -155,6 +155,12 @@ internal sealed class GameWorldCycleFrame
     /// </summary>
     internal WorldRelationBuffer<WorldGlyphFactor> GlyphEffects { get; } = new();
 
+    /// <summary>
+    /// The authored modifier tuples one more level of a levelable entity buys, from the six holders
+    /// that author them. Sparse in the same way: most entities author none.
+    /// </summary>
+    internal WorldRelationBuffer<WorldLevelEffect> LevelEffects { get; } = new();
+
     /// <summary>The volatile active/passive gates around the structural prerequisite-link graph.</summary>
     internal WorldPrerequisiteLinkTierBuffer PrerequisiteLinkTiers { get; } = new();
     internal WorldSampleBuffer<WorldAlchemyRecipe, WorldAlchemyRecipe> AlchemyRecipes { get; } = new();
@@ -619,6 +625,7 @@ internal static class GameWorldFrameDeriver
             GlyphListMemberships =
                 WorldGlyphListMembershipDeriver.Build(frame.GlyphListMemberships),
             GlyphEffects = WorldGlyphFactorDeriver.Build(frame.GlyphEffects, statistics),
+            LevelEffects = WorldLevelEffectDeriver.Build(frame.LevelEffects),
             PlotNodeActions = plotNodeActions,
             PassiveAbilities = frame.PassiveAbilities.Build(WorldIdentityDeriver<WorldPassiveAbility>.Shared),
             Characters = frame.Characters.Build(WorldIdentityDeriver<WorldCharacter>.Shared),

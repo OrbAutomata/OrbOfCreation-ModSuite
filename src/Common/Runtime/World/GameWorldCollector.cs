@@ -80,7 +80,7 @@ internal sealed class GameWorldCollector
     private readonly WorldEffectBlockReader _effectBlocks;
     private readonly WorldEntityRequirementReader _entityRequirements;
     private readonly WorldGlyphListMembershipReader _glyphLists;
-    private readonly WorldGlyphFactorReader _glyphFactors;
+    private readonly WorldEffectFactorReader _effectFactors;
     private readonly WorldPurchaseViewRelationReader _purchaseViewRelations;
     private readonly WorldPrerequisiteLinkTierReader _prerequisiteLinkTiers;
     private readonly IWorldMasteryExperienceSource _masteryExperience;
@@ -355,7 +355,7 @@ internal sealed class GameWorldCollector
             resolveType("AlchemyRecipeSO"),
             resolveType("GlyphSO"));
         _glyphLists = new WorldGlyphListMembershipReader(resolveType);
-        _glyphFactors = new WorldGlyphFactorReader(resolveType("GlyphSO"));
+        _effectFactors = new WorldEffectFactorReader(resolveType);
         _purchaseViewRelations = new WorldPurchaseViewRelationReader(
             resolveType,
             productionPurchaseTopology);
@@ -387,7 +387,7 @@ internal sealed class GameWorldCollector
             _targeting,
             _actionQueues, _spellSlots, _alchemyInstances, _alchemyLoadout,
             _plotAuthoring, _effectBlocks,
-            _entityRequirements, _purchaseViewRelations, _glyphLists, _glyphFactors,
+            _entityRequirements, _purchaseViewRelations, _glyphLists, _effectFactors,
             _prerequisiteLinkTiers,
             _entityKeywords,
             _typeModifiers, _typeModifierContributions,

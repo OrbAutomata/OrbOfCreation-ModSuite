@@ -1478,12 +1478,19 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(0.7d, second.Amount.ToDouble(), 6);
     }
 
+    /// <summary>
+    /// The four slots the game prints against a variable it reads off the player carry the edge to
+    /// that variable, and the one slot that names neither carries no edge at all.
+    /// </summary>
+    /// <remarks>
+    /// The variable is a serialized field on the singleton rather than an asset in a registry, so
+    /// the accessor the game reads it through is the only way to learn which variable a slot means.
+    /// <c>creationCostMod</c> is applied to a resource cost list, which is not an entity this suite
+    /// publishes, so it stays blank in both columns rather than borrowing one.
+    /// </remarks>
     [Fact]
-    public void AGlyphFactorTheGameNamesNoStatisticForStillTravels()
+    public void AGlyphFactorPrintedAgainstAPlayerVariableCarriesThatEdge()
     {
-        // Four slots are printed against a DoubleVariable on the player rather than a statistic, and
-        // creationCostMod is applied to a resource cost list under no name at all. Rows with no
-        // edge, and every one of them still carries its slot and its arithmetic.
         var glyph = Guid.NewGuid();
         FakeGlyph.All.Add(new FakeGlyph
         {
@@ -1503,8 +1510,150 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(2, count);
         Assert.Equal("spellCriticalRating", world.GlyphEffects[start].Property);
         Assert.Equal(Guid.Empty, world.GlyphEffects[start].StatisticId);
+        Assert.Equal(
+            FakePlayerGlobals.SpellCriticalCastRating.Identity,
+            world.GlyphEffects[start].VariableId);
+
         Assert.Equal("creationCostMod", world.GlyphEffects[start + 1].Property);
         Assert.Equal(Guid.Empty, world.GlyphEffects[start + 1].StatisticId);
+        Assert.Equal(Guid.Empty, world.GlyphEffects[start + 1].VariableId);
+    }
+
+    /// <summary>
+    /// An upgrade's <c>permanentEffects</c> reach the wire as one tuple column, in the authored
+    /// order of the three lists the game stores them in.
+    /// </summary>
+    /// <remarks>
+    /// The worked case is RaiseMaxDruidryLevel's, whose tooltip prints <c>+1 Max Druidry Lv</c>,
+    /// <c>x1.02 All Plot Yield</c> and <c>x1.75 All Plot Recovery Size</c>. A number-variable tuple
+    /// names no property because the variable is the whole of what moves; an upgradeable-object
+    /// tuple's property is the authored <c>propertyType</c> string; a resource tuple's property is
+    /// its <c>ModifiableType</c> member name, read off the game's own enum rather than a table
+    /// copied here.
+    /// </remarks>
+    [Fact]
+    public void AnUpgradesPermanentEffectsPublishOneTupleColumnFromThreeVocabularies()
+    {
+        var maxDruidryLevel = new FakeNumberVariable();
+        var allPlot = new FakeUpgradeableObject();
+        var plotCapacity = new FakeResource { Identity = Guid.NewGuid() };
+        FakeResource.All.Add(plotCapacity);
+
+        var upgrade = Guid.NewGuid();
+        var raise = new FakeUpgrade { Identity = upgrade, maxLevel = -1 };
+        raise.permanentEffects.numberVariableEffects.Add(new FakeTupleMod
+        {
+            item = maxDruidryLevel,
+            modifier = new FakeValueModifier(FakeModifierKind.Raw, 1d, 0),
+        });
+        raise.permanentEffects.upgradeableObjectEffects.Add(new FakeObjectPropertyEffect
+        {
+            upgradeableObject = allPlot,
+            propertyType = "Yield",
+            modifier = new FakeValueModifier(FakeModifierKind.MultiStacking, 1.02d, 0),
+        });
+        raise.permanentEffects.resourceEffects.Add(new FakeResourceEffect
+        {
+            resource = plotCapacity,
+            upgradeType = FakeResourceModifiableType.MaxQuantity,
+            modifier = new FakeValueModifier(FakeModifierKind.Raw, 5d, 0),
+        });
+        FakeUpgrade.All.Add(raise);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(
+            WorldLevelEffectLookup.TryFindRange(
+                world.LevelEffects, upgrade, out var start, out var count));
+        Assert.Equal(3, count);
+
+        var variable = world.LevelEffects[start];
+        Assert.Equal(string.Empty, variable.Property);
+        Assert.Equal(maxDruidryLevel.Identity, variable.TargetId);
+        Assert.Equal((int)FakeModifierKind.Raw, variable.ModifierType);
+        Assert.Equal(1d, variable.Amount.ToDouble(), 6);
+        Assert.Equal(0, variable.Order);
+
+        var property = world.LevelEffects[start + 1];
+        Assert.Equal("Yield", property.Property);
+        Assert.Equal(allPlot.Identity, property.TargetId);
+        Assert.Equal((int)FakeModifierKind.MultiStacking, property.ModifierType);
+        Assert.Equal(1.02d, property.Amount.ToDouble(), 6);
+
+        var resource = world.LevelEffects[start + 2];
+        Assert.Equal("MaxQuantity", resource.Property);
+        Assert.Equal(plotCapacity.Identity, resource.TargetId);
+        Assert.Equal(5d, resource.Amount.ToDouble(), 6);
+    }
+
+    /// <summary>
+    /// The five holders that author effect blocks read the same scripts through the same reader, and
+    /// a block whose scripts apply no modifier publishes no row rather than an empty one.
+    /// </summary>
+    [Fact]
+    public void EveryBlockHolderPublishesItsAuthoredTuplesAndNothingElse()
+    {
+        var stockRestore = new FakeUpgradeableObject();
+        var glyph = Guid.NewGuid();
+        var glyphAsset = new FakeGlyph { Identity = glyph };
+        glyphAsset.levelingEffects.Add(Block(new FakeObjectPropertyEffect
+        {
+            upgradeableObject = stockRestore,
+            propertyType = "Value",
+            modifier = new FakeValueModifier(FakeModifierKind.MultiDiminishing, 1.15d, 0),
+        }));
+        FakeGlyph.All.Add(glyphAsset);
+
+        var equipmentType = Guid.NewGuid();
+        var amulet = new FakeEquipmentType { Identity = equipmentType };
+        amulet.levelEffects.Add(Block(new FakeObjectPropertyEffect
+        {
+            upgradeableObject = new FakeUpgradeableObject(),
+            propertyType = "EffectLevel",
+            modifier = new FakeValueModifier(FakeModifierKind.Raw, 5d, 0),
+        }));
+        FakeEquipmentType.All.Add(amulet);
+
+        // The sixth holder's shape: a block whose script grants advancement experience rather than
+        // applying a modifier. It is walked and it publishes nothing, which is what the pinned
+        // build's twenty time-rune blocks all do.
+        var rune = Guid.NewGuid();
+        var runeAsset = new FakeTimeRune { Identity = rune };
+        runeAsset.onLevelEffects.Add(Block(new FakeTreasureEffect()));
+        FakeTimeRune.All.Add(runeAsset);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+
+        Assert.True(
+            WorldLevelEffectLookup.TryFindRange(
+                world.LevelEffects, glyph, out var glyphStart, out var glyphCount));
+        Assert.Equal(1, glyphCount);
+        Assert.Equal("Value", world.LevelEffects[glyphStart].Property);
+        Assert.Equal(stockRestore.Identity, world.LevelEffects[glyphStart].TargetId);
+        Assert.Equal(1.15d, world.LevelEffects[glyphStart].Amount.ToDouble(), 6);
+
+        Assert.True(
+            WorldLevelEffectLookup.TryFindRange(
+                world.LevelEffects, equipmentType, out var equipmentStart, out var equipmentCount));
+        Assert.Equal(1, equipmentCount);
+        Assert.Equal("EffectLevel", world.LevelEffects[equipmentStart].Property);
+
+        Assert.False(
+            WorldLevelEffectLookup.TryFindRange(world.LevelEffects, rune, out _, out _));
+    }
+
+    private static FakeEffectBlock Block(object script)
+    {
+        var block = new FakeEffectBlock();
+        block.effectScripts.Add(script);
+        return block;
     }
 
     [Fact]
@@ -2143,6 +2292,9 @@ public sealed class GameWorldCollectorTests : IDisposable
         public FakeCostList resourceCost = new();
         public FakeModifierListRef resourceCostModPerLevel = new();
         public FakePrerequisites prerequisitesPerLevel = new();
+
+        /// <summary>What one level of this upgrade permanently applies.</summary>
+        public FakePermanentEffects permanentEffects = new();
 
         public int GetPurchaseLevel() => Level;
 
@@ -5035,6 +5187,19 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         public static FakeCount GetSpellOutputLevel() => _instance.spellOutputLevel;
         public static FakeCount GetReserveLevel() => _instance.reserveLevel;
+
+        // The four variables a glyph's critical and echo slots print against. They are serialized
+        // on the singleton rather than assets in a registry, so the accessor is the only way to
+        // learn which variable a slot means.
+        internal static FakeNumber SpellCriticalCastRating = new();
+        internal static FakeNumber SpellCriticalCastEffect = new();
+        internal static FakeNumber SpellDoubleCastRating = new();
+        internal static FakeNumber SpellDoubleCastEffect = new();
+
+        public static FakeNumber GetSpellCriticalCastRating() => SpellCriticalCastRating;
+        public static FakeNumber GetSpellCriticalCastEffect() => SpellCriticalCastEffect;
+        public static FakeNumber GetSpellDoubleCastRating() => SpellDoubleCastRating;
+        public static FakeNumber GetSpellDoubleCastEffect() => SpellDoubleCastEffect;
     }
 
     /// <summary>
@@ -5067,6 +5232,18 @@ public sealed class GameWorldCollectorTests : IDisposable
         public static FakeCount GetSpellOutputLevel() => _instance.spellOutputLevel;
 
         public static FakeCount GetReserveLevel() => _instance.reserveLevel;
+
+        public static FakeNumber GetSpellCriticalCastRating() =>
+            FakePlayerGlobals.GetSpellCriticalCastRating();
+
+        public static FakeNumber GetSpellCriticalCastEffect() =>
+            FakePlayerGlobals.GetSpellCriticalCastEffect();
+
+        public static FakeNumber GetSpellDoubleCastRating() =>
+            FakePlayerGlobals.GetSpellDoubleCastRating();
+
+        public static FakeNumber GetSpellDoubleCastEffect() =>
+            FakePlayerGlobals.GetSpellDoubleCastEffect();
     }
 
     /// <summary>
