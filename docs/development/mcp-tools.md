@@ -3197,18 +3197,34 @@ not already say. An absolute path is `pathRoot`, then the row's `pathPrefix`, th
 computed over the page that is actually being sent, so a resumed page states its own. A page whose
 panels share no ancestry states no `pathRoot` at all.
 
+**A panel of one component names it once.** Siblings under one parent are usually one component
+repeated with a different index, and re-typing the component per row cost a round 1,210 bytes inside
+tables that already name what their rows share. When every element of a panel is the same component
+followed by a bracketed index, the panel states it once as `pathComponent` and each element's `path`
+is only its own `[index]` — joined onto the component with no separator, because a component and its
+index are one segment. The brackets stay on the row: a bare number in a `path` column beside a
+`slot` column is the confusion the slot column exists to end. The fold is per panel and it pays for
+itself — a panel mixing components, a segment with no index, and a component too short to earn its
+own line all keep every row's full segment.
+
 **A panel holding one element inlines it.** Naming the panel anyway spent a prefix line and an
 indent level on a row whose whole content was one name — round ten's worst page was six panels of
-one element each, two thirds of it address. Such a panel is printed as the element itself, its
-`path` stated against the `pathRoot`; a panel that really groups several rows keeps the prefix its
-rows share.
+one element each, two thirds of it address. Such a panel is printed as the element itself; a panel
+that really groups several rows keeps the prefix its rows share. A lone element that carries an `id`
+states only its own segment, because the `id` is the handle the rest of this surface addresses
+things by and nine such rows of one round spent about 190 bytes each on an absolute path the caller
+never quoted back. A lone element with no `id` states its whole `path` against the `pathRoot` — that
+address is its only handle — and so does one whose segment another live element also answers to,
+because a short handle that does not resolve is worse than a long one that does.
 
 `game_tooltip` resolves a row by the tail it was handed: any tail of a live path, matched at a
 segment boundary, up to and including the whole path.
 A tail naming more than one live element is refused rather than resolved to the first, and the
 refusal says to prepend the `pathRoot` and `pathPrefix` the catalog returned with that row — two
 scroll lists on one screen hand out colliding tails routinely, and the prefix is what tells them
-apart. A tail naming none says to re-read the catalog instead, because the screen has moved on.
+apart. A row under a `pathComponent` is addressed by the component and its index joined, never by
+the bare index; the catalog never hands out a segment that does not resolve on its own, so a lone
+row's segment is always an address as printed. A tail naming none says to re-read the catalog instead, because the screen has moved on.
 The reply is compact plain screen text.
 
 **Every panel says `[id | name | path]`, and a casting-bar row says its slot.** A row's `id` is the

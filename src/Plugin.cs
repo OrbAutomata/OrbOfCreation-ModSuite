@@ -3721,8 +3721,11 @@ public sealed class Plugin : BaseUnityPlugin
         {
             var panel = panels[index];
             var elements = new GameMcpArrayBuilder();
+            var members = new List<GameMcpObjectBuilder>(panel.Count);
+            var segments = new List<string>(panel.Count);
             GameMcpObjectBuilder? sole = null;
             var soleTail = string.Empty;
+            var soleIdentified = false;
             for (var member = panel.Start; member < panel.Start + panel.Count; member++)
             {
                 var entry = entries[member];
@@ -3740,14 +3743,18 @@ public sealed class Plugin : BaseUnityPlugin
                         "tooltip_contract_unavailable",
                         identityFailure);
                 }
+                var segment = NativeObjectPath.Relative(entry.Path, panel.Prefix);
                 var tooltip = GameMcpTooltipPanelRow.Project(
-                    NativeObjectPath.Relative(entry.Path, panel.Prefix),
+                    segment,
                     item.GetName(),
                     entityId,
                     command.FrameContext?.World?.Snapshot);
                 elements.Add(tooltip);
+                members.Add(tooltip);
+                segments.Add(segment);
                 sole = tooltip;
                 soleTail = NativeObjectPath.Relative(entry.Path, root);
+                soleIdentified = entityId != Guid.Empty;
             }
 
             // A panel holding one element has no shared ancestry to name apart from that element:
@@ -3757,7 +3764,7 @@ public sealed class Plugin : BaseUnityPlugin
             // panel that really groups several keeps the prefix its rows share.
             if (sole is not null && panel.Count == 1)
             {
-                sole["path"] = soleTail;
+                sole["path"] = GameMcpTooltipPanelRow.Address(soleTail, soleIdentified, paths);
                 projected.Add(sole);
                 continue;
             }
@@ -3766,6 +3773,18 @@ public sealed class Plugin : BaseUnityPlugin
                 ? string.Empty
                 : NativeObjectPath.Relative(panel.Prefix, root);
             if (prefix.Length > 0) group["pathPrefix"] = prefix;
+
+            // Siblings under one parent are usually one component repeated with a different index,
+            // and typing that component once per row cost a round 1,210 bytes inside tables that
+            // already name what their rows share. The panel says it once and each row keeps its own
+            // bracket index — brackets included, because a bare number in a path column beside a
+            // slot column is exactly the confusion that cost round eleven a refused cast.
+            if (GameMcpTooltipPanelRow.TrySharedComponent(segments, out var component))
+            {
+                group["pathComponent"] = component;
+                for (var member = 0; member < members.Count; member++)
+                    members[member]["path"] = segments[member].Substring(component.Length);
+            }
             group["elements"] = elements;
             projected.Add(group);
         }

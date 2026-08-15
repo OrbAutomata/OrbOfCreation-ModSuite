@@ -1,5 +1,7 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
+using System.Collections.Generic;
+using OrbModConfig;
 using OrbModding.Common.Runtime.World;
 
 namespace OrbAutomata.GameMcp;
@@ -41,6 +43,74 @@ internal static class GameMcpTooltipPanelRow
         if (world is not null && TrySoleSpellSlot(world, entityId, out var slotIndex))
             row["slot"] = GameMcpSlotNumbering.Wire(slotIndex);
         return row;
+    }
+
+    /// <summary>
+    /// The address a panel of one element hands out: its own segment where that segment resolves on
+    /// its own and the row carries a uuid, and the whole tail otherwise.
+    /// </summary>
+    /// <remarks>
+    /// Two identities for one row. A row carrying a uuid already has the handle the rest of this
+    /// surface addresses things by, and nine such rows of one round spent ~190 bytes each on an
+    /// absolute path the caller never once quoted back. A row with no uuid keeps the full tail —
+    /// that address is its only handle — and so does one whose segment two elements answer to: a
+    /// short handle that does not resolve is worse than a long one that does.
+    /// </remarks>
+    internal static string Address(string tail, bool identified, IReadOnlyList<string> livePaths)
+    {
+        if (tail is null) throw new ArgumentNullException(nameof(tail));
+        if (livePaths is null) throw new ArgumentNullException(nameof(livePaths));
+        if (!identified) return tail;
+        var cut = tail.LastIndexOf('/');
+        if (cut < 0) return tail;
+        var segment = tail.Substring(cut + 1);
+        var found = 0;
+        for (var index = 0; index < livePaths.Count && found < 2; index++)
+            if (NativeObjectPath.Addresses(livePaths[index], segment)) found++;
+        return found == 1 ? segment : tail;
+    }
+
+    /// <summary>
+    /// The component every element of one panel is an indexed instance of, when there is one and
+    /// saying it once is shorter than saying it on every row.
+    /// </summary>
+    /// <remarks>
+    /// Only a whole component counts. A character-wise prefix would cut
+    /// <c>PlotNodeItem(Clone)[1]</c> and <c>PlotNodeItem(Clone)[11]</c> mid-index and name a
+    /// component that does not exist, so a segment qualifies only as text followed by a bracketed
+    /// run of digits, and every element of the panel must carry the same text before it. The line
+    /// costs its own label and one copy of the component; every row after the first is what it buys
+    /// back, so a short component on a two-row panel does not pay for the line.
+    /// </remarks>
+    internal static bool TrySharedComponent(IReadOnlyList<string> segments, out string component)
+    {
+        if (segments is null) throw new ArgumentNullException(nameof(segments));
+        component = string.Empty;
+        if (segments.Count < 2) return false;
+        for (var index = 0; index < segments.Count; index++)
+        {
+            if (!TryIndexedComponent(segments[index], out var candidate)) return false;
+            if (index == 0) component = candidate;
+            else if (!string.Equals(component, candidate, StringComparison.Ordinal)) return false;
+        }
+        return component.Length > 0 &&
+            (segments.Count - 1) * component.Length > ComponentLine.Length;
+    }
+
+    private const string ComponentLine = "pathComponent: ";
+
+    /// <summary>The text a segment's trailing <c>[index]</c> hangs off, when it has one.</summary>
+    private static bool TryIndexedComponent(string segment, out string component)
+    {
+        component = string.Empty;
+        if (segment is null || segment.Length < 3 || segment[segment.Length - 1] != ']')
+            return false;
+        var open = segment.LastIndexOf('[');
+        if (open <= 0 || open + 1 == segment.Length - 1) return false;
+        for (var index = open + 1; index < segment.Length - 1; index++)
+            if (segment[index] is < '0' or > '9') return false;
+        component = segment.Substring(0, open);
+        return true;
     }
 
     /// <summary>

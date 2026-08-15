@@ -148,6 +148,97 @@ public sealed class GameMcpTooltipPanelRowTests
         Assert.Equal(0, cube);
     }
 
+    /// <summary>
+    /// One panel is one component repeated with a different index, and the component was re-typed
+    /// per row inside a table that already names what its rows share — 1,210 bytes of one round.
+    /// The panel names it once and each row keeps its own bracket index, brackets included: a bare
+    /// number in a path column beside a slot column is the confusion the slot column exists to end.
+    /// </summary>
+    [Fact]
+    public void A_panel_of_one_component_names_it_once_and_leaves_each_row_its_index()
+    {
+        Assert.True(GameMcpTooltipPanelRow.TrySharedComponent(
+            new[]
+            {
+                "SpellButtonBottomBar(Clone)[0]",
+                "SpellButtonBottomBar(Clone)[3]",
+                "SpellButtonBottomBar(Clone)[6]",
+            },
+            out var component));
+        Assert.Equal("SpellButtonBottomBar(Clone)", component);
+
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "scene: Main",
+                "pathRoot: Canvas[0]/ContentArea[2]",
+                "rows 1/1:",
+                "  pathPrefix: MainContentContainer[2]/CastingBar[3]/SmallSpellList[0]",
+                "  pathComponent: SpellButtonBottomBar(Clone)",
+                "  elements 3",
+                "  [id | name | path | slot]",
+                "  d0a000 | Ralochs's Cube | [0] | 1",
+                "  d0c000 | Propagation | [3] | 4",
+                "  d0b000 | Beam Burst | [6] | 7",
+            }),
+            Render(Folded(
+                "MainContentContainer[2]/CastingBar[3]/SmallSpellList[0]",
+                ("SpellButtonBottomBar(Clone)[0]", "Ralochs's Cube", Cube),
+                ("SpellButtonBottomBar(Clone)[3]", "Propagation", Propagation),
+                ("SpellButtonBottomBar(Clone)[6]", "Beam Burst", BeamBurst))));
+    }
+
+    /// <summary>
+    /// The fold is per panel and it turns on the rows really being one component. A panel mixing
+    /// components keeps every row's own segment, and a panel where saying the component once costs
+    /// more than repeating it keeps them too.
+    /// </summary>
+    [Fact]
+    public void A_panel_of_mixed_or_cheap_components_keeps_every_row_its_own_segment()
+    {
+        Assert.False(GameMcpTooltipPanelRow.TrySharedComponent(
+            new[] { "SpellButtonBottomBar(Clone)[0]", "SettingsButton[1]" }, out _));
+
+        // Two rows of `Row` buy back four characters and the line costs fifteen.
+        Assert.False(GameMcpTooltipPanelRow.TrySharedComponent(
+            new[] { "Row[0]", "Row[1]" }, out _));
+
+        // A segment with no bracketed index is not an instance of anything.
+        Assert.False(GameMcpTooltipPanelRow.TrySharedComponent(
+            new[] { "Header", "Header" }, out _));
+
+        // One element is a panel with nothing to share.
+        Assert.False(GameMcpTooltipPanelRow.TrySharedComponent(
+            new[] { "SpellButtonBottomBar(Clone)[0]" }, out _));
+    }
+
+    /// <summary>
+    /// A panel of one element that carries a uuid stops printing a second identity beside it: its
+    /// own segment is the address, because the uuid is what the rest of the surface addresses it
+    /// by. A row with no uuid, or one whose segment two live elements answer to, keeps the tail
+    /// that is its only handle.
+    /// </summary>
+    [Fact]
+    public void A_lone_row_with_an_id_addresses_itself_by_its_own_segment()
+    {
+        var live = new[]
+        {
+            "Canvas[0]/ContentArea[2]/ScreenContent[2]/Panel[0]/NumberVarPlain[0]",
+            "Canvas[0]/ContentArea[2]/ScreenContent[2]/Other[1]/Label[0]",
+        };
+        const string Tail = "ScreenContent[2]/Panel[0]/NumberVarPlain[0]";
+
+        Assert.Equal("NumberVarPlain[0]", GameMcpTooltipPanelRow.Address(Tail, true, live));
+        Assert.Equal(Tail, GameMcpTooltipPanelRow.Address(Tail, false, live));
+
+        var colliding = new[]
+        {
+            "Canvas[0]/ContentArea[2]/ScreenContent[2]/Panel[0]/NumberVarPlain[0]",
+            "Canvas[0]/ContentArea[2]/ScreenContent[2]/Other[1]/NumberVarPlain[0]",
+        };
+        Assert.Equal(Tail, GameMcpTooltipPanelRow.Address(Tail, true, colliding));
+    }
+
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
     private static JObject Encoded(GameMcpObjectBuilder row) =>
@@ -156,6 +247,44 @@ public sealed class GameMcpTooltipPanelRowTests
     private static GameMcpObjectBuilder Row(string path, string name, Guid entityId) =>
         GameMcpTooltipPanelRow.Project(path, name, entityId, World(
             (0, Cube), (3, Propagation), (6, BeamBurst)));
+
+    /// <summary>
+    /// The same document with the gadget's shared-component fold applied, so the page under test is
+    /// the page the verb emits rather than one assembled to match it.
+    /// </summary>
+    private static JObject Folded(
+        string prefix,
+        params (string Path, string Name, Guid Entity)[] elements)
+    {
+        var segments = new string[elements.Length];
+        for (var index = 0; index < elements.Length; index++) segments[index] = elements[index].Path;
+        Assert.True(GameMcpTooltipPanelRow.TrySharedComponent(segments, out var component));
+
+        var members = new GameMcpArrayBuilder();
+        for (var index = 0; index < elements.Length; index++)
+        {
+            var element = elements[index];
+            var row = Row(element.Path, element.Name, element.Entity);
+            row["path"] = element.Path.Substring(component.Length);
+            members.Add(row);
+        }
+        var rows = new GameMcpArrayBuilder();
+        rows.Add(new GameMcpObjectBuilder
+        {
+            ["pathPrefix"] = prefix,
+            ["pathComponent"] = component,
+            ["elements"] = members,
+        });
+        return Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            new GameMcpObjectBuilder
+            {
+                ["scene"] = "Main",
+                ["pathRoot"] = "Canvas[0]/ContentArea[2]",
+                ["total"] = 1,
+                ["rows"] = rows,
+            }.Freeze(),
+            Catalog));
+    }
 
     /// <summary>The catalog document one panel produces, exactly as the gadget assembles it.</summary>
     private static JObject Panel(string prefix, params GameMcpObjectBuilder[] elements)
