@@ -4159,6 +4159,24 @@ internal static class GameMcpWorldQuery
             result["unavailableCategories"] = unavailableCategories;
         var summary = KeywordHitSummary(keywordHits);
         if (summary.Length > 0) result["keywordHits"] = summary;
+
+        // The published world is not everything this build loaded, and the one moment that
+        // difference matters is the moment this page comes back empty: a caller who searched a word
+        // and found nothing has a second question — is it in the game at all — and no line on this
+        // surface said the question had an answer or which verb answers it. Said only on the empty
+        // page, and said whichever way it comes out, because "nothing loaded is called that" closes
+        // the question where silence would send the caller off to ask it anyway.
+        if (hits.Count == 0 && normalized.Length > 0)
+        {
+            var unprojected = GameMcpEntityCatalog.CountUnprojected(
+                world.EntityIdentities, normalized);
+            result["unprojected"] = unprojected > 0
+                ? "entity_catalog matches " +
+                  unprojected.ToString(CultureInfo.InvariantCulture) +
+                  " loaded ids the published world has no row for."
+                : "entity_catalog matches none either, so no id this build loaded answers to " +
+                  "this query.";
+        }
         if (rows.Count == 0)
             result["columns"] = GameMcpEntityWireNormalizer.WireColumns(SearchColumns);
         result["rows"] = rows;

@@ -622,6 +622,14 @@ covers, which read `category=not-world-projected` — and matches only that enti
 fields. Equal totals for one query mean the query happened to select the same set, not that the tools
 have the same scope.
 
+**A `world_search` that matched nothing signposts the other one.** The moment the first finder comes
+back empty is the moment "is it in this build at all?" becomes the next question, so a query that
+found no published row carries one `unprojected` line saying how many loaded ids `entity_catalog`
+would match that no published category claims — and saying `entity_catalog matches none either` when
+there are none, because that answer closes the question where silence would send a caller off to ask
+it. The line is emitted only on an empty result and only where a query was given: a filter-only call
+has no word to match against the registry.
+
 `entity_catalog` complements `world_search` with the game's complete live runtime identity registry.
 At the first stable Playing world capture after `RuntimeReady`, the suite validates and copies that
 registry once for the lifecycle. Searches cover UUID, exact runtime type, Unity asset name, and

@@ -308,6 +308,52 @@ public sealed class GameMcpSearchTests
     }
 
     /// <summary>
+    /// The empty page is the one moment the second finder is worth naming: "I searched that word
+    /// and got nothing" is exactly when "is it in the game at all?" becomes the next question, and
+    /// before this nothing on the page said the question had an answer or which verb held it.
+    /// </summary>
+    [Fact]
+    public void A_search_that_found_nothing_says_what_the_entity_catalog_would_find()
+    {
+        var page = Json(GameMcpWorldQuery.Search(
+            Loaded(), "animation", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
+
+        Assert.Empty(Rows(page));
+        Assert.Equal(
+            "entity_catalog matches 2 loaded ids the published world has no row for.",
+            (string?)page["unprojected"]);
+    }
+
+    /// <summary>
+    /// The line is said whichever way it comes out. "Nothing loaded is called that" closes the
+    /// question on the page that raised it, where silence would send the caller to ask it anyway.
+    /// </summary>
+    [Fact]
+    public void A_word_nothing_in_the_build_answers_to_is_closed_rather_than_left_open()
+    {
+        var page = Json(GameMcpWorldQuery.Search(
+            Loaded(), "thaumaturgy", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
+
+        Assert.Empty(Rows(page));
+        Assert.Equal(
+            "entity_catalog matches none either, so no id this build loaded answers to this query.",
+            (string?)page["unprojected"]);
+    }
+
+    /// <summary>
+    /// A page with rows answered the question that was asked, and a caller reading it has no second
+    /// question — so the line is the empty page's alone and costs every other page nothing. A
+    /// filter-only call names no word for the catalog to match either.
+    /// </summary>
+    [Fact]
+    public void A_page_that_found_something_spends_nothing_on_the_signpost()
+    {
+        Assert.Null(Search("alchemy")["unprojected"]);
+        Assert.Null(Json(GameMcpWorldQuery.Search(
+            Context(), string.Empty, 0, 50, string.Empty, "locked"))["unprojected"]);
+    }
+
+    /// <summary>
     /// The keyword surface is four published tables, not one, and the words come out in the order
     /// the game prints them. Equipment is the one class that reads its primary type last, and a type
     /// asset the game left nameless contributes no word at all — the asset-name fallback every other
@@ -466,6 +512,31 @@ public sealed class GameMcpSearchTests
         };
         var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
         publisher.Publish(world, new WorldGeneration(861));
+        return GameMcpTestHarness.Context(publisher.ReadLatest());
+    }
+
+    /// <summary>
+    /// A build whose loaded ids include two the published world holds no category for, which is the
+    /// gap the empty page signposts. <c>AnimationSO</c> is one of the ninety-six real types this
+    /// build loads and no category claims.
+    /// </summary>
+    private static GameMcpFrameContext Loaded()
+    {
+        var world = new GameWorldState
+        {
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(2, new[]
+            {
+                new EntityIdentityName(Lab, "StructureSO", "Alchemy Lab", "alchemyLab"),
+                new EntityIdentityName(Idle, "AnimationSO", "Orb Pulse", "animationOrbPulse"),
+                new EntityIdentityName(Passed, "AnimationSO", "Glyph Flare", "animationGlyphFlare"),
+            }),
+            CollectionCategories =
+                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectedAtEpoch = 62,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(862));
         return GameMcpTestHarness.Context(publisher.ReadLatest());
     }
 
