@@ -588,7 +588,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         // up only as a consumer finding nothing where there was something.
         var report = Collector().Collect();
 
-        Assert.Equal(75, report.Categories.Length);
+        Assert.Equal(76, report.Categories.Length);
         Assert.True(report.IsComplete, report.Describe());
 
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a
@@ -1427,6 +1427,145 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(WorldLookup.TryFind(world.Statistics, plumbing, out var row));
         Assert.Equal("Information", row.DisplayType);
         Assert.Equal(string.Empty, row.Description);
+    }
+
+    [Fact]
+    public void AGlyphPublishesOnlyTheFactorSlotsTheGameWouldPrint()
+    {
+        // Quick, verbatim off the pinned build: two of fifteen slots filled, both MultiStacking,
+        // authored 0.15 and -0.30, which the game's own ConvertToReal turns into the 1.15 and 0.700
+        // its tooltip prints. Thirteen empty slots publish nothing.
+        var cost = Guid.NewGuid();
+        var cooldown = Guid.NewGuid();
+        FakeStatistic.All.Add(new FakeStatistic { Identity = cost, globalDefinition = "Cost" });
+        FakeStatistic.All.Add(new FakeStatistic
+        {
+            Identity = cooldown,
+            globalDefinition = "Cooldown",
+        });
+
+        var quick = Guid.NewGuid();
+        FakeGlyph.All.Add(new FakeGlyph
+        {
+            Identity = quick,
+            spellCost = new FakeValueModifier(FakeModifierKind.MultiStacking, 1.15d, 0),
+            spellCooldown = new FakeValueModifier(FakeModifierKind.MultiStacking, 0.7d, 0),
+        });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(
+            WorldGlyphFactorLookup.TryFindRange(world.GlyphEffects, quick, out var start,
+                out var count));
+        Assert.Equal(2, count);
+
+        // Slot order is the game's, not the alphabet's: spellCost precedes spellCooldown in the one
+        // method that prints them.
+        var first = world.GlyphEffects[start];
+        Assert.Equal("spellCost", first.Property);
+        Assert.Equal(cost, first.StatisticId);
+        Assert.Equal((int)FakeModifierKind.MultiStacking, first.ModifierType);
+        Assert.Equal(1.15d, first.Amount.ToDouble(), 6);
+        Assert.Equal(0, first.Order);
+
+        var second = world.GlyphEffects[start + 1];
+        Assert.Equal("spellCooldown", second.Property);
+        Assert.Equal(cooldown, second.StatisticId);
+        Assert.Equal((int)FakeModifierKind.MultiStacking, second.ModifierType);
+        Assert.Equal(0.7d, second.Amount.ToDouble(), 6);
+    }
+
+    [Fact]
+    public void AGlyphFactorTheGameNamesNoStatisticForStillTravels()
+    {
+        // Four slots are printed against a DoubleVariable on the player rather than a statistic, and
+        // creationCostMod is applied to a resource cost list under no name at all. Rows with no
+        // edge, and every one of them still carries its slot and its arithmetic.
+        var glyph = Guid.NewGuid();
+        FakeGlyph.All.Add(new FakeGlyph
+        {
+            Identity = glyph,
+            spellCriticalRating = new FakeValueModifier(FakeModifierKind.MultiDiminishing, 0.17d, 0),
+            creationCostMod = new FakeValueModifier(FakeModifierKind.MultiStacking, 4d, 0),
+        });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(
+            WorldGlyphFactorLookup.TryFindRange(world.GlyphEffects, glyph, out var start,
+                out var count));
+        Assert.Equal(2, count);
+        Assert.Equal("spellCriticalRating", world.GlyphEffects[start].Property);
+        Assert.Equal(Guid.Empty, world.GlyphEffects[start].StatisticId);
+        Assert.Equal("creationCostMod", world.GlyphEffects[start + 1].Property);
+        Assert.Equal(Guid.Empty, world.GlyphEffects[start + 1].StatisticId);
+    }
+
+    [Fact]
+    public void TwoGlyphSlotsNamingOneStatisticStayTwoRows()
+    {
+        // spellCooldown and spellBaseCooldown are both printed under Cooldown and are different
+        // factors. Without the slot on the row a reader meets one statistic twice and cannot say
+        // which arithmetic belongs to which.
+        var cooldown = Guid.NewGuid();
+        FakeStatistic.All.Add(new FakeStatistic
+        {
+            Identity = cooldown,
+            globalDefinition = "Cooldown",
+        });
+
+        var glyph = Guid.NewGuid();
+        FakeGlyph.All.Add(new FakeGlyph
+        {
+            Identity = glyph,
+            spellCooldown = new FakeValueModifier(FakeModifierKind.MultiStacking, 1.2d, 0),
+            spellBaseCooldown = new FakeValueModifier(FakeModifierKind.Raw, -2d, -1),
+        });
+
+        var collector = Collector();
+        collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(
+            WorldGlyphFactorLookup.TryFindRange(world.GlyphEffects, glyph, out var start,
+                out var count));
+        Assert.Equal(2, count);
+        Assert.Equal("spellCooldown", world.GlyphEffects[start].Property);
+        Assert.Equal("spellBaseCooldown", world.GlyphEffects[start + 1].Property);
+        Assert.Equal(cooldown, world.GlyphEffects[start].StatisticId);
+        Assert.Equal(cooldown, world.GlyphEffects[start + 1].StatisticId);
+
+        // The second slot's order is the game's -1, which decides that it merges in a pass of its
+        // own rather than with the multiplier above it.
+        Assert.Equal(-1, world.GlyphEffects[start + 1].Order);
+    }
+
+    [Fact]
+    public void AGlyphWithNoAuthoredFactorPublishesNoRow()
+    {
+        // Emptiness is the game's own predicate, not "the number is zero": a MultiStacking modifier
+        // is empty at one, and a Raw one at zero. A glyph that fills nothing reaches the table not
+        // at all rather than as fifteen rows of identity values.
+        var glyph = Guid.NewGuid();
+        FakeGlyph.All.Add(new FakeGlyph
+        {
+            Identity = glyph,
+            spellPower = new FakeValueModifier(FakeModifierKind.MultiStacking, 1d, 0),
+            spellCost = new FakeValueModifier(FakeModifierKind.Raw, 0d, 0),
+        });
+
+        var collector = Collector();
+        collector.Collect();
+        var world = collector.Build();
+
+        Assert.False(
+            WorldGlyphFactorLookup.TryFindRange(world.GlyphEffects, glyph, out _, out _));
     }
 
     [Fact]

@@ -149,6 +149,12 @@ internal sealed class GameWorldCycleFrame
     /// </summary>
     internal WorldRelationBuffer<WorldGlyphListMembership> GlyphListMemberships { get; } = new();
 
+    /// <summary>
+    /// The authored factors each glyph applies, one row per slot the game would print. Sparse by
+    /// construction: fifteen slots exist and a glyph fills between one and five of them.
+    /// </summary>
+    internal WorldRelationBuffer<WorldGlyphFactor> GlyphEffects { get; } = new();
+
     /// <summary>The volatile active/passive gates around the structural prerequisite-link graph.</summary>
     internal WorldPrerequisiteLinkTierBuffer PrerequisiteLinkTiers { get; } = new();
     internal WorldSampleBuffer<WorldAlchemyRecipe, WorldAlchemyRecipe> AlchemyRecipes { get; } = new();
@@ -412,6 +418,11 @@ internal static class GameWorldFrameDeriver
         var spellTypeResonance = WorldSpellTypeResonanceDeriver.Build(
             spellSlots, spellSlotTypes, spellRelations, spellTypes);
 
+        // Built before the state rather than inside it, because the glyph factors join to it: a
+        // factor names the statistic the game prints it under, and the key that join runs on never
+        // reaches the wire.
+        var statistics = frame.Statistics.Build(WorldIdentityDeriver<WorldStatistic>.Shared);
+
         return new GameWorldState
         {
             EntityIdentities = frame.EntityIdentities,
@@ -430,7 +441,7 @@ internal static class GameWorldFrameDeriver
             IntVariables = intVariables,
             BoolVariables = frame.BoolVariables.Build(WorldIdentityDeriver<WorldBoolVariable>.Shared),
             ModifierVariables = modifierVariables,
-            Statistics = frame.Statistics.Build(WorldIdentityDeriver<WorldStatistic>.Shared),
+            Statistics = statistics,
             AlchemyRecipes = WorldAlchemyRecipeDeriver.Build(
                 frame.AlchemyRecipes, alchemyTypes, intVariables),
             AlchemyTypes = alchemyTypes,
@@ -607,6 +618,7 @@ internal static class GameWorldFrameDeriver
                 WorldUpgradeListMembershipDeriver.Build(frame.UpgradeListMemberships),
             GlyphListMemberships =
                 WorldGlyphListMembershipDeriver.Build(frame.GlyphListMemberships),
+            GlyphEffects = WorldGlyphFactorDeriver.Build(frame.GlyphEffects, statistics),
             PlotNodeActions = plotNodeActions,
             PassiveAbilities = frame.PassiveAbilities.Build(WorldIdentityDeriver<WorldPassiveAbility>.Shared),
             Characters = frame.Characters.Build(WorldIdentityDeriver<WorldCharacter>.Shared),

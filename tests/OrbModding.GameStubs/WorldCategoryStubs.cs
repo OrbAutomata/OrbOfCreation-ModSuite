@@ -662,6 +662,23 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
     public ValueModifierRecord freeLoadoutUsages = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ValueModifierRecord maxUsages = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ValueModifier creationCostMod;
+
+    // The fourteen spell slots that stand beside creationCostMod, in the order the game's own
+    // tooltip walks them. An empty modifier is the default and publishes no row.
+    public ValueModifier spellPower;
+    public ValueModifier spellSpecialEffect;
+    public ValueModifier spellDuration;
+    public ValueModifier spellCost;
+    public ValueModifier spellDrainCost;
+    public ValueModifier spellCooldown;
+    public ValueModifier spellBaseCooldown;
+    public ValueModifier spellCastSpeed;
+    public ValueModifier spellExperienceRate;
+    public ValueModifier spellSpellCharges;
+    public ValueModifier spellCriticalRating;
+    public ValueModifier spellCriticalEffect;
+    public ValueModifier spellDoubleCastRating;
+    public ValueModifier spellDoubleCastEffect;
     public ResourceCostList LevelCost = new ResourceCostList();
     public ResourceCostList BonusLevelCost = new ResourceCostList();
     public bool NativeCanLevel = true;

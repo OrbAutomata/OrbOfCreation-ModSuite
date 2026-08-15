@@ -428,6 +428,13 @@ public sealed record GameWorldState
     internal PublicationTable<WorldGlyphListMembership> GlyphListMemberships { get; init; } =
         PublicationTable<WorldGlyphListMembership>.Empty;
 
+    /// <summary>
+    /// What each glyph does, as the authored factors it applies. Sorted by glyph and then by the
+    /// slot order the game declares them in, so one glyph's factors are a contiguous range.
+    /// </summary>
+    internal PublicationTable<WorldGlyphFactor> GlyphEffects { get; init; } =
+        PublicationTable<WorldGlyphFactor>.Empty;
+
     internal PublicationTable<WorldPlotNodeAction> PlotNodeActions { get; init; } =
         PublicationTable<WorldPlotNodeAction>.Empty;
 

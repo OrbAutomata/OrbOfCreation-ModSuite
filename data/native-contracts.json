@@ -5996,6 +5996,291 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
     },
     {
+      "id": "glyph.spell-power",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellPower",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-special-effect",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellSpecialEffect",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-duration",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellDuration",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-cost",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellCost",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-drain-cost",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellDrainCost",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-cooldown",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellCooldown",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-base-cooldown",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellBaseCooldown",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-cast-speed",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellCastSpeed",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-experience-rate",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellExperienceRate",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-spell-charges",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellSpellCharges",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-critical-rating",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellCriticalRating",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-critical-effect",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellCriticalEffect",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-double-cast-rating",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellDoubleCastRating",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.spell-double-cast-effect",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellDoubleCastEffect",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "glyph.creation-cost-mod",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "creationCostMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
       "id": "guid-container.guid",
       "assembly": "assembly-csharp",
       "type": "GuidContainer",

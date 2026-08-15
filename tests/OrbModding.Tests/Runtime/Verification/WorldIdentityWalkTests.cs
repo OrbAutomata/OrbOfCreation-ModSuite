@@ -153,6 +153,7 @@ public sealed class WorldIdentityWalkTests
         "PurchaseViewRoutes",
         "UpgradeListMemberships",
         "GlyphListMemberships",
+        "GlyphEffects",
         "PlotActions",
         "PlotActionInstances",
         "ActionQueueSlots",

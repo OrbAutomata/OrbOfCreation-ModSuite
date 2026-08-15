@@ -2087,6 +2087,26 @@ internal sealed class FakeGlyph : global::IDiscoverable
     public FakeModifierRecord freeUsages = new(0d);
     public FakeModifierRecord freeLoadoutUsages = new(0d);
     public FakeModifierRecord maxUsages = new(0d);
+
+    // The fifteen authored factor slots, in the game's own order and under its own names. Each is an
+    // inline modifier struct rather than a record, which is why the factor reader reads them nested
+    // rather than through the record accessor the three usage fields above use. Every one defaults
+    // empty by its own kind's identity, so a fixture publishes exactly the slots it fills.
+    public FakeValueModifier spellPower = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellSpecialEffect = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellDuration = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellCost = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellDrainCost = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellCooldown = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellBaseCooldown = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellCastSpeed = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellExperienceRate = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellSpellCharges = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellCriticalRating = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellCriticalEffect = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellDoubleCastRating = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier spellDoubleCastEffect = new(FakeModifierKind.Raw, 0d, 0);
+    public FakeValueModifier creationCostMod = new(FakeModifierKind.Raw, 0d, 0);
     public global::ResourceCostList genericDiscoveryCost = new();
     public List<global::GlyphSO> genericDiscoveryGlyphs = new();
     public List<global::ResourceSO> genericDiscoveryResources = new();
