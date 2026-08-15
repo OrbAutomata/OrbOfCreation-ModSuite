@@ -606,6 +606,12 @@ public sealed class GameMcpStreamableHttpProtocolTests
     /// only that flag told them apart — a flag the entity rows never carried at all. The asset id
     /// goes where it belongs, and <c>name</c> says what absence says.
     /// </summary>
+    /// <remarks>
+    /// <c>BrewingStation</c> is the build's one authored-but-unreachable asset: the page lists it,
+    /// the game authors it no word, and no world category claims its type — the three facts this
+    /// shape needs at once, now that the animation asset it used to read is machinery the page
+    /// leaves out.
+    /// </remarks>
     [Fact]
     public void LiveCatalogNamesNothingWhereTheGameAuthorsNoWord()
     {
@@ -622,7 +628,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
                     ["name"] = "entity_catalog",
                     ["arguments"] = new JObject
                     {
-                        ["query"] = "01ae245e-21b8-4034-8e95-e0a191145e43",
+                        ["query"] = "d76565b1-8e2b-44fe-9cf3-995d6f666305",
                     },
                 }),
             operation => GameMcpTestHarness.ExecuteRead(
@@ -634,7 +640,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
         var lines = page.Split('\n');
         Assert.Equal(3, lines.Length);
         Assert.StartsWith("[", lines[1]);
-        Assert.Contains("OrbAnim2", lines[2]);
+        Assert.Contains("BrewingStation", lines[2]);
         Assert.Contains("not-world-projected", lines[2]);
         Assert.Contains("internalName", lines[1], StringComparison.Ordinal);
         Assert.DoesNotContain("nameSource", page, StringComparison.Ordinal);

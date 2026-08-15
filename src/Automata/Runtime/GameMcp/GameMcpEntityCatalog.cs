@@ -42,6 +42,7 @@ internal static class GameMcpEntityCatalog
         for (var index = 0; index < rows.Length; index++)
         {
             var row = rows[index];
+            if (!GameMcpEntityCatalogScope.Lists(row.RuntimeType)) continue;
             if (!Matches(in row, normalized)) continue;
             totalMatches++;
             if (totalMatches <= offset || page.Count >= limit || budgetReached) continue;
@@ -155,17 +156,25 @@ internal static class GameMcpEntityCatalog
     }
 
     /// <summary>
-    /// How many loaded ids answer this query that no published category claims.
+    /// How many loaded ids answer this query that no published category claims, and how many of the
+    /// answers are machinery the catalog's page does not list.
     /// </summary>
     /// <remarks>
     /// The one moment the second finder is worth naming is the moment the first one comes back
     /// empty: "I searched for that word and got nothing" is exactly when "is it in the game at
     /// all?" becomes the next question, and until this counted, nothing on the surface said the
-    /// question had an answer. It walks the same rows and the same match rule the catalog's own
-    /// page does, so the number it reports is the number that page will return.
+    /// question had an answer. It walks the same rows, the same match rule and the same listing
+    /// verdict the catalog's own page does, so the number it reports is the number that page will
+    /// return. <paramref name="internalOnly"/> is the rest of the honest answer once the page stopped
+    /// listing machinery: "nothing this build loaded is called that" and "the only things called
+    /// that are machinery" are different answers, and one count could say only the first.
     /// </remarks>
-    internal static int CountUnprojected(EntityIdentityCatalogSnapshot catalog, string query)
+    internal static int CountUnprojected(
+        EntityIdentityCatalogSnapshot catalog,
+        string query,
+        out int internalOnly)
     {
+        internalOnly = 0;
         var normalized = (query ?? string.Empty).Trim();
         if (normalized.Length == 0 || !catalog.IsBound) return 0;
         var total = 0;
@@ -174,6 +183,11 @@ internal static class GameMcpEntityCatalog
         {
             var row = rows[index];
             if (!Matches(in row, normalized)) continue;
+            if (!GameMcpEntityCatalogScope.Lists(row.RuntimeType))
+            {
+                internalOnly++;
+                continue;
+            }
             if (GameMcpEntityCapabilityMap.TryCategoryForNativeType(row.RuntimeType, out _))
                 continue;
             total++;
