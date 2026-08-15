@@ -38,6 +38,9 @@ internal static class SpellWorkbenchActionResultMapper
         SpellWorkbenchPreflight.UsageUnaffordable => SpellWorkbenchActionResultCodes.UsageUnaffordable,
         SpellWorkbenchPreflight.UniqueSpellConflict => SpellWorkbenchActionResultCodes.UniqueSpellConflict,
         SpellWorkbenchPreflight.GlyphRequirementsUnavailable => SpellWorkbenchActionResultCodes.GlyphRequirementsUnavailable,
+        SpellWorkbenchPreflight.StagedWriteFailed => SpellWorkbenchActionResultCodes.StagedWriteFailed,
+        SpellWorkbenchPreflight.RecipeNotOffered => SpellWorkbenchActionResultCodes.RecipeNotOffered,
+        SpellWorkbenchPreflight.LayoutResolvedElsewhere => SpellWorkbenchActionResultCodes.LayoutResolvedElsewhere,
         _ => SpellWorkbenchActionResultCodes.ContractUnavailable,
     };
 }

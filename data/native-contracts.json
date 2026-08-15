@@ -20695,6 +20695,67 @@
       "place": "action"
     },
     {
+      "id": "spell-workbench.list-set-value-action",
+      "assembly": "assembly-csharp",
+      "type": "GenericListVariable`1",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "SetValue",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [
+        "System.Collections.Generic.List`1<!0>"
+      ],
+      "owners": [
+        "Automata spell workbench GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-workbench.list-set-stack-action",
+      "assembly": "assembly-csharp",
+      "type": "StackableListVariable`1",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "SetStack",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [
+        "Stacked.StackedIdRecord`1<!0>"
+      ],
+      "owners": [
+        "Automata spell workbench GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-workbench.list-stacked-record-action",
+      "assembly": "assembly-csharp",
+      "type": "StackableListVariable`1",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetStackedRecord",
+      "visibility": "public",
+      "static": false,
+      "returnType": "Stacked.StackedIdRecord`1<!0>",
+      "parameters": [],
+      "owners": [
+        "Automata spell workbench GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "spell-workbench.list-add-action",
       "assembly": "assembly-csharp",
       "type": "GenericListVariable`1",
@@ -21444,6 +21505,46 @@
       "visibility": "public",
       "static": false,
       "returnType": "System.Void",
+      "parameters": [],
+      "owners": [
+        "Automata spell workbench GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-composition.stacked-record-quantity-action",
+      "assembly": "assembly-csharp",
+      "type": "Stacked.AbstractStackedRecord`2",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetQuantity",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
+      "parameters": [
+        "!0"
+      ],
+      "owners": [
+        "Automata spell workbench GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-composition.stacked-record-items-action",
+      "assembly": "assembly-csharp",
+      "type": "Stacked.AbstractStackedRecord`2",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetItems",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Collections.Generic.List`1<!0>",
       "parameters": [],
       "owners": [
         "Automata spell workbench GameAction"

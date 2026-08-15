@@ -53,15 +53,24 @@ internal static class GameMcpSpellWorkbenchProjection
                 ["cost"] = new GameMcpDomainValue(cost.Cost),
             });
         }
-        // The recipe is the one argument this preview takes, so naming it back is the caller's own
-        // input read aloud; the answer is the price and whether it can be paid.
+        // What the live layout resolves to is the answer's first fact, because it is the one the
+        // price cannot carry. The recipe uuid is the caller's own argument read back; the spell the
+        // game reads out of the staged glyphs is a live fact, and it is what an add will act on.
         var result = new JObject
         {
             ["status"] = "available",
+            ["resolvesTo"] = preview.ResolvedRecipeId,
             ["costs"] = costs,
-            ["affordable"] = preview.Affordable,
         };
-        if (!preview.Affordable) result["shortResourceId"] = preview.ShortResourceId;
+
+        // `affordable` answers whether a price can be paid, so a layout with no price does not
+        // carry it. An empty augment layout prices an empty cost list, and the bare `affordable:
+        // yes` that produced read as "this add will work" on a call that then refused.
+        if (preview.Costs.Length > 0)
+        {
+            result["affordable"] = preview.Affordable;
+            if (!preview.Affordable) result["shortResourceId"] = preview.ShortResourceId;
+        }
         return result.Freeze();
     }
 

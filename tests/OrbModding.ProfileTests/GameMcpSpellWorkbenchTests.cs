@@ -169,6 +169,7 @@ public sealed class GameMcpSpellWorkbenchTests
     {
         var preview = SpellWorkbenchPricePreview.Priced(
             RecipeId,
+            RecipeId,
             new[] { new SpellWorkbenchPricePreviewCost(ResourceId, new BigDouble(4400)) },
             affordable: false,
             ResourceId);
@@ -189,12 +190,42 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal("Knowledge", (string?)response["shortResource"]!["name"]);
     }
 
+    /// <summary>
+    /// A preview always says which spell the live glyphs resolve to, and a layout with no price
+    /// does not answer a question about paying one.
+    /// </summary>
+    /// <remarks>
+    /// A round asked for an empty augment layout, which the game prices as an empty cost list, and
+    /// read the resulting bare <c>affordable: yes</c> as "this add will work". It could not have:
+    /// the game quotes that same empty price for a layout it resolves to nothing at all, so the
+    /// word was carrying a claim it never had the evidence for.
+    /// </remarks>
+    [Fact]
+    public void ExplicitLayoutPreviewNamesTheResolvedSpellAndDropsAffordabilityWithoutAPrice()
+    {
+        var preview = SpellWorkbenchPricePreview.Priced(
+            RecipeId,
+            RecipeId,
+            Array.Empty<SpellWorkbenchPricePreviewCost>(),
+            affordable: true,
+            Guid.Empty);
+
+        var response = GameMcpTestHarness.Json(
+            GameMcpSpellWorkbenchProjection.ProjectPricePreview(in preview));
+
+        Assert.Equal(
+            new[] { "status", "resolvesTo", "costs" },
+            response.Properties().Select(property => property.Name));
+        Assert.Equal(RecipeId.ToString("D")[..6], (string?)response["resolvesTo"]!["uuid"]);
+        Assert.Empty(response["costs"]!.Values<JObject>());
+    }
+
     [Fact]
     public void ExplicitLayoutPreviewRefusalCarriesOnlyTheActionableReason()
     {
         var preview = SpellWorkbenchPricePreview.Refused(
-            SpellWorkbenchPreflight.WrongSelection,
-            "The exact live glyph layout does not resolve to the requested spell.");
+            SpellWorkbenchPreflight.LayoutResolvedElsewhere,
+            "This glyph layout resolves to Beam Burst, not Test Recipe.");
 
         var response = GameMcpTestHarness.Json(
             GameMcpSpellWorkbenchProjection.ProjectPricePreview(in preview));
@@ -203,8 +234,8 @@ public sealed class GameMcpSpellWorkbenchTests
             new[] { "status", "reasonCode", "reason" },
             response.Properties().Select(property => property.Name));
         Assert.Equal("unavailable", (string?)response["status"]);
-        Assert.Equal("ERR_INPUT", (string?)response["reasonCode"]);
-        Assert.Contains("does not resolve", (string?)response["reason"]);
+        Assert.Equal("ERR_NOT_FOUND", (string?)response["reasonCode"]);
+        Assert.Contains("resolves to Beam Burst", (string?)response["reason"]);
     }
 
     [Fact]

@@ -342,6 +342,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                     core,
                     augments,
                     out var createCost,
+                    out var resolvedRecipeId,
                     out preflight,
                     out var priceReason))
                 return SpellWorkbenchPricePreview.Refused(preflight, priceReason);
@@ -354,6 +355,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                     "The game reported this layout as unaffordable without identifying a short resource.");
             return SpellWorkbenchPricePreview.Priced(
                 request.SpellRecipeId,
+                resolvedRecipeId,
                 costs,
                 affordable,
                 affordable ? Guid.Empty : shortResourceId);
@@ -431,19 +433,32 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
 
         var nativeCalls = 0;
         var stage = SpellWorkbenchNativeStage.ClearSelection;
-        var previousCore = Copy(native.ReadGlyphValues(native.ReadCore(manager)));
-        var previousAugments = Copy(native.ReadGlyphValues(native.ReadAugments(manager)));
+        if (!TryReadSelection(native, manager, out var previous, out var snapshotReason))
+            return SpellWorkbenchSubmission.Reject(
+                SpellWorkbenchPreflight.ContractUnavailable, snapshotReason);
         try
         {
-            ApplySelection(native, manager, components, Array.Empty<object>(), ref nativeCalls);
+            var staged = TryStageSelection(
+                native, manager, components, Array.Empty<object>(), ref nativeCalls,
+                out var stagingReason);
             stage = SpellWorkbenchNativeStage.ApplySelection;
+            if (!staged)
+            {
+                return RestoreSelection(native, manager, in previous, ref nativeCalls)
+                    ? SpellWorkbenchSubmission.Reject(
+                        SpellWorkbenchPreflight.StagedWriteFailed, stagingReason)
+                    : FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
+                        SpellWorkbenchNativeStage.ApplySelection,
+                        NativeMutationOutcome.PostconditionFailed, nativeCalls,
+                        stagingReason +
+                        " The prior workbench selection could not be restored either.");
+            }
             var selected = native.ResolveRecipe(
                 manager, native.ReadGlyphValues(native.ReadCore(manager)));
             if (selected is null || selected.GetType() != native.RecipeType ||
                 native.ReadIdentity(selected) != action.SpellRecipeId)
             {
-                if (RestoreSelection(
-                        native, manager, previousCore, previousAugments, ref nativeCalls))
+                if (RestoreSelection(native, manager, in previous, ref nativeCalls))
                     return SpellWorkbenchSubmission.Reject(
                         SpellWorkbenchPreflight.WrongSelection,
                         "The exact live component sequence did not resolve to the previewed spell recipe.");
@@ -454,8 +469,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             }
             if (!native.CanDiscover(selected) || !native.IsCreatable(selected))
             {
-                return RestoreSelection(
-                        native, manager, previousCore, previousAugments, ref nativeCalls)
+                return RestoreSelection(native, manager, in previous, ref nativeCalls)
                     ? SpellWorkbenchSubmission.Reject(
                         SpellWorkbenchPreflight.DiscoveryUnavailable,
                         "The resolved recipe stopped being discoverable before payment.")
@@ -467,8 +481,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             stage = SpellWorkbenchNativeStage.Discover;
             native.Discover(manager);
             nativeCalls++;
-            var restored = RestoreSelection(
-                native, manager, previousCore, previousAugments, ref nativeCalls);
+            var restored = RestoreSelection(native, manager, in previous, ref nativeCalls);
             if (!restored)
                 return FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
                     SpellWorkbenchNativeStage.Verification,
@@ -484,8 +497,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         }
         catch (Exception ex) when (IsExpected(ex))
         {
-            var restored = RestoreSelection(
-                native, manager, previousCore, previousAugments, ref nativeCalls);
+            var restored = RestoreSelection(native, manager, in previous, ref nativeCalls);
             if (restored && IsDiscoveredBestEffort(native, recipe))
                 return Verified(SpellWorkbenchNativeStage.Verification, nativeCalls,
                     "The component-resolved recipe became discovered before the native fault.");
@@ -518,7 +530,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             return SpellWorkbenchSubmission.Reject(
                 SpellWorkbenchPreflight.RecipeUnavailable, coreReason);
         if (!TryAdmitCreate(native, manager, recipe, core, augments,
-                out var refusal, out var refusalReason, out var createCost))
+                out var refusal, out var refusalReason, out var createCost, out _))
             return SpellWorkbenchSubmission.Reject(refusal, refusalReason);
 
         var expectedLayout = ReadIds(native, augments);
@@ -529,20 +541,44 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
 
         var nativeCalls = 0;
         var stage = SpellWorkbenchNativeStage.ClearSelection;
-        var previousCore = Copy(native.ReadGlyphValues(native.ReadCore(manager)));
-        var previousAugments = Copy(native.ReadGlyphValues(native.ReadAugments(manager)));
+        // The player's own staging, snapshotted before anything is written and put back on every
+        // exit. The augment half is read from the stack rather than the value list, because the
+        // stack is what the game bakes a spell from and the value list beside it is a projection.
+        if (!TryReadSelection(native, manager, out var previous, out var snapshotReason))
+            return SpellWorkbenchSubmission.Reject(
+                SpellWorkbenchPreflight.ContractUnavailable, snapshotReason);
         try
         {
-            ApplySelection(native, manager, core, augments, ref nativeCalls);
+            var staged = TryStageSelection(
+                native, manager, core, augments, ref nativeCalls, out var stagingReason);
             stage = SpellWorkbenchNativeStage.ApplySelection;
-
-            var selectedCore = Copy(native.ReadGlyphValues(native.ReadCore(manager)));
-            var selectedAugments = Copy(native.ReadGlyphValues(native.ReadAugments(manager)));
-            if (!TryAdmitCreate(native, manager, recipe, selectedCore, selectedAugments,
-                    out refusal, out refusalReason, out createCost))
+            if (!staged)
             {
-                if (RestoreSelection(
-                        native, manager, previousCore, previousAugments, ref nativeCalls))
+                return RestoreSelection(native, manager, in previous, ref nativeCalls)
+                    ? SpellWorkbenchSubmission.Reject(
+                        SpellWorkbenchPreflight.StagedWriteFailed, stagingReason)
+                    : FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
+                        SpellWorkbenchNativeStage.ApplySelection,
+                        NativeMutationOutcome.PostconditionFailed, nativeCalls,
+                        stagingReason +
+                        " The prior workbench selection could not be restored either.");
+            }
+
+            if (!TryReadSelection(native, manager, out var selected, out var readBackReason))
+            {
+                return RestoreSelection(native, manager, in previous, ref nativeCalls)
+                    ? SpellWorkbenchSubmission.Reject(
+                        SpellWorkbenchPreflight.StagedWriteFailed, readBackReason)
+                    : FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
+                        SpellWorkbenchNativeStage.ApplySelection,
+                        NativeMutationOutcome.PostconditionFailed, nativeCalls,
+                        readBackReason +
+                        " The prior workbench selection could not be restored either.");
+            }
+            if (!TryAdmitCreate(native, manager, recipe, selected.Core, selected.Augments,
+                    out refusal, out refusalReason, out createCost, out _))
+            {
+                if (RestoreSelection(native, manager, in previous, ref nativeCalls))
                     return SpellWorkbenchSubmission.Reject(refusal, refusalReason);
                 return FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
                     SpellWorkbenchNativeStage.ApplySelection,
@@ -556,8 +592,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             stage = SpellWorkbenchNativeStage.Create;
             native.Create(manager, recipe);
             nativeCalls++;
-            var restored = RestoreSelection(
-                native, manager, previousCore, previousAugments, ref nativeCalls);
+            var restored = RestoreSelection(native, manager, in previous, ref nativeCalls);
             if (!restored)
                 return FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
                     SpellWorkbenchNativeStage.Verification,
@@ -574,8 +609,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         }
         catch (Exception ex) when (IsExpected(ex))
         {
-            var restored = RestoreSelection(
-                native, manager, previousCore, previousAugments, ref nativeCalls);
+            var restored = RestoreSelection(native, manager, in previous, ref nativeCalls);
             if (restored && HasNewMatchingInstanceBestEffort(
                     native, manager, recipe, expectedLayout, before))
                 return Verified(SpellWorkbenchNativeStage.Verification, nativeCalls,
@@ -630,9 +664,11 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         IList<object> augments,
         out SpellWorkbenchPreflight refusal,
         out string reason,
-        out object? createCost)
+        out object? createCost,
+        out Guid resolvedRecipeId)
     {
         createCost = null;
+        resolvedRecipeId = Guid.Empty;
         if (!native.IsDiscovered(recipe))
             return Refuse(SpellWorkbenchPreflight.DiscoveryUnavailable,
                 "Loadout add requires an already discovered recipe.",
@@ -652,6 +688,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 core,
                 augments,
                 out createCost,
+                out resolvedRecipeId,
                 out refusal,
                 out reason))
             return false;
@@ -718,6 +755,25 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// What the live glyph layout resolves to, and its price when that is the requested spell.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One sentence used to cover every way this can fail, classed as a caller-argument error
+    /// though none of them is one. The game matches a layout by stripping the augments, keeping the
+    /// recipes whose core is the same length, filtering those by whether each core glyph is a
+    /// member of theirs, and taking the first survivor — so there are exactly two live outcomes
+    /// that are not the requested spell, and the caller can act on neither by passing other glyphs.
+    /// </para>
+    /// <para>
+    /// A null resolution is the registry gap and is named as such: the recipe's own authored core
+    /// is always the same length as itself and always contains each of its own glyphs, so it is a
+    /// candidate for its own layout whenever the game holds it at all. Nothing surviving therefore
+    /// means the game does not offer this recipe to layout matching, not that the layout was
+    /// malformed.
+    /// </para>
+    /// </remarks>
     private static bool TryPriceCreateLayout(
         SpellWorkbenchNativeBindings native,
         object manager,
@@ -725,24 +781,37 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         IList<object> core,
         IList<object> augments,
         out object? createCost,
+        out Guid resolvedRecipeId,
         out SpellWorkbenchPreflight refusal,
         out string reason)
     {
+        createCost = null;
+        resolvedRecipeId = Guid.Empty;
+        var requestedId = native.ReadIdentity(recipe);
         var combined = new List<object>(core.Count + augments.Count);
         for (var index = 0; index < core.Count; index++) combined.Add(core[index]);
         for (var index = 0; index < augments.Count; index++) combined.Add(augments[index]);
         var nativeLayout = NativeGlyphList(native, combined);
         var resolved = native.ResolveRecipe(manager, nativeLayout);
-        if (resolved is null || resolved.GetType() != native.RecipeType ||
-            native.ReadIdentity(resolved) != native.ReadIdentity(recipe))
-        {
-            createCost = null;
+        if (resolved is null || resolved.GetType() != native.RecipeType)
             return Refuse(
-                SpellWorkbenchPreflight.WrongSelection,
-                "The exact live glyph layout does not resolve to the requested spell.",
+                SpellWorkbenchPreflight.RecipeNotOffered,
+                "This glyph layout resolves to no spell at all: the game matches layouts against " +
+                "the recipes it currently offers, and " +
+                EntityIdentityFormatter.PlayerName(requestedId) + " is not among them.",
                 out refusal,
                 out reason);
-        }
+        resolvedRecipeId = native.ReadIdentity(resolved);
+        if (resolvedRecipeId != requestedId)
+            return Refuse(
+                SpellWorkbenchPreflight.LayoutResolvedElsewhere,
+                "This glyph layout resolves to " +
+                EntityIdentityFormatter.PlayerName(resolvedRecipeId) + ", not " +
+                EntityIdentityFormatter.PlayerName(requestedId) +
+                ": the game matches a layout by core-glyph count and membership and takes the " +
+                "first recipe that fits, so this layout cannot reach the requested spell.",
+                out refusal,
+                out reason);
         createCost = native.GetCreationCost(manager, nativeLayout);
         if (createCost is null)
             return Refuse(
@@ -965,29 +1034,194 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         return result;
     }
 
-    private static void ApplySelection(
+    /// <summary>One reading of the live Spellcraft selection, in the shape the game bakes from.</summary>
+    private readonly struct StagedSelection
+    {
+        internal StagedSelection(List<object> core, List<object> augments)
+        {
+            Core = core;
+            Augments = augments;
+        }
+
+        /// <summary>The staged core glyphs, in the order the game holds them.</summary>
+        internal List<object> Core { get; }
+
+        /// <summary>
+        /// The staged augments expanded to one entry per use, read from the stack the game bakes
+        /// from rather than from the value list, which carries one entry per distinct glyph.
+        /// </summary>
+        internal List<object> Augments { get; }
+    }
+
+    private static bool TryReadSelection(
+        SpellWorkbenchNativeBindings native,
+        object manager,
+        out StagedSelection selection,
+        out string reason)
+    {
+        selection = default;
+        var core = Copy(native.ReadGlyphValues(native.ReadCore(manager)));
+        var stack = native.ReadListStack(native.ReadAugments(manager));
+        if (stack is null)
+        {
+            reason = "The live augment selection exposes no stack for the game to bake a spell " +
+                "from, so no augment layout can be staged or read back.";
+            return false;
+        }
+        var augments = new List<object>();
+        var items = native.ReadStackedItems(stack);
+        for (var index = 0; index < items.Count; index++)
+        {
+            var glyph = items[index];
+            if (glyph is null || glyph.GetType() != native.GlyphType)
+            {
+                reason = "The live augment stack holds an entry that is not a glyph.";
+                return false;
+            }
+            var quantity = native.ReadStackedQuantity(stack, glyph);
+            if (quantity < 0)
+            {
+                reason = "The live augment stack reports a negative count for " +
+                    EntityIdentityFormatter.PlayerName(native.ReadIdentity(glyph)) + ".";
+                return false;
+            }
+            for (var copy = 0; copy < quantity; copy++) augments.Add(glyph);
+        }
+        selection = new StagedSelection(core, augments);
+        reason = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Stages one layout with the writes the game uses on itself, and proves it landed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The core goes through the setter <c>SpellManager.InsertSpellRecipeGlyphs</c> uses, and the
+    /// augments through the stack write the augment UI performs — because <c>Add</c> returns
+    /// without writing on three branches and never touches the stack the created spell is baked
+    /// from, so a layout applied with it can be absent from the game's own reading of it while
+    /// every call returned normally.
+    /// </para>
+    /// <para>
+    /// The read-back is the postcondition. A write that landed short is refused here, loudly and
+    /// named as the suite's own staging failure, rather than travelling nine gates further to
+    /// surface as a layout that does not resolve — or, worse, reaching the payment boundary and
+    /// creating a spell with none of the augments that were paid for.
+    /// </para>
+    /// </remarks>
+    private static bool TryStageSelection(
         SpellWorkbenchNativeBindings native,
         object manager,
         IList<object> coreGlyphs,
         IList<object> augmentGlyphs,
-        ref int nativeCalls)
+        ref int nativeCalls,
+        out string reason)
     {
         var core = native.ReadCore(manager);
         var augments = native.ReadAugments(manager);
-        native.Empty(core);
+        native.SetListValue(core, NativeGlyphList(native, coreGlyphs));
         nativeCalls++;
-        native.Empty(augments);
+        var record = native.CreateStackedRecord();
+        SetStackedLayout(native, record, augmentGlyphs);
+        native.SetListStack(augments, record);
         nativeCalls++;
-        for (var index = 0; index < coreGlyphs.Count; index++)
+        if (!TryReadSelection(native, manager, out var staged, out reason)) return false;
+        if (!SameSequence(native, staged.Core, coreGlyphs))
         {
-            native.Add(core, coreGlyphs[index]);
-            nativeCalls++;
+            reason = "Staging this spell's core into the game's Spellcraft selection did not " +
+                "land: " + Describe(native, coreGlyphs) + " was written and " +
+                Describe(native, staged.Core) + " came back.";
+            return false;
         }
-        for (var index = 0; index < augmentGlyphs.Count; index++)
+        if (!SameCounts(native, staged.Augments, augmentGlyphs))
         {
-            native.Add(augments, augmentGlyphs[index]);
-            nativeCalls++;
+            reason = "Staging the chosen augments into the game's Spellcraft selection did not " +
+                "land: " + Describe(native, augmentGlyphs) + " was written and " +
+                Describe(native, staged.Augments) + " came back.";
+            return false;
         }
+        var values = Copy(native.ReadGlyphValues(augments));
+        if (!SameIdentitySet(native, values, augmentGlyphs))
+        {
+            reason = "The staged augment stack and the augment list the game shows beside it " +
+                "disagree: the stack holds " + Describe(native, staged.Augments) +
+                " and the list holds " + Describe(native, values) + ".";
+            return false;
+        }
+        reason = string.Empty;
+        return true;
+    }
+
+    private static string Describe(SpellWorkbenchNativeBindings native, IList<object> glyphs)
+    {
+        if (glyphs.Count == 0) return "no glyphs";
+        var counts = new Dictionary<Guid, int>();
+        var order = new List<Guid>();
+        for (var index = 0; index < glyphs.Count; index++)
+        {
+            var id = native.ReadIdentity(glyphs[index]);
+            if (!counts.ContainsKey(id)) order.Add(id);
+            counts.TryGetValue(id, out var count);
+            counts[id] = count + 1;
+        }
+        var text = new System.Text.StringBuilder();
+        for (var index = 0; index < order.Count; index++)
+        {
+            if (index > 0) text.Append(", ");
+            var id = order[index];
+            if (counts[id] > 1) text.Append(counts[id]).Append("x ");
+            text.Append(EntityIdentityFormatter.PlayerName(id));
+        }
+        return text.ToString();
+    }
+
+    private static bool SameSequence(
+        SpellWorkbenchNativeBindings native,
+        IList<object> actual,
+        IList<object> expected)
+    {
+        if (actual.Count != expected.Count) return false;
+        for (var index = 0; index < actual.Count; index++)
+            if (native.ReadIdentity(actual[index]) != native.ReadIdentity(expected[index]))
+                return false;
+        return true;
+    }
+
+    private static bool SameCounts(
+        SpellWorkbenchNativeBindings native,
+        IList<object> actual,
+        IList<object> expected)
+    {
+        if (actual.Count != expected.Count) return false;
+        var counts = new Dictionary<Guid, int>();
+        for (var index = 0; index < expected.Count; index++)
+        {
+            var id = native.ReadIdentity(expected[index]);
+            counts.TryGetValue(id, out var count);
+            counts[id] = count + 1;
+        }
+        for (var index = 0; index < actual.Count; index++)
+        {
+            var id = native.ReadIdentity(actual[index]);
+            if (!counts.TryGetValue(id, out var count) || count == 0) return false;
+            counts[id] = count - 1;
+        }
+        return true;
+    }
+
+    private static bool SameIdentitySet(
+        SpellWorkbenchNativeBindings native,
+        IList<object> actual,
+        IList<object> expected)
+    {
+        var wanted = new HashSet<Guid>();
+        for (var index = 0; index < expected.Count; index++)
+            wanted.Add(native.ReadIdentity(expected[index]));
+        var seen = new HashSet<Guid>();
+        for (var index = 0; index < actual.Count; index++)
+            seen.Add(native.ReadIdentity(actual[index]));
+        return wanted.SetEquals(seen);
     }
 
     private static IList NativeGlyphList(
@@ -1010,14 +1244,13 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
     private static bool RestoreSelection(
         SpellWorkbenchNativeBindings native,
         object manager,
-        IList<object> core,
-        IList<object> augments,
+        in StagedSelection previous,
         ref int nativeCalls)
     {
         try
         {
-            ApplySelection(native, manager, core, augments, ref nativeCalls);
-            return true;
+            return TryStageSelection(
+                native, manager, previous.Core, previous.Augments, ref nativeCalls, out _);
         }
         catch (Exception ex) when (IsExpected(ex))
         {

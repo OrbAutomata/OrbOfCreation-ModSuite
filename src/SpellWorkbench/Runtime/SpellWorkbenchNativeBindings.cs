@@ -45,6 +45,9 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-workbench.list-value-action",
         "spell-workbench.list-empty-action",
         "spell-workbench.list-add-action",
+        "spell-workbench.list-set-value-action",
+        "spell-workbench.list-set-stack-action",
+        "spell-workbench.list-stacked-record-action",
         "spell-workbench.loadout-has-empty-action",
         "spell-workbench.spell-reference-action",
         "spell-workbench.spell-guid-container-action",
@@ -55,6 +58,8 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-composition.stacked-record-type-action",
         "spell-composition.stacked-record-construct-action",
         "spell-composition.stacked-record-set-action",
+        "spell-composition.stacked-record-quantity-action",
+        "spell-composition.stacked-record-items-action",
         "discovery-tree-offer.guid-container-value",
     };
 
@@ -72,7 +77,9 @@ internal sealed class SpellWorkbenchNativeBindings
         Func<object, int> glyphLevel,
         Func<object, bool> glyphAugment, Func<object, int> glyphMaximumUsages,
         Action<object> empty,
-        Action<object, object> add, Func<object, bool> hasEmpty,
+        Action<object, object> add, Action<object, IList> setListValue,
+        Action<object, object> setListStack, Func<object, object?> readListStack,
+        Func<object, bool> hasEmpty,
         Func<object, object, object?> resolveRecipe, Func<object, object, object> creationCost,
         Func<object, object> usageCost,
         Action<object> discover,
@@ -82,6 +89,7 @@ internal sealed class SpellWorkbenchNativeBindings
         Func<object, bool> unique, Func<object, IList> spellAugments,
         Func<IList, object, bool> meetsNonLevelRequirements,
         Func<object> createStackedRecord, Action<object, object, int> setStackedRecord,
+        Func<object, object, int> readStackedQuantity, Func<object, IList> readStackedItems,
         Func<object, object?> spellReference,
         Func<object, object?> spellGuid, Func<object, Guid> guidValue)
     {
@@ -114,6 +122,9 @@ internal sealed class SpellWorkbenchNativeBindings
         GetGlyphMaximumUsages = glyphMaximumUsages;
         Empty = empty;
         Add = add;
+        SetListValue = setListValue;
+        SetListStack = setListStack;
+        ReadListStack = readListStack;
         HasEmpty = hasEmpty;
         ResolveRecipe = resolveRecipe;
         GetCreationCost = creationCost;
@@ -130,6 +141,8 @@ internal sealed class SpellWorkbenchNativeBindings
         MeetsNonLevelRequirements = meetsNonLevelRequirements;
         CreateStackedRecord = createStackedRecord;
         SetStackedRecord = setStackedRecord;
+        ReadStackedQuantity = readStackedQuantity;
+        ReadStackedItems = readStackedItems;
         ReadSpellReference = spellReference;
         ReadSpellGuid = spellGuid;
         ReadGuidValue = guidValue;
@@ -164,6 +177,25 @@ internal sealed class SpellWorkbenchNativeBindings
     internal Func<object, int> GetGlyphMaximumUsages { get; }
     internal Action<object> Empty { get; }
     internal Action<object, object> Add { get; }
+
+    /// <summary>
+    /// The setter <c>SpellManager.InsertSpellRecipeGlyphs</c> itself stages a core with. Unlike
+    /// <see cref="Add"/> it is gated only on the list being authored immutable, so a staged core
+    /// either lands or the list refuses every write there is.
+    /// </summary>
+    internal Action<object, IList> SetListValue { get; }
+
+    /// <summary>
+    /// The stack write the game's own augment UI performs, which sets the multiplicity record
+    /// <c>SpellManager.CreateRecipe</c> bakes from and the value list beside it in one call.
+    /// </summary>
+    internal Action<object, object> SetListStack { get; }
+
+    /// <summary>
+    /// The staged multiplicity record, or nothing on a list the author did not mark stackable —
+    /// in which case the game bakes no augments at all from it.
+    /// </summary>
+    internal Func<object, object?> ReadListStack { get; }
     internal Func<object, bool> HasEmpty { get; }
     internal Func<object, object, object?> ResolveRecipe { get; }
     internal Func<object, object, object> GetCreationCost { get; }
@@ -180,6 +212,8 @@ internal sealed class SpellWorkbenchNativeBindings
     internal Func<IList, object, bool> MeetsNonLevelRequirements { get; }
     internal Func<object> CreateStackedRecord { get; }
     internal Action<object, object, int> SetStackedRecord { get; }
+    internal Func<object, object, int> ReadStackedQuantity { get; }
+    internal Func<object, IList> ReadStackedItems { get; }
     internal Func<object, object?> ReadSpellReference { get; }
     internal Func<object, object?> ReadSpellGuid { get; }
     internal Func<object, Guid> ReadGuidValue { get; }
@@ -248,6 +282,9 @@ internal sealed class SpellWorkbenchNativeBindings
             var activeValue = HierarchyField(spellListType, "value", spellList);
             var empty = HierarchyMethod(glyphListType, "Empty", typeof(void));
             var add = HierarchyMethod(glyphListType, "Add", typeof(void), glyphType);
+            var setListValue = HierarchyMethod(glyphListType, "SetValue", typeof(void), glyphList);
+            var setListStack = HierarchyMethod(glyphListType, "SetStack", typeof(void), stackedType);
+            var readListStack = HierarchyMethod(glyphListType, "GetStackedRecord", stackedType);
             var hasEmpty = HierarchyMethod(spellListType, "HasEmptySpot", typeof(bool));
             var resolve = Method(managerType, "GetSpellFromRecipe", recipeType, glyphList);
             var creationCost = Method(managerType, "GetSpellCreateCost", costType, glyphList);
@@ -263,6 +300,8 @@ internal sealed class SpellWorkbenchNativeBindings
             var stackedConstructor = stackedType.GetConstructor(Type.EmptyTypes) ??
                 throw new InvalidOperationException(stackedType.Name + ".ctor was unavailable.");
             var setStacked = HierarchyMethod(stackedType, "Set", typeof(void), glyphType, typeof(int));
+            var stackedQuantity = HierarchyMethod(stackedType, "GetQuantity", typeof(int), glyphType);
+            var stackedItems = HierarchyMethod(stackedType, "GetItems", glyphList);
             var spellReference = Method(spellType, "get_reference", recipeType);
             var spellGuid = Field(spellType, "guidContainer", guidType, false);
             var guidValue = Method(guidType, "get_guid", typeof(Guid));
@@ -280,7 +319,9 @@ internal sealed class SpellWorkbenchNativeBindings
                 InstanceFunc<bool>(glyphAvailable), IntField(glyphLevel),
                 InstanceFunc<bool>(glyphAugment),
                 InstanceFunc<int>(glyphMaximumUsages),
-                InstanceAction(empty), InstanceObjectAction(add), InstanceFunc<bool>(hasEmpty),
+                InstanceAction(empty), InstanceObjectAction(add),
+                InstanceListAction(setListValue), InstanceObjectAction(setListStack),
+                InstanceNullableObject(readListStack), InstanceFunc<bool>(hasEmpty),
                 InstanceObjectObject(resolve), InstanceObjectObjectRequired(creationCost),
                 StaticObjectObject(usageCost), InstanceAction(discover), InstanceObjectAction(create),
                 InstanceIntObject(createEmpty), InstanceFunc<int>(selectedLevel),
@@ -288,6 +329,7 @@ internal sealed class SpellWorkbenchNativeBindings
                 InstanceObjectAction(setAugments), InstanceFunc<bool>(unique),
                 InstanceList(spellAugments), StaticListObjectBoolean(meetsNonLevel),
                 NewObject(stackedConstructor), InstanceObjectIntAction(setStacked),
+                InstanceObjectFunc<int>(stackedQuantity), InstanceList(stackedItems),
                 InstanceNullableObject(spellReference), ObjectNullableField(spellGuid),
                 InstanceFunc<Guid>(guidValue));
             reason = string.Empty;
@@ -475,6 +517,28 @@ internal sealed class SpellWorkbenchNativeBindings
         return Expression.Lambda<Action<object, object>>(
             Expression.Call(Expression.Convert(target, method.DeclaringType!), method,
                 Expression.Convert(value, method.GetParameters()[0].ParameterType)), target, value).Compile();
+    }
+
+    private static Action<object, IList> InstanceListAction(MethodInfo method)
+    {
+        var target = Expression.Parameter(typeof(object), "target");
+        var values = Expression.Parameter(typeof(IList), "values");
+        return Expression.Lambda<Action<object, IList>>(
+            Expression.Call(Expression.Convert(target, method.DeclaringType!), method,
+                Expression.Convert(values, method.GetParameters()[0].ParameterType)),
+            target, values).Compile();
+    }
+
+    private static Func<object, object, T> InstanceObjectFunc<T>(MethodInfo method)
+    {
+        var target = Expression.Parameter(typeof(object), "target");
+        var value = Expression.Parameter(typeof(object), "value");
+        return Expression.Lambda<Func<object, object, T>>(
+            Expression.Convert(Expression.Call(
+                Expression.Convert(target, method.DeclaringType!), method,
+                Expression.Convert(value, method.GetParameters()[0].ParameterType)),
+                typeof(T)),
+            target, value).Compile();
     }
 
     private static Func<object, object, object?> InstanceObjectObject(MethodInfo method)

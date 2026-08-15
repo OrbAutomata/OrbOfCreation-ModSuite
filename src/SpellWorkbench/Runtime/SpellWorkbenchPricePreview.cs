@@ -42,6 +42,7 @@ internal readonly struct SpellWorkbenchPricePreview
     private SpellWorkbenchPricePreview(
         SpellWorkbenchPreflight preflight,
         Guid recipeId,
+        Guid resolvedRecipeId,
         SpellWorkbenchPricePreviewCost[] costs,
         bool affordable,
         Guid shortResourceId,
@@ -49,6 +50,7 @@ internal readonly struct SpellWorkbenchPricePreview
     {
         Preflight = preflight;
         RecipeId = recipeId;
+        ResolvedRecipeId = resolvedRecipeId;
         Costs = costs ?? throw new ArgumentNullException(nameof(costs));
         Affordable = affordable;
         ShortResourceId = shortResourceId;
@@ -57,6 +59,13 @@ internal readonly struct SpellWorkbenchPricePreview
 
     internal SpellWorkbenchPreflight Preflight { get; }
     internal Guid RecipeId { get; }
+
+    /// <summary>
+    /// The spell the live glyph layout resolves to. It is the fact a price is worth nothing
+    /// without: an empty augment layout prices an empty cost list, so <c>affordable</c> alone read
+    /// as "this will work" on a call that could not have worked.
+    /// </summary>
+    internal Guid ResolvedRecipeId { get; }
     internal SpellWorkbenchPricePreviewCost[] Costs { get; }
     internal bool Affordable { get; }
     internal Guid ShortResourceId { get; }
@@ -65,12 +74,14 @@ internal readonly struct SpellWorkbenchPricePreview
 
     internal static SpellWorkbenchPricePreview Priced(
         Guid recipeId,
+        Guid resolvedRecipeId,
         SpellWorkbenchPricePreviewCost[] costs,
         bool affordable,
         Guid shortResourceId) =>
         new(
             SpellWorkbenchPreflight.Proceeded,
             recipeId,
+            resolvedRecipeId,
             costs,
             affordable,
             shortResourceId,
@@ -79,6 +90,7 @@ internal readonly struct SpellWorkbenchPricePreview
     internal static SpellWorkbenchPricePreview Refused(
         SpellWorkbenchPreflight preflight,
         string reason) =>
-        new(preflight, Guid.Empty, Array.Empty<SpellWorkbenchPricePreviewCost>(), false,
+        new(preflight, Guid.Empty, Guid.Empty,
+            Array.Empty<SpellWorkbenchPricePreviewCost>(), false,
             Guid.Empty, reason);
 }

@@ -143,6 +143,11 @@ internal static class GameMcpDecisionReason
         "no_current_offers" or
         "recipe_has_no_core_glyph" or "core_glyph_not_published" or "active_section_empty" or
         "component_unavailable" or "control_unavailable" or "list_unavailable" or
+        // Neither is a caller-argument error and neither is fixable by passing other glyphs: the
+        // game matches a layout against its own craftable registry by core-glyph count and
+        // membership and takes the first recipe that fits, so a recipe missing from that registry
+        // and a recipe an earlier entry outbids are both simply not reachable.
+        "recipe_not_offered" or "layout_resolves_to_other_spell" or
         "selection_unavailable" => ClassNotFound,
 
         // The target exists and is in the wrong state for this verb.
@@ -215,6 +220,10 @@ internal static class GameMcpDecisionReason
         "research_decision_unavailable" or "challenge_state_unavailable" or
         "prestige_state_unavailable" or "loadout_unavailable" or
         "glyph_requirements_unavailable" or "usage_requirements_unavailable" or
+        // The suite staged a layout into the game's own selection lists and read back something
+        // else. Nothing the caller passed is wrong and nothing in the game refused: the write the
+        // suite performs did not land, which is the suite's defect to answer for.
+        "staged_write_failed" or
         "cost_unavailable" or "exact_cost_unavailable" or "usage_cost_unavailable" or
         "action_family_unavailable" or "screenshot_budget_unavailable" or
         "inline_screenshot_failed" or "request_canceled_before_claim" or

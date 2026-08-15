@@ -22,4 +22,7 @@ internal static class SpellWorkbenchActionResultCodes
     internal static ServiceActionResultCode UsageUnaffordable => new(4417);
     internal static ServiceActionResultCode UniqueSpellConflict => new(4418);
     internal static ServiceActionResultCode GlyphRequirementsUnavailable => new(4419);
+    internal static ServiceActionResultCode StagedWriteFailed => new(4420);
+    internal static ServiceActionResultCode RecipeNotOffered => new(4421);
+    internal static ServiceActionResultCode LayoutResolvedElsewhere => new(4422);
 }

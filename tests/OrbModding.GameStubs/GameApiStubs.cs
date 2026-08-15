@@ -599,13 +599,49 @@ public class AbstractListVariable<T> : AbstractListVariable
 
     /// <summary>Whether the list is authored rather than played into, as the game marks it.</summary>
     public bool isStatic;
+
+    /// <summary>
+    /// Whether the list keeps a fixed run of spots rather than growing, as the game marks it. A
+    /// filled list writes into an empty index instead of appending, and every mutation the game
+    /// performs on it goes through that index.
+    /// </summary>
+    public bool isFilled;
     public int Maximum = 4;
     public IntVariable? maxSizeVariable;
     public int GetMax() => maxSizeVariable?.AsInt() ?? Maximum;
+    public bool HasMax() => maxSizeVariable is not null;
+    public bool IsImmutable() => isStatic;
+    public virtual bool IsFilledType() => isFilled;
     public List<T> ToList() => new List<T>(value);
     public int Count => value.Count;
-    public void Empty() => value.Clear();
+    public int GetCount() => value.Count;
+    public virtual void Empty()
+    {
+        if (IsImmutable()) return;
+        value = new List<T>();
+        if (IsFilledType()) FillSpots();
+        UpdateObservable();
+    }
+
     public bool IsAtMax() => value.Count >= GetMax();
+
+    protected virtual T GetEmptyElement() => default!;
+
+    protected void FillSpots()
+    {
+        if (!HasMax() || !IsFilledType() || GetCount() >= GetMax()) return;
+        while (value.Count < GetMax()) value.Add(GetEmptyElement());
+        UpdateObservable();
+    }
+
+    protected void EnsureCorrectSpots()
+    {
+        if (!HasMax() || !IsFilledType() || GetMax() == GetCount()) return;
+        FillSpots();
+        value = value.Take(GetMax()).ToList();
+        UpdateObservable();
+    }
+
     public bool Contains(T element) => value.Contains(element);
     public virtual void Remove(T element) => value.Remove(element);
     public bool SuppressSwap { get; set; }
@@ -679,15 +715,67 @@ public class GenericListVariable<T> : AbstractListVariable<T>
         return used;
     }
 
-    public bool HasEmptySpot() => GetUsedSpots() < GetMax();
+    /// <summary>
+    /// Whether one more element fits. A filled-type list answers the game's own question — is there
+    /// a spot holding nothing — which is the branch that makes <c>Add</c> a permanent no-op on a
+    /// list that was never padded out to its maximum.
+    /// </summary>
+    /// <remarks>
+    /// The non-filled arm counts used spots rather than the game's <c>!IsAtMax()</c> because the
+    /// concrete stub lists that keep an emptied placeholder — the spell loadout above all — model
+    /// fixed slots without declaring themselves filled, and re-modelling them is a change to every
+    /// loadout test rather than to the staging defect this shape exists for.
+    /// </remarks>
+    public bool HasEmptySpot() =>
+        IsFilledType() ? FindEmptyIndex() >= 0 : GetUsedSpots() < GetMax();
 
     public List<T> GetFilledElements() => value.FindAll(IsFilledElement);
 
-    public void Add(T element)
+    public int FindEmptyIndex() => value.FindIndex(element => !IsFilledElement(element));
+
+    /// <summary>
+    /// The game's own <c>Add</c>, branch for branch: three of its paths return without writing and
+    /// without saying so, which is why a caller that does not read the list back cannot know
+    /// whether its element landed.
+    /// </summary>
+    public virtual void Add(T element)
     {
         AddCalls++;
-        if (!SuppressAdd) value.Add(element);
+        if (SuppressAdd)
+        {
+            if (ThrowAfterAdd) throw new InvalidOperationException("injected failure after admission");
+            return;
+        }
+        if (IsImmutable()) return;
+        if (!HasEmptySpot()) return;
+        if (IsFilledType())
+        {
+            EnsureCorrectSpots();
+            var index = FindEmptyIndex();
+            if (index < 0) return;
+            value[index] = element;
+        }
+        else value.Add(element);
+        UpdateObservable();
         if (ThrowAfterAdd) throw new InvalidOperationException("injected failure after admission");
+    }
+
+    /// <summary>
+    /// The setter the game itself uses to stage a recipe's core, gated only on immutability and on
+    /// being handed the list it already holds.
+    /// </summary>
+    public virtual void SetValue(List<T> next)
+    {
+        if (IsImmutable() || ReferenceEquals(value, next)) return;
+        if (HasMax()) next = next.Take(GetMax()).ToList();
+        if (IsFilledType())
+        {
+            EnsureCorrectSpots();
+            value = new List<T>(next);
+            FillSpots();
+        }
+        else value = new List<T>(next);
+        UpdateObservable();
     }
 
     public bool SuppressToggle { get; set; }
@@ -726,6 +814,28 @@ public class StackableListVariable<T> : GenericListVariable<T>
     public Stacked.StackedIdRecord<T> itemStack = new Stacked.StackedIdRecord<T>();
 
     public int GetStacks(T item) => itemStack.GetQuantity(item);
+
+    public int GetTotalStacks() => itemStack.GetTotalStacks();
+
+    /// <summary>
+    /// The multiplicities the game bakes a spell from. It is null on a list the author did not mark
+    /// stackable, and plain <c>Add</c> never writes it — the two facts that make an element landing
+    /// in <see cref="AbstractListVariable{T}.value"/> no evidence at all that the stack carries it.
+    /// </summary>
+    public Stacked.StackedIdRecord<T>? GetStackedRecord() => isStackable ? itemStack : null;
+
+    /// <summary>Writes the stack and then the value list from it, the way the game does.</summary>
+    public void SetStack(Stacked.StackedIdRecord<T> record)
+    {
+        itemStack.ImportItems(record.ToList());
+        SetValue(itemStack.GetItems());
+    }
+
+    public override void Empty()
+    {
+        base.Empty();
+        itemStack.Empty();
+    }
 
     public void Stack(T item, int quantity)
     {
@@ -2326,7 +2436,11 @@ public class SpellRecipeListVariable
     public List<SpellRecipeSO> value = new List<SpellRecipeSO>();
 }
 
-public sealed class GlyphListVariable : GenericListVariable<GlyphSO>
+/// <summary>
+/// The staged glyph lists, stackable exactly as the shipped assembly declares them: the value list
+/// carries one element per distinct glyph and the stack beside it carries how many of each.
+/// </summary>
+public sealed class GlyphListVariable : StackableListVariable<GlyphSO>
 {
 }
 
@@ -2356,19 +2470,26 @@ public class SpellManager
     public static ResourceCostList GetUsageCostOfSpell(Spell spell) =>
         spell.get_reference()?.GetUsageCost() ?? new ResourceCostList();
 
+    /// <summary>
+    /// The game's own matcher: an empty list resolves to nothing, augments are stripped, candidates
+    /// are the recipes whose core is the same length, each is then filtered by whether it contains
+    /// the glyph — membership, not position and not multiplicity — and the first survivor wins.
+    /// </summary>
+    /// <remarks>
+    /// Ordered reference equality, which this stub used to apply, cannot produce the case the wire
+    /// actually met: two recipes are candidates for one layout and the earlier one in the registry
+    /// takes it, so the caller's recipe is unreachable through a layout that looks exactly right.
+    /// </remarks>
     public SpellRecipeSO? GetSpellFromRecipe(List<GlyphSO> glyphs)
     {
-        if (SuppressSelectionResolution) return null;
+        if (SuppressSelectionResolution || glyphs.Count == 0) return null;
         var coreGlyphs = glyphs.Where(glyph => !glyph.IsSpellAugment()).ToList();
-        foreach (var recipe in availableSpellRecipes.value)
-        {
-            if (recipe.coreRecipe.Count != coreGlyphs.Count) continue;
-            var matches = true;
-            for (var index = 0; index < coreGlyphs.Count; index++)
-                if (!ReferenceEquals(recipe.coreRecipe[index], coreGlyphs[index])) { matches = false; break; }
-            if (matches) return recipe;
-        }
-        return null;
+        var candidates = availableSpellRecipes.value
+            .Where(recipe => recipe.coreRecipe.Count == coreGlyphs.Count)
+            .ToList();
+        foreach (var glyph in coreGlyphs)
+            candidates = candidates.Where(recipe => recipe.coreRecipe.Contains(glyph)).ToList();
+        return candidates.Count > 0 ? candidates[0] : null;
     }
 
     public ResourceCostList GetSpellCreateCost(List<GlyphSO> glyphs)
@@ -2401,8 +2522,12 @@ public class SpellManager
         if (!recipe.IsDiscovered() || SuppressCreation || !activeSpells.HasEmptySpot()) return;
         var spell = recipe.CreateEmpty(0);
         spell.SetLevel(recipe.GetSelectedSpellLevel());
-        spell.SetAugmentGlyphs(new Stacked.StackedIdRecord<GlyphSO>(
-            selectedAugmentGlyphs.GetFilledElements()));
+        // The stack, not the value list: an augment that only ever reached `value` is not in the
+        // spell the game bakes, however plainly it shows on the staging screen.
+        var staged = selectedAugmentGlyphs.GetStackedRecord();
+        spell.SetAugmentGlyphs(staged is null
+            ? new Stacked.StackedIdRecord<GlyphSO>()
+            : new Stacked.StackedIdRecord<GlyphSO>(staged));
         if (CreateEmptyIdentity) spell.guidContainer = new GuidContainer(Guid.Empty);
         AddSpell(spell);
         selectedCoreGlyphs.Empty();
@@ -2664,6 +2789,19 @@ namespace Stacked
             entries.FirstOrDefault(candidate => EqualityComparer<T>.Default.Equals(candidate.item, item))?.quantity ?? 0;
 
         public int GetTotalStacks() => entries.Sum(entry => entry.quantity);
+
+        public void Empty() => entries.Clear();
+
+        public List<TEntry> ToList() => new List<TEntry>(entries);
+
+        /// <summary>One element per distinct item, which is what the game writes back into the list.</summary>
+        public List<T> GetItems() => entries.Select(static entry => entry.item).ToList();
+
+        public void ImportItems(List<TEntry> items)
+        {
+            entries.Clear();
+            foreach (var entry in items) Set(entry.item, entry.quantity);
+        }
 
         public List<T> GetItemList()
         {

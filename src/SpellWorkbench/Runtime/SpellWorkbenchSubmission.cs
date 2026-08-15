@@ -25,6 +25,15 @@ internal enum SpellWorkbenchPreflight
     UsageUnaffordable = 19,
     UniqueSpellConflict = 20,
     GlyphRequirementsUnavailable = 21,
+
+    /// <summary>The suite's own staging write did not land, proved by reading it back.</summary>
+    StagedWriteFailed = 22,
+
+    /// <summary>The game matches layouts against a registry this recipe is not in.</summary>
+    RecipeNotOffered = 23,
+
+    /// <summary>The layout is a different spell's, and the game hands it to that one.</summary>
+    LayoutResolvedElsewhere = 24,
 }
 
 internal enum SpellWorkbenchNativeStage
