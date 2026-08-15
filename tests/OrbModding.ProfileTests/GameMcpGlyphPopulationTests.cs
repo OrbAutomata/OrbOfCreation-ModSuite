@@ -149,7 +149,12 @@ public sealed class GameMcpGlyphPopulationTests
 
         Assert.False((bool)refused["available"]!);
         Assert.Equal("ERR_LOCKED", (string?)refused["reasonCode"]);
-        Assert.Null(refused["augmentOptions"]);
+
+        // The options ride the refusal too: the vocabulary a caller needs in order to plan the call
+        // is worth least at the moment the call is already legal.
+        Assert.Equal(
+            GameMcpTestHarness.Handle(QuietAugmentId),
+            (string?)Assert.Single(refused["augmentOptions"]!.Values<JObject>())!["glyph"]!["uuid"]);
     }
 
     private static GameWorldState Recipe(GameWorldState world, Guid recipeId, Guid coreGlyphId) =>

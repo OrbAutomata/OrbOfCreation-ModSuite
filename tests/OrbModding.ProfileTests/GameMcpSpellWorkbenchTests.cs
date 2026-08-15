@@ -169,31 +169,64 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal("8", (string?)usage["maximum"]);
     }
 
-    [Theory]
-    [InlineData(false, 7, "ERR_LIMIT", "Every slot in this loadout is in use.")]
-    [InlineData(true, 0, "ERR_LOCKED", "This recipe's core glyph has no level yet.")]
-    public void StructurallyUnavailableLoadoutAddWithholdsLayoutOptionsAndPriceClaims(
-        bool hasEmptySlot,
-        int coreLevel,
-        string reasonCode,
-        string reason)
+    [Fact]
+    public void StructurallyUnavailableLoadoutAddWithholdsPriceClaimsButNotTheVocabulary()
     {
         var context = GameMcpTestHarness.Context(World(
             discovered: true,
             discoveryAffordable: true,
-            hasEmptySlot,
-            coreLevel: coreLevel));
+            hasEmptySlot: false));
 
         var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")));
         var decision = response["row"]!["loadoutAdd"]!;
 
         Assert.False((bool)decision["available"]!);
-        Assert.Equal(reasonCode, (string?)decision["reasonCode"]);
-        Assert.Equal(reason, (string?)decision["reason"]);
-        Assert.Null(decision["augmentOptions"]);
+        Assert.Equal("ERR_LIMIT", (string?)decision["reasonCode"]);
+        Assert.Equal("Every slot in this loadout is in use.", (string?)decision["reason"]);
         Assert.Null(decision["affordable"]);
         Assert.Null(decision["costs"]);
+        Assert.Null(decision["verbDecides"]);
+
+        // The call this page is refusing is still the call it has to teach.
+        Assert.Single(decision["augmentOptions"]!.Values<JObject>());
+    }
+
+    /// <summary>
+    /// The Beam Burst moment: a core glyph at level zero is not a rule the game's add path has, so
+    /// the page does not refuse on it — and where it does say yes, it names the gates only the verb
+    /// can settle rather than promising they pass.
+    /// </summary>
+    /// <remarks>
+    /// A round levelled two core glyphs on this page's advice, watched the predicate flip to
+    /// <c>available: yes</c>, and got the identical refusal from the verb both times. Neither the
+    /// verb nor the game's own create button reads a core glyph's level anywhere; the sentence the
+    /// player was acting on was this suite's own, attributed to the game.
+    /// </remarks>
+    [Fact]
+    public void LoadoutAddNeitherInventsACoreGlyphLevelRuleNorPromisesTheVerbsLiveGates()
+    {
+        var context = GameMcpTestHarness.Context(World(
+            discovered: true,
+            discoveryAffordable: true,
+            hasEmptySlot: true,
+            coreLevel: 0));
+
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            context, "spell-recipes", RecipeId.ToString("D")));
+        var decision = response["row"]!["loadoutAdd"]!;
+
+        Assert.True((bool)decision["available"]!);
+        Assert.Null(decision["reasonCode"]);
+        Assert.Equal(
+            new[]
+            {
+                "glyph layout resolution",
+                "creation price",
+                "usage budget",
+                "unique-spell rule",
+            },
+            decision["verbDecides"]!.Values<string>());
     }
 
     [Fact]

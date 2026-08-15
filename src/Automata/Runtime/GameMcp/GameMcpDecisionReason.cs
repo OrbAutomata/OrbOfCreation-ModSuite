@@ -196,8 +196,8 @@ internal static class GameMcpDecisionReason
         "hidden_or_undiscovered" or "undiscovered" or "not_discovered" or "progression_locked" or
         "requirements_unmet" or "usage_requirements_unmet" or
         "native_prerequisites_currently_unmet" or "develop_range_refused" or
-        "native_not_discoverable" or "discovery_unavailable" or "core_glyph_not_owned" or
-        "core_glyph_not_leveled" or "core_glyph_augments_only" or "selection_restricted" or
+        "native_not_discoverable" or "discovery_unavailable" or
+        "core_glyph_augments_only" or "selection_restricted" or
         "selection_hidden" or "cannot_level" or "resources_hidden" or
         "recipe_not_discovered" or "prerequisites_unmet" or "not_discovered_or_offered" or
         "collector_not_listable" or
@@ -409,8 +409,9 @@ internal static class GameMcpDecisionReason
         // Core-glyph vocabulary
         "recipe_has_no_core_glyph" => "This recipe names no core glyph.",
         "core_glyph_not_published" => "The game did not report this recipe's core glyph.",
-        "core_glyph_not_owned" => "This recipe's core glyph is not owned.",
-        "core_glyph_not_leveled" => "This recipe's core glyph has no level yet.",
+        // `core_glyph_not_owned` and `core_glyph_not_leveled` were retired with the predicate that
+        // produced them: neither names a gate the game's add path has, and both were being read as
+        // the game's own rule.
         "core_glyph_augments_only" => "This recipe's core glyph may only be used as an augment.",
 
         _ => Restate(reasonCode),

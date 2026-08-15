@@ -5689,15 +5689,33 @@ internal static class GameMcpWorldQuery
             var available = world.SpellWorkbench.HasEmptySlot && coreUsable;
             next["available"] = available;
             next["requiresGlyphLayout"] = true;
-            if (available)
+            if (!available)
             {
-                var options = ProjectOwnedAugmentOptions(world);
-                if (options.Count > 0) next["augmentOptions"] = options;
+                next["reasonCode"] = world.SpellWorkbench.HasEmptySlot
+                    ? coreReasonCode
+                    : "loadout_full";
             }
-            else if (!world.SpellWorkbench.HasEmptySlot)
-                next["reasonCode"] = "loadout_full";
-            else if (!coreUsable)
-                next["reasonCode"] = coreReasonCode;
+            else
+            {
+                // Four of the verb's gates read facts no recipe row carries: whether the game
+                // resolves the exact glyphs the caller has not passed yet to this spell, what it
+                // charges for them, whether the loadout's spell weight covers the candidate, and
+                // whether the created spell would be loadout-unique. The page names them as the
+                // verb's to decide rather than predicting them, so `available: yes` says only what
+                // it can prove — that nothing readable here refuses.
+                var verbDecides = new JArray();
+                verbDecides.Add("glyph layout resolution");
+                verbDecides.Add("creation price");
+                verbDecides.Add("usage budget");
+                verbDecides.Add("unique-spell rule");
+                next["verbDecides"] = verbDecides;
+            }
+
+            // Published on both sides of the answer. The vocabulary a caller needs in order to plan
+            // the call used to appear only once the call was already legal, so while the page was
+            // refusing you it could not teach you the call it was refusing.
+            var options = ProjectRecipeAugmentOptions(world, in recipe);
+            if (options.Count > 0) next["augmentOptions"] = options;
         }
         else
         {
@@ -6480,8 +6498,33 @@ internal static class GameMcpWorldQuery
         return result;
     }
 
-    private static JArray ProjectOwnedAugmentOptions(GameWorldState world)
+    /// <summary>
+    /// The augments this recipe can actually carry, with the ceiling on each.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This took no recipe at all and emitted every owned augment, so the same three rows appeared
+    /// under every discovered recipe on the surface — the function's definition rather than a
+    /// symptom of one. The game has no per-recipe augment whitelist, but it does have two
+    /// per-recipe constraints, and the world already published both halves of each without ever
+    /// joining them: <c>GlyphSO.MeetsNonLvRequirements</c> refuses an augment that requires a
+    /// duration unless the spell is a duration spell and one that requires a toggle unless the
+    /// spell is toggled, and <c>GetMaxUsages()</c> is the per-glyph ceiling.
+    /// </para>
+    /// <para>
+    /// The toggle half is decidable off the published cast type. The duration half is not, in one
+    /// direction only: an instant-cast recipe can still be a duration spell through its own cast
+    /// effects, which the world does not publish. So an augment requiring duration is dropped from
+    /// no recipe, and keeps its <c>requiresDuration</c> flag, which is what a reader needs in order
+    /// to see the condition that is still open. A predicate that cannot be pre-read is not
+    /// predicted in either direction.
+    /// </para>
+    /// </remarks>
+    private static JArray ProjectRecipeAugmentOptions(
+        GameWorldState world,
+        in WorldSpellRecipe recipe)
     {
+        var toggled = SpellIsToggled(world, recipe.EntityId);
         var options = new JArray();
         for (var index = 0; index < world.Glyphs.Count; index++)
         {
@@ -6490,6 +6533,8 @@ internal static class GameMcpWorldQuery
             // The augments are the discoverable population, all 22 of them. Gating on
             // `augmentsSpells` dropped Distinct, Weak and Wrath from the options a player holds.
             if (!glyph.Discoverable || !glyph.Learned || glyph.Level <= 0) continue;
+            if (glyph.RequiresToggleable && !toggled) continue;
+            if (glyph.MaximumUsages <= 0) continue;
             var option = new JObject
             {
                 ["glyphId"] = glyph.GlyphId.ToString("D"),
@@ -6498,17 +6543,46 @@ internal static class GameMcpWorldQuery
                 ["masteryRequirement"] = glyph.MasteryReqCount,
             };
             if (glyph.FreeLevels != 0) option["bonusLevel"] = glyph.FreeLevels;
-            if (glyph.RequiresDuration) option["requiresDuration"] = true;
-            if (glyph.RequiresToggleable) option["requiresToggleable"] = true;
+            if (glyph.RequiresDuration && !toggled) option["requiresDuration"] = true;
             options.Add(option);
         }
         return options;
     }
 
     /// <summary>
-    /// Whether this recipe's core glyphs can carry a spell, and when they cannot, which fact stops
-    /// them. One code for four different facts told a player holding the glyph to go acquire it.
+    /// Whether this recipe's spell is toggled, which is the half of
+    /// <c>GlyphSO.MeetsNonLvRequirements</c> the world can answer exactly.
     /// </summary>
+    /// <remarks>
+    /// <c>Spell.IsToggledSpell()</c> is <c>castType is 1 or 2</c> and nothing else, so the
+    /// published cast type settles it. <c>IsDurationSpell()</c> is that same test plus a sweep of
+    /// the recipe's own cast effects, so a toggled spell is always a duration spell too, and an
+    /// instant one may still be — which is why only the affirmative direction is used here.
+    /// </remarks>
+    private static bool SpellIsToggled(GameWorldState world, Guid recipeId) =>
+        WorldSpellGraphLookup.TryFindAuthoring(
+            world.SpellRecipeAuthoring, recipeId, out var authoring) &&
+        authoring.CastType is 1 or 2;
+
+
+    /// <summary>
+    /// Whether this recipe's core glyphs can carry a spell, and when they cannot, which fact stops
+    /// them — restricted to the facts the verb itself refuses on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This used to refuse on the core glyph being unowned or at level zero, and there is no such
+    /// gate anywhere in the game's add path: the recipe owns its core, the verb reads it straight
+    /// off the recipe, and the level check the verb does run applies only to the augments a caller
+    /// named. So the page was inventing a rule and then attributing it to the game — a player who
+    /// levelled a core glyph on that advice saw only this predicate flip, and the add refused
+    /// exactly as before, on a fact neither side had mentioned.
+    /// </para>
+    /// <para>
+    /// What is left is the verb's own gate 8, which refuses a recipe with no authored core or one
+    /// whose core holds an augment, plus the suite-side publication gap.
+    /// </para>
+    /// </remarks>
     private static bool SpellCoreUsable(
         GameWorldState world,
         in WorldSpellRecipe recipe,
@@ -6526,16 +6600,6 @@ internal static class GameMcpWorldQuery
                     world.Glyphs, recipe.CoreGlyphs[index].GlyphId, out var glyph))
             {
                 reasonCode = "core_glyph_not_published";
-                return false;
-            }
-            if (!glyph.Learned)
-            {
-                reasonCode = "core_glyph_not_owned";
-                return false;
-            }
-            if (glyph.Level <= 0)
-            {
-                reasonCode = "core_glyph_not_leveled";
                 return false;
             }
             // Same population split as the compose resolver: a recipe's core slot holds one of the
