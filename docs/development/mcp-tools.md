@@ -262,12 +262,14 @@ than printing itself into a cell.
 - **A refusal is one line**: `refused (ERR_NOT_FOUND): The spell Beam Burst you tried to cancel is
   not currently active.` A decision block reads the same way, verdict first and sentence last:
   `equip: no (ERR_LIMIT) maximumAmount=0: Every slot in this loadout is in use.`
-- **A canned sentence is said once per response.** The first line carrying a given `ERR_` sentence
-  carries the whole of it; every later line in the same response that would repeat that exact
-  sentence carries the class alone. A response with one refusal in it is therefore byte-identical
-  to what it was, and a batch of two hundred blocked rows stops paying for the same paragraph two
-  hundred times. Sentences a producer wrote for the occasion — the ones holding this row's own
-  numbers — are not canned and are never deduplicated.
+- **A canned sentence is said once per decision.** The first line under a given key carrying a given
+  `ERR_` sentence carries the whole of it; every later line under that same key that would repeat
+  that exact sentence carries the class alone. A response with one refusal in it is therefore
+  byte-identical to what it was, and a batch of two hundred blocked rows — all of them under one
+  key — stops paying for the same paragraph two hundred times. Two differently named decisions that
+  happen to share a reason code each keep their sentence: a saving that leaves the second no as a
+  bare class reads as a second, unexplained wall. Sentences a producer wrote for the occasion — the
+  ones holding this row's own numbers — are not canned and are never deduplicated.
 - **A value beside its ceiling is `43/45`**, the way the screen shows it, and **a value that moved
   is `1 -> 2`**. A pair whose halves are equal describes a move that did not happen, so the page
   states the value once: a toggle that was already off answers `on: no`, never `on: no -> no`. The
@@ -1512,15 +1514,24 @@ The MCP-only offer sequence is seven calls when two offers need explanations:
 `spell-recipes` is the pre-decision surface for both Spellcraft discovery and loadout add. Each
 named row contains the authored ordered `coreGlyphs` with current owned and bonus levels, every
 equipped runtime instance of that recipe, and the shared `loadBudget` of used/maximum slots plus
-`fitsAnotherSpell`. An undiscovered recipe exposes `discover`, including the `surface` and the
-ordered `components` to submit; a discovered recipe exposes `loadoutAdd`. Discovery carries its
-named exact costs, spendable amounts, affordability, and stable false reason. Loadout add truthfully
-reports only structural admission plus `requiresGlyphLayout:true`: its price depends on the explicit
-augments that have not yet been chosen. A structural refusal is `loadout_full`, or the one thing
-that is actually wrong with the core glyph — `recipe_has_no_core_glyph`, `core_glyph_not_published`,
-`core_glyph_not_owned`, `core_glyph_not_leveled`, or `core_glyph_augments_only`; the retired
-`core_glyphs_unavailable` covered all five under one word. There is no selection step and no
+`fitsAnotherSpell`, and the `usageBudget` rows the add gate weighs a candidate against — each
+spell-weight resource with its `headroom`, `used`, and `maximum`. An undiscovered recipe exposes
+`discover`, including the `surface` and the ordered `components` to submit; a discovered recipe
+exposes `loadoutAdd`. Discovery carries its named exact costs, spendable amounts, affordability, and
+stable false reason. Loadout add truthfully reports only structural admission plus
+`requiresGlyphLayout:true`: its price depends on the explicit augments that have not yet been
+chosen. A structural refusal is `loadout_full`, or the one thing that is actually wrong with the
+core glyph — `recipe_has_no_core_glyph`, `core_glyph_not_published`, or `core_glyph_augments_only`;
+the retired `core_glyphs_unavailable` covered them under one word. There is no selection step and no
 target-first `create`: the game exposes neither.
+
+Where the page says `available: yes` it also names `verbDecides` — the gates only a live resolution
+settles, in the order the verb applies them: glyph layout resolution, creation price, usage budget,
+unique-spell rule. The page predicts what it can read and promises nothing about the rest; it never
+states a rule the game's add path does not have. `augmentOptions` is a per-recipe answer, filtered
+to the augments this recipe admits and carrying each one's usable ceiling, and it is published
+beside a refusal as well as beside a yes — the call the page refuses is still the call it has to
+teach.
 
 A detailed row also carries the recipe's authored half, which is what the spell is before any
 modifier touches it: `casting`, `authoredCosts` split into `cast` / `upkeep` / `hold` with each
@@ -1557,14 +1568,15 @@ The MCP-only base-recipe sequence is:
 3. If an equipped instance is wanted, call
    `game_spell_loadout(mode="preview", uuid=..., glyphs=[...])`. This read resolves and prices the
    submitted layout through the same native manager methods used by add, without touching the
-   player's staged UI selection. It returns named per-resource costs, overall affordability,
-   and the named short resource when unaffordable — not the recipe, which is the caller's own
-   argument read back. It runs every admission
-   `add` runs before `add` stages anything — craftability, glyph duration/toggle requirements,
-   usage requirements and budget, a free loadout slot, and loadout uniqueness — so a preview that
-   comes back priced is a layout `add` will not refuse on the same arguments. Price stays an answer
-   rather than a refusal: an unaffordable layout is priced with `affordable: false` and the short
-   resource named.
+   player's staged UI selection. It names `resolvesTo` — the spell this layout actually resolves to
+   — and returns named per-resource costs, overall affordability, and the named short resource when
+   unaffordable. A layout with no price has no `affordable` claim beside it: an empty layout costs
+   an empty cost list, and "this is free" read as "this will work" for a whole round. It runs every
+   admission `add` runs before `add` stages anything — craftability, glyph duration/toggle
+   requirements, usage requirements and budget, a free loadout slot, and loadout uniqueness — so a
+   preview that comes back priced is a layout `add` will not refuse on the same arguments. Price
+   stays an answer rather than a refusal: an unaffordable layout is priced with `affordable: false`
+   and the short resource named.
 4. Call `game_spell_loadout(mode="add", uuid=..., glyphs=[...])` with that same layout. Adding is
    the only mutation where the layout is chosen; it is baked into the created runtime spell.
 
@@ -1592,8 +1604,9 @@ changed dial as `before` and `after` plus the `maximum` the read publishes.
 
 There is deliberately no in-place augment editor. The visible game has none: glyph layout is chosen
 on the library candidate before add, and changing it is remove → relayout → re-add. A discovered
-recipe's `loadoutAdd.augmentOptions` names the owned augments — the discoverable population, all 22
-of them — only where choosing them is the next decision.
+recipe's `loadoutAdd.augmentOptions` names the augments *this* recipe admits — the owned population
+filtered by the game's own non-level requirement check against a candidate of that recipe, each with
+the count it may be used to — and it rides the decision whether that decision is a yes or a no.
 
 ### Spell loadout loop
 
@@ -1602,8 +1615,12 @@ the recipe the equipped spell was baked from, its slot, active cast/ready/attune
 applicable, the game's current remove verdict, and whether that spell can move at all. Where it can
 move is the slot list, which is one read for the whole bar: inlined per spell, explaining eight
 spells delivered the same eight-slot roster eight times. Augment choices
-appear only on a discovered recipe's `loadoutAdd` decision. `loadBudget` — `used`, `maximum`, and
-`fitsAnotherSpell` — rides on every detailed `spell-recipes` row, so capacity is known before add.
+appear only on a discovered recipe's `loadoutAdd` decision. `loadBudget` — `used`, `maximum`,
+`fitsAnotherSpell`, and the `usageBudget` rows — rides on every detailed `spell-recipes` row, so
+both budgets are known before add. The spot count and the usage budget are different gates: a
+loadout can have an empty slot and still refuse every spell that would fit in it, which is why the
+resources the usage gate weighs a candidate against are named with their headroom rather than left
+for the caller to guess from the whole resource table.
 
 An equipped spell is a runtime instance, and the catalog publishes assets, so that instance has no
 handle any tool can resolve. The row therefore carries no id of its own: the recipe names the spell
@@ -1625,7 +1642,9 @@ The MCP-only loadout sequence is:
    slot pair. A swap that reported only the half the caller named left the other spell at an
    address the caller's model no longer had.
 6. Call `game_spell_loadout(mode="remove", slot=...)` only when that row's `remove.available` is
-   true; success returns the removed spell's former slot.
+   true; success returns the full `slot: N -> empty` move, the `loadBudget` it freed with both
+   budgets as `before -> after`, and `oneWay` — the game destroys the spell instance, so the way
+   back is another add and another creation price.
 
 `staged` accepts no other field. The `uuid` means a recipe and belongs to `preview`/`add` only;
 `slot` addresses the loadout bar for `remove`/`move`, and `destination` belongs to `move` only.
@@ -1635,7 +1654,21 @@ field.
 Add reproduces the library button's own admission order: it creates the native candidate, applies
 the recipe's selected level and the requested glyphs, then requires recipe usage requirements,
 computed usage-cost affordability, unique-spell compatibility, loadout capacity, per-glyph usable
-counts, and non-level glyph requirements before payment, which is taken last. Remove and move
+counts, and non-level glyph requirements before payment, which is taken last.
+
+Add stages the layout the way the game stages it — the core through the list setter
+`SpellManager.InsertSpellRecipeGlyphs` uses, the augments through the stack the created spell is
+baked from — and then reads the staging back and compares it to what it asked for. The list `Add`
+the staging step used to call returns without writing on three of its branches and says nothing, so
+a short write used to surface as "this layout does not resolve"; a write that lands in the value
+list but not in the stack used to bake a zero-augment spell and fail verification *after* payment.
+Staging that does not read back is now `staged_write_failed` (`ERR_UNAVAILABLE`) naming what was
+written and what came back, and it is refused before anything is spent. Resolution refusals name
+what the layout did resolve to: `layout_resolves_to_other_spell` (`ERR_NOT_FOUND`) names that other
+spell, and `recipe_not_offered` (`ERR_NOT_FOUND`) names the registry gap — the game matches a layout
+against the recipes it currently offers, by core-glyph count and membership, first fit wins.
+
+Remove and move
 re-resolve the named slot and the native remove verdict or slot range on the Unity main thread.
 Every mode acquires the family permit last and verifies only requested identity/outcome. Weight,
 glyph usage, drain, and resource accounting are observations, not gates. There is no generation,
@@ -2192,7 +2225,9 @@ What each internal code means is below; the class is how it reaches the wire.
 | `screen_match_failed` / `subtab_match_failed` | The exact label matched zero or several live entries | `game_navigate` |
 | `no_pending_target` | No target selection is open. The verb exists and the submitted target was never the problem, so no entity-ownership hint refines it | `game_targeting` |
 | `requirements_unmet` / `research_leeway_exhausted` / `already_developing` | The develop gate the read side already names, on the mutation that hit it | `game_research develop` |
-| `recipe_has_no_core_glyph` / `core_glyph_not_published` / `core_glyph_not_owned` / `core_glyph_not_leveled` / `core_glyph_augments_only` | The one thing wrong with the recipe's core glyph, replacing the single `core_glyphs_unavailable` that covered all five | `spell-recipes` loadout-add decisions |
+| `recipe_has_no_core_glyph` / `core_glyph_not_published` / `core_glyph_augments_only` | The one thing wrong with the recipe's core glyph, replacing the single `core_glyphs_unavailable` that covered them all. `core_glyph_not_owned` and `core_glyph_not_leveled` are retired: neither ownership nor level is a gate the game's add path reads, and a page that refuses on a rule the verb does not have costs a caller the whole call | `spell-recipes` loadout-add decisions |
+| `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so nothing was submitted and nothing was spent. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout preview`, `game_spell_loadout add` |
+| `layout_resolves_to_other_spell` / `recipe_not_offered` | The layout resolves, but to a different spell — which the sentence names — or the requested recipe is not among the ones the game currently offers. One sentence used to cover both plus two more causes | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `discover` decisions, pool-unlocker glyphs |
 | `projection_refused` | The suite's own resource-rate policy refuses the assignment; the game did not | `game_concept` |
 | `owning_screen_unknown` / `owning_screen_unreadable` / `owning_screen_contradictory` / `owning_screen_status_unmodelled` / `owning_screen_availability_unreadable` / `topology_not_captured` | The five distinct ways the purchase-screen admission chain says no, which used to share one number. Only `topology_not_captured` is fixed by waiting for the next lifecycle; its sentence names the epoch the topology is stamped at, the epoch the call asked for, and how many rows it holds | `game_purchase` |
@@ -2846,6 +2881,13 @@ different question than the caller asked. Every row carries the name the Mods ra
 Buy", "Orb Mentor" — because a page that published one only where it was not the feature id in
 title case left `-` on six of seven rows, which reads as a feature the suite could not name, and
 asked the reader to derive the rest by a rule the page never stated.
+
+`on` is a config value, so a row whose runtime disagrees with it adds `runtime` — the state and
+reason code `suite_health` prints for that same feature, in the same words, e.g.
+`locked (progression_locked)`. It follows the suite-override rule beside it and appears exactly
+where it contradicts the switch: a running feature and a feature the runtime never reported both
+leave the row as it was. Config-on plus progression-locked is one answer rather than two calls and
+a name-by-name join.
 
 Both switches are present exactly when they are overriding, and never otherwise:
 `automationEnabled: false` appears exactly when the suite's global automation toggle is off, and
