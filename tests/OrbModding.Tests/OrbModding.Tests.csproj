@@ -32,6 +32,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../TestSupport/**/*.cs" Link="TestSupport/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="../../data/entity-mappings.tsv" Link="data/entity-mappings.tsv" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../data/entity-types.tsv" Link="data/entity-types.tsv" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../data/known-entities.tsv" Link="data/known-entities.tsv" CopyToOutputDirectory="PreserveNewest" />
