@@ -142,10 +142,11 @@ public sealed class GameMcpWorldQueryTests
             new[] { "uuid", "name", "category", "row", "predicates" },
             block.Children<JProperty>().Select(property => property.Name));
         Assert.Equal(
-            new[] { "amount", "capacity", "netRatePerSecond", "atCapacity" },
+            new[] { "meter", "amount", "capacity", "netRatePerSecond", "atCapacity" },
             row.Children<JProperty>().Select(property => property.Name));
         Assert.Equal("Knowledge", (string?)block["name"]);
         Assert.Equal("resources", (string?)block["category"]);
+        Assert.Equal("held", (string?)row["meter"]);
         Assert.Equal("5e24", (string?)row["amount"]);
         Assert.Equal("8e26", (string?)row["capacity"]);
         Assert.Equal("1.4e21", (string?)row["netRatePerSecond"]);
@@ -158,8 +159,9 @@ public sealed class GameMcpWorldQueryTests
         Assert.Null(row["modifiers"]);
         // The detail read costs what the detail costs: identity said once and the decisions the
         // merge folded in, on top of the row a list page would have shown. It costs 26 bytes less
-        // than it did for saying `nativeType: ResourceSO` beside a category that means exactly that.
-        Assert.Equal(237, System.Text.Encoding.UTF8.GetByteCount(
+        // than it did for saying `nativeType: ResourceSO` beside a category that means exactly
+        // that, and 15 more than that for the one word that says which way the pair reads.
+        Assert.Equal(252, System.Text.Encoding.UTF8.GetByteCount(
             response.ToString(Newtonsoft.Json.Formatting.None)));
 
         var list = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(

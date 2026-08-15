@@ -123,6 +123,37 @@ internal static class GameMcpListColumns
     internal const string Unreadable = "unreadable";
 
     /// <summary>
+    /// The pair of numbers a resource row publishes reads the ordinary way round: <c>amount</c> is
+    /// what is stored and <c>capacity</c> is the ceiling it may reach.
+    /// </summary>
+    internal const string MeterHeld = "held";
+
+    /// <summary>
+    /// The counter runs the other way. <c>amount</c> is what is <em>left</em> of <c>capacity</c>,
+    /// and it falls as the total is used and rises only as the total grows.
+    /// </summary>
+    /// <remarks>
+    /// Thirteen resources of this build carry the game's own <c>invertedResource</c> flag — the
+    /// twelve advancement currencies and Toxicity — and their counters render
+    /// <c>GetMissing() / maxQuantity</c>. Glyph Upgrades at 50/80 is fifty still to invest out of
+    /// eighty ever earned, with thirty already committed; every consumer not told so read it as
+    /// fifty held with room for thirty more, which is the reading that plans backwards. The numbers
+    /// stay the screen's numbers and this word says which way to read them. Detection is the
+    /// captured trait and never a name list.
+    /// </remarks>
+    internal const string MeterLeft = "left";
+
+    /// <summary>
+    /// A <see cref="MeterLeft"/> row whose amount is its whole capacity: none of the total has been
+    /// used. This is the word that replaces <c>atCapacity: yes</c> on those rows, where the plain
+    /// yes read as "stuck at the ceiling" and meant its exact opposite.
+    /// </summary>
+    internal const string NothingUsed = "nothing_used";
+
+    /// <summary>A <see cref="MeterLeft"/> row with less left than its capacity: some is committed.</summary>
+    internal const string SomeUsed = "some_used";
+
+    /// <summary>
     /// Which of the two families of glyph a row belongs to, and therefore which question its other
     /// columns are answers to.
     /// </summary>
@@ -456,7 +487,7 @@ internal static class GameMcpListColumns
         ["discovery-trees"] = new[] { "entityId", "mode" },
         ["resources"] = new[]
         {
-            "entityId", "category", "amount", "capacity", "netRatePerSecond", "atCapacity",
+            "entityId", "category", "meter", "amount", "capacity", "netRatePerSecond", "atCapacity",
         },
         ["player-loadouts"] = new[] { "name", "selected" },
         ["snapshot-loadouts"] = new[] { "name", "kind", "slots" },

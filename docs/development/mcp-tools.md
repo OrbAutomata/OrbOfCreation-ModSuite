@@ -1052,14 +1052,27 @@ carry that number. Cost rows use `spendableAmount` for the native admission oper
 inverted/bandwidth flags never overload one field with two meanings. These fields use the same exact combiner as Auto Buy and do not
 include Auto Buy's configurable reserve or excess policy.
 
-A `resources` row is deliberately only named identity, the counter's on-screen `amount`,
+A `resources` row is deliberately only named identity, `meter`, the counter's on-screen `amount`,
 `netRatePerSecond`, `capacity` and `atCapacity`. A resource with no storage ceiling reads `uncapped`
-under both of the last two: the game's uncapped marker is a negative native capacity, which is never
-serialized as a magnitude, and a bare `atCapacity: no` would answer "is it full" about a counter
-that cannot fill. Where a ceiling does apply, `atCapacity`
-answers in the same coordinate as `amount`: it is true exactly when the published `amount` reached
-`capacity`, so an inverted counter reading `amount: 0` is not at capacity and one reading its whole
-pool is. Detailed
+under `capacity` and `atCapacity`: the game's uncapped marker is a negative native capacity, which
+is never serialized as a magnitude, and a bare `atCapacity: no` would answer "is it full" about a
+counter that cannot fill.
+
+**`meter` says which way the pair reads.** `held` is the ordinary counter — `amount` is what is
+stored, `capacity` is the ceiling it may reach. `left` is the inverted one: `amount` is what is
+**left** of `capacity`, it falls as the total is used, and it rises only when more is earned. The
+thirteen resources carrying the game's own `invertedResource` flag — the twelve advancement
+currencies and Toxicity — render `GetMissing() / maxQuantity` on screen, so Glyph Upgrades at
+`amount: 50, capacity: 80` is fifty still to invest out of eighty ever earned, with thirty already
+committed. The numbers are the screen's numbers either way and nothing is recomputed; the word is
+what stops a bare pair being read as fifty held with room for thirty more, which is the reading that
+plans backwards. The column is filled from the captured trait, never from a list of names.
+
+Where a ceiling applies, `atCapacity` answers in the same coordinate as `amount`: it is true exactly
+when the published `amount` reached `capacity`. On a `left` row that is true exactly when *nothing*
+has been used, so a plain `yes` there read as "stuck at the ceiling" and meant its precise opposite.
+Those rows answer `nothing_used` or `some_used` instead — the same bit, in words that cannot be read
+the wrong way round. Detailed
 factor math will belong to a future Details-panel tool; it is not leaked through world rows.
 
 Research rows distinguish the native evaluator's base and effective requirement levels. Their
@@ -2573,6 +2586,7 @@ absence is spelled:
 | `upgrades` | `affordable` | `unpriced` | — |
 | `structures` | `affordable` | `unpriced` | — |
 | `resources` | `capacity`, `atCapacity` | `uncapped` | — |
+| `resources` | `atCapacity` on a `meter: left` row | `nothing_used` / `some_used` | — |
 | `purchase-costs` | `spendableAmount`, `affordable` | `unevaluated` | — |
 | `alchemy-instances` | `drainRatio` | `unreadable` | `drainReadable` |
 | `alchemy-loadout` | `slot` | `unslotted` | — |

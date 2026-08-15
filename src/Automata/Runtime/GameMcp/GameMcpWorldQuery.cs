@@ -6939,13 +6939,37 @@ internal static class GameMcpWorldQuery
         return result;
     }
 
+    /// <summary>
+    /// One resource row: which way its counter runs, and then the numbers the screen shows.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The numbers are the screen's, both ways round, and they are not touched here. What
+    /// <c>meter</c> adds is the word for which reading they take: an inverted counter renders
+    /// <c>GetMissing() / maxQuantity</c>, so Glyph Upgrades at 50/80 is fifty left to invest of
+    /// eighty earned, with thirty already committed — and published as a bare pair it read, to any
+    /// consumer not told otherwise, as fifty held with room for thirty more. That reading plans
+    /// backwards: the amount falls as the player progresses and rises only when more is earned.
+    /// </para>
+    /// <para>
+    /// <c>atCapacity</c> says the same thing twice on those rows and said it in the wrong words.
+    /// It compares the displayed number with the ceiling, so on an inverted counter it is true
+    /// exactly when nothing has been used — the plain <c>yes</c> read as "stuck at the ceiling"
+    /// and meant its precise opposite. Those rows answer with the used-ness word instead, which
+    /// cannot be read either way but the one it means.
+    /// </para>
+    /// </remarks>
     internal static GameMcpValue ProjectResource(GameWorldState world, in WorldResource resource)
     {
         var amount = WorldResourceCoordinate.DisplayAmount(in resource);
+        var inverted = resource.Reading.Traits.InvertedResource;
         var result = new JObject
         {
             ["entityId"] = resource.EntityId.ToString("D"),
             ["category"] = "resources",
+            ["meter"] = inverted
+                ? GameMcpListColumns.MeterLeft
+                : GameMcpListColumns.MeterHeld,
             ["amount"] = new GameMcpDomainValue(amount),
 
             // A resource with no storage ceiling says so under both keys. Publishing the native
@@ -6955,11 +6979,18 @@ internal static class GameMcpWorldQuery
                 ? new GameMcpDomainValue(resource.Reading.Capacity)
                 : (object)GameMcpListColumns.Uncapped,
             ["netRatePerSecond"] = new GameMcpDomainValue(resource.TrueRate),
-            ["atCapacity"] = resource.IsCapped
-                ? resource.IsAtCapacity
-                : (object)GameMcpListColumns.Uncapped,
+            ["atCapacity"] = AtCapacityCell(in resource, inverted),
         };
         return result.Freeze();
+    }
+
+    private static object AtCapacityCell(in WorldResource resource, bool inverted)
+    {
+        if (!resource.IsCapped) return GameMcpListColumns.Uncapped;
+        if (!inverted) return resource.IsAtCapacity;
+        return resource.IsAtCapacity
+            ? GameMcpListColumns.NothingUsed
+            : GameMcpListColumns.SomeUsed;
     }
 
     internal static BigDouble SpendableAmount(

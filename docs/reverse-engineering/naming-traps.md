@@ -60,6 +60,12 @@ asset name.
 - **A screen label is not an entity label.** Twelve of the eighteen within-type display-name
   collisions are `ViewSO` assets, including "Upgrade", which names three separate views. Resolve a
   screen through the translation table above, not through the display-name file.
+- **Thirteen resources count what is left, not what is held.** A `ResourceSO` carrying
+  `invertedResource = 1` stores what has been spent and shows the player the remainder, so the
+  number on screen is `capacity − quantity`. The twelve `Points*` advancement currencies and
+  `PotionToxicity` carry the flag on this build. Reading `quantity` as a holding inverts the
+  answer, and a stored zero — the state a player reads as "all of it still available" — is what
+  the raw fields call full. Detect it by the flag, never by a name list.
 
 ## Resolving a label to an identity
 

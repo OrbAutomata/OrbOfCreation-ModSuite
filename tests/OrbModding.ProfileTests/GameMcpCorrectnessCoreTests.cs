@@ -29,6 +29,13 @@ public sealed class GameMcpCorrectnessCoreTests
     /// counter is full when its displayed number reaches the ceiling. Potion Toxicity showing 0 of
     /// its tolerance is not at capacity; Stability showing its whole pool is.
     /// </summary>
+    /// <remarks>
+    /// The same rows pin what the reading is called. An inverted counter says <c>meter: left</c>,
+    /// because its <c>amount</c> is what is left of its <c>capacity</c> and falls as the total is
+    /// used; every other row says <c>held</c>. And on a <c>left</c> row the full/not-full bit is
+    /// said in used-ness words — Stability's whole pool showing means <c>nothing_used</c>, and a
+    /// plain <c>yes</c> there read as stuck while meaning the opposite.
+    /// </remarks>
     [Fact]
     public void ResourceCoordinatesCoverEveryBandwidthAndInvertedQuadrant()
     {
@@ -74,19 +81,26 @@ public sealed class GameMcpCorrectnessCoreTests
         };
 
         AssertCoordinates(
-            world, 0, ordinaryId, display: "3", spendable: 3, cost: 50, atCapacity: false);
+            world, 0, ordinaryId, display: "3", spendable: 3, cost: 50,
+            meter: "held", atCapacity: false);
         AssertCoordinates(
-            world, 1, spellCapacityId, display: "3", spendable: 7, cost: 100, atCapacity: false);
+            world, 1, spellCapacityId, display: "3", spendable: 7, cost: 100,
+            meter: "held", atCapacity: false);
         AssertCoordinates(
-            world, 2, potionToxicityId, display: "0", spendable: 10, cost: 50, atCapacity: false);
+            world, 2, potionToxicityId, display: "0", spendable: 10, cost: 50,
+            meter: "left", atCapacity: "some_used");
         AssertCoordinates(
-            world, 3, glyphUpgradesId, display: "0", spendable: 0, cost: 100, atCapacity: false);
+            world, 3, glyphUpgradesId, display: "0", spendable: 0, cost: 100,
+            meter: "left", atCapacity: "some_used");
         AssertCoordinates(
-            world, 4, stabilityId, display: "10", spendable: 0, cost: 50, atCapacity: true);
+            world, 4, stabilityId, display: "10", spendable: 0, cost: 50,
+            meter: "left", atCapacity: "nothing_used");
         AssertCoordinates(
-            world, 5, timeAdvancementId, display: "6", spendable: 4, cost: 50, atCapacity: false);
+            world, 5, timeAdvancementId, display: "6", spendable: 4, cost: 50,
+            meter: "left", atCapacity: "some_used");
         AssertCoordinates(
-            world, 6, arcanumId, display: "10", spendable: 10, cost: 50, atCapacity: true);
+            world, 6, arcanumId, display: "10", spendable: 10, cost: 50,
+            meter: "held", atCapacity: true);
 
         var costs = Assert.IsType<JArray>(GameMcpDocumentJsonEncoder.Encode(
             GameMcpWorldQuery.ProjectEquippedSpellCosts(
@@ -105,14 +119,16 @@ public sealed class GameMcpCorrectnessCoreTests
         string display,
         int spendable,
         int cost,
-        bool atCapacity)
+        string meter,
+        object atCapacity)
     {
         var row = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
             GameMcpWorldQuery.ProjectResource(world, world.Resources[index]),
             world.EntityIdentities));
+        Assert.Equal(meter, (string?)row["meter"]);
         Assert.Equal(display, (string?)row["amount"]);
         Assert.Equal("10", (string?)row["capacity"]);
-        Assert.Equal(atCapacity, (bool)row["atCapacity"]!);
+        Assert.Equal(atCapacity, ((JValue)row["atCapacity"]!).Value);
         Assert.Equal(new BigDouble(spendable),
             GameMcpWorldQuery.SpendableAmount(world, resourceId, BigDouble.Zero));
         Assert.Equal(new BigDouble(cost),
