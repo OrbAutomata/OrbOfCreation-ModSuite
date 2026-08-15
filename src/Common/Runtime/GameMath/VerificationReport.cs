@@ -16,10 +16,12 @@ namespace OrbModding.Common.Runtime.GameMath;
 /// degraded one was one word buried sixty lines in.
 /// </para>
 /// <para>
-/// Every check renders one line — its verdict word and its counts — and only a check that did not
-/// agree renders anything more. Agreeing lines are not noise: a check that ran and agreed and a check
-/// that never ran are the same silence otherwise, and a reader who cannot tell them apart cannot tell
-/// what the top-line verdict is a verdict over. The body stays one line per check either way.
+/// Every check that did not simply agree renders its own line — its verdict word and its counts —
+/// and only a check that did not agree renders anything more. The checks that agreed and had nothing
+/// else to say share one line naming every one of them and the count each agreed on. Agreeing checks
+/// are not noise: a check that ran and agreed and a check that never ran are the same silence
+/// otherwise, and a reader who cannot tell them apart cannot tell what the top-line verdict is a
+/// verdict over. So none of them is dropped — only the sentence repeated around each of them.
 /// </para>
 /// <para>
 /// Nothing that changes between two identical calls appears in the comparison body. Frame numbers,
@@ -108,17 +110,40 @@ internal sealed class VerificationReport
     internal IReadOnlyList<string> Render(string window)
     {
         var lines = new List<string> { Verdict.Word() + " — " + CountLine() };
+        var agreeing = new List<string>();
 
         foreach (var finding in _findings)
         {
+            if (finding.TryFold(out var folded))
+            {
+                agreeing.Add(folded);
+                continue;
+            }
             lines.Add(finding.Headline());
             if (finding.Note.Length > 0) lines.Add(finding.Note);
             foreach (var detail in Collapse(finding.Detail)) lines.Add("  " + detail);
         }
 
+        // The coverage roll-up sits directly under the verdict it is the evidence for, and the
+        // checks that need a reader are what follows it.
+        if (agreeing.Count > 0) lines.Insert(1, AgreementLine(agreeing));
+
         lines.Add("window: " + window);
         return lines;
     }
+
+    /// <summary>
+    /// Every check that agreed and had nothing else to say, named with the count it agreed on.
+    /// </summary>
+    /// <remarks>
+    /// Not a summary: no check name and no compared count is lost, which is what makes this
+    /// compression rather than truncation. What goes is the <c>AGREE:</c>/<c>compared.</c> frame
+    /// repeated once per check — 864 bytes of one live round's answer — under a first line that
+    /// already states how many facts were compared and how many agreed.
+    /// </remarks>
+    private static string AgreementLine(List<string> agreeing) =>
+        "AGREE (" + Count(agreeing.Count) + (agreeing.Count == 1 ? " check): " : " checks): ") +
+        string.Join(", ", agreeing);
 
     /// <summary>
     /// One line per distinct finding, in the order they were found, each carrying how many rows it

@@ -3248,20 +3248,27 @@ the game's own answer. The answer is plain text with no envelope — it is alrea
 and there is no handle to follow up on.
 
 **The verdict is the first word of the first line**, followed by the count that accounts for
-everything the run compared, then one line per check in the order the checks ran, then the
-provenance line. An excerpt of an all-agree run — the middle checks are elided here, not by the
-tool:
+everything the run compared, then **one `AGREE (n checks):` line naming every check that simply
+agreed and the count it agreed on**, then one line per check that did not, in the order the checks
+ran, then the provenance line. An excerpt of an all-agree run — the agreement line's middle entries
+are elided here, not by the tool:
 
 ```
 AGREE — 8442 facts compared, 8442 agree, 0 differ.
-Category binding AGREE: 63 compared.
-Category traversal AGREE: 63 compared.
+AGREE (24 checks): Category binding 63, Category traversal 63, Spell type layer 6, …
 Empty on purpose: targeting samples only while a native targeting request is open, and none was; crafting stations counts stations in play, and this build authors none it can reach.
 Identities AGREE: 3323 compared, 0 empty, 0 repeated within a table, 3 tables keyed on more than the identity.
 Shared identities: 1934 entities, 1389 detail rows filed under one of them (largest: PurchaseViewRelations 409, AlchemyLoadout 125, SpellRecipeAuthoring 65).
-Spell type layer AGREE: 6 compared.
 window: generation=3 frame=48213 entities=6683 collectors=61 collect=41.213ms ported=118.4ms native=2249.1ms elapsed=2407.741ms memos=5677 drifted=730 dirty=3558 uncalculated=612 widestDrift=StructureSO.passiveCostMod memo=100 recompute=4.44e-115 orders=116.4
 ```
+
+**No check name and no compared count is lost on the agreement line** — that is what makes it
+compression rather than a summary. What goes is the ` AGREE: `/` compared.` frame repeated once per
+check, which cost 864 bytes of one live round's 1,849-byte per-check block under a first line that
+already stated how many facts were compared and how many agreed. A check that reported its own count
+clause (`Identities`), published a note beside its verdict (`Empty on purpose:`, `Shared
+identities:`), or listed anything keeps its full line, because there the words are the finding; so do
+every `DISAGREE`, `INCOMPLETE` and `INCONCLUSIVE`.
 
 The rules that make it read that way:
 

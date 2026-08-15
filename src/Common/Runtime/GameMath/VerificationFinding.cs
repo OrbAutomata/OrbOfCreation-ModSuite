@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace OrbModding.Common.Runtime.GameMath;
 
@@ -139,6 +140,27 @@ internal readonly struct VerificationFinding
 
     internal static VerificationFinding Inconclusive(string subject, string reason) =>
         new(subject, VerificationVerdict.Inconclusive, 0, 0, 0, reason, null);
+
+    /// <summary>
+    /// This check's name and compared count for the shared agreement line, or nothing where it has
+    /// something of its own to say.
+    /// </summary>
+    /// <remarks>
+    /// A check that agreed and counted is a name and a number; the sentence around it — <c>AGREE:</c>
+    /// before and <c>compared.</c> after — is the same eighteen characters on every one of them, and
+    /// one live round spent 864 bytes on that scaffolding across forty-eight such lines while the
+    /// response's own first line already said how many facts agreed. A check that reported its own
+    /// count clause, published a note, or listed anything keeps its full line: those are the checks
+    /// where the words are the finding.
+    /// </remarks>
+    internal bool TryFold(out string folded)
+    {
+        folded = string.Empty;
+        if (Verdict != VerificationVerdict.Agree) return false;
+        if (Counts.Length > 0 || Note.Length > 0 || Detail.Count > 0) return false;
+        folded = Subject + " " + Compared.ToString(CultureInfo.InvariantCulture);
+        return true;
+    }
 
     /// <summary>The finding's own line, in the one verdict vocabulary.</summary>
     internal string Headline() => Verdict switch

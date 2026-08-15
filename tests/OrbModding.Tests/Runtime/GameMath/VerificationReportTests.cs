@@ -5,9 +5,9 @@ namespace OrbModding.Tests.Runtime.GameMath;
 
 /// <summary>
 /// The shape of the answer the game math check gives. The verb exists to say whether the suite and
-/// the game agree, so the response is pinned on saying it first, saying it once, and then giving one
-/// line per check — the agreeing ones included, so that a check which ran and a check which is
-/// missing cannot read alike.
+/// the game agree, so the response is pinned on saying it first, saying it once, and then accounting
+/// for every check that ran — the ones that simply agreed on one shared line, everything else on a
+/// line of its own — so that a check which ran and a check which is missing cannot read alike.
 /// </summary>
 public sealed class VerificationReportTests
 {
@@ -17,8 +17,14 @@ public sealed class VerificationReportTests
         "uncalculated=612 widestDrift=StructureSO.passiveCostMod memo=100 " +
         "recompute=4.44e-115 orders=116.4";
 
+    /// <summary>
+    /// Every check that agreed is named with the count it agreed on, on one line. Nothing is
+    /// summarised away — what goes is the <c>AGREE:</c>/<c>compared.</c> frame repeated once per
+    /// check, 864 bytes of it across one live round, under a first line already stating how many
+    /// facts were compared and how many agreed.
+    /// </summary>
     [Fact]
-    public void An_all_agree_run_is_the_verdict_word_then_one_line_for_every_check_that_ran()
+    public void An_all_agree_run_names_every_check_and_its_count_on_one_line()
     {
         var report = new VerificationReport();
         report.Add(VerificationFinding.Agree("Accessor parity", 1253));
@@ -29,9 +35,8 @@ public sealed class VerificationReportTests
             new[]
             {
                 "AGREE — 2184 facts compared, 2184 agree, 0 differ.",
-                "Accessor parity AGREE: 1253 compared.",
-                "Affordability parity AGREE: 409 compared.",
-                "Published cost AGREE: 522 compared.",
+                "AGREE (3 checks): Accessor parity 1253, Affordability parity 409, " +
+                "Published cost 522",
                 "window: " + Window,
             },
             report.Render(Window));
@@ -52,7 +57,9 @@ public sealed class VerificationReportTests
         absent.Add(VerificationFinding.Agree("Accessor parity", 1253));
 
         Assert.NotEqual(ran.Render(Window), absent.Render(Window));
-        Assert.Contains("Spell type layer AGREE: 6 compared.", ran.Render(Window));
+        Assert.Contains(
+            "AGREE (2 checks): Accessor parity 1253, Spell type layer 6", ran.Render(Window));
+        Assert.Contains("AGREE (1 check): Accessor parity 1253", absent.Render(Window));
     }
 
     /// <summary>
@@ -99,11 +106,10 @@ public sealed class VerificationReportTests
             new[]
             {
                 "DISAGREE — 2184 facts compared, 2182 agree, 2 differ.",
-                "Accessor parity AGREE: 1253 compared.",
+                "AGREE (2 checks): Accessor parity 1253, Affordability parity 409",
                 "Published cost DISAGREE: 522 compared, 520 agree, 2 differ.",
                 "  worst Stone Hut (00246c) water: ours=7.46e290 theirs=8.11e290",
                 "    costScalingMod      ours=theirs=1.15e3",
-                "Affordability parity AGREE: 409 compared.",
                 "window: " + Window,
             },
             report.Render(Window));
@@ -121,7 +127,7 @@ public sealed class VerificationReportTests
             new[]
             {
                 "INCOMPLETE — 1253 facts compared, 1253 agree, 0 differ. 1 check compared nothing.",
-                "Accessor parity AGREE: 1253 compared.",
+                "AGREE (1 check): Accessor parity 1253",
                 "Exclusion parity INCONCLUSIVE: no entity exposed both of the game's gates.",
                 "window: " + Window,
             },
@@ -153,7 +159,7 @@ public sealed class VerificationReportTests
             new[]
             {
                 "AGREE — 441 facts compared, 441 agree, 0 differ. 20 agree only within tolerance.",
-                "Cost AGREE: 441 compared.",
+                "AGREE (1 check): Cost 441",
                 "window: " + Window,
             },
             report.Render(Window));
@@ -183,7 +189,7 @@ public sealed class VerificationReportTests
             new[]
             {
                 "INCOMPLETE — 1140 facts compared, 1140 agree, 0 differ.",
-                "Rate AGREE: 640 compared.",
+                "AGREE (1 check): Rate 640",
                 "Cost INCOMPLETE: 500 compared, all agree — 22 of 522 entities could not be read — " +
                 "the cost contract was unavailable",
                 "window: " + Window,
