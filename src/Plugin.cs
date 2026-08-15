@@ -1629,8 +1629,8 @@ public sealed class Plugin : BaseUnityPlugin
                 execution = GameMcpToolExecution.Read(CaptureScreenCatalogGameMcp());
                 return true;
             case "suite_configuration":
-                execution = GameMcpToolExecution.Read(
-                    ProjectGameMcpConfiguration(context, request.Mode == "describe"));
+                execution = GameMcpToolExecution.Read(ProjectGameMcpConfiguration(
+                    context, request.Mode == "describe", request.Section));
                 return true;
             case "suite_breakers" when request.Mode == "list":
                 execution = GameMcpToolExecution.Read(
@@ -2010,17 +2010,25 @@ public sealed class Plugin : BaseUnityPlugin
             : GameMcpEntityWireNormalizer.Snake(name);
 
     /// <summary>
-    /// The committed value of every writable setting, one setting per line.
+    /// The committed value of every writable setting, one setting per line, or of one section's.
     /// </summary>
     /// <remarks>
     /// What a setting means and which values it takes do not change between calls, so they are
     /// documentation, not an answer: the ordinary read is the values a caller came for, and
     /// <c>mode=describe</c> is where the type, the domain — a range or a list of names, said the
     /// same way for both — and the sentence live for whoever is deciding what to write.
+    /// <para>
+    /// The section is the grouping word every setting already wears in its own name, so
+    /// <c>section=AutoBuy</c> is "everything Auto Buy has" and needs no second vocabulary. It
+    /// narrows both modes, because the read whose answer is longest is the one worth narrowing. An
+    /// answer that was not narrowed names the sections it holds, so the word is read off the
+    /// surface rather than guessed at.
+    /// </para>
     /// </remarks>
     internal static GameMcpValue ProjectGameMcpConfiguration(
         GameMcpFrameContext context,
-        bool describe)
+        bool describe,
+        string section = "")
     {
         if (!context.ConfigurationGeneration.IsValid)
         {
@@ -2031,11 +2039,25 @@ public sealed class Plugin : BaseUnityPlugin
                 ["reason"] = "no committed configuration has been published yet",
             }.Freeze();
         }
+        var narrowed = section.Length > 0;
+        if (narrowed &&
+            !TryConfigurationSection(
+                context.WritableConfiguration, section, out section, out var unknown))
+        {
+            return new GameMcpObjectBuilder
+            {
+                ["status"] = "not_available",
+                ["code"] = "unknown_section",
+                ["reason"] = unknown,
+            }.Freeze();
+        }
         var described = new GameMcpArrayBuilder();
         var values = new GameMcpObjectBuilder();
         for (var index = 0; index < context.WritableConfiguration.Length; index++)
         {
             var item = context.WritableConfiguration[index];
+            if (narrowed && !string.Equals(item.Section, section, StringComparison.Ordinal))
+                continue;
             var value = CanonicalConfigurationValue(
                 GameMcpConfigurationSchema.SerializePublishedValue(
                     context.Configuration.Snapshot,
@@ -2065,6 +2087,8 @@ public sealed class Plugin : BaseUnityPlugin
             described.Add(setting);
         }
         var result = new GameMcpObjectBuilder();
+        if (!narrowed)
+            result["sections"] = ConfigurationSectionNames(context.WritableConfiguration);
         if (describe)
         {
             if (described.Count > 0) result["settings"] = described;
@@ -2072,6 +2096,48 @@ public sealed class Plugin : BaseUnityPlugin
         }
         result.CopyFrom(values);
         return result.Freeze();
+    }
+
+    /// <summary>
+    /// The section a caller named, spelled the way every row spells it, or the sentence refusing it.
+    /// </summary>
+    /// <remarks>
+    /// The refusal names the sections that exist rather than pointing at a call that would list
+    /// them: there are few enough to fit on the line, and a caller who mistyped one should not have
+    /// to spend a round trip learning what it should have been.
+    /// </remarks>
+    private static bool TryConfigurationSection(
+        GameMcpWritableSettingDescriptor[] writable,
+        string requested,
+        out string canonical,
+        out string reason)
+    {
+        for (var index = 0; index < writable.Length; index++)
+        {
+            if (!string.Equals(
+                    writable[index].Section, requested, StringComparison.OrdinalIgnoreCase))
+                continue;
+            canonical = writable[index].Section;
+            reason = string.Empty;
+            return true;
+        }
+        canonical = string.Empty;
+        reason = "unknown section '" + requested + "'; the sections are " +
+            string.Join(", ", ConfigurationSectionNames(writable));
+        return false;
+    }
+
+    /// <summary>Each section once, in the order the writable schema declares its settings.</summary>
+    private static string[] ConfigurationSectionNames(
+        GameMcpWritableSettingDescriptor[] writable)
+    {
+        var names = new List<string>();
+        for (var index = 0; index < writable.Length; index++)
+        {
+            var section = writable[index].Section;
+            if (!names.Contains(section)) names.Add(section);
+        }
+        return names.ToArray();
     }
 
     internal static GameMcpValue ProjectGameMcpAutomationFeatures(GameMcpFrameContext context)

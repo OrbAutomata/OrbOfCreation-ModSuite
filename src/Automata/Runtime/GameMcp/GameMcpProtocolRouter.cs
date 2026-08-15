@@ -252,6 +252,8 @@ internal sealed class GameMcpProtocolRouter
                 builder.Mode = arguments.ContainsKey("mode")
                     ? RequireOneOf(arguments, "mode", "list", "describe")
                     : "list";
+                if (arguments.ContainsKey("section"))
+                    builder.Section = RequireString(arguments, "section");
                 break;
             case "world_list":
                 builder.Category = RequireString(arguments, "category");
@@ -707,9 +709,17 @@ internal sealed class GameMcpProtocolRouter
                 "suite_configuration",
                 "Read committed configuration",
                 "Read every writable setting as section/key and its committed value. mode=describe " +
-                "adds each setting's type, the values it accepts, and what it does.",
+                "adds each setting's type, the values it accepts, and what it does. section narrows " +
+                "either mode to the one feature that owns it — section=AutoBuy is every Auto Buy " +
+                "setting in one call — and an answer that was not narrowed names the sections it holds.",
                 ObjectSchema(
-                    new JObject { ["mode"] = EnumSchema("list", "describe") })),
+                    new JObject
+                    {
+                        ["mode"] = EnumSchema("list", "describe"),
+                        ["section"] = StringSchema(
+                            "Narrow to one section, as the sections arm and every row's " +
+                            "section/key name spell it."),
+                    })),
             Tool(
                 "trace_health",
                 "Read trace-writer health and what world collection cost",

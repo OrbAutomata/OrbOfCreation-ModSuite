@@ -831,9 +831,10 @@ public sealed class GameMcpConfigurationTests
         var described = GameMcpAcceptanceFixture.CallText(
             "suite_configuration", new JObject { ["mode"] = "describe" }, context);
 
-        // The ordinary read is one line per setting and nothing else: what it does and what it takes
-        // are the same words on every call, so they live in the tool's own documentation.
-        Assert.Equal("AutoCast/Mode: Disabled", listed);
+        // The ordinary read is one line per setting under the grouping words those settings use,
+        // and nothing else: what a setting does and what it takes are the same words on every call,
+        // so they live in the tool's own documentation.
+        Assert.Equal("sections: AutoCast\nAutoCast/Mode: Disabled", listed);
         Assert.Contains("AutoCast/Mode", described);
         Assert.Contains("type", described);
         Assert.Contains("description", described);
@@ -912,6 +913,165 @@ public sealed class GameMcpConfigurationTests
 
         Assert.Equal("Disabled", (string?)listed["AutoHarvest/Mode"]);
         Assert.Equal("Disabled", (string?)listed["General/Mode"]);
+    }
+
+    /// <summary>
+    /// "Show me everything Auto Buy has" is one call. The narrowing word is the section every row
+    /// already wears, so the rows come back spelled exactly as the whole catalog spells them and go
+    /// straight into a write without being rejoined.
+    /// </summary>
+    [Fact]
+    public void One_call_answers_every_setting_one_feature_owns()
+    {
+        var narrowed = GameMcpAcceptanceFixture.CallText(
+            "suite_configuration",
+            new JObject { ["section"] = "AutoBuy" },
+            BoundConfigurationContext());
+
+        Assert.Equal(
+            "AutoBuy/Mode: Active\n" +
+            "AutoBuy/AffordabilityMode: Excess100\n" +
+            "AutoBuy/UpgradeAffordabilityMode: Excess100\n" +
+            "AutoBuy/IncludeStructures: True\n" +
+            "AutoBuy/IncludeUpgrades: True\n" +
+            "AutoBuy/AutoLevelSpells: True\n" +
+            "AutoBuy/LeaveQueueSlots: 1",
+            narrowed);
+    }
+
+    /// <summary>
+    /// The narrowed answer is the same rows the whole catalog carries, minus the ones belonging to
+    /// other features — never a second spelling of them.
+    /// </summary>
+    [Fact]
+    public void A_narrowed_answer_is_the_whole_catalog_minus_the_other_features()
+    {
+        var context = BoundConfigurationContext();
+        var whole = GameMcpAcceptanceFixture.CallText("suite_configuration", context: context);
+        var narrowed = GameMcpAcceptanceFixture.CallText(
+            "suite_configuration", new JObject { ["section"] = "AutoBuy" }, context);
+
+        Assert.Equal(
+            narrowed.Split('\n'),
+            whole.Split('\n').Where(line => line.StartsWith("AutoBuy/", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// The word a caller narrows by is read off the surface, not guessed at: an answer nobody
+    /// narrowed leads with the sections it holds, in the order the writable schema declares them.
+    /// </summary>
+    [Fact]
+    public void An_answer_nobody_narrowed_names_the_sections_it_holds()
+    {
+        var context = BoundConfigurationContext();
+
+        Assert.Equal(
+            "sections: General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, " +
+            "AutoScribe, Reserves",
+            GameMcpAcceptanceFixture.CallText("suite_configuration", context: context)
+                .Split('\n')[0]);
+        Assert.Equal(
+            "sections: General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, " +
+            "AutoScribe, Reserves",
+            GameMcpAcceptanceFixture.CallText(
+                    "suite_configuration", new JObject { ["mode"] = "describe" }, context)
+                .Split('\n')[0]);
+        Assert.DoesNotContain(
+            "sections:",
+            GameMcpAcceptanceFixture.CallText(
+                "suite_configuration", new JObject { ["section"] = "Reserves" }, context));
+    }
+
+    /// <summary>
+    /// The longest answer is the one worth narrowing, so the section narrows <c>describe</c> too —
+    /// one filter over one set, rendered each mode's own way rather than an argument that works on
+    /// one of them.
+    /// </summary>
+    [Fact]
+    public void The_section_narrows_the_described_answer_as_well()
+    {
+        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            BoundConfigurationContext(),
+            describe: true,
+            section: "Reserves"));
+        var settings = described["settings"]!.Values<JObject>().ToArray();
+
+        Assert.Equal(
+            new[] { "Reserves/AbsoluteReserve", "Reserves/RelativeReserveMultiplier" },
+            settings.Select(setting => (string?)setting!["setting"]));
+        Assert.All(settings, setting => Assert.NotNull(setting!["description"]));
+        Assert.Null(described["sections"]);
+    }
+
+    /// <summary>
+    /// A section nobody files settings under is refused by naming the ones that exist, so the fix
+    /// is on the page that refused rather than a round trip away.
+    /// </summary>
+    [Fact]
+    public void An_unknown_section_is_refused_by_naming_the_real_ones()
+    {
+        var refusal = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            BoundConfigurationContext(),
+            describe: false,
+            section: "autobuy_settings"));
+
+        Assert.Equal("unavailable", (string?)refusal["status"]);
+        Assert.Equal(GameMcpDecisionReason.ClassInput, (string?)refusal["reasonCode"]);
+        Assert.Equal(
+            "unknown section 'autobuy_settings'; the sections are General, AutoBuy, AutoCast, " +
+            "AutoConcept, AutoHarvest, AutoItems, AutoScribe, Reserves",
+            (string?)refusal["reason"]);
+        Assert.Null(refusal["sections"]);
+
+        // The caller's own filter word, which is one class of no wherever it is passed.
+        Assert.Equal(
+            GameMcpDecisionReason.ClassInput,
+            GameMcpDecisionReason.Class("unknown_section"));
+    }
+
+    /// <summary>
+    /// The section is matched the way an enum value a caller writes is matched, so the one spelling
+    /// difference between "AutoBuy" and how a caller types it is not a refusal — and the rows still
+    /// come back in the surface's own spelling.
+    /// </summary>
+    [Fact]
+    public void The_section_is_matched_however_the_caller_cased_it()
+    {
+        var context = BoundConfigurationContext();
+
+        Assert.Equal(
+            GameMcpAcceptanceFixture.CallText(
+                "suite_configuration", new JObject { ["section"] = "AutoBuy" }, context),
+            GameMcpAcceptanceFixture.CallText(
+                "suite_configuration", new JObject { ["section"] = "autobuy" }, context));
+    }
+
+    /// <summary>
+    /// The read arm sees the seven breaker settings through the section view exactly as it always
+    /// saw them through the whole catalog. Narrowing is a read; the one door that flips them is
+    /// still <c>suite_breakers</c>.
+    /// </summary>
+    [Fact]
+    public void The_section_view_reads_a_breaker_setting_it_still_may_not_write()
+    {
+        Assert.Equal(
+            "AutoHarvest/Mode: Disabled\n" +
+            "AutoHarvest/CollectFruitTrees: True\n" +
+            "AutoHarvest/CollectTreasureTrees: True",
+            GameMcpAcceptanceFixture.CallText(
+                "suite_configuration",
+                new JObject { ["section"] = "AutoHarvest" },
+                BoundConfigurationContext()));
+        Assert.True(GameMcpAutomationFeatures.IsBreakerSetting("AutoHarvest", "Mode"));
+    }
+
+    private static GameMcpFrameContext BoundConfigurationContext()
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        configuration.AttachMentor(MentorConfig.Bind(new ConfigFile()));
+        return GameMcpTestHarness.Context(
+            writable: configuration.CreateGameMcpWritableSchema(),
+            configuration: configuration.Current);
     }
 
     [Fact]
@@ -1046,7 +1206,9 @@ internal static class GameMcpAcceptanceFixture
                     Plugin.ProjectGameMcpHealthText(pinned)),
                 "suite_configuration" => GameMcpToolExecution.Read(
                     Plugin.ProjectGameMcpConfiguration(
-                        pinned, operation.Request.Mode == "describe")),
+                        pinned,
+                        operation.Request.Mode == "describe",
+                        operation.Request.Section)),
                 "trace_health" => GameMcpToolExecution.Text(
                     Plugin.ProjectGameMcpTraceHealthText(pinned)),
                 _ => GameMcpTestHarness.ExecuteRead(operation, pinned),

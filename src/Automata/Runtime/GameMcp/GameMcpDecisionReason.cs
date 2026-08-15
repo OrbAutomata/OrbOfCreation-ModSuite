@@ -122,6 +122,10 @@ internal static class GameMcpDecisionReason
         // The caller's own argument is what is wrong.
         "invalid_uuid" or "invalid_offset" or "invalid_limit" or "invalid_mode" or
         "invalid_purchase_amount" or "unknown_category" or "unknown_discovery_surface" or
+        // A configuration section nothing is filed under is the same kind of no as a world
+        // category nothing is filed under: the caller named a grouping word this surface has none
+        // of, and the sentence beside it names the ones it does have.
+        "unknown_section" or
         "query_required" or "mutually_exclusive" or "missing_required" or "unexpected_field" or
         "unexpected_for_mode" or "argument_validation_failed" or "filter_not_supported" or
         // The word the caller passed is not one this filter takes. Named apart from
