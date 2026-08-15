@@ -40,6 +40,11 @@ namespace OrbAutomata.GameMcp;
 /// collector feeds several rows it names all of them, and where two feed one row each names itself
 /// beside it, because a row name printed twice reads as one collector measured twice.
 /// </para>
+/// <para>
+/// The header counts publications. It used to call that count a generation, which is also the word
+/// for the lifecycle invalidation token verbs echo, and the two ran three orders of magnitude apart
+/// in one session with nothing on the page to say which was which.
+/// </para>
 /// </remarks>
 internal static class GameMcpCollectionSpans
 {
@@ -88,7 +93,7 @@ internal static class GameMcpCollectionSpans
             .Append(reports.Count.ToString(CultureInfo.InvariantCulture))
             .Append(" categories, ")
             .Append(rows.ToString(CultureInfo.InvariantCulture))
-            .Append(" rows, world generation ")
+            .Append(" rows, world publication ")
             .Append(context.World.Generation.Value.ToString(CultureInfo.InvariantCulture));
 
         var free = new StringBuilder();

@@ -23,7 +23,7 @@ public sealed class GameMcpCollectionSpansTests
         var text = GameMcpCollectionSpans.Describe(GameMcpTestHarness.Context(Pass()));
 
         Assert.Equal(
-            "collection: 13.834 ms across 5 categories, 370 rows, world generation 1001\n" +
+            "collection: 13.834 ms across 5 categories, 370 rows, world publication 1001\n" +
             "  resources: 8.204 ms, 80 rows\n" +
             "  structures: 5.118 ms, 180 rows\n" +
             "  type-modifiers: 0.512 ms, 63 rows\n" +
@@ -65,7 +65,7 @@ public sealed class GameMcpCollectionSpansTests
         }));
 
         Assert.Equal(
-            "collection: 21.000 ms across 8 categories, 544 rows, world generation 1001\n" +
+            "collection: 21.000 ms across 8 categories, 544 rows, world publication 1001\n" +
             "  player-loadout-entries+player-loadouts+snapshot-entries+snapshot-loadouts+" +
             "snapshot-slots: 6.000 ms, 18 rows\n" +
             "  alchemy-costs+alchemy-instances+concept-recipes: 5.000 ms, 46 rows\n" +
@@ -139,7 +139,7 @@ public sealed class GameMcpCollectionSpansTests
             "pending blocks: 0 (peak 0)\n" +
             "artifact: journal\n" +
             "revision: 0\n" +
-            "collection: 13.834 ms across 5 categories, 370 rows, world generation 1001\n" +
+            "collection: 13.834 ms across 5 categories, 370 rows, world publication 1001\n" +
             "  resources: 8.204 ms, 80 rows\n" +
             "  structures: 5.118 ms, 180 rows\n" +
             "  type-modifiers: 0.512 ms, 63 rows\n" +
@@ -154,7 +154,7 @@ public sealed class GameMcpCollectionSpansTests
         Assert.Equal(
             "unavailable\n" +
             "reason: the decision journal writer is not active in this runtime\n" +
-            "collection: 13.834 ms across 5 categories, 370 rows, world generation 1001\n" +
+            "collection: 13.834 ms across 5 categories, 370 rows, world publication 1001\n" +
             "  resources: 8.204 ms, 80 rows\n" +
             "  structures: 5.118 ms, 180 rows\n" +
             "  type-modifiers: 0.512 ms, 63 rows\n" +

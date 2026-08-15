@@ -3329,9 +3329,10 @@ handle. Individual decisions belong to the trace folder and offline analysis, wh
 high-volume repeated decisions can be filtered without spending strategist context.
 
 The same page carries what world collection cost. A `collection:` line names the pass total, how
-many categories it reported, how many rows they produced, and the world generation they produced;
-under it one line per category that charged something, dearest first, with its milliseconds and its
-rows.
+many categories it reported, how many rows they produced, and the world publication they describe —
+the publication counter, which is not the lifecycle generation a verb echoes and no longer shares
+that word with it; under it one line per category that charged something, dearest first, with its
+milliseconds and its rows.
 
 **Every span is named for the `world_categories` row it feeds**, not for what the collector calls
 itself, so a collector that reads as expensive here is a table `world_list` pages under exactly that
