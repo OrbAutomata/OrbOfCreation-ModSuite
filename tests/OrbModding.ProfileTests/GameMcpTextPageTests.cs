@@ -692,7 +692,9 @@ public sealed class GameMcpTextPageTests
     /// flat satisfied every test for a one-row table, so the same plot node came back as an
     /// indented block inside a two-id batch and as a <c>[row]</c> header over one comma-joined
     /// <c>key=value</c> line when asked for alone. <c>results</c> holds documents, and a document is
-    /// never a row.
+    /// never a row. What every document in a batch says the same way is said once above them —
+    /// which is the block grammar unchanged, not a second shape: every line is still
+    /// <c>key: value</c> at the block's own indent.
     /// </summary>
     [Fact]
     public void One_id_and_the_same_id_in_a_batch_render_the_same_block()
@@ -718,17 +720,121 @@ public sealed class GameMcpTextPageTests
             new[]
             {
                 "results 2:",
+                "  these 2 share:",
+                "    category: plot-nodes",
+                string.Empty,
                 "  uuid: 2163ef",
                 "  name: Oak Tree",
-                "  category: plot-nodes",
                 "  row: state=available, remainingQuantity=12, masteryLevel=4",
                 string.Empty,
                 "  uuid: f05fdf",
                 "  name: Water Spring",
-                "  category: plot-nodes",
                 "  row: state=locked, remainingQuantity=0, masteryLevel=0",
             },
             batched.Split('\n'));
+    }
+
+    /// <summary>
+    /// The hoist a table already had, on the shape a detail read answers in. A live round's
+    /// three-glyph <c>world_get</c> spent 46% of its 1,736 bytes printing the same eighteen lines
+    /// three times, because the share line only ever existed on the table path and a batch of
+    /// entities is not a table. Nothing leaves the page: what every block says identically is said
+    /// once, and each block keeps everything of its own.
+    /// </summary>
+    [Fact]
+    public void A_batch_says_what_every_block_shares_once_and_keeps_what_each_owns()
+    {
+        const string Shared =
+            @"'paidLevel':0,'bonusLevel':0,'totalLevel':0,'category':'glyphs','state':'locked'";
+        var page = Render(
+            @"{'results':[
+                {'uuid':'aaa111','name':'Quick'," + Shared + @"},
+                {'uuid':'bbb222','name':'Bright'," + Shared + @"},
+                {'uuid':'ccc333','name':'Scholar'," + Shared + "}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "results 3:",
+                "  these 3 share:",
+                "    paidLevel: 0",
+                "    bonusLevel: 0",
+                "    totalLevel: 0",
+                "    category: glyphs",
+                "    state: locked",
+                string.Empty,
+                "  uuid: aaa111",
+                "  name: Quick",
+                string.Empty,
+                "  uuid: bbb222",
+                "  name: Bright",
+                string.Empty,
+                "  uuid: ccc333",
+                "  name: Scholar",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// A hoist that does not shorten the page is not a hoist. Two blocks agreeing on one short line
+    /// cost more in the heading than the second copy of the line costs, so the blocks keep it.
+    /// </summary>
+    [Fact]
+    public void A_shared_line_too_short_to_pay_for_its_heading_stays_in_the_blocks()
+    {
+        var page = Render(
+            @"{'results':[
+                {'uuid':'aaa111','name':'Quick','level':0},
+                {'uuid':'bbb222','name':'Bright','level':0}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "results 2:",
+                "  uuid: aaa111",
+                "  name: Quick",
+                "  level: 0",
+                string.Empty,
+                "  uuid: bbb222",
+                "  name: Bright",
+                "  level: 0",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// A header with a body under it belongs to the block that owns the body: hoisting the header
+    /// away would leave the body attached to nothing, so a line with anything indented beneath it
+    /// is never a candidate however many blocks repeat it.
+    /// </summary>
+    [Fact]
+    public void A_line_with_a_body_under_it_is_never_hoisted_away_from_it()
+    {
+        const string Blockers = @"'blockers':{'cap':{'blocked':true},'leeway':{'blocked':false}}";
+        var page = Render(
+            @"{'results':[
+                {'uuid':'aaa111','category':'glyphs','state':'locked'," + Blockers + @"},
+                {'uuid':'bbb222','category':'glyphs','state':'locked'," + Blockers + "}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "results 2:",
+                "  these 2 share:",
+                "    category: glyphs",
+                "    state: locked",
+                string.Empty,
+                "  uuid: aaa111",
+                "  blockers:",
+                "    cap: blocked=yes",
+                "    leeway: blocked=no",
+                string.Empty,
+                "  uuid: bbb222",
+                "  blockers:",
+                "    cap: blocked=yes",
+                "    leeway: blocked=no",
+            },
+            page.Split('\n'));
     }
 
     /// <summary>

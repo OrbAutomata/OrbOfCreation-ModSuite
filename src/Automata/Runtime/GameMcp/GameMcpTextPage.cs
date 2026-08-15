@@ -431,18 +431,110 @@ internal static class GameMcpTextPage
         lines.Add(indent + name + " " +
             (countSuffix ?? array.Count.ToString(CultureInfo.InvariantCulture)) + ":");
 
+        var blocks = new List<List<string>>(array.Count);
+        for (var index = 0; index < array.Count; index++)
+        {
+            var block = new List<string>();
+            if (array[index] is JObject item) WriteObject(item, indent + Indent, block, said);
+            else block.Add(indent + Indent + Scalar(array[index]));
+            blocks.Add(block);
+        }
+        Hoist(blocks, indent + Indent, lines);
+
         // Elements too big to be one line each need a boundary between them, or two answers read as
         // one. A detail read's batch is the case that made this loud: two blocks of a dozen lines
         // ran together and nothing said where the first one stopped. One-line elements never had
         // the problem and gain nothing from a gap, so they keep the tighter list.
-        for (var index = 0; index < array.Count; index++)
+        for (var index = 0; index < blocks.Count; index++)
         {
-            var before = lines.Count;
-            if (array[index] is JObject item) WriteObject(item, indent + Indent, lines, said);
-            else lines.Add(indent + Indent + Scalar(array[index]));
-            if (index + 1 < array.Count && lines.Count - before > 1) lines.Add(string.Empty);
+            lines.AddRange(blocks[index]);
+            if (index + 1 < blocks.Count && blocks[index].Count > 1) lines.Add(string.Empty);
         }
     }
+
+    /// <summary>
+    /// What every block in this answer says the same way, said once above them and then not said
+    /// again inside any of them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same arithmetic a table's share line does, on the shape a detail read answers in. A
+    /// live round's three-glyph <c>world_get</c> spent 796 of its 1,736 bytes — 46% of the answer —
+    /// printing the same eighteen lines three times, because the hoist only ever existed on the
+    /// table path and a batch of entities is not a table. No fact leaves the page: a line that is
+    /// identical in every block is stated once, and every block keeps everything that is its own.
+    /// </para>
+    /// <para>
+    /// Only a top-level line of a block is a candidate, and only where it stands alone: a header
+    /// with an indented body under it belongs to the block that owns the body, and lifting the
+    /// header away from it would leave the body attached to nothing. A block never gives up its
+    /// last line either, because a block with nothing left in it is not a block.
+    /// </para>
+    /// </remarks>
+    private static void Hoist(List<List<string>> blocks, string indent, List<string> lines)
+    {
+        if (blocks.Count < 2) return;
+        var candidates = Standalone(blocks[0], indent);
+        for (var index = 1; index < blocks.Count && candidates.Count > 0; index++)
+        {
+            var here = Standalone(blocks[index], indent);
+            candidates.RemoveAll(line => !here.Contains(line));
+        }
+        if (candidates.Count == 0) return;
+
+        // The last line of the shortest block is what decides how much may go: taking every line a
+        // block has leaves an answer that counts entities and then shows none of them.
+        var floor = int.MaxValue;
+        for (var index = 0; index < blocks.Count; index++) floor = Math.Min(floor, blocks[index].Count);
+        while (candidates.Count > 0 && candidates.Count >= floor)
+            candidates.RemoveAt(candidates.Count - 1);
+        if (candidates.Count == 0) return;
+
+        // The shared lines sit under their own heading, one level in, so that a fact belonging to
+        // every block cannot be read as the first block's own.
+        var header = indent + "these " +
+            blocks.Count.ToString(CultureInfo.InvariantCulture) + " share:";
+        var cost = header.Length + 1;
+        var saved = 0;
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            saved += (blocks.Count - 1) * (candidates[index].Length + 1);
+            cost += Indent.Length;
+        }
+        if (saved <= cost) return;
+
+        lines.Add(header);
+        for (var index = 0; index < candidates.Count; index++)
+            lines.Add(Indent + candidates[index]);
+        for (var index = 0; index < blocks.Count; index++)
+        {
+            for (var line = 0; line < candidates.Count; line++)
+                blocks[index].Remove(candidates[line]);
+        }
+        if (blocks[0].Count > 1) lines.Add(string.Empty);
+    }
+
+    /// <summary>
+    /// The lines of one block that are a whole fact on their own: written at the block's own indent,
+    /// with nothing indented under them.
+    /// </summary>
+    private static List<string> Standalone(List<string> block, string indent)
+    {
+        var alone = new List<string>(block.Count);
+        for (var index = 0; index < block.Count; index++)
+        {
+            if (!IsAt(block[index], indent)) continue;
+            if (index + 1 < block.Count && !IsAt(block[index + 1], indent)) continue;
+            alone.Add(block[index]);
+        }
+        return alone;
+    }
+
+    /// <summary>Whether this line is written at exactly the given indent, not deeper.</summary>
+    private static bool IsAt(string line, string indent) =>
+        line.Length > indent.Length &&
+        line.StartsWith(indent, StringComparison.Ordinal) &&
+        line[indent.Length] != ' ';
 
     /// <summary>
     /// A price with exactly one resource in it, said on the line that names it.

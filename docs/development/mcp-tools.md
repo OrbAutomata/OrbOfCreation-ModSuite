@@ -177,6 +177,15 @@ same idiom and no producer invents its own formatting.
     page used to spend 1,076 bytes printing one word ninety-five times, and the three rows a reader
     was scanning for had to be found by eye down the wall of sameness — a live round read that wall
     as a truncated answer and misread a name out of it.
+  - **A batch of documents shares its lines the same way.** A multi-id `world_get` answers in
+    blocks rather than rows, and until now the hoist existed only on the table path — so a live
+    round's three-glyph read spent 796 of its 1,736 bytes, 46% of the answer, printing the same
+    eighteen lines three times. What every block in one answer says identically is now said once
+    under `these N share:`, indented one level in so it cannot read as the first block's own, and
+    each block keeps everything of its own. Only a line standing alone at a block's own indent is a
+    candidate: a header with a body under it belongs to the block that owns the body. A block never
+    gives up its last line, and the same measured worth test applies — a hoist that does not
+    shorten the page does not happen.
   - **One delimiter.** Every table separates its columns with ` | `, whatever its cells hold.
   - **An empty page is the same table with no rows**: `rows 0/180` and then the column set. It has
     no row to read that set off, so the producer states it, and a portable test holds every
