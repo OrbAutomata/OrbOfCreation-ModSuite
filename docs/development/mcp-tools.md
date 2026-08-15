@@ -545,9 +545,10 @@ cells in ten empty — while `category`, the column that says which read verb ca
 was filled only on rows that had no identity of their own. Widening is `world_list`'s job, on a page
 whose columns all apply to every row.
 
-`matchedOn` names the field the query hit — `name`, `internalName`, `id`, `keywords`, `category` or
-`nativeType` — which is what separates the row a reader meant from a coincidence in a string they
-never see. It is the absence mark on a call that ran no query, because nothing was matched.
+`matchedOn` names the field the query hit — `name`, `internalName`, `id`, `keywords`, `category`,
+`nativeType` or `effects` — which is what separates the row a reader meant from a coincidence in a
+string they never see. It is the absence mark on a call that ran no query, because nothing was
+matched.
 
 The `keywords` cell is the entity's authored word line — the type assets whose display names the game
 prints as `ITooltipable.GetDisplayType()` — joined with `, ` in the order the game prints them, and
@@ -560,14 +561,32 @@ A type asset the game left nameless contributes no word at all — the seven `Ch
 effect-targetable but deliberately wordless, and the asset-name fallback other surfaces may walk
 would print seven keywords no player has ever seen.
 
+#### What a thing does, as a search term
+
+`world_search` also matches the words an entity's authored effects carry: the `property` each
+modifier moves, and the player-facing name of the entity it moves it on. That is how "what raises my
+Druidry cap" is answerable without already knowing the name of the thing that does it, and how
+`Cooldown` finds Quick — the glyph whose row carries neither word anywhere in its identity. The row
+says `matchedOn: effects`, so a reader can tell that hit from a coincidence in a name.
+
+Both effect blocks feed it, because both answer the same question about their owner: a glyph's inline
+factors are what it does at any level, and the six holders' tuples are what one more level buys. A
+target the identity catalog cannot name contributes no word rather than a stub, and nothing is
+synthesized — the words are the ones the blocks already publish.
+
+The effect band sorts **last**, after name, keyword and category, so adding it moved no hit this
+surface already returned: every existing band keeps its rows and its order, and an entity that
+answers only by what it does joins the page after them.
+
 **Search does not search descriptions.** The published world captures no entity description text at
 all — for any class — so a word appearing only in an entity's description finds nothing here. A
 description is read live, per entity, by `world_get`. This is a real gap and it is stated rather
-than papered over: relevance therefore bands in three, not four.
+than papered over: it is not one of the bands below.
 
 A hit is ranked by *why* it matched, and the reason is a sort key rather than a column: an entity's
 own identity (player-facing name, internal asset name, or id) first, then a keyword, then the
-category name or the native type behind it. Inside a band, rows are in id order, so two pages of one
+category name or the native type behind it, then a word one of its authored effects carries. Inside
+a band, rows are in id order, so two pages of one
 result agree. Matching is case-insensitive substring on the whole query, which is the rule the game's
 own search box uses — `FilterVariable.MatchesSearchStrings` lowercases both sides and asks
 `Contains`, with no tokenising and no whole-word test.
@@ -741,7 +760,6 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `equipment-types` | `totalLevel` |
 | `double-variables`, `int-variables` | `value`, `isPercent` |
 | `statistics` | `displayType`, `isPercent`, `description` |
-| `glyph-effects` | `glyphId`, `property`, `statisticId`, `modifierType`, `amount`, `order` |
 
 **One word per concept across the type taxonomies.** A level a taxonomy list shows is the number its
 own page spells under the same word, so `equipment-types` and `resource-types` both say `totalLevel`
@@ -1220,22 +1238,22 @@ every entity read already carries, and the row beside it does not repeat it.
 `AttributeSO.globalDefinition` — the authoring key effect scripts name a statistic by — is collected
 and deliberately not published. No screen prints it, and several spell themselves
 `Tooltip:ChallengeActive` or `Alert:Research`, so a reader who met one on the wire would have met a
-word from no screen. It is the key `glyph-effects` joins on, and the join is resolved before
+word from no screen. It is the key a glyph's factor block joins on, and the join is resolved before
 publication so what reaches a reader is the statistic's own identity rather than the key.
 
-### What a glyph does
+### What a thing does, and what a level of it buys
 
-`glyph-effects` is the factors a glyph applies: one row per authored modifier slot the game would
-print, `glyphId | property | statistic | modifierType | amount | order`. Before it, a glyph's row
-carried its price and its levels and said nothing whatever about its effect, so the only way to
-learn that Quick trades 15% more spell cost for 30% less cooldown was to hover it on the Magic
-screen.
+Two blocks answer this, both on the owner's own `world_get` and neither a table of its own. A
+glyph's `effects` are the factors it applies at any level; every levelable thing's `levelEffects` are
+what one more level of it buys. Before them, a row carried its price and its levels and said nothing
+whatever about its effect, so the only way to learn that Quick trades 15% more spell cost for 30%
+less cooldown, or that Raise Druidry Lv buys `+1 Max Druidry Lv`, was to hover it.
 
-A `GlyphSO` carries fifteen inline `ValueModifier` slots and nearly all of them are empty on any one
-glyph, so the table is sparse rather than fifteen columns on the glyph row: 106 rows across all 47
-glyphs, one for each slot a glyph actually fills and none for the rest. A slot is skipped exactly
-when the game's own `ValueModifier.IsEmpty()` is true — the same test the tooltip applies before it
-decides whether to print that slot at all.
+**There is no cross-owner page for either, on purpose.** One read says what the tooltip says; a table
+of every glyph's slots says it 106 times and answers no question a reader actually put. "Which thing
+touches Cooldown" is a `world_search` query — see [what a thing does, as a search
+term](#what-a-thing-does-as-a-search-term) — and that is one call rather than a paged table joined by
+hand.
 
 `modifierType`, `amount` and `order` are the three fields `modifier-variables` already publishes,
 under the same names, because they are the same arithmetic — the kind selects the operation, the
@@ -1244,29 +1262,58 @@ kind is never folded into the number.** Two glyphs on one spell combine by kind,
 pre-multiplied magnitude would say the wrong thing about every pairing. `amount` is the modifier's
 `adjustReal`, which is what the screen prints: the game's `ConvertToReal` adds one for the
 multiplicative kinds, so Quick's authored `0.15` and `-0.30` are the `1.15` and `0.7` on the wire and
-the `x1.15 Cost` and `x0.700 Cooldown` on the tooltip.
+the `x1.15 Cost` and `x0.700 Cooldown` on the tooltip. A slot or tuple is skipped exactly when the
+game's own `ValueModifier.IsEmpty()` is true — the same test the tooltip applies before it decides
+whether to print that line at all.
 
-`property` is the glyph's own slot name and is on every row, because the statistic does not tell two
-rows apart: `spellCooldown` and `spellBaseCooldown` are both printed under the Cooldown statistic and
-are different factors with different arithmetic.
+#### A glyph's `effects`
 
-**A slot the game names no statistic for still publishes.** Ten of the fifteen resolve through
+One entry per authored modifier slot the game would print: `property`, the `statistic` or `variable`
+it moves it on, `modifierType`, `amount`, `order`. A `GlyphSO` carries fifteen inline `ValueModifier`
+slots and nearly all are empty on any one glyph, so a glyph that fills none carries no block rather
+than an empty one.
+
+`property` is the glyph's own slot name and is on every entry, because the target does not tell two
+entries apart: `spellCooldown` and `spellBaseCooldown` are both printed under the Cooldown statistic
+and are different factors with different arithmetic.
+
+**Every slot the game gives a target names it.** Ten of the fifteen resolve through
 `AttributeSO.globalDefinition` to a `statistics` row, taken from the literals
-`GlyphSO.GetQuantityTooltipNodes` itself passes to `GlobalVariables.GetAttribute`. The other five do
-not, and it is not an omission: four are printed against a `DoubleVariable` the game reads off the
-player rather than against a statistic, and `creationCostMod` is never printed as a named factor at
-all — it is applied straight to a resource cost list. Those rows carry their slot and their three
-numbers with no `statistic` edge. The gap is spelled the two ways this surface spells every gap: the
-list column reads `-`, the detail field is absent. Inventing a statistic for any of the five would
-hand a reader an edge the game does not author.
+`GlyphSO.GetQuantityTooltipNodes` itself passes to `GlobalVariables.GetAttribute`, and carry a
+`statistic` edge. Four are printed against a `DoubleVariable` the game reads off the player — the
+critical and echo rating and effect slots — and carry a `variable` edge instead, read through the
+`Player` accessor the game itself reads them through rather than by matching a name here. The
+fifteenth, `creationCostMod`, is never printed as a named factor at all: it is applied straight to a
+resource cost list, which is not an entity this surface publishes, so it carries its slot and its
+three numbers and no edge. Inventing one would hand a reader an edge the game does not author.
 
-**A glyph's own answer carries its factors.** `world_get` on a glyph adds an `effects` block of the
-same tuples, from the same table, so the one question a reader socketing a glyph is asking is
-answered by the read they were already making. A glyph that fills no slot carries no block rather
-than an empty one. The block names the edge and does not unfurl it: a factor points at a statistic
-by handle and name, and the statistic's own row is a `world_get` away. The rows are also a listable
-category of their own, read with `world_list` like every other table — no new tool and no filter this
-surface did not already have.
+#### Every levelable thing's `levelEffects`
+
+Six classes author per-level modifier tuples — `UpgradeSO.permanentEffects`,
+`GlyphSO.levelingEffects`, `ResourceTypeSO.levelEffects`, `EquipmentTypeSO.levelEffects`,
+`SpellTypeSO.perLevelEffects` and `TimeRuneSO.onLevelEffects` — and all six publish the block on
+their own row. An entry is `property`, `modifies`, `modifierType`, `amount`, `order`.
+
+**One column absorbs three authoring vocabularies.** The game applies these through three record
+classes and each names its target its own way. `UpgradeableObject.UpgradeEffectModifier` carries an
+object reference plus a `propertyType` string, so the string is the `property` and the object is what
+it `modifies`. `ResourceSO.PersistentEffect` carries a resource plus a `ModifiableType`, so the
+enum member's own name is the `property` — read off the game's enum at bind time, never an ordinal
+and never a table copied here. A number-variable tuple carries only the variable, so there is no
+`property` at all: the game prints `+1 Max Druidry Lv` with no property word because the variable is
+the whole of what moves, and an entry with nothing to name leaves the field absent rather than blank.
+
+`world_get` on Raise Druidry Lv therefore carries the three lines its tooltip prints: `+1` on Max
+Druidry Lv, `x1.02` on All Plot's Yield, and `x1.75` on All Plot's RecoverySizeMod.
+
+**A target nothing published names keeps its handle and says so.** Most of these tuples point at
+scene `UpgradeableObject`s rather than at assets, so `modifies` reads
+`(unnamed 8d8a1b)` where the identity catalog holds no name for the id — the same marked stand-in
+every other surface uses. The entry is never dropped and no name is invented for it.
+
+`TimeRuneSO.onLevelEffects` is walked and authors no modifier on this build: all twenty of its blocks
+grant advancement experience rather than apply a tuple. It is read anyway, so a build that authors
+one publishes it rather than silently losing it.
 
 ### Discovery decision loop
 
