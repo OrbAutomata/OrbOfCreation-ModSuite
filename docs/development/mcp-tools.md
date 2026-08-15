@@ -642,7 +642,12 @@ without navigation. Before that bind, or when its declared contracts fail, the t
 A match contains `uuid`, `name`, `nativeType`, and one `category` — this is the surface that still
 carries the runtime type unconditionally, because browsing the catalog is the one activity that asks
 for it and a browser names no category to imply it from. `category=not-world-projected`
-means that the live registry identity has no world row. `name` is present exactly when the game
+means that the live registry identity has no world row. A category declared over several native
+types answers for one of them where no single-type category claims it and no other multi-type
+category does either, so `AlchemySnapshotListVariable` and `EquipmentSnapshotListVariable` read
+`snapshot-loadouts` — the page that pages them — instead of the `not-world-projected` the cell used
+to print while `world_list snapshot-loadouts` answered for the same two ids. `name` is present
+exactly when the game
 authors a player-facing word, so its absence is that fact and needs no flag beside it;
 `internalName` carries the Unity asset id **only where it is not the `name` with its spaces and
 punctuation taken out, and not that name followed by a word the row's own `category` already

@@ -98,4 +98,48 @@ public sealed class GameMcpEntityCapabilityMapTests
         Assert.Throws<ArgumentException>(() =>
             GameMcpCommandKinds.FromToolName("game_arbitrary_reflection"));
     }
+
+    /// <summary>
+    /// A category naming several native types answers for each of them. The catalog called the two
+    /// snapshot-list types <c>not-world-projected</c> while <c>world_list snapshot-loadouts</c>
+    /// answered for them on the same build, because the type lookup compared the whole descriptor
+    /// against one type name and a pipe-joined descriptor equals none.
+    /// </summary>
+    [Fact]
+    public void APipeJoinedCategoryAnswersForEveryTypeItNames()
+    {
+        Assert.True(GameMcpEntityCapabilityMap.TryCategoryForNativeType(
+            "AlchemySnapshotListVariable", out var alchemyList));
+        Assert.Equal("snapshot-loadouts", alchemyList);
+        Assert.True(GameMcpEntityCapabilityMap.TryCategoryForNativeType(
+            "EquipmentSnapshotListVariable", out var equipmentList));
+        Assert.Equal("snapshot-loadouts", equipmentList);
+        Assert.True(GameMcpEntityCapabilityMap.TryCategoryForNativeType(
+            "AlchemySnapshot", out var alchemySlot));
+        Assert.Equal("snapshot-slots", alchemySlot);
+        Assert.True(GameMcpEntityCapabilityMap.TryCategoryForNativeType(
+            "EquipmentSnapshot", out var equipmentSlot));
+        Assert.Equal("snapshot-slots", equipmentSlot);
+    }
+
+    /// <summary>
+    /// One type, one category. A type a single-type descriptor owns keeps that owner even where a
+    /// pipe-joined category also lists it, a type several pipe-joined categories list has no single
+    /// answer, and a name that is only part of one of those types is not one of them.
+    /// </summary>
+    [Fact]
+    public void TheSingleTypeOwnerWinsAndAPartialNameIsNeverAType()
+    {
+        Assert.True(GameMcpEntityCapabilityMap.TryCategoryForNativeType("UpgradeSO", out var upgrade));
+        Assert.Equal("upgrades", upgrade);
+        Assert.True(GameMcpEntityCapabilityMap.TryCategoryForNativeType(
+            "AlchemyRecipeSO", out var recipe));
+        Assert.Equal("alchemy-recipes", recipe);
+        Assert.False(GameMcpEntityCapabilityMap.TryCategoryForNativeType(
+            "EquipmentSnapshotList", out var partial));
+        Assert.Equal(string.Empty, partial);
+        Assert.False(GameMcpEntityCapabilityMap.TryCategoryForNativeType(
+            "SnapshotListVariable", out var suffix));
+        Assert.Equal(string.Empty, suffix);
+    }
 }

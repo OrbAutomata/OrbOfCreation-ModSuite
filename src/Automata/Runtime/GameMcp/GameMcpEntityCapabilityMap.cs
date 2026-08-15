@@ -27,6 +27,19 @@ internal static class GameMcpEntityCapabilityMap
         return descriptor.ExpectedNativeType;
     }
 
+    /// <summary>
+    /// The category that publishes rows of one native type, where exactly one does.
+    /// </summary>
+    /// <remarks>
+    /// A descriptor naming several native types answers only for a type no single-type descriptor
+    /// claims, and only where it is the sole such claimant. Skipping those descriptors outright
+    /// left <c>AlchemySnapshotListVariable</c> and <c>EquipmentSnapshotListVariable</c> labelled
+    /// <c>not-world-projected</c> in <c>entity_catalog</c> while <c>world_list snapshot-loadouts</c>
+    /// paged them — the surface saying an id has no home was the only one that could not see it.
+    /// The single-type pass still wins, because <c>EquipmentSO</c> is <c>equipment</c> whatever
+    /// composite rows also name it, and a type several composites claim keeps no answer at all
+    /// rather than the first one declared.
+    /// </remarks>
     internal static bool TryCategoryForNativeType(string nativeType, out string category)
     {
         for (var index = 0; index < Descriptors.Length; index++)
@@ -40,7 +53,43 @@ internal static class GameMcpEntityCapabilityMap
             category = descriptor.Category;
             return true;
         }
+
         category = string.Empty;
+        var claimed = 0;
+        for (var index = 0; index < Descriptors.Length; index++)
+        {
+            var descriptor = Descriptors[index];
+            if (descriptor.ExpectedNativeType.IndexOf('|') < 0 ||
+                !Names(descriptor.ExpectedNativeType, nativeType))
+            {
+                continue;
+            }
+            if (++claimed > 1)
+            {
+                category = string.Empty;
+                return false;
+            }
+            category = descriptor.Category;
+        }
+        return claimed == 1;
+    }
+
+    /// <summary>Whether a pipe-separated descriptor names this native type as one of its members.</summary>
+    private static bool Names(string descriptor, string nativeType)
+    {
+        var start = 0;
+        while (start <= descriptor.Length)
+        {
+            var next = descriptor.IndexOf('|', start);
+            var end = next < 0 ? descriptor.Length : next;
+            if (end - start == nativeType.Length &&
+                string.CompareOrdinal(descriptor, start, nativeType, 0, nativeType.Length) == 0)
+            {
+                return true;
+            }
+            if (next < 0) return false;
+            start = next + 1;
+        }
         return false;
     }
 
