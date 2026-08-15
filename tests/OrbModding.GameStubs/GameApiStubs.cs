@@ -822,10 +822,10 @@ public class StackableListVariable<T> : GenericListVariable<T>
     /// stackable, and plain <c>Add</c> never writes it — the two facts that make an element landing
     /// in <see cref="AbstractListVariable{T}.value"/> no evidence at all that the stack carries it.
     /// </summary>
-    public Stacked.StackedIdRecord<T>? GetStackedRecord() => isStackable ? itemStack : null;
+    public virtual Stacked.StackedIdRecord<T>? GetStackedRecord() => isStackable ? itemStack : null;
 
     /// <summary>Writes the stack and then the value list from it, the way the game does.</summary>
-    public void SetStack(Stacked.StackedIdRecord<T> record)
+    public virtual void SetStack(Stacked.StackedIdRecord<T> record)
     {
         itemStack.ImportItems(record.ToList());
         SetValue(itemStack.GetItems());
@@ -2940,13 +2940,13 @@ public sealed class EquipmentListVariable : StackableListVariable<EquipmentSO>
     public int GetTypesEquipped(EquipmentTypeSO equipmentType) =>
         value.Count(item => ReferenceEquals(item.equipmentType, equipmentType));
 
-    public Stacked.StackedIdRecord<EquipmentSO> GetStackedRecord() =>
-        new Stacked.StackedIdRecord<EquipmentSO>(itemStack);
-
-    public void SetStack(Stacked.StackedIdRecord<EquipmentSO> record)
+    /// <summary>
+    /// The base write, plus the equip bookkeeping this stub does for the game's own equip side of
+    /// the same call. The shipped type declares neither member; both come from the stackable base.
+    /// </summary>
+    public override void SetStack(Stacked.StackedIdRecord<EquipmentSO> record)
     {
-        itemStack = new Stacked.StackedIdRecord<EquipmentSO>(record);
-        value = record.GetItemList().Distinct().ToList();
+        base.SetStack(record);
         foreach (var item in EquipmentSO.All)
             item.Equip(itemStack.GetQuantity(item));
     }
