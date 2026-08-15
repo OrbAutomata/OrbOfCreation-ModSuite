@@ -29,10 +29,11 @@ create."* Individual structures do the same: `Upheaval`: *"Reduces the cost of a
 The `ActiveActionables` list, which holds structures under development, is displayed as
 *"Active Attributes"*. On the other side, the `ViewSO` displayed as "Upgrades" declares
 `relevantLists = ["AllUpgrades"]`, an `UpgradeListVariable` — the view is bound to the type
-directly. And 110 of 201 `AttributeSO` records carry `displayTypeRef.displayType = "Statistic"`
-(the rest are `Information` and `Action`), while the `ViewSO` named `PlayerStatsAttributes`
-displays as "Statistics". `AttributeSO` has no cost and no prerequisite fields, so it is never a
-purchase target.
+directly. And 113 of 211 `AttributeSO` records carry `displayTypeRef.displayType = "Statistic"`
+(63 are `Information`, 34 are `Action`, and one names none), while the `ViewSO` named
+`PlayerStatsAttributes` displays as "Statistics". `AttributeSO` has no cost and no prerequisite
+fields, so it is never a purchase target. The suite publishes the glossary as the `statistics`
+world category.
 
 ## Concepts are alchemy recipes
 
