@@ -2684,6 +2684,12 @@ public sealed class Plugin : BaseUnityPlugin
 
         if (command.Kind == GameMcpCommandKind.ConfigurationSet)
         {
+            if (GameMcpAutomationFeatures.IsBreakerSetting(command.Mode, command.PayloadKey))
+                return GameMcpCommandResult.Rejected(
+                    "wrong_configuration_surface",
+                    GameMcpDecisionReason.For("wrong_configuration_surface"),
+                    observedLifecycleGeneration: _lifecycleGeneration,
+                    observedConfigurationGeneration: before.Value);
             var priorValue = GameMcpConfigurationSchema.SerializePublishedValue(
                 _configurationStore.Current,
                 command.Mode,

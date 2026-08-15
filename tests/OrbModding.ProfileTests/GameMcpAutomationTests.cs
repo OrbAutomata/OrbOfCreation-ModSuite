@@ -46,6 +46,59 @@ public sealed class GameMcpAutomationTests
         Assert.Contains("seven green/gray breakers", description, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// One feature, one write door. <c>AutoHarvest/Mode</c> was writable twice — once as a breaker
+    /// and once as a settings line — and a live round called both in one breath to be sure they
+    /// moved the same switch. The refusal is on the settings verb, not on the store: the store is
+    /// the path the breaker itself writes through, so closing it there would close both doors.
+    /// </summary>
+    [Fact]
+    public void The_seven_settings_behind_the_breakers_are_the_breakers_own()
+    {
+        Assert.All(
+            GameMcpAutomationFeatures.All,
+            feature => Assert.True(
+                GameMcpAutomationFeatures.IsBreakerSetting(feature.Section, feature.Key)));
+
+        // Everything else a feature is configured with stays on the settings pen.
+        Assert.False(GameMcpAutomationFeatures.IsBreakerSetting("AutoCast", "ManualPauseSeconds"));
+        Assert.False(GameMcpAutomationFeatures.IsBreakerSetting("AutoBuy", "LeaveQueueSlots"));
+        Assert.False(GameMcpAutomationFeatures.IsBreakerSetting("Reserves", "AbsoluteReserve"));
+
+        // The pairing is the whole key, not either half of it: a section with no breaker and a key
+        // spelled Mode is not one, and neither is a breaker's section under another key.
+        Assert.False(GameMcpAutomationFeatures.IsBreakerSetting("Safety", "Mode"));
+        Assert.False(GameMcpAutomationFeatures.IsBreakerSetting("AutoHarvest", "Modes"));
+    }
+
+    /// <summary>
+    /// The refused write is not a malformed value and not a locked feature: the setting is real,
+    /// readable and unchanged, and what is wrong is the door it was named at. That is the same
+    /// class a value outside its range answers, for the same reason — one kind of no is one class
+    /// wherever it happens.
+    /// </summary>
+    [Fact]
+    public void A_breaker_write_at_the_settings_pen_is_sent_to_the_one_door_that_flips_it()
+    {
+        Assert.Equal(
+            GameMcpDecisionReason.ClassInput,
+            GameMcpDecisionReason.Class("wrong_configuration_surface"));
+        Assert.Equal(
+            "This setting is one of the seven breakers, and suite_breakers is the one door that " +
+            "flips it; suite_configuration still reads its value.",
+            GameMcpDecisionReason.For("wrong_configuration_surface"));
+
+        // A caller reading the settings verb learns where the seven went before spending a call.
+        Assert.Equal(
+            "Write one allowlisted setting through the single committed configuration-store " +
+            "publication path. The seven Mode settings behind the breakers are refused here and " +
+            "flipped with suite_breakers; suite_configuration still reads their values alongside " +
+            "every other setting's.",
+            (string)Assert.Single(
+                GameMcpAcceptanceFixture.Tools(),
+                candidate => (string?)candidate["name"] == "suite_config_set")["description"]!);
+    }
+
     [Fact]
     public void Listing_returns_every_feature_named_with_whether_it_is_on()
     {

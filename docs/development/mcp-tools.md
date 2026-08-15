@@ -420,7 +420,7 @@ rather than from the screen it is drawn on.
 | `time_prestige` | Confirm and perform the irreversible persistent reset |
 | `game_research` | Develop/queue levels (`amount` defaults to 1), pause, resume, cancel, or apply a free research bonus level |
 | `suite_breakers` | Read the seven breakers, or flip exactly one |
-| `suite_config_set` | Commit one allowlisted setting through the configuration store |
+| `suite_config_set` | Commit one allowlisted setting through the configuration store; the seven breaker settings are refused here |
 | `suite_emergency_stop` | Engage or resume the suite's shared emergency stop |
 | `game_screenshot` | Return the framebuffer as inline MCP image content |
 | `game_continue` | Continue the already-selected save from the Start scene |
@@ -2240,7 +2240,7 @@ most, so an old code's new class can be looked up here:
 
 | Class | Internal codes that reach it |
 | --- | --- |
-| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `screen_match_failed`, `composite_identity_required`, `discovery_surface_ambiguous` |
+| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required`, `discovery_surface_ambiguous` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `recipe_has_no_core_glyph` |
 | `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
@@ -2249,11 +2249,14 @@ most, so an old code's new class can be looked up here:
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused` — the game's own gate said no and reported nothing else |
 
-Four of those placements are worth reading twice, because the obvious guess is wrong.
+Five of those placements are worth reading twice, because the obvious guess is wrong.
 `slot_out_of_range` is `ERR_INPUT` and not `ERR_LIMIT`: the caller named a slot the list never had,
 which is a bad argument rather than a ceiling reached. `configuration_write_rejected` is `ERR_INPUT`
 for the same reason a dial value outside the game's range is: one kind of no is one class wherever
-it happens, and a class that changed with the verb taught callers it described the tool. `cannot_level` is `ERR_LOCKED` and not
+it happens, and a class that changed with the verb taught callers it described the tool.
+`wrong_configuration_surface` is `ERR_INPUT` for the same reason: the setting the caller named is
+real and readable, and what is wrong is the door it was named at.
+`cannot_level` is `ERR_LOCKED` and not
 `ERR_LIMIT` for the reason its own row gives — no level list in this game has a ceiling, so a shut
 level gate is always a gate rather than an exhausted supply. Both leeway codes are `ERR_LOCKED` and
 not `ERR_LIMIT`: research leeway is a gate the game opens as the requirement level moves, not a
@@ -2934,7 +2937,11 @@ so no caller has to parse a range back out of a sentence before it may write.
 `suite_config_set` commits through `AutomataConfigurationStore`, the same single publication path
 as the in-game controls. BepInEx
 parse/domain validation runs before publication. Compatibility acknowledgements, shortcuts, and
-STOP are not generic writable settings. A commit returns `setting.value` as a `{before, after}`
+STOP are not generic writable settings, and neither are the seven `Mode` entries behind the
+breakers: `suite_config_set` refuses those with `ERR_INPUT` and a sentence naming `suite_breakers`
+as the one door that flips them, while `suite_configuration` keeps listing their values with every
+other setting's. A feature has one write door, not two.
+A commit returns `setting.value` as a `{before, after}`
 pair, the same shape `suite_breakers` returns `on` in, because what a write changed is the pair
 and not the endpoint. A write refused for its domain returns the setting, the `requestedValue`, and
 the declared range as `minimum` and `maximum` read off the entry itself — BepInEx's own

@@ -1090,7 +1090,10 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "suite_config_set",
                 "Commit one suite setting",
-                "Write one allowlisted setting through the single committed configuration-store publication path.",
+                "Write one allowlisted setting through the single committed configuration-store "
+                    + "publication path. The seven Mode settings behind the breakers are refused "
+                    + "here and flipped with suite_breakers; suite_configuration still reads their "
+                    + "values alongside every other setting's.",
                 ObjectSchema(
                     new JObject
                     {

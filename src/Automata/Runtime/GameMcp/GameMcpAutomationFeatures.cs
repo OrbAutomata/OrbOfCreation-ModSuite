@@ -12,7 +12,8 @@ namespace OrbAutomata.GameMcp;
 /// Every one of these is an <c>{Disabled, Active}</c> enum with no third state, which is why the
 /// MCP surface for them is a boolean rather than a serialized-value write: the player concept is a
 /// breaker that is green or gray. Everything else a feature can be configured with — thresholds,
-/// roles, allowlists — stays on <c>suite_config_set</c>, which writes the same entries the same way.
+/// roles, allowlists — stays on <c>suite_config_set</c>; these seven entries are the breakers' own
+/// and that verb refuses them, so a feature has one door and not two.
 /// </remarks>
 internal sealed class GameMcpAutomationFeature
 {
@@ -114,6 +115,24 @@ internal static class GameMcpAutomationFeatures
     {
         if (configuration.Safety.EmergencyDisable) target["emergencyStop"] = true;
         if (!configuration.General.Enabled) target["automationEnabled"] = false;
+    }
+
+    /// <summary>
+    /// Whether one configuration entry is the setting behind a breaker. A feature had two doors —
+    /// the breaker and its <c>Mode</c> line in the settings pen — and a live round called both in
+    /// one breath to be sure they were the same switch. The breaker is the door; this is what lets
+    /// the pen refuse the second one.
+    /// </summary>
+    internal static bool IsBreakerSetting(string section, string key)
+    {
+        for (var index = 0; index < All.Length; index++)
+        {
+            if (string.Equals(All[index].Section, section, StringComparison.Ordinal) &&
+                string.Equals(All[index].Key, key, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
     }
 
     internal static bool TryGet(string name, out GameMcpAutomationFeature feature)

@@ -133,7 +133,7 @@ internal static class GameMcpDecisionReason
         "category_not_searchable" or "run_filter_out_of_scope" or "keyword_not_worn" or
         "component_count_too_large" or "unsupported_type" or "composition_unsupported" or
         "wrong_mode" or "wrong_alchemy_surface" or "wrong_level_surface" or
-        "wrong_loadout_surface" or "wrong_selection" or
+        "wrong_loadout_surface" or "wrong_selection" or "wrong_configuration_surface" or
         "discovery_recipe_unresolved" or "discovery_recipe_ambiguous" or "ambiguous_offer" or
         "ambiguous_handle" or "screen_match_failed" or "subtab_match_failed" or
         "page_relation_ambiguous" or
@@ -354,6 +354,13 @@ internal static class GameMcpDecisionReason
         "cancellable_spells_disabled" =>
             "Cancellable spells are switched off, so this cast cannot be toggled off.",
         "progression_locked" => "The progression that unlocks this is not reached yet.",
+
+        // A feature had two doors onto one switch and a live round called both in one breath to be
+        // sure they agreed. The breaker is the door; the settings pen keeps publishing the value
+        // and stops writing it, so what is readable does not shrink and what is writable is one.
+        "wrong_configuration_surface" =>
+            "This setting is one of the seven breakers, and suite_breakers is the one door that " +
+            "flips it; suite_configuration still reads its value.",
 
         // Never a `reasonCode`, and so never a class: it is the sentence `world_categories` prints
         // once under `unlistable:`, and the rows that cannot be paged say that one word back.

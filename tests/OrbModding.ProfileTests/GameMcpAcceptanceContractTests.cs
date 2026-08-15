@@ -6,6 +6,7 @@ using BepInEx.Configuration;
 using Newtonsoft.Json.Linq;
 using OrbAutomata;
 using OrbAutomata.GameMcp;
+using OrbMentor;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
@@ -878,6 +879,37 @@ public sealed class GameMcpConfigurationTests
         Assert.Equal("Disabled", (string?)result["AutoCast/Mode"]);
         Assert.Equal("Active", configuration.AutoCastMode.GetSerializedValue());
         Assert.Same(schema, GameMcpTestHarness.Context(writable: schema).WritableConfiguration);
+    }
+
+    /// <summary>
+    /// Closing the second write door onto the seven breakers takes nothing away from the read:
+    /// their values stay in the one catalog <c>suite_configuration</c> pages, beside every other
+    /// setting, so a caller can still see what a breaker is set to without pressing anything.
+    /// </summary>
+    [Fact]
+    public void TheSevenBreakerSettingsStayReadableAlongsideEveryOtherSetting()
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+
+        // The mentor's breaker rides on its own binding, so the seventh reaches this catalog only
+        // once that binding is attached — exactly as it does in a composed process.
+        configuration.AttachMentor(MentorConfig.Bind(new ConfigFile()));
+        var schema = configuration.CreateGameMcpWritableSchema();
+
+        Assert.All(GameMcpAutomationFeatures.All, feature =>
+            Assert.Single(
+                schema,
+                descriptor => descriptor.Section == feature.Section &&
+                    descriptor.Key == feature.Key));
+
+        var listed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            GameMcpTestHarness.Context(
+                writable: schema,
+                configuration: configuration.Current),
+            describe: false));
+
+        Assert.Equal("Disabled", (string?)listed["AutoHarvest/Mode"]);
+        Assert.Equal("Disabled", (string?)listed["General/Mode"]);
     }
 
     [Fact]
