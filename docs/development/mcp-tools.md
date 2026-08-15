@@ -1090,7 +1090,11 @@ queue route, live multi-buy maximum, exact number of levels the native cumulativ
 and ordered named costs paired with each resource's canonical `spendableAmount`. `develop.affordable`
 and `develop.costs` appear exactly where the price is what decides: an available decision, or a
 refusal whose `reasonCode` is `unaffordable` — a row refused for its price publishes the price that
-refused it, rather than naming the blocking resource only inside the sentence.
+refused it, rather than naming the blocking resource only inside the sentence. The `canDevelop`
+predicate asks the same gates in the same order, price included: `ResearchSO.IsWithinDevelopRange`
+asks the cost before the level requirements, so an unaffordable node answers `unaffordable` with the
+row's own shortfall sentence on both, and the per-field collapse then folds the predicate away. Only
+a range the four named gates do not account for answers `develop_range_refused`.
 While development is active it includes elapsed/required/remaining progress and,
 per resource, the drain that pays for the research already in flight: `invested` and `required` are
 the native fill bar, `cost` is what that bar still owes in the units the player spends — the same

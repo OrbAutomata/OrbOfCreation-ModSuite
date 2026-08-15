@@ -172,6 +172,7 @@ public sealed class GameMcpResearchTests
         var world = World(
             developmentCostAffordable: false,
             withinDevelopRange: false,
+            canDevelop: false,
             spendableAmount: 1,
             heldAmount: 1);
         var response = Json(GameMcpWorldQuery.GetRow(Pinned(world, 2807),
@@ -185,6 +186,53 @@ public sealed class GameMcpResearchTests
         Assert.Equal("20", (string?)cost["cost"]);
         Assert.Equal("1", (string?)cost["spendableAmount"]);
         Assert.False((bool)cost["affordable"]!);
+    }
+
+    /// <summary>
+    /// One blocked action, one refusal. A node out of reach on price answered
+    /// <c>develop: no (ERR_UNAFFORDABLE) "Needs 20 Arcana (have 1)."</c> on the row and
+    /// <c>canDevelop: no (ERR_REFUSED) "Native development range refused."</c> eight lines under
+    /// it — two classes and two sentences for one gate, the second naming a gate that was not the
+    /// problem. The price is inside <c>IsWithinDevelopRange</c>, so the predicate asks it where the
+    /// native asks it, and the per-field collapse then folds the agreeing predicate away.
+    /// </summary>
+    [Fact]
+    public void An_unaffordable_research_states_its_one_refusal_once()
+    {
+        var world = World(
+            developmentCostAffordable: false,
+            withinDevelopRange: false,
+            canDevelop: false,
+            spendableAmount: 1,
+            heldAmount: 1);
+        var entity = Assert.Single(Json(GameMcpWorldQuery.GetRows(
+                    Pinned(world, 2812), "research", new[] { ResearchId.ToString("D") }).Freeze(),
+                world)["results"]!.Values<JObject>())!;
+        var develop = entity["row"]!["develop"]!;
+
+        Assert.False((bool)develop["available"]!);
+        Assert.Equal("ERR_UNAFFORDABLE", (string?)develop["reasonCode"]);
+        Assert.Equal("Needs 20 Arcana (have 1).", (string?)develop["reason"]);
+        Assert.Null(entity["predicates"]!["canDevelop"]);
+
+        // The fold takes the copy, not the block: the research is still an available one that
+        // happens to be out of reach on price this moment, and that answer keeps its line.
+        Assert.True((bool)entity["predicates"]!["available"]!["available"]!);
+    }
+
+    /// <summary>
+    /// What is left of the range refusal is the range refusal: a shut gate none of the four named
+    /// ones accounts for. It keeps a class that says the game is holding the door and a sentence
+    /// that says so in words, which is what <c>ERR_REFUSED</c> plus
+    /// "Native development range refused." never did.
+    /// </summary>
+    [Fact]
+    public void The_range_refusal_that_is_left_is_classified_and_says_what_it_means()
+    {
+        Assert.Equal("ERR_LOCKED", GameMcpDecisionReason.Class("develop_range_refused"));
+        Assert.Equal(
+            "The game's own develop gate is shut on this research.",
+            GameMcpDecisionReason.For("develop_range_refused"));
     }
 
     [Fact]
@@ -388,7 +436,8 @@ public sealed class GameMcpResearchTests
         double? heldAmount = null,
         int queuedLevels = 3,
         int totalLevel = 1,
-        bool withinDevelopRange = true)
+        bool withinDevelopRange = true,
+        bool canDevelop = true)
     {
         var decision = new WorldResearchDecision(
             queueMode,
@@ -417,7 +466,7 @@ public sealed class GameMcpResearchTests
         var modifiers = new RawResearchModifiers(BigDouble.Zero, BigDouble.Zero,
             new BigDouble(100), BigDouble.Zero, BigDouble.Zero);
         var research = new WorldResearch(ResearchId, 1, 2, 0, 0, 10, 60,
-            isDeveloping, isActive, false, true, true, complete, true, withinDevelopRange,
+            isDeveloping, isActive, false, true, true, complete, canDevelop, withinDevelopRange,
             true, true, true, true,
             1, 1, 0, totalLevel, 10, false, 2, 1, new BigDouble(60), 1, 1,
             PublicationTable<WorldResearchRequirementAdjustment>.Empty, in modifiers, in decision);

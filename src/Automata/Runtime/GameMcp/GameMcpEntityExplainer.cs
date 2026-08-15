@@ -251,27 +251,43 @@ internal static class GameMcpEntityExplainer
                     research.Available,
                     research.Complete ? "already_maxed" : "native_unavailable");
                 // ResearchSO.IsWithinDevelopRange's own gates, in its own order, under the same
-                // words the research row uses for them. Leeway and the two caps are one gate:
-                // native develops on leeway OR on being below both caps, so an exhausted leeway
-                // beside an open cap is not what refused. CanDevelop() adds !IsDeveloping() on top
-                // of the whole expression, so a running development is asked last.
+                // words and the same codes the research row uses for them. Cost is asked before
+                // level requirements because the native method asks it there, and asking it at all
+                // is what this predicate was missing: the price is inside IsWithinDevelopRange, so
+                // an unaffordable node fell through every named gate and answered with the range
+                // itself — one blocked action carrying "Needs 2 Ability Advancement (have 1)." on
+                // the row and a range refusal eight lines below it, pointing a reader at a gate
+                // that was not the problem. Leeway and the two caps are one gate: native develops
+                // on leeway OR on being below both caps, so an exhausted leeway beside an open cap
+                // is not what refused. CanDevelop() adds !IsDeveloping() on top of the whole
+                // expression, so a running development is asked last.
+                var decision = research.Decision;
                 var reason = research.Complete
                     ? "already_maxed"
-                    : !research.MeetsLevelRequirements
-                        ? "requirements_unmet"
-                        : !research.StillHasLeeway &&
-                          !(research.BelowArtificialMaxLevel && research.BelowMaxInvestmentLevel)
-                            ? "research_leeway_exhausted"
-                            : !research.WithinDevelopRange
-                                ? "native_development_range_refused"
-                                : research.IsDeveloping
-                                    ? "already_developing"
-                                    : research.CanDevelop
-                                        ? "can_develop"
-                                        : "native_can_develop_refused";
-                result["canDevelop"] = Verdict(
-                    research.CanDevelop,
-                    reason);
+                    : decision.Available && !decision.DevelopmentCostAffordable
+                        ? "unaffordable"
+                        : !research.MeetsLevelRequirements
+                            ? "requirements_unmet"
+                            : !research.StillHasLeeway &&
+                              !(research.BelowArtificialMaxLevel && research.BelowMaxInvestmentLevel)
+                                ? "research_leeway_exhausted"
+                                : !research.WithinDevelopRange
+                                    ? "develop_range_refused"
+                                    : research.IsDeveloping
+                                        ? "already_developing"
+                                        : research.CanDevelop
+                                            ? "can_develop"
+                                            : "native_can_develop_refused";
+
+                // The shortfall sentence is the row's own, written from the same costs, so the two
+                // are byte-identical and the per-field collapse folds the predicate away instead of
+                // printing one refusal twice.
+                result["canDevelop"] = string.Equals(reason, "unaffordable", StringComparison.Ordinal)
+                    ? Verdict(
+                        research.CanDevelop,
+                        reason,
+                        GameMcpWorldQuery.ShortfallReason(world, decision.DevelopmentCosts))
+                    : Verdict(research.CanDevelop, reason);
                 break;
             }
             case EntityKind.SpellRecipe:
@@ -1285,6 +1301,22 @@ internal static class GameMcpEntityExplainer
         ["available"] = value,
         ["reasonCode"] = value ? "passed" : falseReason,
     };
+
+    /// <summary>
+    /// A verdict that carries the same sentence the row action beside it writes, for a gate they
+    /// both judge. The sentence has to be here rather than left to the code's own table because the
+    /// row writes its own from the numbers it holds, and a predicate answering the table's generic
+    /// line would disagree with its twin word for word and survive the collapse.
+    /// </summary>
+    private static JObject Verdict(
+        bool value,
+        string falseReason,
+        string falseSentence)
+    {
+        var verdict = Verdict(value, falseReason);
+        if (!value) verdict["reason"] = falseSentence;
+        return verdict;
+    }
 
     private static JObject PurchaseVerdict(
         GameWorldState world,
