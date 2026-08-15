@@ -1,8 +1,8 @@
 using System;
 using System.Collections;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.Research;
@@ -215,13 +215,13 @@ public sealed class ResearchGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task Unity_thread_is_revalidated_before_identity_or_native_state()
+    public void Unity_thread_is_revalidated_before_identity_or_native_state()
     {
         var target = Research();
         Register(target);
         using var boundary = Boundary();
 
-        var result = await Task.Run(() => Submit(boundary, target, ResearchActionKind.Develop));
+        var result = ForeignThread.Run(() => Submit(boundary, target, ResearchActionKind.Develop));
 
         Assert.Equal(ResearchPreflight.WrongThread, result.Preflight);
         Assert.False(target.isDeveloping);

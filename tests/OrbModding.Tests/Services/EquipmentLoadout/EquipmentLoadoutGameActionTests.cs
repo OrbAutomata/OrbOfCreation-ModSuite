@@ -1,8 +1,8 @@
 using System;
 using System.Collections;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.EquipmentLoadout;
@@ -166,13 +166,13 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task Unity_thread_is_revalidated_before_identity_or_native_state()
+    public void Unity_thread_is_revalidated_before_identity_or_native_state()
     {
         var target = Equipment();
         Register(target);
         using var boundary = Boundary();
 
-        var result = await Task.Run(() => Submit(boundary, target, EquipmentLoadoutActionKind.Equip));
+        var result = ForeignThread.Run(() => Submit(boundary, target, EquipmentLoadoutActionKind.Equip));
 
         Assert.Equal(EquipmentLoadoutPreflight.WrongThread, result.Preflight);
         Assert.Equal(0, EquipmentManager.instance.EquipCalls);

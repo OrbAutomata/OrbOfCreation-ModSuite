@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common.Runtime.World;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.SpellWorkbench;
@@ -578,12 +578,12 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task OffThreadSubmissionRefusesBeforeNativeExecution()
+    public void OffThreadSubmissionRefusesBeforeNativeExecution()
     {
         var (recipe, first, second) = Recipe();
         using var action = Action();
 
-        var result = await Task.Run(() => action.Submit(new SpellWorkbenchAction(
+        var result = ForeignThread.Run(() => action.Submit(new SpellWorkbenchAction(
             SpellWorkbenchActionKind.Discover, recipe.GetGuid(), Epoch,
             CoreLayout(first, second), Array.Empty<SpellWorkbenchGlyphStack>())));
 

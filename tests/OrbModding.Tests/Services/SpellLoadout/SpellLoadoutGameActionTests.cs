@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using OrbAutomata;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.SpellLoadout;
@@ -167,13 +167,13 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task OffThreadSubmissionRefusesBeforeNativeExecution()
+    public void OffThreadSubmissionRefusesBeforeNativeExecution()
     {
         var spell = Spell("Threaded");
         SpellManager.instance!.activeSpells.value.Add(spell);
         using var action = Action();
 
-        var result = await Task.Run(() => action.Submit(Remove(spell)));
+        var result = ForeignThread.Run(() => action.Submit(Remove(spell)));
 
         Assert.Equal(SpellLoadoutPreflight.WrongThread, result.Preflight);
         Assert.Equal(0, SpellManager.instance.RemoveCalls);

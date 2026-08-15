@@ -1,8 +1,8 @@
 using System;
 using System.Collections;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.PlotLifecycle;
@@ -118,7 +118,7 @@ public sealed class PlotLifecycleGameActionTests
     }
 
     [Fact]
-    public async Task Unity_thread_is_refused_before_registry_or_list_state()
+    public void Unity_thread_is_refused_before_registry_or_list_state()
     {
         var plot = Plot();
         var action = Action();
@@ -127,7 +127,7 @@ public sealed class PlotLifecycleGameActionTests
         Register(action);
         using var boundary = Boundary();
 
-        var result = await Task.Run(() =>
+        var result = ForeignThread.Run(() =>
             Submit(boundary, PlotLifecycleActionKind.Add, plot, action));
 
         Assert.Equal(PlotLifecyclePreflight.WrongThread, result.Preflight);

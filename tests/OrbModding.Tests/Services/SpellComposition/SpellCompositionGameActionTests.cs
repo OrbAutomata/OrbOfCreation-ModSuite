@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using OrbAutomata;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.SpellComposition;
@@ -67,11 +67,11 @@ public sealed class SpellCompositionGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task OffThreadSubmissionRefusesBeforeNativeExecution()
+    public void OffThreadSubmissionRefusesBeforeNativeExecution()
     {
         using var action = Action();
 
-        var result = await Task.Run(() => action.Submit(Output(4)));
+        var result = ForeignThread.Run(() => action.Submit(Output(4)));
 
         Assert.Equal(SpellCompositionPreflight.WrongThread, result.Preflight);
         Assert.Equal(2, Player.GetSpellOutputLevel().AsInt());

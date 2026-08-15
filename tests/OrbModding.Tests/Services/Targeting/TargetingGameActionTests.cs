@@ -1,9 +1,9 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.TargetingActions;
@@ -88,12 +88,12 @@ public sealed class TargetingGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task WrongThreadRefuses()
+    public void WrongThreadRefuses()
     {
         var target = Target();
         Open(target);
         using var action = Action();
-        var result = await Task.Run(() => action.Submit(
+        var result = ForeignThread.Run(() => action.Submit(
             new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch)));
         Assert.Equal(TargetingPreflight.WrongThread, result.Preflight);
         Assert.True(TargetingManager.IsTargeting());

@@ -1,9 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.GenericDiscovery;
@@ -204,13 +204,13 @@ public sealed class GenericDiscoveryGameActionTests
     }
 
     [Fact]
-    public async Task Unity_thread_is_revalidated_before_identity_or_payment()
+    public void Unity_thread_is_revalidated_before_identity_or_payment()
     {
         var target = Target("GlyphSO");
         Register(target);
         using var boundary = Boundary();
 
-        var result = await Task.Run(() => Submit(boundary, target, "GlyphSO"));
+        var result = ForeignThread.Run(() => Submit(boundary, target, "GlyphSO"));
 
         Assert.Equal(GenericDiscoveryPreflight.WrongThread, result.Preflight);
         Assert.Equal(0, Discoverable(target).GetDiscoverCost().PerformCalls);

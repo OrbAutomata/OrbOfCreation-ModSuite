@@ -1,6 +1,6 @@
 using System;
-using System.Threading.Tasks;
 using OrbAutomata;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.CraftingStation;
@@ -86,12 +86,12 @@ public sealed class CraftingStationGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task Unity_thread_is_refused_before_native_state()
+    public void Unity_thread_is_refused_before_native_state()
     {
         var surface = Surface();
         using var boundary = Boundary();
 
-        var result = await Task.Run(() => Submit(boundary, surface.Station,
+        var result = ForeignThread.Run(() => Submit(boundary, surface.Station,
             CraftingStationActionKind.SetIngredient, surface.First.GetGuid(), 0));
 
         Assert.Equal(CraftingStationPreflight.WrongThread, result.Preflight);

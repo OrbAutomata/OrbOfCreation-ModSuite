@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common.Runtime.World;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.Loadout;
@@ -226,13 +226,13 @@ public sealed class LoadoutGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task OffThreadSubmissionRefusesBeforeNativeState()
+    public void OffThreadSubmissionRefusesBeforeNativeState()
     {
         var target = Player("Current", selected: true);
         LoadoutManager.instance.playerLoadouts.value.Add(target);
         using var boundary = Boundary();
 
-        var result = await Task.Run(() =>
+        var result = ForeignThread.Run(() =>
             Submit(boundary, target.GetGuid(), LoadoutActionKind.NextIcon));
 
         Assert.Equal(LoadoutPreflight.WrongThread, result.Preflight);

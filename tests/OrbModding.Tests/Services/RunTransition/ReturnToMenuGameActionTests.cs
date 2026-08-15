@@ -1,6 +1,6 @@
 using System;
-using System.Threading.Tasks;
 using OrbAutomata;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.RunTransition;
@@ -162,11 +162,11 @@ public sealed class ReturnToMenuGameActionTests
     }
 
     [Fact]
-    public async Task OffThreadSubmissionRefusesBeforeTheUiCallback()
+    public void OffThreadSubmissionRefusesBeforeTheUiCallback()
     {
         using var boundary = Boundary();
 
-        var result = await Task.Run(() => Submit(boundary));
+        var result = ForeignThread.Run(() => Submit(boundary));
 
         Assert.Equal(ReturnToMenuPreflight.WrongThread, result.Preflight);
         Assert.Equal(0, _button.manualSave.RaiseCalls);

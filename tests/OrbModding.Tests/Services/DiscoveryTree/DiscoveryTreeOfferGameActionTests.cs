@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.DiscoveryTree;
@@ -442,12 +442,12 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task Off_thread_submission_is_rejected_without_touching_Unity_state()
+    public void Off_thread_submission_is_rejected_without_touching_Unity_state()
     {
         var tree = Tree();
         using var action = Action();
 
-        var result = await Task.Run(() => action.Submit(new DiscoveryTreeOfferAction(
+        var result = ForeignThread.Run(() => action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch)));
 
         Assert.Equal(DiscoveryTreeOfferPreflight.WrongThread, result.Preflight);

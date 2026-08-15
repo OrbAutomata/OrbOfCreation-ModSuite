@@ -1,8 +1,8 @@
 using System;
 using System.Collections;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.CraftingLifecycle;
@@ -156,12 +156,12 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task Unity_thread_is_refused_before_native_state()
+    public void Unity_thread_is_refused_before_native_state()
     {
         var (recipe, _) = Surface();
         using var boundary = Boundary(recipe);
 
-        var result = await Task.Run(() =>
+        var result = ForeignThread.Run(() =>
             Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate));
 
         Assert.Equal(CraftingInstanceLifecyclePreflight.WrongThread, result.Preflight);

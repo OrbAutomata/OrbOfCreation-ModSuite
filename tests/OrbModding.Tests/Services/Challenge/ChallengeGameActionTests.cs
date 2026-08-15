@@ -1,8 +1,8 @@
 using System;
 using System.Collections;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.Challenge;
@@ -294,12 +294,12 @@ public sealed class ChallengeGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task Unity_thread_and_complete_binding_set_are_fail_closed()
+    public void Unity_thread_and_complete_binding_set_are_fail_closed()
     {
         var target = Register(Challenge());
         ChallengeManager.instance.activeChallenges.value.Add(target);
         using var boundary = Boundary();
-        var wrongThread = await Task.Run(() => Submit(boundary, ChallengeActionKind.Queue, target));
+        var wrongThread = ForeignThread.Run(() => Submit(boundary, ChallengeActionKind.Queue, target));
         Assert.Equal(ChallengePreflight.WrongThread, wrongThread.Preflight);
 
         foreach (var missing in ChallengeNativeBindings.ContractIds)

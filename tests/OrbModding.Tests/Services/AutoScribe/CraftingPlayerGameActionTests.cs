@@ -1,9 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoScribe;
@@ -212,7 +212,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task LifecyclePermitAndUnityThreadAreRevalidatedBeforeMutation()
+    public void LifecyclePermitAndUnityThreadAreRevalidatedBeforeMutation()
     {
         var recipe = Register(Recipe());
         using var boundary = Boundary();
@@ -225,7 +225,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         _permit = false;
         var noPermit = Submit(boundary, recipe);
         _permit = true;
-        var wrongThread = await Task.Run(() => Submit(boundary, recipe));
+        var wrongThread = ForeignThread.Run(() => Submit(boundary, recipe));
 
         Assert.Equal(CraftingPlayerPreflight.LifecycleReplaced, stale.Preflight);
         Assert.Equal(CraftingPlayerPreflight.LifecycleReplaced, invalid.Preflight);

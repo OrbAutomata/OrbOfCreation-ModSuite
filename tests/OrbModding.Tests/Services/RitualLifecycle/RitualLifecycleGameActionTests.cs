@@ -1,8 +1,8 @@
 using System;
 using System.Collections;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.RitualLifecycle;
@@ -194,13 +194,13 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task Unity_thread_is_refused_before_identity_or_native_state()
+    public void Unity_thread_is_refused_before_identity_or_native_state()
     {
         var ritual = Ritual();
         Register(ritual);
         using var boundary = Boundary();
 
-        var result = await Task.Run(() =>
+        var result = ForeignThread.Run(() =>
             Submit(boundary, ritual, RitualLifecycleActionKind.Select));
 
         Assert.Equal(RitualLifecyclePreflight.WrongThread, result.Preflight);

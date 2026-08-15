@@ -1,10 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoScribe;
@@ -232,7 +232,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task LifecycleAndUnityThreadAreRevalidatedInsideTheGameAction()
+    public void LifecycleAndUnityThreadAreRevalidatedInsideTheGameAction()
     {
         var fixture = Fixture();
         using var actionBoundary = GameAction();
@@ -247,7 +247,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
             collectedAtEpoch: 0);
         var invalid = Submit(actionBoundary, epochZero);
         _lifecycle = 1;
-        var wrongThread = await Task.Run(() => Submit(actionBoundary, fixture.Action));
+        var wrongThread = ForeignThread.Run(() => Submit(actionBoundary, fixture.Action));
 
         Assert.Equal(AutoScribePreflight.LifecycleReplaced, stale.Preflight);
         Assert.Equal(AutoScribePreflight.LifecycleReplaced, invalid.Preflight);

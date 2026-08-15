@@ -1,8 +1,8 @@
 using System;
 using System.Collections;
-using System.Threading.Tasks;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AlchemyLoadout;
@@ -111,13 +111,13 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
     }
 
     [Fact]
-    public async Task Unity_thread_is_refused_before_identity_or_native_state()
+    public void Unity_thread_is_refused_before_identity_or_native_state()
     {
         var recipe = OrdinaryRecipe(5);
         Register(recipe);
         using var boundary = Boundary();
 
-        var result = await Task.Run(() => Submit(boundary, recipe, AlchemyLoadoutActionKind.Add));
+        var result = ForeignThread.Run(() => Submit(boundary, recipe, AlchemyLoadoutActionKind.Add));
 
         Assert.Equal(AlchemyLoadoutPreflight.WrongThread, result.Preflight);
         Assert.Empty(AlchemyManager.instance!.activeAlchemy.value);
