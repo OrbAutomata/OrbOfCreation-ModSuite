@@ -20303,6 +20303,64 @@
       "place": "action"
     },
     {
+      "id": "spell-workbench.usage-budget.resources-capture",
+      "assembly": "assembly-csharp",
+      "type": "SpellManager",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellWeightVariables",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ResourceListVariable",
+      "owners": [
+        "Common spell loadout usage-budget world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ResourceListVariable"}
+    },
+    {
+      "id": "spell-workbench.usage-budget.list-value-capture",
+      "assembly": "assembly-csharp",
+      "type": "AbstractListVariable`1",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "value",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<!0>",
+      "owners": [
+        "Common spell loadout usage-budget world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field List`1<!0>"}
+    },
+    {
+      "id": "spell-workbench.usage-budget.resource-guid-capture",
+      "assembly": "assembly-csharp",
+      "type": "IdScriptableObject",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetGuid",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Guid",
+      "parameters": [],
+      "owners": [
+        "Common spell loadout usage-budget world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Guid; classified from its signature, no IL body audit"}
+    },
+    {
       "id": "spell-workbench.manager-active-spells-capture",
       "assembly": "assembly-csharp",
       "type": "SpellManager",

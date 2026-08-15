@@ -6265,12 +6265,50 @@ internal static class GameMcpWorldQuery
         return result;
     }
 
-    private static JObject ProjectSpellLoadBudget(GameWorldState world) => new()
+    /// <summary>
+    /// Both budgets an equipped spell is weighed against: the slots it occupies, and the spell
+    /// weight it draws.
+    /// </summary>
+    /// <remarks>
+    /// The three spot counts were the whole block, and they answer a question the player did not
+    /// ask. A round removed a spell specifically to free upkeep, read <c>fitsAnotherSpell: yes</c>
+    /// both before and after, and could not tell that the gate refusing its add was the other
+    /// budget entirely — <c>GetUsageCostOfSpell(candidate).HasEnough()</c> against the game's spell
+    /// weight resources. Those resources are named here with the headroom the gate compares
+    /// against, so the number that refuses is on the same block as the number that does not.
+    /// </remarks>
+    private static JObject ProjectSpellLoadBudget(GameWorldState world)
     {
-        ["used"] = world.SpellWorkbench.EquippedCount,
-        ["maximum"] = world.SpellWorkbench.MaximumEquipped,
-        ["fitsAnotherSpell"] = world.SpellWorkbench.HasEmptySlot,
-    };
+        var result = new JObject
+        {
+            ["used"] = world.SpellWorkbench.EquippedCount,
+            ["maximum"] = world.SpellWorkbench.MaximumEquipped,
+            ["fitsAnotherSpell"] = world.SpellWorkbench.HasEmptySlot,
+        };
+        var usage = ProjectSpellUsageBudget(world);
+        if (usage.Count > 0) result["usageBudget"] = usage;
+        return result;
+    }
+
+    private static JArray ProjectSpellUsageBudget(GameWorldState world)
+    {
+        var rows = new JArray();
+        var resourceIds = world.SpellWorkbench.UsageBudgetResourceIds;
+        for (var index = 0; index < resourceIds.Count; index++)
+        {
+            var resourceId = resourceIds[index];
+            if (!WorldLookup.TryFind(world.Resources, resourceId, out var resource)) continue;
+            rows.Add(new JObject
+            {
+                ["resource"] = EntityReference(world, resourceId),
+                ["headroom"] = new GameMcpDomainValue(
+                    WorldResourceCoordinate.SpendableAmount(in resource)),
+                ["used"] = new GameMcpDomainValue(resource.Reading.Quantity),
+                ["maximum"] = new GameMcpDomainValue(resource.Reading.Capacity),
+            });
+        }
+        return rows;
+    }
 
     internal static GameMcpValue ProjectTargetingPostState(GameMcpFrameContext state, Guid submittedTarget)
     {

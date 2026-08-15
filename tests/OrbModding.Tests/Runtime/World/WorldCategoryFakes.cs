@@ -39,6 +39,7 @@ internal static class WorldCategoryFakes
         ["SpellRecipeSO"] = typeof(FakeSpellRecipe),
         ["Spell"] = typeof(FakeSpell),
         ["SpellManager"] = typeof(FakeSpellManager),
+        ["ResourceListVariable"] = typeof(FakeSpellWeightList),
         ["SpellTypeSO"] = typeof(FakeSpellType),
         ["EquipmentSO"] = typeof(FakeEquipment),
         ["EquipmentTypeSO"] = typeof(FakeEquipmentType),
@@ -1519,7 +1520,15 @@ internal sealed class FakeSpellManager
     internal static bool NativeCanCast = true;
 
     public FakeSpellLoadout activeSpells = new();
+
+    /// <summary>The resources a loadout's usage cost is weighed against.</summary>
+    public FakeSpellWeightList spellWeightVariables = new();
     public static bool CanCastASpell() => NativeCanCast;
+}
+
+internal sealed class FakeSpellWeightList
+{
+    public List<FakeResource> value = new();
 }
 
 internal sealed class FakeSpellWorkbenchCostList

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -30,7 +31,8 @@ internal readonly struct WorldSpellWorkbench
         int outputLevel = 0,
         int maximumOutputLevel = 0,
         int reserveLevel = 0,
-        int maximumReserveLevel = 0)
+        int maximumReserveLevel = 0,
+        PublicationTable<Guid>? usageBudgetResourceIds = null)
     {
         EquippedCount = equippedCount;
         MaximumEquipped = maximumEquipped;
@@ -39,6 +41,7 @@ internal readonly struct WorldSpellWorkbench
         MaximumOutputLevel = maximumOutputLevel;
         ReserveLevel = reserveLevel;
         MaximumReserveLevel = maximumReserveLevel;
+        UsageBudgetResourceIds = usageBudgetResourceIds ?? PublicationTable<Guid>.Empty;
     }
 
     internal int EquippedCount { get; }
@@ -48,6 +51,23 @@ internal readonly struct WorldSpellWorkbench
     internal int MaximumOutputLevel { get; }
     internal int ReserveLevel { get; }
     internal int MaximumReserveLevel { get; }
+
+    /// <summary>
+    /// The resources one more equipped spell is weighed against — <c>SpellManager</c>'s own spell
+    /// weight list, in the order it holds them.
+    /// </summary>
+    /// <remarks>
+    /// This is the whole of the capture, and it is a membership list rather than a set of numbers on
+    /// purpose. The gate that refuses an add is
+    /// <c>GetUsageCostOfSpell(candidate).HasEnough()</c>, which asks each of these resources whether
+    /// its headroom covers the spell's weight — and the world already publishes every resource's
+    /// headroom, and already mirrors that predicate in <c>WorldResourceMath.HasAmount</c>. The one
+    /// fact nothing published was <em>which</em> resources the question is asked of, so a reader
+    /// with the whole budget in front of it could not tell which rows were the budget. The spot
+    /// counts beside this answer a different question: the loadout can have an empty slot and still
+    /// refuse every spell that would fit in it.
+    /// </remarks>
+    internal PublicationTable<Guid> UsageBudgetResourceIds { get; }
 }
 
 internal sealed class WorldSpellWorkbenchBuffer
@@ -59,6 +79,7 @@ internal sealed class WorldSpellWorkbenchBuffer
     internal int MaximumOutputLevel { get; private set; }
     internal int ReserveLevel { get; private set; }
     internal int MaximumReserveLevel { get; private set; }
+    private readonly List<Guid> _usageBudgetResourceIds = new();
 
     internal void Reset()
     {
@@ -69,7 +90,11 @@ internal sealed class WorldSpellWorkbenchBuffer
         MaximumOutputLevel = 0;
         ReserveLevel = 0;
         MaximumReserveLevel = 0;
+        _usageBudgetResourceIds.Clear();
     }
+
+    internal void AddUsageBudgetResource(Guid resourceId) =>
+        _usageBudgetResourceIds.Add(resourceId);
 
     internal void SetCapacity(int equippedCount, int maximumEquipped, bool hasEmptySlot)
     {
@@ -97,7 +122,8 @@ internal sealed class WorldSpellWorkbenchBuffer
         OutputLevel,
         MaximumOutputLevel,
         ReserveLevel,
-        MaximumReserveLevel);
+        MaximumReserveLevel,
+        PublicationTable<Guid>.Create(_usageBudgetResourceIds.ToArray()));
 }
 
 /// <summary>One read-only, main-thread capture of spell loadout room and global casting dials.</summary>
@@ -117,6 +143,9 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
     private readonly Func<object?>? _reserveLevel;
     private readonly Func<object, object?>? _maximumReserveLevel;
     private readonly Func<object, int>? _asInt;
+    private readonly Func<object, object?>? _spellWeights;
+    private readonly Func<object, IList?>? _spellWeightValues;
+    private readonly Func<object, Guid>? _resourceGuid;
     private readonly string _unavailable;
 
     internal WorldSpellWorkbenchReader(Func<string, Type?> resolveType)
@@ -139,11 +168,19 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
         _maximumReserveLevel = NativeAccessorBinder.Reference(
             playerType, "maxReserveLevel", intVariableType);
         _asInt = NativeAccessorBinder.Call<int>(intVariableType, "AsInt");
+        var resourceListType = resolveType("ResourceListVariable");
+        var resourceType = resolveType("ResourceSO");
+        _spellWeights = NativeAccessorBinder.Reference(
+            managerType, "spellWeightVariables", resourceListType);
+        _spellWeightValues = NativeAccessorBinder.CollectionField(resourceListType, "value");
+        _resourceGuid = NativeAccessorBinder.Call<Guid>(resourceType, "GetGuid");
         _unavailable = managerType is null || spellListType is null ||
             _manager is null || _active is null || _used is null ||
             _maximum is null || _hasEmpty is null ||
             _player is null || _outputLevel is null || _maximumOutputLevel is null ||
-            _reserveLevel is null || _maximumReserveLevel is null || _asInt is null
+            _reserveLevel is null || _maximumReserveLevel is null || _asInt is null ||
+            resourceListType is null || resourceType is null ||
+            _spellWeights is null || _spellWeightValues is null || _resourceGuid is null
             ? "the complete spell loadout and casting-dial binding set was unavailable"
             : string.Empty;
     }
@@ -168,6 +205,21 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
             if (active is null)
                 return WorldCategoryReport.Missing(Category, "SpellManager.activeSpells was null");
             buffer.SetCapacity(_used!(active), _maximum!(active), _hasEmpty!(active));
+            var weights = _spellWeights!(manager);
+            if (weights is null)
+                return WorldCategoryReport.Missing(
+                    Category, "SpellManager.spellWeightVariables was null");
+            var weightValues = _spellWeightValues!(weights);
+            if (weightValues is null)
+                return WorldCategoryReport.Missing(
+                    Category, "SpellManager.spellWeightVariables held no value list");
+            for (var index = 0; index < weightValues.Count; index++)
+            {
+                var resource = weightValues[index];
+                if (resource is null) continue;
+                var resourceId = _resourceGuid!(resource);
+                if (resourceId != Guid.Empty) buffer.AddUsageBudgetResource(resourceId);
+            }
             var player = _player!();
             var output = _outputLevel!();
             var maximumOutput = player is null ? null : _maximumOutputLevel!(player);

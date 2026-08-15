@@ -137,6 +137,38 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal("Gather Knowledge", (string?)equipped["name"]);
     }
 
+    /// <summary>
+    /// The load budget names both budgets an added spell is weighed against, not only the spots.
+    /// </summary>
+    /// <remarks>
+    /// A round removed a spell to free upkeep, saw <c>fitsAnotherSpell: yes</c> on both sides of
+    /// the removal, and never learned that what refused its add was the spell-weight budget — a
+    /// different pool with a different unit that the world published nowhere.
+    /// </remarks>
+    [Fact]
+    public void LoadBudgetPublishesTheUsageHeadroomTheAddGateActuallyCompares()
+    {
+        var context = GameMcpTestHarness.Context(World(
+            discovered: true,
+            discoveryAffordable: true,
+            hasEmptySlot: true,
+            usageBudget: true));
+
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            context, "spell-recipes", RecipeId.ToString("D")));
+        var budget = response["row"]!["loadBudget"]!;
+
+        Assert.True((bool)budget["fitsAnotherSpell"]!);
+        var usage = Assert.Single(budget["usageBudget"]!.Values<JObject>())!;
+        Assert.Equal(
+            new[] { "resource", "headroom", "used", "maximum" },
+            usage.Properties().Select(property => property.Name));
+        Assert.Equal("Knowledge", (string?)usage["resource"]!["name"]);
+        Assert.Equal("3", (string?)usage["headroom"]);
+        Assert.Equal("5", (string?)usage["used"]);
+        Assert.Equal("8", (string?)usage["maximum"]);
+    }
+
     [Theory]
     [InlineData(false, 7, "ERR_LIMIT", "Every slot in this loadout is in use.")]
     [InlineData(true, 0, "ERR_LOCKED", "This recipe's core glyph has no level yet.")]
@@ -432,7 +464,8 @@ public sealed class GameMcpSpellWorkbenchTests
         bool equipped = false,
         bool discoveryVisible = true,
         bool canDiscover = true,
-        int coreLevel = 7)
+        int coreLevel = 7,
+        bool usageBudget = false)
     {
         var glyphs = PublicationTable<WorldSpellRecipeGlyph>.Create(new[]
         {
@@ -494,10 +527,16 @@ public sealed class GameMcpSpellWorkbenchTests
                 Glyph(FirstGlyphId, coreLevel),
                 Glyph(AugmentGlyphId, 1, augment: true),
             }),
+            Resources = usageBudget
+                ? PublicationTable<WorldResource>.Create(new[] { SpellWeightResource() })
+                : PublicationTable<WorldResource>.Empty,
             SpellWorkbench = new WorldSpellWorkbench(
                 equipped ? 1 : 0,
                 3,
-                hasEmptySlot),
+                hasEmptySlot,
+                usageBudgetResourceIds: usageBudget
+                    ? PublicationTable<Guid>.Create(new[] { ResourceId })
+                    : null),
             SpellSlots = equipped
                 ? PublicationTable<WorldSpellSlot>.Create(new[]
                 {
@@ -521,6 +560,31 @@ public sealed class GameMcpSpellWorkbenchTests
                 })
                 : PublicationTable<WorldSpellSlot>.Empty,
         };
+    }
+
+    /// <summary>
+    /// One spell-weight resource: a bandwidth counter whose spendable pool is the room left under
+    /// its ceiling, which is exactly what the usage gate compares a candidate spell against.
+    /// </summary>
+    private static WorldResource SpellWeightResource()
+    {
+        var rateInputs = default(RawResourceRateInputs);
+        var traits = new RawResourceTraits(
+            0d, 0d, 0d, false, false, false,
+            bandwidthResource: true,
+            invertedResource: false,
+            excludeFromGlobals: false,
+            startVisible: true,
+            BigDouble.Zero, 0, 0, 0d, false, 0d,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, false);
+        var modifiers = default(RawResourceModifiers);
+        var reading = new RawResourceSample(
+            ResourceId, new BigDouble(5), new BigDouble(8),
+            true, BigDouble.Zero, BigDouble.Zero, new BigDouble(8),
+            new BigDouble(8), BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, false, false,
+            false, 0, Guid.Empty, in rateInputs, in traits, in modifiers);
+        return new WorldResource(
+            in reading, true, new BigDouble(3), 0.625, false, new BigDouble(5), BigDouble.Zero);
     }
 
     /// <summary>

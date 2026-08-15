@@ -2431,6 +2431,11 @@ public sealed class ValueModifierRecord
     public bool HasActiveElements() => activeModifiers.Count > 0;
 }
 
+/// <summary>The spell-weight resources a loadout's usage cost is charged against.</summary>
+public sealed class ResourceListVariable : GenericListVariable<ResourceSO>
+{
+}
+
 public class SpellRecipeListVariable
 {
     public List<SpellRecipeSO> value = new List<SpellRecipeSO>();
@@ -2449,6 +2454,7 @@ public class SpellManager
     public static SpellManager? instance;
     public static bool NativeCanCast { get; set; } = true;
     public SpellRecipeListVariable availableSpellRecipes = new SpellRecipeListVariable();
+    public ResourceListVariable spellWeightVariables = new ResourceListVariable();
     public GlyphListVariable selectedCoreGlyphs = new GlyphListVariable();
     public GlyphListVariable selectedAugmentGlyphs = new GlyphListVariable();
     public SpellListVariable activeSpells = new SpellListVariable();
