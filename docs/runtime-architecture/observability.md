@@ -134,6 +134,9 @@ pass that produced the published world travels on that publication, and `trace_h
 so a session driving the game reads where a pass went without recording a trace, stopping to open a
 dashboard, or being able to reach either. It is one pass: the fold over many is the recording's, and
 this publishes what is already measured rather than growing a second accumulator to duplicate it.
+`trace_health` names each category with the `world_categories` page name, because a reader holding a
+cost line goes to that page next; the recording roster keeps the collector's own names, because a
+record is read against the collector that wrote it.
 
 ### Artifacts
 
