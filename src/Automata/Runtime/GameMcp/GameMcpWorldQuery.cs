@@ -4169,21 +4169,25 @@ internal static class GameMcpWorldQuery
         // the question where silence would send the caller off to ask it anyway.
         if (hits.Count == 0 && normalized.Length > 0)
         {
+            // The count comes last and stands alone. Written into the sentence it had to agree with
+            // a noun — `matches 1 loaded ids` — and a line that reads as a typo is read as one; a
+            // label and its number never decline. The clause before it is the whole of what that
+            // page returns, so the number is a promise about the next call rather than a hint.
             var unprojected = GameMcpEntityCatalog.CountUnprojected(
                 world.EntityIdentities, normalized, out var internalOnly);
-            result["unprojected"] = unprojected > 0
-                ? "entity_catalog matches " +
-                  unprojected.ToString(CultureInfo.InvariantCulture) +
-                  " loaded ids the published world has no row for."
-                // "No id this build loaded answers to this query" is false the moment the only
-                // answers are ids the catalog stopped listing, and the caller's question is
-                // answered either way: the word does name something in this build, and that
-                // something is machinery neither surface has a reading for.
-                : internalOnly > 0
-                    ? "entity_catalog matches none: what answers to this query in this build is " +
-                      "internal machinery it does not list."
-                    : "entity_catalog matches none either, so no id this build loaded answers to " +
-                      "this query.";
+            result["unprojected"] =
+                "entity_catalog lists what this build loaded that the published world has no row " +
+                "for; found: " + unprojected.ToString(CultureInfo.InvariantCulture) +
+                (unprojected > 0
+                    ? "."
+                    // "No id this build loaded answers to this query" is false the moment the only
+                    // answers are ids the catalog withholds, and the caller's question is answered
+                    // either way: the word does name something in this build, and that something is
+                    // machinery neither surface has a reading for.
+                    : internalOnly > 0
+                        ? ", and what does answer to this query in this build is internal " +
+                          "machinery it does not list."
+                        : ", and no id this build loaded answers to this query.");
         }
         if (rows.Count == 0)
             result["columns"] = GameMcpEntityWireNormalizer.WireColumns(SearchColumns);

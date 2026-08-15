@@ -321,7 +321,26 @@ public sealed class GameMcpSearchTests
 
         Assert.Empty(Rows(page));
         Assert.Equal(
-            "entity_catalog matches 2 loaded ids the published world has no row for.",
+            "entity_catalog lists what this build loaded that the published world has no row for; " +
+            "found: 2.",
+            (string?)page["unprojected"]);
+    }
+
+    /// <summary>
+    /// The count is a label and a number, so the line reads the same at one as at two. Written into
+    /// the sentence it had to agree with a noun, and `matches 1 loaded ids` is the shape a reader
+    /// takes for a bug in the surface rather than a fact about the build.
+    /// </summary>
+    [Fact]
+    public void The_count_on_the_signpost_reads_the_same_at_one_as_at_two()
+    {
+        var page = Json(GameMcpWorldQuery.Search(
+            Loaded(), "Burning", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
+
+        Assert.Empty(Rows(page));
+        Assert.Equal(
+            "entity_catalog lists what this build loaded that the published world has no row for; " +
+            "found: 1.",
             (string?)page["unprojected"]);
     }
 
@@ -339,8 +358,9 @@ public sealed class GameMcpSearchTests
 
         Assert.Empty(Rows(page));
         Assert.Equal(
-            "entity_catalog matches none: what answers to this query in this build is internal " +
-            "machinery it does not list.",
+            "entity_catalog lists what this build loaded that the published world has no row for; " +
+            "found: 0, and what does answer to this query in this build is internal machinery it " +
+            "does not list.",
             (string?)page["unprojected"]);
     }
 
@@ -356,7 +376,8 @@ public sealed class GameMcpSearchTests
 
         Assert.Empty(Rows(page));
         Assert.Equal(
-            "entity_catalog matches none either, so no id this build loaded answers to this query.",
+            "entity_catalog lists what this build loaded that the published world has no row for; " +
+            "found: 0, and no id this build loaded answers to this query.",
             (string?)page["unprojected"]);
     }
 
