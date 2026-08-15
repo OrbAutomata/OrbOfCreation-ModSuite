@@ -589,6 +589,7 @@ internal static class GameMcpEntityCapabilityMap
         D("alchemy-usage-costs", "ResourceCostList"),
         D("plot-authoring", "PlotNodeSO"),
         D("plot-phase-descriptors", "PlotNodeSO"),
+        D("glyph-effects", "GlyphSO"),
         D("effect-blocks", "EffectSO"),
         D("entity-requirements", "EntitySO"),
         D("treasure-pools", "TreasurePoolSO"),

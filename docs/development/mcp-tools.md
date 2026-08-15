@@ -697,6 +697,7 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `equipment-types` | `totalLevel` |
 | `double-variables`, `int-variables` | `value`, `isPercent` |
 | `statistics` | `displayType`, `isPercent`, `description` |
+| `glyph-effects` | `glyphId`, `property`, `statisticId`, `modifierType`, `amount`, `order` |
 
 **One word per concept across the type taxonomies.** A level a taxonomy list shows is the number its
 own page spells under the same word, so `equipment-types` and `resource-types` both say `totalLevel`
@@ -1158,7 +1159,53 @@ every entity read already carries, and the row beside it does not repeat it.
 `AttributeSO.globalDefinition` — the authoring key effect scripts name a statistic by — is collected
 and deliberately not published. No screen prints it, and several spell themselves
 `Tooltip:ChallengeActive` or `Alert:Research`, so a reader who met one on the wire would have met a
-word from no screen.
+word from no screen. It is the key `glyph-effects` joins on, and the join is resolved before
+publication so what reaches a reader is the statistic's own identity rather than the key.
+
+### What a glyph does
+
+`glyph-effects` is the factors a glyph applies: one row per authored modifier slot the game would
+print, `glyphId | property | statistic | modifierType | amount | order`. Before it, a glyph's row
+carried its price and its levels and said nothing whatever about its effect, so the only way to
+learn that Quick trades 15% more spell cost for 30% less cooldown was to hover it on the Magic
+screen.
+
+A `GlyphSO` carries fifteen inline `ValueModifier` slots and nearly all of them are empty on any one
+glyph, so the table is sparse rather than fifteen columns on the glyph row: 106 rows across all 47
+glyphs, one for each slot a glyph actually fills and none for the rest. A slot is skipped exactly
+when the game's own `ValueModifier.IsEmpty()` is true — the same test the tooltip applies before it
+decides whether to print that slot at all.
+
+`modifierType`, `amount` and `order` are the three fields `modifier-variables` already publishes,
+under the same names, because they are the same arithmetic — the kind selects the operation, the
+amount is its magnitude, and the order decides which modifiers merge before any is applied. **The
+kind is never folded into the number.** Two glyphs on one spell combine by kind, and a
+pre-multiplied magnitude would say the wrong thing about every pairing. `amount` is the modifier's
+`adjustReal`, which is what the screen prints: the game's `ConvertToReal` adds one for the
+multiplicative kinds, so Quick's authored `0.15` and `-0.30` are the `1.15` and `0.7` on the wire and
+the `x1.15 Cost` and `x0.700 Cooldown` on the tooltip.
+
+`property` is the glyph's own slot name and is on every row, because the statistic does not tell two
+rows apart: `spellCooldown` and `spellBaseCooldown` are both printed under the Cooldown statistic and
+are different factors with different arithmetic.
+
+**A slot the game names no statistic for still publishes.** Ten of the fifteen resolve through
+`AttributeSO.globalDefinition` to a `statistics` row, taken from the literals
+`GlyphSO.GetQuantityTooltipNodes` itself passes to `GlobalVariables.GetAttribute`. The other five do
+not, and it is not an omission: four are printed against a `DoubleVariable` the game reads off the
+player rather than against a statistic, and `creationCostMod` is never printed as a named factor at
+all — it is applied straight to a resource cost list. Those rows carry their slot and their three
+numbers with no `statistic` edge. The gap is spelled the two ways this surface spells every gap: the
+list column reads `-`, the detail field is absent. Inventing a statistic for any of the five would
+hand a reader an edge the game does not author.
+
+**A glyph's own answer carries its factors.** `world_get` on a glyph adds an `effects` block of the
+same tuples, from the same table, so the one question a reader socketing a glyph is asking is
+answered by the read they were already making. A glyph that fills no slot carries no block rather
+than an empty one. The block names the edge and does not unfurl it: a factor points at a statistic
+by handle and name, and the statistic's own row is a `world_get` away. The rows are also a listable
+category of their own, read with `world_list` like every other table — no new tool and no filter this
+surface did not already have.
 
 ### Discovery decision loop
 

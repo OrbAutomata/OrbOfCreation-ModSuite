@@ -1397,6 +1397,14 @@ internal static class GameMcpWorldQuery
         // behind a detail read would cost 211 calls to read what the game prints in one column,
         // and the sentence is the whole reason a reader opens this category.
         "statistics" => new[] { "entityId", "displayType", "isPercent", "description" },
+
+        // A factor withheld behind a detail read is a factor nobody reads: the four-column default
+        // would cut `amount` and `order`, which is the whole of what the row says, and leave a page
+        // that names fifteen slots and no magnitudes. The row is six narrow cells; it lists whole.
+        "glyph-effects" => new[]
+        {
+            "glyphId", "property", "statisticId", "modifierType", "amount", "order",
+        },
         "structures" => new[] { "entityId", "level", "reading.disabled" },
         "upgrades" => new[] { "entityId", "level" },
         "spell-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
@@ -7492,6 +7500,7 @@ internal static class GameMcpWorldQuery
                 result["reasonCode"] = "native_unavailable";
             }
         }
+        AddGlyphFactors(world, result, glyph.EntityId);
         AddLevelDecision(world, result, glyph.LevelDecision,
             glyph.Learned,
             "not_available");
@@ -7502,6 +7511,44 @@ internal static class GameMcpWorldQuery
             glyph.Discoverable,
             glyph.Discoverable && !glyph.Discovered && IsCurrentDiscoveryOffer(world, glyph.EntityId));
         return result.Freeze();
+    }
+
+    /// <summary>
+    /// What the glyph does, on the glyph's own answer, from the same table
+    /// <c>world_list glyph-effects</c> pages.
+    /// </summary>
+    /// <remarks>
+    /// The node names its edge by carrying it. A glyph fills between one and five of fifteen slots,
+    /// so its whole factor set is smaller than the sentence that would point at it, and the read
+    /// that asks "should I socket this" is the read that needs it — the round that found this gap
+    /// had a glyph's row priced and levelled with nothing on it about what the glyph does. Nothing
+    /// is unfurled: a factor has no identity of its own, and the statistic it names stays a
+    /// reference for <c>world_get</c> to follow rather than a block copied in here.
+    /// </remarks>
+    private static void AddGlyphFactors(GameWorldState world, JObject result, Guid glyphId)
+    {
+        if (!WorldGlyphFactorLookup.TryFindRange(world.GlyphEffects, glyphId, out var start,
+                out var count))
+        {
+            return;
+        }
+
+        var factors = new JArray();
+        for (var index = 0; index < count; index++)
+        {
+            var factor = world.GlyphEffects[start + index];
+            var row = new JObject
+            {
+                ["property"] = factor.Property,
+                ["statisticId"] = factor.StatisticId.ToString("D"),
+                ["modifierType"] = factor.ModifierType,
+                ["amount"] = new GameMcpDomainValue(factor.Amount),
+                ["order"] = factor.Order,
+            };
+            factors.Add(row);
+        }
+
+        result["effects"] = factors;
     }
 
     private static GameMcpValue ProjectEquipmentType(
@@ -8535,6 +8582,7 @@ internal static class GameMcpWorldQuery
             Composite(nameof(GameWorldState.AlchemyUsageCosts), world => world.AlchemyUsageCosts),
             Composite(nameof(GameWorldState.PlotAuthoring), world => world.PlotAuthoring),
             Composite(nameof(GameWorldState.PlotPhaseDescriptors), world => world.PlotPhaseDescriptors),
+            Composite(nameof(GameWorldState.GlyphEffects), world => world.GlyphEffects),
             Composite(nameof(GameWorldState.EffectBlocks), world => world.EffectBlocks),
             Composite(nameof(GameWorldState.EntityRequirements), world => world.EntityRequirements),
             Entity(nameof(GameWorldState.TreasurePools), world => world.TreasurePools),
@@ -8936,6 +8984,13 @@ internal static class GameMcpWorldQuery
         {
             "plotNodeId", "ordinal", "phase", "phaseTimeSeconds", "processType",
             "exitPhase",
+        },
+        // The whole row. A factor is five facts and none of them is redundant: the slot says which
+        // of the glyph's fifteen it is, the statistic is the edge to what the number means, and the
+        // three the modifier arithmetic is made of are the arithmetic.
+        "glyph-effects" => new[]
+        {
+            "glyphId", "property", "statisticId", "modifierType", "amount", "order",
         },
         "effect-blocks" => new[]
         {
