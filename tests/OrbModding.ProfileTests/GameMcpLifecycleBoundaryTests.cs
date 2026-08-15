@@ -122,13 +122,14 @@ public sealed class GameMcpLifecycleBoundaryTests
     }
 
     [Fact]
-    public void HealthPublishesTheLiveWorldGenerationWhileTheRunIsPlaying()
+    public void HealthPublishesTheLiveWorldPublicationCounterWhileTheRunIsPlaying()
     {
         var text = OrbModding.Plugin.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(LiveWorld(), lifecycleGeneration: 9));
 
         Assert.Contains("lifecycle: Playing, generation 9", text, StringComparison.Ordinal);
-        Assert.Contains("world: generation 72814", text, StringComparison.Ordinal);
+        Assert.Contains("world: publication 72814", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("world: generation", text, StringComparison.Ordinal);
     }
 
     /// <summary>

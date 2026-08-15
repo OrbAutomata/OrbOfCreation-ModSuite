@@ -425,21 +425,39 @@ counts, available views, visible plots, current action/spell/concept/plot occupa
 global casting dials — `castingDials.outputLevel` and `castingDials.reserveLevel` — with their
 purchased maximums. Exact rows remain in list/get/search.
 
+**`ritualBattle` appears exactly while a ritual battle is running**, naming the ritual that is in it
+and, under `gates`, what the battle holds shut: no ritual can be activated and no ritual's starting
+level can be set while it runs, and no other decision on this surface is gated on it. Nothing
+aggregated that fact before — the ritual page publishes `inBattle` per ritual and nothing said a
+battle was running or what it cost — so a live round making a lifecycle decision had no verb to ask
+and committed an irreversible action while still guessing. A world with no battle running carries no
+such key.
+
 The two affordable counts have a matching read: `world_list(category="structures", affordable=true)`
 and the same on `upgrades` page only the rows whose price is met right now, so the count and the
 rows agree and the offset, `total`, and `nextOffset` all speak in matching rows. `affordable` is
 refused as `filter_not_supported` on a category with no price rather than quietly ignored.
 
 `world_categories` is the authoritative inventory of what the world collects, not only of what it
-lists. Each row reports `category`, its row `count`, whether it is `available`, and — when it is not
-— the class that says why, in one alphabetical list. Internal world-property and row-type names are
+lists. Each row reports `category`, its row `count`, and — when something is wrong with it — the
+`reason` that says what, in one alphabetical list. Internal world-property and row-type names are
 not protocol data.
+
+**There is no `available` column.** Every unavailable category writes a reason and every available
+one writes none, so the two columns disagreed in zero of eighty-one rows across a measured round:
+the yes/no was the reason cell's own emptiness spelled a second way. A row whose `reason` reads `-`
+is a healthy, pageable category.
 
 **The unlistable sentence is said once per response, above the table.** It is a property of the
 suite's own code rather than of any row — identical on every row that carries it — and fourteen rows
 of one 4,797-byte response spent 38% of the whole answer repeating it. The response states it once
-under `unlistable:`, every such row carries `ERR_LOCKED`, and a row with something of its own to add
-— a collector that did not bind, one whose pass was partial — still says that on the row.
+under `unlistable:`, and **every such row's `reason` cell reads back that one word**, `unlistable`,
+rather than a class code. It used to read `ERR_LOCKED`, which means "progression has not unlocked
+this" everywhere else on the surface: one code for two unrelated conditions, with the sentence that
+told them apart detached at the top of the page, and a live round that could not sweep the cell by
+eye certified the page clean of exactly that shape. A row with something of its own to add — a
+collector that did not bind, one whose pass was partial — says it after the word, as
+`unlistable. It did not bind on this build: …`.
 
 The collector runs more categories than this surface pages, and a listable category is often built
 from several of them, so the two counts never matched. Every collector gets a row: one it is reached
@@ -1243,7 +1261,12 @@ v1.0.5 and are deliberately absent. Activation revalidates the selected Ritual a
 native price before payment; success is the settled battle transition. `cancel_duration` ends an
 already-running duration reward and does not claim to cancel a battle. `activate` and `end` are the
 two battle-boundary modes, so both report `activeBattle` and `wavesCompleted` as observed
-`{before, after}` changes; `end` additionally reports the level the battle reached, the duration rewards it left running, and
+`{before, after}` changes. **`activate` also says what the battle it just started holds shut**, as
+`gates`: while a ritual battle runs no ritual can be activated and no ritual's starting level can be
+set, and no other decision on this surface is gated on it. The verb answers in battle vocabulary,
+and a live round that read `activeBattle: no -> yes` with no consequence stated hedged its way into
+the round's one irreversible action rather than find out; the enumeration is closed on purpose so
+that reading it settles the question instead of raising it. `end` additionally reports the level the battle reached, the duration rewards it left running, and
 the two facts the game's own results modal shows: `result` as `succeeded` or `failed`, read from
 `RitualSO.IsFailedRun()`, and the `spoils` the run banked as named resource rows, empty array
 included. Both are settled reads and not pre-mutation copies: `RitualSO.End()` writes neither
@@ -1458,12 +1481,18 @@ challenges queued for the reset, surviving rewards, the exact `reset.available` 
 `timeAdvancements` block. No attempt/refusal is needed to learn whether a reset can run.
 
 `timeAdvancements` carries the game's three Time Advancement figures under the game's own three
-display names. `starting` is "Starting Time Advancements": what a reset would start with, a live
-projection that keeps moving during a run rather than a record of one. `previous` is "Previous Time
-Advancements": what the previous reset actually banked, which right after a reset equals `starting`
-by construction. `new` is "New Time Advancements": how many more than the previous reset, read from
-the game rather than subtracted here, so a caller comparing the block against the screen never finds
-a number the screen does not print.
+display names, **and each figure names the run it belongs to beside its number** — `starting=94
+(next reset's start)`, `previous=74 (this run's start)`, `new=20 (more than previous)`. The words
+are the screen's and stay so; the parenthetical is the suite's, because read cold the words point at
+the wrong runs and a live round read `starting` as this run's own start, called the wire
+contradictory against this doc, and only unpicked it a paragraph later. `starting` is "Starting Time
+Advancements": what a reset would start with, a live projection that keeps moving during a run
+rather than a record of one. `previous` is "Previous Time Advancements": what the previous reset
+actually banked — which is what this run started with, so it is also the persistent resource's
+`capacity` below — and which right after a reset equals `starting` by construction. `new` is "New
+Time Advancements": how many more than the previous reset, read from the game rather than subtracted
+here, so a caller comparing the block against the screen never finds a number the screen does not
+print.
 
 The MCP-only sequence is:
 
@@ -1472,7 +1501,10 @@ The MCP-only sequence is:
 2. Call `time_challenge(mode="select", uuid=...)`; its terminal response returns the changed target
    state. When every selection the cycle allows is taken and exactly one is held, the tool performs
    the screen's own first press — giving that one up — before taking the one asked for; when more
-   than one is held, which to give up is the caller's choice and the refusal says so.
+   than one is held, which to give up is the caller's choice and the refusal says so. **A swap names
+   what it gave up**: the answer carries `displaced` with the given-up challenge's identity and its
+   own `selected: yes -> no`, the same key a displaced spell slot answers under, so no follow-up
+   `state` call is needed to learn which selection the press cost.
 3. Call `queue` to move an offered target between idle and queued, or `abandon` for one the reset
    started. A queued challenge starts running at the next reset, not immediately.
 4. Call `reroll` without a UUID. It is the game's one new-challenges button and it carries the
@@ -1489,6 +1521,13 @@ The MCP-only sequence is:
    newer world after the native scene reload and returns the new scene, `prestigeState`, and the
    challenge state inline. The explicit boolean prevents an empty or accidental call from
    triggering the irreversible reset.
+
+**`time_prestige` only commits — there is no read mode on it, and its own description says where the
+read lives.** Every fact the reset decision turns on is in `time_challenge(mode="state")`'s
+`prestigeState` block, which is why no second reader is published for it: the surface already pays
+for two verbs answering one question elsewhere, and a live round that did not know where prestige
+was read committed the irreversible action to find out. The description is where that is closed,
+not a second copy of the block.
 
 The MCP-only offer sequence is seven calls when two offers need explanations:
 
@@ -3275,8 +3314,9 @@ The rules that make it read that way:
   modifier memos had drifted from a fresh recompute when it was taken. Memo drift is the game's
   state rather than an error in the suite — the suite reads the memo because the game acts on the
   memo — so it is a condition of the run, not a verdict about it. `widestDrift` names the record and
-  prints both sides with the orders of magnitude between them; a recompute of exactly zero reads
-  `orders=unbounded`. It is orders rather than a percentage because deep cost reduction drives a
+  prints both sides with the orders of magnitude between them; where one side is exactly zero there
+  is no ratio to state, so it reads `orders=n/a (recompute=0)` or `orders=n/a (memo=0)` naming the
+  side that was zero. It is orders rather than a percentage because deep cost reduction drives a
   percentage field toward `1e-114`, and dividing by that produced figures like `2.25e118%` that said
   only that the denominator was small.
 

@@ -166,14 +166,8 @@ internal static class GameMcpEntityWireNormalizer
             {
                 // A code without a sentence taught callers to fire the mutation just to read the
                 // sentence. Producers that hold the numbers write the better sentence themselves
-                // and keep it; every other code is answered here, so none ships a bare one — except
-                // the handful whose sentence the response has already stated once for every row
-                // that carries the code.
-                if (item["reason"] is null &&
-                    !GameMcpDecisionReason.IsStatedOncePerResponse(code))
-                {
-                    item["reason"] = GameMcpDecisionReason.For(code);
-                }
+                // and keep it; every other code is answered here, so none ships a bare one.
+                if (item["reason"] is null) item["reason"] = GameMcpDecisionReason.For(code);
                 item["reasonCode"] = GameMcpDecisionReason.Class(code);
                 KeepReasonBesideItsCode(item);
             }

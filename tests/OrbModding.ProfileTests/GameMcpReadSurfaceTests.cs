@@ -1036,7 +1036,8 @@ public sealed class GameMcpWorldEnvelopeTests
         var resource = categories["categories"]!
             .Values<JObject>()
             .Single(item => (string?)item!["category"] == "resources")!;
-        Assert.True((bool)resource["available"]!);
+        Assert.Null(resource["available"]);
+        Assert.Null(resource["reason"]);
         Assert.Equal(0, (int)resource["count"]!);
         Assert.Null(resource["worldProperty"]);
         Assert.Null(resource["rowType"]);
@@ -1045,7 +1046,7 @@ public sealed class GameMcpWorldEnvelopeTests
         var rituals = categories["categories"]!
             .Values<JObject>()
             .Single(item => (string?)item!["category"] == "rituals")!;
-        Assert.False((bool)rituals["available"]!);
+        Assert.Null(rituals["available"]);
         Assert.Contains("registry was unreadable", (string?)rituals["reason"]);
     }
 
@@ -1115,7 +1116,7 @@ public sealed class GameMcpWorldEnvelopeTests
         var resources = categories["categories"]!
             .Values<JObject>()
             .Single(item => (string?)item!["category"] == "resources")!;
-        Assert.False((bool)resources["available"]!);
+        Assert.Null(resources["available"]);
         Assert.Contains("collection is partial", (string?)resources["reason"]);
         Assert.Contains("quantity was unreadable", (string?)resources["reason"]);
 
@@ -1513,9 +1514,9 @@ public sealed class GameMcpWorldEnvelopeTests
             .Values<JObject>()
             .Single(item => (string?)item!["category"] == "mastery-experience")!;
 
-        Assert.False((bool)purchaseCosts["available"]!);
+        Assert.Null(purchaseCosts["available"]);
         Assert.Contains("UpgradeSO cost capture failed", (string?)purchaseCosts["reason"]);
-        Assert.True((bool)mastery["available"]!);
+        Assert.Null(mastery["available"]);
         Assert.Null(mastery["reason"]);
     }
 
@@ -1565,9 +1566,9 @@ public sealed class GameMcpWorldEnvelopeTests
             .Values<JObject>()
             .Single(item => (string?)item!["category"] == "agromancy-plot-actions")!;
 
-        Assert.False((bool)purchaseCosts["available"]!);
+        Assert.Null(purchaseCosts["available"]);
         Assert.Equal("modifier variables failed", (string?)purchaseCosts["reason"]);
-        Assert.False((bool)plotActions["available"]!);
+        Assert.Null(plotActions["available"]);
         Assert.Equal("plot node actions failed", (string?)plotActions["reason"]);
     }
 
@@ -1608,7 +1609,7 @@ public sealed class GameMcpWorldEnvelopeTests
             var category = categories["categories"]!
                 .Values<JObject>()
                 .Single(item => (string?)item!["category"] == name)!;
-            Assert.False((bool)category["available"]!);
+            Assert.Null(category["available"]);
             Assert.Equal(
                 "frame-global modifier reconstruction failed",
                 (string?)category["reason"]);

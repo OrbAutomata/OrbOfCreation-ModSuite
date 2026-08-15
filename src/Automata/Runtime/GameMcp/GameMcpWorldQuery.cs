@@ -132,6 +132,21 @@ internal static class GameMcpWorldQuery
                     ["maximum"] = world.SpellWorkbench.MaximumReserveLevel,
                 },
             };
+        // Exception-shaped, like every other line that costs a caller a decision: absent while no
+        // battle runs, and present with the ritual that is in it and the gate it holds shut while
+        // one does. A live round activated a ritual, read `activeBattle: no -> yes`, and twenty
+        // minutes later hedged its way into the round's one irreversible action because no surface
+        // aggregated "a battle is running" or said what that blocked.
+        for (var index = 0; index < world.Rituals.Count; index++)
+        {
+            if (!world.Rituals[index].InBattle) continue;
+            result["ritualBattle"] = new JObject
+            {
+                ["ritual"] = world.Rituals[index].EntityId.ToString("D"),
+                ["gates"] = GameMcpDecisionReason.RitualBattleGate,
+            };
+            break;
+        }
         result["collection"] = CompactCollectionStatus(world);
         return result;
     }
@@ -182,12 +197,18 @@ internal static class GameMcpWorldQuery
         // collector that did not bind, one whose pass was partial — still says that on the row.
         if (unlistable)
         {
-            result["unlistable"] =
+            result[Unlistable] =
                 GameMcpDecisionReason.For("collector_not_listable");
         }
         result["categories"] = categories;
         return result;
     }
+
+    /// <summary>
+    /// The one word this page says about a collector that publishes no table: the key its standing
+    /// sentence is printed under, and the reading every row that cannot be paged carries.
+    /// </summary>
+    private const string Unlistable = "unlistable";
 
     /// <summary>
     /// One row per collector this surface cannot list, so the inventory holds every category the
@@ -221,16 +242,22 @@ internal static class GameMcpWorldQuery
                 continue;
             }
             any = true;
-            var row = new JObject
+            var detail = UnlistableDetail(report);
+            rows.Add((name, new JObject
             {
                 ["category"] = name,
                 ["count"] = report.Sampled,
-                ["available"] = false,
-                ["reasonCode"] = "collector_not_listable",
-            };
-            var detail = UnlistableDetail(report);
-            if (detail.Length > 0) row["reason"] = detail;
-            rows.Add((name, row));
+
+                // The word the sentence above this table is keyed under, not a class code. A bare
+                // `ERR_LOCKED` in this cell meant "this collector has no table", while the same code
+                // everywhere else on the surface means "progression has not unlocked this" — one
+                // code, two unrelated conditions, with the sentence that told them apart printed
+                // once at the top and detached from the fourteen cells that needed it. A live round
+                // could not sweep the cell by eye and certified the page clean of exactly this
+                // shape. The cell now speaks the reason vocabulary the rest of the column speaks,
+                // and the word it says is defined on the page that says it.
+                ["reason"] = detail.Length == 0 ? Unlistable : Unlistable + ". " + detail,
+            }));
         }
         return any;
     }
@@ -1716,7 +1743,14 @@ internal static class GameMcpWorldQuery
         // The category the world actually publishes this id in, not the one the catalog's runtime
         // type implies: they disagree exactly where a caller most needs the truth.
         item["category"] = category.Name;
+        // Every detail page that can carry the game's own words for a thing carries them. The read
+        // was gated on the evaluated-detail resolver, whose thirteen kinds are the set this build
+        // evaluates predicates for — a shared entry point, not a rule about descriptions — so a
+        // whole category could publish a detail page with the authored text one lookup away and
+        // never say it. The category already declares the native type the text is read through.
         var description = GameMcpEntityExplainer.ReadDescription(world, uuid);
+        if (description.Length == 0)
+            description = GameMcpEntityExplainer.ReadDescription(uuid, category.ExpectedNativeType);
         if (description.Length > 0) item["description"] = description;
 
         // The words the game prints on this thing's type line, under the same name and in the same
@@ -2213,6 +2247,11 @@ internal static class GameMcpWorldQuery
                 postState["selectedLevel"] = current.SelectedLevel;
                 var drain = ProjectRitualCosts(world, current.Decision.CompletionCosts);
                 if (drain.Count > 0) postState["completionCosts"] = drain;
+
+                // The consequence, on the answer that starts it. "Activate a ritual" replies in
+                // battle vocabulary and a live round then had to guess what a running battle
+                // blocked — guessing its way into the round's one irreversible action.
+                postState["gates"] = GameMcpDecisionReason.RitualBattleGate;
             }
             else
             {
@@ -3454,11 +3493,33 @@ internal static class GameMcpWorldQuery
         if (command.Mode == "select")
         {
             var oldWorld = Before(command);
-            return Change(
-                command.TargetId,
-                oldWorld is not null && ChallengeSelected(oldWorld, command.TargetId),
-                ChallengeSelected(world, command.TargetId),
-                "selected");
+            var selected = new JObject
+            {
+                ["uuid"] = command.TargetId.ToString("D"),
+                ["selected"] = new JObject
+                {
+                    ["before"] =
+                        oldWorld is not null && ChallengeSelected(oldWorld, command.TargetId),
+                    ["after"] = ChallengeSelected(world, command.TargetId),
+                },
+            };
+
+            // The press the caller did not ask for, named — in the same shape a displaced spell
+            // already answers in, because it is the same fact. Selecting past a full list is two
+            // presses and this tool makes the first one itself, so an answer that said only
+            // `selected: no -> yes` confessed half of what it did: a live round had to spend a
+            // follow-up `state` call to learn which challenge it had given up.
+            if (command.SecondaryId != Guid.Empty)
+                selected["displaced"] = new JObject
+                {
+                    ["uuid"] = command.SecondaryId.ToString("D"),
+                    ["selected"] = new JObject
+                    {
+                        ["before"] = true,
+                        ["after"] = ChallengeSelected(world, command.SecondaryId),
+                    },
+                };
+            return selected.Freeze();
         }
         var priorWorld = Before(command);
         var beforeState = priorWorld is not null && WorldLookup.TryFind(
@@ -4483,11 +4544,15 @@ internal static class GameMcpWorldQuery
     private static JObject DescribeCategory(GameWorldState world, GameMcpWorldCategory category)
     {
         var availability = Availability(world, category);
+
+        // No `available` column beside the reason. Every unavailable category writes a reason and
+        // every available one writes none, so the two columns disagreed in zero of eighty-one rows
+        // across a measured round: the yes/no was the reason cell's own emptiness, spelled a second
+        // way. The reason is the column that can say something, so it is the column that stays.
         var result = new JObject
         {
             ["category"] = category.Name,
             ["count"] = CategoryRowCount(world, category),
-            ["available"] = availability.Available,
         };
         if (availability.Reason.Length > 0) result["reason"] = availability.Reason;
         return result;
@@ -7283,9 +7348,9 @@ internal static class GameMcpWorldQuery
         {
             ["timeAdvancements"] = new JObject
             {
-                ["starting"] = context.PersistenceCurrent,
-                ["previous"] = context.PersistencePrevious,
-                ["new"] = context.PersistenceProjected,
+                ["starting"] = Anchored(context.PersistenceCurrent, "next reset's start"),
+                ["previous"] = Anchored(context.PersistencePrevious, "this run's start"),
+                ["new"] = Anchored(context.PersistenceProjected, "more than previous"),
             },
             ["resetCount"] = context.ResetCount,
 
@@ -7312,6 +7377,20 @@ internal static class GameMcpWorldQuery
         }
         return result.Freeze();
     }
+
+    /// <summary>
+    /// One Time Advancement figure with the run it belongs to said beside it.
+    /// </summary>
+    /// <remarks>
+    /// The game's three display words are the block's keys and stay exactly as the screen prints
+    /// them, but read cold they point at the wrong runs: a live round read <c>starting</c> as "what
+    /// this run started with" and <c>previous</c> as "the run before", declared the wire in
+    /// contradiction with a maintained doc, and only unpicked it a paragraph later. The anchor is
+    /// what the word is missing, so each number carries its own — and the reader never has to hold
+    /// two of them side by side to work out which run either describes.
+    /// </remarks>
+    private static string Anchored(int amount, string anchor) =>
+        amount.ToString(CultureInfo.InvariantCulture) + " (" + anchor + ")";
 
     private static JArray PrestigeChallenges(GameWorldState world, bool queuedRewards)
     {

@@ -696,7 +696,8 @@ public sealed class GameMcpProtocolSurfaceTests
                 new GameWorldState { CollectedAtUtcTicks = DateTime.UtcNow.Ticks },
                 generation: 1207));
         Assert.Contains("lifecycle: Playing, generation 9", withWorld, StringComparison.Ordinal);
-        Assert.Contains("world: generation 1207", withWorld, StringComparison.Ordinal);
+        Assert.Contains("world: publication 1207", withWorld, StringComparison.Ordinal);
+        Assert.DoesNotContain("world: generation", withWorld, StringComparison.Ordinal);
 
         var tool = Assert.Single(
             GameMcpAcceptanceFixture.Tools(),

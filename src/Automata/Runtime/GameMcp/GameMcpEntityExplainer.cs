@@ -49,6 +49,20 @@ internal static class GameMcpEntityExplainer
     }
 
     /// <summary>
+    /// The authored description for one id, read through the native type its own category declares.
+    /// </summary>
+    /// <remarks>
+    /// The description used to be reachable only through the evaluated-detail resolver, which
+    /// answers thirteen kinds because that is the set this build evaluates predicates and blockers
+    /// for. Nothing about a description follows from that set — it follows from the id's type being
+    /// <c>ITooltipable</c> — so a live round walked the <c>agromancy-actions</c> and
+    /// <c>plot-node-actions</c> graphs to a detail page and found no description on either, though
+    /// both native types carry one and the page already holds the type name to read it with.
+    /// </remarks>
+    internal static string ReadDescription(Guid uuid, string nativeType) =>
+        string.IsNullOrEmpty(nativeType) ? string.Empty : TryReadNativeDescription(uuid, nativeType);
+
+    /// <summary>
     /// Everything a detail read says beyond identity and the published row: the decisions the game
     /// will accept, the requirement graph behind them, the exact price and what is holding it.
     /// </summary>

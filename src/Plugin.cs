@@ -1917,11 +1917,13 @@ public sealed class Plugin : BaseUnityPlugin
             .AppendLine(context.LifecycleGeneration.ToString(CultureInfo.InvariantCulture))
             // The scene name alone cannot tell a caller which run a verdict describes: the runtime
             // outlives every scene change, so the same scene answered both ways across one session.
-            // The world generation is what actually moves, so it is published — and a lifecycle
+            // The publication counter is what actually moves, so it is published — and a lifecycle
             // boundary flushes the publication, so this reads "not published" again once the run
-            // it described is gone.
+            // it described is gone. It counts publications and says so: the line above already
+            // spends the word "generation" on the lifecycle, and one word for two counters that
+            // move independently is what sent a reader comparing them.
             .Append("world: ").AppendLine(GameMcpWorldQuery.IsWorldPublished(context)
-                ? "generation " +
+                ? "publication " +
                     context.World!.Generation.Value.ToString(CultureInfo.InvariantCulture)
                 : "not published")
             .Append("emergency stop: ").AppendLine(stopped ? "engaged" : "clear");

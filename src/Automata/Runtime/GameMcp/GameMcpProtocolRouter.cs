@@ -1054,7 +1054,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "time_prestige",
                 "Reset the persistent world",
-                "Commit the irreversible native persistent reset after the world cycle and challenge choices are ready. Success waits for a fresh post-reset world and returns its named prestige and challenge decisions inline.",
+                "Commit the irreversible native persistent reset after the world cycle and challenge choices are ready. This verb only commits: it has no read mode, and every fact the decision turns on is read with time_challenge(mode=\"state\"), whose prestigeState block carries the three Time Advancement figures, the reset count, the persistent resource, the challenges queued for the reset, the surviving rewards, and the exact reset.available verdict with its reason — so no attempt is needed to learn whether a reset can run. Read that first; then call this. Success waits for a fresh post-reset world and returns its named prestige and challenge decisions inline.",
                 ActionSchemaWithoutIdentity(
                     new JObject
                     {

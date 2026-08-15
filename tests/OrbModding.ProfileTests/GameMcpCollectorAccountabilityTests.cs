@@ -119,12 +119,15 @@ public sealed class GameMcpCollectorAccountabilityTests
 
         var row = Assert.Single(page, item => (string?)item["category"] == "type-modifiers");
         Assert.Equal(63, (int)row["count"]!);
-        Assert.False((bool)row["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
 
-        // The sentence belongs to the code, so the response says it once and no row repeats it. A
-        // row with nothing of its own to add adds nothing.
-        Assert.Null(row["reason"]);
+        // The cell says the word the standing sentence above the table is keyed under, not a class
+        // code: `ERR_LOCKED` here meant "this collector has no table" while the same code everywhere
+        // else means "progression has not unlocked this", and a live round could not sweep the cell
+        // by eye. No `available` column beside it either — it was the reason cell's own emptiness
+        // spelled a second way.
+        Assert.Equal("unlistable", (string?)row["reason"]);
+        Assert.Null(row["reasonCode"]);
+        Assert.Null(row["available"]);
     }
 
     [Fact]
@@ -163,10 +166,10 @@ public sealed class GameMcpCollectorAccountabilityTests
 
         var row = Assert.Single(page, item => (string?)item["category"] == "crafting-stations");
         Assert.Equal(0, (int)row["count"]!);
-        Assert.False((bool)row["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
+        Assert.Null(row["reasonCode"]);
         Assert.Equal(
-            "It did not bind on this build: CraftingStationSO did not resolve on this build",
+            "unlistable. It did not bind on this build: CraftingStationSO did not resolve on " +
+            "this build",
             (string?)row["reason"]);
     }
 
@@ -182,10 +185,10 @@ public sealed class GameMcpCollectorAccountabilityTests
                 firstFailure: "one keyword list was unreadable")));
 
         var row = Assert.Single(page, item => (string?)item["category"] == "entity-keywords");
-        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
+        Assert.Null(row["reasonCode"]);
         Assert.Equal(
-            "Collection is partial: 3 native rows were skipped; first failure: one keyword list " +
-            "was unreadable",
+            "unlistable. Collection is partial: 3 native rows were skipped; first failure: one " +
+            "keyword list was unreadable",
             (string?)row["reason"]);
     }
 

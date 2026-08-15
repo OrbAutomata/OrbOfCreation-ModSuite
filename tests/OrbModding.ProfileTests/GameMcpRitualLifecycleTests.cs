@@ -286,6 +286,42 @@ public sealed class GameMcpRitualLifecycleTests
         Assert.Null(delta["next"]);
     }
 
+    /// <summary>
+    /// "Activate a ritual" answers in battle vocabulary, so the answer says what the battle it just
+    /// started holds shut. A live round read <c>activeBattle: no -&gt; yes</c>, found nothing on the
+    /// wire naming a consequence, and twenty minutes later committed the round's one irreversible
+    /// action while still guessing whether a running battle blocked it. Ending a battle says
+    /// nothing about the gate, because there is none left to state.
+    /// </summary>
+    [Fact]
+    public void An_activate_names_what_the_battle_it_started_holds_shut()
+    {
+        var before = World(selected: true, level: 4, activeInstances: 0, inBattle: false);
+        var after = World(selected: true, level: 4, activeInstances: 0, inBattle: true);
+        var activate = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
+            9, 3, "activate", RitualId, Guid.Empty, "RitualSO",
+            1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 97));
+        var end = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
+            9, 3, "end", RitualId, Guid.Empty, "RitualSO",
+            1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(after, generation: 98));
+
+        var started = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 98), activate,
+            GameMcpCommandResult.Committed("committed", 9, 3)), after);
+        var finished = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(before, generation: 99), end,
+            GameMcpCommandResult.Committed("committed", 9, 3)), before);
+
+        Assert.True((bool)started["activeBattle"]!["after"]!);
+        Assert.Equal(
+            "While a ritual battle runs no ritual can be activated and no ritual's starting level " +
+            "can be set; no other decision on this surface is gated on it.",
+            (string?)started["gates"]);
+        Assert.Null(finished["gates"]);
+    }
+
     [Fact]
     public void Settled_end_delta_reports_the_observed_active_battle_clear()
     {
@@ -381,6 +417,33 @@ public sealed class GameMcpRitualLifecycleTests
         Assert.False((bool)delta["activeBattle"]!["after"]!);
         Assert.Null(delta["result"]);
         Assert.Null(delta["spoils"]);
+    }
+
+    /// <summary>
+    /// Nothing on the surface aggregated "a battle is running", so a live round making a lifecycle
+    /// decision had no verb to ask and hedged into the round's one irreversible action. The overview
+    /// names the ritual that is in the battle and the gate it holds shut — and says nothing at all
+    /// while no battle runs, because a fact that costs no decision costs no line.
+    /// </summary>
+    [Fact]
+    public void The_overview_names_a_running_battle_and_what_it_gates()
+    {
+        var quiet = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+            GameMcpTestHarness.Context(
+                World(selected: true, level: 4, activeInstances: 0), generation: 101)));
+        var fighting = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+            GameMcpTestHarness.Context(
+                World(selected: true, level: 4, activeInstances: 0, inBattle: true),
+                generation: 102)));
+
+        Assert.Null(quiet["ritualBattle"]);
+        Assert.Equal(
+            GameMcpTestHarness.Handle(RitualId),
+            (string?)fighting["ritualBattle"]!["ritual"]!["uuid"]);
+        Assert.Equal(
+            "While a ritual battle runs no ritual can be activated and no ritual's starting level " +
+            "can be set; no other decision on this surface is gated on it.",
+            (string?)fighting["ritualBattle"]!["gates"]);
     }
 
     private static GameWorldState World(

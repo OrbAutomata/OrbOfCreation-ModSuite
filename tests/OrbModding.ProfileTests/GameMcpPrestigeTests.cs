@@ -30,6 +30,27 @@ public sealed class GameMcpPrestigeTests
         Assert.Null(schema["properties"]!["worldGeneration"]);
     }
 
+    /// <summary>
+    /// The verb is commit-only and says so, and names the verb that answers the read. A live round
+    /// did not know where the prestige facts lived — "might be in the `time_prestige` response or
+    /// displayed on the Time screen, so I'll need to verify where that data lives" — and the only
+    /// call it made on this tool was the irreversible one. No second reader is published for the
+    /// block: the description is what closes the gap.
+    /// </summary>
+    [Fact]
+    public void The_commit_only_verb_names_the_verb_that_answers_the_read()
+    {
+        var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate["name"] == "time_prestige");
+        var description = (string?)tool["description"] ?? string.Empty;
+
+        Assert.Contains("no read mode", description, StringComparison.Ordinal);
+        Assert.Contains(
+            "read with time_challenge(mode=\"state\")", description, StringComparison.Ordinal);
+        Assert.Contains("prestigeState", description, StringComparison.Ordinal);
+        Assert.Null(tool["inputSchema"]!["properties"]!["mode"]);
+    }
+
     [Fact]
     public void False_confirmation_is_named_before_any_frame_operation_is_enqueued()
     {
@@ -54,9 +75,9 @@ public sealed class GameMcpPrestigeTests
         var world = World();
         var prestige = Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
         var advancements = prestige["timeAdvancements"]!;
-        Assert.Equal(7, (int)advancements["starting"]!);
-        Assert.Equal(5, (int)advancements["previous"]!);
-        Assert.Equal(11, (int)advancements["new"]!);
+        Assert.Equal("7 (next reset's start)", (string?)advancements["starting"]);
+        Assert.Equal("5 (this run's start)", (string?)advancements["previous"]);
+        Assert.Equal("11 (more than previous)", (string?)advancements["new"]);
         Assert.Equal(4, (int)prestige["resetCount"]!);
         Assert.Equal("Persistent Light", (string?)prestige["persistentResource"]!["resource"]!["name"]);
         Assert.Equal("80", (string?)prestige["persistentResource"]!["amount"]);
@@ -88,8 +109,30 @@ public sealed class GameMcpPrestigeTests
         Assert.Null(advancements["previousStart"]);
         Assert.Null(advancements["change"]);
         Assert.Contains(
-            "timeAdvancements: starting=7, previous=5, new=11",
+            "timeAdvancements: starting=7 (next reset's start), " +
+            "previous=5 (this run's start), new=11 (more than previous)",
             GameMcpTextPage.Render(prestige).Split('\n'));
+    }
+
+    /// <summary>
+    /// The three words are the screen's and each of them points at a different run, which is exactly
+    /// what a cold reader cannot tell: a live round read <c>starting</c> as this run's own start,
+    /// called the wire contradictory against a maintained doc, and only unpicked it a paragraph
+    /// later. Every figure names the run it belongs to on its own line, so no pair has to be held
+    /// side by side to disambiguate either one.
+    /// </summary>
+    [Fact]
+    public void Every_time_advancement_figure_names_the_run_it_belongs_to()
+    {
+        var world = World();
+        var prestige = Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
+        var line = Assert.Single(
+            GameMcpTextPage.Render(prestige).Split('\n'),
+            candidate => candidate.Contains("timeAdvancements", StringComparison.Ordinal));
+
+        Assert.Contains("starting=7 (next reset's start)", line, StringComparison.Ordinal);
+        Assert.Contains("previous=5 (this run's start)", line, StringComparison.Ordinal);
+        Assert.Contains("new=11 (more than previous)", line, StringComparison.Ordinal);
     }
 
     /// <summary>

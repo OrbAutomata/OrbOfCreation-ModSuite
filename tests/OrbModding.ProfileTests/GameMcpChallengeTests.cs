@@ -381,6 +381,60 @@ public sealed class GameMcpChallengeTests
             (string?)row["queue"]!["reason"]);
     }
 
+    /// <summary>
+    /// Selecting past a full list is two presses on the screen and the verb makes the first one
+    /// itself. Answering only <c>selected: no -&gt; yes</c> confessed half of that, and a live round
+    /// spent a follow-up <c>state</c> call learning which challenge had been given up. The swap
+    /// names the displaced one in the shape a displaced spell slot already answers in.
+    /// </summary>
+    [Fact]
+    public void A_select_that_swaps_names_the_challenge_it_displaced()
+    {
+        var before = World(selectionMaximum: 1);
+        var after = World(selectionMaximum: 1, selectedIds: new[] { Second });
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Challenge, 9, 3, "select", Second,
+            GameMcpWorldQuery.ChallengeSelectionToReplace(before, Second),
+            "ChallengeSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before));
+
+        var swap = Json(
+            GameMcpWorldQuery.ProjectChallengePostState(
+                GameMcpTestHarness.Context(after, generation: 2507), command),
+            after);
+
+        Assert.Equal("Expanding Trial", (string?)swap["name"]);
+        Assert.False((bool)swap["selected"]!["before"]!);
+        Assert.True((bool)swap["selected"]!["after"]!);
+        Assert.Equal("Prismatic Trial", (string?)swap["displaced"]!["name"]);
+        Assert.True((bool)swap["displaced"]!["selected"]!["before"]!);
+        Assert.False((bool)swap["displaced"]!["selected"]!["after"]!);
+    }
+
+    /// <summary>
+    /// A selection the screen had room for displaced nothing, so nothing is named: the key is the
+    /// press the caller did not ask for, not a slot the answer always fills.
+    /// </summary>
+    [Fact]
+    public void A_select_with_room_to_spare_names_no_displaced_challenge()
+    {
+        var before = World(selected: false);
+        var after = World();
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Challenge, 9, 3, "select", First,
+            GameMcpWorldQuery.ChallengeSelectionToReplace(before, First),
+            "ChallengeSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before));
+
+        var straight = Json(
+            GameMcpWorldQuery.ProjectChallengePostState(
+                GameMcpTestHarness.Context(after, generation: 2508), command),
+            after);
+
+        Assert.True((bool)straight["selected"]!["after"]!);
+        Assert.Null(straight["displaced"]);
+    }
+
     private static GameWorldState World(
         bool selected = true,
         int rerollsLeft = 2,
@@ -389,8 +443,10 @@ public sealed class GameMcpChallengeTests
         Guid[]? prestigeOffers = null,
         int selectionMaximum = 3,
         int firstState = 1,
-        int thirdState = 2)
+        int thirdState = 2,
+        Guid[]? selectedIds = null)
     {
+        selectedIds ??= new[] { First };
         timeOffers ??= new[] { First, Second };
         prestigeOffers ??= new[] { Third };
         var rows = new[]
@@ -417,10 +473,10 @@ public sealed class GameMcpChallengeTests
             ChallengeContext = new WorldChallengeContext(
                 true, string.Empty, true, challengesFetched, rerollsLeft, 3, selectionMaximum,
                 selected
-                    ? PublicationTable<WorldChallengeReference>.Create(new[]
-                    {
-                        new WorldChallengeReference(0, First),
-                    })
+                    ? PublicationTable<WorldChallengeReference>.Create(
+                        selectedIds
+                            .Select((id, index) => new WorldChallengeReference(index, id))
+                            .ToArray())
                     : PublicationTable<WorldChallengeReference>.Empty,
                 PublicationTable<WorldChallengeReference>.Create(
                     timeOffers.Select((id, index) => new WorldChallengeReference(index, id)).ToArray()),

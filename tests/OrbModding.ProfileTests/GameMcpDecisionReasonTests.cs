@@ -243,26 +243,26 @@ public sealed class GameMcpDecisionReasonTests
             GameMcpDecisionReason.For("already_ran"));
 
     /// <summary>
-    /// A sentence that is a property of the code rather than of the row is said once by the
-    /// response carrying the rows, so the fallback leaves it alone and every row keeps the class a
-    /// caller branches on.
+    /// Every code that reaches a <c>reasonCode</c> field ships the sentence that explains it. The
+    /// one code that used to be exempt — <c>collector_not_listable</c> — no longer reaches that
+    /// field at all: <c>world_categories</c> prints its sentence once under <c>unlistable:</c> and
+    /// the rows that cannot be paged say that word back in their own reason cell, so the exemption
+    /// and the mechanism that carried it are both gone.
     /// </summary>
     [Fact]
-    public void A_sentence_the_response_states_once_is_not_repeated_onto_every_row()
+    public void Every_code_that_reaches_the_wire_ships_the_sentence_that_explains_it()
     {
-        Assert.True(GameMcpDecisionReason.IsStatedOncePerResponse("collector_not_listable"));
-        Assert.False(GameMcpDecisionReason.IsStatedOncePerResponse("already_ran"));
-
         var encoded = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
             new GameMcpObjectBuilder
             {
                 ["available"] = false,
-                ["reasonCode"] = "collector_not_listable",
+                ["reasonCode"] = "progression_locked",
             }.Freeze(),
             GameMcpTestHarness.EntityCatalog));
 
         Assert.Equal("ERR_LOCKED", (string?)encoded["reasonCode"]);
-        Assert.Null(encoded["reason"]);
+        Assert.Equal(
+            "The progression that unlocks this is not reached yet.", (string?)encoded["reason"]);
     }
 
     /// <summary>

@@ -74,6 +74,23 @@ internal static class GameMcpDecisionReason
     };
 
     /// <summary>
+    /// What one running ritual battle holds shut, in one sentence, said wherever the fact that a
+    /// battle is running is published.
+    /// </summary>
+    /// <remarks>
+    /// "Activate a ritual" answers in battle vocabulary — <c>activeBattle: no -&gt; yes</c> — and
+    /// nothing on the wire said what that now blocked. Twenty minutes later a live round wrote "the
+    /// battle is currently active, and prestige might refuse to execute while one's ongoing — though
+    /// I'll attempt it anyway" and committed the round's one irreversible action while uncertain,
+    /// because there was no verb to ask. The gate is small and closed, so it is stated outright: the
+    /// enumeration is the whole set of decisions this surface conditions on a running battle, and a
+    /// test holds it to that.
+    /// </remarks>
+    internal const string RitualBattleGate =
+        "While a ritual battle runs no ritual can be activated and no ritual's starting level can " +
+        "be set; no other decision on this surface is gated on it.";
+
+    /// <summary>
     /// A check that answered yes needs no code at all. Round 7 put <c>passed</c> and friends in the
     /// same field as thirty-nine refusals, which taught a caller that "has a code" means "was
     /// refused" and made a healthy entity read as a blocked one.
@@ -200,7 +217,6 @@ internal static class GameMcpDecisionReason
         "core_glyph_augments_only" or "selection_restricted" or
         "selection_hidden" or "cannot_level" or "resources_hidden" or
         "recipe_not_discovered" or "prerequisites_unmet" or "not_discovered_or_offered" or
-        "collector_not_listable" or
         "native_hidden" or "hidden_discovery" or "requirement_unmet" or
         "native_unavailable" or "native_leeway_exhausted" => ClassLocked,
 
@@ -243,21 +259,6 @@ internal static class GameMcpDecisionReason
         // is the native_*_refused family: the game's own gate said no and reported nothing else.
         _ => ClassRefused,
     };
-
-    /// <summary>
-    /// Codes whose sentence a response says once, beside the table, rather than on every row that
-    /// carries the code.
-    /// </summary>
-    /// <remarks>
-    /// The sentence is a property of the code rather than of the row: fourteen rows of one page
-    /// spent the same 132 characters saying one thing about the suite's own collectors, 38% of that
-    /// whole response. Where that is true the producer states it once and every row carries the
-    /// class, which is the canned-sentence-once shape a refusal already has. A code is here only
-    /// when its sentence can carry no per-row detail at all — anything a row could add belongs on
-    /// the row, and the row still says it.
-    /// </remarks>
-    internal static bool IsStatedOncePerResponse(string reasonCode) =>
-        reasonCode is "collector_not_listable";
 
     /// <summary>
     /// The player sentence for one decision code. Unknown codes are rendered rather than dropped:
@@ -338,7 +339,7 @@ internal static class GameMcpDecisionReason
             "A challenge that has already run cannot be queued again until the next reset.",
         "no_cancellable_usage" => "Nothing is queued that could be cancelled.",
         "level_locked" => "The game fixes this ritual's starting level, so it cannot be set.",
-        "ritual_battle_active" => "A ritual battle is running.",
+        "ritual_battle_active" => "A ritual battle is running. " + RitualBattleGate,
         "no_active_duration_reward" => "No duration reward from this ritual is running.",
         "not_a_duration_ritual" => "This ritual grants no duration reward to cancel.",
         "usage_requirements_unmet" => "This does not meet its usage requirements yet.",
@@ -353,6 +354,9 @@ internal static class GameMcpDecisionReason
         "cancellable_spells_disabled" =>
             "Cancellable spells are switched off, so this cast cannot be toggled off.",
         "progression_locked" => "The progression that unlocks this is not reached yet.",
+
+        // Never a `reasonCode`, and so never a class: it is the sentence `world_categories` prints
+        // once under `unlistable:`, and the rows that cannot be paged say that one word back.
         "collector_not_listable" =>
             "this collector publishes no table of its own, so world_list cannot page it; its rows " +
             "reach the wire inside the reads that carry them",

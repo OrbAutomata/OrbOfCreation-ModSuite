@@ -30,20 +30,44 @@ public sealed class WorldCacheDriftTests
             BigDouble.FromMantissaExponentNoNormalize(4.44d, -115));
 
         Assert.Equal(116.4d, apart, 1);
-        Assert.Equal("116.4", AutomataWorldCollectionCheck.Orders(apart));
+        Assert.Equal(
+            "116.4",
+            AutomataWorldCollectionCheck.Orders(
+                apart,
+                new BigDouble(100d),
+                BigDouble.FromMantissaExponentNoNormalize(4.44d, -115)));
     }
 
     /// <summary>
     /// A recompute of exactly zero is not an edge to suppress: the game is acting on a memo its own
-    /// recalculation says is nothing, and no finite number of orders describes that.
+    /// recalculation says is nothing, and no finite number of orders describes that. The line says
+    /// there is no ratio and names the side that was zero, rather than a magnitude-sounding word a
+    /// reader has to derive the meaning of.
     /// </summary>
     [Fact]
-    public void A_recompute_of_nothing_is_unbounded_rather_than_a_large_number()
+    public void A_recompute_of_nothing_reports_no_ratio_and_names_the_zero_side()
     {
         var apart = AutomataWorldCollectionCheck.DriftOrders(new BigDouble(100d), BigDouble.Zero);
 
         Assert.Equal(double.PositiveInfinity, apart);
-        Assert.Equal("unbounded", AutomataWorldCollectionCheck.Orders(apart));
+        Assert.Equal(
+            "n/a (recompute=0)",
+            AutomataWorldCollectionCheck.Orders(apart, new BigDouble(100d), BigDouble.Zero));
+    }
+
+    /// <summary>
+    /// The other side of the same no-ratio case is a different fact and says so: a memo of nothing
+    /// against a live recompute is the game holding a zero its own recalculation disagrees with.
+    /// </summary>
+    [Fact]
+    public void A_memo_of_nothing_names_the_memo_as_the_zero_side()
+    {
+        var apart = AutomataWorldCollectionCheck.DriftOrders(BigDouble.Zero, new BigDouble(100d));
+
+        Assert.Equal(double.PositiveInfinity, apart);
+        Assert.Equal(
+            "n/a (memo=0)",
+            AutomataWorldCollectionCheck.Orders(apart, BigDouble.Zero, new BigDouble(100d)));
     }
 
     /// <summary>Two readings that are both nothing are not drifting.</summary>

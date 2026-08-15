@@ -1274,6 +1274,76 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         return tier;
     }
 
+    /// <summary>
+    /// A detail page publishes the game's own words for the thing it describes. The description was
+    /// reachable only through the evaluated-detail resolver, whose thirteen kinds are the set this
+    /// build evaluates predicates for — a shared entry point, not a rule about descriptions — so a
+    /// live round walked the agromancy-action and plot-node-action graphs to a detail page and found
+    /// no description on either, though both native types carry one and the page already holds the
+    /// type name its category declares.
+    /// </summary>
+    [Fact]
+    public void AnActionDetailPageCarriesTheAuthoredDescriptionItsCategoryDeclaresTheTypeFor()
+    {
+        var mining = Guid.Parse("af40da52-4a75-420c-a88d-008c3f5fc443");
+        var watering = Guid.Parse("0a1b2c3d-4e5f-4a6b-8c9d-0e1f2a3b4c5d");
+        var action = new global::HarvestActionSO
+        {
+            displayName = "Mining",
+            description = "Digs the node for ore.",
+        };
+        action.SetGuid(mining);
+        global::IdScriptableObject.RuntimeLookup[mining] = action;
+        var plotAction = new global::PlotNodeActionSO
+        {
+            displayName = "Water",
+            description = "Waters the node so it grows.",
+        };
+        plotAction.SetGuid(watering);
+        global::IdScriptableObject.RuntimeLookup[watering] = plotAction;
+
+        var world = new GameWorldState
+        {
+            HarvestActions = PublicationTable<WorldHarvestAction>.Create(new[]
+            {
+                new WorldHarvestAction(
+                    mining, new BigDouble(100), new BigDouble(100), new BigDouble(100)),
+            }),
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(1, new[]
+            {
+                new EntityIdentityName(watering, "PlotNodeActionSO", "Water", "WaterPlotAction"),
+                new EntityIdentityName(mining, "HarvestActionSO", "Mining", "MiningHarvestAction"),
+            }.OrderBy(row => row.EntityId).ToArray()),
+            CollectedAtEpoch = 71,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        using var publisher =
+            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(971));
+        var page = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            GameMcpWorldQuery.GetRows(
+                    GameMcpTestHarness.Context(publisher.ReadLatest()),
+                    string.Empty,
+                    new[] { mining.ToString("D") })
+                .Freeze(),
+            world.EntityIdentities));
+
+        Assert.Equal(
+            "Digs the node for ore.",
+            (string?)Assert.Single(page["results"]!.Values<JObject>())!["description"]);
+
+        // The plot-node-action half of the same fix, at the read the page performs: the category
+        // declares the native type, and the type is what the authored text is read through.
+        Assert.Equal(
+            "Waters the node so it grows.",
+            GameMcpEntityExplainer.ReadDescription(
+                watering, GameMcpEntityCapabilityMap.ExpectedNativeType("plot-node-actions")));
+        Assert.Equal(
+            "Digs the node for ore.",
+            GameMcpEntityExplainer.ReadDescription(
+                mining, GameMcpEntityCapabilityMap.ExpectedNativeType("agromancy-actions")));
+    }
+
     private static GameWorldState Collect()
     {
         var collector = new GameWorldCollector();

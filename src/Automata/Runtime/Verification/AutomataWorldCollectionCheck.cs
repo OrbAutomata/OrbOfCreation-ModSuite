@@ -1910,7 +1910,8 @@ internal sealed class AutomataWorldCollectionCheck
         var widest = worstLabel.Length == 0
             ? string.Empty
             : $"{worstLabel} memo={VerificationValue.Format(worstMemo)} " +
-              $"recompute={VerificationValue.Format(worstRecompute)} orders={Orders(worst)}";
+              $"recompute={VerificationValue.Format(worstRecompute)} " +
+              $"orders={Orders(worst, worstMemo, worstRecompute)}";
 
         return new CacheStalenessSurvey(
             fold,
@@ -1970,8 +1971,19 @@ internal sealed class AutomataWorldCollectionCheck
     }
 
     /// <summary>The drift magnitude as the window line prints it.</summary>
-    internal static string Orders(double apart) =>
-        double.IsPositiveInfinity(apart) ? "unbounded" : apart.ToString("0.#");
+    /// <remarks>
+    /// The no-ratio case says it is not a magnitude. <c>unbounded</c> is a magnitude-sounding word
+    /// for "there is no ratio here at all", and a live round spent a paragraph deriving that it did
+    /// not mean the drift was unbounded before it would trust the verdict. <c>n/a</c> says the
+    /// division did not happen, and the side that was zero is named in the same breath — the two
+    /// zero cases are different facts, and both sides are printed immediately to the left, so the
+    /// qualifier points at the number already on the line rather than restating it.
+    /// </remarks>
+    internal static string Orders(double apart, BigDouble memo, BigDouble recompute)
+    {
+        if (!double.IsPositiveInfinity(apart)) return apart.ToString("0.#");
+        return recompute == BigDouble.Zero ? "n/a (recompute=0)" : "n/a (memo=0)";
+    }
 
     /// <summary>
     /// How far a cached value sits from the truth, as a share of the truth. Falls back to an absolute

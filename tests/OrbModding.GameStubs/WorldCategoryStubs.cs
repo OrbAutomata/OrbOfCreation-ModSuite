@@ -1500,7 +1500,12 @@ public sealed class TutorialSO : IdScriptableObject
 }
 
 
-public sealed class PlotNodeActionSO : IdScriptableObject
+/// <remarks>
+/// The game derives this from <c>UpgradeableObject</c>, so it is a <c>TooltipableObject</c> and an
+/// <c>ITooltipable</c> carrying an authored description. The stub had it on
+/// <c>IdScriptableObject</c>, which made every test of it model a type the game does not have.
+/// </remarks>
+public sealed class PlotNodeActionSO : UpgradeableObject
 {
     public List<HarvestActionTypeSO> actionTypes = new List<HarvestActionTypeSO>();
 
