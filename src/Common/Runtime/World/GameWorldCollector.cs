@@ -66,6 +66,7 @@ internal sealed class GameWorldCollector
     private readonly WorldCategoryReader<WorldNumberVariable, WorldNumberVariable> _intVariables;
     private readonly WorldCategoryReader<WorldBoolVariable, WorldBoolVariable> _boolVariables;
     private readonly WorldCategoryReader<WorldModifierVariable, WorldModifierVariable> _modifierVariables;
+    private readonly WorldCategoryReader<WorldStatistic, WorldStatistic> _statistics;
     private readonly WorldPurchaseCostReader _purchaseCosts;
     private readonly WorldUpgradeCostReader _upgradeCosts;
     private readonly WorldPlotActionReader _plotActions;
@@ -269,6 +270,7 @@ internal sealed class GameWorldCollector
         _intVariables = Reader(new WorldIntVariableBinder(), resolveType, static frame => frame.IntVariables);
         _boolVariables = Reader(new WorldBoolVariableBinder(), resolveType, static frame => frame.BoolVariables);
         _modifierVariables = Reader(new WorldModifierVariableBinder(), resolveType, static frame => frame.ModifierVariables);
+        _statistics = Reader(new WorldStatisticBinder(), resolveType, static frame => frame.Statistics);
         _alchemyRecipes = Reader(new WorldAlchemyRecipeBinder(), resolveType, static frame => frame.AlchemyRecipes);
         _alchemyTypes = Reader(new WorldAlchemyTypeBinder(), resolveType, static frame => frame.AlchemyTypes);
         _spellRecipes = Reader(new WorldSpellRecipeBinder(), resolveType, static frame => frame.SpellRecipes);
@@ -362,7 +364,7 @@ internal sealed class GameWorldCollector
         _readers = new IWorldCategoryReader[]
         {
             _resources, _structures, _upgrades, _research,
-            _doubleVariables, _intVariables, _boolVariables, _modifierVariables,
+            _doubleVariables, _intVariables, _boolVariables, _modifierVariables, _statistics,
             _alchemyRecipes, _alchemyTypes, _spellRecipes, _spellLevelCosts, _spellGraph, _spellTypes,
             _equipment, _equipmentTypes, _resourceTypes, _craftingRecipeTypes,
             _structureTypes, _ritualTypes, _harvestTypes, _plotNodeTypes, _researchTypes,

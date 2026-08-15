@@ -36,6 +36,7 @@ internal sealed class GameWorldCycleFrame
     internal WorldSampleBuffer<WorldNumberVariable, WorldNumberVariable> IntVariables { get; } = new();
     internal WorldSampleBuffer<WorldBoolVariable, WorldBoolVariable> BoolVariables { get; } = new();
     internal WorldSampleBuffer<WorldModifierVariable, WorldModifierVariable> ModifierVariables { get; } = new();
+    internal WorldSampleBuffer<WorldStatistic, WorldStatistic> Statistics { get; } = new();
 
     /// <summary>
     /// The authored cost entries, which are one-to-many per entity and so cannot share the
@@ -429,6 +430,7 @@ internal static class GameWorldFrameDeriver
             IntVariables = intVariables,
             BoolVariables = frame.BoolVariables.Build(WorldIdentityDeriver<WorldBoolVariable>.Shared),
             ModifierVariables = modifierVariables,
+            Statistics = frame.Statistics.Build(WorldIdentityDeriver<WorldStatistic>.Shared),
             AlchemyRecipes = WorldAlchemyRecipeDeriver.Build(
                 frame.AlchemyRecipes, alchemyTypes, intVariables),
             AlchemyTypes = alchemyTypes,

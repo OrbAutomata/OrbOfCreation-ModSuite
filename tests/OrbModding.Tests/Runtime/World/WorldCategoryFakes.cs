@@ -101,6 +101,7 @@ internal static class WorldCategoryFakes
         ["PlotNodeSO"] = typeof(FakePlotNode),
         ["TreasurePoolSO"] = typeof(FakeTreasurePool),
         ["ValueModifierVariable"] = typeof(FakeModifierVariable),
+        ["AttributeSO"] = typeof(FakeStatistic),
         ["RitualTypeSO"] = typeof(FakeRitualType),
         ["HarvestTypeSO"] = typeof(FakeHarvestType),
         ["PlotNodeTypeSO"] = typeof(FakePlotNodeType),
@@ -183,6 +184,7 @@ internal static class WorldCategoryFakes
         FakePlotNode.All.Clear();
         FakeTreasurePool.All.Clear();
         FakeModifierVariable.All.Clear();
+        FakeStatistic.All.Clear();
         FakeIdRegistry.RuntimeLookup.Clear();
         UnityEngine.Resources.Objects.Clear();
         SeedScribeRelations();
@@ -847,6 +849,34 @@ internal sealed class FakeModifierVariable
     public FakeValueModifier value;
 
     public Guid GetGuid() => Identity;
+}
+
+/// <summary>
+/// The statistic glossary's stand-in. Its display type sits two references deep, and the reference
+/// that names nothing is the shape one shipped record really has.
+/// </summary>
+internal sealed class FakeStatistic
+{
+    public static readonly List<FakeStatistic> All = new();
+
+    public Guid Identity = Guid.NewGuid();
+    public FakeDisplayTypeReference displayTypeRef = new();
+    public string globalDefinition = string.Empty;
+    public bool isPercent;
+    public bool useBigTooltip;
+    public string description = string.Empty;
+
+    public Guid GetGuid() => Identity;
+}
+
+internal sealed class FakeDisplayTypeReference
+{
+    public FakeDisplayType? displayType;
+}
+
+internal sealed class FakeDisplayType
+{
+    public string displayName = string.Empty;
 }
 
 internal struct FakeValueModifier

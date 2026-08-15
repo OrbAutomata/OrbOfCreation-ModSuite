@@ -512,6 +512,11 @@ internal static class GameMcpEntityCapabilityMap
         D("int-variables", "IntVariable"),
         D("bool-variables", "BoolVariable"),
         D("modifier-variables", "ValueModifierVariable"),
+
+        // The glossary carries no capability and never will: nothing buys, levels or discovers a
+        // definition. The descriptor is what makes the word addressable, and it is also what turns
+        // every one of the 211 `entity_catalog` rows from `not-world-projected` into `statistics`.
+        D("statistics", "AttributeSO"),
         D("purchase-costs", "StructureSO|UpgradeSO"),
         D("alchemy-recipes", "AlchemyRecipeSO", GameMcpCommandKind.Concept,
             GameMcpCommandKind.GenericDiscovery, GameMcpCommandKind.AlchemyLoadout),

@@ -459,7 +459,7 @@ lists. Each row reports `category`, its row `count`, and — when something is w
 not protocol data.
 
 **There is no `available` column.** Every unavailable category writes a reason and every available
-one writes none, so the two columns disagreed in zero of eighty-one rows across a measured round:
+one writes none, so the two columns disagreed in zero of eighty-two rows across a measured round:
 the yes/no was the reason cell's own emptiness spelled a second way. A row whose `reason` reads `-`
 is a healthy, pageable category.
 
@@ -696,6 +696,7 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `resource-types` | `totalLevel`, `hidden` |
 | `equipment-types` | `totalLevel` |
 | `double-variables`, `int-variables` | `value`, `isPercent` |
+| `statistics` | `displayType`, `isPercent`, `description` |
 
 **One word per concept across the type taxonomies.** A level a taxonomy list shows is the number its
 own page spells under the same word, so `equipment-types` and `resource-types` both say `totalLevel`
@@ -1127,6 +1128,37 @@ owner, ordinal, and runtime type evidence. If a searchable entity row itself is 
 entity owns an unmodeled leaf, the search result is explicitly incomplete for that entity. Its
 `total` counts only stable-identity matches that the response can actually return, counted after
 identity deduplication so the total and the pages agree.
+
+### The statistic glossary
+
+`statistics` is the game's own glossary: the 211 `AttributeSO` records that supply the word every
+tooltip prints above a number and the sentence it prints under it. It is authored text, so a row
+carries no cost, no level and no live state, and nothing about it moves while the game runs. The
+word a row heads is not the thing a player buys — the purchasable Attributes are `structures`.
+
+The glossary is addressable on its own: `world_search` finds a definition by the word the screen
+prints, and `world_list` reads the sentence beside it. The only other route to a definition is
+hovering an element that happens to hang one, which reaches the meaning of `Recovery Size` only
+somewhere already showing a Recovery Size.
+
+A row is `displayType`, `isPercent` and `description`, under the `uuid` and `name` every entity row
+carries. `displayType` is the game's own word for which of the three sections of a tooltip this
+entry heads — `Statistic`, `Information` or `Action` — taken from the referenced display type's
+display name rather than the colour-tagged string the screen paints. One record, Starting Level,
+references no display type and its cell is empty rather than a fourth word this suite invented, and
+eight of the 211 are UI plumbing the game authors no sentence for: an absent description is the
+absence of one, never a dropped row. Those eight spell the gap the two ways this surface spells
+every gap — the list column is there and reads `-`, the detail field is absent.
+
+**The sentence is on the list page rather than behind a detail read.** It is the whole reason a
+reader opens this category, and a glossary that costs one call per entry to read is 211 calls for
+what the game prints in one column. `world_get` on a statistic says it once, in the `description`
+every entity read already carries, and the row beside it does not repeat it.
+
+`AttributeSO.globalDefinition` — the authoring key effect scripts name a statistic by — is collected
+and deliberately not published. No screen prints it, and several spell themselves
+`Tooltip:ChallengeActive` or `Alert:Research`, so a reader who met one on the wire would have met a
+word from no screen.
 
 ### Discovery decision loop
 

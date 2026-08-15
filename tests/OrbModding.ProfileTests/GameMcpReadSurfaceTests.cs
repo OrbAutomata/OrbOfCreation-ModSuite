@@ -487,7 +487,12 @@ public sealed class GameMcpStreamableHttpProtocolTests
         // The asset id here is the name with its space taken out, which the verb contract says
         // absence means, so the row does not spell it twice.
         Assert.DoesNotContain("HiddenComponent", lines[2]);
-        Assert.Contains("not-world-projected", lines[2]);
+
+        // The cell used to read `not-world-projected` here, because nothing published `AttributeSO`.
+        // The statistics glossary does, and the cell followed the capability map without this
+        // surface being touched.
+        Assert.Contains("statistics", lines[2]);
+        Assert.DoesNotContain("not-world-projected", lines[2]);
         Assert.DoesNotContain("catalogSource", page, StringComparison.Ordinal);
         Assert.DoesNotContain("totalCatalogRows", page, StringComparison.Ordinal);
         Assert.DoesNotContain("nameSource", page, StringComparison.Ordinal);

@@ -582,18 +582,19 @@ public sealed class GameWorldCollectorTests : IDisposable
         // the runtime Brewing Station selector/lifecycle surface, the nine type rosters, whose
         // modifier records were already walked but whose assets had no row of their own, and the
         // six base agromancy verbs, whose keyword rows were walked while the assets a members line
-        // counts had no row to be reached at.
+        // counts had no row to be reached at, and the game's own statistic glossary, the words it
+        // prints above its numbers, which were readable only by hovering something that showed one.
         // A pass that quietly stopped covering one would show
         // up only as a consumer finding nothing where there was something.
         var report = Collector().Collect();
 
-        Assert.Equal(74, report.Categories.Length);
+        Assert.Equal(75, report.Categories.Length);
         Assert.True(report.IsComplete, report.Describe());
 
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a
         // levelled grouping type.
         foreach (var category in
-                 new[] { "resources", "harvest actions", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "glyph lists", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions", "structure types", "ritual types", "harvest types", "plot node types", "research types", "consumable families", "harvest action types", "passive ability types", "time rune types" })
+                 new[] { "resources", "harvest actions", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "glyph lists", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions", "structure types", "ritual types", "harvest types", "plot node types", "research types", "consumable families", "harvest action types", "passive ability types", "time rune types", "statistics" })
         {
             Assert.Equal(WorldCategoryOutcome.Collected, report.For(category).Outcome);
         }
@@ -1339,6 +1340,93 @@ public sealed class GameWorldCollectorTests : IDisposable
         // Order is not decoration: modifiers sharing an order merge with each other before any of
         // them is applied, so dropping it changes the arithmetic rather than the presentation.
         Assert.Equal(2, row.Order);
+    }
+
+    [Fact]
+    public void TheStatisticGlossaryTravelsAsTheWordsTheScreenPrints()
+    {
+        var cost = Guid.NewGuid();
+        FakeStatistic.All.Add(new FakeStatistic
+        {
+            Identity = cost,
+            displayTypeRef = new FakeDisplayTypeReference
+            {
+                displayType = new FakeDisplayType { displayName = "Statistic" },
+            },
+            globalDefinition = "Cost",
+            isPercent = false,
+            description = "The amount of resources a component costs to cast, use or purchase.",
+        });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLookup.TryFind(world.Statistics, cost, out var row));
+
+        // Two references deep: the record holds a reference that holds the display type, and the
+        // word is that type's display name rather than the colour-tagged string ToType() builds.
+        Assert.Equal("Statistic", row.DisplayType);
+        Assert.False(row.IsPercent);
+        Assert.Equal(
+            "The amount of resources a component costs to cast, use or purchase.",
+            row.Description);
+
+        // The join key effect scripts name this statistic by. Collected because the next reader of
+        // the world needs it; kept off the wire because no screen prints it.
+        Assert.Equal("Cost", row.GlobalDefinition);
+    }
+
+    [Fact]
+    public void AStatisticThatNamesNoDisplayTypeStillTravels()
+    {
+        // One shipped record — Starting Level — references no display type at all. The chain yields
+        // the member default rather than dropping the row or inventing a fourth word.
+        var starting = Guid.NewGuid();
+        FakeStatistic.All.Add(new FakeStatistic
+        {
+            Identity = starting,
+            displayTypeRef = new FakeDisplayTypeReference { displayType = null },
+            globalDefinition = "CraftingStartingLevel",
+            description = "The level this component starts at.",
+        });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLookup.TryFind(world.Statistics, starting, out var row));
+        Assert.Equal(string.Empty, row.DisplayType);
+        Assert.Equal("The level this component starts at.", row.Description);
+    }
+
+    [Fact]
+    public void AStatisticTheGameAuthorsNoSentenceForIsStillARow()
+    {
+        // Eight of the 211 carry no description. An absent sentence is the absence of one, not a
+        // reason to drop the word the screen still prints.
+        var plumbing = Guid.NewGuid();
+        FakeStatistic.All.Add(new FakeStatistic
+        {
+            Identity = plumbing,
+            displayTypeRef = new FakeDisplayTypeReference
+            {
+                displayType = new FakeDisplayType { displayName = "Information" },
+            },
+            globalDefinition = "Tooltip:ChallengeActive",
+            description = string.Empty,
+        });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLookup.TryFind(world.Statistics, plumbing, out var row));
+        Assert.Equal("Information", row.DisplayType);
+        Assert.Equal(string.Empty, row.Description);
     }
 
     [Fact]

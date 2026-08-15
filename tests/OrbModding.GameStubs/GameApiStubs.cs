@@ -3417,8 +3417,27 @@ public class TooltipableObject : IdScriptableObject, ITooltipable
     public virtual List<TooltipNode> GetAltTooltipNodes() => new();
 }
 
+/// <summary>
+/// The three words every statistic row is tagged with. A reference holds one, and the reference of
+/// the one record that names none holds nothing — which is the shape the glossary binder reads.
+/// </summary>
+public sealed class DisplayTypeSO : TooltipableObject
+{
+    public static List<DisplayTypeSO> All = new List<DisplayTypeSO>();
+
+    public sealed class Reference
+    {
+        public DisplayTypeSO displayType;
+    }
+}
+
 public sealed class AttributeSO : TooltipableObject
 {
+    public static List<AttributeSO> All = new List<AttributeSO>();
+    public DisplayTypeSO.Reference displayTypeRef = new DisplayTypeSO.Reference();
+    public string globalDefinition = string.Empty;
+    public bool isPercent;
+    public bool useBigTooltip;
 }
 
 public class TooltipNode

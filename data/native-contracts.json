@@ -5344,13 +5344,165 @@
       "kind": "type",
       "baseType": "TooltipableObject",
       "owners": [
-        "Suite quick-control icons"
+        "Suite quick-control icons",
+        "Automata world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "attribute.all",
+      "assembly": "assembly-csharp",
+      "type": "AttributeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<AttributeSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<AttributeSO>"}
+    },
+    {
+      "id": "attribute.display-type-ref",
+      "assembly": "assembly-csharp",
+      "type": "AttributeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "displayTypeRef",
+      "visibility": "public",
+      "static": false,
+      "valueType": "DisplayTypeSO+Reference",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field DisplayTypeSO+Reference"}
+    },
+    {
+      "id": "attribute.global-definition",
+      "assembly": "assembly-csharp",
+      "type": "AttributeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "globalDefinition",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.String",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.String"}
+    },
+    {
+      "id": "attribute.is-percent",
+      "assembly": "assembly-csharp",
+      "type": "AttributeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "isPercent",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "attribute.use-big-tooltip",
+      "assembly": "assembly-csharp",
+      "type": "AttributeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "useBigTooltip",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "display-type-reference.display-type",
+      "assembly": "assembly-csharp",
+      "type": "DisplayTypeSO+Reference",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "displayType",
+      "visibility": "public",
+      "static": false,
+      "valueType": "DisplayTypeSO",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field DisplayTypeSO"}
+    },
+    {
+      "id": "tooltipable-object.description",
+      "assembly": "assembly-csharp",
+      "type": "TooltipableObject",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "description",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.String",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.String"}
+    },
+    {
+      "id": "tooltipable-object.display-name",
+      "assembly": "assembly-csharp",
+      "type": "TooltipableObject",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "displayName",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.String",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.String"}
     },
     {
       "id": "structure-type-so.upgradeable-base",

@@ -1392,6 +1392,11 @@ internal static class GameMcpWorldQuery
         // entirely to fetch this one flag for each of them.
         "double-variables" or "int-variables" =>
             new[] { "entityId", "value", "isPercent" },
+
+        // The one page in the suite that is a glossary. A statistics row whose sentence lived
+        // behind a detail read would cost 211 calls to read what the game prints in one column,
+        // and the sentence is the whole reason a reader opens this category.
+        "statistics" => new[] { "entityId", "displayType", "isPercent", "description" },
         "structures" => new[] { "entityId", "level", "reading.disabled" },
         "upgrades" => new[] { "entityId", "level" },
         "spell-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
@@ -8464,6 +8469,7 @@ internal static class GameMcpWorldQuery
             Entity(nameof(GameWorldState.IntVariables), world => world.IntVariables),
             Entity(nameof(GameWorldState.BoolVariables), world => world.BoolVariables),
             Entity(nameof(GameWorldState.ModifierVariables), world => world.ModifierVariables),
+            Entity(nameof(GameWorldState.Statistics), world => world.Statistics),
             Composite(nameof(GameWorldState.PurchaseCosts), world => world.PurchaseCosts),
             Entity(nameof(GameWorldState.AlchemyRecipes), world => world.AlchemyRecipes),
             Entity(nameof(GameWorldState.AlchemyTypes), world => world.AlchemyTypes),
@@ -8677,6 +8683,13 @@ internal static class GameMcpWorldQuery
             new[] { "entityId", "value", "initialValue", "isSaved" },
         "modifier-variables" =>
             new[] { "entityId", "modifierType", "amount", "order" },
+
+        // The glossary sentence is deliberately absent here and present on the list page below.
+        // A detail read already prints the game's own words for the thing it describes, read
+        // through the very native type this category declares, so a `description` on the row would
+        // be the same sentence twice on one page — while the list page, which has no such line, is
+        // the one read that turns 211 rows into a glossary rather than 211 further calls.
+        "statistics" => new[] { "entityId", "displayType", "isPercent" },
         "purchase-costs" => new[]
         {
             "entityId", "resourceId", "baseExactAmount", "effectiveExactAmount",

@@ -82,6 +82,14 @@ public sealed record GameWorldState
         PublicationTable<WorldModifierVariable>.Empty;
 
     /// <summary>
+    /// The game's own statistic glossary — the words it prints above its numbers and the sentences
+    /// it prints under them. Authored text that never moves, collected beside the registries for
+    /// the same reason they are: every screen in the game reads out of it.
+    /// </summary>
+    internal PublicationTable<WorldStatistic> Statistics { get; init; } =
+        PublicationTable<WorldStatistic>.Empty;
+
+    /// <summary>
     /// What one more level of each entity costs, computed here rather than asked of the game. Keyed by
     /// entity and then resource, with several rows per entity; read it through
     /// <see cref="WorldPurchaseCostLookup"/> rather than <see cref="WorldLookup"/>.

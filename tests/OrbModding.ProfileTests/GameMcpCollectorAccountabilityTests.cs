@@ -57,7 +57,7 @@ public sealed class GameMcpCollectorAccountabilityTests
     [Fact]
     public void EveryNameTheCollectionBlockPrintsIsAWorldCategoriesRow()
     {
-        // The 74 collectors the world runs and the pseudo-category a degraded modifier fold
+        // The 75 collectors the world runs and the pseudo-category a degraded modifier fold
         // appends, because the block prints that one on the same terms.
         var context = World(new GameWorldCollector().CategoryNames()
             .Select(name => new WorldCollectionCategoryStatus(
@@ -74,7 +74,7 @@ public sealed class GameMcpCollectorAccountabilityTests
             .Split('\n')
             .Where(line => line.StartsWith("  ", StringComparison.Ordinal))
             .ToArray();
-        Assert.Equal(75, spans.Length);
+        Assert.Equal(76, spans.Length);
 
         var unresolved = new List<string>();
         foreach (var span in spans)
