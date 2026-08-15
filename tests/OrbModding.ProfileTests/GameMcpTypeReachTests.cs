@@ -66,9 +66,7 @@ public sealed class GameMcpTypeReachTests
                 "worth:",
                 "  howToRead: These totals are already inside each member's own numbers: read them " +
                 "to compare types, and never multiply one into a member.",
-                "  members 1",
-                "  [kind | count]",
-                "  structures | 2",
+                "  members: kind=structures, count=2",
                 "  properties 1:",
                 "    property: Power",
                 "    distributedTotalPercent: 175",
@@ -145,9 +143,7 @@ public sealed class GameMcpTypeReachTests
                 "worth:",
                 "  howToRead: These are this type's own numbers, and they apply on top of whatever " +
                 "wears the type.",
-                "  properties 1",
-                "  [property | value]",
-                "  level | 6",
+                "  properties: property=level, value=6",
             }),
             Render(Detail(Garden)));
     }
@@ -320,15 +316,11 @@ public sealed class GameMcpTypeReachTests
                 "worth:",
                 "  howToRead: These totals are already inside each member's own numbers: read them " +
                 "to compare types, and never multiply one into a member.",
-                "  members 1",
-                "  [kind | count]",
-                "  research | 1",
+                "  members: kind=research, count=1",
                 "  properties 1:",
                 "    property: Requirements",
                 "    distributedTotalPercent: 130",
-                "    sources 1",
-                "    [amount | effect | order | source]",
-                "    30 | raw | 0 | Deep Insight c1a000",
+                "    sources: amount=30, effect=raw, order=0, source=Deep Insight c1a000",
             }),
             Render(Detail(Technology)));
     }
@@ -352,15 +344,11 @@ public sealed class GameMcpTypeReachTests
                 "worth:",
                 "  howToRead: These totals are already inside each member's own numbers: read them " +
                 "to compare types, and never multiply one into a member.",
-                "  members 1",
-                "  [kind | count]",
-                "  agromancy_actions | 2",
+                "  members: kind=agromancy_actions, count=2",
                 "  properties 1:",
                 "    property: Agromancy Power",
                 "    distributedTotalPercent: 125",
-                "    sources 1",
-                "    [amount | effect | order | source]",
-                "    25 | raw | 0 | Deep Insight c1a000",
+                "    sources: amount=25, effect=raw, order=0, source=Deep Insight c1a000",
             }),
             Render(Detail(Weave)));
     }
@@ -417,15 +405,11 @@ public sealed class GameMcpTypeReachTests
                 "worth:",
                 "  howToRead: These totals are already inside each member's own numbers: read them " +
                 "to compare types, and never multiply one into a member.",
-                "  members 1",
-                "  [kind | count]",
-                "  consumables | 2",
+                "  members: kind=consumables, count=2",
                 "  properties 1:",
                 "    property: Power",
                 "    distributedTotalPercent: 120",
-                "    sources 1",
-                "    [amount | effect | order | source]",
-                "    20 | raw | 0 | Deep Insight c1a000",
+                "    sources: amount=20, effect=raw, order=0, source=Deep Insight c1a000",
             }),
             Render(Detail(Elixirs)));
     }

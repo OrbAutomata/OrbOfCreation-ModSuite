@@ -73,9 +73,7 @@ public sealed class GameMcpTypeWorthTests
                 "  howToRead: A distributedTotalPercent is already inside each member's own " +
                 "numbers and must never be multiplied into one again; a value is this type's own " +
                 "number and applies on top of whatever wears the type.",
-                "  members 1",
-                "  [kind | count]",
-                "  equipment | 2",
+                "  members: kind=equipment, count=2",
                 "  properties 2:",
                 "    property: Type Slots",
                 "    value: 2",
@@ -130,9 +128,7 @@ public sealed class GameMcpTypeWorthTests
                 "",
                 "    property: Spell Power",
                 "    value: 150",
-                "    sources 1",
-                "    [amount | effect | order | source]",
-                "    50 | diminishing | 0 | Deep Insight a0d000",
+                "    sources: amount=50, effect=diminishing, order=0, source=Deep Insight a0d000",
             }),
             Render(Detail(Ember)));
 
@@ -286,9 +282,7 @@ public sealed class GameMcpTypeWorthTests
                 "worth:",
                 "  howToRead: These are this type's own numbers, and they apply on top of " +
                 "whatever wears the type.",
-                "  properties 1",
-                "  [property | value]",
-                "  level | 4",
+                "  properties: property=level, value=4",
             }),
             Render(Detail(Tonic)));
 
@@ -303,9 +297,7 @@ public sealed class GameMcpTypeWorthTests
                 "worth:",
                 "  howToRead: These are this type's own numbers, and they apply on top of " +
                 "whatever wears the type.",
-                "  properties 1",
-                "  [property | value]",
-                "  Magnitude | 7",
+                "  properties: property=Magnitude, value=7",
             }),
             Render(Detail(Bench)));
     }

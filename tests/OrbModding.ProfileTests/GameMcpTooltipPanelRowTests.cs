@@ -19,6 +19,7 @@ public sealed class GameMcpTooltipPanelRowTests
     private static readonly Guid BeamBurst = Guid.Parse("d0b00000-0000-4000-8000-000000000001");
     private static readonly Guid Propagation = Guid.Parse("d0c00000-0000-4000-8000-000000000001");
     private static readonly Guid Resonance = Guid.Parse("d0d00000-0000-4000-8000-000000000001");
+    private static readonly Guid Ferocity = Guid.Parse("d0e00000-0000-4000-8000-000000000001");
 
     /// <summary>
     /// The whole panel, line for line, against round eleven's <c>[path | name]</c>. Beam Burst sits
@@ -62,13 +63,16 @@ public sealed class GameMcpTooltipPanelRowTests
                 "pathRoot: Canvas[0]/ContentArea[2]",
                 "rows 1/1:",
                 "  pathPrefix: PassiveList[0]",
-                "  elements 1",
+                "  pathComponent: PassiveAbilityItem(Clone)",
+                "  elements 2",
                 "  [id | name | path]",
-                "  d0d000 | Resonance | PassiveAbilityItem(Clone)[0]",
+                "  d0d000 | Resonance | [0]",
+                "  d0e000 | Ferocity | [1]",
             }),
-            Render(Panel(
+            Render(Folded(
                 "PassiveList[0]",
-                Row("PassiveAbilityItem(Clone)[0]", "Resonance", Resonance))));
+                ("PassiveAbilityItem(Clone)[0]", "Resonance", Resonance),
+                ("PassiveAbilityItem(Clone)[1]", "Ferocity", Ferocity))));
     }
 
     /// <summary>
@@ -349,5 +353,7 @@ public sealed class GameMcpTooltipPanelRowTests
             new EntityIdentityName(Propagation, "SpellRecipeSO", "Propagation", "propagation"),
             new EntityIdentityName(
                 Resonance, "PassiveAbilitySO", "Resonance", "resonancePassive"),
+            new EntityIdentityName(
+                Ferocity, "PassiveAbilitySO", "Ferocity", "ferocityPassive"),
         });
 }

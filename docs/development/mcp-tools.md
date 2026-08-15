@@ -198,6 +198,12 @@ same idiom and no producer invents its own formatting.
     it says no (`affordable=no`): on its own row it is `spendableAmount >= cost`, and the block
     around the price states its own `affordable:` either way. A live round paid three lines of table
     frame 106 times to deliver 106 prices of one resource each.
+  - **Every other list of one is a line too.** `members: kind=structures, count=2` in place of a
+    count, a header and one row — every word the header carried is still there as its own key, so a
+    reader who has read the table has read this. A **page** keeps its table however few rows it
+    holds: its count and its declared column set are what a paged read is read by, and one row today
+    is not a promise about tomorrow's. A list of one whose row will not fit on a line keeps its
+    block form.
   - **A cell carries one word, never a sentence.** A blocked row names what blocks it with one
     short lowercase fact from the vocabulary below, and a row that is not blocked says so in the
     column that asked. No cell ever holds an `ERR_` class: those say which kind of no a *refusal*
@@ -629,8 +635,12 @@ for it and a browser names no category to imply it from. `category=not-world-pro
 means that the live registry identity has no world row. `name` is present exactly when the game
 authors a player-facing word, so its absence is that fact and needs no flag beside it;
 `internalName` carries the Unity asset id **only where it is not the `name` with its spaces and
-punctuation taken out** — `Specialization: Storm` implies `SpecializationStorm`, so that row does
-not spell it twice, and absence means exactly that reconstruction rather than "unknown". The
+punctuation taken out, and not that name followed by a word the row's own `category` already
+states** — `Specialization: Storm` implies `SpecializationStorm` and `Strength` under
+`category: rituals` implies `StrengthRitual`, so those rows do not spell it twice, and absence
+means exactly one of those two reconstructions rather than "unknown". Every word the asset id adds
+has to be one the category says, singular or plural, so `ReserveLevel` and `SpellOutputLevel` still
+ship whole, and so does an id that does not lead with the name at all. The
 identifiers that genuinely differ still ship, which is the whole reason the field exists. An id
 nobody can name says so in its
 `name` cell — `(unnamed 2c20e7)`, the one form this surface has for it — and nowhere else: a second
@@ -1583,7 +1593,8 @@ teach.
 
 A detailed row also carries the recipe's authored half, which is what the spell is before any
 modifier touches it: `casting`, `authoredCosts` split into `cast` / `upkeep` / `hold` with each
-named resource and its unmodified price, and `belongsTo` naming the recipe's `spellTypes`,
+`resource` and its unmodified price — the resource cell carries the player's own word for it, so
+there is no `name` column beside it saying the same word again — and `belongsTo` naming the recipe's `spellTypes`,
 `coreGlyphs`, and `recipeBooks`. These are authored facts, so they do not move within a run; the
 live price a cast will actually pay is the `castCosts` on the equipped instance, not
 `authoredCosts`.

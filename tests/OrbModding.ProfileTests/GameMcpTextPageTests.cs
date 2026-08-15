@@ -877,6 +877,55 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
+    /// Every other list of one pays the same frame — a count, a header, and one row to deliver one
+    /// row — and a round paid it nineteen more times. Inlined, every word the header carried is
+    /// still there as its own key.
+    /// </summary>
+    [Fact]
+    public void A_list_holding_one_row_is_said_on_the_line_that_names_it()
+    {
+        var page = Render(@"{'members':[{'kind':'structures','count':2}],
+            'sources':[{'amount':'40','effect':'raw','order':0}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "members: kind=structures, count=2",
+                "sources: amount=40, effect=raw, order=0",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// A second row is what columns are for, and a page keeps its table however few rows it holds:
+    /// the count and the declared columns are what a paged read is read by, and one row today is
+    /// not a promise about tomorrow's.
+    /// </summary>
+    [Fact]
+    public void A_second_row_keeps_the_table_and_so_does_a_page_of_one()
+    {
+        Assert.Equal(
+            new[]
+            {
+                "members 2",
+                "[kind | count]",
+                "structures | 2",
+                "upgrades | 5",
+            },
+            Render(@"{'members':[{'kind':'structures','count':2},
+                {'kind':'upgrades','count':5}]}").Split('\n'));
+
+        Assert.Equal(
+            new[]
+            {
+                "rows 1/9",
+                "[kind | count]",
+                "structures | 2",
+            },
+            Render(@"{'total':9,'rows':[{'kind':'structures','count':2}]}").Split('\n'));
+    }
+
+    /// <summary>
     /// Two resources is what columns are for, so the table stays exactly as it was.
     /// </summary>
     [Fact]

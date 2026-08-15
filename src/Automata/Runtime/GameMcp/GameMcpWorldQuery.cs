@@ -5960,14 +5960,14 @@ internal static class GameMcpWorldQuery
                     _ => "hold",
                 };
                 if (costs[key] is not JArray rows) costs[key] = rows = new JArray();
-                var row = new JObject
+                // The resource this id resolves to carries the player's own word for it, so naming
+                // it again in a column of its own printed `300 | Mana | Mana b11072` on six of six
+                // rows of one round: the same read, twice, in adjacent cells.
+                rows.Add(new JObject
                 {
                     ["resourceId"] = cost.ResourceId.ToString("D"),
-                    ["name"] = EntityIdentityFormatter.PlayerName(
-                        cost.ResourceId, world.EntityIdentities),
                     ["cost"] = new GameMcpDomainValue(cost.Amount),
-                };
-                rows.Add(row);
+                });
             }
             if (costs.Count > 0) result["authoredCosts"] = costs;
         }

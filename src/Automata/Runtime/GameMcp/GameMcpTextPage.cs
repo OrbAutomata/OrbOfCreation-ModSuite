@@ -412,6 +412,24 @@ internal static class GameMcpTextPage
             lines.Add(indent + sole);
             return;
         }
+
+        // The same frame, and the same arithmetic, for every other list of one. A count, a header
+        // naming the columns, and one row under it is three lines to deliver one — and a round paid
+        // that frame nineteen more times, for `members 1`, `sources 1`, `cast 1`, `upkeep 1`,
+        // `placements 1` and `children 1`. Inlined, every word the header carried is still there as
+        // its own key, so a reader who has read the table has read this. A page keeps its table
+        // however few rows it holds: its count and its declared columns are what a paged read is
+        // read by, and one row today is not a promise about tomorrow's.
+        if (countSuffix is null &&
+            declared is null or { Count: 0 } &&
+            !IsDetailBlocks(name) &&
+            array.Count == 1 &&
+            array[0] is JObject only &&
+            TryInline(only, InlineBudget, said) is { } inlined)
+        {
+            lines.Add(indent + name + ": " + inlined);
+            return;
+        }
         if (!IsDetailBlocks(name) &&
             TryTable(
                 array, declared, said,

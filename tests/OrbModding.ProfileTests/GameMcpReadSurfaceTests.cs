@@ -493,6 +493,36 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.DoesNotContain("nameSource", page, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// An asset id that is the player's word plus the word the row's own <c>category</c> states
+    /// says nothing the two lines beside it have not — six of one round's eleven
+    /// <c>internalName</c> lines were exactly that. An id that adds a fact still ships whole.
+    /// </summary>
+    [Fact]
+    public void An_asset_id_that_is_only_the_name_and_the_category_is_not_printed_again()
+    {
+        var restating = Guid.Parse("e1a00000-0000-4000-8000-000000000001");
+        var informative = Guid.Parse("e1a00000-0000-4000-8000-000000000002");
+        var suffixed = Guid.Parse("e1a00000-0000-4000-8000-000000000003");
+        var rows = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
+            EntityIdentityCatalogSnapshot.Bound(77, new[]
+            {
+                new EntityIdentityName(restating, "RitualSO", "Strength", "StrengthRitual"),
+                new EntityIdentityName(informative, "ResearchSO", "Reserve", "ReserveLevel"),
+                new EntityIdentityName(suffixed, "ResearchSO", "Artistry", "ArtistryResearch"),
+            }),
+            "e1a00000",
+            0,
+            20).Freeze())["rows"]!.Values<JObject>().ToArray();
+
+        Assert.Equal(3, rows.Length);
+        Assert.Equal("rituals", (string?)rows[0]!["category"]);
+        Assert.Null(rows[0]!["internalName"]);
+        Assert.Equal("research", (string?)rows[1]!["category"]);
+        Assert.Equal("ReserveLevel", (string?)rows[1]!["internalName"]);
+        Assert.Null(rows[2]!["internalName"]);
+    }
+
     [Fact]
     public void EmptyLiveCatalogSearchKeepsExplicitCardinalityAndCollection()
     {

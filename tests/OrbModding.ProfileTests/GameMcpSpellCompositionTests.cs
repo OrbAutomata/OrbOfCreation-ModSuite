@@ -301,8 +301,11 @@ public sealed class GameMcpSpellCompositionTests
         Assert.Null(row["casting"]!["repeatEffectRate"]);
         Assert.Null(row["casting"]!["repeatEffectSeconds"]);
 
+        // The resource cell carries the player's word for it, so the row says it once: a `name`
+        // column beside it printed `4.4e3 | Knowledge | Knowledge <id>` — the same read twice.
         var cast = Assert.Single(row["authoredCosts"]!["cast"]!.Values<JObject>())!;
-        Assert.Equal("Knowledge", (string?)cast["name"]);
+        Assert.Null(cast["name"]);
+        Assert.Equal("Knowledge", (string?)cast["resource"]!["name"]);
         Assert.Equal("4.4e3", (string?)cast["cost"]);
         var hold = Assert.Single(row["authoredCosts"]!["hold"]!.Values<JObject>())!;
         Assert.Equal("250", (string?)hold["cost"]);

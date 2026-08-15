@@ -185,13 +185,17 @@ internal static class GameMcpEntityCatalog
         var named = identity.HasName &&
             identity.Source != EntityIdentityNameSource.LiveAssetName;
         if (named) result["name"] = identity.Name;
-        if (row.AssetName.Length > 0 && !(named && IsDeSpacedName(identity.Name, row.AssetName)))
+        var category = GameMcpEntityCapabilityMap.TryCategoryForNativeType(
+            row.RuntimeType,
+            out var projected)
+            ? projected
+            : "not-world-projected";
+        if (row.AssetName.Length > 0 &&
+            !(named && SaysNothingNew(identity.Name, row.AssetName, category)))
+        {
             result["internalName"] = row.AssetName;
-        if (GameMcpEntityCapabilityMap.TryCategoryForNativeType(
-                row.RuntimeType,
-                out var category))
-            result["category"] = category;
-        else result["category"] = "not-world-projected";
+        }
+        result["category"] = category;
 
         // An id nobody can name says so in its name cell — `(unnamed 2c20e7)`, the one form this
         // surface has for it. A second block saying the same thing put a refusal class in a table
@@ -202,8 +206,9 @@ internal static class GameMcpEntityCatalog
 
     /// <summary>
     /// Whether the Unity asset id is the player's own word with its spaces and punctuation taken
-    /// out — <c>Specialization: Storm</c> against <c>SpecializationStorm</c> — and so says nothing
-    /// the name beside it has not already said.
+    /// out — <c>Specialization: Storm</c> against <c>SpecializationStorm</c> — or that word plus
+    /// the one the row's <c>category</c> already states, and so says nothing the two lines beside
+    /// it have not already said.
     /// </summary>
     /// <remarks>
     /// Most assets are named that way, and the field was published on every one of them: a live
@@ -212,18 +217,75 @@ internal static class GameMcpEntityCatalog
     /// "unknown", and the identifiers that genuinely differ — the camel-cased internals, the
     /// renamed assets — still ship, which is the whole reason the field exists.
     /// </remarks>
-    private static bool IsDeSpacedName(string name, string assetName)
+    private static bool SaysNothingNew(string name, string assetName, string category) =>
+        MatchDeSpaced(name, assetName) == assetName.Length ||
+        RestatesCategory(name, assetName, category);
+
+    /// <summary>
+    /// How much of the asset id the player's own word accounts for, or −1 where it does not lead it.
+    /// </summary>
+    private static int MatchDeSpaced(string name, string assetName)
     {
         var read = 0;
         for (var index = 0; index < name.Length; index++)
         {
             var character = name[index];
             if (!char.IsLetterOrDigit(character)) continue;
-            if (read >= assetName.Length || assetName[read] != character) return false;
+            if (read >= assetName.Length || assetName[read] != character) return -1;
             read++;
         }
-        return read == assetName.Length;
+        return read;
     }
+
+    /// <summary>
+    /// Whether what the asset id adds to the name is only the word the row's own <c>category</c>
+    /// already states — <c>Strength</c> plus <c>rituals</c> is the whole of <c>StrengthRitual</c>.
+    /// </summary>
+    /// <remarks>
+    /// Six of one round's eleven `internalName` lines were this: `StrengthRitual`,
+    /// `ArtistryResearch`, `MiningActionType`, `MiningHarvestAction`, `AlchemistStructures`,
+    /// `PlantHarvestAction` — the name, then the category, on a block that prints the category one
+    /// line down. Every word the id adds has to be one the category says, so an id that adds a fact
+    /// — `SpellOutputLevel`, `ReserveLevel` — still ships whole, and one that does not lead with the
+    /// name at all, like `PNACraggySpireMine`, never reaches this test.
+    /// </remarks>
+    private static bool RestatesCategory(string name, string assetName, string category)
+    {
+        var read = MatchDeSpaced(name, assetName);
+        if (read <= 0 || read == assetName.Length) return false;
+        var start = read;
+        for (var index = read + 1; index <= assetName.Length; index++)
+        {
+            if (index != assetName.Length && !char.IsUpper(assetName[index])) continue;
+            if (!Names(category, assetName.Substring(start, index - start))) return false;
+            start = index;
+        }
+        return true;
+    }
+
+    /// <summary>Whether a category's own words already contain this one, singular or plural.</summary>
+    private static bool Names(string category, string word)
+    {
+        var start = 0;
+        for (var index = 0; index <= category.Length; index++)
+        {
+            if (index != category.Length && category[index] != '-') continue;
+            if (string.Equals(
+                    Singular(category.Substring(start, index - start)),
+                    Singular(word),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            start = index + 1;
+        }
+        return false;
+    }
+
+    private static string Singular(string word) =>
+        word.Length > 1 && (word[word.Length - 1] == 's' || word[word.Length - 1] == 'S')
+            ? word.Substring(0, word.Length - 1)
+            : word;
 
     private static JObject NotAvailable(string code, string reason) => new()
     {
