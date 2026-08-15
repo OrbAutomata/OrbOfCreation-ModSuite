@@ -936,10 +936,17 @@ internal static class GameMcpEntityExplainer
                     : leewayBlocks
                         ? "native_leeway_exhausted"
                         : "native_develops_below_caps");
-            leeway["currentTotalLevel"] = research.TotalLevel;
-            leeway["leeway"] = slack;
-            leeway["effectiveRequirement"] = research.EffectiveRequirementLevel;
-            leeway["nativeMeetsLevelRequirements"] = research.MeetsLevelRequirements;
+            // The four numbers behind the verdict ride only where the verdict is a no. Every one of
+            // them is published one block down in `researchThresholds` — `current`, `leeway`,
+            // `effectiveThreshold`, `nativeMeetsLevelRequirements` — which is always beside this on
+            // a research page, so an open axis was spending them on a reader who already had them.
+            if (leewayBlocks)
+            {
+                leeway["currentTotalLevel"] = research.TotalLevel;
+                leeway["leeway"] = slack;
+                leeway["effectiveRequirement"] = research.EffectiveRequirementLevel;
+                leeway["nativeMeetsLevelRequirements"] = research.MeetsLevelRequirements;
+            }
             result["leeway"] = leeway;
             var cap = Blocker(
                 research.Complete || !research.BelowArtificialMaxLevel ||
@@ -951,11 +958,17 @@ internal static class GameMcpEntityExplainer
                         : !research.BelowMaxInvestmentLevel
                             ? "research_investment_cap_reached"
                             : "below_research_cap");
-            cap["queuedLevels"] = GameMcpWorldQuery.ResearchQueuedLevels(in research);
-            cap["purchasedLevel"] = research.PurchasedLevels;
+            // The four level readings the row above already prints under these same words ride only
+            // where the cap is what refused; the cap's own facts ride always. An open axis restating
+            // the row was 943 bytes of one round on a block whose name the caller never once wrote.
+            if ((bool)cap["blocked"]!)
+            {
+                cap["queuedLevels"] = GameMcpWorldQuery.ResearchQueuedLevels(in research);
+                cap["purchasedLevel"] = research.PurchasedLevels;
+                cap["bonusLevel"] = research.BonusLevel;
+                cap["totalLevel"] = research.TotalLevel;
+            }
             cap["baseLevelExcludingBonus"] = research.BaseLevel;
-            cap["bonusLevel"] = research.BonusLevel;
-            cap["totalLevel"] = research.TotalLevel;
             if (research.MaxLevel >= 0) cap["effectiveCap"] = research.MaxLevel;
             if (research.ArtificialMaxLevel >= 0)
                 cap["artificialCap"] = research.ArtificialMaxLevel;

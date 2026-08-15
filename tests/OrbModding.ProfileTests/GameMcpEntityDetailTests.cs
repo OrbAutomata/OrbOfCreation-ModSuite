@@ -184,10 +184,11 @@ public sealed class GameMcpEntityDetailTests : IDisposable
     /// under open caps blocks nothing. `blocked` was computed from the whole gate while the reason
     /// was picked off the leeway term alone, and a live round read `blocked: no` sitting beside
     /// "Native leeway exhausted." — the block contradicting itself in two adjacent fields. Three
-    /// states, three words, and the middle one passes.
+    /// states, three words, and the middle one passes — and a passing axis is not what `blockers`
+    /// is for: the block lists what blocks, so an axis with nothing to report is not listed.
     /// </summary>
     [Fact]
-    public void A_spent_leeway_under_open_caps_says_it_is_not_what_blocks()
+    public void A_spent_leeway_under_open_caps_is_not_among_what_blocks()
     {
         var world = new GameWorldState
         {
@@ -202,15 +203,52 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
 
-        var leeway = Assert.IsType<JObject>(
-            Explain(world, ReadyResearchId, generation: 943)["blockers"]!["leeway"]);
+        var blockers = Assert.IsType<JObject>(
+            Explain(world, ReadyResearchId, generation: 943)["blockers"]);
 
-        // A check that passed carries no class and no sentence, so the block says `blocked: no`
-        // and stops. What it must never do again is say `no` and then explain a block.
-        Assert.False((bool)leeway["blocked"]!);
-        Assert.Null(leeway["reasonCode"]);
-        Assert.Null(leeway["reason"]);
+        // The leeway axis had nothing left but `blocked: no`, so it is gone. The cap axis stays
+        // even though it is open, because it carries readings of its own — a drop is per field and
+        // only where the field is a restatement.
+        Assert.Null(blockers["leeway"]);
+        var cap = Assert.IsType<JObject>(blockers["cap"]);
+        Assert.False((bool)cap["blocked"]!);
+        Assert.Equal(4, (int)cap["baseLevelExcludingBonus"]!);
+        Assert.Equal(20, (int)cap["effectiveCap"]!);
+        Assert.False((bool)cap["nativeComplete"]!);
         Assert.True(GameMcpDecisionReason.IsPassing("native_develops_below_caps"));
+    }
+
+    /// <summary>
+    /// The other side of the same rule: an axis that really refuses prints in full, because the
+    /// numbers behind a no are what a caller acts on. They ride only here — an open axis restating
+    /// `researchThresholds` one block down was spending them on a reader who already had them.
+    /// </summary>
+    [Fact]
+    public void A_leeway_that_blocks_prints_in_full_with_the_numbers_behind_it()
+    {
+        var world = new GameWorldState
+        {
+            Research = PublicationTable<WorldResearch>.Create(new[]
+            {
+                Research(
+                    ReadyResearchId, available: true, level: 20, maxLevel: 20,
+                    baseRequirement: 5, effectiveRequirement: 5, leeway: 0,
+                    stillHasLeeway: false),
+            }),
+            CollectedAtEpoch = 44,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var leeway = Assert.IsType<JObject>(
+            Explain(world, ReadyResearchId, generation: 944)["blockers"]!["leeway"]);
+
+        Assert.True((bool)leeway["blocked"]!);
+        Assert.Equal("ERR_LOCKED", (string?)leeway["reasonCode"]);
+        Assert.NotNull(leeway["reason"]);
+        Assert.Equal(20, (int)leeway["currentTotalLevel"]!);
+        Assert.Equal(0, (int)leeway["leeway"]!);
+        Assert.Equal(5, (int)leeway["effectiveRequirement"]!);
+        Assert.True((bool)leeway["nativeMeetsLevelRequirements"]!);
     }
 
     /// <summary>
@@ -237,6 +275,60 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.False((bool)canUse["available"]!);
         Assert.Equal("ERR_NOT_FOUND", (string?)canUse["reasonCode"]);
         Assert.Equal("This spell is not in any spell slot.", (string?)canUse["reason"]);
+    }
+
+    /// <summary>
+    /// The per-field half of the restatement rule, on one page: a predicate whose row twin is not
+    /// published still prints, and a predicate carrying a fact of its own still prints whole. Only
+    /// the predicate that repeats its twin word for word goes, and only while the twin is there.
+    /// </summary>
+    [Fact]
+    public void A_predicate_stays_wherever_the_row_beside_it_does_not_already_say_it()
+    {
+        var world = new GameWorldState
+        {
+            SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[]
+            {
+                Spell(ReadySpellId, discovered: true, hidden: false, masteryLevel: 3),
+            }),
+            SpellSlots = PublicationTable<WorldSpellSlot>.Create(new[]
+            {
+                new WorldSpellSlot(
+                    slotIndex: 6,
+                    ReadySpellId,
+                    occupied: true,
+                    casting: false,
+                    readyingCast: false,
+                    attuning: false,
+                    channeled: false,
+                    toggled: false,
+                    chargeable: true,
+                    castReady: true,
+                    chargeAvailable: true,
+                    resourcesCovered: true,
+                    currentCharges: 1,
+                    maximumCharges: 1,
+                    cooldownRemaining: BigDouble.Zero),
+            }),
+            CollectedAtEpoch = 45,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var result = Explain(world, ReadySpellId, generation: 945);
+        var predicates = Assert.IsType<JObject>(result["predicates"]);
+        var row = Assert.IsType<JObject>(result["row"]);
+
+        // A discovered spell's row offers `loadoutAdd`, never `discover`, so the discovery
+        // predicate has no twin to be a second copy of and owes the answer itself.
+        Assert.Null(row["discover"]);
+        Assert.False((bool)predicates["canDiscover"]!["available"]!);
+        Assert.NotNull(predicates["canDiscover"]!["reason"]);
+
+        // `canUse` carries the slot list, which appears nowhere else on the page, so it stays
+        // whole even where the row would otherwise cover its verdict.
+        var canUse = Assert.IsType<JObject>(predicates["canUse"]);
+        Assert.True((bool)canUse["available"]!);
+        Assert.Equal(7, (int)Assert.Single(Assert.IsType<JArray>(canUse["slots"]))!);
     }
 
     /// <summary>
@@ -458,7 +550,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         var responseBytes = System.Text.Encoding.UTF8.GetByteCount(
             result.ToString(Newtonsoft.Json.Formatting.None));
-        Assert.True(responseBytes < 3_402, "explanation was " + responseBytes + " bytes");
+        Assert.True(responseBytes < 2_409, "explanation was " + responseBytes + " bytes");
 
         // A block that answered carries no verdict line. Inside a batch that silence is what
         // separates it from the block beside it that refused.
@@ -495,8 +587,16 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var predicates = result["predicates"]!;
         Assert.False((bool)predicates["available"]!["available"]!);
         Assert.Equal("ERR_STATE", (string?)predicates["available"]!["reasonCode"]);
-        Assert.False((bool)predicates["canDevelop"]!["available"]!);
-        Assert.Equal("ERR_STATE", (string?)predicates["canDevelop"]!["reasonCode"]);
+
+        // `canDevelop` and the row's own `develop` said the identical verdict, code and sentence,
+        // so the page says it once — on the action a caller can actually take. The predicate goes
+        // only because its twin is right there: the row still owes the whole answer.
+        Assert.Null(predicates["canDevelop"]);
+        var develop = result["row"]!["develop"]!;
+        Assert.False((bool)develop["available"]!);
+        Assert.Equal("ERR_STATE", (string?)develop["reasonCode"]);
+        Assert.NotNull(develop["reason"]);
+
         var cap = result["blockers"]!["cap"]!;
         Assert.True((bool)cap["blocked"]!);
         Assert.Equal("ERR_STATE", (string?)cap["reasonCode"]);
@@ -835,11 +935,15 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var adjustment = Assert.Single(thresholds["activeAdjustments"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(challengeId), (string?)adjustment["source"]!["uuid"]);
         Assert.Equal("ChallengeSO", (string?)adjustment["sourceNativeType"]);
-        Assert.Null(researchResult["blockers"]!["leeway"]!["applicable"]);
+        // This research still has leeway, so that axis is not what refuses and is not listed; the
+        // cap is, and it prints in full beside it.
+        Assert.Null(researchResult["blockers"]!["leeway"]);
         Assert.True((bool)researchResult["blockers"]!["cap"]!["blocked"]!);
         Assert.Null(researchResult["blockers"]!["bandwidth"]);
 
-        Assert.Null(craftingResult["blockers"]!["recipeDiscovery"]!["applicable"]);
+        // A discovered recipe's discovery axis had nothing but `blocked: no` to say, so it is not
+        // listed; the two axes that do refuse print their rows in full.
+        Assert.Null(craftingResult["blockers"]!["recipeDiscovery"]);
         Assert.True((bool)craftingResult["blockers"]!["bandwidth"]!["blocked"]!);
         var bandwidthRow = Assert.Single(
             craftingResult["blockers"]!["bandwidth"]!["rows"]!.Values<JObject>())!;

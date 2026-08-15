@@ -244,6 +244,7 @@ internal static class GameMcpEntityWireNormalizer
 
         DeduplicateChildIdentity(item, "row");
         DeduplicateRowVerdict(item);
+        DropRowRestatements(item);
         PromoteNestedPrimaryIdentity(item);
         PromoteIdentity(item);
 
@@ -636,6 +637,81 @@ internal static class GameMcpEntityWireNormalizer
         }
         row.Remove("reasonCode");
         row.Remove("reason");
+    }
+
+    /// <summary>
+    /// Which row action answers the same question as which predicate. A predicate beside one of
+    /// these is a coarser second opinion, and where it agrees word for word it is the same opinion
+    /// twice.
+    /// </summary>
+    private static readonly (string Predicate, string Action)[] PredicateActions =
+    {
+        ("canDiscover", "discover"),
+        ("canPurchase", "purchase"),
+        ("canDevelop", "develop"),
+        ("canUse", "use"),
+    };
+
+    /// <summary>
+    /// Drops every line under <c>predicates</c> and <c>blockers</c> that is a second copy of what
+    /// the row beside them already says — and only where the row really says it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Four entities of one live round printed
+    /// <c>discover: no (ERR_STATE): This is already discovered.</c> on the row and
+    /// <c>canDiscover: no (ERR_STATE): This is already discovered.</c> under predicates — the
+    /// identical sentence twice inside one entity — while the word <c>predicates</c> appeared once
+    /// in the caller's entire reasoning and <c>blockers</c> never appeared at all.
+    /// </para>
+    /// <para>
+    /// The rule is per field and it turns on the duplicate being present. A <c>canDiscover</c> whose
+    /// row publishes no <c>discover</c> action still prints. A predicate carrying anything of its
+    /// own still prints, which is why <c>canUse: yes slots=[1]</c> keeps its slot list — that list
+    /// appears nowhere else on the page. A blocked axis prints in full, because the numbers behind a
+    /// no are what a caller acts on; an axis whose whole content is that it is not blocking says
+    /// what an unlisted axis already says, and <c>blockers</c> then reads as the list of what
+    /// blocks. Both keys survive even when everything under them goes: an entity with no applicable
+    /// predicate and one whose predicates were never evaluated are different answers, and an omitted
+    /// key says both.
+    /// </para>
+    /// </remarks>
+    private static void DropRowRestatements(JObject item)
+    {
+        if (item["predicates"] is JObject predicates && item["row"] is JObject row)
+        {
+            for (var index = 0; index < PredicateActions.Length; index++)
+            {
+                var pair = PredicateActions[index];
+                if (predicates[pair.Predicate] is not JObject verdict) continue;
+                if (row[pair.Action] is not JObject twin) continue;
+                if (!SameVerdict(verdict, twin)) continue;
+                predicates.Remove(pair.Predicate);
+            }
+        }
+        if (item["blockers"] is not JObject blockers) return;
+        var axes = new List<string>(blockers.Count);
+        foreach (var axis in blockers.Properties()) axes.Add(axis.Name);
+        for (var index = 0; index < axes.Count; index++)
+        {
+            if (blockers[axes[index]] is not JObject axisBlock || axisBlock.Count != 1) continue;
+            if (axisBlock["blocked"] is not JValue { Type: JTokenType.Boolean } blocked) continue;
+            if (!(bool)blocked) blockers.Remove(axes[index]);
+        }
+    }
+
+    /// <summary>Whether two verdict blocks say the same yes or the same no for the same reason.</summary>
+    /// <remarks>
+    /// A predicate with a field of its own is never a copy of anything: the field is the finding,
+    /// and the verdict it sits beside is what gives it its meaning.
+    /// </remarks>
+    private static bool SameVerdict(JObject predicate, JObject action)
+    {
+        foreach (var property in predicate.Properties())
+            if (property.Name is not ("available" or "reasonCode" or "reason")) return false;
+        return JToken.DeepEquals(predicate["available"], action["available"]) &&
+            JToken.DeepEquals(predicate["reasonCode"], action["reasonCode"]) &&
+            JToken.DeepEquals(predicate["reason"], action["reason"]);
     }
 
     private static void DeduplicateChildIdentity(JObject item, string field)

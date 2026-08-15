@@ -1937,10 +1937,18 @@ applies to never reads like an entity nobody evaluated. Only applicable predicat
 `visible`, `available`, `canDevelop`, `canPurchase`,
 `canDiscover`, and `canUse`. Presence means applicable. Each slot answers under `available`, the same
 word every other decision on the surface answers under, and a slot that answered no carries the
-stable `reasonCode` saying why; absence means the predicate does not apply, not false. A predicate
+stable `reasonCode` saying why; absence means the predicate does not apply or the row beside it
+already answered it, never that it is false. A predicate
 points at the block that holds its evidence rather than reprinting it: `canUse` lists the slot
 numbers the spell is equipped in, and the same response already carries those slots in full under
 `row.equipped`; `canAdd` is the path `concept.canAdd`, where the whole decision is published.
+A predicate whose verdict, class, and sentence are word for word what the row's own action already
+says is dropped, because the action is the thing a caller acts on: `canDiscover` goes where
+`row.discover` says the same no, `canPurchase` where `row.purchase` does, and likewise `canDevelop`
+and `canUse`. The drop is per field and turns on the twin being present. A `canDiscover` on a
+discovered spell — whose row offers `loadoutAdd` and no `discover` at all — still prints; a
+predicate that disagrees with its row keeps both readings; and `canUse: yes slots=[1]` keeps its
+slot list, because that list appears nowhere else.
 Crafting purchase uses the
 published `CraftingRecipeSO.CanBuyAt(GetStartingQuantity())` verdict, spell use uses the equipped
 `Spell.CanCast()` reading, and structure/upgrade purchase combines published native availability
@@ -2022,6 +2030,16 @@ published native answers rather than MCP-owned reconstructions. Structure/upgrad
 modifier sources, available amount, and affordability. `blockers` contains typed queue, cap,
 leeway, recipe-discovery, bandwidth, and drain evidence only when an axis applies. Empty collections,
 null domain properties, and inapplicable axes are omitted.
+
+`blockers` names what blocks. An axis whose whole content is that it is not blocking is not listed,
+so `blockers` on an entity nothing refuses is present and empty. An axis that refuses prints in
+full, and an axis that passes but carries readings of its own — the research `cap` block's
+`baseLevelExcludingBonus`, `effectiveCap`, `artificialCap`, and `nativeComplete` — keeps them,
+because the drop is per field and only a field that is a restatement goes. The four levels the
+research row already prints (`queuedLevels`, `purchasedLevel`, `bonusLevel`, `totalLevel`) and the
+four numbers `researchThresholds` already prints (`currentTotalLevel`, `leeway`,
+`effectiveRequirement`, `nativeMeetsLevelRequirements`) ride only on the axis that refused, where
+they are what a caller acts on.
 
 `game_navigate` is classified **UI-only, no gameplay/save mutation**. It is not read-only because
 selecting a screen, subtab, or plot commits live UI state. Success returns `activeScreen` and every
