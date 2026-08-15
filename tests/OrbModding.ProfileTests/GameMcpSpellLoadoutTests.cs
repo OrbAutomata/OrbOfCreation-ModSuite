@@ -25,6 +25,8 @@ public sealed class GameMcpSpellLoadoutTests
         Guid.Parse("f3000000-0000-0000-0000-000000000001");
     private static readonly Guid AugmentGlyphId =
         Guid.Parse("f3000000-0000-0000-0000-000000000002");
+    private static readonly Guid SpellWeightResourceId =
+        Guid.Parse("c1a20f2f-2a0b-4f0e-9f1a-2c7d51b6a4e3");
 
     [Fact]
     public void ToolUsesOneStagedPreviewAddRemoveMoveShapeAndBakesGlyphsOnlyOnAdd()
@@ -304,6 +306,70 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.DoesNotContain("attempt", success.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// A removal answers with the two budgets it moved and says the door it closed.
+    /// </summary>
+    /// <remarks>
+    /// A round removed a spell specifically to free upkeep and got back one slot number with no
+    /// <c>after</c> beside it and no budget at all — so when the next add refused for an unrelated
+    /// reason, the reader concluded the verb was sensitive to unrelated state and spent the rest of
+    /// the round working around a wall that was not there. Both budgets are the answer, and the
+    /// removal names itself as one-way because nothing else on the wire says the instance is gone.
+    /// </remarks>
+    [Fact]
+    public void CommittedRemovalAnswersWithBothBudgetsItFreedAndNamesTheOneWayDoor()
+    {
+        var submission = new SpellLoadoutSubmission(
+            SpellLoadoutPreflight.Proceeded,
+            SpellLoadoutNativeStage.Verification,
+            NativeMutationOutcome.Verified,
+            new NativeMutationCallOutcome(1, 1, 1),
+            "the exact runtime spell is absent from the loadout");
+        var mapped = SpellLoadoutActionResultMapper.Map(in submission);
+        var command = Command("remove", frameContext: GameMcpTestHarness.Context(World()));
+        var terminal = GameMcpCommandResult.FromAction(
+            in mapped,
+            command.Kind,
+            9,
+            3,
+            submission.Reason,
+            GameMcpSpellLoadoutProjection.Project(in submission));
+        terminal = terminal.WithDetails(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(World(removed: true)), command, terminal));
+
+        var success = GameMcpTestHarness.Json(terminal.Project(command));
+
+        Assert.Equal(
+            new[] { "status", "uuid", "name", "slot", "loadBudget", "oneWay" },
+            success.Properties().Select(property => property.Name));
+        Assert.Equal("committed", (string?)success["status"]);
+        Assert.Equal(1, (int)success["slot"]!["before"]!);
+        Assert.Equal("empty", (string?)success["slot"]!["after"]);
+
+        var budget = success["loadBudget"]!;
+        Assert.Equal(
+            new[] { "used", "maximum", "fitsAnotherSpell", "usageBudget" },
+            ((JObject)budget).Properties().Select(property => property.Name));
+        Assert.Equal(2, (int)budget["used"]!["before"]!);
+        Assert.Equal(1, (int)budget["used"]!["after"]!);
+        Assert.Equal(3, (int)budget["maximum"]!);
+        Assert.True((bool)budget["fitsAnotherSpell"]!);
+
+        var usage = Assert.Single(budget["usageBudget"]!.Values<JObject>())!;
+        Assert.Equal(
+            new[] { "resource", "headroom", "used", "maximum" },
+            usage.Properties().Select(property => property.Name));
+        Assert.Equal("3", (string?)usage["headroom"]!["before"]);
+        Assert.Equal("6", (string?)usage["headroom"]!["after"]);
+        Assert.Equal("2", (string?)usage["used"]);
+        Assert.Equal("8", (string?)usage["maximum"]);
+
+        Assert.Equal(
+            "The game destroyed this spell; the way back is another add, which pays the creation " +
+            "price again.",
+            (string?)success["oneWay"]);
+    }
+
     [Fact]
     public void FailureNamesTheMissingOutcomeWithoutPersistentState()
     {
@@ -428,7 +494,7 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Equal("immediate", (string?)row["kind"]);
     }
 
-    private static GameWorldState World(bool moved = false)
+    private static GameWorldState World(bool moved = false, bool removed = false)
     {
         var first = Slot(
             moved ? 1 : 0,
@@ -442,6 +508,9 @@ public sealed class GameMcpSpellLoadoutTests
             SecondRecipeId,
             canRemove: false,
             casting: true);
+        var empty = new WorldSpellSlot(
+            2, Guid.Empty, Guid.Empty, false, false, false, false, false,
+            false, false, false, false, false, 0, 0, BigDouble.Zero);
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
@@ -453,21 +522,60 @@ public sealed class GameMcpSpellLoadoutTests
                 new WorldCollectionCategoryStatus(
                     "spell workbench", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
             }),
+            Resources = PublicationTable<WorldResource>.Create(new[]
+            {
+                SpellWeightResource(removed ? 2 : 5),
+            }),
             SpellWorkbench = new WorldSpellWorkbench(
-                2,
+                removed ? 1 : 2,
                 3,
                 true,
                 4,
-                12),
-            SpellSlots = PublicationTable<WorldSpellSlot>.Create(new[]
-            {
-                moved ? second : first,
-                moved ? first : second,
-                new WorldSpellSlot(
-                    2, Guid.Empty, Guid.Empty, false, false, false, false, false,
-                    false, false, false, false, false, 0, 0, BigDouble.Zero),
-            }),
+                12,
+                usageBudgetResourceIds: PublicationTable<Guid>.Create(new[] { SpellWeightResourceId })),
+            SpellSlots = removed
+                ? PublicationTable<WorldSpellSlot>.Create(new[]
+                {
+                    new WorldSpellSlot(
+                        0, Guid.Empty, Guid.Empty, false, false, false, false, false,
+                        false, false, false, false, false, 0, 0, BigDouble.Zero),
+                    second,
+                    empty,
+                })
+                : PublicationTable<WorldSpellSlot>.Create(new[]
+                {
+                    moved ? second : first,
+                    moved ? first : second,
+                    empty,
+                }),
         };
+    }
+
+    /// <summary>
+    /// One spell-weight resource, at the quantity the loadout leaves it: a bandwidth pool whose
+    /// headroom is the room left under its ceiling, which is what the add gate weighs a candidate
+    /// against.
+    /// </summary>
+    private static WorldResource SpellWeightResource(int used)
+    {
+        var rateInputs = default(RawResourceRateInputs);
+        var traits = new RawResourceTraits(
+            0d, 0d, 0d, false, false, false,
+            bandwidthResource: true,
+            invertedResource: false,
+            excludeFromGlobals: false,
+            startVisible: true,
+            BigDouble.Zero, 0, 0, 0d, false, 0d,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, false);
+        var modifiers = default(RawResourceModifiers);
+        var reading = new RawResourceSample(
+            SpellWeightResourceId, new BigDouble(used), new BigDouble(8),
+            true, BigDouble.Zero, BigDouble.Zero, new BigDouble(8),
+            new BigDouble(8), BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, false, false,
+            false, 0, Guid.Empty, in rateInputs, in traits, in modifiers);
+        return new WorldResource(
+            in reading, true, new BigDouble(8 - used), 1d, false, new BigDouble(used),
+            BigDouble.Zero);
     }
 
     private static WorldSpellSlot Slot(

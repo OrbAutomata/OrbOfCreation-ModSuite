@@ -3202,8 +3202,11 @@ internal static class GameMcpWorldQuery
                     ["slot"] = new JObject
                     {
                         ["before"] = GameMcpSlotNumbering.Wire(oldSlot.SlotIndex),
-                        ["after"] = null,
+                        ["after"] = GameMcpListColumns.Empty,
                     },
+                    ["loadBudget"] = ProjectRemovalBudget(before, after),
+                    ["oneWay"] = "The game destroyed this spell; the way back is another add, " +
+                        "which pays the creation price again.",
                 }.Freeze();
             if (command.Mode == "move" && hadBefore && hasAfter)
             {
@@ -6306,6 +6309,62 @@ internal static class GameMcpWorldQuery
         var usage = ProjectSpellUsageBudget(world);
         if (usage.Count > 0) result["usageBudget"] = usage;
         return result;
+    }
+
+    /// <summary>
+    /// What a removal moved, in both budgets an add is weighed against.
+    /// </summary>
+    /// <remarks>
+    /// A round removed a spell specifically to free upkeep and got back a slot number with nothing
+    /// beside it; when the next add refused for an unrelated reason, the reader could not tell
+    /// whether the removal had bought anything at all and read the whole verb as state-sensitive.
+    /// Both budgets answer here — the spot count the bar keeps and the usage headroom the add gate
+    /// weighs a candidate against — each stated as the move it made rather than as a level.
+    /// </remarks>
+    private static JObject ProjectRemovalBudget(GameWorldState? before, GameWorldState after)
+    {
+        var result = new JObject
+        {
+            ["used"] = new JObject
+            {
+                ["before"] = before?.SpellWorkbench.EquippedCount,
+                ["after"] = after.SpellWorkbench.EquippedCount,
+            },
+            ["maximum"] = after.SpellWorkbench.MaximumEquipped,
+            ["fitsAnotherSpell"] = after.SpellWorkbench.HasEmptySlot,
+        };
+        var usage = ProjectFreedUsageBudget(before, after);
+        if (usage.Count > 0) result["usageBudget"] = usage;
+        return result;
+    }
+
+    private static JArray ProjectFreedUsageBudget(GameWorldState? before, GameWorldState after)
+    {
+        var rows = new JArray();
+        var resourceIds = after.SpellWorkbench.UsageBudgetResourceIds;
+        for (var index = 0; index < resourceIds.Count; index++)
+        {
+            var resourceId = resourceIds[index];
+            if (!WorldLookup.TryFind(after.Resources, resourceId, out var resource)) continue;
+            var freed = new GameMcpDomainValue(WorldResourceCoordinate.SpendableAmount(in resource));
+            object headroom = before is not null &&
+                WorldLookup.TryFind(before.Resources, resourceId, out var was)
+                ? new JObject
+                {
+                    ["before"] = new GameMcpDomainValue(
+                        WorldResourceCoordinate.SpendableAmount(in was)),
+                    ["after"] = freed,
+                }
+                : freed;
+            rows.Add(new JObject
+            {
+                ["resource"] = EntityReference(after, resourceId),
+                ["headroom"] = headroom,
+                ["used"] = new GameMcpDomainValue(resource.Reading.Quantity),
+                ["maximum"] = new GameMcpDomainValue(resource.Reading.Capacity),
+            });
+        }
+        return rows;
     }
 
     private static JArray ProjectSpellUsageBudget(GameWorldState world)
