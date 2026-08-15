@@ -1617,6 +1617,28 @@ public sealed class GameWorldCollectorTests : IDisposable
         }));
         FakeEquipmentType.All.Add(amulet);
 
+        var plotCapacity = new FakeResource { Identity = Guid.NewGuid() };
+        FakeResource.All.Add(plotCapacity);
+        var resourceType = Guid.NewGuid();
+        var blooming = new FakeResourceType { Identity = resourceType };
+        blooming.levelEffects.Add(Block(new FakeResourceEffect
+        {
+            resource = plotCapacity,
+            upgradeType = FakeResourceModifiableType.MaxQuantity,
+            modifier = new FakeValueModifier(FakeModifierKind.Raw, 5d, 0),
+        }));
+        FakeResourceType.All.Add(blooming);
+
+        var castTime = new FakeNumberVariable();
+        var spellType = Guid.NewGuid();
+        var arcane = new FakeSpellType { Identity = spellType };
+        arcane.perLevelEffects.Add(Block(new FakeVariableEffect
+        {
+            numberVariable = castTime,
+            modifier = new FakeValueModifier(FakeModifierKind.MultiDiminishing, 0.9d, 0),
+        }));
+        FakeSpellType.All.Add(arcane);
+
         // The sixth holder's shape: a block whose script grants advancement experience rather than
         // applying a modifier. It is walked and it publishes nothing, which is what the pinned
         // build's twenty time-rune blocks all do.
@@ -1644,6 +1666,24 @@ public sealed class GameWorldCollectorTests : IDisposable
                 world.LevelEffects, equipmentType, out var equipmentStart, out var equipmentCount));
         Assert.Equal(1, equipmentCount);
         Assert.Equal("EffectLevel", world.LevelEffects[equipmentStart].Property);
+
+        // The other two script vocabularies, authored inside a block rather than in the upgrade's
+        // deprecated container: a resource tuple keys on its ModifiableType member name, and a
+        // number-variable tuple names no property at all.
+        Assert.True(
+            WorldLevelEffectLookup.TryFindRange(
+                world.LevelEffects, resourceType, out var resourceStart, out var resourceCount));
+        Assert.Equal(1, resourceCount);
+        Assert.Equal("MaxQuantity", world.LevelEffects[resourceStart].Property);
+        Assert.Equal(plotCapacity.Identity, world.LevelEffects[resourceStart].TargetId);
+
+        Assert.True(
+            WorldLevelEffectLookup.TryFindRange(
+                world.LevelEffects, spellType, out var spellStart, out var spellCount));
+        Assert.Equal(1, spellCount);
+        Assert.Equal(string.Empty, world.LevelEffects[spellStart].Property);
+        Assert.Equal(castTime.Identity, world.LevelEffects[spellStart].TargetId);
+        Assert.Equal(0.9d, world.LevelEffects[spellStart].Amount.ToDouble(), 6);
 
         Assert.False(
             WorldLevelEffectLookup.TryFindRange(world.LevelEffects, rune, out _, out _));
