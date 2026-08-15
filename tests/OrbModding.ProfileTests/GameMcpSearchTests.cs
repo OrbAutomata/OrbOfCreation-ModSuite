@@ -30,6 +30,7 @@ public sealed class GameMcpSearchTests
 
     private static readonly Guid Idle = Guid.Parse("83a00000-0000-4000-8000-000000000001");
     private static readonly Guid Passed = Guid.Parse("83b00000-0000-4000-8000-000000000001");
+    private static readonly Guid Failed = Guid.Parse("83c00000-0000-4000-8000-000000000001");
 
     private static readonly Guid Building = Guid.Parse("90a00000-0000-4000-8000-000000000001");
     private static readonly Guid Alchemical = Guid.Parse("90b00000-0000-4000-8000-000000000001");
@@ -316,11 +317,30 @@ public sealed class GameMcpSearchTests
     public void A_search_that_found_nothing_says_what_the_entity_catalog_would_find()
     {
         var page = Json(GameMcpWorldQuery.Search(
-            Loaded(), "animation", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
+            Loaded(), "combatstatus", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
 
         Assert.Empty(Rows(page));
         Assert.Equal(
             "entity_catalog matches 2 loaded ids the published world has no row for.",
+            (string?)page["unprojected"]);
+    }
+
+    /// <summary>
+    /// The count is what that page will actually return, so machinery the catalog stopped listing
+    /// counts for nothing — and saying "no id this build loaded answers to this query" would be
+    /// false, because two of them do. The caller's question is still answered: the word names
+    /// something, and the something is machinery neither surface reads.
+    /// </summary>
+    [Fact]
+    public void A_word_only_the_builds_machinery_answers_to_is_named_as_machinery()
+    {
+        var page = Json(GameMcpWorldQuery.Search(
+            Loaded(), "animation", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
+
+        Assert.Empty(Rows(page));
+        Assert.Equal(
+            "entity_catalog matches none: what answers to this query in this build is internal " +
+            "machinery it does not list.",
             (string?)page["unprojected"]);
     }
 
@@ -516,9 +536,11 @@ public sealed class GameMcpSearchTests
     }
 
     /// <summary>
-    /// A build whose loaded ids include two the published world holds no category for, which is the
-    /// gap the empty page signposts. <c>AnimationSO</c> is one of the ninety-six real types this
-    /// build loads and no category claims.
+    /// A build whose loaded ids cover both halves of the gap the empty page signposts.
+    /// <c>CombatStatusSO</c> is a real type no category claims and <c>entity_catalog</c> lists;
+    /// <c>AnimationSO</c> is a real type no category claims and <c>entity_catalog</c> withholds as
+    /// machinery. The two answer the caller's second question differently, and the page has to say
+    /// which one it met.
     /// </summary>
     private static GameMcpFrameContext Loaded()
     {
@@ -527,8 +549,9 @@ public sealed class GameMcpSearchTests
             EntityIdentities = EntityIdentityCatalogSnapshot.Bound(2, new[]
             {
                 new EntityIdentityName(Lab, "StructureSO", "Alchemy Lab", "alchemyLab"),
-                new EntityIdentityName(Idle, "AnimationSO", "Orb Pulse", "animationOrbPulse"),
-                new EntityIdentityName(Passed, "AnimationSO", "Glyph Flare", "animationGlyphFlare"),
+                new EntityIdentityName(Idle, "CombatStatusSO", "Burning", "combatBurning"),
+                new EntityIdentityName(Passed, "CombatStatusSO", "Stunned", "combatStunned"),
+                new EntityIdentityName(Failed, "AnimationSO", "Orb Pulse", "animationOrbPulse"),
             }),
             CollectionCategories =
                 PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),

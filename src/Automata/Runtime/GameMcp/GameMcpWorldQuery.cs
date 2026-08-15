@@ -4170,13 +4170,20 @@ internal static class GameMcpWorldQuery
         if (hits.Count == 0 && normalized.Length > 0)
         {
             var unprojected = GameMcpEntityCatalog.CountUnprojected(
-                world.EntityIdentities, normalized);
+                world.EntityIdentities, normalized, out var internalOnly);
             result["unprojected"] = unprojected > 0
                 ? "entity_catalog matches " +
                   unprojected.ToString(CultureInfo.InvariantCulture) +
                   " loaded ids the published world has no row for."
-                : "entity_catalog matches none either, so no id this build loaded answers to " +
-                  "this query.";
+                // "No id this build loaded answers to this query" is false the moment the only
+                // answers are ids the catalog stopped listing, and the caller's question is
+                // answered either way: the word does name something in this build, and that
+                // something is machinery neither surface has a reading for.
+                : internalOnly > 0
+                    ? "entity_catalog matches none: what answers to this query in this build is " +
+                      "internal machinery it does not list."
+                    : "entity_catalog matches none either, so no id this build loaded answers to " +
+                      "this query.";
         }
         if (rows.Count == 0)
             result["columns"] = GameMcpEntityWireNormalizer.WireColumns(SearchColumns);
