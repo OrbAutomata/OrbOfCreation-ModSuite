@@ -8,6 +8,7 @@ using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.ProfileTests;
@@ -234,33 +235,11 @@ public sealed class GameMcpFrameInboxTests
 
         Assert.Equal(0, GameMcpFrameBatchExecutor.Drain(inbox, capture, execute, fault));
 
-        // The claim is that an idle frame allocates nothing, which is a fact about the steady
-        // state. A fixed warm-up cannot express that: tiered-JIT promotion charges thread-local
-        // bookkeeping to whichever window it lands in, and which window that is depends on what the
-        // rest of the suite warmed first. So measure windows until one is silent — that is the
-        // steady state, reached rather than assumed — and then hold the next window to the
-        // invariant. A drain that really allocates never yields a silent window and fails here with
-        // every window it measured; a runtime that merely compiles falls silent and stays silent.
-        long MeasureWindow()
-        {
-            var start = GC.GetAllocatedBytesForCurrentThread();
-            for (var index = 0; index < 10_000; index++)
-                GameMcpFrameBatchExecutor.Drain(inbox, capture, execute, fault);
-            return GC.GetAllocatedBytesForCurrentThread() - start;
-        }
+        var allocated = AllocationProbe.MeasureRepeated(
+            10_000,
+            () => GameMcpFrameBatchExecutor.Drain(inbox, capture, execute, fault));
 
-        var windows = new List<long>();
-        do
-        {
-            windows.Add(MeasureWindow());
-        }
-        while (windows[^1] != 0 && windows.Count < 32);
-
-        Assert.True(
-            windows[^1] == 0,
-            $"idle drains never fell silent over {windows.Count} windows of 10,000: " +
-            string.Join(", ", windows));
-        Assert.Equal(0, MeasureWindow());
+        Assert.Equal(0, allocated);
     }
 
     [Fact]

@@ -6,6 +6,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing;
 using OrbModding.Common.Runtime.Tracing;
 using OrbModding.Common;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Runtime.ServiceCycle.Tracing;
@@ -380,12 +381,10 @@ public sealed class ServiceCycleTraceCodecTests
     {
         var events = ServiceCycleTraceFixtures.EveryEventKind();
         var bytes = new byte[ServiceCycleTraceCodec.GetEncodedLength(events.Length)];
-        ServiceCycleTraceCodec.Encode(ServiceCycleTraceFixtures.Session, default, events, bytes);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 100; i++)
-            ServiceCycleTraceCodec.Encode(ServiceCycleTraceFixtures.Session, default, events, bytes);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = AllocationProbe.MeasureRepeated(
+            100,
+            () => ServiceCycleTraceCodec.Encode(ServiceCycleTraceFixtures.Session, default, events, bytes));
 
         Assert.Equal(0, allocated);
     }

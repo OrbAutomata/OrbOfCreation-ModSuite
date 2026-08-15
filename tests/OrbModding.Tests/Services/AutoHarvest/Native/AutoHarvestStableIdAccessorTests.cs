@@ -1,5 +1,6 @@
 using System;
 using OrbAutomata;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoHarvest.Native;
@@ -23,12 +24,12 @@ public sealed class AutoHarvestStableIdAccessorTests
         var entity = new StableEntity(Guid.NewGuid());
         var accessor = AutoHarvestStableIdAccessor.Bind(typeof(StableEntity));
         Assert.True(accessor.TryRead(entity, out _));
-        var before = GC.GetAllocatedBytesForCurrentThread();
 
-        for (var index = 0; index < 1_000; index++)
-            accessor.TryRead(entity, out _);
+        var allocated = AllocationProbe.MeasureRepeated(
+            1_000,
+            () => accessor.TryRead(entity, out _));
 
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, allocated);
     }
 
     [Fact]

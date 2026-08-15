@@ -7,6 +7,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.ServiceCycle.Lifecycle;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
+using OrbModding.TestSupport;
 using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 using Xunit;
 
@@ -262,11 +263,12 @@ public sealed class ServiceWorkerFaultTransactionTests
         Assert.Equal(ServiceFaultCategory.ActionExecution, first.Fault.Category);
         Assert.Equal(1, first.Fault.OccurrenceCount);
         var handoffBeforeSleepScans = first.Handoff;
-        var allocatedBeforeSleepScans = GC.GetAllocatedBytesForCurrentThread();
         var unexpectedlyQueued = false;
-        for (var index = 0; index < 10_000; index++)
-            unexpectedlyQueued |= runner.TryStartCycle(new MonotonicTimestamp(first.NextWakeDue.Ticks - 1)).Queued;
-        var sleepScanAllocations = GC.GetAllocatedBytesForCurrentThread() - allocatedBeforeSleepScans;
+        var sleepScanAllocations = AllocationProbe.MeasureRepeated(
+            10_000,
+            () => unexpectedlyQueued |=
+                runner.TryStartCycle(new MonotonicTimestamp(first.NextWakeDue.Ticks - 1)).Queued);
+
         Assert.False(unexpectedlyQueued);
         Assert.Equal(0, sleepScanAllocations);
         Assert.Equal(handoffBeforeSleepScans.TransitionCount, runner.Snapshot.Handoff.TransitionCount);

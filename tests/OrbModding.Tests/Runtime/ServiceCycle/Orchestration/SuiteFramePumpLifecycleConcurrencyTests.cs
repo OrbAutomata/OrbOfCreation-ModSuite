@@ -7,6 +7,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.ServiceCycle.Lifecycle;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
+using OrbModding.TestSupport;
 using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 using Xunit;
 using static OrbModding.Tests.Runtime.ServiceCycle.TestSupport.ServiceCyclePumpTestWait;
@@ -190,9 +191,8 @@ public sealed class SuiteFramePumpLifecycleConcurrencyTests
         pump.RequestLifecycleReplacement(new LifecycleGeneration(3));
 
         for (var index = 0; index < 10; index++) pump.PumpFrame(frame++);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var index = 0; index < 100; index++) pump.PumpFrame(frame++);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+
+        Assert.Equal(0, AllocationProbe.MeasureRepeated(100, () => pump.PumpFrame(frame++)));
 
         var stopwatch = Stopwatch.StartNew();
         registration.Dispose();

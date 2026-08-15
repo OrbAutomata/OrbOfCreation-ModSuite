@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.ProfileTests;
@@ -158,54 +159,26 @@ public sealed class ServiceCycleProfileAggregatorTests
         for (var index = 0; index < 16; index++)
             AssertAccepted(aggregator.Record(Measurement(in context, index, 1, 0, in operations)));
 
-        AssertRecordAllocatesNothing(aggregator, in context, in operations);
-
-        var sealWarmup = new ServiceCycleProfileAggregator(1, 1, allocationAvailable: true);
-        sealWarmup.Seal();
-        AssertSealAllocatesNothing();
-    }
-
-    private static void AssertRecordAllocatesNothing(
-        ServiceCycleProfileAggregator aggregator,
-        in ServiceCycleProfileContext context,
-        in ServiceCycleProfileOperations operations)
-    {
-        for (var attempt = 0; attempt < 3; attempt++)
+        var result = ServiceCycleProfileAggregationResult.Faulted;
+        var startedAt = 0L;
+        var recordAllocated = AllocationProbe.MeasureRepeated(64, () =>
         {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            var collectionsBefore = GC.CollectionCount(0);
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            var result = ServiceCycleProfileAggregationResult.Faulted;
-            for (var index = 0; index < 64; index++)
-                result = aggregator.Record(Measurement(in context, index, 1, 0, in operations));
-            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            if (GC.CollectionCount(0) != collectionsBefore) continue;
-            AssertAccepted(result);
-            Assert.Equal(0, allocated);
-            return;
-        }
-        Assert.Fail("The record allocation probe never completed without GC interference.");
-    }
+            result = aggregator.Record(Measurement(in context, startedAt, 1, 0, in operations));
+            startedAt++;
+        });
 
-    private static void AssertSealAllocatesNothing()
-    {
-        for (var attempt = 0; attempt < 3; attempt++)
-        {
-            var aggregator = new ServiceCycleProfileAggregator(1, 1, allocationAvailable: true);
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            var collectionsBefore = GC.CollectionCount(0);
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            aggregator.Seal();
-            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            if (GC.CollectionCount(0) != collectionsBefore) continue;
-            Assert.Equal(0, allocated);
-            return;
-        }
-        Assert.Fail("The seal allocation probe never completed without GC interference.");
+        AssertAccepted(result);
+        Assert.Equal(0, recordAllocated);
+
+        // Sealing is a one-shot per aggregator, so each pass gets a fresh one; building it is
+        // preparation and stays outside the measured window.
+        var sealTarget = null as ServiceCycleProfileAggregator;
+        var sealAllocated = AllocationProbe.MeasureRepeated(
+            1,
+            () => sealTarget!.Seal(),
+            prepare: () => sealTarget = new ServiceCycleProfileAggregator(1, 1, allocationAvailable: true));
+
+        Assert.Equal(0, sealAllocated);
     }
 
     internal static ServiceCycleProfileContext Context(int stage, ulong lifecycle) => new(

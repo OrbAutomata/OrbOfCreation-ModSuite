@@ -11,6 +11,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.ServiceCycle.Lifecycle;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
+using OrbModding.TestSupport;
 using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 using Xunit;
 
@@ -162,27 +163,22 @@ public sealed class ServiceCycleDiagnosticsTests
         Assert.Equal(
             ServiceCycleDiagnosticsValueAvailability.Available,
             buffer[0].Context.LatestStrategyAvailability);
-        ServiceCycleDiagnostics.CopyServices(pump, buffer);
-        var contendedBefore = GC.GetAllocatedBytesForCurrentThread();
         var contendedObserved = 0;
-        for (var index = 0; index < 1_000; index++)
-            contendedObserved += ServiceCycleDiagnostics.CopyServices(pump, buffer).UnavailableCount;
-        var contendedAllocated = GC.GetAllocatedBytesForCurrentThread() - contendedBefore;
-        Assert.Equal(1_000, contendedObserved);
+        var contendedAllocated = AllocationProbe.MeasureRepeated(
+            1_000,
+            () => contendedObserved += ServiceCycleDiagnostics.CopyServices(pump, buffer).UnavailableCount);
+        Assert.Equal(2_000, contendedObserved);
         Assert.Equal(0, contendedAllocated);
         contention.Release();
 
-        ServiceCycleDiagnostics.CopyServices(pump, buffer);
-        var before = GC.GetAllocatedBytesForCurrentThread();
         var observed = 0;
-        for (var index = 0; index < 1_000; index++)
+        var allocated = AllocationProbe.MeasureRepeated(1_000, () =>
         {
             observed += ServiceCycleDiagnostics.CopyServices(pump, buffer).WrittenCount;
             observed += (int)ServiceCycleDiagnostics.ReadPump(pump).AcceptedFrameCount;
-        }
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        });
 
-        Assert.Equal(1_000, observed);
+        Assert.Equal(2_000, observed);
         Assert.Equal(0, allocated);
     }
 
