@@ -45,9 +45,10 @@ public sealed class GameMcpEntityCatalogScopeTests
     }
 
     /// <summary>
-    /// A type the world publishes rows for is listed, whatever else is true of it. The two snapshot
-    /// list variables are the case that proves it is not an accident: they read as rosters and are
-    /// world_list snapshot-loadouts, so they are absent from the withheld set on purpose.
+    /// A type the world publishes rows for is off the page because those verbs carry it, never
+    /// because it was called machinery. The two snapshot list variables are the case that proves
+    /// the distinction is kept: they read as rosters and are world_list snapshot-loadouts, so they
+    /// are absent from the withheld set on purpose and leave the listing by the other door.
     /// </summary>
     [Fact]
     public void NoTypeTheWorldPublishesIsWithheld()
@@ -58,43 +59,47 @@ public sealed class GameMcpEntityCatalogScopeTests
             .ToArray();
 
         Assert.Empty(projected);
-        Assert.True(GameMcpEntityCatalogScope.Lists("AlchemySnapshotListVariable"));
-        Assert.True(GameMcpEntityCatalogScope.Lists("EquipmentSnapshotListVariable"));
-        Assert.True(GameMcpEntityCatalogScope.Lists("StructureSO"));
-        Assert.True(GameMcpEntityCatalogScope.Lists("AttributeSO"));
+        Assert.False(GameMcpEntityCatalogScope.IsMachinery("AlchemySnapshotListVariable"));
+        Assert.False(GameMcpEntityCatalogScope.IsMachinery("EquipmentSnapshotListVariable"));
+        Assert.False(GameMcpEntityCatalogScope.IsMachinery("StructureSO"));
+        Assert.False(GameMcpEntityCatalogScope.IsMachinery("AttributeSO"));
+        Assert.False(GameMcpEntityCatalogScope.Lists("AlchemySnapshotListVariable"));
+        Assert.False(GameMcpEntityCatalogScope.Lists("EquipmentSnapshotListVariable"));
+        Assert.False(GameMcpEntityCatalogScope.Lists("StructureSO"));
+        Assert.False(GameMcpEntityCatalogScope.Lists("AttributeSO"));
     }
 
     /// <summary>
-    /// The whole of what the page stopped saying, counted against the build rather than claimed:
-    /// 520 rows of 79 types leave, 2,298 of the 2,818 stay, and the 87 rows that stay while the
-    /// world publishes no row for them are the glossary the trim was for.
+    /// The page is the remainder and nothing else, counted against the build rather than claimed:
+    /// of 2,818 loaded ids the world publishes 2,211 and this build's machinery is 520, so 87 rows
+    /// are left for the one page that has anything to say about them.
     /// </summary>
     [Fact]
-    public void TheListingIsTheBuildMinusItsInternalMachinery()
+    public void TheListingIsTheRemainderTheWorldPublishesNoRowFor()
     {
         var listed = BuildRows.Count(row => GameMcpEntityCatalogScope.Lists(row.RuntimeType));
-        var withheld = BuildRows.Count(row => !GameMcpEntityCatalogScope.Lists(row.RuntimeType));
-        var listedWithoutARow = BuildRows.Count(row =>
-            GameMcpEntityCatalogScope.Lists(row.RuntimeType) &&
-            !GameMcpEntityCapabilityMap.TryCategoryForNativeType(row.RuntimeType, out _));
+        var machinery = BuildRows.Count(row =>
+            GameMcpEntityCatalogScope.IsMachinery(row.RuntimeType));
+        var published = BuildRows.Count(row =>
+            GameMcpEntityCapabilityMap.TryCategoryForNativeType(row.RuntimeType, out _));
 
         Assert.Equal(2818, BuildRows.Count);
-        Assert.Equal(520, withheld);
-        Assert.Equal(2298, listed);
-        Assert.Equal(87, listedWithoutARow);
+        Assert.Equal(2211, published);
+        Assert.Equal(520, machinery);
+        Assert.Equal(87, listed);
+        Assert.Equal(BuildRows.Count, published + machinery + listed);
     }
 
     /// <summary>
-    /// The glossary, by name. It is the only record in the suite of the game's least-mapped system,
-    /// so a later trim that took it would take the words with it and nothing would notice.
+    /// The glossary, by name — and now the whole page rather than a part of it. It is the only
+    /// record in the suite of the game's least-mapped system, so a later trim that took it would
+    /// take the words with it and nothing would notice.
     /// </summary>
     [Fact]
     public void TheGlossaryAndTheStatGroupsAndTheOdditiesAreWhatStays()
     {
         var kept = BuildRows
-            .Where(row =>
-                GameMcpEntityCatalogScope.Lists(row.RuntimeType) &&
-                !GameMcpEntityCapabilityMap.TryCategoryForNativeType(row.RuntimeType, out _))
+            .Where(row => GameMcpEntityCatalogScope.Lists(row.RuntimeType))
             .GroupBy(static row => row.RuntimeType, StringComparer.Ordinal)
             .ToDictionary(static group => group.Key, static group => group.Count());
 
@@ -135,6 +140,42 @@ public sealed class GameMcpEntityCatalogScopeTests
         Assert.Empty(machinery["rows"]!);
         Assert.Equal(8, (int)glossary["total"]!);
         Assert.Equal(8, glossary["rows"]!.Count());
+    }
+
+    /// <summary>
+    /// The other half of the page's own rule. A statistic is a published row with a name, a value,
+    /// a display type and a group, and world_list, world_search and world_get all carry it; this
+    /// page listing the same id under its identity alone said nothing those three had not, so it
+    /// stops. The asset is still exactly as findable — by the word the screen prints, on the verb
+    /// that has the facts.
+    /// </summary>
+    [Fact]
+    public void ThePageLeavesTheWorldsOwnRowsToTheVerbsThatCarryThem()
+    {
+        var published = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
+            GameMcpTestHarness.EntityCatalog, "Hidden Component", 0, 20).Freeze());
+
+        Assert.True(GameMcpEntityCapabilityMap.TryCategoryForNativeType("AttributeSO", out _));
+        Assert.Null(published["status"]);
+        Assert.Equal(0, (int)published["total"]!);
+        Assert.Empty(published["rows"]!);
+    }
+
+    /// <summary>
+    /// No row on this page carries a <c>category</c> cell. Every one of them is a row the published
+    /// world has no category for, so the column read the same constant on all 87 of them, and a
+    /// column that cannot vary is a byte per row spent saying what the verb's contract says once.
+    /// </summary>
+    [Fact]
+    public void TheRemainderRowsCarryNoConstantCategoryColumn()
+    {
+        var page = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
+            GameMcpTestHarness.EntityCatalog, "CombatStatusSO", 0, 20).Freeze());
+
+        var rows = page["rows"]!.Values<JObject>().ToArray();
+        Assert.Equal(8, rows.Length);
+        Assert.All(rows, row => Assert.Null(row!["category"]));
+        Assert.All(rows, row => Assert.Equal("CombatStatusSO", (string?)row!["nativeType"]));
     }
 
     /// <summary>

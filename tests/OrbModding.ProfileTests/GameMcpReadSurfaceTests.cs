@@ -27,7 +27,8 @@ public sealed class GameMcpStreamableHttpProtocolTests
     {
         var catalog = GameMcpTestHarness.EntityCatalog;
         Assert.Null(GameMcpTestHarness.Json(
-            GameMcpEntityCatalog.Search(catalog, "Hidden Component", 0, 20).Freeze())["status"]);
+            GameMcpEntityCatalog.Search(catalog, "Summon Reinforcements", 0, 20)
+                .Freeze())["status"]);
         Assert.Same(catalog, GameMcpTestHarness.EntityCatalog);
     }
 
@@ -464,7 +465,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
                     ["name"] = "entity_catalog",
                     ["arguments"] = new JObject
                     {
-                        ["query"] = "Hidden Component",
+                        ["query"] = "Summon Reinforcements",
                         ["limit"] = 20,
                     },
                 }),
@@ -477,55 +478,60 @@ public sealed class GameMcpStreamableHttpProtocolTests
         var lines = page.Split('\n');
 
         // The catalog is where the asset name and the runtime type still live: somebody browsing
-        // asks for them, and nothing else on the surface carries them any more.
+        // asks for them, and nothing else on the surface carries them any more. A combat action is
+        // exactly what this page is for now — the game prints the word, no world category publishes
+        // a row for it, and no other verb here will say it.
         Assert.Equal(3, lines.Length);
         Assert.StartsWith("[", lines[1]);
-        Assert.Contains("0d0474", lines[2]);
-        Assert.Contains("AttributeSO", lines[2]);
-        Assert.Contains("Hidden Component", lines[2]);
+        Assert.Contains("f8a932", lines[2]);
+        Assert.Contains("CharacterActionSO", lines[2]);
+        Assert.Contains("Summon Reinforcements", lines[2]);
 
         // The asset id here is the name with its space taken out, which the verb contract says
         // absence means, so the row does not spell it twice.
-        Assert.DoesNotContain("HiddenComponent", lines[2]);
+        Assert.DoesNotContain("SummonReinforcements", lines[2]);
 
-        // The cell used to read `not-world-projected` here, because nothing published `AttributeSO`.
-        // The statistics glossary does, and the cell followed the capability map without this
-        // surface being touched.
-        Assert.Contains("statistics", lines[2]);
-        Assert.DoesNotContain("not-world-projected", lines[2]);
+        // The cell is gone rather than constant: every row this page returns is one the published
+        // world has no category for, so `not-world-projected` was a column that could not vary.
+        Assert.DoesNotContain("category", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("not-world-projected", page, StringComparison.Ordinal);
         Assert.DoesNotContain("catalogSource", page, StringComparison.Ordinal);
         Assert.DoesNotContain("totalCatalogRows", page, StringComparison.Ordinal);
         Assert.DoesNotContain("nameSource", page, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// An asset id that is the player's word plus the word the row's own <c>category</c> states
-    /// says nothing the two lines beside it have not — six of one round's eleven
-    /// <c>internalName</c> lines were exactly that. An id that adds a fact still ships whole.
+    /// An asset id that is the player's word plus the word the block's own <c>category</c> states
+    /// says nothing the lines beside it have not — six of one round's eleven <c>internalName</c>
+    /// lines were exactly that. An id that adds a fact still ships whole.
     /// </summary>
+    /// <remarks>
+    /// The rule needs a category to read, so it lives where one is printed: the identity block
+    /// <c>world_get</c> builds from this projection. These three types are all published categories,
+    /// which is exactly why <c>entity_catalog</c>'s own page no longer carries them.
+    /// </remarks>
     [Fact]
     public void An_asset_id_that_is_only_the_name_and_the_category_is_not_printed_again()
     {
         var restating = Guid.Parse("e1a00000-0000-4000-8000-000000000001");
         var informative = Guid.Parse("e1a00000-0000-4000-8000-000000000002");
         var suffixed = Guid.Parse("e1a00000-0000-4000-8000-000000000003");
-        var rows = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
-            EntityIdentityCatalogSnapshot.Bound(77, new[]
-            {
-                new EntityIdentityName(restating, "RitualSO", "Strength", "StrengthRitual"),
-                new EntityIdentityName(informative, "ResearchSO", "Reserve", "ReserveLevel"),
-                new EntityIdentityName(suffixed, "ResearchSO", "Artistry", "ArtistryResearch"),
-            }),
-            "e1a00000",
-            0,
-            20).Freeze())["rows"]!.Values<JObject>().ToArray();
+        var catalog = EntityIdentityCatalogSnapshot.Bound(77, new[]
+        {
+            new EntityIdentityName(restating, "RitualSO", "Strength", "StrengthRitual"),
+            new EntityIdentityName(informative, "ResearchSO", "Reserve", "ReserveLevel"),
+            new EntityIdentityName(suffixed, "ResearchSO", "Artistry", "ArtistryResearch"),
+        });
 
-        Assert.Equal(3, rows.Length);
-        Assert.Equal("rituals", (string?)rows[0]!["category"]);
-        Assert.Null(rows[0]!["internalName"]);
-        Assert.Equal("research", (string?)rows[1]!["category"]);
-        Assert.Equal("ReserveLevel", (string?)rows[1]!["internalName"]);
-        Assert.Null(rows[2]!["internalName"]);
+        var blocks = new[] { restating, informative, suffixed }
+            .Select(uuid => GameMcpTestHarness.Json(
+                GameMcpEntityCatalog.Lookup(catalog, uuid).Freeze()))
+            .ToArray();
+
+        Assert.Equal("Strength", (string?)blocks[0]["name"]);
+        Assert.Null(blocks[0]["internalName"]);
+        Assert.Equal("ReserveLevel", (string?)blocks[1]["internalName"]);
+        Assert.Null(blocks[2]["internalName"]);
     }
 
     [Fact]
@@ -641,8 +647,8 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Equal(3, lines.Length);
         Assert.StartsWith("[", lines[1]);
         Assert.Contains("BrewingStation", lines[2]);
-        Assert.Contains("not-world-projected", lines[2]);
         Assert.Contains("internalName", lines[1], StringComparison.Ordinal);
+        Assert.DoesNotContain("category", page, StringComparison.Ordinal);
         Assert.DoesNotContain("nameSource", page, StringComparison.Ordinal);
         Assert.DoesNotContain("hasDisplayName", page, StringComparison.Ordinal);
     }

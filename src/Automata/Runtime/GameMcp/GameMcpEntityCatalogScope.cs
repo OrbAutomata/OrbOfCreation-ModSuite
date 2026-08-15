@@ -5,22 +5,29 @@ using System.Collections.Generic;
 namespace OrbAutomata.GameMcp;
 
 /// <summary>
-/// Which native types <c>entity_catalog</c> lists, and which it leaves to the machinery they are.
+/// Which native types <c>entity_catalog</c> lists: the remainder of this build the published world
+/// has no row for, minus the machinery that remainder would otherwise be buried under.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The verb's job is to answer "what is this thing, and is it in this build at all" for an asset a
-/// reader could act on knowing. Two thirds of the registry cannot answer that for anybody: the
-/// string table, the scaling curves, the animation and colour assets, the one-slot holders behind a
-/// UI cursor, the named list variables whose contents are already a published category, and the
-/// prerequisite-link nodes whose every tier <c>world_get</c> already expands. Listing them made the
-/// verb's own page the reason the verb looked like an index of nothing.
+/// The page answers one question — what did this build load that no published row covers. A type
+/// the world publishes is therefore not on it: <c>world_search</c>, <c>world_list</c> and
+/// <c>world_get</c> own those rows, they carry the facts a reader wants about them, and a second
+/// page listing the same ids by identity alone only made two surfaces with different scopes look
+/// interchangeable.
+/// </para>
+/// <para>
+/// What is left over is still two things, and one of them is worth no row. The string table, the
+/// scaling curves, the animation and colour assets, the one-slot holders behind a UI cursor, the
+/// named list variables whose contents are already a published category, and the prerequisite-link
+/// nodes whose every tier <c>world_get</c> already expands cannot answer "what is this thing" for
+/// anybody, and the array below is the whole of what the page withholds for that reason.
 /// </para>
 /// <para>
 /// The verdict is on the TYPE, never on an asset: a named type is machinery whatever the game calls
 /// its instances, and an asset never earns or loses its place by its name. A type nobody has ruled
 /// on is listed — a build that loads something new says so on the page rather than dropping it in
-/// silence — so this array is the whole of what the verb withholds.
+/// silence.
 /// </para>
 /// <para>
 /// <b>Nothing here leaves the identity catalog.</b> The snapshot still holds every loaded id, so an
@@ -32,10 +39,20 @@ namespace OrbAutomata.GameMcp;
 internal static class GameMcpEntityCatalogScope
 {
     /// <summary>
-    /// Whether the catalog's page carries rows of this native type.
+    /// Whether the catalog's page carries rows of this native type: what the published world holds
+    /// no category for, and this build's own machinery is not.
     /// </summary>
     internal static bool Lists(string nativeType) =>
-        !InternalOnly.Contains(nativeType ?? string.Empty);
+        !IsMachinery(nativeType) &&
+        !GameMcpEntityCapabilityMap.TryCategoryForNativeType(nativeType, out _);
+
+    /// <summary>
+    /// Whether the page withholds rows of this native type as the build's internal machinery — a
+    /// different answer from "the published world already carries a row for it", and the one the
+    /// surfaces that signpost this page have to tell apart.
+    /// </summary>
+    internal static bool IsMachinery(string nativeType) =>
+        InternalOnly.Contains(nativeType ?? string.Empty);
 
     /// <summary>
     /// The types the page withholds, for the reconciliation that proves this list is about this

@@ -145,14 +145,14 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
     }
 
     /// <summary>
-    /// The side effect of the category existing, on a surface this lane did not touch:
-    /// <c>entity_catalog</c> files an id by the category the capability map projects its runtime
-    /// type into, and <c>AttributeSO</c> was projected by nothing. All 211 of its rows read
-    /// <c>not-world-projected</c> — the answer "this suite publishes nothing about this" for 211
-    /// records the game itself prints on every tooltip.
+    /// The side effect of the category existing, on a surface this lane did not touch: all 211
+    /// <c>AttributeSO</c> rows are the published world's now, so <c>entity_catalog</c> — the page
+    /// for what the world publishes nothing about — leaves every one of them to the verbs that
+    /// carry the value, the display type and the group. The word is still reachable by the word the
+    /// screen prints, one line above, on <c>world_search</c>.
     /// </summary>
     [Fact]
-    public void An_attribute_catalogs_as_statistics_rather_than_as_projected_by_nothing()
+    public void An_attribute_is_the_published_worlds_row_rather_than_a_catalog_listing()
     {
         Assert.True(
             GameMcpEntityCapabilityMap.TryCategoryForNativeType("AttributeSO", out var category));
@@ -160,8 +160,9 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
         Assert.Equal("AttributeSO", GameMcpEntityCapabilityMap.ExpectedNativeType("statistics"));
 
         var page = Json(GameMcpEntityCatalog.Search(Catalog, "Elemental Resonance", 0, 10));
-        var row = Assert.Single(page["rows"]!.Values<JObject>())!;
-        Assert.Equal("statistics", (string?)row["category"]);
+        Assert.Null(page["status"]);
+        Assert.Equal(0, (int)page["total"]!);
+        Assert.Empty(page["rows"]!);
     }
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');

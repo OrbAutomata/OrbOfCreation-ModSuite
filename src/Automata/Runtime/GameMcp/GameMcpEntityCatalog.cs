@@ -42,8 +42,8 @@ internal static class GameMcpEntityCatalog
         for (var index = 0; index < rows.Length; index++)
         {
             var row = rows[index];
-            if (!GameMcpEntityCatalogScope.Lists(row.RuntimeType)) continue;
             if (!Matches(in row, normalized)) continue;
+            if (!GameMcpEntityCatalogScope.Lists(row.RuntimeType)) continue;
             totalMatches++;
             if (totalMatches <= offset || page.Count >= limit || budgetReached) continue;
             var rowBytes = EstimateRowBytes(in row);
@@ -76,7 +76,8 @@ internal static class GameMcpEntityCatalog
     /// is what <c>world_categories</c> publishes. The moment a row's runtime type is something its
     /// category does not declare, the implication is not one-to-one for that row and
     /// <c>nativeType</c> stays, which is the only case where it carries a fact the category cannot.
-    /// A caller browsing the catalog names no category and is told both.
+    /// A caller browsing the catalog names no category, and every row that page returns is one the
+    /// published world has no category for, so there is nothing for it to imply from either.
     /// </remarks>
     internal static JObject Lookup(
         EntityIdentityCatalogSnapshot catalog,
@@ -156,8 +157,8 @@ internal static class GameMcpEntityCatalog
     }
 
     /// <summary>
-    /// How many loaded ids answer this query that no published category claims, and how many of the
-    /// answers are machinery the catalog's page does not list.
+    /// How many loaded ids the catalog's page would return for this query, and how many of the
+    /// answers it withholds are machinery.
     /// </summary>
     /// <remarks>
     /// The one moment the second finder is worth naming is the moment the first one comes back
@@ -165,9 +166,10 @@ internal static class GameMcpEntityCatalog
     /// all?" becomes the next question, and until this counted, nothing on the surface said the
     /// question had an answer. It walks the same rows, the same match rule and the same listing
     /// verdict the catalog's own page does, so the number it reports is the number that page will
-    /// return. <paramref name="internalOnly"/> is the rest of the honest answer once the page stopped
-    /// listing machinery: "nothing this build loaded is called that" and "the only things called
-    /// that are machinery" are different answers, and one count could say only the first.
+    /// return. <paramref name="internalOnly"/> is the rest of the honest answer: "nothing this build
+    /// loaded is called that" and "the only things called that are machinery" are different answers,
+    /// and one count could say only the first. An id the world does publish is neither, because the
+    /// page that raised the question is the one that already looked for it.
     /// </remarks>
     internal static int CountUnprojected(
         EntityIdentityCatalogSnapshot catalog,
@@ -183,14 +185,8 @@ internal static class GameMcpEntityCatalog
         {
             var row = rows[index];
             if (!Matches(in row, normalized)) continue;
-            if (!GameMcpEntityCatalogScope.Lists(row.RuntimeType))
-            {
-                internalOnly++;
-                continue;
-            }
-            if (GameMcpEntityCapabilityMap.TryCategoryForNativeType(row.RuntimeType, out _))
-                continue;
-            total++;
+            if (GameMcpEntityCatalogScope.Lists(row.RuntimeType)) total++;
+            else if (GameMcpEntityCatalogScope.IsMachinery(row.RuntimeType)) internalOnly++;
         }
         return total;
     }
@@ -226,17 +222,18 @@ internal static class GameMcpEntityCatalog
         var named = identity.HasName &&
             identity.Source != EntityIdentityNameSource.LiveAssetName;
         if (named) result["name"] = identity.Name;
-        var category = GameMcpEntityCapabilityMap.TryCategoryForNativeType(
-            row.RuntimeType,
-            out var projected)
-            ? projected
-            : "not-world-projected";
+        // The page carries no `category` cell any more: every row it returns is one the published
+        // world has no category for, and a column that reads the same on every row is noise the
+        // verb's own contract already covers. The word is still read here because the block
+        // `world_get` builds from this projection prints its own category line, and an asset id that
+        // is the name plus that word says nothing twice; a catalog row finds none and is left with
+        // the de-spaced rule alone.
+        GameMcpEntityCapabilityMap.TryCategoryForNativeType(row.RuntimeType, out var category);
         if (row.AssetName.Length > 0 &&
             !(named && SaysNothingNew(identity.Name, row.AssetName, category)))
         {
             result["internalName"] = row.AssetName;
         }
-        result["category"] = category;
 
         // An id nobody can name says so in its name cell — `(unnamed 2c20e7)`, the one form this
         // surface has for it. A second block saying the same thing put a refusal class in a table
@@ -248,7 +245,7 @@ internal static class GameMcpEntityCatalog
     /// <summary>
     /// Whether the Unity asset id is the player's own word with its spaces and punctuation taken
     /// out — <c>Specialization: Storm</c> against <c>SpecializationStorm</c> — or that word plus
-    /// the one the row's <c>category</c> already states, and so says nothing the two lines beside
+    /// the one the block's own <c>category</c> already states, and so says nothing the lines beside
     /// it have not already said.
     /// </summary>
     /// <remarks>
@@ -279,10 +276,12 @@ internal static class GameMcpEntityCatalog
     }
 
     /// <summary>
-    /// Whether what the asset id adds to the name is only the word the row's own <c>category</c>
+    /// Whether what the asset id adds to the name is only the word the block's own <c>category</c>
     /// already states — <c>Strength</c> plus <c>rituals</c> is the whole of <c>StrengthRitual</c>.
     /// </summary>
     /// <remarks>
+    /// A catalog row states no category, so it names none here and the rule cannot fire for it;
+    /// the caller that does is the <c>world_get</c> block, whose category line is right there.
     /// Six of one round's eleven `internalName` lines were this: `StrengthRitual`,
     /// `ArtistryResearch`, `MiningActionType`, `MiningHarvestAction`, `AlchemistStructures`,
     /// `PlantHarvestAction` — the name, then the category, on a block that prints the category one
