@@ -32,6 +32,14 @@ namespace OrbAutomata.GameMcp;
 /// per lifecycle epoch, so it is absent from the pass rather than free within it, and a page that
 /// silently omitted it would let a reader conclude the collector had stopped running it.
 /// </para>
+/// <para>
+/// Every span is named for the world_categories row it feeds rather than for what the collector
+/// calls itself. Sixteen of the seventy-four disagreed, so a reader who found a dear collector here
+/// had to guess which table it was, and two rounds running the guess was made by matching row
+/// counts — wrongly for six pairs, and impossibly for the two that no count separated. Where one
+/// collector feeds several rows it names all of them, and where two feed one row each names itself
+/// beside it, because a row name printed twice reads as one collector measured twice.
+/// </para>
 /// </remarks>
 internal static class GameMcpCollectionSpans
 {
@@ -88,7 +96,8 @@ internal static class GameMcpCollectionSpans
         for (var index = 0; index < order.Length; index++)
         {
             var report = reports[order[index]];
-            var name = GameMcpWorldQuery.Normalize(report.Category);
+            var name = GameMcpWorldQuery.CollectionReportPage(
+                GameMcpWorldQuery.Normalize(report.Category));
             if (report.Outcome == WorldCategoryOutcome.Unavailable)
             {
                 Name(unavailable, name);

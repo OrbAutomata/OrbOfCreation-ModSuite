@@ -48,6 +48,58 @@ public sealed class GameMcpCollectorAccountabilityTests
         Assert.Equal(Array.Empty<string>(), unaccounted.ToArray());
     }
 
+    /// <summary>
+    /// Both surfaces describe the same collectors, so a name printed by one has to be a name the
+    /// other answers to. For two rounds it was not: six collectors were named for a table that had
+    /// since been renamed, two more matched no table at all, and a session correlating "this one is
+    /// expensive" with "this is the table I can list" was reduced to matching row counts.
+    /// </summary>
+    [Fact]
+    public void EveryNameTheCollectionBlockPrintsIsAWorldCategoriesRow()
+    {
+        // The 74 collectors the world runs and the pseudo-category a degraded modifier fold
+        // appends, because the block prints that one on the same terms.
+        var context = World(new GameWorldCollector().CategoryNames()
+            .Select(name => new WorldCollectionCategoryStatus(
+                name,
+                WorldCategoryOutcome.Collected,
+                sampled: 1,
+                skipped: 0,
+                firstFailure: string.Empty,
+                elapsedTicks: 1))
+            .ToArray());
+        var page = new HashSet<string>(Names(context), StringComparer.Ordinal);
+
+        var spans = GameMcpCollectionSpans.Describe(context)
+            .Split('\n')
+            .Where(line => line.StartsWith("  ", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(75, spans.Length);
+
+        var unresolved = new List<string>();
+        foreach (var span in spans)
+        {
+            foreach (var name in PageNames(span))
+            {
+                if (!page.Contains(name)) unresolved.Add(name);
+            }
+        }
+
+        Assert.Equal(Array.Empty<string>(), unresolved.ToArray());
+    }
+
+    /// <summary>
+    /// The world_categories rows one span names: the row, or every row where the collector feeds
+    /// several, less the parenthetical that separates two collectors feeding one row.
+    /// </summary>
+    private static string[] PageNames(string span)
+    {
+        var text = span.Substring(2, span.IndexOf(": ", StringComparison.Ordinal) - 2);
+        var qualifier = text.IndexOf(" (", StringComparison.Ordinal);
+        if (qualifier >= 0) text = text.Substring(0, qualifier);
+        return text.Split('+');
+    }
+
     [Fact]
     public void ACollectorWithNoTableOfItsOwnSaysSoAndSaysHowManyRowsItRead()
     {

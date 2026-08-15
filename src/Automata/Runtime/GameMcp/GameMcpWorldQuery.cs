@@ -52,6 +52,29 @@ internal static class GameMcpWorldQuery
     /// </remarks>
     private static readonly HashSet<string> ListedReportCategories = CollectReportCategories();
 
+    /// <summary>
+    /// What a diagnostic calls each collection report, in the words this surface answers to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both surfaces describe the same collectors, and until this join was published they described
+    /// them under two vocabularies: six collectors named for a table since renamed, two more no row
+    /// count could separate, and two whose names appeared on no row at all. The join was already
+    /// declared on the categories themselves — every listable page names the reports it is built
+    /// from — and read by nothing but a census. Reading it here is the whole of the fix, because
+    /// world_categories is where a name becomes an action and the acting surface's words win.
+    /// </para>
+    /// <para>
+    /// A report that is itself a row name keeps it. Other pages read it too, and naming them here
+    /// would put three names on the dearest span of a pass to answer a question nobody asked of it.
+    /// A report that feeds several pages and names none of them says all of them, because choosing
+    /// one would be this code's opinion rather than the world's structure. And where two reports
+    /// feed one page, each says which of the two it is: a row name printed twice reads as one
+    /// collector measured twice.
+    /// </para>
+    /// </remarks>
+    private static readonly Dictionary<string, string> CollectionReportPages = MapReportsToPages();
+
     internal static JObject Overview(GameMcpFrameContext state)
     {
         if (!TryWorld(state, out var publication, out var unavailable))
@@ -235,6 +258,66 @@ internal static class GameMcpWorldQuery
                     : report.FirstFailure);
         }
         return string.Empty;
+    }
+
+    /// <summary>
+    /// The world_categories row <paramref name="report"/> feeds, or its own name where no listable
+    /// page is built from it and the page therefore gives it a row of that name.
+    /// </summary>
+    internal static string CollectionReportPage(string report) =>
+        CollectionReportPages.TryGetValue(report, out var page) ? page : report;
+
+    private static Dictionary<string, string> MapReportsToPages()
+    {
+        var fed = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        for (var index = 0; index < Categories.Length; index++)
+        {
+            var category = Categories[index];
+            for (var required = 0; required < category.ReportCategories.Length; required++)
+                Feeds(fed, category.ReportCategories[required], category.Name);
+            for (var only = 0; only < category.FailureOnlyReportCategories.Length; only++)
+                Feeds(fed, category.FailureOnlyReportCategories[only], category.Name);
+        }
+
+        var alone = new Dictionary<string, string>(fed.Count, StringComparer.Ordinal);
+        foreach (var pair in fed)
+        {
+            if (ByName.ContainsKey(pair.Key)) alone.Add(pair.Key, pair.Key);
+            else if (pair.Value.Count == 1) alone.Add(pair.Key, pair.Value[0]);
+        }
+
+        var feeders = new Dictionary<string, int>(alone.Count, StringComparer.Ordinal);
+        foreach (var pair in alone)
+        {
+            feeders.TryGetValue(pair.Value, out var count);
+            feeders[pair.Value] = count + 1;
+        }
+
+        var result = new Dictionary<string, string>(fed.Count, StringComparer.Ordinal);
+        foreach (var pair in fed)
+        {
+            if (!alone.TryGetValue(pair.Key, out var page))
+                result.Add(pair.Key, string.Join("+", pair.Value.ToArray()));
+            else if (page == pair.Key || feeders[page] == 1)
+                result.Add(pair.Key, page);
+            else
+                result.Add(pair.Key, page + " (" + pair.Key + ")");
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Records that <paramref name="page"/> is built from <paramref name="report"/>. The pages
+    /// arrive in the order <see cref="ListCategories"/> prints them, so a report feeding several
+    /// names them in the order a reader will find them on that page.
+    /// </summary>
+    private static void Feeds(
+        Dictionary<string, List<string>> fed,
+        string report,
+        string page)
+    {
+        if (!fed.TryGetValue(report, out var pages)) fed.Add(report, pages = new List<string>());
+        if (!pages.Contains(page)) pages.Add(page);
     }
 
     private static HashSet<string> CollectReportCategories()

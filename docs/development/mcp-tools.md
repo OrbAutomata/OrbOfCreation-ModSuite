@@ -3331,7 +3331,17 @@ high-volume repeated decisions can be filtered without spending strategist conte
 The same page carries what world collection cost. A `collection:` line names the pass total, how
 many categories it reported, how many rows they produced, and the world generation they produced;
 under it one line per category that charged something, dearest first, with its milliseconds and its
-rows. A category that charged nothing this pass is named on one line rather than dropped — a
+rows.
+
+**Every span is named for the `world_categories` row it feeds**, not for what the collector calls
+itself, so a collector that reads as expensive here is a table `world_list` pages under exactly that
+name. Where one collector feeds several rows the span names all of them joined by `+`; where two
+collectors feed one row each names itself in a parenthetical beside it —
+`purchase-costs (structure-costs)` — because a row name printed twice reads as one collector
+measured twice. A collector no listable table is built from keeps its own name, which is already the
+name of its own `world_categories` row.
+
+A category that charged nothing this pass is named on one line rather than dropped — a
 structural category is read once per lifecycle epoch, so it is absent from the pass rather than free
 within it — and a category that did not bind is named on another. Every number is the one the
 collector already charged on the pass that published the world; nothing here measures anything, and

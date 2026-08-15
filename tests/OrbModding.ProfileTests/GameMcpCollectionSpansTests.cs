@@ -32,6 +32,52 @@ public sealed class GameMcpCollectionSpansTests
             text);
     }
 
+    /// <summary>
+    /// A span names the table the reader can list, not the collector behind it: the two vocabularies
+    /// disagreed on sixteen of seventy-four collectors, and a round that needed the join could only
+    /// guess it by matching row counts.
+    /// </summary>
+    [Fact]
+    public void ASpanIsNamedForTheTableTheReaderCanList()
+    {
+        var text = GameMcpCollectionSpans.Describe(GameMcpTestHarness.Context(new GameWorldState
+        {
+            CollectedAtEpoch = 9,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                new[]
+                {
+                    Charged("loadouts", 18, 6.0),
+                    Charged("concept instances", 46, 5.0),
+                    Charged("structure costs", 342, 4.0),
+                    Charged("upgrade costs", 120, 3.0),
+                    Charged("harvest actions", 6, 2.0),
+                    Charged("consumable inventory", 9, 1.0),
+                    Charged("harvest types", 3, 0d),
+                    new WorldCollectionCategoryStatus(
+                        "plot actions",
+                        WorldCategoryOutcome.Unavailable,
+                        sampled: 0,
+                        skipped: 0,
+                        firstFailure: "PlotNodeSO did not resolve on this build"),
+                },
+                8),
+        }));
+
+        Assert.Equal(
+            "collection: 21.000 ms across 8 categories, 544 rows, world generation 1001\n" +
+            "  player-loadout-entries+player-loadouts+snapshot-entries+snapshot-loadouts+" +
+            "snapshot-slots: 6.000 ms, 18 rows\n" +
+            "  alchemy-costs+alchemy-instances+concept-recipes: 5.000 ms, 46 rows\n" +
+            "  purchase-costs (structure-costs): 4.000 ms, 342 rows\n" +
+            "  purchase-costs (upgrade-costs): 3.000 ms, 120 rows\n" +
+            "  agromancy-actions: 2.000 ms, 6 rows\n" +
+            "  consumables (consumable-inventory): 1.000 ms, 9 rows\n" +
+            "  charged nothing this pass: agromancy-element-types\n" +
+            "  unavailable: agromancy-plot-actions",
+            text);
+    }
+
     [Fact]
     public void WithNoWorldThePageSaysWhyRatherThanZero()
     {
@@ -160,6 +206,18 @@ public sealed class GameMcpCollectionSpansTests
             },
             5),
     };
+
+    private static WorldCollectionCategoryStatus Charged(
+        string category,
+        int sampled,
+        double milliseconds) =>
+        new(
+            category,
+            WorldCategoryOutcome.Collected,
+            sampled,
+            skipped: 0,
+            firstFailure: string.Empty,
+            elapsedTicks: Ticks(milliseconds));
 
     /// <summary>
     /// A duration in the raw stopwatch ticks the collector charges, so the page renders the exact
