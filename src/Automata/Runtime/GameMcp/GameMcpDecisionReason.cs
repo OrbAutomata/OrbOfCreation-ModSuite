@@ -137,6 +137,10 @@ internal static class GameMcpDecisionReason
         "discovery_recipe_unresolved" or "discovery_recipe_ambiguous" or "ambiguous_offer" or
         "ambiguous_handle" or "screen_match_failed" or "subtab_match_failed" or
         "page_relation_ambiguous" or
+        // One entity drawn by several elements at once. The caller's uuid is a fine id and the
+        // screen is in a fine state; what is unanswerable is which of the buttons showing that
+        // entity they meant, which is the same kind of no an ambiguous handle is.
+        "ambiguous_element" or
         "level_out_of_range" or "slot_out_of_range" or "destination_out_of_range" or
         "name_out_of_range" or "discovery_surface_ambiguous" or
         // A value outside the range its setting accepts is the same kind of no as a dial value
@@ -154,6 +158,10 @@ internal static class GameMcpDecisionReason
         "no_cancellable_usage" or "nothing_to_discard" or "no_pending_request" or
         "no_pending_target" or "no_valid_target" or "no_open_modal" or "no_other_slot" or
         "single_slot" or "no_discoveries" or "no_ritual_battle_active" or "slot_empty" or
+        // A real entity that this screen simply does not draw. The named thing is not there is
+        // exactly what it means, and the sentence beside it names the screen that does draw it
+        // wherever the world publishes one.
+        "not_on_screen" or
         "not_offered" or "offer_unavailable" or "item_unavailable" or "instance_unavailable" or
         "target_unavailable" or "recipe_unavailable" or "element_unavailable" or
         "tree_unavailable" or "source_unavailable" or "components_unavailable" or

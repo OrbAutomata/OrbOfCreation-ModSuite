@@ -117,11 +117,30 @@ public sealed class GameMcpGadgetTests
         var description = (string?)tooltip["description"];
 
         Assert.Contains("plain screen text", description, System.StringComparison.Ordinal);
-        Assert.Contains("current game_screen_elements catalog", description, System.StringComparison.Ordinal);
-        Assert.Equal(new[] { "path" },
+        Assert.Contains(
+            "refresh game_screen_elements after navigation or mutation",
+            description,
+            System.StringComparison.Ordinal);
+        Assert.Equal(new[] { "path", "uuid" },
             tooltip["inputSchema"]!["properties"]!.Children<JProperty>()
                 .Select(property => property.Name));
         Assert.Null(tooltip["inputSchema"]!["properties"]!["capture"]);
+    }
+
+    /// <summary>
+    /// Two address forms, exactly one per call, and neither declared required in the schema —
+    /// the pair is a choice the validator enforces, which is the shape <c>world_get</c> already
+    /// uses for <c>uuid</c> against <c>uuids</c>.
+    /// </summary>
+    [Fact]
+    public void TooltipReadTakesAPathOrAUuidAndNeitherIsSchemaRequired()
+    {
+        var tooltip = Tool("game_tooltip");
+        Assert.Null(tooltip["inputSchema"]!["required"]);
+        Assert.Equal(
+            "A published entity id, as any row of this surface prints it. The one element on " +
+            "this screen about that entity answers; none or several refuse and say which.",
+            (string?)tooltip["inputSchema"]!["properties"]!["uuid"]!["description"]);
     }
 
     /// <summary>

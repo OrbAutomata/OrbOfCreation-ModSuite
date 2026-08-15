@@ -518,7 +518,8 @@ internal sealed class GameMcpProtocolRouter
                     arguments, "limit", GameMcpWorldQuery.DefaultLimit);
                 break;
             case "game_tooltip":
-                builder.Path = RequireString(arguments, "path");
+                builder.Path = OptionalString(arguments, "path");
+                builder.Uuid = OptionalUuid(arguments, "uuid");
                 break;
             case "game_probe":
                 builder.Probe = RequireOneOf(
@@ -616,6 +617,12 @@ internal sealed class GameMcpProtocolRouter
         // is no join and those rows carry no slot; the catalog still answers, because what the
         // player can hover is a screen fact rather than a save one.
         "game_screen_elements" => GameMcpFrameData.World,
+
+        // A uuid-addressed tooltip read takes the world for one sentence: an entity no element on
+        // this screen shows is refused, and for a glyph or an upgrade the world publishes the
+        // screen that does draw it, which turns "not here" into where to go. A path read reads no
+        // world at all and keeps taking none — what the player can hover is a screen fact.
+        "game_tooltip" when request?.Uuid != Guid.Empty => GameMcpFrameData.World,
         "game_probe" or
             "game_screen_catalog" or "game_tooltip" or
             "suite_check_game_math" =>
@@ -1208,7 +1215,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_tooltip",
                 "Read one element's tooltip text",
-                "Read the tooltip text the game prints for one element of the current game_screen_elements catalog, as compact plain screen text; paths are volatile screen-state handles, so refresh the catalog after navigation or mutation.",
+                "Read the tooltip text the game prints for one element of the current screen, as compact plain screen text. Address the element by path or by uuid, exactly one of the two. A uuid needs no catalog call first: an id from a search, a list or an action response reads the screen's words about that thing directly, and it answers only where exactly one element on this screen is about that entity — several is refused naming their paths, because two buttons for one thing are separate objects and may print different text. An entity no element on this screen shows is refused too, naming the screen the world publishes for it where it publishes one. A path is the only address for the elements bound to no entity — the badges, the multiplier control, the help elements and the suite's own controls — and the only way to pick between duplicates. Paths are volatile screen-state handles, so refresh game_screen_elements after navigation or mutation; a uuid is not, and stays good across screens.",
                 ObjectSchema(
                     new JObject
                     {
@@ -1218,8 +1225,11 @@ internal sealed class GameMcpProtocolRouter
                             "that component and its own index joined, never by the bare index. " +
                             "Any longer tail of the same path is accepted, including the whole " +
                             "path."),
-                    },
-                    "path"),
+                        ["uuid"] = StringSchema(
+                            "A published entity id, as any row of this surface prints it. The " +
+                            "one element on this screen about that entity answers; none or " +
+                            "several refuse and say which."),
+                    }),
                 readOnly: false,
                 idempotent: false),
             Tool(
@@ -1297,6 +1307,25 @@ internal sealed class GameMcpProtocolRouter
                     "mutually_exclusive",
                     "uuid",
                     "world_get accepts uuid or uuids, not both"));
+        }
+
+        // Two address forms, exactly one per call. A path names a place on the screen and a uuid
+        // names a thing; sending both would be two questions in one call, and answering either
+        // silently would be a guess about which the caller meant.
+        if (string.Equals(name, "game_tooltip", StringComparison.Ordinal))
+        {
+            var hasPath = arguments.ContainsKey("path");
+            var hasEntity = arguments.ContainsKey("uuid");
+            if (!hasPath && !hasEntity)
+                errors.Add(ValidationError(
+                    "missing_required",
+                    "path",
+                    "game_tooltip requires path (a screen address) or uuid (a published entity)"));
+            else if (hasPath && hasEntity)
+                errors.Add(ValidationError(
+                    "mutually_exclusive",
+                    "path",
+                    "game_tooltip accepts path or uuid, not both"));
         }
 
         foreach (var supplied in arguments.Properties())

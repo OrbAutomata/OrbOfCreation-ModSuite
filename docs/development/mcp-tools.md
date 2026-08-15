@@ -3324,6 +3324,29 @@ the bare index; the catalog never hands out a segment that does not resolve on i
 row's segment is always an address as printed. A tail naming none says to re-read the catalog instead, because the screen has moved on.
 The reply is compact plain screen text.
 
+**`game_tooltip` takes `path` or `uuid`, exactly one per call.** A path names a place on the screen
+and a uuid names a thing, so sending both is two questions in one call and is refused as
+`mutually_exclusive`; sending neither is refused as `missing_required`. Roughly nine in ten
+hoverable elements are bound to an entity, so a caller holding an id from a search, a list, or an
+action response reads the screen's words about it with no catalog detour. The remaining tenth is
+chrome with no entity at all, including the suite's own controls, and `path` is the only address
+those will ever have. A uuid resolves through the same per-element entity binding the panel rows
+publish as `id`, and exactly one element may answer:
+
+- **Several elements show it** — `ambiguous_element` (`ERR_INPUT`), which lists their addresses
+  under `paths` rather than picking one. This is the common case rather than the corner: the Magic
+  screen draws every equipped spell twice, once in its own list and once in the casting bar, and the
+  two are separate objects with separately read sub-tooltips that may print different text.
+- **A real entity this screen does not draw** — `not_on_screen` (`ERR_NOT_FOUND`). For a glyph or an
+  upgrade the world publishes a `screen` column, so the refusal names the screen that does draw it;
+  for everything else it points at `game_screen_catalog`.
+- **An id nothing in this build carries** — the existing `unknown_uuid`, which says the id names
+  nothing anywhere rather than blaming this screen.
+- **An element with no tooltip** — the existing `tooltip_content_unavailable`.
+
+A uuid read takes the world for that one sentence; a path read reads no world at all and keeps
+taking none, because what the player can hover is a screen fact rather than a save one.
+
 **Every panel says `[id | name | path]`, and a casting-bar row says its slot.** A row's `id` is the
 entity the element is about. Most panels are assigned the asset itself, which carries its own id;
 the two panels holding what a player actually casts are assigned a live instance instead — the

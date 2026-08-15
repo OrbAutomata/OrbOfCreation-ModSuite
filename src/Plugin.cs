@@ -3811,41 +3811,54 @@ public sealed class Plugin : BaseUnityPlugin
     {
         var requestedPath = command.PayloadValue;
         var active = CaptureActiveHoverTooltips();
-
-        // The catalog hands out the part of the path its page's shared prefix does not already say,
-        // and which prefix that was depends on which page the row came from. So a row resolves by
-        // the tail it was given: the whole path, or any path ending in it at an element boundary.
-        var matches = active
-            .Where(entry => NativeObjectPath.Addresses(entry.Path, requestedPath))
-            .ToArray();
-        if (matches.Length != 1)
-        {
-            // Naming the next step is the point. A tail is only as unique as the page it came from,
-            // and two scroll lists on one screen hand out colliding tails routinely; the catalog
-            // already published the prefix that separates them, so the refusal says to put it back
-            // on rather than leaving a caller to guess that a longer path exists.
-            return GadgetRejected(
-                "tooltip_match_failed",
-                "tooltip path '" + requestedPath + "' matched " +
-                matches.Length + " active current-screen elements" +
-                (matches.Length > 1
-                    ? "; prepend the pathRoot and pathPrefix game_screen_elements returned with this row " +
-                      "to name one"
-                    : "; re-read game_screen_elements for this screen's current paths"));
-        }
-        var hover = matches[0].Hover;
-        if (hover.tooltipItem is null)
-        {
-            return GadgetRejected(
-                "tooltip_content_unavailable",
-                "the exact HoverTooltip has no assigned ITooltipable");
-        }
         var nativeAccess = _gameMcpTooltipNativeAccess;
         if (nativeAccess is null)
         {
             return GadgetRejected(
                 "tooltip_contract_unavailable",
                 _gameMcpTooltipContractFailure);
+        }
+
+        HoverTooltip hover;
+        if (command.TargetId != Guid.Empty)
+        {
+            if (!TryAddressTooltipByEntity(
+                    command, nativeAccess, active, out hover, out var entityRefusal))
+            {
+                return entityRefusal;
+            }
+        }
+        else
+        {
+            // The catalog hands out the part of the path its page's shared prefix does not already
+            // say, and which prefix that was depends on which page the row came from. So a row
+            // resolves by the tail it was given: the whole path, or any path ending in it at an
+            // element boundary.
+            var matches = active
+                .Where(entry => NativeObjectPath.Addresses(entry.Path, requestedPath))
+                .ToArray();
+            if (matches.Length != 1)
+            {
+                // Naming the next step is the point. A tail is only as unique as the page it came
+                // from, and two scroll lists on one screen hand out colliding tails routinely; the
+                // catalog already published the prefix that separates them, so the refusal says to
+                // put it back on rather than leaving a caller to guess that a longer path exists.
+                return GadgetRejected(
+                    "tooltip_match_failed",
+                    "tooltip path '" + requestedPath + "' matched " +
+                    matches.Length + " active current-screen elements" +
+                    (matches.Length > 1
+                        ? "; prepend the pathRoot and pathPrefix game_screen_elements returned with this row " +
+                          "to name one"
+                        : "; re-read game_screen_elements for this screen's current paths"));
+            }
+            hover = matches[0].Hover;
+        }
+        if (hover.tooltipItem is null)
+        {
+            return GadgetRejected(
+                "tooltip_content_unavailable",
+                "the exact HoverTooltip has no assigned ITooltipable");
         }
         if (!nativeAccess.TryReadSubTooltips(hover, out var children, out var readFailure))
         {
@@ -3883,6 +3896,71 @@ public sealed class Plugin : BaseUnityPlugin
             "tooltip_read",
             details);
         return result;
+    }
+
+    /// <summary>
+    /// The one live element a published entity id addresses, or the refusal that answers instead.
+    /// </summary>
+    /// <remarks>
+    /// The element-to-entity binding is the catalog's own, taken per element, so a uuid addresses
+    /// exactly the elements the catalog would have printed that id on. A binding that cannot be
+    /// taken at all refuses the whole call rather than quietly narrowing the set the answer was
+    /// chosen from.
+    /// </remarks>
+    private bool TryAddressTooltipByEntity(
+        GameMcpCommand command,
+        GameMcpTooltipNativeAccess nativeAccess,
+        IReadOnlyList<TooltipElement> active,
+        out HoverTooltip hover,
+        out GameMcpCommandResult refusal)
+    {
+        hover = null!;
+        var entities = new Guid[active.Count];
+        var paths = new string[active.Count];
+        for (var index = 0; index < active.Count; index++)
+        {
+            var entry = active[index];
+            paths[index] = entry.Path;
+            if (entry.Hover.tooltipItem is null) continue;
+            if (!nativeAccess.TryReadEntityId(
+                    entry.Hover.tooltipItem, out var entityId, out var identityFailure))
+            {
+                refusal = GadgetRejected("tooltip_contract_unavailable", identityFailure);
+                return false;
+            }
+            entities[index] = entityId;
+        }
+
+        // An id the live catalog does not carry names nothing anywhere, which is a different answer
+        // from an id this screen happens not to draw. An unbound catalog claims neither: with no
+        // save loaded there is nothing to be on screen either, and the screen refusal is the honest
+        // one.
+        var catalog = EntityIdentities(command.FrameContext!);
+        var loaded = !catalog.IsBound || catalog.TryGet(command.TargetId, out _);
+        var world = command.FrameContext?.World?.Snapshot;
+        var screen = world is not null &&
+            GameMcpWorldQuery.TryPublishedScreen(world, command.TargetId, out var published)
+                ? published
+                : string.Empty;
+
+        var address = GameMcpTooltipPanelRow.AddressEntity(
+            entities, paths, command.TargetId, loaded, screen);
+        if (address.Resolved)
+        {
+            hover = active[address.Element].Hover;
+            refusal = null!;
+            return true;
+        }
+
+        GameMcpObjectBuilder? details = null;
+        if (address.Paths.Count > 0)
+        {
+            var listed = new GameMcpArrayBuilder();
+            for (var index = 0; index < address.Paths.Count; index++) listed.Add(address.Paths[index]);
+            details = new GameMcpObjectBuilder { ["paths"] = listed };
+        }
+        refusal = GadgetRejected(address.Code, address.Reason, details);
+        return false;
     }
 
     /// <summary>One live hover element with the hierarchy keys already read off it.</summary>
@@ -3980,13 +4058,17 @@ public sealed class Plugin : BaseUnityPlugin
                 _configurationStore?.CurrentGeneration.Value ?? 0,
             details.Freeze());
 
-    private GameMcpCommandResult GadgetRejected(string code, string reason) =>
+    private GameMcpCommandResult GadgetRejected(
+        string code,
+        string reason,
+        GameMcpObjectBuilder? details = null) =>
         GameMcpCommandResult.Rejected(
             code,
             reason,
             observedLifecycleGeneration: _lifecycleGeneration,
             observedConfigurationGeneration:
-                _configurationStore?.CurrentGeneration.Value ?? 0);
+                _configurationStore?.CurrentGeneration.Value ?? 0,
+            details?.Freeze());
 
     /// <summary>
     /// A navigate that reached the requested screen and then failed on its subtab moved the board.

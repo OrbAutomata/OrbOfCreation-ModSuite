@@ -345,6 +345,135 @@ public sealed class GameMcpTooltipPanelRowTests
         };
     }
 
+    /// <summary>
+    /// The duplicate pair, which is the common case rather than the corner: the Magic screen draws
+    /// every equipped spell twice, once in its own list and once in the casting bar, and the two
+    /// buttons are separate objects that may print different text. The refusal hands back the
+    /// addresses instead of picking, and each one is the shortest form that resolves.
+    /// </summary>
+    [Fact]
+    public void One_entity_on_two_buttons_refuses_and_names_both_addresses()
+    {
+        var address = GameMcpTooltipPanelRow.AddressEntity(
+            new[] { Cube, Guid.Empty, Cube },
+            new[]
+            {
+                "Canvas[0]/ContentArea[2]/ArcaneCasting[0]/SpellList[0]/SpellButton(Clone)[0]",
+                "Canvas[0]/ContentArea[2]/BottomBar[1]/PinnedObjects[0]",
+                "Canvas[0]/ContentArea[2]/CastingBar[3]/SmallSpellList[0]/" +
+                "SpellButtonBottomBar(Clone)[0]",
+            },
+            Cube,
+            loaded: true,
+            publishedScreen: string.Empty);
+
+        Assert.False(address.Resolved);
+        Assert.Equal("ambiguous_element", address.Code);
+        Assert.Equal(
+            "2 elements on this screen show this entity, and two elements about one thing may " +
+            "print different text; name one of the paths listed here with path.",
+            address.Reason);
+        Assert.Equal(
+            new[] { "SpellButton(Clone)[0]", "SpellButtonBottomBar(Clone)[0]" },
+            address.Paths);
+    }
+
+    /// <summary>
+    /// One element about the entity is the whole answer, and an element bound to nothing is never
+    /// it: chrome carries no id and stays reachable by path alone.
+    /// </summary>
+    [Fact]
+    public void One_element_about_the_entity_answers_and_chrome_never_does()
+    {
+        var address = GameMcpTooltipPanelRow.AddressEntity(
+            new[] { Guid.Empty, BeamBurst, Cube },
+            new[] { "Canvas[0]/Chrome[0]", "Canvas[0]/List[1]/Row[0]", "Canvas[0]/List[1]/Row[1]" },
+            BeamBurst,
+            loaded: true,
+            publishedScreen: string.Empty);
+
+        Assert.True(address.Resolved);
+        Assert.Equal(1, address.Element);
+        Assert.Empty(address.Paths);
+
+        var chrome = GameMcpTooltipPanelRow.AddressEntity(
+            new[] { Guid.Empty, BeamBurst, Cube },
+            new[] { "Canvas[0]/Chrome[0]", "Canvas[0]/List[1]/Row[0]", "Canvas[0]/List[1]/Row[1]" },
+            Guid.Empty,
+            loaded: true,
+            publishedScreen: string.Empty);
+        Assert.False(chrome.Resolved);
+        Assert.Equal("not_on_screen", chrome.Code);
+    }
+
+    /// <summary>
+    /// A real entity this screen does not draw is a different answer from an id nothing in the
+    /// build carries, and the first one names where to go: the published <c>screen</c> column when
+    /// the world has one for this id, and the screen catalog when it does not.
+    /// </summary>
+    [Fact]
+    public void An_entity_this_screen_does_not_draw_is_told_where_it_is_drawn()
+    {
+        var elsewhere = GameMcpTooltipPanelRow.AddressEntity(
+            new[] { Cube },
+            new[] { "Canvas[0]/List[1]/Row[0]" },
+            BeamBurst,
+            loaded: true,
+            publishedScreen: "Magic/Augments");
+
+        Assert.False(elsewhere.Resolved);
+        Assert.Equal("not_on_screen", elsewhere.Code);
+        Assert.Equal(
+            "Nothing this screen draws is about this entity; the world publishes it on " +
+            "Magic/Augments, so navigate there and read it again.",
+            elsewhere.Reason);
+        Assert.Empty(elsewhere.Paths);
+
+        var unpublished = GameMcpTooltipPanelRow.AddressEntity(
+            new[] { Cube },
+            new[] { "Canvas[0]/List[1]/Row[0]" },
+            BeamBurst,
+            loaded: true,
+            publishedScreen: string.Empty);
+        Assert.Equal(
+            "Nothing this screen draws is about this entity; page game_screen_catalog for the " +
+            "screens this build offers and navigate to the one that draws it.",
+            unpublished.Reason);
+    }
+
+    /// <summary>
+    /// An id no loaded entity carries names nothing anywhere, which is not the same no as an id
+    /// this screen happens not to draw — and the sentence has to send the caller somewhere else.
+    /// </summary>
+    [Fact]
+    public void An_id_nothing_in_this_build_carries_says_so_rather_than_blaming_the_screen()
+    {
+        var address = GameMcpTooltipPanelRow.AddressEntity(
+            new[] { Cube },
+            new[] { "Canvas[0]/List[1]/Row[0]" },
+            BeamBurst,
+            loaded: false,
+            publishedScreen: string.Empty);
+
+        Assert.False(address.Resolved);
+        Assert.Equal("unknown_uuid", address.Code);
+        Assert.Equal(
+            "No entity in this build carries this id, so no element on any screen is about it; " +
+            "check the id you sent, or find the thing with world_search.",
+            address.Reason);
+    }
+
+    /// <summary>
+    /// Both new codes are classified. An unclassified code falls to <c>ERR_REFUSED</c>, which means
+    /// "the game refused and said nothing else" and is false about either of these.
+    /// </summary>
+    [Fact]
+    public void Both_uuid_addressing_refusals_are_classified()
+    {
+        Assert.Equal("ERR_INPUT", GameMcpDecisionReason.Class("ambiguous_element"));
+        Assert.Equal("ERR_NOT_FOUND", GameMcpDecisionReason.Class("not_on_screen"));
+    }
+
     private static readonly EntityIdentityCatalogSnapshot Catalog =
         EntityIdentityCatalogSnapshot.Bound(1, new[]
         {

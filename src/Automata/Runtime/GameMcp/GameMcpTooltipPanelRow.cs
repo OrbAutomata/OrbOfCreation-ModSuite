@@ -1,6 +1,7 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using OrbModConfig;
 using OrbModding.Common.Runtime.World;
 
@@ -68,6 +69,113 @@ internal static class GameMcpTooltipPanelRow
         for (var index = 0; index < livePaths.Count && found < 2; index++)
             if (NativeObjectPath.Addresses(livePaths[index], segment)) found++;
         return found == 1 ? segment : tail;
+    }
+
+    /// <summary>
+    /// Which live element one entity id addresses, or the refusal that answers instead.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A uuid is an address alongside a path, never a replacement for one. Roughly nine in ten
+    /// hoverable elements are bound to an entity, so a caller holding an id from a search, a list
+    /// or an action response can read the screen's words about it with no catalog detour — but the
+    /// remaining tenth is chrome with no id at all, including the suite's own controls, and a path
+    /// is the only address those will ever have.
+    /// </para>
+    /// <para>
+    /// One entity shown by several elements is the common case rather than the corner: the Magic
+    /// screen draws every equipped spell twice, once in its own list and once in the persistent
+    /// casting bar, and the two are different objects with separately read sub-tooltips that may
+    /// legitimately print different text. Nothing on the wire says which the caller meant, so this
+    /// hands back the addresses and refuses — the same answer, inverted, that an ambiguous path
+    /// already gets, and the same rule as <see cref="TrySoleSpellSlot"/>: two answers mean no
+    /// answer. Each address is the shortest form that resolves, by <see cref="Address"/>, so the
+    /// duplicate pair comes back as two short segments rather than two full ancestries.
+    /// </para>
+    /// </remarks>
+    internal static EntityAddress AddressEntity(
+        IReadOnlyList<Guid> entities,
+        IReadOnlyList<string> paths,
+        Guid requested,
+        bool loaded,
+        string publishedScreen)
+    {
+        if (entities is null) throw new ArgumentNullException(nameof(entities));
+        if (paths is null) throw new ArgumentNullException(nameof(paths));
+        if (entities.Count != paths.Count)
+            throw new ArgumentException("one entity id per live element", nameof(entities));
+
+        // An element bound to nothing carries the empty id, and the empty id names nothing: chrome
+        // is reachable by path and by path only, whatever a caller passes here.
+        var matches = new List<int>();
+        for (var index = 0; index < entities.Count; index++)
+            if (entities[index] != Guid.Empty && entities[index] == requested) matches.Add(index);
+
+        if (matches.Count == 1) return EntityAddress.Found(matches[0]);
+        if (matches.Count == 0)
+        {
+            return loaded
+                ? EntityAddress.Refused("not_on_screen", NotOnScreen(publishedScreen))
+                : EntityAddress.Refused(
+                    "unknown_uuid",
+                    "No entity in this build carries this id, so no element on any screen is " +
+                    "about it; check the id you sent, or find the thing with world_search.");
+        }
+
+        var addresses = new string[matches.Count];
+        for (var index = 0; index < addresses.Length; index++)
+            addresses[index] = Address(paths[matches[index]], identified: true, paths);
+        return EntityAddress.Ambiguous(
+            "ambiguous_element",
+            matches.Count.ToString(CultureInfo.InvariantCulture) +
+            " elements on this screen show this entity, and two elements about one thing may " +
+            "print different text; name one of the paths listed here with path.",
+            addresses);
+    }
+
+    private static string NotOnScreen(string publishedScreen) =>
+        string.IsNullOrEmpty(publishedScreen)
+            ? "Nothing this screen draws is about this entity; page game_screen_catalog for the " +
+              "screens this build offers and navigate to the one that draws it."
+            : "Nothing this screen draws is about this entity; the world publishes it on " +
+              publishedScreen + ", so navigate there and read it again.";
+
+    /// <summary>
+    /// The one live element an entity id names, or the code, sentence and addresses that answer
+    /// instead. Kept as one value because the three refusals and the hit are one decision.
+    /// </summary>
+    internal readonly struct EntityAddress
+    {
+        private readonly string[]? _paths;
+
+        private EntityAddress(int element, string code, string reason, string[]? paths)
+        {
+            Element = element;
+            Code = code;
+            Reason = reason;
+            _paths = paths;
+        }
+
+        internal static EntityAddress Found(int index) =>
+            new(index, string.Empty, string.Empty, null);
+
+        internal static EntityAddress Refused(string code, string reason) =>
+            new(-1, code, reason, null);
+
+        internal static EntityAddress Ambiguous(string code, string reason, string[] paths) =>
+            new(-1, code, reason, paths);
+
+        /// <summary>The index of the one element that answers, or -1 where none does.</summary>
+        internal int Element { get; }
+
+        internal bool Resolved => Element >= 0;
+
+        internal string Code { get; }
+
+        internal string Reason { get; }
+
+        /// <summary>The addresses a caller picks one of, empty on every other outcome.</summary>
+        internal IReadOnlyList<string> Paths => _paths ?? Array.Empty<string>();
     }
 
     /// <summary>

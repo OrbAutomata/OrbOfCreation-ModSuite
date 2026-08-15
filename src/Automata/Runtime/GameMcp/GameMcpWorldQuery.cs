@@ -1153,6 +1153,36 @@ internal static class GameMcpWorldQuery
     }
 
     /// <summary>
+    /// The screen the published world says draws this entity, where it says one at all.
+    /// </summary>
+    /// <remarks>
+    /// Two categories publish a <c>screen</c> column — <c>glyphs</c> and <c>upgrades</c> — and for
+    /// an id in either of them a refusal can name where to go instead of only saying "not here".
+    /// The evasive words are not answers and do not pass: <c>no_page</c> is the game drawing it
+    /// nowhere, <c>unreadable</c> is the suite failing to read the membership, and <c>all</c> is
+    /// every upgrade list at once. Each of those leaves the caller with the screen catalog, which
+    /// is what the refusal falls back to.
+    /// </remarks>
+    internal static bool TryPublishedScreen(GameWorldState world, Guid uuid, out string screen)
+    {
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        screen = WorldLookup.TryFind(world.Glyphs, uuid, out _)
+            ? GlyphScreen(world, uuid)
+            : WorldLookup.TryFind(world.Upgrades, uuid, out _)
+                ? UpgradeScreen(world, uuid)
+                : string.Empty;
+        if (screen.Length == 0 ||
+            string.Equals(screen, GameMcpListColumns.ScreenNoPage, StringComparison.Ordinal) ||
+            string.Equals(screen, GameMcpListColumns.Unreadable, StringComparison.Ordinal) ||
+            string.Equals(screen, GameMcpListColumns.ScreenAll, StringComparison.Ordinal))
+        {
+            screen = string.Empty;
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
     /// How far the player has come with this purchase, in the one vocabulary every purchasable
     /// row shares.
     /// </summary>
