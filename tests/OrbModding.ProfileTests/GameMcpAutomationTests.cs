@@ -4,6 +4,7 @@ using Newtonsoft.Json.Linq;
 using OrbAutomata;
 using OrbAutomata.GameMcp;
 using OrbMentor;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using Xunit;
 
@@ -63,6 +64,40 @@ public sealed class GameMcpAutomationTests
         Assert.All(
             rows.Skip(1).Take(5),
             row => Assert.False((bool)row["on"]!));
+    }
+
+    /// <summary>
+    /// The <c>on</c> column is a config value, and a row whose runtime disagrees with it says so on
+    /// the same line — so config-on plus progression-locked is one answer rather than two calls and
+    /// a name-by-name join against <c>suite_health</c>.
+    /// </summary>
+    [Fact]
+    public void A_feature_the_runtime_is_holding_says_so_beside_the_switch()
+    {
+        var rows = Assert.IsType<JArray>(
+            GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationFeatures(
+                GameMcpTestHarness.Context(
+                    configuration: Configuration(autoBuy: true, mentor: true),
+                    features: new[]
+                    {
+                        Status(
+                            "Auto Buy",
+                            FeatureStatusState.Locked,
+                            FeatureStatusReasonCode.ProgressionLocked,
+                            "the Mods rail has not unlocked this yet"),
+                        Status("Orb Mentor", FeatureStatusState.Operational),
+                    })))["features"]);
+
+        Assert.Equal("auto_buy", (string?)rows[0]["feature"]);
+        Assert.True((bool)rows[0]["on"]!);
+        Assert.Equal("locked (progression_locked)", (string?)rows[0]["runtime"]);
+
+        // A runtime that agrees with the switch, and a feature the runtime never reported, both
+        // leave the row exactly as it was: the qualifier is worth a column only where it disagrees.
+        Assert.Equal("mentor", (string?)rows[6]["feature"]);
+        Assert.True((bool)rows[6]["on"]!);
+        Assert.Null(rows[6]["runtime"]);
+        Assert.All(rows.Skip(1).Take(5), row => Assert.Null(row["runtime"]));
     }
 
     [Fact]
@@ -173,6 +208,17 @@ public sealed class GameMcpAutomationTests
                 "suite_automation",
                 new JObject { ["mode"] = "set", ["feature"] = "auto_everything", ["on"] = true }));
     }
+
+    private static FeatureStatusSnapshot Status(
+        string displayName,
+        FeatureStatusState state,
+        FeatureStatusReasonCode code = FeatureStatusReasonCode.None,
+        string summary = "") => new(
+        new FeatureStatusKey("OrbAutomata", displayName),
+        displayName,
+        configuredEnabled: state != FeatureStatusState.ConfigurationDisabled,
+        state,
+        new FeatureStatusReason(code, summary));
 
     private static JArray Rows(SuiteRuntimeConfiguration configuration) =>
         Assert.IsType<JArray>(

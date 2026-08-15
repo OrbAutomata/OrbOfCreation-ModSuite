@@ -2090,6 +2090,8 @@ public sealed class Plugin : BaseUnityPlugin
             // is a suite-side constant and the same one `suite_health` and a commit already print.
             row["name"] = feature.DisplayName;
             row["on"] = feature.IsOn(config);
+            if (RuntimeQualifier(context, feature.Name) is { } qualifier)
+                row["runtime"] = qualifier;
             features.Add(row);
         }
         var result = new GameMcpObjectBuilder
@@ -2100,6 +2102,46 @@ public sealed class Plugin : BaseUnityPlugin
         // be answering a different question than the caller asked.
         GameMcpAutomationFeatures.AddSuiteOverrides(result, config);
         return result.Freeze();
+    }
+
+    /// <summary>
+    /// What the runtime does with a feature the config says is on, said in the words
+    /// <c>suite_health</c> uses, or nothing where the runtime agrees with the switch.
+    /// </summary>
+    /// <remarks>
+    /// The <c>on</c> column is a config value wearing a runtime word: a feature can read
+    /// <c>on: yes</c> for a whole session while the runtime holds it progression-locked, and the
+    /// only way to see that was a second call to <c>suite_health</c> and a name-by-name join. This
+    /// follows the suite-override rule beside it — the qualifier appears exactly where it
+    /// contradicts the switch, so an agreeing row still costs the page nothing. A
+    /// configuration-disabled runtime is the switch itself and is not repeated.
+    /// </remarks>
+    private static string? RuntimeQualifier(GameMcpFrameContext context, string featureName)
+    {
+        var statuses = context.FeatureStatuses;
+        for (var index = 0; index < statuses.Length; index++)
+        {
+            var status = statuses[index];
+            if (!string.Equals(
+                    CanonicalGameMcpFeatureName(status.DisplayName),
+                    featureName,
+                    StringComparison.Ordinal))
+            {
+                continue;
+            }
+            if (status.State is FeatureStatusState.Operational or
+                FeatureStatusState.ConfigurationDisabled)
+            {
+                return null;
+            }
+            var state = GameMcpEntityWireNormalizer.Snake(status.State.ToString());
+            var code = GameMcpEntityWireNormalizer.Snake(status.Reason.Code.ToString());
+            return code.Length == 0 || code == "none" ||
+                string.Equals(code, state, StringComparison.Ordinal)
+                ? state
+                : state + " (" + code + ")";
+        }
+        return null;
     }
 
     internal static GameMcpValue ProjectGameMcpAutomationCommit(
