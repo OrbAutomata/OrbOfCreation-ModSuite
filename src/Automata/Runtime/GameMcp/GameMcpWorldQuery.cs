@@ -378,8 +378,9 @@ internal static class GameMcpWorldQuery
             return NotAvailable(
                 publication,
                 "filter_not_supported",
-                "category " + category.Name + " has no price, so affordable does not apply to " +
-                "it; the priced categories are " + string.Join(", ", PricedCategories));
+                "the affordable filter narrows a page by the price column its rows carry, and " +
+                "rows in " + category.Name + " carry none; the categories whose rows carry one " +
+                "are " + string.Join(", ", PricedCategories));
         }
         if (offset < 0)
             return NotAvailable(publication, "invalid_offset", "offset must be zero or greater");

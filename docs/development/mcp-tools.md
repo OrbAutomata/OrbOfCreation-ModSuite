@@ -451,7 +451,9 @@ such key.
 The two affordable counts have a matching read: `world_list(category="structures", affordable=true)`
 and the same on `upgrades` page only the rows whose price is met right now, so the count and the
 rows agree and the offset, `total`, and `nextOffset` all speak in matching rows. `affordable` is
-refused as `filter_not_supported` on a category with no price rather than quietly ignored.
+refused as `filter_not_supported` on a category whose rows carry no price column rather than quietly
+ignored, and the refusal says that: the filter narrows a page by one of its columns, so a category
+refusing it is a statement about the page rather than a claim that its entities are unpriced.
 
 `world_categories` is the authoritative inventory of what the world collects, not only of what it
 lists. Each row reports `category`, its row `count`, and — when something is wrong with it — the

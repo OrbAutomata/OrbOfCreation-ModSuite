@@ -51,15 +51,24 @@ public sealed class GameMcpAffordabilityTests
         Assert.Equal(2, (int)page["total"]!);
     }
 
+    /// <summary>
+    /// The refusal speaks about the page, not about the world. `resources has no price` is false —
+    /// every resource in the game has a price somewhere — and a caller who read it as a claim about
+    /// resources learned something untrue; what is actually missing is a price column on this
+    /// category's rows, which is also what names the two categories that have one.
+    /// </summary>
     [Fact]
-    public void A_category_with_no_price_refuses_the_filter_instead_of_ignoring_it()
+    public void A_category_with_no_price_column_refuses_the_filter_in_the_pages_own_words()
     {
         var refusal = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(World(), "resources", 0, 50, affordableOnly: true));
 
         Assert.Equal("unavailable", (string?)refusal["status"]);
         Assert.Equal("ERR_INPUT", (string?)refusal["reasonCode"]);
-        Assert.Contains("structures", (string?)refusal["reason"], StringComparison.Ordinal);
+        Assert.Equal(
+            "the affordable filter narrows a page by the price column its rows carry, and rows " +
+            "in resources carry none; the categories whose rows carry one are structures, upgrades",
+            (string?)refusal["reason"]);
     }
 
     /// <summary>
