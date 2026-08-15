@@ -393,7 +393,7 @@ rather than from the screen it is drawn on.
 | `world_categories` | Discover every category the world collects, which of them list, and exact collection availability |
 | `world_list` | Page compact identity-plus-scan rows in one category |
 | `world_get` | Read everything one id says — row, description, gates, requirement graph, exact costs, blockers — for one id or a batch |
-| `entity_catalog` | Search every live-registry identity and available player-facing name, including loaded entities hidden by progression |
+| `entity_catalog` | Search the loaded assets a reader could act on knowing — every published entity plus the glossary the world carries no row for — including ones hidden by progression |
 | `world_search` | Find a term across every entity category at once: name, keywords, category, most relevant first |
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
 | `suite_configuration` | Read every writable setting's committed value; `mode=describe` adds type, domain, and purpose |
@@ -616,28 +616,52 @@ split at all. The counts are over the whole result — the `M` of the `rows N/M`
 over the page.
 
 The two search tools are not interchangeable at the same offset. `world_search` sorts the whole
-result by relevance and then by id; `entity_catalog` walks the whole live registry in UUID order.
+result by relevance and then by id; `entity_catalog` walks its listing in UUID order.
 They also answer different questions: `world_search` sees only entities the published world carries a
 row for and additionally matches a category's own name and native type, so a category name selects
-every row in it, while `entity_catalog` sees every loaded UUID — including the ones no world row
-covers, which read `category=not-world-projected` — and matches only that entity's own identity
+every row in it, while `entity_catalog` also sees the loaded assets no world row
+covers, which read `category=not-world-projected`, and matches only that entity's own identity
 fields. Equal totals for one query mean the query happened to select the same set, not that the tools
 have the same scope.
 
 **A `world_search` that matched nothing signposts the other one.** The moment the first finder comes
 back empty is the moment "is it in this build at all?" becomes the next question, so a query that
-found no published row carries one `unprojected` line saying how many loaded ids `entity_catalog`
-would match that no published category claims — and saying `entity_catalog matches none either` when
-there are none, because that answer closes the question where silence would send a caller off to ask
-it. The line is emitted only on an empty result and only where a query was given: a filter-only call
-has no word to match against the registry.
+found no published row carries one `unprojected` line. It says how many loaded ids `entity_catalog`
+would match that no published category claims; where the only ids answering are the internal
+machinery the catalog does not list, it says that instead, because
+`entity_catalog matches none either, so no id this build loaded answers to this query` would be
+false there; and where there is neither, it says exactly that, because the answer closes the
+question where silence would send a caller off to ask it. The line is emitted only on an empty
+result and only where a query was given: a filter-only call has no word to match against the
+registry.
 
-`entity_catalog` complements `world_search` with the game's complete live runtime identity registry.
-At the first stable Playing world capture after `RuntimeReady`, the suite validates and copies that
-registry once for the lifecycle. Searches cover UUID, exact runtime type, Unity asset name, and
-player-facing `GetName()`, so loaded entities hidden or not yet revealed by progression are findable
-without navigation. Before that bind, or when its declared contracts fail, the tool returns
-`unavailable` rather than substituting the build-time TSV fixtures.
+`entity_catalog` complements `world_search` with the loaded assets a reader could act on knowing.
+At the first stable Playing world capture after `RuntimeReady`, the suite validates and copies the
+game's runtime identity registry once for the lifecycle. Searches cover UUID, exact runtime type,
+Unity asset name, and player-facing `GetName()`, so loaded entities hidden or not yet revealed by
+progression are findable without navigation. Before that bind, or when its declared contracts fail,
+the tool returns `unavailable` rather than substituting the build-time TSV fixtures.
+
+**The listing is not the registry.** Of the pinned build's 2,818 loaded ids the page lists 2,298:
+every entity a world category publishes, plus the 87 rows of 14 native types the world publishes no
+category for that are still words the game shows a player — the ritual and combat glossary
+(`CombatStatusSO`, `CharacterAttributeSO`, `DamageTypeSO`, `CharacterModifierSO`,
+`CharacterActionSO`, `EnchantmentSO`, `GlyphTypeSO`, `RuneStoneSO`, `CharacterTypeSO`,
+`DisplayTypeSO`), which is this suite's only enumeration of the game's least-mapped system; the 24
+`AttributeGroupSO` headers the Statistics tab groups its rows under; and the build's three authored
+oddities (`CraftingStructureSO`, `ConditionalTextList`, `PlayerCharacter`). The other 520 rows, of
+79 native types, are the game's internal machinery and are deliberately not listed: the string
+table, scaling curves, animations and colours, the one-slot variables a screen keeps its cursor and
+selection in, RNG salts, key bindings, music tracks, the named list variables whose contents are
+already a published category, and the prerequisite-link nodes whose every tier `world_get` already
+expands. The verdict is on the native type, never on an asset, and a type nobody has ruled on is
+listed — so a build loading something new says so on the page rather than dropping it in silence.
+
+**Nothing withheld from the listing leaves the identity catalog.** The snapshot still holds every
+loaded id, so an id handle still resolves against the whole 2,818, a row referencing one of these
+ids still prints the name the snapshot holds, a keyword still resolves to its word through the same
+rows, and `world_get` still answers for one by naming it and saying its identity is all there is to
+read. Only this one page is shorter.
 
 A match contains `uuid`, `name`, `nativeType`, and one `category` — this is the surface that still
 carries the runtime type unconditionally, because browsing the catalog is the one activity that asks
@@ -2083,11 +2107,16 @@ points at `world_categories`, because the caller has no name to search with. A U
 caller named that the table does not hold says so and points back at that table's page. A
 catalog-known UUID no published table is addressed by says it is loaded in this build and points at
 the rows that do carry it, or — when its runtime type belongs to no published table — says its
-identity is all there is to read and points at `entity_catalog`. A UUID the asset catalog does not
+identity is all there is to read and points at `entity_catalog`. That last block **carries no
+`readWith` at all** when the runtime type is machinery `entity_catalog` does not list: a remedy
+names a page that will answer, the page it used to name would come back empty, and the identity it
+promised is already on the block, so the sentence says the id is internal machinery no published row
+covers and stops. A UUID the asset catalog does not
 know but the world published inside a composite row — an equipped spell instance is a runtime
 object, not a loaded asset — points at `readWith: {tool: "world_list", category: "spell-slots"}`.
-The surface never claims the process is ignorant of a UUID it published, and never points a runtime
-instance at the asset registry that cannot resolve it.
+The surface never claims the process is ignorant of a UUID it published, never points a runtime
+instance at the asset registry that cannot resolve it, and never points a caller at a page that
+does not carry what the pointer promised.
 
 Per-level structure, upgrade, and Research requirements preserve the implicit container `AND`,
 explicit native `AND`/`OR` nodes, authored order, and recursively expanded prerequisite-link tiers.
