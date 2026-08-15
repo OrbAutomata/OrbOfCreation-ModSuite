@@ -37,10 +37,12 @@ namespace OrbAutomata.GameMcp;
 /// worth test is what decides which side a column falls on.
 /// </para>
 /// <para>
-/// A canned refusal sentence is said once per response. The class beside it is what a caller
+/// A canned refusal sentence is said once per decision. The class beside it is what a caller
 /// branches on and it rides every occurrence; the sentence explains the class, and a reader who has
-/// read it three lines up learns nothing from reading it again. The first occurrence always carries
-/// the sentence in full, so a response holding one refusal is exactly what it always was.
+/// read it on the row above learns nothing from reading it again. The first occurrence under a key
+/// always carries the sentence in full, so two decisions that happen to share a reason code each
+/// still say why — one refusal explained and the next left as a bare class was the page keeping a
+/// saving the reader paid for.
 /// </para>
 /// </remarks>
 internal static class GameMcpTextPage
@@ -61,15 +63,19 @@ internal static class GameMcpTextPage
     {
         if (document is null) throw new ArgumentNullException(nameof(document));
         var lines = new List<string>();
-        var said = new HashSet<string>(StringComparer.Ordinal);
+        var said = new Said();
         switch (document)
         {
             case JObject page:
                 WriteObject(page, string.Empty, lines, said);
                 break;
             case JArray page:
+            {
+                var outer = said.Enter("rows");
                 WriteArray("rows", page, null, null, string.Empty, lines, said);
+                said.Leave(outer);
                 break;
+            }
             default:
                 lines.Add(Scalar(document));
                 break;
@@ -78,7 +84,55 @@ internal static class GameMcpTextPage
     }
 
     /// <summary>
-    /// The sentence a verdict ends in, or nothing where this response has already said it.
+    /// The canned sentences this response has already printed, and where each was printed.
+    /// </summary>
+    /// <remarks>
+    /// A rule sentence is worth saying once per decision, not once per response. Keyed on the
+    /// sentence alone, a post-reset answer printed the rule under <c>reset</c> and then rendered
+    /// <c>reroll</c> as a bare class with nothing saying why — two different decisions, and the
+    /// second lost the only line that explained it. The key is the sentence under the place it is
+    /// being said, so siblings each keep theirs while a table's rows, which all render under their
+    /// array's one place, still say a shared sentence once.
+    /// </remarks>
+    private sealed class Said
+    {
+        private const char Separator = '\u001f';
+
+        private readonly HashSet<string> _sentences;
+        private string _place;
+
+        internal Said()
+            : this(new HashSet<string>(StringComparer.Ordinal), string.Empty)
+        {
+        }
+
+        private Said(HashSet<string> sentences, string place)
+        {
+            _sentences = sentences;
+            _place = place;
+        }
+
+        internal string Enter(string name)
+        {
+            var outer = _place;
+            _place = outer + "/" + name;
+            return outer;
+        }
+
+        internal void Leave(string outer) => _place = outer;
+
+        internal bool Add(string reason) => _sentences.Add(_place + Separator + reason);
+
+        /// <summary>
+        /// A copy for lines that may never be printed, mergeable back once they are.
+        /// </summary>
+        internal Said Fork() => new(new HashSet<string>(_sentences, StringComparer.Ordinal), _place);
+
+        internal void Merge(Said other) => _sentences.UnionWith(other._sentences);
+    }
+
+    /// <summary>
+    /// The sentence a verdict ends in, or nothing where this response has already said it here.
     /// </summary>
     /// <remarks>
     /// Only a verdict carrying a class may drop its sentence, because the class is then what still
@@ -87,7 +141,7 @@ internal static class GameMcpTextPage
     /// budget tests that decide whether a block fits a cell must weigh the sentence they would
     /// print, and a measurement that recorded it would silence the first real occurrence.
     /// </remarks>
-    private static string Sentence(HashSet<string>? said, bool classified, string? reason)
+    private static string Sentence(Said? said, bool classified, string? reason)
     {
         if (reason is null || reason.Length == 0) return string.Empty;
         if (classified && said is not null && !said.Add(reason)) return string.Empty;
@@ -98,7 +152,7 @@ internal static class GameMcpTextPage
         JObject item,
         string indent,
         List<string> lines,
-        HashSet<string> said)
+        Said said)
     {
         item = Unwrap(item);
         var verdict = Verdict(item, said);
@@ -214,14 +268,19 @@ internal static class GameMcpTextPage
         IReadOnlyList<string>? declared,
         string indent,
         List<string> lines,
-        HashSet<string> said)
+        Said said)
     {
         switch (value)
         {
             case null:
             case JValue { Type: JTokenType.Null }:
                 return;
+            // Everything under a key is said under that key's name. Two sibling decisions are two
+            // places and each keeps its sentence; the rows of one array are one place and still say
+            // a shared sentence once.
             case JArray array:
+            {
+                var outer = said.Enter(name);
                 WriteArray(
                     name,
                     array,
@@ -230,18 +289,23 @@ internal static class GameMcpTextPage
                     indent,
                     lines,
                     said);
+                said.Leave(outer);
                 return;
+            }
             case JObject nested:
             {
                 nested = Unwrap(nested);
+                var outer = said.Enter(name);
                 var inline = TryInline(nested, InlineBudget, said);
                 if (inline is not null)
                 {
                     lines.Add(indent + name + ": " + inline);
+                    said.Leave(outer);
                     return;
                 }
                 lines.Add(indent + name + ":");
                 WriteObject(nested, indent + Indent, lines, said);
+                said.Leave(outer);
                 return;
             }
             default:
@@ -272,7 +336,7 @@ internal static class GameMcpTextPage
     /// same shape carries a yes, because a caller reading down a page should not have to switch
     /// between two grammars to learn whether it may act.
     /// </summary>
-    private static string? Verdict(JObject item, HashSet<string>? said)
+    private static string? Verdict(JObject item, Said? said)
     {
         var reason = (string?)item["reason"];
         var code = (string?)item["reasonCode"];
@@ -315,7 +379,7 @@ internal static class GameMcpTextPage
         IReadOnlyList<string>? declared,
         string indent,
         List<string> lines,
-        HashSet<string> said)
+        Said said)
     {
         if (array.Count == 0)
         {
@@ -563,7 +627,7 @@ internal static class GameMcpTextPage
     private static bool TryTable(
         JArray array,
         IReadOnlyList<string>? declared,
-        HashSet<string> said,
+        Said said,
         out List<string> columns,
         out List<KeyValuePair<string, string>> shared,
         out List<string> majorities,
@@ -591,7 +655,7 @@ internal static class GameMcpTextPage
         // is merged into the response's own once this really is a table and these lines are really
         // going out; a table that turns out not to be one renders as blocks below, which say the
         // same sentences for the first time there.
-        var tableSaid = new HashSet<string>(said, StringComparer.Ordinal);
+        var tableSaid = said.Fork();
         var uniform = new string?[columns.Count];
         for (var index = 0; index < columns.Count; index++)
         {
@@ -602,7 +666,9 @@ internal static class GameMcpTextPage
             if (constant)
             {
                 if (!SayableInOneCell(first!)) return false;
+                var outer = tableSaid.Enter(columns[index]);
                 uniform[index] = HeaderCell(first!, tableSaid);
+                tableSaid.Leave(outer);
                 continue;
             }
             for (var row = 0; row < array.Count; row++)
@@ -629,9 +695,14 @@ internal static class GameMcpTextPage
                     continue;
                 }
                 var cell = row[columns[column]];
-                line[column] = cell is null || cell.Type == JTokenType.Null
-                    ? GameMcpListColumns.Absent
-                    : Cell(cell, tableSaid);
+                if (cell is null || cell.Type == JTokenType.Null)
+                {
+                    line[column] = GameMcpListColumns.Absent;
+                    continue;
+                }
+                var outer = tableSaid.Enter(columns[column]);
+                line[column] = Cell(cell, tableSaid);
+                tableSaid.Leave(outer);
             }
             full.Add(line);
         }
@@ -655,7 +726,7 @@ internal static class GameMcpTextPage
         var header = new List<string>(kept.Count);
         for (var index = 0; index < kept.Count; index++) header.Add(columns[kept[index]]);
         columns = header;
-        said.UnionWith(tableSaid);
+        said.Merge(tableSaid);
         return true;
     }
 
@@ -894,7 +965,7 @@ internal static class GameMcpTextPage
     /// the inline budget, which exists to stop one row towering over its neighbours, does not apply
     /// to a value that makes all of them the same height.
     /// </summary>
-    private static string HeaderCell(JToken value, HashSet<string>? said)
+    private static string HeaderCell(JToken value, Said? said)
     {
         if (value is not JObject item) return Cell(value, said);
         var status = (string?)item["status"];
@@ -916,7 +987,7 @@ internal static class GameMcpTextPage
         return line.Append(Sentence(said, code is not null, reason)).ToString();
     }
 
-    private static string Cell(JToken value, HashSet<string>? said)
+    private static string Cell(JToken value, Said? said)
     {
         switch (value)
         {
@@ -942,7 +1013,7 @@ internal static class GameMcpTextPage
     /// say it, and one level of nesting is the limit: two levels of <c>key=value</c> inside one line
     /// stop being readable exactly where a caller most needs to read them.
     /// </summary>
-    private static string? TryInline(JObject item, int budget, HashSet<string>? said)
+    private static string? TryInline(JObject item, int budget, Said? said)
     {
         if (item.Count == 0) return GameMcpListColumns.Absent;
         if (IsIdentity(item)) return Identity(item);

@@ -604,13 +604,14 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// A canned refusal sentence is said once per response. The class rides every occurrence,
-    /// because that is what a caller branches on; the sentence explains the class, and a reader who
-    /// met it four lines up learns nothing from meeting it again. A live round paid for nine
-    /// distinct sentences fifty-nine times.
+    /// A canned refusal sentence is said once per decision, so a list repeating one refusal down
+    /// its rows says it on the first. The class rides every occurrence, because that is what a
+    /// caller branches on; the sentence explains the class, and a reader who met it four lines up
+    /// learns nothing from meeting it again. A live round paid for nine distinct sentences
+    /// fifty-nine times.
     /// </summary>
     [Fact]
-    public void A_canned_refusal_sentence_is_said_once_per_response()
+    public void A_canned_refusal_sentence_is_said_once_down_a_list_of_rows()
     {
         const string Locked = "The game keeps this locked, and says nothing about what would " +
             "unlock it.";
@@ -637,6 +638,33 @@ public sealed class GameMcpTextPageTests
                 "  uuid: 03f1de",
                 "  name: Psionic",
                 "  purchase: no (ERR_LOCKED)",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// Two different decisions that happen to share a reason code each keep their sentence.
+    /// </summary>
+    /// <remarks>
+    /// The saving is worth having down a list of rows, where the reader has the sentence four lines
+    /// up in the same shape. Across two named decisions it is a different trade: a post-reset answer
+    /// explained why <c>reset</c> was refused and then rendered <c>reroll</c> as a bare class, and
+    /// nothing on the page said the two nos were the same no — so the second read as a second,
+    /// unexplained wall. The sentence is said once where it is said, not once per response.
+    /// </remarks>
+    [Fact]
+    public void Two_decisions_sharing_a_reason_code_each_keep_their_sentence()
+    {
+        const string Locked = "A world cycle has to finish before either of these is offered.";
+        var page = Render(@"{'prestigeState':{
+            'reset':{'available':false,'reasonCode':'ERR_STATE','reason':'" + Locked + @"'},
+            'reroll':{'available':false,'reasonCode':'ERR_STATE','reason':'" + Locked + @"'}}}");
+
+        Assert.Equal(
+            new[]
+            {
+                "reset: no (ERR_STATE): " + Locked,
+                "reroll: no (ERR_STATE): " + Locked,
             },
             page.Split('\n'));
     }
