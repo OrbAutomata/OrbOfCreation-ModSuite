@@ -4,26 +4,40 @@ using System.Runtime.CompilerServices;
 namespace OrbModding.TestSupport;
 
 /// <summary>
-/// Reports what a repeated path allocates on the calling thread, measured after the runtime has
-/// finished compiling both the path and the loop that drives it.
+/// Reports what a repeated path allocates on the calling thread, and refuses to report a byte count
+/// it could not measure twice.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="GC.GetAllocatedBytesForCurrentThread"/> is exact, but a method that runs a hot loop is
-/// still being compiled while it runs: the runtime builds an on-stack-replacement body for the loop
-/// on this very thread and charges the bytes here. Bracketing the first run of a loop therefore
-/// measures the compiler rather than the code, which is why identical code has measured zero on one
-/// run and thousands of bytes on the next.
+/// <see cref="GC.GetAllocatedBytesForCurrentThread"/> is exact for what this thread allocates, but a
+/// window held open under load can gain bytes the measured code never allocated: while other threads
+/// allocate and the heap is still growing, the runtime charges this thread the unused remainder of
+/// its own allocation quantum. Every such charge observed on this runtime was positive, under 8,192
+/// bytes and a multiple of eight. The bytes were never the measured code's, so no warm-up removes
+/// them, and the number is not evidence about the code at all.
 /// </para>
 /// <para>
-/// Both passes go through the same <see cref="Drive"/> loop and the same delegate, so the unmeasured
-/// pass leaves nothing for the measured one to compile. <paramref name="prepare"/> re-arms state a
-/// pass consumes and runs outside the bracket, so what it costs is never attributed to the work.
+/// On-stack-replacement compilation is the obvious suspect for a loop-carrying <see cref="Drive"/>
+/// and it is not the cause: an OSR compile forced inside the bracket, confirmed by the JIT's own
+/// compilation summary, measured exactly zero, as did the first-call compile of a loop-free method.
+/// The JIT allocates from native arenas and never reaches this counter.
+/// </para>
+/// <para>
+/// The disturbance only ever adds, so a window measuring zero is proof the code allocated nothing,
+/// and it costs one window. Any other number is measured a second time and the two windows have to
+/// agree before either is reported; when they disagree the probe throws
+/// <see cref="AllocationProbeDisturbedWindowException"/>. The second window can only turn a byte
+/// count into a probe failure, never a failure into a pass, which is what separates a confirmation
+/// from measuring again until the answer is liked.
+/// </para>
+/// <para>
+/// Every pass goes through the same <see cref="Drive"/> loop and the same delegate, so the unmeasured
+/// pass leaves nothing for the measured one to compile. The preparation delegate re-arms state a pass
+/// consumes and runs outside the bracket, so what it costs is never attributed to the work.
 /// </para>
 /// <para>
 /// The probe returns bytes and nothing else. It holds no assertion, so it cannot soften one, and it
-/// runs the work a fixed number of times, so it cannot quietly measure again until it likes the
-/// answer.
+/// runs the work a fixed number of times per pass.
 /// </para>
 /// </remarks>
 internal static class AllocationProbe
@@ -41,6 +55,20 @@ internal static class AllocationProbe
         prepare?.Invoke();
         Drive(iterations, work);
 
+        var measured = MeasureWindow(iterations, work, prepare);
+        if (measured == 0) return 0;
+
+        var confirmation = MeasureWindow(iterations, work, prepare);
+        if (confirmation != measured)
+        {
+            throw new AllocationProbeDisturbedWindowException(measured, confirmation);
+        }
+
+        return measured;
+    }
+
+    private static long MeasureWindow(int iterations, Action work, Action? prepare)
+    {
         prepare?.Invoke();
         var before = GC.GetAllocatedBytesForCurrentThread();
         Drive(iterations, work);
@@ -48,8 +76,8 @@ internal static class AllocationProbe
     }
 
     /// <remarks>
-    /// Kept out of line so the warm-up pass and the measured pass share one compiled loop instead of
-    /// two inlined copies, each with a patchpoint of its own.
+    /// Kept out of line so every pass shares one compiled loop instead of inlined copies, each with a
+    /// patchpoint of its own.
     /// </remarks>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Drive(int iterations, Action work)
