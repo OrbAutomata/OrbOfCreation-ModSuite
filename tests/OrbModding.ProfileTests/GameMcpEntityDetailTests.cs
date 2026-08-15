@@ -411,7 +411,11 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // by the only label there is and does not dress that label up as a name.
         Assert.Null(knownResult["name"]);
         Assert.Equal("InventoryUnlocked", (string?)knownResult["internalName"]);
-        Assert.Equal("entity_catalog", (string?)knownResult["readWith"]!["tool"]);
+        // A prerequisite link is machinery entity_catalog does not list, so the block that used to
+        // point there points nowhere: a remedy naming a page that would come back empty is worse
+        // than none, and the identity it promised is on this block already.
+        Assert.Null(knownResult["readWith"]);
+        Assert.Contains("internal machinery", (string?)knownResult["reason"]);
         Assert.Null(knownResult["nameEvidence"]);
         Assert.Equal("ERR_NOT_FOUND", (string?)unknownResult["reasonCode"]);
         // The name is the missing thing, so a name search is the one remedy that cannot work.
@@ -427,6 +431,31 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // The known-but-unprojected block is the other case and keeps both: the catalog really does
         // hold that name, and the id really is one this build published.
         Assert.Equal(known.ToString("D").Substring(0, 6), (string?)knownResult["uuid"]);
+    }
+
+    /// <summary>
+    /// The other half of the same arm. An id whose type no category claims but the catalog still
+    /// lists keeps its pointer, because that page really does answer for it — the pointer follows
+    /// what the page carries rather than being dropped wherever a category is missing.
+    /// </summary>
+    [Fact]
+    public void AnUnprojectedIdTheCatalogStillListsKeepsItsPointerAtTheCatalog()
+    {
+        var listed = Guid.Parse("d76565b1-8e2b-44fe-9cf3-995d6f666305");
+        var world = new GameWorldState
+        {
+            CollectedAtEpoch = 1,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var result = GameMcpTestHarness.Detail(
+            GameMcpTestHarness.Context(world, generation: 912), listed);
+
+        Assert.Equal("ERR_NOT_FOUND", (string?)result["reasonCode"]);
+        Assert.Equal("BrewingStation", (string?)result["internalName"]);
+        Assert.Equal("entity_catalog", (string?)result["readWith"]!["tool"]);
+        Assert.Contains("its identity is all there is to read", (string?)result["reason"]);
+        Assert.DoesNotContain("internal machinery", (string?)result["reason"]);
     }
 
     /// <remarks>

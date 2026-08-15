@@ -163,6 +163,21 @@ internal static class GameMcpEntityExplainer
                     ["category"] = knownCategory,
                 });
         }
+        // A remedy names a verb that will answer. entity_catalog lists the assets a reader could act
+        // on knowing and leaves the build's internal machinery out, so for a machinery id the old
+        // pointer sent a caller to a page that would come back empty — and it was already the one
+        // pointer that bought nothing, because the identity it promised is on this block. The
+        // sentence says what is true of the id and stops.
+        if (!GameMcpEntityCatalogScope.Lists(identity.RuntimeType))
+        {
+            return Unresolved(
+                uuid,
+                "not_world_projected",
+                "this is loaded in this build, but it is internal machinery no published row " +
+                "covers and entity_catalog does not list; its identity is all there is to read, " +
+                "and it is here",
+                readWith: null);
+        }
         return Unresolved(
             uuid,
             "not_world_projected",
@@ -171,15 +186,18 @@ internal static class GameMcpEntityExplainer
             new JObject { ["tool"] = "entity_catalog" });
     }
 
-    private static JObject Unresolved(Guid uuid, string code, string reason, JObject readWith) =>
-        new()
+    private static JObject Unresolved(Guid uuid, string code, string reason, JObject? readWith)
+    {
+        var result = new JObject
         {
             ["status"] = "not_available",
             ["code"] = code,
             ["reason"] = reason,
             ["uuid"] = uuid.ToString("D"),
-            ["readWith"] = readWith,
         };
+        if (readWith is not null) result["readWith"] = readWith;
+        return result;
+    }
 
     /// <summary>
     /// The published list whose rows carry this UUID as a member rather than as their own identity.
