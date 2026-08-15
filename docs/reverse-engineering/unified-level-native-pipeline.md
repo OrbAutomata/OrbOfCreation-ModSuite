@@ -15,7 +15,7 @@ leaving a new button unsupported.
 
 The unified capability owns the four ordinary `UILevelableItem` list controls. `ResearchSO` is
 delegated to `game_research`, whose develop/queue/cap rules are not an ordinary single-click level.
-`SpellRecipeSO` is delegated to `game_spell_level`, whose mastery and level-all paths are likewise
+`SpellRecipeSO` is delegated to `game_spell_mastery`, whose mastery and level-all paths are likewise
 different player verbs.
 
 ## Visible callbacks and cost semantics
@@ -48,7 +48,7 @@ that can actually run. A purchasable decision includes its named native cost row
 spendable amounts; an unavailable decision carries its binding reason without a speculative
 ledger. Bonus controls are absent for time runes.
 
-`game_level(mode="purchase"|"bonus", uuid=..., amount=...)` resolves stable UUID plus the exact
+`game_level_up(mode="purchase"|"bonus", uuid=..., amount=...)` resolves stable UUID plus the exact
 published native type on Unity's main thread. `amount` is between 1 and 1000. Before each requested
 level the action re-reads `CanLevel`, the applicable native cost, resource visibility where needed,
 and `HasEnough`; it invokes the matching native callback only while those checks continue to pass

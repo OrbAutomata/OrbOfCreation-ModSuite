@@ -170,7 +170,7 @@ public sealed class GameMcpFrameRoutingContractTests
     {
         Assert.Equal(
             GameMcpFrameData.World,
-            GameMcpProtocolRouter.BuildOperation("game_tooltips", new JObject()).RequiredData);
+            GameMcpProtocolRouter.BuildOperation("game_screen_elements", new JObject()).RequiredData);
         Assert.Equal(
             GameMcpFrameData.None,
             GameMcpProtocolRouter.BuildOperation(
@@ -221,7 +221,7 @@ public sealed class GameMcpFrameRoutingContractTests
             ["uuid"] = Guid.NewGuid().ToString("D"),
             ["mode"] = "disable",
         },
-        "game_spell_level" => new JObject
+        "game_spell_mastery" => new JObject
         {
             ["uuid"] = Guid.NewGuid().ToString("D"),
             ["mode"] = "single",
@@ -253,7 +253,7 @@ public sealed class GameMcpFrameRoutingContractTests
             ["uuid"] = Guid.NewGuid().ToString("D"),
             ["mode"] = "select",
         },
-        "game_level" => new JObject
+        "game_level_up" => new JObject
         {
             ["uuid"] = Guid.NewGuid().ToString("D"),
             ["mode"] = "purchase",
@@ -307,7 +307,7 @@ public sealed class GameMcpFrameRoutingContractTests
             ["key"] = "Mode",
             ["serializedValue"] = "Disabled",
         },
-        "suite_automation" => new JObject
+        "suite_breakers" => new JObject
         {
             ["mode"] = "set",
             ["feature"] = "auto_cast",
@@ -322,7 +322,7 @@ public sealed class GameMcpFrameRoutingContractTests
             ["screen"] = "Magic",
         },
         "game_probe" => new JObject { ["probe"] = "runtime" },
-        "game_tooltips" => new JObject(),
+        "game_screen_elements" => new JObject(),
         "game_tooltip" => new JObject { ["path"] = "Canvas[0]/Button[0]" },
         _ => throw new InvalidOperationException("no operation fixture exists for " + tool),
     };

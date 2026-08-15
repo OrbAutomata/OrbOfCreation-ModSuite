@@ -21,7 +21,7 @@ public sealed class GameMcpGenericLevelTests
     public void Tool_exposes_one_subject_and_the_two_real_level_list_controls()
     {
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
-            candidate => (string?)candidate["name"] == "game_level");
+            candidate => (string?)candidate["name"] == "game_level_up");
 
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
         Assert.Equal(new[] { "mode", "uuid", "amount" },
@@ -29,13 +29,35 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal(new[] { "purchase", "bonus" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
         Assert.Null(tool["inputSchema"]!["properties"]!["expectedNativeType"]);
-        var operation = GameMcpProtocolRouter.BuildOperation("game_level", new JObject
+        var operation = GameMcpProtocolRouter.BuildOperation("game_level_up", new JObject
         {
             ["mode"] = "purchase",
             ["uuid"] = GlyphId.ToString("D"),
             ["amount"] = 2,
         });
         Assert.Equal(GameMcpOperationClass.Gameplay, operation.Classification);
+    }
+
+    /// <summary>
+    /// The summary named no kind at all — "Buy paid or bonus levels" — so a caller holding a glyph
+    /// id had to read four verbs' descriptions to learn which one owns it, and one round filed the
+    /// question unanswered rather than probe it. The four kinds are now in the line the tool list
+    /// prints, and the paid/bonus split moved into the description that already explains the modes.
+    /// </summary>
+    [Fact]
+    public void The_summary_names_the_four_kinds_this_verb_owns()
+    {
+        var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate["name"] == "game_level_up");
+
+        Assert.Equal(
+            "Level a glyph, artifact type, resource type or Time Rune",
+            (string?)tool["title"]);
+        Assert.Equal(
+            "Use the native level-list controls for those four kinds: purchase buys paid levels " +
+            "and bonus applies the free levels the game grants. Research and spells keep their " +
+            "dedicated tools.",
+            (string?)tool["description"]);
     }
 
     [Fact]

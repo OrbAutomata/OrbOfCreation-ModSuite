@@ -1632,7 +1632,7 @@ public sealed class Plugin : BaseUnityPlugin
                 execution = GameMcpToolExecution.Read(
                     ProjectGameMcpConfiguration(context, request.Mode == "describe"));
                 return true;
-            case "suite_automation" when request.Mode == "list":
+            case "suite_breakers" when request.Mode == "list":
                 execution = GameMcpToolExecution.Read(
                     ProjectGameMcpAutomationFeatures(context));
                 return true;
@@ -3823,9 +3823,9 @@ public sealed class Plugin : BaseUnityPlugin
                 "tooltip path '" + requestedPath + "' matched " +
                 matches.Length + " active current-screen elements" +
                 (matches.Length > 1
-                    ? "; prepend the pathRoot and pathPrefix game_tooltips returned with this row " +
+                    ? "; prepend the pathRoot and pathPrefix game_screen_elements returned with this row " +
                       "to name one"
-                    : "; re-read game_tooltips for this screen's current paths"));
+                    : "; re-read game_screen_elements for this screen's current paths"));
         }
         var hover = matches[0].Hover;
         if (hover.tooltipItem is null)

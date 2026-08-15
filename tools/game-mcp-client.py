@@ -290,7 +290,7 @@ def doctor(client: GameMcpClient, initialized: dict[str, Any]) -> dict[str, Any]
         "game_continue",
         "game_screen_catalog",
         "game_navigate",
-        "game_tooltips",
+        "game_screen_elements",
         "game_tooltip",
     }
     missing = sorted(required.difference(names))
@@ -433,7 +433,7 @@ def observe_and_spell_level(client: GameMcpClient, args: argparse.Namespace) -> 
     action = {"mode": "single", "uuid": args.uuid}
     return {
         "observed": row_result["row"],
-        "terminal": structured(client.call_tool("game_spell_level", action)),
+        "terminal": structured(client.call_tool("game_spell_mastery", action)),
     }
 
 
@@ -447,7 +447,7 @@ def measure_reads(client: GameMcpClient) -> dict[str, Any]:
         ("trace_health", {}),
         ("game_probe", {"probe": "runtime"}),
         ("game_screen_catalog", {}),
-        ("game_tooltips", {"offset": 0, "limit": 25}),
+        ("game_screen_elements", {"offset": 0, "limit": 25}),
     ]
     resource_list = structured(client.call_tool("world_list", {"category": "resources", "limit": 1}))
     rows = resource_list.get("rows")
@@ -474,7 +474,7 @@ def measure_reads(client: GameMcpClient) -> dict[str, Any]:
             }
         )
     tooltip_catalog = structured(
-        client.call_tool("game_tooltips", {"offset": 0, "limit": 1})
+        client.call_tool("game_screen_elements", {"offset": 0, "limit": 1})
     )
     tooltip_rows = tooltip_catalog.get("rows")
     if isinstance(tooltip_rows, list) and tooltip_rows and isinstance(tooltip_rows[0], dict):
@@ -521,7 +521,7 @@ def main() -> int:
             result = client.call_tool("game_continue", {})
         elif args.command == "tooltips":
             result = client.call_tool(
-                "game_tooltips",
+                "game_screen_elements",
                 {"offset": args.offset, "limit": args.limit},
             )
         elif args.command == "screenshot":

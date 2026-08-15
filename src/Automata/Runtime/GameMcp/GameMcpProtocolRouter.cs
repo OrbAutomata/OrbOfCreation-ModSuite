@@ -338,7 +338,7 @@ internal sealed class GameMcpProtocolRouter
                 builder.Mode = RequireOneOf(arguments, "mode", "enable", "disable");
                 builder.Uuid = RequireUuid(arguments, "uuid");
                 break;
-            case "game_spell_level":
+            case "game_spell_mastery":
                 builder.Mode = RequireOneOf(arguments, "mode", "single", "all");
                 builder.Uuid = builder.Mode == "single"
                     ? RequireUuid(arguments, "uuid")
@@ -434,7 +434,7 @@ internal sealed class GameMcpProtocolRouter
                         WorldRitualDecision.NativeMinimumStartingLevel,
                         int.MaxValue - 1) + 1);
                 break;
-            case "game_level":
+            case "game_level_up":
                 builder.Mode = RequireOneOf(arguments, "mode", "purchase", "bonus");
                 builder.Uuid = RequireUuid(arguments, "uuid");
                 builder.Amount = RequiredInt(arguments, "amount", 1, 1000);
@@ -491,7 +491,7 @@ internal sealed class GameMcpProtocolRouter
                 builder.Key = RequireString(arguments, "key");
                 builder.SerializedValue = RequireRawString(arguments, "serializedValue");
                 break;
-            case "suite_automation":
+            case "suite_breakers":
                 builder.Mode = RequireOneOf(arguments, "mode", "list", "set");
                 if (builder.Mode == "set")
                 {
@@ -512,7 +512,7 @@ internal sealed class GameMcpProtocolRouter
                     builder.Subtab = ParseNavigationSelector(RequireSelector(arguments, "subtab"));
                 builder.Uuid = OptionalUuid(arguments, "uuid");
                 break;
-            case "game_tooltips":
+            case "game_screen_elements":
                 builder.Offset = OptionalInt(arguments, "offset", 0);
                 builder.Limit = OptionalInt(
                     arguments, "limit", GameMcpWorldQuery.DefaultLimit);
@@ -558,10 +558,10 @@ internal sealed class GameMcpProtocolRouter
     {
         "game_purchase" or "game_cast" or "game_concept" or "game_agromancy" or
             "game_structure" or "game_return_to_menu" or
-            "game_spell_level" or "game_casting_dial" or "game_spell_loadout" or "game_targeting" or
+            "game_spell_mastery" or "game_casting_dial" or "game_spell_loadout" or "game_targeting" or
             "game_consumable" or "game_craft" or "game_discover" or "game_equipment" or
             "time_challenge" or "time_prestige" or "game_research" or "game_alchemy" or
-            "game_ritual" or "game_level" or "game_loadout" when
+            "game_ritual" or "game_level_up" or "game_loadout" when
                 !(name == "game_discover" && request.Mode == "preview") &&
                 !(name == "time_challenge" && request.Mode == "state") &&
                 !(name == "game_spell_loadout" && request.Mode is "preview" or "staged") =>
@@ -573,7 +573,7 @@ internal sealed class GameMcpProtocolRouter
         "game_screenshot" or "suite_config_set" or "suite_emergency_stop" or
             "suite_check_game_math" =>
             GameMcpOperationClass.SuiteAdministration,
-        "suite_automation" when request.Mode == "set" =>
+        "suite_breakers" when request.Mode == "set" =>
             GameMcpOperationClass.SuiteAdministration,
         _ => GameMcpOperationClass.ReadOnly,
     };
@@ -599,14 +599,14 @@ internal sealed class GameMcpProtocolRouter
         // The world too: what each category cost the pass that produced it travels on the
         // publication, and that is the half of trace health a session driving the game can act on.
         "trace_health" => GameMcpFrameData.TraceWriterHealth | GameMcpFrameData.World,
-        "suite_emergency_stop" or "suite_automation" => GameMcpFrameData.Configuration,
+        "suite_emergency_stop" or "suite_breakers" => GameMcpFrameData.Configuration,
         "game_spell_loadout" when request?.Mode == "staged" => GameMcpFrameData.None,
         "game_purchase" or "game_cast" or "game_concept" or "game_agromancy" or
             "game_structure" or "game_return_to_menu" or
-            "game_spell_level" or "game_casting_dial" or "game_spell_loadout" or "game_targeting" or
+            "game_spell_mastery" or "game_casting_dial" or "game_spell_loadout" or "game_targeting" or
             "game_consumable" or "game_craft" or "game_discover" or "game_equipment" or
             "time_challenge" or "time_prestige" or "game_research" or "game_alchemy" or
-            "game_ritual" or "game_level" or "game_loadout" =>
+            "game_ritual" or "game_level_up" or "game_loadout" =>
             GameMcpFrameData.World | GameMcpFrameData.Configuration,
         "game_screenshot" => GameMcpFrameData.Configuration,
         "game_navigate" or "game_continue" or "game_modal" =>
@@ -615,7 +615,7 @@ internal sealed class GameMcpProtocolRouter
         // cast verbs address it by, and the loadout is a published world fact. With no world there
         // is no join and those rows carry no slot; the catalog still answers, because what the
         // player can hover is a screen fact rather than a save one.
-        "game_tooltips" => GameMcpFrameData.World,
+        "game_screen_elements" => GameMcpFrameData.World,
         "game_probe" or
             "game_screen_catalog" or "game_tooltip" or
             "suite_check_game_math" =>
@@ -793,9 +793,12 @@ internal sealed class GameMcpProtocolRouter
                 readOnly: false,
                 idempotent: false),
             Tool(
-                "game_spell_level",
-                "Buy spell mastery",
-                "Apply one exact mastery purchase or the native level-all operation inline.",
+                "game_spell_mastery",
+                "Confirm a spell's mastery",
+                "Press Confirm Mastery for one spell, which raises the Mastery Lv its card shows. "
+                    + "mode=all presses the native Level All Spells sweep instead, which walks the "
+                    + "whole spellbook and skips only the spells it cannot afford. Spell Lv is the "
+                    + "global casting dial and is never moved here; that is game_casting_dial.",
                 ModeSchema(ActionSchema(
                     new JObject
                     {
@@ -986,9 +989,11 @@ internal sealed class GameMcpProtocolRouter
                 readOnly: false,
                 idempotent: false),
             Tool(
-                "game_level",
-                "Buy paid or bonus levels",
-                "Use the native level-list controls for artifact types, glyphs, resource types, and Time Runes. Research and spells keep their dedicated tools.",
+                "game_level_up",
+                "Level a glyph, artifact type, resource type or Time Rune",
+                "Use the native level-list controls for those four kinds: purchase buys paid levels "
+                    + "and bonus applies the free levels the game grants. Research and spells keep "
+                    + "their dedicated tools.",
                 ActionSchema(
                     new JObject
                     {
@@ -1097,18 +1102,19 @@ internal sealed class GameMcpProtocolRouter
                 readOnly: false,
                 idempotent: false),
             Tool(
-                "suite_automation",
-                "Read or flip the automation on/off buttons",
-                "The suite's seven green/gray automation buttons as booleans. list returns every "
-                    + "feature and whether it is on; set flips exactly one and returns its on "
-                    + "before/after. auto_buy buys affordable structures and upgrades. auto_cast "
+                "suite_breakers",
+                "Read or flip the suite's seven breakers",
+                "The suite's seven green/gray breakers as booleans, one per automation feature. "
+                    + "list returns every breaker and whether it is on; set flips exactly one and "
+                    + "returns its on before/after. auto_buy buys affordable structures and "
+                    + "upgrades. auto_cast "
                     + "fires equipped spells. auto_concept trains the lowest-mastery Scholar "
                     + "concepts. auto_harvest collects ready fruit and treasure trees. auto_items "
                     + "uses eligible Scrolls, Relics, and approved temporary items. auto_scribe "
                     + "writes Scrolls at the Scribe. mentor shares mastery experience with lagging "
                     + "spells, artifacts, and recipes. Everything else a feature can be configured "
-                    + "with — thresholds, roles, allowlists — is suite_config_set, and "
-                    + "suite_emergency_stop still overrides all seven at once.",
+                    + "with — thresholds, roles, allowlists — is suite_config_set, which no longer "
+                    + "flips these seven; suite_emergency_stop still overrides all seven at once.",
                 ModeSchema(ObjectSchema(
                     new JObject
                     {
@@ -1188,9 +1194,9 @@ internal sealed class GameMcpProtocolRouter
                 idempotent: false,
                 classification: "UI-only, no gameplay/save mutation"),
             Tool(
-                "game_tooltips",
-                "Discover visible tooltips",
-                "Page through the tooltip-bearing elements the player can hover right now — the current screen, its persistent chrome, and any open modal — by sibling-indexed native path. pathRoot, printed once at the top, is the ancestry every panel on this page hangs off. A row is one panel: its pathPrefix is what that panel adds to the root, and each element under it carries only what the root and the prefix do not already say, so any element's absolute path is those three joined with / in that order. When every element of a panel is the same component with a different index the panel says that component once as pathComponent and each element's path is only its own [index], which joins onto the component with no separator. A panel holding exactly one element has no ancestry of its own worth naming, so it says that element directly instead of a prefix over a list of one: a lone element carrying an id says only its own segment, because the id is the handle everything else on this surface uses, while a lone element with no id — or one whose segment another live element also answers to — keeps its whole path relative to the root, which is then its only handle. An element about a game entity carries that entity's id, including the casting-bar and passive buttons, whose id is the recipe asset the live instance was built from — the same asset whose name the button prints. An element about nothing but a control carries no id. A button showing a spell the loadout holds in exactly one slot also carries that slot, which is the number every cast verb takes; the bracket index in a path is a Unity sibling ordinal and is never it. offset, limit, total and nextOffset all count panels, and a factored screen is small enough that one call usually returns all of them. A closed modal stays instantiated and is not listed. nextOffset is present exactly when more rows remain, and is the offset to resume from.",
+                "game_screen_elements",
+                "List the screen's hoverable elements",
+                "Page through the elements the player can hover right now — the current screen, its persistent chrome, and any open modal — as an address book of paths, names, ids and slots, with none of their text: this is the only verb that mints a path, and game_tooltip reads what one of them says. Elements are addressed by sibling-indexed native path. pathRoot, printed once at the top, is the ancestry every panel on this page hangs off. A row is one panel: its pathPrefix is what that panel adds to the root, and each element under it carries only what the root and the prefix do not already say, so any element's absolute path is those three joined with / in that order. When every element of a panel is the same component with a different index the panel says that component once as pathComponent and each element's path is only its own [index], which joins onto the component with no separator. A panel holding exactly one element has no ancestry of its own worth naming, so it says that element directly instead of a prefix over a list of one: a lone element carrying an id says only its own segment, because the id is the handle everything else on this surface uses, while a lone element with no id — or one whose segment another live element also answers to — keeps its whole path relative to the root, which is then its only handle. An element about a game entity carries that entity's id, including the casting-bar and passive buttons, whose id is the recipe asset the live instance was built from — the same asset whose name the button prints. An element about nothing but a control carries no id. A button showing a spell the loadout holds in exactly one slot also carries that slot, which is the number every cast verb takes; the bracket index in a path is a Unity sibling ordinal and is never it. offset, limit, total and nextOffset all count panels, and a factored screen is small enough that one call usually returns all of them. A closed modal stays instantiated and is not listed. nextOffset is present exactly when more rows remain, and is the offset to resume from.",
                 ObjectSchema(new JObject
                 {
                     ["offset"] = IntegerSchema(0, int.MaxValue),
@@ -1198,14 +1204,17 @@ internal sealed class GameMcpProtocolRouter
                 })),
             Tool(
                 "game_tooltip",
-                "Read a visible tooltip",
-                "Read compact plain screen text for one path from the current game_tooltips catalog; paths are volatile screen-state handles, so refresh the catalog after navigation or mutation.",
+                "Read one element's tooltip text",
+                "Read the tooltip text the game prints for one element of the current game_screen_elements catalog, as compact plain screen text; paths are volatile screen-state handles, so refresh the catalog after navigation or mutation.",
                 ObjectSchema(
                     new JObject
                     {
                         ["path"] = StringSchema(
-                            "A path exactly as game_tooltips returned it. Any longer tail of the " +
-                            "same path is accepted, including the whole path."),
+                            "A path as game_screen_elements returned it, joined onto what its " +
+                            "row did not repeat: a row under a pathComponent is addressed by " +
+                            "that component and its own index joined, never by the bare index. " +
+                            "Any longer tail of the same path is accepted, including the whole " +
+                            "path."),
                     },
                     "path"),
                 readOnly: false,
@@ -1346,7 +1355,7 @@ internal sealed class GameMcpProtocolRouter
                     "field 'uuid' is not accepted for mode '" + mode + "'"));
         }
 
-        if (string.Equals(name, "suite_automation", StringComparison.Ordinal) &&
+        if (string.Equals(name, "suite_breakers", StringComparison.Ordinal) &&
             arguments["mode"]?.Type == JTokenType.String)
         {
             var mode = (string?)arguments["mode"];
@@ -1440,7 +1449,7 @@ internal sealed class GameMcpProtocolRouter
                     "field 'actionUuid' is accepted only for action modes"));
         }
 
-        if (string.Equals(name, "game_spell_level", StringComparison.Ordinal) &&
+        if (string.Equals(name, "game_spell_mastery", StringComparison.Ordinal) &&
             arguments["mode"]?.Type == JTokenType.String)
         {
             var mode = (string?)arguments["mode"];

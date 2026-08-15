@@ -502,7 +502,7 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.Contains("trace_health", names);
         Assert.Contains("game_screen_catalog", names);
         Assert.Contains("game_navigate", names);
-        Assert.Contains("game_tooltips", names);
+        Assert.Contains("game_screen_elements", names);
         Assert.Contains("game_tooltip", names);
         Assert.Contains("game_screenshot", names);
 
@@ -511,6 +511,61 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.DoesNotContain("explain_entity", names);
         Assert.Contains("world_get", names);
     }
+
+    /// <summary>
+    /// Four verbs were named for something other than the button they press. <c>game_level</c> read
+    /// as a noun as easily as a verb; <c>game_spell_level</c> was named for Spell Lv, a screen
+    /// number it never moves, while the number it does move is Mastery Lv; <c>game_tooltips</c>
+    /// differed from the reader beside it by one letter, and a round that could not tell them apart
+    /// never called the reader at all; and <c>suite_automation</c> named a family rather than the
+    /// seven switches it flips. Every old name is retired outright — no alias, no second door.
+    /// </summary>
+    [Fact]
+    public void Every_renamed_verb_answers_only_to_its_new_name_and_its_title_says_what_it_presses()
+    {
+        var tools = GameMcpAcceptanceFixture.Tools();
+        var names = GameMcpAcceptanceFixture.ToolNames();
+
+        Assert.DoesNotContain("game_level", names);
+        Assert.DoesNotContain("game_spell_level", names);
+        Assert.DoesNotContain("game_tooltips", names);
+        Assert.DoesNotContain("suite_automation", names);
+
+        Assert.Equal(
+            "Level a glyph, artifact type, resource type or Time Rune",
+            Title(tools, "game_level_up"));
+        Assert.Equal("Confirm a spell's mastery", Title(tools, "game_spell_mastery"));
+
+        // The pair teaches itself: one lists what is on the screen and mints the addresses, the
+        // other reads what one of them says.
+        Assert.Equal("List the screen's hoverable elements", Title(tools, "game_screen_elements"));
+        Assert.Equal("Read one element's tooltip text", Title(tools, "game_tooltip"));
+
+        Assert.Equal("Read or flip the suite's seven breakers", Title(tools, "suite_breakers"));
+    }
+
+    /// <summary>
+    /// The verb is named for Mastery Lv and says so: Spell Lv is the global casting dial, and a
+    /// description that let the two share a word is what put the wrong screen number on the tool.
+    /// </summary>
+    [Fact]
+    public void Confirming_mastery_names_the_button_it_presses_and_the_dial_it_does_not_move()
+    {
+        var description = Description(GameMcpAcceptanceFixture.Tools(), "game_spell_mastery");
+
+        Assert.Equal(
+            "Press Confirm Mastery for one spell, which raises the Mastery Lv its card shows. " +
+            "mode=all presses the native Level All Spells sweep instead, which walks the whole " +
+            "spellbook and skips only the spells it cannot afford. Spell Lv is the global casting " +
+            "dial and is never moved here; that is game_casting_dial.",
+            description);
+    }
+
+    private static string Title(IReadOnlyList<JObject> tools, string name) =>
+        (string)Assert.Single(tools, tool => (string?)tool["name"] == name)["title"]!;
+
+    private static string Description(IReadOnlyList<JObject> tools, string name) =>
+        (string)Assert.Single(tools, tool => (string?)tool["name"] == name)["description"]!;
 
     [Fact]
     public void ActionSchemasRequireIdentityButNotGenerationKindOrNativeType()
@@ -544,7 +599,7 @@ public sealed class GameMcpProtocolSurfaceTests
             "game_structure",
             "game_return_to_menu",
             "game_modal",
-            "game_spell_level", "game_casting_dial", "game_spell_loadout", "game_discover",
+            "game_spell_mastery", "game_casting_dial", "game_spell_loadout", "game_discover",
             "game_equipment", "game_alchemy", "game_ritual", "suite_config_set",
             "game_loadout",
             "suite_emergency_stop", "game_screenshot", "game_continue",
@@ -634,7 +689,7 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.Matches(
             @"(?m)^build: \S+ dll sha256 [0-9a-f]{12}$",
             compact);
-        // One name per feature across the two verbs that list features, so the seven suite_automation
+        // One name per feature across the two verbs that list features, so the seven suite_breakers
         // takes as arguments are recognisable inside the nine health reports on.
         Assert.Contains("features configuration_disabled: auto_buy", compact, StringComparison.Ordinal);
         Assert.Contains("features operational: mentor", compact, StringComparison.Ordinal);

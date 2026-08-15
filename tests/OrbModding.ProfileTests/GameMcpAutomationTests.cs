@@ -17,7 +17,7 @@ public sealed class GameMcpAutomationTests
     {
         var tool = Assert.Single(
             GameMcpAcceptanceFixture.Tools(),
-            candidate => (string?)candidate["name"] == "suite_automation");
+            candidate => (string?)candidate["name"] == "suite_breakers");
 
         Assert.Equal(
             new[] { "list", "set" },
@@ -36,13 +36,14 @@ public sealed class GameMcpAutomationTests
     {
         var description = (string)Assert.Single(
             GameMcpAcceptanceFixture.Tools(),
-            candidate => (string?)candidate["name"] == "suite_automation")["description"]!;
+            candidate => (string?)candidate["name"] == "suite_breakers")["description"]!;
 
         Assert.All(
             GameMcpAutomationFeatures.Names(),
             name => Assert.Contains(name, description, StringComparison.Ordinal));
         Assert.Contains("suite_emergency_stop", description, StringComparison.Ordinal);
         Assert.Contains("suite_config_set", description, StringComparison.Ordinal);
+        Assert.Contains("seven green/gray breakers", description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -165,7 +166,7 @@ public sealed class GameMcpAutomationTests
     public void Setting_one_feature_names_the_feature_and_the_flip_it_made()
     {
         var request = GameMcpProtocolRouter.BuildOperation(
-            "suite_automation",
+            "suite_breakers",
             new JObject
             {
                 ["mode"] = "set",
@@ -185,7 +186,7 @@ public sealed class GameMcpAutomationTests
     public void Listing_never_claims_mutation_ownership()
     {
         var request = GameMcpProtocolRouter.BuildOperation(
-            "suite_automation",
+            "suite_breakers",
             new JObject { ["mode"] = "list" });
 
         Assert.Equal(GameMcpOperationClass.ReadOnly, request.Classification);
@@ -197,15 +198,15 @@ public sealed class GameMcpAutomationTests
     {
         Assert.Throws<GameMcpInvalidParamsException>(() =>
             GameMcpProtocolRouter.BuildOperation(
-                "suite_automation",
+                "suite_breakers",
                 new JObject { ["mode"] = "set", ["on"] = true }));
         Assert.Throws<GameMcpInvalidParamsException>(() =>
             GameMcpProtocolRouter.BuildOperation(
-                "suite_automation",
+                "suite_breakers",
                 new JObject { ["mode"] = "set", ["feature"] = "auto_buy" }));
         Assert.Throws<GameMcpInvalidParamsException>(() =>
             GameMcpProtocolRouter.BuildOperation(
-                "suite_automation",
+                "suite_breakers",
                 new JObject { ["mode"] = "set", ["feature"] = "auto_everything", ["on"] = true }));
     }
 

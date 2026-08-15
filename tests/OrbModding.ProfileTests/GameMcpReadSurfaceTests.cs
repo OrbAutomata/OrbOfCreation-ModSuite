@@ -401,12 +401,12 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Contains("game_cast", toolNames);
         Assert.Contains("game_concept", toolNames);
         Assert.Contains("game_agromancy", toolNames);
-        Assert.Contains("game_spell_level", toolNames);
+        Assert.Contains("game_spell_mastery", toolNames);
         Assert.DoesNotContain("action_receipt", toolNames);
         Assert.Contains("game_screenshot", toolNames);
         Assert.Contains("game_screen_catalog", toolNames);
         Assert.Contains("game_navigate", toolNames);
-        Assert.Contains("game_tooltips", toolNames);
+        Assert.Contains("game_screen_elements", toolNames);
         Assert.Contains("game_tooltip", toolNames);
         Assert.Contains("game_probe", toolNames);
 

@@ -6,12 +6,12 @@ using OrbModding.Common.Runtime.Configuration;
 namespace OrbAutomata.GameMcp;
 
 /// <summary>
-/// The seven on/off automation buttons the player sees, and the exact BepInEx setting behind each.
+/// The seven breakers the player sees, and the exact BepInEx setting behind each.
 /// </summary>
 /// <remarks>
 /// Every one of these is an <c>{Disabled, Active}</c> enum with no third state, which is why the
 /// MCP surface for them is a boolean rather than a serialized-value write: the player concept is a
-/// button that is green or gray. Everything else a feature can be configured with — thresholds,
+/// breaker that is green or gray. Everything else a feature can be configured with — thresholds,
 /// roles, allowlists — stays on <c>suite_config_set</c>, which writes the same entries the same way.
 /// </remarks>
 internal sealed class GameMcpAutomationFeature

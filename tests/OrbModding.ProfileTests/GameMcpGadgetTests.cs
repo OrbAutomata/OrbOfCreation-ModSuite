@@ -100,7 +100,7 @@ public sealed class GameMcpGadgetTests
     [Fact]
     public void TooltipDiscoveryIsBoundedAndSelectorFree()
     {
-        var tooltips = Tool("game_tooltips");
+        var tooltips = Tool("game_screen_elements");
         Assert.Null(tooltips["inputSchema"]!["required"]);
         var properties = (JObject)tooltips["inputSchema"]!["properties"]!;
         Assert.Equal(
@@ -117,11 +117,48 @@ public sealed class GameMcpGadgetTests
         var description = (string?)tooltip["description"];
 
         Assert.Contains("plain screen text", description, System.StringComparison.Ordinal);
-        Assert.Contains("current game_tooltips catalog", description, System.StringComparison.Ordinal);
+        Assert.Contains("current game_screen_elements catalog", description, System.StringComparison.Ordinal);
         Assert.Equal(new[] { "path" },
             tooltip["inputSchema"]!["properties"]!.Children<JProperty>()
                 .Select(property => property.Name));
         Assert.Null(tooltip["inputSchema"]!["properties"]!["capture"]);
+    }
+
+    /// <summary>
+    /// The schema said "a path exactly as the catalog returned it", which cannot resolve for a row
+    /// under a <c>pathComponent</c>: that row's <c>path</c> is a bare <c>[3]</c>, and no live path
+    /// contains <c>/[</c>, so the requested string can never match. The maintained doc already
+    /// stated the join rule; the sentence a caller actually reads now states it too.
+    /// </summary>
+    [Fact]
+    public void TheAddressSchemaStatesTheJoinRuleAComponentRowIsAddressedBy()
+    {
+        Assert.Equal(
+            "A path as game_screen_elements returned it, joined onto what its row did not " +
+            "repeat: a row under a pathComponent is addressed by that component and its own " +
+            "index joined, never by the bare index. Any longer tail of the same path is " +
+            "accepted, including the whole path.",
+            (string?)Tool("game_tooltip")["inputSchema"]!["properties"]!["path"]!["description"]);
+    }
+
+    /// <summary>
+    /// The catalog is an address book and says so: it lists what can be hovered, it mints the only
+    /// address the reader takes, and it carries none of the text. A round that read the two names
+    /// as a plural and a singular of one idea called this one twice and the reader zero times.
+    /// </summary>
+    [Fact]
+    public void TheCatalogAdvertisesThatItMintsTheAddressesAndCarriesNoText()
+    {
+        var description = (string?)Tool("game_screen_elements")["description"];
+
+        Assert.Contains(
+            "an address book of paths, names, ids and slots, with none of their text",
+            description,
+            System.StringComparison.Ordinal);
+        Assert.Contains(
+            "this is the only verb that mints a path, and game_tooltip reads what one of them says",
+            description,
+            System.StringComparison.Ordinal);
     }
 
     [Fact]

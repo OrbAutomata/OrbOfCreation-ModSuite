@@ -92,7 +92,7 @@ what compiles. Verbs the shipped UI does not expose are absent even when a reach
 point exists: `game_concept` offers only `add` and `remove_owned`, because rotating one assignment
 out for another is automation policy rather than a control; `game_targeting` offers no cancel,
 because the visible Close button only dismisses presentation; there is no in-place augment editor
-and no way to select a discovery output by UUID; and `game_spell_level` requires
+and no way to select a discovery output by UUID; and `game_spell_mastery` requires
 `uuid` for `single` while rejecting it for `all`, because the native Level All button
 takes no target.
 
@@ -383,7 +383,7 @@ inventory questions about what this build loaded and what this world published.
 
 A tool's prefix names the screen it acts on: `world_` reads the published world, `suite_` acts on
 the mod suite, `time_` acts on the Time tab, and `game_` is everything else the player screen owns.
-The one exception is `game_level`, which buys levels from any ordinary level list — including Time
+The one exception is `game_level_up`, which buys levels from any ordinary level list — including Time
 Runes, which live on the Time tab — because a caller reaches it from the entity being levelled
 rather than from the screen it is drawn on.
 
@@ -404,7 +404,7 @@ rather than from the screen it is drawn on.
 | `game_concept` | Add or remove one owned concept assignment |
 | `game_agromancy` | Use the Agromancy screen's plot actions, harvest elements, and processing slots |
 | `game_structure` | Enable or disable one available attribute |
-| `game_spell_level` | Buy one spell mastery level or invoke level-all |
+| `game_spell_mastery` | Press Confirm Mastery for one spell, or the native Level All Spells sweep |
 | `game_casting_dial` | Set the global Output Level or Reserve Level shown on the Casting screen |
 | `game_spell_loadout` | Read staged Spellcraft glyphs; preview/add an explicit layout; or remove/move one equipped runtime spell |
 | `game_targeting` | Submit one exact eligible target or let the native request choose one |
@@ -414,12 +414,12 @@ rather than from the screen it is drawn on.
 | `game_equipment` | Equip/increase or unequip/decrease an explicit amount of one created artifact |
 | `game_alchemy` | Add or remove uses of one ordinary Alchemy recipe through its visible list |
 | `game_ritual` | Select a Ritual, set its starting level, activate or end its battle, or cancel its duration reward |
-| `game_level` | Buy an explicit amount of paid or bonus levels from an ordinary level-list control |
+| `game_level_up` | Level a glyph, artifact type, resource type or Time Rune by an explicit amount of paid or bonus levels |
 | `game_loadout` | Switch or edit the active player loadout, or save/load/clear an Equipment or Alchemy snapshot slot |
 | `time_challenge` | Read the challenge screen, or select, queue, abandon, or reroll its offers |
 | `time_prestige` | Confirm and perform the irreversible persistent reset |
 | `game_research` | Develop/queue levels (`amount` defaults to 1), pause, resume, cancel, or apply a free research bonus level |
-| `suite_automation` | Read the seven automation on/off buttons, or flip exactly one |
+| `suite_breakers` | Read the seven breakers, or flip exactly one |
 | `suite_config_set` | Commit one allowlisted setting through the configuration store |
 | `suite_emergency_stop` | Engage or resume the suite's shared emergency stop |
 | `game_screenshot` | Return the framebuffer as inline MCP image content |
@@ -428,8 +428,8 @@ rather than from the screen it is drawn on.
 | `game_modal` | Dismiss the one unambiguous open native modal through its close control |
 | `game_screen_catalog` | Read the live screens with the active screen and its subtab strips marked |
 | `game_navigate` | Navigate a catalog screen/subtab and optional published plot UUID; answers in words |
-| `game_tooltips` | Page through active tooltip-bearing elements by indexed path |
-| `game_tooltip` | Read compact plain screen text, including nested/computed and inspected content |
+| `game_screen_elements` | Page through the screen's hoverable elements by indexed path, minting the paths `game_tooltip` reads |
+| `game_tooltip` | Read one element's tooltip text as compact plain screen text, including nested/computed and inspected content |
 | `game_probe` | Read one fixed native fact not carried by `WORLD` |
 
 `world_overview` deliberately contains only facts a strategist normally wants before choosing a
@@ -506,7 +506,7 @@ partial row plus exact evidence there; unaffected rows in the same call remain o
 read returns them. The per-leaf evidence is the same bytes on every call for a given build and
 already lives on the owner's own `world_get`, as `implicatedSkippedRows`.
 
-Every paged read — `world_list`, `world_search`, `entity_catalog`, and `game_tooltips` — pages one
+Every paged read — `world_list`, `world_search`, `entity_catalog`, and `game_screen_elements` — pages one
 way. Each takes `offset` and `limit`
 and answers with `total` plus `rows`; an answered page always carries the collection, including
 when it is empty, and a refused one carries the refusal line alone.
@@ -518,7 +518,7 @@ of the three world-backed readers may be shorter than `limit` because the respon
 a short page with a `nextOffset` is that bound, and a short page without one is the end of the set.
 The bound is charged against each row as it is built, so a full page is a real 12 KB page rather
 than a fraction of one.
-`game_tooltips` pages the screen's live hover elements rather than a published table, so `limit` is
+`game_screen_elements` pages the screen's live hover elements rather than a published table, so `limit` is
 its only page bound — and it pages them by the panel they hang off, so its `total` is the screen's
 panel count and a row is one panel with its own elements under it. Factored that way a whole screen
 is small, so the usual call is one.
@@ -1009,7 +1009,7 @@ across the whole surface, reads and commits alike:
 | `structures` | `queuedLevels` | `StructureSO.GetQueuedQuantity()` | bought and still building; the badge shows these as `+N` |
 | `upgrades` | `level` | `UpgradeSO.GetPurchaseLevel()` | levels bought. The upgrade screen labels the first one `Lv 1`, so its badge reads one above this count |
 | `upgrades` | `queuedLevels` | `UpgradeSO.queuedLevels` | bought and still developing |
-| every `game_level` target (glyphs, equipment types, resource types, time runes) | `paidLevel` / `bonusLevel` / `totalLevel` | the levelable's total and its granted levels | bought, granted, and their sum. `bonusLevel` is absent where the surface has no bonus concept, exactly as its `bonus` block is |
+| every `game_level_up` target (glyphs, equipment types, resource types, time runes) | `paidLevel` / `bonusLevel` / `totalLevel` | the levelable's total and its granted levels | bought, granted, and their sum. `bonusLevel` is absent where the surface has no bonus concept, exactly as its `bonus` block is |
 | `glyphs` | `usableCount` | the glyph's maximum usages | the uses the glyph screen counts — what a level buys |
 | `research` | `purchasedLevel` / `baseLevel` / `bonusLevel` / `totalLevel` | the game's four distinct level accessors | completion is judged on `baseLevel`, never on `totalLevel` |
 | `research` | `queuedLevels` | the develop decision's queue count | levels waiting, including the one in flight |
@@ -1310,7 +1310,7 @@ the exact named native usage cost and current spendable amount as `costs`; a con
 levels for nothing publishes `costs: []` with `free: true` rather than dropping the array.
 Inapplicable or unavailable controls do not publish priced ledgers.
 
-Call `game_level(mode="purchase"|"bonus", uuid=..., amount=...)`. The tool derives the exact native type from
+Call `game_level_up(mode="purchase"|"bonus", uuid=..., amount=...)`. The tool derives the exact native type from
 the published category, repeats the visible button's live admission on Unity's main thread, and
 returns only the settled paid- or bonus-level change plus the resulting total. A glyph target also
 returns `usableCount {before, after}`, because that is the number the glyph screen draws — levels buy
@@ -1325,7 +1325,7 @@ other pricing rides the answer: what a level cost and what the next one asks are
 `world_get`, where the whole curve lives. The paid route checks the game's persistent usage cost but
 does not perform a one-time payment; the concrete native level callback applies its own
 usage/effects. Research development and spell mastery stay on `game_research` and
-`game_spell_level`, respectively.
+`game_spell_mastery`, respectively.
 
 ### Agromancy
 
@@ -2070,8 +2070,8 @@ each cost a line exactly when they read `unavailable`, followed by the reason th
 `agent settings:` costs a line exactly while the last load could not normalize the settings every
 documented verb assumes, and feature and service names are grouped by state and reason code. Seven identical NotReady features
 therefore occupy one line, not seven objects. Features and services are named by the id
-`suite_automation` takes as an argument — `auto_buy`, not `Auto Buy` — so the nine features health
-reports on are recognisably the seven that verb lists plus the two with no on/off button, rather
+`suite_breakers` takes as an argument — `auto_buy`, not `Auto Buy` — so the nine features health
+reports on are recognisably the seven that verb lists plus the two with no breaker of their own, rather
 than a second vocabulary counting a differently sized set. It returns no structured payload because none of those
 labels is a handle for another call. It reads those owners only for the requested operation and
 reports no MCP queue internals.
@@ -2288,7 +2288,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | Code | Meaning | Surfaces |
 | --- | --- | --- |
 | `already_maxed` | The target has no level, use, or purchase left to buy | `game_purchase`, read-side develop and purchase decisions |
-| `cannot_level` | The game's own per-type level gate is shut. `game_level` has no ceiling code because none of its four types has a ceiling: every one answers `ILevelable.CanLevel()` unconditionally true, so an exhausted level target is not a state this surface can reach | `game_level` |
+| `cannot_level` | The game's own per-type level gate is shut. `game_level_up` has no ceiling code because none of its four types has a ceiling: every one answers `ILevelable.CanLevel()` unconditionally true, so an exhausted level target is not a state this surface can reach | `game_level_up` |
 | `unaffordable` | One or more named resources fall short. The sentence names every one of them: `Needs <cost> <Resource> (have <held>); …` | every purchase-shaped mutation and every read-side cost decision |
 | `amount_unavailable` | The exact amount asked for exceeds what this call admits, and a smaller amount is what fixes it. Carries `maximumAmount` | `game_research develop`, `game_concept`, `game_equipment`, `game_alchemy`, `game_agromancy` |
 | `not_active` | The target has nothing active to remove, so no amount succeeds. It used to share `amount_unavailable` with three refusals a smaller amount does fix | `game_agromancy` removes |
@@ -2369,7 +2369,7 @@ A slot refusal states both sides — the slot asked for and the slots that exist
 so the retry needs no second read.
 
 A **schema bound** is the range the JSON input schema declares, and it is the suite's own policy on
-what is worth sending in one call — not a native fact. `game_purchase` and `game_level` cap `amount`
+what is worth sending in one call — not a native fact. `game_purchase` and `game_level_up` cap `amount`
 at 1,000, `game_concept` at 1,000,000, and `game_agromancy` at 10,000; the paging tools cap `limit`
 at 200; every other `amount`,
 `slot`, `offset`, and dial `value` — `game_alchemy` and `game_equipment` among them — declares no
@@ -2935,7 +2935,7 @@ so no caller has to parse a range back out of a sentence before it may write.
 as the in-game controls. BepInEx
 parse/domain validation runs before publication. Compatibility acknowledgements, shortcuts, and
 STOP are not generic writable settings. A commit returns `setting.value` as a `{before, after}`
-pair, the same shape `suite_automation` returns `on` in, because what a write changed is the pair
+pair, the same shape `suite_breakers` returns `on` in, because what a write changed is the pair
 and not the endpoint. A write refused for its domain returns the setting, the `requestedValue`, and
 the declared range as `minimum` and `maximum` read off the entry itself — BepInEx's own
 config-file wording is never spliced into the sentence, so the surface no longer says
@@ -2949,7 +2949,7 @@ reporting `on: yes` while buying nothing. This is why `suite_config_set` capture
 ceiling is the game's to say. Before a save is loaded no queue is published, no ceiling is known,
 and the write is admitted rather than refused against a capacity nobody read.
 
-`suite_automation` is the seven green/gray automation buttons as booleans, because that is what
+`suite_breakers` is the seven green/gray breakers as booleans, because that is what
 they are: `auto_buy`, `auto_cast`, `auto_concept`, `auto_harvest`, `auto_items`, `auto_scribe`, and
 `mentor` are each a `{Disabled, Active}` setting with no third state. `mode="list"` returns every
 feature as `{feature, name, on}` and takes nothing else; it also carries the two suite-wide
@@ -3032,7 +3032,7 @@ to touch one argues for it first. Each line names where the shape is specified.
     bound comes from*.
 20. `game_navigate` returning the arrived screen's nested strips, inner to outer and byte-identical
     on a repeat — *Screenshots and navigation*.
-21. `game_tooltips` scope discipline: a dismissed modal leaves the catalog, and `total` is stable
+21. `game_screen_elements` scope discipline: a dismissed modal leaves the catalog, and `total` is stable
     across repeated calls on an unchanged screen — *Tooltip explorer*.
 22. One price shape wherever a price is said — `cost`, `spendableAmount`, `affordable`, then the
     resource — whichever verb built the row and whichever member the producer read it from —
@@ -3182,7 +3182,7 @@ Main-scene navigation capture can be several megabytes even though it contains o
 
 The current game build makes the exploration loop feasible. Active `HoverTooltip` components carry
 an `ITooltipable`, core name/type/description methods, and a private authored `subTooltips` list;
-`OpenTooltip` renders the selected element. `game_tooltips` pages through current-screen elements by
+`OpenTooltip` renders the selected element. `game_screen_elements` pages through current-screen elements by
 a native hierarchy path whose sibling indices disambiguate repeated Unity clone rows. Its
 scope is what the player can hover: the screen's own controls, the persistent chrome that outlives
 navigation, and any open modal. Closing a modal only drops its canvas group's alpha and raycasts, so

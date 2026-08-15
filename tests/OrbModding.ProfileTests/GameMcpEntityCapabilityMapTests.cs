@@ -44,7 +44,7 @@ public sealed class GameMcpEntityCapabilityMapTests
             .Where(name =>
                 name.StartsWith("game_", StringComparison.Ordinal) ||
                 name.StartsWith("time_", StringComparison.Ordinal) ||
-                name is "suite_config_set" or "suite_automation" or "suite_emergency_stop")
+                name is "suite_config_set" or "suite_breakers" or "suite_emergency_stop")
             .ToArray();
         var mappings = commandTools
             .Select(name => (Name: name, Kind: GameMcpCommandKinds.FromToolName(name)))
@@ -60,7 +60,7 @@ public sealed class GameMcpEntityCapabilityMapTests
                 "game_concept",
                 "game_agromancy",
                 "game_structure",
-                "game_spell_level",
+                "game_spell_mastery",
                 "game_discover",
                 "game_equipment",
                 "time_challenge",
@@ -68,7 +68,7 @@ public sealed class GameMcpEntityCapabilityMapTests
                 "game_research",
                 "game_alchemy",
                 "game_ritual",
-                "game_level",
+                "game_level_up",
                 "game_loadout",
                 "game_casting_dial",
                 "game_spell_loadout",
