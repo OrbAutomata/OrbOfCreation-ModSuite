@@ -41,42 +41,77 @@ public sealed class NativeContractManifestTests
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>
+    /// Every name the binder selects a native member by, across both of its surfaces:
+    /// <c>NativeAccessorBinder</c>'s static form and <c>WorldMemberBinding</c>'s instance form.
+    /// </summary>
+    /// <remarks>
+    /// One list serves both receivers on purpose. The two lists that preceded it had drifted apart —
+    /// the static side knew <c>CollectionField</c>, <c>CollectionElementType</c>, and
+    /// <c>StaticList</c> while the instance side knew none of them — so the same selector was
+    /// audited or invisible depending only on which form a binder happened to write, and the newest
+    /// world binders write the instance form. <see cref="EveryStringTakingBinderMemberIsClassified"/>
+    /// holds this list to the binder's own API, so a selector added there cannot arrive unaudited.
+    /// </remarks>
+    private const string BinderSelectorNames =
+        "BoxedField|CallList|CallObject|CallReferenceGuid|CallWithConstructedLongArgument"
+            + "|CallWithObjectArgument|Call|CollectionCount|CollectionElementType|CollectionField"
+            + "|EnumField|Field|ModifierRecord|NestedCollectionCount|NestedEnumField|NestedField"
+            + "|ReferenceGuid|Reference|StaticDictionary|StaticField|StaticListAccessor|StaticList"
+            + "|StaticReference|Through";
+
+    /// <summary>An argument list read to its own closing parenthesis, however deeply nested.</summary>
+    /// <remarks>
+    /// The gap was <c>[^;]*?\)</c> — first parenthesis wins — so a selector composed out of another
+    /// selector ended at the inner call's close and the outer call's own literal fell outside the
+    /// match entirely. <c>Call&lt;Guid&gt;(CollectionElementType(spellType, "spellTypes"),
+    /// "GetGuid")</c> is the shape and <c>GetGuid</c> is the name that went missing. Counting
+    /// parentheses reads the whole call and nothing past it, so one call's literals still cannot
+    /// bleed into the next; string bodies are skipped so a parenthesis inside a literal cannot
+    /// unbalance the count.
+    /// </remarks>
+    private const string BalancedArgumentList =
+        "\\((?:[^()\"]|\"(?:\\\\.|[^\"\\\\])*\"|(?<open>\\()|(?<-open>\\)))*(?(open)(?!))\\)";
+
+    /// <summary>
     /// World-category binders name their native targets two ways that no reflection API appears in:
-    /// as arguments to the accessor-binding helper, and as the <c>TypeName</c> and
-    /// <c>RegistryMember</c> overrides that say which type and registry the category walks. Both are
-    /// declarations of a native contract, so both are audited as one — otherwise the manifest would
-    /// stop covering the collector precisely as the collector grew to span every category the game
-    /// ships.
+    /// as arguments to a binder selector, and as the <c>TypeName</c> and <c>RegistryMember</c>
+    /// overrides that say which type and registry the category walks. Both are declarations of a
+    /// native contract, so both are audited as one — otherwise the manifest would stop covering the
+    /// collector precisely as the collector grew to span every category the game ships.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The accessor-binding form is matched on the method name and its type argument rather than on
-    /// the receiver, so renaming the local a binder binds through cannot quietly drop a file out of
-    /// the audit.
+    /// A selector is recognised by its own name and its argument list rather than by its receiver,
+    /// so neither renaming the local a binder binds through nor moving the call between the static
+    /// and instance form can quietly drop it out of the audit. No file name appears here.
     /// </para>
     /// <para>
-    /// The enum-field forms need their own alternative because they carry no type argument to match
-    /// on: the binder returns the raw <c>int</c> rather than a mirrored enum, so <c>EnumField</c> and
-    /// <c>NestedEnumField</c> are called bare. Requiring a type argument silently excluded every
-    /// instance-form enum selector in the collector — ten files' worth, including every plot phase
-    /// and modifier type.
-    /// </para>
-    /// <para>
-    /// <c>ModifierRecord</c> is bare for the same reason and matters more than most: it is how every
-    /// derived number in the game is now read, so a pattern that did not list it would drop a
-    /// hundred and fifty native member names out of the audit in one commit.
+    /// The type argument is optional because most selectors carry none: a binder that returns a raw
+    /// <c>int</c>, <c>Guid</c>, <c>IList</c>, or boxed <c>object</c> is called bare. Requiring one
+    /// was what hid every instance-form <c>CollectionField</c>, <c>CollectionElementType</c>,
+    /// <c>Reference</c>, and <c>Through</c> the newer world binders write — a hundred and six native
+    /// member names, in the files that read the most of the game.
     /// </para>
     /// </remarks>
     private static readonly Regex BinderTargetPattern = new(
-        "(?:\\.(?:Call|Field|NestedField|EnumField)<[^<>()]*>\\s*\\([^;]*?\\)"
-            + "|\\.(?:EnumField|NestedEnumField)\\s*\\([^;]*?\\)"
-            + "|\\.(?:CollectionCount|NestedCollectionCount|ReferenceGuid|CallReferenceGuid"
-            + "|ModifierRecord)\\s*\\([^;]*?\\)"
-            + "|NativeAccessorBinder\\.(?:Call|CallWithConstructedLongArgument|Field|NestedField|EnumField|NestedEnumField|StaticList"
-            + "|StaticDictionary|CollectionCount|CollectionField|CollectionElementType|NestedCollectionCount|ReferenceGuid|ModifierRecord)"
-            + "(?:<[^<>()]*>)?\\s*\\([^;]*?\\)"
+        "(?:\\.(?:" + BinderSelectorNames + ")(?![A-Za-z0-9_])(?:<[^<>()]*>)?\\s*"
+            + BalancedArgumentList
             + "|(?:TypeName|RegistryMember)\\s*=>\\s*\"[^\"\\r\\n]*\")",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Binder members that take a string and select nothing with it.
+    /// </summary>
+    /// <remarks>
+    /// Each of these strings is a diagnostic label. <c>Elements</c> is handed an already-resolved
+    /// element <see cref="Type"/> and a name it only ever prints in a failure message, so
+    /// <c>Elements(infoType, "PlotNodePhaseInfo")</c> reflects on nothing — auditing it would make
+    /// the manifest answer for five names the suite never selects. The binding constructor's
+    /// <c>typeName</c> and the failure list's <c>Add</c> are the same thing: text that says which
+    /// member did not bind.
+    /// </remarks>
+    private static readonly string[] BinderDiagnosticNames =
+        { "Add", "Elements", "WorldMemberBinding" };
 
     /// <summary>The game type each category walks, as its binder declares it.</summary>
     /// <summary>The namespace a source file declares, which is how a capture root finds it.</summary>
@@ -408,24 +443,10 @@ public sealed class NativeContractManifestTests
             StringComparer.OrdinalIgnoreCase);
         Assert.All(exemptions.Values, exemption => Assert.False(string.IsNullOrWhiteSpace(exemption.Reason)));
 
-        // A mirrored contract declares a member the suite deliberately does not touch, so it must
-        // not widen what the source audit accepts. Counting it would let a literal selector pass
-        // against a row that says nobody selects anything — the audit would answer for a
-        // dependency of the wrong kind.
-        var declaredTargets = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var contract in manifest.Contracts.Where(IsTouched))
-        {
-            declaredTargets.Add(contract.Type);
-            if (contract.Member is not null)
-            {
-                declaredTargets.Add(contract.Member);
-            }
-
-            foreach (var token in contract.SourceTokens)
-            {
-                declaredTargets.Add(token);
-            }
-        }
+        var declaredTargets = DeclaredTargets(manifest);
+        var owed = UndeclaredBinderLiterals.ToHashSet(StringComparer.Ordinal);
+        Assert.Equal(UndeclaredBinderLiterals.Length, owed.Count);
+        var owedSeen = new HashSet<string>(StringComparer.Ordinal);
 
         var failures = new List<string>();
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -452,12 +473,15 @@ public sealed class NativeContractManifestTests
                     continue;
                 }
 
-                foreach (var candidate in FindLiteralTargets(source).Distinct(StringComparer.Ordinal))
+                foreach (var candidate in UndeclaredTargets(source, declaredTargets))
                 {
-                    if (!declaredTargets.Contains(candidate))
+                    if (owed.Contains(candidate))
                     {
-                        failures.Add($"{relativePath}: native target literal '{candidate}' is not declared by any manifest contract");
+                        owedSeen.Add(candidate);
+                        continue;
                     }
+
+                    failures.Add($"{relativePath}: native target literal '{candidate}' is not declared by any manifest contract");
                 }
             }
         }
@@ -470,7 +494,56 @@ public sealed class NativeContractManifestTests
         }
 
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+
+        // Reconciled as an exact set, so a literal whose contract has landed has to leave the list
+        // rather than sit there forgiving nothing.
+        Assert.Equal(
+            UndeclaredBinderLiterals.OrderBy(name => name, StringComparer.Ordinal),
+            owedSeen.OrderBy(name => name, StringComparer.Ordinal));
     }
+
+    /// <summary>
+    /// Every native name a manifest contract answers for, from the contracts that touch it.
+    /// </summary>
+    /// <remarks>
+    /// A mirrored contract declares a member the suite deliberately does not touch, so it must not
+    /// widen what the source audit accepts. Counting it would let a literal selector pass against a
+    /// row that says nobody selects anything — the audit would answer for a dependency of the wrong
+    /// kind.
+    /// </remarks>
+    private static HashSet<string> DeclaredTargets(NativeContractManifest manifest)
+    {
+        var declaredTargets = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var contract in manifest.Contracts.Where(IsTouched))
+        {
+            declaredTargets.Add(contract.Type);
+            if (contract.Member is not null)
+            {
+                declaredTargets.Add(contract.Member);
+            }
+
+            foreach (var token in contract.SourceTokens)
+            {
+                declaredTargets.Add(token);
+            }
+        }
+
+        return declaredTargets;
+    }
+
+    /// <summary>
+    /// The native names one source file selects that no contract answers for.
+    /// </summary>
+    /// <remarks>
+    /// The whole failure mode the source audit exists for, in one expression, so that the walk over
+    /// the repository and the shape-by-shape proof in
+    /// <see cref="AnUndeclaredLiteralOfEveryBinderShapeIsCaught"/> exercise the same mechanism rather
+    /// than two that can drift.
+    /// </remarks>
+    private static IEnumerable<string> UndeclaredTargets(string source, ISet<string> declaredTargets) =>
+        FindLiteralTargets(source)
+            .Distinct(StringComparer.Ordinal)
+            .Where(candidate => !declaredTargets.Contains(candidate));
 
     /// <summary>
     /// A <c>mirrored</c> contract names a member no audited source selects.
@@ -903,16 +976,50 @@ public sealed class NativeContractManifestTests
     /// a name that stops being selected dual-place fails until it is deleted from here. A list that
     /// only forgives is a list that grows quietly.
     /// </para>
+    /// <para>
+    /// It went from twenty-five names to forty-seven when <see cref="BinderTargetPattern"/> learned
+    /// the instance-form selectors, and not one of the twenty-two is new behaviour: every one is a
+    /// world binder reading a member the manifest files under a transaction, and every one had been
+    /// doing so unseen. The census improving is what growth of that kind means.
+    /// </para>
     /// </remarks>
     private static readonly string[] CaptureRootActionSelectors =
     {
         "AllResourcesVisible", "CanAddInstance", "CanApplyBonusLevels", "CanCastASpell",
-        "CanLevel", "Check", "GetFreeBonusLevelsLeft", "GetFreeLevels", "GetFreeUsageSlots",
-        "GetMaxLevel", "GetMaxSelectedLevel", "GetMaxTypeSlots", "GetMaximumInstances",
-        "GetMinSelectedLevel", "GetQueuedLevels", "GetRemainingFreeUsageSlots",
-        "GetRemainingMaxUsageSlots", "GetTooltipable", "HasMaxLevel", "IsActive", "IsAtMax",
-        "IsLoaded", "MaximumCostTimes", "MaximumNumberInstances", "ingredientLists",
+        "CanLevel", "Check", "GetActionInstances", "GetActivationCost", "GetAll",
+        "GetDevelopmentCost", "GetElements", "GetFreeBonusLevelsLeft", "GetFreeLevelCost",
+        "GetFreeLevels", "GetFreeUsageSlots", "GetIngredient", "GetLevelCost", "GetMaxLevel",
+        "GetMaxSelectedLevel", "GetMaxTypeSlots", "GetMaximumInstances", "GetMinSelectedLevel",
+        "GetOutput", "GetOutputList", "GetQueuedLevels", "GetRemainingFreeUsageSlots",
+        "GetRemainingMaxUsageSlots", "GetStacks", "GetTooltipable", "GetTypesEquipped",
+        "GetUsageCost", "HasMaxLevel", "IsActive", "IsAtMax", "IsChallengeRestricted", "IsLoaded",
+        "IsOutputVisible", "MaximumCostTimes", "MaximumNumberInstances", "activeAlchemy",
+        "activeChallenges", "challengeRerollsLeft", "equippedEquipment", "hasCompleteWorldCycle",
+        "hasFetchedChallenges", "ingredientLists", "preferredChallenges",
     };
+
+    /// <summary>
+    /// Native members a binder selects that no contract declares.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Both entries are defects.</b> Each is a live field selector bound once and read on every
+    /// collection pass, whose shape nothing in the manifest answers for — so a game build that
+    /// renames or retypes it is found by a null accessor at runtime instead of by this audit, which
+    /// is precisely the day the audit exists for.
+    /// </para>
+    /// <para>
+    /// Both surfaced the moment <see cref="BinderTargetPattern"/> learned the <c>Reference</c>
+    /// shape, and both sit beside a declared sibling on the same reader:
+    /// <c>PersistentResetManager.challengeRerollsMax</c> next to <c>challengeRerollsLeft</c>, and
+    /// <c>AlchemyManager.allAlchemy</c> next to <c>activeAlchemy</c>. They are listed here rather
+    /// than declared because a contract row is a claim about the shipped assembly's member shape
+    /// that only an audit against the game may make. Each entry leaves when its row lands, and the
+    /// exact-set reconciliation is what fails the day a third one appears.
+    /// </para>
+    /// </remarks>
+    private static readonly string[] UndeclaredBinderLiterals =
+        { "allAlchemy", "challengeRerollsMax" };
 
     /// <summary>
     /// A row the suite never touches sits at <c>mirrored</c>, and only such a row does.
@@ -1151,6 +1258,175 @@ public sealed class NativeContractManifestTests
         Assert.Equal(
             CaptureRootActionSelectors.OrderBy(name => name, StringComparer.Ordinal),
             selectedDualPlace.OrderBy(name => name, StringComparer.Ordinal));
+    }
+
+    /// <summary>A binder member declared with a string parameter, however the signature wraps.</summary>
+    private static readonly Regex BinderStringMemberPattern = new(
+        "\\binternal\\s+(?:static\\s+)?[^;(){}\\r\\n]*?\\b(?<name>[A-Za-z_][A-Za-z0-9_]*)"
+            + "(?:<[^<>()]*>)?\\s*\\((?<parameters>[^()]*)\\)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex StringParameterPattern = new(
+        "\\bstring\\??\\s+[A-Za-z_]",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Every binder member that takes a string is either a selector the audit reads or a diagnostic
+    /// the audit knows to ignore.
+    /// </summary>
+    /// <remarks>
+    /// This is the check that would have caught the gap it was written for. The auditor knew five
+    /// call shapes while the binder offered twenty-four selectors, and nothing said so: an instance
+    /// <c>CollectionField</c> or <c>Through</c> simply produced no literal, and no literal reads
+    /// exactly like nothing to declare. Reading the binder's own signatures rather than a list
+    /// somebody maintains means the next selector added to it fails here until the pattern learns
+    /// it — and a name that is deliberately not a selector has to say why, in
+    /// <see cref="BinderDiagnosticNames"/>, rather than being quietly absent.
+    /// </remarks>
+    [Fact]
+    public void EveryStringTakingBinderMemberIsClassified()
+    {
+        var repositoryRoot = RepositoryPaths.RequireRoot();
+        var binderSources = new[]
+        {
+            Path.Combine(repositoryRoot, "src", "Common", "Runtime", "World", "NativeAccessorBinder.cs"),
+            Path.Combine(repositoryRoot, "src", "Common", "Runtime", "World", "WorldCategoryMachinery.cs"),
+        };
+
+        var offered = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var path in binderSources)
+        {
+            Assert.True(File.Exists(path), $"Binder source not found, so nothing was checked: {path}");
+            foreach (Match match in BinderStringMemberPattern.Matches(File.ReadAllText(path)))
+            {
+                if (StringParameterPattern.IsMatch(match.Groups["parameters"].Value))
+                {
+                    offered.Add(match.Groups["name"].Value);
+                }
+            }
+        }
+
+        var classified = BinderSelectorNames.Split('|').Concat(BinderDiagnosticNames);
+        Assert.Equal(
+            classified.OrderBy(name => name, StringComparer.Ordinal),
+            offered.OrderBy(name => name, StringComparer.Ordinal));
+
+        // The proof table below answers for the pattern one selector at a time, so a selector the
+        // pattern names but nothing proves is a selector nobody has shown the audit catches.
+        Assert.Equal(
+            BinderSelectorNames.Split('|').OrderBy(name => name, StringComparer.Ordinal),
+            BinderShapes
+                .Select(shape => shape.Member)
+                .Where(member => member.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(name => name, StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// Every binder call shape in use, the source it is written as, and the native names the audit
+    /// must take out of it.
+    /// </summary>
+    /// <remarks>
+    /// The census of what the binders actually write, kept as data the auditor is run against rather
+    /// than as a note somebody took once. Each row's literals are deliberate nonsense, so a row
+    /// passing means that shape carried the name out — not that some other pattern in
+    /// <see cref="FindLiteralTargets"/> happened to know it. The form and member columns are what
+    /// name the failing case when one of the forty-three fails.
+    /// </remarks>
+    private static readonly (string Form, string Member, string Source, string[] Expected)[] BinderShapes =
+    {
+        ("instance", "Call", "_id = bind.Call<Guid>(\"ZzProbeCall\");", new[] { "ZzProbeCall" }),
+        ("instance", "CallList", "_rows = bind.CallList(\"ZzProbeCall\", tupleType);", new[] { "ZzProbeCall" }),
+        ("instance", "CallObject", "_cost = bind.CallObject(\"ZzProbeCall\", costType);", new[] { "ZzProbeCall" }),
+        ("instance", "CallObject", "_total = bind.CallObject<BigDouble, BigDouble>(\"ZzProbeCall\", costType);", new[] { "ZzProbeCall" }),
+        ("instance", "CallReferenceGuid", "_owner = bind.CallReferenceGuid(\"ZzProbeCall\");", new[] { "ZzProbeCall" }),
+        ("instance", "CallWithObjectArgument", "_amount = bind.CallWithObjectArgument<BigDouble>(\"ZzProbeCall\", recipeType);", new[] { "ZzProbeCall" }),
+        ("instance", "CollectionCount", "_count = bind.CollectionCount(\"zzProbeField\");", new[] { "zzProbeField" }),
+        ("instance", "CollectionElementType", "_element = bind.CollectionElementType(\"zzProbeField\");", new[] { "zzProbeField" }),
+        ("instance", "CollectionField", "_values = bind.CollectionField(\"zzProbeField\");", new[] { "zzProbeField" }),
+        ("instance", "EnumField", "_kind = bind.EnumField(\"zzProbeField\");", new[] { "zzProbeField" }),
+        ("instance", "Field", "_level = bind.Field<int>(\"zzProbeField\");", new[] { "zzProbeField" }),
+        ("instance", "ModifierRecord", "_power = bind.ModifierRecord(\"zzProbeField\");", new[] { "zzProbeField" }),
+        ("instance", "NestedCollectionCount", "_count = bind.NestedCollectionCount(\"zzProbeField\", \"zzProbeNested\");", new[] { "zzProbeField", "zzProbeNested" }),
+        ("instance", "NestedEnumField", "_kind = bind.NestedEnumField(\"zzProbeField\", \"zzProbeNested\");", new[] { "zzProbeField", "zzProbeNested" }),
+        ("instance", "NestedField", "_adjust = bind.NestedField<BigDouble>(\"zzProbeField\", \"zzProbeNested\");", new[] { "zzProbeField", "zzProbeNested" }),
+        ("instance", "Reference", "_cost = bind.Reference(\"zzProbeField\", costType);", new[] { "zzProbeField" }),
+        ("instance", "ReferenceGuid", "_maximumId = bind.ReferenceGuid(\"zzProbeField\");", new[] { "zzProbeField" }),
+        ("instance", "Through", "_inner = bind.Through(\"zzProbeField\");", new[] { "zzProbeField" }),
+
+        ("static", "BoxedField", "_penalty = NativeAccessorBinder.BoxedField(recipeType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "Call", "_id = NativeAccessorBinder.Call<Guid>(recipeType, \"ZzProbeCall\");", new[] { "ZzProbeCall" }),
+        ("static", "CallList", "_all = NativeAccessorBinder.CallList(listType, \"ZzProbeCall\", stationType);", new[] { "ZzProbeCall" }),
+        ("static", "CallObject", "_cost = NativeAccessorBinder.CallObject(recipeType, \"ZzProbeCall\", costType);", new[] { "ZzProbeCall" }),
+        ("static", "CallObject", "_slot = NativeAccessorBinder.CallObject<int>(stationType, \"ZzProbeCall\", elementType);", new[] { "ZzProbeCall" }),
+        ("static", "CallReferenceGuid", "_coreId = NativeAccessorBinder.CallReferenceGuid(recipeType, \"ZzProbeCall\");", new[] { "ZzProbeCall" }),
+        ("static", "CallWithConstructedLongArgument", "_check = NativeAccessorBinder.CallWithConstructedLongArgument<bool>(containerType, \"ZzProbeCall\", \"ZzProbeArgument\");", new[] { "ZzProbeArgument", "ZzProbeCall" }),
+        ("static", "CallWithObjectArgument", "_restricted = NativeAccessorBinder.CallWithObjectArgument<bool>(listType, \"ZzProbeCall\", challengeType);", new[] { "ZzProbeCall" }),
+        ("static", "CollectionCount", "_count = NativeAccessorBinder.CollectionCount(recordType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "CollectionElementType", "_element = NativeAccessorBinder.CollectionElementType(tooltipType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "CollectionField", "_values = NativeAccessorBinder.CollectionField(tooltipType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "EnumField", "_kind = NativeAccessorBinder.EnumField(modifierType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "Field", "_available = NativeAccessorBinder.Field<bool>(prerequisitesType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "NestedEnumField", "_kind = NativeAccessorBinder.NestedEnumField(thresholdType, \"zzProbeField\", \"zzProbeNested\");", new[] { "zzProbeField", "zzProbeNested" }),
+        ("static", "NestedField", "_adjust = NativeAccessorBinder.NestedField<BigDouble>(thresholdType, \"zzProbeField\", \"zzProbeNested\");", new[] { "zzProbeField", "zzProbeNested" }),
+        ("static", "Reference", "_recipes = NativeAccessorBinder.Reference(managerType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "ReferenceGuid", "_resourceId = NativeAccessorBinder.ReferenceGuid(entryType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "StaticDictionary", "_lookup = NativeAccessorBinder.StaticDictionary(registryType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "StaticField", "_frame = NativeAccessorBinder.StaticField<long>(managerType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "StaticList", "_registry = NativeAccessorBinder.StaticList(challengeType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "StaticListAccessor", "_registry = NativeAccessorBinder.StaticListAccessor(challengeType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "StaticReference", "_manager = NativeAccessorBinder.StaticReference(managerType, \"zzProbeField\");", new[] { "zzProbeField" }),
+
+        // A selector built out of another selector: the outer call's own name sits past the inner
+        // call's closing parenthesis, which is exactly where the audit used to stop reading.
+        ("composed", "Call", "_id = NativeAccessorBinder.Call<Guid>(NativeAccessorBinder.CollectionElementType(spellType, \"zzProbeField\"), \"ZzProbeCall\");", new[] { "ZzProbeCall", "zzProbeField" }),
+
+        ("override", "", "internal override string TypeName => \"ZzProbeType\";", new[] { "ZzProbeType" }),
+        ("override", "", "internal override string RegistryMember => \"ZzProbeRegistry\";", new[] { "ZzProbeRegistry" }),
+    };
+
+    public static TheoryData<string, string, string, string[]> BinderLiteralShapes
+    {
+        get
+        {
+            var data = new TheoryData<string, string, string, string[]>();
+            foreach (var shape in BinderShapes)
+            {
+                data.Add(shape.Form, shape.Member, shape.Source, shape.Expected);
+            }
+
+            return data;
+        }
+    }
+
+    /// <summary>
+    /// A native name of any shape the binders write, with no contract behind it, is caught.
+    /// </summary>
+    /// <remarks>
+    /// The audit's own failure mode, proved one shape at a time. Reconciling the manifest against
+    /// what the binders name is worth exactly as much as the pattern that reads them, and a pattern
+    /// that misses a shape reports a clean sweep of the calls it cannot see — which is why this is a
+    /// proof per shape rather than one assertion about the repository.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(BinderLiteralShapes))]
+    public void AnUndeclaredLiteralOfEveryBinderShapeIsCaught(
+        string form,
+        string member,
+        string source,
+        string[] expected)
+    {
+        var declaredTargets = DeclaredTargets(NativeContractManifest.Load());
+        Assert.All(expected, probe => Assert.DoesNotContain(probe, declaredTargets));
+
+        var caught = UndeclaredTargets(source, declaredTargets)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+        Assert.True(
+            caught.SequenceEqual(expected.OrderBy(name => name, StringComparer.Ordinal), StringComparer.Ordinal),
+            $"{form} {member}".Trim()
+                + $": the audit should report [{string.Join(", ", expected)}] out of this shape "
+                + $"and reported [{string.Join(", ", caught)}]");
     }
 
     private static IEnumerable<string> FindLiteralTargets(string source)
