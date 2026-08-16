@@ -102,38 +102,36 @@ internal static class GameMcpEntityCatalog
     }
 
     /// <summary>
-    /// How many loaded ids the catalog's page would return for this query, and how many of the
-    /// answers it withholds are machinery.
+    /// Whether any id this build loaded and the published world carries no row for answers to this
+    /// query — that is, whether the answer is the build's own internal machinery.
     /// </summary>
     /// <remarks>
-    /// The one moment the second finder is worth naming is the moment the first one comes back
-    /// empty: "I searched for that word and got nothing" is exactly when "is it in the game at
-    /// all?" becomes the next question, and until this counted, nothing on the surface said the
-    /// question had an answer. It walks the same rows, the same match rule and the same listing
-    /// verdict the catalog's own page does, so the number it reports is the number that page will
-    /// return. <paramref name="internalOnly"/> is the rest of the honest answer: "nothing this build
-    /// loaded is called that" and "the only things called that are machinery" are different answers,
-    /// and one count could say only the first. An id the world does publish is neither, because the
-    /// page that raised the question is the one that already looked for it.
+    /// This is asked at one moment: when a search of the published world comes back empty. "I
+    /// searched for that word and got nothing" is exactly when "is it in the game at all?" becomes
+    /// the next question, and nothing else on the surface says the question has an answer.
+    /// "Nothing this build loaded is called that" and "the only things called that are machinery"
+    /// are different answers to it, and a caller who cannot tell them apart goes looking. No count
+    /// rides with the verdict: there is no page left to call with it, so a number would be a fact
+    /// nothing could be done with. An id the world does publish is neither answer, because the page
+    /// that raised the question is the one that already looked for it.
     /// </remarks>
-    internal static int CountUnprojected(
+    internal static bool AnswersOnlyAsInternalMachinery(
         EntityIdentityCatalogSnapshot catalog,
-        string query,
-        out int internalOnly)
+        string query)
     {
-        internalOnly = 0;
         var normalized = (query ?? string.Empty).Trim();
-        if (normalized.Length == 0 || !catalog.IsBound) return 0;
-        var total = 0;
+        if (normalized.Length == 0 || !catalog.IsBound) return false;
         var rows = catalog.Rows.AsSpan();
         for (var index = 0; index < rows.Length; index++)
         {
             var row = rows[index];
-            if (!Matches(in row, normalized)) continue;
-            if (GameMcpEntityCatalogScope.Lists(row.RuntimeType)) total++;
-            else if (GameMcpEntityCatalogScope.IsMachinery(row.RuntimeType)) internalOnly++;
+            if (Matches(in row, normalized) &&
+                GameMcpEntityCatalogScope.IsMachinery(row.RuntimeType))
+            {
+                return true;
+            }
         }
-        return total;
+        return false;
     }
 
     private static bool Matches(in EntityIdentityName row, string query) =>

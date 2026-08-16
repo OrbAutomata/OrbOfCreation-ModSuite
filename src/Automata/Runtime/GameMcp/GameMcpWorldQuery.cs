@@ -4180,30 +4180,26 @@ internal static class GameMcpWorldQuery
         // The published world is not everything this build loaded, and the one moment that
         // difference matters is the moment this page comes back empty: a caller who searched a word
         // and found nothing has a second question — is it in the game at all — and no line on this
-        // surface said the question had an answer or which verb answers it. Said only on the empty
-        // page, and said whichever way it comes out, because "nothing loaded is called that" closes
-        // the question where silence would send the caller off to ask it anyway.
+        // surface said the question had an answer. Said only on the empty page, and said whichever
+        // way it comes out, because "nothing loaded is called that" closes the question where
+        // silence would send the caller off to ask it anyway.
+        //
+        // The line names no verb. It used to point at the page that listed the leftovers and count
+        // this query against it; the world publishes those rows now, so the pointer would name a
+        // verb this server no longer has and the count would be a number with nothing to spend it
+        // on. What is left is the answer itself, in one sentence, with no noun declined against a
+        // count.
         if (hits.Count == 0 && normalized.Length > 0)
         {
-            // The count comes last and stands alone. Written into the sentence it had to agree with
-            // a noun — `matches 1 loaded ids` — and a line that reads as a typo is read as one; a
-            // label and its number never decline. The clause before it is the whole of what that
-            // page returns, so the number is a promise about the next call rather than a hint.
-            var unprojected = GameMcpEntityCatalog.CountUnprojected(
-                world.EntityIdentities, normalized, out var internalOnly);
             result["unprojected"] =
-                "entity_catalog lists what this build loaded that the published world has no row " +
-                "for; found: " + unprojected.ToString(CultureInfo.InvariantCulture) +
-                (unprojected > 0
-                    ? "."
-                    // "No id this build loaded answers to this query" is false the moment the only
-                    // answers are ids the catalog withholds, and the caller's question is answered
-                    // either way: the word does name something in this build, and that something is
-                    // machinery neither surface has a reading for.
-                    : internalOnly > 0
-                        ? ", and what does answer to this query in this build is internal " +
-                          "machinery it does not list."
-                        : ", and no id this build loaded answers to this query.");
+                GameMcpEntityCatalog.AnswersOnlyAsInternalMachinery(
+                    world.EntityIdentities, normalized)
+                    // "No id this build loaded answers to this query" is false the moment ids do
+                    // answer, and the caller's question is answered either way: the word names
+                    // something in this build, and that something is machinery no reader can act on.
+                    ? "what answers to this query in this build is internal machinery the world " +
+                      "does not publish."
+                    : "no id this build loaded answers to this query.";
         }
         if (rows.Count == 0)
             result["columns"] = GameMcpEntityWireNormalizer.WireColumns(SearchColumns);

@@ -309,46 +309,10 @@ public sealed class GameMcpSearchTests
     }
 
     /// <summary>
-    /// The empty page is the one moment the second finder is worth naming: "I searched that word
-    /// and got nothing" is exactly when "is it in the game at all?" becomes the next question, and
-    /// before this nothing on the page said the question had an answer or which verb held it.
-    /// </summary>
-    [Fact]
-    public void A_search_that_found_nothing_says_what_the_entity_catalog_would_find()
-    {
-        var page = Json(GameMcpWorldQuery.Search(
-            Loaded(), "fresh", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
-
-        Assert.Empty(Rows(page));
-        Assert.Equal(
-            "entity_catalog lists what this build loaded that the published world has no row for; " +
-            "found: 2.",
-            (string?)page["unprojected"]);
-    }
-
-    /// <summary>
-    /// The count is a label and a number, so the line reads the same at one as at two. Written into
-    /// the sentence it had to agree with a noun, and `matches 1 loaded ids` is the shape a reader
-    /// takes for a bug in the surface rather than a fact about the build.
-    /// </summary>
-    [Fact]
-    public void The_count_on_the_signpost_reads_the_same_at_one_as_at_two()
-    {
-        var page = Json(GameMcpWorldQuery.Search(
-            Loaded(), "Burning", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
-
-        Assert.Empty(Rows(page));
-        Assert.Equal(
-            "entity_catalog lists what this build loaded that the published world has no row for; " +
-            "found: 1.",
-            (string?)page["unprojected"]);
-    }
-
-    /// <summary>
-    /// The count is what that page will actually return, so machinery the catalog stopped listing
-    /// counts for nothing — and saying "no id this build loaded answers to this query" would be
-    /// false, because two of them do. The caller's question is still answered: the word names
-    /// something, and the something is machinery neither surface reads.
+    /// Saying "no id this build loaded answers to this query" would be false where ids do answer,
+    /// and the caller's second question — is it in this build at all — is answered either way: the
+    /// word names something, and the something is machinery no reader can act on. The line names no
+    /// verb, because there is no second page to send anyone to.
     /// </summary>
     [Fact]
     public void A_word_only_the_builds_machinery_answers_to_is_named_as_machinery()
@@ -358,9 +322,8 @@ public sealed class GameMcpSearchTests
 
         Assert.Empty(Rows(page));
         Assert.Equal(
-            "entity_catalog lists what this build loaded that the published world has no row for; " +
-            "found: 0, and what does answer to this query in this build is internal machinery it " +
-            "does not list.",
+            "what answers to this query in this build is internal machinery the world does not " +
+            "publish.",
             (string?)page["unprojected"]);
     }
 
@@ -376,15 +339,14 @@ public sealed class GameMcpSearchTests
 
         Assert.Empty(Rows(page));
         Assert.Equal(
-            "entity_catalog lists what this build loaded that the published world has no row for; " +
-            "found: 0, and no id this build loaded answers to this query.",
+            "no id this build loaded answers to this query.",
             (string?)page["unprojected"]);
     }
 
     /// <summary>
     /// A page with rows answered the question that was asked, and a caller reading it has no second
     /// question — so the line is the empty page's alone and costs every other page nothing. A
-    /// filter-only call names no word for the catalog to match either.
+    /// filter-only call names no word to match against the loaded ids either.
     /// </summary>
     [Fact]
     public void A_page_that_found_something_spends_nothing_on_the_signpost()
@@ -557,19 +519,11 @@ public sealed class GameMcpSearchTests
     }
 
     /// <summary>
-    /// A build whose loaded ids cover both halves of the gap the empty page signposts.
-    /// <c>SomethingNewSO</c> is a type no verdict covers and <c>entity_catalog</c> therefore lists;
-    /// <c>AnimationSO</c> is a real type no category claims and <c>entity_catalog</c> withholds as
-    /// machinery. The two answer the caller's second question differently, and the page has to say
-    /// which one it met.
+    /// A build whose loaded ids are both of the two kinds this build actually holds:
+    /// <c>StructureSO</c>, which a world category publishes, and <c>AnimationSO</c>, which is ruled
+    /// machinery no reader can act on. The two answer the caller's second question differently, and
+    /// the empty page has to say which one it met.
     /// </summary>
-    /// <remarks>
-    /// The listed half is a type this build does not load, and has to be: every type this build
-    /// loads is now either published or ruled machinery, so the only remaining source of a listed
-    /// row is a build that loads something no verdict has been written for. That is the case the
-    /// signpost exists to survive, and pinning it against a type that has since been published is
-    /// how this fixture stopped meaning what it said the first time.
-    /// </remarks>
     private static GameMcpFrameContext Loaded()
     {
         var world = new GameWorldState
@@ -577,8 +531,6 @@ public sealed class GameMcpSearchTests
             EntityIdentities = EntityIdentityCatalogSnapshot.Bound(2, new[]
             {
                 new EntityIdentityName(Lab, "StructureSO", "Alchemy Lab", "alchemyLab"),
-                new EntityIdentityName(Idle, "SomethingNewSO", "Burning", "freshBurning"),
-                new EntityIdentityName(Passed, "SomethingNewSO", "Stunned", "freshStunned"),
                 new EntityIdentityName(Failed, "AnimationSO", "Orb Pulse", "animationOrbPulse"),
             }),
             CollectionCategories =
