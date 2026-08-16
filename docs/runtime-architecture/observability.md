@@ -63,9 +63,10 @@ roughly nine minutes of pending data. Exhausting every empty block is an explici
 (`AcceptedAndBufferExhausted`, faulting at the next sequence, with the accepted record never retried),
 not a reason to block gameplay or grow memory without bound. Backpressure, overwrite, or storage
 failure stops only the affected session, commits explicit incomplete or gap evidence where possible,
-and never changes gameplay. Unity never waits for diagnostics, telemetry, or I/O, and Orb Mod Config
-only invokes each mode's neutral control port and renders status — it never owns a pump, worker,
-exporter, or filesystem path.
+and never changes gameplay. No frame ever waits for diagnostics, telemetry, or I/O; the one place the
+suite waits at all is its own teardown, where each writer gets a single bounded chance to publish what
+it is already holding (see **Artifacts**). Orb Mod Config only invokes each mode's neutral control port
+and renders status — it never owns a pump, worker, exporter, or filesystem path.
 
 ## Mode 1: bug-report bundle
 
@@ -151,6 +152,17 @@ directory, flushes each file under a temporary name, then publishes it with a no
 Ordinals are dense, sessions are never resumed or pruned automatically, and initialization or
 manifest-publication failure leaves the durable segments unmodified with no manifest — there is no
 recovery path that fabricates terminal evidence.
+
+**A session that ends at process exit is drained, not raced.** The writer thread is a background
+thread, so exit kills it wherever it stands; a teardown that only signalled its stop left the last
+segments and the whole manifest to a race, and a profiling session — which hands its entire payload
+over during that stop — usually lost it. Each teardown therefore waits up to two seconds for its own
+writer, and the writer publishes the same complete or incomplete manifest it would have published at
+any other ending. The wait is bounded and the thread stays a background thread, so a writer wedged in
+a storage call can never hold the game's quit. When the bound expires nothing is written from the
+teardown: a manifest invented there could overwrite the well-formed one the writer is still
+committing, so the session keeps the shape an interrupted capture has always had — segments with no
+manifest — and the suite logs, by name, the session whose drain outlived its bound.
 
 **Completeness is about loss, not about which door the session left by.** A producer that stops
 because the runtime is going away seals and publishes its partial block first, so the drain behind it
