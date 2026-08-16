@@ -393,7 +393,7 @@ rather than from the screen it is drawn on.
 | `world_categories` | Discover every category the world collects, which of them list, and exact collection availability |
 | `world_list` | Page compact identity-plus-scan rows in one category |
 | `world_get` | Read everything one id says — row, description, gates, requirement graph, exact costs, blockers — for one id or a batch |
-| `entity_catalog` | Search what this build loaded that the published world has no row for — the combat glossary, the stat groups, the authored oddities — including ones progression has not revealed |
+| `entity_catalog` | Search what this build loaded that the published world has no row for — nothing, on this build; a build that loads a type no verdict covers lists it here |
 | `world_search` | Find a term across every entity category at once: name, keywords, category, most relevant first |
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
 | `suite_configuration` | Read every writable setting's committed value, or one `section`'s in one go; `mode=describe` adds type, domain, and purpose |
@@ -662,23 +662,31 @@ Unity asset name, and player-facing `GetName()`, so loaded entities hidden or no
 progression are findable without navigation. Before that bind, or when its declared contracts fail,
 the tool returns `unavailable` rather than substituting the build-time TSV fixtures.
 
-**The listing is the remainder.** Of the pinned build's 2,818 loaded ids the page lists 87. A world
-category publishes 2,211 of them, and those are read with `world_search`, `world_list` and
-`world_get`, which carry the price, the state, the requirements and the description this page could
-never hold; listing the same ids here by identity alone said nothing those three had not. Another
-520 rows, of 79 native types, are the game's internal machinery and are deliberately not listed
-either: the string table, scaling curves, animations and colours, the one-slot variables a screen
-keeps its cursor and selection in, RNG salts, key bindings, music tracks, the named list variables
-whose contents are already a published category, and the prerequisite-link nodes whose every tier
-`world_get` already expands. What is left is 87 rows of 14 native types that are still words the
-game shows a player — the ritual and combat glossary (`CombatStatusSO`, `CharacterAttributeSO`,
-`DamageTypeSO`, `CharacterModifierSO`, `CharacterActionSO`, `EnchantmentSO`, `GlyphTypeSO`,
-`RuneStoneSO`, `CharacterTypeSO`, `DisplayTypeSO`), which is this suite's only enumeration of the
-game's least-mapped system; the 24 `AttributeGroupSO` headers the Statistics tab groups its rows
-under; and the build's three authored oddities (`CraftingStructureSO`, `ConditionalTextList`,
-`PlayerCharacter`). The machinery verdict is on the native type, never on an asset, and a type
-nobody has ruled on is listed — so a build loading something new says so on the page rather than
-dropping it in silence.
+**The listing is the remainder, and on this build the remainder is empty.** Of the pinned build's
+2,818 loaded ids the page lists 0. A world category publishes 2,295 of them, and those are read with
+`world_search`, `world_list` and `world_get`, which carry the price, the state, the requirements and
+the description this page could never hold; listing the same ids here by identity alone said nothing
+those three had not. The other 523 rows, of 82 native types, are the game's internal machinery and
+are deliberately not listed either: the string table, scaling curves, animations and colours, the
+one-slot variables a screen keeps its cursor and selection in, RNG salts, key bindings, music
+tracks, the named list variables whose contents are already a published category, the
+prerequisite-link nodes whose every tier `world_get` already expands, the conditional hint table,
+the player's own nameless combat actor, and the legacy station the game builds no instance of.
+
+The last 87 rows the page carried were the ritual glossary, the stat groups, and three oddities, and
+all fourteen of those native types have since left it by one of the two doors. Eleven became world
+categories — `status-effects`, `character-attributes`, `damage-types`, `character-modifiers`,
+`character-actions`, `character-types`, `enchantments`, `glyph-types`, `rune-stones`,
+`display-types` and `attribute-groups` — so the words are on the verbs that carry facts about them.
+Three are machinery: `ConditionalTextList` and `PlayerCharacter` both derive `IdScriptableObject`
+rather than `TooltipableObject` and so carry neither a name nor a sentence, and `CraftingStructureSO`
+is the legacy Brewing Station, whose `displayName` and `description` are both authored empty and
+whose `instances` list variable is empty and not static, so the game builds no station to answer for.
+
+The machinery verdict is on the native type, never on an asset, and a type nobody has ruled on is
+listed — so a build loading something new says so on this page rather than dropping it in silence.
+That is what the page is for now: it answers `rows 0/0` against this build, and it is the surface
+that would report the day a new build ships a type this suite has never seen.
 
 **Nothing off the listing leaves the identity catalog.** The snapshot still holds every
 loaded id, so an id handle still resolves against the whole 2,818, a row referencing one of these
@@ -689,8 +697,8 @@ read. Only this one page is shorter.
 A match contains `uuid`, `nativeType`, and `name` — this is the surface that still
 carries the runtime type unconditionally, because browsing the catalog is the one activity that asks
 for it and a browser names no category to imply it from. There is no `category` cell: every row the
-page returns is one the published world holds no category for, so the column read one constant on
-all 87 of them and said what the verb's own contract says once. A category declared over several
+page can return is one the published world holds no category for, so the column could only ever read
+one constant and said what the verb's own contract says once. A category declared over several
 native types answers for one of them where no single-type category claims it and no other multi-type
 category does either, which is why `AlchemySnapshotListVariable` and `EquipmentSnapshotListVariable`
 are `world_list snapshot-loadouts` rows rather than listings here. `name` is present
@@ -760,6 +768,12 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `equipment-types` | `totalLevel` |
 | `double-variables`, `int-variables` | `value`, `isPercent` |
 | `statistics` | `displayType`, `isPercent`, `description` |
+| `status-effects` | `isBuff`, `maxDuration`, `stacksSeparately`, `description` |
+| `character-attributes` | `damageTypeId`, `description` |
+| `damage-types` | `damageReductionRate`, `ignoreEntrenched`, `description` |
+| `character-modifiers` | `weightChance`, `description` |
+| `character-actions` | `prepTime`, `actionTime`, `speedMod`, `description` |
+| `character-types`, `enchantments`, `glyph-types`, `rune-stones`, `display-types`, `attribute-groups` | `description` |
 
 **One word per concept across the type taxonomies.** A level a taxonomy list shows is the number its
 own page spells under the same word, so `equipment-types` and `resource-types` both say `totalLevel`
@@ -1241,6 +1255,79 @@ and deliberately not published. No screen prints it, and several spell themselve
 word from no screen. It is the key a glyph's factor block joins on, and the join is resolved before
 publication so what reaches a reader is the statistic's own identity rather than the key.
 
+### The ritual layer's glossaries
+
+Ten more authored vocabularies are ten more categories, not one glossary table. The game names each
+of them separately on its own localization line — Status Effect, Character Attribute, Damage Type,
+Character Modifier, Character Action, Character Type, Enchantment, Glyph Type, Rune Stone, Display
+Type — and their columns are genuinely different facts, so a single grab-bag row would have had to
+drop most of what each one says. They also point at each other: a `character-attributes` row names
+the `damage-types` row it is about, and an edge is only followable if both ends are rows.
+
+| Category | Native type | Rows | What the row says beyond identity |
+| --- | --- | --- | --- |
+| `status-effects` | `CombatStatusSO` | 8 | `isBuff`, `maxDuration`, `stacksSeparately`, `resetDurationOnApplication`, `effectTimer` |
+| `character-attributes` | `CharacterAttributeSO` | 8 | `damageTypeId` |
+| `damage-types` | `DamageTypeSO` | 7 | `damageReductionRate`, `ignoreEntrenched` |
+| `character-modifiers` | `CharacterModifierSO` | 4 | `weightChance` |
+| `character-actions` | `CharacterActionSO` | 11 | `prepTime`, `actionTime`, `speedMod` |
+| `character-types` | `CharacterTypeSO` | 1 | — |
+| `enchantments` | `EnchantmentSO` | 8 | — |
+| `glyph-types` | `GlyphTypeSO` | 6 | — |
+| `rune-stones` | `RuneStoneSO` | 4 | — |
+| `display-types` | `DisplayTypeSO` | 3 | — |
+
+A category whose whole published fact is its word and its sentence is still worth having: it is the
+difference between a word being readable on a verb and being readable nowhere. As with `statistics`,
+the sentence rides the list page, because a glossary charging one call an entry is the state these
+replaced.
+
+`maxDuration` is authored negative on the statuses whose stack count is their duration — Barrier's
+own sentence reads "Lasts stacks in seconds" — and the negative travels as the game states it. A
+status's `statChanges` list is deliberately not published: it is a relation rather than a row, the
+sentence the game authors for each of the eight already says it, and a table of stat deltas with no
+live combat state to apply them to would be arithmetic about a battle this suite cannot see.
+
+`CharacterAttributeSO.damageType` is authored null on all eight records of the pinned build, so the
+column reads empty everywhere today. It is published anyway: the field is the game's, what is
+missing is an authored value rather than a read, and an edge dropped because this build leaves it
+blank would be dropped silently on the build that fills it. `CharacterAttributeSO.associatedStat` —
+the key `StatBlock` looks these up by — is mirrored in the manifest and never published, for the
+same reason `globalDefinition` is.
+
+A rune stone's row says what the stone is and **not** whether it is unlocked. `RuneStoneSO.IsAvailable()`
+is one call to `Prerequisites.Container.Check()`, and that call latches `available` — the per-pass
+capture write the manifest already carries ten rows of debt for. Adding an eleventh to reach one
+more boolean is the wrong trade, and the consequence is stated here rather than hidden.
+
+### The stat groups and what they distribute
+
+`attribute-groups` is the Statistics tab's grouping half: the 24 `AttributeGroupSO` headings a
+bonus "to all Agromancy Power" is actually bought on. A group is an `UpgradeableObject` holding one
+modifier record, and `AttributeGroupSO.BindAllMods()` walks the group's own `recordReferences` and
+calls `MergingModifierRecord.AddRecord` once per reference — so the group's record is merged *into*
+a record that lives on some other entity, scaled by that reference's ratio. The group is a
+distributor, and its own record is deliberately unpublished for the same reason a type roster's is:
+a number already distributed into its members would be that bonus counted twice.
+
+**The edge points group → member, because that is the only direction the game stores it.** Nothing
+on the far side names its group. `world_get` on a group carries a `members` block, one entry per
+authored reference in authored order: `modifies` (the entity whose record is merged into),
+`property` and `propertyIndex` (which record on that entity), and the three numbers the merge is
+given — `ratio`, `ratioExp` and `orderAdjust`. Nothing is unfurled: a member is a reference to an
+entity rather than an entity, so it carries the target's identity for `world_get` to follow.
+
+**The members are not the statistics glossary**, which is the shape this category was expected to
+have. Of the 115 references on the pinned build, 40 land on a `DoubleVariable`, 16 on an agromancy
+action type, 14 on an alchemy type, 10 on a resource and the rest across nine more classes including
+three that point at another `AttributeGroupSO`; none points at an `AttributeSO` record, and 13 of
+the 18 distinct `property` values do not exist as a statistic's `globalDefinition` at all. A group
+groups the things that carry a number, not the word printed above it.
+
+Each reference also carries a `Prerequisites.Container` deciding whether it is merged at all, and
+the row does not answer it — for the same `Check()` reason a rune stone's availability is absent.
+The published rows are the authored distribution, which is what they say.
+
 ### What a thing does, and what a level of it buys
 
 Two blocks answer this, both on the owner's own `world_get` and neither a table of its own. A
@@ -1595,11 +1682,15 @@ Alchemy's Learn side uses `game_discover(surface="alchemy")`. Its Loadout side u
 counters, and the same type identity the screen filter displays. Recipe mastery and Alchemy-type
 levels are game-driven progression displays, not direct purchase buttons on this screen.
 
-There is deliberately no Brewing Station tool or category. The v1.0.5 data contains one unnamed
-legacy `CraftingStructureSO` asset, but its runtime instance list is authored empty and the entire
-data graph has no unlock/effect edge that creates one. The assembly still contains the unused
-`UIBrewingStation` renderer, but no player-facing label or live screen owns it. Publishing its
-native selectors as a verb would expose developer-era machinery the shipped UI does not offer.
+There is deliberately no Brewing Station tool or category, and `entity_catalog` withholds its type
+as machinery. The v1.0.5 data contains one unnamed legacy `CraftingStructureSO` asset whose
+`displayName` and `description` are both authored empty; its `instances` field names the
+`BrewingStations` list variable, whose `initialValue` and `value` are both `[]` and which is not
+static, and the entire data graph has no unlock/effect edge that creates one. The assembly still
+contains the unused `UIBrewingStation` renderer, but no player-facing label or live screen owns it.
+Publishing its native selectors as a verb would expose developer-era machinery the shipped UI does
+not offer, and a catalog row for it was a nameless id for a station the game never builds. Its
+authored recipes stay reachable through the consumables they produce.
 
 ### Player loadouts and snapshots
 
