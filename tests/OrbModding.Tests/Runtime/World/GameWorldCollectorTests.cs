@@ -583,18 +583,21 @@ public sealed class GameWorldCollectorTests : IDisposable
         // modifier records were already walked but whose assets had no row of their own, and the
         // six base agromancy verbs, whose keyword rows were walked while the assets a members line
         // counts had no row to be reached at, and the game's own statistic glossary, the words it
-        // prints above its numbers, which were readable only by hovering something that showed one.
+        // prints above its numbers, which were readable only by hovering something that showed one,
+        // and finally the ritual layer's own glossary — the ten authored vocabularies the combat,
+        // enchanting and rune screens are written in — plus the Statistics tab's headings and the
+        // authored distribution each heading carries.
         // A pass that quietly stopped covering one would show
         // up only as a consumer finding nothing where there was something.
         var report = Collector().Collect();
 
-        Assert.Equal(76, report.Categories.Length);
+        Assert.Equal(88, report.Categories.Length);
         Assert.True(report.IsComplete, report.Describe());
 
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a
         // levelled grouping type.
         foreach (var category in
-                 new[] { "resources", "harvest actions", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "glyph lists", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions", "structure types", "ritual types", "harvest types", "plot node types", "research types", "consumable families", "harvest action types", "passive ability types", "time rune types", "statistics" })
+                 new[] { "resources", "harvest actions", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "glyph lists", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions", "structure types", "ritual types", "harvest types", "plot node types", "research types", "consumable families", "harvest action types", "passive ability types", "time rune types", "statistics", "status effects", "character attributes", "damage types", "character modifiers", "character actions", "character types", "enchantments", "glyph types", "rune stones", "display types", "attribute groups", "attribute group members" })
         {
             Assert.Equal(WorldCategoryOutcome.Collected, report.For(category).Outcome);
         }
@@ -1427,6 +1430,214 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(WorldLookup.TryFind(world.Statistics, plumbing, out var row));
         Assert.Equal("Information", row.DisplayType);
         Assert.Equal(string.Empty, row.Description);
+    }
+
+    /// <summary>
+    /// The combat glossary travels as ten vocabularies rather than one, and each carries the fields
+    /// its own screen reads. One row per registry here, because the failure this guards is a binder
+    /// that binds nothing and reports a clean empty category.
+    /// </summary>
+    [Fact]
+    public void TheRitualLayersGlossariesTravelAsTheirOwnVocabularies()
+    {
+        var burning = Guid.NewGuid();
+        var fire = Guid.NewGuid();
+        var strength = Guid.NewGuid();
+        var berserk = Guid.NewGuid();
+        var strike = Guid.NewGuid();
+
+        FakeStatusEffect.All.Add(new FakeStatusEffect
+        {
+            Identity = burning,
+            isBuff = false,
+            maxDuration = 12d,
+            stacksSeparately = true,
+            resetDurationOnApplication = true,
+            effectTimer = 1.5d,
+            description = "Deals fire damage over time.",
+        });
+        var fireType = new FakeDamageType
+        {
+            Identity = fire,
+            damageReductionRate = 0.25d,
+            ignoreEntrenched = true,
+            description = "Burns through wards.",
+        };
+        FakeDamageType.All.Add(fireType);
+        FakeCharacterAttribute.All.Add(new FakeCharacterAttribute
+        {
+            Identity = strength,
+            damageType = fireType,
+            description = "How hard this creature hits.",
+        });
+        FakeCharacterModifier.All.Add(new FakeCharacterModifier
+        {
+            Identity = berserk,
+            weightChance = 0.4f,
+            description = "Attacks faster and defends worse.",
+        });
+        FakeCharacterAction.All.Add(new FakeCharacterAction
+        {
+            Identity = strike,
+            prepTime = 2d,
+            actionTime = 0.5d,
+            speedMod = 1.25d,
+            description = "A single heavy blow.",
+        });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+
+        Assert.True(WorldLookup.TryFind(world.StatusEffects, burning, out var status));
+        Assert.False(status.IsBuff);
+        Assert.Equal(12d, status.MaxDuration);
+        Assert.True(status.StacksSeparately);
+        Assert.True(status.ResetDurationOnApplication);
+        Assert.Equal(1.5d, status.EffectTimer);
+        Assert.Equal("Deals fire damage over time.", status.Description);
+
+        Assert.True(WorldLookup.TryFind(world.DamageTypes, fire, out var damage));
+        Assert.Equal(0.25d, damage.DamageReductionRate);
+        Assert.True(damage.IgnoreEntrenched);
+
+        // The one edge inside the glossary: an attribute names the damage type it deals in, and
+        // that type is a row of its own, so a reader can follow it rather than read a word twice.
+        Assert.True(WorldLookup.TryFind(world.CharacterAttributes, strength, out var attribute));
+        Assert.Equal(fire, attribute.DamageTypeId);
+
+        Assert.True(WorldLookup.TryFind(world.CharacterModifiers, berserk, out var modifier));
+        Assert.Equal(0.4d, modifier.WeightChance, 5);
+
+        Assert.True(WorldLookup.TryFind(world.CharacterActions, strike, out var action));
+        Assert.Equal(2d, action.PrepTime);
+        Assert.Equal(0.5d, action.ActionTime);
+        Assert.Equal(1.25d, action.SpeedMod);
+    }
+
+    /// <summary>
+    /// The four vocabularies whose whole published fact is the word and the sentence. A category
+    /// that carries only identity is still a category: the alternative is that the game's own words
+    /// for enchantments, glyph kinds, rune stones and display types stay unreadable.
+    /// </summary>
+    [Fact]
+    public void TheAuthoredVocabulariesTravelAsTheirWordAndTheirSentence()
+    {
+        var enchantment = Guid.NewGuid();
+        var stone = Guid.NewGuid();
+
+        FakeScribeEnchantment.All.Add(new FakeScribeEnchantment
+        {
+            Identity = enchantment,
+            description = "Adds fire damage to the weapon.",
+        });
+        FakeRuneStone.All.Add(new FakeRuneStone
+        {
+            Identity = stone,
+            description = "Holds one time rune.",
+        });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLookup.TryFind(world.Enchantments, enchantment, out var enchantRow));
+        Assert.Equal("Adds fire damage to the weapon.", enchantRow.Description);
+        Assert.True(WorldLookup.TryFind(world.RuneStones, stone, out var stoneRow));
+        Assert.Equal("Holds one time rune.", stoneRow.Description);
+    }
+
+    /// <summary>
+    /// A stat group and the distribution it carries, in the direction the game stores it: the group
+    /// names its targets, and each row says which record on that target it merges into and at what
+    /// ratio. Nothing on the far side names the group, so no reverse edge is derived.
+    /// </summary>
+    [Fact]
+    public void AStatGroupCarriesTheDistributionTheGameStoresOnIt()
+    {
+        var group = Guid.NewGuid();
+        var target = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        var targetStatistic = new FakeStatistic { Identity = target };
+        var otherStatistic = new FakeStatistic { Identity = other };
+        FakeStatistic.All.Add(targetStatistic);
+        FakeStatistic.All.Add(otherStatistic);
+        FakeAttributeGroup.All.Add(new FakeAttributeGroup
+        {
+            Identity = group,
+            description = "Everything that raises agromancy power.",
+            recordReferences =
+            {
+                new FakeAttributeGroupReference
+                {
+                    upgradeableObject = targetStatistic,
+                    propertyType = "Power",
+                    propertyIndex = 0,
+                    ratio = 2d,
+                    ratioExp = 1d,
+                    orderAdjust = 0,
+                },
+                new FakeAttributeGroupReference
+                {
+                    upgradeableObject = otherStatistic,
+                    propertyType = "Speed",
+                    propertyIndex = 1,
+                    ratio = 0.5d,
+                    ratioExp = 2d,
+                    orderAdjust = 3,
+                },
+            },
+        });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLookup.TryFind(world.AttributeGroups, group, out var groupRow));
+        Assert.Equal("Everything that raises agromancy power.", groupRow.Description);
+
+        Assert.True(WorldAttributeGroupMemberLookup.TryFindRange(
+            world.AttributeGroupMembers, group, out var start, out var count));
+        Assert.Equal(2, count);
+
+        var members = world.AttributeGroupMembers.AsSpan().Slice(start, count).ToArray();
+        Assert.Equal(new[] { 0, 1 }, members.Select(member => member.Ordinal).ToArray());
+        Assert.Equal(new[] { target, other }, members.Select(member => member.TargetId).ToArray());
+        Assert.Equal(
+            new[] { "Power", "Speed" }, members.Select(member => member.Property).ToArray());
+        Assert.Equal(new[] { 0, 1 }, members.Select(member => member.PropertyIndex).ToArray());
+        Assert.Equal(new[] { 2d, 0.5d }, members.Select(member => member.Ratio).ToArray());
+        Assert.Equal(new[] { 1d, 2d }, members.Select(member => member.RatioExp).ToArray());
+        Assert.Equal(new[] { 0, 3 }, members.Select(member => member.OrderAdjust).ToArray());
+    }
+
+    /// <summary>
+    /// A group the game authors no references on is still a heading. The Statistics tab prints its
+    /// word, so the world publishes its row, and the member table simply holds nothing for it.
+    /// </summary>
+    [Fact]
+    public void AStatGroupThatDistributesNothingIsStillAHeading()
+    {
+        var empty = Guid.NewGuid();
+        FakeAttributeGroup.All.Add(new FakeAttributeGroup
+        {
+            Identity = empty,
+            description = "A heading with nothing under it yet.",
+        });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLookup.TryFind(world.AttributeGroups, empty, out _));
+        Assert.False(WorldAttributeGroupMemberLookup.TryFindRange(
+            world.AttributeGroupMembers, empty, out _, out var count));
+        Assert.Equal(0, count);
     }
 
     [Fact]

@@ -37,6 +37,31 @@ internal sealed class GameWorldCycleFrame
     internal WorldSampleBuffer<WorldBoolVariable, WorldBoolVariable> BoolVariables { get; } = new();
     internal WorldSampleBuffer<WorldModifierVariable, WorldModifierVariable> ModifierVariables { get; } = new();
     internal WorldSampleBuffer<WorldStatistic, WorldStatistic> Statistics { get; } = new();
+    internal WorldSampleBuffer<WorldAttributeGroup, WorldAttributeGroup> AttributeGroups { get; } = new();
+    internal WorldSampleBuffer<WorldStatusEffect, WorldStatusEffect> StatusEffects { get; } = new();
+
+    internal WorldSampleBuffer<WorldCharacterAttribute, WorldCharacterAttribute>
+        CharacterAttributes { get; } = new();
+
+    internal WorldSampleBuffer<WorldDamageType, WorldDamageType> DamageTypes { get; } = new();
+
+    internal WorldSampleBuffer<WorldCharacterModifier, WorldCharacterModifier>
+        CharacterModifiers { get; } = new();
+
+    internal WorldSampleBuffer<WorldCharacterAction, WorldCharacterAction>
+        CharacterActions { get; } = new();
+
+    internal WorldSampleBuffer<WorldCharacterType, WorldCharacterType> CharacterTypes { get; } = new();
+    internal WorldSampleBuffer<WorldEnchantment, WorldEnchantment> Enchantments { get; } = new();
+    internal WorldSampleBuffer<WorldGlyphType, WorldGlyphType> GlyphTypes { get; } = new();
+    internal WorldSampleBuffer<WorldRuneStone, WorldRuneStone> RuneStones { get; } = new();
+    internal WorldSampleBuffer<WorldDisplayType, WorldDisplayType> DisplayTypes { get; } = new();
+
+    /// <summary>
+    /// Each stat group's authored distribution, which is one-to-many per group and so cannot share
+    /// the one-row-per-entity buffer the group category itself uses.
+    /// </summary>
+    internal WorldRelationBuffer<WorldAttributeGroupMember> AttributeGroupMembers { get; } = new();
 
     /// <summary>
     /// The authored cost entries, which are one-to-many per entity and so cannot share the
@@ -448,6 +473,30 @@ internal static class GameWorldFrameDeriver
             BoolVariables = frame.BoolVariables.Build(WorldIdentityDeriver<WorldBoolVariable>.Shared),
             ModifierVariables = modifierVariables,
             Statistics = statistics,
+            AttributeGroups = frame.AttributeGroups.Build(
+                WorldIdentityDeriver<WorldAttributeGroup>.Shared),
+            AttributeGroupMembers = WorldRelationTableDeriver.Build(
+                frame.AttributeGroupMembers,
+                static (left, right) =>
+                {
+                    var group = left.AttributeGroupId.CompareTo(right.AttributeGroupId);
+                    return group != 0 ? group : left.Ordinal.CompareTo(right.Ordinal);
+                }),
+            StatusEffects = frame.StatusEffects.Build(
+                WorldIdentityDeriver<WorldStatusEffect>.Shared),
+            CharacterAttributes = frame.CharacterAttributes.Build(
+                WorldIdentityDeriver<WorldCharacterAttribute>.Shared),
+            DamageTypes = frame.DamageTypes.Build(WorldIdentityDeriver<WorldDamageType>.Shared),
+            CharacterModifiers = frame.CharacterModifiers.Build(
+                WorldIdentityDeriver<WorldCharacterModifier>.Shared),
+            CharacterActions = frame.CharacterActions.Build(
+                WorldIdentityDeriver<WorldCharacterAction>.Shared),
+            CharacterTypes = frame.CharacterTypes.Build(
+                WorldIdentityDeriver<WorldCharacterType>.Shared),
+            Enchantments = frame.Enchantments.Build(WorldIdentityDeriver<WorldEnchantment>.Shared),
+            GlyphTypes = frame.GlyphTypes.Build(WorldIdentityDeriver<WorldGlyphType>.Shared),
+            RuneStones = frame.RuneStones.Build(WorldIdentityDeriver<WorldRuneStone>.Shared),
+            DisplayTypes = frame.DisplayTypes.Build(WorldIdentityDeriver<WorldDisplayType>.Shared),
             AlchemyRecipes = WorldAlchemyRecipeDeriver.Build(
                 frame.AlchemyRecipes, alchemyTypes, intVariables),
             AlchemyTypes = alchemyTypes,

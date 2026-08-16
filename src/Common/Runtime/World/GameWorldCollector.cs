@@ -67,6 +67,26 @@ internal sealed class GameWorldCollector
     private readonly WorldCategoryReader<WorldBoolVariable, WorldBoolVariable> _boolVariables;
     private readonly WorldCategoryReader<WorldModifierVariable, WorldModifierVariable> _modifierVariables;
     private readonly WorldCategoryReader<WorldStatistic, WorldStatistic> _statistics;
+    private readonly WorldCategoryReader<WorldAttributeGroup, WorldAttributeGroup> _attributeGroups;
+    private readonly WorldAttributeGroupMemberReader _attributeGroupMembers;
+    private readonly WorldCategoryReader<WorldStatusEffect, WorldStatusEffect> _statusEffects;
+
+    private readonly WorldCategoryReader<WorldCharacterAttribute, WorldCharacterAttribute>
+        _characterAttributes;
+
+    private readonly WorldCategoryReader<WorldDamageType, WorldDamageType> _damageTypes;
+
+    private readonly WorldCategoryReader<WorldCharacterModifier, WorldCharacterModifier>
+        _characterModifiers;
+
+    private readonly WorldCategoryReader<WorldCharacterAction, WorldCharacterAction>
+        _characterActions;
+
+    private readonly WorldCategoryReader<WorldCharacterType, WorldCharacterType> _characterTypes;
+    private readonly WorldCategoryReader<WorldEnchantment, WorldEnchantment> _enchantments;
+    private readonly WorldCategoryReader<WorldGlyphType, WorldGlyphType> _glyphTypes;
+    private readonly WorldCategoryReader<WorldRuneStone, WorldRuneStone> _runeStones;
+    private readonly WorldCategoryReader<WorldDisplayType, WorldDisplayType> _displayTypes;
     private readonly WorldPurchaseCostReader _purchaseCosts;
     private readonly WorldUpgradeCostReader _upgradeCosts;
     private readonly WorldPlotActionReader _plotActions;
@@ -272,6 +292,18 @@ internal sealed class GameWorldCollector
         _boolVariables = Reader(new WorldBoolVariableBinder(), resolveType, static frame => frame.BoolVariables);
         _modifierVariables = Reader(new WorldModifierVariableBinder(), resolveType, static frame => frame.ModifierVariables);
         _statistics = Reader(new WorldStatisticBinder(), resolveType, static frame => frame.Statistics);
+        _attributeGroups = Reader(new WorldAttributeGroupBinder(), resolveType, static frame => frame.AttributeGroups);
+        _attributeGroupMembers = new WorldAttributeGroupMemberReader(resolveType);
+        _statusEffects = Reader(new WorldStatusEffectBinder(), resolveType, static frame => frame.StatusEffects);
+        _characterAttributes = Reader(new WorldCharacterAttributeBinder(), resolveType, static frame => frame.CharacterAttributes);
+        _damageTypes = Reader(new WorldDamageTypeBinder(), resolveType, static frame => frame.DamageTypes);
+        _characterModifiers = Reader(new WorldCharacterModifierBinder(), resolveType, static frame => frame.CharacterModifiers);
+        _characterActions = Reader(new WorldCharacterActionBinder(), resolveType, static frame => frame.CharacterActions);
+        _characterTypes = Reader(new WorldCharacterTypeBinder(), resolveType, static frame => frame.CharacterTypes);
+        _enchantments = Reader(new WorldEnchantmentBinder(), resolveType, static frame => frame.Enchantments);
+        _glyphTypes = Reader(new WorldGlyphTypeBinder(), resolveType, static frame => frame.GlyphTypes);
+        _runeStones = Reader(new WorldRuneStoneBinder(), resolveType, static frame => frame.RuneStones);
+        _displayTypes = Reader(new WorldDisplayTypeBinder(), resolveType, static frame => frame.DisplayTypes);
         _alchemyRecipes = Reader(new WorldAlchemyRecipeBinder(), resolveType, static frame => frame.AlchemyRecipes);
         _alchemyTypes = Reader(new WorldAlchemyTypeBinder(), resolveType, static frame => frame.AlchemyTypes);
         _spellRecipes = Reader(new WorldSpellRecipeBinder(), resolveType, static frame => frame.SpellRecipes);
@@ -367,6 +399,10 @@ internal sealed class GameWorldCollector
         {
             _resources, _structures, _upgrades, _research,
             _doubleVariables, _intVariables, _boolVariables, _modifierVariables, _statistics,
+            _attributeGroups, _attributeGroupMembers,
+            _statusEffects, _characterAttributes, _damageTypes, _characterModifiers,
+            _characterActions, _characterTypes,
+            _enchantments, _glyphTypes, _runeStones, _displayTypes,
             _alchemyRecipes, _alchemyTypes, _spellRecipes, _spellLevelCosts, _spellGraph, _spellTypes,
             _equipment, _equipmentTypes, _resourceTypes, _craftingRecipeTypes,
             _structureTypes, _ritualTypes, _harvestTypes, _plotNodeTypes, _researchTypes,

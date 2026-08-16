@@ -90,6 +90,62 @@ public sealed record GameWorldState
         PublicationTable<WorldStatistic>.Empty;
 
     /// <summary>
+    /// The Statistics tab's other half: the headings its numbers are grouped under, and — as
+    /// <see cref="AttributeGroupMembers"/> — what each heading's bonus is distributed into.
+    /// </summary>
+    internal PublicationTable<WorldAttributeGroup> AttributeGroups { get; init; } =
+        PublicationTable<WorldAttributeGroup>.Empty;
+
+    /// <summary>
+    /// Every stat group's authored distribution, sorted by group and then by authored position, so
+    /// one group's members are a contiguous range. Read it through
+    /// <see cref="WorldAttributeGroupMemberLookup"/>.
+    /// </summary>
+    internal PublicationTable<WorldAttributeGroupMember> AttributeGroupMembers { get; init; } =
+        PublicationTable<WorldAttributeGroupMember>.Empty;
+
+    /// <summary>
+    /// The ritual layer's own vocabulary — the words a battle log, a portrait and an enemy card are
+    /// written in. Six authored glossaries the game ships and never changes, published under the
+    /// game's own word for each class rather than folded into one table: they carry different facts,
+    /// and two of them name each other.
+    /// </summary>
+    internal PublicationTable<WorldStatusEffect> StatusEffects { get; init; } =
+        PublicationTable<WorldStatusEffect>.Empty;
+
+    internal PublicationTable<WorldCharacterAttribute> CharacterAttributes { get; init; } =
+        PublicationTable<WorldCharacterAttribute>.Empty;
+
+    internal PublicationTable<WorldDamageType> DamageTypes { get; init; } =
+        PublicationTable<WorldDamageType>.Empty;
+
+    internal PublicationTable<WorldCharacterModifier> CharacterModifiers { get; init; } =
+        PublicationTable<WorldCharacterModifier>.Empty;
+
+    internal PublicationTable<WorldCharacterAction> CharacterActions { get; init; } =
+        PublicationTable<WorldCharacterAction>.Empty;
+
+    internal PublicationTable<WorldCharacterType> CharacterTypes { get; init; } =
+        PublicationTable<WorldCharacterType>.Empty;
+
+    /// <summary>
+    /// The four authored vocabularies that close edges the world already publishes: what scribing
+    /// applies, which page a glyph sits on, the time layer's named stones, and the three words a
+    /// tooltip splits its sections under.
+    /// </summary>
+    internal PublicationTable<WorldEnchantment> Enchantments { get; init; } =
+        PublicationTable<WorldEnchantment>.Empty;
+
+    internal PublicationTable<WorldGlyphType> GlyphTypes { get; init; } =
+        PublicationTable<WorldGlyphType>.Empty;
+
+    internal PublicationTable<WorldRuneStone> RuneStones { get; init; } =
+        PublicationTable<WorldRuneStone>.Empty;
+
+    internal PublicationTable<WorldDisplayType> DisplayTypes { get; init; } =
+        PublicationTable<WorldDisplayType>.Empty;
+
+    /// <summary>
     /// What one more level of each entity costs, computed here rather than asked of the game. Keyed by
     /// entity and then resource, with several rows per entity; read it through
     /// <see cref="WorldPurchaseCostLookup"/> rather than <see cref="WorldLookup"/>.

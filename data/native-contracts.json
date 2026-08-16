@@ -5524,6 +5524,788 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.String"}
     },
     {
+      "id": "combat-status-so.tooltipable-base",
+      "assembly": "assembly-csharp",
+      "type": "CombatStatusSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "TooltipableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "character-attribute-so.tooltipable-base",
+      "assembly": "assembly-csharp",
+      "type": "CharacterAttributeSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "TooltipableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "damage-type-so.tooltipable-base",
+      "assembly": "assembly-csharp",
+      "type": "DamageTypeSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "TooltipableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "character-modifier-so.tooltipable-base",
+      "assembly": "assembly-csharp",
+      "type": "CharacterModifierSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "TooltipableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "character-action-so.tooltipable-base",
+      "assembly": "assembly-csharp",
+      "type": "CharacterActionSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "TooltipableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "character-type-so.tooltipable-base",
+      "assembly": "assembly-csharp",
+      "type": "CharacterTypeSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "TooltipableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "enchantment-so.tooltipable-base",
+      "assembly": "assembly-csharp",
+      "type": "EnchantmentSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "TooltipableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "glyph-type-so.tooltipable-base",
+      "assembly": "assembly-csharp",
+      "type": "GlyphTypeSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "TooltipableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "rune-stone-so.tooltipable-base",
+      "assembly": "assembly-csharp",
+      "type": "RuneStoneSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "TooltipableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "display-type-so.tooltipable-base",
+      "assembly": "assembly-csharp",
+      "type": "DisplayTypeSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "TooltipableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "attribute-group-so.upgradeable-base",
+      "assembly": "assembly-csharp",
+      "type": "AttributeGroupSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "UpgradeableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "combat-status.all",
+      "assembly": "assembly-csharp",
+      "type": "CombatStatusSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<CombatStatusSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<CombatStatusSO>"}
+    },
+    {
+      "id": "character-attribute.all",
+      "assembly": "assembly-csharp",
+      "type": "CharacterAttributeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<CharacterAttributeSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<CharacterAttributeSO>"}
+    },
+    {
+      "id": "damage-type.all",
+      "assembly": "assembly-csharp",
+      "type": "DamageTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<DamageTypeSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<DamageTypeSO>"}
+    },
+    {
+      "id": "character-modifier.all",
+      "assembly": "assembly-csharp",
+      "type": "CharacterModifierSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<CharacterModifierSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<CharacterModifierSO>"}
+    },
+    {
+      "id": "character-action.all",
+      "assembly": "assembly-csharp",
+      "type": "CharacterActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<CharacterActionSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<CharacterActionSO>"}
+    },
+    {
+      "id": "character-type.all",
+      "assembly": "assembly-csharp",
+      "type": "CharacterTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<CharacterTypeSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<CharacterTypeSO>"}
+    },
+    {
+      "id": "enchantment.all",
+      "assembly": "assembly-csharp",
+      "type": "EnchantmentSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<EnchantmentSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<EnchantmentSO>"}
+    },
+    {
+      "id": "glyph-type.all",
+      "assembly": "assembly-csharp",
+      "type": "GlyphTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<GlyphTypeSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<GlyphTypeSO>"}
+    },
+    {
+      "id": "rune-stone.all",
+      "assembly": "assembly-csharp",
+      "type": "RuneStoneSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<RuneStoneSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<RuneStoneSO>"}
+    },
+    {
+      "id": "display-type.all",
+      "assembly": "assembly-csharp",
+      "type": "DisplayTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<DisplayTypeSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<DisplayTypeSO>"}
+    },
+    {
+      "id": "attribute-group.all",
+      "assembly": "assembly-csharp",
+      "type": "AttributeGroupSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "All",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.List`1<AttributeGroupSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<AttributeGroupSO>"}
+    },
+    {
+      "id": "combat-status.effect-timer",
+      "assembly": "assembly-csharp",
+      "type": "CombatStatusSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "effectTimer",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
+      "id": "combat-status.is-buff",
+      "assembly": "assembly-csharp",
+      "type": "CombatStatusSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "isBuff",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "combat-status.max-duration",
+      "assembly": "assembly-csharp",
+      "type": "CombatStatusSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "maxDuration",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
+      "id": "combat-status.reset-duration-on-application",
+      "assembly": "assembly-csharp",
+      "type": "CombatStatusSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "resetDurationOnApplication",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "combat-status.stacks-separately",
+      "assembly": "assembly-csharp",
+      "type": "CombatStatusSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "stacksSeparately",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "damage-type.damage-reduction-rate",
+      "assembly": "assembly-csharp",
+      "type": "DamageTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "damageReductionRate",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
+      "id": "damage-type.ignore-entrenched",
+      "assembly": "assembly-csharp",
+      "type": "DamageTypeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "ignoreEntrenched",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "character-modifier.weight-chance",
+      "assembly": "assembly-csharp",
+      "type": "CharacterModifierSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "weightChance",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Single",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Single"}
+    },
+    {
+      "id": "character-action.action-time",
+      "assembly": "assembly-csharp",
+      "type": "CharacterActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "actionTime",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
+      "id": "character-action.prep-time",
+      "assembly": "assembly-csharp",
+      "type": "CharacterActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "prepTime",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
+      "id": "character-action.speed-mod",
+      "assembly": "assembly-csharp",
+      "type": "CharacterActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "speedMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
+      "id": "character-attribute.damage-type",
+      "assembly": "assembly-csharp",
+      "type": "CharacterAttributeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "damageType",
+      "visibility": "public",
+      "static": false,
+      "valueType": "DamageTypeSO",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field DamageTypeSO"}
+    },
+    {
+      "id": "attribute-group.record-references",
+      "assembly": "assembly-csharp",
+      "type": "AttributeGroupSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "recordReferences",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<AttributeGroupSO+MergingRecordReference>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<AttributeGroupSO+MergingRecordReference>"}
+    },
+    {
+      "id": "merging-record-reference.ratio",
+      "assembly": "assembly-csharp",
+      "type": "AttributeGroupSO+MergingRecordReference",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "ratio",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
+      "id": "merging-record-reference.ratio-exp",
+      "assembly": "assembly-csharp",
+      "type": "AttributeGroupSO+MergingRecordReference",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "ratioExp",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
+      "id": "merging-record-reference.order-adjust",
+      "assembly": "assembly-csharp",
+      "type": "AttributeGroupSO+MergingRecordReference",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "orderAdjust",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "upgrade-reference.upgradeable-object",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+UpgradeReference",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "upgradeableObject",
+      "visibility": "public",
+      "static": false,
+      "valueType": "UpgradeableObject",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field UpgradeableObject"}
+    },
+    {
+      "id": "upgrade-reference.property-type",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+UpgradeReference",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "propertyType",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.String",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.String"}
+    },
+    {
+      "id": "upgrade-reference.property-index",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+UpgradeReference",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "propertyIndex",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Int32",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "character-attribute.associated-stat",
+      "assembly": "assembly-csharp",
+      "type": "CharacterAttributeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "associatedStat",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.String",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "attribute-group.record",
+      "assembly": "assembly-csharp",
+      "type": "AttributeGroupSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "record",
+      "visibility": "private",
+      "static": false,
+      "valueType": "MergingModifierRecord",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
       "id": "structure-type-so.upgradeable-base",
       "assembly": "assembly-csharp",
       "type": "StructureTypeSO",

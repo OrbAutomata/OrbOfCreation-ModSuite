@@ -144,6 +144,9 @@ public sealed class WorldIdentityWalkTests
     /// arithmetic rather than entities: the first two are keyed by a type asset the identity catalog
     /// already claims and by the record name on it, and the third is keyed by a loadout position,
     /// which is not an identity for the same reason <c>SpellSlots</c> is not.
+    /// <c>AttributeGroupMembers</c> is one row per authored reference on a stat group: both ends are
+    /// entities their own categories claim — the group by <c>attribute-groups</c>, the target by
+    /// whichever category holds it — and the row is only the distribution between them, at a ratio.
     /// <para>
     /// <c>ActionQueues</c> is not among them: a queue is a list variable with a uuid of its own that
     /// no other category collects, so it is walked like any other entity.
@@ -206,6 +209,7 @@ public sealed class WorldIdentityWalkTests
         "TypeModifierTotals",
         "KeywordModifiers",
         "SpellTypeResonance",
+        "AttributeGroupMembers",
     };
 
     /// <summary>
@@ -280,7 +284,7 @@ public sealed class WorldIdentityWalkTests
         Assert.Equal(
             new[] { "MasteryCosts", "ModifierProgramEntries", "ModifierPrograms" },
             composite);
-        Assert.Equal(61, walked);
+        Assert.Equal(72, walked);
     }
 
     /// <summary>

@@ -429,8 +429,10 @@ public sealed class CraftingInstance : AbstractRefInstance<CraftingRecipeSO>
     public bool IsExpired() => Expired;
 }
 
-public sealed class EnchantmentSO : IdScriptableObject
+public sealed class EnchantmentSO : TooltipableObject
 {
+    public static List<EnchantmentSO> All = new List<EnchantmentSO>();
+
     public sealed class EnchantTable
     {
         public List<EnchantmentInstance> enchantments = new List<EnchantmentInstance>();
@@ -1373,6 +1375,73 @@ public sealed class TimeRuneTypeSO : UpgradeableObject
 public sealed class GlyphTypeSO : TooltipableObject
 {
     public static List<GlyphTypeSO> All = new List<GlyphTypeSO>();
+}
+
+/// <summary>
+/// The ritual layer's authored vocabulary. Each of these is a registry of words the game prints and
+/// never changes, and the stub carries exactly the members the world binders read.
+/// </summary>
+public sealed class CombatStatusSO : TooltipableObject
+{
+    public static List<CombatStatusSO> All = new List<CombatStatusSO>();
+    public bool isBuff;
+    public double maxDuration;
+    public bool stacksSeparately;
+    public bool resetDurationOnApplication;
+    public double effectTimer;
+}
+
+public sealed class DamageTypeSO : TooltipableObject
+{
+    public static List<DamageTypeSO> All = new List<DamageTypeSO>();
+    public double damageReductionRate;
+    public bool ignoreEntrenched;
+}
+
+public sealed class CharacterAttributeSO : TooltipableObject
+{
+    public static List<CharacterAttributeSO> All = new List<CharacterAttributeSO>();
+    public DamageTypeSO? damageType;
+    public string associatedStat = string.Empty;
+}
+
+public sealed class CharacterModifierSO : TooltipableObject
+{
+    public static List<CharacterModifierSO> All = new List<CharacterModifierSO>();
+    public float weightChance;
+}
+
+public sealed class CharacterActionSO : TooltipableObject
+{
+    public static List<CharacterActionSO> All = new List<CharacterActionSO>();
+    public double prepTime;
+    public double actionTime;
+    public double speedMod;
+}
+
+public sealed class RuneStoneSO : TooltipableObject
+{
+    public static List<RuneStoneSO> All = new List<RuneStoneSO>();
+}
+
+/// <summary>
+/// The Statistics tab's headings. The distribution is the whole point of the type, so the stub
+/// carries the reference list and the three numbers each reference merges with.
+/// </summary>
+public sealed class AttributeGroupSO : UpgradeableObject
+{
+    public static List<AttributeGroupSO> All = new List<AttributeGroupSO>();
+    public List<MergingRecordReference> recordReferences = new List<MergingRecordReference>();
+
+    public sealed class MergingRecordReference
+    {
+        public IdScriptableObject? upgradeableObject;
+        public string propertyType = string.Empty;
+        public int propertyIndex;
+        public double ratio = 1d;
+        public double ratioExp = 1d;
+        public int orderAdjust;
+    }
 }
 
 public sealed class HarvestActionTypeSO : UpgradeableObject

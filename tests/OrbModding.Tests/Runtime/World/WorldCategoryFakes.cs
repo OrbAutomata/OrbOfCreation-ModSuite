@@ -102,6 +102,16 @@ internal static class WorldCategoryFakes
         ["TreasurePoolSO"] = typeof(FakeTreasurePool),
         ["ValueModifierVariable"] = typeof(FakeModifierVariable),
         ["AttributeSO"] = typeof(FakeStatistic),
+        ["AttributeGroupSO"] = typeof(FakeAttributeGroup),
+        ["CombatStatusSO"] = typeof(FakeStatusEffect),
+        ["CharacterAttributeSO"] = typeof(FakeCharacterAttribute),
+        ["DamageTypeSO"] = typeof(FakeDamageType),
+        ["CharacterModifierSO"] = typeof(FakeCharacterModifier),
+        ["CharacterActionSO"] = typeof(FakeCharacterAction),
+        ["CharacterTypeSO"] = typeof(FakeCharacterType),
+        ["GlyphTypeSO"] = typeof(FakeGlyphType),
+        ["RuneStoneSO"] = typeof(FakeRuneStone),
+        ["DisplayTypeSO"] = typeof(FakeDisplayType),
         ["RitualTypeSO"] = typeof(FakeRitualType),
         ["HarvestTypeSO"] = typeof(FakeHarvestType),
         ["PlotNodeTypeSO"] = typeof(FakePlotNodeType),
@@ -191,6 +201,17 @@ internal static class WorldCategoryFakes
         FakeTreasurePool.All.Clear();
         FakeModifierVariable.All.Clear();
         FakeStatistic.All.Clear();
+        FakeAttributeGroup.All.Clear();
+        FakeStatusEffect.All.Clear();
+        FakeCharacterAttribute.All.Clear();
+        FakeDamageType.All.Clear();
+        FakeCharacterModifier.All.Clear();
+        FakeCharacterAction.All.Clear();
+        FakeCharacterType.All.Clear();
+        FakeScribeEnchantment.All.Clear();
+        FakeGlyphType.All.Clear();
+        FakeRuneStone.All.Clear();
+        FakeDisplayType.All.Clear();
         FakeIdRegistry.RuntimeLookup.Clear();
         UnityEngine.Resources.Objects.Clear();
         SeedScribeRelations();
@@ -315,6 +336,9 @@ internal sealed class FakeTimeRuneType : FakeIdRegistry
 
 internal sealed class FakeGlyphType : FakeIdRegistry
 {
+    public static readonly List<FakeGlyphType> All = new();
+
+    public string description = string.Empty;
 }
 
 internal sealed class FakeHarvestActionType : FakeIdRegistry
@@ -351,6 +375,9 @@ internal sealed class FakeRitualType : FakeIdRegistry
 
 internal sealed class FakeCharacterType : FakeIdRegistry
 {
+    public static readonly List<FakeCharacterType> All = new();
+
+    public string description = string.Empty;
 }
 
 internal sealed class FakePlotNodeType : FakeIdRegistry
@@ -707,7 +734,10 @@ internal sealed class FakeScribeEnchantItemScript : IFakeScribeInstantScript
 
 internal sealed class FakeScribeEnchantment
 {
+    public static readonly List<FakeScribeEnchantment> All = new();
+
     public Guid Identity = Guid.NewGuid();
+    public string description = string.Empty;
     public Guid GetGuid() => Identity;
 }
 
@@ -882,7 +912,111 @@ internal sealed class FakeDisplayTypeReference
 
 internal sealed class FakeDisplayType
 {
+    public static readonly List<FakeDisplayType> All = new();
+
+    public Guid Identity = Guid.NewGuid();
     public string displayName = string.Empty;
+    public string description = string.Empty;
+
+    public Guid GetGuid() => Identity;
+}
+
+/// <summary>
+/// The Statistics tab's headings and their distribution. The reference list is the whole point of
+/// the type, so the stand-in carries it and the three numbers each entry merges with.
+/// </summary>
+internal sealed class FakeAttributeGroup
+{
+    public static readonly List<FakeAttributeGroup> All = new();
+
+    public Guid Identity = Guid.NewGuid();
+    public string description = string.Empty;
+    public List<FakeAttributeGroupReference> recordReferences = new();
+
+    public Guid GetGuid() => Identity;
+}
+
+internal sealed class FakeAttributeGroupReference
+{
+    public FakeStatistic? upgradeableObject;
+    public string propertyType = string.Empty;
+    public int propertyIndex;
+    public double ratio = 1d;
+    public double ratioExp = 1d;
+    public int orderAdjust;
+}
+
+/// <summary>The ritual layer's glossaries, one stand-in per registry the collector walks.</summary>
+internal sealed class FakeStatusEffect
+{
+    public static readonly List<FakeStatusEffect> All = new();
+
+    public Guid Identity = Guid.NewGuid();
+    public bool isBuff;
+    public double maxDuration;
+    public bool stacksSeparately;
+    public bool resetDurationOnApplication;
+    public double effectTimer;
+    public string description = string.Empty;
+
+    public Guid GetGuid() => Identity;
+}
+
+internal sealed class FakeCharacterAttribute
+{
+    public static readonly List<FakeCharacterAttribute> All = new();
+
+    public Guid Identity = Guid.NewGuid();
+    public FakeDamageType? damageType;
+    public string description = string.Empty;
+
+    public Guid GetGuid() => Identity;
+}
+
+internal sealed class FakeDamageType
+{
+    public static readonly List<FakeDamageType> All = new();
+
+    public Guid Identity = Guid.NewGuid();
+    public double damageReductionRate;
+    public bool ignoreEntrenched;
+    public string description = string.Empty;
+
+    public Guid GetGuid() => Identity;
+}
+
+internal sealed class FakeCharacterModifier
+{
+    public static readonly List<FakeCharacterModifier> All = new();
+
+    public Guid Identity = Guid.NewGuid();
+    public float weightChance;
+    public string description = string.Empty;
+
+    public Guid GetGuid() => Identity;
+}
+
+internal sealed class FakeCharacterAction
+{
+    public static readonly List<FakeCharacterAction> All = new();
+
+    public Guid Identity = Guid.NewGuid();
+    public double prepTime;
+    public double actionTime;
+    public double speedMod;
+    public string description = string.Empty;
+
+    public Guid GetGuid() => Identity;
+}
+
+internal sealed class FakeRuneStone
+{
+    public static readonly List<FakeRuneStone> All = new();
+
+    public Guid Identity = Guid.NewGuid();
+    public string description = string.Empty;
+
+    public Guid GetGuid() => Identity;
 }
 
 internal struct FakeValueModifier
