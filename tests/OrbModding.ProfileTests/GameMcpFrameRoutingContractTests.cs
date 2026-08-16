@@ -12,7 +12,7 @@ public sealed class GameMcpFrameRoutingContractTests
     public void EveryAdvertisedToolBuildsOneImmutableOperationForTheSoleInbox()
     {
         var tools = GameMcpAcceptanceFixture.Tools();
-        Assert.Equal(42, tools.Count);
+        Assert.Equal(41, tools.Count);
         var inbox = new GameMcpFrameInbox();
         var operations = tools
             .Select(tool => GameMcpProtocolRouter.BuildOperation(
@@ -78,10 +78,11 @@ public sealed class GameMcpFrameRoutingContractTests
         Assert.Equal(GameMcpOperationClass.ReadOnly, read.Classification);
         Assert.Equal(GameMcpFrameData.World, read.RequiredData);
 
-        var catalog = GameMcpProtocolRouter.BuildOperation(
-            "entity_catalog",
-            Arguments("entity_catalog"));
-        Assert.Equal(GameMcpFrameData.None, catalog.RequiredData);
+        var screen = GameMcpProtocolRouter.BuildOperation(
+            "game_screen_catalog",
+            Arguments("game_screen_catalog"));
+        Assert.Equal(GameMcpOperationClass.ReadOnly, screen.Classification);
+        Assert.Equal(GameMcpFrameData.None, screen.RequiredData);
 
         var health = GameMcpProtocolRouter.BuildOperation(
             "suite_health",
@@ -190,7 +191,7 @@ public sealed class GameMcpFrameRoutingContractTests
             ["category"] = "resources",
             ["uuids"] = new JArray(Guid.NewGuid().ToString("D")),
         },
-        "entity_catalog" or "world_search" => new JObject { ["query"] = "mana" },
+        "world_search" => new JObject { ["query"] = "mana" },
         "suite_health" or "suite_check_game_math" => new JObject(),
         "game_purchase" => new JObject
         {

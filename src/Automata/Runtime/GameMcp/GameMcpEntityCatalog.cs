@@ -1,10 +1,8 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
-using System.Text;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
 using JObject = OrbAutomata.GameMcp.GameMcpObjectBuilder;
-using JArray = OrbAutomata.GameMcp.GameMcpArrayBuilder;
 
 namespace OrbAutomata.GameMcp;
 
@@ -14,58 +12,6 @@ namespace OrbAutomata.GameMcp;
 /// </summary>
 internal static class GameMcpEntityCatalog
 {
-    internal static JObject Search(
-        EntityIdentityCatalogSnapshot catalog,
-        string query,
-        int offset,
-        int limit)
-    {
-        var normalized = (query ?? string.Empty).Trim();
-        if (normalized.Length == 0)
-            return NotAvailable("query_required", "query must not be empty");
-        if (offset < 0)
-            return NotAvailable("invalid_offset", "offset must be zero or greater");
-        if (limit <= 0 || limit > 200)
-            return NotAvailable("invalid_limit", "limit must be between 1 and 200");
-        if (!catalog.IsBound)
-            return NotAvailable(
-                "entity_catalog_unavailable",
-                catalog.FailureReason.Length > 0
-                    ? catalog.FailureReason
-                    : "the live entity catalog has not bound in this playing lifecycle yet");
-
-        var page = new JArray();
-        var totalMatches = 0;
-        var estimatedBytes = 128;
-        var budgetReached = false;
-        var rows = catalog.Rows.AsSpan();
-        for (var index = 0; index < rows.Length; index++)
-        {
-            var row = rows[index];
-            if (!Matches(in row, normalized)) continue;
-            if (!GameMcpEntityCatalogScope.Lists(row.RuntimeType)) continue;
-            totalMatches++;
-            if (totalMatches <= offset || page.Count >= limit || budgetReached) continue;
-            var rowBytes = EstimateRowBytes(in row);
-            if (page.Count > 0 &&
-                estimatedBytes + rowBytes > GameMcpWorldQuery.MaximumListResponseBytes)
-            {
-                budgetReached = true;
-                continue;
-            }
-            estimatedBytes += rowBytes;
-            page.Add(Project(catalog, in row));
-        }
-
-        var result = new JObject
-        {
-            ["total"] = totalMatches,
-            ["rows"] = page,
-        };
-        if (offset + page.Count < totalMatches) result["nextOffset"] = offset + page.Count;
-        return result;
-    }
-
     /// <summary>
     /// One id's identity block.
     /// </summary>
@@ -76,8 +22,7 @@ internal static class GameMcpEntityCatalog
     /// is what <c>world_categories</c> publishes. The moment a row's runtime type is something its
     /// category does not declare, the implication is not one-to-one for that row and
     /// <c>nativeType</c> stays, which is the only case where it carries a fact the category cannot.
-    /// A caller browsing the catalog names no category, and every row that page returns is one the
-    /// published world has no category for, so there is nothing for it to imply from either.
+    /// A caller who names no category implies nothing, so the block keeps the type.
     /// </remarks>
     internal static JObject Lookup(
         EntityIdentityCatalogSnapshot catalog,
@@ -197,16 +142,10 @@ internal static class GameMcpEntityCatalog
         row.AssetName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
         row.DisplayName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
 
-    private static int EstimateRowBytes(in EntityIdentityName row) =>
-        checked(192 +
-            Encoding.UTF8.GetByteCount(row.RuntimeType) +
-            Encoding.UTF8.GetByteCount(row.AssetName) +
-            Encoding.UTF8.GetByteCount(row.DisplayName));
-
     private static JObject Project(
         EntityIdentityCatalogSnapshot catalog,
         in EntityIdentityName row,
-        string impliedNativeType = "")
+        string impliedNativeType)
     {
         var identity = EntityIdentityFormatter.Describe(row.EntityId, catalog);
         var result = new JObject
@@ -222,12 +161,10 @@ internal static class GameMcpEntityCatalog
         var named = identity.HasName &&
             identity.Source != EntityIdentityNameSource.LiveAssetName;
         if (named) result["name"] = identity.Name;
-        // The page carries no `category` cell any more: every row it returns is one the published
-        // world has no category for, and a column that reads the same on every row is noise the
-        // verb's own contract already covers. The word is still read here because the block
-        // `world_get` builds from this projection prints its own category line, and an asset id that
-        // is the name plus that word says nothing twice; a catalog row finds none and is left with
-        // the de-spaced rule alone.
+        // The block prints no `category` cell of its own; the word is read here because the
+        // `world_get` block this projection sits inside prints one, and an asset id that is the name
+        // plus that word says nothing twice. An id whose type no category claims finds none and is
+        // left with the de-spaced rule alone.
         GameMcpEntityCapabilityMap.TryCategoryForNativeType(row.RuntimeType, out var category);
         if (row.AssetName.Length > 0 &&
             !(named && SaysNothingNew(identity.Name, row.AssetName, category)))
@@ -280,8 +217,8 @@ internal static class GameMcpEntityCatalog
     /// already states — <c>Strength</c> plus <c>rituals</c> is the whole of <c>StrengthRitual</c>.
     /// </summary>
     /// <remarks>
-    /// A catalog row states no category, so it names none here and the rule cannot fire for it;
-    /// the caller that does is the <c>world_get</c> block, whose category line is right there.
+    /// An id whose type no published category claims names none here and the rule cannot fire for
+    /// it; where one is named it is the <c>world_get</c> block's own category line, right there.
     /// Six of one round's eleven `internalName` lines were this: `StrengthRitual`,
     /// `ArtistryResearch`, `MiningActionType`, `MiningHarvestAction`, `AlchemistStructures`,
     /// `PlantHarvestAction` — the name, then the category, on a block that prints the category one

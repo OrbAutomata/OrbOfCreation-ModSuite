@@ -15,8 +15,8 @@ namespace OrbModding.ProfileTests;
 /// </summary>
 /// <remarks>
 /// Every id, word, number and sentence here is the pinned build's own
-/// (<c>data/game-data.json</c>). These 84 rows were the last thing <c>entity_catalog</c> listed and
-/// the published world had nothing to say about, so the assertions are about what one page now says
+/// (<c>data/game-data.json</c>). These 84 rows were the last words this build loaded that the
+/// published world had nothing to say about, so the assertions are about what one page now says
 /// without a second call.
 /// </remarks>
 public sealed class GameMcpRitualGlossaryTests

@@ -22,13 +22,20 @@ namespace OrbModding.ProfileTests;
 
 public sealed class GameMcpStreamableHttpProtocolTests
 {
+    /// <summary>
+    /// The snapshot answers for an id progression has not revealed, and the same reference answers
+    /// the next caller: it is bound once for the lifecycle rather than read again per question.
+    /// </summary>
     [Fact]
     public void LiveCatalogSnapshotServesHiddenNamesWithoutReloading()
     {
         var catalog = GameMcpTestHarness.EntityCatalog;
-        Assert.Null(GameMcpTestHarness.Json(
-            GameMcpEntityCatalog.Search(catalog, "Summon Reinforcements", 0, 20)
-                .Freeze())["status"]);
+        var block = GameMcpTestHarness.Json(GameMcpEntityCatalog.Lookup(
+            catalog,
+            Guid.Parse("f8a9326a-2f98-4f05-889e-3078635fd714")).Freeze());
+
+        Assert.Null(block["status"]);
+        Assert.Equal("Summon Reinforcements", (string?)block["name"]);
         Assert.Same(catalog, GameMcpTestHarness.EntityCatalog);
     }
 
@@ -394,10 +401,13 @@ public sealed class GameMcpStreamableHttpProtocolTests
             .ToArray();
         Assert.Contains("world_overview", toolNames);
         Assert.Contains("world_get", toolNames);
-        Assert.Contains("entity_catalog", toolNames);
+        Assert.Contains("world_search", toolNames);
         Assert.Contains("suite_health", toolNames);
         Assert.Contains("trace_health", toolNames);
         Assert.DoesNotContain("decision_journal", toolNames);
+        // The remainder page retired the day the world published the last thing it listed, and a
+        // retired verb has to be gone from the advertisement rather than answering an empty page.
+        Assert.DoesNotContain("entity_catalog", toolNames);
         Assert.Contains("game_purchase", toolNames);
         Assert.Contains("game_cast", toolNames);
         Assert.Contains("game_concept", toolNames);
@@ -450,57 +460,38 @@ public sealed class GameMcpStreamableHttpProtocolTests
     }
 
     /// <summary>
-    /// The whole verb, end to end, on the build it ships against: it answers with nothing. Every id
-    /// this build loads is either a row the published world carries or machinery this page
-    /// withholds, so the remainder it exists to list is empty.
+    /// The retired verb, end to end: the server does not have it. A caller holding the old name is
+    /// told the name is not one this server has and pointed at the list, rather than met with a
+    /// page that answers <c>rows 0/0</c> for ever.
     /// </summary>
     /// <remarks>
-    /// The query is the one this test used to prove the opposite with. A combat action was the
-    /// clearest thing the page was for — the game prints the word, no world category published a
-    /// row for it, and no other verb would say it — and that is exactly the gap the
-    /// <c>character-actions</c> category closed. The page still refuses nothing and still answers in
-    /// its own shape; it simply has no row left to carry, and the word is on <c>world_search</c>.
+    /// The query is the one that used to prove the page was worth having. A combat action was the
+    /// clearest thing it was for — the game prints the word, no world category published a row for
+    /// it, and no other verb would say it — and that is exactly the gap the
+    /// <c>character-actions</c> category closed. The word is on <c>world_search</c> now, with the
+    /// facts the page could never hold beside it.
     /// </remarks>
     [Fact]
-    public void LiveCatalogHasNoRemainderLeftToListOnThisBuild()
+    public void TheRetiredCatalogVerbIsNoLongerAToolThisServerHas()
     {
-        var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
-        var response = GameMcpTestHarness.Handle(
-            router,
-            inbox,
-            Request(
-                100,
-                "tools/call",
-                new JObject
-                {
-                    ["name"] = "entity_catalog",
-                    ["arguments"] = new JObject
-                    {
-                        ["query"] = "Summon Reinforcements",
-                        ["limit"] = 20,
-                    },
-                }),
-            operation => GameMcpTestHarness.ExecuteRead(
-                operation,
-                GameMcpTestHarness.Context()));
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var response = router.Handle(Request(
+            100,
+            "tools/call",
+            new JObject
+            {
+                ["name"] = "entity_catalog",
+                ["arguments"] = new JObject { ["query"] = "Summon Reinforcements" },
+            }));
 
-        var page = (string)Assert.Single(
-            response.Body!["result"]!["content"]!.Values<JObject>())!["text"]!;
-
-        Assert.Equal("rows 0/0", page.TrimEnd('\n'));
+        Assert.Null(response.Body!["result"]);
+        Assert.Equal(-32602, (int)response.Body!["error"]!["code"]!);
+        Assert.Equal(
+            "unknown tool 'entity_catalog'; call tools/list",
+            (string?)response.Body!["error"]!["message"]);
         Assert.True(
             GameMcpEntityCapabilityMap.TryCategoryForNativeType("CharacterActionSO", out var moved));
         Assert.Equal("character-actions", moved);
-
-        // The cells are gone rather than constant, and stay gone: the page never carried a category
-        // column, a catalog-source line or a name-source flag, and an empty page names none of them
-        // either.
-        Assert.DoesNotContain("category", page, StringComparison.Ordinal);
-        Assert.DoesNotContain("not-world-projected", page, StringComparison.Ordinal);
-        Assert.DoesNotContain("catalogSource", page, StringComparison.Ordinal);
-        Assert.DoesNotContain("totalCatalogRows", page, StringComparison.Ordinal);
-        Assert.DoesNotContain("nameSource", page, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -510,8 +501,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     /// </summary>
     /// <remarks>
     /// The rule needs a category to read, so it lives where one is printed: the identity block
-    /// <c>world_get</c> builds from this projection. These three types are all published categories,
-    /// which is exactly why <c>entity_catalog</c>'s own page no longer carries them.
+    /// <c>world_get</c> builds from this projection, which is the only caller left that names one.
     /// </remarks>
     [Fact]
     public void An_asset_id_that_is_only_the_name_and_the_category_is_not_printed_again()
@@ -537,75 +527,6 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Null(blocks[2]["internalName"]);
     }
 
-    [Fact]
-    public void EmptyLiveCatalogSearchKeepsExplicitCardinalityAndCollection()
-    {
-        var result = GameMcpTestHarness.Json(
-            GameMcpEntityCatalog.Search(
-                GameMcpTestHarness.EntityCatalog,
-                "definitely-no-such-live-entity",
-                0,
-                20).Freeze());
-
-        Assert.Null(result["status"]);
-        Assert.Equal(0, (int)result["total"]!);
-        Assert.Null(result["returned"]);
-        Assert.Empty(result["rows"]!);
-        Assert.Null(result["query"]);
-        Assert.Null(result["limit"]);
-        Assert.Null(result["truncated"]);
-        Assert.Null(result["nextOffset"]);
-    }
-
-    /// <summary>
-    /// The page still pages. This build's remainder is empty, so the fixture is a catalog of a type
-    /// no verdict covers — the state a build that loads something new arrives in, and the only
-    /// state in which this verb returns a row at all.
-    /// </summary>
-    [Fact]
-    public void CatalogSearchPagesWithNextOffsetAndNeverRepeatsARow()
-    {
-        var catalog = UnruledCatalog(3);
-
-        var first = GameMcpTestHarness.Json(
-            GameMcpEntityCatalog.Search(catalog, "SomethingNew", 0, 1).Freeze());
-
-        var total = (int)first["total"]!;
-        Assert.Equal(3, total);
-        Assert.Null(first["returned"]);
-        Assert.Null(first["truncated"]);
-        Assert.Null(first["hasMore"]);
-        Assert.Single(first["rows"]!);
-        Assert.Equal(1, (int)first["nextOffset"]!);
-
-        var second = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
-            catalog, "SomethingNew", (int)first["nextOffset"]!, 1).Freeze());
-
-        Assert.Equal(total, (int)second["total"]!);
-        Assert.NotEqual(
-            (string?)first["rows"]![0]!["uuid"],
-            (string?)second["rows"]![0]!["uuid"]);
-
-        var last = GameMcpTestHarness.Json(
-            GameMcpEntityCatalog.Search(catalog, "SomethingNew", total - 1, 1).Freeze());
-
-        Assert.Single(last["rows"]!);
-        Assert.Null(last["nextOffset"]);
-    }
-
-    [Fact]
-    public void CatalogSearchRefusesANegativeOffset()
-    {
-        var result = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
-            GameMcpTestHarness.EntityCatalog,
-            "a",
-            -1,
-            10).Freeze());
-
-        Assert.Equal("unavailable", (string?)result["status"]);
-        Assert.Equal("ERR_INPUT", (string?)result["reasonCode"]);
-    }
-
     /// <summary>
     /// An asset the game authors no word for has no name to publish. It used to borrow the Unity
     /// asset id for the <c>name</c> cell and flag the borrowing with <c>nameSource: asset</c>, so
@@ -614,67 +535,28 @@ public sealed class GameMcpStreamableHttpProtocolTests
     /// goes where it belongs, and <c>name</c> says what absence says.
     /// </summary>
     /// <remarks>
-    /// <c>BrewingStation</c> used to be the build's one authored-but-unreachable asset and this
-    /// shape's live fixture. It is machinery now — the game builds no instance of it — so the page
-    /// withholds it, and no asset this build loads can stand in: the whole remainder is empty. The
-    /// fixture is therefore a nameless asset of an unruled type, which is what a build that loads
-    /// something new brings, and the wire is rendered through the same text page the router sends.
+    /// The fixture is the build's own nameless asset: the legacy Brewing Station, a
+    /// <c>TooltipableObject</c> whose <c>displayName</c> and <c>description</c> are both authored
+    /// empty. Its identity still answers — the id resolves, and the asset id is still what every
+    /// reference prints for it — which is the whole of what is left to read about it.
     /// </remarks>
     [Fact]
     public void LiveCatalogNamesNothingWhereTheGameAuthorsNoWord()
     {
-        var nameless = Guid.Parse("c3000000-0000-4000-8000-000000000001");
-        var catalog = EntityIdentityCatalogSnapshot.Bound(5, new[]
-        {
-            new EntityIdentityName(nameless, "SomethingNewSO", string.Empty, "BrewingStation"),
-        });
-
-        var page = GameMcpTextPage.Render(GameMcpTestHarness.Json(
-            GameMcpEntityCatalog.Search(catalog, "BrewingStation", 0, 20).Freeze()));
-
-        var lines = page.TrimEnd('\n').Split('\n');
-        Assert.Equal(3, lines.Length);
-        Assert.StartsWith("[", lines[1]);
-        Assert.Contains("BrewingStation", lines[2]);
-        Assert.Contains("internalName", lines[1], StringComparison.Ordinal);
-        Assert.DoesNotContain("category", page, StringComparison.Ordinal);
-        Assert.DoesNotContain("nameSource", page, StringComparison.Ordinal);
-        Assert.DoesNotContain("hasDisplayName", page, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// The one authored-but-unreachable asset, by the door it left through. The station is a
-    /// TooltipableObject whose displayName and description are both authored empty, and its
-    /// <c>instances</c> list variable is empty and not static, so the game builds no station for a
-    /// row to answer for. Its id still resolves and still prints its asset name everywhere it is
-    /// referenced; only this page stops carrying it.
-    /// </summary>
-    [Fact]
-    public void TheLegacyStationIsWithheldAsMachineryRatherThanListedNameless()
-    {
         var station = Guid.Parse("d76565b1-8e2b-44fe-9cf3-995d6f666305");
-        var result = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
-            GameMcpTestHarness.EntityCatalog,
-            "d76565b1-8e2b-44fe-9cf3-995d6f666305",
-            0,
-            20).Freeze());
 
-        Assert.True(GameMcpEntityCatalogScope.IsMachinery("CraftingStructureSO"));
-        Assert.Equal(0, (int)result["total"]!);
-        Assert.Empty(result["rows"]!);
+        var block = GameMcpTestHarness.Json(GameMcpEntityCatalog.Lookup(
+            GameMcpTestHarness.EntityCatalog, station).Freeze());
+
+        Assert.Null(block["name"]);
+        Assert.Null(block["nameSource"]);
+        Assert.Null(block["hasDisplayName"]);
+        Assert.Equal("BrewingStation", (string?)block["internalName"]);
+        Assert.Equal("CraftingStructureSO", (string?)block["nativeType"]);
         Assert.Equal(
             "BrewingStation",
             GameMcpEntityHandle.Name(station, GameMcpTestHarness.EntityCatalog));
     }
-
-    private static EntityIdentityCatalogSnapshot UnruledCatalog(int count) =>
-        EntityIdentityCatalogSnapshot.Bound(5, Enumerable.Range(1, count)
-            .Select(index => new EntityIdentityName(
-                Guid.Parse($"{index}c000000-0000-4000-8000-000000000001"),
-                "SomethingNewSO",
-                $"Fresh Thing {index}",
-                $"FreshThing{index}"))
-            .ToArray());
 
 
     [Fact]

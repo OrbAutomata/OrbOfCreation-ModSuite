@@ -174,12 +174,6 @@ internal static class GameMcpTestHarness
                     context,
                     request.Category,
                     request.Uuids).Freeze()),
-            "entity_catalog" => GameMcpToolExecution.Read(
-                GameMcpEntityCatalog.Search(
-                    context.World?.Snapshot.EntityIdentities ?? EntityCatalog,
-                    request.Query,
-                    request.Offset,
-                    request.Limit).Freeze()),
             "world_search" => GameMcpToolExecution.Read(
                 GameMcpWorldQuery.Search(
                     context,

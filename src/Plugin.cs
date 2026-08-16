@@ -1600,12 +1600,6 @@ public sealed class Plugin : BaseUnityPlugin
                         request.Category,
                         request.Uuids).Freeze());
                 return true;
-            case "entity_catalog":
-                execution = GameMcpToolExecution.Read(
-                    GameMcpEntityCatalog.Search(
-                        EntityIdentities(context), request.Query, request.Offset,
-                        request.Limit).Freeze());
-                return true;
             case "world_search":
                 execution = GameMcpToolExecution.Read(
                     GameMcpWorldQuery.Search(
