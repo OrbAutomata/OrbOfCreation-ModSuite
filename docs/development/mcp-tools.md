@@ -3231,6 +3231,13 @@ has to learn two spellings of "what may I write here". A setting that declares a
 that range as the numbers `minimum` and `maximum`, the same two fields a refused write hands back,
 so no caller has to parse a range back out of a sentence before it may write.
 
+The type is named in the words a caller writing a value would use, and in one vocabulary across the
+whole catalog: `bool`, `int`, `float`, `string`, and for an enum its own suite name — `bool`, never
+`System.Boolean`, and `AutoBuyAffordabilityMode`, never the namespace it is declared in. A refusal
+says the same word the described row said, so "must parse exactly as `int`" and `"type": "int"` are
+one fact spelled once; an enum is refused by naming the values it accepts instead, because those
+are the choices themselves rather than a word for their type.
+
 `suite_config_set` commits through `AutomataConfigurationStore`, the same single publication path
 as the in-game controls. BepInEx
 parse/domain validation runs before publication. Compatibility acknowledgements, shortcuts, and

@@ -1146,6 +1146,103 @@ public sealed class GameMcpConfigurationTests
                 configuration.Current, "AutoBuy", "IncludeStructures"));
     }
 
+    /// <summary>
+    /// What a setting takes is said in the words a caller writing a value would use, and in one
+    /// vocabulary for the whole catalog: a setting that takes <c>true</c> is a <c>bool</c>, never
+    /// the runtime's <c>System.Boolean</c>. An enum keeps its own suite name, because that name is
+    /// a concept the caller already meets elsewhere and its values are listed beside it — but not
+    /// the namespace it happens to be declared in, which is a fact about the code and not the game.
+    /// </summary>
+    [Fact]
+    public void Every_setting_names_its_type_in_one_player_facing_vocabulary()
+    {
+        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            BoundConfigurationContext(), describe: true));
+
+        Assert.Equal(
+            new[]
+            {
+                "General/Enabled: bool",
+                "AutoBuy/Mode: AutoBuyOperationMode",
+                "AutoBuy/AffordabilityMode: AutoBuyAffordabilityMode",
+                "AutoBuy/UpgradeAffordabilityMode: AutoBuyAffordabilityMode",
+                "AutoBuy/IncludeStructures: bool",
+                "AutoBuy/IncludeUpgrades: bool",
+                "AutoBuy/AutoLevelSpells: bool",
+                "AutoBuy/LeaveQueueSlots: int",
+                "AutoCast/Mode: AutoCastOperationMode",
+                "AutoCast/StartResourcePercent: float",
+                "AutoCast/ManualPauseSeconds: float",
+                "AutoCast/FullCharge: bool",
+                "AutoConcept/Mode: AutoConceptOperationMode",
+                "AutoConcept/SlotManagementMode: AutoConceptSlotManagementMode",
+                "AutoConcept/TrainingPeriodSeconds: int",
+                "AutoConcept/RateReservePercent: float",
+                "AutoConcept/MinimumResourcePercent: float",
+                "AutoConcept/MinimumDrainRatio: float",
+                "AutoHarvest/Mode: AutoHarvestOperationMode",
+                "AutoHarvest/CollectFruitTrees: bool",
+                "AutoHarvest/CollectTreasureTrees: bool",
+                "AutoItems/Mode: AutoItemsOperationMode",
+                "AutoItems/UseScrolls: bool",
+                "AutoItems/UseRelics: bool",
+                "AutoItems/TemporaryItemAllowlist: string",
+                "AutoScribe/Mode: AutoScribeOperationMode",
+                "AutoScribe/Roles: string",
+                "Reserves/AbsoluteReserve: string",
+                "Reserves/RelativeReserveMultiplier: float",
+                "General/Mode: MentorOperationMode",
+            },
+            described["settings"]!.Values<JObject>()
+                .Select(setting =>
+                    (string?)setting!["setting"] + ": " + (string?)setting!["type"]));
+    }
+
+    /// <summary>
+    /// A refusal and the described row say the same word for the same setting, so a caller told
+    /// what a value must parse as reads the vocabulary it already saw rather than a second one. An
+    /// enum is refused by naming the values it accepts, as it always was: those are the choices
+    /// themselves, not a word for their type.
+    /// </summary>
+    [Theory]
+    [InlineData("AutoBuy", "IncludeStructures", "yes", "bool")]
+    [InlineData("AutoBuy", "LeaveQueueSlots", "one", "int")]
+    [InlineData("AutoCast", "StartResourcePercent", "half", "float")]
+    [InlineData(
+        "AutoBuy", "AffordabilityMode", "Cheap", "BuyAll, Excess10, Excess100, Excess1000")]
+    public void A_refused_write_names_what_it_takes_in_the_words_the_read_used(
+        string section,
+        string key,
+        string requested,
+        string expected)
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        Assert.False(
+            store.TrySetGameMcp(
+                section, key, requested, store.CurrentGeneration, out var reason, out _));
+        Assert.Equal(section + "/" + key + " must parse exactly as " + expected, reason);
+    }
+
+    /// <summary>
+    /// A writable setting of a type the wire has no word for is a defect surfaced where the schema
+    /// is built, not a row that quietly wears .NET's name for it. Every type the suite binds today
+    /// has a word, so this never fires on a shipped build.
+    /// </summary>
+    [Fact]
+    public void A_type_the_wire_has_no_word_for_is_refused_rather_than_leaked()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(
+            () => GameMcpConfigurationValuePolicy.SettingTypeWord(typeof(double)));
+
+        Assert.Equal(
+            "no wire word is declared for writable setting type 'System.Double'; declare one in " +
+            "GameMcpConfigurationValuePolicy.SettingTypeWord before making a setting of that " +
+            "type writable",
+            failure.Message);
+    }
+
     private static GameMcpFrameContext BoundConfigurationContext()
     {
         var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());

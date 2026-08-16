@@ -279,7 +279,7 @@ internal sealed class BepInExAutomataConfiguration
             result[index] = new GameMcpWritableSettingDescriptor(
                 entry.Definition.Section,
                 entry.Definition.Key,
-                entry.SettingType.FullName ?? entry.SettingType.Name,
+                GameMcpConfigurationValuePolicy.SettingTypeWord(entry.SettingType),
                 entry.Description.Description ?? string.Empty,
                 GameMcpConfigurationValuePolicy.Describe(entry));
         }

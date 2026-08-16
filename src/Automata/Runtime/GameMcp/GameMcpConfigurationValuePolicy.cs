@@ -283,8 +283,37 @@ internal static class GameMcpConfigurationValuePolicy
         string.Equals(entry.Definition.Section, section, StringComparison.Ordinal) &&
         string.Equals(entry.Definition.Key, key, StringComparison.Ordinal);
 
+    /// <summary>
+    /// The one place a setting's type becomes a word on the wire. Every surface that names a type —
+    /// <c>mode="describe"</c> and the refusal a mistyped value earns — asks here, so the wire speaks
+    /// one vocabulary rather than each caller's own spelling of the same fact.
+    /// </summary>
+    /// <remarks>
+    /// The words are the ones a player writing a value would use, not the runtime's: a setting that
+    /// takes <c>true</c> is a <c>bool</c>, never <c>System.Boolean</c>. An enum keeps its own name
+    /// because that name is a suite concept the caller already reads elsewhere, and the values it
+    /// accepts are listed beside it — but the namespace it happens to live in is not a player fact,
+    /// so it is dropped. An unmapped type is a defect rather than something to pass through: a
+    /// writable setting the suite cannot spell must not reach the wire wearing .NET's word for it.
+    /// </remarks>
+    internal static string SettingTypeWord(Type settingType)
+    {
+        if (settingType is null) throw new ArgumentNullException(nameof(settingType));
+        var type = Nullable.GetUnderlyingType(settingType) ?? settingType;
+        if (type.IsEnum) return type.Name;
+        if (type == typeof(bool)) return "bool";
+        if (type == typeof(int)) return "int";
+        if (type == typeof(float)) return "float";
+        if (type == typeof(string)) return "string";
+        throw new InvalidOperationException(
+            "no wire word is declared for writable setting type '" +
+            (settingType.FullName ?? settingType.Name) +
+            "'; declare one in GameMcpConfigurationValuePolicy.SettingTypeWord before making a " +
+            "setting of that type writable");
+    }
+
     private static string FriendlyTypeName(Type type) =>
-        type.IsEnum ? string.Join(", ", Enum.GetNames(type)) : type.Name;
+        type.IsEnum ? string.Join(", ", Enum.GetNames(type)) : SettingTypeWord(type);
 }
 
 /// <summary>
