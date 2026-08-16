@@ -139,8 +139,6 @@ public sealed class BufferedSegmentSinkFlowTests
 
     private static void ForWrittenBlocks(BufferedSegmentSink<int> sink, long count) =>
         Assert.True(
-            System.Threading.SpinWait.SpinUntil(
-                () => sink.Metrics().WrittenBlocks == count,
-                TimeSpan.FromSeconds(2)),
+            PollUntil(() => sink.Metrics().WrittenBlocks == count),
             $"Expected {count} written blocks; observed {sink.Metrics().WrittenBlocks}.");
 }

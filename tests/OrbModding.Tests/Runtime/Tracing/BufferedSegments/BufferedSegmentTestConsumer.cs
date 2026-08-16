@@ -114,10 +114,11 @@ internal static class BufferedSegmentTestWait
         Assert.True(signal.Wait(Deadline), $"Timed out waiting for {description}.");
 
     /// <summary>
-    /// Polls asleep rather than spinning, because the awaited work runs on the sink's
-    /// lowest-priority writer thread and a hot spinner competes with it for the core it needs.
+    /// Polls a sink condition to the shared <see cref="Deadline"/>, asleep rather than spinning,
+    /// because the awaited work runs on the sink's lowest-priority writer thread and a hot spinner
+    /// competes with it for the core it needs.
     /// </summary>
-    private static bool PollUntil(Func<bool> condition)
+    internal static bool PollUntil(Func<bool> condition)
     {
         var elapsed = Stopwatch.StartNew();
         while (elapsed.Elapsed < Deadline)
