@@ -3747,7 +3747,13 @@ namespace BepInEx.Configuration
 
         public abstract object? BoxedValue { get; set; }
 
-        public string GetSerializedValue() => Convert.ToString(BoxedValue, CultureInfo.InvariantCulture) ?? string.Empty;
+        // BepInEx serializes a boolean the way TOML spells one, so every installed config file
+        // under BepInEx/config reads "Enabled = true". Convert.ToString says "True", and that one
+        // unfaithful character let the suite's own projection disagree with BepInEx for every
+        // boolean setting while the test pinning them equal stayed green.
+        public string GetSerializedValue() => BoxedValue is bool boolean
+            ? (boolean ? "true" : "false")
+            : Convert.ToString(BoxedValue, CultureInfo.InvariantCulture) ?? string.Empty;
 
         public void SetSerializedValue(string value)
         {

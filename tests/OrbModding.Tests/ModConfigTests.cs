@@ -574,7 +574,7 @@ public sealed class ModConfigTests
 
         session.Get(settings["Enabled"]).Stage("true");
         session.RevertAll();
-        Assert.Equal("False", session.Get(settings["Enabled"]).StagedSerialized);
+        Assert.Equal("false", session.Get(settings["Enabled"]).StagedSerialized);
         Assert.False(session.IsDirty);
     }
 

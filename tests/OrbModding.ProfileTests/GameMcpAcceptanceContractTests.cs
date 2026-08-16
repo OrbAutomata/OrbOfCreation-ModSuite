@@ -933,9 +933,9 @@ public sealed class GameMcpConfigurationTests
             "AutoBuy/Mode: Active\n" +
             "AutoBuy/AffordabilityMode: Excess100\n" +
             "AutoBuy/UpgradeAffordabilityMode: Excess100\n" +
-            "AutoBuy/IncludeStructures: True\n" +
-            "AutoBuy/IncludeUpgrades: True\n" +
-            "AutoBuy/AutoLevelSpells: True\n" +
+            "AutoBuy/IncludeStructures: true\n" +
+            "AutoBuy/IncludeUpgrades: true\n" +
+            "AutoBuy/AutoLevelSpells: true\n" +
             "AutoBuy/LeaveQueueSlots: 1",
             narrowed);
     }
@@ -1057,13 +1057,93 @@ public sealed class GameMcpConfigurationTests
     {
         Assert.Equal(
             "AutoHarvest/Mode: Disabled\n" +
-            "AutoHarvest/CollectFruitTrees: True\n" +
-            "AutoHarvest/CollectTreasureTrees: True",
+            "AutoHarvest/CollectFruitTrees: true\n" +
+            "AutoHarvest/CollectTreasureTrees: true",
             GameMcpAcceptanceFixture.CallText(
                 "suite_configuration",
                 new JObject { ["section"] = "AutoHarvest" },
                 BoundConfigurationContext()));
         Assert.True(GameMcpAutomationFeatures.IsBreakerSetting("AutoHarvest", "Mode"));
+    }
+
+    /// <summary>
+    /// One value, one spelling, whichever call printed it. A boolean is written the way BepInEx
+    /// writes it into the config file this surface mirrors and the way every other boolean on this
+    /// wire reads, on the whole catalog, on one section's rows, in <c>mode=describe</c>, and in the
+    /// <c>{before, after}</c> pair a committed write hands back.
+    /// </summary>
+    [Fact]
+    public void A_boolean_reads_the_same_way_on_every_surface_that_prints_it()
+    {
+        var context = BoundConfigurationContext();
+
+        Assert.Contains(
+            "AutoBuy/IncludeStructures: true",
+            GameMcpAcceptanceFixture.CallText("suite_configuration", context: context));
+        Assert.Contains(
+            "AutoBuy/IncludeStructures: true",
+            GameMcpAcceptanceFixture.CallText(
+                "suite_configuration", new JObject { ["section"] = "AutoBuy" }, context));
+
+        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            context, describe: true, section: "AutoBuy"));
+        Assert.Equal(
+            "true",
+            (string?)described["settings"]!.Values<JObject>()
+                .Single(setting => (string?)setting!["setting"] == "AutoBuy/IncludeStructures")!
+                ["value"]);
+
+        // The pair a committed write returns is this same projection, so the echo cannot drift
+        // from the read a caller compared it against.
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+        var before = GameMcpConfigurationSchema.SerializePublishedValue(
+            configuration.Current, "AutoBuy", "IncludeStructures");
+        Assert.True(
+            store.TrySetGameMcp(
+                "AutoBuy", "IncludeStructures", "false", store.CurrentGeneration,
+                out var reason, out _),
+            reason);
+        var after = GameMcpConfigurationSchema.SerializePublishedValue(
+            configuration.Current, "AutoBuy", "IncludeStructures");
+
+        Assert.Equal("true", before);
+        Assert.Equal("false", after);
+    }
+
+    /// <summary>
+    /// A caller handing back exactly what a read showed is never refused for casing, and neither is
+    /// one that types the .NET spelling. Both commit, and both read back in the surface's own
+    /// spelling rather than in the caller's.
+    /// </summary>
+    [Theory]
+    [InlineData("false", "true")]
+    [InlineData("False", "True")]
+    [InlineData("FALSE", "TRUE")]
+    public void A_boolean_write_is_accepted_however_the_caller_cased_it(string off, string on)
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        Assert.True(
+            store.TrySetGameMcp(
+                "AutoBuy", "IncludeStructures", off, store.CurrentGeneration,
+                out var offReason, out _),
+            offReason);
+        Assert.Equal(
+            "false",
+            GameMcpConfigurationSchema.SerializePublishedValue(
+                configuration.Current, "AutoBuy", "IncludeStructures"));
+
+        Assert.True(
+            store.TrySetGameMcp(
+                "AutoBuy", "IncludeStructures", on, store.CurrentGeneration,
+                out var onReason, out _),
+            onReason);
+        Assert.Equal(
+            "true",
+            GameMcpConfigurationSchema.SerializePublishedValue(
+                configuration.Current, "AutoBuy", "IncludeStructures"));
     }
 
     private static GameMcpFrameContext BoundConfigurationContext()

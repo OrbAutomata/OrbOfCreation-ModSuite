@@ -3192,6 +3192,12 @@ published as that list, so each entry crosses the wire as the named handle every
 reference on this surface uses instead of as hundreds of characters of raw id a caller then has to
 resolve one by one.
 
+A boolean setting reads `true` or `false` — what BepInEx itself writes into the config file this
+surface mirrors, and what every other boolean on this wire says. The read, a narrowed read,
+`mode="describe"` and a committed write's `{before, after}` pair all spell it that way. Writes are
+not case-sensitive about it, so a caller may hand `suite_config_set` back exactly what it read, or
+`True`, and neither is refused for its casing.
+
 `section` is how one feature's settings are read in one go. The section is the word every row
 already wears in its own name, so there is no second vocabulary to learn and a narrowed row is
 spelled exactly as the whole catalog spells it — `section="AutoBuy"` is every Auto Buy setting and
@@ -3201,9 +3207,9 @@ nothing else:
 AutoBuy/Mode: Active
 AutoBuy/AffordabilityMode: Excess100
 AutoBuy/UpgradeAffordabilityMode: Excess100
-AutoBuy/IncludeStructures: True
-AutoBuy/IncludeUpgrades: True
-AutoBuy/AutoLevelSpells: True
+AutoBuy/IncludeStructures: true
+AutoBuy/IncludeUpgrades: true
+AutoBuy/AutoLevelSpells: true
 AutoBuy/LeaveQueueSlots: 1
 ```
 

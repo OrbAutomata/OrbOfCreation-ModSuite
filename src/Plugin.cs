@@ -2056,8 +2056,7 @@ public sealed class Plugin : BaseUnityPlugin
                 GameMcpConfigurationSchema.SerializePublishedValue(
                     context.Configuration.Snapshot,
                     item.Section,
-                    item.Key),
-                item.SettingType);
+                    item.Key));
             if (!describe)
             {
                 values[item.Section + "/" + item.Key] = value;
@@ -2227,14 +2226,13 @@ public sealed class Plugin : BaseUnityPlugin
         return result.Freeze();
     }
 
-    private static object CanonicalConfigurationValue(string value, string settingType)
+    /// <summary>
+    /// The published text of one setting, as the wire says it. How a value is spelled is decided
+    /// where it becomes text, in <see cref="GameMcpConfigurationSchema.SerializePublishedValue"/>,
+    /// so nothing here re-decides it by reading a type name back off the descriptor.
+    /// </summary>
+    private static object CanonicalConfigurationValue(string value)
     {
-        if (string.Equals(settingType, "Boolean", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(settingType, "bool", StringComparison.OrdinalIgnoreCase))
-        {
-            return value.ToLowerInvariant();
-        }
-
         // An allowlist stored as joined UUIDs printed 288 characters that resolved to nothing a
         // caller could use, on a surface that says every other id as a named handle. Written as the
         // list it is, each entry crosses the wire the way every other entity reference does.
