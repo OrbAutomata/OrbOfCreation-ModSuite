@@ -363,7 +363,7 @@ can act on it — explain it, unequip it — without parsing the sentence it was
 
 ## Tool surface
 
-The registry is exactly 42 tools. It is built once per lifecycle and never changes mid-session, so
+The registry is exactly 41 tools. It is built once per lifecycle and never changes mid-session, so
 there is no `tools/list_changed` notification. The rows below are in `tools/list` order.
 
 Reading is three primitives, organized around what a player is doing rather than around the game's
@@ -378,8 +378,8 @@ internal type system:
   answers prose.
 
 `game_tooltip` is not a fourth: it reads the live screen, which is a different question from what an
-id is. `entity_catalog` and `world_categories` are not reads of entities at all — they answer
-inventory questions about what this build loaded and what this world published.
+id is. `world_categories` is not a read of entities at all — it answers the inventory question of
+what this world published.
 
 A tool's prefix names the screen it acts on: `world_` reads the published world, `suite_` acts on
 the mod suite, `time_` acts on the Time tab, and `game_` is everything else the player screen owns.
@@ -393,7 +393,6 @@ rather than from the screen it is drawn on.
 | `world_categories` | Discover every category the world collects, which of them list, and exact collection availability |
 | `world_list` | Page compact identity-plus-scan rows in one category |
 | `world_get` | Read everything one id says — row, description, gates, requirement graph, exact costs, blockers — for one id or a batch |
-| `entity_catalog` | Search what this build loaded that the published world has no row for — nothing, on this build; a build that loads a type no verdict covers lists it here |
 | `world_search` | Find a term across every entity category at once: name, keywords, category, most relevant first |
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
 | `suite_configuration` | Read every writable setting's committed value, or one `section`'s in one go; `mode=describe` adds type, domain, and purpose |
@@ -508,14 +507,14 @@ partial row plus exact evidence there; unaffected rows in the same call remain o
 read returns them. The per-leaf evidence is the same bytes on every call for a given build and
 already lives on the owner's own `world_get`, as `implicatedSkippedRows`.
 
-Every paged read — `world_list`, `world_search`, `entity_catalog`, and `game_screen_elements` — pages one
+Every paged read — `world_list`, `world_search`, and `game_screen_elements` — pages one
 way. Each takes `offset` and `limit`
 and answers with `total` plus `rows`; an answered page always carries the collection, including
 when it is empty, and a refused one carries the refusal line alone.
 `nextOffset` is present exactly when more rows remain, and its value is the input offset plus the
 rows actually delivered, so `nextOffset` present means "resume here" and `nextOffset` absent means
 "that was the end". There is no `truncated`, `returned`, `hasMore`, `matches`, or `tooltips`. A page
-of the three world-backed readers may be shorter than `limit` because the response is bounded at
+of the two world-backed readers may be shorter than `limit` because the response is bounded at
 12 KB, which each of those tool descriptions states;
 a short page with a `nextOffset` is that bound, and a short page without one is the end of the set.
 The bound is charged against each row as it is built, so a full page is a real 12 KB page rather
@@ -634,80 +633,63 @@ the query itself matched, so it is short by construction rather than by a cap, a
 split at all. The counts are over the whole result — the `M` of the `rows N/M` line below it — not
 over the page.
 
-The two search tools do not overlap. `world_search` sees exactly the entities the published world
-carries a row for; `entity_catalog` sees exactly the loaded ids it carries no row for. An id is on
-one of them and never on both, so a query one answers is a query the other had nothing to say about,
-and equal totals are a coincidence of two disjoint sets rather than a cross-check. They also match
-and order differently: `world_search` additionally matches a category's own name and native type, so
-a category name selects every row in it, and sorts the whole result by relevance and then by id,
-while `entity_catalog` matches only the entity's own identity fields and walks its listing in UUID
-order.
-
-**A `world_search` that matched nothing signposts the other one.** The moment the first finder comes
+**A `world_search` that matched nothing still closes the question.** The moment the finder comes
 back empty is the moment "is it in this build at all?" becomes the next question, so a query that
-found no published row carries one `unprojected` line. It names what that page holds and then counts
-this query against it: `entity_catalog lists what this build loaded that the published world has no
-row for; found: 2.` The count is a label and a number rather than a phrase that declines with it, so
-the line reads the same at one as at two. Where nothing is found and the only ids answering are the
-internal machinery the catalog withholds, the line says so, because leaving `no id this build loaded
-answers to this query` standing would be false there; and where there is neither, it says exactly
-that, because the answer closes the question where silence would send a caller off to ask it. The
-line is emitted only on an empty result and only where a query was given: a filter-only call has no
-word to match against the registry.
+found no published row carries one `unprojected` line. It answers that question outright, in one of
+two sentences and with no verb to follow: `what answers to this query in this build is internal
+machinery the world does not publish.` where loaded ids do answer, because leaving `no id this build
+loaded answers to this query` standing would be false there; and `no id this build loaded answers to
+this query.` where none do, because that answer closes the question where silence would send a
+caller off to ask it. The line is emitted only on an empty result and only where a query was given:
+a filter-only call has no word to match against the loaded ids. It used to name a second page and
+count this query against it; the world publishes those rows now, so a pointer would name a verb this
+server does not have and the count would be a number with nothing to spend it on.
 
-`entity_catalog` is the page for what the published world does not carry.
-At the first stable Playing world capture after `RuntimeReady`, the suite validates and copies the
-game's runtime identity registry once for the lifecycle. Searches cover UUID, exact runtime type,
-Unity asset name, and player-facing `GetName()`, so loaded entities hidden or not yet revealed by
-progression are findable without navigation. Before that bind, or when its declared contracts fail,
-the tool returns `unavailable` rather than substituting the build-time TSV fixtures.
+**Every loaded id is a published row or this build's machinery, and nothing falls between them.** Of
+the pinned build's 2,818 loaded ids a world category publishes 2,295, read with `world_search`,
+`world_list` and `world_get`, which carry the price, the state, the requirements and the description
+a bare identity never could. The other 523, of 82 native types, are the game's internal machinery:
+the string table, scaling curves, animations and colours, the one-slot variables a screen keeps its
+cursor and selection in, RNG salts, key bindings, music tracks, the named list variables whose
+contents are already a published category, the prerequisite-link nodes whose every tier `world_get`
+already expands, the conditional hint table, the player's own nameless combat actor, and the legacy
+station the game builds no instance of. The verdict is on the native type, never on an asset.
 
-**The listing is the remainder, and on this build the remainder is empty.** Of the pinned build's
-2,818 loaded ids the page lists 0. A world category publishes 2,295 of them, and those are read with
-`world_search`, `world_list` and `world_get`, which carry the price, the state, the requirements and
-the description this page could never hold; listing the same ids here by identity alone said nothing
-those three had not. The other 523 rows, of 82 native types, are the game's internal machinery and
-are deliberately not listed either: the string table, scaling curves, animations and colours, the
-one-slot variables a screen keeps its cursor and selection in, RNG salts, key bindings, music
-tracks, the named list variables whose contents are already a published category, the
-prerequisite-link nodes whose every tier `world_get` already expands, the conditional hint table,
-the player's own nameless combat actor, and the legacy station the game builds no instance of.
-
-The last 87 rows the page carried were the ritual glossary, the stat groups, and three oddities, and
-all fourteen of those native types have since left it by one of the two doors. Eleven became world
-categories — `status-effects`, `character-attributes`, `damage-types`, `character-modifiers`,
+**That sum is why there is no second search verb.** `entity_catalog` was the page for the remainder
+— what this build loaded that the published world had no row for — and it retired when the remainder
+reached zero. The last 87 rows it carried were the ritual glossary, the stat groups and three
+oddities, and all fourteen of those native types left it by one of the two doors. Eleven became
+world categories — `status-effects`, `character-attributes`, `damage-types`, `character-modifiers`,
 `character-actions`, `character-types`, `enchantments`, `glyph-types`, `rune-stones`,
 `display-types` and `attribute-groups` — so the words are on the verbs that carry facts about them.
 Three are machinery: `ConditionalTextList` and `PlayerCharacter` both derive `IdScriptableObject`
 rather than `TooltipableObject` and so carry neither a name nor a sentence, and `CraftingStructureSO`
 is the legacy Brewing Station, whose `displayName` and `description` are both authored empty and
 whose `instances` list variable is empty and not static, so the game builds no station to answer for.
+A caller that still sends the old name is answered `unknown tool 'entity_catalog'; call tools/list`,
+rather than by a page that would say `rows 0/0` for ever.
 
-The machinery verdict is on the native type, never on an asset, and a type nobody has ruled on is
-listed — so a build loading something new says so on this page rather than dropping it in silence.
-That is what the page is for now: it answers `rows 0/0` against this build, and it is the surface
-that would report the day a new build ships a type this suite has never seen.
+**Nothing lost its identity when the page went.** At the first stable Playing world capture after
+`RuntimeReady`, the suite validates and copies the game's runtime identity registry once for the
+lifecycle, and that snapshot still holds every loaded id. An id handle resolves against the whole
+2,818; a row referencing one of these ids prints the name the snapshot holds; a keyword resolves to
+its word through the same rows; and `world_get` answers for one by naming it and saying its identity
+is all there is to read. Before that bind, or when its declared contracts fail, the reads that
+depend on it answer `entity_catalog_unavailable` rather than substituting the build-time TSV
+fixtures.
 
-**Nothing off the listing leaves the identity catalog.** The snapshot still holds every
-loaded id, so an id handle still resolves against the whole 2,818, a row referencing one of these
-ids still prints the name the snapshot holds, a keyword still resolves to its word through the same
-rows, and `world_get` still answers for one by naming it and saying its identity is all there is to
-read. Only this one page is shorter.
-
-A match contains `uuid`, `nativeType`, and `name` — this is the surface that still
-carries the runtime type unconditionally, because browsing the catalog is the one activity that asks
-for it and a browser names no category to imply it from. There is no `category` cell: every row the
-page can return is one the published world holds no category for, so the column could only ever read
-one constant and said what the verb's own contract says once. A category declared over several
-native types answers for one of them where no single-type category claims it and no other multi-type
-category does either, which is why `AlchemySnapshotListVariable` and `EquipmentSnapshotListVariable`
-are `world_list snapshot-loadouts` rows rather than listings here. `name` is present
-exactly when the game
+The `world_get` identity block is that snapshot's one projection, and it carries `uuid`,
+`nativeType`, and `name`. It keeps the runtime type unless the category the caller named already
+declares it for every row it holds, which is the one case where the type says nothing the category
+has not. A category declared over several native types answers for one of them where no single-type
+category claims it and no other multi-type category does either, which is why
+`AlchemySnapshotListVariable` and `EquipmentSnapshotListVariable` are `world_list snapshot-loadouts`
+rows. `name` is present exactly when the game
 authors a player-facing word, so its absence is that fact and needs no flag beside it;
 `internalName` carries the Unity asset id **only where it is not the `name` with its spaces and
-punctuation taken out** — `Specialization: Storm` implies `SpecializationStorm`, so a row does not
-spell it twice, and absence means that reconstruction rather than "unknown". The `world_get`
-identity block is built from this same projection and does print a `category`, so it drops the field
+punctuation taken out** — `Specialization: Storm` implies `SpecializationStorm`, so a block does not
+spell it twice, and absence means that reconstruction rather than "unknown". The block prints a
+`category`, so it drops the field
 in one further case: where the asset id is that name followed only by words the category already
 states, `Strength` under `category: rituals` implying `StrengthRitual`. Every word the asset id adds
 has to be one the category says, singular or plural, so `ReserveLevel` and `SpellOutputLevel` still
@@ -1682,14 +1664,14 @@ Alchemy's Learn side uses `game_discover(surface="alchemy")`. Its Loadout side u
 counters, and the same type identity the screen filter displays. Recipe mastery and Alchemy-type
 levels are game-driven progression displays, not direct purchase buttons on this screen.
 
-There is deliberately no Brewing Station tool or category, and `entity_catalog` withholds its type
-as machinery. The v1.0.5 data contains one unnamed legacy `CraftingStructureSO` asset whose
+There is deliberately no Brewing Station tool or category, and its type is ruled machinery no read
+publishes. The v1.0.5 data contains one unnamed legacy `CraftingStructureSO` asset whose
 `displayName` and `description` are both authored empty; its `instances` field names the
 `BrewingStations` list variable, whose `initialValue` and `value` are both `[]` and which is not
 static, and the entire data graph has no unlock/effect edge that creates one. The assembly still
 contains the unused `UIBrewingStation` renderer, but no player-facing label or live screen owns it.
 Publishing its native selectors as a verb would expose developer-era machinery the shipped UI does
-not offer, and a catalog row for it was a nameless id for a station the game never builds. Its
+not offer, and any row for it would be a nameless id for a station the game never builds. Its
 authored recipes stay reachable through the consumables they produce.
 
 ### Player loadouts and snapshots
@@ -2249,12 +2231,11 @@ miss. A UUID absent from the live identity registry says no entity in this build
 points at `world_categories`, because the caller has no name to search with. A UUID in a table the
 caller named that the table does not hold says so and points back at that table's page. A
 catalog-known UUID no published table is addressed by says it is loaded in this build and points at
-the rows that do carry it, or — when its runtime type belongs to no published table — says its
-identity is all there is to read and points at `entity_catalog`. That last block **carries no
-`readWith` at all** when the runtime type is machinery `entity_catalog` does not list: a remedy
-names a page that will answer, the page it used to name would come back empty, and the identity it
-promised is already on the block, so the sentence says the id is internal machinery no published row
-covers and stops. A UUID the asset catalog does not
+the rows that do carry it. Where its runtime type belongs to no published table at all the block
+**carries no `readWith`**: a remedy names a verb that will answer, there is none for an id every
+published category leaves out, and the identity such a remedy could promise is already on the block,
+so the sentence says the id is internal machinery no published row covers and that its identity is
+all there is to read, and stops. A UUID the asset catalog does not
 know but the world published inside a composite row — an equipped spell instance is a runtime
 object, not a loaded asset — points at `readWith: {tool: "world_list", category: "spell-slots"}`.
 The surface never claims the process is ignorant of a UUID it published, never points a runtime
@@ -2820,8 +2801,7 @@ one: it keeps the whole declared set under `partialRow` and states the incomplet
 
 An identity is a handle and a name, and nothing else. The asset name (`internalName`), the runtime
 type (`nativeType`) and the category the type implies are catalog-browsing facts: the `world_get`
-block publishes all three and `entity_catalog` the first two, and no world row or reference carries
-them. Stamped on every
+identity block publishes all three, and no world row or reference carries them. Stamped on every
 identity they cost 21.1% of one live round for a fact nothing on that round read. `internalName` is
 published there only where it is not the `name` with its spaces and punctuation stripped, so absence
 means that reconstruction: 110 of one round's 143 of them were derivable from the line directly
@@ -3371,7 +3351,7 @@ ruling rather than restoring a contract:
   *Inline action results*.
 - **Identity preambles.** The asset name, the runtime type, and the category the type implies rode
   every identity for 21.1% of one live round and nothing read them. They live on the `world_get`
-  block now, and the first two also on `entity_catalog` — *Presence semantics*.
+  block now, and nowhere else — *Presence semantics*.
 - **`paid[]` and `costPerLevel[]`.** A commit reports the levels it bought; what a level costs and
   what the next one asks are read on `world_get` and `purchase-costs`, where the whole curve is —
   *Presence semantics*.
