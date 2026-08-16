@@ -24875,6 +24875,13 @@
       "owners": ["Automata challenge GameAction", "Common challenge world collection"], "usages": ["reflection"], "place": "action"
     },
     {
+      "id": "challenge.reset-rerolls-max-capture", "assembly": "assembly-csharp",
+      "type": "PersistentResetManager", "typeVisibility": "public", "kind": "field", "member": "challengeRerollsMax",
+      "visibility": "public", "static": false, "valueType": "IntVariable",
+      "owners": ["Common challenge world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field IntVariable"}
+    },
+    {
       "id": "challenge.reset-cycle-complete-action", "assembly": "assembly-csharp",
       "type": "PersistentResetManager", "typeVisibility": "public", "kind": "field", "member": "hasCompleteWorldCycle",
       "visibility": "public", "static": false, "valueType": "BoolVariable",
@@ -26192,6 +26199,14 @@
       "visibility": "public", "static": false, "valueType": "AlchemyInstanceListVariable",
       "owners": ["Automata ordinary Alchemy GameAction", "Common ordinary Alchemy loadout world collection"],
       "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "alchemy-loadout.manager-all-recipes-capture", "assembly": "assembly-csharp",
+      "type": "AlchemyManager", "typeVisibility": "public", "kind": "field", "member": "allAlchemy",
+      "visibility": "public", "static": false, "valueType": "AlchemyRecipeListVariable",
+      "owners": ["Common ordinary Alchemy loadout world collection"],
+      "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field AlchemyRecipeListVariable"}
     },
     {
       "id": "alchemy-loadout.recipe-discovered-action", "assembly": "assembly-csharp",

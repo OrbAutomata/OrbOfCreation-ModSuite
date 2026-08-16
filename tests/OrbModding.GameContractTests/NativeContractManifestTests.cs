@@ -1003,23 +1003,21 @@ public sealed class NativeContractManifestTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Both entries are defects.</b> Each is a live field selector bound once and read on every
-    /// collection pass, whose shape nothing in the manifest answers for — so a game build that
-    /// renames or retypes it is found by a null accessor at runtime instead of by this audit, which
-    /// is precisely the day the audit exists for.
+    /// Empty, and every entry that was here is now a manifest row read from the audited assembly
+    /// rather than from its declared sibling: <c>PersistentResetManager.challengeRerollsMax</c> is
+    /// an <c>IntVariable</c> like <c>challengeRerollsLeft</c>, but
+    /// <c>AlchemyManager.allAlchemy</c> is an <c>AlchemyRecipeListVariable</c> where its neighbour
+    /// <c>activeAlchemy</c> is an <c>AlchemyInstanceListVariable</c> — inheriting the sibling's type
+    /// would have shipped a contract that describes no member the game has.
     /// </para>
     /// <para>
-    /// Both surfaced the moment <see cref="BinderTargetPattern"/> learned the <c>Reference</c>
-    /// shape, and both sit beside a declared sibling on the same reader:
-    /// <c>PersistentResetManager.challengeRerollsMax</c> next to <c>challengeRerollsLeft</c>, and
-    /// <c>AlchemyManager.allAlchemy</c> next to <c>activeAlchemy</c>. They are listed here rather
-    /// than declared because a contract row is a claim about the shipped assembly's member shape
-    /// that only an audit against the game may make. Each entry leaves when its row lands, and the
-    /// exact-set reconciliation is what fails the day a third one appears.
+    /// An entry only ever belongs here while a contract row is still owed, because a row is a claim
+    /// about the shipped assembly's member shape that only an audit against the game may make. The
+    /// list stays reconciled as an exact set, so an undeclared selector fails this test the day it
+    /// arrives instead of being absorbed by a list that only forgives.
     /// </para>
     /// </remarks>
-    private static readonly string[] UndeclaredBinderLiterals =
-        { "allAlchemy", "challengeRerollsMax" };
+    private static readonly string[] UndeclaredBinderLiterals = Array.Empty<string>();
 
     /// <summary>
     /// A row the suite never touches sits at <c>mirrored</c>, and only such a row does.
