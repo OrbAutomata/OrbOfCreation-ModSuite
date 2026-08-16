@@ -212,8 +212,10 @@ internal readonly struct WorldSpellSlot
         PublicationTable<WorldSpellSlotGlyph> augmentGlyphs,
         bool cancellationEnabled = false,
         bool casterAvailable = true,
-        int castCount = 0)
+        int castCount = 0,
+        bool isLoadoutUnique = false)
     {
+        IsLoadoutUnique = isLoadoutUnique;
         CastCount = castCount;
         SlotIndex = slotIndex;
         SpellInstanceId = spellInstanceId;
@@ -327,6 +329,29 @@ internal readonly struct WorldSpellSlot
     internal int RecipeMasteryLevel { get; }
     internal bool DurationSpell { get; }
     internal bool UsageRequirementsMet { get; }
+
+    /// <summary>
+    /// The game's own <c>Spell.IsUniqueSpell()</c> answer for the spell in this slot.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The fact lives on the type, not the spell: <c>SpellTypeSO.isLoadoutUnique</c> is the authored
+    /// bool, and <c>Spell.IsUniqueSpell()</c> is <c>GetAllSpellTypes().Any(type =&gt;
+    /// type.isLoadoutUnique)</c> over the recipe's not-types concatenated with the instance's
+    /// <c>augmentedSpellTypes</c>. So it is the equipped instance that answers, and its glyph layout
+    /// is part of the answer.
+    /// </para>
+    /// <para>
+    /// What it gates is one thing only, and the scope is easy to get wrong: it is neither one spell
+    /// per slot nor one spell per type. <c>Spell.GetEquipRequirements(SpellListVariable)</c> refuses
+    /// with "Cannot equip duplicate charms" when a loadout-unique candidate finds an already-equipped
+    /// spell whose <c>reference</c> is the same recipe asset — so it is one equipped instance per
+    /// recipe, and it costs nothing to the recipes that are not loadout-unique. Published because a
+    /// gate a caller can only discover by being refused is a gap; the verb still re-reads it live
+    /// before it stages anything.
+    /// </para>
+    /// </remarks>
+    internal bool IsLoadoutUnique { get; }
 
     /// <summary>Whether the native Cancellable Spells setting permits an active toggle to stop.</summary>
     internal bool CancellationEnabled { get; }
@@ -547,6 +572,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
     private readonly Func<object, int>? _recipeMasteryLevel;
     private readonly Func<object, bool>? _durationSpell;
     private readonly Func<object, bool>? _usageRequirementsMet;
+    private readonly Func<object, bool>? _isLoadoutUnique;
     private readonly Func<object, object?>? _getAugmentGlyphs;
     private readonly Func<object, object, int>? _getGlyphQuantity;
     private readonly Func<object, Guid>? _glyphId;
@@ -612,6 +638,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         _recipeMasteryLevel = spell.Call<int>("GetRecipeMasteryLevel");
         _durationSpell = spell.Call<bool>("IsDurationSpell");
         _usageRequirementsMet = spell.Call<bool>("HasMetUsageRequirements");
+        _isLoadoutUnique = spell.Call<bool>("IsUniqueSpell");
         _augmentedSpellTypes = spell.CollectionField("augmentedSpellTypes");
         _augmentedSpellTypeId = spell
             .Elements(
@@ -806,7 +833,8 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             glyphs,
             cancellationEnabled,
             casterAvailable,
-            _castCount!(spell)));
+            _castCount!(spell),
+            _isLoadoutUnique!(spell)));
 
         var resonant = _augmentedSpellTypes!(spell);
         for (var ordinal = 0; ordinal < (resonant?.Count ?? 0); ordinal++)
@@ -856,6 +884,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         _outputLevel is not null && _effectiveLevel is not null &&
         _requiredMasteryLevel is not null && _recipeMasteryLevel is not null &&
         _durationSpell is not null && _usageRequirementsMet is not null &&
+        _isLoadoutUnique is not null &&
         _canRemove is not null &&
         _getAugmentGlyphs is not null && _getGlyphQuantity is not null && _glyphId is not null;
 

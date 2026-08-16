@@ -1526,6 +1526,7 @@ internal sealed class FakeSpell
     public int requiredMasteryLevel;
     public bool durationSpell;
     public bool usageRequirementsMet = true;
+    public bool loadoutUnique;
     public int CanRemoveCalls { get; private set; }
     public List<FakeGlyph> augmentGlyphs = new();
 
@@ -1561,6 +1562,7 @@ internal sealed class FakeSpell
     public int GetRecipeMasteryLevel() => spellReference?.masteryLevel ?? 0;
     public bool IsDurationSpell() => durationSpell;
     public bool HasMetUsageRequirements() => usageRequirementsMet;
+    public bool IsUniqueSpell() => loadoutUnique;
     public List<FakeGlyph> GetAugmentGlyphs() => new(augmentGlyphs);
     public int GetQuantityOfGlyph(FakeGlyph glyph) =>
         augmentGlyphs.Count(candidate => ReferenceEquals(candidate, glyph));

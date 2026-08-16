@@ -16043,6 +16043,26 @@
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
     },
     {
+      "id": "spell.is-unique-spell",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "IsUniqueSpell",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": true, "sideEffects": [], "justification": "The equipped spell's own loadout-uniqueness answer, taken rather than rebuilt. Both terms are already published — the slot's spell types and the recipe's not-types — so this is derivable debt, but no parity pass proves the reconstruction and the gate it feeds refuses a paid action, so the game keeps the answer until one does.", "evidence": "IL: Spell.IsUniqueSpell() is GetAllSpellTypes().Any(type => type.isLoadoutUnique); Spell.GetAllSpellTypes() concatenates SpellRecipeSO.GetNotSpellTypes() with Spell.augmentedSpellTypes"}
+    },
+    {
       "id": "auto-cast.spell-is-toggled-action",
       "assembly": "assembly-csharp",
       "type": "Spell",

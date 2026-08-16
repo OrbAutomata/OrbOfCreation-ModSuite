@@ -70,6 +70,10 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
         Assert.Equal(5, first.RecipeMasteryLevel);
         Assert.True(first.DurationSpell);
         Assert.False(first.UsageRequirementsMet);
+
+        // The game's own Spell.IsUniqueSpell() answer, read per occupant rather than per recipe:
+        // the instance's glyph layout is part of what the game concatenates before deciding.
+        Assert.True(first.IsLoadoutUnique);
         Assert.True(first.CancellationEnabled);
         Assert.True(first.CasterAvailable);
         Assert.Equal(11, first.CastCount);
@@ -94,6 +98,7 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
         Assert.False(second.CastReady);
         Assert.False(second.CanRemove);
         Assert.False(second.CancellationEnabled);
+        Assert.False(second.IsLoadoutUnique);
         Assert.True(second.CasterAvailable);
         Assert.Equal(0, second.CurrentCharges);
         Assert.Equal(0, second.MaximumCharges);
@@ -111,6 +116,7 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
         Assert.Equal(0, third.RequiredMasteryLevel);
         Assert.Equal(0, third.RecipeMasteryLevel);
         Assert.True(third.UsageRequirementsMet);
+        Assert.False(third.IsLoadoutUnique);
         Assert.Empty(third.AugmentGlyphs.AsSpan().ToArray());
 
         // Prices come out per slot, in the order the native cost list holds them, and the upkeep
@@ -281,6 +287,7 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
             BaseEffectLevel = 6,
             DurationSpell = true,
             NativeUsageRequirementsMet = false,
+            NativeUnique = true,
             NumCasts = 11,
         };
 
