@@ -118,7 +118,9 @@ public sealed class FullTraceRuntimeSessionTests
         PumpUntil(pump, ref frame, report => report.CyclesStarted != 0, "capture admission");
         session.Dispose();
 
-        Assert.True(firstStorage.ManifestPublished.Wait(Deadline));
+        Assert.True(session.ShutdownDrainFinished);
+        Assert.Equal(FullTraceRuntimeSessionState.Complete, session.Snapshot.State);
+        Assert.True(firstStorage.ManifestPublished.IsSet);
         var interrupted = FullTraceManifestCodec.Decode(Assert.IsType<byte[]>(firstStorage.Manifest));
         Assert.Equal(FullTraceCompleteness.Complete, interrupted.Completeness);
         Assert.Equal(FullTraceTerminalReason.RuntimeShutdown, interrupted.Reason);

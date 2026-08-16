@@ -112,8 +112,8 @@ public sealed class BufferedServiceCycleProfileSinkTests
             Assert.Equal(ServiceCycleProfileAppendResult.Accepted, sink.Append(Record()));
 
             sink.Dispose();
-            WaitUntilTerminal(sink);
 
+            Assert.Equal(ServiceCycleProfileSinkState.Stopped, sink.Snapshot.State);
             var manifest = ServiceCycleProfileManifestCodec.Decode(Assert.IsType<byte[]>(storage.Manifest));
             Assert.Equal(ServiceCycleProfileCompleteness.Complete, manifest.Completeness);
             Assert.Equal(ServiceCycleProfileTerminalReason.RuntimeShutdown, manifest.Reason);
