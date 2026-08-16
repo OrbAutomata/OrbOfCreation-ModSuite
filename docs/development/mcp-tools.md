@@ -1844,9 +1844,13 @@ the retired `core_glyphs_unavailable` covered them under one word. There is no s
 target-first `create`: the game exposes neither.
 
 Where the page says `available: yes` it also names `verbDecides` — the gates only a live resolution
-settles, in the order the verb applies them: glyph layout resolution, creation price, usage budget,
-unique-spell rule. The page predicts what it can read and promises nothing about the rest; it never
-states a rule the game's add path does not have. `augmentOptions` is a per-recipe answer, filtered
+settles, in the order the verb applies them: glyph layout resolution, creation price, usage budget.
+The page predicts what it can read and promises nothing about the rest; it never
+states a rule the game's add path does not have. The unique-spell rule was a fourth entry until the
+world published the fact it reads: every equipped instance of this recipe is on this same row under
+`equipped`, each carrying `isLoadoutUnique`, so a caller settles the rule before it calls rather
+than by being refused. The verb still re-reads it live and refuses in the same words.
+`augmentOptions` is a per-recipe answer, filtered
 to the augments this recipe admits and carrying each one's usable ceiling, and it is published
 beside a refusal as well as beside a yes — the call the page refuses is still the call it has to
 teach.
@@ -1931,7 +1935,8 @@ the count it may be used to — and it rides the decision whether that decision 
 
 `spell-slots` is the pre-decision surface for `game_spell_loadout`. Each occupied detail row names
 the recipe the equipped spell was baked from, its slot, active cast/ready/attune state when
-applicable, the game's current remove verdict, and whether that spell can move at all. Where it can
+applicable, the game's current remove verdict, `isLoadoutUnique`, and whether that spell can move at
+all. Where it can
 move is the slot list, which is one read for the whole bar: inlined per spell, explaining eight
 spells delivered the same eight-slot roster eight times. Augment choices
 appear only on a discovered recipe's `loadoutAdd` decision. `loadBudget` — `used`, `maximum`,
@@ -1944,6 +1949,17 @@ for the caller to guess from the whole resource table.
 An equipped spell is a runtime instance, and the catalog publishes assets, so that instance has no
 handle any tool can resolve. The row therefore carries no id of its own: the recipe names the spell
 and the slot addresses it, which is also what the bar on the screen shows.
+
+`isLoadoutUnique` is the game's own `Spell.IsUniqueSpell()` answer for the occupant, and its scope is
+narrower than the word suggests: it is neither one spell per slot nor one spell per type. The fact is
+authored on the spell type as `SpellTypeSO.isLoadoutUnique`, the game reads it across the types the
+equipped instance actually carries — the recipe's not-types plus the types its own glyph layout
+grants — and `Spell.GetEquipRequirements` refuses with "Cannot equip duplicate charms" only when a
+loadout-unique candidate finds an already-equipped spell baked from the same recipe. So a `true` here
+means one thing: while this spell is equipped, the game will refuse a second spell from this recipe.
+It says nothing about any other recipe, and a recipe whose types are not loadout-unique pays nothing
+for the rule. No spell type in the published build sets the flag, so every row reads `false` today —
+which is the reading the game gives, not a constant this suite substitutes for one.
 
 The MCP-only loadout sequence is:
 
