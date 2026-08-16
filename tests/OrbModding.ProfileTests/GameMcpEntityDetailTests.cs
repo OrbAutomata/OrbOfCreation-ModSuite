@@ -411,9 +411,9 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // by the only label there is and does not dress that label up as a name.
         Assert.Null(knownResult["name"]);
         Assert.Equal("InventoryUnlocked", (string?)knownResult["internalName"]);
-        // A prerequisite link is machinery entity_catalog does not list, so the block that used to
-        // point there points nowhere: a remedy naming a page that would come back empty is worse
-        // than none, and the identity it promised is on this block already.
+        // A prerequisite link is this build's own machinery, and the block points nowhere: a remedy
+        // names a verb that will answer, there is none for an id no published row covers, and the
+        // identity such a remedy could promise is on this block already.
         Assert.Null(knownResult["readWith"]);
         Assert.Contains("internal machinery", (string?)knownResult["reason"]);
         Assert.Null(knownResult["nameEvidence"]);
@@ -421,6 +421,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // The name is the missing thing, so a name search is the one remedy that cannot work.
         Assert.Equal("world_categories", (string?)unknownResult["readWith"]!["tool"]);
         Assert.DoesNotContain("entity_catalog", (string?)unknownResult["reason"]);
+        Assert.DoesNotContain("entity_catalog", (string?)knownResult["reason"]);
         // Nothing carries this id, so the block hands it back whole and names nothing. It used to
         // shorten the id to a handle — an address into a published set this id is not in — and add
         // `name: (unnamed 000000)`, which reads as a row whose name went missing rather than as an
@@ -434,56 +435,9 @@ public sealed class GameMcpEntityDetailTests : IDisposable
     }
 
     /// <summary>
-    /// The other half of the same arm. An id whose type no category claims but the catalog still
-    /// lists keeps its pointer, because that page really does answer for it — the pointer follows
-    /// what the page carries rather than being dropped wherever a category is missing.
-    /// </summary>
-    /// <remarks>
-    /// The fixture is a synthetic catalog because this build no longer holds an id in this state:
-    /// every loaded type is either published or ruled machinery, and the legacy Brewing Station
-    /// that used to stand here is machinery now. The arm is still the right arm — it is the one a
-    /// build that loads something new lands on, and a caller holding such an id has to be sent to
-    /// the page that will answer rather than told there is nothing to read.
-    /// </remarks>
-    [Fact]
-    public void AnUnprojectedIdTheCatalogStillListsKeepsItsPointerAtTheCatalog()
-    {
-        var listed = Guid.Parse("c4000000-0000-4000-8000-000000000001");
-        var catalog = EntityIdentityCatalogSnapshot.Bound(5, new[]
-        {
-            new EntityIdentityName(listed, "SomethingNewSO", string.Empty, "FreshThing"),
-        });
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(
-            new GameWorldState
-            {
-                CollectedAtEpoch = 1,
-                CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-                EntityIdentities = catalog,
-            },
-            new WorldGeneration(912));
-
-        var result = Assert.Single(
-            Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-                GameMcpWorldQuery.GetRows(
-                    Snapshot(publisher.ReadLatest()),
-                    string.Empty,
-                    new[] { listed.ToString("D") }).Freeze(),
-                catalog))["results"]!.Values<JObject>())!;
-
-        Assert.True(GameMcpEntityCatalogScope.Lists("SomethingNewSO"));
-        Assert.Equal("ERR_NOT_FOUND", (string?)result["reasonCode"]);
-        Assert.Equal("FreshThing", (string?)result["internalName"]);
-        Assert.Equal("entity_catalog", (string?)result["readWith"]!["tool"]);
-        Assert.Contains("its identity is all there is to read", (string?)result["reason"]);
-        Assert.DoesNotContain("internal machinery", (string?)result["reason"]);
-    }
-
-    /// <summary>
-    /// The legacy Brewing Station changed arms with its verdict. It is machinery now — the game
-    /// builds no instance of it — so the block stops pointing at a page that would come back empty
-    /// and says what is true of the id instead.
+    /// The legacy Brewing Station, on the one arm an unprojected id has left. It is machinery — the
+    /// game builds no instance of it — so the block names no verb to follow and says what is true
+    /// of the id instead: its identity is the whole of what there is to read, and it is right here.
     /// </summary>
     [Fact]
     public void TheLegacyStationTakesTheMachineryArmNowThatItIsMachinery()

@@ -33,9 +33,9 @@ internal static class GameMcpEntityCapabilityMap
     /// <remarks>
     /// A descriptor naming several native types answers only for a type no single-type descriptor
     /// claims, and only where it is the sole such claimant. Skipping those descriptors outright
-    /// left <c>AlchemySnapshotListVariable</c> and <c>EquipmentSnapshotListVariable</c> labelled
-    /// <c>not-world-projected</c> in <c>entity_catalog</c> while <c>world_list snapshot-loadouts</c>
-    /// paged them — the surface saying an id has no home was the only one that could not see it.
+    /// left <c>AlchemySnapshotListVariable</c> and <c>EquipmentSnapshotListVariable</c> reading as
+    /// projected by nothing while <c>world_list snapshot-loadouts</c> paged them — the answer
+    /// saying an id has no home was the only one that could not see it.
     /// The single-type pass still wins, because <c>EquipmentSO</c> is <c>equipment</c> whatever
     /// composite rows also name it, and a type several composites claim keeps no answer at all
     /// rather than the first one declared.
@@ -563,8 +563,8 @@ internal static class GameMcpEntityCapabilityMap
         D("modifier-variables", "ValueModifierVariable"),
 
         // The glossary carries no capability and never will: nothing buys, levels or discovers a
-        // definition. The descriptor is what makes the word addressable, and it is also what turns
-        // every one of the 211 `entity_catalog` rows from `not-world-projected` into `statistics`.
+        // definition. The descriptor is what makes the word addressable, and it is also what turned
+        // all 211 of these from projected by nothing into `statistics`.
         D("statistics", "AttributeSO"),
 
         // The other half of the Statistics tab. Nothing buys or levels a heading either — a group is

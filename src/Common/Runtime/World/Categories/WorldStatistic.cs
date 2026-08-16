@@ -18,7 +18,7 @@ namespace OrbModding.Common.Runtime.World;
 /// route — hovering an element that happened to hang one — so the meaning of <c>Recovery Size</c>
 /// was readable only where something already showed a Recovery Size. Publishing them makes the
 /// glossary addressable: <c>world_search</c> finds the word, <c>world_get</c> reads the sentence,
-/// and <c>entity_catalog</c> stops filing 211 rows as projected by nothing.
+/// and 211 rows stop reading as projected by nothing.
 /// </para>
 /// <para>
 /// <see cref="GlobalDefinition"/> is captured and deliberately not published. It is the string key

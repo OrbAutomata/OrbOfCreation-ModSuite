@@ -163,27 +163,18 @@ internal static class GameMcpEntityExplainer
                     ["category"] = knownCategory,
                 });
         }
-        // A remedy names a verb that will answer. entity_catalog lists the assets a reader could act
-        // on knowing and leaves the build's internal machinery out, so for a machinery id the old
-        // pointer sent a caller to a page that would come back empty — and it was already the one
-        // pointer that bought nothing, because the identity it promised is on this block. The
-        // sentence says what is true of the id and stops.
-        if (!GameMcpEntityCatalogScope.Lists(identity.RuntimeType))
-        {
-            return Unresolved(
-                uuid,
-                "not_world_projected",
-                "this is loaded in this build, but it is internal machinery no published row " +
-                "covers and entity_catalog does not list; its identity is all there is to read, " +
-                "and it is here",
-                readWith: null);
-        }
+        // A remedy names a verb that will answer, and there is none to name: an id no published
+        // category claims is this build's own internal machinery, and its whole readable identity
+        // is on this block already. This arm used to split — a pointer at the page that listed the
+        // leftovers, or no pointer for machinery — and the world publishes those leftovers now, so
+        // the pointing half named a page that would come back empty even before the verb retired.
+        // The sentence says what is true of the id and stops.
         return Unresolved(
             uuid,
             "not_world_projected",
-            "this is loaded in this build, but the published world has no row of its own for it; " +
-            "its identity is all there is to read",
-            new JObject { ["tool"] = "entity_catalog" });
+            "this is loaded in this build, but it is internal machinery no published row covers; " +
+            "its identity is all there is to read, and it is here",
+            readWith: null);
     }
 
     private static JObject Unresolved(Guid uuid, string code, string reason, JObject? readWith)

@@ -459,8 +459,8 @@ internal static class GameMcpEntityWireNormalizer
     /// The asset name, the runtime type, and the category the type implies used to ride every
     /// identity in the system. Across one live round that was 28.9 KB — 21.1% of everything the
     /// server said — and no caller read one of them once. Where a name came from and what the game
-    /// calls it internally are catalog-browsing facts, and <c>entity_catalog</c> and
-    /// <c>world_get</c> publish them there, where someone actually browsing asks for them.
+    /// calls it internally are catalog-browsing facts, and the <c>world_get</c> identity block
+    /// publishes them there, where someone actually asking about one id asks for them.
     /// </para>
     /// <para>
     /// A UUID the catalog cannot name is marked, never quietly reduced to a bare id: the row that
