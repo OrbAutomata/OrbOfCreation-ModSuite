@@ -255,6 +255,59 @@ public sealed class GameMcpSpellLoadoutTests
     }
 
     /// <summary>
+    /// An equipped spell says whether the game holds it loadout-unique, so the rule stops being
+    /// something a caller can only learn by being refused.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The fact's home is <c>SpellTypeSO.isLoadoutUnique</c>; <c>Spell.IsUniqueSpell()</c> is the
+    /// game's own reading of it over the spell's types, and
+    /// <c>Spell.GetEquipRequirements(SpellListVariable)</c> is what refuses a candidate that finds an
+    /// already-equipped spell of the same recipe. So the answer belongs on the equipped row, which
+    /// the recipe's own <c>equipped</c> list already carries — a caller planning a second copy reads
+    /// it there before it calls anything.
+    /// </para>
+    /// <para>
+    /// Asserted as the row's exact key set rather than as a lookup, because the point of the column
+    /// is that it is always present: a flag published only where it is true would leave the recipes
+    /// that are not loadout-unique indistinguishable from the ones nobody read.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void An_equipped_spell_publishes_the_games_own_loadout_uniqueness_answer()
+    {
+        var world = World(uniqueFirst: true);
+
+        var unique = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
+            world, "spell-slots", world.SpellSlots[0]));
+        var ordinary = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
+            world, "spell-slots", world.SpellSlots[1]));
+
+        Assert.True((bool)unique["isLoadoutUnique"]!);
+        Assert.False((bool)ordinary["isLoadoutUnique"]!);
+
+        Assert.Equal(
+            new[]
+            {
+                "slot",
+                "effectiveLevel",
+                "requiredMasteryLevel",
+                "recipeMasteryLevel",
+                "duration",
+                "toggleable",
+                "usageRequirementsMet",
+                "isLoadoutUnique",
+                "casts",
+                "remove",
+                "move",
+                "glyphs",
+                "occupied",
+                "spellRecipe",
+            },
+            unique.Children<JProperty>().Select(property => property.Name));
+    }
+
+    /// <summary>
     /// A move onto an occupied slot is a swap, and the answer names both halves. Reporting only
     /// the spell the caller asked about left the other one somewhere the caller's model did not
     /// have it, and the next cast at the old address was refused with nothing explaining it.
@@ -494,14 +547,18 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Equal("immediate", (string?)row["kind"]);
     }
 
-    private static GameWorldState World(bool moved = false, bool removed = false)
+    private static GameWorldState World(
+        bool moved = false,
+        bool removed = false,
+        bool uniqueFirst = false)
     {
         var first = Slot(
             moved ? 1 : 0,
             FirstInstanceId,
             FirstRecipeId,
             canRemove: true,
-            casting: false);
+            casting: false,
+            loadoutUnique: uniqueFirst);
         var second = Slot(
             moved ? 0 : 1,
             SecondInstanceId,
@@ -583,7 +640,8 @@ public sealed class GameMcpSpellLoadoutTests
         Guid instance,
         Guid recipe,
         bool canRemove,
-        bool casting) => new(
+        bool casting,
+        bool loadoutUnique = false) => new(
             slot,
             instance,
             recipe,
@@ -607,5 +665,6 @@ public sealed class GameMcpSpellLoadoutTests
             4,
             false,
             true,
-            PublicationTable<WorldSpellSlotGlyph>.Empty);
+            PublicationTable<WorldSpellSlotGlyph>.Empty,
+            isLoadoutUnique: loadoutUnique);
 }

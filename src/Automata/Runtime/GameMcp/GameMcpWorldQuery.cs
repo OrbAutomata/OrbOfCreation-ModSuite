@@ -6064,17 +6064,21 @@ internal static class GameMcpWorldQuery
             }
             else
             {
-                // Four of the verb's gates read facts no recipe row carries: whether the game
+                // Three of the verb's gates read facts no recipe row carries: whether the game
                 // resolves the exact glyphs the caller has not passed yet to this spell, what it
-                // charges for them, whether the loadout's spell weight covers the candidate, and
-                // whether the created spell would be loadout-unique. The page names them as the
-                // verb's to decide rather than predicting them, so `available: yes` says only what
-                // it can prove — that nothing readable here refuses.
+                // charges for them, and whether the loadout's spell weight covers the candidate. The
+                // page names them as the verb's to decide rather than predicting them, so
+                // `available: yes` says only what it can prove — that nothing readable here refuses.
+                //
+                // The unique-spell rule was a fourth until the world published the fact it reads:
+                // every equipped instance of this recipe is on this same row under `equipped`, each
+                // carrying the game's own `isLoadoutUnique`, so the gate is pre-readable and naming
+                // it here would tell a caller to wait for an answer it already holds. The verb still
+                // re-reads it live before it stages anything, and refuses in exactly the same words.
                 var verbDecides = new JArray();
                 verbDecides.Add("glyph layout resolution");
                 verbDecides.Add("creation price");
                 verbDecides.Add("usage budget");
-                verbDecides.Add("unique-spell rule");
                 next["verbDecides"] = verbDecides;
             }
 
@@ -6869,6 +6873,12 @@ internal static class GameMcpWorldQuery
             ["duration"] = slot.DurationSpell,
             ["toggleable"] = slot.Toggled,
             ["usageRequirementsMet"] = slot.UsageRequirementsMet,
+            // The game's own Spell.IsUniqueSpell() answer. True means the game refuses a second
+            // spell built from this same recipe while this one is equipped — one instance per
+            // recipe, not per slot and not per type — so it is what a caller planning another copy
+            // of this recipe has to read. Its home is SpellTypeSO.isLoadoutUnique, which the
+            // spell-types rows publish under the same word.
+            ["isLoadoutUnique"] = slot.IsLoadoutUnique,
             // The game's own manual-cast counter. It is what a firing loop compares to learn whether
             // anything fired, so it is present whether or not it has ever moved.
             ["casts"] = slot.CastCount,

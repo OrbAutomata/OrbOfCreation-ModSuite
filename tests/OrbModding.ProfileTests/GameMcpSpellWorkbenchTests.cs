@@ -202,6 +202,12 @@ public sealed class GameMcpSpellWorkbenchTests
     /// <c>available: yes</c>, and got the identical refusal from the verb both times. Neither the
     /// verb nor the game's own create button reads a core glyph's level anywhere; the sentence the
     /// player was acting on was this suite's own, attributed to the game.
+    ///
+    /// The list is three, not four. <c>unique-spell rule</c> named a gate the caller had no way to
+    /// settle, and the world now publishes the fact it reads: every equipped instance of this recipe
+    /// is on this same row under <c>equipped</c>, each carrying the game's own
+    /// <c>isLoadoutUnique</c>. Naming a decided fact as pending is the same defect as predicting an
+    /// undecidable one, one register over.
     /// </remarks>
     [Fact]
     public void LoadoutAddNeitherInventsACoreGlyphLevelRuleNorPromisesTheVerbsLiveGates()
@@ -224,7 +230,6 @@ public sealed class GameMcpSpellWorkbenchTests
                 "glyph layout resolution",
                 "creation price",
                 "usage budget",
-                "unique-spell rule",
             },
             decision["verbDecides"]!.Values<string>());
     }
