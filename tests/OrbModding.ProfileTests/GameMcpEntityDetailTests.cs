@@ -438,10 +438,57 @@ public sealed class GameMcpEntityDetailTests : IDisposable
     /// lists keeps its pointer, because that page really does answer for it — the pointer follows
     /// what the page carries rather than being dropped wherever a category is missing.
     /// </summary>
+    /// <remarks>
+    /// The fixture is a synthetic catalog because this build no longer holds an id in this state:
+    /// every loaded type is either published or ruled machinery, and the legacy Brewing Station
+    /// that used to stand here is machinery now. The arm is still the right arm — it is the one a
+    /// build that loads something new lands on, and a caller holding such an id has to be sent to
+    /// the page that will answer rather than told there is nothing to read.
+    /// </remarks>
     [Fact]
     public void AnUnprojectedIdTheCatalogStillListsKeepsItsPointerAtTheCatalog()
     {
-        var listed = Guid.Parse("d76565b1-8e2b-44fe-9cf3-995d6f666305");
+        var listed = Guid.Parse("c4000000-0000-4000-8000-000000000001");
+        var catalog = EntityIdentityCatalogSnapshot.Bound(5, new[]
+        {
+            new EntityIdentityName(listed, "SomethingNewSO", string.Empty, "FreshThing"),
+        });
+        using var publisher =
+            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(
+            new GameWorldState
+            {
+                CollectedAtEpoch = 1,
+                CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+                EntityIdentities = catalog,
+            },
+            new WorldGeneration(912));
+
+        var result = Assert.Single(
+            Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+                GameMcpWorldQuery.GetRows(
+                    Snapshot(publisher.ReadLatest()),
+                    string.Empty,
+                    new[] { listed.ToString("D") }).Freeze(),
+                catalog))["results"]!.Values<JObject>())!;
+
+        Assert.True(GameMcpEntityCatalogScope.Lists("SomethingNewSO"));
+        Assert.Equal("ERR_NOT_FOUND", (string?)result["reasonCode"]);
+        Assert.Equal("FreshThing", (string?)result["internalName"]);
+        Assert.Equal("entity_catalog", (string?)result["readWith"]!["tool"]);
+        Assert.Contains("its identity is all there is to read", (string?)result["reason"]);
+        Assert.DoesNotContain("internal machinery", (string?)result["reason"]);
+    }
+
+    /// <summary>
+    /// The legacy Brewing Station changed arms with its verdict. It is machinery now — the game
+    /// builds no instance of it — so the block stops pointing at a page that would come back empty
+    /// and says what is true of the id instead.
+    /// </summary>
+    [Fact]
+    public void TheLegacyStationTakesTheMachineryArmNowThatItIsMachinery()
+    {
+        var station = Guid.Parse("d76565b1-8e2b-44fe-9cf3-995d6f666305");
         var world = new GameWorldState
         {
             CollectedAtEpoch = 1,
@@ -449,13 +496,12 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         };
 
         var result = GameMcpTestHarness.Detail(
-            GameMcpTestHarness.Context(world, generation: 912), listed);
+            GameMcpTestHarness.Context(world, generation: 913), station);
 
         Assert.Equal("ERR_NOT_FOUND", (string?)result["reasonCode"]);
         Assert.Equal("BrewingStation", (string?)result["internalName"]);
-        Assert.Equal("entity_catalog", (string?)result["readWith"]!["tool"]);
-        Assert.Contains("its identity is all there is to read", (string?)result["reason"]);
-        Assert.DoesNotContain("internal machinery", (string?)result["reason"]);
+        Assert.Null(result["readWith"]);
+        Assert.Contains("internal machinery", (string?)result["reason"]);
     }
 
     /// <remarks>

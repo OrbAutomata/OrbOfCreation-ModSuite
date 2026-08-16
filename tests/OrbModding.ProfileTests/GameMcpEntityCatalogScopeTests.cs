@@ -38,7 +38,7 @@ public sealed class GameMcpEntityCatalogScopeTests
             .ToArray();
 
         Assert.Empty(unknown);
-        Assert.Equal(79, GameMcpEntityCatalogScope.InternalOnlyTypes.Count);
+        Assert.Equal(82, GameMcpEntityCatalogScope.InternalOnlyTypes.Count);
         Assert.Equal(
             GameMcpEntityCatalogScope.InternalOnlyTypes.Count,
             GameMcpEntityCatalogScope.InternalOnlyTypes.Distinct(StringComparer.Ordinal).Count());
@@ -70,9 +70,9 @@ public sealed class GameMcpEntityCatalogScopeTests
     }
 
     /// <summary>
-    /// The page is the remainder and nothing else, counted against the build rather than claimed:
-    /// of 2,818 loaded ids the world publishes 2,211 and this build's machinery is 520, so 87 rows
-    /// are left for the one page that has anything to say about them.
+    /// The page is the remainder and nothing else, counted against the build rather than claimed —
+    /// and the remainder is now nothing. Of 2,818 loaded ids the world publishes 2,295 and this
+    /// build's machinery is 523, so no row is left for the page to have anything to say about.
     /// </summary>
     [Fact]
     public void TheListingIsTheRemainderTheWorldPublishesNoRowFor()
@@ -84,52 +84,77 @@ public sealed class GameMcpEntityCatalogScopeTests
             GameMcpEntityCapabilityMap.TryCategoryForNativeType(row.RuntimeType, out _));
 
         Assert.Equal(2818, BuildRows.Count);
-        Assert.Equal(2211, published);
-        Assert.Equal(520, machinery);
-        Assert.Equal(87, listed);
+        Assert.Equal(2295, published);
+        Assert.Equal(523, machinery);
+        Assert.Equal(0, listed);
         Assert.Equal(BuildRows.Count, published + machinery + listed);
     }
 
     /// <summary>
-    /// The glossary, by name — and now the whole page rather than a part of it. It is the only
-    /// record in the suite of the game's least-mapped system, so a later trim that took it would
-    /// take the words with it and nothing would notice.
+    /// Nothing is left, and each of the fourteen types that used to be left is named with the door
+    /// it went out of.
     /// </summary>
+    /// <remarks>
+    /// Emptiness on its own is the weak claim: a rule that withheld everything would satisfy it and
+    /// would have lost the 84 words the glossary and the stat groups carry. So the door is pinned
+    /// per type. Eleven now have a world category, which means <c>world_list</c> pages them,
+    /// <c>world_get</c> reads the sentence the game prints, and <c>world_search</c> finds them by
+    /// name; three are machinery, which means nothing about them was ever readable and the page was
+    /// printing an internal asset identifier. A later change that moved one type through the wrong
+    /// door would keep the page empty and fail here.
+    /// </remarks>
     [Fact]
-    public void TheGlossaryAndTheStatGroupsAndTheOdditiesAreWhatStays()
+    public void TheRemainderIsEmptyAndEveryTypeLeftByItsOwnDoor()
     {
         var kept = BuildRows
             .Where(row => GameMcpEntityCatalogScope.Lists(row.RuntimeType))
             .GroupBy(static row => row.RuntimeType, StringComparer.Ordinal)
             .ToDictionary(static group => group.Key, static group => group.Count());
 
+        Assert.Equal(new Dictionary<string, int>(StringComparer.Ordinal), kept);
+
+        var doors = new[]
+        {
+            "AttributeGroupSO", "CharacterActionSO", "CharacterAttributeSO", "CharacterModifierSO",
+            "CharacterTypeSO", "CombatStatusSO", "DamageTypeSO", "DisplayTypeSO", "EnchantmentSO",
+            "GlyphTypeSO", "RuneStoneSO", "ConditionalTextList", "CraftingStructureSO",
+            "PlayerCharacter",
+        }.ToDictionary(
+            static type => type,
+            static type => GameMcpEntityCatalogScope.IsMachinery(type)
+                ? "machinery"
+                : GameMcpEntityCapabilityMap.TryCategoryForNativeType(type, out var category)
+                    ? category
+                    : "still-listed",
+            StringComparer.Ordinal);
+
         Assert.Equal(
-            new Dictionary<string, int>(StringComparer.Ordinal)
+            new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                ["AttributeGroupSO"] = 24,
-                ["CharacterActionSO"] = 11,
-                ["CharacterAttributeSO"] = 8,
-                ["CharacterModifierSO"] = 4,
-                ["CharacterTypeSO"] = 1,
-                ["CombatStatusSO"] = 8,
-                ["ConditionalTextList"] = 1,
-                ["CraftingStructureSO"] = 1,
-                ["DamageTypeSO"] = 7,
-                ["DisplayTypeSO"] = 3,
-                ["EnchantmentSO"] = 8,
-                ["GlyphTypeSO"] = 6,
-                ["PlayerCharacter"] = 1,
-                ["RuneStoneSO"] = 4,
+                ["AttributeGroupSO"] = "attribute-groups",
+                ["CharacterActionSO"] = "character-actions",
+                ["CharacterAttributeSO"] = "character-attributes",
+                ["CharacterModifierSO"] = "character-modifiers",
+                ["CharacterTypeSO"] = "character-types",
+                ["CombatStatusSO"] = "status-effects",
+                ["DamageTypeSO"] = "damage-types",
+                ["DisplayTypeSO"] = "display-types",
+                ["EnchantmentSO"] = "enchantments",
+                ["GlyphTypeSO"] = "glyph-types",
+                ["RuneStoneSO"] = "rune-stones",
+                ["ConditionalTextList"] = "machinery",
+                ["CraftingStructureSO"] = "machinery",
+                ["PlayerCharacter"] = "machinery",
             },
-            kept);
+            doors);
     }
 
     /// <summary>
-    /// The page itself, not the rule: a query that used to answer with animation assets answers
-    /// with nothing, and the combat word beside it in the same catalog still answers.
+    /// The page itself, not the rule: the two queries that used to answer — one with animation
+    /// assets, one with the combat glossary — both answer with nothing, by two different doors.
     /// </summary>
     [Fact]
-    public void ThePageWithholdsMachineryAndStillAnswersForTheGlossary()
+    public void ThePageWithholdsMachineryAndLeavesTheGlossaryToTheWorld()
     {
         var machinery = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
             GameMcpTestHarness.EntityCatalog, "AnimationEffectSO", 0, 20).Freeze());
@@ -138,8 +163,12 @@ public sealed class GameMcpEntityCatalogScopeTests
 
         Assert.Equal(0, (int)machinery["total"]!);
         Assert.Empty(machinery["rows"]!);
-        Assert.Equal(8, (int)glossary["total"]!);
-        Assert.Equal(8, glossary["rows"]!.Count());
+        Assert.True(GameMcpEntityCatalogScope.IsMachinery("AnimationEffectSO"));
+
+        Assert.Equal(0, (int)glossary["total"]!);
+        Assert.Empty(glossary["rows"]!);
+        Assert.False(GameMcpEntityCatalogScope.IsMachinery("CombatStatusSO"));
+        Assert.True(GameMcpEntityCapabilityMap.TryCategoryForNativeType("CombatStatusSO", out _));
     }
 
     /// <summary>
@@ -162,20 +191,47 @@ public sealed class GameMcpEntityCatalogScopeTests
     }
 
     /// <summary>
-    /// No row on this page carries a <c>category</c> cell. Every one of them is a row the published
-    /// world has no category for, so the column read the same constant on all 87 of them, and a
-    /// column that cannot vary is a byte per row spent saying what the verb's contract says once.
+    /// No row on this page carries a <c>category</c> cell, and the page still projects a row for a
+    /// type nobody has ruled on. Every row it can return is one the published world has no category
+    /// for, so the column could only ever read the same constant, and a column that cannot vary is
+    /// a byte per row spent saying what the verb's contract says once.
     /// </summary>
+    /// <remarks>
+    /// The fixture is synthetic on purpose. This build loads no unruled type any more, so a
+    /// projection test written against it would be a test that could only pass by returning
+    /// nothing — and it would stop guarding the projector the day a build loads something new. The
+    /// two rows here are exactly that day: a type with no verdict is listed rather than dropped in
+    /// silence, and the row it gets carries identity and native type and no category.
+    /// </remarks>
     [Fact]
     public void TheRemainderRowsCarryNoConstantCategoryColumn()
     {
-        var page = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
-            GameMcpTestHarness.EntityCatalog, "CombatStatusSO", 0, 20).Freeze());
+        var unruled = Guid.Parse("c1000000-0000-4000-8000-000000000001");
+        var alsoUnruled = Guid.Parse("c2000000-0000-4000-8000-000000000001");
+        var catalog = EntityIdentityCatalogSnapshot.Bound(5, new[]
+        {
+            new EntityIdentityName(unruled, "SomethingNewSO", "Fresh Thing", "FreshThingAsset"),
+            new EntityIdentityName(alsoUnruled, "SomethingNewSO", "Other Thing", "OtherThingAsset"),
+            new EntityIdentityName(
+                Guid.Parse("c3000000-0000-4000-8000-000000000001"),
+                "AnimationEffectSO",
+                "Sparkle",
+                "SomethingNewSparkle"),
+        });
+
+        Assert.True(GameMcpEntityCatalogScope.Lists("SomethingNewSO"));
+
+        var page = GameMcpTestHarness.Json(
+            GameMcpEntityCatalog.Search(catalog, "SomethingNew", 0, 20).Freeze());
 
         var rows = page["rows"]!.Values<JObject>().ToArray();
-        Assert.Equal(8, rows.Length);
+        Assert.Equal(2, (int)page["total"]!);
+        Assert.Equal(2, rows.Length);
         Assert.All(rows, row => Assert.Null(row!["category"]));
-        Assert.All(rows, row => Assert.Equal("CombatStatusSO", (string?)row!["nativeType"]));
+        Assert.All(rows, row => Assert.Equal("SomethingNewSO", (string?)row!["nativeType"]));
+        Assert.Equal(new[] { "Fresh Thing", "Other Thing" }, rows
+            .Select(static row => (string?)row!["name"])
+            .ToArray());
     }
 
     /// <summary>

@@ -1429,6 +1429,27 @@ internal static class GameMcpWorldQuery
         // and the sentence is the whole reason a reader opens this category.
         "statistics" => new[] { "entityId", "displayType", "isPercent", "description" },
 
+        // The eleven glossaries this suite publishes purely as words. Every one of them exists so a
+        // reader can read the sentence the game prints, and a page that withheld it would cost one
+        // detail call per row to read what fits in one column — the same arithmetic that put the
+        // statistics sentence on its own page.
+        "status-effects" => new[]
+        {
+            "entityId", "isBuff", "maxDuration", "stacksSeparately", "description",
+        },
+        "character-attributes" => new[] { "entityId", "damageTypeId", "description" },
+        "damage-types" => new[]
+        {
+            "entityId", "damageReductionRate", "ignoreEntrenched", "description",
+        },
+        "character-modifiers" => new[] { "entityId", "weightChance", "description" },
+        "character-actions" => new[]
+        {
+            "entityId", "prepTime", "actionTime", "speedMod", "description",
+        },
+        "character-types" or "enchantments" or "glyph-types" or "rune-stones" or
+            "display-types" or "attribute-groups" => new[] { "entityId", "description" },
+
         "structures" => new[] { "entityId", "level", "reading.disabled" },
         "upgrades" => new[] { "entityId", "level" },
         "spell-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
@@ -4745,8 +4766,71 @@ internal static class GameMcpWorldQuery
         GameWorldState world,
         GameMcpWorldCategory category,
         object row) =>
-        WithLevelEffects(
-            world, category, row, WithOwnIdentity(category, ProjectRowFields(world, category, row)));
+        WithGroupMembers(
+            world,
+            category,
+            row,
+            WithLevelEffects(
+                world,
+                category,
+                row,
+                WithOwnIdentity(category, ProjectRowFields(world, category, row))));
+
+    /// <summary>
+    /// What a stat group's bonus is distributed into, on the group's own answer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The node names its edge by carrying it, and this is the only edge there is: the game stores
+    /// the relation as a list on the group and nothing on the far side names its group back, so a
+    /// reader walks group → members and there is no reverse walk to offer. A group holds between one
+    /// and thirteen references on the pinned build, which is smaller than the sentence that would
+    /// point at them.
+    /// </para>
+    /// <para>
+    /// Nothing is unfurled. A member is not an entity — it is a reference to one — so the row carries
+    /// the target's identity for <c>world_get</c> to follow rather than a copy of the target, exactly
+    /// as a glyph's factors carry the statistic they name.
+    /// </para>
+    /// </remarks>
+    private static GameMcpValue WithGroupMembers(
+        GameWorldState world,
+        GameMcpWorldCategory category,
+        object row,
+        GameMcpValue projected)
+    {
+        if (row is not WorldAttributeGroup) return projected;
+        if (!category.TryIdentity(row, out var groupId)) return projected;
+        if (!WorldAttributeGroupMemberLookup.TryFindRange(
+                world.AttributeGroupMembers, groupId, out var start, out var count))
+        {
+            return projected;
+        }
+
+        var members = new JArray();
+        for (var index = 0; index < count; index++)
+        {
+            var member = world.AttributeGroupMembers[start + index];
+            var entry = new JObject
+            {
+                ["modifiesId"] = member.TargetId.ToString("D"),
+                ["property"] = member.Property,
+                ["propertyIndex"] = member.PropertyIndex,
+                ["ratio"] = member.Ratio,
+                ["ratioExp"] = member.RatioExp,
+                ["orderAdjust"] = member.OrderAdjust,
+            };
+            members.Add(entry);
+        }
+
+        if (projected is GameMcpProjectedDomainValue reflected)
+            return reflected.With(new JObject { ["members"] = members }.Freeze());
+        if (projected is not GameMcpObject frozen) return projected;
+        var result = new JObject();
+        result.CopyFrom(frozen);
+        result["members"] = members;
+        return result.Freeze();
+    }
 
     /// <summary>
     /// What one more level of this thing buys, on the answer a reader already asked for.
@@ -8683,6 +8767,22 @@ internal static class GameMcpWorldQuery
             Entity(nameof(GameWorldState.BoolVariables), world => world.BoolVariables),
             Entity(nameof(GameWorldState.ModifierVariables), world => world.ModifierVariables),
             Entity(nameof(GameWorldState.Statistics), world => world.Statistics),
+            Entity(nameof(GameWorldState.AttributeGroups), world => world.AttributeGroups),
+
+            // The ritual layer's vocabulary, one category per word the game itself names a class
+            // with. Ten one-row-per-asset tables rather than one glossary, because the game prints
+            // ten different words above them and they carry ten different sets of facts — and
+            // because two of them are joined: a character attribute names a damage type.
+            Entity(nameof(GameWorldState.StatusEffects), world => world.StatusEffects),
+            Entity(nameof(GameWorldState.CharacterAttributes), world => world.CharacterAttributes),
+            Entity(nameof(GameWorldState.DamageTypes), world => world.DamageTypes),
+            Entity(nameof(GameWorldState.CharacterModifiers), world => world.CharacterModifiers),
+            Entity(nameof(GameWorldState.CharacterActions), world => world.CharacterActions),
+            Entity(nameof(GameWorldState.CharacterTypes), world => world.CharacterTypes),
+            Entity(nameof(GameWorldState.Enchantments), world => world.Enchantments),
+            Entity(nameof(GameWorldState.GlyphTypes), world => world.GlyphTypes),
+            Entity(nameof(GameWorldState.RuneStones), world => world.RuneStones),
+            Entity(nameof(GameWorldState.DisplayTypes), world => world.DisplayTypes),
             Composite(nameof(GameWorldState.PurchaseCosts), world => world.PurchaseCosts),
             Entity(nameof(GameWorldState.AlchemyRecipes), world => world.AlchemyRecipes),
             Entity(nameof(GameWorldState.AlchemyTypes), world => world.AlchemyTypes),
@@ -8820,6 +8920,10 @@ internal static class GameMcpWorldQuery
             "structure-costs",
             "upgrade-costs",
         },
+        // A group's answer carries its distribution, so a member walk that did not bind is a group
+        // page that reads as "this heading groups nothing" — the exact ambiguity this list exists to
+        // refuse.
+        "attribute-groups" => new[] { "attribute-groups", "attribute-group-members" },
         "plot-actions" => new[] { "plot-nodes", "plot-node-actions", "plot-actions" },
         "plot-action-instances" => new[] { "plot-actions" },
         "action-queue-slots" => new[] { "action-queues" },
@@ -8903,6 +9007,22 @@ internal static class GameMcpWorldQuery
         // be the same sentence twice on one page — while the list page, which has no such line, is
         // the one read that turns 211 rows into a glossary rather than 211 further calls.
         "statistics" => new[] { "entityId", "displayType", "isPercent" },
+
+        // Same rule one register over: a detail read on any of these prints the game's own sentence
+        // for the thing already, read through the native type the category declares, so the row does
+        // not spell it a second time. Five of the eleven carry no scalar at all — the asset is a
+        // handle and a word — and their scan is the identity the list page expands into a name.
+        "status-effects" => new[]
+        {
+            "entityId", "isBuff", "maxDuration", "stacksSeparately",
+            "resetDurationOnApplication", "effectTimer",
+        },
+        "character-attributes" => new[] { "entityId", "damageTypeId" },
+        "damage-types" => new[] { "entityId", "damageReductionRate", "ignoreEntrenched" },
+        "character-modifiers" => new[] { "entityId", "weightChance" },
+        "character-actions" => new[] { "entityId", "prepTime", "actionTime", "speedMod" },
+        "character-types" or "enchantments" or "glyph-types" or "rune-stones" or
+            "display-types" or "attribute-groups" => new[] { "entityId" },
         "purchase-costs" => new[]
         {
             "entityId", "resourceId", "baseExactAmount", "effectiveExactAmount",

@@ -19,9 +19,11 @@ namespace OrbAutomata.GameMcp;
 /// <para>
 /// What is left over is still two things, and one of them is worth no row. The string table, the
 /// scaling curves, the animation and colour assets, the one-slot holders behind a UI cursor, the
-/// named list variables whose contents are already a published category, and the prerequisite-link
-/// nodes whose every tier <c>world_get</c> already expands cannot answer "what is this thing" for
-/// anybody, and the array below is the whole of what the page withholds for that reason.
+/// named list variables whose contents are already a published category, the prerequisite-link
+/// nodes whose every tier <c>world_get</c> already expands, the conditional hint table, the
+/// player's own nameless combat actor, and the legacy station the game builds no instance of cannot
+/// answer "what is this thing" for anybody, and the array below is the whole of what the page
+/// withholds for that reason.
 /// </para>
 /// <para>
 /// The verdict is on the TYPE, never on an asset: a named type is machinery whatever the game calls
@@ -160,6 +162,27 @@ internal static class GameMcpEntityCatalogScope
         "MusicTrackSO",
         "ChallengeTypeSO",
         "CombatTargetSO",
+
+        // The conditional hint panel's own table. Its one asset derives from IdScriptableObject
+        // rather than TooltipableObject, so it carries neither a name nor a sentence; what it holds
+        // is a list of (Prerequisites.Container, string) pairs that UIConditionalTextList.PostSetup
+        // picks one of. The words are real and the holder is not a thing — the same verdict
+        // LocalizedStringSO already has, one register over.
+        "ConditionalTextList",
+
+        // The player's combat actor. Also an IdScriptableObject with no name and no sentence: it is
+        // the runtime IBattleActor the ritual layer drives, holding a stat block, a death flag and
+        // the auto-attack clock. There is one, it is nameless, and the page's whole contribution
+        // for it was an internal asset identifier.
+        "PlayerCharacter",
+
+        // The legacy Brewing Station. It is a TooltipableObject, and both its displayName and its
+        // description are authored empty; its `instances` field names the BrewingStations list
+        // variable, whose initialValue and value are both `[]` with isStatic false, so no runtime
+        // station can exist to answer for. Its authored recipes are reachable through the
+        // consumables they produce. A row here would be a nameless id for a station the game never
+        // builds.
+        "CraftingStructureSO",
     };
 
     private static readonly HashSet<string> InternalOnly =

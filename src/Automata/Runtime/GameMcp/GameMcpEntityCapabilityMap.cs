@@ -566,6 +566,25 @@ internal static class GameMcpEntityCapabilityMap
         // definition. The descriptor is what makes the word addressable, and it is also what turns
         // every one of the 211 `entity_catalog` rows from `not-world-projected` into `statistics`.
         D("statistics", "AttributeSO"),
+
+        // The other half of the Statistics tab. Nothing buys or levels a heading either — a group is
+        // bought by buying the things it distributes into — so it carries no capability and exists
+        // to make the id resolvable.
+        D("attribute-groups", "AttributeGroupSO"),
+
+        // The ritual layer's ten glossaries, under the same rule as the statistic glossary: nothing
+        // buys, levels or discovers a word. Each descriptor is what turns its type's rows from
+        // `not-world-projected` into a category a read can answer.
+        D("status-effects", "CombatStatusSO"),
+        D("character-attributes", "CharacterAttributeSO"),
+        D("damage-types", "DamageTypeSO"),
+        D("character-modifiers", "CharacterModifierSO"),
+        D("character-actions", "CharacterActionSO"),
+        D("character-types", "CharacterTypeSO"),
+        D("enchantments", "EnchantmentSO"),
+        D("glyph-types", "GlyphTypeSO"),
+        D("rune-stones", "RuneStoneSO"),
+        D("display-types", "DisplayTypeSO"),
         D("purchase-costs", "StructureSO|UpgradeSO"),
         D("alchemy-recipes", "AlchemyRecipeSO", GameMcpCommandKind.Concept,
             GameMcpCommandKind.GenericDiscovery, GameMcpCommandKind.AlchemyLoadout),

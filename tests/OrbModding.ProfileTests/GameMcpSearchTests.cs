@@ -317,7 +317,7 @@ public sealed class GameMcpSearchTests
     public void A_search_that_found_nothing_says_what_the_entity_catalog_would_find()
     {
         var page = Json(GameMcpWorldQuery.Search(
-            Loaded(), "combatstatus", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
+            Loaded(), "fresh", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
 
         Assert.Empty(Rows(page));
         Assert.Equal(
@@ -558,11 +558,18 @@ public sealed class GameMcpSearchTests
 
     /// <summary>
     /// A build whose loaded ids cover both halves of the gap the empty page signposts.
-    /// <c>CombatStatusSO</c> is a real type no category claims and <c>entity_catalog</c> lists;
+    /// <c>SomethingNewSO</c> is a type no verdict covers and <c>entity_catalog</c> therefore lists;
     /// <c>AnimationSO</c> is a real type no category claims and <c>entity_catalog</c> withholds as
     /// machinery. The two answer the caller's second question differently, and the page has to say
     /// which one it met.
     /// </summary>
+    /// <remarks>
+    /// The listed half is a type this build does not load, and has to be: every type this build
+    /// loads is now either published or ruled machinery, so the only remaining source of a listed
+    /// row is a build that loads something no verdict has been written for. That is the case the
+    /// signpost exists to survive, and pinning it against a type that has since been published is
+    /// how this fixture stopped meaning what it said the first time.
+    /// </remarks>
     private static GameMcpFrameContext Loaded()
     {
         var world = new GameWorldState
@@ -570,8 +577,8 @@ public sealed class GameMcpSearchTests
             EntityIdentities = EntityIdentityCatalogSnapshot.Bound(2, new[]
             {
                 new EntityIdentityName(Lab, "StructureSO", "Alchemy Lab", "alchemyLab"),
-                new EntityIdentityName(Idle, "CombatStatusSO", "Burning", "combatBurning"),
-                new EntityIdentityName(Passed, "CombatStatusSO", "Stunned", "combatStunned"),
+                new EntityIdentityName(Idle, "SomethingNewSO", "Burning", "freshBurning"),
+                new EntityIdentityName(Passed, "SomethingNewSO", "Stunned", "freshStunned"),
                 new EntityIdentityName(Failed, "AnimationSO", "Orb Pulse", "animationOrbPulse"),
             }),
             CollectionCategories =
@@ -631,6 +638,7 @@ public sealed class GameMcpSearchTests
                 "action-queue-slots",
                             // The three type rosters whose wire name is not their collector's name.
                 "harvest-types", "harvest-action-types", "consumable-families",
+                "attribute-group-members",
 })
             .Distinct(StringComparer.Ordinal)
             .Select(name => new WorldCollectionCategoryStatus(

@@ -796,6 +796,7 @@ public sealed class GameMcpTypeReachTests
 
                 // The three type rosters whose wire name is not their collector's name.
                 "harvest-types", "harvest-action-types", "consumable-families",
+                "attribute-group-members",
             })
             .Distinct(StringComparer.Ordinal)
             .Select(name => new WorldCollectionCategoryStatus(

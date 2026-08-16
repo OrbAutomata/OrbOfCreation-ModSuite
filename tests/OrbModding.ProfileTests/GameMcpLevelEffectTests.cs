@@ -321,6 +321,7 @@ public sealed class GameMcpLevelEffectTests : IDisposable
                 "consumable-inventory", "crafting-recipe-state", "crafting-decisions",
                 "ordinary-alchemy-loadout", "plot-authoring", "plot-actions", "action-queues",
                 "crafting-stations", "harvest-lifecycle", "spell-slots", "targeting",
+                "attribute-group-members",
             })
             .Distinct(StringComparer.Ordinal)
             .Select(name => new WorldCollectionCategoryStatus(

@@ -449,8 +449,20 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Null(initialized.Body);
     }
 
+    /// <summary>
+    /// The whole verb, end to end, on the build it ships against: it answers with nothing. Every id
+    /// this build loads is either a row the published world carries or machinery this page
+    /// withholds, so the remainder it exists to list is empty.
+    /// </summary>
+    /// <remarks>
+    /// The query is the one this test used to prove the opposite with. A combat action was the
+    /// clearest thing the page was for — the game prints the word, no world category published a
+    /// row for it, and no other verb would say it — and that is exactly the gap the
+    /// <c>character-actions</c> category closed. The page still refuses nothing and still answers in
+    /// its own shape; it simply has no row left to carry, and the word is on <c>world_search</c>.
+    /// </remarks>
     [Fact]
-    public void LiveCatalogCoversRuntimeIdentitiesAndFindsHiddenContentByDisplayName()
+    public void LiveCatalogHasNoRemainderLeftToListOnThisBuild()
     {
         var inbox = new GameMcpFrameInbox();
         var router = new GameMcpProtocolRouter(inbox);
@@ -475,24 +487,15 @@ public sealed class GameMcpStreamableHttpProtocolTests
 
         var page = (string)Assert.Single(
             response.Body!["result"]!["content"]!.Values<JObject>())!["text"]!;
-        var lines = page.Split('\n');
 
-        // The catalog is where the asset name and the runtime type still live: somebody browsing
-        // asks for them, and nothing else on the surface carries them any more. A combat action is
-        // exactly what this page is for now — the game prints the word, no world category publishes
-        // a row for it, and no other verb here will say it.
-        Assert.Equal(3, lines.Length);
-        Assert.StartsWith("[", lines[1]);
-        Assert.Contains("f8a932", lines[2]);
-        Assert.Contains("CharacterActionSO", lines[2]);
-        Assert.Contains("Summon Reinforcements", lines[2]);
+        Assert.Equal("rows 0/0", page.TrimEnd('\n'));
+        Assert.True(
+            GameMcpEntityCapabilityMap.TryCategoryForNativeType("CharacterActionSO", out var moved));
+        Assert.Equal("character-actions", moved);
 
-        // The asset id here is the name with its space taken out, which the verb contract says
-        // absence means, so the row does not spell it twice.
-        Assert.DoesNotContain("SummonReinforcements", lines[2]);
-
-        // The cell is gone rather than constant: every row this page returns is one the published
-        // world has no category for, so `not-world-projected` was a column that could not vary.
+        // The cells are gone rather than constant, and stay gone: the page never carried a category
+        // column, a catalog-source line or a name-source flag, and an empty page names none of them
+        // either.
         Assert.DoesNotContain("category", page, StringComparison.Ordinal);
         Assert.DoesNotContain("not-world-projected", page, StringComparison.Ordinal);
         Assert.DoesNotContain("catalogSource", page, StringComparison.Ordinal);
@@ -554,17 +557,21 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Null(result["nextOffset"]);
     }
 
+    /// <summary>
+    /// The page still pages. This build's remainder is empty, so the fixture is a catalog of a type
+    /// no verdict covers — the state a build that loads something new arrives in, and the only
+    /// state in which this verb returns a row at all.
+    /// </summary>
     [Fact]
     public void CatalogSearchPagesWithNextOffsetAndNeverRepeatsARow()
     {
-        var first = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
-            GameMcpTestHarness.EntityCatalog,
-            "a",
-            0,
-            1).Freeze());
+        var catalog = UnruledCatalog(3);
+
+        var first = GameMcpTestHarness.Json(
+            GameMcpEntityCatalog.Search(catalog, "SomethingNew", 0, 1).Freeze());
 
         var total = (int)first["total"]!;
-        Assert.True(total > 1);
+        Assert.Equal(3, total);
         Assert.Null(first["returned"]);
         Assert.Null(first["truncated"]);
         Assert.Null(first["hasMore"]);
@@ -572,21 +579,15 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Equal(1, (int)first["nextOffset"]!);
 
         var second = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
-            GameMcpTestHarness.EntityCatalog,
-            "a",
-            (int)first["nextOffset"]!,
-            1).Freeze());
+            catalog, "SomethingNew", (int)first["nextOffset"]!, 1).Freeze());
 
         Assert.Equal(total, (int)second["total"]!);
         Assert.NotEqual(
             (string?)first["rows"]![0]!["uuid"],
             (string?)second["rows"]![0]!["uuid"]);
 
-        var last = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
-            GameMcpTestHarness.EntityCatalog,
-            "a",
-            total - 1,
-            1).Freeze());
+        var last = GameMcpTestHarness.Json(
+            GameMcpEntityCatalog.Search(catalog, "SomethingNew", total - 1, 1).Freeze());
 
         Assert.Single(last["rows"]!);
         Assert.Null(last["nextOffset"]);
@@ -613,37 +614,25 @@ public sealed class GameMcpStreamableHttpProtocolTests
     /// goes where it belongs, and <c>name</c> says what absence says.
     /// </summary>
     /// <remarks>
-    /// <c>BrewingStation</c> is the build's one authored-but-unreachable asset: the page lists it,
-    /// the game authors it no word, and no world category claims its type — the three facts this
-    /// shape needs at once, now that the animation asset it used to read is machinery the page
-    /// leaves out.
+    /// <c>BrewingStation</c> used to be the build's one authored-but-unreachable asset and this
+    /// shape's live fixture. It is machinery now — the game builds no instance of it — so the page
+    /// withholds it, and no asset this build loads can stand in: the whole remainder is empty. The
+    /// fixture is therefore a nameless asset of an unruled type, which is what a build that loads
+    /// something new brings, and the wire is rendered through the same text page the router sends.
     /// </remarks>
     [Fact]
     public void LiveCatalogNamesNothingWhereTheGameAuthorsNoWord()
     {
-        var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
-        var response = GameMcpTestHarness.Handle(
-            router,
-            inbox,
-            Request(
-                101,
-                "tools/call",
-                new JObject
-                {
-                    ["name"] = "entity_catalog",
-                    ["arguments"] = new JObject
-                    {
-                        ["query"] = "d76565b1-8e2b-44fe-9cf3-995d6f666305",
-                    },
-                }),
-            operation => GameMcpTestHarness.ExecuteRead(
-                operation,
-                GameMcpTestHarness.Context()));
+        var nameless = Guid.Parse("c3000000-0000-4000-8000-000000000001");
+        var catalog = EntityIdentityCatalogSnapshot.Bound(5, new[]
+        {
+            new EntityIdentityName(nameless, "SomethingNewSO", string.Empty, "BrewingStation"),
+        });
 
-        var page = (string)Assert.Single(
-            response.Body!["result"]!["content"]!.Values<JObject>())!["text"]!;
-        var lines = page.Split('\n');
+        var page = GameMcpTextPage.Render(GameMcpTestHarness.Json(
+            GameMcpEntityCatalog.Search(catalog, "BrewingStation", 0, 20).Freeze()));
+
+        var lines = page.TrimEnd('\n').Split('\n');
         Assert.Equal(3, lines.Length);
         Assert.StartsWith("[", lines[1]);
         Assert.Contains("BrewingStation", lines[2]);
@@ -652,6 +641,40 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.DoesNotContain("nameSource", page, StringComparison.Ordinal);
         Assert.DoesNotContain("hasDisplayName", page, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// The one authored-but-unreachable asset, by the door it left through. The station is a
+    /// TooltipableObject whose displayName and description are both authored empty, and its
+    /// <c>instances</c> list variable is empty and not static, so the game builds no station for a
+    /// row to answer for. Its id still resolves and still prints its asset name everywhere it is
+    /// referenced; only this page stops carrying it.
+    /// </summary>
+    [Fact]
+    public void TheLegacyStationIsWithheldAsMachineryRatherThanListedNameless()
+    {
+        var station = Guid.Parse("d76565b1-8e2b-44fe-9cf3-995d6f666305");
+        var result = GameMcpTestHarness.Json(GameMcpEntityCatalog.Search(
+            GameMcpTestHarness.EntityCatalog,
+            "d76565b1-8e2b-44fe-9cf3-995d6f666305",
+            0,
+            20).Freeze());
+
+        Assert.True(GameMcpEntityCatalogScope.IsMachinery("CraftingStructureSO"));
+        Assert.Equal(0, (int)result["total"]!);
+        Assert.Empty(result["rows"]!);
+        Assert.Equal(
+            "BrewingStation",
+            GameMcpEntityHandle.Name(station, GameMcpTestHarness.EntityCatalog));
+    }
+
+    private static EntityIdentityCatalogSnapshot UnruledCatalog(int count) =>
+        EntityIdentityCatalogSnapshot.Bound(5, Enumerable.Range(1, count)
+            .Select(index => new EntityIdentityName(
+                Guid.Parse($"{index}c000000-0000-4000-8000-000000000001"),
+                "SomethingNewSO",
+                $"Fresh Thing {index}",
+                $"FreshThing{index}"))
+            .ToArray());
 
 
     [Fact]
@@ -1221,6 +1244,7 @@ public sealed class GameMcpWorldEnvelopeTests
                 "action-queue-slots",
                             // The three type rosters whose wire name is not their collector's name.
                 "harvest-types", "harvest-action-types", "consumable-families",
+                "attribute-group-members",
 })
             .Distinct(StringComparer.Ordinal)
             .Select(category => string.Equals(
@@ -1376,6 +1400,7 @@ public sealed class GameMcpWorldEnvelopeTests
                 "loadouts",
                             // The three type rosters whose wire name is not their collector's name.
                 "harvest-types", "harvest-action-types", "consumable-families",
+                "attribute-group-members",
 })
             .Distinct(StringComparer.Ordinal)
             .Select(Clean)
@@ -1434,6 +1459,7 @@ public sealed class GameMcpWorldEnvelopeTests
                 "loadouts",
                             // The three type rosters whose wire name is not their collector's name.
                 "harvest-types", "harvest-action-types", "consumable-families",
+                "attribute-group-members",
 })
             .Distinct(StringComparer.Ordinal)
             .Select(category => string.Equals(
