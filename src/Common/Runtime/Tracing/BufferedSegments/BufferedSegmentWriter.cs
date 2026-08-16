@@ -32,6 +32,13 @@ internal sealed class BufferedSegmentWriter<TRecord> where TRecord : struct
 
     internal void Signal() => _wake.Set();
 
+    internal bool WaitForExit(TimeSpan timeout)
+    {
+        if (timeout < TimeSpan.Zero || timeout.TotalMilliseconds > int.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(timeout), "A finite bounded timeout is required.");
+        return _thread.Join(timeout);
+    }
+
     private void Run()
     {
         ReusableSegmentBlockLane<TRecord>? lane = null;

@@ -33,6 +33,7 @@ internal sealed class FullTraceRuntimeSession : IDisposable
     private FullTraceTerminalReason? _requestedReason;
     private FullTraceRuntimeSessionState _state;
     private bool _sinkStopIssued;
+    private bool _shutdownDrainFinished;
     private bool _disposed;
 
     internal FullTraceRuntimeSession(
@@ -118,6 +119,7 @@ internal sealed class FullTraceRuntimeSession : IDisposable
         _terminalSnapshot = default;
         _requestedReason = null;
         _sinkStopIssued = false;
+        _shutdownDrainFinished = false;
         _state = FullTraceRuntimeSessionState.Arming;
     }
 
@@ -139,12 +141,18 @@ internal sealed class FullTraceRuntimeSession : IDisposable
         if (_state == FullTraceRuntimeSessionState.Stopping) TickStopping();
     }
 
+    /// <summary>
+    /// Whether the drain this session asked for at shutdown finished inside its bound.
+    /// </summary>
+    internal bool ShutdownDrainFinished => _shutdownDrainFinished;
+
     public void Dispose()
     {
         EnsureOwner();
         if (_disposed) return;
         Shutdown();
         _sink?.Dispose();
+        DrainAtShutdown();
         _disposed = true;
     }
 
@@ -267,6 +275,40 @@ internal sealed class FullTraceRuntimeSession : IDisposable
         }
         if (sink.Metrics().Status is (BufferedSegmentStatus.Initializing or BufferedSegmentStatus.Running))
             sink.Stop();
+    }
+
+    /// <summary>
+    /// Gives the writer a bounded chance to finish the drain <see cref="Shutdown"/> asked for, and
+    /// settles the session on what it observes.
+    /// </summary>
+    /// <remarks>
+    /// Shutdown is the one boundary no tick follows, so a session that returned here the moment it
+    /// signalled its stop left the manifest — the only file that answers for how the capture ended —
+    /// to a race against process exit. Waiting settles it: the writer publishes the same complete or
+    /// incomplete manifest it would have published anyway, and this session then reports the terminal
+    /// state it actually saw. When the bound expires nothing is invented, because a manifest written
+    /// from here could overwrite a well-formed one the writer is still committing; the session stays
+    /// non-terminal, its manifest stays absent, and absence is what an interrupted capture has always
+    /// looked like.
+    /// </remarks>
+    private void DrainAtShutdown()
+    {
+        if (_state is FullTraceRuntimeSessionState.Idle or
+            FullTraceRuntimeSessionState.Complete or
+            FullTraceRuntimeSessionState.Incomplete)
+        {
+            _shutdownDrainFinished = true;
+            return;
+        }
+        var sink = _sink;
+        if (sink is null) return;
+        var status = sink.Metrics().Status;
+        if (status is BufferedSegmentStatus.Initializing or BufferedSegmentStatus.Running) return;
+        _shutdownDrainFinished = sink.WaitForWriterExit(BufferedSegmentShutdown.DrainBound);
+        if (!_shutdownDrainFinished) return;
+        Finish(sink.Metrics().Status == BufferedSegmentStatus.Stopped
+            ? FullTraceRuntimeSessionState.Complete
+            : FullTraceRuntimeSessionState.Incomplete);
     }
 
     private void BeginStopping(FullTraceTerminalReason reason)
