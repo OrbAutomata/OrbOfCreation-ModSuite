@@ -746,6 +746,8 @@ internal static class GameMcpActionResultCodeNames
                 return "staged_write_failed";
             if (code == SpellWorkbenchActionResultCodes.AugmentSlotsExceeded)
                 return "augment_slots_exceeded";
+            if (code == SpellWorkbenchActionResultCodes.ScreenLocked)
+                return "screen_locked";
         }
         if (commandKind == GameMcpCommandKind.SpellComposition)
         {
@@ -769,6 +771,7 @@ internal static class GameMcpActionResultCodeNames
             if (code == SpellLoadoutActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";
             if (code == SpellLoadoutActionResultCodes.PostCommitFault) return "post_commit_fault";
             if (code == SpellLoadoutActionResultCodes.VerificationFailed) return "verification_failed";
+            if (code == SpellLoadoutActionResultCodes.ScreenLocked) return "screen_locked";
         }
         if (commandKind == GameMcpCommandKind.Targeting)
         {

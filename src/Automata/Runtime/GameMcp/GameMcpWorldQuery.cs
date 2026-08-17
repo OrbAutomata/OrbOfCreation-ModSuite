@@ -6062,10 +6062,18 @@ internal static class GameMcpWorldQuery
             // read ahead of the call is whether the loadout has a spot. The core glyphs used to be
             // a gate here because the suite staged them; the game's Loadout row reads no core at
             // all, so a page refusing on them was refusing a press that works.
-            var available = world.SpellWorkbench.HasEmptySlot;
+            // Locked, unaffordable and full are three different answers. A screen the game has
+            // not unlocked draws no row at all, so the loadout being empty says nothing about
+            // whether the press exists.
+            var unlocked = IsScreenUnlocked(world, KnownEntities.MagicSpellbookLoadout.Uuid);
+            var available = unlocked && world.SpellWorkbench.HasEmptySlot;
             next["available"] = available;
             next["acceptsAugments"] = true;
-            if (!available)
+            if (!unlocked)
+            {
+                next["reasonCode"] = "screen_locked";
+            }
+            else if (!available)
             {
                 next["reasonCode"] = "loadout_full";
             }
@@ -6884,6 +6892,14 @@ internal static class GameMcpWorldQuery
         return result.Freeze();
     }
 
+    /// <summary>
+    /// Whether the game draws the screen an action lives on. <c>ViewSO.IsAvailable()</c> is the
+    /// game's own question, and the world publishes its answer for every view, so a locked screen
+    /// is read here rather than guessed from what else happens to be empty.
+    /// </summary>
+    private static bool IsScreenUnlocked(GameWorldState world, Guid viewId) =>
+        WorldLookup.TryFind(world.Views, viewId, out var view) && view.Available;
+
     private static JObject ProjectEquippedSpell(
         GameWorldState world,
         in WorldSpellSlot slot)
@@ -6930,7 +6946,15 @@ internal static class GameMcpWorldQuery
         // path never consults, and answering from it called slots stuck that the game would have
         // cleared. A blocked row carries the numbers that say how far off it is, because the row
         // itself prints no charge count.
-        if (slot.Casting || slot.ReadyingCast)
+        if (!IsScreenUnlocked(world, KnownEntities.MagicSpellbookLoadout.Uuid))
+        {
+            result["remove"] = new JObject
+            {
+                ["available"] = false,
+                ["reasonCode"] = "screen_locked",
+            };
+        }
+        else if (slot.Casting || slot.ReadyingCast)
         {
             result["remove"] = new JObject
             {

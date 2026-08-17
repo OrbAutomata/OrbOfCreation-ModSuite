@@ -16,6 +16,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
     private readonly Func<string> _readOwnershipFailure;
     private readonly Func<string, Type?>? _resolveType;
     private readonly Func<string, bool>? _includeContract;
+    private readonly TypedRegistryResolver _registry;
     private readonly int _mainThreadId;
     private SpellLoadoutNativeBindings? _bindings;
     private string _bindingFailure = string.Empty;
@@ -25,7 +26,8 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         Func<bool> tryCaptureMutationPermit,
         Func<string> readOwnershipFailure,
         Func<string, Type?>? resolveType = null,
-        Func<string, bool>? includeContract = null)
+        Func<string, bool>? includeContract = null,
+        TypedRegistryResolver? registry = null)
     {
         _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _tryCaptureMutationPermit = tryCaptureMutationPermit ??
@@ -33,6 +35,9 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         _readOwnershipFailure = readOwnershipFailure ?? throw new ArgumentNullException(nameof(readOwnershipFailure));
         _resolveType = resolveType;
         _includeContract = includeContract;
+        var identity = RuntimeIdentityRegistryBinding.Shared;
+        _registry = registry ?? new TypedRegistryResolver(
+            _readLifecycleEpoch, identity.Read, identity.ReadStableUuid);
         _mainThreadId = Environment.CurrentManagedThreadId;
         BindLifecycle();
     }
@@ -104,6 +109,8 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         in SpellLoadoutAction action,
         SpellLoadoutNativeBindings native)
     {
+        if (!TryAdmitScreen(native, out var screenRefusal, out var screenReason))
+            return SpellLoadoutSubmission.Reject(screenRefusal, screenReason);
         if (!TryResolve(native, action.SpellInstanceId, out var manager, out _, out var spell,
                 out var sourceSlot, out _, out var reason))
             return SpellLoadoutSubmission.Reject(SpellLoadoutPreflight.IdentityUnavailable, reason);
@@ -143,6 +150,38 @@ internal sealed class SpellLoadoutGameAction : IDisposable
                 "SpellManager.RemoveSpell threw before the requested outcome was observable: " +
                 ex.GetBaseException().Message);
         }
+    }
+
+    /// <summary>
+    /// The screen has to exist before any of its controls can be worked, and locked is a different
+    /// answer from "this spell is busy". <c>ViewSO.IsAvailable()</c> is the game's own question —
+    /// <c>prerequisites.Container.Check()</c> — so this is read, never inferred.
+    /// </summary>
+    private bool TryAdmitScreen(
+        SpellLoadoutNativeBindings native,
+        out SpellLoadoutPreflight refusal,
+        out string reason)
+    {
+        var resolution = _registry.Resolve(
+            KnownEntities.MagicSpellbookLoadout.Uuid, native.ViewType);
+        if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
+            resolution.Value is not { } view)
+        {
+            refusal = SpellLoadoutPreflight.ContractUnavailable;
+            reason = "The game's Magic > Spellbook > Loadout screen could not be read, so " +
+                "whether the loadout bar can be worked at all is unknown.";
+            return false;
+        }
+        if (!native.IsViewAvailable(view))
+        {
+            refusal = SpellLoadoutPreflight.ScreenLocked;
+            reason = "Magic > Spellbook > Loadout is not unlocked yet, so the game draws no " +
+                "loadout bar to change. Buy the Spellbook Loadout upgrade first.";
+            return false;
+        }
+        refusal = SpellLoadoutPreflight.Proceeded;
+        reason = string.Empty;
+        return true;
     }
 
     /// <summary>
@@ -208,6 +247,8 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         in SpellLoadoutAction action,
         SpellLoadoutNativeBindings native)
     {
+        if (!TryAdmitScreen(native, out var screenRefusal, out var screenReason))
+            return SpellLoadoutSubmission.Reject(screenRefusal, screenReason);
         if (!TryResolve(native, action.SpellInstanceId, out _, out var active, out _,
                 out var sourceSlot, out var slotCount, out var reason))
             return SpellLoadoutSubmission.Reject(SpellLoadoutPreflight.IdentityUnavailable, reason);

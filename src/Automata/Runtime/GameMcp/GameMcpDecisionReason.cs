@@ -227,6 +227,7 @@ internal static class GameMcpDecisionReason
         "selection_hidden" or "cannot_level" or "resources_hidden" or
         "recipe_not_discovered" or "prerequisites_unmet" or "not_discovered_or_offered" or
         "native_hidden" or "hidden_discovery" or "requirement_unmet" or
+        "screen_locked" or
         "native_unavailable" or "native_leeway_exhausted" => ClassLocked,
 
         // The suite or the game could not read or serve the fact.
@@ -278,6 +279,9 @@ internal static class GameMcpDecisionReason
     {
         // Nothing to act on yet
         "not_available" => "The game has not unlocked this yet.",
+        // Not the same as unaffordable and not the same as full: the screen this action lives on
+        // is not unlocked, so the game draws no button at all.
+        "screen_locked" => "The screen this action lives on is not unlocked yet.",
         "not_visible" => "The game is not showing this yet.",
         "undiscovered" or "not_discovered" =>
             "This has not been discovered yet.",

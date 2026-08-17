@@ -342,6 +342,7 @@ public sealed class GameMcpSpellLoadoutTests
                 new WorldCollectionCategoryStatus(
                     "spell slots", WorldCategoryOutcome.Collected, 3, 0, string.Empty),
             }),
+            Views = UnlockedLoadoutScreen,
             SpellSlots = PublicationTable<WorldSpellSlot>.Create(
                 new[] { ready, midCast, recharging }),
         };
@@ -362,6 +363,28 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.IsType<JObject>(GameMcpTestHarness.Json(
             GameMcpWorldQuery.ProjectEntityState(world, "spell-slots", slot))["remove"])
             .ToString(Newtonsoft.Json.Formatting.None);
+
+    /// <summary>
+    /// A screen the game has not unlocked draws nothing to press, which is a different answer from
+    /// "that spell is busy" and from "the bar is full". Reading a full bar as the reason sent a
+    /// caller looking for a slot to free on a screen that does not exist.
+    /// </summary>
+    [Fact]
+    public void A_locked_loadout_screen_refuses_in_the_screens_own_words()
+    {
+        var world = World() with
+        {
+            Views = PublicationTable<WorldView>.Create(new[]
+            {
+                new WorldView(KnownEntities.MagicSpellbookLoadout.Uuid, false, false, false),
+            }),
+        };
+
+        Assert.Equal(
+            "{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
+            "\"reason\":\"The screen this action lives on is not unlocked yet.\"}",
+            Remove(world, world.SpellSlots[0]));
+    }
 
     /// <summary>
     /// A move onto an occupied slot is a swap, and the answer names both halves. Reporting only
@@ -634,6 +657,7 @@ public sealed class GameMcpSpellLoadoutTests
                 new WorldCollectionCategoryStatus(
                     "spell workbench", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
             }),
+            Views = UnlockedLoadoutScreen,
             Resources = PublicationTable<WorldResource>.Create(new[]
             {
                 SpellWeightResource(removed ? 2 : 5),
@@ -689,6 +713,12 @@ public sealed class GameMcpSpellLoadoutTests
             in reading, true, new BigDouble(8 - used), 1d, false, new BigDouble(used),
             BigDouble.Zero);
     }
+
+    private static PublicationTable<WorldView> UnlockedLoadoutScreen =>
+        PublicationTable<WorldView>.Create(new[]
+        {
+            new WorldView(KnownEntities.MagicSpellbookLoadout.Uuid, false, false, true),
+        });
 
     private static WorldSpellSlot Slot(
         int slot,

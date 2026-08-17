@@ -31,6 +31,9 @@ internal enum SpellWorkbenchPreflight
 
     /// <summary>More different augments than the game's augment selection holds at once.</summary>
     AugmentSlotsExceeded = 25,
+
+    /// <summary>The screen the button lives on is not unlocked, so the game draws no button.</summary>
+    ScreenLocked = 26,
 }
 
 internal enum SpellWorkbenchNativeStage

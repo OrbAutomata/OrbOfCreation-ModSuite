@@ -90,6 +90,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<GlyphListVariableContract> GlyphsCoreSpell = new(new Guid("3d2157bf-1cc6-41d0-82f4-19888edb01d2"), "GlyphListVariable", "CoreSpellGlyphs");
     public static readonly KnownEntity<GlyphListVariableContract> GlyphsEquipment = new(new Guid("8ab13352-570f-41f3-aad4-4f1e39a7d162"), "GlyphListVariable", "EquipmentGlyphs");
     public static readonly KnownEntity<ViewSOContract> MagicSpellbook = new(new Guid("ca934900-0253-4f71-93e9-733fb91132b7"), "ViewSO", "MagicSpellbook");
+    public static readonly KnownEntity<ViewSOContract> MagicSpellbookLoadout = new(new Guid("accf9abb-d916-4fdf-96d7-1b1d5fdd548c"), "ViewSO", "MagicSpellbookLoadout");
     public static readonly KnownEntity<ViewSOContract> MasteriesEnabled = new(new Guid("07dfae7e-76b9-4b38-bf81-38abc40b9ed7"), "ViewSO", "MasteriesEnabled");
     public static readonly KnownEntity<IntVariableContract> MultiBuy = new(new Guid("37a84399-98b5-463c-b858-c1ecf2f9bf34"), "IntVariable", "MultiBuy");
     public static readonly KnownEntity<ResourceSOContract> PotionToxicity = new(new Guid("4dd4e062-2015-4809-a50f-f37647bda339"), "ResourceSO", "PotionToxicity");

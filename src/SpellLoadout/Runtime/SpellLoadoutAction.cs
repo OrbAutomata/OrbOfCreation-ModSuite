@@ -48,6 +48,9 @@ internal enum SpellLoadoutPreflight
     PostCommitFault = 10,
     VerificationFailed = 11,
     CastInProgress = 12,
+
+    /// <summary>The screen the loadout bar lives on is not unlocked.</summary>
+    ScreenLocked = 13,
 }
 
 internal enum SpellLoadoutNativeStage
@@ -101,4 +104,5 @@ internal static class SpellLoadoutActionResultCodes
     internal static readonly ServiceActionResultCode PostCommitFault = new(7409);
     internal static readonly ServiceActionResultCode VerificationFailed = new(7410);
     internal static readonly ServiceActionResultCode CastInProgress = new(7411);
+    internal static readonly ServiceActionResultCode ScreenLocked = new(7412);
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using OrbAutomata;
+using OrbModding.Common;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
@@ -10,7 +11,24 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
 {
     private const long Epoch = 91;
 
-    public SpellLoadoutGameActionTests() => SpellManager.instance = new SpellManager();
+    public SpellLoadoutGameActionTests()
+    {
+        IdScriptableObject.RuntimeLookup.Clear();
+        SpellManager.instance = new SpellManager();
+        LoadoutScreen();
+    }
+
+    /// <summary>
+    /// The screen the loadout bar lives on, unlocked. Every remove and move goes through it,
+    /// because a locked screen draws no bar to change.
+    /// </summary>
+    private static ViewSO LoadoutScreen(bool unlocked = true)
+    {
+        var view = new ViewSO { available = unlocked };
+        view.SetGuid(KnownEntities.MagicSpellbookLoadout.Uuid);
+        IdScriptableObject.RuntimeLookup[view.GetGuid()] = view;
+        return view;
+    }
 
     [Theory]
     [InlineData(true)]
@@ -82,6 +100,34 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
             result.Reason);
         Assert.Equal(0, SpellManager.instance.RemoveCalls);
         Assert.False(spell.SwitchedToTimeBasedCooldown);
+    }
+
+    /// <summary>
+    /// Locked is not the same answer as busy: the game draws no loadout bar at all until the
+    /// Spellbook Loadout upgrade is bought, so the sentence names the screen and the upgrade
+    /// rather than anything about the spell.
+    /// </summary>
+    [Fact]
+    public void RemoveAndMoveRefuseWhileTheLoadoutScreenIsLocked()
+    {
+        LoadoutScreen(unlocked: false);
+        var first = new Spell(new SpellRecipeSO()) { DisplayName = "First" };
+        var second = new Spell(new SpellRecipeSO()) { DisplayName = "Second" };
+        SpellManager.instance!.activeSpells.value.AddRange(new[] { first, second });
+        using var action = Action();
+
+        var removal = action.Submit(Remove(first));
+        var move = action.Submit(Move(first, 1));
+
+        Assert.Equal(SpellLoadoutPreflight.ScreenLocked, removal.Preflight);
+        Assert.Equal(
+            "Magic > Spellbook > Loadout is not unlocked yet, so the game draws no loadout bar " +
+            "to change. Buy the Spellbook Loadout upgrade first.",
+            removal.Reason);
+        Assert.Equal(SpellLoadoutPreflight.ScreenLocked, move.Preflight);
+        Assert.Equal(removal.Reason, move.Reason);
+        Assert.Equal(0, SpellManager.instance.RemoveCalls);
+        Assert.Equal(0, SpellManager.instance.activeSpells.SwapCalls);
     }
 
     /// <summary>
@@ -300,5 +346,9 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
         return action;
     }
 
-    public void Dispose() => SpellManager.instance = null;
+    public void Dispose()
+    {
+        IdScriptableObject.RuntimeLookup.Clear();
+        SpellManager.instance = null;
+    }
 }

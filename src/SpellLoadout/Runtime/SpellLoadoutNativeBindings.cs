@@ -32,6 +32,7 @@ internal sealed class SpellLoadoutNativeBindings
         "spell-loadout.manager-remove-spell-action",
         "spell-loadout.list-swap-positions-action",
         "spell-loadout.list-update-observable-action",
+        "spell-loadout.owning-view-availability-action",
     };
 
     private SpellLoadoutNativeBindings(
@@ -52,7 +53,9 @@ internal sealed class SpellLoadoutNativeBindings
         Func<object, Guid> recipeIdentity,
         Action<object, object> remove,
         Action<object, int, int> swap,
-        Action<object> updateObservable)
+        Action<object> updateObservable,
+        Type viewType,
+        Func<object, bool> viewAvailable)
     {
         SpellType = spellType;
         ReadManager = manager;
@@ -72,9 +75,19 @@ internal sealed class SpellLoadoutNativeBindings
         Remove = remove;
         Swap = swap;
         UpdateObservable = updateObservable;
+        ViewType = viewType;
+        IsViewAvailable = viewAvailable;
     }
 
     internal Type SpellType { get; }
+
+    /// <summary>
+    /// The screen the loadout bar lives on. <c>ViewSO.IsAvailable()</c> is
+    /// <c>prerequisites.Container.Check()</c> — the same question the game asks before it draws the
+    /// tab.
+    /// </summary>
+    internal Type ViewType { get; }
+    internal Func<object, bool> IsViewAvailable { get; }
     internal Func<object?> ReadManager { get; }
     internal Func<object, object> ReadActive { get; }
     internal Func<object, IList> ReadActiveValues { get; }
@@ -150,6 +163,8 @@ internal sealed class SpellLoadoutNativeBindings
                 typeof(int),
                 typeof(int));
             var update = HierarchyMethod(spellListType, "UpdateObservable", typeof(void));
+            var viewType = T("ViewSO");
+            var viewAvailable = Method(viewType, "IsAvailable", typeof(bool));
 
             bindings = new SpellLoadoutNativeBindings(
                 spellType,
@@ -169,7 +184,9 @@ internal sealed class SpellLoadoutNativeBindings
                 InstanceFunc<Guid>(recipeIdentity),
                 InstanceObjectAction(remove),
                 InstanceValueValueAction<int, int>(swap),
-                InstanceAction(update));
+                InstanceAction(update),
+                viewType,
+                InstanceFunc<bool>(viewAvailable));
             reason = string.Empty;
             return true;
         }

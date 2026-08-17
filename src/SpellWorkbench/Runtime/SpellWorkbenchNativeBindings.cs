@@ -61,6 +61,7 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-composition.spell-augment-stack-action",
         "spell-workbench.list-max-action",
         "discovery-tree-offer.guid-container-value",
+        "spell-workbench.owning-view-availability-action",
     };
 
     private SpellWorkbenchNativeBindings(Type recipeType, Type glyphType, Type spellType,
@@ -92,7 +93,8 @@ internal sealed class SpellWorkbenchNativeBindings
         Func<object> createStackedRecord, Action<object, object, int> setStackedRecord,
         Func<object, object, int> readStackedQuantity, Func<object, IList> readStackedItems,
         Func<object, object?> spellReference,
-        Func<object, object?> spellGuid, Func<object, Guid> guidValue)
+        Func<object, object?> spellGuid, Func<object, Guid> guidValue,
+        Type viewType, Func<object, bool> viewAvailable)
     {
         RecipeType = recipeType;
         GlyphType = glyphType;
@@ -147,9 +149,19 @@ internal sealed class SpellWorkbenchNativeBindings
         ReadSpellReference = spellReference;
         ReadSpellGuid = spellGuid;
         ReadGuidValue = guidValue;
+        ViewType = viewType;
+        IsViewAvailable = viewAvailable;
     }
 
     internal Type RecipeType { get; }
+
+    /// <summary>
+    /// The screen the load button lives on. <c>ViewSO.IsAvailable()</c> is
+    /// <c>prerequisites.Container.Check()</c> — the same question the game asks before it draws the
+    /// tab — so a locked screen is a fact the boundary reads rather than a state it infers.
+    /// </summary>
+    internal Type ViewType { get; }
+    internal Func<object, bool> IsViewAvailable { get; }
     internal Type GlyphType { get; }
     internal Type SpellType { get; }
     internal Func<object?> ReadManager { get; }
@@ -272,6 +284,8 @@ internal sealed class SpellWorkbenchNativeBindings
             // RecipeSO and GlyphSO share the audited IdScriptableObject identity method. Bind the
             // declaring contract once so the resulting delegate is valid for both concrete kinds.
             var identity = Method(identityType, "GetGuid", typeof(Guid));
+            var viewType = T("ViewSO");
+            var viewAvailable = Method(viewType, "IsAvailable", typeof(bool));
             var recipeGlyphs = Method(recipeType, "GetGlyphRecipe", glyphList);
             var discovered = Method(recipeType, "IsDiscovered", typeof(bool));
             var canDiscover = Method(recipeType, "CanDiscover", typeof(bool));
@@ -345,7 +359,9 @@ internal sealed class SpellWorkbenchNativeBindings
                 NewObject(stackedConstructor), InstanceObjectIntAction(setStacked),
                 InstanceObjectFunc<int>(stackedQuantity), InstanceList(stackedItems),
                 InstanceNullableObject(spellReference), ObjectNullableField(spellGuid),
-                InstanceFunc<Guid>(guidValue));
+                InstanceFunc<Guid>(guidValue),
+                viewType,
+                InstanceFunc<bool>(viewAvailable));
             reason = string.Empty;
             return true;
         }

@@ -620,7 +620,35 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
     /// identical arguments refuses.
     /// </para>
     /// </remarks>
-    private static bool TryAdmitLoad(
+    /// <summary>
+    /// The screen has to exist before any of its rows can be pressed, and locked is a different
+    /// answer from unaffordable and from full. <c>ViewSO.IsAvailable()</c> is the game's own
+    /// question — <c>prerequisites.Container.Check()</c> — so this is read, never inferred.
+    /// </summary>
+    private bool TryAdmitScreen(
+        SpellWorkbenchNativeBindings native,
+        out SpellWorkbenchPreflight refusal,
+        out string reason)
+    {
+        var resolution = _registry.Resolve(
+            KnownEntities.MagicSpellbookLoadout.Uuid, native.ViewType);
+        if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
+            resolution.Value is not { } view)
+            return Refuse(SpellWorkbenchPreflight.ContractUnavailable,
+                "The game's Magic > Spellbook > Loadout screen could not be read, so whether the " +
+                "game would draw a row to load is unknown.",
+                out refusal, out reason);
+        if (!native.IsViewAvailable(view))
+            return Refuse(SpellWorkbenchPreflight.ScreenLocked,
+                "Magic > Spellbook > Loadout is not unlocked yet, so the game draws no row to " +
+                "load. Buy the Spellbook Loadout upgrade first.",
+                out refusal, out reason);
+        refusal = SpellWorkbenchPreflight.Proceeded;
+        reason = string.Empty;
+        return true;
+    }
+
+    private bool TryAdmitLoad(
         SpellWorkbenchNativeBindings native,
         object manager,
         object recipe,
@@ -628,11 +656,12 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         out SpellWorkbenchPreflight refusal,
         out string reason)
     {
+        if (!TryAdmitScreen(native, out refusal, out reason)) return false;
         var recipeName = EntityIdentityFormatter.PlayerName(native.ReadIdentity(recipe));
         if (!native.IsDiscovered(recipe))
             return Refuse(SpellWorkbenchPreflight.DiscoveryUnavailable,
-                recipeName + " is not discovered, so Magic > Loadout lists no row for it. " +
-                "Discover it first, and the same call loads it.",
+                recipeName + " is not discovered, so Magic > Spellbook > Loadout lists no row " +
+                "for it. Discover it first, and the same call loads it.",
                 out refusal, out reason);
 
         var augmentList = native.ReadAugments(manager);

@@ -189,6 +189,10 @@ public sealed class GameMcpGlyphPopulationTests
                     })),
             }),
             SpellWorkbench = new WorldSpellWorkbench(0, 3, true, 4, 12, 3, 9),
+            Views = PublicationTable<WorldView>.Create(new[]
+            {
+                new WorldView(KnownEntities.MagicSpellbookLoadout.Uuid, false, false, true),
+            }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus(

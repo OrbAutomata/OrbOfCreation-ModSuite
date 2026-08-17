@@ -138,6 +138,34 @@ public sealed class GameMcpSpellWorkbenchTests
     }
 
     /// <summary>
+    /// Locked, unaffordable and full are three different answers. A screen the game has not
+    /// unlocked draws no row to press, so an empty loadout slot proves nothing about the call.
+    /// </summary>
+    [Fact]
+    public void A_locked_loadout_screen_refuses_the_add_in_the_screens_own_words()
+    {
+        var context = GameMcpTestHarness.Context(World(
+            discovered: true,
+            discoveryAffordable: true,
+            hasEmptySlot: true,
+            loadoutScreenUnlocked: false));
+
+        var add = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            context, "spell-recipes", RecipeId.ToString("D")))["row"]!["loadoutAdd"]!;
+
+        Assert.False((bool)add["available"]!);
+        Assert.True((bool)add["acceptsAugments"]!);
+        Assert.Equal("ERR_LOCKED", (string?)add["reasonCode"]);
+        Assert.Equal(
+            "The screen this action lives on is not unlocked yet.",
+            (string?)add["reason"]);
+        Assert.Null(add["verbDecides"]);
+        // The vocabulary the call needs still rides on the refusal: the page that refuses you is
+        // still the page that has to teach the call.
+        Assert.Single(add["augmentOptions"]!.Values<JObject>());
+    }
+
+    /// <summary>
     /// The load budget names both budgets an added spell is weighed against, not only the spots.
     /// </summary>
     /// <remarks>
@@ -496,7 +524,8 @@ public sealed class GameMcpSpellWorkbenchTests
         bool discoveryVisible = true,
         bool canDiscover = true,
         int coreLevel = 7,
-        bool usageBudget = false)
+        bool usageBudget = false,
+        bool loadoutScreenUnlocked = true)
     {
         var glyphs = PublicationTable<WorldSpellRecipeGlyph>.Create(new[]
         {
@@ -518,6 +547,14 @@ public sealed class GameMcpSpellWorkbenchTests
             {
                 new WorldCollectionCategoryStatus(
                     "spell-recipes", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+            }),
+            Views = PublicationTable<WorldView>.Create(new[]
+            {
+                new WorldView(
+                    KnownEntities.MagicSpellbookLoadout.Uuid,
+                    false,
+                    false,
+                    loadoutScreenUnlocked),
             }),
             SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[]
             {

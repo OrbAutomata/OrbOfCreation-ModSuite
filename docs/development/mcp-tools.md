@@ -1838,8 +1838,10 @@ spell-weight resource with its `headroom`, `used`, and `maximum`. An undiscovere
 exposes `loadoutAdd`. Discovery carries its named exact costs, spendable amounts, affordability, and
 stable false reason. Loadout add truthfully reports only structural admission plus
 `acceptsAugments:true`: the same call takes an augment layout, and no layout changes what the row
-can promise, because socketing a spell has no price. A structural refusal is `loadout_full`, or the
-one thing that is actually wrong with the core glyph — `recipe_has_no_core_glyph`,
+can promise, because socketing a spell has no price. A structural refusal is `screen_locked` when
+Magic > Spellbook > Loadout is not unlocked — the game draws no row to press, which is a different
+answer from unaffordable and from full — or `loadout_full`, or the one thing that is actually wrong
+with the core glyph — `recipe_has_no_core_glyph`,
 `core_glyph_not_published`, or `core_glyph_augments_only`; the retired `core_glyphs_unavailable`
 covered them under one word. There is no selection step and no
 target-first `create`: the game exposes neither.
@@ -1937,7 +1939,8 @@ the count it may be used to — and it rides the decision whether that decision 
 `spell-slots` is the pre-decision surface for `game_spell_loadout`. Each occupied detail row names
 the recipe the equipped spell was baked from, its slot, active cast/ready/attune state when
 applicable, whether it can be removed right now, `isLoadoutUnique`, and whether that spell can move
-at all. A blocked `remove` says which of the game's own three gates said no: `cast_in_progress`
+at all. A blocked `remove` says `screen_locked` when Magic > Spellbook > Loadout is not unlocked,
+and otherwise which of the game's own three gates said no: `cast_in_progress`
 while the spell is casting or readying a cast, and `spell_recharging` below full charges — which
 also carries `charges` as the screen prints it and `nextChargeIn` while a cooldown is running,
 because the row itself prints no charge count. Where it can
@@ -2536,7 +2539,7 @@ most, so an old code's new class can be looked up here:
 | `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
-| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `core_glyph_not_owned`, `cannot_level`, `research_leeway_exhausted`, `native_leeway_exhausted` |
+| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `core_glyph_not_owned`, `cannot_level`, `screen_locked`, `research_leeway_exhausted`, `native_leeway_exhausted` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused` — the game's own gate said no and reported nothing else |
 
@@ -2599,6 +2602,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `recipe_has_no_core_glyph` / `core_glyph_not_published` / `core_glyph_augments_only` | The one thing wrong with the recipe's core glyph, replacing the single `core_glyphs_unavailable` that covered them all. `core_glyph_not_owned` and `core_glyph_not_leveled` are retired: neither ownership nor level is a gate the game's add path reads, and a page that refuses on a rule the verb does not have costs a caller the whole call | `spell-recipes` loadout-add decisions |
 | `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so nothing was submitted and nothing was spent. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `augment_slots_exceeded` | The layout names more different augments than "Max Spell Augment Slots" holds, which is the only ceiling the load path has. It replaces `layout_resolves_to_other_spell` and `recipe_not_offered`, which belonged to a layout matcher this verb no longer runs | `game_spell_loadout preview`, `game_spell_loadout add` |
+| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen and the upgrade that opens it | `spell-recipes` loadout-add decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move` |
 | `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `discover` decisions, pool-unlocker glyphs |
 | `projection_refused` | The suite's own resource-rate policy refuses the assignment; the game did not | `game_concept` |
@@ -3042,7 +3046,9 @@ no other mode accepts. Add stages the requested augments into the game's own sel
 manager's load route, restores the selection it found, and verifies the exact requested loadout
 outcome; there is nothing to pay. Remove rechecks the three live facts the game's own removal gates
 on — full charges, not casting, not readying a cast; move re-resolves the source slot and invokes
-the same native swap-plus-notify path as the spellbook.
+the same native swap-plus-notify path as the spellbook. Every mode first reads
+`ViewSO.IsAvailable()` for Magic > Spellbook > Loadout, because a screen the game has not unlocked
+has no button to press and no bar to change.
 Success is the exact added instance, exact target absence, or the exact target at its destination.
 A committed result returns only the recipe identity and slot change; a failure names only the unmet
 admission or missing outcome.

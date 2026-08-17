@@ -22146,6 +22146,25 @@
       "place": "action"
     },
     {
+      "id": "spell-workbench.owning-view-availability-action",
+      "assembly": "assembly-csharp",
+      "type": "ViewSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "IsAvailable",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata spell workbench GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "spell-workbench.list-max-action",
       "assembly": "assembly-csharp",
       "type": "AbstractListVariable`1",
@@ -23109,6 +23128,25 @@
       "typeVisibility": "public",
       "kind": "method",
       "member": "IsEmpty",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata spell loadout GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-loadout.owning-view-availability-action",
+      "assembly": "assembly-csharp",
+      "type": "ViewSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "IsAvailable",
       "visibility": "public",
       "static": false,
       "returnType": "System.Boolean",

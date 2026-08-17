@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using OrbAutomata;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
@@ -17,6 +18,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         IdScriptableObject.RuntimeLookup.Clear();
         SpellManager.instance = new SpellManager();
         EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(Epoch));
+        LoadoutScreen();
     }
 
     [Fact]
@@ -399,6 +401,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         SpellRecipeSO.All.Clear();
         SpellManager.instance = new SpellManager();
         IdScriptableObject.RuntimeLookup.Clear();
+        LoadoutScreen();
         var (discovered, core, _) = Recipe(discovered: true);
         core.level = 0;
         using var loadoutAction = Action();
@@ -750,6 +753,49 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         };
         IdScriptableObject.RuntimeLookup[augment.GetGuid()] = augment;
         return augment;
+    }
+
+    /// <summary>
+    /// Locked, unaffordable and full are three different answers. Until the Spellbook Loadout
+    /// upgrade is bought the game draws no row to press, so an empty loadout slot says nothing
+    /// about whether the load exists.
+    /// </summary>
+    [Fact]
+    public void LoadoutAddAndPreviewRefuseWhileTheLoadoutScreenIsLocked()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        LoadoutScreen(unlocked: false);
+        using var action = Action();
+
+        var add = action.Submit(new SpellWorkbenchAction(
+            SpellWorkbenchActionKind.CreateWithLayout,
+            recipe.GetGuid(),
+            Epoch,
+            Array.Empty<SpellWorkbenchGlyphStack>(),
+            Array.Empty<SpellWorkbenchGlyphStack>()));
+        var preview = action.Preview(new SpellWorkbenchLoadPreviewRequest(
+            recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
+
+        Assert.Equal(SpellWorkbenchPreflight.ScreenLocked, add.Preflight);
+        Assert.Equal(
+            "Magic > Spellbook > Loadout is not unlocked yet, so the game draws no row to load. " +
+            "Buy the Spellbook Loadout upgrade first.",
+            add.Reason);
+        Assert.Equal(SpellWorkbenchPreflight.ScreenLocked, preview.Preflight);
+        Assert.Equal(add.Reason, preview.Reason);
+        Assert.Empty(SpellManager.instance!.activeSpells.value);
+    }
+
+    /// <summary>
+    /// The screen the Loadout row lives on, unlocked. Every load goes through it, because a locked
+    /// screen draws no row to press.
+    /// </summary>
+    private static ViewSO LoadoutScreen(bool unlocked = true)
+    {
+        var view = new ViewSO { available = unlocked };
+        view.SetGuid(KnownEntities.MagicSpellbookLoadout.Uuid);
+        IdScriptableObject.RuntimeLookup[view.GetGuid()] = view;
+        return view;
     }
 
     private static SpellWorkbenchGameAction Action(

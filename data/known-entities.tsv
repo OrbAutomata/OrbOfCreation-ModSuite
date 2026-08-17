@@ -42,6 +42,7 @@ GlyphsCoreAlchemy	e9d91b70-a2d6-4040-b241-53eabb57206b	CoreAlchemyGlyphs	GlyphLi
 GlyphsCoreSpell	3d2157bf-1cc6-41d0-82f4-19888edb01d2	CoreSpellGlyphs	GlyphListVariable
 GlyphsEquipment	8ab13352-570f-41f3-aad4-4f1e39a7d162	EquipmentGlyphs	GlyphListVariable
 MagicSpellbook	ca934900-0253-4f71-93e9-733fb91132b7	MagicSpellbook	ViewSO
+MagicSpellbookLoadout	accf9abb-d916-4fdf-96d7-1b1d5fdd548c	MagicSpellbookLoadout	ViewSO
 MasteriesEnabled	07dfae7e-76b9-4b38-bf81-38abc40b9ed7	MasteriesEnabled	ViewSO
 MultiBuy	37a84399-98b5-463c-b858-c1ecf2f9bf34	MultiBuy	IntVariable
 PotionToxicity	4dd4e062-2015-4809-a50f-f37647bda339	PotionToxicity	ResourceSO

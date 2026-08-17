@@ -31,6 +31,7 @@ internal static class SpellLoadoutActionResultMapper
         SpellLoadoutPreflight.IdentityUnavailable => SpellLoadoutActionResultCodes.IdentityUnavailable,
         SpellLoadoutPreflight.SpellRecharging => SpellLoadoutActionResultCodes.SpellRecharging,
         SpellLoadoutPreflight.CastInProgress => SpellLoadoutActionResultCodes.CastInProgress,
+        SpellLoadoutPreflight.ScreenLocked => SpellLoadoutActionResultCodes.ScreenLocked,
         SpellLoadoutPreflight.DestinationOutOfRange => SpellLoadoutActionResultCodes.DestinationOutOfRange,
         SpellLoadoutPreflight.AlreadyInRequestedState => SpellLoadoutActionResultCodes.AlreadyInRequestedState,
         SpellLoadoutPreflight.MutationPermitUnavailable => SpellLoadoutActionResultCodes.MutationPermitUnavailable,
