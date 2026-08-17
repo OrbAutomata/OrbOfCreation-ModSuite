@@ -21,7 +21,14 @@ internal sealed class SpellLoadoutNativeBindings
         "spell-workbench.spell-guid-container-action",
         "discovery-tree-offer.guid-container-value",
         "spell-loadout.spell-is-empty-action",
-        "spell-loadout.spell-can-remove-action",
+        "spell-loadout.spell-at-max-charges-action",
+        "spell-loadout.spell-is-casting-action",
+        "spell-loadout.spell-readying-cast-action",
+        "spell-loadout.spell-current-charges-action",
+        "spell-loadout.spell-max-charges-action",
+        "spell-loadout.spell-cooldown-remaining-action",
+        "spell-loadout.spell-reference-action",
+        "spell-loadout.recipe-identity-action",
         "spell-loadout.manager-remove-spell-action",
         "spell-loadout.list-swap-positions-action",
         "spell-loadout.list-update-observable-action",
@@ -35,7 +42,14 @@ internal sealed class SpellLoadoutNativeBindings
         Func<object, object?> spellGuid,
         Func<object, Guid> guidValue,
         Func<object, bool> isEmpty,
-        Func<object, bool> canRemove,
+        Func<object, bool> atMaxCharges,
+        Func<object, bool> isCasting,
+        Func<object, bool> readyingCast,
+        Func<object, int> currentCharges,
+        Func<object, int> maximumCharges,
+        Func<object, BigDouble> cooldownRemaining,
+        Func<object, object?> spellRecipe,
+        Func<object, Guid> recipeIdentity,
         Action<object, object> remove,
         Action<object, int, int> swap,
         Action<object> updateObservable)
@@ -47,7 +61,14 @@ internal sealed class SpellLoadoutNativeBindings
         ReadSpellGuid = spellGuid;
         ReadGuidValue = guidValue;
         IsEmpty = isEmpty;
-        CanRemove = canRemove;
+        IsAtMaxCharges = atMaxCharges;
+        IsCasting = isCasting;
+        IsReadyingCast = readyingCast;
+        ReadCurrentCharges = currentCharges;
+        ReadMaximumCharges = maximumCharges;
+        ReadCooldownRemaining = cooldownRemaining;
+        ReadSpellRecipe = spellRecipe;
+        ReadRecipeIdentity = recipeIdentity;
         Remove = remove;
         Swap = swap;
         UpdateObservable = updateObservable;
@@ -60,7 +81,24 @@ internal sealed class SpellLoadoutNativeBindings
     internal Func<object, object?> ReadSpellGuid { get; }
     internal Func<object, Guid> ReadGuidValue { get; }
     internal Func<object, bool> IsEmpty { get; }
-    internal Func<object, bool> CanRemove { get; }
+
+    /// <summary>
+    /// The three reads <c>SpellManager.RemoveSpell</c> itself gates on: it returns without
+    /// removing anything unless the spell is at full charges and neither casting nor readying a
+    /// cast. <c>Spell.CanRemove()</c> is a different predicate that the game never calls.
+    /// </summary>
+    internal Func<object, bool> IsAtMaxCharges { get; }
+    internal Func<object, bool> IsCasting { get; }
+    internal Func<object, bool> IsReadyingCast { get; }
+
+    /// <summary>The numbers the refusal quotes, read live beside the gate that refused.</summary>
+    internal Func<object, int> ReadCurrentCharges { get; }
+    internal Func<object, int> ReadMaximumCharges { get; }
+    internal Func<object, BigDouble> ReadCooldownRemaining { get; }
+
+    /// <summary>The recipe behind an equipped instance, which is the identity a caller can look up.</summary>
+    internal Func<object, object?> ReadSpellRecipe { get; }
+    internal Func<object, Guid> ReadRecipeIdentity { get; }
     internal Action<object, object> Remove { get; }
     internal Action<object, int, int> Swap { get; }
     internal Action<object> UpdateObservable { get; }
@@ -92,7 +130,18 @@ internal sealed class SpellLoadoutNativeBindings
             var spellGuid = Field(spellType, "guidContainer", guidType, isStatic: false);
             var guidValue = Method(guidType, "get_guid", typeof(Guid));
             var isEmpty = Method(spellType, "IsEmpty", typeof(bool));
-            var canRemove = Method(spellType, "CanRemove", typeof(bool));
+            var atMaxCharges = Method(spellType, "IsAtMaxCharges", typeof(bool));
+            var isCasting = Method(spellType, "IsCasting", typeof(bool));
+            var readyingCast = Method(spellType, "IsReadyingCast", typeof(bool));
+            var currentCharges = Method(spellType, "GetCurrSpellCharges", typeof(int));
+            var maximumCharges = Method(spellType, "GetMaxSpellCharges", typeof(int));
+            var cooldownRemaining = Method(
+                spellType, "GetCooldownTimeRemaining", T("BigDouble"));
+            var recipeType = T("SpellRecipeSO");
+            var spellRecipe = Method(spellType, "get_reference", recipeType);
+            // RecipeSO carries the audited IdScriptableObject identity method, the same one the
+            // workbench binds to name a recipe.
+            var recipeIdentity = Method(T("IdScriptableObject"), "GetGuid", typeof(Guid));
             var remove = Method(managerType, "RemoveSpell", typeof(void), spellType);
             var swap = HierarchyMethod(
                 spellListType,
@@ -110,7 +159,14 @@ internal sealed class SpellLoadoutNativeBindings
                 NullableObjectField(spellGuid),
                 InstanceFunc<Guid>(guidValue),
                 InstanceFunc<bool>(isEmpty),
-                InstanceFunc<bool>(canRemove),
+                InstanceFunc<bool>(atMaxCharges),
+                InstanceFunc<bool>(isCasting),
+                InstanceFunc<bool>(readyingCast),
+                InstanceFunc<int>(currentCharges),
+                InstanceFunc<int>(maximumCharges),
+                InstanceFunc<BigDouble>(cooldownRemaining),
+                InstanceNullableObjectFunc(spellRecipe),
+                InstanceFunc<Guid>(recipeIdentity),
                 InstanceObjectAction(remove),
                 InstanceValueValueAction<int, int>(swap),
                 InstanceAction(update));
@@ -215,6 +271,15 @@ internal sealed class SpellLoadoutNativeBindings
             Expression.Field(Expression.Convert(target, field.DeclaringType!), field),
             typeof(IList));
         return Expression.Lambda<Func<object, IList>>(body, target).Compile();
+    }
+
+    private static Func<object, object?> InstanceNullableObjectFunc(MethodInfo method)
+    {
+        var target = Expression.Parameter(typeof(object), "target");
+        var body = Expression.Convert(
+            Expression.Call(Expression.Convert(target, method.DeclaringType!), method),
+            typeof(object));
+        return Expression.Lambda<Func<object, object?>>(body, target).Compile();
     }
 
     private static Func<object, T> InstanceFunc<T>(MethodInfo method)

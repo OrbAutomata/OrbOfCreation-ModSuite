@@ -41,12 +41,13 @@ internal enum SpellLoadoutPreflight
     ContractUnavailable = 2,
     WrongThread = 4,
     IdentityUnavailable = 5,
-    NativeRemoveRefused = 6,
+    SpellRecharging = 6,
     DestinationOutOfRange = 7,
     AlreadyInRequestedState = 8,
     MutationPermitUnavailable = 9,
     PostCommitFault = 10,
     VerificationFailed = 11,
+    CastInProgress = 12,
 }
 
 internal enum SpellLoadoutNativeStage
@@ -93,10 +94,11 @@ internal static class SpellLoadoutActionResultCodes
     internal static readonly ServiceActionResultCode ContractUnavailable = new(7401);
     internal static readonly ServiceActionResultCode WrongThread = new(7403);
     internal static readonly ServiceActionResultCode IdentityUnavailable = new(7404);
-    internal static readonly ServiceActionResultCode NativeRemoveRefused = new(7405);
+    internal static readonly ServiceActionResultCode SpellRecharging = new(7405);
     internal static readonly ServiceActionResultCode DestinationOutOfRange = new(7406);
     internal static readonly ServiceActionResultCode AlreadyInRequestedState = new(7407);
     internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7408);
     internal static readonly ServiceActionResultCode PostCommitFault = new(7409);
     internal static readonly ServiceActionResultCode VerificationFailed = new(7410);
+    internal static readonly ServiceActionResultCode CastInProgress = new(7411);
 }

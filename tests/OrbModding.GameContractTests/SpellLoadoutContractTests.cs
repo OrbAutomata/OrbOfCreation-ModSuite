@@ -23,18 +23,67 @@ public sealed class SpellLoadoutContractTests
                 method.ParameterTypes.SequenceEqual(new[] { "System.Int32", "System.Int32" }));
     }
 
+    /// <summary>
+    /// The gate the removal actually applies, and the predicate it never consults. <c>CanRemove</c>
+    /// reads charge availability and casting, which reads like the removal rule and is not it: the
+    /// game asks for full charges, and refusing costs the player a cooldown switch.
+    /// </summary>
     [GameAssemblyFact]
-    public void RemoveAvailability_IsThePlayerFacingNativeChargeAndCastingGate()
+    public void RemoveSpell_GatesItselfOnFullChargesAndNoCastInProgress()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+        var references = References(assembly, "SpellManager", "RemoveSpell");
+
+        var empty = Offset(references, "Spell", "IsEmpty");
+        var atMaxCharges = Offset(references, "Spell", "IsAtMaxCharges");
+        var casting = Offset(references, "Spell", "IsCasting");
+        var readyingCast = Offset(references, "Spell", "IsReadyingCast");
+        var remove = references.Single(reference => reference.MemberName == "Remove").Offset;
+
+        Assert.True(atMaxCharges > empty, "The charge gate must follow the empty-slot guard.");
+        Assert.True(casting > atMaxCharges, "The casting guard must follow the charge gate.");
+        Assert.True(readyingCast > casting, "The ready-to-cast guard must follow the casting guard.");
+        Assert.True(remove > readyingCast, "The list removal must follow every gate.");
+        Assert.DoesNotContain(
+            references,
+            reference => reference.DeclaringType == "Spell" && reference.MemberName == "CanRemove");
+    }
+
+    [GameAssemblyFact]
+    public void RemoveGateMembers_KeepTheShapeTheBoundaryBinds()
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
 
-        var chargeAvailable = assembly.MethodReferenceOffset(
-            "Spell", "CanRemove", "Spell", "IsChargeAvailable");
-        var casting = assembly.MethodReferenceOffset(
-            "Spell", "CanRemove", "Spell", "IsCasting");
+        Assert.Contains(
+            assembly.GetMethods("Spell", "IsAtMaxCharges"),
+            method => method.Visibility == "public" &&
+                !method.IsStatic &&
+                method.ReturnType == "System.Boolean" &&
+                method.ParameterTypes.Count == 0);
+        Assert.Contains(
+            assembly.GetMethods("Spell", "IsReadyingCast"),
+            method => method.Visibility == "public" &&
+                !method.IsStatic &&
+                method.ReturnType == "System.Boolean" &&
+                method.ParameterTypes.Count == 0);
+    }
 
-        Assert.True(chargeAvailable >= 0, "CanRemove must consult live charge availability.");
-        Assert.True(casting > chargeAvailable, "The live casting guard must follow charge availability.");
+    /// <summary>
+    /// The refusal is not a no-op: the game flips the spell to a time-based cooldown on its way
+    /// out, which is why the boundary answers instead of calling and hoping.
+    /// </summary>
+    [GameAssemblyFact]
+    public void RefusedRemoval_SwitchesTheSpellToATimeBasedCooldown()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+        var references = References(assembly, "SpellManager", "RemoveSpell");
+
+        var atMaxCharges = Offset(references, "Spell", "IsAtMaxCharges");
+        var addFlags = references.First(reference => reference.MemberName == "AddFlags").Offset;
+        var remove = references.Single(reference => reference.MemberName == "Remove").Offset;
+
+        Assert.True(addFlags > atMaxCharges, "The cooldown switch belongs to the refused branch.");
+        Assert.True(addFlags < remove, "The refused branch runs before the removal branch.");
     }
 
     [GameAssemblyFact]

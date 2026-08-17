@@ -30,21 +30,81 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
         Assert.Equal(new[] { first, last }, SpellManager.instance.activeSpells.value.Where(x => !x.IsEmpty()));
     }
 
+    /// <summary>
+    /// The gate the game applies to itself, answered before the call. Asking anyway does not fail
+    /// harmlessly: the refused branch switches the spell to a time-based cooldown, so the player
+    /// pays for a removal that never happened.
+    /// </summary>
     [Fact]
-    public void NativeCanRemoveRefusalStopsBeforePermitAndMutation()
+    public void RemoveRefusesARechargingSpellByRecipeChargesAndCooldown()
     {
-        var spell = Spell("Casting");
-        spell.NativeCasting = true;
+        var recipe = new SpellRecipeSO();
+        var spell = new Spell(recipe)
+        {
+            DisplayName = "Recharging",
+            CurrentCharges = 2,
+            MaximumCharges = 3,
+            CooldownRemaining = new BigDouble(4.5d, 0),
+        };
         SpellManager.instance!.activeSpells.value.Add(spell);
         var permitCalls = 0;
         using var action = Action(permit: () => { permitCalls++; return true; });
 
         var result = action.Submit(Remove(spell));
 
-        Assert.Equal(SpellLoadoutPreflight.NativeRemoveRefused, result.Preflight);
+        Assert.Equal(SpellLoadoutPreflight.SpellRecharging, result.Preflight);
+        Assert.Equal(
+            recipe.GetGuid().ToString("D") + " is still recharging, and the game only removes a " +
+            "spell at full charges: \"Cannot remove a spell that is still recharging.\" It holds " +
+            "2 of 3 charges, and the next one is 4.5s away. Remove it once it reads 3 of 3.",
+            result.Reason);
         Assert.Equal(0, permitCalls);
         Assert.Equal(0, SpellManager.instance.RemoveCalls);
+        Assert.False(spell.SwitchedToTimeBasedCooldown);
         Assert.Contains(spell, SpellManager.instance.activeSpells.value);
+    }
+
+    [Fact]
+    public void RemoveRefusesAMidCastSpellWithTheGamesOwnSentence()
+    {
+        var recipe = new SpellRecipeSO();
+        var spell = new Spell(recipe) { DisplayName = "Casting", NativeCasting = true };
+        SpellManager.instance!.activeSpells.value.Add(spell);
+        using var action = Action();
+
+        var result = action.Submit(Remove(spell));
+
+        Assert.Equal(SpellLoadoutPreflight.CastInProgress, result.Preflight);
+        Assert.Equal(
+            recipe.GetGuid().ToString("D") + " is mid-cast. The game answers a removal now with " +
+            "\"Cannot remove a spell that is still recharging.\" " +
+            "Wait for the cast to finish, then remove it.",
+            result.Reason);
+        Assert.Equal(0, SpellManager.instance.RemoveCalls);
+        Assert.False(spell.SwitchedToTimeBasedCooldown);
+    }
+
+    /// <summary>
+    /// <c>Spell.CanRemove()</c> reads charge availability, which is false the moment a charge is
+    /// spent — and the removal path never asks it. Gating on it left a spell the game would have
+    /// cleared sitting in the loadout with nothing a caller could do about it.
+    /// </summary>
+    [Fact]
+    public void RemoveCommitsWhileTheGamesUnusedCanRemovePredicateSaysNo()
+    {
+        var spell = new Spell(new SpellRecipeSO())
+        {
+            DisplayName = "Spent",
+            NativeChargeAvailable = false,
+        };
+        SpellManager.instance!.activeSpells.value.Add(spell);
+        using var action = Action();
+
+        var result = action.Submit(Remove(spell));
+
+        Assert.False(spell.CanRemove());
+        Assert.True(result.Verified, result.Reason);
+        Assert.DoesNotContain(spell, SpellManager.instance.activeSpells.value);
     }
 
     [Fact]

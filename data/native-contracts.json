@@ -23122,15 +23122,148 @@
       "place": "action"
     },
     {
-      "id": "spell-loadout.spell-can-remove-action",
+      "id": "spell-loadout.spell-at-max-charges-action",
       "assembly": "assembly-csharp",
       "type": "Spell",
       "typeVisibility": "public",
       "kind": "method",
-      "member": "CanRemove",
+      "member": "IsAtMaxCharges",
       "visibility": "public",
       "static": false,
       "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata spell loadout GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-loadout.spell-is-casting-action",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "IsCasting",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata spell loadout GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-loadout.spell-readying-cast-action",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "IsReadyingCast",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata spell loadout GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-loadout.spell-current-charges-action",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetCurrSpellCharges",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
+      "parameters": [],
+      "owners": [
+        "Automata spell loadout GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-loadout.spell-max-charges-action",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetMaxSpellCharges",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
+      "parameters": [],
+      "owners": [
+        "Automata spell loadout GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-loadout.spell-cooldown-remaining-action",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetCooldownTimeRemaining",
+      "visibility": "public",
+      "static": false,
+      "returnType": "BigDouble",
+      "parameters": [],
+      "owners": [
+        "Automata spell loadout GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-loadout.spell-reference-action",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "get_reference",
+      "visibility": "public",
+      "static": false,
+      "returnType": "SpellRecipeSO",
+      "parameters": [],
+      "owners": [
+        "Automata spell loadout GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-loadout.recipe-identity-action",
+      "assembly": "assembly-csharp",
+      "type": "IdScriptableObject",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetGuid",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Guid",
       "parameters": [],
       "owners": [
         "Automata spell loadout GameAction"

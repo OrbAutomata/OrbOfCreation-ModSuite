@@ -1837,14 +1837,15 @@ spell-weight resource with its `headroom`, `used`, and `maximum`. An undiscovere
 `discover`, including the `surface` and the ordered `components` to submit; a discovered recipe
 exposes `loadoutAdd`. Discovery carries its named exact costs, spendable amounts, affordability, and
 stable false reason. Loadout add truthfully reports only structural admission plus
-`requiresGlyphLayout:true`: its price depends on the explicit augments that have not yet been
-chosen. A structural refusal is `loadout_full`, or the one thing that is actually wrong with the
-core glyph — `recipe_has_no_core_glyph`, `core_glyph_not_published`, or `core_glyph_augments_only`;
-the retired `core_glyphs_unavailable` covered them under one word. There is no selection step and no
+`acceptsAugments:true`: the same call takes an augment layout, and no layout changes what the row
+can promise, because socketing a spell has no price. A structural refusal is `loadout_full`, or the
+one thing that is actually wrong with the core glyph — `recipe_has_no_core_glyph`,
+`core_glyph_not_published`, or `core_glyph_augments_only`; the retired `core_glyphs_unavailable`
+covered them under one word. There is no selection step and no
 target-first `create`: the game exposes neither.
 
 Where the page says `available: yes` it also names `verbDecides` — the gates only a live resolution
-settles, in the order the verb applies them: glyph layout resolution, creation price, usage budget.
+settles, in the order the verb applies them: usage budget, augment requirements.
 The page predicts what it can read and promises nothing about the rest; it never
 states a rule the game's add path does not have. The unique-spell rule was a fourth entry until the
 world published the fact it reads: every equipped instance of this recipe is on this same row under
@@ -1935,8 +1936,11 @@ the count it may be used to — and it rides the decision whether that decision 
 
 `spell-slots` is the pre-decision surface for `game_spell_loadout`. Each occupied detail row names
 the recipe the equipped spell was baked from, its slot, active cast/ready/attune state when
-applicable, the game's current remove verdict, `isLoadoutUnique`, and whether that spell can move at
-all. Where it can
+applicable, whether it can be removed right now, `isLoadoutUnique`, and whether that spell can move
+at all. A blocked `remove` says which of the game's own three gates said no: `cast_in_progress`
+while the spell is casting or readying a cast, and `spell_recharging` below full charges — which
+also carries `charges` as the screen prints it and `nextChargeIn` while a cooldown is running,
+because the row itself prints no charge count. Where it can
 move is the slot list, which is one read for the whole bar: inlined per spell, explaining eight
 spells delivered the same eight-slot roster eight times. Augment choices
 appear only on a discovered recipe's `loadoutAdd` decision. `loadBudget` — `used`, `maximum`,
@@ -1979,32 +1983,39 @@ The MCP-only loadout sequence is:
 6. Call `game_spell_loadout(mode="remove", slot=...)` only when that row's `remove.available` is
    true; success returns the full `slot: N -> empty` move, the `loadBudget` it freed with both
    budgets as `before -> after`, and `oneWay` — the game destroys the spell instance, so the way
-   back is another add and another creation price.
+   back is another add.
 
 `staged` accepts no other field. The `uuid` means a recipe and belongs to `preview`/`add` only;
 `slot` addresses the loadout bar for `remove`/`move`, and `destination` belongs to `move` only.
 Anything else is a named `unexpected_for_mode` validation failure rather than a silently ignored
 field.
 
-Add reproduces the library button's own admission order: it creates the native candidate, applies
-the recipe's selected level and the requested glyphs, then requires recipe usage requirements,
-computed usage-cost affordability, unique-spell compatibility, loadout capacity, per-glyph usable
-counts, and non-level glyph requirements before payment, which is taken last.
+Add is the Loadout list row's own click, in one call. The game's load path reads the augment
+staging and nothing else, so add snapshots the player's staging, clears it, stages exactly the
+requested augments, loads the recipe, and puts the staging back. The Recipe Book selection is not
+part of it, and neither is "Max Spell Creation Slots": the one creation slot is the verb's problem,
+never the caller's, which is why a two- or three-glyph recipe loads in one call.
 
-Add stages the layout the way the game stages it — the core through the list setter
-`SpellManager.InsertSpellRecipeGlyphs` uses, the augments through the stack the created spell is
-baked from — and then reads the staging back and compares it to what it asked for. The list `Add`
-the staging step used to call returns without writing on three of its branches and says nothing, so
-a short write used to surface as "this layout does not resolve"; a write that lands in the value
-list but not in the stack used to bake a zero-augment spell and fail verification *after* payment.
-Staging that does not read back is now `staged_write_failed` (`ERR_UNAVAILABLE`) naming what was
-written and what came back, and it is refused before anything is spent. Resolution refusals name
-what the layout did resolve to: `layout_resolves_to_other_spell` (`ERR_NOT_FOUND`) names that other
-spell, and `recipe_not_offered` (`ERR_NOT_FOUND`) names the registry gap — the game matches a layout
-against the recipes it currently offers, by core-glyph count and membership, first fit wins.
+Admission is the five facts the library row's own button reads, in its order — discovery, non-level
+augment requirements, the recipe's usage requirements (which only gate while an augment is
+selected), usage-cost affordability, and an empty loadout spot — plus the game's own unique-spell
+compatibility and the distinct-augment ceiling ("Max Spell Augment Slots"). Nothing else is
+checked, because the game checks nothing else. There is no price: the loadout's usage allocation is
+the only budget a load is weighed against, it is settled by the game after the load rather than
+paid at it, and the answer re-reads it instead of predicting it.
 
-Remove and move
-re-resolve the named slot and the native remove verdict or slot range on the Unity main thread.
+Staging that does not read back is `staged_write_failed` (`ERR_UNAVAILABLE`), naming what was
+written and what came back, and it is refused before the game is asked for anything. The retired
+`layout_resolves_to_other_spell` and `recipe_not_offered` belonged to a matcher this verb no longer
+runs: add names the recipe, so no layout is matched against the offered registry to find one.
+
+Remove asks the three questions `SpellManager.RemoveSpell` asks itself — full charges, not casting,
+not readying a cast — before it calls, because the refused branch is not a no-op: the game switches
+the spell to a time-based cooldown on the way out. The refusal names the recipe, quotes the game's
+own "Cannot remove a spell that is still recharging.", and states the live charges and the time to
+the next one. `Spell.CanRemove()` reads like the rule and is not it — the removal path never calls
+it — and gating on it called slots stuck that the game would have cleared. Remove and move
+re-resolve the named slot and its live gates or slot range on the Unity main thread.
 Every mode acquires the family permit last and verifies only requested identity/outcome. Weight,
 glyph usage, drain, and resource accounting are observations, not gates. There is no generation,
 payment, receipt, request echo, catalog join, or post-mutation read-back.
@@ -2522,7 +2533,7 @@ most, so an old code's new class can be looked up here:
 | --- | --- |
 | `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required`, `discovery_surface_ambiguous` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `recipe_has_no_core_glyph` |
-| `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
+| `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
 | `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `core_glyph_not_owned`, `cannot_level`, `research_leeway_exhausted`, `native_leeway_exhausted` |
@@ -2587,7 +2598,8 @@ What each internal code means is below; the class is how it reaches the wire.
 | `requirements_unmet` / `research_leeway_exhausted` / `already_developing` | The develop gate the read side already names, on the mutation that hit it | `game_research develop` |
 | `recipe_has_no_core_glyph` / `core_glyph_not_published` / `core_glyph_augments_only` | The one thing wrong with the recipe's core glyph, replacing the single `core_glyphs_unavailable` that covered them all. `core_glyph_not_owned` and `core_glyph_not_leveled` are retired: neither ownership nor level is a gate the game's add path reads, and a page that refuses on a rule the verb does not have costs a caller the whole call | `spell-recipes` loadout-add decisions |
 | `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so nothing was submitted and nothing was spent. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout preview`, `game_spell_loadout add` |
-| `layout_resolves_to_other_spell` / `recipe_not_offered` | The layout resolves, but to a different spell — which the sentence names — or the requested recipe is not among the ones the game currently offers. One sentence used to cover both plus two more causes | `game_spell_loadout preview`, `game_spell_loadout add` |
+| `augment_slots_exceeded` | The layout names more different augments than "Max Spell Augment Slots" holds, which is the only ceiling the load path has. It replaces `layout_resolves_to_other_spell` and `recipe_not_offered`, which belonged to a layout matcher this verb no longer runs | `game_spell_loadout preview`, `game_spell_loadout add` |
+| `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `discover` decisions, pool-unlocker glyphs |
 | `projection_refused` | The suite's own resource-rate policy refuses the assignment; the game did not | `game_concept` |
 | `owning_screen_unknown` / `owning_screen_unreadable` / `owning_screen_contradictory` / `owning_screen_status_unmodelled` / `owning_screen_availability_unreadable` / `topology_not_captured` | The five distinct ways the purchase-screen admission chain says no, which used to share one number. Only `topology_not_captured` is fixed by waiting for the next lifecycle; its sentence names the epoch the topology is stamped at, the epoch the call asked for, and how many rows it holds | `game_purchase` |
@@ -3022,15 +3034,15 @@ and `after` value and both bounds.
 `game_spell_loadout` requires `mode`. `staged` is a request-scoped main-thread read with no other
 arguments; it reports the exact current core/augment selection and never mutates it. For `preview`
 and `add`, `uuid` is a spell-recipe
-identity and an explicit `glyphs` array is required. Preview combines the recipe's authored core
-with those explicit augments and prices the resulting layout through
-`SpellManager.GetSpellCreateCost` without changing the staged UI
-selection or acquiring mutation ownership. For `remove` and `move`, `slot` names the loadout-bar
+identity and an explicit `glyphs` array is required. Preview answers the same admission the add
+applies and returns the usage allocation the loaded spell would occupy, without changing the staged
+UI selection or acquiring mutation ownership. For `remove` and `move`, `slot` names the loadout-bar
 position and `uuid` and `glyphs` are rejected; `move` additionally requires a `destination`, which
-no other mode accepts. Add builds the native candidate, applies the selected level, bakes the glyph layout
-with `Spell.SetAugmentGlyphs` before the manager add route, pays last, and verifies the exact
-requested loadout outcome. Remove rechecks the game's live `Spell.CanRemove()` verdict; move
-re-resolves the source slot and invokes the same native swap-plus-notify path as the spellbook.
+no other mode accepts. Add stages the requested augments into the game's own selection, calls the
+manager's load route, restores the selection it found, and verifies the exact requested loadout
+outcome; there is nothing to pay. Remove rechecks the three live facts the game's own removal gates
+on — full charges, not casting, not readying a cast; move re-resolves the source slot and invokes
+the same native swap-plus-notify path as the spellbook.
 Success is the exact added instance, exact target absence, or the exact target at its destination.
 A committed result returns only the recipe identity and slot change; a failure names only the unmet
 admission or missing outcome.

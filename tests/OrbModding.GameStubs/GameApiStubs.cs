@@ -1428,6 +1428,12 @@ public class Spell : ITooltipable
     public int CurrentCharges { get; set; }
     public int MaximumCharges { get; set; }
     public BigDouble CooldownRemaining { get; set; }
+
+    /// <summary>
+    /// What the refused branch of <c>SpellManager.RemoveSpell</c> leaves behind, so a test can see
+    /// that a call the game would refuse was never made.
+    /// </summary>
+    public bool SwitchedToTimeBasedCooldown { get; set; }
     public UnityEngine.Sprite Icon { get; set; } = new UnityEngine.Sprite();
     public ResourceCostList Cost { get; } = new ResourceCostList();
     public GuidContainer guidContainer = new GuidContainer(Guid.NewGuid());
@@ -1507,6 +1513,13 @@ public class Spell : ITooltipable
     public bool IsAttuning() => false;
     public bool IsChargeAvailable() => NativeChargeAvailable;
     public bool CanRemove() => IsChargeAvailable() && !IsCasting();
+
+    /// <summary>
+    /// <c>charges &gt;= GetMaxSpellCharges()</c>, which is the first of the three facts
+    /// <c>SpellManager.RemoveSpell</c> gates itself on. <c>CanRemove()</c> is a neighbouring
+    /// predicate the removal path never reads.
+    /// </summary>
+    public bool IsAtMaxCharges() => CurrentCharges >= MaximumCharges;
     public bool HasEnoughResources() => true;
     public int GetCurrSpellCharges() => CurrentCharges;
     public int GetMaxSpellCharges() => MaximumCharges;
@@ -2529,6 +2542,9 @@ public class SpellManager
     public bool ThrowBeforeRemoval { get; set; }
     public bool ThrowAfterRemoval { get; set; }
     public int RemoveCalls { get; private set; }
+
+    /// <summary>How often the native gate refused a removal the caller asked for anyway.</summary>
+    public int RefusedRemovals { get; private set; }
     public int TryLevelAllCalls { get; private set; }
     public ResourceCostList? CreateCostOverride { get; set; }
     public Func<IReadOnlyList<GlyphSO>, ResourceCostList>? CreateCostResolver { get; set; }
@@ -2610,10 +2626,23 @@ public class SpellManager
 
     private void AddSpell(Spell spell) => activeSpells.Add(spell);
 
+    /// <summary>
+    /// The game's own removal, gate included: an empty slot is a no-op, and a spell short of full
+    /// charges or in the middle of a cast is refused. The refusal is not free — the game switches
+    /// the spell to a time-based cooldown on its way out — so a caller that skips the gate and
+    /// calls anyway leaves the loadout changed without removing anything.
+    /// </summary>
     public void RemoveSpell(Spell spell)
     {
         RemoveCalls++;
         if (ThrowBeforeRemoval) throw new InvalidOperationException("injected failure before spell removal");
+        if (spell.IsEmpty()) return;
+        if (!spell.IsAtMaxCharges() || spell.IsCasting() || spell.IsReadyingCast())
+        {
+            RefusedRemovals++;
+            spell.SwitchedToTimeBasedCooldown = true;
+            return;
+        }
         if (!SuppressRemoval) activeSpells.Remove(spell);
         if (ThrowAfterRemoval) throw new InvalidOperationException("injected failure after spell removal");
     }

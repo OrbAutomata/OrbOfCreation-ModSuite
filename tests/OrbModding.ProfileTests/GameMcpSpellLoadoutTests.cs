@@ -21,6 +21,8 @@ public sealed class GameMcpSpellLoadoutTests
         Guid.Parse("13b37dd5-44f7-4eb5-af6b-168454578466");
     private static readonly Guid SecondInstanceId =
         Guid.Parse("f40dfa54-2b96-4aee-97ec-5a8e8392a771");
+    private static readonly Guid ThirdInstanceId =
+        Guid.Parse("6f5b5a2c-9d1e-4b47-9a83-1c2f7e40d5b9");
     private static readonly Guid CoreGlyphId =
         Guid.Parse("f3000000-0000-0000-0000-000000000001");
     private static readonly Guid AugmentGlyphId =
@@ -306,6 +308,60 @@ public sealed class GameMcpSpellLoadoutTests
             },
             unique.Children<JProperty>().Select(property => property.Name));
     }
+
+    /// <summary>
+    /// The removal decision is the gate <c>SpellManager.RemoveSpell</c> applies to itself, and a
+    /// blocked row carries the numbers that say how far off it is — the row prints no charge count
+    /// of its own, and "not now" without a number plans nothing.
+    /// </summary>
+    /// <remarks>
+    /// <c>Spell.CanRemove()</c> used to answer this. It reads charge availability, which is false
+    /// the moment a charge is spent, and the removal path never calls it — so the page called slots
+    /// stuck that the game would have cleared on request.
+    /// </remarks>
+    [Fact]
+    public void A_blocked_removal_names_the_games_own_gate_with_its_numbers()
+    {
+        var ready = Slot(0, FirstInstanceId, FirstRecipeId, canRemove: false, casting: false);
+        var midCast = Slot(1, SecondInstanceId, SecondRecipeId, canRemove: false, casting: true);
+        var recharging = Slot(
+            2,
+            ThirdInstanceId,
+            FirstRecipeId,
+            canRemove: true,
+            casting: false,
+            currentCharges: 2,
+            maximumCharges: 3,
+            cooldownRemaining: new BigDouble(4.5d, 0));
+        var world = new GameWorldState
+        {
+            CollectedAtEpoch = 9,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus(
+                    "spell slots", WorldCategoryOutcome.Collected, 3, 0, string.Empty),
+            }),
+            SpellSlots = PublicationTable<WorldSpellSlot>.Create(
+                new[] { ready, midCast, recharging }),
+        };
+
+        Assert.Equal("{\"available\":true}", Remove(world, ready));
+        Assert.Equal(
+            "{\"available\":false,\"reasonCode\":\"ERR_STATE\"," +
+            "\"reason\":\"Cast in progress.\"}",
+            Remove(world, midCast));
+        Assert.Equal(
+            "{\"available\":false,\"reasonCode\":\"ERR_STATE\",\"reason\":\"The game only " +
+            "removes a spell at full charges, and this one is still recharging.\"," +
+            "\"charges\":\"2/3\",\"nextChargeIn\":\"4.5\"}",
+            Remove(world, recharging));
+    }
+
+    private static string Remove(GameWorldState world, in WorldSpellSlot slot) =>
+        Assert.IsType<JObject>(GameMcpTestHarness.Json(
+            GameMcpWorldQuery.ProjectEntityState(world, "spell-slots", slot))["remove"])
+            .ToString(Newtonsoft.Json.Formatting.None);
 
     /// <summary>
     /// A move onto an occupied slot is a swap, and the answer names both halves. Reporting only
@@ -640,7 +696,10 @@ public sealed class GameMcpSpellLoadoutTests
         Guid recipe,
         bool canRemove,
         bool casting,
-        bool loadoutUnique = false) => new(
+        bool loadoutUnique = false,
+        int currentCharges = 1,
+        int maximumCharges = 1,
+        BigDouble cooldownRemaining = default) => new(
             slot,
             instance,
             recipe,
@@ -655,9 +714,9 @@ public sealed class GameMcpSpellLoadoutTests
             true,
             canRemove,
             true,
-            1,
-            1,
-            BigDouble.Zero,
+            currentCharges,
+            maximumCharges,
+            cooldownRemaining,
             4,
             4,
             0,

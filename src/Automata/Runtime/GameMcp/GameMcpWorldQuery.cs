@@ -6925,13 +6925,35 @@ internal static class GameMcpWorldQuery
                     ["reasonCode"] = "cancellable_spells_disabled",
                 };
         }
-        result["remove"] = slot.CanRemove
-            ? new JObject { ["available"] = true }
-            : new JObject
+        // SpellManager.RemoveSpell gates itself on three facts and nothing else: full charges, not
+        // casting, not readying a cast. Spell.CanRemove() is a neighbouring predicate the removal
+        // path never consults, and answering from it called slots stuck that the game would have
+        // cleared. A blocked row carries the numbers that say how far off it is, because the row
+        // itself prints no charge count.
+        if (slot.Casting || slot.ReadyingCast)
+        {
+            result["remove"] = new JObject
             {
                 ["available"] = false,
-                ["reasonCode"] = "native_remove_refused",
+                ["reasonCode"] = "cast_in_progress",
             };
+        }
+        else if (slot.CurrentCharges < slot.MaximumCharges)
+        {
+            var recharging = new JObject
+            {
+                ["available"] = false,
+                ["reasonCode"] = "spell_recharging",
+                ["charges"] = slot.CurrentCharges + "/" + slot.MaximumCharges,
+            };
+            if (slot.CooldownRemaining > BigDouble.Zero)
+                recharging["nextChargeIn"] = new GameMcpDomainValue(slot.CooldownRemaining);
+            result["remove"] = recharging;
+        }
+        else
+        {
+            result["remove"] = new JObject { ["available"] = true };
+        }
         // Where a spell can move is the slot list, and the slot list is one read for the whole bar.
         // Inlining it per spell meant explaining eight spells delivered the same eight-slot roster
         // eight times, on the verb that is called most.

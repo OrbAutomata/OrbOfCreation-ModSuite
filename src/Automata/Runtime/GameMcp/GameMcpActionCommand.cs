@@ -762,7 +762,8 @@ internal static class GameMcpActionResultCodeNames
             if (code == SpellLoadoutActionResultCodes.ContractUnavailable) return "contract_unavailable";
             if (code == SpellLoadoutActionResultCodes.WrongThread) return "wrong_thread";
             if (code == SpellLoadoutActionResultCodes.IdentityUnavailable) return "identity_unavailable";
-            if (code == SpellLoadoutActionResultCodes.NativeRemoveRefused) return "native_remove_refused";
+            if (code == SpellLoadoutActionResultCodes.SpellRecharging) return "spell_recharging";
+            if (code == SpellLoadoutActionResultCodes.CastInProgress) return "cast_in_progress";
             if (code == SpellLoadoutActionResultCodes.DestinationOutOfRange) return "destination_out_of_range";
             if (code == SpellLoadoutActionResultCodes.AlreadyInRequestedState) return "already_in_requested_state";
             if (code == SpellLoadoutActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";

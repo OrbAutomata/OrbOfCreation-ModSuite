@@ -747,8 +747,16 @@ same list to `SpellManager.GetSpellCreateCost`. The manager returns an empty cos
 fails; otherwise it filters that list with `GlyphSO.IsSpellAugment` and folds only those augment
 glyphs through `GlyphSO.GetCreationCostOfList`, starting from a new empty `ResourceCostList`. The
 lower-level static combiner is therefore an implementation step, not an equivalent screen-pricing
-entry point for an unfiltered core-plus-augment list. The GameAction uses the manager lineage so its
-admission and payment match the price rendered by the button.
+entry point for an unfiltered core-plus-augment list.
+
+**StaticallyVerified (macOS v1.0.5-2 baseline):** the Loadout list's row is a different button on a
+different screen and reaches `CreateRecipe(recipe)` directly. That path reads only
+`selectedAugmentGlyphs.GetStackedRecord()` — never the Recipe Book selection — and touches no
+creation cost at all: `UISpellRecipeButton.RenderContent` disables the row on
+`meetsNonLvReq && (item.HasMetUsageRequirements() || selectedAugmentGlyphs.Count <= 0) &&
+usageCostList.HasEnough() && (activeSpells == null || activeSpells.HasEmptySpot()) &&
+loadoutCompatible`, where `usageCostList` is `SpellManager.GetUsageCostOfSpell(currentSpell)`. So
+loading a discovered spell into the loadout is priced by the usage allocation and by nothing else.
 
 The result is a runtime `Spell` carrying its own non-empty `guidContainer` UUID. **Recipe UUID and
 name are not instance identity**: two instances of one recipe are separate targets for every later
@@ -834,12 +842,20 @@ read from the item: it is read from the list, exactly as a structure's tab is.
 
 ## Equipped-spell removal and reorder
 
-`Spell.CanRemove()` (`0x06001038`) is the player-facing gate; its IL consults
-`Spell.IsChargeAvailable()` and then `Spell.IsCasting()`. `SpellManager.RemoveSpell(Spell)`
-(`0x0600074C`) is more permissive: it removes the instance from `activeSpells`, calls
-`Spell.Destroy()`, then `SpellManager.RecomputeSpellWeight()`, and carries its own warning and
-recharge reconciliation for non-ready spells. Driving the manager without `CanRemove` reaches states
-the interface refuses to produce.
+**StaticallyVerified (macOS v1.0.5-2 baseline):** `SpellManager.RemoveSpell(Spell)` (`0x0600074C`)
+carries the whole rule and applies it to itself. It returns immediately on `Spell.IsEmpty()`; then,
+unless `Spell.IsAtMaxCharges() && !Spell.IsCasting() && !Spell.IsReadyingCast()`, it takes the
+refused branch — error sfx, the popup "Cannot remove a spell that is still recharging.", and, when
+`GetRechargeProcessor().HasType(0)` is false, the popup "Switching to time based cooldown." plus
+`Duration.Processor.AddFlags(2)` and a new `MicroProcessor` core module — and returns without
+removing anything. So a refused removal is not a no-op: it changes how the spell recharges. Only on
+the admitted branch does it remove the instance from `activeSpells`, call `Spell.Destroy()`, then
+`SpellManager.RecomputeSpellWeight()`.
+
+`Spell.CanRemove()` (`0x06001038`) reads like that rule and is not it: its IL consults
+`Spell.IsChargeAvailable()` and then `Spell.IsCasting()`, and no removal path calls it. Ask the
+manager's own three questions before calling; answering from `CanRemove` refuses removals the game
+would have allowed.
 
 Reorder is a swap, not an insert. `UISpellList.OnDrop` (`0x06002701`) checks
 `DragDropContext.ListsMatch()` and `IndicesMatch()`, then calls

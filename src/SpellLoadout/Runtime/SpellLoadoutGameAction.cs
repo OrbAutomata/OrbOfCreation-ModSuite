@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Reflection;
 using OrbModding.Common;
 
@@ -106,12 +107,8 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (!TryResolve(native, action.SpellInstanceId, out var manager, out _, out var spell,
                 out var sourceSlot, out _, out var reason))
             return SpellLoadoutSubmission.Reject(SpellLoadoutPreflight.IdentityUnavailable, reason);
-        if (!native.CanRemove(spell))
-            return SpellLoadoutSubmission.Reject(
-                SpellLoadoutPreflight.NativeRemoveRefused,
-                "The game will not let " +
-                EntityIdentityFormatter.PlayerName(action.SpellInstanceId) +
-                " be taken off the loadout bar.");
+        if (!TryAdmitRemoval(native, spell, out var refusal, out var refusalReason))
+            return SpellLoadoutSubmission.Reject(refusal, refusalReason);
         if (!TryCapturePermit(out reason))
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.MutationPermitUnavailable,
@@ -146,6 +143,65 @@ internal sealed class SpellLoadoutGameAction : IDisposable
                 "SpellManager.RemoveSpell threw before the requested outcome was observable: " +
                 ex.GetBaseException().Message);
         }
+    }
+
+    /// <summary>
+    /// The gate <c>SpellManager.RemoveSpell</c> applies to itself: it destroys nothing unless the
+    /// spell is at full charges and is neither casting nor readying a cast. Calling anyway is not
+    /// a harmless no-op — the refusal branch switches the spell to a time-based cooldown — so the
+    /// suite asks the same three questions first and never makes a call the game would refuse.
+    /// </summary>
+    private static bool TryAdmitRemoval(
+        SpellLoadoutNativeBindings native,
+        object spell,
+        out SpellLoadoutPreflight refusal,
+        out string reason)
+    {
+        var name = RemovalTargetName(native, spell);
+        if (native.IsCasting(spell) || native.IsReadyingCast(spell))
+        {
+            refusal = SpellLoadoutPreflight.CastInProgress;
+            reason = name + " is mid-cast. The game answers a removal now with " +
+                "\"Cannot remove a spell that is still recharging.\" " +
+                "Wait for the cast to finish, then remove it.";
+            return false;
+        }
+        if (!native.IsAtMaxCharges(spell))
+        {
+            var maximum = native.ReadMaximumCharges(spell);
+            refusal = SpellLoadoutPreflight.SpellRecharging;
+            reason = name + " is still recharging, and the game only removes a spell at full " +
+                "charges: \"Cannot remove a spell that is still recharging.\" It holds " +
+                native.ReadCurrentCharges(spell) + " of " + maximum + " charges" +
+                NextChargeClause(native, spell) + ". Remove it once it reads " + maximum +
+                " of " + maximum + ".";
+            return false;
+        }
+        refusal = SpellLoadoutPreflight.Proceeded;
+        reason = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// The recipe name, which is the identity a removal answers with and the only one a caller can
+    /// look up — a runtime spell instance is in no catalog.
+    /// </summary>
+    private static string RemovalTargetName(SpellLoadoutNativeBindings native, object spell)
+    {
+        var recipe = native.ReadSpellRecipe(spell);
+        return recipe is null
+            ? "This spell"
+            : EntityIdentityFormatter.PlayerName(native.ReadRecipeIdentity(recipe));
+    }
+
+    private static string NextChargeClause(SpellLoadoutNativeBindings native, object spell)
+    {
+        var remaining = native.ReadCooldownRemaining(spell);
+        return remaining > BigDouble.Zero
+            ? ", and the next one is " +
+                Math.Round(remaining.ToDouble(), 1).ToString(CultureInfo.InvariantCulture) +
+                "s away"
+            : string.Empty;
     }
 
     private SpellLoadoutSubmission Move(

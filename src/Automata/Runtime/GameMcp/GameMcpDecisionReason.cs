@@ -196,6 +196,7 @@ internal static class GameMcpDecisionReason
         "bonus_unavailable" or "develop_unavailable" or
         "immediate_required_discovery" or "reroll_already_used" or
         "switch_blocked" or "cast_in_progress" or "charge_unavailable" or
+        "spell_recharging" or
         "batch_spend_drift" or
         "resources_uncovered" or "attuning" => ClassState,
 
@@ -405,7 +406,9 @@ internal static class GameMcpDecisionReason
         "discovery_unavailable" => "The game does not offer a discovery for this recipe.",
         "native_not_discoverable" => "The game never offers a discovery action for this.",
         "native_discovery_refused" => "The game refuses to discover this right now.",
-        "native_remove_refused" => "The game refuses to clear this slot right now.",
+        // The game's own words for the one gate SpellManager.RemoveSpell applies to itself.
+        "spell_recharging" =>
+            "The game only removes a spell at full charges, and this one is still recharging.",
         "native_use_refused" => "The game refuses to use this right now.",
         "native_level_refused" => "The game refuses to level this right now.",
         "native_develop_refused" => "The game refuses to develop this right now.",
