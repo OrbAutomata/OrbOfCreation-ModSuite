@@ -99,7 +99,7 @@ internal static class GameMcpEntityWireNormalizer
                 _ => status,
             };
             if (status is "available" or "committed") item.Remove("code");
-            else if (status is "refused" or "rejected" or "skipped" or "faulted")
+            else if (status is "refused" or "failed" or "rejected" or "skipped" or "faulted")
             {
                 if (item["code"] is JValue mutationCode)
                 {

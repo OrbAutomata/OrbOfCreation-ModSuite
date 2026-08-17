@@ -113,6 +113,32 @@ internal static class GameMcpDecisionReason
     };
 
     /// <summary>
+    /// Whether the suite's own machinery is what stopped the call, with the game never asked and
+    /// nothing the caller passed at fault. It is what separates the wire's <c>failed</c> from its
+    /// <c>refused</c>, and it is a short closed list on purpose: everything absent from it is a no
+    /// somebody other than the suite gave.
+    /// </summary>
+    /// <remarks>
+    /// Contention for the mutation permit is deliberately not here. That is the suite working as
+    /// designed — another service holds the family this instant — and it clears on its own, so it
+    /// is a refusal with a reason rather than a defect to report.
+    /// </remarks>
+    internal static bool IsSuiteDefect(string reasonCode) => reasonCode switch
+    {
+        // The binding set the boundary needs was never assembled, so nothing was submitted.
+        "contract_unavailable" or "feature_contract_unavailable" or
+        "pair_contract_unavailable" or
+        // The submission reached the boundary off Unity's thread and was stopped there.
+        "wrong_thread" or
+        // The suite staged a layout into the game's own selection lists and read back something
+        // else. Nothing the caller passed is wrong and nothing in the game refused.
+        "staged_write_failed" or
+        // The suite has no world and no identity catalog to answer from.
+        "world_not_published" or "entity_catalog_unavailable" => true,
+        _ => false,
+    };
+
+    /// <summary>
     /// The generic class for one producer code. The default is <see cref="ClassRefused"/>: a code
     /// this table has not met is a no the suite cannot classify further, which is exactly what
     /// "the game refused and the published world does not explain why" already meant.

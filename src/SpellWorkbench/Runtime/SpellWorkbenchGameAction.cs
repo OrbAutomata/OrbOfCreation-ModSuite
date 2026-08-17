@@ -559,8 +559,10 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 return FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
                     SpellWorkbenchNativeStage.ApplySelection,
                     NativeMutationOutcome.PostconditionFailed, nativeCalls,
-                    "Live admission changed and the player's own augment selection could not be " +
-                    "restored.");
+                    "The game stopped admitting this load between the check and the staging (" +
+                    refusalReason + ") and the player's own augment selection could not be put " +
+                    "back. No spell was loaded; the Spellcraft selection on screen is the one " +
+                    "this call staged.");
             }
 
             stage = SpellWorkbenchNativeStage.Create;
@@ -580,7 +582,9 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 : FaultAfterCommit(in action, SpellWorkbenchPreflight.VerificationFailed,
                     SpellWorkbenchNativeStage.Verification,
                     NativeMutationOutcome.PostconditionFailed, nativeCalls,
-                    "No new spell with the requested exact layout was loaded.");
+                    "The game returned from the load without a spell carrying the requested " +
+                    "layout, so nothing is loaded and the player's own augment selection is " +
+                    "back as it was. Read the loadout before calling again.");
         }
         catch (Exception ex) when (IsExpected(ex))
         {
@@ -704,9 +708,12 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                         " past its allocation. Remove a loaded spell, or raise that allocation.",
                 out refusal, out reason);
         }
-        if (!native.HasEmpty(native.ReadActive(manager)))
+        var activeList = native.ReadActive(manager);
+        if (!native.HasEmpty(activeList))
             return Refuse(SpellWorkbenchPreflight.LoadoutFull,
-                "Every loadout slot is occupied. Remove a loaded spell first.",
+                "All " + native.ReadActiveValues(activeList).Count +
+                " loadout slots hold a spell, so there is nowhere to put " + recipeName +
+                ". Remove a loaded spell first; nothing was staged and nothing was spent.",
                 out refusal, out reason);
         if (native.IsUniqueSpell(candidate) && HasActiveRecipe(native, manager, recipe))
             return Refuse(SpellWorkbenchPreflight.UniqueSpellConflict,

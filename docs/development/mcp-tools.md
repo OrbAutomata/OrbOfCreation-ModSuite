@@ -2449,9 +2449,19 @@ stands, what the level is, and what the next one costs are reads. A delivery sho
 both numbers on one line (`queued: 1 of 1000 asked; …`), because a partial that looks like a
 satisfied `amount=1` is the one shape a caller cannot act on.
 
-A successful read uses `available`; an unavailable domain read uses `unavailable`. A successful
-mutation uses `committed`; a refused mutation uses `refused`; infrastructure or native divergence
-uses `faulted`. A tool's status word never depends on one of its arguments: `game_screenshot`
+A successful read uses `available`; an unavailable domain read uses `unavailable` — a read has two
+words and no third, because a fact it cannot serve is unavailable however it got that way. A
+mutation has four, and the three that are not `committed` name three different owners: `refused` is
+the game's own no, `faulted` is the suite committing and its own post-check disagreeing, and
+`failed` is the suite tripping before the game was ever asked. `failed` is derived from who owns
+the reason, not from a fifth disposition — the service-cycle contract keeps answering the one
+question it asks, whether the mutation ran — and the owning set is closed:
+`contract_unavailable`, `feature_contract_unavailable`, `pair_contract_unavailable`, `wrong_thread`,
+`staged_write_failed`, `world_not_published`, `entity_catalog_unavailable`. Contention for the
+mutation permit is deliberately not among them: another service holding the family is the suite
+working as designed and clears on its own, so it stays a `refused` with a reason.
+
+A tool's status word never depends on one of its arguments: `game_screenshot`
 answers `committed` whether or not `save` was asked for, because the capture is something the
 server performed either way. Success adds only the settled delta and omits a code that would restate
 `committed`. Refusals and faults add a stable `reasonCode`, one actionable `reason`, and only the

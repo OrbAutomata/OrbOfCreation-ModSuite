@@ -335,15 +335,20 @@ internal sealed class GameMcpCommandResult
         string? exactReason = null,
         GameMcpValue? details = null)
     {
+        var code = GameMcpActionResultCodeNames.Name(result.Code, commandKind);
+        // Three words, three owners. The disposition answers whether the mutation ran, which is
+        // the service-cycle contract's question and is right as it stands; who stopped the call is
+        // a different question, and it is answered here, where the wire's vocabulary lives. A
+        // fifth disposition would have made every service adapter answer a question none of them
+        // asks.
         var status = result.Disposition switch
         {
             ServiceActionDisposition.Committed => "committed",
-            ServiceActionDisposition.Rejected => "refused",
             ServiceActionDisposition.Faulted => "faulted",
-            ServiceActionDisposition.Skipped => "refused",
+            ServiceActionDisposition.Rejected or ServiceActionDisposition.Skipped =>
+                GameMcpDecisionReason.IsSuiteDefect(code) ? "failed" : "refused",
             _ => "faulted",
         };
-        var code = GameMcpActionResultCodeNames.Name(result.Code, commandKind);
         var reason = status == "committed"
             ? string.Empty
             : string.IsNullOrWhiteSpace(exactReason)
@@ -415,10 +420,13 @@ internal sealed class GameMcpCommandResult
         var status = Status;
         if (command.SourceOperation?.Request.Classification == GameMcpOperationClass.ReadOnly)
         {
+            // A read answers `available` or `unavailable` and has no third word: `failed` is a
+            // mutation's answer, and a read that cannot serve a fact is unavailable however it got
+            // that way. The sentence still says who stopped it.
             status = status switch
             {
                 "committed" => "available",
-                "refused" => "unavailable",
+                "refused" or "failed" => "unavailable",
                 _ => status,
             };
         }

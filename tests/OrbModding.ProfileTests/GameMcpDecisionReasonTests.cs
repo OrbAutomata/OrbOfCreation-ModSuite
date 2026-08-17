@@ -1,6 +1,9 @@
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using OrbAutomata;
 using OrbAutomata.GameMcp;
+using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using Xunit;
 
 namespace OrbModding.ProfileTests;
@@ -17,6 +20,70 @@ namespace OrbModding.ProfileTests;
 /// </remarks>
 public sealed class GameMcpDecisionReasonTests
 {
+    /// <summary>
+    /// Three outcome words, three owners: the game said no (<c>refused</c>), the suite committed
+    /// and its own post-check disagreed (<c>faulted</c>), or the suite tripped before the game was
+    /// ever asked (<c>failed</c>).
+    /// </summary>
+    /// <remarks>
+    /// The suite's own staging write failing to land used to ship as <c>refused</c>, which reads
+    /// as "the game said no" and sent a caller looking for a game state to change. The word is
+    /// derived from who owns the reason rather than from a fifth disposition, so the service-cycle
+    /// contract keeps answering the one question it asks — did the mutation run.
+    /// </remarks>
+    [Theory]
+    [InlineData("contract_unavailable", "failed")]
+    [InlineData("feature_contract_unavailable", "failed")]
+    [InlineData("pair_contract_unavailable", "failed")]
+    [InlineData("wrong_thread", "failed")]
+    [InlineData("staged_write_failed", "failed")]
+    [InlineData("world_not_published", "failed")]
+    [InlineData("entity_catalog_unavailable", "failed")]
+    [InlineData("loadout_full", "refused")]
+    [InlineData("usage_unaffordable", "refused")]
+    [InlineData("screen_locked", "refused")]
+    [InlineData("spell_recharging", "refused")]
+    [InlineData("cast_in_progress", "refused")]
+    [InlineData("augment_slots_exceeded", "refused")]
+    [InlineData("unique_spell_conflict", "refused")]
+    [InlineData("identity_unavailable", "refused")]
+    [InlineData("lifecycle_replaced", "refused")]
+    [InlineData("native_rejected", "refused")]
+    // The permit is the suite working as designed, not the suite failing: another service holds
+    // the family this instant and lets go of it on its own.
+    [InlineData("action_family_unavailable", "refused")]
+    public void The_outcome_word_names_who_stopped_the_call(string reasonCode, string expected)
+    {
+        Assert.Equal(expected == "failed", GameMcpDecisionReason.IsSuiteDefect(reasonCode));
+    }
+
+    /// <summary>
+    /// The wire mapping itself: a committed mutation, a fault, a refusal the game gave, and a
+    /// failure the suite owns, over the one command family this vocabulary was rewritten for.
+    /// </summary>
+    [Fact]
+    public void The_status_word_table_is_the_disposition_plus_who_owns_the_reason()
+    {
+        Assert.Equal("committed", Word(ServiceActionResult.Committed(
+            CommonActionResultCodes.Committed,
+            ServiceNativeMutationEvidence.Observed(
+                NativeMutationOutcome.Verified,
+                new NativeMutationCallOutcome(1, 1, 1)))));
+        Assert.Equal("faulted", Word(ServiceActionResult.Faulted(
+            SpellWorkbenchActionResultCodes.VerificationFailed,
+            ServiceNativeMutationEvidence.Observed(
+                NativeMutationOutcome.PostconditionFailed,
+                new NativeMutationCallOutcome(1, 1, 0)))));
+        Assert.Equal("refused", Word(
+            ServiceActionResult.Rejected(SpellWorkbenchActionResultCodes.LoadoutFull)));
+        Assert.Equal("failed", Word(
+            ServiceActionResult.Rejected(SpellWorkbenchActionResultCodes.StagedWriteFailed)));
+    }
+
+    private static string Word(ServiceActionResult result) =>
+        GameMcpCommandResult.FromAction(
+            in result, GameMcpCommandKind.SpellWorkbench, 1, 1).Status;
+
     [Fact]
     public void No_decision_ships_a_code_without_the_sentence_that_reads_it()
     {

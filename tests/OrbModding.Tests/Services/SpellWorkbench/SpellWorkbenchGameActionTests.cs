@@ -585,8 +585,33 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.Empty(SpellManager.instance.activeSpells.value);
     }
 
+    /// <summary>
+    /// A full bar says how many slots it has and that nothing was spent, because "every slot is
+    /// occupied" without a number leaves a caller unable to tell a full bar from a bar it cannot
+    /// see.
+    /// </summary>
+    [Fact]
+    public void LoadoutAddNamesTheSlotCountAndThatNothingWasStagedWhenTheBarIsFull()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var active = SpellManager.instance!.activeSpells;
+        active.maxSizeVariable = new IntVariable { Value = 2 };
+        active.value.Add(new Spell(new SpellRecipeSO()));
+        active.value.Add(new Spell(new SpellRecipeSO()));
+        using var action = Action();
 
+        var result = action.Submit(new SpellWorkbenchAction(
+            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
+            Array.Empty<SpellWorkbenchGlyphStack>(),
+            Array.Empty<SpellWorkbenchGlyphStack>()));
 
+        Assert.Equal(SpellWorkbenchPreflight.LoadoutFull, result.Preflight);
+        Assert.Equal(
+            "All 2 loadout slots hold a spell, so there is nowhere to put " + Name(recipe) +
+            ". Remove a loaded spell first; nothing was staged and nothing was spent.",
+            result.Reason);
+        Assert.Equal(2, active.value.Count);
+    }
 
     /// <summary>
     /// An augment stack the game will not expose is refused before anything is created.
