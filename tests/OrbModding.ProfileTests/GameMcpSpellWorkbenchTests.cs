@@ -124,7 +124,7 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Null(row["selected"]);
         Assert.Null(row["select"]);
         Assert.True((bool)row["loadoutAdd"]!["available"]!);
-        Assert.True((bool)row["loadoutAdd"]!["requiresGlyphLayout"]!);
+        Assert.True((bool)row["loadoutAdd"]!["acceptsAugments"]!);
         Assert.Null(row["loadoutAdd"]!["affordable"]);
         Assert.Null(row["loadoutAdd"]!["reasonCode"]);
         Assert.Null(row["loadoutAdd"]!["costs"]);
@@ -203,11 +203,12 @@ public sealed class GameMcpSpellWorkbenchTests
     /// verb nor the game's own create button reads a core glyph's level anywhere; the sentence the
     /// player was acting on was this suite's own, attributed to the game.
     ///
-    /// The list is three, not four. <c>unique-spell rule</c> named a gate the caller had no way to
-    /// settle, and the world now publishes the fact it reads: every equipped instance of this recipe
-    /// is on this same row under <c>equipped</c>, each carrying the game's own
-    /// <c>isLoadoutUnique</c>. Naming a decided fact as pending is the same defect as predicting an
-    /// undecidable one, one register over.
+    /// The list is two. <c>unique-spell rule</c> named a gate the caller had no way to settle, and
+    /// the world publishes the fact it reads: every equipped instance of this recipe is on this
+    /// same row under <c>equipped</c>, each carrying the game's own <c>isLoadoutUnique</c>. Naming
+    /// a decided fact as pending is the same defect as predicting an undecidable one, one register
+    /// over. <c>glyph layout resolution</c> and <c>creation price</c> went with the machinery that
+    /// invented them: the row passes the recipe and the game charges nothing for the press.
     /// </remarks>
     [Fact]
     public void LoadoutAddNeitherInventsACoreGlyphLevelRuleNorPromisesTheVerbsLiveGates()
@@ -227,85 +228,77 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal(
             new[]
             {
-                "glyph layout resolution",
-                "creation price",
                 "usage budget",
+                "augment requirements",
             },
             decision["verbDecides"]!.Values<string>());
     }
 
-    [Fact]
-    public void ExplicitLayoutPreviewReturnsNamedNativePriceAndShortResource()
-    {
-        var preview = SpellWorkbenchPricePreview.Priced(
-            RecipeId,
-            RecipeId,
-            new[] { new SpellWorkbenchPricePreviewCost(ResourceId, new BigDouble(4400)) },
-            affordable: false,
-            ResourceId);
-
-        var response = GameMcpTestHarness.Json(
-            GameMcpSpellWorkbenchProjection.ProjectPricePreview(in preview));
-
-        Assert.Equal("available", (string?)response["status"]);
-
-        // The recipe was the caller's own argument; the answer is the price and whether it can be
-        // paid, not that same recipe read back under two names beneath its own handle.
-        Assert.Null(response["recipe"]);
-        Assert.Null(response["uuid"]);
-        var cost = Assert.Single(response["costs"]!.Values<JObject>());
-        Assert.Equal("Knowledge", (string?)cost["resource"]!["name"]);
-        Assert.Equal("4.4e3", (string?)cost["cost"]);
-        Assert.False((bool)response["affordable"]!);
-        Assert.Equal("Knowledge", (string?)response["shortResource"]!["name"]);
-    }
-
     /// <summary>
-    /// A preview always says which spell the live glyphs resolve to, and a layout with no price
-    /// does not answer a question about paying one.
+    /// The preview answers the one budget a load is weighed against, and nothing about paying.
     /// </summary>
     /// <remarks>
-    /// A round asked for an empty augment layout, which the game prices as an empty cost list, and
-    /// read the resulting bare <c>affordable: yes</c> as "this add will work". It could not have:
-    /// the game quotes that same empty price for a layout it resolves to nothing at all, so the
-    /// word was carrying a claim it never had the evidence for.
+    /// A round read a creation price off this preview, paid it on the add, and the game charged
+    /// nothing — there is no such price. What a load does draw is the usage allocation the loaded
+    /// spell holds, which is what the answer carries now.
     /// </remarks>
     [Fact]
-    public void ExplicitLayoutPreviewNamesTheResolvedSpellAndDropsAffordabilityWithoutAPrice()
+    public void LoadPreviewNamesTheUsageAllocationTheLoadedSpellWouldHold()
     {
-        var preview = SpellWorkbenchPricePreview.Priced(
+        var preview = SpellWorkbenchLoadPreview.Admitted(
             RecipeId,
-            RecipeId,
-            Array.Empty<SpellWorkbenchPricePreviewCost>(),
-            affordable: true,
-            Guid.Empty);
+            new[] { new SpellWorkbenchUsageAllocation(ResourceId, new BigDouble(4400)) });
 
         var response = GameMcpTestHarness.Json(
-            GameMcpSpellWorkbenchProjection.ProjectPricePreview(in preview));
+            GameMcpSpellWorkbenchProjection.ProjectLoadPreview(in preview));
 
         Assert.Equal(
-            new[] { "status", "resolvesTo", "costs" },
+            new[] { "status", "usageAllocation" },
             response.Properties().Select(property => property.Name));
-        Assert.Equal(RecipeId.ToString("D")[..6], (string?)response["resolvesTo"]!["uuid"]);
-        Assert.Empty(response["costs"]!.Values<JObject>());
+        Assert.Equal("available", (string?)response["status"]);
+        var row = Assert.Single(response["usageAllocation"]!.Values<JObject>());
+        Assert.Equal(
+            new[] { "amount", "resource" },
+            row.Properties().Select(property => property.Name));
+        Assert.Equal("Knowledge", (string?)row["resource"]!["name"]);
+        Assert.Equal("4.4e3", (string?)row["amount"]);
+    }
+
+    /// <summary>An admitted load with no allocation says so by carrying no allocation block.</summary>
+    [Fact]
+    public void LoadPreviewWithoutAnAllocationCarriesNothingBesideItsStatus()
+    {
+        var preview = SpellWorkbenchLoadPreview.Admitted(
+            RecipeId,
+            Array.Empty<SpellWorkbenchUsageAllocation>());
+
+        var response = GameMcpTestHarness.Json(
+            GameMcpSpellWorkbenchProjection.ProjectLoadPreview(in preview));
+
+        Assert.Equal(
+            new[] { "status" },
+            response.Properties().Select(property => property.Name));
+        Assert.Equal("available", (string?)response["status"]);
     }
 
     [Fact]
-    public void ExplicitLayoutPreviewRefusalCarriesOnlyTheActionableReason()
+    public void LoadPreviewRefusalCarriesOnlyTheActionableReason()
     {
-        var preview = SpellWorkbenchPricePreview.Refused(
-            SpellWorkbenchPreflight.LayoutResolvedElsewhere,
-            "This glyph layout resolves to Beam Burst, not Test Recipe.");
+        var preview = SpellWorkbenchLoadPreview.Refused(
+            SpellWorkbenchPreflight.AugmentSlotsExceeded,
+            "This layout puts 3 different augments on Test Recipe and the game allows 1 at once " +
+            "(Max Spell Augment Slots). Ask for 1 different augments or fewer, or raise that " +
+            "limit first.");
 
         var response = GameMcpTestHarness.Json(
-            GameMcpSpellWorkbenchProjection.ProjectPricePreview(in preview));
+            GameMcpSpellWorkbenchProjection.ProjectLoadPreview(in preview));
 
         Assert.Equal(
             new[] { "status", "reasonCode", "reason" },
             response.Properties().Select(property => property.Name));
-        Assert.Equal("unavailable", (string?)response["status"]);
-        Assert.Equal("ERR_NOT_FOUND", (string?)response["reasonCode"]);
-        Assert.Contains("resolves to Beam Burst", (string?)response["reason"]);
+        Assert.Equal("refused", (string?)response["status"]);
+        Assert.Equal("ERR_LIMIT", (string?)response["reasonCode"]);
+        Assert.Contains("Max Spell Augment Slots", (string?)response["reason"]);
     }
 
     [Fact]

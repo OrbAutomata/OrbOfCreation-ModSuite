@@ -96,30 +96,25 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.False(recipe.discovered);
     }
 
+    /// <summary>
+    /// Loading a spell writes only the augment stack, charges nothing, and hands the player's own
+    /// staging back.
+    /// </summary>
+    /// <remarks>
+    /// The core selection is the game's to clear: <c>CreateRecipe</c> empties it on the way out,
+    /// so a load that put a snapshot back would leave the workbench in a state no button press
+    /// produces.
+    /// </remarks>
     [Fact]
-    public void LoadoutAddBakesTheExactGlyphLayoutAndPaysOnlyAfterAdmission()
+    public void LoadoutAddBakesTheExactAugmentLayoutAndChargesNothing()
     {
         var (recipe, stagedCore, _) = Recipe(discovered: true);
-        recipe.NativeUsageRequirementsMet = false;
         var usageResource = new ResourceSO { quantity = new BigDouble(10) };
         recipe.baseUsageCost.costs.Add(new ResourceTuple(usageResource, new BigDouble(3)));
-        var paymentResource = new ResourceSO { quantity = new BigDouble(10) };
-        var createCost = new ResourceCostList();
-        createCost.costs.Add(new ResourceTuple(paymentResource, new BigDouble(2)));
-        SpellManager.instance!.CreateCostOverride = createCost;
-        var augment = new GlyphSO
-        {
-            DisplayName = "Bright",
-            NativeAvailable = true,
-            augmentsSpells = true,
-            maxUsages = new ValueModifierRecord(new BigDouble(2)),
-            level = 1,
-        };
-        IdScriptableObject.RuntimeLookup[augment.GetGuid()] = augment;
+        var wallet = new ResourceSO { quantity = new BigDouble(10) };
+        var augment = Augment(maximum: 2);
         var stagedAugment = Augment();
-        SpellManager.instance.selectedCoreGlyphs.value.Add(stagedCore);
-        // Staged the way the game stages: the stack is what a created spell is baked from,
-        // and a glyph that only ever reached the value list beside it is not staged at all.
+        SpellManager.instance!.selectedCoreGlyphs.value.Add(stagedCore);
         SpellManager.instance.selectedAugmentGlyphs.Stack(stagedAugment, 1);
         using var action = Action();
 
@@ -132,10 +127,11 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
 
         Assert.True(result.Verified, result.Reason);
         var equipped = Assert.Single(SpellManager.instance!.activeSpells.value);
-        Assert.Equal(new[] { augment, augment }, equipped.GetAugmentGlyphs());
-        Assert.Equal(new[] { stagedCore }, SpellManager.instance.selectedCoreGlyphs.value);
+        Assert.Equal(2, equipped.GetQuantityOfGlyph(augment));
+        Assert.Equal(new BigDouble(10), wallet.quantity);
+        Assert.Empty(SpellManager.instance.selectedCoreGlyphs.value);
         Assert.Equal(new[] { stagedAugment }, SpellManager.instance.selectedAugmentGlyphs.value);
-        Assert.Equal(1, createCost.PerformCalls);
+        Assert.Equal(1, SpellManager.instance.selectedAugmentGlyphs.GetStacks(stagedAugment));
     }
 
     [Fact]
@@ -160,47 +156,63 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.Empty(SpellManager.instance!.activeSpells.value);
     }
 
+    /// <summary>
+    /// The two requirement gates are the row's own, including the direction of the usage one.
+    /// </summary>
+    /// <remarks>
+    /// <c>UISpellRecipeButton.RenderContent</c> disables the row when the usage requirements are
+    /// unmet <em>and</em> an augment is selected — an unaugmented load of a recipe whose usage
+    /// requirements are unmet is exactly what the button allows. The suite had that backwards and
+    /// refused the load a player makes with one click while permitting the one the game blocks.
+    /// </remarks>
     [Fact]
-    public void LoadoutAddRefusesUnmetGlyphAndRecipeRequirementsBeforePayment()
+    public void LoadoutAddMirrorsTheRowsGlyphAndUsageRequirementGates()
     {
         var (recipe, stagedCore, _) = Recipe(discovered: true);
         recipe.NativeUsageRequirementsMet = false;
-        var augment = Augment();
-        augment.requiresDuration = true;
-        var payment = new ResourceCostList();
-        SpellManager.instance!.CreateCostOverride = payment;
+        var duration = Augment();
+        duration.requiresDuration = true;
+        var plain = Augment();
         var stagedAugment = Augment();
         SpellManager.instance!.selectedCoreGlyphs.value.Add(stagedCore);
-        SpellManager.instance.selectedAugmentGlyphs.value.Add(stagedAugment);
+        SpellManager.instance.selectedAugmentGlyphs.Stack(stagedAugment, 1);
         using var action = Action();
 
         var glyphResult = action.Submit(new SpellWorkbenchAction(
             SpellWorkbenchActionKind.CreateWithLayout,
             recipe.GetGuid(), Epoch,
             Array.Empty<SpellWorkbenchGlyphStack>(),
-            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 1) }));
-        var recipeResult = action.Submit(new SpellWorkbenchAction(
+            new[] { new SpellWorkbenchGlyphStack(duration.GetGuid(), 1) }));
+        var augmentedResult = action.Submit(new SpellWorkbenchAction(
+            SpellWorkbenchActionKind.CreateWithLayout,
+            recipe.GetGuid(), Epoch,
+            Array.Empty<SpellWorkbenchGlyphStack>(),
+            new[] { new SpellWorkbenchGlyphStack(plain.GetGuid(), 1) }));
+        var bareResult = action.Submit(new SpellWorkbenchAction(
             SpellWorkbenchActionKind.CreateWithLayout,
             recipe.GetGuid(), Epoch,
             Array.Empty<SpellWorkbenchGlyphStack>(),
             Array.Empty<SpellWorkbenchGlyphStack>()));
 
         Assert.Equal(SpellWorkbenchPreflight.GlyphRequirementsUnavailable, glyphResult.Preflight);
-        Assert.Equal(SpellWorkbenchPreflight.UsageRequirementsUnavailable, recipeResult.Preflight);
-        Assert.Equal(0, payment.PerformCalls);
-        Assert.Empty(SpellManager.instance.activeSpells.value);
-        Assert.Equal(new[] { stagedCore }, SpellManager.instance.selectedCoreGlyphs.value);
+        Assert.Equal(
+            SpellWorkbenchPreflight.UsageRequirementsUnavailable, augmentedResult.Preflight);
+        Assert.Equal(
+            Name(recipe) + " has not met its usage requirements yet, and the game only lets that " +
+            "pass while no augment is selected. Load it with no augments, or meet the " +
+            "requirement first.",
+            augmentedResult.Reason);
+        Assert.True(bareResult.Verified, bareResult.Reason);
+        Assert.Single(SpellManager.instance.activeSpells.value);
         Assert.Equal(new[] { stagedAugment }, SpellManager.instance.selectedAugmentGlyphs.value);
     }
 
     [Fact]
-    public void LoadoutAddChecksUsageBudgetAndUniqueCompatibilityBeforePayment()
+    public void LoadoutAddChecksUsageBudgetAndUniqueCompatibilityBeforeItStages()
     {
         var (recipe, _, _) = Recipe(discovered: true);
         var usageResource = new ResourceSO { quantity = BigDouble.Zero };
         recipe.baseUsageCost.costs.Add(new ResourceTuple(usageResource, BigDouble.One));
-        var payment = new ResourceCostList();
-        SpellManager.instance!.CreateCostOverride = payment;
         using var action = Action();
 
         var budget = action.Submit(new SpellWorkbenchAction(
@@ -208,31 +220,64 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
             Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
         recipe.baseUsageCost = new ResourceCostList();
         recipe.NativeUniqueSpell = true;
-        SpellManager.instance.activeSpells.value.Add(recipe.CreateEmpty(0));
+        SpellManager.instance!.activeSpells.value.Add(recipe.CreateEmpty(0));
         var unique = action.Submit(new SpellWorkbenchAction(
             SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
             Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
 
         Assert.Equal(SpellWorkbenchPreflight.UsageUnaffordable, budget.Preflight);
         Assert.Equal(SpellWorkbenchPreflight.UniqueSpellConflict, unique.Preflight);
-        Assert.Equal(0, payment.PerformCalls);
     }
 
     /// <summary>
-    /// A pre-check that answers priced-and-affordable for a layout the add on identical arguments
-    /// refuses is worse than no pre-check: it turns a cautious caller into a confident wrong one.
+    /// The game's augment selection holds a fixed number of different augments, and a stack write
+    /// is not gated the way the player's clicks are.
+    /// </summary>
+    /// <remarks>
+    /// <c>StackableListVariable.Stack</c> refuses a new distinct augment once the list is at
+    /// <c>Max Spell Augment Slots</c>, so a layout with more different augments than that is one
+    /// the player cannot build. Writing it straight into the stack would have produced it anyway.
+    /// </remarks>
+    [Fact]
+    public void LoadoutAddRefusesMoreDifferentAugmentsThanTheSelectionHolds()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        SpellManager.instance!.selectedAugmentGlyphs.maxSizeVariable = new IntVariable { Value = 1 };
+        var first = Augment();
+        var second = Augment();
+        using var action = Action();
+
+        var result = action.Submit(new SpellWorkbenchAction(
+            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
+            Array.Empty<SpellWorkbenchGlyphStack>(),
+            new[]
+            {
+                new SpellWorkbenchGlyphStack(first.GetGuid(), 1),
+                new SpellWorkbenchGlyphStack(second.GetGuid(), 1),
+            }));
+
+        Assert.Equal(SpellWorkbenchPreflight.AugmentSlotsExceeded, result.Preflight);
+        Assert.Equal(
+            "This layout puts 2 different augments on " + Name(recipe) +
+            " and the game allows 1 at once (Max Spell Augment Slots). Ask for 1 different " +
+            "augments or fewer, or raise that limit first.",
+            result.Reason);
+        Assert.Empty(SpellManager.instance.activeSpells.value);
+    }
+
+    /// <summary>
+    /// A pre-check that answers available for a layout the add on identical arguments refuses is
+    /// worse than no pre-check: it turns a cautious caller into a confident wrong one.
     /// </summary>
     [Fact]
-    public void PricePreviewRefusesEverythingTheAddRefusesBeforeItStages()
+    public void LoadPreviewRefusesEverythingTheAddRefusesBeforeItStages()
     {
         var (recipe, _, _) = Recipe(discovered: true);
         var usageResource = new ResourceSO { quantity = BigDouble.Zero };
         recipe.baseUsageCost.costs.Add(new ResourceTuple(usageResource, BigDouble.One));
-        var payment = new ResourceCostList();
-        SpellManager.instance!.CreateCostOverride = payment;
         using var action = Action();
 
-        var budgetPreview = action.Preview(new SpellWorkbenchPricePreviewRequest(
+        var budgetPreview = action.Preview(new SpellWorkbenchLoadPreviewRequest(
             recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
         var budgetAdd = action.Submit(new SpellWorkbenchAction(
             SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
@@ -240,8 +285,8 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
 
         recipe.baseUsageCost = new ResourceCostList();
         recipe.NativeUniqueSpell = true;
-        SpellManager.instance.activeSpells.value.Add(recipe.CreateEmpty(0));
-        var uniquePreview = action.Preview(new SpellWorkbenchPricePreviewRequest(
+        SpellManager.instance!.activeSpells.value.Add(recipe.CreateEmpty(0));
+        var uniquePreview = action.Preview(new SpellWorkbenchLoadPreviewRequest(
             recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
         var uniqueAdd = action.Submit(new SpellWorkbenchAction(
             SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
@@ -253,43 +298,36 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.False(uniquePreview.Available);
         Assert.Equal(uniqueAdd.Preflight, uniquePreview.Preflight);
         Assert.Equal(SpellWorkbenchPreflight.UniqueSpellConflict, uniquePreview.Preflight);
-        Assert.Equal(0, payment.PerformCalls);
     }
 
     /// <summary>
-    /// The price is still an answer, not a refusal: a caller asking what a layout costs gets the
-    /// costs and an honest <c>affordable: false</c> rather than a shut door.
+    /// The preview answers the one budget a load is weighed against, per requested layout.
     /// </summary>
     [Fact]
-    public void PricePreviewStillPricesALayoutTheCallerCannotAffordYet()
+    public void LoadPreviewNamesTheUsageAllocationForTheRequestedLayout()
     {
         var (recipe, _, _) = Recipe(discovered: true);
-        var knowledge = new ResourceSO { name = "Knowledge", quantity = new BigDouble(2) };
-        var price = new ResourceCostList();
-        price.costs.Add(new ResourceTuple(knowledge, new BigDouble(3)));
-        SpellManager.instance!.CreateCostResolver = _ => price;
+        var weight = new ResourceSO { name = "Spell Power", quantity = new BigDouble(10) };
+        recipe.baseUsageCost.costs.Add(new ResourceTuple(weight, new BigDouble(3)));
         using var action = Action(permit: false);
 
-        var preview = action.Preview(new SpellWorkbenchPricePreviewRequest(
+        var preview = action.Preview(new SpellWorkbenchLoadPreviewRequest(
             recipe.GetGuid(), Epoch,
             new[] { new SpellWorkbenchGlyphStack(Augment().GetGuid(), 1) }));
 
         Assert.True(preview.Available, preview.Reason);
-        Assert.False(preview.Affordable);
-        Assert.Equal(knowledge.GetGuid(), preview.ShortResourceId);
+        var row = Assert.Single(preview.Usage);
+        Assert.Equal(weight.GetGuid(), row.ResourceId);
+        Assert.Equal(new BigDouble(3), row.Amount);
     }
 
     [Fact]
-    public void LoadoutAddFaultsWhenPaymentRunsWithoutTheExactRequestedOutcome()
+    public void LoadoutAddFaultsWhenTheGameReturnsWithoutTheRequestedSpell()
     {
         var (recipe, stagedCore, _) = Recipe(discovered: true);
-        var payment = new ResourceCostList();
-        SpellManager.instance!.CreateCostOverride = payment;
-        SpellManager.instance.SuppressCreation = true;
+        SpellManager.instance!.SuppressCreation = true;
         var stagedAugment = Augment();
         SpellManager.instance.selectedCoreGlyphs.value.Add(stagedCore);
-        // Staged the way the game stages: the stack is what a created spell is baked from,
-        // and a glyph that only ever reached the value list beside it is not staged at all.
         SpellManager.instance.selectedAugmentGlyphs.Stack(stagedAugment, 1);
         using var action = Action();
 
@@ -298,7 +336,6 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
             Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
 
         Assert.Equal(SpellWorkbenchPreflight.VerificationFailed, result.Preflight);
-        Assert.Equal(1, payment.PerformCalls);
         Assert.Empty(SpellManager.instance.activeSpells.value);
         Assert.Equal(new[] { stagedCore }, SpellManager.instance.selectedCoreGlyphs.value);
         Assert.Equal(new[] { stagedAugment }, SpellManager.instance.selectedAugmentGlyphs.value);
@@ -319,7 +356,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     }
 
     [Fact]
-    public void LoadoutAddUsesTheScreenPriceResolverAndRejectsUnownedAugments()
+    public void LoadoutAddRejectsUnownedAugmentsAndLoadsTheOwnedOne()
     {
         var (recipe, _, _) = Recipe(discovered: true);
         var owned = Augment();
@@ -378,24 +415,25 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.Single(SpellManager.instance.activeSpells.value);
     }
 
+    /// <summary>
+    /// A spell the game quotes a creation price for still loads, and nothing is spent.
+    /// </summary>
+    /// <remarks>
+    /// The suite used to read <c>SpellManager.GetSpellCreateCost</c>, gate on it, and pay it. The
+    /// Loadout row reads none of that: <c>CreateRecipe</c> takes no payment at all, so an add that
+    /// paid was moving resources on a press that costs nothing — and refused loads the player
+    /// makes with one click whenever that invented price was out of reach.
+    /// </remarks>
     [Fact]
-    public void LoadoutAddUsesTheScreenPriceAndNamesTheShortResourceBeforePayment()
+    public void LoadoutAddMovesNoResourcesForASpellWithACreationPrice()
     {
         var (recipe, _, _) = Recipe(discovered: true);
-        var knowledge = new ResourceSO
-        {
-            name = "Knowledge",
-            quantity = new BigDouble(2),
-        };
+        var knowledge = new ResourceSO { name = "Knowledge", quantity = new BigDouble(2) };
+        var augment = Augment();
+        augment.creationCostMod = new ValueModifier(
+            ValueModifier.ValueModifierType.Raw, new BigDouble(1000));
         var price = new ResourceCostList();
         price.costs.Add(new ResourceTuple(knowledge, new BigDouble(3)));
-        EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Bound(
-            Epoch,
-            new[]
-            {
-                new EntityIdentityName(
-                    knowledge.GetGuid(), nameof(ResourceSO), "Knowledge", "Knowledge"),
-            }));
         SpellManager.instance!.CreateCostOverride = price;
         using var action = Action();
 
@@ -404,46 +442,40 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
             recipe.GetGuid(),
             Epoch,
             Array.Empty<SpellWorkbenchGlyphStack>(),
-            Array.Empty<SpellWorkbenchGlyphStack>()));
+            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 1) }));
 
-        Assert.Equal(SpellWorkbenchPreflight.Unaffordable, result.Preflight);
-        Assert.Contains("Knowledge", result.Reason);
+        Assert.True(result.Verified, result.Reason);
         Assert.Equal(0, price.PerformCalls);
-        Assert.Empty(SpellManager.instance.activeSpells.value);
+        Assert.Equal(new BigDouble(2), knowledge.quantity);
+        Assert.Single(SpellManager.instance.activeSpells.value);
     }
 
     [Fact]
-    public void PricePreviewUsesTheSubmittedLayoutWithoutChangingStagedSelection()
+    public void LoadPreviewUsesTheSubmittedLayoutWithoutChangingStagedSelection()
     {
         var (recipe, stagedCore, _) = Recipe(discovered: true);
-        var knowledge = new ResourceSO { name = "Knowledge", quantity = new BigDouble(100) };
+        var weight = new ResourceSO { name = "Spell Power", quantity = new BigDouble(100) };
+        recipe.baseUsageCost.costs.Add(new ResourceTuple(weight, new BigDouble(3)));
         var first = Augment();
         var second = Augment();
         SpellManager.instance!.selectedCoreGlyphs.value.Add(stagedCore);
-        SpellManager.instance.selectedAugmentGlyphs.value.Add(first);
-        SpellManager.instance.CreateCostResolver = glyphs =>
-        {
-            var price = new ResourceCostList();
-            price.costs.Add(new ResourceTuple(
-                knowledge,
-                glyphs.Contains(second) ? new BigDouble(7) : new BigDouble(3)));
-            return price;
-        };
+        SpellManager.instance.selectedAugmentGlyphs.Stack(first, 1);
         using var action = Action(permit: false);
 
-        var firstPreview = action.Preview(new SpellWorkbenchPricePreviewRequest(
+        var firstPreview = action.Preview(new SpellWorkbenchLoadPreviewRequest(
             recipe.GetGuid(), Epoch,
             new[] { new SpellWorkbenchGlyphStack(first.GetGuid(), 1) }));
-        var secondPreview = action.Preview(new SpellWorkbenchPricePreviewRequest(
+        var secondPreview = action.Preview(new SpellWorkbenchLoadPreviewRequest(
             recipe.GetGuid(), Epoch,
             new[] { new SpellWorkbenchGlyphStack(second.GetGuid(), 1) }));
 
         Assert.True(firstPreview.Available, firstPreview.Reason);
         Assert.True(secondPreview.Available, secondPreview.Reason);
-        Assert.Equal(new BigDouble(3), Assert.Single(firstPreview.Costs).Cost);
-        Assert.Equal(new BigDouble(7), Assert.Single(secondPreview.Costs).Cost);
+        Assert.Equal(new BigDouble(3), Assert.Single(firstPreview.Usage).Amount);
+        Assert.Equal(new BigDouble(3), Assert.Single(secondPreview.Usage).Amount);
         Assert.Equal(new[] { stagedCore }, SpellManager.instance.selectedCoreGlyphs.value);
         Assert.Equal(new[] { first }, SpellManager.instance.selectedAugmentGlyphs.value);
+        Assert.Equal(1, SpellManager.instance.selectedAugmentGlyphs.GetStacks(first));
         Assert.Empty(SpellManager.instance.activeSpells.value);
     }
 
@@ -484,79 +516,8 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.Contains("complete spell workbench binding set", layout.Reason);
     }
 
-    [Fact]
-    public void PricePreviewNamesTheShortResourceAndRefusesASelectionThatDoesNotResolve()
-    {
-        var (recipe, _, _) = Recipe(discovered: true);
-        var knowledge = new ResourceSO { name = "Knowledge", quantity = new BigDouble(2) };
-        var augment = Augment();
-        var price = new ResourceCostList();
-        price.costs.Add(new ResourceTuple(knowledge, new BigDouble(3)));
-        SpellManager.instance!.CreateCostResolver = _ => price;
-        using var action = Action(permit: false);
 
-        var unaffordable = action.Preview(new SpellWorkbenchPricePreviewRequest(
-            recipe.GetGuid(), Epoch,
-            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 1) }));
-        SpellManager.instance.SuppressSelectionResolution = true;
-        var unresolved = action.Preview(new SpellWorkbenchPricePreviewRequest(
-            recipe.GetGuid(), Epoch,
-            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 1) }));
 
-        Assert.True(unaffordable.Available, unaffordable.Reason);
-        Assert.False(unaffordable.Affordable);
-        Assert.Equal(knowledge.GetGuid(), unaffordable.ShortResourceId);
-        Assert.Equal(SpellWorkbenchPreflight.RecipeNotOffered, unresolved.Preflight);
-        Assert.Contains("resolves to no spell at all", unresolved.Reason);
-        Assert.Equal(0, price.PerformCalls);
-    }
-
-    [Fact]
-    public void LoadoutAddRevalidatesThatTheExactSubmittedLayoutStillResolves()
-    {
-        var (recipe, _, _) = Recipe(discovered: true);
-        var payment = new ResourceCostList();
-        SpellManager.instance!.CreateCostOverride = payment;
-        SpellManager.instance.SuppressSelectionResolution = true;
-        using var action = Action();
-
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout,
-            recipe.GetGuid(),
-            Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
-            Array.Empty<SpellWorkbenchGlyphStack>()));
-
-        Assert.Equal(SpellWorkbenchPreflight.RecipeNotOffered, result.Preflight);
-        Assert.Equal(0, payment.PerformCalls);
-        Assert.Empty(SpellManager.instance.activeSpells.value);
-    }
-
-    [Fact]
-    public void PortableCreationCostCombinerDependsOnTheSubmittedGlyphs()
-    {
-        var resource = new ResourceSO();
-        var starting = new ResourceCostList();
-        starting.costs.Add(new ResourceTuple(resource, new BigDouble(10)));
-        var free = new GlyphSO
-        {
-            creationCostMod = new ValueModifier(
-                ValueModifier.ValueModifierType.Raw,
-                BigDouble.Zero),
-        };
-        var expensive = new GlyphSO
-        {
-            creationCostMod = new ValueModifier(
-                ValueModifier.ValueModifierType.Raw,
-                new BigDouble(5)),
-        };
-
-        var freePrice = GlyphSO.GetCreationCostOfList(starting, new[] { free });
-        var expensivePrice = GlyphSO.GetCreationCostOfList(starting, new[] { expensive });
-
-        Assert.Equal(new BigDouble(10), Assert.Single(freePrice.costs).GetValue());
-        Assert.Equal(new BigDouble(15), Assert.Single(expensivePrice.costs).GetValue());
-    }
 
     [Theory]
     [InlineData(false, true, (int)SpellWorkbenchPreflight.DiscoveryUnavailable)]
@@ -592,145 +553,52 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     }
 
     /// <summary>
-    /// A staged core the game's own list refuses to take is named as the suite's staging failure,
-    /// not as a layout the caller got wrong.
+    /// A staging write that returns without landing is named as the suite's own failure, before
+    /// anything is created.
     /// </summary>
     /// <remarks>
-    /// An authored-immutable list returns from every write without saying so, so the layout the
-    /// second admission then re-reads is empty and resolves to nothing. That produced a refusal
-    /// telling the caller its glyphs did not resolve, on a call whose glyphs were never in doubt.
+    /// The stack write the load stages with can return normally and write nothing. Without the
+    /// read-back, the next thing that happens is a spell created with augments nobody asked for
+    /// and a postcondition failure blaming the game for it.
     /// </remarks>
     [Fact]
     public void LoadoutAddNamesItsOwnStagingFailureWhenTheGameSilentlyRefusesTheWrite()
     {
-        var (recipe, first, second) = Recipe(discovered: true);
-        var payment = new ResourceCostList();
-        SpellManager.instance!.CreateCostOverride = payment;
-        SpellManager.instance.selectedCoreGlyphs.isStatic = true;
-        using var action = Action();
-
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
-
-        Assert.Equal(SpellWorkbenchPreflight.StagedWriteFailed, result.Preflight);
-        Assert.Equal(
-            "Staging this spell's core into the game's Spellcraft selection did not land: " +
-            Name(first) + ", " + Name(second) + " was written and no glyphs came back.",
-            result.Reason);
-        Assert.Equal(0, payment.PerformCalls);
-        Assert.Empty(SpellManager.instance.activeSpells.value);
-    }
-
-    /// <summary>A staged core the game truncates is refused with both counts named.</summary>
-    [Fact]
-    public void LoadoutAddNamesWhatItWroteAndWhatCameBackWhenTheStagedCoreIsShort()
-    {
-        var (recipe, first, second) = Recipe(discovered: true);
-        var payment = new ResourceCostList();
-        SpellManager.instance!.CreateCostOverride = payment;
-        SpellManager.instance.selectedCoreGlyphs.isFilled = true;
-        SpellManager.instance.selectedCoreGlyphs.maxSizeVariable = new IntVariable { Value = 1 };
-        using var action = Action();
-
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
-
-        Assert.Equal(SpellWorkbenchPreflight.StagedWriteFailed, result.Preflight);
-        Assert.Equal(
-            "Staging this spell's core into the game's Spellcraft selection did not land: " +
-            Name(first) + ", " + Name(second) + " was written and " + Name(first) + " came back.",
-            result.Reason);
-        Assert.Equal(0, payment.PerformCalls);
-    }
-
-    /// <summary>
-    /// A layout the game hands to another spell says which spell, rather than claiming it resolves
-    /// to nothing.
-    /// </summary>
-    /// <remarks>
-    /// The matcher keeps every recipe whose core is the same length and then filters by membership,
-    /// so a core of two of the same glyph is a candidate for a two-glyph recipe holding that glyph
-    /// and one other. The registry order decides, and the caller can do nothing about it — which is
-    /// exactly why the old sentence, which named neither spell, bought a retry loop.
-    /// </remarks>
-    [Fact]
-    public void LoadoutAddNamesTheSpellALayoutActuallyResolvesTo()
-    {
-        var (target, first, second) = Recipe(discovered: true);
-        target.coreRecipe.Clear();
-        target.coreRecipe.Add(first);
-        target.coreRecipe.Add(first);
-        var rival = new SpellRecipeSO { discovered = true };
-        rival.coreRecipe.Add(first);
-        rival.coreRecipe.Add(second);
-        SpellRecipeSO.All.Add(rival);
-        SpellManager.instance!.availableSpellRecipes.value.Insert(0, rival);
-        var payment = new ResourceCostList();
-        SpellManager.instance.CreateCostOverride = payment;
-        using var action = Action();
-
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, target.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
-
-        Assert.Equal(SpellWorkbenchPreflight.LayoutResolvedElsewhere, result.Preflight);
-        Assert.Equal(
-            "This glyph layout resolves to " + Name(rival) + ", not " + Name(target) +
-            ": the game matches a layout by core-glyph count and membership and takes the first " +
-            "recipe that fits, so this layout cannot reach the requested spell.",
-            result.Reason);
-        Assert.Equal(0, payment.PerformCalls);
-        Assert.Empty(SpellManager.instance.activeSpells.value);
-    }
-
-    /// <summary>
-    /// A recipe the game does not offer to layout matching says so, instead of blaming the layout.
-    /// </summary>
-    /// <remarks>
-    /// The suite resolves the requested recipe out of the whole registry and the game resolves a
-    /// layout against the recipes it currently offers — two different sets. A recipe in one and not
-    /// the other is unreachable by any layout, and no sentence on the wire used to say that.
-    /// </remarks>
-    [Fact]
-    public void LoadoutAddNamesTheCraftableRegistryGapRatherThanTheLayout()
-    {
         var (recipe, _, _) = Recipe(discovered: true);
-        SpellManager.instance!.availableSpellRecipes.value.Remove(recipe);
-        var payment = new ResourceCostList();
-        SpellManager.instance.CreateCostOverride = payment;
+        var augment = Augment(maximum: 2);
+        SpellManager.instance!.selectedAugmentGlyphs.SuppressSetStack = true;
         using var action = Action();
 
         var result = action.Submit(new SpellWorkbenchAction(
             SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
+            Array.Empty<SpellWorkbenchGlyphStack>(),
+            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
 
-        Assert.Equal(SpellWorkbenchPreflight.RecipeNotOffered, result.Preflight);
+        Assert.Equal(SpellWorkbenchPreflight.StagedWriteFailed, result.Preflight);
         Assert.Equal(
-            "This glyph layout resolves to no spell at all: the game matches layouts against the " +
-            "recipes it currently offers, and " + Name(recipe) + " is not among them.",
+            "Staging the chosen augments into the game's augment selection did not land: 2x " +
+            Name(augment) + " was written and no glyphs came back.",
             result.Reason);
-        Assert.Equal(0, payment.PerformCalls);
+        Assert.Empty(SpellManager.instance.activeSpells.value);
     }
 
+
+
+
     /// <summary>
-    /// An augment stack the game will not expose is refused before payment, not after it.
+    /// An augment stack the game will not expose is refused before anything is created.
     /// </summary>
     /// <remarks>
-    /// A created spell is baked from the augment stack, and the plain list write never touches it.
-    /// Staging with that write and not reading it back therefore had one worst case: pay the
-    /// creation price, create a spell carrying none of the augments that were paid for, and fail
-    /// the suite's own postcondition afterwards. Nothing is spent here.
+    /// A loaded spell is baked from the augment stack, and the plain list write never touches it.
+    /// Staging with that write and not reading it back had one worst case: create a spell carrying
+    /// none of the augments that were asked for and fail the suite's own postcondition afterwards.
     /// </remarks>
     [Fact]
-    public void LoadoutAddRefusesBeforePayingWhenTheAugmentStackCannotBeStaged()
+    public void LoadoutAddRefusesBeforeLoadingWhenTheAugmentStackCannotBeStaged()
     {
         var (recipe, _, _) = Recipe(discovered: true);
         var augment = Augment(maximum: 2);
-        var payment = new ResourceCostList();
-        SpellManager.instance!.CreateCostOverride = payment;
-        SpellManager.instance.selectedAugmentGlyphs.isStackable = false;
+        SpellManager.instance!.selectedAugmentGlyphs.isStackable = false;
         using var action = Action();
 
         var result = action.Submit(new SpellWorkbenchAction(
@@ -743,27 +611,23 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
             "The live augment selection exposes no stack for the game to bake a spell from, so " +
             "no augment layout can be staged or read back.",
             result.Reason);
-        Assert.Equal(0, payment.PerformCalls);
         Assert.Empty(SpellManager.instance.activeSpells.value);
     }
 
     /// <summary>
-    /// The augments a caller asked for reach the created spell through the stack the game bakes
-    /// from, and the value list beside it carries one entry per distinct glyph as the game does.
+    /// The multiplicity a caller asked for reaches the loaded spell, and the load says so.
     /// </summary>
+    /// <remarks>
+    /// The suite verified its own postcondition against <c>Spell.GetAugmentGlyphs()</c>, which
+    /// hands back one entry per distinct glyph. Every load of two-of-a-glyph therefore reported a
+    /// fault on a spell the game had created exactly as asked — the layout is compared against the
+    /// stack the spell was baked from instead.
+    /// </remarks>
     [Fact]
-    public void LoadoutAddStagesAugmentsIntoTheStackTheCreatedSpellIsBakedFrom()
+    public void LoadoutAddVerifiesRepeatedAugmentsAgainstTheStackTheSpellIsBakedFrom()
     {
         var (recipe, _, _) = Recipe(discovered: true);
         var augment = Augment(maximum: 3);
-        var payment = new ResourceCostList();
-        SpellManager.instance!.CreateCostOverride = payment;
-        var observed = 0;
-        SpellManager.instance.CreateCostResolver = _ =>
-        {
-            observed = SpellManager.instance!.selectedAugmentGlyphs.GetStacks(augment);
-            return payment;
-        };
         using var action = Action();
 
         var result = action.Submit(new SpellWorkbenchAction(
@@ -772,10 +636,39 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
             new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 3) }));
 
         Assert.True(result.Verified, result.Reason);
-        Assert.Equal(3, observed);
         var equipped = Assert.Single(SpellManager.instance!.activeSpells.value);
-        Assert.Equal(new[] { augment, augment, augment }, equipped.GetAugmentGlyphs());
+        Assert.Equal(3, equipped.GetQuantityOfGlyph(augment));
+        Assert.Equal(new[] { augment }, equipped.GetAugmentGlyphs());
         Assert.Empty(SpellManager.instance.selectedAugmentGlyphs.value);
+    }
+
+    /// <summary>
+    /// A spell whose Recipe Book core the workbench cannot hold at once still loads in one call.
+    /// </summary>
+    /// <remarks>
+    /// The workbench holds one core glyph at a time — <c>Max Spell Creation Slots</c> is authored
+    /// at one — and the suite used to stage the recipe's whole authored core into it before
+    /// pressing the row. The list truncated silently and every two- and three-book spell refused,
+    /// which is 50 of the game's 65 recipes. The row reads no core at all.
+    /// </remarks>
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void LoadoutAddLoadsSpellsWhoseCoreTheWorkbenchCannotHoldAtOnce(int coreGlyphs)
+    {
+        var (recipe, first, second) = Recipe(discovered: true);
+        if (coreGlyphs == 3) recipe.coreRecipe.Add(second);
+        SpellManager.instance!.selectedCoreGlyphs.maxSizeVariable = new IntVariable { Value = 1 };
+        SpellManager.instance.selectedCoreGlyphs.value.Add(first);
+        using var action = Action();
+
+        var result = action.Submit(new SpellWorkbenchAction(
+            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
+            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(coreGlyphs, recipe.coreRecipe.Count);
+        Assert.Single(SpellManager.instance.activeSpells.value);
     }
 
     [Fact]

@@ -28,14 +28,21 @@ internal static class GameMcpSpellWorkbenchProjection
         }.Freeze();
     }
 
-    internal static GameMcpValue ProjectPricePreview(
-        in SpellWorkbenchPricePreview preview)
+    /// <summary>What loading this spell with this layout would hold, or why it will not load.</summary>
+    /// <remarks>
+    /// There is no creation price, so there is nothing to be short of and no <c>affordable</c> to
+    /// answer: an available preview means the game's own Loadout row is pressable for exactly
+    /// these arguments. What it carries instead is the one budget a load is weighed against — the
+    /// usage allocation the loaded spell holds.
+    /// </remarks>
+    internal static GameMcpValue ProjectLoadPreview(
+        in SpellWorkbenchLoadPreview preview)
     {
         if (!preview.Available)
         {
             return new JObject
             {
-                ["status"] = "unavailable",
+                ["status"] = "refused",
                 ["reasonCode"] = GameMcpActionResultCodeNames.Name(
                     SpellWorkbenchActionResultMapper.Code(preview.Preflight),
                     GameMcpCommandKind.SpellWorkbench),
@@ -43,34 +50,18 @@ internal static class GameMcpSpellWorkbenchProjection
             }.Freeze();
         }
 
-        var costs = new JArray();
-        for (var index = 0; index < preview.Costs.Length; index++)
+        var usage = new JArray();
+        for (var index = 0; index < preview.Usage.Length; index++)
         {
-            var cost = preview.Costs[index];
-            costs.Add(new JObject
+            var row = preview.Usage[index];
+            usage.Add(new JObject
             {
-                ["resourceId"] = cost.ResourceId,
-                ["cost"] = new GameMcpDomainValue(cost.Cost),
+                ["resourceId"] = row.ResourceId,
+                ["amount"] = new GameMcpDomainValue(row.Amount),
             });
         }
-        // What the live layout resolves to is the answer's first fact, because it is the one the
-        // price cannot carry. The recipe uuid is the caller's own argument read back; the spell the
-        // game reads out of the staged glyphs is a live fact, and it is what an add will act on.
-        var result = new JObject
-        {
-            ["status"] = "available",
-            ["resolvesTo"] = preview.ResolvedRecipeId,
-            ["costs"] = costs,
-        };
-
-        // `affordable` answers whether a price can be paid, so a layout with no price does not
-        // carry it. An empty augment layout prices an empty cost list, and the bare `affordable:
-        // yes` that produced read as "this add will work" on a call that then refused.
-        if (preview.Costs.Length > 0)
-        {
-            result["affordable"] = preview.Affordable;
-            if (!preview.Affordable) result["shortResourceId"] = preview.ShortResourceId;
-        }
+        var result = new JObject { ["status"] = "available" };
+        if (usage.Count > 0) result["usageAllocation"] = usage;
         return result.Freeze();
     }
 

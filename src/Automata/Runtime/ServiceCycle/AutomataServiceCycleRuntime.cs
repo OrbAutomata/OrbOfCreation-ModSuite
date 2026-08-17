@@ -398,15 +398,15 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         }
     }
 
-    public SpellWorkbenchPricePreview PreviewSpellWorkbench(
-        in SpellWorkbenchPricePreviewRequest request)
+    public SpellWorkbenchLoadPreview PreviewSpellWorkbench(
+        in SpellWorkbenchLoadPreviewRequest request)
     {
         if (_disposed)
-            return SpellWorkbenchPricePreview.Refused(
+            return SpellWorkbenchLoadPreview.Refused(
                 SpellWorkbenchPreflight.ContractUnavailable,
                 "The ServiceCycle runtime has been disposed.");
         if (_spellWorkbench is null)
-            return SpellWorkbenchPricePreview.Refused(
+            return SpellWorkbenchLoadPreview.Refused(
                 SpellWorkbenchPreflight.ContractUnavailable,
                 "The shared spell workbench boundary is unavailable.");
         return _spellWorkbench.Preview(in request);

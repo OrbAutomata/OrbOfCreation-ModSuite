@@ -29,11 +29,8 @@ internal enum SpellWorkbenchPreflight
     /// <summary>The suite's own staging write did not land, proved by reading it back.</summary>
     StagedWriteFailed = 22,
 
-    /// <summary>The game matches layouts against a registry this recipe is not in.</summary>
-    RecipeNotOffered = 23,
-
-    /// <summary>The layout is a different spell's, and the game hands it to that one.</summary>
-    LayoutResolvedElsewhere = 24,
+    /// <summary>More different augments than the game's augment selection holds at once.</summary>
+    AugmentSlotsExceeded = 25,
 }
 
 internal enum SpellWorkbenchNativeStage

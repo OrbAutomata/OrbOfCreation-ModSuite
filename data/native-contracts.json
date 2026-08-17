@@ -10918,7 +10918,6 @@
       "parameters": [],
       "owners": [
         "Automata spell leveling",
-        "Automata spell workbench GameAction",
         "Automata owned spell-level cost verification"
       ],
       "usages": [
@@ -21813,27 +21812,6 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field SpellListVariable"}
     },
     {
-      "id": "spell-workbench.manager-get-create-cost-action",
-      "assembly": "assembly-csharp",
-      "type": "SpellManager",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "GetSpellCreateCost",
-      "visibility": "public",
-      "static": false,
-      "returnType": "ResourceCostList",
-      "parameters": [
-        "System.Collections.Generic.List`1<GlyphSO>"
-      ],
-      "owners": [
-        "Automata spell workbench GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
       "id": "spell-workbench.resource-has-amount-action",
       "assembly": "assembly-csharp",
       "type": "ResourceSO",
@@ -22158,6 +22136,25 @@
       "visibility": "public",
       "static": false,
       "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata spell workbench GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-workbench.list-max-action",
+      "assembly": "assembly-csharp",
+      "type": "AbstractListVariable`1",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetMax",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
       "parameters": [],
       "owners": [
         "Automata spell workbench GameAction"
@@ -23018,6 +23015,24 @@
       "parameters": [
         "!0"
       ],
+      "owners": [
+        "Automata spell workbench GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-composition.spell-augment-stack-action",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "augmentGlyphRefs",
+      "visibility": "public",
+      "static": false,
+      "valueType": "Stacked.StackedIdRecord`1<GlyphSO>",
       "owners": [
         "Automata spell workbench GameAction"
       ],

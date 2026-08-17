@@ -17,7 +17,6 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-workbench.manager-selected-augments-action",
         "spell-manager.active-spells",
         "spell-workbench.manager-get-from-recipe",
-        "spell-workbench.manager-get-create-cost-action",
         "spell-workbench.manager-get-usage-cost-action",
         "spell-workbench.manager-discover",
         "spell-workbench.manager-create",
@@ -32,7 +31,6 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-workbench.recipe-is-creatable",
         "spell-workbench.recipe-get-discover-cost-action",
         "resource-cost-list.has-enough",
-        "resource-cost-list.perform-cost",
         "resource-cost-list.get-entries",
         "resource-tuple.get-value",
         "resource-tuple.resource-concept",
@@ -60,6 +58,8 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-composition.stacked-record-set-action",
         "spell-composition.stacked-record-quantity-action",
         "spell-composition.stacked-record-items-action",
+        "spell-composition.spell-augment-stack-action",
+        "spell-workbench.list-max-action",
         "discovery-tree-offer.guid-container-value",
     };
 
@@ -70,7 +70,7 @@ internal sealed class SpellWorkbenchNativeBindings
         Func<object, IList> recipeGlyphs, Func<object, bool> discovered,
         Func<object, bool> canDiscover, Func<object, bool> creatable,
         Func<object, object> discoverCost,
-        Func<object, bool> hasEnough, Action<object> performCost,
+        Func<object, bool> hasEnough,
         Func<object, IList> costEntries, Func<object, BigDouble> costValue,
         Func<object, object?> costResource, Func<object, BigDouble, bool> resourceHasAmount,
         Func<IList> createGlyphList, Func<object, bool> glyphAvailable,
@@ -79,14 +79,15 @@ internal sealed class SpellWorkbenchNativeBindings
         Action<object> empty,
         Action<object, object> add, Action<object, IList> setListValue,
         Action<object, object> setListStack, Func<object, object?> readListStack,
-        Func<object, bool> hasEmpty,
-        Func<object, object, object?> resolveRecipe, Func<object, object, object> creationCost,
+        Func<object, int> listMax, Func<object, bool> hasEmpty,
+        Func<object, object, object?> resolveRecipe,
         Func<object, object> usageCost,
         Action<object> discover,
         Action<object, object> create, Func<object, int, object> createEmpty,
         Func<object, int> selectedLevel, Func<object, bool> usageRequirements,
         Action<object, int> setLevel, Action<object, object> setAugments,
         Func<object, bool> unique, Func<object, IList> spellAugments,
+        Func<object, object?> spellAugmentStack,
         Func<IList, object, bool> meetsNonLevelRequirements,
         Func<object> createStackedRecord, Action<object, object, int> setStackedRecord,
         Func<object, object, int> readStackedQuantity, Func<object, IList> readStackedItems,
@@ -110,7 +111,6 @@ internal sealed class SpellWorkbenchNativeBindings
         IsCreatable = creatable;
         GetDiscoverCost = discoverCost;
         HasEnough = hasEnough;
-        PerformCost = performCost;
         ReadCostEntries = costEntries;
         ReadCostValue = costValue;
         ReadCostResource = costResource;
@@ -125,9 +125,9 @@ internal sealed class SpellWorkbenchNativeBindings
         SetListValue = setListValue;
         SetListStack = setListStack;
         ReadListStack = readListStack;
+        GetListMax = listMax;
         HasEmpty = hasEmpty;
         ResolveRecipe = resolveRecipe;
-        GetCreationCost = creationCost;
         GetUsageCost = usageCost;
         Discover = discover;
         Create = create;
@@ -138,6 +138,7 @@ internal sealed class SpellWorkbenchNativeBindings
         SetSpellAugments = setAugments;
         IsUniqueSpell = unique;
         ReadSpellAugments = spellAugments;
+        ReadSpellAugmentStack = spellAugmentStack;
         MeetsNonLevelRequirements = meetsNonLevelRequirements;
         CreateStackedRecord = createStackedRecord;
         SetStackedRecord = setStackedRecord;
@@ -165,7 +166,6 @@ internal sealed class SpellWorkbenchNativeBindings
     internal Func<object, bool> IsCreatable { get; }
     internal Func<object, object> GetDiscoverCost { get; }
     internal Func<object, bool> HasEnough { get; }
-    internal Action<object> PerformCost { get; }
     internal Func<object, IList> ReadCostEntries { get; }
     internal Func<object, BigDouble> ReadCostValue { get; }
     internal Func<object, object?> ReadCostResource { get; }
@@ -196,9 +196,14 @@ internal sealed class SpellWorkbenchNativeBindings
     /// in which case the game bakes no augments at all from it.
     /// </summary>
     internal Func<object, object?> ReadListStack { get; }
+
+    /// <summary>
+    /// How many different items the list holds at once — the augment selection's own ceiling,
+    /// <c>Max Spell Augment Slots</c>, or <c>int.MaxValue</c> on a list the author left unbounded.
+    /// </summary>
+    internal Func<object, int> GetListMax { get; }
     internal Func<object, bool> HasEmpty { get; }
     internal Func<object, object, object?> ResolveRecipe { get; }
-    internal Func<object, object, object> GetCreationCost { get; }
     internal Func<object, object> GetUsageCost { get; }
     internal Action<object> Discover { get; }
     internal Action<object, object> Create { get; }
@@ -209,6 +214,13 @@ internal sealed class SpellWorkbenchNativeBindings
     internal Action<object, object> SetSpellAugments { get; }
     internal Func<object, bool> IsUniqueSpell { get; }
     internal Func<object, IList> ReadSpellAugments { get; }
+
+    /// <summary>
+    /// The multiplicity record a loaded spell was baked from. <see cref="ReadSpellAugments"/>
+    /// projects it to distinct items and loses the counts, so only this can answer whether a spell
+    /// carries two of a glyph or one.
+    /// </summary>
+    internal Func<object, object?> ReadSpellAugmentStack { get; }
     internal Func<IList, object, bool> MeetsNonLevelRequirements { get; }
     internal Func<object> CreateStackedRecord { get; }
     internal Action<object, object, int> SetStackedRecord { get; }
@@ -269,7 +281,6 @@ internal sealed class SpellWorkbenchNativeBindings
             var selectedLevel = Method(recipeType, "GetSelectedSpellLevel", typeof(int));
             var usageRequirements = Method(recipeType, "HasMetUsageRequirements", typeof(bool));
             var enough = Method(costType, "HasEnough", typeof(bool));
-            var performCost = Method(costType, "PerformCost", typeof(void));
             var costEntries = Method(costType, "GetEntries", costTupleList);
             var costValue = Method(costTupleType, "GetValue", bigDoubleType);
             var costResource = Field(costTupleType, "resource", resourceType, false);
@@ -285,9 +296,9 @@ internal sealed class SpellWorkbenchNativeBindings
             var setListValue = HierarchyMethod(glyphListType, "SetValue", typeof(void), glyphList);
             var setListStack = HierarchyMethod(glyphListType, "SetStack", typeof(void), stackedType);
             var readListStack = HierarchyMethod(glyphListType, "GetStackedRecord", stackedType);
+            var listMax = HierarchyMethod(glyphListType, "GetMax", typeof(int));
             var hasEmpty = HierarchyMethod(spellListType, "HasEmptySpot", typeof(bool));
             var resolve = Method(managerType, "GetSpellFromRecipe", recipeType, glyphList);
-            var creationCost = Method(managerType, "GetSpellCreateCost", costType, glyphList);
             var usageCost = StaticMethod(managerType, "GetUsageCostOfSpell", costType, spellType);
             var discover = Method(managerType, "DiscoverSpell", typeof(void));
             var create = Method(managerType, "CreateRecipe", typeof(void), recipeType);
@@ -295,6 +306,7 @@ internal sealed class SpellWorkbenchNativeBindings
             var setAugments = Method(spellType, "SetAugmentGlyphs", typeof(void), stackedType);
             var unique = Method(spellType, "IsUniqueSpell", typeof(bool));
             var spellAugments = Method(spellType, "GetAugmentGlyphs", glyphList);
+            var spellAugmentStack = Field(spellType, "augmentGlyphRefs", stackedType, false);
             var meetsNonLevel = StaticMethod(
                 glyphType, "MeetsNonLvRequirements", typeof(bool), glyphList, spellType);
             var stackedConstructor = stackedType.GetConstructor(Type.EmptyTypes) ??
@@ -312,7 +324,7 @@ internal sealed class SpellWorkbenchNativeBindings
                 ListField(listValue), ListField(activeValue), InstanceFunc<Guid>(identity),
                 InstanceList(recipeGlyphs), InstanceFunc<bool>(discovered),
                 InstanceFunc<bool>(canDiscover), InstanceFunc<bool>(creatable),
-                InstanceObject(discoverCost), InstanceFunc<bool>(enough), InstanceAction(performCost),
+                InstanceObject(discoverCost), InstanceFunc<bool>(enough),
                 InstanceList(costEntries), InstanceFunc<BigDouble>(costValue),
                 ObjectNullableField(costResource), InstanceValueFunc<BigDouble, bool>(hasResourceAmount),
                 NewList(glyphList),
@@ -321,13 +333,15 @@ internal sealed class SpellWorkbenchNativeBindings
                 InstanceFunc<int>(glyphMaximumUsages),
                 InstanceAction(empty), InstanceObjectAction(add),
                 InstanceListAction(setListValue), InstanceObjectAction(setListStack),
-                InstanceNullableObject(readListStack), InstanceFunc<bool>(hasEmpty),
-                InstanceObjectObject(resolve), InstanceObjectObjectRequired(creationCost),
+                InstanceNullableObject(readListStack), InstanceFunc<int>(listMax),
+                InstanceFunc<bool>(hasEmpty),
+                InstanceObjectObject(resolve),
                 StaticObjectObject(usageCost), InstanceAction(discover), InstanceObjectAction(create),
                 InstanceIntObject(createEmpty), InstanceFunc<int>(selectedLevel),
                 InstanceFunc<bool>(usageRequirements), InstanceIntAction(setLevel),
                 InstanceObjectAction(setAugments), InstanceFunc<bool>(unique),
-                InstanceList(spellAugments), StaticListObjectBoolean(meetsNonLevel),
+                InstanceList(spellAugments), ObjectNullableField(spellAugmentStack),
+                StaticListObjectBoolean(meetsNonLevel),
                 NewObject(stackedConstructor), InstanceObjectIntAction(setStacked),
                 InstanceObjectFunc<int>(stackedQuantity), InstanceList(stackedItems),
                 InstanceNullableObject(spellReference), ObjectNullableField(spellGuid),
@@ -548,16 +562,6 @@ internal sealed class SpellWorkbenchNativeBindings
         return Expression.Lambda<Func<object, object, object?>>(
             Expression.Convert(Expression.Call(Expression.Convert(target, method.DeclaringType!), method,
                 Expression.Convert(value, method.GetParameters()[0].ParameterType)), typeof(object)), target, value).Compile();
-    }
-
-    private static Func<object, object, object> InstanceObjectObjectRequired(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var value = Expression.Parameter(typeof(object), "value");
-        return Expression.Lambda<Func<object, object, object>>(
-            Expression.Convert(Expression.Call(Expression.Convert(target, method.DeclaringType!), method,
-                Expression.Convert(value, method.GetParameters()[0].ParameterType)), typeof(object)),
-            target, value).Compile();
     }
 
     private static Action<object, object, int> InstanceObjectIntAction(MethodInfo method)

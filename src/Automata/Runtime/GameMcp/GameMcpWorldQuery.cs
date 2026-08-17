@@ -3348,7 +3348,7 @@ internal static class GameMcpWorldQuery
                 if (!slot.Occupied || slot.SpellRecipeId != command.TargetId) continue;
                 if (before is not null && ContainsSpellInstance(
                         before.SpellSlots, slot.SpellInstanceId)) continue;
-                return new JObject
+                var loaded = new JObject
                 {
                     ["uuid"] = command.TargetId.ToString("D"),
                     ["slot"] = new JObject
@@ -3356,16 +3356,23 @@ internal static class GameMcpWorldQuery
                         ["before"] = null,
                         ["after"] = GameMcpSlotNumbering.Wire(slot.SlotIndex),
                     },
-                    ["loadBudget"] = new JObject
+                };
+                // What the load actually made. A caller passing an augment layout could read back
+                // only the slot number, so the one thing it had asked for — this many of this
+                // augment on this spell — was the one thing the answer would not confirm.
+                var augments = new JArray();
+                for (var augment = 0; augment < slot.AugmentGlyphs.Count; augment++)
+                    augments.Add(new JObject
                     {
-                        ["used"] = new JObject
-                        {
-                            ["before"] = before?.SpellWorkbench.EquippedCount,
-                            ["after"] = after.SpellWorkbench.EquippedCount,
-                        },
-                        ["maximum"] = after.SpellWorkbench.MaximumEquipped,
-                    },
-                }.Freeze();
+                        ["glyphId"] = slot.AugmentGlyphs[augment].GlyphId.ToString("D"),
+                        ["count"] = slot.AugmentGlyphs[augment].Quantity,
+                    });
+                if (augments.Count > 0) loaded["augments"] = augments;
+                // Both budgets a load is weighed against, settled — the same pair a removal
+                // answers with. The usage allocation is re-read after the game's own recompute
+                // rather than predicted, because upgrades can move it after the load lands.
+                loaded["loadBudget"] = ProjectLoadedBudget(before, after);
+                return loaded.Freeze();
             }
         }
         else
@@ -3385,8 +3392,7 @@ internal static class GameMcpWorldQuery
                         ["after"] = GameMcpListColumns.Empty,
                     },
                     ["loadBudget"] = ProjectRemovalBudget(before, after),
-                    ["oneWay"] = "The game destroyed this spell; the way back is another add, " +
-                        "which pays the creation price again.",
+                    ["oneWay"] = "The game destroyed this spell; the way back is another add.",
                 }.Freeze();
             if (command.Mode == "move" && hadBefore && hasAfter)
             {
@@ -6052,23 +6058,24 @@ internal static class GameMcpWorldQuery
         var next = new JObject();
         if (recipe.Discovered)
         {
-            var coreUsable = SpellCoreUsable(world, in recipe, out var coreReasonCode);
-            var available = world.SpellWorkbench.HasEmptySlot && coreUsable;
+            // The row's own button is disabled on five facts, and the only one a recipe row can
+            // read ahead of the call is whether the loadout has a spot. The core glyphs used to be
+            // a gate here because the suite staged them; the game's Loadout row reads no core at
+            // all, so a page refusing on them was refusing a press that works.
+            var available = world.SpellWorkbench.HasEmptySlot;
             next["available"] = available;
-            next["requiresGlyphLayout"] = true;
+            next["acceptsAugments"] = true;
             if (!available)
             {
-                next["reasonCode"] = world.SpellWorkbench.HasEmptySlot
-                    ? coreReasonCode
-                    : "loadout_full";
+                next["reasonCode"] = "loadout_full";
             }
             else
             {
-                // Three of the verb's gates read facts no recipe row carries: whether the game
-                // resolves the exact glyphs the caller has not passed yet to this spell, what it
-                // charges for them, and whether the loadout's spell weight covers the candidate. The
-                // page names them as the verb's to decide rather than predicting them, so
-                // `available: yes` says only what it can prove — that nothing readable here refuses.
+                // What is left for the verb to decide reads facts no recipe row carries: whether
+                // the loadout's spell weight covers the candidate spell the chosen augments make,
+                // and whether those augments meet their own duration/toggle requirements and fit
+                // the augment selection's slots. Naming them keeps `available: yes` to what it can
+                // prove — that nothing readable here refuses.
                 //
                 // The unique-spell rule was a fourth until the world published the fact it reads:
                 // every equipped instance of this recipe is on this same row under `equipped`, each
@@ -6076,9 +6083,8 @@ internal static class GameMcpWorldQuery
                 // it here would tell a caller to wait for an answer it already holds. The verb still
                 // re-reads it live before it stages anything, and refuses in exactly the same words.
                 var verbDecides = new JArray();
-                verbDecides.Add("glyph layout resolution");
-                verbDecides.Add("creation price");
                 verbDecides.Add("usage budget");
+                verbDecides.Add("augment requirements");
                 next["verbDecides"] = verbDecides;
             }
 
@@ -6706,6 +6712,29 @@ internal static class GameMcpWorldQuery
         return result;
     }
 
+    /// <summary>What a load settled at, in both budgets it is weighed against.</summary>
+    /// <remarks>
+    /// The usage allocation is the only budget the game gates a load on, and it is settled after
+    /// the fact: the game recomputes spell weight once the spell is in a slot, and an upgrade can
+    /// move it afterwards. So this is a re-read, never a prediction made before the press.
+    /// </remarks>
+    private static JObject ProjectLoadedBudget(GameWorldState? before, GameWorldState after)
+    {
+        var result = new JObject
+        {
+            ["used"] = new JObject
+            {
+                ["before"] = before?.SpellWorkbench.EquippedCount,
+                ["after"] = after.SpellWorkbench.EquippedCount,
+            },
+            ["maximum"] = after.SpellWorkbench.MaximumEquipped,
+            ["fitsAnotherSpell"] = after.SpellWorkbench.HasEmptySlot,
+        };
+        var usage = ProjectFreedUsageBudget(before, after);
+        if (usage.Count > 0) result["usageBudget"] = usage;
+        return result;
+    }
+
     private static JArray ProjectFreedUsageBudget(GameWorldState? before, GameWorldState after)
     {
         var rows = new JArray();
@@ -6997,54 +7026,6 @@ internal static class GameMcpWorldQuery
             world.SpellRecipeAuthoring, recipeId, out var authoring) &&
         authoring.CastType is 1 or 2;
 
-
-    /// <summary>
-    /// Whether this recipe's core glyphs can carry a spell, and when they cannot, which fact stops
-    /// them — restricted to the facts the verb itself refuses on.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// This used to refuse on the core glyph being unowned or at level zero, and there is no such
-    /// gate anywhere in the game's add path: the recipe owns its core, the verb reads it straight
-    /// off the recipe, and the level check the verb does run applies only to the augments a caller
-    /// named. So the page was inventing a rule and then attributing it to the game — a player who
-    /// levelled a core glyph on that advice saw only this predicate flip, and the add refused
-    /// exactly as before, on a fact neither side had mentioned.
-    /// </para>
-    /// <para>
-    /// What is left is the verb's own gate 8, which refuses a recipe with no authored core or one
-    /// whose core holds an augment, plus the suite-side publication gap.
-    /// </para>
-    /// </remarks>
-    private static bool SpellCoreUsable(
-        GameWorldState world,
-        in WorldSpellRecipe recipe,
-        out string reasonCode)
-    {
-        reasonCode = string.Empty;
-        if (recipe.CoreGlyphs.Count == 0)
-        {
-            reasonCode = "recipe_has_no_core_glyph";
-            return false;
-        }
-        for (var index = 0; index < recipe.CoreGlyphs.Count; index++)
-        {
-            if (!WorldLookup.TryFind(
-                    world.Glyphs, recipe.CoreGlyphs[index].GlyphId, out var glyph))
-            {
-                reasonCode = "core_glyph_not_published";
-                return false;
-            }
-            // Same population split as the compose resolver: a recipe's core slot holds one of the
-            // 25 non-discoverable unlockers, and three augments read `augmentsSpells` false.
-            if (glyph.Discoverable)
-            {
-                reasonCode = "core_glyph_augments_only";
-                return false;
-            }
-        }
-        return true;
-    }
 
     internal static JArray ProjectEquippedSpellCosts(
         GameWorldState world,

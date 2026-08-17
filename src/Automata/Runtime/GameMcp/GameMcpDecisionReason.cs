@@ -172,11 +172,6 @@ internal static class GameMcpDecisionReason
         "no_current_offers" or
         "recipe_has_no_core_glyph" or "core_glyph_not_published" or "active_section_empty" or
         "component_unavailable" or "control_unavailable" or "list_unavailable" or
-        // Neither is a caller-argument error and neither is fixable by passing other glyphs: the
-        // game matches a layout against its own craftable registry by core-glyph count and
-        // membership and takes the first recipe that fits, so a recipe missing from that registry
-        // and a recipe an earlier entry outbids are both simply not reachable.
-        "recipe_not_offered" or "layout_resolves_to_other_spell" or
         "selection_unavailable" => ClassNotFound,
 
         // The target exists and is in the wrong state for this verb.
@@ -211,6 +206,7 @@ internal static class GameMcpDecisionReason
         "no_rerolls" or "reroll_unavailable" or "element_capacity_unavailable" or
         "plot_quantity_insufficient" or "resource_or_headroom_insufficient" or
         "usage_budget_unavailable" or "research_leeway_exhausted" or "multi_buy_unavailable" or
+        "augment_slots_exceeded" or
         "engagement_drain_limited" or "screenshot_budget_reached" or
         "destination_full" or
         "slot_unavailable" or "level_cap_reached" or

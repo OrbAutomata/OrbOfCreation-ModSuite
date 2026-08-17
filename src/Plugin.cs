@@ -1650,22 +1650,22 @@ public sealed class Plugin : BaseUnityPlugin
                     glyphs[index] = new SpellWorkbenchGlyphStack(
                         request.UuidCounts[index].Uuid,
                         request.UuidCounts[index].Count);
-                var previewRequest = new SpellWorkbenchPricePreviewRequest(
+                var previewRequest = new SpellWorkbenchLoadPreviewRequest(
                     request.Uuid,
                     _lifecycleGeneration,
                     glyphs);
-                SpellWorkbenchPricePreview preview;
+                SpellWorkbenchLoadPreview preview;
                 if (_serviceCycleActivation is null ||
                     !_serviceCycleActivation.TryPreviewSpellWorkbench(
                         in previewRequest,
                         out preview))
                 {
-                    preview = SpellWorkbenchPricePreview.Refused(
+                    preview = SpellWorkbenchLoadPreview.Refused(
                         SpellWorkbenchPreflight.ContractUnavailable,
                         "The ServiceCycle runtime is not active in this scene.");
                 }
                 execution = GameMcpToolExecution.Read(
-                    GameMcpSpellWorkbenchProjection.ProjectPricePreview(
+                    GameMcpSpellWorkbenchProjection.ProjectLoadPreview(
                         in preview));
                 return true;
             case "game_spell_loadout" when request.Mode == "staged":

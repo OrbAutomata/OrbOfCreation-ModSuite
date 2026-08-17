@@ -122,10 +122,13 @@ public sealed class GameMcpGlyphPopulationTests
     }
 
     /// <summary>
-    /// The two gates that decide what a spell's core slots may hold and what may be spent on it.
-    /// Read off <c>augmentsSpells</c>, they admitted three augments as core glyphs and dropped the
-    /// same three from the options a player already owns.
+    /// The gate that decides what may be spent on a spell, read off the field that decides it.
     /// </summary>
+    /// <remarks>
+    /// Read off <c>augmentsSpells</c>, the augment options dropped three augments a player already
+    /// owns. The core half of this split is gone with the rule it served: the game's Loadout row
+    /// reads no core glyphs at all, so what a recipe's core slot holds cannot refuse a load.
+    /// </remarks>
     [Fact]
     public void The_spell_surfaces_split_the_two_populations_by_the_field_that_splits_them()
     {
@@ -143,18 +146,16 @@ public sealed class GameMcpGlyphPopulationTests
             GameMcpTestHarness.Handle(QuietAugmentId),
             (string?)option["glyph"]!["uuid"]);
 
-        // The same glyph in a core slot is the refusal, in the word that already existed for it.
-        var wrong = GameMcpTestHarness.Context(Recipe(world, recipeId, QuietAugmentId));
-        var refused = GameMcpTestHarness.Detail(wrong, recipeId)["row"]!["loadoutAdd"]!;
+        // The same glyph in a core slot is no refusal at all: the row the player presses passes
+        // the recipe and reads only the augment stack, so nothing about the core reaches the load.
+        var odd = GameMcpTestHarness.Context(Recipe(world, recipeId, QuietAugmentId));
+        var stillOpen = GameMcpTestHarness.Detail(odd, recipeId)["row"]!["loadoutAdd"]!;
 
-        Assert.False((bool)refused["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)refused["reasonCode"]);
-
-        // The options ride the refusal too: the vocabulary a caller needs in order to plan the call
-        // is worth least at the moment the call is already legal.
+        Assert.True((bool)stillOpen["available"]!);
+        Assert.Null(stillOpen["reasonCode"]);
         Assert.Equal(
             GameMcpTestHarness.Handle(QuietAugmentId),
-            (string?)Assert.Single(refused["augmentOptions"]!.Values<JObject>())!["glyph"]!["uuid"]);
+            (string?)Assert.Single(stillOpen["augmentOptions"]!.Values<JObject>())!["glyph"]!["uuid"]);
     }
 
     private static GameWorldState Recipe(GameWorldState world, Guid recipeId, Guid coreGlyphId) =>

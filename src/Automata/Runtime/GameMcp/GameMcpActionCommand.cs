@@ -744,10 +744,8 @@ internal static class GameMcpActionResultCodeNames
                 return "glyph_requirements_unavailable";
             if (code == SpellWorkbenchActionResultCodes.StagedWriteFailed)
                 return "staged_write_failed";
-            if (code == SpellWorkbenchActionResultCodes.RecipeNotOffered)
-                return "recipe_not_offered";
-            if (code == SpellWorkbenchActionResultCodes.LayoutResolvedElsewhere)
-                return "layout_resolves_to_other_spell";
+            if (code == SpellWorkbenchActionResultCodes.AugmentSlotsExceeded)
+                return "augment_slots_exceeded";
         }
         if (commandKind == GameMcpCommandKind.SpellComposition)
         {

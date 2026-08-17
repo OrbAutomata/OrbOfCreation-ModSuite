@@ -824,9 +824,17 @@ public class StackableListVariable<T> : GenericListVariable<T>
     /// </summary>
     public virtual Stacked.StackedIdRecord<T>? GetStackedRecord() => isStackable ? itemStack : null;
 
+    /// <summary>
+    /// Whether the stack write returns without writing anything, the way an authored-immutable or
+    /// otherwise refusing list does — the branch that makes a landed-looking staging call no
+    /// evidence at all that the stack carries what was asked for.
+    /// </summary>
+    public bool SuppressSetStack { get; set; }
+
     /// <summary>Writes the stack and then the value list from it, the way the game does.</summary>
     public virtual void SetStack(Stacked.StackedIdRecord<T> record)
     {
+        if (SuppressSetStack) return;
         itemStack.ImportItems(record.ToList());
         SetValue(itemStack.GetItems());
     }
@@ -2862,13 +2870,12 @@ namespace Stacked
             foreach (var entry in items) Set(entry.item, entry.quantity);
         }
 
-        public List<T> GetItemList()
-        {
-            var result = new List<T>();
-            foreach (var entry in entries)
-                for (var index = 0; index < entry.quantity; index++) result.Add(entry.item);
-            return result;
-        }
+        /// <summary>
+        /// One element per distinct item, with the multiplicities discarded — which is what the
+        /// game's own <c>GetItemList</c> hands back, and therefore all
+        /// <c>Spell.GetAugmentGlyphs()</c> can ever say about a two-of-one-glyph layout.
+        /// </summary>
+        public List<T> GetItemList() => entries.Select(static entry => entry.item).ToList();
 
         public List<(T, int)> GetEntries() =>
             entries.Select(static entry => (entry.item, entry.quantity)).ToList();

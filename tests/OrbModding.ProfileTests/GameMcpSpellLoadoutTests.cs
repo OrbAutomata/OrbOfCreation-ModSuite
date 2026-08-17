@@ -418,8 +418,7 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Equal("8", (string?)usage["maximum"]);
 
         Assert.Equal(
-            "The game destroyed this spell; the way back is another add, which pays the creation " +
-            "price again.",
+            "The game destroyed this spell; the way back is another add.",
             (string?)success["oneWay"]);
     }
 
