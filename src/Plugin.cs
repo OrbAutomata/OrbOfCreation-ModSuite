@@ -1639,10 +1639,7 @@ public sealed class Plugin : BaseUnityPlugin
                 return true;
             case "game_discover" when request.Mode == "preview":
                 execution = GameMcpToolExecution.Read(
-                    GameMcpWorldQuery.ProjectDiscoveryPreview(
-                        context,
-                        request.Key,
-                        request.UuidCounts));
+                    GameMcpWorldQuery.ProjectDiscoveryPreview(context, request.Uuid));
                 return true;
             case "game_spell_loadout" when request.Mode == "preview":
                 var glyphs = new SpellWorkbenchGlyphStack[request.UuidCounts.Length];
@@ -2389,22 +2386,7 @@ public sealed class Plugin : BaseUnityPlugin
         else if (kind == GameMcpCommandKind.SpellWorkbench)
         {
             nativeType = "SpellRecipeSO";
-            if (request.ToolName == "game_discover")
-            {
-                mode = "discover";
-                payloadKey = request.Key;
-                if (context.World is null)
-                    preparationFailure = GameMcpCommandResult.Rejected(
-                        "world_not_published",
-                        context.RuntimeNotAvailableReason);
-                else if (!GameMcpWorldQuery.TryResolveSpellDiscovery(
-                             context.World.Snapshot, request.Key, request.UuidCounts,
-                             out targetId, out var resolutionReason))
-                    preparationFailure = GameMcpCommandResult.Rejected(
-                        "discovery_recipe_unresolved", resolutionReason);
-            }
-            else if (request.ToolName == "game_spell_loadout")
-                mode = "create";
+            mode = "create";
         }
         else if (kind == GameMcpCommandKind.SpellComposition)
         {
@@ -2439,16 +2421,13 @@ public sealed class Plugin : BaseUnityPlugin
             nativeType = "CraftingRecipeSO";
         else if (kind == GameMcpCommandKind.GenericDiscovery)
         {
-            payloadKey = request.Key;
             if (context.World is null)
                 preparationFailure = GameMcpCommandResult.Rejected(
                     "world_not_published",
                     context.RuntimeNotAvailableReason);
-            else if (!GameMcpWorldQuery.TryResolveGenericDiscovery(
+            else if (!GameMcpWorldQuery.TryResolveDiscoveryTarget(
                          context.World.Snapshot,
-                         request.Key,
-                         request.UuidCounts,
-                         out targetId,
+                         request.Uuid,
                          out nativeType,
                          out _,
                          out var resolutionCode,

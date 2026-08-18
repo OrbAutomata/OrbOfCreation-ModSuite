@@ -161,18 +161,17 @@ internal static class GameMcpDecisionReason
         // though the caller's own argument had been malformed.
         "invalid_state_filter" or
         "category_not_searchable" or "run_filter_out_of_scope" or "keyword_not_worn" or
-        "component_count_too_large" or "unsupported_type" or "composition_unsupported" or
+        "unsupported_type" or "composition_unsupported" or
         "wrong_mode" or "wrong_alchemy_surface" or "wrong_level_surface" or
         "wrong_loadout_surface" or "wrong_selection" or "wrong_configuration_surface" or
-        "discovery_recipe_unresolved" or "discovery_recipe_ambiguous" or "ambiguous_offer" or
-        "ambiguous_handle" or "screen_match_failed" or "subtab_match_failed" or
+        "ambiguous_offer" or "ambiguous_handle" or "screen_match_failed" or "subtab_match_failed" or
         "page_relation_ambiguous" or
         // One entity drawn by several elements at once. The caller's uuid is a fine id and the
         // screen is in a fine state; what is unanswerable is which of the buttons showing that
         // entity they meant, which is the same kind of no an ambiguous handle is.
         "ambiguous_element" or
         "level_out_of_range" or "slot_out_of_range" or "destination_out_of_range" or
-        "name_out_of_range" or "discovery_surface_ambiguous" or
+        "name_out_of_range" or
         // A value outside the range its setting accepts is the same kind of no as a dial value
         // outside the range the game allows. It used to answer a different class on each verb,
         // which taught a caller that the class described the tool rather than the failure.
@@ -196,8 +195,7 @@ internal static class GameMcpDecisionReason
         "target_unavailable" or "recipe_unavailable" or "element_unavailable" or
         "tree_unavailable" or "source_unavailable" or "components_unavailable" or
         "no_current_offers" or
-        "recipe_has_no_core_glyph" or "core_glyph_not_published" or "active_section_empty" or
-        "component_unavailable" or "control_unavailable" or "list_unavailable" or
+        "active_section_empty" or "control_unavailable" or "list_unavailable" or
         "selection_unavailable" => ClassNotFound,
 
         // The target exists and is in the wrong state for this verb.
@@ -213,7 +211,7 @@ internal static class GameMcpDecisionReason
         "spell_already_inactive" or "spell_already_casting" or
         "spell_not_ready" or "spell_not_toggleable" or "spell_not_chargeable" or
         "unique_spell_conflict" or "recipe_incomplete" or "slot_occupied" or
-        "composition_changed" or "recipe_identity_changed" or "slot_identity_changed" or
+        "recipe_identity_changed" or "slot_identity_changed" or
         "ownership_changed" or "mastery_limit_changed" or "assignment_unsettled" or
         "challenges_not_fetched" or "world_cycle_incomplete" or "level_locked" or
         "cancellable_spells_disabled" or "service_disabled" or "emergency_stop" or
@@ -249,7 +247,7 @@ internal static class GameMcpDecisionReason
         "requirements_unmet" or "usage_requirements_unmet" or
         "native_prerequisites_currently_unmet" or "develop_range_refused" or
         "native_not_discoverable" or "discovery_unavailable" or
-        "core_glyph_augments_only" or "selection_restricted" or
+        "selection_restricted" or
         "selection_hidden" or "cannot_level" or "resources_hidden" or
         "recipe_not_discovered" or "prerequisites_unmet" or "not_discovered_or_offered" or
         "native_hidden" or "hidden_discovery" or "requirement_unmet" or
@@ -432,7 +430,7 @@ internal static class GameMcpDecisionReason
             "The plot has no room or not enough of what this action consumes.",
         "element_unavailable" => "The game is not offering this element.",
         "tree_unavailable" => "The game is not showing this discovery tree.",
-        "components_unavailable" => "This recipe names no core glyph.",
+        "components_unavailable" => "The game builds this from glyphs, and this one names none.",
         "discovery_unavailable" => "The game does not offer a discovery for this recipe.",
         "native_not_discoverable" => "The game never offers a discovery action for this.",
         "native_discovery_refused" => "The game refuses to discover this right now.",
@@ -457,14 +455,6 @@ internal static class GameMcpDecisionReason
         // Checks that answered yes
         "passed" => "This check passes.",
         "native_verdict_matched" => "The suite's verdict matches the game's own.",
-
-        // Core-glyph vocabulary
-        "recipe_has_no_core_glyph" => "This recipe names no core glyph.",
-        "core_glyph_not_published" => "The game did not report this recipe's core glyph.",
-        // `core_glyph_not_owned` and `core_glyph_not_leveled` were retired with the predicate that
-        // produced them: neither names a gate the game's add path has, and both were being read as
-        // the game's own rule.
-        "core_glyph_augments_only" => "This recipe's core glyph may only be used as an augment.",
 
         _ => Restate(reasonCode),
     };

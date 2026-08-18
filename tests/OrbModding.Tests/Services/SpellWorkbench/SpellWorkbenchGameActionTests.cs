@@ -21,83 +21,6 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         LoadoutScreen();
     }
 
-    [Fact]
-    public void DiscoverUsesTheNativePipelineAndVerifiesTheTargetOutcome()
-    {
-        var (recipe, first, second) = Recipe();
-        using var action = Action();
-
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.Discover, recipe.GetGuid(), Epoch,
-            CoreLayout(first, second), Array.Empty<SpellWorkbenchGlyphStack>()));
-
-        Assert.True(result.Verified);
-        Assert.True(recipe.discovered);
-        Assert.Empty(SpellManager.instance!.selectedCoreGlyphs.value);
-        Assert.Single(SpellManager.instance!.activeSpells.value);
-    }
-
-    [Fact]
-    public void DiscoveryResolvesTheExactSubmittedCoreCompositionBeforePayment()
-    {
-        var (recipe, first, second) = Recipe();
-        using var action = Action();
-
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.Discover,
-            recipe.GetGuid(),
-            Epoch,
-            new[]
-            {
-                new SpellWorkbenchGlyphStack(first.GetGuid(), 1),
-                new SpellWorkbenchGlyphStack(second.GetGuid(), 1),
-            },
-            Array.Empty<SpellWorkbenchGlyphStack>()));
-
-        Assert.True(result.Verified, result.Reason);
-        Assert.True(recipe.discovered);
-    }
-
-    /// <summary>
-    /// A component sequence the game reads as a different recipe is refused before anything is
-    /// staged, and the player's own selection is left where it was.
-    /// </summary>
-    /// <remarks>
-    /// The mismatch is a glyph the recipe's core does not contain rather than a reordering: the
-    /// game matches a core by count and membership, so <c>[second, first]</c> resolves to exactly
-    /// the same recipe as <c>[first, second]</c> and is no mismatch at all.
-    /// </remarks>
-    [Fact]
-    public void DiscoveryMismatchRefusesWithoutDirtyingTheExistingUiSelection()
-    {
-        var (recipe, first, _) = Recipe();
-        var stranger = new GlyphSO
-        {
-            DisplayName = "Ember",
-            NativeAvailable = true,
-            maxUsages = new ValueModifierRecord(new BigDouble(4)),
-            level = 1,
-        };
-        IdScriptableObject.RuntimeLookup[stranger.GetGuid()] = stranger;
-        SpellManager.instance!.selectedCoreGlyphs.value.Add(first);
-        using var action = Action();
-
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.Discover,
-            recipe.GetGuid(),
-            Epoch,
-            new[]
-            {
-                new SpellWorkbenchGlyphStack(first.GetGuid(), 1),
-                new SpellWorkbenchGlyphStack(stranger.GetGuid(), 1),
-            },
-            Array.Empty<SpellWorkbenchGlyphStack>()));
-
-        Assert.Equal(SpellWorkbenchPreflight.WrongSelection, result.Preflight);
-        Assert.Equal(new[] { first }, SpellManager.instance.selectedCoreGlyphs.value);
-        Assert.False(recipe.discovered);
-    }
-
     /// <summary>
     /// Loading a spell writes only the augment stack, charges nothing, and hands the player's own
     /// staging back.
@@ -121,10 +44,8 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         using var action = Action();
 
         var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout,
             recipe.GetGuid(),
             Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
             new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
 
         Assert.True(result.Verified, result.Reason);
@@ -144,9 +65,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         using var action = Action();
 
         var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout,
             recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
             new[]
             {
                 new SpellWorkbenchGlyphStack(augment.GetGuid(), 2),
@@ -181,19 +100,13 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         using var action = Action();
 
         var glyphResult = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout,
             recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
             new[] { new SpellWorkbenchGlyphStack(duration.GetGuid(), 1) }));
         var augmentedResult = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout,
             recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
             new[] { new SpellWorkbenchGlyphStack(plain.GetGuid(), 1) }));
         var bareResult = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout,
             recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
             Array.Empty<SpellWorkbenchGlyphStack>()));
 
         Assert.Equal(SpellWorkbenchPreflight.GlyphRequirementsUnavailable, glyphResult.Preflight);
@@ -217,15 +130,11 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         recipe.baseUsageCost.costs.Add(new ResourceTuple(usageResource, BigDouble.One));
         using var action = Action();
 
-        var budget = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
+        var budget = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
         recipe.baseUsageCost = new ResourceCostList();
         recipe.NativeUniqueSpell = true;
         SpellManager.instance!.activeSpells.value.Add(recipe.CreateEmpty(0));
-        var unique = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
+        var unique = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
         Assert.Equal(SpellWorkbenchPreflight.UsageUnaffordable, budget.Preflight);
         Assert.Equal(SpellWorkbenchPreflight.UniqueSpellConflict, unique.Preflight);
@@ -249,9 +158,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var second = Augment();
         using var action = Action();
 
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
+        var result = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch,
             new[]
             {
                 new SpellWorkbenchGlyphStack(first.GetGuid(), 1),
@@ -281,18 +188,14 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
 
         var budgetPreview = action.Preview(new SpellWorkbenchLoadPreviewRequest(
             recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
-        var budgetAdd = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
+        var budgetAdd = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
         recipe.baseUsageCost = new ResourceCostList();
         recipe.NativeUniqueSpell = true;
         SpellManager.instance!.activeSpells.value.Add(recipe.CreateEmpty(0));
         var uniquePreview = action.Preview(new SpellWorkbenchLoadPreviewRequest(
             recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
-        var uniqueAdd = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
+        var uniqueAdd = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
         Assert.False(budgetPreview.Available);
         Assert.Equal(budgetAdd.Preflight, budgetPreview.Preflight);
@@ -333,28 +236,12 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         SpellManager.instance.selectedAugmentGlyphs.Stack(stagedAugment, 1);
         using var action = Action();
 
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
+        var result = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
         Assert.Equal(SpellWorkbenchPreflight.VerificationFailed, result.Preflight);
         Assert.Empty(SpellManager.instance.activeSpells.value);
         Assert.Equal(new[] { stagedCore }, SpellManager.instance.selectedCoreGlyphs.value);
         Assert.Equal(new[] { stagedAugment }, SpellManager.instance.selectedAugmentGlyphs.value);
-    }
-
-    [Fact]
-    public void DiscoveryThrowAfterOutcomeStillCommitsWithoutQuarantine()
-    {
-        var (recipe, first, second) = Recipe();
-        using var action = Action();
-        SpellManager.instance!.ThrowAfterDiscovery = true;
-
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.Discover, recipe.GetGuid(), Epoch,
-            CoreLayout(first, second), Array.Empty<SpellWorkbenchGlyphStack>()));
-
-        Assert.True(result.Verified);
     }
 
     [Fact]
@@ -367,55 +254,16 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         using var action = Action();
 
         var refused = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout,
             recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
             new[] { new SpellWorkbenchGlyphStack(unowned.GetGuid(), 1) }));
         var committed = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout,
             recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
             new[] { new SpellWorkbenchGlyphStack(owned.GetGuid(), 1) }));
 
         Assert.Equal(SpellWorkbenchPreflight.SelectionUnavailable, refused.Preflight);
         Assert.Contains("not owned", refused.Reason);
         Assert.True(committed.Verified, committed.Reason);
         Assert.Single(SpellManager.instance!.activeSpells.value);
-    }
-
-    [Fact]
-    public void RequestedDiscoveryComponentsRequireOwnershipButDiscoveredRecipeCoresAreBaked()
-    {
-        var (undiscovered, first, second) = Recipe();
-        first.level = 0;
-        using var discoveryAction = Action();
-
-        var discovery = discoveryAction.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.Discover,
-            undiscovered.GetGuid(),
-            Epoch,
-            CoreLayout(first, second),
-            Array.Empty<SpellWorkbenchGlyphStack>()));
-
-        discoveryAction.Dispose();
-        SpellRecipeSO.All.Clear();
-        SpellManager.instance = new SpellManager();
-        IdScriptableObject.RuntimeLookup.Clear();
-        LoadoutScreen();
-        var (discovered, core, _) = Recipe(discovered: true);
-        core.level = 0;
-        using var loadoutAction = Action();
-        var loadout = loadoutAction.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout,
-            discovered.GetGuid(),
-            Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
-            Array.Empty<SpellWorkbenchGlyphStack>()));
-
-        Assert.Equal(SpellWorkbenchPreflight.SelectionUnavailable, discovery.Preflight);
-        Assert.Contains("not owned", discovery.Reason);
-        Assert.True(loadout.Verified, loadout.Reason);
-        Assert.Single(SpellManager.instance.activeSpells.value);
     }
 
     /// <summary>
@@ -441,10 +289,8 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         using var action = Action();
 
         var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout,
             recipe.GetGuid(),
             Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
             new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 1) }));
 
         Assert.True(result.Verified, result.Reason);
@@ -522,37 +368,17 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
 
 
 
-    [Theory]
-    [InlineData(false, true, (int)SpellWorkbenchPreflight.DiscoveryUnavailable)]
-    [InlineData(true, false, (int)SpellWorkbenchPreflight.RecipeUnavailable)]
-    public void DiscoveryRevalidatesNativePrerequisitesBeforeMutation(
-        bool canDiscover, bool creatable, int expected)
-    {
-        var (recipe, first, second) = Recipe();
-        recipe.NativeCanDiscover = canDiscover;
-        recipe.NativeIsCreatable = creatable;
-        using var action = Action();
-
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.Discover, recipe.GetGuid(), Epoch,
-            CoreLayout(first, second), Array.Empty<SpellWorkbenchGlyphStack>()));
-
-        Assert.Equal((SpellWorkbenchPreflight)expected, result.Preflight);
-        Assert.False(recipe.discovered);
-    }
-
     [Fact]
     public void OffThreadSubmissionRefusesBeforeNativeExecution()
     {
-        var (recipe, first, second) = Recipe();
+        var (recipe, _, _) = Recipe(discovered: true);
         using var action = Action();
 
         var result = ForeignThread.Run(() => action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.Discover, recipe.GetGuid(), Epoch,
-            CoreLayout(first, second), Array.Empty<SpellWorkbenchGlyphStack>())));
+            recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>())));
 
         Assert.Equal(SpellWorkbenchPreflight.WrongThread, result.Preflight);
-        Assert.Empty(SpellManager.instance!.selectedCoreGlyphs.value);
+        Assert.Empty(SpellManager.instance!.activeSpells.value);
     }
 
     /// <summary>
@@ -572,9 +398,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         SpellManager.instance!.selectedAugmentGlyphs.SuppressSetStack = true;
         using var action = Action();
 
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
+        var result = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch,
             new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
 
         Assert.Equal(SpellWorkbenchPreflight.StagedWriteFailed, result.Preflight);
@@ -600,9 +424,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         active.value.Add(new Spell(new SpellRecipeSO()));
         using var action = Action();
 
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
+        var result = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch,
             Array.Empty<SpellWorkbenchGlyphStack>()));
 
         Assert.Equal(SpellWorkbenchPreflight.LoadoutFull, result.Preflight);
@@ -629,9 +451,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         SpellManager.instance!.selectedAugmentGlyphs.isStackable = false;
         using var action = Action();
 
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
+        var result = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch,
             new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
 
         Assert.Equal(SpellWorkbenchPreflight.ContractUnavailable, result.Preflight);
@@ -658,9 +478,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var augment = Augment(maximum: 3);
         using var action = Action();
 
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
+        var result = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch,
             new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 3) }));
 
         Assert.True(result.Verified, result.Reason);
@@ -690,9 +508,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         SpellManager.instance.selectedCoreGlyphs.value.Add(first);
         using var action = Action();
 
-        var result = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout, recipe.GetGuid(), Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(), Array.Empty<SpellWorkbenchGlyphStack>()));
+        var result = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
         Assert.True(result.Verified, result.Reason);
         Assert.Equal(coreGlyphs, recipe.coreRecipe.Count);
@@ -702,13 +518,12 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     [Fact]
     public void EveryMissingLifecycleBindingFailsClosed()
     {
-        var (recipe, first, second) = Recipe();
+        var (recipe, _, _) = Recipe(discovered: true);
         foreach (var missing in SpellWorkbenchNativeBindings.ContractIds)
         {
             using var action = Action(include: id => id != missing);
             var result = action.Submit(new SpellWorkbenchAction(
-                SpellWorkbenchActionKind.Discover, recipe.GetGuid(), Epoch,
-                CoreLayout(first, second), Array.Empty<SpellWorkbenchGlyphStack>()));
+                recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
             Assert.Equal(SpellWorkbenchPreflight.ContractUnavailable, result.Preflight);
         }
     }
@@ -716,18 +531,16 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     [Fact]
     public void StaleLifecycleAndMissingPermitRefuseWithoutChangingSelection()
     {
-        var (recipe, first, second) = Recipe();
+        var (recipe, _, _) = Recipe(discovered: true);
         using var stale = Action(epoch: Epoch + 1);
         using var unowned = Action(permit: false);
 
         Assert.Equal(SpellWorkbenchPreflight.LifecycleReplaced,
             stale.Submit(new SpellWorkbenchAction(
-                SpellWorkbenchActionKind.Discover, recipe.GetGuid(), Epoch,
-                CoreLayout(first, second), Array.Empty<SpellWorkbenchGlyphStack>())).Preflight);
+                recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>())).Preflight);
         Assert.Equal(SpellWorkbenchPreflight.MutationPermitUnavailable,
             unowned.Submit(new SpellWorkbenchAction(
-                SpellWorkbenchActionKind.Discover, recipe.GetGuid(), Epoch,
-                CoreLayout(first, second), Array.Empty<SpellWorkbenchGlyphStack>())).Preflight);
+                recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>())).Preflight);
         Assert.Empty(SpellManager.instance!.selectedCoreGlyphs.value);
     }
 
@@ -793,10 +606,8 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         using var action = Action();
 
         var add = action.Submit(new SpellWorkbenchAction(
-            SpellWorkbenchActionKind.CreateWithLayout,
             recipe.GetGuid(),
             Epoch,
-            Array.Empty<SpellWorkbenchGlyphStack>(),
             Array.Empty<SpellWorkbenchGlyphStack>()));
         var preview = action.Preview(new SpellWorkbenchLoadPreviewRequest(
             recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));

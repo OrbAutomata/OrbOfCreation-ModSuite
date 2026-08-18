@@ -409,7 +409,7 @@ rather than from the screen it is drawn on.
 | `game_targeting` | Submit one exact eligible target or let the native request choose one |
 | `game_consumable` | Use, cancel, discard, randomize, or reorder one published consumable |
 | `game_craft` | Craft a recipe or control its manual/automated instance |
-| `game_discover` | Preview or confirm one composed discovery on seven surfaces, or drive one Discovery Tree offer lifecycle |
+| `game_discover` | Preview or confirm one press of a discovery screen's Discover button, or drive one Discovery Tree offer lifecycle |
 | `game_equipment` | Equip/increase or unequip/decrease an explicit amount of one created artifact |
 | `game_alchemy` | Add or remove uses of one ordinary Alchemy recipe through its visible list |
 | `game_ritual` | Select a Ritual, set its starting level, activate or end its battle, or cancel its duration reward |
@@ -960,8 +960,8 @@ discovery. The word comes from `GlyphSO.discoverable`, which splits them exactly
 row with membership of the authored `AugmentSpellGlyphs` list and with carrying an
 `associatedRecipeBook`. It is **not** `augmentsSpells`: that field reads false for Distinct, Weak and
 Wrath — three discoverable, book-less augments — so it splits 19/28 rather than 22/25, and every
-surface that gated on it (the compose resolver's core-glyph check, a spell's core-slot verdict, and
-the owned-augment options a loadout offers) mistook those three for core glyphs. The `glyphs`
+surface that gated on it (a spell's core-slot verdict and the owned-augment options a loadout
+offers, and the compose resolver that has since been retired) mistook those three for core glyphs. The `glyphs`
 category is **not** split in two: glyphs are one player concept and one verifiable count of 47, and
 the population is a column on the row.
 
@@ -1426,31 +1426,36 @@ affordable. Its ordered `costs` pair each named resource's screen-formatted `cos
 canonical `spendableAmount` used everywhere else. Failed decision axes carry a stable reason;
 attempting a mutation is never required to learn affordability.
 
-`game_discover` is the sole discovery namespace, and it is deliberately component-first. The game's
-compose pages let the player select components and then resolve exactly one output; the MCP
-reproduces that direction and never accepts the desired output UUID as the decision.
-`mode:"preview"` and `mode:"confirm"` take one `surface` from
-`spellcraft|glyphcraft|devote|runecraft|alchemy|artifacts|concepts` plus ordered `components` of
-`{uuid,count}`. The server derives the target and its native type from the live resolver; there is
-no target argument to select with.
-Zero or multiple resolutions refuse (`discovery_recipe_unresolved`, `discovery_recipe_ambiguous`)
-instead of guessing, and a component that is neither a published glyph nor a published resource, or
-that asks for more uses than a glyph the player holds permits, refuses as `component_unavailable`.
-A glyph the player does **not** hold is a different answer with a different next move, so it refuses
-as `ERR_LOCKED` and says which gate holds it — a discovery for an augment, the named authored
-condition for an unlocker — where quoting a usage ceiling of nought read as a clamp on something
-already owned. This is why a partial component write can never claim a target
-it did not resolve.
+`game_discover` is the sole discovery namespace, and it is target-addressed. Every discovery screen
+the game ships is the same button: `UIDiscoverablePage.Render` prices the row it is showing
+(`totalCost = currentRecipe.GetDiscoverCost()`) and hands that same list to the button,
+`UICostButton.OnClick` pays it, and `UIDiscoverablePage.HandleClick` calls `IDiscoverable.Discover()`
+on that row. The selection the page keeps is filled from the row's own authored recipe by
+`OnDiscoverableClick` and is read back only to re-derive the row the player clicked, so the row's
+identity is the whole intent and there is nothing else on the screen to say.
 
-Spellcraft resolves core glyphs through the audited spell resolver; the other six surfaces use the
-installed `UIDiscoverablePage` count-plus-membership semantics against exactly one published
-category — Glyphcraft→`glyphs`, Devote→`rituals`, Runecraft→`time-runes`, Alchemy→`alchemy-recipes`,
-Artifacts→`equipment`, Concepts→`alchemy-recipes`. When `surface` is omitted from `preview`, all
-seven resolvers are tried and a unique match reports its surface. `preview` is classified read-only and never mutates; `confirm` repeats the
-whole resolution live at the action boundary before permit, payment, or discovery. The
-`offer_initiate`, `offer_select`, `offer_confirm`, and `offer_reroll` modes take the tree `uuid` instead,
-and are the only modes that accept a UUID choice, because the transient offer UI really does show
-and select those exact entities.
+`mode:"preview"` and `mode:"confirm"` therefore take one `uuid` — the thing to be discovered — and
+nothing else. The screen follows from what that thing is: spell recipes, glyphs, rituals, time
+runes, alchemy recipes, and equipment all press the one boundary. There is no `surface` argument and
+no `components` argument on any surface; both are refused as fields `game_discover` does not accept.
+A `uuid` no discovery screen draws a row for answers `native_not_discoverable` rather than guessing.
+
+Recipe books are never an argument either. A row belonging to a book the player does not own is a
+row the game does not draw, and `IsDiscoverVisible()` — which folds the book check in — is the one
+predicate that says so, in the row's own words.
+
+`preview` is classified read-only and never mutates. It answers the target's own `discover` decision
+— visible, discoverable, already discovered, its ordered `costs` and whether they are affordable —
+and, for a spell recipe, an `autoLoad` block saying whether the same press would also load the
+spell. `confirm` re-reads every one of those facts live at the action boundary before permit,
+payment, or press, and refuses in the screen's words: a screen the game has not unlocked, a row it
+does not draw yet, a button reading "Has Requirements", a price larger than you hold. Its committed
+answer is the target's post-state row, and a discovered spell also reports whether the game's own
+`PostDiscoverRecipe` loaded it and into which slot.
+
+The `offer_initiate`, `offer_select`, `offer_confirm`, and `offer_reroll` modes address a Discovery
+Tree by `uuid` and take the chosen offer as `offerUuid`, because the transient offer UI really does
+show and select those exact entities.
 
 The `equipment` category is also the artifact-loadout pre-decision surface. Each row names the
 artifact and its primary equipment type, current/maximum stacks, global and type-slot occupancy,
@@ -1497,7 +1502,7 @@ answered a question the caller did not ask. `predicates.canAdd` names that block
 
 ### Ritual lifecycle
 
-Ritual discovery remains `game_discover(surface="devote")`. Once discovered, a `rituals` detail
+Ritual discovery remains `game_discover`, pressed by naming the ritual. Once discovered, a `rituals` detail
 row reports the selected Ritual, the reached level, the starting-level control as `current` with
 both its `minimum` and `maximum`, battle state, and active
 duration-reward state. It also carries `waveTotal`, the wave count a run at the staged level has to
@@ -1659,7 +1664,7 @@ that callback and are not independently replayed or audited by the suite.
 
 ### Alchemy screen ownership
 
-Alchemy's Learn side uses `game_discover(surface="alchemy")`. Its Loadout side uses
+Alchemy's Learn side uses `game_discover`, pressed by naming the recipe. Its Loadout side uses
 `game_alchemy` with the published recipe pool, capacity-bounded slots, six type-capacity
 counters, and the same type identity the screen filter displays. Recipe mastery and Alchemy-type
 levels are game-driven progression displays, not direct purchase buttons on this screen.
@@ -1834,17 +1839,17 @@ named row contains the authored ordered `coreGlyphs` with current owned and bonu
 equipped runtime instance of that recipe, and the shared `loadBudget` of used/maximum slots plus
 `fitsAnotherSpell`, and the `usageBudget` rows the add gate weighs a candidate against — each
 spell-weight resource with its `headroom`, `used`, and `maximum`. An undiscovered recipe exposes
-`discover`, including the `surface` and the ordered `components` to submit; a discovered recipe
+`discover`, which is pressed by naming the recipe itself; a discovered recipe
 exposes `loadoutAdd`. Discovery carries its named exact costs, spendable amounts, affordability, and
 stable false reason. Loadout add truthfully reports only structural admission plus
 `acceptsAugments:true`: the same call takes an augment layout, and no layout changes what the row
 can promise, because socketing a spell has no price. A structural refusal is `screen_locked` when
 Magic > Spellbook > Loadout is not unlocked — the game draws no row to press, which is a different
-answer from unaffordable and from full — or `loadout_full`, or the one thing that is actually wrong
-with the core glyph — `recipe_has_no_core_glyph`,
-`core_glyph_not_published`, or `core_glyph_augments_only`; the retired `core_glyphs_unavailable`
-covered them under one word. There is no selection step and no
-target-first `create`: the game exposes neither.
+answer from unaffordable and from full — or `loadout_full`. There is no selection step and no
+target-first `create`: the game exposes neither. The `discover` half refuses on the same axes its
+own screen has: `screen_locked` when Magic > Spellbook > Unlock is not unlocked,
+`components_unavailable` when the game builds the recipe from glyphs and it names none,
+`not_visible`, `discovery_unavailable`, or `unaffordable`.
 
 Where the page says `available: yes` it also names `verbDecides` — the gates only a live resolution
 settles, in the order the verb applies them: usage budget, augment requirements.
@@ -1887,10 +1892,10 @@ The MCP-only base-recipe sequence is:
 
 1. Page or search `spell-recipes`; compare names, core-glyph holdings, discovery costs, and
    affordability.
-2. For an undiscovered recipe, call
-   `game_discover(mode="preview", surface="spellcraft", components=[...])` with that row's
-   components and check the resolved output, then repeat the call with `mode:"confirm"`. The
-   response reports the resolved target and discovery transition.
+2. For an undiscovered recipe, call `game_discover(mode="preview", uuid=...)` with that row's own
+   uuid and check the admission, price, and whether the press would also load the spell, then
+   repeat the call with `mode:"confirm"`. The response reports the discovery transition and, when
+   the game loaded the new spell, the slot it went into.
 3. If an equipped instance is wanted, call
    `game_spell_loadout(mode="preview", uuid=..., glyphs=[...])`. This read resolves and prices the
    submitted layout through the same native manager methods used by add, without touching the
@@ -2544,12 +2549,12 @@ most, so an old code's new class can be looked up here:
 
 | Class | Internal codes that reach it |
 | --- | --- |
-| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required`, `discovery_surface_ambiguous` |
-| `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `recipe_has_no_core_glyph` |
+| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required` |
+| `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `components_unavailable` |
 | `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
-| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `core_glyph_not_owned`, `cannot_level`, `screen_locked`, `research_leeway_exhausted`, `native_leeway_exhausted` |
+| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `research_leeway_exhausted`, `native_leeway_exhausted` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused` — the game's own gate said no and reported nothing else |
 
@@ -2609,10 +2614,10 @@ What each internal code means is below; the class is how it reaches the wire.
 | `screen_match_failed` / `subtab_match_failed` | The exact label matched zero or several live entries | `game_navigate` |
 | `no_pending_target` | No target selection is open. The verb exists and the submitted target was never the problem, so no entity-ownership hint refines it | `game_targeting` |
 | `requirements_unmet` / `research_leeway_exhausted` / `already_developing` | The develop gate the read side already names, on the mutation that hit it | `game_research develop` |
-| `recipe_has_no_core_glyph` / `core_glyph_not_published` / `core_glyph_augments_only` | The one thing wrong with the recipe's core glyph, replacing the single `core_glyphs_unavailable` that covered them all. `core_glyph_not_owned` and `core_glyph_not_leveled` are retired: neither ownership nor level is a gate the game's add path reads, and a page that refuses on a rule the verb does not have costs a caller the whole call | `spell-recipes` loadout-add decisions |
+| `components_unavailable` | The game builds this from glyphs and it names none, so no discovery screen ever draws a Discover button for it — `UIDiscoverablePage.IsGlyphSelectionValid` starts at `selectedGlyphs.Count > 0`. The whole core-glyph vocabulary it replaced (`recipe_has_no_core_glyph`, `core_glyph_not_published`, `core_glyph_augments_only`, `core_glyph_not_owned`, `core_glyph_not_leveled`) went with the component resolver that produced it | `discover` decisions, `game_discover confirm` |
 | `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so nothing was submitted and nothing was spent. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `augment_slots_exceeded` | The layout names more different augments than "Max Spell Augment Slots" holds, which is the only ceiling the load path has. It replaces `layout_resolves_to_other_spell` and `recipe_not_offered`, which belonged to a layout matcher this verb no longer runs | `game_spell_loadout preview`, `game_spell_loadout add` |
-| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen and the upgrade that opens it | `spell-recipes` loadout-add decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move` |
+| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen and the upgrade that opens it | `spell-recipes` loadout-add and `discover` decisions, `glyphs` `discover` decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move`, `game_discover confirm` |
 | `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `discover` decisions, pool-unlocker glyphs |
 | `projection_refused` | The suite's own resource-rate policy refuses the assignment; the game did not | `game_concept` |
@@ -2936,8 +2941,7 @@ No schema accepts `worldGeneration`. An operation pins its current world interna
 revalidate live identity and mutable facts at the GameAction boundary, and the generation counter
 never becomes caller ceremony.
 
-Where a target UUID is supplied, the server derives its native type and action kind from that UUID;
-where components are supplied, it derives the target from the live resolver instead:
+Where a target UUID is supplied, the server derives its native type and action kind from that UUID:
 
 ```sh
 tools/game-mcp-client.py call game_purchase --arguments \
@@ -2953,7 +2957,7 @@ tools/game-mcp-client.py call game_cast --arguments \
 tools/game-mcp-client.py call game_cast --arguments \
   '{"mode":"toggle_off","slot":1,"uuid":"SPELL_UUID"}'
 tools/game-mcp-client.py call game_discover --arguments \
-  '{"mode":"preview","surface":"spellcraft","components":[{"uuid":"GLYPH_UUID","count":2}]}'
+  '{"mode":"preview","uuid":"SPELL_RECIPE_UUID"}'
 tools/game-mcp-client.py call game_discover --arguments \
   '{"mode":"offer_select","uuid":"TREE_UUID","offerUuid":"OFFER_UUID"}'
 tools/game-mcp-client.py call game_casting_dial --arguments \
@@ -2968,10 +2972,10 @@ tools/game-mcp-client.py call time_challenge --arguments \
   '{"mode":"select","uuid":"CHALLENGE_UUID"}'
 ```
 
-`game_discover`'s offer modes require the tree `uuid`, require `offerUuid` for `offer_select` and
-`offer_confirm`, and reject it for `offer_initiate` and `offer_reroll`; `surface` and `components`
-are rejected for every offer mode, and `uuid`/`offerUuid` are rejected for `preview` and
-`confirm`. Initiate and reroll verify the exact tree/type and immediate transition to Crafting;
+Every `game_discover` mode requires a `uuid`: the thing to discover for `preview` and `confirm`, the
+tree for the offer modes. The offer modes require `offerUuid` for `offer_select` and
+`offer_confirm`, and reject it for `offer_initiate` and `offer_reroll`; `preview` and `confirm`
+reject it too. `surface` and `components` are not fields this tool accepts at all. Initiate and reroll verify the exact tree/type and immediate transition to Crafting;
 select verifies the requested offered UUID became selected; confirm verifies that exact UUID became
 discovered. Payment deltas, reroll values, counters, flags, timers, list cleanup, and selection
 cleanup are neither outcome gates nor response data. This matters when a cost is below the ULP of a
@@ -3104,19 +3108,17 @@ names the number the screen shows. Refund accounting is neither computed nor use
 that already moved the native automation quantity reports it under `observed` as `repetitions`,
 which is the coordinate that call returns, so a caller is never invited to retry into more damage.
 
-`game_discover`'s composition modes require `surface` plus `components` and accept no target UUID.
-`preview` resolves the
-component multiset against the published roster for that one surface and returns the single named
-output, its costs, holdings, affordability, and blockers; it is a read and mutates nothing.
-`confirm` derives the target the same way from the admitted immutable world, then rereads both
-native recipes and every exact live component before repeating native visibility,
-already-discovered, `CanDiscover`, exact cost, and affordability checks on Unity's main thread. It
-captures the shared family permit last, then preserves the UI's `PerformCost`-before-`Discover`
-ordering. Success is the exact resolved target becoming discovered and returns that named target
-plus its discovered transition and surface. It carries no receipt or payment stanza. A refusal occurs before payment and
-restores any temporary UI selection staged for native resolution. A fault names the single missing
-discovery outcome. A composition that resolves differently than the caller expected is
-preview or refusal evidence, never a wrong-target mutation.
+`game_discover`'s `preview` and `confirm` take the target's own `uuid`. `preview` answers that row's
+admission, price, holdings, affordability, and — for a spell — whether the press would also load it;
+it is a read and mutates nothing. `confirm` re-resolves the exact registered target on Unity's main
+thread, then re-asks the button's own ladder: the owning screen where the suite pins one, a glyph
+recipe the row could be drawn from, already-discovered, native visibility, `CanDiscover`, the exact
+`GetDiscoverCost()` list, and affordability. It captures the shared family permit last, then keeps
+the button's `PerformCost`-before-`Discover` ordering. Success is the exact named target becoming
+discovered and returns its post-state row; a discovered spell also reports whether the game loaded
+it and into which slot. It carries no receipt or payment stanza. A refusal occurs before payment and
+stages nothing, because the button's own press stages nothing. A fault names the single missing
+discovery outcome.
 
 `game_equipment` requires `mode` and one published equipment `uuid`. On Unity's main thread it re-resolves
 the exact artifact and repeats creation, current stacks, global and primary-type slot room, maximum

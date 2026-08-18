@@ -1934,11 +1934,7 @@ internal static class GameMcpWorldQuery
         GameMcpCommand command,
         GameMcpCommandResult committed) => command.Kind switch
         {
-            GameMcpCommandKind.SpellWorkbench when string.Equals(
-                command.Mode,
-                "create",
-                StringComparison.Ordinal) => ProjectSpellLoadoutDelta(state, command),
-            GameMcpCommandKind.SpellWorkbench => ProjectDiscoveryDelta(state, command),
+            GameMcpCommandKind.SpellWorkbench => ProjectSpellLoadoutDelta(state, command),
             GameMcpCommandKind.SpellComposition =>
                 ProjectCastingDialDelta(state, command),
             GameMcpCommandKind.SpellLoadout => ProjectSpellLoadoutDelta(state, command),
@@ -3089,8 +3085,48 @@ internal static class GameMcpWorldQuery
             ["uuid"] = command.TargetId.ToString("D"),
             ["discovered"] = new JObject { ["before"] = before, ["after"] = after },
         };
-        if (command.PayloadKey.Length > 0) result["surface"] = command.PayloadKey;
+        if (after && string.Equals(command.DerivedNativeType, "SpellRecipeSO", StringComparison.Ordinal))
+            result["loadout"] = ProjectDiscoveredSpellLoadout(
+                state.World.Snapshot, command.TargetId);
         return result.Freeze();
+    }
+
+    /// <summary>
+    /// Where a freshly discovered spell ended up, read off the settled loadout.
+    /// </summary>
+    /// <remarks>
+    /// The same press that discovers a spell may also load it: <c>SpellManager.PostDiscoverRecipe</c>
+    /// loads it when the loadout has a free spot and the new spell's usage cost fits. Both halves
+    /// are answered from the world after the fact rather than predicted, and when it did not load
+    /// the free spot says which of the two refused.
+    /// </remarks>
+    private static JObject ProjectDiscoveredSpellLoadout(GameWorldState world, Guid recipeId)
+    {
+        for (var index = 0; index < world.SpellSlots.Count; index++)
+        {
+            var slot = world.SpellSlots[index];
+            if (!slot.Occupied || slot.SpellRecipeId != recipeId) continue;
+            var loaded = new JObject
+            {
+                ["loaded"] = true,
+                ["slot"] = slot.SlotIndex,
+            };
+            var budget = ProjectSpellUsageBudget(world);
+            if (budget.Count > 0) loaded["usageBudget"] = budget;
+            return loaded;
+        }
+        var missed = new JObject
+        {
+            ["loaded"] = false,
+            ["reason"] = world.SpellWorkbench.HasEmptySlot
+                ? "A loadout slot was free, so the game tried to load it and its usage cost did " +
+                  "not fit the spell-power headroom. Free some, then load it yourself."
+                : "Every loadout slot already held a spell, so the game left it unloaded. " +
+                  "Remove one, then load it yourself.",
+        };
+        var freeBudget = ProjectSpellUsageBudget(world);
+        if (freeBudget.Count > 0) missed["usageBudget"] = freeBudget;
+        return missed;
     }
 
     private static bool TryReadDiscoveryState(
@@ -3488,6 +3524,7 @@ internal static class GameMcpWorldQuery
             "EquipmentSO" => "equipment",
             "GlyphSO" => "glyphs",
             "RitualSO" => "rituals",
+            "SpellRecipeSO" => "spell-recipes",
             "TimeRuneSO" => "time-runes",
             _ => throw new ArgumentOutOfRangeException(nameof(command.DerivedNativeType)),
         },
@@ -6104,7 +6141,8 @@ internal static class GameMcpWorldQuery
         }
         else
         {
-            var structurallyAvailable = recipe.CoreGlyphs.Count > 0 &&
+            var unlockScreen = IsScreenUnlocked(world, KnownEntities.MagicSpellbookLearn.Uuid);
+            var structurallyAvailable = unlockScreen && recipe.CoreGlyphs.Count > 0 &&
                 recipe.Discovery.Visible && recipe.Discovery.CanDiscover;
             if (structurallyAvailable)
             {
@@ -6113,7 +6151,9 @@ internal static class GameMcpWorldQuery
                 next["affordable"] = recipe.DiscoveryAffordable;
             }
             next["available"] = structurallyAvailable && recipe.DiscoveryAffordable;
-            if (recipe.CoreGlyphs.Count == 0)
+            if (!unlockScreen)
+                next["reasonCode"] = "screen_locked";
+            else if (recipe.CoreGlyphs.Count == 0)
                 next["reasonCode"] = "components_unavailable";
             else if (!recipe.Discovery.Visible)
                 next["reasonCode"] = "not_visible";
@@ -6121,8 +6161,6 @@ internal static class GameMcpWorldQuery
                 next["reasonCode"] = "discovery_unavailable";
             else if (!recipe.DiscoveryAffordable)
                 next["reasonCode"] = "unaffordable";
-            next["surface"] = "spellcraft";
-            next["components"] = ProjectComponentReferences(recipe.CoreGlyphs);
         }
         result[recipe.Discovered ? "loadoutAdd" : "discover"] = next;
         AddAuthoredSpellGraph(world, recipe.EntityId, result);
@@ -6231,442 +6269,97 @@ internal static class GameMcpWorldQuery
         }
     }
 
+    /// <summary>
+    /// The discovery screens the game draws, in the order a uuid is matched against them. One
+    /// published row per screen answers the whole verb: the category names the screen, and the
+    /// row's own <c>discover</c> block is the button's admission.
+    /// </summary>
+    internal static bool TryResolveDiscoveryTarget(
+        GameWorldState world,
+        Guid uuid,
+        out string nativeType,
+        out string category,
+        out string reasonCode,
+        out string reason)
+    {
+        category = string.Empty;
+        reasonCode = string.Empty;
+        if (!GameMcpEntityCapabilityMap.TryResolveGenericDiscoveryType(
+                world, uuid, out nativeType, out reason))
+        {
+            reasonCode = "native_not_discoverable";
+            return false;
+        }
+        category = nativeType switch
+        {
+            "AlchemyRecipeSO" => "alchemy-recipes",
+            "EquipmentSO" => "equipment",
+            "GlyphSO" => "glyphs",
+            "RitualSO" => "rituals",
+            "SpellRecipeSO" => "spell-recipes",
+            "TimeRuneSO" => "time-runes",
+            _ => string.Empty,
+        };
+        if (category.Length > 0) return true;
+        reasonCode = "native_not_discoverable";
+        reason = EntityIdentityFormatter.PlayerName(uuid, world.EntityIdentities) +
+            " resolved to " + nativeType + ", which no discovery screen draws a row for.";
+        return false;
+    }
+
+    /// <summary>
+    /// What pressing this row's Discover button would take and give, without pressing it.
+    /// </summary>
     internal static GameMcpValue ProjectDiscoveryPreview(
         GameMcpFrameContext state,
-        string surface,
-        GameMcpUuidCount[] components)
+        Guid uuid)
     {
         if (state.World is null)
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         var world = state.World.Snapshot;
-        if (surface.Length == 0)
-            return ProjectSurfaceLessDiscoveryPreview(state, components);
-
-        Guid outputId;
-        string category;
-        string reasonCode;
-        string reason;
-        if (string.Equals(surface, "spellcraft", StringComparison.Ordinal))
-        {
-            category = "spell-recipes";
-            reasonCode = "discovery_recipe_unresolved";
-            if (!TryResolveSpellDiscovery(
-                    world, surface, components, out outputId, out reason))
-                return new JObject
-                {
-                    ["status"] = "unavailable",
-                    ["reasonCode"] = reasonCode,
-                    ["reason"] = reason,
-                }.Freeze();
-        }
-        else if (!TryResolveGenericDiscovery(
-                     world,
-                     surface,
-                     components,
-                     out outputId,
-                     out _,
-                     out category,
-                     out reasonCode,
-                     out reason))
+        if (!TryResolveDiscoveryTarget(world, uuid, out _, out var category,
+                out var reasonCode, out var reason))
             return new JObject
             {
                 ["status"] = "unavailable",
                 ["reasonCode"] = reasonCode,
                 ["reason"] = reason,
             }.Freeze();
-        return new JObject
+        var result = new JObject
         {
             ["status"] = "available",
-            ["surface"] = surface,
-            ["output"] = ProjectPostState(state, category, outputId),
-        }.Freeze();
-    }
-
-    private static GameMcpValue ProjectSurfaceLessDiscoveryPreview(
-        GameMcpFrameContext state,
-        GameMcpUuidCount[] components)
-    {
-        if (state.World is null)
-            return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
-        var world = state.World.Snapshot;
-        var surfaces = new[]
-        {
-            "spellcraft", "glyphcraft", "devote", "runecraft",
-            "alchemy", "artifacts", "concepts",
+            ["output"] = ProjectPostState(state, category, uuid),
         };
-        var matchingSurfaces = new JArray();
-        var matchCount = 0;
-        var matchedId = Guid.Empty;
-        var matchedCategory = string.Empty;
-        var matchedSurface = string.Empty;
-        for (var index = 0; index < surfaces.Length; index++)
-        {
-            var candidateSurface = surfaces[index];
-            Guid candidateId;
-            string candidateCategory;
-            bool resolved;
-            if (candidateSurface == "spellcraft")
+        if (string.Equals(category, "spell-recipes", StringComparison.Ordinal))
+            result["autoLoad"] = ProjectSpellAutoLoadForecast(world);
+        return result.Freeze();
+    }
+
+    /// <summary>
+    /// Whether discovering a spell would also put it in the loadout, which the game decides inside
+    /// the same press.
+    /// </summary>
+    /// <remarks>
+    /// <c>SpellManager.PostDiscoverRecipe</c> loads the freshly discovered spell when the loadout
+    /// has a free spot and the new spell's usage cost fits. The free spot is a published fact; the
+    /// usage cost of a spell that does not exist yet is not, so the second half is answered by the
+    /// settled world after the press rather than guessed here.
+    /// </remarks>
+    private static JObject ProjectSpellAutoLoadForecast(GameWorldState world) =>
+        world.SpellWorkbench.HasEmptySlot
+            ? new JObject
             {
-                candidateCategory = "spell-recipes";
-                resolved = TryResolveSpellDiscovery(
-                    world, candidateSurface, components, out candidateId, out _);
+                ["willLoad"] = "unverified",
+                ["reason"] = "A loadout slot is free, so the game loads the spell straight away " +
+                    "if its usage cost fits the spell-power headroom. That fit is only settled " +
+                    "once the spell exists.",
             }
-            else
+            : new JObject
             {
-                resolved = TryResolveGenericDiscovery(
-                    world,
-                    candidateSurface,
-                    components,
-                    out candidateId,
-                    out _,
-                    out candidateCategory,
-                    out _,
-                    out _);
-            }
-            if (!resolved) continue;
-            matchCount++;
-            matchedId = candidateId;
-            matchedCategory = candidateCategory;
-            matchedSurface = candidateSurface;
-            matchingSurfaces.Add(candidateSurface);
-        }
-        if (matchCount == 1)
-        {
-            return new JObject
-            {
-                ["status"] = "available",
-                ["surface"] = matchedSurface,
-                ["output"] = ProjectPostState(state, matchedCategory, matchedId),
-            }.Freeze();
-        }
-        return new JObject
-        {
-            ["status"] = "unavailable",
-            ["reasonCode"] = matchCount == 0
-                ? "discovery_recipe_unresolved"
-                : "discovery_surface_ambiguous",
-            ["reason"] = matchCount == 0
-                ? "The composition resolves on none of the seven discovery screens."
-                : "The composition resolves on more than one discovery screen; specify surface.",
-            ["matchingSurfaces"] = matchingSurfaces,
-        }.Freeze();
-    }
-
-    internal static bool TryResolveGenericDiscovery(
-        GameWorldState world,
-        string surface,
-        GameMcpUuidCount[] components,
-        out Guid outputId,
-        out string nativeType,
-        out string category,
-        out string reasonCode,
-        out string reason)
-    {
-        outputId = Guid.Empty;
-        if (!GenericDiscoverySurfaces.TryResolve(surface, out nativeType, out category))
-        {
-            reasonCode = "unknown_discovery_surface";
-            reason = "No generic compose resolver owns discovery surface " + surface + ".";
-            return false;
-        }
-
-        var glyphs = new List<Guid>();
-        var resources = new List<Guid>();
-        var glyphCount = 0;
-        var resourceCount = 0;
-        try
-        {
-            for (var index = 0; index < components.Length; index++)
-            {
-                var component = components[index];
-                var isGlyph = WorldLookup.TryFind(world.Glyphs, component.Uuid, out var glyph);
-                var isResource = WorldLookup.TryFind(world.Resources, component.Uuid, out _);
-                if (isGlyph == isResource)
-                {
-                    reasonCode = "component_unavailable";
-                    reason = "Component " +
-                        EntityIdentityFormatter.PlayerName(component.Uuid, world.EntityIdentities) +
-                        (isGlyph
-                            ? " is ambiguous between glyph and resource categories."
-                            : " is not a published glyph or resource in this world.");
-                    return false;
-                }
-                if (isGlyph)
-                {
-                    // Not holding the glyph and asking too much of one you hold are different
-                    // answers with different next moves. Folded together, a glyph the player has
-                    // never seen refused by quoting a usage ceiling of nought, which reads as a
-                    // clamp on something they own.
-                    if (!glyph.Learned)
-                    {
-                        var glyphName = EntityIdentityFormatter.PlayerName(
-                            component.Uuid, world.EntityIdentities);
-                        if (glyph.Discoverable)
-                        {
-                            reasonCode = "undiscovered";
-                            reason = "Glyph " + glyphName + " has not been discovered yet.";
-                        }
-                        else if (TryNameGlyphBlocker(world, component.Uuid, out var blocker, out _))
-                        {
-                            reasonCode = "prerequisites_unmet";
-                            reason = "Glyph " + glyphName + " is unlocked by " + blocker +
-                                ", which is not reached yet.";
-                        }
-                        else
-                        {
-                            reasonCode = "native_unavailable";
-                            reason = "Glyph " + glyphName +
-                                " is locked, and the game says nothing about what would unlock it.";
-                        }
-                        return false;
-                    }
-                    if (component.Count > glyph.MaximumUsages)
-                    {
-                        reasonCode = "component_unavailable";
-                        reason = "Glyph " +
-                            EntityIdentityFormatter.PlayerName(component.Uuid, world.EntityIdentities) +
-                            " permits " + glyph.MaximumUsages + " usable selections, not " +
-                            component.Count + ".";
-                        return false;
-                    }
-                    glyphs.Add(component.Uuid);
-                    glyphCount = checked(glyphCount + component.Count);
-                }
-                else
-                {
-                    resources.Add(component.Uuid);
-                    resourceCount = checked(resourceCount + component.Count);
-                }
-            }
-        }
-        catch (OverflowException)
-        {
-            reasonCode = "component_count_too_large";
-            reason = "The submitted discovery component counts exceed the resolver boundary.";
-            return false;
-        }
-
-        var matches = 0;
-        var candidates = GenericDiscoveryCandidateCount(world, surface);
-        for (var index = 0; index < candidates; index++)
-        {
-            if (!TryGenericDiscoveryCandidate(
-                    world, surface, index, out var candidateId, out var discovery))
-                continue;
-            if (!GenericDiscoveryRecipeMatches(
-                    discovery.GlyphRecipe,
-                    glyphs,
-                    glyphCount,
-                    discovery.ResourceRecipe,
-                    resources,
-                    resourceCount))
-                continue;
-            outputId = candidateId;
-            matches++;
-        }
-        reasonCode = matches == 0
-            ? "discovery_recipe_unresolved"
-            : matches == 1
-                ? string.Empty
-                : "discovery_recipe_ambiguous";
-        reason = matches switch
-        {
-            0 => "This composition does not resolve on the " + surface + " screen.",
-            1 => string.Empty,
-            _ => "The component composition resolves to " + matches + " published " +
-                 category + " outputs; the action refuses to guess.",
-        };
-        if (matches != 1) outputId = Guid.Empty;
-        return matches == 1;
-    }
-
-    private static int GenericDiscoveryCandidateCount(
-        GameWorldState world,
-        string surface) => surface switch
-    {
-        "glyphcraft" => world.Glyphs.Count,
-        "devote" => world.Rituals.Count,
-        "runecraft" => world.TimeRunes.Count,
-        "alchemy" => world.AlchemyRecipes.Count,
-        "concepts" => world.ConceptRecipes.Count,
-        "artifacts" => world.Equipment.Count,
-        _ => 0,
-    };
-
-    private static bool TryGenericDiscoveryCandidate(
-        GameWorldState world,
-        string surface,
-        int index,
-        out Guid entityId,
-        out WorldDiscoverableDecision discovery)
-    {
-        switch (surface)
-        {
-            case "glyphcraft":
-                var glyph = world.Glyphs[index];
-                entityId = glyph.EntityId;
-                discovery = glyph.Discovery;
-                return true;
-            case "devote":
-                var ritual = world.Rituals[index];
-                entityId = ritual.EntityId;
-                discovery = ritual.Discovery;
-                return true;
-            case "runecraft":
-                var rune = world.TimeRunes[index];
-                entityId = rune.EntityId;
-                discovery = rune.Discovery;
-                return true;
-            case "alchemy":
-                var recipe = world.AlchemyRecipes[index];
-                if (WorldConceptRecipeLookup.TryFind(
-                        world.ConceptRecipes, recipe.EntityId, out _))
-                {
-                    entityId = Guid.Empty;
-                    discovery = default;
-                    return false;
-                }
-                entityId = recipe.EntityId;
-                discovery = recipe.Discovery;
-                return true;
-            case "concepts":
-                var concept = world.ConceptRecipes[index];
-                if (!WorldLookup.TryFind(world.AlchemyRecipes, concept.RecipeId, out var conceptRecipe))
-                {
-                    entityId = Guid.Empty;
-                    discovery = default;
-                    return false;
-                }
-                entityId = conceptRecipe.EntityId;
-                discovery = conceptRecipe.Discovery;
-                return true;
-            case "artifacts":
-                var equipment = world.Equipment[index];
-                entityId = equipment.EntityId;
-                discovery = equipment.Discovery;
-                return true;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(surface));
-        }
-    }
-
-    private static bool GenericDiscoveryRecipeMatches(
-        PublicationTable<Guid> nativeGlyphs,
-        List<Guid> submittedGlyphs,
-        int submittedGlyphCount,
-        PublicationTable<Guid> nativeResources,
-        List<Guid> submittedResources,
-        int submittedResourceCount)
-    {
-        if (nativeGlyphs.Count != submittedGlyphCount ||
-            nativeResources.Count != submittedResourceCount)
-            return false;
-        for (var index = 0; index < submittedGlyphs.Count; index++)
-            if (!Contains(nativeGlyphs, submittedGlyphs[index])) return false;
-        for (var index = 0; index < submittedResources.Count; index++)
-            if (!Contains(nativeResources, submittedResources[index])) return false;
-        return true;
-    }
-
-    private static bool Contains(PublicationTable<Guid> values, Guid target)
-    {
-        for (var index = 0; index < values.Count; index++)
-            if (values[index] == target) return true;
-        return false;
-    }
-
-    internal static bool TryResolveSpellDiscovery(
-        GameWorldState world,
-        string surface,
-        GameMcpUuidCount[] components,
-        out Guid recipeId,
-        out string reason)
-    {
-        recipeId = Guid.Empty;
-        if (!string.Equals(surface, "spellcraft", StringComparison.Ordinal))
-        {
-            reason = "The " + surface +
-                " UI uses UIDiscoverablePage recipe resolution, whose installed lifecycle binding is not available in this fence.";
-            return false;
-        }
-        var expanded = new List<Guid>();
-        for (var index = 0; index < components.Length; index++)
-        {
-            var component = components[index];
-            // `discoverable` is the population split — the augments are the 22 discoverable ones and
-            // the core glyphs the 25 that are not. `augmentsSpells` reads false for three members of
-            // the augment list, so gating on it admitted Distinct, Weak and Wrath here as though
-            // they were core glyphs.
-            if (!WorldLookup.TryFind(world.Glyphs, component.Uuid, out var glyph) ||
-                glyph.Discoverable || !glyph.Learned)
-            {
-                reason = "Component " +
-                    EntityIdentityFormatter.PlayerName(component.Uuid, world.EntityIdentities) +
-                    " is not an available core glyph in this world.";
-                return false;
-            }
-            if (component.Count > glyph.MaximumUsages)
-            {
-                reason = "Component " +
-                    EntityIdentityFormatter.PlayerName(component.Uuid, world.EntityIdentities) +
-                    " requests " + component.Count + " uses, but only " +
-                    glyph.MaximumUsages + " are usable.";
-                return false;
-            }
-            for (var count = 0; count < component.Count; count++)
-                expanded.Add(component.Uuid);
-        }
-        var matches = 0;
-        for (var index = 0; index < world.SpellRecipes.Count; index++)
-        {
-            var recipe = world.SpellRecipes[index];
-            if (recipe.CoreGlyphs.Count != expanded.Count) continue;
-            var match = true;
-            for (var glyph = 0; glyph < expanded.Count; glyph++)
-                if (recipe.CoreGlyphs[glyph].GlyphId != expanded[glyph])
-                {
-                    match = false;
-                    break;
-                }
-            if (!match) continue;
-            recipeId = recipe.EntityId;
-            matches++;
-        }
-        reason = matches switch
-        {
-            0 => "The ordered core-glyph composition resolves to no published spell recipe.",
-            1 => string.Empty,
-            _ => "The ordered core-glyph composition is ambiguous across " + matches +
-                 " published spell recipes.",
-        };
-        if (matches != 1) recipeId = Guid.Empty;
-        return matches == 1;
-    }
-
-    private static JArray ProjectComponentReferences(GameMcpUuidCount[] components)
-    {
-        var result = new JArray();
-        for (var index = 0; index < components.Length; index++)
-            result.Add(new JObject
-            {
-                ["componentId"] = components[index].Uuid.ToString("D"),
-                ["count"] = components[index].Count,
-            });
-        return result;
-    }
-
-    private static JArray ProjectComponentReferences(
-        PublicationTable<WorldSpellRecipeGlyph> components)
-    {
-        var result = new JArray();
-        for (var index = 0; index < components.Count; index++)
-            result.Add(new JObject
-            {
-                ["componentId"] = components[index].GlyphId.ToString("D"),
-                ["count"] = 1,
-            });
-        return result;
-    }
+                ["willLoad"] = "no",
+                ["reason"] = "Every loadout slot holds a spell, so a discovered spell stays " +
+                    "unloaded until you free one.",
+            };
 
     /// <summary>
     /// Both budgets an equipped spell is weighed against: the slots it occupies, and the spell
@@ -7780,7 +7473,8 @@ internal static class GameMcpWorldQuery
             result,
             glyph.Discovery,
             glyph.Discoverable,
-            glyph.Discoverable && !glyph.Discovered && IsCurrentDiscoveryOffer(world, glyph.EntityId));
+            glyph.Discoverable && !glyph.Discovered && IsCurrentDiscoveryOffer(world, glyph.EntityId),
+            IsScreenUnlocked(world, KnownEntities.MagicGlyphsDiscover.Uuid));
         return result.Freeze();
     }
 
@@ -8238,10 +7932,11 @@ internal static class GameMcpWorldQuery
         JObject result,
         WorldDiscoverableDecision decision,
         bool nativeDiscoverable = true,
-        bool offered = false)
+        bool offered = false,
+        bool screenUnlocked = true)
     {
-        var available = nativeDiscoverable && decision.Visible && decision.CanDiscover &&
-            !decision.Discovered && decision.Affordable;
+        var available = nativeDiscoverable && screenUnlocked && decision.Visible &&
+            decision.CanDiscover && !decision.Discovered && decision.Affordable;
         var discover = new JObject { ["available"] = available };
         if (!available)
         {
@@ -8249,13 +7944,15 @@ internal static class GameMcpWorldQuery
                 ? "already_discovered"
                 : !nativeDiscoverable
                     ? "native_not_discoverable"
-                    : !decision.Visible
-                        ? "not_visible"
-                        : !decision.CanDiscover
-                            ? "native_discovery_refused"
-                            : "unaffordable";
+                    : !screenUnlocked
+                        ? "screen_locked"
+                        : !decision.Visible
+                            ? "not_visible"
+                            : !decision.CanDiscover
+                                ? "native_discovery_refused"
+                                : "unaffordable";
         }
-        if (nativeDiscoverable && decision.Visible && !decision.Discovered &&
+        if (nativeDiscoverable && screenUnlocked && decision.Visible && !decision.Discovered &&
             decision.CanDiscover && decision.Costs.Count > 0)
         {
             var costs = new JArray();

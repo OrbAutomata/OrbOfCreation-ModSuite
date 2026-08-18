@@ -87,7 +87,7 @@ public sealed class GameMcpEntityCapabilityMapTests
                 descriptor => descriptor.Capabilities.Contains(mapping.Kind)));
         Assert.Equal("game_discover",
             GameMcpCommandKinds.ToolName(GameMcpCommandKind.DiscoveryTreeOffer));
-        Assert.Equal("game_discover",
+        Assert.Equal("game_spell_loadout",
             GameMcpCommandKinds.ToolName(GameMcpCommandKind.SpellWorkbench));
         Assert.Equal(GameMcpCommandKind.Harvest,
             GameMcpCommandKinds.FromRequest(

@@ -632,16 +632,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 lifecycle,
                 configurationGeneration);
         GameMcpNativeActionAdmission.AssertNativeType(command, command.DerivedNativeType);
-        var components = new GenericDiscoveryComponent[command.UuidCounts.Length];
-        for (var index = 0; index < components.Length; index++)
-            components[index] = new GenericDiscoveryComponent(
-                command.UuidCounts[index].Uuid,
-                command.UuidCounts[index].Count);
         var action = new GenericDiscoveryAction(
             command.TargetId,
             command.DerivedNativeType,
-            command.PayloadKey,
-            components,
             command.ExpectedLifecycleGeneration);
         var submission = _genericDiscovery.Submit(in action);
         var result = GenericDiscoveryActionResultMapper.Map(in submission);
@@ -1033,26 +1026,10 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             layout[index] = new SpellWorkbenchGlyphStack(
                 command.UuidCounts[index].Uuid,
                 command.UuidCounts[index].Count);
-        var fromDiscovery = string.Equals(
-            command.SourceOperation?.Request.ToolName,
-            "game_discover",
-            StringComparison.Ordinal);
-        var fromLoadout = string.Equals(
-            command.SourceOperation?.Request.ToolName,
-            "game_spell_loadout",
-            StringComparison.Ordinal);
-        var kind = fromDiscovery
-            ? SpellWorkbenchActionKind.Discover
-            : fromLoadout
-                ? SpellWorkbenchActionKind.CreateWithLayout
-                : throw new ArgumentException(
-                    "spell workbench actions require a visible discovery or loadout surface");
         var action = new SpellWorkbenchAction(
-            kind,
             command.TargetId,
             command.ExpectedLifecycleGeneration,
-            fromDiscovery ? layout : Array.Empty<SpellWorkbenchGlyphStack>(),
-            fromLoadout ? layout : Array.Empty<SpellWorkbenchGlyphStack>());
+            layout);
         var submission = _spellWorkbench.Submit(in action);
         var result = SpellWorkbenchActionResultMapper.Map(in submission);
         return GameMcpCommandResult.FromAction(

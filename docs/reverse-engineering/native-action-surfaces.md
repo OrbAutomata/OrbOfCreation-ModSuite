@@ -694,7 +694,8 @@ is evidence about the ledger, never proof about the action — see
 | Recipe registry | `SpellRecipeSO.All` (`0x04000A32`) |
 | Authored cores | `SpellRecipeSO.GetGlyphRecipe()` (`0x06001447`) |
 | Selection resolution | `SpellManager.GetSpellFromRecipe(List<GlyphSO>)` (`0x06000747`) |
-| Discover | `SpellManager.DiscoverSpell()` (`0x06000741`) → `SpellRecipeSO.Discover()` (`0x06001432`) |
+| Discover button | `UIDiscoverablePage.HandleClick()` (`0x0600231C`) → `IDiscoverable.Discover()` (`0x06001C97`), which for a recipe is `SpellRecipeSO.Discover()` (`0x06001432`) |
+| Dead discover path | `SpellManager.DiscoverSpell()` (`0x06000741`) has no callers in the build |
 | Create | `SpellManager.CreateSpell()` (`0x0600073F`) → `CreateRecipe` → `SpellRecipeSO.CreateWith(...)` |
 | Costs | Discovery: `SpellRecipeSO.GetDiscoverCost()` (`0x06001442`); screen-priced creation: `SpellManager.GetSpellCreateCost(List<GlyphSO>)` (`0x0600074A`); lower-level modifier fold: `GlyphSO.GetCreationCostOfList(ResourceCostList, IEnumerable<GlyphSO>)` |
 | Verdicts | `SpellRecipeSO.CanDiscover()` (`0x06001451`), `IsCreatable()` (`0x0600144F`) |
@@ -704,35 +705,39 @@ is evidence about the ledger, never proof about the action — see
 ### Selection has no method
 
 No native member represents the selection gesture. The UI drives list operations, and so must
-anything else:
-
-```text
-resolve exactly one SpellRecipeSO from SpellRecipeSO.All
-read its ordered GetGlyphRecipe() core sequence
-require every entry to be an exact, available, non-augment GlyphSO
-empty selectedCoreGlyphs and selectedAugmentGlyphs
-append the authored core sequence in order
-GetSpellFromRecipe() must resolve to the requested recipe, with zero selected augments
-```
+anything else that needs the selection at all — which is creation, not discovery: `CreateRecipe`
+reads `selectedAugmentGlyphs`, while the Discover button reads nothing back off the page.
 
 `GetSpellFromRecipe` is the only proof that a selection means what you think it means; a list of the
 right length is not.
 
-### Discovery commits before it pays
+### The Discover button is one press on the row it is showing
+
+Spell discovery is not `SpellManager.DiscoverSpell()`. That method has no callers in the build; the
+screen the player presses is a `UIDiscoverablePage`, the same page every other discovery surface
+uses:
 
 ```text
-SpellManager.DiscoverSpell()
-  → GetSpellFromRecipe(selectedCoreGlyphs)
-  → SpellRecipeSO.Discover()
-  → ResourceCostList.PerformCost()
+UIDiscoverablePage.OnDiscoverableClick(row)  → selectedGlyphs   = row.GetGlyphRecipe()
+                                             → selectedResources = row.GetResourceRecipe()
+UIDiscoverablePage.Render()                  → currentRecipe = GetDiscoverableFromRecipe(...)
+                                             → totalCost = currentRecipe.GetDiscoverCost()
+                                             → discoverButton.SetCost(totalCost)
+UICostButton.OnClick()                       → costList.HasEnough() → PerformCost() → callback
+UIDiscoverablePage.HandleClick()             → IsGlyphSelectionValid() → currentRecipe.Discover()
 ```
 
-This is the audited counterexample to the cost-button order: the game itself can leave a recipe
-discovered and unpaid. Preflight everything you can before entering it, do not reorder it, and do
-not read a missing charge as a failed discovery.
+The page's selection lists are a view mirror of the clicked row's own authored recipe, and the
+discover path never reads them back for anything but re-deriving that same row. `HandleClick` is
+guarded by `IsGlyphSelectionValid()`, which is `selectedGlyphs.Count > 0 && totalCost != null &&
+totalCost.HasEnough() && currentRecipe != null && currentRecipe.CanDiscover() &&
+!currentRecipe.IsDiscovered()`. Payment happens in the button, before the callback, so this surface
+does keep the cost-button order.
 
-`PostDiscoverRecipe` may auto-equip an instance, so a discovery can change the loadout without being
-asked to.
+`SpellRecipeSO.Discover()` is `discovered = true` plus `SpellManager.PostDiscoverRecipe(this)`, which
+loads the new spell when the loadout has a free spot and the spell's usage cost fits — so a discovery
+can change the loadout without being asked to. `SpellManager.DiscoverRecipe(recipe)` is not the
+button's path: it calls `Discover()` and then runs `PostDiscoverRecipe` a second time.
 
 ### Creation is instance work
 

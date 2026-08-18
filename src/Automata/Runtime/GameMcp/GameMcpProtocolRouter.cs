@@ -395,19 +395,9 @@ internal sealed class GameMcpProtocolRouter
             case "game_discover":
                 builder.Mode = RequireOneOf(arguments, "mode", "preview", "confirm",
                     "offer_initiate", "offer_select", "offer_confirm", "offer_reroll");
-                if (builder.Mode is "preview" or "confirm")
-                {
-                    builder.Key = builder.Mode == "preview" && !arguments.ContainsKey("surface")
-                        ? string.Empty
-                        : RequireOneOf(arguments, "surface", "spellcraft", "glyphcraft",
-                            "devote", "runecraft", "alchemy", "artifacts", "concepts");
-                    builder.UuidCounts = RequireUuidCountArray(arguments, "components", 64);
-                }
-                else
-                {
-                    builder.Uuid = RequireUuid(arguments, "uuid");
+                builder.Uuid = RequireUuid(arguments, "uuid");
+                if (builder.Mode.StartsWith("offer_", StringComparison.Ordinal))
                     builder.SecondaryUuid = OptionalUuid(arguments, "offerUuid");
-                }
                 break;
             case "game_equipment":
                 builder.Mode = RequireOneOf(arguments, "mode", "equip", "unequip");
@@ -912,28 +902,21 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_discover",
                 "Preview or confirm discovery",
-                "Compose the components shown by a discovery screen, or drive a transient Discovery Tree offer. Component modes resolve the output; they never accept an output UUID.",
+                "Press a discovery screen's Discover button for one thing, or drive a transient Discovery Tree offer. Name what you want discovered and the screen follows from it.",
                 ModeSchema(ActionSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("preview", "confirm", "offer_initiate", "offer_select", "offer_confirm", "offer_reroll"),
-                        ["surface"] = EnumSchema("spellcraft", "glyphcraft", "devote", "runecraft", "alchemy", "artifacts", "concepts"),
-                        ["components"] = ArraySchema(
-                            ObjectSchema(new JObject
-                            {
-                                ["uuid"] = StringSchema("A component id selected on the discovery screen."),
-                                ["count"] = IntegerSchema(1, int.MaxValue),
-                            }, "uuid", "count"), 1, 64),
-                        ["uuid"] = StringSchema("Required for offer modes; a published discovery tree id."),
+                        ["uuid"] = StringSchema("What to discover for preview and confirm; the published discovery tree for offer modes."),
                         ["offerUuid"] = StringSchema("Required for offer_select and offer_confirm."),
                     },
-                    "mode"),
-                    ModeRule("preview", new[] { "components" }, new[] { "uuid", "offerUuid" }),
-                    ModeRule("confirm", new[] { "surface", "components" }, new[] { "uuid", "offerUuid" }),
-                    ModeRule("offer_initiate", new[] { "uuid" }, new[] { "surface", "components", "offerUuid" }),
-                    ModeRule("offer_reroll", new[] { "uuid" }, new[] { "surface", "components", "offerUuid" }),
-                    ModeRule("offer_select", new[] { "uuid", "offerUuid" }, new[] { "surface", "components" }),
-                    ModeRule("offer_confirm", new[] { "uuid", "offerUuid" }, new[] { "surface", "components" })),
+                    "mode", "uuid"),
+                    ModeRule("preview", new[] { "uuid" }, new[] { "offerUuid" }),
+                    ModeRule("confirm", new[] { "uuid" }, new[] { "offerUuid" }),
+                    ModeRule("offer_initiate", new[] { "uuid" }, new[] { "offerUuid" }),
+                    ModeRule("offer_reroll", new[] { "uuid" }, new[] { "offerUuid" }),
+                    ModeRule("offer_select", new[] { "uuid", "offerUuid" }),
+                    ModeRule("offer_confirm", new[] { "uuid", "offerUuid" })),
                 readOnly: false,
                 idempotent: false),
             Tool(
@@ -967,7 +950,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_ritual",
                 "Select, level, activate, or cancel a ritual reward",
-                "Drive the Ritual list controls. Discovery stays on game_discover surface devote; cancel_duration ends a completed run's duration reward, not an active battle.",
+                "Drive the Ritual list controls. Discovering a ritual stays on game_discover, named by the ritual; cancel_duration ends a completed run's duration reward, not an active battle.",
                 ModeSchema(ActionSchema(
                     new JObject
                     {
@@ -1332,30 +1315,14 @@ internal sealed class GameMcpProtocolRouter
             arguments["mode"]?.Type == JTokenType.String)
         {
             var mode = (string?)arguments["mode"];
-            var hasSurface = arguments.ContainsKey("surface");
-            var hasComponents = arguments.ContainsKey("components");
-            var hasTree = arguments.ContainsKey("uuid");
             var hasOffer = arguments.ContainsKey("offerUuid");
             if (mode is "preview" or "confirm")
             {
-                if (mode == "confirm" && !hasSurface)
-                    errors.Add(ValidationError("missing_required", "surface",
-                        "required field 'surface' is missing for mode 'confirm'"));
-                if (!hasComponents) errors.Add(ValidationError("missing_required", "components",
-                    "required field 'components' is missing for mode '" + mode + "'"));
-                if (hasTree) errors.Add(ValidationError("unexpected_for_mode", "uuid",
-                    "field 'uuid' is accepted only for offer modes"));
                 if (hasOffer) errors.Add(ValidationError("unexpected_for_mode", "offerUuid",
                     "field 'offerUuid' is accepted only for offer_select or offer_confirm"));
             }
             else
             {
-                if (!hasTree) errors.Add(ValidationError("missing_required", "uuid",
-                    "required field 'uuid' is missing for mode '" + mode + "'"));
-                if (hasSurface) errors.Add(ValidationError("unexpected_for_mode", "surface",
-                    "field 'surface' is accepted only for preview or confirm"));
-                if (hasComponents) errors.Add(ValidationError("unexpected_for_mode", "components",
-                    "field 'components' is accepted only for preview or confirm"));
                 if (mode is "offer_select" or "offer_confirm" && !hasOffer)
                     errors.Add(ValidationError("missing_required", "offerUuid",
                         "required field 'offerUuid' is missing for mode '" + mode + "'"));

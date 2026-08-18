@@ -21833,27 +21833,6 @@
       "place": "action"
     },
     {
-      "id": "spell-workbench.manager-get-from-recipe",
-      "assembly": "assembly-csharp",
-      "type": "SpellManager",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "GetSpellFromRecipe",
-      "visibility": "public",
-      "static": false,
-      "returnType": "SpellRecipeSO",
-      "parameters": [
-        "System.Collections.Generic.List`1<GlyphSO>"
-      ],
-      "owners": [
-        "Automata spell workbench GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
       "id": "spell-workbench.manager-get-usage-cost-action",
       "assembly": "assembly-csharp",
       "type": "SpellManager",
@@ -21866,25 +21845,6 @@
       "parameters": [
         "Spell"
       ],
-      "owners": [
-        "Automata spell workbench GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
-      "id": "spell-workbench.manager-discover",
-      "assembly": "assembly-csharp",
-      "type": "SpellManager",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "DiscoverSpell",
-      "visibility": "public",
-      "static": false,
-      "returnType": "System.Void",
-      "parameters": [],
       "owners": [
         "Automata spell workbench GameAction"
       ],
@@ -21972,25 +21932,6 @@
       "place": "action"
     },
     {
-      "id": "spell-workbench.recipe-can-discover",
-      "assembly": "assembly-csharp",
-      "type": "SpellRecipeSO",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "CanDiscover",
-      "visibility": "public",
-      "static": false,
-      "returnType": "System.Boolean",
-      "parameters": [],
-      "owners": [
-        "Automata spell workbench GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
       "id": "spell-workbench.recipe-create-empty-action",
       "assembly": "assembly-csharp",
       "type": "SpellRecipeSO",
@@ -22050,25 +21991,6 @@
       "place": "action"
     },
     {
-      "id": "spell-workbench.recipe-is-creatable",
-      "assembly": "assembly-csharp",
-      "type": "SpellRecipeSO",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "IsCreatable",
-      "visibility": "public",
-      "static": false,
-      "returnType": "System.Boolean",
-      "parameters": [],
-      "owners": [
-        "Automata spell workbench GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
       "id": "spell-workbench.recipe-get-discover-cost-capture",
       "assembly": "assembly-csharp",
       "type": "SpellRecipeSO",
@@ -22087,25 +22009,6 @@
       ],
       "place": "capture",
       "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game builds an aggregate the reader then walks; the walk is what the suite wants, and the aggregate is how the game hands it over.", "evidence": "kind:method returning ResourceCostList; classified from its signature, no IL body audit"}
-    },
-    {
-      "id": "spell-workbench.recipe-get-discover-cost-action",
-      "assembly": "assembly-csharp",
-      "type": "SpellRecipeSO",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "GetDiscoverCost",
-      "visibility": "public",
-      "static": false,
-      "returnType": "ResourceCostList",
-      "parameters": [],
-      "owners": [
-        "Automata spell workbench GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
     },
     {
       "id": "spell-workbench.glyph-is-available",
@@ -22202,27 +22105,6 @@
       "place": "action"
     },
     {
-      "id": "spell-workbench.list-set-value-action",
-      "assembly": "assembly-csharp",
-      "type": "GenericListVariable`1",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "SetValue",
-      "visibility": "public",
-      "static": false,
-      "returnType": "System.Void",
-      "parameters": [
-        "System.Collections.Generic.List`1<!0>"
-      ],
-      "owners": [
-        "Automata spell workbench GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
       "id": "spell-workbench.list-set-stack-action",
       "assembly": "assembly-csharp",
       "type": "StackableListVariable`1",
@@ -22253,46 +22135,6 @@
       "visibility": "public",
       "static": false,
       "returnType": "Stacked.StackedIdRecord`1<!0>",
-      "parameters": [],
-      "owners": [
-        "Automata spell workbench GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
-      "id": "spell-workbench.list-add-action",
-      "assembly": "assembly-csharp",
-      "type": "GenericListVariable`1",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "Add",
-      "visibility": "public",
-      "static": false,
-      "returnType": "System.Void",
-      "parameters": [
-        "!0"
-      ],
-      "owners": [
-        "Automata spell workbench GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
-      "id": "spell-workbench.list-empty-action",
-      "assembly": "assembly-csharp",
-      "type": "GenericListVariable`1",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "Empty",
-      "visibility": "public",
-      "static": false,
-      "returnType": "System.Void",
       "parameters": [],
       "owners": [
         "Automata spell workbench GameAction"
@@ -24177,16 +24019,6 @@
       "place": "action"
     },
     {
-      "id": "generic-discovery.resource.type-action",
-      "assembly": "assembly-csharp",
-      "type": "ResourceSO",
-      "typeVisibility": "public",
-      "kind": "type",
-      "owners": ["Automata generic discovery GameAction"],
-      "usages": ["reflection"],
-      "place": "action"
-    },
-    {
       "id": "generic-discovery.alchemy-recipe.type-action",
       "assembly": "assembly-csharp",
       "type": "AlchemyRecipeSO",
@@ -24220,6 +24052,16 @@
       "id": "generic-discovery.ritual.type-action",
       "assembly": "assembly-csharp",
       "type": "RitualSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": ["Automata generic discovery GameAction"],
+      "usages": ["reflection"],
+      "place": "action"
+    },
+    {
+      "id": "generic-discovery.spell-recipe.type-action",
+      "assembly": "assembly-csharp",
+      "type": "SpellRecipeSO",
       "typeVisibility": "public",
       "kind": "type",
       "owners": ["Automata generic discovery GameAction"],
@@ -24312,15 +24154,25 @@
       "place": "action"
     },
     {
-      "id": "generic-discovery.get-resource-recipe-action",
+      "id": "generic-discovery.view.type-action",
       "assembly": "assembly-csharp",
-      "type": "IDiscoverable",
+      "type": "ViewSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": ["Automata generic discovery GameAction"],
+      "usages": ["reflection"],
+      "place": "action"
+    },
+    {
+      "id": "generic-discovery.owning-view-availability-action",
+      "assembly": "assembly-csharp",
+      "type": "ViewSO",
       "typeVisibility": "public",
       "kind": "method",
-      "member": "GetResourceRecipe",
+      "member": "IsAvailable",
       "visibility": "public",
       "static": false,
-      "returnType": "System.Collections.Generic.List`1<ResourceSO>",
+      "returnType": "System.Boolean",
       "parameters": [],
       "owners": ["Automata generic discovery GameAction"],
       "usages": ["reflection"],

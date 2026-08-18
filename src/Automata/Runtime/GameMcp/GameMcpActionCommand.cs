@@ -130,8 +130,6 @@ internal static class GameMcpCommandKinds
         if (toolName == "game_discover" &&
             mode.StartsWith("offer_", StringComparison.Ordinal))
             return GameMcpCommandKind.DiscoveryTreeOffer;
-        if (toolName == "game_discover" && mode == "confirm" && surface == "spellcraft")
-            return GameMcpCommandKind.SpellWorkbench;
         if (toolName == "game_spell_loadout" && mode == "add")
             return GameMcpCommandKind.SpellWorkbench;
         if (toolName == "game_agromancy" &&
@@ -148,7 +146,7 @@ internal static class GameMcpCommandKinds
         GameMcpCommandKind.Harvest => "game_agromancy",
         GameMcpCommandKind.SpellLevel => "game_spell_mastery",
         GameMcpCommandKind.DiscoveryTreeOffer => "game_discover",
-        GameMcpCommandKind.SpellWorkbench => "game_discover",
+        GameMcpCommandKind.SpellWorkbench => "game_spell_loadout",
         GameMcpCommandKind.SpellComposition => "game_casting_dial",
         GameMcpCommandKind.SpellLoadout => "game_spell_loadout",
         GameMcpCommandKind.Targeting => "game_targeting",
@@ -852,7 +850,8 @@ internal static class GameMcpActionResultCodeNames
             if (code == GenericDiscoveryActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";
             if (code == GenericDiscoveryActionResultCodes.PostCommitFault) return "post_commit_fault";
             if (code == GenericDiscoveryActionResultCodes.VerificationFailed) return "verification_failed";
-            if (code == GenericDiscoveryActionResultCodes.CompositionChanged) return "composition_changed";
+            if (code == GenericDiscoveryActionResultCodes.GlyphRecipeEmpty) return "components_unavailable";
+            if (code == GenericDiscoveryActionResultCodes.ScreenLocked) return "screen_locked";
         }
         if (commandKind == GameMcpCommandKind.EquipmentLoadout)
         {

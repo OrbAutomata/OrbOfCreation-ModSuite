@@ -1,14 +1,25 @@
 using System;
-using System.Collections.Generic;
 using OrbModding.Common;
 
 namespace OrbAutomata;
 
 /// <summary>
-/// Lifecycle-scoped generic discovery transaction. Admission and exact cost reads complete before
-/// the mutation permit; the native UI's payment-then-discover order is preserved. Only exact target
-/// identity and the requested discovered outcome gate success.
+/// Lifecycle-scoped discovery transaction — one press of a discovery screen's Discover button.
 /// </summary>
+/// <remarks>
+/// <para>
+/// The ladder mirrors the button the player presses. <c>UICostButton.OnClick</c> refuses unless the
+/// row shows no error and <c>costList.HasEnough()</c>, then pays that same list and invokes
+/// <c>UIDiscoverablePage.HandleClick</c>, which re-asks <c>IsGlyphSelectionValid()</c> and calls
+/// <c>IDiscoverable.Discover()</c>. Payment before the call is the button's own order, kept here.
+/// </para>
+/// <para>
+/// Nothing stages a selection. The page's selection lists exist only so the page can turn a click
+/// on a row back into the discoverable the caller already named, and the discover path never reads
+/// them; the recipe books the row's visibility depends on are read by the game inside
+/// <c>IsDiscoverVisible()</c>, which is why no book is ever this action's argument.
+/// </para>
+/// </remarks>
 internal sealed class GenericDiscoveryGameAction : IDisposable
 {
     private readonly Func<long> _readLifecycleEpoch;
@@ -101,45 +112,44 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
                     GenericDiscoveryPreflight.IdentityUnavailable,
                     "The exact registered " + action.ExpectedNativeType +
                     " does not implement IDiscoverable at the action boundary.");
-            if (!GenericDiscoverySurfaces.Owns(action.Surface, action.ExpectedNativeType))
+            var name = EntityIdentityFormatter.PlayerName(action.TargetId);
+            if (!TryAdmitScreen(native, action.ExpectedNativeType, out var screenRefusal))
+                return screenRefusal;
+            if (native.GetGlyphRecipe(target).Count == 0)
                 return GenericDiscoverySubmission.Reject(
-                    GenericDiscoveryPreflight.UnsupportedType,
-                    "Discovery surface " + action.Surface + " does not own native type " +
-                    action.ExpectedNativeType + ".");
-            if (!RecipeStillMatches(
-                    in action,
-                    native,
-                    target,
-                    out var compositionReason))
-                return GenericDiscoverySubmission.Reject(
-                    GenericDiscoveryPreflight.CompositionChanged,
-                    compositionReason);
+                    GenericDiscoveryPreflight.GlyphRecipeEmpty,
+                    "The game builds " + name + " from glyphs and it names none, so no " +
+                    "discovery screen ever draws a Discover button for it. Nothing was spent.");
 
             if (native.IsDiscovered(target))
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.AlreadyDiscovered,
-                    EntityIdentityFormatter.PlayerName(action.TargetId) + " is already discovered.");
+                    name + " is already discovered, so its row no longer offers the button. " +
+                    "Nothing was spent.");
             if (!native.IsVisible(target))
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.NotVisible,
-                    EntityIdentityFormatter.PlayerName(action.TargetId) +
-                    " is not visible on its discovery screen.");
+                    name + " is not drawn on its discovery screen yet, so there is no row to " +
+                    "press. The game hides a row until its own prerequisites are met and every " +
+                    "recipe book it belongs to is owned. Nothing was spent.");
             if (!native.CanDiscover(target))
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.DiscoveryUnavailable,
-                    EntityIdentityFormatter.PlayerName(action.TargetId) +
-                    " cannot be discovered right now.");
+                    name + " is drawn but its Discover button reads \"Has Requirements\", so " +
+                    "the game refuses the press. Nothing was spent.");
 
             var cost = native.GetCost(target);
             if (cost is null || cost.GetType() != native.CostType)
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.ContractUnavailable,
-                    "IDiscoverable.GetDiscoverCost() returned a non-ResourceCostList value.");
+                    "The game's discovery price for " + name +
+                    " could not be read, so whether the button would take the press is unknown.");
             if (!native.HasEnough(cost))
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.Unaffordable,
-                    EntityIdentityFormatter.PlayerName(action.TargetId) +
-                    " has a discovery cost you cannot afford.");
+                    "The discovery price of " + name +
+                    " is more than you hold, and the button only takes a press you can pay for. " +
+                    "Nothing was spent.");
             if (!TryCapturePermit(out var permitReason))
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.MutationPermitUnavailable,
@@ -167,6 +177,59 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
     {
         _bindings = null;
         _bindingFailure = string.Empty;
+    }
+
+    /// <summary>
+    /// A locked screen draws no rows at all, so it is a different answer from a row the game does
+    /// not draw and from a price you cannot pay. <c>ViewSO.IsAvailable()</c> is the game's own
+    /// question about the screen, so this is read, never inferred.
+    /// </summary>
+    /// <remarks>
+    /// Only the two screens whose owning view the suite has pinned are gated. The other discovery
+    /// pages keep the answer their rows already give: <c>IsDiscoverVisible()</c> is false while the
+    /// game does not draw them, and inventing an owning view for a page nothing pins would be the
+    /// suite claiming a game fact it has not read.
+    /// </remarks>
+    private bool TryAdmitScreen(
+        GenericDiscoveryNativeBindings native,
+        string expectedNativeType,
+        out GenericDiscoverySubmission refusal)
+    {
+        refusal = default;
+        Guid screen;
+        string path;
+        switch (expectedNativeType)
+        {
+            case "SpellRecipeSO":
+                screen = KnownEntities.MagicSpellbookLearn.Uuid;
+                path = "Magic > Spellbook > Unlock";
+                break;
+            case "GlyphSO":
+                screen = KnownEntities.MagicGlyphsDiscover.Uuid;
+                path = "Magic > Augments > Glyphcraft";
+                break;
+            default:
+                return true;
+        }
+        var resolution = _registry.Resolve(screen, native.ViewType);
+        if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
+            resolution.Value is not { } view)
+        {
+            refusal = GenericDiscoverySubmission.Reject(
+                GenericDiscoveryPreflight.ContractUnavailable,
+                "The game's " + path + " screen could not be read, so whether the game would " +
+                "draw a row to discover is unknown.");
+            return false;
+        }
+        if (!native.IsViewAvailable(view))
+        {
+            refusal = GenericDiscoverySubmission.Reject(
+                GenericDiscoveryPreflight.ScreenLocked,
+                path + " is not unlocked yet, so the game draws no row to discover. " +
+                "Nothing was spent.");
+            return false;
+        }
+        return true;
     }
 
     private GenericDiscoverySubmission Execute(
@@ -267,74 +330,6 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         }
     }
 
-    private bool RecipeStillMatches(
-        in GenericDiscoveryAction action,
-        GenericDiscoveryNativeBindings native,
-        object target,
-        out string reason)
-    {
-        var nativeGlyphs = native.GetGlyphRecipe(target);
-        var nativeResources = native.GetResourceRecipe(target);
-        var glyphs = new List<ResolvedComponent>();
-        var resources = new List<ResolvedComponent>();
-        var glyphCount = 0;
-        var resourceCount = 0;
-        try
-        {
-            for (var index = 0; index < action.Components.Count; index++)
-            {
-                var component = action.Components[index];
-                var glyph = _registry.Resolve(component.ComponentId, native.GlyphType);
-                var resource = _registry.Resolve(component.ComponentId, native.ResourceType);
-                var isGlyph = glyph.IsResolved && _registry.IsCurrent(glyph);
-                var isResource = resource.IsResolved && _registry.IsCurrent(resource);
-                if (isGlyph == isResource)
-                {
-                    reason = isGlyph
-                        ? "Component " + EntityIdentityFormatter.PlayerName(component.ComponentId) +
-                          " resolved as both GlyphSO and ResourceSO."
-                        : "Component " + EntityIdentityFormatter.PlayerName(component.ComponentId) +
-                          " is no longer a live GlyphSO or ResourceSO.";
-                    return false;
-                }
-                var destination = isGlyph ? glyphs : resources;
-                var value = isGlyph ? glyph.Value! : resource.Value!;
-                destination.Add(new ResolvedComponent(component.ComponentId, value));
-                if (isGlyph) glyphCount = checked(glyphCount + component.Count);
-                else resourceCount = checked(resourceCount + component.Count);
-            }
-        }
-        catch (OverflowException)
-        {
-            reason = "The submitted discovery component counts exceed the action boundary.";
-            return false;
-        }
-
-        if (nativeGlyphs.Count != glyphCount || nativeResources.Count != resourceCount)
-        {
-            reason = "The live native recipe now requires " + nativeGlyphs.Count +
-                " glyph components and " + nativeResources.Count +
-                " resource components, not " + glyphCount + " and " + resourceCount + ".";
-            return false;
-        }
-        for (var index = 0; index < glyphs.Count; index++)
-            if (!nativeGlyphs.Contains(glyphs[index].Value))
-            {
-                reason = "The live native glyph recipe no longer contains " +
-                    EntityIdentityFormatter.PlayerName(glyphs[index].Identity) + ".";
-                return false;
-            }
-        for (var index = 0; index < resources.Count; index++)
-            if (!nativeResources.Contains(resources[index].Value))
-            {
-                reason = "The live native resource recipe no longer contains " +
-                    EntityIdentityFormatter.PlayerName(resources[index].Identity) + ".";
-                return false;
-            }
-        reason = string.Empty;
-        return true;
-    }
-
     private void BindLifecycle()
     {
         if (GenericDiscoveryNativeBindings.TryCreate(
@@ -355,16 +350,4 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         StackOverflowException and not
         OutOfMemoryException and not
         AccessViolationException;
-
-    private readonly struct ResolvedComponent
-    {
-        internal ResolvedComponent(Guid identity, object value)
-        {
-            Identity = identity;
-            Value = value;
-        }
-
-        internal Guid Identity { get; }
-        internal object Value { get; }
-    }
 }

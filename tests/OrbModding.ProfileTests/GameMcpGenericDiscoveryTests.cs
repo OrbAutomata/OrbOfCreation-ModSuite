@@ -22,9 +22,13 @@ public sealed class GameMcpGenericDiscoveryTests
         Guid.Parse("f3000000-0000-0000-0000-000000000003");
     private static readonly Guid AmbiguousOutputId =
         Guid.Parse("f3000000-0000-0000-0000-000000000004");
+    private static readonly Guid SpellRecipeId =
+        Guid.Parse("f3000000-0000-0000-0000-000000000005");
+    private static readonly Guid StructureId =
+        Guid.Parse("f3000000-0000-0000-0000-000000000006");
 
     [Fact]
-    public void ToolAdvertisesOneComponentFirstAndEventOfferDiscoveryNamespace()
+    public void ToolAdvertisesOneTargetAddressedAndEventOfferDiscoveryNamespace()
     {
         var tool = Assert.Single(
             GameMcpAcceptanceFixture.Tools(),
@@ -32,21 +36,25 @@ public sealed class GameMcpGenericDiscoveryTests
 
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
         var schema = tool["inputSchema"]!;
-        Assert.Equal(new[] { "mode" }, schema["required"]!.Values<string>());
+        Assert.Equal(new[] { "mode", "uuid" }, schema["required"]!.Values<string>());
         Assert.Equal(
             new[] { "preview", "confirm", "offer_initiate", "offer_select", "offer_confirm", "offer_reroll" },
             schema["properties"]!["mode"]!["enum"]!.Values<string>());
-        Assert.NotNull(schema["properties"]!["surface"]);
-        Assert.NotNull(schema["properties"]!["components"]);
         Assert.NotNull(schema["properties"]!["uuid"]);
         Assert.NotNull(schema["properties"]!["offerUuid"]);
+        Assert.Null(schema["properties"]!["surface"]);
+        Assert.Null(schema["properties"]!["components"]);
         Assert.Null(schema["properties"]!["expectedNativeType"]);
         Assert.Null(schema["properties"]!["worldGeneration"]);
         Assert.Null(schema["properties"]!["amount"]);
     }
 
+    /// <summary>
+    /// The verb names what it would discover and nothing else. A caller reaching for the retired
+    /// composition arguments is told they are not fields rather than silently ignored.
+    /// </summary>
     [Fact]
-    public void ValidationNamesMissingCompositionFieldsAndPreviewIsReadOnly()
+    public void ValidationRefusesTheRetiredSurfaceAndComponentFieldsAndPreviewIsReadOnly()
     {
         var inbox = new GameMcpFrameInbox();
         var router = new GameMcpProtocolRouter(inbox);
@@ -58,7 +66,7 @@ public sealed class GameMcpGenericDiscoveryTests
                 ["name"] = "game_discover",
                 ["arguments"] = new JObject(),
             }));
-        var accepted = router.Handle(GameMcpAcceptanceFixture.Request(
+        var composed = router.Handle(GameMcpAcceptanceFixture.Request(
             2,
             "tools/call",
             new JObject
@@ -66,19 +74,37 @@ public sealed class GameMcpGenericDiscoveryTests
                 ["name"] = "game_discover",
                 ["arguments"] = new JObject
                 {
-                    ["mode"] = "preview",
-                    ["surface"] = "spellcraft",
+                    ["mode"] = "confirm",
+                    ["uuid"] = GlyphId.ToString("D"),
+                    ["surface"] = "glyphcraft",
                     ["components"] = new JArray(new JObject
                     {
-                        ["uuid"] = GlyphId.ToString("D"),
+                        ["uuid"] = ComponentId.ToString("D"),
                         ["count"] = 1,
                     }),
+                },
+            }));
+        var accepted = router.Handle(GameMcpAcceptanceFixture.Request(
+            3,
+            "tools/call",
+            new JObject
+            {
+                ["name"] = "game_discover",
+                ["arguments"] = new JObject
+                {
+                    ["mode"] = "preview",
+                    ["uuid"] = GlyphId.ToString("D"),
                 },
             }));
 
         Assert.Equal(
             "refused (ERR_INPUT): tool arguments failed schema validation: required " +
-            "field 'mode' is missing", GameMcpTestHarness.Page(missing));
+            "field 'mode' is missing; required field 'uuid' is missing",
+            GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field 'surface' " +
+            "is not accepted by game_discover; field 'components' is not accepted by " +
+            "game_discover", GameMcpTestHarness.Page(composed));
         Assert.DoesNotContain(
             "refused (ERR_INPUT)", GameMcpTestHarness.Page(accepted), StringComparison.Ordinal);
         var operation = GameMcpProtocolRouter.BuildOperation(
@@ -86,33 +112,36 @@ public sealed class GameMcpGenericDiscoveryTests
             new JObject
             {
                 ["mode"] = "preview",
-                ["surface"] = "spellcraft",
-                ["components"] = new JArray(new JObject
-                {
-                    ["uuid"] = GlyphId.ToString("D"),
-                    ["count"] = 1,
-                }),
+                ["uuid"] = GlyphId.ToString("D"),
             });
         Assert.Equal(GameMcpOperationClass.ReadOnly, operation.Classification);
-        Assert.Equal("spellcraft", operation.Key);
-        Assert.Single(operation.UuidCounts);
+        Assert.Equal(GlyphId, operation.Uuid);
+        Assert.Empty(operation.UuidCounts);
     }
 
+    /// <summary>
+    /// Every discovery screen is the same button, so every confirm lands on the one boundary that
+    /// presses it — spells included.
+    /// </summary>
     [Theory]
-    [InlineData("spellcraft", 16)]
-    [InlineData("glyphcraft", 22)]
-    [InlineData("devote", 22)]
-    [InlineData("runecraft", 22)]
-    [InlineData("alchemy", 22)]
-    [InlineData("artifacts", 22)]
-    [InlineData("concepts", 22)]
-    public void Confirm_routes_only_spellcraft_to_the_spell_resolver(
-        string surface,
-        int expected)
+    [InlineData("spell-recipes")]
+    [InlineData("glyphs")]
+    [InlineData("rituals")]
+    [InlineData("time-runes")]
+    [InlineData("alchemy-recipes")]
+    [InlineData("equipment")]
+    public void Confirm_routes_every_discovery_screen_to_one_boundary(string category)
     {
+        Assert.NotEmpty(category);
         Assert.Equal(
-            expected,
-            (int)GameMcpCommandKinds.FromRequest("game_discover", "confirm", surface));
+            GameMcpCommandKind.GenericDiscovery,
+            GameMcpCommandKinds.FromRequest("game_discover", "confirm", string.Empty));
+        Assert.Equal(
+            GameMcpCommandKind.DiscoveryTreeOffer,
+            GameMcpCommandKinds.FromRequest("game_discover", "offer_confirm", string.Empty));
+        Assert.Equal(
+            GameMcpCommandKind.SpellWorkbench,
+            GameMcpCommandKinds.FromRequest("game_spell_loadout", "add", string.Empty));
     }
 
     [Fact]
@@ -145,20 +174,14 @@ public sealed class GameMcpGenericDiscoveryTests
     }
 
     [Fact]
-    public void Generic_preview_resolves_the_UI_surface_recipe_without_echoing_the_request()
+    public void Preview_answers_the_buttons_admission_from_the_targets_own_row()
     {
-        var preview = Json(GameMcpWorldQuery.ProjectDiscoveryPreview(
-            Context(),
-            "glyphcraft",
-            new[]
-            {
-                new GameMcpUuidCount(ComponentId, 1),
-                new GameMcpUuidCount(ResourceId, 1),
-            }));
+        var preview = Json(GameMcpWorldQuery.ProjectDiscoveryPreview(Context(), GlyphId));
 
         Assert.Equal("available", (string?)preview["status"]);
-        Assert.Equal("glyphcraft", (string?)preview["surface"]);
+        Assert.Null(preview["surface"]);
         Assert.Null(preview["components"]);
+        Assert.Null(preview["autoLoad"]);
         var output = preview["output"]!;
         Assert.Equal(GameMcpTestHarness.Handle(GlyphId), (string?)output["uuid"]);
         Assert.Equal("Amplify", (string?)output["name"]);
@@ -167,44 +190,65 @@ public sealed class GameMcpGenericDiscoveryTests
     }
 
     /// <summary>
-    /// Not holding a glyph and asking too much of one you hold are different answers with different
-    /// next moves. Folded into one clause, a glyph the player has never seen refused by quoting a
-    /// usage ceiling of nought — which reads as a clamp on something they own.
+    /// A spell's press may also load it, so the preview says which half of that is already settled.
     /// </summary>
     [Fact]
-    public void A_component_glyph_the_player_does_not_hold_says_so_rather_than_quoting_a_ceiling()
+    public void Preview_of_a_spell_says_whether_the_same_press_would_load_it()
     {
-        var preview = Json(GameMcpWorldQuery.ProjectDiscoveryPreview(
-            Context(componentLearned: false),
-            "glyphcraft",
-            new[]
-            {
-                new GameMcpUuidCount(ComponentId, 1),
-                new GameMcpUuidCount(ResourceId, 1),
-            }));
+        var free = Json(GameMcpWorldQuery.ProjectDiscoveryPreview(Context(), SpellRecipeId));
+        var full = Json(GameMcpWorldQuery.ProjectDiscoveryPreview(
+            Context(loadoutHasRoom: false), SpellRecipeId));
+
+        Assert.Equal("unverified", (string?)free["autoLoad"]!["willLoad"]);
+        Assert.Equal(
+            "A loadout slot is free, so the game loads the spell straight away if its usage " +
+            "cost fits the spell-power headroom. That fit is only settled once the spell exists.",
+            (string?)free["autoLoad"]!["reason"]);
+        Assert.Equal("no", (string?)full["autoLoad"]!["willLoad"]);
+        Assert.Equal(
+            "Every loadout slot holds a spell, so a discovered spell stays unloaded until you " +
+            "free one.",
+            (string?)full["autoLoad"]!["reason"]);
+    }
+
+    /// <summary>
+    /// A locked discovery screen is the row's own answer, not a surprise saved for the press.
+    /// </summary>
+    /// <remarks>
+    /// <c>ViewSO.IsAvailable()</c> is published for every view, so the two screens the suite pins —
+    /// Magic &gt; Spellbook &gt; Unlock and Magic &gt; Augments &gt; Glyphcraft — are read here and
+    /// answered in the same words the verb would refuse in.
+    /// </remarks>
+    [Fact]
+    public void A_locked_discovery_screen_is_answered_on_the_row()
+    {
+        var locked = Context(screensUnlocked: false);
+
+        var glyph = Json(GameMcpWorldQuery.ProjectPostState(
+            locked, "glyphs", GlyphId))["discover"]!;
+        var recipe = Json(GameMcpWorldQuery.ProjectPostState(
+            locked, "spell-recipes", SpellRecipeId))["discover"]!;
+
+        Assert.False((bool)glyph["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)glyph["reasonCode"]);
+        Assert.Equal(
+            "The screen this action lives on is not unlocked yet.", (string?)glyph["reason"]);
+        Assert.Null(glyph["costs"]);
+        Assert.False((bool)recipe["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)recipe["reasonCode"]);
+        Assert.Null(recipe["costs"]);
+    }
+
+    [Fact]
+    public void Preview_of_something_no_discovery_screen_draws_says_so()
+    {
+        var preview = Json(GameMcpWorldQuery.ProjectDiscoveryPreview(Context(), StructureId));
 
         Assert.Equal("unavailable", (string?)preview["status"]);
         Assert.Equal("ERR_LOCKED", (string?)preview["reasonCode"]);
         Assert.Equal(
-            "Glyph Focus has not been discovered yet.",
+            "Watchtower is not something the game lets you discover.",
             (string?)preview["reason"]);
-    }
-
-    [Fact]
-    public void Generic_preview_refuses_ambiguous_authored_recipes_instead_of_guessing()
-    {
-        var preview = Json(GameMcpWorldQuery.ProjectDiscoveryPreview(
-            Context(ambiguous: true),
-            "glyphcraft",
-            new[]
-            {
-                new GameMcpUuidCount(ComponentId, 1),
-                new GameMcpUuidCount(ResourceId, 1),
-            }));
-
-        Assert.Equal("unavailable", (string?)preview["status"]);
-        Assert.Equal("ERR_INPUT", (string?)preview["reasonCode"]);
-        Assert.Contains("2 published glyphs", (string?)preview["reason"]);
         Assert.Null(preview["output"]);
     }
 
@@ -234,18 +278,24 @@ public sealed class GameMcpGenericDiscoveryTests
 
     private static GameMcpFrameContext Context(
         bool ambiguous = false,
-        bool componentLearned = true)
+        bool componentLearned = true,
+        bool loadoutHasRoom = true,
+        bool screensUnlocked = true)
     {
         using var publisher =
             new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(World(ambiguous, componentLearned), new WorldGeneration(2301));
+        publisher.Publish(
+            World(ambiguous, componentLearned, loadoutHasRoom, screensUnlocked),
+            new WorldGeneration(2301));
         return GameMcpTestHarness.Context(
             publisher.ReadLatest(), configurationGeneration: 8, lifecycleGeneration: 15);
     }
 
     private static GameWorldState World(
         bool ambiguous = false,
-        bool componentLearned = true)
+        bool componentLearned = true,
+        bool loadoutHasRoom = true,
+        bool screensUnlocked = true)
     {
         var costs = PublicationTable<WorldDiscoverableCost>.Create(new[]
         {
@@ -271,7 +321,17 @@ public sealed class GameMcpGenericDiscoveryTests
             CollectedAtEpoch = 15,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
             EntityIdentities = Identities(),
+            Views = PublicationTable<WorldView>.Create(new[]
+            {
+                new WorldView(KnownEntities.MagicGlyphsDiscover.Uuid, false, false, screensUnlocked),
+                new WorldView(KnownEntities.MagicSpellbookLearn.Uuid, false, false, screensUnlocked),
+            }),
             Glyphs = PublicationTable<WorldGlyph>.Create(glyphs),
+            SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[] { SpellRecipe(decision) }),
+            SpellWorkbench = new WorldSpellWorkbench(
+                equippedCount: loadoutHasRoom ? 0 : 1,
+                maximumEquipped: 1,
+                hasEmptySlot: loadoutHasRoom),
             Resources = PublicationTable<WorldResource>.Create(new[] { Resource() }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
@@ -280,6 +340,34 @@ public sealed class GameMcpGenericDiscoveryTests
             }),
         };
     }
+
+    private static WorldSpellRecipe SpellRecipe(WorldDiscoverableDecision decision) => new(
+        SpellRecipeId,
+        false,
+        1,
+        BigDouble.Zero,
+        0,
+        false,
+        false,
+        false,
+        0,
+        1d,
+        1,
+        false,
+        BigDouble.One,
+        BigDouble.One,
+        BigDouble.One,
+        BigDouble.One,
+        BigDouble.One,
+        BigDouble.One,
+        false,
+        PublicationTable<WorldSpellRecipeGlyph>.Create(new[]
+        {
+            new WorldSpellRecipeGlyph(0, ComponentId),
+        }),
+        decision.Costs,
+        true,
+        decision);
 
     private static WorldResource Resource()
     {
@@ -346,6 +434,8 @@ public sealed class GameMcpGenericDiscoveryTests
             new EntityIdentityName(ResourceId, "ResourceSO", "Arcane Dust", "arcaneDust"),
             new EntityIdentityName(ComponentId, "GlyphSO", "Focus", "focus"),
             new EntityIdentityName(AmbiguousOutputId, "GlyphSO", "Echo", "echo"),
+            new EntityIdentityName(SpellRecipeId, "SpellRecipeSO", "Firebolt", "firebolt"),
+            new EntityIdentityName(StructureId, "StructureSO", "Watchtower", "watchtower"),
         }).OrderBy(row => row.EntityId).ToArray();
         return EntityIdentityCatalogSnapshot.Bound(15, rows);
     }

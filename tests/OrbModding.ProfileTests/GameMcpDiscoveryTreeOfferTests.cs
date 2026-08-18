@@ -32,7 +32,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
         var schema = tool["inputSchema"]!;
         Assert.Equal(
-            new[] { "mode" },
+            new[] { "mode", "uuid" },
             schema["required"]!.Values<string>().ToArray());
         Assert.Equal(
             new[] { "preview", "confirm", "offer_initiate", "offer_select", "offer_confirm", "offer_reroll" },

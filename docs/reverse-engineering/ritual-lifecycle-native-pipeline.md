@@ -2,7 +2,7 @@
 
 This dossier audits the player-visible Ritual list controls in Orb of Creation v1.0.5. It covers
 selection, starting-level staging, battle activation and ending, and cancellation of an active duration
-reward. Composed Ritual discovery belongs to the shared Devote surface documented for
+reward. Ritual discovery belongs to the shared discovery button documented for
 `game_discover`; ordinary Alchemy and Concept assignment are separate capability families.
 
 ## Audited surface and dead predecessor
@@ -13,8 +13,8 @@ list is `UIRitualList`/`UIRitual`, not the older runestone-selection prototype:
 
 - `RitualManager.SelectRitualRuneStones(Guid)` (`0x060006BD`) has an empty body.
 - `RitualManager.GetRitualFromStones(List<RuneStoneSO>)` (`0x060006C1`) returns `null`.
-- Current Ritual discovery is a `UIDiscoverablePage` compose/preview/confirm surface and remains
-  `game_discover(surface="devote")`. The lifecycle tool does not expose the dead runestone path.
+- Current Ritual discovery is a `UIDiscoverablePage` Discover button and remains `game_discover`,
+  pressed by naming the ritual. The lifecycle tool does not expose the dead runestone path.
 
 ## Selection and starting level
 

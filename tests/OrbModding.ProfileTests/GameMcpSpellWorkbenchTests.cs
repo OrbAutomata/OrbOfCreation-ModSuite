@@ -36,7 +36,7 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
         var schema = tool["inputSchema"]!;
         Assert.Equal(
-            new[] { "mode" },
+            new[] { "mode", "uuid" },
             schema["required"]!.Values<string>().ToArray());
         Assert.Equal(
             new[] { "preview", "confirm", "offer_initiate", "offer_select", "offer_confirm", "offer_reroll" },
@@ -47,8 +47,11 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Null(schema["properties"]!["verbosity"]);
     }
 
+    /// <summary>
+    /// The press names what it wants discovered and nothing else — the screen follows from it.
+    /// </summary>
     [Fact]
-    public void ConfirmRequiresSurfaceAndComponentsNotAnOutputRecipe()
+    public void ConfirmAsksForTheThingItWouldDiscoverAndNothingElse()
     {
         var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
         var response = router.Handle(GameMcpAcceptanceFixture.Request(
@@ -62,12 +65,11 @@ public sealed class GameMcpSpellWorkbenchTests
 
         Assert.Equal(
             "refused (ERR_INPUT): tool arguments failed schema validation: required " +
-            "field 'surface' is missing for mode 'confirm'; required field " +
-            "'components' is missing for mode 'confirm'", GameMcpTestHarness.Page(response));
+            "field 'uuid' is missing", GameMcpTestHarness.Page(response));
     }
 
     [Fact]
-    public void ListIsLeanWhileGetExposesTheComponentFirstDiscoveryDecision()
+    public void ListIsLeanWhileGetExposesTheDiscoveryDecision()
     {
         var context = GameMcpTestHarness.Context(World(
             discovered: false,
@@ -89,14 +91,9 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Null(listed["discover"]);
         Assert.True((bool)exact["discover"]!["available"]!);
         Assert.True((bool)exact["discover"]!["affordable"]!);
-        Assert.Equal("spellcraft", (string?)exact["discover"]!["surface"]);
-        Assert.Equal(
-            new[] { "Brew", "Insight" },
-            exact["discover"]!["components"]!.Values<JObject>()
-                .Select(component => (string?)component!["component"]!["name"]));
-        Assert.All(
-            exact["discover"]!["components"]!.Values<JObject>(),
-            component => Assert.Equal(1, (int)component!["count"]!));
+        // The button carries no composition, so neither does the row that describes it.
+        Assert.Null(exact["discover"]!["surface"]);
+        Assert.Null(exact["discover"]!["components"]);
         var glyphs = exact["coreGlyphs"]!.Values<JObject>().ToArray();
         Assert.Equal(new[] { "Brew", "Insight" },
             glyphs.Select(glyph => (string?)glyph!["glyph"]!["name"]));
@@ -356,17 +353,18 @@ public sealed class GameMcpSpellWorkbenchTests
             SpellWorkbenchNativeStage.Verification,
             NativeMutationOutcome.Verified,
             new NativeMutationCallOutcome(1, 1, 1),
-            "the requested recipe is discovered");
+            "the requested spell is loaded");
         var mapped = SpellWorkbenchActionResultMapper.Map(in submission);
         var before = World(
-            discovered: false,
+            discovered: true,
             discoveryAffordable: true,
             hasEmptySlot: true);
         var after = World(
             discovered: true,
             discoveryAffordable: true,
-            hasEmptySlot: true);
-        var command = Command("discover", "spellcraft", before);
+            hasEmptySlot: true,
+            equipped: true);
+        var command = Command("create", before: before);
         var terminal = GameMcpCommandResult.FromAction(
             in mapped,
             command.Kind,
@@ -380,15 +378,13 @@ public sealed class GameMcpSpellWorkbenchTests
         var success = GameMcpTestHarness.Json(terminal.Project(command));
         Assert.Equal(new[]
             {
-                "status", "uuid", "name",
-                "discovered", "surface",
+                "status", "uuid", "name", "slot", "loadBudget",
             },
             success.Properties().Select(property => property.Name));
         Assert.Equal("committed", (string?)success["status"]);
         Assert.Equal("Gather Knowledge", (string?)success["name"]);
-        Assert.False((bool)success["discovered"]!["before"]!);
-        Assert.True((bool)success["discovered"]!["after"]!);
-        Assert.Equal("spellcraft", (string?)success["surface"]);
+        Assert.Null((int?)success["slot"]!["before"]);
+        Assert.Equal(1, (int)success["slot"]!["after"]!);
         Assert.Null(success["preflight"]);
         Assert.Null(success["before"]);
         Assert.Null(success["after"]);
@@ -416,24 +412,12 @@ public sealed class GameMcpSpellWorkbenchTests
     }
 
     [Fact]
-    public void SettledProjectorReportsObservedDiscoveryAndLoadoutChanges()
+    public void SettledProjectorReportsObservedLoadoutChanges()
     {
-        var undiscovered = World(
-            discovered: false,
-            discoveryAffordable: true,
-            hasEmptySlot: true);
-        var discoveryCommand = Command("discover", before: undiscovered);
         var terminal = GameMcpCommandResult.Committed(
             "committed",
             9,
             3);
-
-        var unchanged = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            GameMcpTestHarness.Context(undiscovered), discoveryCommand, terminal));
-
-        Assert.False((bool)unchanged["discovered"]!["before"]!);
-        Assert.False((bool)unchanged["discovered"]!["after"]!);
-        Assert.Null(unchanged["surface"]);
 
         var beforeAdd = World(
             discovered: true,
@@ -485,7 +469,7 @@ public sealed class GameMcpSpellWorkbenchTests
 
         Assert.True(ownership.TryBeginGameMcpOperation(
             GameMcpCommandKind.SpellWorkbench,
-            "discover",
+            "create",
             out var scope,
             out var reason), reason);
         using (scope)
@@ -555,6 +539,7 @@ public sealed class GameMcpSpellWorkbenchTests
                     false,
                     false,
                     loadoutScreenUnlocked),
+                new WorldView(KnownEntities.MagicSpellbookLearn.Uuid, false, false, true),
             }),
             SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[]
             {

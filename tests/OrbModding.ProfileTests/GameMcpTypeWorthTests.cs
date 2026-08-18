@@ -457,6 +457,10 @@ public sealed class GameMcpTypeWorthTests
         return new GameWorldState
         {
             EntityIdentities = Catalog,
+            Views = PublicationTable<WorldView>.Create(new[]
+            {
+                new WorldView(KnownEntities.MagicGlyphsDiscover.Uuid, false, false, true),
+            }),
             EquipmentTypes = PublicationTable<WorldEquipmentType>.Create(new[]
             {
                 new WorldEquipmentType(Focus, 3, 1, 2, new BigDouble(5), new BigDouble(2)),

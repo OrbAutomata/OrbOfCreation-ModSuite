@@ -320,6 +320,12 @@ internal static class GameMcpEntityCapabilityMap
             matches++;
             nativeType = "RitualSO";
         }
+        if (Supports("spell-recipes", GameMcpCommandKind.GenericDiscovery) &&
+            WorldLookup.TryFind(world.SpellRecipes, target, out _))
+        {
+            matches++;
+            nativeType = "SpellRecipeSO";
+        }
         if (Supports("time-runes", GameMcpCommandKind.GenericDiscovery) &&
             WorldLookup.TryFind(world.TimeRunes, target, out _))
         {
@@ -590,7 +596,7 @@ internal static class GameMcpEntityCapabilityMap
             GameMcpCommandKind.GenericDiscovery, GameMcpCommandKind.AlchemyLoadout),
         D("alchemy-types", "AlchemyTypeSO"),
         D("spell-recipes", "SpellRecipeSO", GameMcpCommandKind.Cast, GameMcpCommandKind.SpellLevel,
-            GameMcpCommandKind.SpellWorkbench),
+            GameMcpCommandKind.GenericDiscovery, GameMcpCommandKind.SpellWorkbench),
         D("spell-types", "SpellTypeSO"),
         D("equipment", "EquipmentSO", GameMcpCommandKind.GenericDiscovery,
             GameMcpCommandKind.EquipmentLoadout),

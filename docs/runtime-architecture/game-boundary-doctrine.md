@@ -314,19 +314,20 @@ mutation permit, the boundary stages the live selection, reruns those mutable ga
 cost, invokes native creation, and commits only when a new spell with the requested recipe identity
 and exact baked glyph multiset is observable. The player's staged Spellcraft selection is restored
 to what it was before the action, on every outcome including success. Duplicate request rows count
-cumulatively against each glyph's native usable maximum. Core-component spell discovery remains
-independently bound, but both verbs use the same complete lifecycle binding set and native recipe
-resolver.
+cumulatively against each glyph's native usable maximum. Spell discovery is not part of this verb:
+it is a discovery screen's button, and it presses the one discovery boundary every other screen
+does.
 
-Generic compose discovery uses the same component-first rule without retaining a rendered UI page.
-The existing category traversal publishes each `IDiscoverable.GetGlyphRecipe()` and
-`GetResourceRecipe()` beside its native discovery decision. Preview resolves only among the authored
-outputs for the requested player surface and reproduces the UI resolver's count-plus-membership
-comparison; zero matches or multiple matches refuse rather than guessing. Confirm carries that
-server-derived output and the submitted composition into the canonical GameAction. On the Unity main
-thread, before its mutation permit or payment, the action resolves every component by UUID and exact
-`GlyphSO`/`ResourceSO` type and rereads both recipe lists from the exact output. A changed or partial
-composition refuses. The caller never supplies or selects an output UUID the UI did not expose.
+Discovery is one boundary because the game gives it one button. `UIDiscoverablePage` prices the row
+it is showing from that row's own `IDiscoverable.GetDiscoverCost()`, `UICostButton.OnClick` pays
+that list, and `HandleClick` calls `IDiscoverable.Discover()` on the same row after re-asking
+`IsGlyphSelectionValid()`. The page's selection lists are a scene-local mirror of the clicked row's
+authored recipe that the discover path never reads back, so the row's identity is the whole intent
+and the boundary is addressed by it. On the Unity main thread, before its mutation permit or
+payment, the action re-resolves that exact registered target and re-asks the button's ladder — the
+owning screen where one is pinned, a non-empty glyph recipe, already-discovered, native visibility,
+`CanDiscover()`, the exact cost list, and affordability — then keeps the button's
+`PerformCost`-before-`Discover` order. It stages nothing, because the button stages nothing.
 
 Every MCP gameplay action still uses its capability's canonical GameAction and live Unity-main-thread
 revalidation. A failed player-driven attempt returns its exact failure and leaves no MCP-owned

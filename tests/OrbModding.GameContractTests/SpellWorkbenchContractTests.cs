@@ -19,7 +19,6 @@ public sealed class SpellWorkbenchContractTests
         Assert.Equal(0x04000A6F, assembly.GetFieldToken("AbstractListVariable`1", "value"));
 
         Assert.Equal(0x06000740, assembly.GetMethodToken("SpellManager", "CreateRecipe"));
-        Assert.Equal(0x06000741, assembly.GetMethodToken("SpellManager", "DiscoverSpell"));
         Assert.Equal(0x06000747, assembly.GetMethodToken("SpellManager", "GetSpellFromRecipe"));
         Assert.Equal(0x0600074A, assembly.GetMethodToken("SpellManager", "GetSpellCreateCost"));
         Assert.Equal(0x06000755, assembly.GetMethodToken("SpellManager", "GetUsageCostOfSpell"));
@@ -38,30 +37,6 @@ public sealed class SpellWorkbenchContractTests
         Assert.Equal(0x0600155C, assembly.GetMethodToken("EmptyTypeListVariable`1", "HasEmptySpot"));
         Assert.Equal(0x06000FE2, assembly.GetMethodToken("Spell", "SetLevel"));
         Assert.Equal(0x0600100A, assembly.GetMethodToken("Spell", "IsUniqueSpell"));
-    }
-
-    [GameAssemblyFact]
-    public void SpellDiscovery_ResolvesTheExactSelectionThenDiscoversBeforePayment()
-    {
-        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
-
-        Assert.True(assembly.MethodReferencesField(
-            "SpellManager", "DiscoverSpell", "SpellManager", "selectedCoreGlyphs"));
-        var resolve = assembly.MethodReferenceOffset(
-            "SpellManager", "DiscoverSpell", "SpellManager", "GetSpellFromRecipe");
-        var discover = assembly.MethodReferenceOffset(
-            "SpellManager", "DiscoverSpell", "SpellRecipeSO", "Discover");
-        var payment = assembly.MethodReferenceOffset(
-            "SpellManager", "DiscoverSpell", "ResourceCostList", "PerformCost");
-        var clear = ConstructedMemberOffset(
-            assembly, "SpellManager", "DiscoverSpell", "AbstractListVariable`1<GlyphSO>", "Empty");
-        Assert.True(resolve >= 0, "DiscoverSpell must resolve the selected core glyph sequence.");
-        Assert.True(discover > resolve, "Discovery must target the resolved recipe.");
-        Assert.True(payment > discover, "The native pipeline discovers before its payment side effect.");
-        Assert.True(
-            clear > payment,
-            "Selection cleanup must follow the native payment attempt. Native references: " +
-            string.Join("; ", References(assembly, "SpellManager", "DiscoverSpell")));
     }
 
     [GameAssemblyFact]

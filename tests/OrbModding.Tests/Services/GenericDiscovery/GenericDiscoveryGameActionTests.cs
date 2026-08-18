@@ -8,16 +8,36 @@ using Xunit;
 
 namespace OrbModding.Tests.Services.GenericDiscovery;
 
-public sealed class GenericDiscoveryGameActionTests
+public sealed class GenericDiscoveryGameActionTests : IDisposable
 {
     private const long Epoch = 71;
     private readonly IDictionary _registry = new Hashtable();
+
+    /// <summary>
+    /// The two discovery screens whose owning view the suite pins, unlocked. A locked screen draws
+    /// no rows at all, so every press that expects a row needs them open.
+    /// </summary>
+    private readonly ViewSO _spellbookUnlock = Screen(KnownEntities.MagicSpellbookLearn.Uuid);
+    private readonly ViewSO _glyphcraft = Screen(KnownEntities.MagicGlyphsDiscover.Uuid);
+
+    public GenericDiscoveryGameActionTests()
+    {
+        _registry.Add(_spellbookUnlock.GetGuid(), _spellbookUnlock);
+        _registry.Add(_glyphcraft.GetGuid(), _glyphcraft);
+    }
+
+    public void Dispose()
+    {
+        SpellManager.instance = null;
+        SpellRecipeSO.All.Clear();
+    }
 
     [Theory]
     [InlineData("AlchemyRecipeSO")]
     [InlineData("EquipmentSO")]
     [InlineData("GlyphSO")]
     [InlineData("RitualSO")]
+    [InlineData("SpellRecipeSO")]
     [InlineData("TimeRuneSO")]
     public void Every_audited_concrete_type_pays_then_discovers_the_exact_target(string nativeType)
     {
@@ -81,52 +101,118 @@ public sealed class GenericDiscoveryGameActionTests
         Assert.False(Discoverable(target).IsDiscovered());
     }
 
+    /// <summary>
+    /// A row the discovery page could never draw a button for is refused before payment.
+    /// </summary>
+    /// <remarks>
+    /// <c>UIDiscoverablePage.IsGlyphSelectionValid</c> starts at <c>selectedGlyphs.Count &gt; 0</c>,
+    /// and the selection is filled from the row's own glyph recipe. A discoverable that names no
+    /// glyph can never make that count positive, so the button never validates for it.
+    /// </remarks>
     [Fact]
-    public void Partial_component_write_refuses_before_payment_instead_of_discovering_another_output()
+    public void A_target_with_no_glyph_recipe_is_refused_before_payment()
     {
         var target = Target("GlyphSO");
-        var first = Component();
-        var second = Component();
-        GlyphRecipe(target).Add(first);
-        GlyphRecipe(target).Add(second);
         Register(target);
-        Register(first);
-        Register(second);
         using var boundary = Boundary();
         var action = new GenericDiscoveryAction(
-            Discoverable(target).GetGuid(),
-            "GlyphSO",
-            "glyphcraft",
-            new[] { new GenericDiscoveryComponent(first.GetGuid(), 1) },
-            Epoch);
+            Discoverable(target).GetGuid(), "GlyphSO", Epoch);
 
         var result = boundary.Submit(in action);
 
-        Assert.Equal(GenericDiscoveryPreflight.CompositionChanged, result.Preflight);
+        Assert.Equal(GenericDiscoveryPreflight.GlyphRecipeEmpty, result.Preflight);
+        Assert.Contains("from glyphs and it names none", result.Reason, StringComparison.Ordinal);
         Assert.Equal(0, Discoverable(target).GetDiscoverCost().PerformCalls);
         Assert.False(Discoverable(target).IsDiscovered());
     }
 
+    /// <summary>
+    /// A locked screen is refused in the screen's own words, before any row fact — and only the two
+    /// screens the suite pins are gated at all.
+    /// </summary>
+    /// <remarks>
+    /// <c>ViewSO.IsAvailable()</c> is the game's own question about the screen. The other discovery
+    /// pages keep the answer their rows already give, because nothing pins which view owns them and
+    /// guessing one would refuse a press the game would have taken.
+    /// </remarks>
     [Fact]
-    public void Resource_composition_is_resolved_and_revalidated_by_exact_live_identity()
+    public void A_locked_discovery_screen_refuses_before_any_row_fact()
     {
-        var target = Target("RitualSO");
-        var component = Resource(1);
-        ResourceRecipe(target).Add(component);
-        Register(target);
-        Register(component);
+        _glyphcraft.available = false;
+        _spellbookUnlock.available = false;
+        SpellManager.instance = new SpellManager();
+        var glyph = Target("GlyphSO");
+        Register(glyph);
+        var recipe = Target("SpellRecipeSO");
+        Register(recipe);
+        var potion = Target("AlchemyRecipeSO");
+        Register(potion);
         using var boundary = Boundary();
-        var action = new GenericDiscoveryAction(
-            Discoverable(target).GetGuid(),
-            "RitualSO",
-            "devote",
-            new[] { new GenericDiscoveryComponent(component.GetGuid(), 1) },
-            Epoch);
 
-        var result = boundary.Submit(in action);
+        var glyphcraft = Submit(boundary, glyph, "GlyphSO");
+        var spellbook = Submit(boundary, recipe, "SpellRecipeSO");
+        var alchemy = Submit(boundary, potion, "AlchemyRecipeSO");
+
+        Assert.Equal(GenericDiscoveryPreflight.ScreenLocked, glyphcraft.Preflight);
+        Assert.Equal(
+            "Magic > Augments > Glyphcraft is not unlocked yet, so the game draws no row to " +
+            "discover. Nothing was spent.",
+            glyphcraft.Reason);
+        Assert.Equal(GenericDiscoveryPreflight.ScreenLocked, spellbook.Preflight);
+        Assert.Equal(
+            "Magic > Spellbook > Unlock is not unlocked yet, so the game draws no row to " +
+            "discover. Nothing was spent.",
+            spellbook.Reason);
+        Assert.True(alchemy.Verified, alchemy.Reason);
+        Assert.Equal(0, Discoverable(glyph).GetDiscoverCost().PerformCalls);
+        Assert.Equal(0, Discoverable(recipe).GetDiscoverCost().PerformCalls);
+    }
+
+    /// <summary>
+    /// Discovering a spell pays once and lets the game load it, which is the same press.
+    /// </summary>
+    /// <remarks>
+    /// <c>SpellRecipeSO.Discover()</c> is <c>discovered = true</c> plus
+    /// <c>SpellManager.PostDiscoverRecipe</c>, which loads the new spell when the loadout has a
+    /// free spot and its usage cost fits. <c>SpellManager.DiscoverRecipe</c> would run that second
+    /// half twice and is not what the Discover button calls.
+    /// </remarks>
+    [Fact]
+    public void A_discovered_spell_pays_once_and_the_game_loads_it()
+    {
+        SpellManager.instance = new SpellManager();
+        var target = Target("SpellRecipeSO");
+        var resource = Resource(90);
+        Discoverable(target).GetDiscoverCost().costs.Add(
+            new ResourceTuple(resource, new BigDouble(25, 0)));
+        Register(target);
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, target, "SpellRecipeSO");
 
         Assert.True(result.Verified, result.Reason);
         Assert.True(Discoverable(target).IsDiscovered());
+        Assert.Equal(1, Discoverable(target).GetDiscoverCost().PerformCalls);
+        Assert.Equal(0, resource.GetTrueQuantity().CompareTo(new BigDouble(65, 0)));
+        var loaded = Assert.Single(SpellManager.instance.activeSpells.value);
+        Assert.Same(target, loaded.get_reference());
+    }
+
+    /// <summary>A full loadout still discovers the spell; the game just leaves it unloaded.</summary>
+    [Fact]
+    public void A_discovered_spell_stays_unloaded_when_the_loadout_is_full()
+    {
+        SpellManager.instance = new SpellManager();
+        SpellManager.instance.activeSpells.Maximum = 0;
+        var target = Target("SpellRecipeSO");
+        Register(target);
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, target, "SpellRecipeSO");
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.True(Discoverable(target).IsDiscovered());
+        Assert.Empty(SpellManager.instance.activeSpells.value);
     }
 
     [Fact]
@@ -266,8 +352,6 @@ public sealed class GenericDiscoveryGameActionTests
         var action = new GenericDiscoveryAction(
             Discoverable(target).GetGuid(),
             nativeType,
-            Surface(nativeType),
-            new[] { new GenericDiscoveryComponent(recipe[0].GetGuid(), recipe.Count) },
             lifecycle);
         return boundary.Submit(in action);
     }
@@ -283,6 +367,13 @@ public sealed class GenericDiscoveryGameActionTests
         _registry.Add(guid, target);
     }
 
+    private static ViewSO Screen(Guid uuid)
+    {
+        var view = new ViewSO { available = true };
+        view.SetGuid(uuid);
+        return view;
+    }
+
     private static object Target(string nativeType)
     {
         object value = nativeType switch
@@ -291,10 +382,12 @@ public sealed class GenericDiscoveryGameActionTests
             "EquipmentSO" => new EquipmentSO { isCreated = false },
             "GlyphSO" => new GlyphSO { discovered = false },
             "RitualSO" => new RitualSO { discovered = false },
+            "SpellRecipeSO" => new SpellRecipeSO { discovered = false },
             "TimeRuneSO" => new TimeRuneSO { discovered = false },
             _ => throw new ArgumentOutOfRangeException(nameof(nativeType)),
         };
-        ((IdScriptableObject)value).SetGuid(Guid.NewGuid());
+        if (value is SpellRecipeSO recipe) recipe.uuid = Guid.NewGuid().ToString("D");
+        else ((IdScriptableObject)value).SetGuid(Guid.NewGuid());
         return value;
     }
 
@@ -321,28 +414,9 @@ public sealed class GenericDiscoveryGameActionTests
         EquipmentSO item => item.glyphRecipe,
         GlyphSO item => item.glyphRecipe,
         RitualSO item => item.glyphRecipe,
+        SpellRecipeSO item => item.coreRecipe,
         TimeRuneSO item => item.glyphRecipe,
         _ => throw new ArgumentOutOfRangeException(nameof(target)),
-    };
-
-    private static List<ResourceSO> ResourceRecipe(object target) => target switch
-    {
-        AlchemyRecipeSO item => item.resourceRecipe,
-        EquipmentSO item => item.resourceRecipe,
-        GlyphSO item => item.resourceRecipe,
-        RitualSO item => item.resourceRecipe,
-        TimeRuneSO item => item.resourceRecipe,
-        _ => throw new ArgumentOutOfRangeException(nameof(target)),
-    };
-
-    private static string Surface(string nativeType) => nativeType switch
-    {
-        "AlchemyRecipeSO" => "alchemy",
-        "EquipmentSO" => "artifacts",
-        "GlyphSO" => "glyphcraft",
-        "RitualSO" => "devote",
-        "TimeRuneSO" => "runecraft",
-        _ => throw new ArgumentOutOfRangeException(nameof(nativeType)),
     };
 
     private static void SetVisible(object target, bool value)
@@ -353,6 +427,7 @@ public sealed class GenericDiscoveryGameActionTests
             case EquipmentSO item: item.NativeDiscoverVisible = value; break;
             case GlyphSO item: item.NativeDiscoverVisible = value; break;
             case RitualSO item: item.NativeDiscoverVisible = value; break;
+            case SpellRecipeSO item: item.NativeDiscoverVisible = value; break;
             case TimeRuneSO item: item.NativeDiscoverVisible = value; break;
         }
     }
@@ -365,6 +440,7 @@ public sealed class GenericDiscoveryGameActionTests
             case EquipmentSO item: item.NativeCanDiscover = value; break;
             case GlyphSO item: item.NativeCanDiscover = value; break;
             case RitualSO item: item.NativeCanDiscover = value; break;
+            case SpellRecipeSO item: item.NativeCanDiscover = value; break;
             case TimeRuneSO item: item.NativeCanDiscover = value; break;
         }
     }
@@ -377,6 +453,7 @@ public sealed class GenericDiscoveryGameActionTests
             case EquipmentSO item: item.isCreated = value; break;
             case GlyphSO item: item.discovered = value; break;
             case RitualSO item: item.discovered = value; break;
+            case SpellRecipeSO item: item.discovered = value; break;
             case TimeRuneSO item: item.discovered = value; break;
         }
     }
@@ -389,6 +466,7 @@ public sealed class GenericDiscoveryGameActionTests
             case EquipmentSO item: item.SuppressDiscovery = value; break;
             case GlyphSO item: item.SuppressDiscovery = value; break;
             case RitualSO item: item.SuppressDiscovery = value; break;
+            case SpellRecipeSO item: item.SuppressDiscovery = value; break;
             case TimeRuneSO item: item.SuppressDiscovery = value; break;
         }
     }
@@ -401,6 +479,7 @@ public sealed class GenericDiscoveryGameActionTests
             case EquipmentSO item: item.ThrowAfterDiscovery = value; break;
             case GlyphSO item: item.ThrowAfterDiscovery = value; break;
             case RitualSO item: item.ThrowAfterDiscovery = value; break;
+            case SpellRecipeSO item: item.ThrowAfterDiscovery = value; break;
             case TimeRuneSO item: item.ThrowAfterDiscovery = value; break;
         }
     }

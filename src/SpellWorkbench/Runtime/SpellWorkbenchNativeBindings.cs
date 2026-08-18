@@ -16,9 +16,7 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-workbench.manager-selected-core-action",
         "spell-workbench.manager-selected-augments-action",
         "spell-manager.active-spells",
-        "spell-workbench.manager-get-from-recipe",
         "spell-workbench.manager-get-usage-cost-action",
-        "spell-workbench.manager-discover",
         "spell-workbench.manager-create",
         "spell-workbench.recipe-all-action",
         "id-scriptable-object.get-guid-action",
@@ -27,9 +25,6 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-workbench.recipe-create-empty-action",
         "spell-workbench.recipe-selected-level-action",
         "spell-workbench.recipe-usage-requirements-action",
-        "spell-workbench.recipe-can-discover",
-        "spell-workbench.recipe-is-creatable",
-        "spell-workbench.recipe-get-discover-cost-action",
         "resource-cost-list.has-enough",
         "resource-cost-list.get-entries",
         "resource-tuple.get-value",
@@ -41,9 +36,6 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-composition.glyph-maximum-uses-action",
         "spell-composition.glyph-meets-non-level-requirements-action",
         "spell-workbench.list-value-action",
-        "spell-workbench.list-empty-action",
-        "spell-workbench.list-add-action",
-        "spell-workbench.list-set-value-action",
         "spell-workbench.list-set-stack-action",
         "spell-workbench.list-stacked-record-action",
         "spell-workbench.loadout-has-empty-action",
@@ -69,21 +61,15 @@ internal sealed class SpellWorkbenchNativeBindings
         Func<object, object> core, Func<object, object> augments, Func<object, object> active,
         Func<object, IList> glyphValues, Func<object, IList> activeValues, Func<object, Guid> identity,
         Func<object, IList> recipeGlyphs, Func<object, bool> discovered,
-        Func<object, bool> canDiscover, Func<object, bool> creatable,
-        Func<object, object> discoverCost,
         Func<object, bool> hasEnough,
         Func<object, IList> costEntries, Func<object, BigDouble> costValue,
         Func<object, object?> costResource, Func<object, BigDouble, bool> resourceHasAmount,
         Func<IList> createGlyphList, Func<object, bool> glyphAvailable,
         Func<object, int> glyphLevel,
         Func<object, bool> glyphAugment, Func<object, int> glyphMaximumUsages,
-        Action<object> empty,
-        Action<object, object> add, Action<object, IList> setListValue,
         Action<object, object> setListStack, Func<object, object?> readListStack,
         Func<object, int> listMax, Func<object, bool> hasEmpty,
-        Func<object, object, object?> resolveRecipe,
         Func<object, object> usageCost,
-        Action<object> discover,
         Action<object, object> create, Func<object, int, object> createEmpty,
         Func<object, int> selectedLevel, Func<object, bool> usageRequirements,
         Action<object, int> setLevel, Action<object, object> setAugments,
@@ -109,9 +95,6 @@ internal sealed class SpellWorkbenchNativeBindings
         ReadIdentity = identity;
         ReadRecipeGlyphs = recipeGlyphs;
         IsDiscovered = discovered;
-        CanDiscover = canDiscover;
-        IsCreatable = creatable;
-        GetDiscoverCost = discoverCost;
         HasEnough = hasEnough;
         ReadCostEntries = costEntries;
         ReadCostValue = costValue;
@@ -122,16 +105,11 @@ internal sealed class SpellWorkbenchNativeBindings
         ReadGlyphLevel = glyphLevel;
         IsGlyphAugment = glyphAugment;
         GetGlyphMaximumUsages = glyphMaximumUsages;
-        Empty = empty;
-        Add = add;
-        SetListValue = setListValue;
         SetListStack = setListStack;
         ReadListStack = readListStack;
         GetListMax = listMax;
         HasEmpty = hasEmpty;
-        ResolveRecipe = resolveRecipe;
         GetUsageCost = usageCost;
-        Discover = discover;
         Create = create;
         CreateEmptySpell = createEmpty;
         GetSelectedSpellLevel = selectedLevel;
@@ -174,9 +152,6 @@ internal sealed class SpellWorkbenchNativeBindings
     internal Func<object, Guid> ReadIdentity { get; }
     internal Func<object, IList> ReadRecipeGlyphs { get; }
     internal Func<object, bool> IsDiscovered { get; }
-    internal Func<object, bool> CanDiscover { get; }
-    internal Func<object, bool> IsCreatable { get; }
-    internal Func<object, object> GetDiscoverCost { get; }
     internal Func<object, bool> HasEnough { get; }
     internal Func<object, IList> ReadCostEntries { get; }
     internal Func<object, BigDouble> ReadCostValue { get; }
@@ -187,16 +162,6 @@ internal sealed class SpellWorkbenchNativeBindings
     internal Func<object, int> ReadGlyphLevel { get; }
     internal Func<object, bool> IsGlyphAugment { get; }
     internal Func<object, int> GetGlyphMaximumUsages { get; }
-    internal Action<object> Empty { get; }
-    internal Action<object, object> Add { get; }
-
-    /// <summary>
-    /// The setter <c>SpellManager.InsertSpellRecipeGlyphs</c> itself stages a core with. Unlike
-    /// <see cref="Add"/> it is gated only on the list being authored immutable, so a staged core
-    /// either lands or the list refuses every write there is.
-    /// </summary>
-    internal Action<object, IList> SetListValue { get; }
-
     /// <summary>
     /// The stack write the game's own augment UI performs, which sets the multiplicity record
     /// <c>SpellManager.CreateRecipe</c> bakes from and the value list beside it in one call.
@@ -215,9 +180,7 @@ internal sealed class SpellWorkbenchNativeBindings
     /// </summary>
     internal Func<object, int> GetListMax { get; }
     internal Func<object, bool> HasEmpty { get; }
-    internal Func<object, object, object?> ResolveRecipe { get; }
     internal Func<object, object> GetUsageCost { get; }
-    internal Action<object> Discover { get; }
     internal Action<object, object> Create { get; }
     internal Func<object, int, object> CreateEmptySpell { get; }
     internal Func<object, int> GetSelectedSpellLevel { get; }
@@ -288,9 +251,6 @@ internal sealed class SpellWorkbenchNativeBindings
             var viewAvailable = Method(viewType, "IsAvailable", typeof(bool));
             var recipeGlyphs = Method(recipeType, "GetGlyphRecipe", glyphList);
             var discovered = Method(recipeType, "IsDiscovered", typeof(bool));
-            var canDiscover = Method(recipeType, "CanDiscover", typeof(bool));
-            var creatable = Method(recipeType, "IsCreatable", typeof(bool));
-            var discoverCost = Method(recipeType, "GetDiscoverCost", costType);
             var createEmpty = Method(recipeType, "CreateEmpty", spellType, typeof(int));
             var selectedLevel = Method(recipeType, "GetSelectedSpellLevel", typeof(int));
             var usageRequirements = Method(recipeType, "HasMetUsageRequirements", typeof(bool));
@@ -305,16 +265,11 @@ internal sealed class SpellWorkbenchNativeBindings
             var glyphMaximumUsages = Method(glyphType, "GetMaxUsages", typeof(int));
             var listValue = HierarchyField(glyphListType, "value", glyphList);
             var activeValue = HierarchyField(spellListType, "value", spellList);
-            var empty = HierarchyMethod(glyphListType, "Empty", typeof(void));
-            var add = HierarchyMethod(glyphListType, "Add", typeof(void), glyphType);
-            var setListValue = HierarchyMethod(glyphListType, "SetValue", typeof(void), glyphList);
             var setListStack = HierarchyMethod(glyphListType, "SetStack", typeof(void), stackedType);
             var readListStack = HierarchyMethod(glyphListType, "GetStackedRecord", stackedType);
             var listMax = HierarchyMethod(glyphListType, "GetMax", typeof(int));
             var hasEmpty = HierarchyMethod(spellListType, "HasEmptySpot", typeof(bool));
-            var resolve = Method(managerType, "GetSpellFromRecipe", recipeType, glyphList);
             var usageCost = StaticMethod(managerType, "GetUsageCostOfSpell", costType, spellType);
-            var discover = Method(managerType, "DiscoverSpell", typeof(void));
             var create = Method(managerType, "CreateRecipe", typeof(void), recipeType);
             var setLevel = Method(spellType, "SetLevel", typeof(void), typeof(int));
             var setAugments = Method(spellType, "SetAugmentGlyphs", typeof(void), stackedType);
@@ -337,20 +292,17 @@ internal sealed class SpellWorkbenchNativeBindings
                 ObjectField(selectedCore), ObjectField(selectedAugments), ObjectField(active),
                 ListField(listValue), ListField(activeValue), InstanceFunc<Guid>(identity),
                 InstanceList(recipeGlyphs), InstanceFunc<bool>(discovered),
-                InstanceFunc<bool>(canDiscover), InstanceFunc<bool>(creatable),
-                InstanceObject(discoverCost), InstanceFunc<bool>(enough),
+                InstanceFunc<bool>(enough),
                 InstanceList(costEntries), InstanceFunc<BigDouble>(costValue),
                 ObjectNullableField(costResource), InstanceValueFunc<BigDouble, bool>(hasResourceAmount),
                 NewList(glyphList),
                 InstanceFunc<bool>(glyphAvailable), IntField(glyphLevel),
                 InstanceFunc<bool>(glyphAugment),
                 InstanceFunc<int>(glyphMaximumUsages),
-                InstanceAction(empty), InstanceObjectAction(add),
-                InstanceListAction(setListValue), InstanceObjectAction(setListStack),
+                InstanceObjectAction(setListStack),
                 InstanceNullableObject(readListStack), InstanceFunc<int>(listMax),
                 InstanceFunc<bool>(hasEmpty),
-                InstanceObjectObject(resolve),
-                StaticObjectObject(usageCost), InstanceAction(discover), InstanceObjectAction(create),
+                StaticObjectObject(usageCost), InstanceObjectAction(create),
                 InstanceIntObject(createEmpty), InstanceFunc<int>(selectedLevel),
                 InstanceFunc<bool>(usageRequirements), InstanceIntAction(setLevel),
                 InstanceObjectAction(setAugments), InstanceFunc<bool>(unique),

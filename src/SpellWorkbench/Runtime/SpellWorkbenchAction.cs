@@ -2,36 +2,24 @@ using System;
 
 namespace OrbAutomata;
 
-internal enum SpellWorkbenchActionKind
-{
-    Discover = 0,
-    CreateWithLayout = 1,
-}
-
+/// <summary>One press of the Loadout list's row: load a discovered spell with a chosen augment layout.</summary>
 internal readonly struct SpellWorkbenchAction
 {
     internal SpellWorkbenchAction(
-        SpellWorkbenchActionKind kind,
         Guid spellRecipeId,
         long lifecycleEpoch,
-        SpellWorkbenchGlyphStack[] coreGlyphs,
         SpellWorkbenchGlyphStack[] augmentGlyphs)
     {
         if (spellRecipeId == Guid.Empty)
             throw new ArgumentException("A spell recipe identity is required.", nameof(spellRecipeId));
-        if (coreGlyphs is null) throw new ArgumentNullException(nameof(coreGlyphs));
         if (augmentGlyphs is null) throw new ArgumentNullException(nameof(augmentGlyphs));
-        Kind = kind;
         SpellRecipeId = spellRecipeId;
         LifecycleEpoch = lifecycleEpoch;
-        CoreGlyphs = Copy(coreGlyphs);
         AugmentGlyphs = Copy(augmentGlyphs);
     }
 
-    internal SpellWorkbenchActionKind Kind { get; }
     internal Guid SpellRecipeId { get; }
     internal long LifecycleEpoch { get; }
-    internal SpellWorkbenchGlyphStack[] CoreGlyphs { get; }
     internal SpellWorkbenchGlyphStack[] AugmentGlyphs { get; }
 
     private static SpellWorkbenchGlyphStack[] Copy(SpellWorkbenchGlyphStack[] source)

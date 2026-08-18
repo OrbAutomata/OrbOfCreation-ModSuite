@@ -71,47 +71,44 @@ public sealed class GenericDiscoverableContractTests
             string.Join("; ", References(assembly, "UICostButton", "OnClick")));
     }
 
+    /// <summary>
+    /// The button prices the row it is showing and admits the press on that row's own verdicts, so
+    /// naming the row names the whole press: there is nothing else on the screen to say.
+    /// </summary>
+    /// <remarks>
+    /// The selection the page keeps is the row's own authored recipe, copied in by
+    /// <c>OnDiscoverableClick</c> and read back only to re-derive the same row. Nothing on the
+    /// discover path reads it, which is why the suite presses the row directly.
+    /// </remarks>
     [GameAssemblyFact]
-    public void GenericDiscoverableUi_ResolvesConfiguredCandidatesByRecipeCountsAndMembership()
+    public void DiscoverButton_PricesTheShownRowAndAdmitsOnThatRowsOwnVerdicts()
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
 
-        Assert.Equal(
-            0x06002321,
-            assembly.GetMethodToken("UIDiscoverablePage", "GetDiscoverableFromRecipe"));
+        var price = assembly.MethodReferenceOffset(
+            "UIDiscoverablePage", "Render", "IDiscoverable", "GetDiscoverCost");
+        var handOver = assembly.MethodReferenceOffset(
+            "UIDiscoverablePage", "Render", "UICostButton", "SetCost");
+        Assert.True(price >= 0, "The page must price the row it resolved.");
+        Assert.True(handOver > price, "The button must charge exactly that price.");
         Assert.True(assembly.MethodReferencesField(
-            "UIDiscoverablePage",
-            "GetDiscoverableFromRecipe",
-            "UIDiscoverablePage",
-            "availableItems"));
-        var predicateTypes = new[]
-        {
-            "UIDiscoverablePage+<>c__DisplayClass31_0",
-            "UIDiscoverablePage+<>c__DisplayClass31_1",
-            "UIDiscoverablePage+<>c__DisplayClass31_2",
-        };
-        var references = predicateTypes
-            .SelectMany(predicateType => assembly.GetMethods(predicateType)
-                .Where(method => method.Name.StartsWith(
-                    "<GetDiscoverableFromRecipe>", StringComparison.Ordinal))
-                .SelectMany(method => assembly.GetMethodBodyDefinitionReferences(
-                        predicateType, method.Name)
-                    .Concat(assembly.GetMethodBodyMemberReferences(predicateType, method.Name))))
-            .ToArray();
-        Assert.Contains(
-            references,
-            reference => reference.DeclaringType == "IDiscoverable" &&
-                         reference.MemberName == "GetGlyphRecipe");
-        Assert.Contains(
-            references,
-            reference => reference.DeclaringType == "IDiscoverable" &&
-                         reference.MemberName == "GetResourceRecipe");
-        Assert.True(
-            references.Count(reference => reference.MemberName == "get_Count") >= 2,
-            "The UI resolver must compare authored and submitted recipe counts.");
-        Assert.True(
-            references.Count(reference => reference.MemberName == "Contains") >= 2,
-            "The UI resolver must test every submitted glyph and resource for membership.");
+            "UIDiscoverablePage", "Render", "UIDiscoverablePage", "totalCost"));
+
+        Assert.True(assembly.MethodReferencesMethod(
+            "UIDiscoverablePage", "IsGlyphSelectionValid", "ResourceCostList", "HasEnough"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "UIDiscoverablePage", "IsGlyphSelectionValid", "IDiscoverable", "CanDiscover"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "UIDiscoverablePage", "IsGlyphSelectionValid", "IDiscoverable", "IsDiscovered"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "UIDiscoverablePage", "HandleClick", "UIDiscoverablePage", "IsGlyphSelectionValid"),
+            "The press is admitted by the same predicate the button is drawn from. Native refs: " +
+            string.Join("; ", References(assembly, "UIDiscoverablePage", "HandleClick")));
+
+        Assert.True(assembly.MethodReferencesMethod(
+            "UIDiscoverablePage", "OnDiscoverableClick", "IDiscoverable", "GetGlyphRecipe"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "UIDiscoverablePage", "OnDiscoverableClick", "IDiscoverable", "GetResourceRecipe"));
     }
 
     [GameAssemblyFact]

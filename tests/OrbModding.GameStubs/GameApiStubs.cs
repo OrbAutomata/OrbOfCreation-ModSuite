@@ -2533,10 +2533,8 @@ public class SpellManager
     public GlyphListVariable selectedAugmentGlyphs = new GlyphListVariable();
     public SpellListVariable activeSpells = new SpellListVariable();
     public bool SuppressSelectionResolution { get; set; }
-    public bool SuppressDiscovery { get; set; }
     public bool SuppressCreation { get; set; }
     public bool CreateEmptyIdentity { get; set; }
-    public bool ThrowAfterDiscovery { get; set; }
     public bool ThrowAfterCreation { get; set; }
     public bool SuppressRemoval { get; set; }
     public bool ThrowBeforeRemoval { get; set; }
@@ -2581,16 +2579,6 @@ public class SpellManager
         if (recipe is null) return new ResourceCostList();
         return CreateCostResolver?.Invoke(glyphs) ?? CreateCostOverride ?? GlyphSO.GetCreationCostOfList(
             new ResourceCostList(), glyphs.Where(glyph => glyph.IsSpellAugment()));
-    }
-
-    public void DiscoverSpell()
-    {
-        var recipe = GetSpellFromRecipe(selectedCoreGlyphs.GetFilledElements());
-        if (recipe is null || recipe.IsDiscovered() || SuppressDiscovery) return;
-        recipe.Discover();
-        recipe.baseDiscoveryCost.PerformCost();
-        selectedCoreGlyphs.Empty();
-        if (ThrowAfterDiscovery) throw new InvalidOperationException("injected failure after discovery");
     }
 
     public void CreateSpell()

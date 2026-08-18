@@ -21,11 +21,11 @@ internal sealed class GenericDiscoveryNativeBindings
     {
         "generic-discovery.discoverable.type-action",
         "generic-discovery.cost-list.type-action",
-        "generic-discovery.resource.type-action",
         "generic-discovery.alchemy-recipe.type-action",
         "generic-discovery.equipment.type-action",
         "generic-discovery.glyph.type-action",
         "generic-discovery.ritual.type-action",
+        "generic-discovery.spell-recipe.type-action",
         "generic-discovery.time-rune.type-action",
         "generic-discovery.get-cost-action",
         "generic-discovery.is-visible-action",
@@ -35,13 +35,14 @@ internal sealed class GenericDiscoveryNativeBindings
         "generic-discovery.cost-enough-action",
         "generic-discovery.cost-perform-action",
         "generic-discovery.get-glyph-recipe-action",
-        "generic-discovery.get-resource-recipe-action",
+        "generic-discovery.view.type-action",
+        "generic-discovery.owning-view-availability-action",
     };
 
     private GenericDiscoveryNativeBindings(
         Type discoverableType,
         Type costType,
-        Type resourceType,
+        Type viewType,
         IReadOnlyDictionary<string, Type> supportedTypes,
         Func<object, object> getCost,
         Func<object, bool> isVisible,
@@ -51,11 +52,11 @@ internal sealed class GenericDiscoveryNativeBindings
         Func<object, bool> hasEnough,
         Action<object> performCost,
         Func<object, IList> getGlyphRecipe,
-        Func<object, IList> getResourceRecipe)
+        Func<object, bool> isViewAvailable)
     {
         DiscoverableType = discoverableType;
         CostType = costType;
-        ResourceType = resourceType;
+        ViewType = viewType;
         SupportedTypes = supportedTypes;
         GetCost = getCost;
         IsVisible = isVisible;
@@ -65,13 +66,17 @@ internal sealed class GenericDiscoveryNativeBindings
         HasEnough = hasEnough;
         PerformCost = performCost;
         GetGlyphRecipe = getGlyphRecipe;
-        GetResourceRecipe = getResourceRecipe;
+        IsViewAvailable = isViewAvailable;
     }
 
     internal Type DiscoverableType { get; }
     internal Type CostType { get; }
-    internal Type GlyphType => SupportedTypes["GlyphSO"];
-    internal Type ResourceType { get; }
+
+    /// <summary>
+    /// The screen a discovery row is drawn on. <c>ViewSO.IsAvailable()</c> is the game's own
+    /// question about it, so a locked screen is read rather than inferred from the rows.
+    /// </summary>
+    internal Type ViewType { get; }
     internal IReadOnlyDictionary<string, Type> SupportedTypes { get; }
     internal Func<object, object> GetCost { get; }
     internal Func<object, bool> IsVisible { get; }
@@ -81,7 +86,7 @@ internal sealed class GenericDiscoveryNativeBindings
     internal Func<object, bool> HasEnough { get; }
     internal Action<object> PerformCost { get; }
     internal Func<object, IList> GetGlyphRecipe { get; }
-    internal Func<object, IList> GetResourceRecipe { get; }
+    internal Func<object, bool> IsViewAvailable { get; }
 
     internal static bool TryCreate(
         out GenericDiscoveryNativeBindings? bindings,
@@ -116,13 +121,13 @@ internal sealed class GenericDiscoveryNativeBindings
             }
             var discoverable = T(ContractIds[0], "IDiscoverable");
             var cost = T(ContractIds[1], "ResourceCostList");
-            var resource = T(ContractIds[2], "ResourceSO");
             var supported = new Dictionary<string, Type>(StringComparer.Ordinal)
             {
-                ["AlchemyRecipeSO"] = T(ContractIds[3], "AlchemyRecipeSO"),
-                ["EquipmentSO"] = T(ContractIds[4], "EquipmentSO"),
-                ["GlyphSO"] = T(ContractIds[5], "GlyphSO"),
-                ["RitualSO"] = T(ContractIds[6], "RitualSO"),
+                ["AlchemyRecipeSO"] = T(ContractIds[2], "AlchemyRecipeSO"),
+                ["EquipmentSO"] = T(ContractIds[3], "EquipmentSO"),
+                ["GlyphSO"] = T(ContractIds[4], "GlyphSO"),
+                ["RitualSO"] = T(ContractIds[5], "RitualSO"),
+                ["SpellRecipeSO"] = T(ContractIds[6], "SpellRecipeSO"),
                 ["TimeRuneSO"] = T(ContractIds[7], "TimeRuneSO"),
             };
             foreach (var pair in supported)
@@ -142,16 +147,13 @@ internal sealed class GenericDiscoveryNativeBindings
                 discoverable,
                 "GetGlyphRecipe",
                 typeof(List<>).MakeGenericType(supported["GlyphSO"]));
-            var resourceRecipe = M(
-                ContractIds[16],
-                discoverable,
-                "GetResourceRecipe",
-                typeof(List<>).MakeGenericType(resource));
+            var view = T(ContractIds[16], "ViewSO");
+            var viewAvailable = M(ContractIds[17], view, "IsAvailable", typeof(bool));
 
             bindings = new GenericDiscoveryNativeBindings(
                 discoverable,
                 cost,
-                resource,
+                view,
                 supported,
                 InstanceObjectFunc(getCost),
                 InstanceFunc<bool>(visible),
@@ -161,7 +163,7 @@ internal sealed class GenericDiscoveryNativeBindings
                 InstanceFunc<bool>(enough),
                 InstanceAction(perform),
                 InstanceListFunc(glyphRecipe),
-                InstanceListFunc(resourceRecipe));
+                InstanceFunc<bool>(viewAvailable));
             reason = string.Empty;
             return true;
         }

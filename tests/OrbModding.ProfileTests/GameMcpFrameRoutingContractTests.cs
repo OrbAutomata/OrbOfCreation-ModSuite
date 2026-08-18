@@ -230,12 +230,7 @@ public sealed class GameMcpFrameRoutingContractTests
         "game_discover" => new JObject
         {
             ["mode"] = "preview",
-            ["surface"] = "spellcraft",
-            ["components"] = new JArray(new JObject
-            {
-                ["uuid"] = Guid.NewGuid().ToString("D"),
-                ["count"] = 1,
-            }),
+            ["uuid"] = Guid.NewGuid().ToString("D"),
         },
         "game_equipment" => new JObject
         {

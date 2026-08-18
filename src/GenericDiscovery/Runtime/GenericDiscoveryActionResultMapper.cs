@@ -37,7 +37,8 @@ internal static class GenericDiscoveryActionResultMapper
         GenericDiscoveryPreflight.MutationPermitUnavailable => GenericDiscoveryActionResultCodes.MutationPermitUnavailable,
         GenericDiscoveryPreflight.PostCommitFault => GenericDiscoveryActionResultCodes.PostCommitFault,
         GenericDiscoveryPreflight.VerificationFailed => GenericDiscoveryActionResultCodes.VerificationFailed,
-        GenericDiscoveryPreflight.CompositionChanged => GenericDiscoveryActionResultCodes.CompositionChanged,
+        GenericDiscoveryPreflight.GlyphRecipeEmpty => GenericDiscoveryActionResultCodes.GlyphRecipeEmpty,
+        GenericDiscoveryPreflight.ScreenLocked => GenericDiscoveryActionResultCodes.ScreenLocked,
         _ => GenericDiscoveryActionResultCodes.ContractUnavailable,
     };
 }
