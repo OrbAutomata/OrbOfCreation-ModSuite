@@ -2844,6 +2844,13 @@ internal static class GameMcpWorldQuery
     /// authored recipes, so they are two facts and wear two words.
     /// </para>
     /// <para>
+    /// Slot order is kept and repeats are kept with it. Two recipes repeat a core entry —
+    /// <c>DistortedFusion</c> is Flow, Flow, Arcane and <c>EmblemOfFormation</c> is Insight,
+    /// Formation, Formation — and the repeat costs nothing extra: the gate is the deduplicated
+    /// <c>recipeBookList</c>, answered by <c>recipeBooks.All(IsAvailable)</c>, which no repeat can
+    /// move. Deduplicating here would hide a slot the discovery row draws.
+    /// </para>
+    /// <para>
     /// A slot the link table cannot answer for keeps its raw id and says so rather than being
     /// dropped: a recipe silently one book short is a recipe a caller would plan against.
     /// </para>

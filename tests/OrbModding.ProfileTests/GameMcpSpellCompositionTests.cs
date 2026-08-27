@@ -342,6 +342,44 @@ public sealed class GameMcpSpellCompositionTests
     }
 
     /// <summary>
+    /// Two shipped recipes repeat a core entry — <c>DistortedFusion</c> is Flow, Flow, Arcane and
+    /// <c>EmblemOfFormation</c> is Insight, Formation, Formation — and the repeat is a drawn slot,
+    /// never a second demand.
+    /// </summary>
+    /// <remarks>
+    /// The game keeps the two facts in two authored fields. <c>coreRecipe</c> is what the discovery
+    /// row draws, repeats and all; ownership is gated by <c>SpellRecipeSO.recipeBookList</c>, which
+    /// both recipes author deduplicated (Flow, Arcane and Insight, Formation) and which
+    /// <c>IsDiscoverVisible()</c> answers with <c>recipeBooks.All(IsAvailable)</c> — a predicate no
+    /// repeat can change. The one place the two were ever conflated is
+    /// <c>GlyphSO.PortToRecipeBooks</c>, a <c>Select</c> with no <c>Distinct</c> that has no callers
+    /// on the audited build. So the slot list is published in slot order, and each slot answers with
+    /// the one yes/no its book has.
+    /// </remarks>
+    [Fact]
+    public void A_repeated_core_entry_is_a_drawn_slot_not_a_second_book()
+    {
+        var context = GameMcpTestHarness.Context(
+            World(coreRecipe: new[] { FirstCoreGlyphId, FirstCoreGlyphId, SecondCoreGlyphId }));
+
+        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            context, "spell-recipes", RecipeId.ToString("D")))["row"]!;
+
+        Assert.Equal(
+            new[]
+            {
+                GameMcpTestHarness.Handle(FirstCoreBookId),
+                GameMcpTestHarness.Handle(FirstCoreBookId),
+                GameMcpTestHarness.Handle(SecondCoreBookId),
+            },
+            row["composedOf"]!.Values<JObject>()
+                .Select(entry => (string?)entry!["book"]!["uuid"]));
+        Assert.Equal(
+            new[] { true, true, false },
+            row["composedOf"]!.Values<JObject>().Select(entry => (bool)entry!["owned"]!));
+    }
+
+    /// <summary>
     /// Each native enum's words are pinned to what the game's own code does with the ordinal, not
     /// to the declaration order a decompiler prints — <c>SpellRecipeSO.CastType</c> lists Aura
     /// first and Aura is 2. An ordinal outside the pinned build's vocabulary throws: a sixth kind
@@ -387,13 +425,11 @@ public sealed class GameMcpSpellCompositionTests
                 WorldRequirementConditionKind.Ritual, 2));
     }
 
-    private static GameWorldState World(int outputLevel = 4)
+    private static GameWorldState World(int outputLevel = 4, Guid[]? coreRecipe = null)
     {
-        var recipeGlyphs = PublicationTable<WorldSpellRecipeGlyph>.Create(new[]
-        {
-            new WorldSpellRecipeGlyph(0, FirstCoreGlyphId),
-            new WorldSpellRecipeGlyph(1, SecondCoreGlyphId),
-        });
+        var core = coreRecipe ?? new[] { FirstCoreGlyphId, SecondCoreGlyphId };
+        var recipeGlyphs = PublicationTable<WorldSpellRecipeGlyph>.Create(
+            core.Select((glyph, slot) => new WorldSpellRecipeGlyph(slot, glyph)).ToArray());
         var applied = PublicationTable<WorldSpellSlotGlyph>.Create(new[]
         {
             new WorldSpellSlotGlyph(FirstGlyphId, 2),
