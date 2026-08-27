@@ -100,8 +100,7 @@ internal static class GameMcpWorldQuery
         };
         result["running"] = new JObject
         {
-            ["actionQueues"] = world.ActionQueues.Count,
-            ["occupiedActionQueueSlots"] = CountOccupiedActionQueueSlots(world),
+            ["actionQueues"] = ActionQueueOccupancy(world),
             // Two numbers, because the question is "have I a free lane" and one of them cannot
             // answer it. `equippedSpellSlots` was the slot count and read as the equipped count —
             // the field name promised the count and delivered the cap, and it delivered it in the
@@ -151,14 +150,36 @@ internal static class GameMcpWorldQuery
         return result;
     }
 
-    private static int CountOccupiedActionQueueSlots(GameWorldState world)
+    /// <summary>
+    /// Each action queue's occupancy under its own identity, with the capacity it is measured
+    /// against beside it.
+    /// </summary>
+    /// <remarks>
+    /// This was one unnamed number, <c>occupiedActionQueueSlots</c>, printed beside a queue count of
+    /// two. It covered only the plot-action queue — the one whose slots are walked — and silently
+    /// omitted the attribute and upgrade queue every purchase's ceiling comes from, so a live round
+    /// read <c>0</c> from it five times while asking about the other queue entirely. A number that
+    /// answers for one queue and names none is worse than no number at all.
+    /// </remarks>
+    private static JArray ActionQueueOccupancy(GameWorldState world)
     {
-        var occupied = 0;
-        for (var index = 0; index < world.ActionQueueSlots.Count; index++)
+        var rows = new JArray();
+        for (var index = 0; index < world.ActionQueues.Count; index++)
         {
-            if (!world.ActionQueueSlots[index].Empty) occupied++;
+            var queue = world.ActionQueues[index];
+            var row = new JObject
+            {
+                ["uuid"] = queue.QueueId.ToString("D"),
+                ["usedSlots"] = queue.UsedSlots,
+            };
+            if (queue.MaxQueuedItemsId != Guid.Empty &&
+                WorldLookup.TryFind(world.IntVariables, queue.MaxQueuedItemsId, out var maximum))
+                row["capacity"] = maximum.Value.ToInt();
+            else if (queue.SlotCount > 0)
+                row["capacity"] = queue.SlotCount;
+            rows.Add(row);
         }
-        return occupied;
+        return rows;
     }
 
     private static int CountEquippedSpellSlots(GameWorldState world)

@@ -759,18 +759,40 @@ public sealed class GameMcpStreamableHttpProtocolTests
 
 public sealed class GameMcpWorldEnvelopeTests
 {
+    /// <summary>
+    /// Every queue answers for itself, with the capacity it is measured against. The overview used
+    /// to print one unnamed occupancy beside a queue count of two: it covered the walked plot-action
+    /// queue only, and a live round read it five times while asking about the attribute queue a
+    /// purchase's ceiling comes from.
+    /// </summary>
     [Fact]
-    public void WorldOverviewCountsOccupiedQueueRowsInsteadOfPublishedRows()
+    public void WorldOverviewPublishesEachActionQueuesOccupancyUnderItsOwnName()
     {
-        var queue = Guid.NewGuid();
+        var plotQueue = Guid.NewGuid();
+        var maximumId = Guid.NewGuid();
         var slots = new[]
         {
-            new WorldActionQueueSlot(queue, 0, empty: false, Guid.NewGuid(), Guid.NewGuid(), 1, engaged: true),
-            new WorldActionQueueSlot(queue, 1, empty: true, Guid.Empty, Guid.Empty, 0, engaged: false),
+            new WorldActionQueueSlot(plotQueue, 0, empty: false, Guid.NewGuid(), Guid.NewGuid(), 1, engaged: true),
+            new WorldActionQueueSlot(plotQueue, 1, empty: true, Guid.Empty, Guid.Empty, 0, engaged: false),
         };
         var world = new GameWorldState
         {
             ActionQueueSlots = PublicationTable<WorldActionQueueSlot>.Create(slots, slots.Length),
+            ActionQueues = PublicationTable<WorldActionQueue>.Create(new[]
+            {
+                new WorldActionQueue(
+                    plotQueue, Guid.Empty,
+                    slotCount: 2, usedSlots: 1, emptySlots: 1,
+                    hasEmptySlot: true, consistent: true),
+                new WorldActionQueue(
+                    KnownEntities.ActiveActionables.Uuid, maximumId,
+                    slotCount: 4, usedSlots: 4, emptySlots: 0,
+                    hasEmptySlot: false, consistent: true),
+            }),
+            IntVariables = PublicationTable<WorldNumberVariable>.Create(new[]
+            {
+                new WorldNumberVariable(maximumId, new BigDouble(10), isPercent: false),
+            }),
             CollectedAtEpoch = 1,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
@@ -780,7 +802,18 @@ public sealed class GameMcpWorldEnvelopeTests
         var overview = GameMcpTestHarness.Json(
             GameMcpWorldQuery.Overview(Snapshot(publisher.ReadLatest())));
 
-        Assert.Equal(1, (int?)overview["running"]?["occupiedActionQueueSlots"]);
+        Assert.Null(overview["running"]?["occupiedActionQueueSlots"]);
+        var queues = (JArray?)overview["running"]?["actionQueues"];
+        Assert.NotNull(queues);
+        Assert.Equal(2, queues!.Count);
+        Assert.Equal(GameMcpTestHarness.Handle(plotQueue), (string?)queues[0]["uuid"]);
+        Assert.Equal(1, (int?)queues[0]["usedSlots"]);
+        Assert.Equal(2, (int?)queues[0]["capacity"]);
+        Assert.Equal(
+            GameMcpTestHarness.Handle(KnownEntities.ActiveActionables.Uuid),
+            (string?)queues[1]["uuid"]);
+        Assert.Equal(4, (int?)queues[1]["usedSlots"]);
+        Assert.Equal(10, (int?)queues[1]["capacity"]);
         Assert.Equal(0, (int?)overview["running"]?["activeConceptAssignments"]);
     }
 
