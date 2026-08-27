@@ -66,7 +66,7 @@ public sealed class GameMcpGenericLevelTests
         var world = World(total: 5, bonus: 2, purchaseAffordable: false);
 
         var equipment = Row(world, "equipment-types", EquipmentTypeId);
-        var glyph = Row(world, "glyphs", GlyphId);
+        var glyph = Row(world, "augment-glyphs", GlyphId);
         var resourceType = Row(world, "resource-types", ResourceTypeId);
         var timeRune = Row(world, "time-runes", TimeRuneId);
 
@@ -97,8 +97,10 @@ public sealed class GameMcpGenericLevelTests
     {
         var before = World(total: 5, bonus: 2, purchaseAffordable: true);
         var afterPaid = World(
-            total: 6, bonus: 2, purchaseAffordable: true, maximumUsages: 4);
-        var afterBonus = World(total: 6, bonus: 3, purchaseAffordable: true, maximumUsages: 4);
+            total: 6, bonus: 2, purchaseAffordable: true, maximumUsages: 4,
+            maximumFreeUsages: 1);
+        var afterBonus = World(total: 6, bonus: 3, purchaseAffordable: true, maximumUsages: 4,
+            maximumFreeUsages: 1);
         var purchase = Command("purchase", before);
         var bonus = Command("bonus", before);
 
@@ -115,10 +117,13 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal(3, (int)bonusDelta["bonusLevel"]!["after"]!);
         Assert.Equal(6, (int)bonusDelta["totalLevel"]!["after"]!);
 
-        // The glyph screen counts uses, so the count it draws travels with the level that bought it.
-        Assert.Equal(3, (int)paidDelta["usableCount"]!["before"]!);
-        Assert.Equal(4, (int)paidDelta["usableCount"]!["after"]!);
-        Assert.Equal(4, (int)bonusDelta["usableCount"]!["after"]!);
+        // A glyph level buys slots, and the game's level panel draws both numbers, so both travel
+        // with the level that bought them.
+        Assert.Equal(3, (int)paidDelta["slots"]!["before"]!);
+        Assert.Equal(4, (int)paidDelta["slots"]!["after"]!);
+        Assert.Equal(4, (int)bonusDelta["slots"]!["after"]!);
+        Assert.Equal(0, (int)paidDelta["freeSlots"]!["before"]!);
+        Assert.Equal(1, (int)paidDelta["freeSlots"]!["after"]!);
 
         // Payment reporting left the wire on both level-buying verbs. A level that asks for nothing
         // still says so, because that changes what a caller does next; what a level cost and what
@@ -133,8 +138,8 @@ public sealed class GameMcpGenericLevelTests
     {
         var world = World(total: 5, bonus: 2, purchaseAffordable: false);
         var listed = Json(GameMcpWorldQuery.ListRows(
-            GameMcpTestHarness.Context(world, generation: 901), "glyphs", 0, 10).Freeze(), world);
-        var row = Row(world, "glyphs", GlyphId);
+            GameMcpTestHarness.Context(world, generation: 901), "augment-glyphs", 0, 10).Freeze(), world);
+        var row = Row(world, "augment-glyphs", GlyphId);
 
         var entry = Assert.Single(listed["rows"]!.Values<JObject>())!;
         Assert.Equal(3, (int)entry["paidLevel"]!);
@@ -154,7 +159,7 @@ public sealed class GameMcpGenericLevelTests
     public void A_glyph_the_game_levels_for_nothing_publishes_an_empty_cost_list_and_says_so()
     {
         var glyph = Row(
-            World(5, 2, purchaseAffordable: true, levelsAreFree: true), "glyphs", GlyphId);
+            World(5, 2, purchaseAffordable: true, levelsAreFree: true), "augment-glyphs", GlyphId);
 
         Assert.True((bool)glyph["purchase"]!["available"]!);
         Assert.Empty(glyph["purchase"]!["costs"]!.Values<JObject>());
@@ -167,7 +172,7 @@ public sealed class GameMcpGenericLevelTests
         var world = World(5, 2, purchaseAffordable: true,
             glyphLearned: false, resourceTypeHidden: true);
 
-        var glyph = Row(world, "glyphs", GlyphId);
+        var glyph = Row(world, "augment-glyphs", GlyphId);
         var resourceType = Row(world, "resource-types", ResourceTypeId);
 
         Assert.Equal("locked", (string?)glyph["state"]);
@@ -178,51 +183,23 @@ public sealed class GameMcpGenericLevelTests
     }
 
     /// <summary>
-    /// A glyph the picker will not offer says which of the two reasons it is, and the two are the
-    /// two populations: an augment waits on a discovery, an unlocker on the authored condition its
-    /// container holds. This world publishes no condition for the unlocker, which is the one case
-    /// the honest-unknown sentence is written for. Unnamed, both answered that sentence, on every
-    /// unlearned glyph in the game.
+    /// One gate is left. <c>GlyphSO.IsAvailable()</c> returns <c>discovered</c> for a discoverable
+    /// glyph and every glyph the world publishes is one, so the grid refusing a row is its own
+    /// discovery and nothing else. The second case this used to carry — the honest-unknown sentence
+    /// for a glyph whose authored condition the suite could not read — belonged to the twenty-five
+    /// that are Recipe Books now, and their condition is answered on the book's row.
     /// </summary>
-    [Theory]
-    [InlineData(false, "ERR_LOCKED",
-        "The game keeps this locked, and says nothing about what would unlock it.")]
-    [InlineData(true, "ERR_LOCKED", "This has not been discovered yet.")]
-    public void An_unlearned_glyph_names_the_gate_the_game_actually_published(
-        bool discoverable,
-        string expectedClass,
-        string expectedReason)
+    [Fact]
+    public void An_unlearned_glyph_names_the_gate_the_game_actually_published()
     {
         var glyph = Row(
-            World(5, 2, purchaseAffordable: true, glyphLearned: false,
-                glyphDiscoverable: discoverable),
-            "glyphs",
+            World(5, 2, purchaseAffordable: true, glyphLearned: false),
+            "augment-glyphs",
             GlyphId);
 
         Assert.Equal("locked", (string?)glyph["state"]);
-        Assert.Equal(expectedClass, (string?)glyph["reasonCode"]);
-        Assert.Equal(expectedReason, (string?)glyph["reason"]);
-    }
-
-    [Fact]
-    public void PrerequisiteLearnedGlyphIsAvailableWithoutClaimingDiscovery()
-    {
-        var glyph = Row(
-            World(5, 2, purchaseAffordable: true, glyphDiscoverable: false),
-            "glyphs",
-            GlyphId);
-
-        // The pair the two columns exist for: the picker offers this glyph, and it was never
-        // discovered — `state` answers the first and `discovered` still answers the second, which
-        // is why the glyph list kept both.
-        Assert.Equal("available", (string?)glyph["state"]);
-        Assert.False((bool)glyph["discovered"]!);
-
-        // An absent block read as "not discovered yet", the opposite of the truth here: this glyph
-        // is owned already and the game never routes it through discovery at all.
-        Assert.False((bool)glyph["discover"]!["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)glyph["discover"]!["reasonCode"]);
-        Assert.Null(glyph["discover"]!["costs"]);
+        Assert.Equal("ERR_LOCKED", (string?)glyph["reasonCode"]);
+        Assert.Equal("This has not been discovered yet.", (string?)glyph["reason"]);
     }
 
     /// <summary>
@@ -330,11 +307,12 @@ public sealed class GameMcpGenericLevelTests
         int bonus,
         bool purchaseAffordable,
         bool glyphLearned = true,
-        bool glyphDiscoverable = true,
         bool glyphDiscoveryRequired = false,
         bool resourceTypeHidden = false,
         bool levelsAreFree = false,
-        int maximumUsages = 3)
+        bool augmentTableUnlocked = true,
+        int maximumUsages = 3,
+        int maximumFreeUsages = 0)
     {
         var paidCosts = levelsAreFree
             ? PublicationTable<WorldLevelableCost>.Empty
@@ -351,8 +329,9 @@ public sealed class GameMcpGenericLevelTests
             EquipmentTypeId, total - bonus, bonus, 1, new BigDouble(4),
             new BigDouble(8), withBonus);
         var glyph = new WorldGlyph(GlyphId, total - bonus, bonus, 0, glyphLearned,
-            glyphDiscoverable, glyphDiscoveryRequired, false, false, false, 0, BigDouble.Zero,
-            BigDouble.Zero, BigDouble.Zero, maximumUsages, levelDecision: withBonus);
+            true, glyphDiscoveryRequired, false, false, false, 0, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, maximumUsages, maximumFreeUsages,
+            levelDecision: withBonus);
         var resourceType = new WorldResourceType(
             resourceTypeId: ResourceTypeId,
             level: total - bonus,
@@ -389,13 +368,21 @@ public sealed class GameMcpGenericLevelTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
             EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
             EquipmentTypes = PublicationTable<WorldEquipmentType>.Create(new[] { equipmentType }),
-            Glyphs = PublicationTable<WorldGlyph>.Create(new[] { glyph }),
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[] { glyph }),
             ResourceTypes = PublicationTable<WorldResourceType>.Create(new[] { resourceType }),
             TimeRunes = PublicationTable<WorldTimeRune>.Create(new[] { timeRune }),
             Resources = PublicationTable<WorldResource>.Create(new[] { resource }),
+
+            // Magic > Augments > Upgrade is where the game draws the glyph level button, so a world
+            // that omitted the view would be a world with no button and no offer to test.
+            Views = PublicationTable<WorldView>.Create(new[]
+            {
+                new WorldView(
+                    KnownEntities.MagicGlyphsUpgrade.Uuid, false, false, augmentTableUnlocked),
+            }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
-                Collected("equipment types"), Collected("glyphs"),
+                Collected("equipment types"), Collected("augment glyphs"),
                 Collected("resource types"), Collected("time runes"), Collected("resources"),
             }),
         };

@@ -383,7 +383,7 @@ internal static class GameMcpTypeWorth
         WorldKeywordOwnerKind.Equipment => "equipment",
         WorldKeywordOwnerKind.PassiveAbility => "passive-abilities",
         WorldKeywordOwnerKind.TimeRune => "time-runes",
-        WorldKeywordOwnerKind.Glyph => "glyphs",
+        WorldKeywordOwnerKind.Glyph => "augment-glyphs",
         WorldKeywordOwnerKind.PlotNodeAction => "plot-node-actions",
         WorldKeywordOwnerKind.Ritual => "rituals",
         WorldKeywordOwnerKind.Character => "characters",

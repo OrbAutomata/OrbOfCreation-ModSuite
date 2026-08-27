@@ -132,8 +132,11 @@ public sealed class WorldIdentityWalkTests
     /// and its members are both entities other tables already claim, and the row itself is the
     /// membership between them. <c>UpgradeListMemberships</c> is the same shape for the upgrade
     /// panels: both the upgrade and the authored list it sits on are claimed elsewhere, and the row
-    /// is only the edge between them, and <c>GlyphListMemberships</c> is that same edge for the
-    /// authored glyph populations. <c>EntityKeywords</c> is the same shape again: the entity and
+    /// is only the edge between them. <c>RecipeBookGlyphs</c> is the signpost edge: its right end is
+    /// a Recipe Book the recipe-books table owns, and its left end is deliberately an id the world
+    /// publishes no row for — that is the whole reason the edge exists, so demanding a home for it
+    /// would demand back the twenty-five rows this table was built to retire.
+    /// <c>EntityKeywords</c> is the same shape again: the entity and
     /// the type asset whose display name is the keyword are both claimed elsewhere — the entity by its
     /// own category and the type by the lifecycle identity catalog — and the row is only the authored
     /// membership between them. <c>GlyphEffects</c> and <c>LevelEffects</c> are the authored modifier
@@ -158,7 +161,7 @@ public sealed class WorldIdentityWalkTests
         "PurchaseCosts",
         "PurchaseViewRoutes",
         "UpgradeListMemberships",
-        "GlyphListMemberships",
+        "RecipeBookGlyphs",
         "GlyphEffects",
         "LevelEffects",
         "PlotActions",

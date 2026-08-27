@@ -15,14 +15,21 @@ public sealed class GameMcpSpellCompositionTests
 {
     private static readonly Guid RecipeId =
         Guid.Parse("36375616-7476-4748-8c20-ba628933bea5");
+    // Accursed and Blooming are Augment Glyphs: sockets a caster spends on a spell. Brew and
+    // Dragon are the internal half of a Recipe Book, so no glyph row exists for either and a
+    // recipe made of them names the books.
     private static readonly Guid FirstGlyphId =
-        Guid.Parse("81894d9f-4e91-43da-9f47-2a97d77a2294");
+        Guid.Parse("cc1cb602-2427-41c3-a2f4-421b4eef2ab4");
     private static readonly Guid SecondGlyphId =
-        Guid.Parse("0f38b02c-b81a-4fcd-9e07-73e09bd38dee");
+        Guid.Parse("0813deee-cb53-4cf0-8f45-6b48b7c43595");
     private static readonly Guid FirstCoreGlyphId =
-        Guid.Parse("1c002d3e-a0f0-4980-b6a8-e0f396a68934");
+        Guid.Parse("81894d9f-4e91-43da-9f47-2a97d77a2294");
     private static readonly Guid SecondCoreGlyphId =
         Guid.Parse("cd38cfe0-14d9-44be-9621-de4b6874449b");
+    private static readonly Guid FirstCoreBookId =
+        Guid.Parse("c4104148-b464-4123-acd0-db63d34d9a2c");
+    private static readonly Guid SecondCoreBookId =
+        Guid.Parse("f50206f1-3826-445a-9e3c-bdf48b8f7b90");
     private static readonly Guid ResourceId =
         Guid.Parse("eda26ca0-afcc-4fc3-9d8a-eb279123353d");
     private static readonly Guid SpellInstanceId =
@@ -104,14 +111,15 @@ public sealed class GameMcpSpellCompositionTests
         Assert.False((bool)equipped["usageRequirementsMet"]!);
 
         var applied = Assert.Single(equipped["glyphs"]!.Values<JObject>())!;
-        Assert.Equal("Brew", (string?)applied["glyph"]!["name"]);
+        Assert.Equal("Accursed", (string?)applied["glyph"]!["name"]);
         Assert.Equal(2, (int)applied["count"]!);
         Assert.Null(response["augmentOptions"]);
         var options = row["loadoutAdd"]!["augmentOptions"]!.Values<JObject>().ToArray();
-        Assert.Equal(new[] { "Insight", "Brew" },
+        Assert.Equal(new[] { "Blooming", "Accursed" },
             options.Select(option => (string?)option!["glyph"]!["name"]));
-        Assert.Equal(new[] { 2, 3 }, options.Select(option => (int)option!["usableCount"]!));
-        Assert.All(options, option => Assert.Null(option!["currentUses"]));
+        // "Slots" is the screen's own word for how many of one augment a spell may carry.
+        Assert.Equal(new[] { 2, 3 }, options.Select(option => (int)option!["slots"]!));
+        Assert.All(options, option => Assert.Null(option!["usableCount"]));
 
         var cast = Assert.Single(equipped["castCosts"]!.Values<JObject>())!;
         Assert.Equal("Knowledge", (string?)cast["resource"]!["name"]);
@@ -315,15 +323,22 @@ public sealed class GameMcpSpellCompositionTests
             new[] { GameMcpTestHarness.Handle(SpellTypeId) },
             row["belongsTo"]!["spellTypes"]!.Values<JObject>()
                 .Select(entry => (string?)entry!["uuid"]));
+        // The core entries are the internal half of a Recipe Book, so what a reader can act on is
+        // the book: `composedOf` names it in slot order and says whether it is owned. The old
+        // `belongsTo.coreGlyphs` said the same thing in ids nothing else in the world answers to.
+        Assert.Null(row["belongsTo"]!["coreGlyphs"]);
+        Assert.Null(row["belongsTo"]!["recipeBooks"]);
         Assert.Equal(
             new[]
             {
-                GameMcpTestHarness.Handle(FirstCoreGlyphId),
-                GameMcpTestHarness.Handle(SecondCoreGlyphId),
+                GameMcpTestHarness.Handle(FirstCoreBookId),
+                GameMcpTestHarness.Handle(SecondCoreBookId),
             },
-            row["belongsTo"]!["coreGlyphs"]!.Values<JObject>()
-                .Select(entry => (string?)entry!["uuid"]));
-        Assert.Null(row["belongsTo"]!["recipeBooks"]);
+            row["composedOf"]!.Values<JObject>()
+                .Select(entry => (string?)entry!["book"]!["uuid"]));
+        Assert.Equal(
+            new[] { true, false },
+            row["composedOf"]!.Values<JObject>().Select(entry => (bool)entry!["owned"]!));
     }
 
     /// <summary>
@@ -422,13 +437,23 @@ public sealed class GameMcpSpellCompositionTests
                     PublicationTable<WorldDiscoverableCost>.Empty,
                     true),
             }),
-            Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+            // The two core ids are retired unlockers: the world publishes no glyph row for them, and
+            // the recipe names the Recipe Books they are the internal half of instead.
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]
             {
                 Glyph(SecondGlyphId, 3, 2, 2),
-                CoreGlyph(FirstCoreGlyphId),
                 Glyph(FirstGlyphId, 7, 1, 3),
-                CoreGlyph(SecondCoreGlyphId),
             }.OrderBy(glyph => glyph.EntityId).ToArray()),
+            RecipeBookGlyphs = PublicationTable<WorldRecipeBookGlyph>.Create(new[]
+            {
+                new WorldRecipeBookGlyph(FirstCoreGlyphId, FirstCoreBookId),
+                new WorldRecipeBookGlyph(SecondCoreGlyphId, SecondCoreBookId),
+            }.OrderBy(edge => edge.GlyphId).ToArray()),
+            RecipeBooks = PublicationTable<WorldRecipeBook>.Create(new[]
+            {
+                new WorldRecipeBook(FirstCoreBookId, true),
+                new WorldRecipeBook(SecondCoreBookId, false),
+            }.OrderBy(book => book.EntityId).ToArray()),
             SpellWorkbench = new WorldSpellWorkbench(
                 1,
                 3,
@@ -511,27 +536,6 @@ public sealed class GameMcpSpellCompositionTests
         BigDouble.Zero,
         new BigDouble(maximum, 0),
         maximum);
-
-    /// <summary>
-    /// A core glyph as the game authors one: an unlocker, so <c>discoverable</c> is false and it is
-    /// held off an authored requirement edge rather than by discovery.
-    /// </summary>
-    private static WorldGlyph CoreGlyph(Guid id) => new(
-        id,
-        1,
-        0,
-        0,
-        true,
-        false,
-        false,
-        false,
-        false,
-        false,
-        0,
-        BigDouble.Zero,
-        BigDouble.Zero,
-        BigDouble.One,
-        1);
 
     private static WorldResource Resource()
     {

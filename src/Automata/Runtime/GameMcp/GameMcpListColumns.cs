@@ -58,7 +58,8 @@ namespace OrbAutomata.GameMcp;
 /// The word belongs to every category in which the player can meet a locked thing, not only the
 /// ones that are bought. What the player experiences as lockedness is the fact, and where the game
 /// hides a row or swaps a placeholder in front of it rather than greying it, that hiding <em>is</em>
-/// the locked state. So alchemy recipes, glyphs, rituals, plot nodes and challenges say it too, each
+/// the locked state. So alchemy recipes, augment glyphs, rituals, plot nodes and challenges say it
+/// too, each
 /// off the member the game's own row renderer asks.
 /// </para>
 /// <para>
@@ -154,39 +155,6 @@ internal static class GameMcpListColumns
     internal const string SomeUsed = "some_used";
 
     /// <summary>
-    /// Which of the two families of glyph a row belongs to, and therefore which question its other
-    /// columns are answers to.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The 47 glyphs are two populations wearing one word. Twenty-two are <b>augments</b>: the
-    /// discovery-tree pool the Magic screen's glyph grid draws from, acquired by discovering them
-    /// and then spent on spells. Twenty-five are <b>unlockers</b>: each carries an authored recipe
-    /// book, each is gated by one authored requirement edge, and each opens a family of recipes on
-    /// the screen that composes with it. Every count a reader takes off the page — how many are
-    /// available, how many discovered, how many tiles the grid shows — is a different number for the
-    /// two, and a page that does not say which is which made a round read the whole category wrong.
-    /// </para>
-    /// <para>
-    /// The word comes from <c>GlyphSO.discoverable</c>, which splits the two exactly (22 true, 25
-    /// false) and agrees row for row with both of the other authored discriminators: membership of
-    /// the <c>AugmentSpellGlyphs</c> list, and carrying an <c>associatedRecipeBook</c>. It is not
-    /// <c>augmentsSpells</c>, which reads false for Distinct, Weak and Wrath — three glyphs that are
-    /// discoverable, book-less members of the augment list — and so splits 19/28 rather than 22/25.
-    /// </para>
-    /// <para>
-    /// The category is not split in two. Glyphs are one player concept and one verifiable count of
-    /// 47; the population is a column on the row, which is what makes the spread between those
-    /// counts self-explaining without scattering the concept across two rows of
-    /// <c>world_categories</c>.
-    /// </para>
-    /// </remarks>
-    internal const string PopulationAugment = "augment";
-
-    /// <summary>A glyph that unlocks a recipe family rather than augmenting a spell.</summary>
-    internal const string PopulationUnlocker = "unlocker";
-
-    /// <summary>
     /// Which screen's upgrade panel groups this row, in the player's own word for that screen.
     /// </summary>
     /// <remarks>
@@ -272,53 +240,10 @@ internal static class GameMcpListColumns
     internal static Guid EveryUpgradeList => KnownEntities.UpgradesAll.Uuid;
 
     /// <summary>
-    /// Where the player meets this glyph, in the same <c>game_navigate</c> grammar the upgrade
-    /// column uses.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A glyph page is bound to a <c>GlyphListVariable</c> through <c>ViewSO.relevantLists</c>, so
-    /// membership of an authored list is the screen fact here exactly as it is for upgrades. Four
-    /// lists are authored populations: <c>AugmentSpellGlyphs</c> (22 rows), <c>CoreSpellGlyphs</c>
-    /// (10), <c>CoreAlchemyGlyphs</c> (12) and <c>EquipmentGlyphs</c> (17), 61 edges over 47 glyphs
-    /// with no glyph off every list. The remaining five <c>GlyphListVariable</c> assets are not
-    /// populations: four are runtime selections the player fills, and <c>AllGlyphs</c> holds every
-    /// glyph, which would say the same thing about all 47 rows.
-    /// </para>
-    /// <para>
-    /// Unlike an upgrade, a glyph is routinely on several of them — Arcane, Dragon, Expansion, Flow,
-    /// Nature, Psionic and Storm are on all three unlocker lists at once, because one unlocker opens
-    /// recipes on three different benches. Several pages is the truth for those rows, so the cell is
-    /// an ordered set of destinations rather than a refusal: refusing, the way the upgrade column
-    /// refuses a row two screens claim, would throw away a fact the game plainly authored. The order
-    /// is the pinned list order, so two reads of the same row spell it the same way.
-    /// </para>
-    /// <para>
-    /// <c>EquipmentGlyphs</c> is named by no <c>ViewSO</c>, no <c>DiscoveryTreeSO</c> and no
-    /// structure anywhere in the serialized object graph — its only mention is its own name. The ten
-    /// glyphs that are on it and nothing else therefore say <see cref="ScreenNoPage"/>: the suite
-    /// read the membership perfectly and the game names no page for it, which is a different fact
-    /// from <see cref="Unreadable"/> and gets a different word. Guessing Workshop &gt; Artifacts from
-    /// the glyphs' own names would be inference dressed as a game fact.
-    /// </para>
-    /// </remarks>
-    internal const string ScreenAugments = "Magic/Augments";
-    internal const string ScreenSpellbook = "Magic/Spellbook";
-    internal const string ScreenAlchemyLearn = "Alchemy/Alchemy";
-
-    /// <summary>
     /// The row's authored list is real and read, and the pinned build names no page for it. Lowercase
     /// and underscored like <see cref="ScreenAll"/> so it cannot be read as a destination.
     /// </summary>
     internal const string ScreenNoPage = "no_page";
-
-    /// <summary>The authored glyph list identities that a page is bound to, in pinned order.</summary>
-    internal static readonly (Guid ListId, string Word)[] GlyphScreens =
-    {
-        (KnownEntities.GlyphsAugmentSpell.Uuid, ScreenAugments),
-        (KnownEntities.GlyphsCoreSpell.Uuid, ScreenSpellbook),
-        (KnownEntities.GlyphsCoreAlchemy.Uuid, ScreenAlchemyLearn),
-    };
 
     /// <summary>
     /// What a challenge's own run is doing, which is not a lifecycle and never wears its word.
@@ -471,10 +396,13 @@ internal static class GameMcpListColumns
         },
         ["equipment-types"] = new[] { "entityId", "totalLevel" },
         ["resource-types"] = new[] { "entityId", "totalLevel", "hidden" },
-        ["glyphs"] = new[]
+        // No `screen`: all twenty-two are on Magic > Augments and nowhere else, so a per-row cell
+        // would repeat one category-level fact twenty-two times. No `discovered` either:
+        // `GlyphSO.IsAvailable()` returns `discovered` for a discoverable glyph and all twenty-two
+        // are, so `state` and it were one fact under two names.
+        ["augment-glyphs"] = new[]
         {
-            "entityId", "population", "screen", "state", "discovered", "paidLevel", "bonusLevel",
-            "totalLevel",
+            "entityId", "state", "slots", "freeSlots", "paidLevel", "bonusLevel", "totalLevel",
         },
         ["plot-nodes"] = new[]
         {

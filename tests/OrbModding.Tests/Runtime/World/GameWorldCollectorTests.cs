@@ -310,7 +310,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(report.IsComplete, report.Describe());
         Assert.True(WorldLookup.TryFind(world.EquipmentTypes, equipment.Identity, out var equipmentRow));
         AssertLevelDecision(equipmentRow.LevelDecision, 5, 2, 5, 7);
-        Assert.True(WorldLookup.TryFind(world.Glyphs, glyph.Identity, out var glyphRow));
+        Assert.True(WorldLookup.TryFind(world.AugmentGlyphs, glyph.Identity, out var glyphRow));
         Assert.True(glyphRow.Learned);
         Assert.False(glyphRow.Discovered);
         AssertLevelDecision(glyphRow.LevelDecision, 5, 1, 6, 8);
@@ -567,8 +567,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         // per-entity state for, the harvest elements' own resources — which are not in the resource
         // registry and would otherwise be reachable from nothing — the structure and upgrade cost
         // lists, the authored effects, each plot's authoring and each action's completion blocks,
-        // each purchasable entity's lifecycle-authored per-level conditions, the four authored glyph
-        // populations a page is bound to,
+        // each purchasable entity's lifecycle-authored per-level conditions, the authored link from
+        // each retired unlocker glyph to the Recipe Book it is the internal half of,
         // prerequisite links' volatile native gates, and crafting
         // recipes' separately refreshed live state and player-action decisions, which are second
         // walks of cached lifecycle bindings rather than registries of their own, the challenge
@@ -597,7 +597,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a
         // levelled grouping type.
         foreach (var category in
-                 new[] { "resources", "harvest actions", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "glyph lists", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions", "structure types", "ritual types", "harvest types", "plot node types", "research types", "consumable families", "harvest action types", "passive ability types", "time rune types", "statistics", "status effects", "character attributes", "damage types", "character modifiers", "character actions", "character types", "enchantments", "glyph types", "rune stones", "display types", "attribute groups", "attribute group members" })
+                 new[] { "resources", "harvest actions", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "recipe book glyphs", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions", "structure types", "ritual types", "harvest types", "plot node types", "research types", "consumable families", "harvest action types", "passive ability types", "time rune types", "statistics", "status effects", "character attributes", "damage types", "character modifiers", "character actions", "character types", "enchantments", "glyph types", "rune stones", "display types", "attribute groups", "attribute group members" })
         {
             Assert.Equal(WorldCategoryOutcome.Collected, report.For(category).Outcome);
         }
@@ -723,7 +723,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         // A category that read cleanly and found nothing is complete; one that could not be read is
         // not, and only the latter should ever make a consumer doubt its own emptiness.
         var report = Collector().Collect();
-        var glyphs = report.For("glyphs");
+        var glyphs = report.For("augment glyphs");
 
         Assert.Equal(WorldCategoryOutcome.Collected, glyphs.Outcome);
         Assert.Equal(0, glyphs.Sampled);
@@ -880,7 +880,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         collector.Collect();
         var world = collector.Build();
 
-        var row = Assert.Single(world.Glyphs.AsSpan().ToArray());
+        var row = Assert.Single(world.AugmentGlyphs.AsSpan().ToArray());
         Assert.Equal(glyphComponent.GetGuid(), Assert.Single(row.Discovery.GlyphRecipe.AsSpan().ToArray()));
         Assert.Equal(resourceComponent.GetGuid(), Assert.Single(row.Discovery.ResourceRecipe.AsSpan().ToArray()));
     }

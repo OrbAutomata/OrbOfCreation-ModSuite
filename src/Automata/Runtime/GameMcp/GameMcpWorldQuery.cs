@@ -789,19 +789,18 @@ internal static class GameMcpWorldQuery
                 ["totalLevel"] = resourceType.LevelDecision.TotalLevel,
                 ["hidden"] = resourceType.SpecialHidden,
             }.Freeze();
-        // `available` folded into `state`: it was `Learned`, which is `GlyphSO.IsAvailable()`, which
-        // is exactly the predicate the lifecycle word is. `discovered` stays because it is a
-        // different fact — a pool unlocker is available off an authored prerequisite while never
-        // having been discovered at all — and `population` is what says which of those two a row is
-        // without the reader having to infer it from that pair.
+        // `available` folded into `state`: it is `GlyphSO.IsAvailable()`, which for a discoverable
+        // glyph returns `discovered`, and all twenty-two are discoverable. Slots ride here because
+        // they are what a level buys — the two numbers the game's own level panel prints as
+        // `[N] Slot` and `[M] Free Slot` — so a page of levels a caller is planning shows what each
+        // one bought without a detail read per row.
         if (row is WorldGlyph glyph)
             return new JObject
             {
                 ["entityId"] = glyph.EntityId.ToString("D"),
-                ["population"] = GlyphPopulation(in glyph),
-                ["screen"] = GlyphScreen(world, glyph.EntityId),
                 ["state"] = GlyphState(in glyph),
-                ["discovered"] = glyph.Discovered,
+                ["slots"] = glyph.MaximumUsages,
+                ["freeSlots"] = glyph.MaximumFreeUsages,
                 ["paidLevel"] = glyph.LevelDecision.TotalLevel - glyph.LevelDecision.BonusLevels,
                 ["bonusLevel"] = glyph.LevelDecision.BonusLevels,
                 ["totalLevel"] = glyph.LevelDecision.TotalLevel,
@@ -1157,21 +1156,18 @@ internal static class GameMcpWorldQuery
     /// The screen the published world says draws this entity, where it says one at all.
     /// </summary>
     /// <remarks>
-    /// Two categories publish a <c>screen</c> column — <c>glyphs</c> and <c>upgrades</c> — and for
-    /// an id in either of them a refusal can name where to go instead of only saying "not here".
-    /// The evasive words are not answers and do not pass: <c>no_page</c> is the game drawing it
-    /// nowhere, <c>unreadable</c> is the suite failing to read the membership, and <c>all</c> is
-    /// every upgrade list at once. Each of those leaves the caller with the screen catalog, which
-    /// is what the refusal falls back to.
+    /// One category publishes a <c>screen</c> column — <c>upgrades</c> — and for an id in it a
+    /// refusal can name where to go instead of only saying "not here". The evasive words are not
+    /// answers and do not pass: <c>no_page</c> is the game drawing it nowhere, <c>unreadable</c> is
+    /// the suite failing to read the membership, and <c>all</c> is every upgrade list at once. Each
+    /// of those leaves the caller with the screen catalog, which is what the refusal falls back to.
     /// </remarks>
     internal static bool TryPublishedScreen(GameWorldState world, Guid uuid, out string screen)
     {
         if (world is null) throw new ArgumentNullException(nameof(world));
-        screen = WorldLookup.TryFind(world.Glyphs, uuid, out _)
-            ? GlyphScreen(world, uuid)
-            : WorldLookup.TryFind(world.Upgrades, uuid, out _)
-                ? UpgradeScreen(world, uuid)
-                : string.Empty;
+        screen = WorldLookup.TryFind(world.Upgrades, uuid, out _)
+            ? UpgradeScreen(world, uuid)
+            : string.Empty;
         if (screen.Length == 0 ||
             string.Equals(screen, GameMcpListColumns.ScreenNoPage, StringComparison.Ordinal) ||
             string.Equals(screen, GameMcpListColumns.Unreadable, StringComparison.Ordinal) ||
@@ -1260,62 +1256,24 @@ internal static class GameMcpWorldQuery
         glyph.Learned ? GameMcpListColumns.Available : GameMcpListColumns.Locked;
 
     /// <summary>
-    /// Which family of glyph this is, off the authored boolean that splits them exactly. See
-    /// <see cref="GameMcpListColumns.PopulationAugment"/> for why it is this field and not
-    /// <c>augmentsSpells</c>.
+    /// The authored condition holding an entity shut, named. A Recipe Book carries exactly one in
+    /// <c>RecipeBookSO.prerequisites</c> — twenty-four an upgrade, nine a research, one a
+    /// prerequisite link — and <c>Prerequisites.Container.Check()</c> asks all of them at level
+    /// zero, which is the level this evaluates at. The first unmet one is the answer: they are a
+    /// flat AND, so any of them refusing is a complete reason, and naming the first keeps one
+    /// sentence per row. Which kind of thing it is, is read rather than assumed: pinning "the Learn
+    /// upgrade" would have been wrong on ten of the thirty-four.
     /// </summary>
-    private static string GlyphPopulation(in WorldGlyph glyph) =>
-        glyph.Discoverable
-            ? GameMcpListColumns.PopulationAugment
-            : GameMcpListColumns.PopulationUnlocker;
-
-    /// <summary>
-    /// Which page shows this glyph, from the authored lists it is a member of. See
-    /// <see cref="GameMcpListColumns.ScreenAugments"/> for why several destinations is an answer
-    /// here and a refusal in the upgrade column beside it.
-    /// </summary>
-    private static string GlyphScreen(GameWorldState world, Guid glyphId)
-    {
-        if (!WorldGlyphListMembershipLookup.TryFindRange(
-                world.GlyphListMemberships, glyphId, out var start, out var count))
-        {
-            return world.GlyphListMemberships.Count == 0
-                ? GameMcpListColumns.Unreadable
-                : GameMcpListColumns.ScreenNoPage;
-        }
-
-        var screens = string.Empty;
-        for (var pinned = 0; pinned < GameMcpListColumns.GlyphScreens.Length; pinned++)
-        {
-            var candidate = GameMcpListColumns.GlyphScreens[pinned];
-            for (var offset = 0; offset < count; offset++)
-            {
-                if (world.GlyphListMemberships[start + offset].ListId != candidate.ListId) continue;
-                screens = screens.Length == 0 ? candidate.Word : screens + ", " + candidate.Word;
-                break;
-            }
-        }
-
-        return screens.Length > 0 ? screens : GameMcpListColumns.ScreenNoPage;
-    }
-
-    /// <summary>
-    /// The authored condition holding an unlocker shut, named. Each of the twenty-five carries one
-    /// condition in <c>GlyphSO.prerequisites</c> — a research, an upgrade, or a prerequisite link —
-    /// and <c>Prerequisites.Container.Check()</c> asks all of them at level zero, which is the level
-    /// this evaluates at. The first unmet one is the answer: they are a flat AND, so any of them
-    /// refusing is a complete reason, and naming the first keeps one sentence per row.
-    /// </summary>
-    private static bool TryNameGlyphBlocker(
+    private static bool TryNameRequirementBlocker(
         GameWorldState world,
-        Guid glyphId,
+        Guid entityId,
         out string name,
         out Guid blockerId)
     {
         name = string.Empty;
         blockerId = Guid.Empty;
         if (!WorldEntityRequirementLookup.TryFindRange(
-                world.EntityRequirements, glyphId, out var start, out var count))
+                world.EntityRequirements, entityId, out var start, out var count))
         {
             return false;
         }
@@ -1455,7 +1413,7 @@ internal static class GameMcpWorldQuery
         "spell-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
         "alchemy-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
         "equipment" => new[] { "entityId", "equippedLevel" },
-        "glyphs" => new[] { "entityId", "level" },
+        "augment-glyphs" => new[] { "entityId", "level" },
         "consumables" => new[] { "entityId", "quantity" },
         "crafting-queue-entries" => new[]
         {
@@ -2466,18 +2424,24 @@ internal static class GameMcpWorldQuery
             result["free"] = true;
         }
 
-        // A glyph screen counts uses, not levels — levels buy uses through the mastery requirement,
-        // so the number the player watched move is the one the row already publishes as usableCount.
+        // What a glyph level buys is slots, and the game's own level panel says so in those words:
+        // `[N] Slot` off GetMaxUsages() and `[M] Free Slot` off GetFreeUsages(). Those are the two
+        // numbers the player watches move, so they are the two the post-state names.
         if (command.DerivedNativeType == "GlyphSO" &&
-            WorldLookup.TryFind(state.World.Snapshot.Glyphs, command.TargetId, out var glyph))
+            WorldLookup.TryFind(state.World.Snapshot.AugmentGlyphs, command.TargetId, out var glyph))
         {
             WorldGlyph priorGlyph = default;
             var hadGlyph = oldWorld is not null &&
-                WorldLookup.TryFind(oldWorld.Glyphs, command.TargetId, out priorGlyph);
-            result["usableCount"] = new JObject
+                WorldLookup.TryFind(oldWorld.AugmentGlyphs, command.TargetId, out priorGlyph);
+            result["slots"] = new JObject
             {
                 ["before"] = hadGlyph ? priorGlyph.MaximumUsages : (int?)null,
                 ["after"] = glyph.MaximumUsages,
+            };
+            result["freeSlots"] = new JObject
+            {
+                ["before"] = hadGlyph ? priorGlyph.MaximumFreeUsages : (int?)null,
+                ["after"] = glyph.MaximumFreeUsages,
             };
         }
         return result.Freeze();
@@ -2836,6 +2800,49 @@ internal static class GameMcpWorldQuery
         return entries.Freeze();
     }
 
+    /// <summary>
+    /// The Recipe Books a spell recipe is assembled from, in the authored slot order.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The game authors a recipe's core as <c>List&lt;GlyphSO&gt;</c>, but each of those twenty-five
+    /// assets is the internal half of a Recipe Book — the tile the player owns, the row the world
+    /// publishes — so the edge names the book. A caller assembling a recipe wants to know which
+    /// books go into it and whether they are owned; the id underneath is machinery.
+    /// </para>
+    /// <para>
+    /// This is not <c>belongsTo.recipeBooks</c>, which is <c>SpellRecipeSO.recipeBookList</c> — the
+    /// books that must be owned before the recipe is shown at all. The two disagree on 24 of the 65
+    /// authored recipes, so they are two facts and wear two words.
+    /// </para>
+    /// <para>
+    /// A slot the link table cannot answer for keeps its raw id and says so rather than being
+    /// dropped: a recipe silently one book short is a recipe a caller would plan against.
+    /// </para>
+    /// </remarks>
+    private static JArray RecipeBookEdges(GameWorldState world, in WorldSpellRecipe recipe)
+    {
+        var books = new JArray();
+        for (var index = 0; index < recipe.CoreGlyphs.Count; index++)
+        {
+            var glyphId = recipe.CoreGlyphs[index].GlyphId;
+            if (!WorldRecipeBookGlyphLookup.TryFindBook(world.RecipeBookGlyphs, glyphId, out var book))
+            {
+                books.Add(new JObject
+                {
+                    ["uuid"] = glyphId.ToString("D"),
+                    ["reasonCode"] = "world_not_published",
+                });
+                continue;
+            }
+
+            var edge = new JObject { ["book"] = EntityReference(world, book) };
+            if (WorldLookup.TryFind(world.RecipeBooks, book, out var row)) edge["owned"] = row.Available;
+            books.Add(edge);
+        }
+        return books;
+    }
+
     private static GameMcpValue EntityReference(
         GameWorldState world,
         Guid id,
@@ -2875,7 +2882,7 @@ internal static class GameMcpWorldQuery
             return true;
         }
         if (nativeType == "GlyphSO" &&
-            WorldLookup.TryFind(world.Glyphs, target, out var glyph))
+            WorldLookup.TryFind(world.AugmentGlyphs, target, out var glyph))
         {
             decision = glyph.LevelDecision;
             return true;
@@ -3141,7 +3148,7 @@ internal static class GameMcpWorldQuery
                 world.SpellRecipes, targetId, out var spell):
                 discovered = spell.Discovered;
                 return true;
-            case "GlyphSO" when WorldLookup.TryFind(world.Glyphs, targetId, out var glyph):
+            case "GlyphSO" when WorldLookup.TryFind(world.AugmentGlyphs, targetId, out var glyph):
                 discovered = glyph.Discovered;
                 return true;
             case "RitualSO" when WorldLookup.TryFind(world.Rituals, targetId, out var ritual):
@@ -3522,7 +3529,7 @@ internal static class GameMcpWorldQuery
         {
             "AlchemyRecipeSO" => "alchemy-recipes",
             "EquipmentSO" => "equipment",
-            "GlyphSO" => "glyphs",
+            "GlyphSO" => "augment-glyphs",
             "RitualSO" => "rituals",
             "SpellRecipeSO" => "spell-recipes",
             "TimeRuneSO" => "time-runes",
@@ -3534,7 +3541,7 @@ internal static class GameMcpWorldQuery
         GameMcpCommandKind.GenericLevel => command.DerivedNativeType switch
         {
             "EquipmentTypeSO" => "equipment-types",
-            "GlyphSO" => "glyphs",
+            "GlyphSO" => "augment-glyphs",
             "ResourceTypeSO" => "resource-types",
             "TimeRuneSO" => "time-runes",
             _ => string.Empty,
@@ -4281,8 +4288,8 @@ internal static class GameMcpWorldQuery
     /// This reads the word the row's own list page says and never derives one of its own, so the
     /// filter's reach is a consequence of which categories carry the column rather than a second
     /// list maintained beside them. Every category the player can meet a locked thing in now carries
-    /// it, which is what the filter reaches: the three purchasables plus alchemy recipes, glyphs,
-    /// rituals, plot nodes and challenges.
+    /// it, which is what the filter reaches: the three purchasables plus alchemy recipes, augment
+    /// glyphs, rituals, plot nodes and challenges.
     /// </para>
     /// <para>
     /// A category with no lifecycle model still does not match a state filter, and is still not
@@ -6060,26 +6067,7 @@ internal static class GameMcpWorldQuery
             ["discovered"] = recipe.Discovered,
             ["masteryLevel"] = recipe.MasteryLevel,
         };
-        if (recipe.CoreGlyphs.Count > 0)
-        {
-            var glyphs = new JArray();
-            for (var index = 0; index < recipe.CoreGlyphs.Count; index++)
-            {
-                var glyph = recipe.CoreGlyphs[index];
-                var projected = new JObject
-                {
-                    ["glyphId"] = glyph.GlyphId.ToString("D"),
-                };
-                if (WorldLookup.TryFind(world.Glyphs, glyph.GlyphId, out var holding))
-                {
-                    projected["ownedLevel"] = holding.Level;
-                    if (holding.FreeLevels != 0) projected["bonusLevel"] = holding.FreeLevels;
-                    projected["discovered"] = holding.Learned;
-                }
-                glyphs.Add(projected);
-            }
-            result["coreGlyphs"] = glyphs;
-        }
+        if (recipe.CoreGlyphs.Count > 0) result["composedOf"] = RecipeBookEdges(world, in recipe);
 
         var holdings = new JArray();
         for (var index = 0; index < world.SpellSlots.Count; index++)
@@ -6251,10 +6239,14 @@ internal static class GameMcpWorldQuery
             for (var index = relationStart; index < relationStart + relationCount; index++)
             {
                 var relation = world.SpellRelations[index];
+
+                // The core-glyph relation named one of the twenty-five ids the world publishes no
+                // row for, and said the same thing the row's own `composedOf` says in books. One
+                // fact, one place: the relation is read for the two edges that name published rows.
+                if (relation.Kind == WorldSpellRelationKind.CoreGlyph) continue;
                 var key = relation.Kind switch
                 {
                     WorldSpellRelationKind.SpellType => "spellTypes",
-                    WorldSpellRelationKind.CoreGlyph => "coreGlyphs",
                     _ => "recipeBooks",
                 };
                 if (belongsTo[key] is not JArray rows) belongsTo[key] = rows = new JArray();
@@ -6294,7 +6286,7 @@ internal static class GameMcpWorldQuery
         {
             "AlchemyRecipeSO" => "alchemy-recipes",
             "EquipmentSO" => "equipment",
-            "GlyphSO" => "glyphs",
+            "GlyphSO" => "augment-glyphs",
             "RitualSO" => "rituals",
             "SpellRecipeSO" => "spell-recipes",
             "TimeRuneSO" => "time-runes",
@@ -6727,20 +6719,21 @@ internal static class GameMcpWorldQuery
     {
         var toggled = SpellIsToggled(world, recipe.EntityId);
         var options = new JArray();
-        for (var index = 0; index < world.Glyphs.Count; index++)
+        for (var index = 0; index < world.AugmentGlyphs.Count; index++)
         {
-            var glyph = world.Glyphs[index];
+            var glyph = world.AugmentGlyphs[index];
 
-            // The augments are the discoverable population, all 22 of them. Gating on
-            // `augmentsSpells` dropped Distinct, Weak and Wrath from the options a player holds.
-            if (!glyph.Discoverable || !glyph.Learned || glyph.Level <= 0) continue;
+            // Every published glyph is an Augment Glyph now, so the population check is gone with
+            // the population. Gating on `augmentsSpells` would still be wrong: it drops Distinct,
+            // Weak and Wrath, three augments a player holds.
+            if (!glyph.Learned || glyph.Level <= 0) continue;
             if (glyph.RequiresToggleable && !toggled) continue;
             if (glyph.MaximumUsages <= 0) continue;
             var option = new JObject
             {
                 ["glyphId"] = glyph.GlyphId.ToString("D"),
                 ["ownedLevel"] = glyph.Level,
-                ["usableCount"] = glyph.MaximumUsages,
+                ["slots"] = glyph.MaximumUsages,
                 ["masteryRequirement"] = glyph.MasteryReqCount,
             };
             if (glyph.FreeLevels != 0) option["bonusLevel"] = glyph.FreeLevels;
@@ -7433,41 +7426,34 @@ internal static class GameMcpWorldQuery
         var result = new JObject
         {
             ["entityId"] = glyph.EntityId.ToString("D"),
-            ["category"] = "glyphs",
-            ["population"] = GlyphPopulation(in glyph),
-            ["screen"] = GlyphScreen(world, glyph.EntityId),
+            ["category"] = "augment-glyphs",
             ["state"] = GlyphState(in glyph),
-            ["discovered"] = glyph.Discovered,
-            ["usableCount"] = glyph.MaximumUsages,
+            // The game's own two words for what a level buys, off its own level-panel nodes:
+            // GetMaxUsages() prints as `[N] Slot` and GetFreeUsages() as `[M] Free Slot`. The old
+            // name `usableCount` was the suite's, and it named neither the screen's word nor the
+            // thing a caller spends them on.
+            ["slots"] = glyph.MaximumUsages,
+            ["freeSlots"] = glyph.MaximumFreeUsages,
         };
 
-        // The glyph the picker will not offer says which of the two reasons it is, and the two are
-        // the two populations: GlyphSO.IsAvailable() returns `discovered` for a discoverable glyph
-        // and `prerequisites.Check()` for every other. So an augment is waiting on a discovery, and
-        // an unlocker is waiting on the one authored condition it carries — which the world now
-        // publishes, and which this names. The honest-unknown sentence is what is left when neither
-        // holds: a glyph the game refuses with no readable condition behind it.
-        if (!glyph.Learned)
-        {
-            if (glyph.Discoverable)
-            {
-                result["reasonCode"] = "undiscovered";
-            }
-            else if (TryNameGlyphBlocker(world, glyph.EntityId, out var blocker, out var blockerId))
-            {
-                result["reasonCode"] = "prerequisites_unmet";
-                result["reason"] = blocker + " unlocks this glyph, and it is not reached yet.";
-                result["blockedBy"] = EntityReference(world, blockerId);
-            }
-            else
-            {
-                result["reasonCode"] = "native_unavailable";
-            }
-        }
+        // One reason is left. GlyphSO.IsAvailable() returns `discovered` for a discoverable glyph,
+        // and every glyph the world publishes is one, so an Augment Glyph the grid does not offer
+        // is waiting on its own discovery and on nothing else.
+        if (!glyph.Learned) result["reasonCode"] = "undiscovered";
         AddGlyphFactors(world, result, glyph.EntityId);
+
+        // The level offer exists only where the game draws the button. Magic > Augments > Upgrade
+        // is gated on the GlyphUpgradesUnlocked link, which the Upgrade Glyphs upgrade satisfies,
+        // and while that screen is locked the game instantiates no level panel and there is no
+        // press to offer — whatever GlyphSO.CanLevel() says, which is the constant `true`.
+        var upgradeScreen = IsScreenUnlocked(world, KnownEntities.MagicGlyphsUpgrade.Uuid);
         AddLevelDecision(world, result, glyph.LevelDecision,
-            glyph.Learned,
-            "not_available");
+            glyph.Learned && upgradeScreen,
+            upgradeScreen ? "not_available" : "screen_locked",
+            upgradeScreen
+                ? string.Empty
+                : "Magic > Augments > Upgrade is not unlocked yet, so the game draws no level " +
+                  "button for an augment glyph. Buy the Upgrade Glyphs upgrade first.");
         AddDiscoveryDecision(
             world,
             result,
@@ -7841,7 +7827,8 @@ internal static class GameMcpWorldQuery
         JObject result,
         WorldLevelableDecision decision,
         bool targetAvailable = true,
-        string targetReasonCode = "not_available")
+        string targetReasonCode = "not_available",
+        string targetReason = "")
     {
         result["paidLevel"] = decision.TotalLevel - decision.BonusLevels;
         if (decision.SupportsBonus) result["bonusLevel"] = decision.BonusLevels;
@@ -7851,7 +7838,13 @@ internal static class GameMcpWorldQuery
         {
             ["available"] = targetAvailable && decision.CanPurchase && decision.PurchaseAffordable,
         };
-        if (!targetAvailable) purchase["reasonCode"] = targetReasonCode;
+        if (!targetAvailable)
+        {
+            purchase["reasonCode"] = targetReasonCode;
+            // A screen word is the whole answer where the generic code says only that some screen
+            // is locked; the caller needs to know which one and what buys it.
+            if (targetReason.Length > 0) purchase["reason"] = targetReason;
+        }
         else if (!decision.CanPurchase) purchase["reasonCode"] = "native_level_refused";
         else
         {
@@ -7869,7 +7862,11 @@ internal static class GameMcpWorldQuery
             ["available"] = targetAvailable &&
                 decision.BonusResourcesVisible && decision.BonusAffordable,
         };
-        if (!targetAvailable) bonus["reasonCode"] = targetReasonCode;
+        if (!targetAvailable)
+        {
+            bonus["reasonCode"] = targetReasonCode;
+            if (targetReason.Length > 0) bonus["reason"] = targetReason;
+        }
         else if (!decision.BonusResourcesVisible) bonus["reasonCode"] = "resources_hidden";
         else
         {
@@ -8548,7 +8545,7 @@ internal static class GameMcpWorldQuery
             Entity("agromancy-actions", nameof(GameWorldState.HarvestActions),
                 world => world.HarvestActions),
             Entity(nameof(GameWorldState.TimeRunes), world => world.TimeRunes),
-            Entity(nameof(GameWorldState.Glyphs), world => world.Glyphs),
+            Entity("augment-glyphs", nameof(GameWorldState.AugmentGlyphs), world => world.AugmentGlyphs),
             Entity(nameof(GameWorldState.Consumables), world => world.Consumables),
             Entity(nameof(GameWorldState.Rituals), world => world.Rituals),
             Entity(nameof(GameWorldState.Achievements), world => world.Achievements),
@@ -8896,7 +8893,7 @@ internal static class GameMcpWorldQuery
         {
             "entityId", "discovered", "level", "masteryLevel", "masteryXp", "seen",
         },
-        "glyphs" => new[]
+        "augment-glyphs" => new[]
         {
             "entityId", "level", "freeLevels", "discovered", "discoverable",
             "maxUsages",

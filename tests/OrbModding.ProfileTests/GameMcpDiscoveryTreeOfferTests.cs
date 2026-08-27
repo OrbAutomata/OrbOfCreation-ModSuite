@@ -810,7 +810,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     response.ToString(Newtonsoft.Json.Formatting.None));
             }
             Assert.Equal(
-                new[] { 426, 485, 345 },
+                new[] { 434, 493, 345 },
                 new[]
                 {
                     CommittedBytes(rerollResponse),
@@ -1220,7 +1220,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             TimeRunes = timeRunes is null
                 ? PublicationTable<WorldTimeRune>.Empty
                 : PublicationTable<WorldTimeRune>.Create(timeRunes),
-            Glyphs = glyphs is null
+            AugmentGlyphs = glyphs is null
                 ? PublicationTable<WorldGlyph>.Empty
                 : PublicationTable<WorldGlyph>.Create(glyphs),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
@@ -1238,7 +1238,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     skipped: 0,
                     firstFailure: string.Empty),
                 new WorldCollectionCategoryStatus(
-                    "glyphs",
+                    "augment glyphs",
                     WorldCategoryOutcome.Collected,
                     sampled: glyphs?.Length ?? 0,
                     skipped: 0,

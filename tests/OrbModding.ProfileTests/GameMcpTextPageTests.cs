@@ -275,7 +275,7 @@ public sealed class GameMcpTextPageTests
     {
         var declaring = @"'columns':['uuid','name','path'],";
         var first = Render("{" + declaring + @"'rows':[
-            {'uuid':'aa11bb','name':'Arcane Glyphs','path':'LeftSide[1]'},
+            {'uuid':'aa11bb','name':'Arcane AugmentGlyphs','path':'LeftSide[1]'},
             {'name':'Scroll Bar','path':'ScrollContainer[1]'}],'total':80,'nextOffset':2}");
         var second = Render("{" + declaring + @"'rows':[
             {'name':'Viewport','path':'Viewport[0]'},

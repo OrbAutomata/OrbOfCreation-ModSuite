@@ -17,7 +17,6 @@ internal readonly struct CraftingRecipeListVariableContract { }
 internal readonly struct CraftingRecipeSOContract { }
 internal readonly struct CraftingRecipeTypeSOContract { }
 internal readonly struct EnchantmentSOContract { }
-internal readonly struct GlyphListVariableContract { }
 internal readonly struct IntVariableContract { }
 internal readonly struct PlotNodeActionInstanceListVariableContract { }
 internal readonly struct PlotNodeActionSOContract { }
@@ -85,11 +84,8 @@ internal static class KnownEntities
     public static readonly KnownEntity<PlotNodeActionSOContract> FruitTreeCollect = new(new Guid("60ea60a2-44e9-41c2-86d6-3935fae0b647"), "PlotNodeActionSO", "PNAFruitTreeCollect");
     public static readonly KnownEntity<PlotNodeSOContract> FruitTreePlot = new(new Guid("6782dd13-e229-4385-a1aa-8ed86e6ea1ed"), "PlotNodeSO", "PlotFruitTree");
     public static readonly KnownEntity<TreasurePoolSOContract> FruitTreeRewardPool = new(new Guid("b3ab80f0-80c7-41d4-b4c7-f34c3e909104"), "TreasurePoolSO", "FruitTreasurePool");
-    public static readonly KnownEntity<GlyphListVariableContract> GlyphsAugmentSpell = new(new Guid("a5ec469e-43ea-49c1-91cb-d058786875c2"), "GlyphListVariable", "AugmentSpellGlyphs");
-    public static readonly KnownEntity<GlyphListVariableContract> GlyphsCoreAlchemy = new(new Guid("e9d91b70-a2d6-4040-b241-53eabb57206b"), "GlyphListVariable", "CoreAlchemyGlyphs");
-    public static readonly KnownEntity<GlyphListVariableContract> GlyphsCoreSpell = new(new Guid("3d2157bf-1cc6-41d0-82f4-19888edb01d2"), "GlyphListVariable", "CoreSpellGlyphs");
-    public static readonly KnownEntity<GlyphListVariableContract> GlyphsEquipment = new(new Guid("8ab13352-570f-41f3-aad4-4f1e39a7d162"), "GlyphListVariable", "EquipmentGlyphs");
     public static readonly KnownEntity<ViewSOContract> MagicGlyphsDiscover = new(new Guid("35141301-f428-450f-93b8-ce28f506d704"), "ViewSO", "MagicGlyphsDiscover");
+    public static readonly KnownEntity<ViewSOContract> MagicGlyphsUpgrade = new(new Guid("2754f10f-d88c-4b15-946b-e9a97c731300"), "ViewSO", "MagicGlyphsUpgrade");
     public static readonly KnownEntity<ViewSOContract> MagicSpellbook = new(new Guid("ca934900-0253-4f71-93e9-733fb91132b7"), "ViewSO", "MagicSpellbook");
     public static readonly KnownEntity<ViewSOContract> MagicSpellbookLearn = new(new Guid("cdfbbee5-7fa2-41fe-a6aa-903beb692fb2"), "ViewSO", "MagicSpellbookLearn");
     public static readonly KnownEntity<ViewSOContract> MagicSpellbookLoadout = new(new Guid("accf9abb-d916-4fdf-96d7-1b1d5fdd548c"), "ViewSO", "MagicSpellbookLoadout");

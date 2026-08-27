@@ -140,7 +140,7 @@ public sealed class GameMcpSearchTests
             new[]
             {
                 "upgrades", "research", "structures", "alchemy-recipes",
-                "glyphs", "rituals", "plot-nodes", "challenges",
+                "augment-glyphs", "rituals", "plot-nodes", "challenges",
             },
             category => Assert.Contains(category, description, StringComparison.Ordinal));
         Assert.DoesNotContain(

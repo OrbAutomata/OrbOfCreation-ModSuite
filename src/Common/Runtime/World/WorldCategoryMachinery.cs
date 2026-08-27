@@ -191,6 +191,20 @@ internal abstract class WorldRowBinder<TSample, TRow>
     internal abstract TSample Read(object entity);
 
     /// <summary>
+    /// Whether this registry entry is one of the things the category publishes. Runs on the Unity
+    /// thread, before <see cref="Read"/>, and must not write game state.
+    /// </summary>
+    /// <remarks>
+    /// One native class is not always one player concept. <c>GlyphSO</c> holds two: the twenty-two
+    /// Augment Glyphs the game draws a grid and an upgrade button for, and twenty-five assets that
+    /// are the internal half of a Recipe Book. The second set has no screen, no price and no button,
+    /// so a row for one was an offer the game never draws. A registry entry this refuses is not a
+    /// failure and is not skipped work — it is not this category's, and the collection report counts
+    /// it neither way.
+    /// </remarks>
+    internal virtual bool Publishes(object entity) => true;
+
+    /// <summary>
     /// The pure half of this category, as a separate object so the worker can hold it without
     /// holding this binder.
     /// </summary>
@@ -710,6 +724,8 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
 
             try
             {
+                if (!_binder.Publishes(entity)) continue;
+
                 // The identity comes off the sample, never off a derived row: derivation belongs to
                 // the worker, and calling it here to learn a Guid would quietly move it back onto the
                 // Unity thread — and would run it twice per entity into the bargain.

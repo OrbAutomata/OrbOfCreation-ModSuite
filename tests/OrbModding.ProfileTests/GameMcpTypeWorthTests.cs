@@ -315,12 +315,13 @@ public sealed class GameMcpTypeWorthTests
         Assert.Null(detail["worth"]);
         Assert.Equal(
             "{\"uuid\":\"a1c000\",\"name\":\"Focus Ward\",\"internalName\":\"focusWard\"," +
-            "\"category\":\"glyphs\",\"row\":{" +
-            "\"population\":\"augment\",\"screen\":\"unreadable\",\"state\":\"locked\"," +
-            "\"discovered\":false,\"usableCount\":0,\"reasonCode\":\"ERR_LOCKED\"," +
+            "\"category\":\"augment-glyphs\",\"row\":{" +
+            "\"state\":\"locked\",\"slots\":0,\"freeSlots\":0,\"reasonCode\":\"ERR_LOCKED\"," +
             "\"reason\":\"This has not been discovered yet.\"," +
             "\"paidLevel\":0,\"totalLevel\":0,\"purchase\":{\"available\":false," +
-            "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"The game has not unlocked this yet.\"}," +
+            "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"Magic > Augments > Upgrade is not " +
+            "unlocked yet, so the game draws no level button for an augment glyph. Buy the " +
+            "Upgrade Glyphs upgrade first.\"}," +
             "\"discover\":{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
             "\"reason\":\"The game is not showing this yet.\"}},\"predicates\":{" +
             "\"visible\":{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
@@ -362,7 +363,7 @@ public sealed class GameMcpTypeWorthTests
                 "rows 2/2",
                 "[id | name | category | keywords | matchedOn]",
                 "a0a000 | Focus | equipment-types | - | name",
-                "a1c000 | Focus Ward | glyphs | - | name",
+                "a1c000 | Focus Ward | augment-glyphs | - | name",
             }),
             Render(Json(GameMcpWorldQuery.Search(
                 Context(World()), "focus", 0, 50, string.Empty, string.Empty, string.Empty,
@@ -465,7 +466,7 @@ public sealed class GameMcpTypeWorthTests
             {
                 new WorldEquipmentType(Focus, 3, 1, 2, new BigDouble(5), new BigDouble(2)),
             }),
-            Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]
             {
                 new WorldGlyph(
                     Ward, 0, 0, 1, false, true, false, false, false, false,

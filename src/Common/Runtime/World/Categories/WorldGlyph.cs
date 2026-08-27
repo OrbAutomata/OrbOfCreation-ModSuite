@@ -2,7 +2,15 @@ using System;
 
 namespace OrbModding.Common.Runtime.World;
 
-/// <summary>One glyph as published.</summary>
+/// <summary>
+/// One Augment Glyph as published — the twenty-two the game socket into spells and upgrades on
+/// Magic &gt; Augments.
+/// </summary>
+/// <remarks>
+/// <c>GlyphSO</c> also backs twenty-five assets that are the internal half of a Recipe Book; those
+/// are not published here (see <see cref="WorldGlyphBinder.Publishes"/>) and the Recipe Book they
+/// open is what a caller reads instead.
+/// </remarks>
 internal readonly struct WorldGlyph : IWorldEntity
 {
     internal WorldGlyph(Guid glyphId, int level, int freeLevels, int discoveryRarityLevel, bool learned,
@@ -16,6 +24,7 @@ internal readonly struct WorldGlyph : IWorldEntity
         BigDouble freeLoadoutUsages,
         BigDouble maxUsages,
         int maximumUsages = 0,
+        int maximumFreeUsages = 0,
         WorldDiscoverableDecision discovery = default,
         WorldLevelableDecision levelDecision = default)
     {
@@ -34,6 +43,7 @@ internal readonly struct WorldGlyph : IWorldEntity
         FreeLoadoutUsages = freeLoadoutUsages;
         MaxUsages = maxUsages;
         MaximumUsages = maximumUsages;
+        MaximumFreeUsages = maximumFreeUsages;
         Discovery = discovery;
         LevelDecision = levelDecision;
     }
@@ -75,8 +85,18 @@ internal readonly struct WorldGlyph : IWorldEntity
 
     internal BigDouble MaxUsages { get; }
 
-    /// <summary>The native picker clamp for this glyph, after active modifiers.</summary>
+    /// <summary>
+    /// How many copies of this glyph fit one spell, after active modifiers — the game's own
+    /// <c>GetMaxUsages()</c>, which its level panel prints as <c>[N] Slot</c>.
+    /// </summary>
     internal int MaximumUsages { get; }
+
+    /// <summary>
+    /// How many of those slots cost no spell usage, after active modifiers — the game's own
+    /// <c>GetFreeUsages()</c>, printed beside the slots as <c>[M] Free Slot</c>. Its own number,
+    /// not a share of <see cref="MaximumUsages"/>: a level grants one every sixth level.
+    /// </summary>
+    internal int MaximumFreeUsages { get; }
 
     internal WorldDiscoverableDecision Discovery { get; }
 
@@ -104,13 +124,15 @@ internal sealed class WorldGlyphBinder : WorldPlainBinder<WorldGlyph>
     private Func<object, BigDouble>? _maxUsages;
     private Func<object, bool>? _available;
     private Func<object, int>? _maximumUsages;
+    private Func<object, int>? _maximumFreeUsages;
+    private Func<object, Guid>? _associatedRecipeBook;
     private WorldDiscoverableBinding? _discovery;
     private WorldLevelableDecisionBinding? _levelDecision;
 
     internal WorldGlyphBinder(Func<string, Type?> resolveType) =>
         _resolveType = resolveType ?? throw new ArgumentNullException(nameof(resolveType));
 
-    internal override string Category => "glyphs";
+    internal override string Category => "augment glyphs";
 
     internal override string TypeName => "GlyphSO";
 
@@ -132,10 +154,22 @@ internal sealed class WorldGlyphBinder : WorldPlainBinder<WorldGlyph>
         _maxUsages = bind.ModifierRecord("maxUsages");
         _available = bind.Call<bool>("IsAvailable");
         _maximumUsages = bind.Call<int>("GetMaxUsages");
+        _maximumFreeUsages = bind.Call<int>("GetFreeUsages");
+        _associatedRecipeBook = bind.ReferenceGuid("associatedRecipeBook");
         _discovery = new WorldDiscoverableBinding(type, TypeName);
         _levelDecision = new WorldLevelableDecisionBinding(type, true, _resolveType);
         return Join(bind.Failure, _discovery.Failure, _levelDecision.Failure);
     }
+
+    /// <summary>
+    /// An Augment Glyph is a <c>GlyphSO</c> with no <c>associatedRecipeBook</c>. The twenty-five
+    /// that carry one are the internal half of the Recipe Book they name — the game draws them no
+    /// grid, prices them no level and gives them no button — so the book is the row and they are
+    /// not published at all. The authored field is read rather than inferred, and it agrees exactly
+    /// with the other two discriminators the build ships: membership of <c>AugmentSpellGlyphs</c>
+    /// (22) and <c>discoverable</c> (22 true).
+    /// </summary>
+    internal override bool Publishes(object entity) => _associatedRecipeBook!(entity) == Guid.Empty;
 
     internal override WorldGlyph Read(object entity) =>
         new(
@@ -154,6 +188,7 @@ internal sealed class WorldGlyphBinder : WorldPlainBinder<WorldGlyph>
             _freeLoadoutUsages!(entity),
             _maxUsages!(entity),
             _maximumUsages!(entity),
+            _maximumFreeUsages!(entity),
             _discovery!.Read(entity),
             _levelDecision!.Read(entity));
 

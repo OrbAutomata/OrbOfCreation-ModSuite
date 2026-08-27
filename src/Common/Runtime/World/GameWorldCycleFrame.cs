@@ -169,10 +169,10 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldUpgradeListMembership> UpgradeListMemberships { get; } = new();
 
     /// <summary>
-    /// Which authored <c>GlyphListVariable</c> each glyph sits on — the same grouping axis one level
-    /// over, and equally structural. A glyph may sit on several at once, which an upgrade never does.
+    /// Which Recipe Book each of the twenty-five retired unlocker glyphs is the internal half of.
+    /// Structural, and authored one way on <c>GlyphSO.associatedRecipeBook</c>.
     /// </summary>
-    internal WorldRelationBuffer<WorldGlyphListMembership> GlyphListMemberships { get; } = new();
+    internal WorldRelationBuffer<WorldRecipeBookGlyph> RecipeBookGlyphs { get; } = new();
 
     /// <summary>
     /// The authored factors each glyph applies, one row per slot the game would print. Sparse by
@@ -230,7 +230,7 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldHarvestActionControl> HarvestActionControls { get; } = new();
     internal WorldRelationBuffer<WorldHarvestLifecycleCost> HarvestLifecycleCosts { get; } = new();
     internal WorldSampleBuffer<WorldTimeRune, WorldTimeRune> TimeRunes { get; } = new();
-    internal WorldSampleBuffer<WorldGlyph, WorldGlyph> Glyphs { get; } = new();
+    internal WorldSampleBuffer<WorldGlyph, WorldGlyph> AugmentGlyphs { get; } = new();
     internal WorldSampleBuffer<RawConsumableSample, WorldConsumable> Consumables { get; } = new();
     internal WorldConsumableInventoryBuffer ConsumableInventory { get; } = new();
     internal Guid ConsumableMaximumCarryLoadVariableId { get; set; }
@@ -600,7 +600,7 @@ internal static class GameWorldFrameDeriver
             HarvestLifecycleCosts = WorldHarvestLifecycleDeriver.BuildCosts(
                 frame.HarvestLifecycleCosts),
             TimeRunes = frame.TimeRunes.Build(WorldIdentityDeriver<WorldTimeRune>.Shared),
-            Glyphs = frame.Glyphs.Build(WorldIdentityDeriver<WorldGlyph>.Shared),
+            AugmentGlyphs = frame.AugmentGlyphs.Build(WorldIdentityDeriver<WorldGlyph>.Shared),
             Consumables = frame.Consumables.Build(new WorldConsumableDeriver(
                 WorldLookup.TryFind(
                     intVariables,
@@ -671,8 +671,8 @@ internal static class GameWorldFrameDeriver
             PurchaseViewRoutes = purchaseViews.Routes,
             UpgradeListMemberships =
                 WorldUpgradeListMembershipDeriver.Build(frame.UpgradeListMemberships),
-            GlyphListMemberships =
-                WorldGlyphListMembershipDeriver.Build(frame.GlyphListMemberships),
+            RecipeBookGlyphs =
+                WorldRecipeBookGlyphDeriver.Build(frame.RecipeBookGlyphs),
             GlyphEffects = WorldGlyphFactorDeriver.Build(frame.GlyphEffects, statistics),
             LevelEffects = WorldLevelEffectDeriver.Build(frame.LevelEffects),
             PlotNodeActions = plotNodeActions,

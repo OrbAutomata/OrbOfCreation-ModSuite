@@ -99,7 +99,7 @@ internal sealed class GameWorldCollector
     private readonly WorldPlotAuthoringReader _plotAuthoring;
     private readonly WorldEffectBlockReader _effectBlocks;
     private readonly WorldEntityRequirementReader _entityRequirements;
-    private readonly WorldGlyphListMembershipReader _glyphLists;
+    private readonly WorldRecipeBookGlyphReader _recipeBookGlyphs;
     private readonly WorldEffectFactorReader _effectFactors;
     private readonly WorldPurchaseViewRelationReader _purchaseViewRelations;
     private readonly WorldPrerequisiteLinkTierReader _prerequisiteLinkTiers;
@@ -337,7 +337,7 @@ internal sealed class GameWorldCollector
         _harvestResources = Reader(new WorldHarvestResourceBinder(), resolveType, static frame => frame.HarvestResources);
         _harvestLifecycle = new WorldHarvestLifecycleReader(resolveType);
         _timeRunes = Reader(new WorldTimeRuneBinder(resolveType), resolveType, static frame => frame.TimeRunes);
-        _glyphs = Reader(new WorldGlyphBinder(resolveType), resolveType, static frame => frame.Glyphs);
+        _glyphs = Reader(new WorldGlyphBinder(resolveType), resolveType, static frame => frame.AugmentGlyphs);
         _consumables = new WorldConsumableReader(
             resolveType("ConsumableSO"),
             resolveType("IdScriptableObject"));
@@ -386,7 +386,7 @@ internal sealed class GameWorldCollector
             resolveType("PrerequisiteLinkSO"),
             resolveType("AlchemyRecipeSO"),
             resolveType("GlyphSO"));
-        _glyphLists = new WorldGlyphListMembershipReader(resolveType);
+        _recipeBookGlyphs = new WorldRecipeBookGlyphReader(resolveType);
         _effectFactors = new WorldEffectFactorReader(resolveType);
         _purchaseViewRelations = new WorldPurchaseViewRelationReader(
             resolveType,
@@ -423,7 +423,7 @@ internal sealed class GameWorldCollector
             _targeting,
             _actionQueues, _spellSlots, _alchemyInstances, _alchemyLoadout,
             _plotAuthoring, _effectBlocks,
-            _entityRequirements, _purchaseViewRelations, _glyphLists, _effectFactors,
+            _entityRequirements, _purchaseViewRelations, _recipeBookGlyphs, _effectFactors,
             _prerequisiteLinkTiers,
             _entityKeywords,
             _typeModifiers, _typeModifierContributions,
@@ -440,7 +440,7 @@ internal sealed class GameWorldCollector
                 ReferenceEquals(_readers[index], _entityKeywords) ||
                 ReferenceEquals(_readers[index], _entityRequirements) ||
                 ReferenceEquals(_readers[index], _purchaseViewRelations) ||
-                ReferenceEquals(_readers[index], _glyphLists) ||
+                ReferenceEquals(_readers[index], _recipeBookGlyphs) ||
                 ReferenceEquals(_readers[index], _craftingRecipeTypes) ||
                 ReferenceEquals(_readers[index], _craftingRecipeAuthoring) ||
                 ReferenceEquals(_readers[index], _purchaseCosts) ||

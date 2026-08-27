@@ -659,8 +659,12 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
     public bool requiresToggleable;
 
     // GlyphSO.IsAvailable() returns `discovered` when `discoverable` is set and this container's
-    // Check() otherwise, so only the second population authors anything here.
+    // Check() otherwise, so only the recipe-book half authors anything here.
     public Prerequisites.Container prerequisites = new Prerequisites.Container();
+
+    // Authored one way and non-null on exactly the twenty-five that are the internal half of a
+    // Recipe Book. The world publishes an Augment Glyph row only where this is null.
+    public RecipeBookSO? associatedRecipeBook;
     public bool NativeAvailable { get; set; } = true;
     public bool NativeVisible { get; set; } = true;
     public ResourceCostList discoveryCost = new ResourceCostList();
@@ -731,6 +735,7 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
     }
     public bool IsSpellAugment() => augmentsSpells;
     public int GetMaxUsages() => (int)maxUsages.GetValue().ToDouble();
+    public int GetFreeUsages() => (int)freeUsages.GetValue().ToDouble();
     public static ResourceCostList GetCreationCostOfList(
         ResourceCostList startingCost,
         IEnumerable<GlyphSO> glyphs)

@@ -125,7 +125,7 @@ public sealed class GameMcpGenericDiscoveryTests
     /// </summary>
     [Theory]
     [InlineData("spell-recipes")]
-    [InlineData("glyphs")]
+    [InlineData("augment-glyphs")]
     [InlineData("rituals")]
     [InlineData("time-runes")]
     [InlineData("alchemy-recipes")]
@@ -148,9 +148,9 @@ public sealed class GameMcpGenericDiscoveryTests
     public void Predecision_and_poststate_are_named_and_carry_the_exact_next_cost()
     {
         var row = Json(GameMcpWorldQuery.GetRow(
-            Context(), "glyphs", GlyphId.ToString("D")));
+            Context(), "augment-glyphs", GlyphId.ToString("D")));
         var postState = Json(GameMcpWorldQuery.ProjectPostState(
-            Context(), "glyphs", GlyphId));
+            Context(), "augment-glyphs", GlyphId));
 
         Assert.Equal("available", (string?)row["status"]);
         Assert.Null(row["worldGeneration"]);
@@ -225,7 +225,7 @@ public sealed class GameMcpGenericDiscoveryTests
         var locked = Context(screensUnlocked: false);
 
         var glyph = Json(GameMcpWorldQuery.ProjectPostState(
-            locked, "glyphs", GlyphId))["discover"]!;
+            locked, "augment-glyphs", GlyphId))["discover"]!;
         var recipe = Json(GameMcpWorldQuery.ProjectPostState(
             locked, "spell-recipes", SpellRecipeId))["discover"]!;
 
@@ -326,7 +326,7 @@ public sealed class GameMcpGenericDiscoveryTests
                 new WorldView(KnownEntities.MagicGlyphsDiscover.Uuid, false, false, screensUnlocked),
                 new WorldView(KnownEntities.MagicSpellbookLearn.Uuid, false, false, screensUnlocked),
             }),
-            Glyphs = PublicationTable<WorldGlyph>.Create(glyphs),
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(glyphs),
             SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[] { SpellRecipe(decision) }),
             SpellWorkbench = new WorldSpellWorkbench(
                 equippedCount: loadoutHasRoom ? 0 : 1,
@@ -336,7 +336,7 @@ public sealed class GameMcpGenericDiscoveryTests
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus(
-                    "glyphs", WorldCategoryOutcome.Collected, glyphs.Length, 0, string.Empty),
+                    "augment glyphs", WorldCategoryOutcome.Collected, glyphs.Length, 0, string.Empty),
             }),
         };
     }

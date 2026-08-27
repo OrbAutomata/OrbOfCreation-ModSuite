@@ -878,7 +878,7 @@ internal static class WorldRequirementEvaluator
     {
         if (WorldLookup.TryFind(world.TimeRunes, targetId, out var rune))
             return Verdict(rune.Discovery.Discovered);
-        if (WorldLookup.TryFind(world.Glyphs, targetId, out var glyph))
+        if (WorldLookup.TryFind(world.AugmentGlyphs, targetId, out var glyph))
             return Verdict(glyph.Discovery.Discovered);
         if (WorldLookup.TryFind(world.SpellRecipes, targetId, out var spell))
             return Verdict(spell.Discovery.Discovered);

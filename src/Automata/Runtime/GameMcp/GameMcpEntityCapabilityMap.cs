@@ -254,8 +254,8 @@ internal static class GameMcpEntityCapabilityMap
             matches++;
             nativeType = "EquipmentTypeSO";
         }
-        if (Supports("glyphs", GameMcpCommandKind.GenericLevel) &&
-            WorldLookup.TryFind(world.Glyphs, target, out _))
+        if (Supports("augment-glyphs", GameMcpCommandKind.GenericLevel) &&
+            WorldLookup.TryFind(world.AugmentGlyphs, target, out _))
         {
             matches++;
             nativeType = "GlyphSO";
@@ -308,8 +308,8 @@ internal static class GameMcpEntityCapabilityMap
             matches++;
             nativeType = "EquipmentSO";
         }
-        if (Supports("glyphs", GameMcpCommandKind.GenericDiscovery) &&
-            WorldLookup.TryFind(world.Glyphs, target, out _))
+        if (Supports("augment-glyphs", GameMcpCommandKind.GenericDiscovery) &&
+            WorldLookup.TryFind(world.AugmentGlyphs, target, out _))
         {
             matches++;
             nativeType = "GlyphSO";
@@ -631,7 +631,7 @@ internal static class GameMcpEntityCapabilityMap
         D("agromancy-actions", "HarvestActionSO"),
         D("time-runes", "TimeRuneSO", GameMcpCommandKind.GenericDiscovery,
             GameMcpCommandKind.GenericLevel),
-        D("glyphs", "GlyphSO", GameMcpCommandKind.GenericDiscovery,
+        D("augment-glyphs", "GlyphSO", GameMcpCommandKind.GenericDiscovery,
             GameMcpCommandKind.GenericLevel),
         D("consumables", "ConsumableSO", GameMcpCommandKind.Consumable),
         D("rituals", "RitualSO", GameMcpCommandKind.GenericDiscovery,

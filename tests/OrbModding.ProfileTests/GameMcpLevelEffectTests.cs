@@ -114,7 +114,7 @@ public sealed class GameMcpLevelEffectTests : IDisposable
     [Fact]
     public void The_same_block_answers_on_every_holder_that_authors_one()
     {
-        var glyph = Assert.Single(Effects("glyphs", BloomingGlyph));
+        var glyph = Assert.Single(Effects("augment-glyphs", BloomingGlyph));
         Assert.Equal("Value", (string?)glyph["property"]);
         Assert.Equal("diminishing", (string?)glyph["modifierType"]);
         Assert.Equal("1.15", (string?)glyph["amount"]);
@@ -152,7 +152,7 @@ public sealed class GameMcpLevelEffectTests : IDisposable
     [Fact]
     public void A_target_nothing_published_names_keeps_its_key_and_no_named_edge()
     {
-        var glyph = Assert.Single(Effects("glyphs", BloomingGlyph));
+        var glyph = Assert.Single(Effects("augment-glyphs", BloomingGlyph));
 
         // The key survives: the property the tuple moves is the whole of what a reader can act on
         // when the target has no published row.
@@ -240,7 +240,7 @@ public sealed class GameMcpLevelEffectTests : IDisposable
             {
                 new WorldUpgrade(in upgrade, false, false, 0, 3, false, 0d),
             }),
-            Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]
             {
                 new WorldGlyph(
                     BloomingGlyph, 2, 0, 0, true, true, true, true, false, false, 0,

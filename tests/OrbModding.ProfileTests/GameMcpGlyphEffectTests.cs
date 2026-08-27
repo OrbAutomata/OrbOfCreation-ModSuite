@@ -142,7 +142,7 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
             {
                 "rows 1/1",
                 "[id | name | category | keywords | matchedOn]",
-                "0eff1e | Quick | glyphs | - | effects",
+                "0eff1e | Quick | augment-glyphs | - | effects",
             }),
             Render(Search("Cooldown")));
 
@@ -187,7 +187,7 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
             Json(GameMcpWorldQuery.GetRows(
-                Context(World()), "glyphs", new[] { uuid.ToString("D") }))
+                Context(World()), "augment-glyphs", new[] { uuid.ToString("D") }))
             ["results"]!.Values<JObject>())!;
 
     private static JObject Json(GameMcpObjectBuilder value) =>
@@ -204,7 +204,7 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
         new()
         {
             EntityIdentities = Catalog,
-            Glyphs = PublicationTable<WorldGlyph>.Create(SortedGlyphs(
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(SortedGlyphs(
                 Glyph(Quick),
                 Glyph(Fortunate),
                 Glyph(Plain))),

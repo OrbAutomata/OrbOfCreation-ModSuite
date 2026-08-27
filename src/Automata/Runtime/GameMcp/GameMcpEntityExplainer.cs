@@ -370,7 +370,7 @@ internal static class GameMcpEntityExplainer
             }
             case EntityKind.Glyph:
             {
-                WorldLookup.TryFind(world.Glyphs, id, out var glyph);
+                WorldLookup.TryFind(world.AugmentGlyphs, id, out var glyph);
 
                 // The game cannot show a glyph it will not offer: GlyphSO.IsVisible() is a call to
                 // IsAvailable(), and the picker tile's own IsVisible() calls IsAvailable() too. The
@@ -1226,7 +1226,7 @@ internal static class GameMcpEntityExplainer
             EntityKind.Consumable => "consumables",
             EntityKind.Resource => "resources",
             EntityKind.Ritual => "rituals",
-            EntityKind.Glyph => "glyphs",
+            EntityKind.Glyph => "augment-glyphs",
             EntityKind.Equipment => "equipment",
             EntityKind.TimeRune => "time-runes",
             EntityKind.DiscoveryTree => "discovery-trees",
@@ -1272,7 +1272,7 @@ internal static class GameMcpEntityExplainer
             Found(EntityKind.Resource, resource, "ResourceSO");
         if (WorldLookup.TryFind(world.Rituals, id, out var ritual))
             Found(EntityKind.Ritual, ritual, "RitualSO");
-        if (WorldLookup.TryFind(world.Glyphs, id, out var glyph))
+        if (WorldLookup.TryFind(world.AugmentGlyphs, id, out var glyph))
             Found(EntityKind.Glyph, glyph, "GlyphSO");
         if (WorldLookup.TryFind(world.Equipment, id, out var equipment))
             Found(EntityKind.Equipment, equipment, "EquipmentSO");

@@ -216,7 +216,6 @@ internal static class WorldCategoryFakes
         UnityEngine.Resources.Objects.Clear();
         SeedScribeRelations();
         SeedHarvestLifecycle();
-        SeedGlyphLists();
     }
 
     private static void SeedScribeRelations()
@@ -262,27 +261,6 @@ internal static class WorldCategoryFakes
 
     internal static FakeHarvestElementList ActiveHarvestElements { get; private set; } = new();
     internal static FakeHarvestActionList ActiveHarvestActions { get; private set; } = new();
-
-    internal static FakeGlyphList AugmentSpellGlyphs { get; private set; } = new();
-
-    /// <summary>
-    /// The four pinned lists always resolve, because the reader publishes membership whole or
-    /// withholds it whole and a fake world that omitted one would report the whole category missing.
-    /// </summary>
-    private static void SeedGlyphLists()
-    {
-        AugmentSpellGlyphs = new FakeGlyphList { Identity = KnownEntities.GlyphsAugmentSpell.Uuid };
-        FakeIdRegistry.RuntimeLookup[KnownEntities.GlyphsAugmentSpell.Uuid] = AugmentSpellGlyphs;
-        foreach (var listId in new[]
-                 {
-                     KnownEntities.GlyphsCoreSpell.Uuid,
-                     KnownEntities.GlyphsCoreAlchemy.Uuid,
-                     KnownEntities.GlyphsEquipment.Uuid,
-                 })
-        {
-            FakeIdRegistry.RuntimeLookup[listId] = new FakeGlyphList { Identity = listId };
-        }
-    }
 
     private static void SeedHarvestLifecycle()
     {
@@ -2236,10 +2214,14 @@ internal sealed class FakeGlyph : global::IDiscoverable
     public bool requiresDuration;
     public bool requiresToggleable;
 
-    // The one authored condition an unlocker carries, in the container type the requirement reader
+    // The one authored condition a recipe book carries, in the container type the requirement reader
     // walks for every other owner — a second container type at the same name would not be readable
     // by the accessor bound against the first.
     public FakePrerequisites prerequisites = new();
+
+    // Non-null on exactly the twenty-five that are the internal half of a Recipe Book. The world
+    // publishes an Augment Glyph row only where it is null.
+    public FakeRecipeBook? associatedRecipeBook;
     public int masteryReqCount;
     public FakeModifierRecord freeUsages = new(0d);
     public FakeModifierRecord freeLoadoutUsages = new(0d);
@@ -2276,6 +2258,7 @@ internal sealed class FakeGlyph : global::IDiscoverable
     public bool NativeAvailable = true;
     public bool IsAvailable() => NativeAvailable;
     public int GetMaxUsages() => (int)maxUsages.GetValue().ToDouble();
+    public int GetFreeUsages() => (int)freeUsages.GetValue().ToDouble();
     public int GetLevel() => level + freeLevels;
     public int GetFreeLevels() => freeLevels;
     public bool CanLevel() => NativeCanLevel;

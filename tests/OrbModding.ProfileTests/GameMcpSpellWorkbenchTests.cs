@@ -24,6 +24,12 @@ public sealed class GameMcpSpellWorkbenchTests
     private static readonly Guid AugmentGlyphId =
         Guid.Parse("95b05e80-e0e8-45d2-b510-5d9d8d7d9b70");
 
+    /// <summary>The books the two core ids are the internal half of, as the build authors them.</summary>
+    private static readonly Guid FirstBookId =
+        Guid.Parse("c4104148-b464-4123-acd0-db63d34d9a2c");
+    private static readonly Guid SecondBookId =
+        Guid.Parse("a9a4dd71-53cf-405c-b9c3-6d252308fe9b");
+
     [Fact]
     public void OutputFirstWorkbenchToolIsAbsentFromThePlayerSurface()
     {
@@ -94,11 +100,14 @@ public sealed class GameMcpSpellWorkbenchTests
         // The button carries no composition, so neither does the row that describes it.
         Assert.Null(exact["discover"]!["surface"]);
         Assert.Null(exact["discover"]!["components"]);
-        var glyphs = exact["coreGlyphs"]!.Values<JObject>().ToArray();
+        // The authored core is a list of retired unlocker ids, and each is the internal half of a
+        // Recipe Book. The row names the books, which are the tiles a player owns, in slot order.
+        Assert.Null(exact["coreGlyphs"]);
+        var books = exact["composedOf"]!.Values<JObject>().ToArray();
         Assert.Equal(new[] { "Brew", "Insight" },
-            glyphs.Select(glyph => (string?)glyph!["glyph"]!["name"]));
-        Assert.Equal(new[] { "7", "3" },
-            glyphs.Select(glyph => (string?)glyph!["ownedLevel"]));
+            books.Select(book => (string?)book!["book"]!["name"]));
+        Assert.Equal(new[] { true, true },
+            books.Select(book => (bool)book!["owned"]!));
         var cost = Assert.Single(exact["discover"]!["costs"]!.Values<JObject>())!;
         Assert.Equal("Knowledge", (string?)cost["resource"]!["name"]);
         Assert.Equal("4.4e3", (string?)cost["cost"]);
@@ -241,8 +250,7 @@ public sealed class GameMcpSpellWorkbenchTests
         var context = GameMcpTestHarness.Context(World(
             discovered: true,
             discoveryAffordable: true,
-            hasEmptySlot: true,
-            coreLevel: 0));
+            hasEmptySlot: true));
 
         var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")));
@@ -507,7 +515,6 @@ public sealed class GameMcpSpellWorkbenchTests
         bool equipped = false,
         bool discoveryVisible = true,
         bool canDiscover = true,
-        int coreLevel = 7,
         bool usageBudget = false,
         bool loadoutScreenUnlocked = true)
     {
@@ -574,12 +581,22 @@ public sealed class GameMcpSpellWorkbenchTests
                         affordable: discoveryAffordable,
                         costs: discoveryCosts)),
             }),
-            Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+            // Only the augment is a row. The recipe's two core entries are retired unlocker ids the
+            // world publishes no glyph for, which is why a core glyph's level cannot reach this page.
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]
             {
-                Glyph(SecondGlyphId, 3),
-                Glyph(FirstGlyphId, coreLevel),
-                Glyph(AugmentGlyphId, 1, augment: true),
+                Glyph(AugmentGlyphId, 1),
             }),
+            RecipeBookGlyphs = PublicationTable<WorldRecipeBookGlyph>.Create(new[]
+            {
+                new WorldRecipeBookGlyph(SecondGlyphId, SecondBookId),
+                new WorldRecipeBookGlyph(FirstGlyphId, FirstBookId),
+            }.OrderBy(edge => edge.GlyphId).ToArray()),
+            RecipeBooks = PublicationTable<WorldRecipeBook>.Create(new[]
+            {
+                new WorldRecipeBook(SecondBookId, true),
+                new WorldRecipeBook(FirstBookId, true),
+            }.OrderBy(book => book.EntityId).ToArray()),
             Resources = usageBudget
                 ? PublicationTable<WorldResource>.Create(new[] { SpellWeightResource() })
                 : PublicationTable<WorldResource>.Empty,
@@ -640,19 +657,16 @@ public sealed class GameMcpSpellWorkbenchTests
             in reading, true, new BigDouble(3), 0.625, false, new BigDouble(5), BigDouble.Zero);
     }
 
-    /// <summary>
-    /// One glyph of either population, as the game authors them: an augment is discoverable and
-    /// spent on spells, a core glyph is neither and is held off an authored requirement edge.
-    /// </summary>
-    private static WorldGlyph Glyph(Guid id, int level, bool augment = false) => new(
+    /// <summary>One Augment Glyph, as the game authors them: discoverable and spent on spells.</summary>
+    private static WorldGlyph Glyph(Guid id, int level) => new(
         id,
         level,
         0,
         0,
         true,
-        augment,
+        true,
         false,
-        augment,
+        true,
         false,
         false,
         0,

@@ -654,7 +654,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         global::IdScriptableObject.RuntimeLookup[glyphId] = native;
         var world = new GameWorldState
         {
-            Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]
             {
                 new WorldGlyph(
                     glyphId, 0, 0, 1, false, true, false, false, false, false,
@@ -1080,7 +1080,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             {
                 GameWorldStateDeriver.Derive(in rawUpgrade),
             }),
-            Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]
             {
                 new WorldGlyph(
                     glyphId, 0, 0, 1, false, true, false, false, false, false,
@@ -1105,7 +1105,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             StringComparison.Ordinal);
 
         // Two categories in one call: neither block was told which table to look in.
-        Assert.Equal("glyphs", (string?)blocks[0]!["category"]);
+        Assert.Equal("augment-glyphs", (string?)blocks[0]!["category"]);
         Assert.Equal("Accursed", (string?)blocks[0]!["name"]);
         Assert.NotNull(blocks[0]!["predicates"]);
         Assert.Equal("upgrades", (string?)blocks[2]!["category"]);
@@ -1136,7 +1136,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var glyphId = Guid.Parse("cc1cb602-2427-41c3-a2f4-421b4eef2ab4");
         var world = new GameWorldState
         {
-            Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]
             {
                 new WorldGlyph(
                     glyphId, 0, 0, 1, false, true, false, false, false, false,
@@ -1145,7 +1145,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus(
-                    "glyphs", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+                    "augment glyphs", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
                 new WorldCollectionCategoryStatus(
                     "upgrades", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
             }),
@@ -1155,12 +1155,12 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var state = Snapshot(world, 950);
 
         var resolved = GameMcpTestHarness.Detail(state, glyphId);
-        var addressed = GameMcpTestHarness.Detail(state, "glyphs", glyphId);
+        var addressed = GameMcpTestHarness.Detail(state, "augment-glyphs", glyphId);
 
         Assert.Equal(
             resolved.ToString(Newtonsoft.Json.Formatting.None),
             addressed.ToString(Newtonsoft.Json.Formatting.None));
-        Assert.Equal("glyphs", (string?)resolved["category"]);
+        Assert.Equal("augment-glyphs", (string?)resolved["category"]);
 
         // A table the id is not in is the caller insisting, and it is answered as a miss in that
         // table rather than quietly resolved into the one they did not name.
@@ -1208,7 +1208,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var augment = Guid.Parse("12eb2437-5bd7-4069-b02a-e6f1eee8f0c6");
         var world = new GameWorldState
         {
-            Glyphs = PublicationTable<WorldGlyph>.Create(new[]
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]
             {
                 new WorldGlyph(
                     glyphId, 0, 0, 1, false, true, false, false, false, false,
