@@ -235,7 +235,11 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
 
-        if (remainingRoom <= reservedSlots)
+        // A reading below zero is a queue the game's own upgrade button stacked past its maximum,
+        // which is a full queue rather than a broken contract; nought free slots is the answer.
+        var freeSlots = Math.Max(0, remainingRoom);
+
+        if (freeSlots <= reservedSlots)
         {
             return ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected);
         }
@@ -243,7 +247,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         // One action can take several slots: an upgrade multi-buy queues one stack per level, and the
         // game's own Purchase() loop never consults the queue room. So "there is at least one slot
         // above the reserve" does not mean this submission fits above it.
-        var room = remainingRoom - reservedSlots;
+        var room = freeSlots - reservedSlots;
 
         // A planned count and a requested count are not the same promise. The worker asks for what it
         // hoped to get and takes what fits, so clamping its plan is the plan working. A caller naming

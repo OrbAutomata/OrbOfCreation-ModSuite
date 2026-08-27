@@ -4056,11 +4056,16 @@ public sealed class Plugin : BaseUnityPlugin
                 if (!queue.TryReadRemainingRoom(out var remaining))
                     return GadgetRejected(
                         "native_probe_unavailable",
-                        "ActionManager.GetRemainingRoom could not be resolved or returned an invalid value");
+                        "ActionManager.GetRemainingRoom could not be resolved");
+                // The game's own upgrade button queues past the maximum, so the reading goes
+                // negative. Nought free slots is the answer either way; the overshoot rides beside
+                // it as the fact it is, and is absent when there is none.
                 details = new GameMcpObjectBuilder
                 {
-                    ["remainingRoom"] = remaining,
+                    ["remainingRoom"] = Math.Max(0, remaining),
                 };
+                if (remaining < 0)
+                    details["entriesBeyondCapacity"] = -remaining;
                 break;
             case "navigation":
                 var tabs = _uiShell is not null && _uiShell.IsAlive

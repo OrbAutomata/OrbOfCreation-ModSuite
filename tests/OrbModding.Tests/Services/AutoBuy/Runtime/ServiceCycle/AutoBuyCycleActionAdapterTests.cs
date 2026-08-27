@@ -1175,6 +1175,50 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Assert.Equal(3, structure.queuedQuantity);
     }
 
+    /// <summary>
+    /// The game's own upgrade button queues every level it bought without consulting the queue, so a
+    /// player can stack it past its maximum and leave <c>GetRemainingRoom()</c> negative. That is a
+    /// full queue, and the boundary says so; treating it as an unreadable contract made every later
+    /// purchase report a broken suite for a state the game reaches on its own.
+    /// </summary>
+    [Fact]
+    public void Execute_QueueStackedPastItsMaximum_RejectsAsNoRoomWithoutFaulting()
+    {
+        var structure = new global::StructureSO
+        {
+            uuid = Guid.NewGuid().ToString(),
+            available = true,
+            purchasable = true,
+            queuedQuantity = 3,
+        };
+        global::StructureSO.All.Add(structure);
+
+        var result = Execute(
+            AutoBuyCandidateKind.Structure,
+            Guid.Parse(structure.uuid),
+            nativeEpoch: PlannedEpoch,
+            leaveQueueSlots: 0,
+            remainingRoom: -2);
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(CommonActionResultCodes.NativeRejected, result.Code);
+        Assert.False(result.HasNativeEvidence);
+        Assert.Equal(3, structure.queuedQuantity);
+    }
+
+    /// <summary>
+    /// The native reading itself is handed over signed. Only a reading that could not be taken at all
+    /// answers <c>false</c>.
+    /// </summary>
+    [Fact]
+    public void ReadRemainingRoom_QueueStackedPastItsMaximum_AnswersTheSignedReading()
+    {
+        global::ActionManager.RemainingRoom = -2;
+
+        Assert.True(new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out var room));
+        Assert.Equal(-2, room);
+    }
+
     /// <param name="nativeEpoch">What the live game says its epoch is when the action is submitted.</param>
     /// <param name="plannedEpoch">
     /// The epoch the world this purchase was planned from was collected under, which the action
