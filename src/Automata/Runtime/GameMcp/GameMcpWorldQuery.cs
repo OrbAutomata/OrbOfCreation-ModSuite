@@ -3548,23 +3548,62 @@ internal static class GameMcpWorldQuery
             : "The game's action queue is full; nothing can be queued until something in it settles.";
 
     /// <summary>
-    /// Why the suite's own half of a shortfall happened, for the settled answer's one line. The two
-    /// halves are kept apart on purpose: the suite may only speak for the levels it withheld, and
-    /// where the game also stopped early the sentence says that first and claims no reason for it.
+    /// The one line a press that delivered fewer levels than it was asked for owes its caller. The
+    /// two halves of a shortfall are kept apart on purpose: the suite speaks plainly for the levels
+    /// it withheld, and for the levels the game did not take it says only what it watched or read.
     /// </summary>
-    internal static string SuiteWithheldReason(
+    internal static string PurchaseShortfallReason(
         GameWorldState? world,
         int withheld,
         int offeredToTheGame,
-        int queued)
+        int queued,
+        string? gameStopped)
     {
+        var gameHalf = "the game took no more this press" +
+            (string.IsNullOrEmpty(gameStopped) ? string.Empty : ": " + gameStopped);
+        if (withheld <= 0) return gameHalf + ".";
+        if (queued < offeredToTheGame)
+        {
+            return gameHalf + ", and " + WithheldCount(withheld) +
+                " never offered because the action queue had room for only " +
+                offeredToTheGame + ".";
+        }
         var full = TryReadActionQueueCapacity(world, out var capacity)
             ? "the action queue is full (" + capacity + " of " + capacity + " slots used)"
             : "the action queue is full";
-        return queued >= offeredToTheGame
-            ? WithheldCount(withheld) + " not taken because " + full + "."
-            : "the game took no more this press, and " + WithheldCount(withheld) +
-              " never offered: the action queue had room for " + offeredToTheGame + ".";
+        return WithheldCount(withheld) + " not taken because " + full + ".";
+    }
+
+    /// <summary>
+    /// Which of the game's own gates the suite watched shut on a group it drove level by level, in
+    /// the words the settled answer uses. A group the suite could not watch has no clause here and
+    /// gets none invented for it.
+    /// </summary>
+    internal static string? PurchaseStopClause(AutoBuyGroupStop stop) => stop switch
+    {
+        AutoBuyGroupStop.NextLevelUnaffordable => "the next level's cost is not met",
+        AutoBuyGroupStop.NotAdmitted => "it no longer admits this purchase",
+        _ => null,
+    };
+
+    /// <summary>
+    /// What the level after a press that stopped short would cost, in the player's own words for the
+    /// resources. It is a fact and never a cause: it says what the next press must pay, and nothing
+    /// about why this one stopped.
+    /// </summary>
+    internal static string? NextLevelPriceClause(
+        IReadOnlyList<(string Resource, BigDouble Cost)> rows)
+    {
+        if (rows.Count == 0) return null;
+        var text = new StringBuilder("the next level costs ");
+        for (var index = 0; index < rows.Count; index++)
+        {
+            if (index > 0) text.Append(index == rows.Count - 1 ? " and " : ", ");
+            text.Append(GameMcpNumberFormatter.Format(rows[index].Cost))
+                .Append(' ')
+                .Append(rows[index].Resource);
+        }
+        return text.ToString();
     }
 
     private static string WithheldCount(int withheld) =>

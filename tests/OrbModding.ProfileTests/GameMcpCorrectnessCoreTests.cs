@@ -755,8 +755,12 @@ public sealed class GameMcpCorrectnessCoreTests
             attributeId,
             asked: 10,
             queued: 9,
-            remainder: GameMcpWorldQuery.SuiteWithheldReason(
-                ActionQueueWorld(capacity: 10), withheld: 1, offeredToTheGame: 9, queued: 9)));
+            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+                ActionQueueWorld(capacity: 10),
+                withheld: 1,
+                offeredToTheGame: 9,
+                queued: 9,
+                gameStopped: null)));
 
         Assert.Equal(
             "9 of 10 asked; 1 was not taken because the action queue is full " +
@@ -766,8 +770,8 @@ public sealed class GameMcpCorrectnessCoreTests
     }
 
     /// <summary>
-    /// Where the game stopped early as well, the suite still speaks only for its own half and claims
-    /// no reason for the game's.
+    /// Where the game stopped early as well, the suite still speaks only for its own half and gives
+    /// the game's half the gate it actually watched shut — never one it inferred.
     /// </summary>
     [Fact]
     public void AShortfallBothSidesCausedKeepsTheTwoHalvesApart()
@@ -777,12 +781,115 @@ public sealed class GameMcpCorrectnessCoreTests
             attributeId,
             asked: 10,
             queued: 4,
-            remainder: GameMcpWorldQuery.SuiteWithheldReason(
-                ActionQueueWorld(capacity: 10), withheld: 1, offeredToTheGame: 9, queued: 4)));
+            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+                ActionQueueWorld(capacity: 10),
+                withheld: 1,
+                offeredToTheGame: 9,
+                queued: 4,
+                GameMcpWorldQuery.PurchaseStopClause(
+                    AutoBuyGroupStop.NextLevelUnaffordable))));
 
         Assert.Equal(
-            "4 of 10 asked; the game took no more this press, and 1 was never offered: " +
-            "the action queue had room for 9.",
+            "4 of 10 asked; the game took no more this press: the next level's cost is not met, " +
+            "and 1 was never offered because the action queue had room for only 9.",
+            (string?)delta["queued"]);
+    }
+
+    /// <summary>
+    /// An attribute group is driven one level at a time behind the game's own gates, so the suite
+    /// watched which one shut and says it. The gate it watched is the only one it may name.
+    /// </summary>
+    [Fact]
+    public void AnAttributeGroupNamesTheGameGateTheSuiteWatchedShut()
+    {
+        var attributeId = Guid.Parse("f2000000-0000-0000-0000-000000000012");
+        var stopped = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+            attributeId,
+            asked: 5,
+            queued: 3,
+            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+                ActionQueueWorld(capacity: 10),
+                withheld: 0,
+                offeredToTheGame: 5,
+                queued: 3,
+                GameMcpWorldQuery.PurchaseStopClause(
+                    AutoBuyGroupStop.NextLevelUnaffordable))));
+
+        Assert.Equal(
+            "3 of 5 asked; the game took no more this press: the next level's cost is not met.",
+            (string?)stopped["queued"]);
+
+        var shut = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+            attributeId,
+            asked: 5,
+            queued: 1,
+            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+                ActionQueueWorld(capacity: 10),
+                withheld: 0,
+                offeredToTheGame: 5,
+                queued: 1,
+                GameMcpWorldQuery.PurchaseStopClause(AutoBuyGroupStop.NotAdmitted))));
+
+        Assert.Equal(
+            "1 of 5 asked; the game took no more this press: it no longer admits this purchase.",
+            (string?)shut["queued"]);
+    }
+
+    /// <summary>
+    /// An upgrade multi-buy breaks inside the game's own loop, so the suite has no gate to name and
+    /// invents none. It offers the one thing it can still read — what the next level costs.
+    /// </summary>
+    [Fact]
+    public void AnUpgradeGroupOffersTheNextLevelsPriceInsteadOfAGuessedReason()
+    {
+        Assert.Null(GameMcpWorldQuery.PurchaseStopClause(AutoBuyGroupStop.None));
+
+        var upgradeId = Guid.Parse("f2000000-0000-0000-0000-000000000013");
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+            upgradeId,
+            asked: 5,
+            queued: 2,
+            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+                ActionQueueWorld(capacity: 10),
+                withheld: 0,
+                offeredToTheGame: 5,
+                queued: 2,
+                GameMcpWorldQuery.NextLevelPriceClause(new[]
+                {
+                    ("Mana", new BigDouble(1200)),
+                    ("Insight", new BigDouble(300)),
+                }))));
+
+        Assert.Equal(
+            "2 of 5 asked; the game took no more this press: the next level costs 1.2e3 Mana and " +
+            "300 Insight.",
+            (string?)delta["queued"]);
+
+        Assert.Null(GameMcpWorldQuery.NextLevelPriceClause(
+            Array.Empty<(string, BigDouble)>()));
+    }
+
+    /// <summary>
+    /// A price the boundary could not read leaves the sentence exactly as it was: what happened,
+    /// with nothing appended that the suite cannot stand behind.
+    /// </summary>
+    [Fact]
+    public void AnUnreadableNextLevelPriceLeavesTheSentenceUnchanged()
+    {
+        var upgradeId = Guid.Parse("f2000000-0000-0000-0000-000000000014");
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+            upgradeId,
+            asked: 5,
+            queued: 2,
+            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+                ActionQueueWorld(capacity: 10),
+                withheld: 0,
+                offeredToTheGame: 5,
+                queued: 2,
+                gameStopped: null)));
+
+        Assert.Equal(
+            "2 of 5 asked; the game took no more this press.",
             (string?)delta["queued"]);
     }
 

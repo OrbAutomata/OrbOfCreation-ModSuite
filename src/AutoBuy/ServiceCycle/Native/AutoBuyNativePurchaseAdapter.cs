@@ -58,6 +58,28 @@ internal enum AutoBuyPurchasePreflight
 }
 
 /// <summary>
+/// Which of the game's own gates the suite watched shut on a group that stopped short of the levels
+/// it was asked for.
+/// </summary>
+/// <remarks>
+/// Only the structure family reaches anything but <see cref="None"/>: the suite drives that one
+/// level at a time and re-runs the game's gates itself between levels, so it sees which one said no.
+/// An upgrade multi-buy breaks inside the game's own loop and the suite sees only the delta, and a
+/// reason invented for it would be the confident face the queued-mutation answer exists to refuse.
+/// </remarks>
+internal enum AutoBuyGroupStop
+{
+    /// <summary>The group ran to its full count, or nothing observed why it did not.</summary>
+    None,
+
+    /// <summary>The next level's price was not met.</summary>
+    NextLevelUnaffordable,
+
+    /// <summary>The game stopped admitting the purchase.</summary>
+    NotAdmitted,
+}
+
+/// <summary>
 /// The neutral outcome of one native purchase submission: either a preflight rejection with no
 /// mutation, or an attempted audited mutation carrying its <see cref="NativeMutationOutcome"/> and
 /// call evidence. It never exposes a native object — the action port maps it to a service result.
@@ -75,8 +97,12 @@ internal readonly struct AutoBuyPurchaseSubmission
         in AutoBuyLiveCostSnapshot liveCosts,
         string reason,
         int maximumAmount = -1,
-        int withheldBySuite = 0)
+        int withheldBySuite = 0,
+        AutoBuyGroupStop groupStop = AutoBuyGroupStop.None,
+        AutoBuyLiveCostSnapshot nextLevelCosts = default)
     {
+        NextLevelCosts = nextLevelCosts;
+        GroupStop = groupStop;
         WithheldBySuite = withheldBySuite;
         Preflight = preflight;
         HasEvidence = hasEvidence;
@@ -143,6 +169,20 @@ internal readonly struct AutoBuyPurchaseSubmission
     public int WithheldBySuite { get; }
 
     /// <summary>
+    /// Which of the game's gates the suite watched shut on a group that stopped early, where it
+    /// watched at all.
+    /// </summary>
+    public AutoBuyGroupStop GroupStop { get; }
+
+    /// <summary>
+    /// What the level after this press would cost, read live once the press stopped short of the
+    /// levels it was asked for. It is read only where the suite could not watch the gate — an
+    /// upgrade multi-buy — so the settled answer has a fact to offer in place of a reason it does
+    /// not have. Unread everywhere else.
+    /// </summary>
+    public AutoBuyLiveCostSnapshot NextLevelCosts { get; }
+
+    /// <summary>
     /// The live action queue holds nothing more, so no level of this ask can be queued. No mutation
     /// is attempted, and the ceiling it names is nought: this is the one purchase refusal a smaller
     /// amount does not fix.
@@ -177,7 +217,9 @@ internal readonly struct AutoBuyPurchaseSubmission
             LiveCosts,
             Reason,
             MaximumAmount,
-            Math.Max(0, withheld));
+            Math.Max(0, withheld),
+            GroupStop,
+            NextLevelCosts);
 
     public static AutoBuyPurchaseSubmission Rejected(AutoBuyPurchasePreflight preflight) =>
         Rejected(preflight, default, string.Empty);
@@ -215,7 +257,9 @@ internal readonly struct AutoBuyPurchaseSubmission
     public static AutoBuyPurchaseSubmission Attempted(
         NativeMutationEvidence<int> evidence,
         int requestedLevels,
-        in AutoBuyLiveCostSnapshot liveCosts)
+        in AutoBuyLiveCostSnapshot liveCosts,
+        AutoBuyGroupStop groupStop = AutoBuyGroupStop.None,
+        AutoBuyLiveCostSnapshot nextLevelCosts = default)
     {
         var committed = evidence.HasBefore && evidence.HasAfter
             ? Math.Max(0, evidence.After - evidence.Before)
@@ -229,7 +273,11 @@ internal readonly struct AutoBuyPurchaseSubmission
             committed,
             default,
             in liveCosts,
-            string.Empty);
+            string.Empty,
+            maximumAmount: -1,
+            withheldBySuite: 0,
+            groupStop,
+            nextLevelCosts);
     }
 
     public static AutoBuyPurchaseSubmission Attempted(
@@ -606,6 +654,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         int count,
         in AutoBuyLiveCostSnapshot liveCosts)
     {
+        var stop = AutoBuyGroupStop.None;
         var evidence = NativeMutationVerifier.Execute(
             "Auto Buy Structure",
             uuid.ToString(),
@@ -625,9 +674,16 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                             source,
                             accessors,
                             out _) != AutoBuyPurchasePreflight.Proceeded ||
-                        !accessors.TryReadAdmission(source, out var admitted) || !admitted ||
-                        accessors.Diagnose(source).HasEnough != AutoBuyAdmissionTerm.Passed)
+                        !accessors.TryReadAdmission(source, out var admitted) || !admitted)
+                    {
+                        stop = AutoBuyGroupStop.NotAdmitted;
                         break;
+                    }
+                    if (accessors.Diagnose(source).HasEnough != AutoBuyAdmissionTerm.Passed)
+                    {
+                        stop = AutoBuyGroupStop.NextLevelUnaffordable;
+                        break;
+                    }
                     accessors.InvokePurchase(source);
                 }
             },
@@ -635,7 +691,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 ? after == before + 1
                 : after > before && after <= before + count);
         return AutoBuyPurchaseSubmission.Attempted(
-            evidence, requestedLevels: count, in liveCosts);
+            evidence, requestedLevels: count, in liveCosts, stop);
     }
 
     private static AutoBuyPurchaseSubmission SubmitUpgrade(
@@ -653,18 +709,30 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         if (!NativeMultiBuyScope.TryEnter(count, out var scope, out _))
             return AutoBuyPurchaseSubmission.Rejected(AutoBuyPurchasePreflight.SingleBuyUnavailable);
 
+        NativeMutationEvidence<int> evidence;
         using (scope)
         {
-            var evidence = NativeMutationVerifier.Execute(
+            evidence = NativeMutationVerifier.Execute(
                 "Auto Buy Upgrade",
                 uuid.ToString(),
                 $"GetQueuedPurchaseLevel delta in [1, {count}]",
                 () => accessors.ReadQueuedLevel(source),
                 () => accessors.InvokePurchase(source),
                 (before, after) => after > before && after <= before + count);
-            return AutoBuyPurchaseSubmission.Attempted(
-                evidence, requestedLevels: count, in liveCosts);
         }
+
+        // The game's loop breaks inside Purchase() and tells nobody which of its own conditions bit,
+        // so the suite has no reason to give and will not invent one. What it can still read is what
+        // the level after this press now costs — the same list the game's next press will gate on —
+        // and that is the fact the settled answer offers in place of a cause.
+        var stoppedShort = evidence.HasBefore && evidence.HasAfter &&
+            evidence.After - evidence.Before < count;
+        return AutoBuyPurchaseSubmission.Attempted(
+            evidence,
+            requestedLevels: count,
+            in liveCosts,
+            AutoBuyGroupStop.None,
+            stoppedShort ? accessors.ReadLiveCosts(source) : default);
     }
 
     // The native StructureSO.All / UpgradeSO.All membership is constant after game start (only

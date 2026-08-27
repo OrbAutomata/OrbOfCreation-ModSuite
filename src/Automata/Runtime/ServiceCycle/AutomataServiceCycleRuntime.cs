@@ -351,20 +351,19 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 {
                     // A purchase is queued, not applied, so the answer is what the press queued and
                     // it is complete here: the count is the mutation's own verified queued-level
-                    // delta, and no later world can add to it without contradicting it. Where the
-                    // suite itself kept levels back, the same line owes the caller that reason —
-                    // an unexplained shortfall is the answer nothing can act on.
+                    // delta, and no later world can add to it without contradicting it. Every level
+                    // short of the ask is explained on that same line: the suite's own withholding
+                    // plainly, the game's half with only what the suite watched or can still read.
                     details = GameMcpWorldQuery.QueuedMutation(
                         command.TargetId,
                         command.Amount,
                         submission.CommittedLevels,
-                        submission.WithheldBySuite > 0
-                            ? GameMcpWorldQuery.SuiteWithheldReason(
-                                world.Snapshot,
-                                submission.WithheldBySuite,
-                                submission.RequestedLevels,
-                                submission.CommittedLevels)
-                            : null);
+                        GameMcpWorldQuery.PurchaseShortfallReason(
+                            world.Snapshot,
+                            submission.WithheldBySuite,
+                            submission.RequestedLevels,
+                            submission.CommittedLevels,
+                            PurchaseStopClause(world.Snapshot, in submission)));
                 }
             }
             if (command.Kind == GameMcpCommandKind.Cast &&
@@ -1167,6 +1166,32 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             GameMcpDecisionReason.Shortfall(shortfalls),
             lifecycle,
             configurationGeneration);
+    }
+
+    /// <summary>
+    /// What the settled answer may say about the levels the game itself did not take. The suite
+    /// drives an attribute group one level at a time and re-runs the game's own gates between
+    /// levels, so it names the gate it watched shut. An upgrade multi-buy breaks inside the game's
+    /// loop, so there is no gate to name and none is guessed: the answer offers the next level's
+    /// live price instead, which is a fact rather than a cause.
+    /// </summary>
+    private static string? PurchaseStopClause(
+        GameWorldState world,
+        in AutoBuyPurchaseSubmission submission)
+    {
+        if (submission.CommittedLevels >= submission.RequestedLevels) return null;
+        var watched = GameMcpWorldQuery.PurchaseStopClause(submission.GroupStop);
+        if (watched is not null) return watched;
+        if (!submission.NextLevelCosts.IsComplete) return null;
+        var rows = new List<(string Resource, BigDouble Cost)>();
+        foreach (var row in submission.NextLevelCosts.Rows)
+        {
+            var resource = EntityIdentityFormatter.Describe(row.ResourceId, world.EntityIdentities);
+            rows.Add((
+                resource.HasName ? resource.Name : row.ResourceId.ToString("D"),
+                row.Cost));
+        }
+        return GameMcpWorldQuery.NextLevelPriceClause(rows);
     }
 
     private sealed class GameMcpActionUnavailableException : Exception
