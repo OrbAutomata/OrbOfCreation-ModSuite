@@ -148,6 +148,25 @@ internal static class GameMcpEntityExplainer
                 "you meant, or check the id you copied",
                 new JObject { ["tool"] = "world_categories" });
         }
+        // The twenty-five retired unlockers. They are loaded `GlyphSO`, so the native-type arm below
+        // would send a caller to `augment-glyphs`, where their row will never be — the whole point of
+        // retiring them. The world publishes the link, so the refusal names the book that answers
+        // for the id instead of a page that cannot.
+        if (WorldRecipeBookGlyphLookup.TryFindBook(world.RecipeBookGlyphs, uuid, out var book))
+        {
+            return Unresolved(
+                uuid,
+                "not_world_projected",
+                "what answers to this id is internal machinery the world does not publish; the " +
+                "Recipe Book it is the internal half of is " +
+                EntityIdentityFormatter.PlayerHandle(book, world.EntityIdentities),
+                new JObject
+                {
+                    ["tool"] = "world_get",
+                    ["category"] = "recipe-books",
+                    ["uuid"] = book.ToString("D"),
+                });
+        }
         if (GameMcpEntityCapabilityMap.TryCategoryForNativeType(
                 identity.RuntimeType,
                 out var knownCategory))

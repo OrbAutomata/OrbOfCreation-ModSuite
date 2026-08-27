@@ -130,8 +130,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.NotVisible,
                     name + " is not drawn on its discovery screen yet, so there is no row to " +
-                    "press. The game hides a row until its own prerequisites are met and every " +
-                    "recipe book it belongs to is owned. Nothing was spent.");
+                    "press. " + MissingBook(native, target) + " Nothing was spent.");
             if (!native.CanDiscover(target))
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.DiscoveryUnavailable,
@@ -164,6 +163,30 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
                 "Generic discovery preflight failed before mutation: " +
                 exception.GetBaseException().Message);
         }
+    }
+
+    /// <summary>
+    /// Which Recipe Book a hidden row is waiting on, named. The refusal used to recite the general
+    /// rule — "its own prerequisites and every recipe book it belongs to" — which left the caller to
+    /// go and work out which book that was. The recipe names its core glyphs, each core glyph names
+    /// the book it is the internal half of, and a book answers whether it is owned, so the first
+    /// unowned one is the answer.
+    /// </summary>
+    private static string MissingBook(GenericDiscoveryNativeBindings native, object target)
+    {
+        var recipe = native.GetGlyphRecipe(target);
+        for (var index = 0; index < recipe.Count; index++)
+        {
+            var glyph = recipe[index];
+            if (glyph is null) continue;
+            var book = native.GetGlyphRecipeBook(glyph);
+            if (book is null || native.IsRecipeBookOwned(book)) continue;
+            return "It needs the " +
+                EntityIdentityFormatter.PlayerName(native.GetRecipeBookId(book)) +
+                " recipe book, which is not owned.";
+        }
+        return "Every recipe book it is made of is owned, so what is left is its own " +
+            "prerequisites.";
     }
 
     internal void InvalidateLifecycle()

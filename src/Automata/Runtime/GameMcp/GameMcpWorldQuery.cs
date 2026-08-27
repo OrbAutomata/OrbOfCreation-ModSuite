@@ -1307,6 +1307,16 @@ internal static class GameMcpWorldQuery
     }
 
     /// <summary>
+    /// The purchase that owns a Recipe Book, by name, where the world can read one. Shared with the
+    /// level verb's refusal so the row and the refusal name the same thing.
+    /// </summary>
+    internal static bool TryNameBookPurchase(GameWorldState world, Guid bookId, out string name)
+    {
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        return TryNameRequirementBlocker(world, bookId, out name, out _);
+    }
+
+    /// <summary>
     /// Whether the ritual screen shows the ritual rather than the undiscovered placeholder that
     /// stands in for it. <c>RitualSO.IsAvailable()</c>, <c>IsVisible()</c> and <c>IsDiscovered()</c>
     /// are one member three times over, and it is the field the world already publishes. A ritual is
@@ -1722,6 +1732,15 @@ internal static class GameMcpWorldQuery
         }
         if (matched is null)
         {
+            // The category came from the id's native type, which is right for every id except the
+            // twenty-five retired unlockers: they are loaded `GlyphSO` and their row is deliberately
+            // gone, so "no augment-glyphs entry with that id" is true and useless. The explainer has
+            // the signpost that names the book instead.
+            if (requested is null &&
+                WorldRecipeBookGlyphLookup.TryFindBook(world.RecipeBookGlyphs, uuid, out _))
+            {
+                return GameMcpEntityExplainer.UnresolvedEntity(world, uuid);
+            }
             return new JObject
             {
                 ["status"] = "not_available",
@@ -6671,7 +6690,7 @@ internal static class GameMcpWorldQuery
     /// game's own question, and the world publishes its answer for every view, so a locked screen
     /// is read here rather than guessed from what else happens to be empty.
     /// </summary>
-    private static bool IsScreenUnlocked(GameWorldState world, Guid viewId) =>
+    internal static bool IsScreenUnlocked(GameWorldState world, Guid viewId) =>
         WorldLookup.TryFind(world.Views, viewId, out var view) && view.Available;
 
     private static JObject ProjectEquippedSpell(

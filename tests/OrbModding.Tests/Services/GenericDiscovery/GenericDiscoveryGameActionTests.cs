@@ -83,6 +83,53 @@ public sealed class GenericDiscoveryGameActionTests : IDisposable
         Assert.Equal(0, Discoverable(complete).GetDiscoverCost().PerformCalls);
     }
 
+    /// <summary>
+    /// A hidden row's refusal names the Recipe Book it is waiting on rather than reciting the rule.
+    /// The recipe names its core glyphs, each core glyph names the book it is the internal half of,
+    /// and the book answers whether it is owned, so the first unowned one is the answer.
+    /// </summary>
+    [Fact]
+    public void A_hidden_row_names_the_recipe_book_it_is_waiting_on()
+    {
+        var target = Target("SpellRecipeSO");
+        SetVisible(target, false);
+        Register(target);
+        var core = Component();
+        core.associatedRecipeBook = new RecipeBookSO { available = false };
+        GlyphRecipe(target).Add(core);
+        Register(core);
+        using var boundary = Boundary();
+
+        var hidden = Submit(boundary, target, "SpellRecipeSO");
+
+        Assert.Equal(GenericDiscoveryPreflight.NotVisible, hidden.Preflight);
+        Assert.Contains("recipe book, which is not owned.", hidden.Reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Every book owned leaves one honest answer, and it is not the book: the row's own
+    /// prerequisites are what is left.
+    /// </summary>
+    [Fact]
+    public void A_hidden_row_whose_books_are_all_owned_says_so()
+    {
+        var target = Target("SpellRecipeSO");
+        SetVisible(target, false);
+        Register(target);
+        var core = Component();
+        core.associatedRecipeBook = new RecipeBookSO { available = true };
+        GlyphRecipe(target).Add(core);
+        Register(core);
+        using var boundary = Boundary();
+
+        var hidden = Submit(boundary, target, "SpellRecipeSO");
+
+        Assert.Contains(
+            "Every recipe book it is made of is owned, so what is left is its own prerequisites.",
+            hidden.Reason,
+            StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Unaffordable_cost_refuses_before_payment_or_discovery()
     {

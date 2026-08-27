@@ -220,6 +220,49 @@ public sealed class GameMcpRecipeBookTests
     }
 
     /// <summary>
+    /// An id a caller still holds from the older wire. It is a loaded <c>GlyphSO</c>, so the
+    /// native-type arm would have sent them to <c>augment-glyphs</c>, where its row will never be —
+    /// which is the whole point of retiring it. The signpost names the book that answers instead.
+    /// </summary>
+    [Fact]
+    public void A_retired_unlocker_id_gets_the_machinery_signpost_not_a_bare_not_found()
+    {
+        var context = GameMcpTestHarness.Context(World(new WorldRecipeBook(InsightBookId, true)));
+
+        var block = GameMcpTestHarness.Detail(context, InsightGlyphId);
+
+        Assert.Equal("unavailable", (string?)block["status"]);
+        Assert.Equal("ERR_NOT_FOUND", (string?)block["reasonCode"]);
+        Assert.Equal(
+            "what answers to this id is internal machinery the world does not publish; the " +
+            "Recipe Book it is the internal half of is Insight (a9a4dd)",
+            (string?)block["reason"]);
+        Assert.Equal("recipe-books", (string?)block["readWith"]!["category"]);
+        Assert.Equal(GameMcpTestHarness.Handle(InsightBookId), (string?)block["readWith"]!["uuid"]);
+    }
+
+    /// <summary>
+    /// Round 13's illegal move, refused: <c>game_level_up</c> on one of the twenty-five. The wire
+    /// answered "yes, and it is free" on entities the game gives no button for. The refusal says
+    /// what the id is and names the purchase that does what the caller wanted.
+    /// </summary>
+    [Fact]
+    public void Levelling_a_retired_unlocker_id_refuses_in_player_words()
+    {
+        var world = World(new WorldRecipeBook(InsightBookId, false)) with
+        {
+            EntityIdentities = GameMcpTestHarness.EntityCatalog,
+        };
+
+        Assert.False(GameMcpEntityCapabilityMap.TryResolveGenericLevelType(
+            world, InsightGlyphId, out _, out var reason));
+        Assert.Equal(
+            "Insight is a Recipe Book — there is nothing to level. It is owned by buying its one " +
+            "prerequisite.",
+            reason);
+    }
+
+    /// <summary>
     /// The name the wire used to answer to. `glyphs` was two player concepts under one native
     /// class, so the refusal sends the caller to both rather than to the category catalog.
     /// </summary>

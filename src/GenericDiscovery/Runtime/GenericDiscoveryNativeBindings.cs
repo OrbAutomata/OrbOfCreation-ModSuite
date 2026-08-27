@@ -37,6 +37,10 @@ internal sealed class GenericDiscoveryNativeBindings
         "generic-discovery.get-glyph-recipe-action",
         "generic-discovery.view.type-action",
         "generic-discovery.owning-view-availability-action",
+        "generic-discovery.recipe-book.type-action",
+        "generic-discovery.glyph-recipe-book-action",
+        "generic-discovery.recipe-book-owned-action",
+        "generic-discovery.recipe-book-identity-action",
     };
 
     private GenericDiscoveryNativeBindings(
@@ -52,7 +56,10 @@ internal sealed class GenericDiscoveryNativeBindings
         Func<object, bool> hasEnough,
         Action<object> performCost,
         Func<object, IList> getGlyphRecipe,
-        Func<object, bool> isViewAvailable)
+        Func<object, bool> isViewAvailable,
+        Func<object, object?> getGlyphRecipeBook,
+        Func<object, bool> isRecipeBookOwned,
+        Func<object, Guid> getRecipeBookId)
     {
         DiscoverableType = discoverableType;
         CostType = costType;
@@ -67,6 +74,9 @@ internal sealed class GenericDiscoveryNativeBindings
         PerformCost = performCost;
         GetGlyphRecipe = getGlyphRecipe;
         IsViewAvailable = isViewAvailable;
+        GetGlyphRecipeBook = getGlyphRecipeBook;
+        IsRecipeBookOwned = isRecipeBookOwned;
+        GetRecipeBookId = getRecipeBookId;
     }
 
     internal Type DiscoverableType { get; }
@@ -87,6 +97,16 @@ internal sealed class GenericDiscoveryNativeBindings
     internal Action<object> PerformCost { get; }
     internal Func<object, IList> GetGlyphRecipe { get; }
     internal Func<object, bool> IsViewAvailable { get; }
+
+    /// <summary>
+    /// The Recipe Book a core glyph is the internal half of, or null on the twenty-two Augment
+    /// Glyphs. Read only to name which book a hidden row is waiting on.
+    /// </summary>
+    internal Func<object, object?> GetGlyphRecipeBook { get; }
+
+    internal Func<object, bool> IsRecipeBookOwned { get; }
+
+    internal Func<object, Guid> GetRecipeBookId { get; }
 
     internal static bool TryCreate(
         out GenericDiscoveryNativeBindings? bindings,
@@ -149,6 +169,14 @@ internal sealed class GenericDiscoveryNativeBindings
                 typeof(List<>).MakeGenericType(supported["GlyphSO"]));
             var view = T(ContractIds[16], "ViewSO");
             var viewAvailable = M(ContractIds[17], view, "IsAvailable", typeof(bool));
+            var recipeBook = T(ContractIds[18], "RecipeBookSO");
+            Require(ContractIds[19], includeContract);
+            var glyphBook = supported["GlyphSO"].GetField("associatedRecipeBook", Instance);
+            if (glyphBook is null || glyphBook.FieldType != recipeBook)
+                throw new InvalidOperationException(
+                    "GlyphSO.associatedRecipeBook did not match the audited signature");
+            var bookOwned = M(ContractIds[20], recipeBook, "IsAvailable", typeof(bool));
+            var bookId = M(ContractIds[21], recipeBook, "GetGuid", typeof(Guid));
 
             bindings = new GenericDiscoveryNativeBindings(
                 discoverable,
@@ -163,7 +191,10 @@ internal sealed class GenericDiscoveryNativeBindings
                 InstanceFunc<bool>(enough),
                 InstanceAction(perform),
                 InstanceListFunc(glyphRecipe),
-                InstanceFunc<bool>(viewAvailable));
+                InstanceFunc<bool>(viewAvailable),
+                InstanceFieldFunc(glyphBook),
+                InstanceFunc<bool>(bookOwned),
+                InstanceFunc<Guid>(bookId));
             reason = string.Empty;
             return true;
         }
@@ -187,6 +218,14 @@ internal sealed class GenericDiscoveryNativeBindings
         var call = Expression.Call(Expression.Convert(target, method.DeclaringType!), method);
         return Expression.Lambda<Func<object, T>>(
             Expression.Convert(call, typeof(T)), target).Compile();
+    }
+
+    private static Func<object, object?> InstanceFieldFunc(FieldInfo field)
+    {
+        var target = Expression.Parameter(typeof(object), "target");
+        var read = Expression.Field(Expression.Convert(target, field.DeclaringType!), field);
+        return Expression.Lambda<Func<object, object?>>(
+            Expression.Convert(read, typeof(object)), target).Compile();
     }
 
     private static Func<object, object> InstanceObjectFunc(MethodInfo method)

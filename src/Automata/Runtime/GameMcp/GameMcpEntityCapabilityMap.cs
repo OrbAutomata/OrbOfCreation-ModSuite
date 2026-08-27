@@ -257,6 +257,18 @@ internal static class GameMcpEntityCapabilityMap
         if (Supports("augment-glyphs", GameMcpCommandKind.GenericLevel) &&
             WorldLookup.TryFind(world.AugmentGlyphs, target, out _))
         {
+            // The rule this whole resolver exists for: a level offer stands only where the game
+            // draws a level button. `GlyphSO.CanLevel()` is `ldc.i4.1; ret` — the constant true — so
+            // asking the interface would admit every augment at every moment, including the whole
+            // game before Magic > Augments > Upgrade is bought and the panel exists at all.
+            if (!GameMcpWorldQuery.IsScreenUnlocked(world, KnownEntities.MagicGlyphsUpgrade.Uuid))
+            {
+                reason = EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
+                    " has no level button yet: Magic > Augments > Upgrade is locked until the " +
+                    "Upgrade Glyphs upgrade is bought.";
+                nativeType = string.Empty;
+                return false;
+            }
             matches++;
             nativeType = "GlyphSO";
         }
@@ -276,6 +288,20 @@ internal static class GameMcpEntityCapabilityMap
         {
             reason = string.Empty;
             return true;
+        }
+        // A caller holding one of the twenty-five retired unlocker ids asked for a level, and a
+        // round spent a currency because the wire said yes. The refusal names what the id is and the
+        // one purchase that does what the caller wanted.
+        if (matches == 0 &&
+            WorldRecipeBookGlyphLookup.TryFindBook(world.RecipeBookGlyphs, target, out var book))
+        {
+            reason = EntityIdentityFormatter.PlayerName(book, world.EntityIdentities) +
+                " is a Recipe Book — there is nothing to level. It is owned by buying " +
+                (GameMcpWorldQuery.TryNameBookPurchase(world, book, out var purchase)
+                    ? purchase
+                    : "its one prerequisite") + ".";
+            nativeType = string.Empty;
+            return false;
         }
         reason = matches == 0
             ? EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +

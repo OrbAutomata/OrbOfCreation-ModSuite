@@ -299,4 +299,36 @@ public sealed class GameMcpAugmentGlyphTests
             (string?)purchase["reason"] ?? string.Empty,
             StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// The same rule at the verb, not only on the row: <c>game_level_up</c> is admitted for an
+    /// augment glyph only where the game draws the button. The row saying "locked" and the verb
+    /// taking the call anyway is the shape that let a round spend a currency on a press that does
+    /// not exist.
+    /// </summary>
+    [Fact]
+    public void The_level_verb_admits_a_target_only_where_the_game_draws_the_button()
+    {
+        var glyph = Glyph(AugmentId, learned: true, augmentsSpells: true);
+
+        var locked = WithAugmentTable(World(glyph), unlocked: false) with
+        {
+            EntityIdentities = GameMcpTestHarness.EntityCatalog,
+        };
+        Assert.False(GameMcpEntityCapabilityMap.TryResolveGenericLevelType(
+            locked, AugmentId, out _, out var reason));
+        Assert.EndsWith(
+            "has no level button yet: Magic > Augments > Upgrade is locked until the Upgrade " +
+            "Glyphs upgrade is bought.",
+            reason,
+            StringComparison.Ordinal);
+
+        var open = WithAugmentTable(World(glyph), unlocked: true) with
+        {
+            EntityIdentities = GameMcpTestHarness.EntityCatalog,
+        };
+        Assert.True(GameMcpEntityCapabilityMap.TryResolveGenericLevelType(
+            open, AugmentId, out var nativeType, out _));
+        Assert.Equal("GlyphSO", nativeType);
+    }
 }
