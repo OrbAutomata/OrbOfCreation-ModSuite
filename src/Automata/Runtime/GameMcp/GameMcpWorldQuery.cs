@@ -720,6 +720,14 @@ internal static class GameMcpWorldQuery
                 ["created"] = equipment.IsCreated,
                 ["equippedCount"] = equipment.EquippedLevel,
             }.Freeze();
+        // A book's whole state is whether the player owns it, so the list is that one column. The
+        // page carries what buys it and which pools it widens.
+        if (row is WorldRecipeBook recipeBook)
+            return new JObject
+            {
+                ["entityId"] = recipeBook.EntityId.ToString("D"),
+                ["owned"] = recipeBook.Available,
+            }.Freeze();
 
         // The facts the ritual screen is scanned by: which one is held, how far it has been taken,
         // what a run would start at, how long a run is, and whether it can be paid for. Reading them
@@ -1421,6 +1429,7 @@ internal static class GameMcpWorldQuery
         },
         "plot-nodes" => new[] { "entityId", "reading.masteryLevel" },
         "challenges" => new[] { "entityId", "level", "state" },
+        "recipe-books" => new[] { "entityId", "owned" },
 
         // Six rows, and the three numbers are the whole comparison between them: a bonus on an
         // action type distributes into exactly these, so this page is where a reader sees which of
@@ -2841,6 +2850,84 @@ internal static class GameMcpWorldQuery
             books.Add(edge);
         }
         return books;
+    }
+
+    /// <summary>
+    /// One Recipe Book: whether the player owns it, what buys it if not, and which discovery pools
+    /// it widens.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The whole of a book is a yes/no. <c>RecipeBookSO</c> carries exactly one instance field —
+    /// <c>prerequisites</c> — so there is no level, no cost curve and no button; the wire offered
+    /// all three while the game drew none of them, and a live round spent a currency on it. What is
+    /// actionable is the one purchase that flips the answer, which is why an unowned book names it.
+    /// </para>
+    /// <para>
+    /// <c>widens</c> and "which screen draws this" are the same authored fact:
+    /// <c>UIDiscoveryTreePage.UIStart()</c> is the only reader of
+    /// <c>DiscoveryTreeSO.availableRecipeBooks</c>, so a book appears exactly on the discovery pages
+    /// whose pool it opens — six of the seven trees on the pinned build, and four of them for each
+    /// of the seven elemental books. A separate <c>screen</c> column would restate this edge in a
+    /// worse form: it would have to pick one page where the game draws several.
+    /// </para>
+    /// <para>
+    /// Six books share a display name with a spell type — Arcane, Dragon, Expansion, Flow, Psionic,
+    /// Storm — and a single spell-recipe response can print both, so the row names its twin by uuid.
+    /// It is read from the published world rather than pinned to those six names, because which
+    /// names collide is a fact about the build.
+    /// </para>
+    /// </remarks>
+    private static GameMcpValue ProjectRecipeBook(GameWorldState world, in WorldRecipeBook book)
+    {
+        var result = new JObject
+        {
+            ["entityId"] = book.EntityId.ToString("D"),
+            ["category"] = "recipe-books",
+            ["owned"] = book.Available,
+        };
+        if (!book.Available &&
+            TryNameRequirementBlocker(world, book.EntityId, out var name, out var blockerId))
+        {
+            result["ownedBy"] = new JObject
+            {
+                ["uuid"] = blockerId.ToString("D"),
+                ["name"] = name,
+            };
+        }
+
+        if (WorldDiscoveryTreeBookLookup.TryFindRange(
+                world.DiscoveryTreeBooks, book.EntityId, out var start, out var count))
+        {
+            var widens = new JArray();
+            for (var index = 0; index < count; index++)
+                widens.Add(EntityReference(world, world.DiscoveryTreeBooks[start + index].TreeId));
+            result["widens"] = widens;
+        }
+
+        var bookName = EntityIdentityFormatter.PlayerName(book.EntityId, world.EntityIdentities);
+        if (bookName.Length > 0)
+        {
+            for (var index = 0; index < world.SpellTypes.Count; index++)
+            {
+                var typeId = world.SpellTypes[index].EntityId;
+                if (!string.Equals(
+                        EntityIdentityFormatter.PlayerName(typeId, world.EntityIdentities),
+                        bookName,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+                result["nameSharedWith"] = new JObject
+                {
+                    ["uuid"] = typeId.ToString("D"),
+                    ["category"] = "spell-types",
+                };
+                break;
+            }
+        }
+
+        return result.Freeze();
     }
 
     private static GameMcpValue EntityReference(
@@ -4965,6 +5052,8 @@ internal static class GameMcpWorldQuery
             ? ProjectChallenge(world, in challenge)
             : row is WorldGlyph glyph
             ? ProjectGlyph(world, in glyph)
+            : row is WorldRecipeBook recipeBook
+            ? ProjectRecipeBook(world, in recipeBook)
             : row is WorldRitual ritual
             ? ProjectRitual(world, in ritual)
             : row is WorldTimeRune timeRune
@@ -8444,10 +8533,26 @@ internal static class GameMcpWorldQuery
             return true;
         }
         category = null!;
-        reason = "unknown category '" + (name ?? string.Empty) +
-            "'; call world_categories for the exact discoverable names";
+        reason = "unknown category '" + (name ?? string.Empty) + "'; " +
+            (RetiredCategoryNames.TryGetValue(normalized, out var moved)
+                ? moved
+                : "call world_categories for the exact discoverable names");
         return false;
     }
+
+    /// <summary>
+    /// A name the wire used to answer to, kept only so a caller holding it is told where its rows
+    /// went. `glyphs` published two player concepts under one native class, and each half is its
+    /// own category now, so the refusal names both rather than sending the caller back to the list.
+    /// </summary>
+    private static readonly Dictionary<string, string> RetiredCategoryNames =
+        new(StringComparer.Ordinal)
+        {
+            ["glyphs"] =
+                "it named two things and is now two categories. 'augment-glyphs' is the " +
+                "twenty-two a caster sockets into a spell, whose level buys slots. " +
+                "'recipe-books' is the thirty-four tiles that widen a discovery pool",
+        };
 
     /// <summary>Shares the exact world-query completeness rule with composite diagnostic tools.</summary>
     internal static bool TryCategoryAvailability(

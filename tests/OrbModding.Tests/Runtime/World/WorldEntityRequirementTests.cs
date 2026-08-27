@@ -76,15 +76,15 @@ public sealed class WorldEntityRequirementTests : IDisposable
     }
 
     /// <summary>
-    /// <c>GlyphSO.IsAvailable()</c> answers <c>prerequisites.Check()</c> for every glyph that is not
-    /// discoverable, so the twenty-five unlockers each carry the one authored condition that is the
-    /// whole of what holds them shut. Uncaptured, the surfaces could only report an unexplained lock.
+    /// <c>RecipeBookSO.IsAvailable()</c> is <c>prerequisites.Check()</c>, and <c>prerequisites</c> is
+    /// the class's only instance field, so a book's single authored condition is the whole of what
+    /// holds it shut and the whole of what tells a player how to own it.
     /// </summary>
     [Fact]
-    public void AGlyphsUnlockConditionIsPublishedAsItsOwnKindOfOwner()
+    public void ARecipeBooksUnlockConditionIsPublishedAsItsOwnKindOfOwner()
     {
-        var arcane = new global::GlyphSO();
-        global::GlyphSO.All.Add(arcane);
+        var arcane = new global::RecipeBookSO();
+        global::RecipeBookSO.All.Add(arcane);
         var researchArcane = new global::ResearchSO();
         global::ResearchSO.All.Add(researchArcane);
         arcane.prerequisites.prerequisites.Add(new Requirements.ResearchRequirement
@@ -97,21 +97,33 @@ public sealed class WorldEntityRequirementTests : IDisposable
         var row = Single(Collect());
 
         Assert.Equal(arcane.GetGuid(), row.OwnerId);
-        Assert.Equal(WorldRequirementOwnerKind.Glyph, row.OwnerKind);
+        Assert.Equal(WorldRequirementOwnerKind.RecipeBook, row.OwnerKind);
         Assert.Equal(WorldRequirementConditionKind.Research, row.Kind);
         Assert.Equal(researchArcane.GetGuid(), row.TargetId);
     }
 
     /// <summary>
-    /// The twenty-two discoverable glyphs author no container at all — the game reads their
-    /// <c>discovered</c> field instead — so the walk must publish nothing for them rather than a row
-    /// a consumer would read as a gate.
+    /// No glyph authors a gate the world reads any more. The twenty-two Augment Glyphs are held by
+    /// their own <c>discovered</c> field, and the twenty-five unlockers' containers describe
+    /// machinery the world publishes no row for — and are not even the book's condition: Gloves and
+    /// Herbalize sit behind <c>UnobtainableResearch</c> while their books answer to a research and
+    /// an upgrade a player can actually buy.
     /// </summary>
     [Fact]
-    public void ADiscoverableGlyphPublishesNoUnlockCondition()
+    public void AGlyphPublishesNoUnlockCondition()
     {
         var fortunate = new global::GlyphSO { discoverable = true };
         global::GlyphSO.All.Add(fortunate);
+        var unlocker = new global::GlyphSO();
+        global::GlyphSO.All.Add(unlocker);
+        var research = new global::ResearchSO();
+        global::ResearchSO.All.Add(research);
+        unlocker.prerequisites.prerequisites.Add(new Requirements.ResearchRequirement
+        {
+            item = research,
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+            value = new Requirements.LeveledValue { baseValue = 0d },
+        });
 
         var world = Collect();
 
@@ -608,6 +620,7 @@ public sealed class WorldEntityRequirementTests : IDisposable
         global::IntVariable.All.Clear();
         global::PrerequisiteLinkSO.All.Clear();
         global::GlyphSO.All.Clear();
+        global::RecipeBookSO.All.Clear();
         global::GameManager.currentFrame = 0;
     }
 

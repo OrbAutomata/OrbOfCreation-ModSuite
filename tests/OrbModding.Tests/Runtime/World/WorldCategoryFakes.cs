@@ -67,7 +67,7 @@ internal static class WorldCategoryFakes
         ["HarvestActionInstanceListVariable"] = typeof(FakeHarvestActionList),
         ["TimeRuneSO"] = typeof(FakeTimeRune),
         ["GlyphSO"] = typeof(FakeGlyph),
-        ["GlyphListVariable"] = typeof(FakeGlyphList),
+        ["RecipeBookListVariable"] = typeof(FakeRecipeBookListVariable),
         ["ConsumableSO"] = typeof(FakeConsumable),
         ["EnchantmentSO"] = typeof(FakeScribeEnchantment),
         ["EnchantmentSO+EnchantTable"] = typeof(FakeScribeEnchantTable),
@@ -406,10 +406,10 @@ internal class FakeAbstractListVariable : FakeIdRegistry
 {
 }
 
-/// <summary>One of the four authored glyph populations, reached by the identity it carries.</summary>
-internal sealed class FakeGlyphList : FakeIdRegistry
+/// <summary>The authored book list a discovery tree draws its pool from.</summary>
+internal sealed class FakeRecipeBookListVariable : FakeIdRegistry
 {
-    public List<FakeGlyph> value = new();
+    public List<FakeRecipeBook> value = new();
 }
 
 internal class FakeAbstractListVariable<T> : FakeAbstractListVariable
@@ -2808,6 +2808,7 @@ internal sealed class FakeDiscoveryTree
     public bool visible = true;
     public bool immediateRequired;
     public FakeDiscoveryCostList nextItemCost = new();
+    public FakeRecipeBookListVariable? availableRecipeBooks;
 
     public Guid GetGuid() => Identity;
     public bool IsVisible() => visible;
@@ -2856,6 +2857,7 @@ internal sealed class FakeRecipeBook
 
     public Guid Identity = Guid.NewGuid();
     public bool Available;
+    public FakePrerequisites prerequisites = new();
 
     public Guid GetGuid() => Identity;
     public bool IsAvailable() => Available;

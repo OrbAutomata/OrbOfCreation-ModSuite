@@ -136,6 +136,9 @@ public sealed class WorldIdentityWalkTests
     /// a Recipe Book the recipe-books table owns, and its left end is deliberately an id the world
     /// publishes no row for — that is the whole reason the edge exists, so demanding a home for it
     /// would demand back the twenty-five rows this table was built to retire.
+    /// <c>DiscoveryTreeBooks</c> is the authored edge between a Recipe Book and each discovery tree
+    /// it widens the pool of: both ends are entities their own tables claim, and the row is only the
+    /// membership between them.
     /// <c>EntityKeywords</c> is the same shape again: the entity and
     /// the type asset whose display name is the keyword are both claimed elsewhere — the entity by its
     /// own category and the type by the lifecycle identity catalog — and the row is only the authored
@@ -162,6 +165,7 @@ public sealed class WorldIdentityWalkTests
         "PurchaseViewRoutes",
         "UpgradeListMemberships",
         "RecipeBookGlyphs",
+        "DiscoveryTreeBooks",
         "GlyphEffects",
         "LevelEffects",
         "PlotActions",

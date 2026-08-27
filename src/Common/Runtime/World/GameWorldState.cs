@@ -485,6 +485,13 @@ public sealed record GameWorldState
         PublicationTable<WorldRecipeBookGlyph>.Empty;
 
     /// <summary>
+    /// Which discovery trees each Recipe Book widens the pool of, sorted by book. The same edge is
+    /// where the game draws the book's tile, so one table answers both.
+    /// </summary>
+    internal PublicationTable<WorldDiscoveryTreeBook> DiscoveryTreeBooks { get; init; } =
+        PublicationTable<WorldDiscoveryTreeBook>.Empty;
+
+    /// <summary>
     /// What each glyph does, as the authored factors it applies. Sorted by glyph and then by the
     /// slot order the game declares them in, so one glyph's factors are a contiguous range.
     /// </summary>

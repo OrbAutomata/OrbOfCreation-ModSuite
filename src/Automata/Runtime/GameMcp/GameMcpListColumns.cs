@@ -413,6 +413,7 @@ internal static class GameMcpListColumns
         ["challenges"] = new[] { "entityId", "state", "run", "level" },
         ["crafting-recipes"] = new[] { "entityId", "startingAmount" },
         ["discovery-trees"] = new[] { "entityId", "mode" },
+        ["recipe-books"] = new[] { "entityId", "owned" },
         ["resources"] = new[]
         {
             "entityId", "category", "meter", "amount", "capacity", "netRatePerSecond", "atCapacity",

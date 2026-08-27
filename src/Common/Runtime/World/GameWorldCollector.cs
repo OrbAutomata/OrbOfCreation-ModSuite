@@ -100,6 +100,7 @@ internal sealed class GameWorldCollector
     private readonly WorldEffectBlockReader _effectBlocks;
     private readonly WorldEntityRequirementReader _entityRequirements;
     private readonly WorldRecipeBookGlyphReader _recipeBookGlyphs;
+    private readonly WorldDiscoveryTreeBookReader _discoveryTreeBooks;
     private readonly WorldEffectFactorReader _effectFactors;
     private readonly WorldPurchaseViewRelationReader _purchaseViewRelations;
     private readonly WorldPrerequisiteLinkTierReader _prerequisiteLinkTiers;
@@ -385,8 +386,9 @@ internal sealed class GameWorldCollector
             resolveType("ResearchSO"),
             resolveType("PrerequisiteLinkSO"),
             resolveType("AlchemyRecipeSO"),
-            resolveType("GlyphSO"));
+            resolveType("RecipeBookSO"));
         _recipeBookGlyphs = new WorldRecipeBookGlyphReader(resolveType);
+        _discoveryTreeBooks = new WorldDiscoveryTreeBookReader(resolveType);
         _effectFactors = new WorldEffectFactorReader(resolveType);
         _purchaseViewRelations = new WorldPurchaseViewRelationReader(
             resolveType,
@@ -423,7 +425,8 @@ internal sealed class GameWorldCollector
             _targeting,
             _actionQueues, _spellSlots, _alchemyInstances, _alchemyLoadout,
             _plotAuthoring, _effectBlocks,
-            _entityRequirements, _purchaseViewRelations, _recipeBookGlyphs, _effectFactors,
+            _entityRequirements, _purchaseViewRelations, _recipeBookGlyphs,
+            _discoveryTreeBooks, _effectFactors,
             _prerequisiteLinkTiers,
             _entityKeywords,
             _typeModifiers, _typeModifierContributions,
@@ -441,6 +444,7 @@ internal sealed class GameWorldCollector
                 ReferenceEquals(_readers[index], _entityRequirements) ||
                 ReferenceEquals(_readers[index], _purchaseViewRelations) ||
                 ReferenceEquals(_readers[index], _recipeBookGlyphs) ||
+                ReferenceEquals(_readers[index], _discoveryTreeBooks) ||
                 ReferenceEquals(_readers[index], _craftingRecipeTypes) ||
                 ReferenceEquals(_readers[index], _craftingRecipeAuthoring) ||
                 ReferenceEquals(_readers[index], _purchaseCosts) ||

@@ -24,12 +24,17 @@ internal enum WorldRequirementOwnerKind
     AlchemyRecipe = 5,
 
     /// <summary>
-    /// A glyph the game unlocks rather than offers for discovery. <c>GlyphSO.IsAvailable()</c> returns
-    /// <c>discovered</c> when <c>discoverable</c> is set and <c>prerequisites.Check()</c> otherwise, so
-    /// only the second population authors a container here, and its single condition is the whole of
-    /// what holds that glyph shut.
+    /// A Recipe Book. <c>RecipeBookSO.IsAvailable()</c> is <c>prerequisites.Check()</c> and
+    /// <c>prerequisites</c> is the class's only instance field, so its single condition is the whole
+    /// of what holds the book shut and the whole of what a row can say about owning one.
     /// </summary>
-    Glyph = 6,
+    /// <remarks>
+    /// The retired unlocker glyph beside each book authors a container of its own, and it is not the
+    /// same condition: Gloves and Herbalize hold theirs behind <c>UnobtainableResearch</c> while
+    /// their books answer to <c>ArtifactGloves</c> and <c>LearnBiology</c>. Reading the glyph's would
+    /// name the wrong purchase on those two, so the book's own container is what is walked.
+    /// </remarks>
+    RecipeBook = 6,
 }
 
 internal enum WorldRequirementProgramKind
@@ -783,11 +788,11 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     private readonly Type? _researchType;
     private readonly Type? _prerequisiteLinkType;
     private readonly Type? _alchemyType;
-    private readonly Type? _glyphType;
+    private readonly Type? _recipeBookType;
     private readonly string _unavailable;
 
-    private readonly Func<object, Guid>? _glyphId;
-    private readonly Func<object, object?>? _glyphContainer;
+    private readonly Func<object, Guid>? _recipeBookId;
+    private readonly Func<object, object?>? _recipeBookContainer;
     private readonly Func<object, Guid>? _upgradeId;
     private readonly Func<object, object?>? _upgradeContainer;
     private readonly Func<object, Guid>? _structureId;
@@ -829,16 +834,16 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         Type? researchType,
         Type? prerequisiteLinkType,
         Type? alchemyType,
-        Type? glyphType)
+        Type? recipeBookType)
     {
         _upgradeType = upgradeType;
         _structureType = structureType;
         _researchType = researchType;
         _prerequisiteLinkType = prerequisiteLinkType;
         _alchemyType = alchemyType;
-        _glyphType = glyphType;
+        _recipeBookType = recipeBookType;
         if (upgradeType is null || structureType is null || researchType is null ||
-            prerequisiteLinkType is null || alchemyType is null || glyphType is null)
+            prerequisiteLinkType is null || alchemyType is null || recipeBookType is null)
         {
             _unavailable = upgradeType is null
                 ? "the UpgradeSO type was not found on this build"
@@ -850,7 +855,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                             ? "the PrerequisiteLinkSO type was not found on this build"
                             : alchemyType is null
                                 ? "the AlchemyRecipeSO type was not found on this build"
-                                : "the GlyphSO type was not found on this build";
+                                : "the RecipeBookSO type was not found on this build";
             return;
         }
 
@@ -867,9 +872,9 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         _researchId = research.Call<Guid>("GetGuid");
         _researchContainer = NativeAccessorBinder.Reference(researchType, "levelPrerequisites");
 
-        var glyph = new WorldMemberBinding(glyphType, "GlyphSO");
-        _glyphId = glyph.Call<Guid>("GetGuid");
-        _glyphContainer = NativeAccessorBinder.Reference(glyphType, "prerequisites");
+        var recipeBook = new WorldMemberBinding(recipeBookType, "RecipeBookSO");
+        _recipeBookId = recipeBook.Call<Guid>("GetGuid");
+        _recipeBookContainer = NativeAccessorBinder.Reference(recipeBookType, "prerequisites");
 
         var link = new WorldMemberBinding(prerequisiteLinkType, "PrerequisiteLinkSO");
         _prerequisiteLinkId = link.Call<Guid>("GetGuid");
@@ -892,10 +897,10 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             _prerequisiteLinkId is null || _prerequisiteLinkTiers is null ||
             _prerequisiteLinkTierContainer is null || _conditions is null ||
             _alchemyUsageContainer is null || _alchemyConditions is null ||
-            _glyphId is null || _glyphContainer is null)
+            _recipeBookId is null || _recipeBookContainer is null)
         {
             _unavailable = "UpgradeSO, StructureSO, ResearchSO, PrerequisiteLinkSO, " +
-                "AlchemyRecipeSO, and GlyphSO did not " +
+                "AlchemyRecipeSO, and RecipeBookSO did not " +
                 "expose the complete prerequisite graph on this build";
             return;
         }
@@ -907,7 +912,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                     ? research.Failure
                     : link.Failure.Length > 0
                         ? link.Failure
-                        : glyph.Failure;
+                        : recipeBook.Failure;
     }
 
     public string Category => "entity requirements";
@@ -915,7 +920,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     public bool IsAvailable =>
         _upgradeType is not null && _structureType is not null &&
         _researchType is not null && _prerequisiteLinkType is not null &&
-        _alchemyType is not null && _glyphType is not null &&
+        _alchemyType is not null && _recipeBookType is not null &&
         _unavailable.Length == 0;
 
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
@@ -975,10 +980,10 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             ref unmodelled,
             ref firstFailure);
         Walk(
-            NativeAccessorBinder.StaticList(_glyphType, "All"),
-            WorldRequirementOwnerKind.Glyph,
-            _glyphId!,
-            _glyphContainer!,
+            NativeAccessorBinder.StaticList(_recipeBookType, "All"),
+            WorldRequirementOwnerKind.RecipeBook,
+            _recipeBookId!,
+            _recipeBookContainer!,
             buffer,
             ref sampled,
             ref unmodelled,

@@ -175,6 +175,12 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldRecipeBookGlyph> RecipeBookGlyphs { get; } = new();
 
     /// <summary>
+    /// Which discovery trees each Recipe Book widens. Structural, and authored one way on
+    /// <c>DiscoveryTreeSO.availableRecipeBooks</c>.
+    /// </summary>
+    internal WorldRelationBuffer<WorldDiscoveryTreeBook> DiscoveryTreeBooks { get; } = new();
+
+    /// <summary>
     /// The authored factors each glyph applies, one row per slot the game would print. Sparse by
     /// construction: fifteen slots exist and a glyph fills between one and five of them.
     /// </summary>
@@ -673,6 +679,8 @@ internal static class GameWorldFrameDeriver
                 WorldUpgradeListMembershipDeriver.Build(frame.UpgradeListMemberships),
             RecipeBookGlyphs =
                 WorldRecipeBookGlyphDeriver.Build(frame.RecipeBookGlyphs),
+            DiscoveryTreeBooks =
+                WorldDiscoveryTreeBookDeriver.Build(frame.DiscoveryTreeBooks),
             GlyphEffects = WorldGlyphFactorDeriver.Build(frame.GlyphEffects, statistics),
             LevelEffects = WorldLevelEffectDeriver.Build(frame.LevelEffects),
             PlotNodeActions = plotNodeActions,

@@ -568,7 +568,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         // registry and would otherwise be reachable from nothing — the structure and upgrade cost
         // lists, the authored effects, each plot's authoring and each action's completion blocks,
         // each purchasable entity's lifecycle-authored per-level conditions, the authored link from
-        // each retired unlocker glyph to the Recipe Book it is the internal half of,
+        // each retired unlocker glyph to the Recipe Book it is the internal half of, the authored
+        // link from each Recipe Book to the discovery trees it widens,
         // prerequisite links' volatile native gates, and crafting
         // recipes' separately refreshed live state and player-action decisions, which are second
         // walks of cached lifecycle bindings rather than registries of their own, the challenge
@@ -591,7 +592,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         // up only as a consumer finding nothing where there was something.
         var report = Collector().Collect();
 
-        Assert.Equal(88, report.Categories.Length);
+        Assert.Equal(89, report.Categories.Length);
         Assert.True(report.IsComplete, report.Describe());
 
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a

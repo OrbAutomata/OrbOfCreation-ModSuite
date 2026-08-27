@@ -1859,6 +1859,10 @@ public sealed class DiscoveryTreeSO : IdScriptableObject
 
     public IntVariable overrideDiscoveryRerolls;
     public IntVariable overrideDiscoveryChoices;
+
+    /// <summary>The books this tree's pool draws from, and the tiles its page renders.</summary>
+    public RecipeBookListVariable availableRecipeBooks;
+
     public int additionalDiscoveryChoices;
     public int discoveryBonusLevelCost;
     public bool debugMode;
@@ -2020,7 +2024,15 @@ public sealed class RecipeBookSO : IdScriptableObject
     public static List<RecipeBookSO> All = new List<RecipeBookSO>();
     public bool available;
 
+    /// <summary>The class's only instance field, and the whole of what owning one depends on.</summary>
+    public Prerequisites.Container prerequisites = new Prerequisites.Container();
+
     public bool IsAvailable() => available;
+}
+
+/// <summary>The authored book list a discovery tree draws its pool from.</summary>
+public sealed class RecipeBookListVariable : GenericListVariable<RecipeBookSO>
+{
 }
 
 public sealed class PlotNodeSO : IdScriptableObject

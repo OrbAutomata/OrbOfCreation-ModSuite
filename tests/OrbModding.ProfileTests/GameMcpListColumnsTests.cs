@@ -355,6 +355,7 @@ public sealed class GameMcpListColumnsTests
             CraftingRecipes =
                 PublicationTable<WorldCraftingRecipe>.Create(new WorldCraftingRecipe[1]),
             DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new WorldDiscoveryTree[1]),
+            RecipeBooks = PublicationTable<WorldRecipeBook>.Create(new WorldRecipeBook[1]),
             Resources = PublicationTable<WorldResource>.Create(new WorldResource[1]),
             PlayerLoadouts = PublicationTable<WorldPlayerLoadout>.Create(new WorldPlayerLoadout[1]),
             SnapshotLoadouts =
