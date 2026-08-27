@@ -4349,6 +4349,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
+      "id": "discovery-tree.available-recipe-books",
+      "assembly": "assembly-csharp",
+      "type": "DiscoveryTreeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "availableRecipeBooks",
+      "visibility": "public",
+      "static": false,
+      "valueType": "RecipeBookListVariable",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field RecipeBookListVariable"}
+    },
+    {
       "id": "discovery-tree.all",
       "assembly": "assembly-csharp",
       "type": "DiscoveryTreeSO",
@@ -6609,6 +6628,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
     },
     {
+      "id": "glyph.associated-recipe-book",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "associatedRecipeBook",
+      "visibility": "public",
+      "static": false,
+      "valueType": "RecipeBookSO",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field RecipeBookSO"}
+    },
+    {
       "id": "glyph.free-levels",
       "assembly": "assembly-csharp",
       "type": "GlyphSO",
@@ -6705,6 +6743,26 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
+      "id": "glyph.get-free-usages",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetFreeUsages",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
+      "parameters": [],
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Int32; classified from its signature, no IL body audit"}
+    },
+    {
       "id": "glyph.max-usages",
       "assembly": "assembly-csharp",
       "type": "GlyphSO",
@@ -6741,41 +6799,6 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
-    },
-    {
-      "id": "glyph-screen.list-type",
-      "assembly": "assembly-csharp",
-      "type": "GlyphListVariable",
-      "typeVisibility": "public",
-      "kind": "type",
-      "baseType": "StackableListVariable`1<GlyphSO>",
-      "owners": [
-        "Common glyph screen world publication"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
-    },
-    {
-      "id": "glyph.prerequisites",
-      "assembly": "assembly-csharp",
-      "type": "GlyphSO",
-      "typeVisibility": "public",
-      "kind": "field",
-      "member": "prerequisites",
-      "visibility": "public",
-      "static": false,
-      "valueType": "Prerequisites+Container",
-      "owners": [
-        "Common world collection"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side. GlyphSO.IsAvailable() answers this container's conditions for every glyph that is not discoverable, so reading it is what lets an unlocker name what holds it shut instead of reporting a lock with no condition behind it.", "evidence": "kind:field Prerequisites+Container"}
     },
     {
       "id": "glyph.requires-toggleable",
@@ -9706,6 +9729,60 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<RecipeBookSO>"}
+    },
+    {
+      "id": "recipe-book-list.value",
+      "assembly": "assembly-csharp",
+      "type": "AbstractListVariable`1",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "value",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<!0>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<!0>"}
+    },
+    {
+      "id": "recipe-book-list.type",
+      "assembly": "assembly-csharp",
+      "type": "RecipeBookListVariable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "baseType": "GenericListVariable`1<RecipeBookSO>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "recipe-book.prerequisites",
+      "assembly": "assembly-csharp",
+      "type": "RecipeBookSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "prerequisites",
+      "visibility": "public",
+      "static": false,
+      "valueType": "Prerequisites+Container",
+      "owners": [
+        "Common world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Prerequisites+Container"}
     },
     {
       "id": "recipe-book.is-available",
@@ -24039,6 +24116,20 @@
       "place": "action"
     },
     {
+      "id": "generic-discovery.recipe-book.type-action",
+      "assembly": "assembly-csharp",
+      "type": "RecipeBookSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata generic discovery GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "generic-discovery.glyph.type-action",
       "assembly": "assembly-csharp",
       "type": "GlyphSO",
@@ -24136,6 +24227,62 @@
       "parameters": [],
       "owners": ["Automata generic discovery GameAction"],
       "usages": ["reflection"],
+      "place": "action"
+    },
+    {
+      "id": "generic-discovery.recipe-book-identity-action",
+      "assembly": "assembly-csharp",
+      "type": "IdScriptableObject",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetGuid",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Guid",
+      "parameters": [],
+      "owners": [
+        "Automata generic discovery GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "generic-discovery.recipe-book-owned-action",
+      "assembly": "assembly-csharp",
+      "type": "RecipeBookSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "IsAvailable",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata generic discovery GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "generic-discovery.glyph-recipe-book-action",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "associatedRecipeBook",
+      "visibility": "public",
+      "static": false,
+      "valueType": "RecipeBookSO",
+      "owners": [
+        "Automata generic discovery GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
       "place": "action"
     },
     {
@@ -30397,13 +30544,14 @@
   "captureStructuralReaders": [
     "_craftingRecipeAuthoring",
     "_craftingRecipeTypes",
+    "_discoveryTreeBooks",
     "_effectBlocks",
     "_entityKeywords",
     "_entityRequirements",
-    "_glyphLists",
     "_plotAuthoring",
     "_purchaseCosts",
     "_purchaseViewRelations",
+    "_recipeBookGlyphs",
     "_spellGraph",
     "_upgradeCosts"
   ],
