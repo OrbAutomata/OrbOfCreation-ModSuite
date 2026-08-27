@@ -597,7 +597,7 @@ state, a run or a keyword is a call; a call that names none of them is refused a
 all five.
 
 `state` narrows to one of the three lifecycle words, and it reaches every category that carries the
-column: `upgrades`, `research`, `structures`, `alchemy-recipes`, `glyphs`, `rituals`, `plot-nodes`
+column: `upgrades`, `research`, `structures`, `alchemy-recipes`, `augment-glyphs`, `rituals`, `plot-nodes`
 and `challenges`. The filter reads the word the row's own list page says and never derives one of its
 own, so its reach is a consequence of which pages carry the column rather than a list maintained
 beside them — extend the column and the filter follows.
@@ -742,7 +742,8 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `upgrades` | `level`, `queuedLevels`, `screen`, `state`, `maximum`, `requirements`, `affordable` |
 | `structures` | `level`, `queuedLevels`, `state`, `enabled`, `affordable` |
 | `alchemy-recipes` | `state`, `masteryLevel` |
-| `glyphs` | `population`, `screen`, `state`, `discovered`, `paidLevel`, `bonusLevel`, `totalLevel` |
+| `augment-glyphs` | `state`, `slots`, `freeSlots`, `paidLevel`, `bonusLevel`, `totalLevel` |
+| `recipe-books` | `owned` |
 | `plot-nodes` | `state`, `masteryLevel`, `quantity`, `availableQuantity` |
 | `challenges` | `state`, `run`, `level` |
 | `equipment` | `created`, `equippedCount` |
@@ -804,7 +805,7 @@ fact:
 - A **navigation word** is a label out of the game's own view catalog, and a cell holding one prints
   the **whole catalog path** — `Screen`, or `Screen/Subtab` where the destination is a subtab —
   spelled exactly as `game_navigate` takes it, so a reader pastes the cell into the tool and
-  arrives. `screen` on an upgrade row and on a glyph row is this. The separator is `/` everywhere
+  arrives. `screen` on an upgrade row is this. The separator is `/` everywhere
   it is written, including inside a refusal that names a destination: `World/Agromancy`, never
   `World > Agromancy`, because a caller who copies what a refusal spells must reach the place it
   named.
@@ -843,38 +844,26 @@ Membership is published whole or withheld whole for the same reason: a row missi
 table is indistinguishable from a row on no screen, and one of those is a fact the column is
 entitled to state.
 
-#### Which page shows a glyph
+#### Which page shows a glyph, and which pools a book widens
 
-A glyph page is bound to a `GlyphListVariable` through `ViewSO.relevantLists`, so the same fact
-answers the same question for glyphs, in the same grammar. Four of the nine authored lists are
-populations; the other five are the four runtime selections the player fills and `AllGlyphs`, which
-would say the same thing about all 47 rows:
+An augment glyph needs no `screen` column: all 22 are on one grid, Magic > Augments, and a column
+that says the same word 22 times is a category-level fact wearing a row's clothes. The column is gone
+and so is the `GlyphListVariable` membership table behind it, which existed to answer it.
 
-| word | list | rows | where the player finds them |
-| --- | --- | --- | --- |
-| `Magic/Augments` | `AugmentSpellGlyphs` | 22 | Magic/Augments — the Glyphcraft and Upgrade grids |
-| `Magic/Spellbook` | `CoreSpellGlyphs` | 10 | Magic/Spellbook — the Unlock page and its core slots |
-| `Alchemy/Alchemy` | `CoreAlchemyGlyphs` | 12 | Alchemy/Alchemy — the Learn page |
-| `no_page` | `EquipmentGlyphs` | 17 | the game names no page for this list — see below |
+A Recipe Book's equivalent question is not *which page draws this tile* but *what does owning it
+widen*, and the game answers that directly: `UIDiscoveryTreePage.UIStart()` is the only reader of
+`DiscoveryTreeSO.availableRecipeBooks`, so a book's tile is drawn on the discovery page whose pool it
+widens. One edge answers both, and it is published as `widens` — an array of discovery trees, because
+an elemental book widens several. That is why no `screen` column had to pick one page out of the four
+an elemental book appears on, and why the authored `viewLocation` on a tree is not what the column
+reads: `SpellDiscoveryTree` names `ScreenMagic, MagicSpellbook, MagicSpellbookLearn` and
+`AlchemyDiscoveryTree` names `ScreenAlchemy, AlchAlchemy, AlchAlchemyDiscover`, neither of which is a
+navigable subtab word.
 
-The word names the subtab `game_navigate` reaches, not the grid two levels below it: the Augments
-strip only exists once Augments is selected, so `Magic/Upgrade` would be a destination a cold
-navigation cannot take, while `Magic/Augments` is one it always can.
-
-**Several pages is an answer here, not a refusal.** 61 membership edges cover the 47 glyphs, because
-one unlocker opens recipes on several benches — Arcane, Dragon, Expansion, Flow, Nature, Psionic and
-Storm are on all three unlocker lists at once. Their cell is the ordered set,
-`Magic/Spellbook, Alchemy/Alchemy`, in pinned list order. This is the one place the column differs
-from the upgrade column beside it, which refuses a row two screens claim: for an upgrade that is
-impossible on the pinned build and worth a tripwire, and for a glyph it is the authored norm, so
-refusing would throw away a fact the game plainly states.
-
-**`no_page` is not `unreadable`.** `EquipmentGlyphs` is mentioned by nothing in the serialized object
-graph but its own name — no `ViewSO`, no `DiscoveryTreeSO`, no structure — so the ten glyphs it alone
-carries (Amulet, Bag, Cloak, Conductor, Gloves, Helm, Ring, Runic, Tool, Weapon) have a membership the
-suite read perfectly and a page the game does not name. Guessing Workshop/Artifacts from the
-glyphs' own names would be inference wearing a game fact's clothes. `unreadable` stays reserved for
-the withheld publication, exactly as on an upgrade row.
+**Six books share a name with a spell type** — Arcane, Dragon, Expansion, Flow, Psionic and Storm —
+and a single spell-recipe response prints both, its books under `composedOf` and its types under
+`belongsTo.spellTypes`. A book row says `nameSharedWith` naming the twin's uuid and category, because
+two rows with one name and no note is the reading that sends a caller to the wrong uuid.
 
 #### A list row carries durable facts only
 
@@ -931,7 +920,7 @@ word, each derived from the member that category's own row renderer decides on:
 | category | `locked` means the player sees | native member behind the word | words it reaches |
 | --- | --- | --- | --- |
 | `alchemy-recipes` | no row on the alchemy screen | `UIAlchemyRecipe.IsVisible()` = `AlchemyRecipeSO.IsAvailable()` = `visibilityType == Discover ? discovered : visibilityPrerequisites.Check()` | two |
-| `glyphs` | no row in the glyph picker | `UIGlyphListItem.IsVisible()` = `GlyphSO.IsAvailable()` = `discoverable ? discovered : prerequisites.Check()`, which is also `GlyphSO.IsVisible()` | two |
+| `augment-glyphs` | no row in the glyph picker | `UIGlyphListItem.IsVisible()` = `GlyphSO.IsAvailable()` = `discovered` on all twenty-two, which is also `GlyphSO.IsVisible()` | two |
 | `rituals` | the undiscovered placeholder where the ritual would be | `UIRitual.IsVisible()` = `RitualSO.IsDiscovered()`; `IsAvailable()` and `IsVisible()` are the same member again | two |
 | `plot-nodes` | no row on the harvest screen | `UIPlotNode.IsVisible()` = `PlotNodeSO.IsVisible()` = the `visible` field the game latches from `visibilityPrereq` | two |
 | `challenges` | a challenge the draft will never offer | `ChallengeSO.IsAvailableToRun()` = `!IsMaxLevel() && availabilityPrerequisites.Check(level)` and every previous challenge completed | three |
@@ -947,43 +936,40 @@ false the moment `IsMaxLevel()` holds.
 
 Where the new word made a raw column redundant on a list page, that column died and the raw fact
 stayed in the category's fact scan: `rituals` dropped `discovered`, `plot-nodes` dropped `visible`,
-`glyphs` dropped `available`, and `alchemy-recipes` dropped `discovered` — each was the lifecycle
-predicate under its own name. `glyphs` **kept** `discovered`, because for a glyph it is a different
-fact: a pool unlocker is available off an authored prerequisite while never having been discovered at
-all.
+`augment-glyphs` dropped `available`, and `alchemy-recipes` dropped `discovered` — each was the
+lifecycle predicate under its own name. `augment-glyphs` **kept** `discovered`, because the `discover`
+block beside it answers a different question: whether the tree is offering this glyph right now.
 
-**Every glyph row says which of the two populations it belongs to**, because that is what makes its
-other columns readable. `population: augment` is one of the 22 the Magic screen's glyph grid draws
-from — discovered, then spent on spells. `population: unlocker` is one of the 25 that carry a recipe
-book and open a family of recipes, each held off one authored requirement edge rather than by
-discovery. The word comes from `GlyphSO.discoverable`, which splits them exactly and agrees row for
-row with membership of the authored `AugmentSpellGlyphs` list and with carrying an
-`associatedRecipeBook`. It is **not** `augmentsSpells`: that field reads false for Distinct, Weak and
-Wrath — three discoverable, book-less augments — so it splits 19/28 rather than 22/25, and every
-surface that gated on it (a spell's core-slot verdict and the owned-augment options a loadout
-offers, and the compose resolver that has since been retired) mistook those three for core glyphs. The `glyphs`
-category is **not** split in two: glyphs are one player concept and one verifiable count of 47, and
-the population is a column on the row.
+**One native class, two player concepts, two categories.** `GlyphSO` backs 47 objects and the player
+meets them on two screens under two names, so the wire has two categories and the single `glyphs`
+category that used to hold both is retired. `augment-glyphs` is the 22 the Magic screen's glyph grid
+draws — discovered, levelled for slots, then socketed into a spell. `recipe-books` is the 34 tiles a
+discovery page draws, each one owned or not, widening the pool that page rolls from. The split is
+`GlyphSO.associatedRecipeBook`: 22 carry none and are the augments; the other 25 are the internal half
+of a Recipe Book and leave the wire as entities entirely, their id answering with a signpost to the
+book. It is **not** `augmentsSpells`: that field reads false for Distinct, Weak and Wrath — three
+book-less augments — so it splits 19/28 rather than 22/25, and every surface that gated on it (a
+spell's core-slot verdict, the owned-augment options a loadout offers, and the compose resolver that
+has since been retired) mistook those three for core glyphs.
 
-**A glyph's `visible` predicate is its `available` predicate.** `GlyphSO.IsVisible()` is a call to
-`GlyphSO.IsAvailable()`, and the picker tile's own `IsVisible()` calls `IsAvailable()` too, so the
-game cannot show a glyph it will not offer and the two verdicts are one fact with one reason. They
-used to disagree on all 25 unlockers, because `visible` was answered from `discovered || currently
-offered` — for an unlocker the raw `discovered` field is not what availability reads, and no unlocker
-is ever a discovery-tree offer. Whether an undiscovered augment is on offer right now is a real fact
-and rides on the row's own `discover` block as `offered`.
+The 34 books outnumber the 25 unlocker glyphs because `RecipeBookSO` is its own authored registry:
+nine books were authored without a glyph behind them. Calling the old category by name is refused
+with both new homes named, never with a bare unknown-category list.
 
-**A locked glyph's reason is its own population's gate.** `GlyphSO.IsAvailable()` returns
-`discovered` for an augment and `prerequisites.Check()` for an unlocker, so an unlearned augment
-answers *this has not been discovered yet* and an unlearned unlocker names the authored condition its
-container holds — *Learn Formation unlocks this glyph, and it is not reached yet* — with `blockedBy`
-carrying that entity. The 25 containers hold one condition each, a research, an upgrade or a
-prerequisite link, and the world publishes them under owner kind `Glyph` (`glyph.prerequisites`). The
-honest-unknown sentence — *the game keeps this locked, and says nothing about what would unlock it* —
-is what is left when neither gate is readable, which means a condition class this suite does not
-model. It used to be the answer on 45 of the 47 rows, because the reason branched on
-`GlyphSO.discoveryRequired`; that field is true for exactly two glyphs, and its only reader,
-`GlyphSO.IsDiscoverRequired()`, is called by nothing in the game.
+**An augment glyph's `visible` predicate is its `available` predicate.** `GlyphSO.IsVisible()` is a
+call to `GlyphSO.IsAvailable()`, and the picker tile's own `IsVisible()` calls `IsAvailable()` too, so
+the game cannot show a glyph it will not offer and the two verdicts are one fact with one reason.
+Whether an undiscovered augment is on offer right now is a different, real fact and rides on the row's
+own `discover` block as `offered`.
+
+**A locked augment glyph has not been discovered yet, and that is the whole of it.**
+`GlyphSO.IsAvailable()` returns `discovered` on all 22, so the row's reason is that sentence and no
+authored container is read for it. A Recipe Book's lock is the other shape and lives on its own row:
+`RecipeBookSO.IsAvailable()` runs `RecipeBookSO.prerequisites`, and an unowned book names what buys it
+under `ownedBy` — *Learn Expansion*, an upgrade or a research. The world publishes those containers
+under owner kind `RecipeBook` (`recipe-book.prerequisites`), read off `RecipeBookSO` rather than off
+the glyph: the two containers disagree on 16 of the 25, and on Gloves and Herbalize they disagree in
+substance, so the book's own is the only one that answers for the tile the player presses.
 
 **A recipe whose lock this suite cannot read says so.** `AlchemyRecipeSO.IsAvailable()` reads
 `discovered` on the `Discover` branch and runs a prerequisite container on the other, and only
@@ -1069,8 +1055,8 @@ across the whole surface, reads and commits alike:
 | `structures` | `queuedLevels` | `StructureSO.GetQueuedQuantity()` | bought and still building; the badge shows these as `+N` |
 | `upgrades` | `level` | `UpgradeSO.GetPurchaseLevel()` | levels bought. The upgrade screen labels the first one `Lv 1`, so its badge reads one above this count |
 | `upgrades` | `queuedLevels` | `UpgradeSO.queuedLevels` | bought and still developing |
-| every `game_level_up` target (glyphs, equipment types, resource types, time runes) | `paidLevel` / `bonusLevel` / `totalLevel` | the levelable's total and its granted levels | bought, granted, and their sum. `bonusLevel` is absent where the surface has no bonus concept, exactly as its `bonus` block is |
-| `glyphs` | `usableCount` | the glyph's maximum usages | the uses the glyph screen counts — what a level buys |
+| every `game_level_up` target (augment glyphs, equipment types, resource types, time runes) | `paidLevel` / `bonusLevel` / `totalLevel` | the levelable's total and its granted levels | bought, granted, and their sum. `bonusLevel` is absent where the surface has no bonus concept, exactly as its `bonus` block is |
+| `augment-glyphs` | `slots` / `freeSlots` | `GlyphSO.GetMaxUsages()` / `GetFreeUsages()` | the two numbers the level panel prints as `[N] Slot` and `[M] Free Slot` — what a level buys |
 | `research` | `purchasedLevel` / `baseLevel` / `bonusLevel` / `totalLevel` | the game's four distinct level accessors | completion is judged on `baseLevel`, never on `totalLevel` |
 | `research` | `queuedLevels` | the develop decision's queue count | levels waiting, including the one in flight |
 | `rituals` | `setLevel.current` | the ritual's selected starting level | where the ritual's own starting-level control stands |
@@ -1416,11 +1402,11 @@ metadata and applicable discovery predicates.
 
 ### Generic discovery decisions
 
-Every `alchemy-recipes`, `equipment`, `rituals`, `spell-recipes`, `time-runes`, and `glyphs` row has
-one `discover` decision from the native `IDiscoverable` evaluator. A pool-unlocker glyph the game
-never offers to discover answers the same verb rather than omitting the block: `available: false`
-with `native_not_discoverable` and no costs, because a caller cannot tell a missing block from a
-glyph nobody evaluated. A discovery decision names whether the entity
+Every `alchemy-recipes`, `equipment`, `rituals`, `spell-recipes`, `time-runes`, and `augment-glyphs`
+row has one `discover` decision from the native `IDiscoverable` evaluator. A row the discovery page
+does not draw answers the same verb rather than omitting the block, and the refusal names the Recipe
+Book it is waiting on — *It needs the Formation recipe book, which is not owned* — because a caller
+cannot tell a missing block from a row nobody evaluated. A discovery decision names whether the entity
 is visible, already discovered, required for downstream play, currently discoverable, and
 affordable. Its ordered `costs` pair each named resource's screen-formatted `cost` with the same
 canonical `spendableAmount` used everywhere else. Failed decision axes carry a stable reason;
@@ -1563,20 +1549,26 @@ and never a resource ledger.
 
 ### Unified level controls
 
-The `equipment-types`, `glyphs`, `resource-types`, and `time-runes` detail rows are the complete
-pre-decision surface for their ordinary level-list buttons. Each row distinguishes paid, bonus,
-and total levels and carries a `purchase` decision. Equipment types, glyphs, and resource types
-also carry `bonus`; time runes do not implement that native control. Available decisions include
+The `equipment-types`, `augment-glyphs`, `resource-types`, and `time-runes` detail rows are the
+complete pre-decision surface for their ordinary level-list buttons. Each row distinguishes paid,
+bonus, and total levels and carries a `purchase` decision. Equipment types, augment glyphs, and
+resource types also carry `bonus`; time runes do not implement that native control. An augment glyph
+carries neither while Magic > Augments > Upgrade is locked, because until the Upgrade Glyphs upgrade
+is bought the game draws no level button at all — `GlyphSO.CanLevel()` being the constant `true` is a
+fact about the interface, not about a button. `recipe-books` never carry a level: a `RecipeBookSO` has
+one instance field and the game draws it as owned or not. Available decisions include
 the exact named native usage cost and current spendable amount as `costs`; a control the game
 levels for nothing publishes `costs: []` with `free: true` rather than dropping the array.
 Inapplicable or unavailable controls do not publish priced ledgers.
 
 Call `game_level_up(mode="purchase"|"bonus", uuid=..., amount=...)`. The tool derives the exact native type from
 the published category, repeats the visible button's live admission on Unity's main thread, and
-returns only the settled paid- or bonus-level change plus the resulting total. A glyph target also
-returns `usableCount {before, after}`, because that is the number the glyph screen draws — levels buy
-uses through the mastery requirement, and a response that named only levels left the screen's own
-count out. When the game's headroom delivered fewer levels than `amount` asked for, the answer adds
+returns only the settled paid- or bonus-level change plus the resulting total. An augment glyph target
+also returns `slots {before, after}` and `freeSlots {before, after}`, because those are the two
+numbers the level panel draws — levels buy slots through the mastery requirement, and a response that
+named only levels left the screen's own counts out. A Recipe Book uuid is refused in player words:
+*Insight is a Recipe Book — there is nothing to level.* When the game's headroom delivered fewer
+levels than `amount` asked for, the answer adds
 `requestedAmount` and `deliveredAmount`; a fully satisfied ask says neither, because an
 under-delivery that read exactly like a satisfied `amount=1` let a caller batching its own
 progression accumulate drift with no signal.
@@ -2617,7 +2609,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `components_unavailable` | The game builds this from glyphs and it names none, so no discovery screen ever draws a Discover button for it — `UIDiscoverablePage.IsGlyphSelectionValid` starts at `selectedGlyphs.Count > 0`. The whole core-glyph vocabulary it replaced (`recipe_has_no_core_glyph`, `core_glyph_not_published`, `core_glyph_augments_only`, `core_glyph_not_owned`, `core_glyph_not_leveled`) went with the component resolver that produced it | `discover` decisions, `game_discover confirm` |
 | `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so nothing was submitted and nothing was spent. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `augment_slots_exceeded` | The layout names more different augments than "Max Spell Augment Slots" holds, which is the only ceiling the load path has. It replaces `layout_resolves_to_other_spell` and `recipe_not_offered`, which belonged to a layout matcher this verb no longer runs | `game_spell_loadout preview`, `game_spell_loadout add` |
-| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen and the upgrade that opens it | `spell-recipes` loadout-add and `discover` decisions, `glyphs` `discover` decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move`, `game_discover confirm` |
+| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen and the upgrade that opens it | `spell-recipes` loadout-add and `discover` decisions, `augment-glyphs` `discover` and `purchase` decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move`, `game_discover confirm` |
 | `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `discover` decisions, pool-unlocker glyphs |
 | `projection_refused` | The suite's own resource-rate policy refuses the assignment; the game did not | `game_concept` |
@@ -3608,9 +3600,9 @@ publish as `id`, and exactly one element may answer:
   under `paths` rather than picking one. This is the common case rather than the corner: the Magic
   screen draws every equipped spell twice, once in its own list and once in the casting bar, and the
   two are separate objects with separately read sub-tooltips that may print different text.
-- **A real entity this screen does not draw** — `not_on_screen` (`ERR_NOT_FOUND`). For a glyph or an
-  upgrade the world publishes a `screen` column, so the refusal names the screen that does draw it;
-  for everything else it points at `game_screen_catalog`.
+- **A real entity this screen does not draw** — `not_on_screen` (`ERR_NOT_FOUND`). For an upgrade the
+  world publishes a `screen` column, so the refusal names the screen that does draw it; for everything
+  else it points at `game_screen_catalog`.
 - **An id nothing in this build carries** — the existing `unknown_uuid`, which says the id names
   nothing anywhere rather than blaming this screen.
 - **An element with no tooltip** — the existing `tooltip_content_unavailable`.

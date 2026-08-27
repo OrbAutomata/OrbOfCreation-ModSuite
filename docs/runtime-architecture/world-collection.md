@@ -566,10 +566,13 @@ worth knowing:
   index and is exempt. Neither is reached by a registry walk — both queues resolve by uuid through the
   identity registry, which keeps the action-manager singleton out of the collector.
 - **Entity requirements.** `WorldEntityRequirement.cs` reads every upgrade's, structure's, and
-  research entry's per-level prerequisite container, plus every glyph's unlock container, so a row is
-  one condition keyed by an entity its own category already claimed. A glyph's belongs here because
-  `GlyphSO.IsAvailable()` runs that container for the 25 glyphs that are not discoverable, which makes
-  its one condition the whole of what holds them shut.
+  research entry's per-level prerequisite container, plus every Recipe Book's unlock container, so a
+  row is one condition keyed by an entity its own category already claimed. A book's belongs here
+  because `RecipeBookSO.IsAvailable()` runs that container, which makes its one condition the whole of
+  what holds the tile shut. It is read off `RecipeBookSO`, never off the `GlyphSO` behind it: the two
+  containers disagree on 16 of the 25 pairs, and on Gloves and Herbalize they disagree in substance
+  (`UnobtainableResearch` against `ArtifactGloves` and `LearnBiology`), so only the book's own answers
+  for the tile the player presses.
   Its list is `[SerializeReference]`, so accessors compile per concrete condition class on first sight,
   and a class that does not bind yields a row of kind `Unknown` rather than none — an unmodelled
   condition must be visible as a requirement nobody can evaluate rather than as an entity with no
@@ -579,15 +582,19 @@ worth knowing:
   differential oracle, never a replacement for the graph and never an admission result; the explainer
   fails loud if its graph verdict disagrees. How that overload differs from the parameterless latch is
   recorded in [requirements](../reverse-engineering/requirements.md).
-- **Glyph lists.** `WorldGlyphListMembership.cs` publishes which authored `GlyphListVariable` each glyph
-  is on, once per lifecycle, because a glyph page is bound to a list and membership is therefore the
-  whole of where the player meets a row. No walk reaches these assets — a list is named by
-  `ViewSO.relevantLists` and by prefab data, neither of which is a registry — so the four authored
-  populations are reached by the identity they carry, against the pinned build. A glyph is routinely on
-  several at once, unlike an upgrade. Membership is published whole or withheld whole: the first list
-  that will not read empties the table and names why, and the category still reports itself collected,
-  because a partial table is indistinguishable from a glyph that genuinely sits on no list and a
-  consumer reading an empty table can say so instead of guessing.
+- **Recipe book glyphs.** `WorldRecipeBookGlyph.cs` publishes, once per lifecycle, which Recipe Book
+  each of the 25 non-augment `GlyphSO` is the internal half of, read off `GlyphSO.associatedRecipeBook`.
+  It is what lets every surface that meets one of those ids answer with the book's row instead of with
+  a bare not-found, and it is the reason `WorldGlyph` publishes only the 22 that carry no book —
+  `Publishes(entity)` is that field being empty, so one native class backs two player concepts without
+  either category having to filter the other's rows out after the fact.
+- **Discovery tree books.** `WorldDiscoveryTreeBook.cs` publishes which discovery pools a Recipe Book
+  widens, walking `DiscoveryTreeSO.All` and reading each tree's authored `availableRecipeBooks`. The
+  edge runs tree-to-book in the game's data and is published book-first because that is the direction a
+  reader asks it in — *what does owning this widen* — and `UIDiscoveryTreePage.UIStart()` is the only
+  reader of that field, which is why the book tile appears on the discovery page whose pool it widens
+  rather than on a single authored screen of its own. Published whole or withheld whole: a partial
+  table is indistinguishable from a book that genuinely widens nothing.
 - **Spell slots and costs.** `WorldSpellSlot.cs` publishes the equipped loadout and `WorldSpellCost.cs`
   what casting out of it costs, both from one reader, because a slot's price is only answerable from the
   same equipped instance the slot was read from. Neither is identity-keyed: a position may be unfilled

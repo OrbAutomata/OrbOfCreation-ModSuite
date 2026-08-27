@@ -18,11 +18,14 @@ The socketable augment is called a glyph too. Tell them apart by the keyword on 
 line: unlockers carry **Elemental**, **Forging**, **Alchemical** or **Manifestation**, while
 augments carry a keyword beginning `Spell `. See [vocabulary.md](vocabulary.md).
 
-Observed on one endgame save: 25 of the 47 glyphs are unlockers, split Elemental 7, Forging 10,
-Alchemical 5, Manifestation 3. Most carry the name of a same-named entry in the recipe-book list —
-the glyph *Arcane* and the recipe book *Arcane* are the two faces of one unlocker — though the book
-list is longer than the glyph list, so the pairing is not one-to-one.
+25 of the 47 glyphs are unlockers, split Elemental 7, Forging 10, Alchemical 5, Manifestation 3. Each
+carries a same-named entry in the recipe-book list — the glyph *Arcane* and the recipe book *Arcane*
+are the two faces of one unlocker, linked by `GlyphSO.associatedRecipeBook`. 34 books ship, so nine
+(Compulsion Stone, Death Stone, Dismantle, Electric, Life Stone, Occultic, Principle Stone, Spirit
+Stone, Tempered) have no glyph behind them at all.
 
-**Code shape:** the Spellcraft picker asks `GlyphSO.IsAvailable()`. Discoverable glyphs answer
-from their discovery state; non-discoverable pool unlockers answer from their authored `Learn X`
-prerequisite. The raw glyph discovery field is therefore not a universal learned-state signal.
+**Code shape:** what the player presses is the book tile, and `UIRecipeBookItem.IsVisible()` asks
+`RecipeBookSO.IsAvailable()` — the *book's* own prerequisite container, not the glyph's. The two
+containers disagree on 16 of the 25 pairs, and on Gloves and Herbalize they disagree in substance, so
+reading the glyph's is reading the wrong `Learn X`. The Spellcraft picker separately asks
+`GlyphSO.IsAvailable()`, which for all 22 augments is just their discovery state.
