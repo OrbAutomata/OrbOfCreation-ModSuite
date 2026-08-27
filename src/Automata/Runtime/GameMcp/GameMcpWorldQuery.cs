@@ -3475,18 +3475,79 @@ internal static class GameMcpWorldQuery
     /// landed is the very lie being fixed.
     /// </para>
     /// </remarks>
-    internal static GameMcpValue QueuedMutation(Guid uuid, int asked, int? queued) => new JObject
+    internal static GameMcpValue QueuedMutation(
+        Guid uuid,
+        int asked,
+        int? queued,
+        string? remainder = null) => new JObject
     {
         ["uuid"] = uuid.ToString("D"),
-        ["queued"] = QueuedValue(asked, queued),
+        ["queued"] = QueuedValue(asked, queued, remainder),
     }.Freeze();
 
-    private static object QueuedValue(int asked, int? queued) =>
+    private static object QueuedValue(int asked, int? queued, string? remainder = null) =>
         queued is null or < 1
             ? true
             : queued < asked
-                ? queued + " of " + asked + " asked; the game took no more this press."
+                ? queued + " of " + asked + " asked; " +
+                  (string.IsNullOrEmpty(remainder)
+                      ? "the game took no more this press."
+                      : remainder)
                 : queued.Value;
+
+    /// <summary>
+    /// The action queue's declared capacity, off the published world: the queue's own maximum, held
+    /// as an <c>IntVariable</c> the row carries an edge to. A capacity nobody has published yet — no
+    /// save loaded — is no capacity, and the sentences that would have quoted it leave it out rather
+    /// than name a number the world does not carry.
+    /// </summary>
+    internal static bool TryReadActionQueueCapacity(GameWorldState? world, out int capacity)
+    {
+        capacity = 0;
+        if (world is null) return false;
+        if (!WorldLookup.TryFind(
+                world.ActionQueues, KnownEntities.ActiveActionables.Uuid, out var queue))
+            return false;
+        if (queue.MaxQueuedItemsId == Guid.Empty ||
+            !WorldLookup.TryFind(world.IntVariables, queue.MaxQueuedItemsId, out var maximum))
+            return false;
+        capacity = maximum.Value.ToInt();
+        return capacity > 0;
+    }
+
+    /// <summary>
+    /// The one purchase refusal a smaller amount does not fix, in the numbers a caller can act on:
+    /// the queue is full, this is how full, and it is time rather than a different ask that clears
+    /// it.
+    /// </summary>
+    internal static string ActionQueueFullReason(GameWorldState? world) =>
+        TryReadActionQueueCapacity(world, out var capacity)
+            ? "The game's action queue is full (" + capacity + " of " + capacity +
+              " slots used); nothing can be queued until something in it settles."
+            : "The game's action queue is full; nothing can be queued until something in it settles.";
+
+    /// <summary>
+    /// Why the suite's own half of a shortfall happened, for the settled answer's one line. The two
+    /// halves are kept apart on purpose: the suite may only speak for the levels it withheld, and
+    /// where the game also stopped early the sentence says that first and claims no reason for it.
+    /// </summary>
+    internal static string SuiteWithheldReason(
+        GameWorldState? world,
+        int withheld,
+        int offeredToTheGame,
+        int queued)
+    {
+        var full = TryReadActionQueueCapacity(world, out var capacity)
+            ? "the action queue is full (" + capacity + " of " + capacity + " slots used)"
+            : "the action queue is full";
+        return queued >= offeredToTheGame
+            ? WithheldCount(withheld) + " not taken because " + full + "."
+            : "the game took no more this press, and " + WithheldCount(withheld) +
+              " never offered: the action queue had room for " + offeredToTheGame + ".";
+    }
+
+    private static string WithheldCount(int withheld) =>
+        withheld == 1 ? "1 was" : withheld + " were";
 
     private static GameMcpValue ProjectSpellLoadoutDelta(
         GameMcpFrameContext state,

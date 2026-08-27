@@ -35,11 +35,12 @@ internal enum AutoBuyPurchasePreflight
     DestinationCapacityIdentityMismatch,
 
     /// <summary>
-    /// An explicit request asked for more levels than the live action queue holds above the reserve.
+    /// The live action queue has no free slot at all, so nothing this call asked for can be queued.
     /// Reached from the action adapter rather than the native adapter: it is decided by the live
-    /// queue reading, before a candidate is resolved and before any mutation is attempted.
+    /// queue reading, before a candidate is resolved and before any mutation is attempted. An ask
+    /// larger than the room is not this — that one fills what fits and says what it withheld.
     /// </summary>
-    QueueRoomBelowRequest,
+    ActionQueueFull,
 
     /// <summary>The suite never bound the owning-view topology contract on this build.</summary>
     OwningViewTopologyUnbound,
@@ -73,8 +74,10 @@ internal readonly struct AutoBuyPurchaseSubmission
         in AutoBuyAdmissionDiagnosis diagnosis,
         in AutoBuyLiveCostSnapshot liveCosts,
         string reason,
-        int maximumAmount = -1)
+        int maximumAmount = -1,
+        int withheldBySuite = 0)
     {
+        WithheldBySuite = withheldBySuite;
         Preflight = preflight;
         HasEvidence = hasEvidence;
         Outcome = outcome;
@@ -132,13 +135,21 @@ internal readonly struct AutoBuyPurchaseSubmission
     public int MaximumAmount { get; }
 
     /// <summary>
-    /// An explicit request that asked for more than the live queue holds. No mutation is attempted:
-    /// the caller named an amount, and the honest answer to an amount that does not fit is the one
-    /// that does.
+    /// How many levels of the ask the suite kept back because the queue had no room for them. Nought
+    /// on every press that delivered the whole ask, and on every press the game itself cut short —
+    /// this is the suite's own half of a shortfall, and the settled answer owes the caller a reason
+    /// for it in the same sentence that reports the delivery.
     /// </summary>
-    public static AutoBuyPurchaseSubmission RejectedOverAsk(int room, string reason) =>
+    public int WithheldBySuite { get; }
+
+    /// <summary>
+    /// The live action queue holds nothing more, so no level of this ask can be queued. No mutation
+    /// is attempted, and the ceiling it names is nought: this is the one purchase refusal a smaller
+    /// amount does not fix.
+    /// </summary>
+    public static AutoBuyPurchaseSubmission ActionQueueFull() =>
         new(
-            AutoBuyPurchasePreflight.QueueRoomBelowRequest,
+            AutoBuyPurchasePreflight.ActionQueueFull,
             hasEvidence: false,
             default,
             default,
@@ -147,8 +158,26 @@ internal readonly struct AutoBuyPurchaseSubmission
             default,
             AutoBuyLiveCostSnapshot.Unavailable(
                 AutoBuyLiveCostReadStatus.PurchaseCostUnavailable),
-            reason,
-            room);
+            string.Empty,
+            maximumAmount: 0);
+
+    /// <summary>
+    /// The same submission, carrying how many levels of the caller's ask never reached the game
+    /// because the queue had no room for them.
+    /// </summary>
+    public AutoBuyPurchaseSubmission WithSuiteWithheld(int withheld) =>
+        new(
+            Preflight,
+            HasEvidence,
+            Outcome,
+            CallOutcome,
+            RequestedLevels,
+            CommittedLevels,
+            Diagnosis,
+            LiveCosts,
+            Reason,
+            MaximumAmount,
+            Math.Max(0, withheld));
 
     public static AutoBuyPurchaseSubmission Rejected(AutoBuyPurchasePreflight preflight) =>
         Rejected(preflight, default, string.Empty);

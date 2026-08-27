@@ -44,23 +44,6 @@ internal static class AutoBuyPurchaseNarration
               $"at epoch {askedEpoch}.";
 
     /// <summary>
-    /// What an explicit over-ask has room for, in the two numbers that make the retry obvious.
-    /// </summary>
-    /// <remarks>
-    /// The reserve is only named when one is set. It is a suite number rather than a game one, and
-    /// naming a number nobody chose in every refusal is how a sentence stops being read; when it is
-    /// nought the room is simply the queue's own room and the sentence says that much.
-    /// </remarks>
-    public static string QueueRoomBelowRequest(int room, int reservedSlots) =>
-        reservedSlots > 0
-            ? $"The game's action queue has room for {Levels(room)} above the {reservedSlots} " +
-              "slot(s) the suite is set to leave free; ask for that many or fewer."
-            : $"The game's action queue has room for {Levels(room)} right now; ask for that many " +
-              "or fewer.";
-
-    private static string Levels(int room) => room == 1 ? "1 more level" : $"{room} more levels";
-
-    /// <summary>
     /// Returns one warning for a refusal that requires attention, or null for successful and ordinary
     /// no-op outcomes already represented by the compact action journal.
     /// </summary>

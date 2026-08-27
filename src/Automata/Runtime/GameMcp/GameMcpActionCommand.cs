@@ -573,10 +573,11 @@ internal static class GameMcpActionResultCodeNames
                 return "Earlier purchases in this batch spent the margin this one was planned " +
                     "against.";
 
-            // The boundary writes the better sentence, because it holds the number. This is the
-            // fallback for a result that reaches the wire without one.
-            if (code == AutoBuyActionResultCodes.QueueRoomBelowRequest)
-                return "The game's action queue has less room than this call asked for.";
+            // The runtime writes the better sentence, because it holds the queue's capacity. This is
+            // the fallback for a result that reaches the wire without one.
+            if (code == AutoBuyActionResultCodes.ActionQueueFull)
+                return "The game's action queue is full; nothing can be queued until something in " +
+                    "it settles.";
         }
         if (commandKind == GameMcpCommandKind.Cast)
         {
@@ -673,7 +674,9 @@ internal static class GameMcpActionResultCodeNames
             // The vocabulary a caller already learned for an over-ask: the same name the research
             // develop verb refuses one with, carrying the same `maximumAmount` beside it. A second
             // private name for one meaning is how an error taxonomy stops being branchable.
-            if (code == AutoBuyActionResultCodes.QueueRoomBelowRequest) return "amount_unavailable";
+            // Not amount_unavailable: that name promises a smaller amount fixes it, and nothing
+            // fits a queue with no free slot.
+            if (code == AutoBuyActionResultCodes.ActionQueueFull) return "queue_full";
         }
         // Feature result-code numbers are namespaced per feature and deliberately reused across
         // them, so a name is only correct beside the command kind that owns the vocabulary.

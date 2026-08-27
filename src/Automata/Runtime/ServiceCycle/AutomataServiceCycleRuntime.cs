@@ -333,6 +333,11 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 if (!submission.Verified && !string.IsNullOrEmpty(submission.Reason))
                     exactReason = submission.Reason;
 
+                // The full-queue refusal is written here rather than at the boundary, because the
+                // queue's capacity is a published world fact and the boundary reads only the room.
+                if (submission.Preflight == AutoBuyPurchasePreflight.ActionQueueFull)
+                    exactReason = GameMcpWorldQuery.ActionQueueFullReason(world.Snapshot);
+
                 // A refusal whose sentence names a ceiling carries that ceiling as a number too,
                 // read from the same live reading the sentence was written from.
                 if (submission.MaximumAmount >= 0)
@@ -346,9 +351,20 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 {
                     // A purchase is queued, not applied, so the answer is what the press queued and
                     // it is complete here: the count is the mutation's own verified queued-level
-                    // delta, and no later world can add to it without contradicting it.
+                    // delta, and no later world can add to it without contradicting it. Where the
+                    // suite itself kept levels back, the same line owes the caller that reason —
+                    // an unexplained shortfall is the answer nothing can act on.
                     details = GameMcpWorldQuery.QueuedMutation(
-                        command.TargetId, command.Amount, submission.CommittedLevels);
+                        command.TargetId,
+                        command.Amount,
+                        submission.CommittedLevels,
+                        submission.WithheldBySuite > 0
+                            ? GameMcpWorldQuery.SuiteWithheldReason(
+                                world.Snapshot,
+                                submission.WithheldBySuite,
+                                submission.RequestedLevels,
+                                submission.CommittedLevels)
+                            : null);
                 }
             }
             if (command.Kind == GameMcpCommandKind.Cast &&

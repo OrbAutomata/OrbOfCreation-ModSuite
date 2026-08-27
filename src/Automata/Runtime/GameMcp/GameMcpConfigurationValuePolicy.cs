@@ -133,19 +133,8 @@ internal static class GameMcpConfigurationValuePolicy
     /// The development queue's declared capacity, off the published world. A capacity nobody has
     /// published yet — no save loaded — is not a ceiling this can hold a write against.
     /// </summary>
-    private static bool TryReadActionQueueCapacity(GameWorldState? world, out int capacity)
-    {
-        capacity = 0;
-        if (world is null) return false;
-        if (!WorldLookup.TryFind(
-                world.ActionQueues, KnownEntities.ActiveActionables.Uuid, out var queue))
-            return false;
-        if (queue.MaxQueuedItemsId == Guid.Empty ||
-            !WorldLookup.TryFind(world.IntVariables, queue.MaxQueuedItemsId, out var maximum))
-            return false;
-        capacity = maximum.Value.ToInt();
-        return capacity > 0;
-    }
+    private static bool TryReadActionQueueCapacity(GameWorldState? world, out int capacity) =>
+        GameMcpWorldQuery.TryReadActionQueueCapacity(world, out capacity);
 
     internal static GameMcpConfigurationConstraint Describe(ConfigEntryBase entry)
     {

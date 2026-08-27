@@ -1201,7 +1201,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             remainingRoom: -2);
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
-        Assert.Equal(CommonActionResultCodes.NativeRejected, result.Code);
+        Assert.Equal(AutoBuyActionResultCodes.ActionQueueFull, result.Code);
         Assert.False(result.HasNativeEvidence);
         Assert.Equal(3, structure.queuedQuantity);
     }

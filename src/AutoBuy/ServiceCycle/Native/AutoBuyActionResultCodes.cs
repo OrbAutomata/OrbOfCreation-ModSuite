@@ -58,9 +58,9 @@ internal static class AutoBuyActionResultCodes
     public static ServiceActionResultCode OwningViewAvailabilityUnreadable => new(2062);
 
     /// <summary>
-    /// An explicit request asked for more levels than the live action queue holds above the reserve.
-    /// Only a caller-named amount reaches this: a planned batch is clamped to the room instead,
-    /// because a plan that takes what fits is the planner working.
+    /// The live action queue has no free slot, so no level of this ask can be queued. It is the one
+    /// purchase refusal a smaller amount does not fix, and it is a room problem rather than a
+    /// resource one — the sentence names the queue, never the caller's pockets.
     /// </summary>
-    public static ServiceActionResultCode QueueRoomBelowRequest => new(2063);
+    public static ServiceActionResultCode ActionQueueFull => new(2063);
 }

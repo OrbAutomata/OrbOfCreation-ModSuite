@@ -704,7 +704,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_purchase",
                 "Purchase an attribute or upgrade",
-                "Live-revalidate and apply one UUID-addressed attribute (native StructureSO) or upgrade purchase. The game takes the levels into its action queue and builds them afterwards, so a commit answers that it queued and how many — never a level that has not moved yet. amount is honoured exactly: an ask larger than the live action queue has room for is refused naming that room, rather than quietly delivering one level of it, and a purchase the game's own loop stops early says delivered against asked on one line.",
+                "Live-revalidate and apply one UUID-addressed attribute (native StructureSO) or upgrade purchase. The game takes the levels into its action queue and builds them afterwards, so a commit answers that it queued and how many — never a level that has not moved yet. amount is taken as far as it goes, exactly as the game's own buy button does: a press that delivers less than the ask says delivered against asked on one line and, on that same line, why the rest did not go — the game took no more this press, or the action queue had no room for it. Only a queue with no free slot at all refuses, and Auto Buy's own settings, including the queue slots it reserves for manual play, do not apply to this call.",
                 ActionSchema(
                     new JObject
                     {

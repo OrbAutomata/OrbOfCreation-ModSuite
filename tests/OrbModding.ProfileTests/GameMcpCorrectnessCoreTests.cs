@@ -743,6 +743,90 @@ public sealed class GameMcpCorrectnessCoreTests
     }
 
     /// <summary>
+    /// The suite's own half of a shortfall is explained on the same line as the delivery. Round 13
+    /// asked for ten levels against nine of room and got a refusal that delivered nothing; the press
+    /// now fills and says, in the sentence it already had, how many it kept back and why.
+    /// </summary>
+    [Fact]
+    public void AnOverAskTheQueueCannotHoldFillsAndNamesWhatTheSuiteWithheld()
+    {
+        var attributeId = Guid.Parse("f2000000-0000-0000-0000-000000000010");
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+            attributeId,
+            asked: 10,
+            queued: 9,
+            remainder: GameMcpWorldQuery.SuiteWithheldReason(
+                ActionQueueWorld(capacity: 10), withheld: 1, offeredToTheGame: 9, queued: 9)));
+
+        Assert.Equal(
+            "9 of 10 asked; 1 was not taken because the action queue is full " +
+            "(10 of 10 slots used).",
+            (string?)delta["queued"]);
+        Assert.DoesNotContain("\n", (string?)delta["queued"]);
+    }
+
+    /// <summary>
+    /// Where the game stopped early as well, the suite still speaks only for its own half and claims
+    /// no reason for the game's.
+    /// </summary>
+    [Fact]
+    public void AShortfallBothSidesCausedKeepsTheTwoHalvesApart()
+    {
+        var attributeId = Guid.Parse("f2000000-0000-0000-0000-000000000011");
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+            attributeId,
+            asked: 10,
+            queued: 4,
+            remainder: GameMcpWorldQuery.SuiteWithheldReason(
+                ActionQueueWorld(capacity: 10), withheld: 1, offeredToTheGame: 9, queued: 4)));
+
+        Assert.Equal(
+            "4 of 10 asked; the game took no more this press, and 1 was never offered: " +
+            "the action queue had room for 9.",
+            (string?)delta["queued"]);
+    }
+
+    /// <summary>
+    /// The one purchase refusal left. It used to answer "The game refused, and nothing it reports
+    /// explains why" — or worse, blame the caller's resources for a queue that had no room — which
+    /// was the worst answer in the verb.
+    /// </summary>
+    [Fact]
+    public void AFullActionQueueRefusesNamingTheQueueAndNotTheCallersPockets()
+    {
+        Assert.Equal(
+            "The game's action queue is full (10 of 10 slots used); nothing can be queued until " +
+            "something in it settles.",
+            GameMcpWorldQuery.ActionQueueFullReason(ActionQueueWorld(capacity: 10)));
+
+        var name = GameMcpActionResultCodeNames.Name(
+            AutoBuyActionResultCodes.ActionQueueFull, GameMcpCommandKind.Purchase);
+        Assert.Equal("queue_full", name);
+        Assert.Equal("ERR_LIMIT", GameMcpDecisionReason.Class(name));
+    }
+
+    private static GameWorldState ActionQueueWorld(int capacity)
+    {
+        var maximumId = Guid.Parse("f2000000-0000-0000-0000-0000000000aa");
+        return new GameWorldState
+        {
+            CollectedAtEpoch = 51,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+            ActionQueues = PublicationTable<WorldActionQueue>.Create(new[]
+            {
+                new WorldActionQueue(
+                    KnownEntities.ActiveActionables.Uuid, maximumId,
+                    slotCount: capacity, usedSlots: capacity, emptySlots: 0,
+                    hasEmptySlot: false, consistent: true),
+            }),
+            IntVariables = PublicationTable<WorldNumberVariable>.Create(new[]
+            {
+                new WorldNumberVariable(maximumId, new BigDouble(capacity), isPercent: false),
+            }),
+        };
+    }
+
+    /// <summary>
     /// These verbs promise "it queued and how many", and the commonest press of all — one level —
     /// used to answer a bare <c>yes</c>: the observation the sentinel had already made was spent on
     /// a word that says nothing, and a live round had to re-read the entity to learn what its own

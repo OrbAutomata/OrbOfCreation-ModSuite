@@ -152,10 +152,11 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
 #if SERVICE_CYCLE_PROFILE
     /// <summary>
     /// Executes one explicit strategist request through the same live native boundary as Auto Buy.
-    /// The request is not an automation decision, so only the worker's enable/selection policy is
-    /// omitted; ownership, lifecycle, queue reserve, identity, affordability, and mutation proof
-    /// remain mandatory below. Its count is a request the caller made rather than a plan the worker
-    /// hoped for, so it is honoured exactly or refused with the room that stopped it.
+    /// The request is not an automation decision, so no automation policy applies to it: neither the
+    /// worker's enable/selection dials nor the queue reserve it keeps for manual actions — this is
+    /// the manual action that reserve exists for. What remains mandatory is what the game itself
+    /// imposes: ownership, lifecycle, queue capacity, identity, affordability, and mutation proof.
+    /// Its count is honoured as far as the queue holds it; only a queue with no free slot refuses.
     /// </summary>
     internal ServiceActionResult TryExecuteGameMcp(
         in AutoBuyCycleAction action,
@@ -212,7 +213,12 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         // reserve rejects (penalty-free) and, being the first non-commit, cascade-terminates the
         // rest of the batch — correct, since nothing more fits. An unreadable room cannot prove the
         // reserve is honoured.
-        var reservedSlots = Math.Max(0, config.AutoBuy.LeaveQueueSlots);
+        // LeaveQueueSlots is Auto Buy's courtesy to the player: slots the automation keeps free FOR
+        // manual actions. Charging it to the manual verb refused the very action it exists to
+        // protect, so it is an automation policy and only the automated cycle honours it.
+        var reservedSlots = requireAutomationPolicy
+            ? Math.Max(0, config.AutoBuy.LeaveQueueSlots)
+            : 0;
         bool queueRoomReadable;
         int remainingRoom;
 #if SERVICE_CYCLE_PROFILE
@@ -239,6 +245,15 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         // which is a full queue rather than a broken contract; nought free slots is the answer.
         var freeSlots = Math.Max(0, remainingRoom);
 
+        // A queue with no free slot is the one purchase refusal a smaller ask does not fix, and it
+        // is a room problem: it carries its own code and its own ceiling of nought so nothing
+        // downstream can retell it as a resource shortfall.
+        if (freeSlots == 0)
+        {
+            LastSubmission = AutoBuyPurchaseSubmission.ActionQueueFull();
+            return ServiceActionResult.Rejected(AutoBuyActionResultCodes.ActionQueueFull);
+        }
+
         if (freeSlots <= reservedSlots)
         {
             return ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected);
@@ -249,23 +264,14 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         // above the reserve" does not mean this submission fits above it.
         var room = freeSlots - reservedSlots;
 
-        // A planned count and a requested count are not the same promise. The worker asks for what it
-        // hoped to get and takes what fits, so clamping its plan is the plan working. A caller naming
-        // an amount is saying what it wants to have happened, and quietly turning a thousand into one
-        // is an answer nothing can act on: it is indistinguishable from a satisfied amount=1. The
-        // room above the reserve is the ceiling this call has, so an over-ask leaves with that number
-        // instead of a level it never asked to be the whole delivery.
-        if (exactAmountRequested && action.Count > room)
-        {
-            LastSubmission = AutoBuyPurchaseSubmission.RejectedOverAsk(
-                room, AutoBuyPurchaseNarration.QueueRoomBelowRequest(room, reservedSlots));
-            return ServiceActionResult.Rejected(
-                AutoBuyActionResultCodes.QueueRoomBelowRequest);
-        }
-
-        // Clamp the plan to the room that is actually free above the reserve; the loop stops early on
-        // its own if fewer levels are affordable.
+        // Clamp to the room that is actually free above the reserve; the loop stops early on its own
+        // if fewer levels are affordable. The game's own buttons never refuse an over-ask either —
+        // they deliver what fits — and a refusal that delivered nothing was a worse answer than a
+        // partial one. What quietly turning a thousand into one cost the caller was the difference:
+        // an answer indistinguishable from a satisfied amount=1. So the difference is counted here
+        // and the settled answer says it on its own line.
         var levels = Math.Min(action.Count, room);
+        var withheldBySuite = exactAmountRequested ? action.Count - levels : 0;
 
         AutoBuyPurchaseSubmission submission;
         try
@@ -289,7 +295,9 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
 
-        LastSubmission = submission;
+        LastSubmission = withheldBySuite > 0
+            ? submission.WithSuiteWithheld(withheldBySuite)
+            : submission;
         if (!submission.Verified)
             Narrate(action.Kind, action.Uuid, submission);
         if (submission.Preflight == AutoBuyPurchasePreflight.NotAdmissible)
@@ -535,9 +543,9 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
                     : ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected);
             case AutoBuyPurchasePreflight.SingleBuyUnavailable:
                 return ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected);
-            case AutoBuyPurchasePreflight.QueueRoomBelowRequest:
+            case AutoBuyPurchasePreflight.ActionQueueFull:
                 return ServiceActionResult.Rejected(
-                    AutoBuyActionResultCodes.QueueRoomBelowRequest);
+                    AutoBuyActionResultCodes.ActionQueueFull);
             case AutoBuyPurchasePreflight.OwningViewUnavailable:
                 return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewUnavailable);
             case AutoBuyPurchasePreflight.OwningViewRelationMissing:
