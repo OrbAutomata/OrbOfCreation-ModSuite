@@ -2708,6 +2708,20 @@ AutoBuy setting applies to the manual verb, the queue slots Auto Buy reserves fo
 (`AutoBuy/LeaveQueueSlots`) included: reserving slots *for* manual actions and then refusing one is
 the contradiction that reserve exists to avoid.
 
+**The game's own half of a shortfall is explained too, with what the suite watched or can read and
+never with a guess.** An attribute group is driven one level at a time behind the game's own gates,
+so the suite saw which one shut and names it — `queued: 3 of 5 asked; the game took no more this
+press: the next level's cost is not met.`, or `… it no longer admits this purchase.` when the
+game's admission went shut mid-group. An upgrade multi-buy runs inside the game's own
+`Purchase()` loop, which breaks privately and reports only the delta, so no gate is named: the
+answer states what happened and adds the one fact still readable at the boundary, the price of the
+level after this press — `queued: 2 of 5 asked; the game took no more this press: the next level
+costs 1.2e3 Mana.` A price the boundary could not read is left out rather than guessed at, leaving
+`queued: 2 of 5 asked; the game took no more this press.` Where both halves cut the ask, both are
+said, in one line and without either claiming the other's reason: `queued: 4 of 10 asked; the game
+took no more this press: the next level's cost is not met, and 1 was never offered because the
+action queue had room for only 9.`
+
 The two kinds never mix in one number. A published bound quotes the control or it does not ship, and
 a schema ceiling is never folded into one: an
 agromancy `maximumAmount` is the game's remaining-instance count alone, never that count
