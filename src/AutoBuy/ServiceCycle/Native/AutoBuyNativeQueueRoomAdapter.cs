@@ -8,8 +8,9 @@ namespace OrbAutomata;
 /// Reads the live native action-queue room on the main thread at execution time. The worker does not
 /// bound its plan by the queue at all, and the room can change before an action runs (the player
 /// queued something manually, or an earlier action in this batch committed), so this is the only
-/// reading that decides admission: the action adapter re-reads it per submission to honour
-/// <c>LeaveQueueSlots</c>.
+/// reading that decides admission: the action adapter re-reads it per submission, to bound every
+/// press by the room the game actually has and to honour <c>LeaveQueueSlots</c> on the automated
+/// cycle that owns that reserve.
 /// </summary>
 /// <remarks>
 /// The reading is signed. The game's own upgrade button queues every level it bought without ever

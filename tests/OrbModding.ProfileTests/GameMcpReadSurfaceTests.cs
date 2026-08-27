@@ -768,7 +768,7 @@ public sealed class GameMcpWorldEnvelopeTests
     [Fact]
     public void WorldOverviewPublishesEachActionQueuesOccupancyUnderItsOwnName()
     {
-        var plotQueue = Guid.NewGuid();
+        var plotQueue = KnownEntities.ActivePlotNodeActions.Uuid;
         var maximumId = Guid.NewGuid();
         var slots = new[]
         {
@@ -807,11 +807,13 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.NotNull(queues);
         Assert.Equal(2, queues!.Count);
         Assert.Equal(GameMcpTestHarness.Handle(plotQueue), (string?)queues[0]["uuid"]);
+        Assert.Equal("ActivePlotNodeActions", (string?)queues[0]["name"]);
         Assert.Equal(1, (int?)queues[0]["usedSlots"]);
         Assert.Equal(2, (int?)queues[0]["capacity"]);
         Assert.Equal(
             GameMcpTestHarness.Handle(KnownEntities.ActiveActionables.Uuid),
             (string?)queues[1]["uuid"]);
+        Assert.Equal("Active Attributes", (string?)queues[1]["name"]);
         Assert.Equal(4, (int?)queues[1]["usedSlots"]);
         Assert.Equal(10, (int?)queues[1]["capacity"]);
         Assert.Equal(0, (int?)overview["running"]?["activeConceptAssignments"]);

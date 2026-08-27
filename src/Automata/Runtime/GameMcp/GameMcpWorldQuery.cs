@@ -170,6 +170,8 @@ internal static class GameMcpWorldQuery
             var row = new JObject
             {
                 ["uuid"] = queue.QueueId.ToString("D"),
+                ["name"] = EntityIdentityFormatter.PlayerName(
+                    queue.QueueId, world.EntityIdentities),
                 ["usedSlots"] = queue.UsedSlots,
             };
             if (queue.MaxQueuedItemsId != Guid.Empty &&
