@@ -439,6 +439,16 @@ counts, available views, visible plots, current action/spell/concept/plot occupa
 global casting dials — `castingDials.outputLevel` and `castingDials.reserveLevel` — with their
 purchased maximums. Exact rows remain in list/get/search.
 
+**`running.actionQueues` is one row per queue, not a count**, each carrying that queue's `uuid` and
+`name`, its `usedSlots`, and the `capacity` it is measured against. It was one unnamed number,
+`occupiedActionQueueSlots`, printed beside a queue count of two: it covered only the plot-action
+queue — the one whose slots are walked — and silently omitted the attribute and upgrade queue every
+`game_purchase` ceiling comes from, so a live round read `0` from it five times while asking about
+the other queue entirely. A number that answers for one queue and names none is worse than no
+number. The live room at the instant of a press is still a boundary reading, not this one:
+`game_probe probe=action_queue_room` answers that, with `entriesBeyondCapacity` beside it when the
+game's own upgrade button has stacked the queue past its maximum.
+
 **`ritualBattle` appears exactly while a ritual battle is running**, naming the ritual that is in it
 and, under `gates`, what the battle holds shut: no ritual can be activated and no ritual's starting
 level can be set while it runs, and no other decision on this surface is gated on it. Nothing
@@ -2544,7 +2554,7 @@ most, so an old code's new class can be looked up here:
 | `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `components_unavailable` |
 | `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
-| `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
+| `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
 | `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `research_leeway_exhausted`, `native_leeway_exhausted` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable` |
@@ -2597,6 +2607,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `amount_unavailable` | The exact amount asked for exceeds what this call admits, and a smaller amount is what fixes it. Carries `maximumAmount` | `game_research develop`, `game_concept`, `game_equipment`, `game_alchemy`, `game_agromancy` |
 | `not_active` | The target has nothing active to remove, so no amount succeeds. It used to share `amount_unavailable` with three refusals a smaller amount does fix | `game_agromancy` removes |
 | `automation_full` | Every automation slot on the queue is in use. Only a queue genuinely out of room answers this; an undiscovered recipe answers `hidden_or_undiscovered` | `world_get` crafting rows, `game_craft automate` |
+| `queue_full` | The game's queue has no free slot, so nothing this call asked for can be queued. Not `amount_unavailable`: that name promises a smaller amount fixes it, and none does. `game_purchase` carries `maximumAmount: 0` and names the queue's capacity | `game_purchase`, `game_craft`, `world_get` crafting rows |
 | `switch_blocked` | The game refuses a loadout swap right now (`LoadoutManager.CanSwapLoadouts()`) | `game_loadout select`, the `canSelect` read |
 | `saved_entry_unavailable` | A saved snapshot's stored entry cannot be restored | `game_loadout snapshot_save`, `game_loadout snapshot_load` |
 | `slot_empty` | The named snapshot slot holds nothing to load or clear | `game_loadout snapshot_load`, `game_loadout snapshot_clear` |
@@ -2685,12 +2696,17 @@ with "must be N or greater" rather than with an `int.MaxValue` placeholder print
 bound the game never chose. None of the declared ceilings is read from the game, none of them is a
 running budget, and none of them appears in any response. A value inside the schema bound is
 therefore not admitted yet: the action boundary re-reads the native bound and refuses with
-`amount_unavailable` and the live `maximumAmount` when the two disagree. `game_purchase`'s live
-bound is the game's own action queue, read at the boundary: an ask beyond the room it holds above
-the operator's reserve is refused with that room as `maximumAmount`, never clamped down to it. Auto
-Buy's planned batches still clamp, because a plan that takes what fits is the planner working — but
-a caller who names an amount is saying what it wants to have happened, and silently turning 1,000
-into 1 is indistinguishable from a satisfied `amount=1`.
+`amount_unavailable` and the live `maximumAmount` when the two disagree. `game_purchase` is the
+deliberate exception: its live bound is the game's own action queue, and the game's own buy buttons
+never refuse an over-ask — they take what fits. So does the verb. An ask larger than the queue's
+room delivers the room and says, on the settled answer's own line, how many levels it kept back and
+why: `queued: 9 of 10 asked; 1 was not taken because the action queue is full (10 of 10 slots
+used).` The shortfall is never silent — turning 1,000 into 1 without saying so is indistinguishable
+from a satisfied `amount=1`, which is the defect that sentence exists to close. Auto Buy's planned
+batches clamp the same way and say nothing, because nobody is waiting on an answer to a plan. No
+AutoBuy setting applies to the manual verb, the queue slots Auto Buy reserves for manual play
+(`AutoBuy/LeaveQueueSlots`) included: reserving slots *for* manual actions and then refusing one is
+the contradiction that reserve exists to avoid.
 
 The two kinds never mix in one number. A published bound quotes the control or it does not ship, and
 a schema ceiling is never folded into one: an
@@ -3829,7 +3845,10 @@ the spans are independent: an absent writer still answers what the last pass cos
 - `runtime`: current Unity scene/frame/time scale, lifecycle state, gameplay readiness, and Mods
   shell liveness;
 - `action_queue_room`: live `ActionManager.GetRemainingRoom()`, the native boundary answer that a
-  published occupancy snapshot cannot guarantee; and
+  published occupancy snapshot cannot guarantee. The game's own upgrade button queues every level it
+  bought without consulting the queue, so the reading goes negative from ordinary play; that is a
+  full queue rather than a broken contract, so `remainingRoom` answers `0` and
+  `entriesBeyondCapacity` names the overshoot beside it, appearing only when there is one; and
 - `navigation`: live tab and active-subtab counts, useful for diagnosing catalog availability.
 
 To add a probe, add one fixed name to the router schema and closed-world policy, implement its
