@@ -78,8 +78,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         {
             return SpellWorkbenchStagedLayout.Unavailable(
                 SpellWorkbenchPreflight.ContractUnavailable,
-                "The staged Spellcraft layout could not be read: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Magic > Spellbook", exception));
         }
     }
 
@@ -325,8 +324,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         {
             return SpellWorkbenchLoadPreview.Refused(
                 SpellWorkbenchPreflight.ContractUnavailable,
-                "Spell loadout preview failed while reading the live usage allocation: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Magic > Spellbook", ex));
         }
     }
 
@@ -455,10 +453,9 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             return FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
                 stage, NativeMutationOutcome.ExecutionThrew, nativeCalls,
                 restored
-                    ? "Loading the spell faulted without the requested exact layout: " +
-                        ex.GetBaseException().Message
-                    : "Loading the spell faulted and the player's own augment selection could " +
-                        "not be restored: " + ex.GetBaseException().Message);
+                    ? GameActionAnswer.GameErrored("Magic > Spellbook", ex)
+                    : "The augment selection you had staged could not be put back. " +
+                        GameActionAnswer.GameErrored("Magic > Spellbook", ex));
         }
     }
 
@@ -1123,8 +1120,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         catch (Exception ex) when (IsExpected(ex))
         {
             preflight = SpellWorkbenchPreflight.ContractUnavailable;
-            reason = "Spell workbench context could not be read: " +
-                ex.GetBaseException().Message;
+            reason = GameActionAnswer.CouldNotRead("Magic > Spellbook", ex);
             return false;
         }
     }

@@ -64,7 +64,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         {
             return AutoScribeSubmission.Reject(
                 AutoScribePreflight.ContractUnavailable,
-                "The live lifecycle could not be read: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Scholar > Scribe", ex));
         }
         if (liveLifecycle <= 0 || liveLifecycle != action.CollectedAtEpoch)
             return AutoScribeSubmission.Reject(
@@ -255,8 +255,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 stage,
                 NativeMutationOutcome.ExecutionThrew,
                 nativeCalls,
-                $"Auto Scribe native {stage} failed after payment began: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Scholar > Scribe", ex));
         }
     }
 
@@ -757,9 +756,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         }
         catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
         {
-            reason =
-                "Auto Scribe could not capture its CraftingQueueSubmission permit: " +
-                ex.GetBaseException().Message;
+            reason = GameActionAnswer.CouldNotRead("Scholar > Scribe", ex);
             return false;
         }
     }

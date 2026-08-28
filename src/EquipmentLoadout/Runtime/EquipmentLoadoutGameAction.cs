@@ -113,7 +113,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.LifecycleReplaced,
-                "The current lifecycle epoch could not be read: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Workshop > Artifacts", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.LifecycleReplaced,

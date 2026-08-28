@@ -122,7 +122,8 @@ internal sealed class ModalDismissGameAction : IDisposable
             ArgumentException or TargetInvocationException)
         {
             return Refused("contract_unavailable",
-                "The modal close control failed: " + exception.GetBaseException().Message);
+                "The modal close control failed." +
+                GameActionFaultLog.Record(exception, "the open modal"));
         }
     }
 
@@ -151,8 +152,8 @@ internal sealed class ModalDismissGameAction : IDisposable
         catch (Exception exception) when (exception is InvalidOperationException or
             ArgumentException or TargetInvocationException)
         {
-            reason = "The modal settled state could not be read: " +
-                exception.GetBaseException().Message;
+            reason = "The modal settled state could not be read." +
+                GameActionFaultLog.Record(exception, "the open modal");
             return false;
         }
     }
@@ -190,8 +191,8 @@ internal sealed class ModalDismissGameAction : IDisposable
         catch (Exception exception) when (exception is InvalidOperationException or
             ArgumentException or TargetInvocationException)
         {
-            reason = "The open modal titles could not be read: " +
-                exception.GetBaseException().Message;
+            reason = "The open modal titles could not be read." +
+                GameActionFaultLog.Record(exception, "the open modal");
             return false;
         }
     }

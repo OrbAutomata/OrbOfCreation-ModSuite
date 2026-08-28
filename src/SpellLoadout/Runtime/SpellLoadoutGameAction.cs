@@ -62,7 +62,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         {
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.LifecycleReplaced,
-                "The current lifecycle epoch could not be read: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Magic > Spellbook > Loadout", ex));
         }
         if (currentEpoch != action.LifecycleEpoch)
             return SpellLoadoutSubmission.Reject(
@@ -296,8 +296,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
                 stage,
                 NativeMutationOutcome.ExecutionThrew,
                 new NativeMutationCallOutcome(nativeCalls, 1, 0),
-                "The native reorder pipeline threw before the requested outcome was observable: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Magic > Spellbook > Loadout", ex));
         }
     }
 

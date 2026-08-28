@@ -266,9 +266,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
         }
         catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
         {
-            reason =
-                "Auto Items could not capture its consumable-use ownership permit: " +
-                ex.GetBaseException().Message;
+            reason = GameActionAnswer.CouldNotRead("Inventory", ex);
             return false;
         }
     }

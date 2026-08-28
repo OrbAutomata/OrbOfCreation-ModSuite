@@ -44,7 +44,7 @@ internal sealed class TargetingGameAction : IDisposable
         catch (Exception ex) when (Expected(ex))
         {
             return TargetingSubmission.Reject(TargetingPreflight.LifecycleReplaced,
-                "The live lifecycle could not be read: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Magic > Casting", ex));
         }
         if (epoch != action.LifecycleEpoch)
             return TargetingSubmission.Reject(TargetingPreflight.LifecycleReplaced,
@@ -157,7 +157,7 @@ internal sealed class TargetingGameAction : IDisposable
             return Fault(TargetingPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew, in action,
                 new NativeMutationCallOutcome(priorCalls + 1, 1, 0),
-                "SubmitTarget threw before the requested outcome was observable: " + ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Magic > Casting", ex));
         }
     }
 
@@ -189,7 +189,7 @@ internal sealed class TargetingGameAction : IDisposable
             return Fault(TargetingPreflight.PostCommitFault, TargetingNativeStage.Cancel,
                 NativeMutationOutcome.ExecutionThrew, in action,
                 new NativeMutationCallOutcome(1, 1, 0),
-                "Cancel threw before the requested outcome was observable: " + ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Magic > Casting", ex));
         }
     }
 

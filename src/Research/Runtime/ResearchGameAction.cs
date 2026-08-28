@@ -47,7 +47,7 @@ internal sealed class ResearchGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return ResearchSubmission.Reject(ResearchPreflight.LifecycleReplaced,
-                "The lifecycle epoch could not be read: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Scholar > Research", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return ResearchSubmission.Reject(ResearchPreflight.LifecycleReplaced,

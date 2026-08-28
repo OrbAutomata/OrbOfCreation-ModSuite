@@ -80,8 +80,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         {
             return GenericDiscoverySubmission.Reject(
                 GenericDiscoveryPreflight.LifecycleReplaced,
-                "The current lifecycle epoch could not be read: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("the discovery screen this is on", exception));
         }
         if (action.LifecycleEpoch != currentEpoch)
             return GenericDiscoverySubmission.Reject(
@@ -302,8 +301,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
                 stage,
                 NativeMutationOutcome.ExecutionThrew,
                 nativeCalls,
-                "Native generic discovery threw before the requested discovered outcome was observable: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("the discovery screen this is on", exception));
         }
     }
 
@@ -358,8 +356,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            reason = "The generic discovery mutation permit could not be captured: " +
-                exception.GetBaseException().Message;
+            reason = GameActionAnswer.CouldNotRead("the discovery screen this is on", exception);
             return false;
         }
     }

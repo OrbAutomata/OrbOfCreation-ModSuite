@@ -56,7 +56,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         {
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.LifecycleReplaced,
-                "The current lifecycle epoch could not be read: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("the screen this tree is drawn on", ex));
         }
         if (action.LifecycleEpoch != currentEpoch)
             return DiscoveryTreeOfferSubmission.Reject(
@@ -149,8 +149,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                 return Verified(nativeCalls, "The tree entered Crafting mode before the native exception.");
             return Fault(in action, DiscoveryTreeOfferPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew, nativeCalls,
-                "Native initiate threw before Crafting mode was observable: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("the screen this tree is drawn on", ex));
         }
     }
 
@@ -253,8 +252,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                 return Verified(nativeCalls, "The tree entered Crafting mode before the native exception.");
             return Fault(in action, DiscoveryTreeOfferPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew, nativeCalls,
-                "Native reroll threw before Crafting mode was observable: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("the screen this tree is drawn on", ex));
         }
     }
 
@@ -293,7 +291,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                 return Verified(1, $"The requested {action.Kind} transition landed before the native exception.");
             return Fault(in action, DiscoveryTreeOfferPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew, 1,
-                $"Native {action.Kind} threw before its requested transition was observable: {ex.GetBaseException().Message}");
+                GameActionAnswer.GameErrored("the screen this tree is drawn on", ex));
         }
     }
 
@@ -407,7 +405,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         }
         catch (Exception ex) when (IsExpected(ex))
         {
-            reason = "The Discovery Tree mutation permit could not be captured: " + ex.GetBaseException().Message;
+            reason = GameActionAnswer.CouldNotRead("the screen this tree is drawn on", ex);
             return false;
         }
     }

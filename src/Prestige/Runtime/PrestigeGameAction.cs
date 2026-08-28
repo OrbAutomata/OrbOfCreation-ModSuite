@@ -45,7 +45,7 @@ internal sealed class PrestigeGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return PrestigeSubmission.Reject(PrestigePreflight.LifecycleReplaced,
-                "The lifecycle epoch could not be read: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Time > Reset", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return PrestigeSubmission.Reject(PrestigePreflight.LifecycleReplaced,
@@ -121,8 +121,7 @@ internal sealed class PrestigeGameAction : IDisposable
                     "The lifecycle advanced before the native exception.");
             return Fault(PrestigePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native reset transaction threw before the lifecycle advanced: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Time > Reset", exception));
         }
     }
 

@@ -29,7 +29,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.LifecycleReplaced,
-                "The live lifecycle could not be read: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Scholar > Scribe", ex));
         }
         if (liveLifecycle <= 0 || liveLifecycle != action.LifecycleEpoch)
             return CraftingPlayerSubmission.Reject(
@@ -127,8 +127,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 CraftingPlayerNativeStage.Verification,
                 NativeMutationOutcome.AfterCaptureFailed,
                 1,
-                "The native craft-effect publication could not be read after Execute: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Scholar > Scribe", ex));
         }
         if (revisionAfter <= revisionBefore)
             return PlayerCraftingFault(
@@ -260,8 +259,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                     CraftingPlayerNativeStage.Verification,
                     NativeMutationOutcome.Verified,
                     new NativeMutationCallOutcome(calls, 1, 1),
-                    "The exact queued outcome was observed after native code threw: " +
-                    ex.GetBaseException().Message,
+                    "The exact queued outcome was observed after native code threw.",
                     existing is not null
                         ? CraftingPlayerPostcondition.InstanceQuantityIncreased
                         : instant
@@ -274,7 +272,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 stage,
                 NativeMutationOutcome.ExecutionThrew,
                 calls,
-                "Queued crafting failed after payment began: " + ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Scholar > Scribe", ex));
         }
     }
 

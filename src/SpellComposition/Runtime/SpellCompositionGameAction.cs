@@ -56,7 +56,7 @@ internal sealed class SpellCompositionGameAction : IDisposable
         {
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.LifecycleReplaced,
-                "The current lifecycle epoch could not be read: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Magic > Casting", ex));
         }
         if (currentEpoch != action.LifecycleEpoch)
             return SpellCompositionSubmission.Reject(
@@ -135,8 +135,7 @@ internal sealed class SpellCompositionGameAction : IDisposable
                 SpellCompositionPreflight.PostCommitFault,
                 SpellCompositionNativeStage.Dial,
                 NativeMutationOutcome.ExecutionThrew,
-                "The " + Name(action.Dial) + " setter threw before the requested outcome was observable: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Magic > Casting", ex));
         }
     }
 

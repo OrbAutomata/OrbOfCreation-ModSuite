@@ -52,7 +52,7 @@ internal sealed class ChallengeGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return ChallengeSubmission.Reject(ChallengePreflight.LifecycleReplaced,
-                "The lifecycle epoch could not be read: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Time > Challenges", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return ChallengeSubmission.Reject(ChallengePreflight.LifecycleReplaced,
@@ -181,8 +181,7 @@ internal sealed class ChallengeGameAction : IDisposable
                 return Verified();
             return Fault(in action, ChallengePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native challenge pipeline threw before the requested outcome was observable: " +
-                exception.GetBaseException().Message,
+                GameActionAnswer.GameErrored("Time > Challenges", exception),
                 SettledBudget(action.Kind, native, in context, in before));
         }
     }

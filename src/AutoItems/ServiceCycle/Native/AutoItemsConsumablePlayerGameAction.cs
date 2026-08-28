@@ -23,7 +23,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         {
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.LifecycleReplaced,
-                "The live lifecycle could not be read: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Inventory", ex));
         }
         if (liveLifecycle != action.LifecycleEpoch)
             return ConsumablePlayerSubmission.Reject(
@@ -273,8 +273,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
                     "The requested transition landed before the native exception.");
             return PlayerFault(in action, ConsumablePlayerPreflight.PostCommitFault,
                 stage, NativeMutationOutcome.ExecutionThrew, calls,
-                "The native pipeline threw before the requested transition was observable: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Inventory", ex));
         }
     }
 

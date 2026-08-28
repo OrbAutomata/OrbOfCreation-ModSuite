@@ -3154,8 +3154,8 @@ public sealed class Plugin : BaseUnityPlugin
                 command,
                 GameMcpCommandResult.Faulted(
                     "inline_screenshot_failed",
-                    "server defect: the end-of-frame screenshot did not finish: " +
-                    exception.GetBaseException().Message,
+                    "server defect: the end-of-frame screenshot did not finish." +
+                    GameActionFaultLog.Record(exception, "the screen being captured"),
                     observedLifecycleGeneration: _lifecycleGeneration,
                     observedConfigurationGeneration:
                         _configurationStore?.CurrentGeneration.Value ?? 0));

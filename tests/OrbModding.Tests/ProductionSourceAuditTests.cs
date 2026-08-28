@@ -208,6 +208,67 @@ public sealed class ProductionSourceAuditTests
             "act on: " + string.Join(", ", offenders));
     }
 
+    /// <summary>
+    /// No GameAction hands a caller the game's own .NET exception text.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A stack trace and a type name are the one thing a caller can do nothing with, so
+    /// <c>GameActionAnswer.CouldNotRead</c> and <c>GameErrored</c> take the exception and
+    /// <c>GameActionFaultLog</c> writes it to the suite log under a reference the sentence ends
+    /// with. The rule is mechanical because the alternative is remembering it: a new fault arm
+    /// that concatenates <c>GetBaseException().Message</c> onto its reason reads exactly like the
+    /// thirty-four that used to, and only a sweep tells the two apart.
+    /// </para>
+    /// <para>
+    /// One shape stays, and it is not an exemption granted to make this pass. A binding
+    /// composition failure's text is the suite's own — the binding helpers throw
+    /// <c>owner.Name + "." + name + " did not match."</c> — so it names the native member rather
+    /// than a runtime fault, and
+    /// <c>docs/development/mcp-tools.md</c> keeps that deliberately: a
+    /// <c>contract_unavailable</c> result is a defect report and the member is its subject.
+    /// It is recognised by the field it lands in, so a wire sentence cannot borrow it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void NoGameActionPutsTheGamesOwnExceptionTextOnTheWire()
+    {
+        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var offenders = new List<string>();
+        foreach (var path in Directory.EnumerateFiles(
+                     sourceRoot, "*GameAction.cs", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
+            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
+                relativePath.StartsWith("obj", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var lineNumber = 0;
+            var bindingFailureStatement = false;
+            foreach (var line in File.ReadLines(path))
+            {
+                lineNumber++;
+                if (line.Contains("_bindingFailure", StringComparison.Ordinal))
+                    bindingFailureStatement = true;
+                if (line.Contains("GetBaseException", StringComparison.Ordinal) &&
+                    !bindingFailureStatement)
+                {
+                    offenders.Add(relativePath + ":" + lineNumber);
+                }
+                if (line.TrimEnd().EndsWith(";", StringComparison.Ordinal))
+                    bindingFailureStatement = false;
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "A GameAction put the game's own exception text where a caller reads it; hand the " +
+            "exception to GameActionAnswer.CouldNotRead or GameErrored instead so it goes to the " +
+            "suite log under a reference: " + string.Join(", ", offenders));
+    }
+
     private static string FindRepositoryRoot()
     {
         foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })

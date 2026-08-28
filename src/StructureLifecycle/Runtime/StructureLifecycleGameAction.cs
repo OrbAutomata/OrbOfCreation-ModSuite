@@ -124,8 +124,7 @@ internal sealed class StructureLifecycleGameAction : IDisposable
             if (native.Disabled(structure) == expectedDisabled) return Verified();
             return Fault(in action, StructureLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native structure toggle threw before the requested enabled state was observable: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("the screen this structure is on", exception));
         }
     }
 
