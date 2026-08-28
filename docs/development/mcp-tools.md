@@ -454,7 +454,9 @@ minute, the number of years and `y` over one, and otherwise hours, minutes and s
 digits with leading empty units dropped: `07:41`, `02:07:41`. Nothing answered "how long has this
 taken me" before, so a round that wanted it diffed wall-clock stamps between its own calls and
 measured the session instead of the run. A world that has not published the variable carries no such
-key rather than a zero that would read as a run just begun.
+key rather than a zero that would read as a run just begun. The clock is not special-cased here: it
+is formatted by the flags the game sets on the variable, the same rule every duration on the wire
+follows — see *A duration is printed as one, wherever it appears*.
 
 **`running.actionQueues` is one row per queue, not a count**, each carrying that queue's `uuid` and
 `name`, its `usedSlots`, and the `capacity` it is measured against. It was one unnamed number,
@@ -812,6 +814,19 @@ taxonomies' list columns already name what their pages name — `structure-types
 A number variable's `isPercent` is on the page because reading `25` without it is reading the wrong
 number: the same row means twenty-five and twenty-five percent depending on one flag, and a round
 spent 22% of its whole wire re-fetching two hundred blocks to learn it per row.
+
+**A duration is printed as one, wherever it appears.** `isPercent` is one of three number kinds the
+game decides in `NumberVariable.GetValueDisplay()`, and the other two are the time flags:
+`isTimeVariable` with `isTimeAccurateVariable` is drawn through `Utils.BeautifyTimeUltraPrecise`
+(`45s`, `02:07:41`, `1.5y`), `isTimeVariable` alone through `Utils.BeautifyTimeAccurate` (`4.57s`,
+`45.7s`, `461s`, `128m` — the game compares a seconds value against millisecond-scale bounds, and
+the wire reproduces its arithmetic rather than correcting it). Both flags are captured, so a flagged
+variable's `value` crosses as the string the screen shows instead of its raw seconds count. Nine
+`DoubleVariable`s carry the flag on the pinned build — `TimePlayed`, `TimePlayedThisReset`,
+`TimeSinceLastPlayed`, and the six `Timer*` clocks — and every one of them used to read as a bare
+magnitude, which is a number no screen prints. `isPercent` still rides on the row beside it, and on
+the pinned build no flagged variable is also a percent one; were there ever one, the game's own
+order settles it — it tests the time flags first, and so does the wire.
 
 `research` says `state` and never a second `visible`, `available` or `complete` column, because
 `state` is derived from exactly those three; `paused` is the player's own saved switch on the entry,
