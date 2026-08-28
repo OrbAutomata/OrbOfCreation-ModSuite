@@ -63,15 +63,22 @@ public sealed class GameMcpTargetingTests
         Assert.Equal(new[] { "owner", "candidates" },
             row.Properties().Select(property => property.Name));
         Assert.Equal("Targeted effect", (string?)row["owner"]);
-        var candidates = row["candidates"]!.OfType<JObject>().ToArray();
+
+        // The candidate list is what `limit` and `offset` page, so it is a page: its rows, how many
+        // there are, and where to resume. Strongest effective level first, because that is the
+        // column the caller picks by.
+        var page = Assert.IsType<JObject>(row["candidates"]);
+        Assert.Equal(new[] { "rows", "total" }, page.Properties().Select(property => property.Name));
+        Assert.Equal(2, (int)page["total"]!);
+        var candidates = page["rows"]!.OfType<JObject>().ToArray();
         Assert.Equal(
-            new[] { GameMcpTestHarness.Handle(First), GameMcpTestHarness.Handle(Second) },
+            new[] { GameMcpTestHarness.Handle(Second), GameMcpTestHarness.Handle(First) },
             candidates.Select(candidate => (string?)candidate["uuid"]));
-        Assert.Equal(new[] { "Alchemic Ability", "Alchemic Command" },
+        Assert.Equal(new[] { "Alchemic Command", "Alchemic Ability" },
             candidates.Select(candidate => (string?)candidate["name"]));
-        Assert.Equal(3, (int)candidates[0]["level"]!);
+        Assert.Equal(7, (int)candidates[0]["level"]!);
         Assert.Equal(0, (int)candidates[0]["queuedLevels"]!);
-        Assert.Equal(5, (int)candidates[0]["effectiveLevel"]!);
+        Assert.Equal(7, (int)candidates[0]["effectiveLevel"]!);
 
         // The sum of built and building levels has no badge and no name on the wire.
         Assert.Null(candidates[0]["committedLevel"]);
@@ -83,6 +90,41 @@ public sealed class GameMcpTargetingTests
         Assert.Null(candidates[0]["reasonCode"]);
         Assert.Null(candidates[0]["reason"]);
         Assert.Null(row["cancel"]);
+    }
+
+    /// <summary>
+    /// One request is one row, so paging the rows could only ever hand back the same row or
+    /// nothing while the list a caller reads came back whole. <c>limit</c> and <c>offset</c> reach
+    /// the candidates, the page says how many there are and where to resume, and asking past the
+    /// last candidate answers with an empty page the way every other category does.
+    /// </summary>
+    [Fact]
+    public void Limit_and_offset_page_the_candidates_and_every_candidate_stays_reachable()
+    {
+        var context = GameMcpTestHarness.Context(World());
+        var first = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.ListRows(context, "targeting", 0, 1));
+        var second = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.ListRows(context, "targeting", 1, 1));
+        var past = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.ListRows(context, "targeting", 2, 1));
+
+        Assert.Equal(
+            new[]
+            {
+                "rows 1/1:",
+                "  owner: Targeted effect",
+                "  candidates 1/2 next=1",
+                "  [id | name | effectiveLevel | level | queuedLevels | available | position]",
+                "  " + GameMcpTestHarness.Handle(Second) + " | Alchemic Command | 7 | 7 | 0 | " +
+                "yes | 2",
+            },
+            GameMcpTextPage.Render(first).TrimEnd('\n').Split('\n'));
+        Assert.Equal(
+            GameMcpTestHarness.Handle(First),
+            (string?)second["rows"]![0]!["candidates"]!["rows"]![0]!["uuid"]);
+        Assert.Null(second["rows"]![0]!["candidates"]!["nextOffset"]);
+        Assert.Empty(past["rows"]!.Values<JObject>());
     }
 
     [Fact]

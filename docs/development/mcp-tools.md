@@ -2039,9 +2039,16 @@ payment, receipt, request echo, catalog join, or post-mutation read-back.
 
 `targeting` is the pre-decision surface for `game_targeting`. It is empty while no target request
 is pending, so the row's existence is that fact and there is no column repeating it. The row is two
-columns: the requesting effect, named the way the player sees it, and every eligible structure in
-native order. Each candidate is fully named and includes current committed/effective level,
-availability, and work-in-flight state — a locked candidate says `available: no` and stops there,
+columns: the requesting effect, named the way the player sees it, and the eligible structures,
+strongest `effectiveLevel` first because that is the column a caller picks by. **The candidate list
+is what `limit` and `offset` page**, not the rows: one request is one row, so paging the rows could
+only ever hand back the same row or nothing at all while a live round's 180 candidates came back
+whole — 8,216 bytes, the largest text payload of that round, to settle one choice. A caller who
+names no limit is handed 25, the page says `candidates 25/180 next=25`, every candidate stays
+reachable at the next offset, and an offset past the last candidate answers with an empty page the
+way every other category does. Each candidate is fully named and includes current
+committed/effective level, availability, and work-in-flight state — a locked candidate says
+`available: no` and stops there,
 because the row is not refusing anything. Whether a random pick would land is whether `candidates`
 holds anything, so no column restates it. Costs and affordability are absent because targeting
 spends no resource. The requesting object's native class and the class of the selection it opened

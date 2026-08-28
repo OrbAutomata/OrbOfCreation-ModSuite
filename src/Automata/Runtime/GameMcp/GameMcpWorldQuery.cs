@@ -17,6 +17,9 @@ namespace OrbAutomata.GameMcp;
 internal static class GameMcpWorldQuery
 {
     private const int DefaultPageSize = 50;
+
+    /// <summary>How many target candidates a caller who named no limit is handed.</summary>
+    private const int TargetingCandidatePageSize = 25;
     private const int MaximumPageSize = 200;
 
     /// <summary>
@@ -433,6 +436,8 @@ internal static class GameMcpWorldQuery
         var world = publication.Snapshot;
         if (string.Equals(category.Name, "mastery-experience", StringComparison.Ordinal))
             return MasteryExperienceSummary(publication, offset, limit);
+        if (string.Equals(category.Name, "targeting", StringComparison.Ordinal))
+            return TargetingPage(publication, category, offset, limit, limitFromCaller);
 
         var count = category.Count(world);
 
@@ -512,6 +517,45 @@ internal static class GameMcpWorldQuery
         result["total"] = total;
         var end = checked(offset + rows.Count);
         if (end < total) result["nextOffset"] = end;
+        return result;
+    }
+
+    /// <summary>
+    /// The pending target request, whose candidate list is the thing being paged.
+    /// </summary>
+    /// <remarks>
+    /// One request is one row, so paging the rows could only ever hand back the same single row or
+    /// nothing at all while the list a caller actually reads — 180 candidates, 8,216 bytes, the
+    /// largest text payload of a live round — came back whole every time to settle one choice.
+    /// <c>limit</c> and <c>offset</c> therefore reach the candidates, which is where the length is,
+    /// and every candidate stays reachable by asking for the next offset.
+    /// </remarks>
+    private static JObject TargetingPage(
+        WorldPublication<GameWorldState> publication,
+        GameMcpWorldCategory category,
+        int offset,
+        int limit,
+        bool limitFromCaller)
+    {
+        var world = publication.Snapshot;
+        var page = limitFromCaller ? limit : TargetingCandidatePageSize;
+        var count = category.Count(world);
+        var rows = new JArray();
+        for (var index = 0; index < count; index++)
+        {
+            if (category.Row(world, index) is not WorldTargetingRequest request) continue;
+            // Past the end of the candidates is past the end of the page, the way it is in every
+            // other category: a request whose candidates this offset has all gone by is not a row.
+            if (offset > 0 && offset >= request.Candidates.Count) continue;
+            rows.Add(ProjectListRow(world, category, request, offset, page));
+        }
+
+        var result = Envelope(publication);
+        if (rows.Count == 0) result["columns"] = ListColumns(category);
+        result["rows"] = rows;
+        // The outer page counts requests, which is what its rows are. How many candidates remain
+        // and where to resume them belong to the candidate page, and are said there.
+        result["total"] = count;
         return result;
     }
 
@@ -647,8 +691,14 @@ internal static class GameMcpWorldQuery
     private static GameMcpValue ProjectListRow(
         GameWorldState world,
         GameMcpWorldCategory category,
-        object row) =>
-        WithOwnIdentity(category, Declared(category, ProjectListRowFields(world, category, row)));
+        object row,
+        int nestedOffset = 0,
+        int nestedLimit = int.MaxValue) =>
+        WithOwnIdentity(
+            category,
+            Declared(
+                category,
+                ProjectListRowFields(world, category, row, nestedOffset, nestedLimit)));
 
     /// <summary>
     /// A hand-written projection answers to its category's declared column set. A category with no
@@ -687,7 +737,9 @@ internal static class GameMcpWorldQuery
     private static GameMcpValue ProjectListRowFields(
         GameWorldState world,
         GameMcpWorldCategory category,
-        object row)
+        object row,
+        int nestedOffset = 0,
+        int nestedLimit = int.MaxValue)
     {
         // The list row spells a level exactly as the row and the reference do: the badge the screen
         // shows, as the exact count it is rather than through the large-magnitude renderer, with
@@ -859,7 +911,7 @@ internal static class GameMcpWorldQuery
             return projected.Freeze();
         }
         if (row is WorldTargetingRequest targeting)
-            return ProjectTargeting(world, in targeting);
+            return ProjectTargeting(world, in targeting, nestedOffset, nestedLimit);
         // Two questions, two columns, and they used to share a name. `state` is how far the player
         // has come, the word every other category says it in; `run` is what this challenge's own
         // attempt did, which the game keeps in `ChallengeSO.state` and which never moves the
@@ -5210,7 +5262,7 @@ internal static class GameMcpWorldQuery
             : row is WorldSpellSlot spellSlot
             ? ProjectSpellSlot(world, in spellSlot)
             : row is WorldTargetingRequest targeting
-            ? ProjectTargeting(world, in targeting)
+            ? ProjectTargeting(world, in targeting, 0, int.MaxValue)
             : row is WorldConsumable consumable
             ? ProjectConsumable(world, in consumable)
             : row is WorldResearch research
@@ -6730,7 +6782,7 @@ internal static class GameMcpWorldQuery
         if (world.Targeting.Count > 0)
         {
             var request = world.Targeting[0];
-            result["targeting"] = ProjectTargeting(world, in request);
+            result["targeting"] = ProjectTargeting(world, in request, 0, int.MaxValue);
         }
         return result.Freeze();
     }
@@ -6759,14 +6811,25 @@ internal static class GameMcpWorldQuery
     /// </para>
     /// </remarks>
     private static GameMcpValue ProjectTargeting(
-        GameWorldState world, in WorldTargetingRequest request)
+        GameWorldState world,
+        in WorldTargetingRequest request,
+        int offset,
+        int limit)
     {
-        var candidates = new JArray();
-        for (var index = 0; index < request.Candidates.Count; index++)
+        var order = CandidatesByEffectiveLevel(world, in request);
+        var rows = new JArray();
+        for (var index = offset; index < order.Count && rows.Count < limit; index++)
         {
-            var candidate = request.Candidates[index];
-            candidates.Add(ProjectTargetCandidate(world, candidate.StructureId, candidate.Position));
+            var candidate = request.Candidates[order[index]];
+            rows.Add(ProjectTargetCandidate(world, candidate.StructureId, candidate.Position));
         }
+        var candidates = new JObject
+        {
+            ["rows"] = rows,
+            ["total"] = order.Count,
+        };
+        var end = offset + rows.Count;
+        if (end < order.Count) candidates["nextOffset"] = end;
         return new JObject
         {
             ["owner"] = request.OwnerName,
@@ -6774,25 +6837,57 @@ internal static class GameMcpWorldQuery
         }.Freeze();
     }
 
+    /// <summary>
+    /// The candidate order the caller chooses by: strongest effective level first, and the game's
+    /// own order among candidates no published structure row covers.
+    /// </summary>
+    private static List<int> CandidatesByEffectiveLevel(
+        GameWorldState world, in WorldTargetingRequest request)
+    {
+        var order = new List<int>(request.Candidates.Count);
+        var levels = new List<BigDouble>(request.Candidates.Count);
+        for (var index = 0; index < request.Candidates.Count; index++)
+        {
+            var level = BigDouble.Zero;
+            var id = request.Candidates[index].StructureId;
+            for (var structureIndex = 0; structureIndex < world.Structures.Count; structureIndex++)
+            {
+                var structure = world.Structures[structureIndex];
+                if (structure.EntityId != id) continue;
+                level = structure.EffectiveLevel;
+                break;
+            }
+            levels.Add(level);
+            // Insertion sort keeps candidates the world publishes no level for in the order the
+            // game listed them, and the list is one screen's worth of tiles.
+            var slot = order.Count;
+            while (slot > 0 && levels[order[slot - 1]] < level) slot--;
+            order.Insert(slot, index);
+        }
+        return order;
+    }
+
     private static GameMcpValue ProjectTargetCandidate(GameWorldState world, Guid id, int position)
     {
         var identity = EntityIdentityFormatter.Describe(id, world.EntityIdentities);
         var result = new JObject { ["uuid"] = id.ToString("D") };
         if (identity.HasName) result["name"] = identity.Name;
-        if (position >= 0) result["position"] = GameMcpSlotNumbering.Wire(position);
         for (var index = 0; index < world.Structures.Count; index++)
         {
             var structure = world.Structures[index];
             if (structure.EntityId != id) continue;
-            // The two counts the attribute's own badge owns, under the names every other surface
-            // uses for them. Their sum has no badge, and a separate work-in-flight flag only
-            // restates a queue the caller can already read.
+            // The column the caller ranks by leads: this list is read to pick the strongest
+            // candidate, and the number that decides it used to sit last behind three that do not.
+            // The two counts under it are the ones the attribute's own badge owns, under the names
+            // every other surface uses for them. Their sum has no badge, and a separate
+            // work-in-flight flag only restates a queue the caller can already read.
+            result["effectiveLevel"] = structure.EffectiveLevel;
             result["level"] = structure.Reading.Level.ToInt();
             result["queuedLevels"] = structure.Reading.QueuedLevels.ToInt();
-            result["effectiveLevel"] = structure.EffectiveLevel;
             result["available"] = structure.Reading.Unlocked;
             break;
         }
+        if (position >= 0) result["position"] = GameMcpSlotNumbering.Wire(position);
         return result.Freeze();
     }
 

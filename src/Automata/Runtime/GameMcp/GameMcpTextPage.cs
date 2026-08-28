@@ -301,6 +301,21 @@ internal static class GameMcpTextPage
                     said.Leave(outer);
                     return;
                 }
+                // A page under a key is that key's page. Naming the envelope as well would spend a
+                // line and an indent level saying the key twice.
+                if (TryNestedPage(nested, out var pageRows, out var pageTotal, out var pageNext))
+                {
+                    WriteArray(
+                        name,
+                        pageRows,
+                        TableSuffix(pageRows, pageTotal, pageNext),
+                        Declared(nested),
+                        indent,
+                        lines,
+                        said);
+                    said.Leave(outer);
+                    return;
+                }
                 var inline = TryInline(nested, InlineBudget, said);
                 if (inline is not null)
                 {
@@ -335,6 +350,36 @@ internal static class GameMcpTextPage
             }
         }
     }
+
+    /// <summary>
+    /// A page sitting under a key: its rows, and the count and resume offset that describe them.
+    /// </summary>
+    /// <remarks>
+    /// Narrow on purpose. Only an object holding a row array and nothing besides the three keys
+    /// that page it is one of these; a block that happens to carry a list — a load budget and its
+    /// usage rows — has facts of its own and stays a block.
+    /// </remarks>
+    private static bool TryNestedPage(
+        JObject item,
+        out JArray rows,
+        out JToken? total,
+        out JToken? nextOffset)
+    {
+        rows = EmptyRows;
+        total = item["total"];
+        nextOffset = item["nextOffset"];
+        if (total is null && nextOffset is null) return false;
+        if (TableProperty(item) is not { } page || item[page] is not JArray found) return false;
+        foreach (var property in item.Properties())
+        {
+            if (property.Name == page) continue;
+            if (property.Name is not ("total" or "nextOffset" or "columns")) return false;
+        }
+        rows = found;
+        return true;
+    }
+
+    private static readonly JArray EmptyRows = new();
 
     private static bool IsPredicates(string name) =>
         string.Equals(name, "predicates", StringComparison.Ordinal);
