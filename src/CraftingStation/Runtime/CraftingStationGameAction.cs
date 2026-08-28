@@ -43,7 +43,7 @@ internal sealed class CraftingStationGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return Reject(CraftingStationPreflight.WrongThread,
-                "Brewing Station controls are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(CraftingStationPreflight.ContractUnavailable, _bindingFailure);
 
@@ -57,7 +57,7 @@ internal sealed class CraftingStationGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(CraftingStationPreflight.LifecycleReplaced,
-                "The submitted game lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -135,8 +135,7 @@ internal sealed class CraftingStationGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(CraftingStationPreflight.ContractUnavailable,
-                "Brewing Station preflight failed before mutation: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Workshop > Crafting"));
         }
     }
 
@@ -188,15 +187,14 @@ internal sealed class CraftingStationGameAction : IDisposable
                 ? Verified()
                 : Fault(in action, CraftingStationPreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
-                    "The requested Brewing Station transition was not observable.");
+                    GameActionAnswer.ChangeNotSeen("Workshop > Crafting"));
         }
         catch (Exception exception) when (IsExpected(exception))
         {
             if (OutcomeObserved(in action, native, station)) return Verified();
             return Fault(in action, CraftingStationPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native Brewing Station callback threw before the requested transition was observable: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Workshop > Crafting"));
         }
     }
 

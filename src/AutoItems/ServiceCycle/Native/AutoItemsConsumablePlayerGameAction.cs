@@ -11,7 +11,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.WrongThread,
-                "Consumable actions are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_playerBindings is not { } native)
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.ContractUnavailable,
@@ -30,8 +30,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         if (liveLifecycle != action.LifecycleEpoch)
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.LifecycleReplaced,
-                "Action lifecycle " + action.LifecycleEpoch +
-                " is stale; live lifecycle is " + liveLifecycle + ".");
+                GameActionAnswer.RunChanged());
 
         var resolution = _registryResolver.Resolve(action.ConsumableId, native.ConsumableType);
         if (!resolution.IsResolved)
@@ -57,7 +56,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         {
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.ContractUnavailable,
-                "Consumable preflight failed before mutation: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Inventory"));
         }
     }
 

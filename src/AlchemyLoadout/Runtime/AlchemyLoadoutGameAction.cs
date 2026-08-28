@@ -113,7 +113,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return Reject(AlchemyLoadoutPreflight.WrongThread,
-                "Ordinary alchemy is bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(AlchemyLoadoutPreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -125,7 +125,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(AlchemyLoadoutPreflight.LifecycleReplaced,
-                "The submitted game lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -134,7 +134,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
             var resolution = _registry.Resolve(action.RecipeId, native.RecipeType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
                 return Reject(AlchemyLoadoutPreflight.IdentityUnavailable,
-                    resolution.IsResolved ? "The alchemy recipe resolution became stale." : resolution.Reason);
+                    resolution.IsResolved ? GameActionAnswer.Replaced("alchemy recipe") : resolution.Reason);
             var recipe = resolution.Value!;
             var classification = _classifier.ClassifyRecipe(recipe);
             if (!classification.IsMutationGrade ||
@@ -194,7 +194,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(AlchemyLoadoutPreflight.ContractUnavailable,
-                "Ordinary Alchemy preflight failed before mutation: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Alchemy"));
         }
     }
 
@@ -228,7 +228,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
                 ? Verified()
                 : Fault(in action, AlchemyLoadoutPreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
-                    "The requested Alchemy list transition was not observable.");
+                    GameActionAnswer.ChangeNotSeen("Alchemy"));
         }
         catch (Exception exception) when (IsExpected(exception))
         {
@@ -236,8 +236,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
                 return Verified();
             return Fault(in action, AlchemyLoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native Alchemy callback threw before the requested transition was observable: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Alchemy"));
         }
     }
 

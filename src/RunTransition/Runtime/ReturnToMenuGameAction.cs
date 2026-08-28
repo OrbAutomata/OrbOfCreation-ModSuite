@@ -46,7 +46,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return Reject(ReturnToMenuPreflight.WrongThread,
-                "Back to Main Menu is bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(ReturnToMenuPreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -58,7 +58,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(ReturnToMenuPreflight.LifecycleReplaced,
-                "The submitted game lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -160,8 +160,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
             if (native.FlashActive(flash)) return Verified(pressed, openedPanel);
             return Fault(ReturnToMenuPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native Back to Main Menu callback threw before the screen transition started: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("the game's own screen"));
         }
     }
 

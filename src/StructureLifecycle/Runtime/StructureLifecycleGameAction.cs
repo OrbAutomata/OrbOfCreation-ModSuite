@@ -44,7 +44,7 @@ internal sealed class StructureLifecycleGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return Reject(StructureLifecyclePreflight.WrongThread,
-                "Structure controls are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(StructureLifecyclePreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -56,7 +56,7 @@ internal sealed class StructureLifecycleGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(StructureLifecyclePreflight.LifecycleReplaced,
-                "The submitted game lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -84,8 +84,7 @@ internal sealed class StructureLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(StructureLifecyclePreflight.ContractUnavailable,
-                "Structure preflight failed before mutation: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("the screen this structure is on"));
         }
     }
 
@@ -117,7 +116,7 @@ internal sealed class StructureLifecycleGameAction : IDisposable
                 ? Verified()
                 : Fault(in action, StructureLifecyclePreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
-                    "The requested enabled state was not observable.");
+                    GameActionAnswer.ChangeNotSeen("the screen this structure is on"));
         }
         catch (Exception exception) when (IsExpected(exception))
         {

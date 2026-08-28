@@ -36,7 +36,7 @@ internal sealed class PrestigeGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return PrestigeSubmission.Reject(PrestigePreflight.WrongThread,
-                "Prestige is bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -48,7 +48,7 @@ internal sealed class PrestigeGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return PrestigeSubmission.Reject(PrestigePreflight.LifecycleReplaced,
-                "The submitted lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -72,7 +72,7 @@ internal sealed class PrestigeGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable,
-                "Prestige preflight failed before mutation: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Time > Reset"));
         }
     }
 

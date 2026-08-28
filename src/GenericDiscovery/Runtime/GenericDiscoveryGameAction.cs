@@ -65,8 +65,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return GenericDiscoverySubmission.Reject(
                 GenericDiscoveryPreflight.WrongThread,
-                "Generic discovery is bound to Unity thread " + _mainThreadId +
-                ", not thread " + Environment.CurrentManagedThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return GenericDiscoverySubmission.Reject(
                 GenericDiscoveryPreflight.ContractUnavailable,
@@ -89,8 +88,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         if (action.LifecycleEpoch != currentEpoch)
             return GenericDiscoverySubmission.Reject(
                 GenericDiscoveryPreflight.LifecycleReplaced,
-                "Action lifecycle " + action.LifecycleEpoch +
-                " is stale; the live lifecycle is " + currentEpoch + ".");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -104,7 +102,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
                 return GenericDiscoverySubmission.Reject(
                     GenericDiscoveryPreflight.IdentityUnavailable,
                     resolution.IsResolved
-                        ? "The typed registry resolution became stale before discovery admission."
+                        ? GameActionAnswer.Replaced("discovery")
                         : resolution.Reason);
             var target = resolution.Value!;
             if (!native.DiscoverableType.IsInstanceOfType(target))
@@ -160,8 +158,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         {
             return GenericDiscoverySubmission.Reject(
                 GenericDiscoveryPreflight.ContractUnavailable,
-                "Generic discovery preflight failed before mutation: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("the discovery screen this is on"));
         }
     }
 

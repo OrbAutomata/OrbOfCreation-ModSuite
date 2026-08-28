@@ -45,7 +45,7 @@ internal sealed class LoadoutGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return Reject(LoadoutPreflight.WrongThread,
-                "Loadout controls are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(LoadoutPreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -57,7 +57,7 @@ internal sealed class LoadoutGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(LoadoutPreflight.LifecycleReplaced,
-                "The submitted game lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -140,7 +140,7 @@ internal sealed class LoadoutGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(LoadoutPreflight.ContractUnavailable,
-                "Loadout preflight failed before mutation: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Workshop > Artifacts and Alchemy"));
         }
     }
 
@@ -250,7 +250,7 @@ internal sealed class LoadoutGameAction : IDisposable
                 ? Verified()
                 : Fault(in action, LoadoutPreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
-                    "The requested loadout transition was not observable.");
+                    GameActionAnswer.ChangeNotSeen("Workshop > Artifacts and Alchemy"));
         }
         catch (Exception exception) when (IsExpected(exception))
         {
@@ -258,8 +258,7 @@ internal sealed class LoadoutGameAction : IDisposable
                     alchemySnapshot, expectedIndex)) return Verified();
             return Fault(in action, LoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native loadout callback threw before the requested transition was observable: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Workshop > Artifacts and Alchemy"));
         }
     }
 

@@ -50,8 +50,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.WrongThread,
-                "Spell loadout actions are bound to Unity thread " + _mainThreadId +
-                ", not thread " + Environment.CurrentManagedThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.ContractUnavailable,
@@ -70,8 +69,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (currentEpoch != action.LifecycleEpoch)
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.LifecycleReplaced,
-                "Action lifecycle " + action.LifecycleEpoch +
-                " is stale; the live lifecycle is " + currentEpoch + ".");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -88,7 +86,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         {
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.ContractUnavailable,
-                "Spell loadout preflight failed before mutation: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Magic > Spellbook > Loadout"));
         }
     }
 

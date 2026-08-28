@@ -12,7 +12,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.WrongThread,
-                "Crafting actions are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_playerBindings is not { } native)
             return CraftingPlayerSubmission.Reject(
                 in action,
@@ -37,8 +37,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.LifecycleReplaced,
-                "Action lifecycle " + action.LifecycleEpoch +
-                " is stale; live lifecycle is " + liveLifecycle + ".");
+                GameActionAnswer.RunChanged());
 
         var resolution = _registry.Resolve(action.RecipeId, native.RecipeType);
         if (!resolution.IsResolved)
@@ -68,7 +67,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.ContractUnavailable,
-                "Crafting preflight failed before mutation: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Scholar > Scribe"));
         }
     }
 

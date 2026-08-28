@@ -48,7 +48,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return Reject(RitualLifecyclePreflight.WrongThread,
-                "Ritual controls are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(RitualLifecyclePreflight.ContractUnavailable, _bindingFailure);
 
@@ -62,7 +62,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(RitualLifecyclePreflight.LifecycleReplaced,
-                "The submitted game lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -70,7 +70,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
                 return Reject(RitualLifecyclePreflight.IdentityUnavailable,
                     resolution.IsResolved
-                        ? "The ritual resolution became stale."
+                        ? GameActionAnswer.Replaced("ritual")
                         : resolution.Reason);
             var ritual = resolution.Value!;
             if (!native.IsDiscovered(ritual))
@@ -163,8 +163,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(RitualLifecyclePreflight.ContractUnavailable,
-                "Ritual preflight failed before mutation: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Rituals"));
         }
     }
 
@@ -266,15 +265,14 @@ internal sealed class RitualLifecycleGameAction : IDisposable
                 ? Verified()
                 : Fault(in action, RitualLifecyclePreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
-                    "The requested Ritual transition was not observable.");
+                    GameActionAnswer.ChangeNotSeen("Rituals"));
         }
         catch (Exception exception) when (IsExpected(exception))
         {
             if (OutcomeObserved(in action, native, battle, selected, ritual)) return Verified();
             return Fault(in action, RitualLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native Ritual callback threw before the requested transition was observable: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Rituals"));
         }
     }
 

@@ -44,7 +44,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return Reject(PlotLifecyclePreflight.WrongThread,
-                "Plot controls are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(PlotLifecyclePreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -56,7 +56,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(PlotLifecyclePreflight.LifecycleReplaced,
-                "The submitted game lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -89,7 +89,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(PlotLifecyclePreflight.ContractUnavailable,
-                "Plot preflight failed before mutation: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("World > Agromancy"));
         }
     }
 
@@ -177,7 +177,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
                 ? Verified(before, after)
                 : Fault(in action, PlotLifecyclePreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
-                    "The requested plot-action quantity change was not observable.");
+                    GameActionAnswer.ChangeNotSeen("World > Agromancy"));
         }
         catch (Exception exception) when (IsExpected(exception))
         {
@@ -185,8 +185,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
             if (OutcomeObserved(in action, before, after)) return Verified(before, after);
             return Fault(in action, PlotLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native plot callback threw before the requested quantity change was observable: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("World > Agromancy"));
         }
     }
 

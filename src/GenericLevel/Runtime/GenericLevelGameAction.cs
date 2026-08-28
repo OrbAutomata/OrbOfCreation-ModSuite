@@ -47,7 +47,7 @@ internal sealed class GenericLevelGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return Reject(GenericLevelPreflight.WrongThread,
-                "Level controls are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(GenericLevelPreflight.ContractUnavailable, _bindingFailure);
 
@@ -61,7 +61,7 @@ internal sealed class GenericLevelGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(GenericLevelPreflight.LifecycleReplaced,
-                "The submitted game lifecycle is stale.");
+                GameActionAnswer.RunChanged());
         if (!native.TryTarget(action.NativeType, out var targetBinding))
             return Reject(GenericLevelPreflight.WrongDomain,
                 action.NativeType is "ResearchSO" or "SpellRecipeSO"
@@ -74,7 +74,7 @@ internal sealed class GenericLevelGameAction : IDisposable
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
                 return Reject(GenericLevelPreflight.IdentityUnavailable,
                     resolution.IsResolved
-                        ? "The level target resolution became stale."
+                        ? GameActionAnswer.Replaced("level target")
                         : resolution.Reason);
             var target = resolution.Value!;
             var admission = Admit(in action, native, targetBinding, target);
@@ -87,8 +87,7 @@ internal sealed class GenericLevelGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(GenericLevelPreflight.ContractUnavailable,
-                "Level preflight failed before mutation: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("the screen this is levelled on"));
         }
     }
 
@@ -198,8 +197,7 @@ internal sealed class GenericLevelGameAction : IDisposable
             if (Current(in action, binding, target) > before) return Verified();
             return Fault(in action, GenericLevelPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native level callback threw before the requested level increased: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("the screen this is levelled on"));
         }
     }
 

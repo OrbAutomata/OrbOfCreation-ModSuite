@@ -35,7 +35,7 @@ internal sealed class TargetingGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return TargetingSubmission.Reject(TargetingPreflight.WrongThread,
-                "Targeting actions are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return TargetingSubmission.Reject(TargetingPreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -47,7 +47,7 @@ internal sealed class TargetingGameAction : IDisposable
         }
         if (epoch != action.LifecycleEpoch)
             return TargetingSubmission.Reject(TargetingPreflight.LifecycleReplaced,
-                "Action lifecycle " + action.LifecycleEpoch + " is stale; live lifecycle is " + epoch + ".");
+                GameActionAnswer.RunChanged());
         try
         {
             if (!native.IsTargeting())
@@ -68,7 +68,7 @@ internal sealed class TargetingGameAction : IDisposable
         catch (Exception ex) when (Expected(ex))
         {
             return TargetingSubmission.Reject(TargetingPreflight.ContractUnavailable,
-                "Targeting preflight failed before mutation: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Magic > Casting"));
         }
     }
 

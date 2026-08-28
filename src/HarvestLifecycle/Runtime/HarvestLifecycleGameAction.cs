@@ -45,7 +45,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return Reject(HarvestLifecyclePreflight.WrongThread,
-                "Harvest controls are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(HarvestLifecyclePreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -57,7 +57,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(HarvestLifecyclePreflight.LifecycleReplaced,
-                "The submitted game lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -106,8 +106,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(HarvestLifecyclePreflight.ContractUnavailable,
-                "Harvest preflight failed before mutation: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("World > Agromancy"));
         }
     }
 
@@ -240,7 +239,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
                 ? Verified()
                 : Fault(in action, HarvestLifecyclePreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
-                    "The requested harvest-list transition was not observable.");
+                    GameActionAnswer.ChangeNotSeen("World > Agromancy"));
         }
         catch (Exception exception) when (IsExpected(exception))
         {
@@ -248,8 +247,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
                     prototype, before)) return Verified();
             return Fault(in action, HarvestLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native harvest callback threw before the requested transition was observable: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("World > Agromancy"));
         }
     }
 

@@ -38,7 +38,7 @@ internal sealed class ResearchGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return ResearchSubmission.Reject(ResearchPreflight.WrongThread,
-                "Research actions are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return ResearchSubmission.Reject(ResearchPreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -50,13 +50,13 @@ internal sealed class ResearchGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return ResearchSubmission.Reject(ResearchPreflight.LifecycleReplaced,
-                "The submitted lifecycle is stale.");
+                GameActionAnswer.RunChanged());
         try
         {
             var resolution = _registry.Resolve(action.TargetId, native.ResearchType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
                 return ResearchSubmission.Reject(ResearchPreflight.IdentityUnavailable,
-                    resolution.IsResolved ? "The research resolution became stale." : resolution.Reason);
+                    resolution.IsResolved ? GameActionAnswer.Replaced("research") : resolution.Reason);
             var target = resolution.Value!;
             var before = Capture(native, target, action.Amount);
             var preflight = Preflight(action.Kind, in before, out var reason);
@@ -81,7 +81,7 @@ internal sealed class ResearchGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return ResearchSubmission.Reject(ResearchPreflight.ContractUnavailable,
-                "Research preflight failed before mutation: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Scholar > Research"));
         }
     }
 
@@ -111,8 +111,7 @@ internal sealed class ResearchGameAction : IDisposable
                 return Verified();
             return Fault(in action, ResearchPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native research callback threw before the requested outcome was observable: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Scholar > Research"));
         }
     }
 

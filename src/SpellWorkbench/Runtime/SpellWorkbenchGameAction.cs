@@ -288,7 +288,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         catch (Exception ex) when (IsExpected(ex))
         {
             return SpellWorkbenchSubmission.Reject(SpellWorkbenchPreflight.ContractUnavailable,
-                "Spell workbench preflight failed before mutation: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Magic > Spellbook"));
         }
     }
 
@@ -691,7 +691,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
             {
                 reason = resolution.IsResolved
-                    ? "The glyph registry resolution became stale."
+                    ? GameActionAnswer.Replaced("glyph")
                     : resolution.Reason;
                 return false;
             }
@@ -1085,8 +1085,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         if (Environment.CurrentManagedThreadId != _mainThreadId)
         {
             preflight = SpellWorkbenchPreflight.WrongThread;
-            reason = "Spell workbench reads and actions are bound to Unity thread " +
-                _mainThreadId + ", not thread " + Environment.CurrentManagedThreadId + ".";
+            reason = GameActionAnswer.SuiteStopped();
             return false;
         }
         if (_bindings is not { } available)
@@ -1104,8 +1103,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             if (currentEpoch != requestedEpoch)
             {
                 preflight = SpellWorkbenchPreflight.LifecycleReplaced;
-                reason = "Requested lifecycle " + requestedEpoch +
-                    " is stale; the live lifecycle is " + currentEpoch + ".";
+                reason = GameActionAnswer.RunChanged();
                 return false;
             }
             manager = native.ReadManager()!;

@@ -49,7 +49,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return Reject(CraftingInstanceLifecyclePreflight.WrongThread,
-                "Crafting controls are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(CraftingInstanceLifecyclePreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -62,14 +62,14 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(CraftingInstanceLifecyclePreflight.LifecycleReplaced,
-                "The submitted game lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
             var resolution = _registry.Resolve(action.RecipeId, native.RecipeType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
                 return Reject(CraftingInstanceLifecyclePreflight.IdentityUnavailable,
-                    resolution.IsResolved ? "The recipe resolution became stale." : resolution.Reason);
+                    resolution.IsResolved ? GameActionAnswer.Replaced("recipe") : resolution.Reason);
             var recipe = resolution.Value!;
             if (!TryResolvePage(native, recipe, out var page, out var pageReason))
                 return Reject(CraftingInstanceLifecyclePreflight.PageRelationAmbiguous, pageReason);
@@ -86,8 +86,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(CraftingInstanceLifecyclePreflight.ContractUnavailable,
-                "Crafting preflight failed before mutation: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Workshop > Crafting"));
         }
     }
 
@@ -201,7 +200,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                 ? Verified()
                 : Fault(in action, CraftingInstanceLifecyclePreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
-                    "The requested crafting-instance transition was not observable.",
+                    GameActionAnswer.ChangeNotSeen("Workshop > Crafting"),
                     SideEffect(in action, native, instance, before));
         }
         catch (Exception exception) when (IsExpected(exception))
@@ -210,8 +209,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                 return Verified();
             return Fault(in action, CraftingInstanceLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native crafting callback threw before the requested transition was observable: " +
-                exception.GetBaseException().Message,
+                GameActionAnswer.GameErrored("Workshop > Crafting"),
                 SideEffect(in action, native, instance, before));
         }
     }

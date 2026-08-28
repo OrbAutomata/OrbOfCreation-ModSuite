@@ -104,7 +104,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.WrongThread,
-                "Equipment loadout is bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -116,14 +116,14 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.LifecycleReplaced,
-                "The submitted lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
             var resolution = _registry.Resolve(action.TargetId, native.EquipmentType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
                 return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.IdentityUnavailable,
-                    resolution.IsResolved ? "The equipment resolution became stale." : resolution.Reason);
+                    resolution.IsResolved ? GameActionAnswer.Replaced("artifact") : resolution.Reason);
             var target = resolution.Value!;
             if (!native.IsCreated(target))
                 return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.NotCreated,
@@ -188,7 +188,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
-                "Equipment loadout preflight failed before mutation: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Workshop > Artifacts"));
         }
     }
 
@@ -230,8 +230,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
                 return Verified();
             return Fault(in action, EquipmentLoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                "The native equipment callback threw before the requested target outcome was observable: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Workshop > Artifacts"));
         }
     }
 

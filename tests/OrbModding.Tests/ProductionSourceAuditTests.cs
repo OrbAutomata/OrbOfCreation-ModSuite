@@ -96,6 +96,59 @@ public sealed class ProductionSourceAuditTests
             "diagnostic triple for logs: " + string.Join(", ", offenders));
     }
 
+    /// <summary>
+    /// The answers a GameAction gives when it stops short of a committed mutation are written once,
+    /// in <c>GameActionAnswer</c>, and no feature composes its own.
+    /// </summary>
+    /// <remarks>
+    /// Eighteen of the surface's mechanism-vocabulary findings were the same five sentences,
+    /// authored separately in twenty-one features: thread ids, lifecycle epochs, "preflight",
+    /// "observable", "resolution", and the game's raw .NET exception text, each reaching a caller as
+    /// the explanation of what had happened. Nothing but a rule over the whole set stops the
+    /// twenty-second feature from writing a twenty-second wording.
+    /// </remarks>
+    [Fact]
+    public void EveryGameActionSpeaksTheOneSetOfFaultSentences()
+    {
+        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var mechanism = new[]
+        {
+            "preflight failed before mutation",
+            "bound to Unity thread",
+            "lifecycle is stale",
+            "resolution became stale",
+            "was not observable",
+            "callback threw",
+        };
+        var offenders = new List<string>();
+        foreach (var path in Directory.EnumerateFiles(
+                     sourceRoot, "*GameAction.cs", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
+            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
+                relativePath.StartsWith("obj", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var lineNumber = 0;
+            foreach (var line in File.ReadLines(path))
+            {
+                lineNumber++;
+                foreach (var phrase in mechanism)
+                {
+                    if (line.Contains(phrase, StringComparison.OrdinalIgnoreCase))
+                        offenders.Add(relativePath + ":" + lineNumber + " (" + phrase + ")");
+                }
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "A GameAction wrote its own fault sentence; GameActionAnswer owns these: " +
+            string.Join(", ", offenders));
+    }
+
     private static string FindRepositoryRoot()
     {
         foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })

@@ -54,7 +54,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return AutoScribeSubmission.Reject(
                 AutoScribePreflight.WrongThread,
-                "Auto Scribe actions are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         long liveLifecycle;
         try
         {
@@ -69,8 +69,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         if (liveLifecycle <= 0 || liveLifecycle != action.CollectedAtEpoch)
             return AutoScribeSubmission.Reject(
                 AutoScribePreflight.LifecycleReplaced,
-                "Action lifecycle " + action.CollectedAtEpoch +
-                " is stale; live lifecycle is " + liveLifecycle + ".");
+                GameActionAnswer.RunChanged());
         if (_quarantineReason.Length != 0)
             return AutoScribeSubmission.Reject(
                 AutoScribePreflight.Quarantined,
@@ -229,7 +228,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                     stage,
                     NativeMutationOutcome.PostconditionFailed,
                     nativeCalls,
-                    "The exact crafted work was not observable after native admission.");
+                    GameActionAnswer.ChangeNotSeen("Scholar > Scribe"));
             return new AutoScribeSubmission(
                 AutoScribePreflight.Proceeded,
                 stage,

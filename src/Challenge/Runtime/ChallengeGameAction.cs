@@ -43,7 +43,7 @@ internal sealed class ChallengeGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return ChallengeSubmission.Reject(ChallengePreflight.WrongThread,
-                "Challenge actions are bound to Unity thread " + _mainThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable, _bindingFailure);
         long epoch;
@@ -55,7 +55,7 @@ internal sealed class ChallengeGameAction : IDisposable
         }
         if (action.LifecycleEpoch != epoch)
             return ChallengeSubmission.Reject(ChallengePreflight.LifecycleReplaced,
-                "The submitted lifecycle is stale.");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -65,7 +65,7 @@ internal sealed class ChallengeGameAction : IDisposable
                 var resolution = _registry.Resolve(action.TargetId, native.ChallengeType);
                 if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
                     return ChallengeSubmission.Reject(ChallengePreflight.IdentityUnavailable,
-                        resolution.IsResolved ? "The challenge resolution became stale." : resolution.Reason);
+                        resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Reason);
                 target = resolution.Value!;
             }
 
@@ -75,7 +75,7 @@ internal sealed class ChallengeGameAction : IDisposable
                 var resolution = _registry.Resolve(action.ReplacedId, native.ChallengeType);
                 if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
                     return ChallengeSubmission.Reject(ChallengePreflight.IdentityUnavailable,
-                        resolution.IsResolved ? "The challenge resolution became stale." : resolution.Reason);
+                        resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Reason);
                 replaced = resolution.Value!;
             }
 
@@ -96,7 +96,7 @@ internal sealed class ChallengeGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable,
-                "Challenge preflight failed before mutation: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Time > Challenges"));
         }
     }
 
@@ -171,7 +171,7 @@ internal sealed class ChallengeGameAction : IDisposable
                 ? Verified()
                 : Fault(in action, ChallengePreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
-                    "The requested challenge identity/outcome transition was not observable.",
+                    GameActionAnswer.ChangeNotSeen("Time > Challenges"),
                     SettledBudget(action.Kind, native, in context, in before));
         }
         catch (Exception exception) when (IsExpected(exception))

@@ -44,8 +44,7 @@ internal sealed class SpellCompositionGameAction : IDisposable
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.WrongThread,
-                "The Casting dial is bound to Unity thread " + _mainThreadId +
-                ", not thread " + Environment.CurrentManagedThreadId + ".");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.ContractUnavailable,
@@ -64,16 +63,14 @@ internal sealed class SpellCompositionGameAction : IDisposable
         if (currentEpoch != action.LifecycleEpoch)
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.LifecycleReplaced,
-                "Action lifecycle " + action.LifecycleEpoch +
-                " is stale; the live lifecycle is " + currentEpoch + ".");
+                GameActionAnswer.RunChanged());
 
         try { return SetDial(in action, native); }
         catch (Exception ex) when (IsExpected(ex))
         {
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.ContractUnavailable,
-                "Casting-dial preflight failed before mutation: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Magic > Casting"));
         }
     }
 

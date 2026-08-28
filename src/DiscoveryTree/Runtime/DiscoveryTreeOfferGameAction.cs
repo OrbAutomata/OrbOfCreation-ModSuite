@@ -44,7 +44,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.WrongThread,
-                $"Discovery Tree offers are bound to Unity thread {_mainThreadId}, not thread {Environment.CurrentManagedThreadId}.");
+                GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.ContractUnavailable,
@@ -63,7 +63,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         if (action.LifecycleEpoch != currentEpoch)
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.LifecycleReplaced,
-                $"Action lifecycle {action.LifecycleEpoch} is stale; the live lifecycle is {currentEpoch}.");
+                GameActionAnswer.RunChanged());
 
         try
         {
@@ -90,7 +90,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         {
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.ContractUnavailable,
-                "Discovery Tree offer preflight failed before mutation: " + ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("the screen this tree is drawn on"));
         }
     }
 
@@ -287,7 +287,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                 : Fault(in action, DiscoveryTreeOfferPreflight.VerificationFailed,
                     DiscoveryTreeOfferNativeStage.Verification,
                     NativeMutationOutcome.PostconditionFailed, 1,
-                    $"The requested {action.Kind} transition was not observable.");
+                    GameActionAnswer.ChangeNotSeen("the screen this tree is drawn on"));
         }
         catch (Exception ex) when (IsExpected(ex))
         {
