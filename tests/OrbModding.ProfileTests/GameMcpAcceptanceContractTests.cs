@@ -1115,6 +1115,38 @@ public sealed class GameMcpConfigurationTests
     }
 
     /// <summary>
+    /// The wire's spelling is a display fact and stops at the wire. The config file is TOML and
+    /// keeps TOML's <c>true</c>/<c>false</c> whichever spelling the caller wrote, so a save written
+    /// through this surface is byte-identical to one written through the in-game controls and a
+    /// file already on disk still loads.
+    /// </summary>
+    [Theory]
+    [InlineData("yes", "true")]
+    [InlineData("YES", "true")]
+    [InlineData("True", "true")]
+    [InlineData("no", "false")]
+    [InlineData("No", "false")]
+    [InlineData("FALSE", "false")]
+    public void A_boolean_written_as_the_wire_spells_it_is_stored_as_the_file_spells_it(
+        string written,
+        string persisted)
+    {
+        var file = new ConfigFile();
+        var configuration = BepInExAutomataConfiguration.Bind(file);
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        Assert.True(
+            store.TrySetGameMcp(
+                "AutoBuy", "IncludeStructures", written, store.CurrentGeneration,
+                out var reason, out _),
+            reason);
+        file.Save();
+
+        Assert.True(file.TryGetPersisted("AutoBuy", "IncludeStructures", out var stored));
+        Assert.Equal(persisted, stored);
+    }
+
+    /// <summary>
     /// The whole page, scanned. One row spelling a boolean the .NET way would put two vocabularies
     /// on a surface a caller reads top to bottom, so no rendered value on either mode may be a
     /// <c>true</c>/<c>false</c> token — the setting names and prose that legitimately contain those
