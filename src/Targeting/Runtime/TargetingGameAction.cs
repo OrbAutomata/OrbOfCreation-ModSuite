@@ -69,7 +69,7 @@ internal sealed class TargetingGameAction : IDisposable
         catch (Exception ex) when (Expected(ex))
         {
             return TargetingSubmission.Reject(TargetingPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Magic > Casting"));
+                GameActionAnswer.CouldNotRead("Magic > Casting", ex));
         }
     }
 

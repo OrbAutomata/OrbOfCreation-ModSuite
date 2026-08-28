@@ -88,7 +88,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         {
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("the screen this tree is drawn on"));
+                GameActionAnswer.CouldNotRead("the screen this tree is drawn on", ex));
         }
     }
 

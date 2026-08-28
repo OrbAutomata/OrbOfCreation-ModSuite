@@ -156,7 +156,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         {
             return GenericDiscoverySubmission.Reject(
                 GenericDiscoveryPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("the discovery screen this is on"));
+                GameActionAnswer.CouldNotRead("the discovery screen this is on", exception));
         }
     }
 

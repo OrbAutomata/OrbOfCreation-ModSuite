@@ -53,7 +53,7 @@ internal sealed class StructureLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(StructureLifecyclePreflight.LifecycleReplaced,
-                "The current game lifecycle could not be read: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("the screen this structure is on", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(StructureLifecyclePreflight.LifecycleReplaced,
@@ -85,7 +85,7 @@ internal sealed class StructureLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(StructureLifecyclePreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("the screen this structure is on"));
+                GameActionAnswer.CouldNotRead("the screen this structure is on", exception));
         }
     }
 

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Tests.Services.TestSupport;
@@ -312,6 +314,36 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
         Assert.Equal(0, SpellManager.instance.RemoveCalls);
     }
 
+    /// <summary>
+    /// The game's own exception text left the wire and has to land somewhere: the suite log gets
+    /// the whole exception under a reference, and the answer hands the caller that same reference
+    /// so a report of the defect and the line that explains it can be joined up.
+    /// </summary>
+    [Fact]
+    public void ThrownNativeCallbackLogsTheExceptionUnderTheReferenceTheAnswerNames()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        var spell = Spell("Wedged");
+        SpellManager.instance!.activeSpells.value.Add(spell);
+        SpellManager.instance.SuppressRemoval = true;
+        SpellManager.instance.ThrowAfterRemoval = true;
+        using var action = Action();
+
+        var result = action.Submit(Remove(spell));
+
+        Assert.Equal(SpellLoadoutPreflight.PostCommitFault, result.Preflight);
+        var references = Regex.Matches(result.Reason, "MCP-[0-9A-F]{8}")
+            .Select(match => match.Value).ToList();
+        var reference = Assert.Single(references);
+        Assert.DoesNotContain("injected failure after spell removal", result.Reason);
+        var carrying = logged
+            .Where(entry => entry.Contains(reference, StringComparison.Ordinal)).ToList();
+        var line = Assert.Single(carrying);
+        Assert.Contains("injected failure after spell removal", line);
+        Assert.Contains("Magic > Spellbook > Loadout", line);
+    }
+
     private static Spell Spell(string name) => new(new SpellRecipeSO())
     {
         DisplayName = name,
@@ -348,6 +380,7 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
 
     public void Dispose()
     {
+        GameActionFaultLog.ConfigureLog(null);
         IdScriptableObject.RuntimeLookup.Clear();
         SpellManager.instance = null;
     }

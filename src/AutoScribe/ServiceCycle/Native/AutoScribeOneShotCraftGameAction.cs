@@ -152,7 +152,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         {
             return AutoScribeSubmission.Reject(
                 AutoScribePreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Scholar > Scribe"));
+                GameActionAnswer.CouldNotRead("Scholar > Scribe", ex));
         }
     }
 

@@ -58,8 +58,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(RitualLifecyclePreflight.LifecycleReplaced,
-                "The current game lifecycle could not be read: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Rituals", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(RitualLifecyclePreflight.LifecycleReplaced,
@@ -164,7 +163,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(RitualLifecyclePreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Rituals"));
+                GameActionAnswer.CouldNotRead("Rituals", exception));
         }
     }
 
@@ -274,7 +273,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
             if (OutcomeObserved(in action, native, battle, selected, ritual)) return Verified();
             return Fault(in action, RitualLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("Rituals"));
+                GameActionAnswer.GameErrored("Rituals", exception));
         }
     }
 

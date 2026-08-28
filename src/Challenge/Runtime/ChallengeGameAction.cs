@@ -97,7 +97,7 @@ internal sealed class ChallengeGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Time > Challenges"));
+                GameActionAnswer.CouldNotRead("Time > Challenges", exception));
         }
     }
 

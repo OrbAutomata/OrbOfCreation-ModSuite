@@ -54,7 +54,7 @@ internal sealed class LoadoutGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(LoadoutPreflight.LifecycleReplaced,
-                "The current game lifecycle could not be read: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Workshop > Artifacts and Alchemy", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(LoadoutPreflight.LifecycleReplaced,
@@ -141,7 +141,7 @@ internal sealed class LoadoutGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(LoadoutPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Workshop > Artifacts and Alchemy"));
+                GameActionAnswer.CouldNotRead("Workshop > Artifacts and Alchemy", exception));
         }
     }
 
@@ -259,7 +259,7 @@ internal sealed class LoadoutGameAction : IDisposable
                     alchemySnapshot, expectedIndex)) return Verified();
             return Fault(in action, LoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("Workshop > Artifacts and Alchemy"));
+                GameActionAnswer.GameErrored("Workshop > Artifacts and Alchemy", exception));
         }
     }
 

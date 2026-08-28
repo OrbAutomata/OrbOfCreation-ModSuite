@@ -74,7 +74,7 @@ internal sealed class PrestigeGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Time > Reset"));
+                GameActionAnswer.CouldNotRead("Time > Reset", exception));
         }
     }
 

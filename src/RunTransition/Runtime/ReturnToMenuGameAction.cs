@@ -55,7 +55,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(ReturnToMenuPreflight.LifecycleReplaced,
-                "The current game lifecycle could not be read: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("the game's own screen", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(ReturnToMenuPreflight.LifecycleReplaced,
@@ -120,7 +120,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(ReturnToMenuPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("the game's own screen"));
+                GameActionAnswer.CouldNotRead("the game's own screen", exception));
         }
     }
 
@@ -160,7 +160,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
             if (native.FlashActive(flash)) return Verified(pressed, openedPanel);
             return Fault(ReturnToMenuPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("the game's own screen"));
+                GameActionAnswer.GameErrored("the game's own screen", exception));
         }
     }
 

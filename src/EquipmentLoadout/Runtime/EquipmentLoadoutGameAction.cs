@@ -190,7 +190,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Workshop > Artifacts"));
+                GameActionAnswer.CouldNotRead("Workshop > Artifacts", exception));
         }
     }
 
@@ -232,7 +232,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
                 return Verified();
             return Fault(in action, EquipmentLoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("Workshop > Artifacts"));
+                GameActionAnswer.GameErrored("Workshop > Artifacts", exception));
         }
     }
 

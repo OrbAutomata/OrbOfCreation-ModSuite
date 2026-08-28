@@ -54,7 +54,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         {
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Inventory"));
+                GameActionAnswer.CouldNotRead("Inventory", ex));
         }
     }
 

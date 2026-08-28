@@ -122,7 +122,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(AlchemyLoadoutPreflight.LifecycleReplaced,
-                "The current game lifecycle could not be read: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Alchemy", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(AlchemyLoadoutPreflight.LifecycleReplaced,
@@ -195,7 +195,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(AlchemyLoadoutPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Alchemy"));
+                GameActionAnswer.CouldNotRead("Alchemy", exception));
         }
     }
 
@@ -237,7 +237,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
                 return Verified();
             return Fault(in action, AlchemyLoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("Alchemy"));
+                GameActionAnswer.GameErrored("Alchemy", exception));
         }
     }
 

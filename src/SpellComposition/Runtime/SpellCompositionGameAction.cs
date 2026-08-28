@@ -68,7 +68,7 @@ internal sealed class SpellCompositionGameAction : IDisposable
         {
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Magic > Casting"));
+                GameActionAnswer.CouldNotRead("Magic > Casting", ex));
         }
     }
 

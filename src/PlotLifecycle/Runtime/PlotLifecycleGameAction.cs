@@ -53,7 +53,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(PlotLifecyclePreflight.LifecycleReplaced,
-                "The current game lifecycle could not be read: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("World > Agromancy", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(PlotLifecyclePreflight.LifecycleReplaced,
@@ -90,7 +90,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(PlotLifecyclePreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("World > Agromancy"));
+                GameActionAnswer.CouldNotRead("World > Agromancy", exception));
         }
     }
 
@@ -186,7 +186,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
             if (OutcomeObserved(in action, before, after)) return Verified(before, after);
             return Fault(in action, PlotLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("World > Agromancy"));
+                GameActionAnswer.GameErrored("World > Agromancy", exception));
         }
     }
 

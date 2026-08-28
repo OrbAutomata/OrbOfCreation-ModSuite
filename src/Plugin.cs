@@ -189,6 +189,7 @@ public sealed class Plugin : BaseUnityPlugin
         EntityIdentityFormatter.ConfigureDiagnostics(
             message => Logger.LogWarning(message),
             message => Logger.LogError(message));
+        GameActionFaultLog.ConfigureLog(message => Logger.LogError(message));
         EntityIdentityCatalog.Shared.Reset(GameLifecycleMonitor.Shared.Current.Generation);
 
         RunAutomaticSaveBackup();

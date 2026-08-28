@@ -288,7 +288,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         catch (Exception ex) when (IsExpected(ex))
         {
             return SpellWorkbenchSubmission.Reject(SpellWorkbenchPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Magic > Spellbook"));
+                GameActionAnswer.CouldNotRead("Magic > Spellbook", ex));
         }
     }
 

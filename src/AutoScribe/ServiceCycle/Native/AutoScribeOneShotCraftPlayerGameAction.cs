@@ -65,7 +65,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Scholar > Scribe"));
+                GameActionAnswer.CouldNotRead("Scholar > Scribe", ex));
         }
     }
 
@@ -112,7 +112,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 CraftingPlayerNativeStage.DirectExecute,
                 NativeMutationOutcome.ExecutionThrew,
                 1,
-                GameActionAnswer.GameErrored("Scholar > Scribe"));
+                GameActionAnswer.GameErrored("Scholar > Scribe", ex));
         }
         int revisionAfter;
         try

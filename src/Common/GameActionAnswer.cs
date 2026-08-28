@@ -1,3 +1,5 @@
+using System;
+
 namespace OrbModding.Common;
 
 /// <summary>
@@ -23,11 +25,12 @@ internal static class GameActionAnswer
     /// <summary>
     /// A stop before anything was sent, because the facts the press needs would not read. The
     /// game's own .NET exception text used to be the whole explanation here; it named a type and a
-    /// field, and a caller could neither look it up nor act on it.
+    /// field, and a caller could neither look it up nor act on it. Hand the exception in and it
+    /// goes to the suite log instead, under a reference this sentence then ends with.
     /// </summary>
-    internal static string CouldNotRead(string screen) =>
+    internal static string CouldNotRead(string screen, Exception? exception = null) =>
         "Nothing was sent to the game: the suite could not read what this press needs. Open " +
-        screen + " and read it again.";
+        screen + " and read it again." + GameActionFaultLog.Record(exception, screen);
 
     /// <summary>
     /// The suite never attached to the screen this verb presses, so it will keep refusing until the
@@ -80,9 +83,10 @@ internal static class GameActionAnswer
     /// <summary>
     /// The game's own code threw while running the press. The exception text used to ride on the
     /// wire; it named a .NET type and a field, which is not a fact about the game a caller can act
-    /// on, and it sat where the answer to "did this land" belonged.
+    /// on, and it sat where the answer to "did this land" belonged. Hand the exception in and it
+    /// goes to the suite log instead, under a reference this sentence then ends with.
     /// </summary>
-    internal static string GameErrored(string screen) =>
+    internal static string GameErrored(string screen, Exception? exception = null) =>
         "The game itself errored on this press, so nothing can be proven about whether it landed. " +
-        "Check " + screen + " before retrying.";
+        "Check " + screen + " before retrying." + GameActionFaultLog.Record(exception, screen);
 }

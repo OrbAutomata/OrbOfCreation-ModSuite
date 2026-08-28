@@ -54,7 +54,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(HarvestLifecyclePreflight.LifecycleReplaced,
-                "The current game lifecycle could not be read: " + exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("World > Agromancy", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(HarvestLifecyclePreflight.LifecycleReplaced,
@@ -107,7 +107,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(HarvestLifecyclePreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("World > Agromancy"));
+                GameActionAnswer.CouldNotRead("World > Agromancy", exception));
         }
     }
 
@@ -248,7 +248,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
                     prototype, before)) return Verified();
             return Fault(in action, HarvestLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("World > Agromancy"));
+                GameActionAnswer.GameErrored("World > Agromancy", exception));
         }
     }
 

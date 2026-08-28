@@ -53,8 +53,7 @@ internal sealed class CraftingStationGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(CraftingStationPreflight.LifecycleReplaced,
-                "The current game lifecycle could not be read: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Workshop > Crafting", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(CraftingStationPreflight.LifecycleReplaced,
@@ -136,7 +135,7 @@ internal sealed class CraftingStationGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(CraftingStationPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Workshop > Crafting"));
+                GameActionAnswer.CouldNotRead("Workshop > Crafting", exception));
         }
     }
 
@@ -195,7 +194,7 @@ internal sealed class CraftingStationGameAction : IDisposable
             if (OutcomeObserved(in action, native, station)) return Verified();
             return Fault(in action, CraftingStationPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("Workshop > Crafting"));
+                GameActionAnswer.GameErrored("Workshop > Crafting", exception));
         }
     }
 

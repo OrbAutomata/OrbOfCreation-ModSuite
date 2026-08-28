@@ -82,7 +82,7 @@ internal sealed class ResearchGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return ResearchSubmission.Reject(ResearchPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Scholar > Research"));
+                GameActionAnswer.CouldNotRead("Scholar > Research", exception));
         }
     }
 
@@ -112,7 +112,7 @@ internal sealed class ResearchGameAction : IDisposable
                 return Verified();
             return Fault(in action, ResearchPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("Scholar > Research"));
+                GameActionAnswer.GameErrored("Scholar > Research", exception));
         }
     }
 

@@ -84,7 +84,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         {
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Magic > Spellbook > Loadout"));
+                GameActionAnswer.CouldNotRead("Magic > Spellbook > Loadout", ex));
         }
     }
 
@@ -144,7 +144,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
                 SpellLoadoutNativeStage.Remove,
                 NativeMutationOutcome.ExecutionThrew,
                 new NativeMutationCallOutcome(1, 1, 0),
-                GameActionAnswer.GameErrored("Magic > Spellbook > Loadout"));
+                GameActionAnswer.GameErrored("Magic > Spellbook > Loadout", ex));
         }
     }
 

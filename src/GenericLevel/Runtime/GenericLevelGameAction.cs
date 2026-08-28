@@ -57,8 +57,7 @@ internal sealed class GenericLevelGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(GenericLevelPreflight.LifecycleReplaced,
-                "The current game lifecycle could not be read: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("the screen this is levelled on", exception));
         }
         if (action.LifecycleEpoch != epoch)
             return Reject(GenericLevelPreflight.LifecycleReplaced,
@@ -88,7 +87,7 @@ internal sealed class GenericLevelGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(GenericLevelPreflight.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("the screen this is levelled on"));
+                GameActionAnswer.CouldNotRead("the screen this is levelled on", exception));
         }
     }
 
@@ -198,7 +197,7 @@ internal sealed class GenericLevelGameAction : IDisposable
             if (Current(in action, binding, target) > before) return Verified();
             return Fault(in action, GenericLevelPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("the screen this is levelled on"));
+                GameActionAnswer.GameErrored("the screen this is levelled on", exception));
         }
     }
 
