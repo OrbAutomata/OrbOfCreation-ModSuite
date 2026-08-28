@@ -2523,6 +2523,10 @@ for one could only turn a purchase that verifiably committed into a timeout.
 A commit answers with the facts its own press changed, each as a `{before, after}` pair, plus any
 fact the press produced that has no "before" — a battle's result and spoils, a settled level, the
 price it drew. When the settled world cannot prove the change, the answer is `postStateUnavailable`.
+Its `post_state_not_published` case has **one sentence across every verb that reaches it**: the
+press went through, the game is no longer showing the thing, and its new state cannot be read back.
+Twenty-two sites used to say that twenty-two ways, most of them naming the suite's own publication
+rather than the screen the caller had been looking at.
 No verb re-reads a whole screen and no verb appends what is possible next: the decisions a press
 reopened are read with `world_get`, which is where every other caller reads them.
 
@@ -2543,15 +2547,35 @@ satisfied `amount=1` is the one shape a caller cannot act on.
 
 A successful read uses `available`; an unavailable domain read uses `unavailable` — a read has two
 words and no third, because a fact it cannot serve is unavailable however it got that way. A
-mutation has four, and the three that are not `committed` name three different owners: `refused` is
-the game's own no, `faulted` is the suite committing and its own post-check disagreeing, and
-`failed` is the suite tripping before the game was ever asked. `failed` is derived from who owns
-the reason, not from a fifth disposition — the service-cycle contract keeps answering the one
+mutation has exactly four, and each of the four names its owner. `committed` is the game having
+done it. `refused` is the game's own no. `faulted` is the mutation having run with its outcome
+unreadable afterwards — the suite pressed, and its own post-check could not confirm what came of
+it. `failed` is the suite tripping before the game was ever asked. `failed` is derived from who
+owns the reason, not from a fifth disposition — the service-cycle contract keeps answering the one
 question it asks, whether the mutation ran — and the owning set is closed:
 `contract_unavailable`, `feature_contract_unavailable`, `pair_contract_unavailable`, `wrong_thread`,
-`staged_write_failed`, `world_not_published`, `entity_catalog_unavailable`. Contention for the
+`staged_write_failed`, `single_buy_unavailable`, `unsupported_control`, `runtime_not_available`,
+`tooltip_contract_unavailable`, `continue_contract_unavailable`, `navigation_request_invalid`,
+`unsupported_probe`, `world_not_published`, `entity_catalog_unavailable`. Contention for the
 mutation permit is deliberately not among them: another service holding the family is the suite
 working as designed and clears on its own, so it stays a `refused` with a reason.
+
+**A stop no producer accounted for is `failed` too**, for the same reason that set exists:
+`refused` promises the game said no, and a stop the suite can write no sentence for never proved
+the game was asked at all. Where the producer wrote no exact reason and neither the read-side nor
+the action-side table authors one for the code, the answer says outright that nothing was applied,
+that the suite has no account of what stopped it, and that this is a defect in the suite rather
+than a state the caller can change. Blaming the game for a suite failure is the one thing the wire
+must never do, and a code with its underscores taken out is not an account.
+
+Two answers come from the server itself rather than from any producer, and neither puts the suite's
+internals on the wire. A request the game does not pick up within two seconds says exactly that,
+that the game is likely paused or loading, and that nothing was applied — the wait is a fact about
+the game rather than a class name. An unhandled error inside the suite names the method it was
+handling, says nothing was applied, and carries a short reference; the exception and its stack go
+to the suite log under that same reference, which is what a report of the problem quotes. Raw
+exception text never reaches a caller, who can do nothing with a stack trace and should not be
+handed one as an explanation.
 
 A tool's status word never depends on one of its arguments: `game_screenshot`
 answers `committed` whether or not `save` was asked for, because the capture is something the
@@ -2565,6 +2589,15 @@ verbosity option.
 blocked sub-decision follows the same rule as a mutation's refusal. A refusal whose sentence names a
 ceiling also carries that ceiling as `maximumAmount`, read from the same admission capture the
 sentence was written from, so the two can never disagree.
+
+**The prose is in player words, and the machine name is never the prose.** Every answer that does
+not commit the requested change — a refusal, a failure, a fault, a partial, a withheld part, an
+unverified fact — says what did not happen, why in the game's own terms, and where to look or what
+clears it. Class and method names, thread ids, lifecycle epochs, and the suite's own words for its
+machinery — "preflight", "observable", "binding set", "boundary", "published" — are what the
+mechanism is called, never what the caller is told. A code with its underscores taken out is not a
+sentence: "Requirement unevaluable." restates the field beside it and answers nothing. Where the
+suite genuinely cannot say more, the shorter honest sentence is the answer, not a padded one.
 
 A request that names two entities keeps the one it addressed at the top of its response, on the
 refusal and the commit alike, and names the second in its own block (`game_agromancy` addresses a
@@ -2639,15 +2672,15 @@ most, so an old code's new class can be looked up here:
 
 | Class | Internal codes that reach it |
 | --- | --- |
-| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `category_not_listable`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required` |
-| `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `components_unavailable` |
-| `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
-| `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
+| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `category_not_listable`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required`, `tooltip_offset_invalid`, `plot_destination_mismatch` |
+| `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `components_unavailable`, `no_recipe_book`, `tooltip_match_failed`, `tooltip_content_unavailable`, `native_plot_not_resolved` |
+| `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning`, `continue_wrong_scene` |
+| `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached`, `bandwidth_blocked`, `drain_blocked` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
 | `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `research_leeway_exhausted`, `native_leeway_exhausted` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `configuration_not_available`,
-`stale_configuration_generation`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable` |
-| `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused` — the game's own gate said no and reported nothing else |
+`stale_configuration_generation`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `unsupported_requirement_value`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable`, `single_buy_unavailable`, `unsupported_control`, `native_navigation_unavailable`, `native_plot_navigation_unavailable`, `native_plot_list_unavailable`, `native_probe_unavailable`, `tooltip_contract_unavailable`, `tooltip_read_faulted`, `continue_contract_unavailable`, `navigation_request_invalid`, `unsupported_probe` |
+| `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused`, `native_tab_rejected`, `subtab_selection_failed` — the game's own gate said no and reported nothing else |
 
 Five of those placements are worth reading twice, because the obvious guess is wrong.
 `slot_out_of_range` is `ERR_INPUT` and not `ERR_LIMIT`: the caller named a slot the list never had,
@@ -2662,16 +2695,36 @@ level gate is always a gate rather than an exhausted supply. Both leeway codes a
 not `ERR_LIMIT`: research leeway is a gate the game opens as the requirement level moves, not a
 supply the caller spent.
 
-`ERR_REFUSED` is the `native_*_refused` family and nothing else a producer can explain, and it is a
-**mutation** answer: the game was asked to do something and said no. No read reaches it, because a
+The screen, tooltip, probe and Continue gadgets reached none of these rows at all until their
+sixteen codes were placed: every one fell to the default, so a stale page marker, a label matching
+nothing, and a reading this build cannot take all told the caller the game had refused something.
+They are classed by the same rule as everything else. A marker or destination the live catalog
+never printed is `ERR_INPUT`. A label, an element, or a glyph's Recipe Book that is genuinely not
+there is `ERR_NOT_FOUND`. A build exposing no tab shell, no plot list, no probe reading, or no
+tooltip binding is `ERR_UNAVAILABLE`. `continue_wrong_scene` is `ERR_STATE`, because Continue
+exists only on the title screen and being in a run is a state that moves. Only the two selections
+the game's own tab controller turned down stay `ERR_REFUSED`. The two recipe resource axes,
+`bandwidth_blocked` and `drain_blocked`, were in no table either — their codes used to be built by
+concatenation, so nothing could have met them — and they are `ERR_LIMIT` for the reason their
+per-resource rows already are.
+
+`ERR_REFUSED` is the `native_*_refused` family plus the two navigation selectors the game's own tab
+controller turns down, and nothing else a producer can explain. It is a **mutation** answer: the
+game was asked to do something and said no. No read reaches it, because a
 read that cannot account for a shut gate has learned a lock rather than witnessed a refusal.
 A code that lands there because this map has not met it is a defect in the map, not a new kind of no.
 
-A feature result number is not a wire word: it names no axis a caller can act on, so an unmapped
-native result reaches the wire as `ERR_REFUSED` with the producer's own sentence. **No response ever
-prints the integer.** A refusal that reaches the last-resort sentence says which boundary refused and
-that it gave no reason of its own — the number stays in the log, where a maintainer can trace it.
-A boundary that lands there is a defect in that producer, not a new kind of no.
+A feature result number is not a wire word: it names no axis a caller can act on. **No response ever
+prints the integer.** An unmapped native result reaches the wire as `native_rejected` with that
+code's own sentence — the game refused, and nothing it reports explains why — and the number
+stays in the log where a maintainer can trace it.
+
+A producer code that reaches the answer with no sentence on either table is the other case, and it
+is not a refusal at all. It answers `failed`, says that nothing was applied and that the suite has
+no account of what stopped it, and calls itself a defect in the suite rather than a state the
+caller can change. The last resort used to name the suite's own machinery instead — "the spell
+workbench boundary refused and gave no reason of its own", in eleven spellings — which told the
+caller the game had said no and sent them looking for a game state to change that does not exist.
 
 A check that **passed** carries no class at all, and no sentence either. There is no success code:
 every affirmative producer word — `requirement_met`, `recipe_discovered`, `visible`, `ready`,
@@ -2715,6 +2768,14 @@ What each internal code means is below; the class is how it reaches the wire.
 | `projection_refused` | The suite's own resource-rate policy refuses the assignment; the game did not | `game_concept` |
 | `owning_screen_unknown` / `owning_screen_unreadable` / `owning_screen_contradictory` / `owning_screen_status_unmodelled` / `owning_screen_availability_unreadable` / `topology_not_captured` | The five distinct ways the purchase-screen admission chain says no, which used to share one number. Only `topology_not_captured` is fixed by waiting for the next lifecycle; its sentence names the epoch the topology is stamped at, the epoch the call asked for, and how many rows it holds | `game_purchase` |
 | `destination_full` | Every slot this upgrade would fill is already occupied | `game_purchase` on a slot-filling upgrade |
+| `single_buy_unavailable` | The suite could not hold the game's multi-buy multiplier at one for the press, so nothing was pressed and nothing was spent. It answered `native_rejected` — the game refusing — for a call the game never saw | the single-buy purchase path |
+| `bandwidth_blocked` / `drain_blocked` | The whole-recipe verdict for the two resource axes its per-resource rows already answer one by one: something it consumes has no bandwidth left, or something it drains is at its limit. Both codes used to be built by string concatenation, so no class or sentence table had ever met either | `world_get` recipe blockers |
+| `no_recipe_book` | The game draws no Recipe Book for this glyph in this run. It answered `world_not_published` — the suite having read nothing at all — for a healthy read of a published world | glyph recipe-book edges |
+| `tooltip_offset_invalid` / `tooltip_match_failed` / `tooltip_content_unavailable` / `tooltip_contract_unavailable` / `tooltip_read_faulted` | A page marker the live element list never printed and which changes when the screen does; a path matching no active element or several; an element the game draws no tooltip for; the suite unable to attach to the game's tooltips for this run, which only a restart clears; and the game erroring while producing the text. Only the fourth is the suite's own, and the binding layer's account of it goes to the suite log rather than to the caller | `game_screen_elements`, `game_tooltip` |
+| `native_navigation_unavailable` / `native_plot_navigation_unavailable` / `native_plot_list_unavailable` / `native_plot_not_resolved` / `plot_destination_mismatch` | The game is not showing its screen tabs, which it does only while a save is open; this build exposes no plot list to select from; the screen is showing no plot list or more than one, so which plot was meant is unclear; no plot in this run carries that id; and a plot asked for at a destination other than World > Agromancy, which is the only place plots are selectable | `game_navigate` |
+| `native_probe_unavailable` | The named fact exists, but this build exposes no reading of it | `game_probe` |
+| `continue_wrong_scene` / `continue_contract_unavailable` | Continue exists only on the title screen, and being in a run is a state that moves; or this build does not expose the Continue button, so no save can be started from here | `game_continue` |
+| `runtime_not_available` | The suite has not begun reading the game in this session, so the fact asked for has no source yet. The game is never asked | every gadget and read that needs a live runtime |
 | `native_rejected` | The game refused and the published world does not explain why | any native mutation, reserved for exactly that case |
 | `native_unavailable` | The game keeps this shut and publishes no condition that would open it. The read-side counterpart of `native_rejected`, and the answer a bare `available: false` reaches | every read that publishes availability, and the glyph and component decisions that act on one |
 
