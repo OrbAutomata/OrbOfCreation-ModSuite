@@ -2758,10 +2758,11 @@ public sealed class Plugin : BaseUnityPlugin
                     GameMcpDecisionReason.For("wrong_configuration_surface"),
                     observedLifecycleGeneration: _lifecycleGeneration,
                     observedConfigurationGeneration: before.Value);
-            var priorValue = GameMcpConfigurationSchema.SerializePublishedValue(
-                _configurationStore.Current,
-                command.Mode,
-                command.PayloadKey);
+            // The publication the write is about to replace, held as the snapshot it is rather than
+            // as text. Only an address the store admitted has a published value to spell, so the
+            // pair is rendered on the committed path and a name that resolves to no setting is
+            // refused by the store in its own words.
+            var priorConfiguration = _configurationStore.Current;
             if (!TryAdmitConfigurationWriteAgainstWorld(command, context, out var worldFailure))
                 return worldFailure;
             var written = _configurationStore.SetGameMcp(
@@ -2802,7 +2803,10 @@ public sealed class Plugin : BaseUnityPlugin
                         // only `value` cannot tell a committed change from a no-op it repeated.
                         ["value"] = new GameMcpObjectBuilder
                         {
-                            ["before"] = priorValue,
+                            ["before"] = GameMcpConfigurationSchema.SerializePublishedValue(
+                                priorConfiguration,
+                                command.Mode,
+                                command.PayloadKey),
                             ["after"] = GameMcpConfigurationSchema.SerializePublishedValue(
                                 _configurationStore.Current,
                                 command.Mode,

@@ -108,7 +108,10 @@ internal static class GameMcpAutomationFeatures
         new(
             "mentor",
             "Orb Mentor",
-            "General",
+
+            // The wire address, as every other feature's is: GameMcpConfigurationAddress maps it
+            // onto the [General] Mode line the config file keeps holding.
+            "Mentor",
             "Mode",
             "Shares mastery experience from advanced spells, artifacts, and recipes with lagging ones.",
             config => config.Mentor.Mode == MentorOperationMode.Active,

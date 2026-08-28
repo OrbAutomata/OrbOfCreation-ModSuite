@@ -3482,8 +3482,16 @@ section nothing is filed under is refused as `ERR_INPUT` with the real ones in t
 fix is on the page that refused rather than a round trip away:
 
 ```
-unavailable (ERR_INPUT): unknown section 'autobuy_settings'; the sections are General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, AutoScribe, Reserves
+unavailable (ERR_INPUT): unknown section 'autobuy_settings'; the sections are General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, AutoScribe, Reserves, Mentor
 ```
+
+Every section names the feature it configures, Orb Mentor's included: its breaker is
+`Mentor/Mode`, and `General` holds only the suite's own master switch, `General/Enabled`. The
+config file is unchanged — it still keeps that breaker on its `[General] Mode` line, because
+renaming the section would move a player's existing line and silently reset the switch — so this is
+the one setting whose wire address and file address differ, and the map between them is
+`GameMcpConfigurationAddress`. `General/Mode` is the name the wire used to answer to: writing it is
+refused with `ERR_INPUT` and a sentence naming `Mentor/Mode`, rather than with "no such setting".
 
 `mode="describe"` is where the rest lives: each setting's type, the values it accepts, and the
 sentence saying what it does. Those three do not change between calls, so the ordinary read does not

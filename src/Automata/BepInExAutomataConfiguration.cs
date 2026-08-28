@@ -231,18 +231,28 @@ internal sealed class BepInExAutomataConfiguration
         for (var index = 0; index < entries.Length; index++)
         {
             var definition = entries[index].Definition;
-            if (!string.Equals(definition.Section, section, StringComparison.Ordinal) ||
-                !string.Equals(definition.Key, key, StringComparison.Ordinal))
+
+            // A write is resolved against the address the schema published, not the one the file
+            // holds, so a name this surface no longer answers to cannot reach an entry by matching
+            // the file behind it.
+            GameMcpConfigurationAddress.OnTheWire(
+                definition.Section,
+                definition.Key,
+                out var entrySection,
+                out var entryKey);
+            if (!string.Equals(entrySection, section, StringComparison.Ordinal) ||
+                !string.Equals(entryKey, key, StringComparison.Ordinal))
                 continue;
             selected = entries[index];
             break;
         }
         if (selected is null)
         {
-            reason =
-                "setting " + section + "/" + key +
-                " is not in the perf-debug MCP allowlist; compatibility acknowledgements, " +
-                "emergency state, and key bindings use dedicated authorities";
+            reason = GameMcpConfigurationAddress.IsRetired(section, key, out var retired)
+                ? retired
+                : "setting " + section + "/" + key +
+                    " is not in the perf-debug MCP allowlist; compatibility acknowledgements, " +
+                    "emergency state, and key bindings use dedicated authorities";
             return false;
         }
         if (!GameMcpConfigurationValuePolicy.TryValidate(
@@ -278,9 +288,14 @@ internal sealed class BepInExAutomataConfiguration
         for (var index = 0; index < entries.Length; index++)
         {
             var entry = entries[index];
-            result[index] = new GameMcpWritableSettingDescriptor(
+            GameMcpConfigurationAddress.OnTheWire(
                 entry.Definition.Section,
                 entry.Definition.Key,
+                out var section,
+                out var key);
+            result[index] = new GameMcpWritableSettingDescriptor(
+                section,
+                key,
                 GameMcpConfigurationValuePolicy.SettingTypeWord(entry.SettingType),
                 entry.Description.Description ?? string.Empty,
                 GameMcpConfigurationValuePolicy.Describe(entry));

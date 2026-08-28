@@ -1116,8 +1116,9 @@ internal sealed class GameMcpProtocolRouter
                 ObjectSchema(
                     new JObject
                     {
-                        ["section"] = StringSchema("Exact BepInEx configuration section."),
-                        ["key"] = StringSchema("Exact BepInEx configuration key."),
+                        ["section"] = StringSchema(
+                            "Exact section, as suite_configuration prints it."),
+                        ["key"] = StringSchema("Exact key, as suite_configuration prints it."),
                         ["serializedValue"] = StringSchema("Ordinary BepInEx serialized value."),
                     },
                     "section", "key", "serializedValue"),

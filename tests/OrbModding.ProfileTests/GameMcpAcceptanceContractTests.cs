@@ -925,7 +925,119 @@ public sealed class GameMcpConfigurationTests
             describe: false));
 
         Assert.Equal("Disabled", (string?)listed["AutoHarvest/Mode"]);
-        Assert.Equal("Disabled", (string?)listed["General/Mode"]);
+        Assert.Equal("Disabled", (string?)listed["Mentor/Mode"]);
+    }
+
+    /// <summary>
+    /// Orb Mentor's breaker is addressed by the feature it belongs to. It is the one setting whose
+    /// wire address is not the address the config file holds it at: the file keeps its
+    /// <c>[General] Mode</c> line, because renaming that section would move a player's existing one
+    /// and silently reset the breaker, while the wire stops filing it under OrbAutomata's own
+    /// <c>General</c>.
+    /// </summary>
+    [Fact]
+    public void Orb_Mentors_switch_is_addressed_by_the_mod_it_belongs_to()
+    {
+        var file = new ConfigFile();
+        var configuration = BepInExAutomataConfiguration.Bind(file);
+        var mentor = MentorConfig.Bind(file);
+        configuration.AttachMentor(mentor);
+        var schema = configuration.CreateGameMcpWritableSchema();
+
+        Assert.Single(
+            schema,
+            item => item.Section == "Mentor" && item.Key == "Mode");
+        Assert.DoesNotContain(
+            schema,
+            item => item.Section == "General" && item.Key == "Mode");
+
+        // OrbAutomata's own master switch is the other setting in that section and does not move.
+        Assert.Single(
+            schema,
+            item => item.Section == "General" && item.Key == "Enabled");
+
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+        Assert.Equal(
+            AutomataConfigurationWrite.Committed,
+            store.SetGameMcp(
+                "Mentor", "Mode", "Active", store.CurrentGeneration, out var reason, out _));
+        Assert.Equal(string.Empty, reason);
+
+        // The write lands on the line the file has always held, under the section the file has
+        // always spelled it — the wire address never reaches disk.
+        file.Save();
+        Assert.True(file.TryGetPersisted("General", "Mode", out var stored));
+        Assert.Equal("Active", stored);
+        Assert.False(file.TryGetPersisted("Mentor", "Mode", out _));
+
+        // And it reads back at the address it was written at, through the same round trip every
+        // other setting makes: what the wire prints deserializes to exactly what the entry holds.
+        Assert.Equal(
+            "Active",
+            GameMcpConfigurationSchema.SerializePublishedValue(
+                configuration.Current, "Mentor", "Mode"));
+        Assert.Equal(
+            mentor.Mode.GetSerializedValue(),
+            GameMcpConfigurationValuePolicy.NativeSerializedValue(
+                mentor.Mode.SettingType,
+                GameMcpConfigurationSchema.SerializePublishedValue(
+                    configuration.Current, "Mentor", "Mode")));
+
+        var listed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            GameMcpTestHarness.Context(
+                writable: schema,
+                configuration: configuration.Current),
+            describe: false));
+
+        Assert.Equal("Active", (string?)listed["Mentor/Mode"]);
+        Assert.Null(listed["General/Mode"]);
+        Assert.Equal("yes", (string?)listed["General/Enabled"]);
+    }
+
+    /// <summary>
+    /// A caller holding the address the wire used to answer to is told where its setting went, in
+    /// the same class of no an address nothing owns earns — a name this surface does not answer to.
+    /// Being told the suite has no such setting would be true and useless.
+    /// </summary>
+    [Fact]
+    public void The_address_the_wire_used_to_answer_to_says_where_the_setting_went()
+    {
+        var file = new ConfigFile();
+        var configuration = BepInExAutomataConfiguration.Bind(file);
+        configuration.AttachMentor(MentorConfig.Bind(file));
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        Assert.Equal(
+            AutomataConfigurationWrite.Refused,
+            store.SetGameMcp(
+                "General", "Mode", "Active", store.CurrentGeneration, out var retired, out _));
+        Assert.Equal(
+            "setting General/Mode is now addressed as Mentor/Mode, under the mod it belongs to; " +
+            "the setting itself is unchanged",
+            retired);
+        Assert.Equal(
+            GameMcpDecisionReason.ClassInput,
+            GameMcpDecisionReason.Class("configuration_write_rejected"));
+
+        // A name nothing has ever answered to is still told it is not one, not sent somewhere.
+        Assert.Equal(
+            AutomataConfigurationWrite.Refused,
+            store.SetGameMcp(
+                "Mentor", "Enabled", "true", store.CurrentGeneration, out var unknown, out _));
+        Assert.StartsWith(
+            "setting Mentor/Enabled is not in the perf-debug MCP allowlist",
+            unknown,
+            StringComparison.Ordinal);
+
+        // The other setting in that section is OrbAutomata's own and still writes there.
+        Assert.Equal(
+            AutomataConfigurationWrite.Committed,
+            store.SetGameMcp(
+                "General", "Enabled", "no", store.CurrentGeneration, out _, out _));
+        Assert.Equal(
+            "no",
+            GameMcpConfigurationSchema.SerializePublishedValue(
+                configuration.Current, "General", "Enabled"));
     }
 
     /// <summary>
@@ -980,12 +1092,12 @@ public sealed class GameMcpConfigurationTests
 
         Assert.Equal(
             "sections: General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, " +
-            "AutoScribe, Reserves",
+            "AutoScribe, Reserves, Mentor",
             GameMcpAcceptanceFixture.CallText("suite_configuration", context: context)
                 .Split('\n')[0]);
         Assert.Equal(
             "sections: General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, " +
-            "AutoScribe, Reserves",
+            "AutoScribe, Reserves, Mentor",
             GameMcpAcceptanceFixture.CallText(
                     "suite_configuration", new JObject { ["mode"] = "describe" }, context)
                 .Split('\n')[0]);
@@ -1032,7 +1144,7 @@ public sealed class GameMcpConfigurationTests
         Assert.Equal(GameMcpDecisionReason.ClassInput, (string?)refusal["reasonCode"]);
         Assert.Equal(
             "unknown section 'autobuy_settings'; the sections are General, AutoBuy, AutoCast, " +
-            "AutoConcept, AutoHarvest, AutoItems, AutoScribe, Reserves",
+            "AutoConcept, AutoHarvest, AutoItems, AutoScribe, Reserves, Mentor",
             (string?)refusal["reason"]);
         Assert.Null(refusal["sections"]);
 
@@ -1326,7 +1438,7 @@ public sealed class GameMcpConfigurationTests
                 "AutoScribe/Roles: string",
                 "Reserves/AbsoluteReserve: string",
                 "Reserves/RelativeReserveMultiplier: float",
-                "General/Mode: MentorOperationMode",
+                "Mentor/Mode: MentorOperationMode",
             },
             described["settings"]!.Values<JObject>()
                 .Select(setting =>

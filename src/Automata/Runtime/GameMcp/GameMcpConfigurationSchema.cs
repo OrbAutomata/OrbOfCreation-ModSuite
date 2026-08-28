@@ -30,7 +30,11 @@ internal static class GameMcpConfigurationSchema
         object value = (section, key) switch
         {
             ("General", "Enabled") => configuration.General.Enabled,
-            ("General", "Mode") => configuration.Mentor.Mode,
+
+            // Addressed by the mod that owns it, per GameMcpConfigurationAddress; the file still
+            // holds it at [General] Mode, and a caller naming that older address is refused there
+            // rather than answered here.
+            ("Mentor", "Mode") => configuration.Mentor.Mode,
             ("AutoBuy", "Mode") => configuration.AutoBuy.Mode,
             ("AutoBuy", "AffordabilityMode") => configuration.AutoBuy.StructureAffordability,
             ("AutoBuy", "UpgradeAffordabilityMode") => configuration.AutoBuy.UpgradeAffordability,

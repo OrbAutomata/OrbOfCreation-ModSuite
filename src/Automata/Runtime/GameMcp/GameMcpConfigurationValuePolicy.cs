@@ -44,14 +44,14 @@ internal static class GameMcpConfigurationValuePolicy
         if (!TryParse(entry.SettingType, serialized, out var parsed))
         {
             reason =
-                entry.Definition.Section + "/" + entry.Definition.Key +
+                GameMcpConfigurationAddress.OnTheWire(entry.Definition) +
                 " must parse exactly as " + FriendlyTypeName(entry.SettingType);
             return false;
         }
         if (parsed is float single && !float.IsFinite(single))
         {
             reason =
-                entry.Definition.Section + "/" + entry.Definition.Key +
+                GameMcpConfigurationAddress.OnTheWire(entry.Definition) +
                 " must be finite";
             return false;
         }
@@ -74,7 +74,7 @@ internal static class GameMcpConfigurationValuePolicy
         if (parsed is double doubleValue && !double.IsFinite(doubleValue))
         {
             reason =
-                entry.Definition.Section + "/" + entry.Definition.Key +
+                GameMcpConfigurationAddress.OnTheWire(entry.Definition) +
                 " must be finite";
             return false;
         }
@@ -87,7 +87,7 @@ internal static class GameMcpConfigurationValuePolicy
             // numbers and the sentence is written from those numbers, so both say one thing.
             bound = Bound(acceptable);
             reason =
-                entry.Definition.Section + "/" + entry.Definition.Key +
+                GameMcpConfigurationAddress.OnTheWire(entry.Definition) +
                 " must be " + Domain(bound);
             return false;
         }
