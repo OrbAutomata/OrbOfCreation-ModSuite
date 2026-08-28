@@ -14,16 +14,22 @@ public sealed class GenericDiscoveryGameActionTests : IDisposable
     private readonly IDictionary _registry = new Hashtable();
 
     /// <summary>
-    /// The two discovery screens whose owning view the suite pins, unlocked. A locked screen draws
+    /// The five discovery screens whose owning view the suite pins, unlocked. A locked screen draws
     /// no rows at all, so every press that expects a row needs them open.
     /// </summary>
     private readonly ViewSO _spellbookUnlock = Screen(KnownEntities.MagicSpellbookLearn.Uuid);
     private readonly ViewSO _glyphcraft = Screen(KnownEntities.MagicGlyphsDiscover.Uuid);
+    private readonly ViewSO _ritualsDiscover = Screen(KnownEntities.RitualsDiscover.Uuid);
+    private readonly ViewSO _artifactCreate = Screen(KnownEntities.WorkshopArtifactCreate.Uuid);
+    private readonly ViewSO _timeRuneCreate = Screen(KnownEntities.TimeTimeRuneCreate.Uuid);
 
     public GenericDiscoveryGameActionTests()
     {
         _registry.Add(_spellbookUnlock.GetGuid(), _spellbookUnlock);
         _registry.Add(_glyphcraft.GetGuid(), _glyphcraft);
+        _registry.Add(_ritualsDiscover.GetGuid(), _ritualsDiscover);
+        _registry.Add(_artifactCreate.GetGuid(), _artifactCreate);
+        _registry.Add(_timeRuneCreate.GetGuid(), _timeRuneCreate);
     }
 
     public void Dispose()
@@ -174,45 +180,68 @@ public sealed class GenericDiscoveryGameActionTests : IDisposable
     }
 
     /// <summary>
-    /// A locked screen is refused in the screen's own words, before any row fact — and only the two
-    /// screens the suite pins are gated at all.
+    /// A locked screen is refused in the screen's own words, before any row fact — on all five
+    /// kinds whose owning view the game's own authoring names.
     /// </summary>
     /// <remarks>
-    /// <c>ViewSO.IsAvailable()</c> is the game's own question about the screen. The other discovery
-    /// pages keep the answer their rows already give, because nothing pins which view owns them and
-    /// guessing one would refuse a press the game would have taken.
+    /// <c>ViewSO.IsAvailable()</c> is the game's own question about the screen, and each discovery
+    /// tree names the view it is drawn under in its authored <c>viewLocation</c>. Alchemy recipes
+    /// are the one kind with no single answer — concepts are alchemy recipes drawn on a different
+    /// screen — so they keep the answer their rows already give.
     /// </remarks>
-    [Fact]
-    public void A_locked_discovery_screen_refuses_before_any_row_fact()
+    [Theory]
+    [InlineData("GlyphSO", "Magic > Augments > Glyphcraft")]
+    [InlineData("SpellRecipeSO", "Magic > Spellbook > Unlock")]
+    [InlineData("RitualSO", "Rituals > Discover")]
+    [InlineData("EquipmentSO", "Workshop > Artifacts > Create")]
+    [InlineData("TimeRuneSO", "Time > Time Runes > Create")]
+    public void A_locked_discovery_screen_refuses_before_any_row_fact(
+        string nativeType, string path)
     {
         _glyphcraft.available = false;
         _spellbookUnlock.available = false;
+        _ritualsDiscover.available = false;
+        _artifactCreate.available = false;
+        _timeRuneCreate.available = false;
         SpellManager.instance = new SpellManager();
-        var glyph = Target("GlyphSO");
-        Register(glyph);
-        var recipe = Target("SpellRecipeSO");
-        Register(recipe);
+        var target = Target(nativeType);
+        Register(target);
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, target, nativeType);
+
+        Assert.Equal(GenericDiscoveryPreflight.ScreenLocked, result.Preflight);
+        Assert.Equal(
+            path + " is not unlocked yet, so the game draws no row to discover. Nothing was spent.",
+            result.Reason);
+        Assert.Equal(0, Discoverable(target).GetDiscoverCost().PerformCalls);
+    }
+
+    /// <summary>
+    /// Alchemy recipes are the one discoverable kind with two screens, so the press gates on
+    /// neither and the row's own visibility stays the whole answer.
+    /// </summary>
+    /// <remarks>
+    /// <c>AlchemyDiscoveryTree.viewLocation</c> ends at <c>AlchAlchemyDiscover</c> and
+    /// <c>ConceptDiscoveryTree.viewLocation</c> ends at <c>ScholarConceptDiscover</c>, and both
+    /// trees discover <c>AlchemyRecipeSO</c>. Naming either view here would refuse a press the
+    /// other screen would have taken.
+    /// </remarks>
+    [Fact]
+    public void A_kind_drawn_on_two_screens_is_gated_on_neither()
+    {
+        _glyphcraft.available = false;
+        _spellbookUnlock.available = false;
+        _ritualsDiscover.available = false;
+        _artifactCreate.available = false;
+        _timeRuneCreate.available = false;
         var potion = Target("AlchemyRecipeSO");
         Register(potion);
         using var boundary = Boundary();
 
-        var glyphcraft = Submit(boundary, glyph, "GlyphSO");
-        var spellbook = Submit(boundary, recipe, "SpellRecipeSO");
         var alchemy = Submit(boundary, potion, "AlchemyRecipeSO");
 
-        Assert.Equal(GenericDiscoveryPreflight.ScreenLocked, glyphcraft.Preflight);
-        Assert.Equal(
-            "Magic > Augments > Glyphcraft is not unlocked yet, so the game draws no row to " +
-            "discover. Nothing was spent.",
-            glyphcraft.Reason);
-        Assert.Equal(GenericDiscoveryPreflight.ScreenLocked, spellbook.Preflight);
-        Assert.Equal(
-            "Magic > Spellbook > Unlock is not unlocked yet, so the game draws no row to " +
-            "discover. Nothing was spent.",
-            spellbook.Reason);
         Assert.True(alchemy.Verified, alchemy.Reason);
-        Assert.Equal(0, Discoverable(glyph).GetDiscoverCost().PerformCalls);
-        Assert.Equal(0, Discoverable(recipe).GetDiscoverCost().PerformCalls);
     }
 
     /// <summary>

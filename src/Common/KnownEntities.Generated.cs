@@ -96,6 +96,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<AlchemyTypeSOContract> Reductive = new(new Guid("47b787b9-d4cd-43c8-a7e3-63a1e4e0ae94"), "AlchemyTypeSO", "Reductive");
     public static readonly KnownEntity<AlchemyTypeSOContract> Refinement = new(new Guid("32b6b099-19f2-4470-b47b-6c2a8b0388e1"), "AlchemyTypeSO", "Refinement");
     public static readonly KnownEntity<AlchemyTypeSOContract> Reflective = new(new Guid("8f258dcc-c39a-4d64-b915-4239e746c49d"), "AlchemyTypeSO", "Reflective");
+    public static readonly KnownEntity<ViewSOContract> RitualsDiscover = new(new Guid("443bc384-3df6-49ac-aa52-28abe080595c"), "ViewSO", "RitualsDiscover");
     public static readonly KnownEntity<CraftingRecipeTypeSOContract> ScribeCrafting = new(new Guid("ee001474-8209-4238-9566-84899a877226"), "CraftingRecipeTypeSO", "ScribeCrafting");
     public static readonly KnownEntity<CraftingRecipeListVariableContract> ScribeCraftingRecipes = new(new Guid("2917516f-34a5-47b7-85b2-0b2f9ab3a29f"), "CraftingRecipeListVariable", "ScribeCraftingRecipes");
     public static readonly KnownEntity<ConsumableSOContract> ScrollAdvancement = new(new Guid("5f6aa08d-7da6-4c7a-89c9-aabcfe48e886"), "ConsumableSO", "ScrollAdvancement");
@@ -107,6 +108,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<ConsumableSOContract> ScrollPower = new(new Guid("4bb8af50-fc7d-44a7-b1fc-937c390f8aec"), "ConsumableSO", "ScrollPower");
     public static readonly KnownEntity<ConsumableSOContract> ScrollSpeed = new(new Guid("b2232a7d-5c97-44c9-9520-686e99fa8293"), "ConsumableSO", "ScrollSpeed");
     public static readonly KnownEntity<DoubleVariableContract> TimePlayed = new(new Guid("02eac15e-9c92-4d06-b8a2-1275faf7df89"), "DoubleVariable", "TimePlayed");
+    public static readonly KnownEntity<ViewSOContract> TimeTimeRuneCreate = new(new Guid("82047a67-9d57-438c-b5b1-99377e242e32"), "ViewSO", "TimeTimeRuneCreate");
     public static readonly KnownEntity<AlchemyTypeSOContract> Transmutation = new(new Guid("b42c6192-7d9b-40d0-aa40-3d46a9348e52"), "AlchemyTypeSO", "Transmutation");
     public static readonly KnownEntity<PlotNodeActionSOContract> TreasureTreeCollect = new(new Guid("3eb68f6f-c2f2-405a-88d2-e5c80345aeb4"), "PlotNodeActionSO", "PNATreasureTreeCollect");
     public static readonly KnownEntity<PlotNodeSOContract> TreasureTreePlot = new(new Guid("2d41cfc1-bffa-43b5-b3a8-5e4d5ad85434"), "PlotNodeSO", "PlotTreasureTree");
@@ -122,5 +124,6 @@ internal static class KnownEntities
     public static readonly KnownEntity<UpgradeListVariableContract> UpgradesWorkshopScreen = new(new Guid("0b19f88b-8ab8-4c59-8c9c-34c3a577c6d3"), "UpgradeListVariable", "WorkshopScreenUpgrades");
     public static readonly KnownEntity<UpgradeListVariableContract> UpgradesWorldScreen = new(new Guid("d9cbbc6b-b8c6-4fa6-9bea-3551a2107eae"), "UpgradeListVariable", "WorldScreenUpgrades");
     public static readonly KnownEntity<ViewSOContract> WorkshopArtifact = new(new Guid("668a2a7a-468f-4e0e-b182-979b12a4b0ad"), "ViewSO", "WorkshopArtifact");
+    public static readonly KnownEntity<ViewSOContract> WorkshopArtifactCreate = new(new Guid("05e1f545-5daa-4bd0-9cbb-8770f4cf6a13"), "ViewSO", "WorkshopArtifactCreate");
     public static readonly KnownEntity<IntVariableContract> WorldAspectSlots = new(new Guid("4b1bb2de-723a-4360-827c-8e4483f3ff8d"), "IntVariable", "WorldAspectSlots");
 }

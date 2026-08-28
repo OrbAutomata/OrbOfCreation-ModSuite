@@ -7610,7 +7610,11 @@ internal static class GameMcpWorldQuery
                     : decision.UnavailableReason,
             };
         }
-        AddDiscoveryDecision(world, result, equipment.Discovery);
+        AddDiscoveryDecision(
+            world,
+            result,
+            equipment.Discovery,
+            screenUnlocked: IsScreenUnlocked(world, KnownEntities.WorkshopArtifactCreate.Uuid));
         return result.Freeze();
     }
 
@@ -8051,7 +8055,11 @@ internal static class GameMcpWorldQuery
         };
         AddRitualRun(result, in ritual);
         AddRitualDecision(world, result, in ritual);
-        AddDiscoveryDecision(world, result, ritual.Discovery);
+        AddDiscoveryDecision(
+            world,
+            result,
+            ritual.Discovery,
+            screenUnlocked: IsScreenUnlocked(world, KnownEntities.RitualsDiscover.Uuid));
         return result.Freeze();
     }
 
@@ -8304,7 +8312,11 @@ internal static class GameMcpWorldQuery
         };
         AddLevelDecision(world, result, rune.LevelDecision,
             rune.Discovered, "undiscovered");
-        AddDiscoveryDecision(world, result, rune.Discovery);
+        AddDiscoveryDecision(
+            world,
+            result,
+            rune.Discovery,
+            screenUnlocked: IsScreenUnlocked(world, KnownEntities.TimeTimeRuneCreate.Uuid));
         return result.Freeze();
     }
 
@@ -8426,6 +8438,14 @@ internal static class GameMcpWorldQuery
     /// game never routes through discovery still answers the verb — silence there read as
     /// "not discovered yet", which is the opposite of the truth for a glyph learned by prerequisite.
     /// </summary>
+    /// <remarks>
+    /// <paramref name="screenUnlocked"/> defaults to true for one kind only. Every discovery tree
+    /// names the view it is drawn under in its authored <c>viewLocation</c>, and five of the six
+    /// kinds resolve to one view each; <c>alchemy-recipes</c> spans two, because concepts are
+    /// alchemy recipes drawn on Scholar &gt; Concepts &gt; Discover rather than Alchemy &gt; Learn.
+    /// Naming either screen for that page would refuse rows the other screen draws, so those rows
+    /// keep the verdict their own visibility already gives.
+    /// </remarks>
     private static void AddDiscoveryDecision(
         GameWorldState world,
         JObject result,

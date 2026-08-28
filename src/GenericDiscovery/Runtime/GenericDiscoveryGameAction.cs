@@ -208,10 +208,14 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
     /// question about the screen, so this is read, never inferred.
     /// </summary>
     /// <remarks>
-    /// Only the two screens whose owning view the suite has pinned are gated. The other discovery
-    /// pages keep the answer their rows already give: <c>IsDiscoverVisible()</c> is false while the
-    /// game does not draw them, and inventing an owning view for a page nothing pins would be the
-    /// suite claiming a game fact it has not read.
+    /// Each discovery tree names the view it is drawn under, as an authored
+    /// <c>DiscoveryTreeSO.viewLocation</c> breadcrumb whose last element is that view, so five of
+    /// the six discoverable kinds are pinned by the game's own authoring rather than inferred.
+    /// <c>AlchemyRecipeSO</c> is the exception and stays ungated: its rows are drawn on two
+    /// screens, because <c>ConceptDiscoveryTree</c> ends at <c>ScholarConceptDiscover</c> while
+    /// <c>AlchemyDiscoveryTree</c> ends at <c>AlchAlchemyDiscover</c>, and naming either one here
+    /// would refuse a row the other screen is happily drawing. Its rows keep the answer they
+    /// already give: <c>IsDiscoverVisible()</c> is false while the game does not draw them.
     /// </remarks>
     private bool TryAdmitScreen(
         GenericDiscoveryNativeBindings native,
@@ -230,6 +234,18 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
             case "GlyphSO":
                 screen = KnownEntities.MagicGlyphsDiscover.Uuid;
                 path = "Magic > Augments > Glyphcraft";
+                break;
+            case "RitualSO":
+                screen = KnownEntities.RitualsDiscover.Uuid;
+                path = "Rituals > Discover";
+                break;
+            case "EquipmentSO":
+                screen = KnownEntities.WorkshopArtifactCreate.Uuid;
+                path = "Workshop > Artifacts > Create";
+                break;
+            case "TimeRuneSO":
+                screen = KnownEntities.TimeTimeRuneCreate.Uuid;
+                path = "Time > Time Runes > Create";
                 break;
             default:
                 return true;

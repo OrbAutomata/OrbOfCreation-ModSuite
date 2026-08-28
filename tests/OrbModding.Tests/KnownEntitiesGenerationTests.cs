@@ -19,7 +19,7 @@ public sealed class KnownEntitiesGenerationTests
             .ToDictionary(parts => parts[0], StringComparer.OrdinalIgnoreCase);
         var selected = ReadTsv("known-entities.tsv", "symbol\tid\tname\ttype", 4);
 
-        Assert.Equal(76, selected.Count);
+        Assert.Equal(79, selected.Count);
         Assert.Equal(selected.Count, selected.Select(parts => parts[0]).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(selected.Count, selected.Select(parts => parts[1]).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.All(selected, parts =>

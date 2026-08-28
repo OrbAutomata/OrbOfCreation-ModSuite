@@ -333,6 +333,159 @@ public sealed class GameMcpGenericDiscoveryTests
         Assert.Empty(committed.Properties());
     }
 
+    /// <summary>
+    /// Every discoverable kind whose owning screen the game names is gated on that screen, and the
+    /// one kind drawn on two screens is gated on neither.
+    /// </summary>
+    /// <remarks>
+    /// Each <c>DiscoveryTreeSO</c> carries an authored <c>viewLocation</c> whose last element is
+    /// the view its page is drawn under: rituals end at <c>RitualsDiscover</c>, artifacts at
+    /// <c>WorkshopArtifactCreate</c>, time runes at <c>TimeTimeRuneCreate</c>. Alchemy recipes are
+    /// the exception — <c>ConceptDiscoveryTree</c> ends at <c>ScholarConceptDiscover</c> while
+    /// <c>AlchemyDiscoveryTree</c> ends at <c>AlchAlchemyDiscover</c>, and both trees discover
+    /// <c>AlchemyRecipeSO</c> — so those rows keep the verdict their own visibility gives.
+    /// </remarks>
+    [Theory]
+    [InlineData("rituals", "2ebf945f-56bc-44fe-a82a-7f117779ce37")]
+    [InlineData("equipment", "02c64c96-de30-4e73-bafe-5f454bb58a66")]
+    [InlineData("time-runes", "01a6d158-0fcd-40bc-a3a2-8f748086201d")]
+    [InlineData("alchemy-recipes", "")]
+    public void A_discovery_row_is_gated_on_the_screen_its_tree_is_drawn_under(
+        string category, string uuid)
+    {
+        var id = uuid.Length == 0 ? AlchemyRecipeId : Guid.Parse(uuid);
+
+        var open = Json(GameMcpWorldQuery.GetRow(
+            ScreenContext(screensUnlocked: true), category, id.ToString("D")))["row"]!;
+        var shut = Json(GameMcpWorldQuery.GetRow(
+            ScreenContext(screensUnlocked: false), category, id.ToString("D")))["row"]!;
+
+        Assert.True((bool)open["discover"]!["available"]!);
+        if (uuid.Length == 0)
+        {
+            Assert.True((bool)shut["discover"]!["available"]!);
+            return;
+        }
+        Assert.False((bool)shut["discover"]!["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)shut["discover"]!["reasonCode"]);
+        Assert.Equal(
+            "The screen this action lives on is not unlocked yet.",
+            (string?)shut["discover"]!["reason"]);
+    }
+
+    private static readonly Guid AlchemyRecipeId =
+        Guid.Parse("05589125-5a98-4e74-a1ae-2b2146ea68c4");
+    private static readonly Guid AlchemyTypeId =
+        Guid.Parse("b42c6192-7d9b-40d0-aa40-3d46a9348e52");
+
+    /// <summary>
+    /// One row of each screen-gated kind, all offered by the game, with the four owning views
+    /// either open or shut together.
+    /// </summary>
+    private static GameMcpFrameContext ScreenContext(bool screensUnlocked)
+    {
+        var offered = new WorldDiscoverableDecision(
+            visible: true,
+            canDiscover: true,
+            discovered: false,
+            required: false,
+            affordable: true,
+            PublicationTable<WorldDiscoverableCost>.Empty);
+        var modifiers = default(RawRitualModifiers);
+        var world = new GameWorldState
+        {
+            CollectedAtEpoch = 15,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus(
+                    "rituals", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+                new WorldCollectionCategoryStatus(
+                    "equipment", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+                new WorldCollectionCategoryStatus(
+                    "time runes", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+                new WorldCollectionCategoryStatus(
+                    "alchemy recipes", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+            }),
+            Views = PublicationTable<WorldView>.Create(new[]
+            {
+                new WorldView(
+                    KnownEntities.RitualsDiscover.Uuid, false, false, screensUnlocked),
+                new WorldView(
+                    KnownEntities.WorkshopArtifactCreate.Uuid, false, false, screensUnlocked),
+                new WorldView(
+                    KnownEntities.TimeTimeRuneCreate.Uuid, false, false, screensUnlocked),
+            }.OrderBy(view => view.EntityId).ToArray()),
+            Rituals = PublicationTable<WorldRitual>.Create(new[]
+            {
+                new WorldRitual(
+                    Guid.Parse("2ebf945f-56bc-44fe-a82a-7f117779ce37"),
+                    discovered: false,
+                    inBattle: false,
+                    activeInstances: 0,
+                    reachedLevel: 0,
+                    lastReachedLevel: 0,
+                    selectedLevel: 1,
+                    wavesCompleted: 0,
+                    discoveryRarityLevel: 0,
+                    critLevel: 0,
+                    echoLevel: 0,
+                    chainLevel: 0,
+                    durationRewardBlocks: 0,
+                    battleTotalWeight: BigDouble.Zero,
+                    in modifiers,
+                    hideEndScreenResults: false,
+                    isDiscoverRequired: false,
+                    forceLevel: false,
+                    forceLevelValue: 0,
+                    baseWaves: 0,
+                    maxWaves: 0,
+                    requiredWaves: 0,
+                    baseWeight: 0,
+                    minimumEffectLevel: 0,
+                    failedRun: false,
+                    discovery: offered),
+            }),
+            Equipment = PublicationTable<WorldEquipment>.Create(new[]
+            {
+                new WorldEquipment(
+                    Guid.Parse("02c64c96-de30-4e73-bafe-5f454bb58a66"),
+                    false, 0, BigDouble.Zero, 0, false,
+                    BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, 0, 0, -1, BigDouble.Zero,
+                    discovery: offered,
+                    loadout: new WorldEquipmentDecision(
+                        false, "not created yet", Guid.Empty, 0, 0, 0, 0, 0, 0, 0, 0, false,
+                        PublicationTable<WorldEquipmentUsageCost>.Empty)),
+            }),
+            TimeRunes = PublicationTable<WorldTimeRune>.Create(new[]
+            {
+                new WorldTimeRune(
+                    Guid.Parse("01a6d158-0fcd-40bc-a3a2-8f748086201d"),
+                    false, 0, 0, BigDouble.Zero, 0, false, false,
+                    BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+                    discovery: offered),
+            }),
+            AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new[]
+            {
+                new WorldAlchemyRecipe(
+                    AlchemyRecipeId, AlchemyTypeId, discovered: false, maxLevel: 1,
+                    advancementLevel: 0, discoveryRarityLevel: 0, masteryXp: BigDouble.Zero,
+                    masteryLevel: 0, recipeTime: BigDouble.One, isRequiredDiscovery: false,
+                    isCompletionRecipe: false, isAdvancementRecipe: false, completionTime: 0,
+                    isDebugAlchemy: false, power: BigDouble.Zero, speed: BigDouble.Zero,
+                    drainCostMod: BigDouble.Zero, special: BigDouble.Zero,
+                    timeReqMod: BigDouble.Zero, timeScalingMod: BigDouble.Zero,
+                    masteryXpRate: BigDouble.Zero, effectLevels: BigDouble.Zero,
+                    overdrivePower: BigDouble.Zero, overdriveSpeed: BigDouble.Zero,
+                    overdriveDrainCostMod: BigDouble.Zero, overdriveXpRate: BigDouble.Zero,
+                    freeUsageSlots: BigDouble.One, maxUsageSlots: new BigDouble(8),
+                    cachedCompletionTime: BigDouble.Zero, requiredExperience: BigDouble.One,
+                    discovery: offered),
+            }),
+        };
+        return GameMcpTestHarness.Context(world, generation: 2311);
+    }
+
     private static GameMcpFrameContext Context(
         bool ambiguous = false,
         bool componentLearned = true,
