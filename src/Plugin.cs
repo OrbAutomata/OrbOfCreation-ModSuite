@@ -2613,7 +2613,7 @@ public sealed class Plugin : BaseUnityPlugin
         {
             failure = GameMcpCommandResult.Rejected(
                 "configuration_not_available",
-                "the frame has no published configuration");
+                GameMcpDecisionReason.For("configuration_not_available"));
             return false;
         }
         if (preparationFailure is not null)
@@ -2715,15 +2715,14 @@ public sealed class Plugin : BaseUnityPlugin
         if (_configurationStore is null)
             return GameMcpCommandResult.Rejected(
                 "configuration_not_available",
-                "the committed suite configuration store is not composed");
+                GameMcpDecisionReason.For("configuration_not_available"));
         var expected = command.ExpectedConfigurationGeneration;
         var before = _configurationStore.CurrentGeneration;
         if (expected != before.Value)
         {
             return GameMcpCommandResult.Rejected(
                 "stale_configuration_generation",
-                "command expected configuration generation " + expected +
-                " but the main thread now has generation " + before.Value,
+                GameMcpDecisionReason.For("stale_configuration_generation"),
                 observedConfigurationGeneration: before.Value);
         }
 

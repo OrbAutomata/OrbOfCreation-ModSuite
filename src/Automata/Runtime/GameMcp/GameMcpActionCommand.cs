@@ -1090,10 +1090,7 @@ internal static class GameMcpNativeActionAdmission
         {
             rejection = GameMcpCommandResult.Rejected(
                 "stale_configuration_generation",
-                "command expected configuration generation " +
-                command.ExpectedConfigurationGeneration +
-                " but the main thread now has generation " +
-                currentConfigurationGeneration,
+                GameMcpDecisionReason.For("stale_configuration_generation"),
                 currentLifecycleGeneration,
                 currentConfigurationGeneration);
             return true;

@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using OrbAutomata;
@@ -274,6 +275,25 @@ public sealed class GameMcpDecisionReasonTests
     [InlineData("configuration_write_rejected")]
     public void A_value_outside_its_range_is_one_class_on_every_verb(string reasonCode) =>
         Assert.Equal(GameMcpDecisionReason.ClassInput, GameMcpDecisionReason.Class(reasonCode));
+
+    /// <summary>
+    /// The two configuration refusals used to explain themselves with internal counters — "expected
+    /// configuration generation 41 but the main thread now has generation 42" — which no read on
+    /// this surface publishes, so the numbers were unlookupable and the cause unsaid. Both now say
+    /// what happened and what to do, and the same words wherever they are produced.
+    /// </summary>
+    [Theory]
+    [InlineData("stale_configuration_generation")]
+    [InlineData("configuration_not_available")]
+    public void A_configuration_refusal_says_its_cause_rather_than_a_counter(string reasonCode)
+    {
+        var sentence = GameMcpDecisionReason.For(reasonCode);
+
+        Assert.DoesNotContain("generation", sentence, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("main thread", sentence, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(".", sentence, StringComparison.Ordinal);
+        Assert.Equal(GameMcpDecisionReason.ClassUnavailable, GameMcpDecisionReason.Class(reasonCode));
+    }
 
     /// <summary>
     /// A refusal whose argument was fine and whose state was the blocker is a state refusal. Two of

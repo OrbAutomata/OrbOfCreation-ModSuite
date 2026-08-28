@@ -290,7 +290,8 @@ internal static class GameMcpDecisionReason
         "owning_screen_unknown" or "owning_screen_unreadable" or
         "owning_screen_contradictory" or "topology_not_captured" or
         "owning_screen_status_unmodelled" or "owning_screen_availability_unreadable" or
-        "configuration_unpublished" or "runtime_not_available" or "price_unavailable" or
+        "configuration_unpublished" or "configuration_not_available" or
+        "runtime_not_available" or "price_unavailable" or
         "affordability_unavailable" or "entity_catalog_unavailable" or
         "queue_not_published" or "queue_reading_inconsistent" => ClassUnavailable,
 
@@ -404,6 +405,16 @@ internal static class GameMcpDecisionReason
         "wrong_configuration_surface" =>
             "This setting is one of the seven breakers, and suite_breakers is the one door that " +
             "flips it; suite_configuration still reads its value.",
+
+        // The only cause these two used to give was a pair of internal counters — "expected
+        // configuration generation 41 but the main thread now has generation 42" — which no read on
+        // this surface publishes, so a caller could neither look them up nor act on them. Said once
+        // here because two producers said it in two different sets of words.
+        "stale_configuration_generation" =>
+            "The suite's settings changed after this call was accepted and before the game ran it, " +
+            "so nothing was done; make the call again against the settings now in force.",
+        "configuration_not_available" =>
+            "The suite has not published its settings yet, so there is nothing to write against.",
 
         // Never a `reasonCode`, and so never a class: it is the sentence `world_categories` prints
         // once under `unlistable:`, and the rows that cannot be paged say that one word back.
