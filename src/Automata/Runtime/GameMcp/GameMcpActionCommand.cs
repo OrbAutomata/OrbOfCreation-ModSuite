@@ -364,8 +364,14 @@ internal sealed class GameMcpCommandResult
         {
             ServiceActionDisposition.Committed => "committed",
             ServiceActionDisposition.Faulted => "faulted",
+            // A stop nobody accounted for is the suite failing to say anything, not the game
+            // saying no — the word has to follow the account, not the disposition alone.
             ServiceActionDisposition.Rejected or ServiceActionDisposition.Skipped =>
-                GameMcpDecisionReason.IsSuiteDefect(code) ? "failed" : "refused",
+                GameMcpDecisionReason.IsSuiteDefect(code) ||
+                (string.IsNullOrWhiteSpace(exactReason) &&
+                 !GameMcpActionResultCodeNames.HasReason(result.Code, commandKind))
+                    ? "failed"
+                    : "refused",
             _ => "faulted",
         };
         var reason = status == "committed"
@@ -628,26 +634,39 @@ internal static class GameMcpActionResultCodeNames
                 return "The game offers this spell no charged cast, so it can only be fired outright.";
         }
 
-        // Last resort, and deliberately number-free. Every boundary above answers with its own
-        // sentence; reaching here means one refused without supplying it, which is a defect in that
-        // producer rather than a kind of no. The integer stays in the log where a maintainer can
-        // trace it — on the wire it named no axis a caller could act on, and round 8 shipped it to
-        // a caller nine different ways.
-        return Surface(commandKind) + " refused and gave no reason of its own";
+        // One sentence generator. The read side already answers most of these codes by their wire
+        // name, and the two halves must not answer the same code two ways — `loadout_full` had a
+        // sentence on the read and none on the mutation, so the same no read differently depending
+        // on which half of the surface you asked.
+        var wireCode = Name(code, commandKind);
+        return GameMcpDecisionReason.Knows(wireCode)
+            ? GameMcpDecisionReason.For(wireCode)
+            : NoAccount;
     }
 
-    private static string Surface(GameMcpCommandKind commandKind) => commandKind switch
-    {
-        GameMcpCommandKind.DiscoveryTreeOffer => "the Discovery Tree offer boundary",
-        GameMcpCommandKind.SpellWorkbench => "the spell workbench boundary",
-        GameMcpCommandKind.SpellComposition => "the spell composition boundary",
-        GameMcpCommandKind.SpellLoadout => "the spell loadout boundary",
-        GameMcpCommandKind.Targeting => "the targeting boundary",
-        GameMcpCommandKind.Consumable => "the consumable boundary",
-        GameMcpCommandKind.Crafting => "the one-shot crafting boundary",
-        GameMcpCommandKind.GenericDiscovery => "the generic discovery boundary",
-        _ => "the native action boundary",
-    };
+    /// <summary>
+    /// The answer for a stop no producer accounted for.
+    /// </summary>
+    /// <remarks>
+    /// Every boundary above answers with its own sentence; reaching here means one stopped a call
+    /// without supplying it, which is a defect in that producer rather than a kind of no. It used
+    /// to name the suite's own machinery — "the spell workbench boundary refused and gave no reason
+    /// of its own", in eleven spellings — and call it a refusal, which told a caller the game had
+    /// said no and sent them looking for a game state to change that does not exist. Nothing was
+    /// applied is the one thing the disposition does guarantee, so that is what it says.
+    /// </remarks>
+    internal const string NoAccount =
+        "Nothing was applied, and the suite has no account of what stopped it. This is a defect " +
+        "in the suite rather than a state you can change.";
+
+    /// <summary>
+    /// Whether any producer wrote a sentence for this code, which is what separates the game
+    /// refusing from the suite failing to say anything at all.
+    /// </summary>
+    internal static bool HasReason(
+        ServiceActionResultCode code,
+        GameMcpCommandKind commandKind) =>
+        !string.Equals(Reason(code, commandKind), NoAccount, StringComparison.Ordinal);
 
     internal static string Name(
         ServiceActionResultCode code,

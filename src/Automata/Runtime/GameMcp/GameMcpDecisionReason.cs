@@ -349,7 +349,17 @@ internal static class GameMcpDecisionReason
     /// the world publishes a few reasons as free text of its own, and a plain restatement is still
     /// an answer, where silence is the defect this exists to end.
     /// </summary>
-    internal static string For(string reasonCode) => reasonCode switch
+    internal static string For(string reasonCode) =>
+        Authored(reasonCode) ?? Restate(reasonCode);
+
+    /// <summary>
+    /// Whether this table has a sentence of its own for the code, as opposed to falling back to
+    /// restating it. A caller that has somewhere better to go when the answer is "no" needs to be
+    /// able to ask, rather than comparing against the fallback's own output.
+    /// </summary>
+    internal static bool Knows(string reasonCode) => Authored(reasonCode) is not null;
+
+    private static string? Authored(string reasonCode) => reasonCode switch
     {
         // Nothing to act on yet
         "not_available" => "The game has not unlocked this yet.",
@@ -568,7 +578,7 @@ internal static class GameMcpDecisionReason
         "passed" => "This check passes.",
         "native_verdict_matched" => "The suite's verdict matches the game's own.",
 
-        _ => Restate(reasonCode),
+        _ => null,
     };
 
     /// <summary>

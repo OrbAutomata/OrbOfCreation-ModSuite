@@ -32,9 +32,9 @@ internal sealed class GameMcpHttpServer : IDisposable
         Action<string> logError)
     {
         if (port is <= 0 or > 65535) throw new ArgumentOutOfRangeException(nameof(port));
-        _router = new GameMcpProtocolRouter(operations);
         _logInfo = logInfo ?? throw new ArgumentNullException(nameof(logInfo));
         _logError = logError ?? throw new ArgumentNullException(nameof(logError));
+        _router = new GameMcpProtocolRouter(operations, _logError);
         Port = port;
         Endpoint = "http://127.0.0.1:" + port + EndpointPath;
         _listener = new HttpListener();

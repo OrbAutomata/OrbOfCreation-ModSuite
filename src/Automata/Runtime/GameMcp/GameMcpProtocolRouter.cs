@@ -33,10 +33,12 @@ internal sealed class GameMcpProtocolRouter
     };
 
     private readonly GameMcpFrameInbox _operations;
+    private readonly Action<string>? _logError;
 
-    internal GameMcpProtocolRouter(GameMcpFrameInbox operations)
+    internal GameMcpProtocolRouter(GameMcpFrameInbox operations, Action<string>? logError = null)
     {
         _operations = operations ?? throw new ArgumentNullException(nameof(operations));
+        _logError = logError;
     }
 
     internal GameMcpProtocolResponse Handle(JObject request)
@@ -77,10 +79,37 @@ internal sealed class GameMcpProtocolRouter
         }
         catch (Exception exception)
         {
+            // The exception's own text names types and members from inside the suite and the game.
+            // A caller can act on none of it, and it is the one thing whoever fixes this needs — so
+            // it goes to the suite log under a reference the caller is given and can quote back.
+            var reference =
+                "MCP-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
+            _logError?.Invoke(
+                "Game MCP internal error " + reference + " on " + method + ": " + exception);
             return GameMcpProtocolResponse.Json(
-                Error(id, -32603, "internal MCP failure: " + exception.GetBaseException().Message));
+                Error(id, -32603, InternalErrorReason(method!, reference)));
         }
     }
+
+    /// <summary>
+    /// What a caller is told when a tool throws. The exception's own text names types and members
+    /// from inside the suite and the game; a caller can act on none of it, and it is the one thing
+    /// whoever fixes this needs — so it goes to the suite log under a reference they are handed.
+    /// </summary>
+    internal static string InternalErrorReason(string method, string reference) =>
+        "The suite hit an internal error handling " + method + ", so nothing was applied. " +
+        "Reference " + reference + " is in the suite log; quoting it is what a report of this " +
+        "needs.";
+
+    /// <summary>
+    /// What a caller is told when Unity does not pick a call up. It named the wait in milliseconds
+    /// and called the call "canceled before execution", which is the inbox's own vocabulary about
+    /// the inbox's own states; what a caller can act on is that the game is busy and nothing
+    /// landed.
+    /// </summary>
+    internal const string ClaimTimeoutReason =
+        "The game did not pick this up within two seconds — it is likely paused or loading. " +
+        "Nothing was applied.";
 
     internal static bool IsSupportedProtocolVersion(string? value) =>
         value is not null && SupportedProtocolVersions.Contains(value);
@@ -218,9 +247,7 @@ internal sealed class GameMcpProtocolRouter
             {
                 ["status"] = "rejected",
                 ["code"] = "request_canceled_before_claim",
-                ["reason"] = "Unity did not claim " + request.ToolName +
-                    " within " + TerminalWaitMilliseconds +
-                    " ms; it was canceled before execution",
+                ["reason"] = ClaimTimeoutReason,
             }.Freeze());
             if (operation.Completion.TryCancelBeforeClaim(canceled)) return canceled;
             terminal = operation.Completion.WaitForClaimedTerminal();

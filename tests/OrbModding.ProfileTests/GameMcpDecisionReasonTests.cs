@@ -395,6 +395,69 @@ public sealed class GameMcpDecisionReasonTests
     }
 
     /// <summary>
+    /// A stop no producer accounted for is the suite failing to say anything, not the game saying
+    /// no — and where the read side already has the sentence, both halves say the same thing.
+    /// </summary>
+    /// <remarks>
+    /// The last-resort formatter named the suite's own machinery in eleven spellings — "the spell
+    /// workbench boundary refused and gave no reason of its own" — and called it <c>refused</c>,
+    /// which told a caller the game had said no and sent them looking for a game state to change.
+    /// Most of what reached it was not even unaccounted for: <c>loadout_full</c> has had a sentence
+    /// on the read side all along, and the mutation half simply never asked for it.
+    /// </remarks>
+    [Fact]
+    public void A_stop_no_producer_accounted_for_is_the_suites_failure()
+    {
+        var shared = GameMcpCommandResult.FromAction(
+            ServiceActionResult.Rejected(SpellWorkbenchActionResultCodes.LoadoutFull),
+            GameMcpCommandKind.SpellWorkbench,
+            1,
+            1);
+
+        Assert.Equal("refused", shared.Status);
+        Assert.Equal(GameMcpDecisionReason.For("loadout_full"), shared.Reason);
+
+        var unaccounted = GameMcpCommandResult.FromAction(
+            ServiceActionResult.Rejected(SpellWorkbenchActionResultCodes.CompositionUnsupported),
+            GameMcpCommandKind.SpellWorkbench,
+            1,
+            1);
+
+        Assert.Equal("failed", unaccounted.Status);
+        Assert.Equal(GameMcpActionResultCodeNames.NoAccount, unaccounted.Reason);
+        Assert.DoesNotContain("boundary", unaccounted.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The two answers the router itself writes say what happened and what to do about it.
+    /// </summary>
+    /// <remarks>
+    /// One named the inbox's own states and the wait in milliseconds; the other put a raw .NET
+    /// exception message on the wire, which names types no caller can look up and is the one thing
+    /// whoever fixes it needs — so it moved to the suite log under a reference the caller is
+    /// handed.
+    /// </remarks>
+    [Fact]
+    public void The_routers_own_answers_say_what_happened_and_what_to_do()
+    {
+        Assert.DoesNotContain(
+            "canceled before execution",
+            GameMcpProtocolRouter.ClaimTimeoutReason,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Nothing was applied.",
+            GameMcpProtocolRouter.ClaimTimeoutReason,
+            StringComparison.Ordinal);
+
+        var internalError = GameMcpProtocolRouter.InternalErrorReason("tools/call", "MCP-0A1B2C3D");
+
+        Assert.Contains("tools/call", internalError, StringComparison.Ordinal);
+        Assert.Contains("nothing was applied", internalError, StringComparison.Ordinal);
+        Assert.Contains("MCP-0A1B2C3D", internalError, StringComparison.Ordinal);
+        Assert.DoesNotContain("internal MCP failure", internalError, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The UI gadgets' refusals carry the class that matches what went wrong.
     /// </summary>
     /// <remarks>
@@ -468,7 +531,7 @@ public sealed class GameMcpDecisionReasonTests
                 var code = match.Groups[1].Value;
                 if (GameMcpDecisionReason.IsPassing(code)) continue;
                 if (WritesItsOwnSentence(lines, index)) continue;
-                if (GameMcpDecisionReason.For(code) != Restated(code)) continue;
+                if (GameMcpDecisionReason.Knows(code)) continue;
                 offenders.Add(relative + ":" + (index + 1) + " (" + code + ")");
             }
         }
@@ -490,9 +553,6 @@ public sealed class GameMcpDecisionReasonTests
 
         return false;
     }
-
-    private static string Restated(string code) =>
-        char.ToUpperInvariant(code[0]) + code.Substring(1).Replace('_', ' ') + ".";
 
     private static string RepositoryRoot()
     {
