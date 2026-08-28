@@ -94,7 +94,7 @@ internal static class GameMcpWorldQuery
             return unavailable;
 
         var world = publication.Snapshot;
-        var result = Envelope(publication);
+        var result = new JObject();
         result["status"] = "available";
         // The run's own clock, under the game's word for it and in the game's own format. Every
         // other number here answers "what can I do next"; this one answers "how long has this taken
@@ -289,7 +289,7 @@ internal static class GameMcpWorldQuery
     {
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
-        var result = Envelope(publication);
+        var result = new JObject();
         result["status"] = "available";
         var rows = new List<(string Name, JObject Row)>(
             Categories.Length + publication.Snapshot.CollectionCategories.Count);
@@ -620,7 +620,7 @@ internal static class GameMcpWorldQuery
         // One pagination rule: nextOffset present means more rows remain and names where to
         // resume. A page shorter than the limit with a nextOffset is the byte budget; a page
         // shorter than the limit without one is the end of the category.
-        var result = Envelope(publication);
+        var result = new JObject();
 
         // A page with rows shows the shape of a row of this category by showing one. A page with
         // none has to say it, or the one read where a caller most needs to know what they were
@@ -663,7 +663,7 @@ internal static class GameMcpWorldQuery
             rows.Add(ProjectListRow(world, category, request, offset, page));
         }
 
-        var result = Envelope(publication);
+        var result = new JObject();
         if (rows.Count == 0) result["columns"] = ListColumns(category);
         result["rows"] = rows;
         // The outer page counts requests, which is what its rows are. How many candidates remain
@@ -741,7 +741,7 @@ internal static class GameMcpWorldQuery
             });
         }
 
-        var result = Envelope(publication);
+        var result = new JObject();
         if (samples.Count > 0)
         {
             result["window"] = new JObject
@@ -1847,7 +1847,7 @@ internal static class GameMcpWorldQuery
         {
             var row = category.Row(publication.Snapshot, index);
             if (!category.TryIdentity(row, out var rowIdentity) || rowIdentity != uuid) continue;
-            var result = Envelope(publication);
+            var result = new JObject();
             result["status"] = "available";
             var implicated = LocalizedRequirementImplications(
                 publication.Snapshot,
@@ -1957,7 +1957,7 @@ internal static class GameMcpWorldQuery
             results.Add(GetOne(
                 publication.Snapshot, requested, uuidTexts[inputIndex], keywordIndex));
 
-        var result = Envelope(publication);
+        var result = new JObject();
         result["results"] = results;
         return result;
     }
@@ -4732,7 +4732,7 @@ internal static class GameMcpWorldQuery
             rows.Add(match);
         }
 
-        var result = Envelope(publication);
+        var result = new JObject();
         result["total"] = hits.Count;
         if (unavailableCategories.Count > 0)
             result["unavailableCategories"] = unavailableCategories;
@@ -4989,29 +4989,6 @@ internal static class GameMcpWorldQuery
         state.World.Generation.Value > 1 &&
         state.World.Snapshot.CollectedAtUtcTicks > 0;
 
-    internal static JObject WithEnvelope(GameMcpFrameContext state, JObject payload)
-    {
-        if (IsWorldPublished(state))
-        {
-            var envelope = Envelope(state.World!);
-            envelope.CopyFrom(payload);
-            return envelope;
-        }
-
-        var result = new JObject();
-        result.CopyFrom(payload);
-        return result;
-    }
-
-    internal static GameMcpValue WithEnvelope(GameMcpFrameContext state, GameMcpValue payload)
-    {
-        if (payload is not GameMcpObject objectPayload)
-            throw new ArgumentException("An MCP response payload must be an object.", nameof(payload));
-        var result = new JObject();
-        result.CopyFrom(objectPayload);
-        return result.Freeze();
-    }
-
     private static bool TryWorld(
         GameMcpFrameContext state,
         out WorldPublication<GameWorldState> publication,
@@ -5030,17 +5007,12 @@ internal static class GameMcpWorldQuery
         return false;
     }
 
-    private static JObject Envelope(WorldPublication<GameWorldState> publication)
-    {
-        return new JObject();
-    }
-
     private static JObject NotAvailable(
         WorldPublication<GameWorldState> publication,
         string code,
         string reason)
     {
-        var result = Envelope(publication);
+        var result = new JObject();
         result["status"] = "not_available";
         result["code"] = code;
         result["reason"] = reason;
@@ -7871,7 +7843,7 @@ internal static class GameMcpWorldQuery
         // The reset state is published once, at the top level, on both verbs that carry it. Nesting
         // a second byte-identical copy inside the challenge block gave a caller two blocks with
         // nothing to tell them apart, on the two responses that were already the largest.
-        var result = Envelope(publication);
+        var result = new JObject();
         result["status"] = "available";
         result["prestigeState"] = ProjectPrestigeState(publication.Snapshot);
         result["challengeState"] = ProjectChallengeState(publication.Snapshot);

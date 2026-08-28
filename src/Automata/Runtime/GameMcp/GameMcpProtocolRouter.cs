@@ -743,7 +743,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_purchase",
                 "Purchase an attribute or upgrade",
                 "Live-revalidate and apply one UUID-addressed attribute (native StructureSO) or upgrade purchase. The game takes the levels into its action queue and builds them afterwards, so a commit answers that it queued and how many — never a level that has not moved yet. amount is taken as far as it goes, exactly as the game's own buy button does: a press that delivers less than the ask says delivered against asked on one line and, on that same line, why the rest did not go — the game took no more this press, or the action queue had no room for it. Only a queue with no free slot at all refuses, and Auto Buy's own settings, including the queue slots it reserves for manual play, do not apply to this call.",
-                ActionSchema(
+                ObjectSchema(
                     new JObject
                     {
                         ["uuid"] = StringSchema("Structure (shown in game as an attribute) or upgrade id; kind is derived."),
@@ -754,7 +754,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_cast",
                 "Cast an equipped spell",
                 "Live-revalidate an equipped slot and fire it, release a charge hold, or press an active toggle spell's native cast button again to turn it off. A fire on a spell that is already running is refused rather than pressed: the game answers that press with a warning or by ending the cast, never by starting one. A committed fire means the press started a cast now. charge=true holds the cast button down the way the player does, so the spell charges instead of firing at once; release it with mode=release, and the longer it was held the more power the cast lands with. Charging needs the Charged Spells research on a spell type that scales with it, and a spell the game will not charge is refused rather than fired uncharged.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("fire", "release", "toggle_off"),
@@ -770,7 +770,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_concept",
                 "Assign or remove a concept",
                 "Apply one exact concept assignment change and return its terminal native result inline.",
-                ActionSchema(
+                ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("add", "remove_owned"),
@@ -782,7 +782,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_agromancy",
                 "Use the Agromancy screen",
                 "Add or remove a plot action, harvest element, or element action shown on World/Agromancy.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema(
@@ -807,7 +807,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_structure",
                 "Enable or disable an attribute",
                 "Apply the same native enable or disable control shown for a published StructureSO attribute.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("enable", "disable"),
@@ -825,7 +825,7 @@ internal sealed class GameMcpProtocolRouter
                     + "mode=all presses the native Level All Spells sweep instead, which walks the "
                     + "whole spellbook and skips only the spells it cannot afford. Spell Lv is the "
                     + "global casting dial and is never moved here; that is game_casting_dial.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("single", "all"),
@@ -838,7 +838,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_casting_dial",
                 "Set a global casting dial",
                 "Set the global Output Level or Reserve Level shown together on the Casting screen.",
-                ActionSchemaWithoutIdentity(
+                ObjectSchema(
                     new JObject
                     {
                         ["dial"] = EnumSchema("output", "reserve"),
@@ -852,7 +852,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_spell_loadout",
                 "Read staging; preview, add, remove, or move a spell",
                 "Read the exact staged Spellcraft core and augment layout; preview an explicit layout's native price without changing staging; add that layout baked into a new spell; or remove or move an equipped spell. remove and move name the slot on the loadout bar, counted from 1 as the screen shows it. Success returns the settled slot change.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("staged", "preview", "add", "remove", "move"),
@@ -885,7 +885,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_targeting",
                 "Submit or randomize the pending target",
                 "Resolve the game's one current target request. Success returns the exact submitted structure.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("submit", "randomize"),
@@ -900,7 +900,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_consumable",
                 "Use or organize consumables",
                 "Use, cancel, discard, randomize, or reorder one consumable. Success returns the changed amount, flag, or slot.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema(
@@ -923,7 +923,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_craft",
                 "Craft or control one recipe",
                 "Craft one exact recipe, add its UI-sized automation increment, or cancel its manual or automated instance. Success returns only the settled quantity change.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema(
@@ -941,7 +941,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_discover",
                 "Preview or confirm discovery",
                 "Press a discovery screen's Discover button for one thing, or drive a transient Discovery Tree offer. Name what you want discovered and the screen follows from it.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("preview", "confirm", "offer_initiate", "offer_select", "offer_confirm", "offer_reroll"),
@@ -961,7 +961,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_equipment",
                 "Equip or unequip an artifact",
                 "Equip or unequip an explicit artifact amount through the native slot, type-slot, stack, and usage-cost decision. Success returns the stack count before and after.",
-                ActionSchema(
+                ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("equip", "unequip"),
@@ -975,7 +975,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_alchemy",
                 "Change the ordinary Alchemy loadout",
                 "Add or remove an explicit number of uses of one discovered ordinary Alchemy recipe through the native usage-capacity decision. Concept assignments stay on game_concept.",
-                ActionSchema(
+                ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("add", "remove"),
@@ -989,7 +989,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_ritual",
                 "Select, level, activate, or cancel a ritual reward",
                 "Drive the Ritual list controls. Discovering a ritual stays on game_discover, named by the ritual; cancel_duration ends a completed run's duration reward, not an active battle.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema(
@@ -1013,7 +1013,7 @@ internal sealed class GameMcpProtocolRouter
                 "Use the native level-list controls for those four kinds: purchase buys paid levels "
                     + "and bonus applies the free levels the game grants. Research and spells keep "
                     + "their dedicated tools.",
-                ActionSchema(
+                ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("purchase", "bonus"),
@@ -1027,7 +1027,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_loadout",
                 "Manage player loadouts and snapshots",
                 "Select or edit a player loadout, or save, load, and clear visible Equipment or Alchemy snapshot slots. A loadout is named by its position on the loadout bar and a snapshot by its section and its slot, both counted from 1 as the screen shows them.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("select", "set_section", "rename", "next_icon", "next_color",
@@ -1061,7 +1061,7 @@ internal sealed class GameMcpProtocolRouter
                 "time_challenge",
                 "Select, queue, abandon, or reroll challenges",
                 "Drive one exact native challenge decision on the game's Time tab. select presses a challenge's preferred toggle: it selects an unselected challenge and gives up a selected one, and where the selections are full and exactly one is held it gives that one up and takes this one in a single call. queue presses the row's queue toggle, which moves it between idle and queued; a queued challenge starts running at the next reset, and only a running one can be abandoned, and a challenge that has already run cannot be queued again until the next reset. reroll presses the offer screen's own new-challenges button, and the first press of a world cycle is the offer fetch: it costs no reroll, it draws this cycle's offers, it arms every challenge it drew to run at the next reset, and it unlocks the reset that refuses until the offers are fetched. Every later press costs one reroll, redraws the offers, and arms what it draws the same way. The answer names which of the two presses it was, what is armed for the reset afterwards, and whether the reset opened. state returns the reroll budget, the selections, the reset decision, and this cycle's offers once they have been fetched.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("select", "queue", "abandon", "reroll", "state"),
@@ -1079,7 +1079,7 @@ internal sealed class GameMcpProtocolRouter
                 "time_prestige",
                 "Reset the persistent world",
                 "Commit the irreversible native persistent reset after the world cycle and challenge choices are ready. This verb only commits: it has no read mode, and every fact the decision turns on is read with time_challenge(mode=\"state\"), whose prestigeState block carries the three Time Advancement figures, the reset count, the persistent resource, the challenges queued for the reset, the surviving rewards, and the exact reset.available verdict with its reason — so no attempt is needed to learn whether a reset can run. Read that first; then call this. Success waits for a fresh post-reset world and returns its named prestige and challenge decisions inline.",
-                ActionSchemaWithoutIdentity(
+                ObjectSchema(
                     new JObject
                     {
                         ["confirm"] = BooleanSchema("Must be true to confirm the irreversible persistent reset."),
@@ -1091,7 +1091,7 @@ internal sealed class GameMcpProtocolRouter
                 "game_research",
                 "Develop or manage research",
                 "Develop, queue, pause, resume, cancel, or apply a free bonus level to one exact research. amount is the number of levels a develop asks for and defaults to 1, and an ask beyond what this call can admit is refused with that ceiling rather than trimmed. A develop buys research time rather than a finished level, so it answers that it queued and how many; pause, resume, cancel, and bonus apply at once and answer the one state or count they moved.",
-                ModeSchema(ActionSchema(
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("develop", "pause", "resume", "cancel", "bonus"),
@@ -1281,15 +1281,31 @@ internal sealed class GameMcpProtocolRouter
             });
     }
 
+    /// <summary>
+    /// Every tool's input schema, by name, built once.
+    /// </summary>
+    /// <remarks>
+    /// Validation used to rebuild the whole forty-two-tool <c>tools/list</c> document — every
+    /// description, every property, every mode rule — and then walk it linearly to find one entry,
+    /// on every single call the server answers. The document is a constant; the index of it is too.
+    /// </remarks>
+    private static readonly IReadOnlyDictionary<string, JObject> ToolSchemas = IndexToolSchemas();
+
+    private static IReadOnlyDictionary<string, JObject> IndexToolSchemas()
+    {
+        var schemas = new Dictionary<string, JObject>(StringComparer.Ordinal);
+        foreach (var tool in (ListTools()["tools"] as JArray ?? new JArray()).OfType<JObject>())
+        {
+            if ((string?)tool["name"] is not { } toolName) continue;
+            if (tool["inputSchema"] is JObject schema) schemas[toolName] = schema;
+        }
+
+        return schemas;
+    }
+
     private static void ValidateToolArguments(string name, JObject arguments)
     {
-        var tool = (ListTools()["tools"] as JArray ?? new JArray())
-            .OfType<JObject>()
-            .FirstOrDefault(candidate => string.Equals(
-                (string?)candidate["name"],
-                name,
-                StringComparison.Ordinal));
-        if (tool?["inputSchema"] is not JObject schema) return;
+        if (!ToolSchemas.TryGetValue(name, out var schema)) return;
 
         var properties = schema["properties"] as JObject ?? new JObject();
         var errors = new JArray();
@@ -1600,15 +1616,6 @@ internal sealed class GameMcpProtocolRouter
         ["message"] = message,
     };
 
-    private static JObject ActionSchema(JObject properties, params string[] required)
-    {
-        return ObjectSchema(properties, required);
-    }
-
-    private static JObject ActionSchemaWithoutIdentity(
-        JObject properties,
-        params string[] required) => ObjectSchema(properties, required);
-
     private static JObject ModeSchema(JObject schema, params JObject[] rules)
     {
         schema["allOf"] = new JArray(rules);
@@ -1752,13 +1759,6 @@ internal sealed class GameMcpProtocolRouter
         if (DeclaresCeiling(maximum)) schema["maximum"] = maximum;
         return schema;
     }
-
-    private static JObject UlongSchema(string description) => new()
-    {
-        ["type"] = "integer",
-        ["minimum"] = 1,
-        ["description"] = description,
-    };
 
     private static JObject EnumSchema(params string[] values) => new()
     {
@@ -1932,14 +1932,6 @@ internal sealed class GameMcpProtocolRouter
         if (token.Type != JTokenType.Boolean)
             throw new GameMcpInvalidParamsException(name + " must be a boolean");
         return token.Value<bool>();
-    }
-
-    private static ulong RequiredUlong(JObject source, string name)
-    {
-        var value = OptionalUlong(source, name);
-        if (!value.HasValue)
-            throw new GameMcpInvalidParamsException(name + " must be an integer");
-        return value.Value;
     }
 
     private static ulong? OptionalUlong(JObject source, string name)

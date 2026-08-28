@@ -1488,24 +1488,31 @@ public sealed class Plugin : BaseUnityPlugin
         return answered;
     }
 
-    private static GameMcpToolExecution ProjectGameMcpFrameOperationFault(
+    /// <summary>
+    /// The answer for an operation that threw inside the frame.
+    /// </summary>
+    /// <remarks>
+    /// It shipped the exception's own message, which names types and members from inside the suite
+    /// and the game: a caller can act on none of it, and it is the one thing whoever fixes the
+    /// defect needs. It goes to the suite log under a reference the caller is handed and can quote.
+    /// </remarks>
+    private GameMcpToolExecution ProjectGameMcpFrameOperationFault(
         GameMcpFrameOperation operation,
         GameMcpFrameContext? context,
         Exception exception)
     {
+        var reference = "MCP-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
+        Logger.LogError(
+            "Game MCP internal error " + reference + " on " +
+            operation.Request.ToolName + ": " + exception);
         var result = new GameMcpObjectBuilder
         {
             ["status"] = "faulted",
             ["code"] = "operation_dispatch_fault",
-            ["reason"] = exception.GetBaseException().Message,
+            ["reason"] = GameMcpProtocolRouter.InternalErrorReason(
+                operation.Request.ToolName, reference),
         };
-        GameMcpValue payload = result.Freeze();
-        if (context is not null && operation.Request.Classification == GameMcpOperationClass.ReadOnly &&
-            (operation.Request.RequiredData & GameMcpFrameData.World) != 0)
-        {
-            payload = GameMcpWorldQuery.WithEnvelope(context, payload);
-        }
-        return GameMcpToolExecution.Error(payload).WithEntityIdentities(
+        return GameMcpToolExecution.Error(result.Freeze()).WithEntityIdentities(
             context is null
                 ? EntityIdentityCatalogPublication.Current
                 : EntityIdentities(context));
