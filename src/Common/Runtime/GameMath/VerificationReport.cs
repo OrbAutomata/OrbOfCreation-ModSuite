@@ -111,12 +111,14 @@ internal sealed class VerificationReport
     {
         var lines = new List<string> { Verdict.Word() + " — " + CountLine() };
         var agreeing = new List<string>();
+        var foldedNotes = new List<string>();
 
         foreach (var finding in _findings)
         {
             if (finding.TryFold(out var folded))
             {
                 agreeing.Add(folded);
+                if (finding.Note.Length > 0) foldedNotes.Add(finding.Subject + " — " + finding.Note);
                 continue;
             }
             lines.Add(finding.Headline());
@@ -125,8 +127,10 @@ internal sealed class VerificationReport
         }
 
         // The coverage roll-up sits directly under the verdict it is the evidence for, and the
-        // checks that need a reader are what follows it.
+        // checks that need a reader are what follows it. A folded check's note follows the roll-up
+        // carrying the check's name, because the headline that used to carry it is gone.
         if (agreeing.Count > 0) lines.Insert(1, AgreementLine(agreeing));
+        for (var index = 0; index < foldedNotes.Count; index++) lines.Insert(2 + index, foldedNotes[index]);
 
         lines.Add("window: " + window);
         return lines;

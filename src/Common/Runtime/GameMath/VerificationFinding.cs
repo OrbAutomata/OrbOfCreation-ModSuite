@@ -150,14 +150,15 @@ internal readonly struct VerificationFinding
     /// before and <c>compared.</c> after — is the same eighteen characters on every one of them, and
     /// one live round spent 864 bytes on that scaffolding across forty-eight such lines while the
     /// response's own first line already said how many facts agreed. A check that reported its own
-    /// count clause, published a note, or listed anything keeps its full line: those are the checks
-    /// where the words are the finding.
+    /// count clause or listed anything keeps its full line: those are the checks where the words are
+    /// the finding. A note is not one of them — the note is the words, the headline around it is the
+    /// same restatement, and the note keeps its own line naming the check it belongs to.
     /// </remarks>
     internal bool TryFold(out string folded)
     {
         folded = string.Empty;
         if (Verdict != VerificationVerdict.Agree) return false;
-        if (Counts.Length > 0 || Note.Length > 0 || Detail.Count > 0) return false;
+        if (Counts.Length > 0 || Detail.Count > 0) return false;
         folded = Subject + " " + Compared.ToString(CultureInfo.InvariantCulture);
         return true;
     }

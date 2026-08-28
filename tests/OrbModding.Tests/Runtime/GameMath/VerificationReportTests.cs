@@ -86,6 +86,31 @@ public sealed class VerificationReportTests
             report.Render(Window));
     }
 
+    /// <summary>
+    /// A note is the only thing an agreeing check has to say, so the check folds like any other and
+    /// the note keeps its own line under the roll-up, naming the check it belongs to. The headline
+    /// it used to hang from restated the folded line four lines above it.
+    /// </summary>
+    [Fact]
+    public void An_agreeing_check_with_only_a_note_folds_and_the_note_names_its_check()
+    {
+        var report = new VerificationReport();
+        report.Add(VerificationFinding.Agree("Category binding", 88));
+        report.Add(VerificationFinding
+            .Agree("Category traversal", 88)
+            .WithNote("Empty on purpose: Concept tiers counts tiers, not entities."));
+
+        Assert.Equal(
+            new[]
+            {
+                "AGREE — 176 facts compared, 176 agree, 0 differ.",
+                "AGREE (2 checks): Category binding 88, Category traversal 88",
+                "Category traversal — Empty on purpose: Concept tiers counts tiers, not entities.",
+                "window: " + Window,
+            },
+            report.Render(Window));
+    }
+
     [Fact]
     public void A_disagreement_renders_its_rows_and_the_agreeing_checks_still_render_their_line()
     {

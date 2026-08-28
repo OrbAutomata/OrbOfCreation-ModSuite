@@ -3712,7 +3712,7 @@ are elided here, not by the tool:
 ```
 AGREE — 8442 facts compared, 8442 agree, 0 differ.
 AGREE (24 checks): Category binding 63, Category traversal 63, Spell type layer 6, …
-Empty on purpose: targeting samples only while a native targeting request is open, and none was; crafting stations counts stations in play, and this build authors none it can reach.
+Category traversal — Empty on purpose: targeting samples only while a native targeting request is open, and none was; crafting stations counts stations in play, and this build authors none it can reach.
 Identities AGREE: 3323 compared, 0 empty, 0 repeated within a table, 3 tables keyed on more than the identity.
 Shared identities: 1934 entities, 1389 detail rows filed under one of them (largest: PurchaseViewRelations 409, AlchemyLoadout 125, SpellRecipeAuthoring 65).
 window: generation=3 frame=48213 entities=6683 collectors=61 collect=41.213ms ported=118.4ms native=2249.1ms elapsed=2407.741ms memos=5677 drifted=730 dirty=3558 uncalculated=612 widestDrift=StructureSO.passiveCostMod memo=100 recompute=4.44e-115 orders=116.4
@@ -3722,9 +3722,10 @@ window: generation=3 frame=48213 entities=6683 collectors=61 collect=41.213ms po
 compression rather than a summary. What goes is the ` AGREE: `/` compared.` frame repeated once per
 check, which cost 864 bytes of one live round's 1,849-byte per-check block under a first line that
 already stated how many facts were compared and how many agreed. A check that reported its own count
-clause (`Identities`), published a note beside its verdict (`Empty on purpose:`, `Shared
-identities:`), or listed anything keeps its full line, because there the words are the finding; so do
-every `DISAGREE`, `INCOMPLETE` and `INCONCLUSIVE`.
+clause (`Identities`) or listed anything keeps its full line, because there the words are the
+finding; so do every `DISAGREE`, `INCOMPLETE` and `INCONCLUSIVE`. A check whose only extra words are
+a note (`Empty on purpose:`) folds like any other and its note follows the agreement line naming the
+check it belongs to — the headline it used to hang from restated the folded entry above it.
 
 The rules that make it read that way:
 
