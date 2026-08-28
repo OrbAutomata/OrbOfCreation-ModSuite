@@ -7783,6 +7783,18 @@ internal static class GameMcpWorldQuery
         };
         if (challenge.MaxLevel >= 0) result["maximumLevel"] = challenge.MaxLevel;
 
+        // What a timed challenge is racing. The game's own check is
+        // `Player.GetResetTimePassed() > ChallengeCondition.GetTimeLimit(level)`, and the wire
+        // carried the elapsed half only — `world_overview`'s `timePlayedThisReset` — so a caller
+        // could see the clock running and not what it ran out against. The limit is the game's
+        // answer for this challenge's own level, and it prints through `RunClock` because
+        // `GetTimeBeforeNodes` draws it with `Utils.BeautifyTimeUltraPrecise`: the same rule that
+        // formats the elapsed variable, so the two numbers a caller compares are in one notation. A
+        // condition that races nothing says nothing here, and an unpublished limit is absent rather
+        // than a zero that would read as "no time left".
+        if (challenge.ConditionBeforeType == WorldChallenge.TimedCondition)
+            result["timeLimit"] = RunClock(challenge.TimeLimit);
+
         // The selection budget is the game's own gate and the published world carries no reading of
         // it: `SelectionMaximum` is the list's declared maximum, and the press asks
         // `HasEmptySpot()`, which on a full list is still a yes for the swap the verb performs.

@@ -760,6 +760,52 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     [Fact]
+    public void OnlyATimedChallengeCarriesTheLimitItsRunIsRacing()
+    {
+        // The limit is the game's own answer for the level the challenge is at — `SlowIncrement`
+        // and the tooltip both ask `GetTimeLimit(ChallengeSO.level)` — so a condition that answers
+        // in the level it is handed proves which level the collector asked for. A condition that
+        // races nothing is not asked at all: its row carries no limit rather than a zero, which a
+        // consumer would read as a run with no time left.
+        var racing = Guid.NewGuid();
+        var gated = Guid.NewGuid();
+        FakeChallenge.All.Add(new FakeChallenge
+        {
+            Identity = racing,
+            level = 3,
+            maxLevel = -1,
+            challengeCondition = new FakeChallengeCondition
+            {
+                beforeType = FakeBeforeType.Time,
+                timeLimitSeconds = 600d,
+            },
+        });
+        FakeChallenge.All.Add(new FakeChallenge
+        {
+            Identity = gated,
+            level = 3,
+            maxLevel = -1,
+            challengeCondition = new FakeChallengeCondition
+            {
+                beforeType = FakeBeforeType.Prereq,
+                timeLimitSeconds = 600d,
+            },
+        });
+
+        var collector = Collector();
+        collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(WorldLookup.TryFind(world.Challenges, racing, out var timed));
+        Assert.Equal((int)FakeBeforeType.Time, timed.ConditionBeforeType);
+        Assert.Equal(new BigDouble(1800), timed.TimeLimit);
+
+        Assert.True(WorldLookup.TryFind(world.Challenges, gated, out var untimed));
+        Assert.Equal((int)FakeBeforeType.Prereq, untimed.ConditionBeforeType);
+        Assert.Equal(BigDouble.Zero, untimed.TimeLimit);
+    }
+
+    [Fact]
     public void ASpellsMasteryReadinessIsDerivedFromItsPublishedThresholdWhileAnEmptyAuthoredCostIsAffordable()
     {
         // Readiness is cheap accessor math over the published experience and its container's cached

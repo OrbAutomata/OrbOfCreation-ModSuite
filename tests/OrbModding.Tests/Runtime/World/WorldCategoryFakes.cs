@@ -2519,6 +2519,28 @@ internal sealed class FakeAdvancement
     public Guid GetGuid() => Identity;
 }
 
+internal enum FakeBeforeType
+{
+    None,
+    Time,
+    Prereq,
+}
+
+/// <summary>The failure condition a challenge's run is held to.</summary>
+/// <remarks>
+/// <c>GetTimeLimit</c> is private in the game and private here, because that is the visibility the
+/// world binder has to reach through. What it returns is the game's own scaling of an authored
+/// limit by the level being attempted, which the suite never transcribes; the fake answers in the
+/// level it is handed so that a test can prove which level was asked for.
+/// </remarks>
+internal sealed class FakeChallengeCondition
+{
+    public FakeBeforeType beforeType;
+    public double timeLimitSeconds;
+
+    private BigDouble GetTimeLimit(int level) => new(timeLimitSeconds * level);
+}
+
 internal sealed class FakeChallenge
 {
     public List<FakeChallengeType> challengeTypes = new();
@@ -2533,6 +2555,7 @@ internal sealed class FakeChallenge
     public int weight;
     public double difficulty;
     public double baseReward;
+    public FakeChallengeCondition challengeCondition = new();
 
     public Guid GetGuid() => Identity;
     public bool IsAvailableToRun() => maxLevel < 0 || level < maxLevel;

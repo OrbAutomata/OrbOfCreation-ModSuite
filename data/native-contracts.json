@@ -25250,6 +25250,27 @@
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning BigDouble; classified from its signature, no IL body audit"}
     },
     {
+      "id": "challenge.condition-capture", "assembly": "assembly-csharp",
+      "type": "ChallengeSO", "typeVisibility": "public", "kind": "field", "member": "challengeCondition",
+      "visibility": "public", "static": false, "valueType": "ChallengeCondition",
+      "owners": ["Common challenge world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored reference; nothing is computed on the game's side.", "evidence": "kind:field ChallengeCondition"}
+    },
+    {
+      "id": "challenge.condition-before-type-capture", "assembly": "assembly-csharp",
+      "type": "ChallengeCondition", "typeVisibility": "public", "kind": "field", "member": "beforeType",
+      "visibility": "public", "static": false, "valueType": "ChallengeCondition+BeforeType",
+      "owners": ["Common challenge world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ChallengeCondition+BeforeType; ChallengeCondition.HasFailed switches None(0), Time(1), Prereq(2) on it"}
+    },
+    {
+      "id": "challenge.condition-time-limit-capture", "assembly": "assembly-csharp",
+      "type": "ChallengeCondition", "typeVisibility": "public", "kind": "method", "member": "GetTimeLimit",
+      "visibility": "private", "static": false, "returnType": "BigDouble", "parameters": ["System.Int32"],
+      "owners": ["Common challenge world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game owns how a timed challenge's limit scales with level; the suite takes its answer rather than re-deriving the fold from the struct and the modifier list.", "evidence": "IL body: timeLimitScaling.MultiplyScalar((BigDouble)level) then ValueModifierList.Adjust(timeLimit.AsBigDouble()); GetValue returns the variable or the static EmptyList, MultiplyScalar builds a new list, Adjust folds and returns — no cache is latched and no field is written"}
+    },
+    {
       "id": "research-action.research.type-action",
       "assembly": "assembly-csharp",
       "type": "ResearchSO",

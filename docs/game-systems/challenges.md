@@ -15,6 +15,11 @@ shape and deliberately not the numbers — treat specifics as unknown rather tha
 - **There are two offer lists.** The Time > Challenges screen and the reset modal each fetch their
   own, so what the reset modal offers is not the Time screen's list refreshed.
 - Any active challenge can be **abandoned**, and a completed one shows a **Passed** state.
+- **Some challenges race a clock.** Such a challenge fails the moment the run's own timer — the
+  same *Time Played this Reset* the game shows elsewhere — passes its limit, and the tooltip prints
+  the elapsed time against that limit. The limit is not fixed: it is scaled for the level the
+  challenge is being attempted at, so the same challenge is held to a different clock each time it
+  comes back a level higher. Challenges without a time condition are not timed at all.
 
 Challenges do more than scale numbers: they can **modify requirements**, applying as passive
 modifiers on the requirement graph — one observed challenge applied `-5` to a research node's

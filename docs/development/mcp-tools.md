@@ -1815,6 +1815,16 @@ swap seconds later. What this page refuses on is what the world states outright 
 neither offer list, and one the offer set itself marks restricted; the budget is the verb's answer
 to give.
 
+**A timed challenge says what it is racing.** The game fails a timed run when
+`Player.GetResetTimePassed()` passes `ChallengeCondition.GetTimeLimit(level)`, and the wire carried
+only the elapsed half — `world_overview`'s `timePlayedThisReset`. A challenge whose condition is a
+time condition now carries `timeLimit` beside its other row fields, as the game's own answer for
+that challenge's current `level`, printed in the ultra-precise clock format
+(`timeLimit: 30:30`) because that is what `GetTimeBeforeNodes` draws the limit with — the same
+format the elapsed variable's own flags select, so the two numbers a caller compares are in one
+notation. A challenge with no time condition carries no `timeLimit` key at all, and a limit the
+world did not publish is absent rather than zero.
+
 To read "which of these have I already beaten, and can I run them again?", page `challenges` and
 read two columns: `level` — one per win, so `level: 1` is beaten once and `level: 0` is never — and
 `state`, which says `available` while the challenge can be selected again. `run` answers a

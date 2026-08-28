@@ -435,6 +435,23 @@ public sealed class GameMcpChallengeTests
         Assert.Null(straight["displaced"]);
     }
 
+    [Fact]
+    public void A_timed_challenge_says_what_it_is_racing_and_an_untimed_one_says_nothing()
+    {
+        // `world_overview` prints the elapsed half as `timePlayedThisReset`; this is the other half
+        // of the game's own `GetResetTimePassed() > GetTimeLimit(level)`. It prints through the
+        // ultra-precise clock because that is what `GetTimeBeforeNodes` draws the limit with — the
+        // coarse format would call the same 1830 seconds `31m`. A condition that races nothing
+        // carries no key at all, rather than a zero that reads as no time left.
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Context(World(), generation: 2508),
+            "challenges",
+            new[] { First.ToString("D"), Second.ToString("D") }));
+        var blocks = response["results"]!.Values<JObject>().ToArray();
+        Assert.Equal("30:30", (string?)blocks[0]!["row"]!["timeLimit"]);
+        Assert.Null(blocks[1]!["row"]!["timeLimit"]);
+    }
+
     private static GameWorldState World(
         bool selected = true,
         int rerollsLeft = 2,
@@ -452,7 +469,8 @@ public sealed class GameMcpChallengeTests
         var rows = new[]
         {
             new WorldChallenge(First, 1, firstState, true, false, 5, 10, 12, 30,
-                true, true, false, new BigDouble(12), new BigDouble(30)),
+                true, true, false, new BigDouble(12), new BigDouble(30),
+                WorldChallenge.TimedCondition, new BigDouble(1830)),
             new WorldChallenge(Second, 0, 0, true, false, 5, 10, 15, 40,
                 true, false, false, new BigDouble(15), new BigDouble(40)),
             new WorldChallenge(Third, 2, thirdState, true, false, 5, 10, 20, 50,

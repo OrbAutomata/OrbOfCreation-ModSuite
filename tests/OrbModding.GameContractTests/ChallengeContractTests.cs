@@ -81,6 +81,76 @@ public sealed class ChallengeContractTests
             "ChallengeSO", "QueueActivation"));
     }
 
+    /// <summary>
+    /// A timed challenge's limit is the game's own number, asked for at the game's own level.
+    /// </summary>
+    /// <remarks>
+    /// The suite publishes <c>GetTimeLimit</c>'s answer rather than folding
+    /// <c>timeLimit</c> through <c>timeLimitScaling</c> itself, so what has to hold is that the
+    /// method still owns that fold, that the condition still says which conditions are timed, and
+    /// that <c>ChallengeSO.level</c> is still the level both native callers pass.
+    /// </remarks>
+    [GameAssemblyFact]
+    public void The_timed_conditions_limit_is_the_games_own_fold_at_the_challenges_own_level()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+        Assert.Equal(new[]
+        {
+            new KeyValuePair<string, int>("None", 0),
+            new KeyValuePair<string, int>("Time", 1),
+            new KeyValuePair<string, int>("Prereq", 2),
+        }, assembly.GetInt32EnumMembers("ChallengeCondition+BeforeType").ToArray());
+        Assert.Equal("ChallengeCondition", assembly.GetFieldType("ChallengeSO", "challengeCondition"));
+
+        // The fold the suite declines to transcribe: the authored struct, the modifier list, and
+        // the two calls that combine them at a level.
+        References(
+            assembly.GetMethodBodyDefinitionReferences("ChallengeCondition", "GetTimeLimit"),
+            ("ChallengeCondition", "timeLimit"),
+            ("ChallengeCondition", "timeLimitScaling"),
+            ("TimeValue", "AsBigDouble"),
+            ("ModifierListRef", "MultiplyScalar"),
+            ("ValueModifierList", "Adjust"));
+
+        // The race the limit is one side of, and the format the game draws it in — which is the
+        // ultra-precise one, the same rule the elapsed variable's own flags select.
+        References(
+            assembly.GetMethodBodyDefinitionReferences("ChallengeCondition", "HasFailedTime"),
+            ("Player", "GetResetTimePassed"),
+            ("ChallengeCondition", "GetTimeLimit"));
+        References(
+            assembly.GetMethodBodyDefinitionReferences("ChallengeCondition", "GetTimeBeforeNodes"),
+            ("ChallengeCondition", "GetTimeLimit"),
+            ("Utils", "BeautifyTimeUltraPrecise"));
+
+        // Both native callers hand the condition `ChallengeSO.level`, which is the level the world
+        // row already publishes — so the suite asks for the limit of the run being attempted.
+        References(
+            assembly.GetMethodBodyDefinitionReferences("ChallengeSO", "SlowIncrement"),
+            ("ChallengeSO", "level"),
+            ("ChallengeSO", "challengeCondition"),
+            ("ChallengeCondition", "GetResult"));
+        References(
+            assembly.GetMethodBodyDefinitionReferences("ChallengeSO", "GetTooltipNodes"),
+            ("ChallengeSO", "level"),
+            ("ChallengeSO", "challengeCondition"),
+            ("ChallengeCondition", "GetTooltipNodes"));
+    }
+
+    /// <summary>
+    /// Asserts one method body reaches each named member. Definition references are matched by
+    /// declaring type and name rather than by a unique-method lookup, because two of these targets
+    /// — <c>ValueModifierList.Adjust</c> and <c>ChallengeCondition.GetTooltipNodes</c> — are
+    /// overloaded or share a name with the caller, and neither ambiguity is what is being pinned.
+    /// </summary>
+    private static void References(
+        IReadOnlyList<MethodBodyDefinitionReference> body,
+        params (string Type, string Member)[] expected) =>
+        Assert.All(expected, target => Assert.Contains(
+            body,
+            reference => reference.DeclaringType == target.Type &&
+                reference.MemberName == target.Member));
+
     [Fact]
     public void Manifest_names_every_challenge_action_and_shared_decision_touch()
     {
@@ -104,7 +174,8 @@ public sealed class ChallengeContractTests
             "challenge.manager-fetch-action",
             "challenge.available-to-run-capture", "challenge.completed-once-capture",
             "challenge.maximum-level-capture", "challenge.next-difficulty-capture",
-            "challenge.next-reward-capture",
+            "challenge.next-reward-capture", "challenge.condition-capture",
+            "challenge.condition-before-type-capture", "challenge.condition-time-limit-capture",
         };
         Assert.All(expected, id => Assert.Single(manifest.Contracts, contract => contract.Id == id));
     }

@@ -1287,6 +1287,33 @@ public sealed class AdvancementSO : IdScriptableObject
 }
 
 
+/// <summary>
+/// The failure condition a challenge's run is held to.
+/// </summary>
+/// <remarks>
+/// <c>GetTimeLimit</c> is private in the game and private here, because that is the shape the world
+/// binder has to reach through. The arithmetic behind it is the game's own — the authored
+/// <c>TimeValue</c> folded through a modifier list at the level being attempted — and the suite
+/// never transcribes it, so what this stand-in models is the signature, the visibility, and the
+/// dependence on the level it is handed.
+/// </remarks>
+public sealed class ChallengeCondition
+{
+    public enum BeforeType
+    {
+        None,
+        Time,
+        Prereq,
+    }
+
+    public BeforeType beforeType;
+    public double timeLimitSeconds;
+    public double timeLimitScalingPerLevel;
+
+    private BigDouble GetTimeLimit(int level) =>
+        new BigDouble(timeLimitSeconds * (1.0 + (timeLimitScalingPerLevel * level)), 0);
+}
+
 public sealed class ChallengeSO : IdScriptableObject
 {
     public enum ChallengeState
@@ -1308,6 +1335,7 @@ public sealed class ChallengeSO : IdScriptableObject
     public int weight;
     public double difficulty;
     public double baseReward;
+    public ChallengeCondition challengeCondition = new ChallengeCondition();
     public bool NativeAvailableToRun { get; set; } = true;
     public bool SuppressQueueActivation { get; set; }
     public bool SuppressQueueToggle { get; set; }
