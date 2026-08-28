@@ -149,7 +149,10 @@ internal static class GameMcpDecisionReason
         // these two are the suite contradicting its own router rather than a caller's mistake.
         "navigation_request_invalid" or "unsupported_probe" or
         // The suite has no world and no identity catalog to answer from.
-        "world_not_published" or "entity_catalog_unavailable" => true,
+        "world_not_published" or "entity_catalog_unavailable" or
+        // The caller's value was accepted and the suite's own publication of it did not happen.
+        // Nothing in the game was asked and no argument would have changed the outcome.
+        "configuration_write_unconfirmed" => true,
         _ => false,
     };
 
@@ -334,6 +337,7 @@ internal static class GameMcpDecisionReason
         "owning_screen_contradictory" or "topology_not_captured" or
         "owning_screen_status_unmodelled" or "owning_screen_availability_unreadable" or
         "configuration_unpublished" or "configuration_not_available" or
+        "configuration_write_unconfirmed" or
         "runtime_not_available" or "price_unavailable" or
         "affordability_unavailable" or "entity_catalog_unavailable" or
         "queue_not_published" or "queue_reading_inconsistent" => ClassUnavailable,
@@ -474,6 +478,15 @@ internal static class GameMcpDecisionReason
             "so nothing was done; make the call again against the settings now in force.",
         "configuration_not_available" =>
             "The suite has not published its settings yet, so there is nothing to write against.",
+
+        // The half of a write only the suite owns. The value was accepted and then the suite's own
+        // publication of it did not happen, which shipped as `configuration_write_rejected` — the
+        // caller's own argument is what is wrong — for a call whose argument was fine. Whether the
+        // setting took is genuinely unknown from here, so the sentence says that and names the one
+        // move that settles it.
+        "configuration_write_unconfirmed" =>
+            "The setting was accepted but the suite could not confirm it took; read it back and, " +
+            "if it is unchanged, report this.",
 
         // Never a `reasonCode`, and so never a class: it is the sentence `world_categories` prints
         // once under `unlistable:`, and the rows that cannot be paged say that one word back.

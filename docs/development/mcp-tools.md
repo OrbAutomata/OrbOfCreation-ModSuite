@@ -2679,7 +2679,7 @@ most, so an old code's new class can be looked up here:
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
 | `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `research_leeway_exhausted`, `native_leeway_exhausted` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `configuration_not_available`,
-`stale_configuration_generation`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `unsupported_requirement_value`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable`, `single_buy_unavailable`, `unsupported_control`, `native_navigation_unavailable`, `native_plot_navigation_unavailable`, `native_plot_list_unavailable`, `native_probe_unavailable`, `tooltip_contract_unavailable`, `tooltip_read_faulted`, `continue_contract_unavailable`, `navigation_request_invalid`, `unsupported_probe` |
+`stale_configuration_generation`, `configuration_write_unconfirmed`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `unsupported_requirement_value`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable`, `single_buy_unavailable`, `unsupported_control`, `native_navigation_unavailable`, `native_plot_navigation_unavailable`, `native_plot_list_unavailable`, `native_probe_unavailable`, `tooltip_contract_unavailable`, `tooltip_read_faulted`, `continue_contract_unavailable`, `navigation_request_invalid`, `unsupported_probe` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused`, `native_tab_rejected`, `subtab_selection_failed` — the game's own gate said no and reported nothing else |
 
 Five of those placements are worth reading twice, because the obvious guess is wrong.
@@ -2688,7 +2688,11 @@ which is a bad argument rather than a ceiling reached. `configuration_write_reje
 for the same reason a dial value outside the game's range is: one kind of no is one class wherever
 it happens, and a class that changed with the verb taught callers it described the tool.
 `wrong_configuration_surface` is `ERR_INPUT` for the same reason: the setting the caller named is
-real and readable, and what is wrong is the door it was named at.
+real and readable, and what is wrong is the door it was named at. Its near-twin
+`configuration_write_unconfirmed` is `ERR_UNAVAILABLE` and answers `failed`, not `refused`, because
+nothing about the caller's argument was wrong: the value was accepted and the suite's own
+publication of it is what did not happen, so there is no argument to change and the answer is the
+suite's to own.
 `cannot_level` is `ERR_LOCKED` and not
 `ERR_LIMIT` for the reason its own row gives — no level list in this game has a ceiling, so a shut
 level gate is always a gate rather than an exhausted supply. Both leeway codes are `ERR_LOCKED` and

@@ -133,7 +133,7 @@ internal sealed class AutomataConfigurationStore
     }
 
 #if SERVICE_CYCLE_PROFILE
-    internal bool TrySetGameMcp(
+    internal AutomataConfigurationWrite SetGameMcp(
         string section,
         string key,
         string serializedValue,
@@ -147,19 +147,31 @@ internal sealed class AutomataConfigurationStore
             reason =
                 "configuration generation changed: expected " + expectedGeneration.Value +
                 ", current " + CurrentGeneration.Value;
-            return false;
+            return AutomataConfigurationWrite.Refused;
         }
         if (!_configuration.TrySetGameMcpSetting(
                 section, key, serializedValue, out reason, out bound))
-            return false;
-        if (!TryPublishPending())
-        {
-            reason =
-                "the BepInEx entry accepted the value but produced no committed configuration change";
-            return false;
-        }
+            return AutomataConfigurationWrite.Refused;
         reason = string.Empty;
-        return true;
+        return TryPublishPending()
+            ? AutomataConfigurationWrite.Committed
+            : AutomataConfigurationWrite.Unconfirmed;
     }
 #endif
 }
+
+#if SERVICE_CYCLE_PROFILE
+/// <summary>How a Game MCP configuration write ended.</summary>
+/// <remarks>
+/// <see cref="Unconfirmed"/> is not a refusal. The value the caller passed was accepted; what did
+/// not happen is the suite's own publication of it, so the answer belongs to the suite and there is
+/// no argument the caller could change to get a different one. While the two shared one bool they
+/// shared one wire code as well, and a suite fault shipped as the caller's mistake.
+/// </remarks>
+internal enum AutomataConfigurationWrite
+{
+    Committed,
+    Refused,
+    Unconfirmed,
+}
+#endif

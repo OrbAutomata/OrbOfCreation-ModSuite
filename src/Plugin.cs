@@ -2764,13 +2764,20 @@ public sealed class Plugin : BaseUnityPlugin
                 command.PayloadKey);
             if (!TryAdmitConfigurationWriteAgainstWorld(command, context, out var worldFailure))
                 return worldFailure;
-            if (!_configurationStore.TrySetGameMcp(
-                    command.Mode,
-                    command.PayloadKey,
-                    command.PayloadValue,
-                    before,
-                    out var reason,
-                    out var bound))
+            var written = _configurationStore.SetGameMcp(
+                command.Mode,
+                command.PayloadKey,
+                command.PayloadValue,
+                before,
+                out var reason,
+                out var bound);
+            if (written == AutomataConfigurationWrite.Unconfirmed)
+                return GameMcpCommandResult.Failed(
+                    "configuration_write_unconfirmed",
+                    GameMcpDecisionReason.For("configuration_write_unconfirmed"),
+                    observedConfigurationGeneration:
+                        _configurationStore.CurrentGeneration.Value);
+            if (written == AutomataConfigurationWrite.Refused)
             {
                 return GameMcpCommandResult.Rejected(
                     "configuration_write_rejected",
@@ -2819,13 +2826,20 @@ public sealed class Plugin : BaseUnityPlugin
                     feature.DisplayName + " is already " + (requested ? "on" : "off"),
                     observedLifecycleGeneration: _lifecycleGeneration,
                     observedConfigurationGeneration: before.Value);
-            if (!_configurationStore.TrySetGameMcp(
-                    feature.Section,
-                    feature.Key,
-                    command.PayloadValue,
-                    before,
-                    out var automationReason,
-                    out _))
+            var automationWrite = _configurationStore.SetGameMcp(
+                feature.Section,
+                feature.Key,
+                command.PayloadValue,
+                before,
+                out var automationReason,
+                out _);
+            if (automationWrite == AutomataConfigurationWrite.Unconfirmed)
+                return GameMcpCommandResult.Failed(
+                    "configuration_write_unconfirmed",
+                    GameMcpDecisionReason.For("configuration_write_unconfirmed"),
+                    observedConfigurationGeneration:
+                        _configurationStore.CurrentGeneration.Value);
+            if (automationWrite == AutomataConfigurationWrite.Refused)
             {
                 return GameMcpCommandResult.Rejected(
                     "configuration_write_rejected",

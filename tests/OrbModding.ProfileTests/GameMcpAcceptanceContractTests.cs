@@ -1111,11 +1111,10 @@ public sealed class GameMcpConfigurationTests
         var store = new AutomataConfigurationStore(configuration, (_, _) => { });
         var before = GameMcpConfigurationSchema.SerializePublishedValue(
             configuration.Current, "AutoBuy", "IncludeStructures");
-        Assert.True(
-            store.TrySetGameMcp(
-                "AutoBuy", "IncludeStructures", "false", store.CurrentGeneration,
-                out var reason, out _),
-            reason);
+        var write = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", "false", store.CurrentGeneration,
+            out var reason, out _);
+        Assert.True(write == AutomataConfigurationWrite.Committed, reason);
         var after = GameMcpConfigurationSchema.SerializePublishedValue(
             configuration.Current, "AutoBuy", "IncludeStructures");
 
@@ -1144,15 +1143,52 @@ public sealed class GameMcpConfigurationTests
         var configuration = BepInExAutomataConfiguration.Bind(file);
         var store = new AutomataConfigurationStore(configuration, (_, _) => { });
 
-        Assert.True(
-            store.TrySetGameMcp(
-                "AutoBuy", "IncludeStructures", written, store.CurrentGeneration,
-                out var reason, out _),
-            reason);
+        var write = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", written, store.CurrentGeneration,
+            out var reason, out _);
+        Assert.True(write == AutomataConfigurationWrite.Committed, reason);
         file.Save();
 
         Assert.True(file.TryGetPersisted("AutoBuy", "IncludeStructures", out var stored));
         Assert.Equal(persisted, stored);
+    }
+
+    /// <summary>
+    /// A write the suite accepted and then could not publish is the suite's failure, not the
+    /// caller's. It shipped as <c>configuration_write_rejected</c> — ERR_INPUT, "the caller's own
+    /// argument is what is wrong" — for a call whose argument the suite had just taken, and the
+    /// two shared one bool so no producer could tell them apart.
+    /// </summary>
+    [Fact]
+    public void An_accepted_write_the_suite_cannot_publish_is_the_suites_failure()
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        var refused = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", "maybe", store.CurrentGeneration, out _, out _);
+        var committed = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", "no", store.CurrentGeneration, out _, out _);
+
+        Assert.Equal(AutomataConfigurationWrite.Refused, refused);
+        Assert.Equal(AutomataConfigurationWrite.Committed, committed);
+        Assert.Equal(
+            GameMcpDecisionReason.ClassUnavailable,
+            GameMcpDecisionReason.Class("configuration_write_unconfirmed"));
+        Assert.NotEqual(
+            GameMcpDecisionReason.Class("configuration_write_rejected"),
+            GameMcpDecisionReason.Class("configuration_write_unconfirmed"));
+        Assert.True(GameMcpDecisionReason.IsSuiteDefect("configuration_write_unconfirmed"));
+        Assert.False(GameMcpDecisionReason.IsSuiteDefect("configuration_write_rejected"));
+        Assert.Equal(
+            "The setting was accepted but the suite could not confirm it took; read it back and, " +
+            "if it is unchanged, report this.",
+            GameMcpDecisionReason.For("configuration_write_unconfirmed"));
+        Assert.Equal(
+            "failed",
+            GameMcpCommandResult.Failed(
+                "configuration_write_unconfirmed",
+                GameMcpDecisionReason.For("configuration_write_unconfirmed")).Status);
     }
 
     /// <summary>
@@ -1203,21 +1239,19 @@ public sealed class GameMcpConfigurationTests
         var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
         var store = new AutomataConfigurationStore(configuration, (_, _) => { });
 
-        Assert.True(
-            store.TrySetGameMcp(
-                "AutoBuy", "IncludeStructures", off, store.CurrentGeneration,
-                out var offReason, out _),
-            offReason);
+        var offWrite = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", off, store.CurrentGeneration,
+            out var offReason, out _);
+        Assert.True(offWrite == AutomataConfigurationWrite.Committed, offReason);
         Assert.Equal(
             "no",
             GameMcpConfigurationSchema.SerializePublishedValue(
                 configuration.Current, "AutoBuy", "IncludeStructures"));
 
-        Assert.True(
-            store.TrySetGameMcp(
-                "AutoBuy", "IncludeStructures", on, store.CurrentGeneration,
-                out var onReason, out _),
-            onReason);
+        var onWrite = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", on, store.CurrentGeneration,
+            out var onReason, out _);
+        Assert.True(onWrite == AutomataConfigurationWrite.Committed, onReason);
         Assert.Equal(
             "yes",
             GameMcpConfigurationSchema.SerializePublishedValue(
@@ -1299,8 +1333,9 @@ public sealed class GameMcpConfigurationTests
         var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
         var store = new AutomataConfigurationStore(configuration, (_, _) => { });
 
-        Assert.False(
-            store.TrySetGameMcp(
+        Assert.Equal(
+            AutomataConfigurationWrite.Refused,
+            store.SetGameMcp(
                 section, key, requested, store.CurrentGeneration, out var reason, out _));
         Assert.Equal(section + "/" + key + " must parse exactly as " + expected, reason);
     }
@@ -1339,14 +1374,14 @@ public sealed class GameMcpConfigurationTests
         var publications = 0;
         var store = new AutomataConfigurationStore(configuration, (_, _) => publications++);
         var before = store.CurrentGeneration;
-        Assert.True(store.TrySetGameMcp(
+        Assert.Equal(AutomataConfigurationWrite.Committed, store.SetGameMcp(
             configuration.AutoCastMode.Definition.Section,
             configuration.AutoCastMode.Definition.Key,
             "Active",
             before,
             out _,
             out _));
-        Assert.False(store.TrySetGameMcp(
+        Assert.Equal(AutomataConfigurationWrite.Refused, store.SetGameMcp(
             configuration.AutoCastMode.Definition.Section,
             configuration.AutoCastMode.Definition.Key,
             "Disabled",
@@ -1367,7 +1402,7 @@ public sealed class GameMcpConfigurationTests
         var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
         var store = new AutomataConfigurationStore(configuration, (_, _) => { });
 
-        Assert.False(store.TrySetGameMcp(
+        Assert.Equal(AutomataConfigurationWrite.Refused, store.SetGameMcp(
             "AutoCast",
             "ManualPauseSeconds",
             "600",
