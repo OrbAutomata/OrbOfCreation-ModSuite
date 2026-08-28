@@ -420,12 +420,16 @@ internal static class GameMcpTextPage
         // its own key, so a reader who has read the table has read this. A page keeps its table
         // however few rows it holds: its count and its declared columns are what a paged read is
         // read by, and one row today is not a promise about tomorrow's.
+        // A list of one has no line budget. The budget exists so a long nested object becomes a
+        // block a reader can scan, but the block a one-row table falls back to is a count, a header
+        // and a row — every character of the inline form plus the frame around it — so refusing the
+        // long line only ever bought more bytes saying the same thing.
         if (countSuffix is null &&
             declared is null or { Count: 0 } &&
             !IsDetailBlocks(name) &&
             array.Count == 1 &&
             array[0] is JObject only &&
-            TryInline(only, InlineBudget, said) is { } inlined)
+            TryInline(only, int.MaxValue, said) is { } inlined)
         {
             lines.Add(indent + name + ": " + inlined);
             return;
@@ -1163,6 +1167,16 @@ internal static class GameMcpTextPage
                 case JObject nested when nested.Count == 2 &&
                     nested["current"] is { } inner && nested["maximum"] is { } ceiling:
                     parts.Add(property.Name + " " + Scalar(inner) + "/" + Scalar(ceiling));
+                    break;
+                // The move a mutation made, said the way the page says it everywhere else. A row
+                // carrying one of these was the whole reason a list of one still paid for a header,
+                // a column line and a row: the pair renders in three words and the block around it
+                // cost three lines to deliver them.
+                case JObject nested when nested.Count == 2 &&
+                    nested["before"] is { } was && nested["after"] is { } now:
+                    parts.Add(property.Name + "=" + (JToken.DeepEquals(was, now)
+                        ? Scalar(now)
+                        : Scalar(was) + " -> " + Scalar(now)));
                     break;
                 case JObject:
                     return null;

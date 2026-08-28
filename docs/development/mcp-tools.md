@@ -200,10 +200,14 @@ same idiom and no producer invents its own formatting.
     frame 106 times to deliver 106 prices of one resource each.
   - **Every other list of one is a line too.** `members: kind=structures, count=2` in place of a
     count, a header and one row — every word the header carried is still there as its own key, so a
-    reader who has read the table has read this. A **page** keeps its table however few rows it
-    holds: its count and its declared column set are what a paged read is read by, and one row today
-    is not a promise about tomorrow's. A list of one whose row will not fit on a line keeps its
-    block form.
+    reader who has read the table has read this. A row carrying a move says it the way every other
+    move is said — `usageBudget: resource=Spell Capacity fdcbb8, headroom=7 -> 9, used=24,
+    maximum=31` — which is what kept the removal's usage budget in table form. A **page** keeps its
+    table however few rows it holds: its count and its declared column set are what a paged read is
+    read by, and one row today is not a promise about tomorrow's. A list of one has no line budget:
+    the block it would fall back to is every character of the line plus a count, a header and a
+    column line around it, so a long row is still one line. Only a row holding a list of its own
+    keeps a block, because that structure is the fact.
   - **A cell carries one word, never a sentence.** A blocked row names what blocks it with one
     short lowercase fact from the vocabulary below, and a row that is not blocked says so in the
     column that asked. No cell ever holds an `ERR_` class: those say which kind of no a *refusal*

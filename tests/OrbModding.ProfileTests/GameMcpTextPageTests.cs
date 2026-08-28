@@ -897,6 +897,44 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
+    /// A row carrying the move a mutation made is still a row of one. The pair renders in three
+    /// words the way this page renders every other move, so the removal's usage budget stops paying
+    /// for a count, a header and a column line to deliver one line.
+    /// </summary>
+    [Fact]
+    public void A_list_of_one_whose_row_carries_a_move_says_the_move_inline()
+    {
+        Assert.Equal(
+            new[]
+            {
+                "usageBudget: resource=Spell Capacity fdcbb8, headroom=7 -> 9, used=24, " +
+                "maximum=31",
+            },
+            Render(@"{'usageBudget':[{'resource':{'uuid':'fdcbb8','name':'Spell Capacity'},
+                'headroom':{'before':7,'after':9},'used':24,'maximum':31}]}").Split('\n'));
+    }
+
+    /// <summary>
+    /// A list of one has no line budget. The budget turns a long nested object into a block a
+    /// reader can scan; the block a one-row table falls back to is every character of the inline
+    /// form plus a count, a header and a column line around it, so refusing the long line only ever
+    /// bought more bytes saying the same thing.
+    /// </summary>
+    [Fact]
+    public void A_row_of_one_longer_than_the_inline_budget_is_still_one_line()
+    {
+        Assert.Equal(
+            new[]
+            {
+                "costs: resource=Time Advancement Of Considerable Length 487a14, " +
+                "amount=123456789, held=987654321, shortfall=12345, perSecond=42",
+            },
+            Render(@"{'costs':[{'resource':{'uuid':'487a14',
+                'name':'Time Advancement Of Considerable Length'},'amount':123456789,
+                'held':987654321,'shortfall':12345,'perSecond':42}]}").Split('\n'));
+    }
+
+    /// <summary>
     /// A second row is what columns are for, and a page keeps its table however few rows it holds:
     /// the count and the declared columns are what a paged read is read by, and one row today is
     /// not a promise about tomorrow's.
