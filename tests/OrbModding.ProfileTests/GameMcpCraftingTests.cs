@@ -331,15 +331,53 @@ public sealed class GameMcpCraftingTests
         Assert.Null(postState["completed"]);
         Assert.Null(postState["queued"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)postState["postStateUnavailable"]!["reasonCode"]);
-        Assert.Contains("entered the game's crafting queue",
-            (string?)postState["postStateUnavailable"]!["reason"]);
-        Assert.Contains("still shows 4 queued",
-            (string?)postState["postStateUnavailable"]!["reason"]);
+
+        // The sentence is about the craft, not about the projection that wrote it: what the game
+        // did with the press, what the Crafting queue shows now, and the read that answers the
+        // question this response cannot. "The entry it created is no longer observable" told the
+        // caller nothing it could act on.
+        var reason = (string?)postState["postStateUnavailable"]!["reason"];
+        Assert.Contains("took the craft into its Crafting queue", reason);
+        Assert.Contains("still shows 4 waiting for this recipe", reason);
+        Assert.Contains("world_list(category=\"crafting-queue-entries\")", reason);
+        Assert.DoesNotContain("observable", reason);
 
         // Honest about the unobserved queue, and still saying what it acted on. Without these two
         // facts, two commits on two different recipes were byte-identical.
         Assert.Equal(GameMcpTestHarness.Handle(RecipeId), (string?)postState["uuid"]);
         Assert.Equal(1, (int)postState["requestedAmount"]!);
+    }
+
+    /// <summary>
+    /// The same unmoved queue, but with nothing proving the craft ever made an entry of its own.
+    /// The sentence may not borrow the other one's claim that the game took it: it says the queue
+    /// is unchanged, that no entry was proved, and where the caller looks.
+    /// </summary>
+    [Fact]
+    public void An_unmoved_queue_with_no_proved_entry_does_not_claim_the_game_took_it()
+    {
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Crafting, 15, 8, "craft", RecipeId, Guid.Empty,
+            "CraftingRecipeSO", 1, string.Empty, string.Empty, false, frameContext: Context(queuedAmount: 4));
+        var submission = new CraftingPlayerSubmission(
+            RecipeId,
+            CraftingPlayerPreflight.Proceeded,
+            CraftingPlayerNativeStage.Verification,
+            NativeMutationOutcome.Verified,
+            new NativeMutationCallOutcome(5, 1, 1),
+            "craft executed",
+            CraftingPlayerPostcondition.None);
+        var committed = GameMcpCommandResult.Committed(
+            "committed", 15, 8, GameMcpCraftingProjection.Project(in submission));
+
+        var reason = (string?)Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            Context(queuedAmount: 4), command, committed))
+            ["postStateUnavailable"]!["reason"];
+
+        Assert.Contains("nothing proved the craft made an entry of its own", reason);
+        Assert.Contains("still shows 4 waiting for this recipe", reason);
+        Assert.Contains("world_list(category=\"crafting-queue-entries\")", reason);
+        Assert.DoesNotContain("took the craft into", reason);
     }
 
     [Fact]

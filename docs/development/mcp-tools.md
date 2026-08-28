@@ -3161,8 +3161,12 @@ thread, then captures the shared crafting permit last. Direct recipes invoke nat
 A committed `craft` reports only what the settled world shows: a completed direct or instant craft
 returns `completed: true`, and a queued craft returns the queue growth the settled world confirms.
 When the settled queue count is unchanged, the response stays committed and returns
-`postStateUnavailable` with reason code `post_state_not_observed` naming the count it read — an
-unmoved count is the same number before and after the craft and is never published as its delta.
+`postStateUnavailable` with reason code `post_state_not_observed` — an unmoved count is the same
+number before and after the craft and is never published as its delta. The sentence is about the
+craft rather than about the projection: it says the game took the craft, that the Crafting queue
+still shows the same count it showed before the press, and that the caller reads the queue itself
+with `world_list(category="crafting-queue-entries")`. Where nothing proved the craft made an entry
+of its own, the sentence says that instead of claiming one was made.
 
 The other modes use the same authored page relation and exact recipe identity.
 `automate` repeats the UI's native multi-buy and automation-quantity calculation before calling

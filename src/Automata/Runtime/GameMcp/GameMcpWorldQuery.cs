@@ -3595,10 +3595,14 @@ internal static class GameMcpWorldQuery
             command.Amount,
             "post_state_not_observed",
             GameMcpCraftingProjection.ProvedQueueEntry(committed.Details)
-                ? "the craft entered the game's crafting queue, but the settled queue still shows " +
-                  settled + " queued for this recipe, so the entry it created is no longer observable"
-                : "the settled crafting queue still shows " + settled +
-                  " queued for this recipe, so the committed craft left no observable change");
+                ? "the game took the craft into its Crafting queue, but that queue still shows " +
+                  settled + " waiting for this recipe — the count it showed before the press — so " +
+                  "this answer cannot say what became of the entry; read the queue itself with " +
+                  "world_list(category=\"crafting-queue-entries\")"
+                : "the Crafting queue still shows " + settled + " waiting for this recipe — the " +
+                  "count it showed before the press — and nothing proved the craft made an entry " +
+                  "of its own, so this answer cannot say whether it is waiting; read the queue " +
+                  "itself with world_list(category=\"crafting-queue-entries\")");
     }
 
     private static GameMcpValue Change(
