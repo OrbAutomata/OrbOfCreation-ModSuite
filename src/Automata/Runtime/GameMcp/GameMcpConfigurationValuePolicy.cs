@@ -304,7 +304,7 @@ internal static class GameMcpConfigurationValuePolicy
         if (settingType is null) throw new ArgumentNullException(nameof(settingType));
         var type = Nullable.GetUnderlyingType(settingType) ?? settingType;
         if (type != typeof(bool)) return serializedValue;
-        return TryParseBoolean(serializedValue ?? string.Empty, out var boolean)
+        return TryParseBoolean(serializedValue, out var boolean)
             ? boolean ? "true" : "false"
             : serializedValue;
     }
