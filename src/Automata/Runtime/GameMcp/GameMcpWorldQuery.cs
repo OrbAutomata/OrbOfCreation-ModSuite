@@ -5874,6 +5874,44 @@ internal static class GameMcpWorldQuery
         return false;
     }
 
+    /// <summary>
+    /// Why this tree offers nothing, told apart by the two counts the row already prints.
+    /// </summary>
+    /// <remarks>
+    /// One sentence — "This tree has nothing left to discover." — stood beside
+    /// <c>discoveredCount: 12</c> and <c>discoverableCount: 65</c> and contradicted both. The game
+    /// keeps two separate facts here: <c>RemainingDiscoverableItems()</c> is
+    /// <c>allDiscoverableItems.Count - totalDiscoveredCount</c>, and <c>hasRemainingDiscovery</c>
+    /// additionally requires a pool item that is undiscovered <em>and</em>
+    /// <c>IsDiscoverVisible()</c>. So a tree with 53 undiscovered items and nothing currently in
+    /// reach fails the second test while plainly passing the first, and the two answers are not the
+    /// same news: one is a finished tree, the other is a tree waiting on a Recipe Book.
+    /// </remarks>
+    private static void AddNoDiscoveryReason(JObject initiate, in WorldDiscoveryTree tree)
+    {
+        var discovered = tree.TotalDiscoveredCount;
+        var discoverable = tree.TotalDiscoverableCount;
+        var remaining = discoverable - discovered;
+        if (remaining <= 0)
+        {
+            initiate["reasonCode"] = "no_discoveries";
+            initiate["reason"] =
+                "Every one of this tree's " +
+                discoverable.ToString(CultureInfo.InvariantCulture) +
+                " discoveries is made.";
+            return;
+        }
+        initiate["reasonCode"] = "no_discoveries_in_reach";
+        initiate["reason"] =
+            "Nothing in this tree can be discovered right now: " +
+            discovered.ToString(CultureInfo.InvariantCulture) + " of its " +
+            discoverable.ToString(CultureInfo.InvariantCulture) +
+            " are discovered, and none of the other " +
+            remaining.ToString(CultureInfo.InvariantCulture) +
+            " is in reach — a tree's pool is widened by its Recipe Books, and an item in the pool " +
+            "is offered only once the game shows it.";
+    }
+
     private static GameMcpValue ProjectDiscoveryTree(
         GameWorldState world,
         in WorldDiscoveryTree tree)
@@ -5907,11 +5945,9 @@ internal static class GameMcpWorldQuery
             };
             if (!available)
             {
-                initiate["reasonCode"] = !tree.Visible
-                    ? "tree_unavailable"
-                    : !hasNext
-                        ? "no_discoveries"
-                        : "unaffordable";
+                if (!tree.Visible) initiate["reasonCode"] = "tree_unavailable";
+                else if (hasNext) initiate["reasonCode"] = "unaffordable";
+                else AddNoDiscoveryReason(initiate, tree);
             }
             if (hasNext)
             {

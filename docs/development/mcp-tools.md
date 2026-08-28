@@ -2629,7 +2629,7 @@ most, so an old code's new class can be looked up here:
 | `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
-| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `research_leeway_exhausted`, `native_leeway_exhausted` |
+| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `research_leeway_exhausted`, `native_leeway_exhausted` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `configuration_not_available`,
 `stale_configuration_generation`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused` — the game's own gate said no and reported nothing else |
@@ -3085,7 +3085,17 @@ names the discovery it took — the identity the caller passed as `offerUuid` �
 travels with the `discoverableCount` it is a count out of, on the tree row and on the confirmation
 alike: the two are the game's own cached `totalDiscoveredCount` and the size of the very list
 `CountDiscoveredItems()` counts it from, so `3` and `3 of 40` are not the same answer to how far
-into a tree a caller is. It does not
+into a tree a caller is.
+
+**A tree that offers nothing says which of the two reasons it is.** The game folds both into one
+flag: `hasRemainingDiscovery` is false when the whole tree is discovered *and* when the tree still
+has undiscovered items but none of them is in the pool and visible. The idle row tells them apart
+from the counts it already prints — a finished tree answers `ERR_NOT_FOUND` and
+`Every one of this tree's 65 discoveries is made.`, while a tree waiting on a Recipe Book answers
+`ERR_LOCKED` and `Nothing in this tree can be discovered right now: 12 of its 65 are discovered,
+and none of the other 53 is in reach — …`. The old single sentence, "This tree has nothing left to
+discover.", stood on a row printing `discoveredCount: 12` beside `discoverableCount: 65` and
+contradicted both numbers. It does not
 re-send the next initiate price: the tree answers that when a caller asks to initiate again.
 Failures name only the failed admission or missing transition and the fact that explains it: a
 reroll refused for a spent budget names that one axis and carries `rerollsLeft`, never a recital of

@@ -1210,6 +1210,43 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             Mode = "initiate",
         }.Freeze();
 
+    /// <summary>
+    /// "This tree has nothing left to discover." stood on a row printing 12 discovered of 65. The
+    /// game folds two conditions into one flag — the whole tree finished, and a tree whose pool has
+    /// nothing in reach — and only the first makes that sentence true.
+    /// </summary>
+    [Fact]
+    public void ATreeWithNothingInReachIsNotATreeThatIsFinished()
+    {
+        var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+
+        var blocked = Initiate(treeId, discovered: 12, discoverable: 65);
+        Assert.Equal("ERR_LOCKED", (string?)blocked["reasonCode"]);
+        Assert.Equal(
+            "Nothing in this tree can be discovered right now: 12 of its 65 are discovered, and " +
+            "none of the other 53 is in reach — a tree's pool is widened by its Recipe Books, and " +
+            "an item in the pool is offered only once the game shows it.",
+            (string?)blocked["reason"]);
+
+        var finished = Initiate(treeId, discovered: 65, discoverable: 65);
+        Assert.Equal("ERR_NOT_FOUND", (string?)finished["reasonCode"]);
+        Assert.Equal(
+            "Every one of this tree's 65 discoveries is made.", (string?)finished["reason"]);
+    }
+
+    private static JObject Initiate(Guid treeId, int discovered, int discoverable) =>
+        (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(
+                DiscoveryWorld(new WorldDiscoveryTree(
+                    treeId, true, 0, BigDouble.Zero, 1, false, Guid.Empty,
+                    Array.Empty<Guid>(), false, false,
+                    Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty, Guid.Empty,
+                    0, 0, false, discovered, discovered, discoverable, discoverable,
+                    false, false, discovered >= discoverable)),
+                generation: 84),
+            "discovery-trees",
+            treeId.ToString("D")))["row"]!["initiate"]!;
+
     private static GameWorldState DiscoveryWorld(
         WorldDiscoveryTree tree,
         WorldTimeRune[]? timeRunes = null,

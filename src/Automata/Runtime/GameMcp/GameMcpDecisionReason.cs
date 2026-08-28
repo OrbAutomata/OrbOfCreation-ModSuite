@@ -257,6 +257,10 @@ internal static class GameMcpDecisionReason
         "selection_hidden" or "cannot_level" or "resources_hidden" or
         "recipe_not_discovered" or "prerequisites_unmet" or "not_discovered_or_offered" or
         "native_hidden" or "hidden_discovery" or "requirement_unmet" or
+        // A tree with discoveries left that none of its gates has put in reach is locked, not empty:
+        // the caller's next move is to open a Recipe Book, which is a different move from giving up
+        // on the tree — and while both wore ERR_NOT_FOUND, nothing on the wire told them apart.
+        "no_discoveries_in_reach" or
         "screen_locked" or
         "native_unavailable" or "native_leeway_exhausted" => ClassLocked,
 
@@ -355,7 +359,16 @@ internal static class GameMcpDecisionReason
         "no_other_slot" => "There is no other spell slot to move to.",
         "not_active" => "This is not active, so there is nothing to act on.",
         "none_owned" => "None of this is owned.",
-        "no_discoveries" => "This tree has nothing left to discover.",
+        // "Nothing left to discover" was printed beside `discoveredCount: 12` and
+        // `discoverableCount: 65` on the same row, and only one of the two conditions the game folds
+        // into this code makes it true. The read row now says which, with those numbers; this is the
+        // sentence the verbs that have no row to point at say instead, and it claims neither.
+        "no_discoveries" =>
+            "Nothing in this tree can be discovered right now; its row says how many of its " +
+            "discoveries are made and how many are still out of reach.",
+        "no_discoveries_in_reach" =>
+            "The discoveries this tree has left are not in reach yet: a tree's pool is widened by " +
+            "its Recipe Books, and an item in the pool is offered only once the game shows it.",
         "no_current_offers" => "This tree is showing no offers to reroll.",
         "immediate_required_discovery" =>
             "This tree has a discovery to take first, so its offers cannot be rerolled.",
