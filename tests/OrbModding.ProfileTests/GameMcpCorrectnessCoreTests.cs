@@ -551,7 +551,9 @@ public sealed class GameMcpCorrectnessCoreTests
             latest: null);
 
         Assert.Equal(
-            "{\"postStateUnavailable\":{\"reasonCode\":\"ERR_UNAVAILABLE\",\"reason\":\"no world captured after the action exposed its committed post-state within one second\"}}",
+            "{\"postStateUnavailable\":{\"reasonCode\":\"ERR_UNAVAILABLE\",\"reason\":\"The " +
+            "press went through, but the game had not redrawn within a second, so this answer " +
+            "cannot say what changed. Read the entity again.\"}}",
             GameMcpTestHarness.Json(value).ToString(Newtonsoft.Json.Formatting.None));
     }
 
@@ -604,7 +606,7 @@ public sealed class GameMcpCorrectnessCoreTests
         var timeout = GameMcpTestHarness.Json(GameMcpPostStateSettlement.TimedOut(
             command, GameMcpTestHarness.Context(queuedOnly, generation: 42)));
         Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
-        Assert.Contains("active count is 440",
+        Assert.Contains("440 are assigned now",
             (string?)timeout["postStateUnavailable"]!["reason"]);
     }
 

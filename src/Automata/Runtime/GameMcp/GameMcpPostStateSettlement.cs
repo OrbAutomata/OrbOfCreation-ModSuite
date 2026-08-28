@@ -194,8 +194,9 @@ internal static class GameMcpPostStateSettlement
                 : "not published";
             return GameMcpWorldQuery.PostStateUnavailable(
                 "requested_state_not_reached",
-                "the requested idle-to-developing transition was not observed; before was " +
-                beforeState + " and the settled target is " + afterState);
+                "The develop press did not start this research: it was " + beforeState +
+                " before and it is " + afterState + " now. Check its price and its caps on the " +
+                "Research screen.");
         }
         if (command.Kind == GameMcpCommandKind.Concept && latest?.World is not null)
         {
@@ -205,8 +206,8 @@ internal static class GameMcpPostStateSettlement
                 : "not published";
             return GameMcpWorldQuery.PostStateUnavailable(
                 "requested_state_not_reached",
-                "the settled concept stack did not reach the requested amount; active count is " +
-                observed);
+                "the assigned concepts did not reach the requested amount; " + observed +
+                " are assigned now.");
         }
         if (command.Kind == GameMcpCommandKind.Prestige)
         {
@@ -217,7 +218,8 @@ internal static class GameMcpPostStateSettlement
         }
         return GameMcpWorldQuery.PostStateUnavailable(
             "post_state_timeout",
-            "no world captured after the action exposed its committed post-state within one second");
+            "The press went through, but the game had not redrawn within a second, so this " +
+            "answer cannot say what changed. Read the entity again.");
     }
 }
 #endif

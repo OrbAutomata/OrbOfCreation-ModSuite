@@ -380,7 +380,7 @@ public sealed class GameMcpResearchTests
         var timeout = Json(GameMcpPostStateSettlement.TimedOut(
             command, GameMcpTestHarness.Context(idle, generation: 52)), idle);
         Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
-        Assert.Contains("before was idle and the settled target is idle",
+        Assert.Contains("it was idle before and it is idle now",
             (string?)timeout["postStateUnavailable"]!["reason"]);
     }
 
@@ -403,7 +403,7 @@ public sealed class GameMcpResearchTests
     }
 
     [Theory]
-    [InlineData(false, "before was not published and the settled target is developing")]
+    [InlineData(false, "it was not published before and it is developing now")]
     [InlineData(true, "research queue before state was not published")]
     public void DevelopTimeoutDoesNotInventAnAbsentBeforeState(
         bool queueMode,

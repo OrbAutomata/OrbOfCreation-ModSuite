@@ -2159,9 +2159,7 @@ internal static class GameMcpWorldQuery
             if (category.TryIdentity(row, out var identity) && identity == uuid)
                 return ProjectRow(world, category, row);
         }
-        return PostStateUnavailable(
-            "post_state_not_published",
-            "the newer world has no " + category.Name + " row for the committed target");
+        return PostStateNotPublished("this " + category.Name + " entry");
     }
 
     /// <summary>
@@ -2248,9 +2246,7 @@ internal static class GameMcpWorldQuery
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         var world = state.World.Snapshot;
         if (!WorldLookup.TryFind(world.DiscoveryTrees, command.TargetId, out var after))
-            return PostStateUnavailable(
-                "post_state_not_published",
-                "the settled world has no discovery tree row for the committed target");
+            return PostStateNotPublished("this discovery tree");
         var before = Before(command);
         WorldDiscoveryTree previous = default;
         var hadBefore = before is not null &&
@@ -2291,9 +2287,7 @@ internal static class GameMcpWorldQuery
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         var world = state.World.Snapshot;
         if (!WorldLookup.TryFind(world.DiscoveryTrees, command.TargetId, out var after))
-            return PostStateUnavailable(
-                "post_state_not_published",
-                "the settled world has no discovery tree row for the committed target");
+            return PostStateNotPublished("this discovery tree");
         var before = Before(command);
         WorldDiscoveryTree previous = default;
         var hadBefore = before is not null &&
@@ -2360,9 +2354,7 @@ internal static class GameMcpWorldQuery
             !after.Occupied ||
             after.SpellRecipeId != command.TargetId)
         {
-            return PostStateUnavailable(
-                "post_state_not_published",
-                "the settled loadout no longer contains that spell in the requested slot");
+            return PostStateNotPublished("that spell in that slot");
         }
         var prior = default(WorldSpellSlot);
         var hasBefore = Before(command) is { } before &&
@@ -2460,8 +2452,7 @@ internal static class GameMcpWorldQuery
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         var after = state.World.Snapshot;
         if (!WorldLookup.TryFind(after.Structures, command.TargetId, out var current))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no structure row for that attribute");
+            return PostStateNotPublished("this structure");
         var before = Before(command);
         WorldStructure previous = default;
         var hadBefore = before is not null &&
@@ -2498,8 +2489,7 @@ internal static class GameMcpWorldQuery
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         if (!WorldAlchemyLoadoutLookup.TryFind(
                 state.World.Snapshot.AlchemyLoadout, command.TargetId, out var current))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no ordinary Alchemy row for that recipe");
+            return PostStateNotPublished("this Alchemy recipe");
         var oldWorld = Before(command);
         WorldAlchemyLoadoutDecision previous = default;
         var hadBefore = oldWorld is not null && WorldAlchemyLoadoutLookup.TryFind(
@@ -2535,8 +2525,7 @@ internal static class GameMcpWorldQuery
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         var world = state.World.Snapshot;
         if (!WorldLookup.TryFind(world.Rituals, command.TargetId, out var current))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no Ritual row for that ritual");
+            return PostStateNotPublished("this ritual");
         var oldWorld = Before(command);
         WorldRitual previous = default;
         var hadBefore = oldWorld is not null &&
@@ -2625,8 +2614,7 @@ internal static class GameMcpWorldQuery
         {
             if (!TryFindHarvestElementControl(
                     world.HarvestElementControls, command.TargetId, out var current))
-                return PostStateUnavailable("post_state_not_published",
-                    "the settled world has no harvest-list row for that element");
+                return PostStateNotPublished("this harvest element");
             WorldHarvestElementControl previous = default;
             var hadBefore = oldWorld is not null && TryFindHarvestElementControl(
                 oldWorld.HarvestElementControls, command.TargetId, out previous);
@@ -2644,8 +2632,7 @@ internal static class GameMcpWorldQuery
 
         if (!TryFindHarvestActionControl(world.HarvestActionControls,
                 command.TargetId, command.SecondaryId, out var action))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no harvest-list row for that element and action");
+            return PostStateNotPublished("this harvest element's action");
         WorldHarvestActionControl previousAction = default;
         var hadActionBefore = oldWorld is not null && TryFindHarvestActionControl(
             oldWorld.HarvestActionControls, command.TargetId, command.SecondaryId,
@@ -2679,8 +2666,7 @@ internal static class GameMcpWorldQuery
         if (!TryFindLevelDecision(
                 state.World.Snapshot, command.TargetId, command.DerivedNativeType,
                 out var current))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no level row for that entity");
+            return PostStateNotPublished("the thing you levelled");
         var oldWorld = Before(command);
         WorldLevelableDecision previous = default;
         var hadBefore = oldWorld is not null && TryFindLevelDecision(
@@ -2763,8 +2749,7 @@ internal static class GameMcpWorldQuery
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         if (!WorldCraftingStationLookup.TryFind(
                 state.World.Snapshot.CraftingStations, command.TargetId, out var station))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no Brewing Station row for that station");
+            return PostStateNotPublished("this Brewing Station");
         var oldWorld = Before(command);
         WorldCraftingStation previous = default;
         var hadBefore = oldWorld is not null && WorldCraftingStationLookup.TryFind(
@@ -2831,8 +2816,7 @@ internal static class GameMcpWorldQuery
         {
             if (!WorldLoadoutLookup.TryFindPlayer(world.PlayerLoadouts,
                     command.TargetId, out var current))
-                return PostStateUnavailable("post_state_not_published",
-                    "the settled world has no player loadout with that UUID");
+                return PostStateNotPublished("this loadout");
             WorldPlayerLoadout previous = default;
             var hadBefore = before is not null && WorldLoadoutLookup.TryFindPlayer(
                 before.PlayerLoadouts, command.TargetId, out previous);
@@ -2897,13 +2881,11 @@ internal static class GameMcpWorldQuery
 
         if (!WorldLoadoutLookup.TryFindSnapshot(world.SnapshotLoadouts,
                 command.TargetId, out var owner))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no Equipment or Alchemy snapshot list with that UUID");
+            return PostStateNotPublished("this saved-layout list");
         var slot = command.Amount - 1;
         var snapshot = ProjectSnapshotSlot(world, in owner, slot);
         if (snapshot is null)
-            return PostStateUnavailable("post_state_not_published",
-                "the settled snapshot list has no requested slot");
+            return PostStateNotPublished("that saved-layout slot");
         var response = new JObject
         {
             ["name"] = SnapshotOwnerName(world, in owner),
@@ -3307,8 +3289,7 @@ internal static class GameMcpWorldQuery
         if (state.World is null ||
             !WorldPlotActionLookup.TryFind(state.World.Snapshot.PlotActions,
                 command.TargetId, command.SecondaryId, out var current))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no requested plot-action row");
+            return PostStateNotPublished("this plot action");
         var world = state.World.Snapshot;
         var oldWorld = Before(command);
         var before = oldWorld is null ? 0 : PlotActionQuantity(
@@ -3319,8 +3300,10 @@ internal static class GameMcpWorldQuery
         {
             var observed = Property(committed.Details, "active");
             if (observed is null)
-                return PostStateUnavailable("post_state_not_published",
-                    "the plot action changed before the next world could publish it");
+                return PostStateUnavailable(
+                    "post_state_not_published",
+                    "The press went through, but the plot action changed again before the game " +
+                    "redrew it, so its new state cannot be read back.");
             return new JObject
             {
                 ["plot"] = EntityReference(world, command.TargetId),
@@ -3374,8 +3357,7 @@ internal static class GameMcpWorldQuery
     {
         if (state.World is null ||
             !WorldLookup.TryFind(state.World.Snapshot.SpellRecipes, command.TargetId, out var current))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no leveled spell row");
+            return PostStateNotPublished("this spell");
         var oldWorld = Before(command);
         var before = oldWorld is not null && WorldLookup.TryFind(
             oldWorld.SpellRecipes, command.TargetId, out var previous)
@@ -3390,8 +3372,7 @@ internal static class GameMcpWorldQuery
     {
         if (state.World is null ||
             !WorldLookup.TryFind(state.World.Snapshot.Equipment, command.TargetId, out var current))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no equipment row");
+            return PostStateNotPublished("this artifact");
         var oldWorld = Before(command);
         var before = oldWorld is not null && WorldLookup.TryFind(
             oldWorld.Equipment, command.TargetId, out var previous)
@@ -3406,8 +3387,7 @@ internal static class GameMcpWorldQuery
     {
         if (state.World is null ||
             !WorldLookup.TryFind(state.World.Snapshot.Research, command.TargetId, out var current))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no research row");
+            return PostStateNotPublished("this research");
         var oldWorld = Before(command);
         WorldResearch previous = default;
         var hasPrevious = oldWorld is not null && WorldLookup.TryFind(
@@ -3472,9 +3452,7 @@ internal static class GameMcpWorldQuery
                 command.TargetId,
                 command.DerivedNativeType,
                 out var after))
-            return PostStateUnavailable(
-                "post_state_not_published",
-                "the settled world has no discovery state for the requested target");
+            return PostStateNotPublished("this discovery");
         bool? before = null;
         var oldWorld = Before(command);
         if (oldWorld is not null && TryReadDiscoveryState(
@@ -3574,8 +3552,7 @@ internal static class GameMcpWorldQuery
     {
         if (state.World is null ||
             !WorldLookup.TryFind(state.World.Snapshot.Consumables, command.TargetId, out var current))
-            return PostStateUnavailable("post_state_not_published",
-                "the settled world has no consumable row");
+            return PostStateNotPublished("this item");
         var oldWorld = Before(command);
         WorldConsumable previous = default;
         var hasPrevious = oldWorld is not null && WorldLookup.TryFind(
@@ -3653,11 +3630,8 @@ internal static class GameMcpWorldQuery
                 state.World.Snapshot.CraftingDecisions,
                 command.TargetId,
                 out var current))
-            return PostStateUnavailable(
-                command.TargetId,
-                command.Amount,
-                "post_state_not_published",
-                "the settled world has no crafting decision for the committed recipe");
+            return PostStateNotPublished(
+                command.TargetId, command.Amount, "this crafting recipe");
         if (command.Mode is "automate" or "cancel_automation")
         {
             // The screen's number, not the repetition count behind it: one cancel on a doubled
@@ -4095,9 +4069,7 @@ internal static class GameMcpWorldQuery
         if (command.TargetId == Guid.Empty)
             return ProjectChallengeRerollDelta(world, Before(command));
         if (!WorldLookup.TryFind(world.Challenges, command.TargetId, out var current))
-            return PostStateUnavailable(
-                "post_state_not_published",
-                "the settled world has no challenge row for the committed target");
+            return PostStateNotPublished("this challenge");
         if (command.Mode == "select")
         {
             var oldWorld = Before(command);
@@ -4432,6 +4404,30 @@ internal static class GameMcpWorldQuery
         }
         return false;
     }
+
+    /// <summary>
+    /// A press that landed on something the settled world draws nothing for any more.
+    /// </summary>
+    /// <remarks>
+    /// Twenty-three sites each wrote their own wording of "the settled world has no X row for the
+    /// committed target" — the suite's own publication, in the suite's own words, about the one
+    /// question the caller actually has. What they can act on is the same at all twenty-three: the
+    /// press went through, and its result has to be read somewhere else. The caller names the thing
+    /// in full, including its article, so the sentence reads as a sentence on every one of them.
+    /// </remarks>
+    internal static GameMcpValue PostStateNotPublished(string thing) =>
+        PostStateUnavailable("post_state_not_published", NotShowing(thing));
+
+    private static GameMcpValue PostStateNotPublished(
+        Guid uuid,
+        int requestedAmount,
+        string thing) =>
+        PostStateUnavailable(
+            uuid, requestedAmount, "post_state_not_published", NotShowing(thing));
+
+    private static string NotShowing(string thing) =>
+        "The press went through, but the game is no longer showing " + thing +
+        ", so its new state cannot be read back.";
 
     internal static GameMcpValue PostStateUnavailable(string reasonCode, string reason) =>
         new JObject
