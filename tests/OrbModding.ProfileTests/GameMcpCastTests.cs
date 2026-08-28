@@ -137,6 +137,12 @@ public sealed class GameMcpCastTests
             command));
     }
 
+    /// <summary>
+    /// The price block on a committed fire is the next cast's, priced against the stock the settled
+    /// world holds now — both numbers from one instant. Named bare `costs` it read as a statement
+    /// about the press that just committed: a live round read `cost: 100 of 7.3 Mana affordable=no`
+    /// off a cast that had landed and took it for a failure.
+    /// </summary>
     [Fact]
     public void Fire_returns_the_published_price_and_observed_slot_change()
     {
@@ -159,7 +165,8 @@ public sealed class GameMcpCastTests
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
-        Assert.Equal("25", (string?)delta["costs"]![0]!["cost"]);
+        Assert.Null(delta["costs"]);
+        Assert.Equal("25", (string?)delta["nextCastCosts"]![0]!["cost"]);
         Assert.True((bool)delta["active"]!);
         Assert.Equal(2, (int)delta["charges"]!["before"]!);
         Assert.Equal(1, (int)delta["charges"]!["after"]!);

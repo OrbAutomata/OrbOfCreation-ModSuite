@@ -908,6 +908,28 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
+    /// The one-line price keeps whatever the producer named it, so a block that is about the next
+    /// press says so on the line itself. A committed cast reading `cost: 100 of 7.3 Mana
+    /// affordable=no` was two instants under one label — what the press asked and what is left
+    /// after it — and read as a cast that had failed.
+    /// </summary>
+    [Fact]
+    public void A_price_that_is_about_the_next_press_is_named_for_it_on_the_line()
+    {
+        var page = Render(@"{'active':true,'nextCastCosts':[
+            {'cost':'100','spendableAmount':'7.3','affordable':false,
+             'resource':{'uuid':'9dd2cf','name':'Mana'}}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "active: yes",
+                "nextCastCost: 100 of 7.3 Mana 9dd2cf affordable=no",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
     /// Every other list of one pays the same frame — a count, a header, and one row to deliver one
     /// row — and a round paid it nineteen more times. Inlined, every word the header carried is
     /// still there as its own key.

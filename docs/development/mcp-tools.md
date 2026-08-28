@@ -3083,6 +3083,15 @@ key, and deliberately: it is the one mode with a native delta behind it, a relea
 call with nothing to verify a cast start against and a toggle-off's own sentinel being a cast
 ending, so neither of those may claim the fact in either direction.
 
+A settled `fire` also carries `nextCastCosts`: the price of casting this spell **again**, against
+the stock the settled world holds now. Both numbers are that one instant, and the key says so — the
+block was called `costs`, which rendered `cost: 100 of 7.3 Mana affordable=no` on a cast that had
+landed, and a live round read those two numbers as one statement about the press it had just made
+and took a committed cast for a failure. What the press charged is not published and is not
+computed: this row is the current price, which is the price then only for a spell whose cost did not
+move, so publishing it as a payment would be a guess wearing a number — the same defect that retired
+`paid[]` from `game_purchase`.
+
 Every mode answers with the same keys, and a key that can be `yes` says `no` rather than
 disappearing. `active` — the settled running state — and `charging` — whether this press left a
 charge held — ride on all three. Both used to vanish when they were false, so a `release` response

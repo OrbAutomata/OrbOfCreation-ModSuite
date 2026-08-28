@@ -2275,9 +2275,17 @@ internal static class GameMcpWorldQuery
         var fire = string.Equals(command.Mode, "fire", StringComparison.Ordinal);
         if (fire)
         {
+            // The price of casting this again, against the stock the settled world holds now — one
+            // instant, both numbers from it. Under the bare name `costs` the same two numbers read
+            // as one statement about the press that just committed, and a live round read
+            // `cost: 100 of 7.3 Mana affordable=no` as "the cast cost 100, you have 7.3", which is
+            // a committed cast reported as a failure. What the press charged is not published here
+            // and is not computed: this row is the current price, which is the price then only for
+            // a spell whose cost did not move, so publishing it as a payment would be a guess
+            // wearing a number — the same defect that retired `paid[]` from game_purchase.
             var costs = ProjectEquippedSpellCosts(
                 state.World.Snapshot, slotIndex, WorldSpellCostKind.Immediate);
-            if (costs.Count > 0) result["costs"] = costs;
+            if (costs.Count > 0) result["nextCastCosts"] = costs;
             // What a committed fire moved: a cast that was not running is running now. The boundary
             // verifies the press against the game's own fire hook, and it refuses a spell that is
             // already casting, so a commit is a cast this call started.
