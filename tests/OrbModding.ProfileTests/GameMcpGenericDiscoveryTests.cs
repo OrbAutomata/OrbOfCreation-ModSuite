@@ -252,6 +252,63 @@ public sealed class GameMcpGenericDiscoveryTests
         Assert.Null(preview["output"]);
     }
 
+    /// <summary>
+    /// The preview promises exactly what the press is gated on. Every preflight refusal a caller
+    /// could have acted on ahead of the call is a predicate this row already answers; the rest are
+    /// boundary revalidations no read could have settled, and there is no third kind.
+    /// </summary>
+    /// <remarks>
+    /// A round read <c>available: yes</c> off a discovery preview and was refused on a core
+    /// glyph's owned level — a gate the preview never named, twelve lines under a table showing
+    /// that level as zero. The verb used to stage the recipe's glyphs into the spell workbench and
+    /// validate them itself; it now presses the game's own row
+    /// (<c>UIDiscoverablePage.HandleClick</c>) and stages nothing, so the gate is gone rather than
+    /// hidden. What keeps it gone is this partition: a preflight a caller could act on has to
+    /// arrive with the predicate that pre-reads it, or it falls in neither list and is named here.
+    /// </remarks>
+    [Fact]
+    public void Every_gate_the_press_refuses_on_is_a_predicate_the_preview_already_answers()
+    {
+        var answeredByTheRow = new[]
+        {
+            GenericDiscoveryPreflight.NotVisible,
+            GenericDiscoveryPreflight.AlreadyDiscovered,
+            GenericDiscoveryPreflight.DiscoveryUnavailable,
+            GenericDiscoveryPreflight.Unaffordable,
+            GenericDiscoveryPreflight.GlyphRecipeEmpty,
+            GenericDiscoveryPreflight.ScreenLocked,
+        };
+        var settledOnlyAtTheBoundary = new[]
+        {
+            GenericDiscoveryPreflight.Proceeded,
+            GenericDiscoveryPreflight.ContractUnavailable,
+            GenericDiscoveryPreflight.WrongThread,
+            GenericDiscoveryPreflight.LifecycleReplaced,
+            GenericDiscoveryPreflight.IdentityUnavailable,
+            GenericDiscoveryPreflight.UnsupportedType,
+            GenericDiscoveryPreflight.MutationPermitUnavailable,
+            GenericDiscoveryPreflight.PostCommitFault,
+            GenericDiscoveryPreflight.VerificationFailed,
+        };
+
+        Assert.Empty(answeredByTheRow.Intersect(settledOnlyAtTheBoundary));
+        Assert.Equal(
+            Enum.GetValues<GenericDiscoveryPreflight>().OrderBy(value => (int)value),
+            answeredByTheRow.Concat(settledOnlyAtTheBoundary).OrderBy(value => (int)value));
+
+        // So the all-clear answer defers nothing: it says yes and names no gate left over. The one
+        // fact this press genuinely cannot settle ahead of itself is the auto-load, and it wears
+        // the suite's word for that instead of a verdict.
+        var preview = Json(GameMcpWorldQuery.ProjectDiscoveryPreview(Context(), SpellRecipeId));
+        var discover = preview["output"]!["discover"]!;
+
+        Assert.Equal("available", (string?)preview["status"]);
+        Assert.True((bool)discover["available"]!);
+        Assert.Null(discover["reasonCode"]);
+        Assert.Null(discover["verbDecides"]);
+        Assert.Equal("unverified", (string?)preview["autoLoad"]!["willLoad"]);
+    }
+
     [Fact]
     public void Success_yields_to_poststate_while_failure_names_the_missing_outcome()
     {
