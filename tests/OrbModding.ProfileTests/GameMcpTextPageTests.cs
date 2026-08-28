@@ -935,6 +935,65 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
+    /// A block that says nothing but yes says it once. One live round shipped 26 of these, a line
+    /// per slot, and every one of them carried the same word.
+    /// </summary>
+    [Fact]
+    public void A_block_of_predicates_that_all_say_yes_is_one_line()
+    {
+        Assert.Equal(
+            new[] { "name: Expansion", "predicates: visible, available — yes" },
+            Render(@"{'name':'Expansion','predicates':{
+                'visible':{'available':true,'reasonCode':'passed'},
+                'available':{'available':true,'reasonCode':'passed'}}}").Split('\n'));
+    }
+
+    /// <summary>
+    /// Two predicates whose verdict, class and sentence are the same three facts are named on one
+    /// line. No name and no reason string leaves the page — the second copy of the sentence does.
+    /// </summary>
+    [Fact]
+    public void Predicates_answering_the_same_way_are_named_together()
+    {
+        Assert.Equal(
+            new[]
+            {
+                "name: Expansion",
+                "predicates:",
+                "  visible: yes",
+                "  available, canPurchase: no (ERR_LOCKED): The game keeps this locked.",
+            },
+            Render(@"{'name':'Expansion','predicates':{
+                'visible':{'available':true,'reasonCode':'passed'},
+                'available':{'available':false,'reasonCode':'ERR_LOCKED',
+                             'reason':'The game keeps this locked.'},
+                'canPurchase':{'available':false,'reasonCode':'ERR_LOCKED',
+                               'reason':'The game keeps this locked.'}}}").Split('\n'));
+    }
+
+    /// <summary>
+    /// A slot carrying more than a verdict is not repetition, so it never joins a fold and never
+    /// stops the other slots from folding.
+    /// </summary>
+    [Fact]
+    public void A_predicate_carrying_a_fact_of_its_own_keeps_its_own_line()
+    {
+        Assert.Equal(
+            new[]
+            {
+                "name: Expansion",
+                "predicates:",
+                "  visible, available: yes",
+                "  canUse: no (charge_unavailable) slots=[2, 5]",
+            },
+            Render(@"{'name':'Expansion','predicates':{
+                'visible':{'available':true,'reasonCode':'passed'},
+                'available':{'available':true,'reasonCode':'passed'},
+                'canUse':{'available':false,'reasonCode':'charge_unavailable',
+                          'slots':[2,5]}}}").Split('\n'));
+    }
+
+    /// <summary>
     /// A second row is what columns are for, and a page keeps its table however few rows it holds:
     /// the count and the declared columns are what a paged read is read by, and one row today is
     /// not a promise about tomorrow's.

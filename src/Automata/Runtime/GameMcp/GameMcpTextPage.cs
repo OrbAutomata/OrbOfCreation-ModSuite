@@ -296,6 +296,11 @@ internal static class GameMcpTextPage
             {
                 nested = Unwrap(nested);
                 var outer = said.Enter(name);
+                if (IsPredicates(name) && TryPredicates(nested, name, indent, lines, said))
+                {
+                    said.Leave(outer);
+                    return;
+                }
                 var inline = TryInline(nested, InlineBudget, said);
                 if (inline is not null)
                 {
@@ -330,6 +335,140 @@ internal static class GameMcpTextPage
             }
         }
     }
+
+    private static bool IsPredicates(string name) =>
+        string.Equals(name, "predicates", StringComparison.Ordinal);
+
+    /// <summary>
+    /// One predicate slot's verdict, where the slot says nothing but the verdict.
+    /// </summary>
+    /// <remarks>
+    /// A slot that carries anything else — <c>canUse</c> and the slot numbers the spell sits in —
+    /// is not repetition and never joins a fold.
+    /// </remarks>
+    private static bool IsPredicateVerdict(
+        JToken value,
+        out bool available,
+        out string? code,
+        out string? reason)
+    {
+        available = false;
+        code = null;
+        reason = null;
+        if (value is not JObject item ||
+            item["available"] is not JValue { Type: JTokenType.Boolean } flag)
+        {
+            return false;
+        }
+        foreach (var property in item.Properties())
+        {
+            if (property.Name is not ("available" or "reasonCode" or "reason")) return false;
+        }
+        available = (bool)flag;
+        code = (string?)item["reasonCode"];
+        reason = (string?)item["reason"];
+        return true;
+    }
+
+    /// <summary>
+    /// The predicate block with its repetition taken out: an all-affirmative block on one line, and
+    /// predicates answering the same way named together.
+    /// </summary>
+    /// <remarks>
+    /// One live round shipped 6,531 bytes of <c>predicates:</c>, of which 26 blocks said nothing
+    /// but yes on a line each and 10 pairs carried the same refusal sentence twice. No name and no
+    /// reason string leaves the page — each name is still printed and each distinct sentence is
+    /// still said. The fold needs no knowledge of what any slot implies, so it can never hide a
+    /// verdict: two names share a line only when their verdict, class and sentence are the same
+    /// three facts.
+    /// </remarks>
+    private static bool TryPredicates(
+        JObject item,
+        string name,
+        string indent,
+        List<string> lines,
+        Said said)
+    {
+        // An unwrapped block of one is the verdict itself, not a block of slots, and the page
+        // already says that on one line.
+        if (item.Count == 0) return false;
+        foreach (var property in item.Properties())
+        {
+            if (property.Value is not JObject) return false;
+        }
+        var slots = new List<JProperty>(item.Count);
+        foreach (var property in item.Properties()) slots.Add(property);
+        var verdicts = new (bool Available, string? Code, string? Reason)?[slots.Count];
+        var affirmative = true;
+        for (var index = 0; index < slots.Count; index++)
+        {
+            if (!IsPredicateVerdict(
+                    slots[index].Value, out var available, out var code, out var reason))
+            {
+                affirmative = false;
+                continue;
+            }
+            verdicts[index] = (available, code, reason);
+            affirmative &= available && reason is null;
+        }
+        if (affirmative)
+        {
+            var named = new StringBuilder(slots[0].Name);
+            for (var index = 1; index < slots.Count; index++)
+                named.Append(", ").Append(slots[index].Name);
+            lines.Add(indent + name + ": " + named + " — yes");
+            return true;
+        }
+
+        lines.Add(indent + name + ":");
+        var taken = new bool[slots.Count];
+        for (var index = 0; index < slots.Count; index++)
+        {
+            if (taken[index]) continue;
+            if (verdicts[index] is not { } verdict)
+            {
+                // A slot carrying more than a verdict says it in the page's own grammar.
+                WriteProperty(
+                    slots[index].Name,
+                    slots[index].Value,
+                    null,
+                    null,
+                    null,
+                    indent + Indent,
+                    lines,
+                    said);
+                continue;
+            }
+            var together = new StringBuilder(slots[index].Name);
+            for (var other = index + 1; other < slots.Count; other++)
+            {
+                if (taken[other] || verdicts[other] is not { } twin ||
+                    !SameVerdict(verdict, twin))
+                {
+                    continue;
+                }
+                taken[other] = true;
+                together.Append(", ").Append(slots[other].Name);
+            }
+            together.Append(": ").Append(verdict.Available
+                ? "yes"
+                : verdict.Code is { } code ? "no (" + code + ")" : "no");
+            together.Append(Sentence(said, verdict.Code is not null, verdict.Reason));
+            lines.Add(indent + Indent + together);
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Whether two predicates say the same three things. A yes prints no class, so two of them
+    /// share a line on their sentence alone.
+    /// </summary>
+    private static bool SameVerdict(
+        (bool Available, string? Code, string? Reason) left,
+        (bool Available, string? Code, string? Reason) right) =>
+        left.Available == right.Available &&
+        string.Equals(left.Reason, right.Reason, StringComparison.Ordinal) &&
+        (left.Available || string.Equals(left.Code, right.Code, StringComparison.Ordinal));
 
     /// <summary>
     /// The whole of a no, on one line: which kind it is, and the sentence that says the rest. The

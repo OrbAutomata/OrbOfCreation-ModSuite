@@ -2262,6 +2262,13 @@ and `canUse`. The drop is per field and turns on the twin being present. A `canD
 discovered spell — whose row offers `loadoutAdd` and no `discover` at all — still prints; a
 predicate that disagrees with its row keeps both readings; and `canUse: yes slots=[1]` keeps its
 slot list, because that list appears nowhere else.
+**The block says its repetition once.** A block whose every slot is a bare affirmative verdict is one
+line — `predicates: visible, available — yes` — and inside a block that is not, slots whose verdict,
+class and sentence are the same three facts are named together on one line:
+`available, canPurchase: no (ERR_LOCKED): The game keeps this locked.` No slot name and no reason
+string is dropped, and a slot carrying a fact of its own — `canUse` and its slot numbers — never
+joins a fold and never stops the others from folding. The fold needs no knowledge of what any slot
+implies, which is what makes it unable to hide a verdict.
 Crafting purchase uses the
 published `CraftingRecipeSO.CanBuyAt(GetStartingQuantity())` verdict, spell use uses the equipped
 `Spell.CanCast()` reading, and structure/upgrade purchase combines published native availability
