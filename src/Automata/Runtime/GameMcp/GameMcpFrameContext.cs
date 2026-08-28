@@ -101,7 +101,7 @@ internal sealed class GameMcpFrameContext
     /// about the scene. Calling it a scene property is what let one scene answer both ways.
     /// </summary>
     internal string RuntimeNotAvailableReason => Runtime is null
-        ? "the ServiceCycle runtime has not been created in this session yet"
+        ? "the suite has not begun reading the game in this session; open a save and try again."
         : string.Empty;
 }
 

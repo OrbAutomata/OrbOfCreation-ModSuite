@@ -395,6 +395,41 @@ public sealed class GameMcpDecisionReasonTests
     }
 
     /// <summary>
+    /// The UI gadgets' refusals carry the class that matches what went wrong.
+    /// </summary>
+    /// <remarks>
+    /// None of these codes was in <see cref="GameMcpDecisionReason.Class"/> at all, so every
+    /// <c>game_navigate</c>, <c>game_tooltip</c>, <c>game_probe</c> and <c>game_continue</c>
+    /// refusal fell to the default and told a caller branching on the class that the game had refused and
+    /// the world did not explain why — for a stale page marker, for a miss, and for a reading this
+    /// build does not take alike. The two that really are the game's own no keep the default and
+    /// are named here so that stays a decision rather than an omission.
+    /// </remarks>
+    [Theory]
+    [InlineData("tooltip_offset_invalid", GameMcpDecisionReason.ClassInput)]
+    [InlineData("plot_destination_mismatch", GameMcpDecisionReason.ClassInput)]
+    [InlineData("tooltip_match_failed", GameMcpDecisionReason.ClassNotFound)]
+    [InlineData("tooltip_content_unavailable", GameMcpDecisionReason.ClassNotFound)]
+    [InlineData("native_plot_not_resolved", GameMcpDecisionReason.ClassNotFound)]
+    [InlineData("native_navigation_unavailable", GameMcpDecisionReason.ClassUnavailable)]
+    [InlineData("native_plot_navigation_unavailable", GameMcpDecisionReason.ClassUnavailable)]
+    [InlineData("native_plot_list_unavailable", GameMcpDecisionReason.ClassUnavailable)]
+    [InlineData("native_probe_unavailable", GameMcpDecisionReason.ClassUnavailable)]
+    [InlineData("tooltip_contract_unavailable", GameMcpDecisionReason.ClassUnavailable)]
+    [InlineData("tooltip_read_faulted", GameMcpDecisionReason.ClassUnavailable)]
+    [InlineData("navigation_request_invalid", GameMcpDecisionReason.ClassUnavailable)]
+    [InlineData("unsupported_probe", GameMcpDecisionReason.ClassUnavailable)]
+    [InlineData("continue_contract_unavailable", GameMcpDecisionReason.ClassUnavailable)]
+    [InlineData("continue_wrong_scene", GameMcpDecisionReason.ClassState)]
+    // The game's own selector said no and gave its own reason; the default is the right answer.
+    [InlineData("native_tab_rejected", GameMcpDecisionReason.ClassRefused)]
+    [InlineData("subtab_selection_failed", GameMcpDecisionReason.ClassRefused)]
+    public void A_gadget_refusal_carries_the_class_of_what_went_wrong(
+        string reasonCode,
+        string expected) =>
+        Assert.Equal(expected, GameMcpDecisionReason.Class(reasonCode));
+
+    /// <summary>
     /// Every reason code the suite itself writes, and ships with no prose beside it, has a sentence
     /// of its own rather than its own spelling with the underscores taken out.
     /// </summary>

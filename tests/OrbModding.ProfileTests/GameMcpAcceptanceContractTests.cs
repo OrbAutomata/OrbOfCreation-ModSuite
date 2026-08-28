@@ -748,7 +748,8 @@ public sealed class GameMcpProtocolSurfaceTests
         // verdict describes is identified.
         Assert.Contains("world: not published", withoutRuntime, StringComparison.Ordinal);
         Assert.Contains(
-            "runtime reason: the ServiceCycle runtime has not been created in this session yet",
+            "runtime reason: the suite has not begun reading the game in this session; " +
+            "open a save and try again.",
             withoutRuntime,
             StringComparison.Ordinal);
         // A collected world always carries the moment it was read; health answers published exactly

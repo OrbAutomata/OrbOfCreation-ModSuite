@@ -141,6 +141,13 @@ internal static class GameMcpDecisionReason
         // every mode before a boundary is reached, so arriving here is the suite contradicting
         // its own router rather than the caller passing a bad word.
         "unsupported_control" or
+        // The suite is not running, or could not attach to the game's tooltips or its Continue
+        // button. The game is never asked in any of the three.
+        "runtime_not_available" or "tooltip_contract_unavailable" or
+        "continue_contract_unavailable" or
+        // The router validates every screen and every probe name before a gadget is reached, so
+        // these two are the suite contradicting its own router rather than a caller's mistake.
+        "navigation_request_invalid" or "unsupported_probe" or
         // The suite has no world and no identity catalog to answer from.
         "world_not_published" or "entity_catalog_unavailable" => true,
         _ => false,
@@ -190,6 +197,8 @@ internal static class GameMcpDecisionReason
         // outside the range the game allows. It used to answer a different class on each verb,
         // which taught a caller that the class described the tool rather than the failure.
         "configuration_write_rejected" or
+        // The caller quoted a page marker or a destination the screen catalog never printed.
+        "tooltip_offset_invalid" or "plot_destination_mismatch" or
         "composite_identity_required" => ClassInput,
 
         // The named thing is not there.
@@ -210,6 +219,11 @@ internal static class GameMcpDecisionReason
         "tree_unavailable" or "source_unavailable" or "components_unavailable" or
         "no_current_offers" or
         "active_section_empty" or "control_unavailable" or "list_unavailable" or
+        // The UI gadgets. Every one of their codes used to fall to the default class, so a caller
+        // branching on the class was told the game had refused for all fourteen, including the
+        // three that are a bad argument, a miss, and a fact this build cannot read.
+        "tooltip_match_failed" or "tooltip_content_unavailable" or
+        "native_plot_not_resolved" or
         // A glyph the game draws no Recipe Book for. It used to answer world_not_published — the
         // suite having read nothing at all — for a healthy read of a published world.
         "no_recipe_book" or
@@ -224,6 +238,8 @@ internal static class GameMcpDecisionReason
         // right now, which is a state and moves on its own.
         "multiple_modals_open" or
         "targeting_in_progress" or "transition_in_progress" or "manual_pause" or
+        // Continue exists only on the title screen; being in a run is a state, and it moves.
+        "continue_wrong_scene" or
         "ritual_battle_active" or "wrong_active_ritual" or "wrong_scene" or
         "spell_already_inactive" or "spell_already_casting" or
         "spell_not_ready" or "spell_not_toggleable" or "spell_not_chargeable" or
@@ -300,6 +316,13 @@ internal static class GameMcpDecisionReason
         // else. Nothing the caller passed is wrong and nothing in the game refused: the write the
         // suite performs did not land, which is the suite's defect to answer for.
         "staged_write_failed" or "single_buy_unavailable" or "unsupported_control" or
+        // The UI gadgets again: a shell that is not drawing tabs, a build that exposes no plot
+        // list or no queue-room reading, and the two guards the router already makes unreachable.
+        "native_navigation_unavailable" or "native_plot_navigation_unavailable" or
+        "native_plot_list_unavailable" or "native_probe_unavailable" or
+        "tooltip_contract_unavailable" or "tooltip_read_faulted" or
+        "navigation_request_invalid" or "unsupported_probe" or
+        "continue_contract_unavailable" or
         "cost_unavailable" or "exact_cost_unavailable" or "usage_cost_unavailable" or
         "action_family_unavailable" or "screenshot_budget_unavailable" or
         "inline_screenshot_failed" or "request_canceled_before_claim" or

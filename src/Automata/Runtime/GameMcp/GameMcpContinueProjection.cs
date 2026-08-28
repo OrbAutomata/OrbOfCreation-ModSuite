@@ -19,18 +19,19 @@ internal static class GameMcpContinueProjection
 {
     internal const string StartScene = "Start";
 
-    internal static GameMcpValue Project(
-        string sceneName,
-        bool runtimeAvailable,
-        string runtimeNotAvailableReason)
+    /// <remarks>
+    /// The press that landed carried a sentence about the suite not having read the game yet, which
+    /// is true of the instant a Continue returns in and false of the instant a caller reads it —
+    /// the load it just started is what makes the first read possible. <c>runtimeAvailable</c> is
+    /// the fact; there is nothing to add to it beside a success.
+    /// </remarks>
+    internal static GameMcpValue Project(string sceneName, bool runtimeAvailable)
     {
         var details = new GameMcpObjectBuilder();
         if (string.Equals(sceneName, StartScene, StringComparison.Ordinal))
             details["pressed"] = "Continue landed; the scene has not changed yet";
         details["scene"] = sceneName;
         details["runtimeAvailable"] = runtimeAvailable;
-        if (!runtimeAvailable && runtimeNotAvailableReason.Length > 0)
-            details["runtimeReason"] = runtimeNotAvailableReason;
         return details.Freeze();
     }
 }

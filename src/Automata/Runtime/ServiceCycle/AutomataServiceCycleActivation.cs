@@ -145,9 +145,9 @@ internal sealed class AutomataServiceCycleActivation : IDisposable
     {
         if (_disposed || _runtime is null)
         {
-            result = GameMcpCommandResult.Rejected(
+            result = GameMcpCommandResult.Failed(
                 "runtime_not_available",
-                "the ServiceCycle runtime is not active in this scene");
+                "The suite is not running on this screen, so no action can be sent to the game.");
             return false;
         }
         result = _runtime.ExecuteGameMcp(command);
@@ -162,7 +162,7 @@ internal sealed class AutomataServiceCycleActivation : IDisposable
         {
             preview = SpellWorkbenchLoadPreview.Refused(
                 SpellWorkbenchPreflight.ContractUnavailable,
-                "The ServiceCycle runtime is not active in this scene.");
+                "The suite is not running on this screen, so nothing can be previewed.");
             return false;
         }
         preview = _runtime.PreviewSpellWorkbench(in request);
@@ -175,7 +175,7 @@ internal sealed class AutomataServiceCycleActivation : IDisposable
         {
             layout = SpellWorkbenchStagedLayout.Unavailable(
                 SpellWorkbenchPreflight.ContractUnavailable,
-                "The ServiceCycle runtime is not active in this scene.");
+                "The suite is not running on this screen, so nothing can be read here.");
             return false;
         }
         layout = _runtime.ReadStagedSpellWorkbench();

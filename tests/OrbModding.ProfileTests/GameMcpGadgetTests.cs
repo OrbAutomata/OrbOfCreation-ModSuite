@@ -371,15 +371,16 @@ public sealed class GameMcpGadgetTests
     [Fact]
     public void A_continue_whose_scene_has_not_moved_yet_still_says_the_press_landed()
     {
-        var loading = GameMcpTestHarness.Json(GameMcpContinueProjection.Project(
-            "Start",
-            false,
-            "the ServiceCycle runtime has not been created in this session yet"));
+        var loading = GameMcpTestHarness.Json(
+            GameMcpContinueProjection.Project("Start", false));
         var loaded = GameMcpTestHarness.Json(
-            GameMcpContinueProjection.Project("Main", true, string.Empty));
+            GameMcpContinueProjection.Project("Main", true));
 
+        // The press that landed no longer carries a sentence about the suite not having read the
+        // game yet: the load this very press started is what makes that read possible, so it was
+        // false by the time anyone could read it.
         Assert.Equal(
-            new[] { "pressed", "scene", "runtimeAvailable", "runtimeReason" },
+            new[] { "pressed", "scene", "runtimeAvailable" },
             loading.Properties().Select(property => property.Name));
         Assert.Equal(
             "Continue landed; the scene has not changed yet", (string?)loading["pressed"]);

@@ -4978,7 +4978,7 @@ internal static class GameMcpWorldQuery
             return;
         code = "world_not_published";
         reason = state.RuntimeNotAvailableReason.Length == 0
-            ? "the world collector has not published a captured world yet"
+            ? "the suite has not finished its first read of the game; try again in a moment."
             : state.RuntimeNotAvailableReason;
     }
 
