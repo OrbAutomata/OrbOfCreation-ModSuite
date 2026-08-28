@@ -132,7 +132,8 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         Assert.Equal(new NativeMutationCallOutcome(1, 1, 0), failed.CallOutcome);
         Assert.Equal(AutoScribePreflight.Quarantined, blocked.Preflight);
         Assert.Equal(AutoScribeNativeStage.Payment, health.Stage);
-        Assert.Contains("after purchase", health.Reason);
+        Assert.Contains("after Payment", health.Reason);
+        Assert.DoesNotContain("injected failure", health.Reason);
     }
 
     [Fact]
@@ -149,7 +150,8 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         Assert.Equal(new NativeMutationCallOutcome(2, 1, 0), failed.CallOutcome);
         Assert.True(actionBoundary.IsQuarantined);
         Assert.Equal(AutoScribeNativeStage.Construction, health.Stage);
-        Assert.Contains("construction", health.Reason);
+        Assert.Contains("after Construction", health.Reason);
+        Assert.DoesNotContain("injected failure", health.Reason);
     }
 
     [Fact]
@@ -166,7 +168,8 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         Assert.Equal(new NativeMutationCallOutcome(3, 1, 0), failed.CallOutcome);
         Assert.True(actionBoundary.IsQuarantined);
         Assert.Equal(AutoScribeNativeStage.Initiation, health.Stage);
-        Assert.Contains("initiation", health.Reason);
+        Assert.Contains("after Initiation", health.Reason);
+        Assert.DoesNotContain("injected failure", health.Reason);
     }
 
     [Fact]
