@@ -100,8 +100,10 @@ internal static class GameMcpWorldQuery
         // other number here answers "what can I do next"; this one answers "how long has this taken
         // me", which no surface could answer at all — a round wanting it had to diff wall-clock
         // stamps across its own calls and got the session, not the run.
+        // The format is read off the variable's own two flags rather than assumed, so this line and
+        // the same variable's row can never print one duration two ways.
         if (WorldLookup.TryFind(world.DoubleVariables, KnownEntities.TimePlayed.Uuid, out var played))
-            result["timePlayed"] = RunClock(played.Value);
+            result["timePlayed"] = Clock(played.Value, played.IsTimeAccurate);
         result["economy"] = new JObject
         {
             ["resourceRows"] = world.Resources.Count,
@@ -228,6 +230,42 @@ internal static class GameMcpWorldQuery
     /// the same reason every other magnitude on this wire does: one notation per response.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// One duration in whichever of the game's two time formats the variable is marked for.
+    /// </summary>
+    /// <remarks>
+    /// <c>NumberVariable.GetValueDisplay()</c> reads <c>isTimeAccurateVariable</c> only after
+    /// <c>isTimeVariable</c> is set, and the two formats are not interchangeable: the ultra-precise
+    /// one counts hours, minutes and seconds, and the accurate one names the largest unit that fits
+    /// and says only that.
+    /// </remarks>
+    private static string Clock(BigDouble seconds, bool ultraPrecise) =>
+        ultraPrecise ? RunClock(seconds) : CoarseClock(seconds);
+
+    /// <summary>
+    /// <c>Utils.BeautifyTimeAccurate</c>: one unit, and nothing under it. Its second branches lose
+    /// a decimal each decade — <c>1.23s</c>, <c>12.3s</c>, <c>123s</c> — and its unit thresholds are
+    /// the game's own rather than the obvious ones: seconds up to 1000, minutes up to 60000, hours
+    /// up to 86400000. Two hours reads <c>128m</c> on the game's screens, so it reads <c>128m</c>
+    /// here.
+    /// </summary>
+    private static string CoarseClock(BigDouble seconds)
+    {
+        if (seconds < BigDouble.Zero) return "-" + CoarseClock(BigDouble.Abs(seconds));
+        if (seconds < new BigDouble(10)) return Fixed(seconds, 2) + "s";
+        if (seconds < new BigDouble(100)) return Fixed(seconds, 1) + "s";
+        if (seconds < new BigDouble(1000)) return Fixed(seconds, 0) + "s";
+        if (seconds < new BigDouble(60000)) return Fixed(seconds / new BigDouble(60), 0) + "m";
+        if (seconds < new BigDouble(3600000)) return Fixed(seconds / new BigDouble(3600), 0) + "h";
+        if (seconds < new BigDouble(86400000)) return Fixed(seconds / new BigDouble(86400), 0) + "d";
+        return GameMcpNumberFormatter.Format(seconds / ClockYear) + "y";
+    }
+
+    private static string Fixed(BigDouble value, int decimals) =>
+        value.ToDouble().ToString(
+            "F" + decimals.ToString(CultureInfo.InvariantCulture),
+            CultureInfo.InvariantCulture);
+
     private static string RunClock(BigDouble seconds)
     {
         if (seconds < BigDouble.Zero) return "-" + RunClock(BigDouble.Abs(seconds));
@@ -1094,10 +1132,53 @@ internal static class GameMcpWorldQuery
         if (row is WorldAlchemyLoadoutDecision alchemyLoadout)
             return ProjectAlchemyLoadoutSummary(in alchemyLoadout);
         return new GameMcpProjectedDomainValue(
-            row,
+            AsDisplayed(row),
             ListFields(category),
             category.Name,
             category.ExpectedNativeType);
+    }
+
+    /// <summary>
+    /// The row a reflected projection reads, with a time variable's value already in the game's own
+    /// clock.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Substituting the row rather than hand-writing the projection keeps the whole declaration
+    /// intact: a table still prints every column it promised and a detail block still says a false
+    /// <c>isPercent</c> by being silent, because those are properties of the declared paths and the
+    /// paths did not change. Only the type behind <c>value</c> did.
+    /// </para>
+    /// <para>
+    /// Every time-shaped number but <c>Time Played</c> used to print as its count of seconds —
+    /// <c>1.53e3</c> for a cooldown the screen draws as <c>25:30</c> — because the suite formatted
+    /// the one variable it had hard-coded and read the flag on none of the others.
+    /// </para>
+    /// </remarks>
+    private static object AsDisplayed(object row) =>
+        row is WorldNumberVariable variable && variable.IsTime
+            ? new TimeVariableRow(
+                variable.EntityId,
+                Clock(variable.Value, variable.IsTimeAccurate),
+                variable.IsPercent)
+            : row;
+
+    /// <summary>
+    /// A number variable whose value the game draws as a duration, in the exact member names the
+    /// two variable categories declare.
+    /// </summary>
+    private readonly struct TimeVariableRow
+    {
+        internal TimeVariableRow(Guid entityId, string value, bool isPercent)
+        {
+            EntityId = entityId;
+            Value = value;
+            IsPercent = isPercent;
+        }
+
+        internal Guid EntityId { get; }
+        internal string Value { get; }
+        internal bool IsPercent { get; }
     }
 
     /// <summary>
@@ -5428,7 +5509,7 @@ internal static class GameMcpWorldQuery
             : row is WorldActionQueueSlot processingSlot
             ? ProjectAgromancyProcessing(world, in processingSlot)
             : new GameMcpProjectedDomainValue(
-                row,
+                AsDisplayed(row),
                 category.ScanFields,
                 category.Name,
                 category.ExpectedNativeType,

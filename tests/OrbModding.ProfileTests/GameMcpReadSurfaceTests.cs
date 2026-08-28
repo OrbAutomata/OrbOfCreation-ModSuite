@@ -844,9 +844,69 @@ public sealed class GameMcpWorldEnvelopeTests
     {
         var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(Clock(
             new WorldNumberVariable(
-                KnownEntities.TimePlayed.Uuid, new BigDouble(seconds), isPercent: false))));
+                KnownEntities.TimePlayed.Uuid,
+                new BigDouble(seconds),
+                isPercent: false,
+                isTime: true,
+                isTimeAccurate: true))));
 
         Assert.Equal(expected, (string?)overview["timePlayed"]);
+    }
+
+    /// <summary>
+    /// Every variable the game marks as a duration prints as one, in whichever of its two time
+    /// formats the second flag selects — not only the one the suite had hard-coded.
+    /// </summary>
+    /// <remarks>
+    /// <c>NumberVariable.GetValueDisplay()</c> tests <c>isTimeVariable</c> first and
+    /// <c>isTimeAccurateVariable</c> inside it: both set is <c>BeautifyTimeUltraPrecise</c>
+    /// (<c>hh:mm:ss</c>), the flag alone is <c>BeautifyTimeAccurate</c>, whose unit thresholds are
+    /// the game's own — seconds up to 1000, then minutes up to 60000, then hours.
+    /// A caller reading 7661 could not tell a duration from a quantity.
+    /// </remarks>
+    [Theory]
+    [InlineData(true, 7661d, "02:07:41")]
+    [InlineData(true, 45d, "45s")]
+    [InlineData(false, 7661d, "128m")]
+    [InlineData(false, 461d, "461s")]
+    [InlineData(false, 45.678d, "45.7s")]
+    [InlineData(false, 4.5678d, "4.57s")]
+    public void A_variable_the_game_draws_as_a_duration_prints_as_one(
+        bool ultraPrecise,
+        double seconds,
+        string expected)
+    {
+        var id = Guid.Parse("18c498f5-e4a7-4549-b093-117e206cc043");
+        var world = new GameWorldState
+        {
+            DoubleVariables = PublicationTable<WorldNumberVariable>.Create(new[]
+            {
+                new WorldNumberVariable(
+                    id,
+                    new BigDouble(seconds),
+                    isPercent: false,
+                    isTime: true,
+                    isTimeAccurate: ultraPrecise),
+            }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                Clean("double-variables"),
+            }),
+            CollectedAtEpoch = 51,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        using var publisher =
+            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(951));
+        var context = Snapshot(publisher.ReadLatest());
+
+        var listed = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.ListRows(context, "double-variables", 0, 10));
+        Assert.Equal(expected, (string?)listed["rows"]![0]!["value"]);
+
+        var block = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.GetRow(context, "double-variables", id.ToString("D")));
+        Assert.Equal(expected, (string?)block["row"]!["value"]);
     }
 
     /// <summary>
