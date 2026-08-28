@@ -2225,6 +2225,12 @@ public sealed class Plugin : BaseUnityPlugin
                 ["after"] = feature.IsOn(settled),
             },
         };
+        // Closing a breaker is an instruction, and an instruction whose answer is "on: yes" says
+        // nothing about what was just set running. The settings that decide that are already in
+        // hand, so the write answers with them rather than sending the caller to the settings pen —
+        // including when they add up to a feature that will do nothing at all. A breaker being
+        // opened needs no such line: nothing is about to happen.
+        if (feature.IsOn(settled)) result["policy"] = feature.Policy(settled);
         // A caller who turns a feature on under an engaged stop has to read that here, in the
         // answer to the write, not on a later list call.
         GameMcpAutomationFeatures.AddSuiteOverrides(result, settled);

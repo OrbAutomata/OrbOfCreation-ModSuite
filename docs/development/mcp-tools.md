@@ -3460,6 +3460,18 @@ Setting a feature to the state it already holds is refused as
 configured with — thresholds, roles, allowlists, reserves — stays on `suite_config_set`, which
 writes the same entries the same way, and `suite_emergency_stop` still overrides all seven at once.
 
+**Closing a breaker answers with the policy it just started.** A write that turns a feature on adds
+`policy`, one sentence saying what that service does under the settings in force — which kinds Auto
+Buy buys and at what affordability, the fullness Auto Cast starts from and whether it charges, the
+roles Auto Scribe writes, the shares Orb Mentor hands out. It is written from the published suite
+configuration alone, so arming a breaker never reads the game to describe itself, and it says the
+numbers the settings pen says. A feature whose every kind of work is switched off gets the sentence
+that matters most — "Structures, upgrades, and spell levelling are all switched off, so Auto Buy has
+nothing to buy until one of them is turned back on" — because that case is otherwise indistinguishable
+from a working one: the breaker is genuinely closed and the service genuinely runs. Turning a feature
+**off** carries no `policy`: nothing is about to happen. The suite-wide override keys sit beside it
+under their own condition, so an armed breaker under an engaged stop still reads as one.
+
 ## Shapes that must not regress
 
 Every live round ends with a fresh-context critic reading the raw wire, and each one names the

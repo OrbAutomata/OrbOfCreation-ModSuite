@@ -204,6 +204,106 @@ public sealed class GameMcpAutomationTests
         Assert.Null(ordinary["automationEnabled"]);
     }
 
+    /// <summary>
+    /// A breaker is an instruction, and "on: yes" is not an answer to it: the operator wanted to
+    /// know what is now running. The settings that decide that were already read to commit the
+    /// flip, so the write says them instead of sending the caller to the settings pen and back.
+    /// </summary>
+    [Fact]
+    public void Arming_a_breaker_says_what_that_feature_will_now_do()
+    {
+        Assert.True(GameMcpAutomationFeatures.TryGet("auto_buy", out var buy));
+        var armed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+            buy,
+            wasOn: false,
+            Configuration(autoBuy: true) with
+            {
+                AutoBuy = new AutoBuyConfiguration
+                {
+                    Mode = AutoBuyOperationMode.Active,
+                    StructureAffordability = AutoBuyAffordabilityMode.Excess100,
+                    UpgradeAffordability = AutoBuyAffordabilityMode.BuyAll,
+                    IncludeStructures = true,
+                    IncludeUpgrades = true,
+                    AutoLevelSpells = true,
+                    LeaveQueueSlots = 1,
+                },
+            }));
+
+        Assert.Equal(
+            "Buys structures costing at most a hundredth of the resources on hand and upgrades " +
+            "at any price you can afford, and levels ready spells, leaving one slot free in the " +
+            "action queue for you.",
+            (string?)armed["policy"]);
+
+        Assert.True(GameMcpAutomationFeatures.TryGet("auto_cast", out var cast));
+        var casting = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+            cast,
+            wasOn: false,
+            Configuration() with
+            {
+                AutoCast = new AutoCastConfiguration
+                {
+                    Mode = AutoCastOperationMode.Active,
+                    StartResourcePercent = 25f,
+                    ManualPauseSeconds = 2f,
+                    FullCharge = true,
+                },
+            }));
+
+        Assert.Equal(
+            "Fires equipped spells once every capped resource they draw on is at least 25% full, " +
+            "holding chargeable ones to full charge, and it stays quiet for 2s after you cast one " +
+            "by hand.",
+            (string?)casting["policy"]);
+    }
+
+    /// <summary>
+    /// The reading that costs an operator a session: every kind of work switched off reads exactly
+    /// like a working feature, because the breaker is genuinely closed and the service genuinely
+    /// runs. Only the policy line can say that nothing will come of it.
+    /// </summary>
+    [Fact]
+    public void A_breaker_armed_over_settings_that_do_nothing_says_so()
+    {
+        Assert.True(GameMcpAutomationFeatures.TryGet("auto_buy", out var buy));
+        var armed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+            buy,
+            wasOn: false,
+            Configuration(autoBuy: true)));
+
+        Assert.True((bool)armed["on"]!["after"]!);
+        Assert.Equal(
+            "Structures, upgrades, and spell levelling are all switched off, so Auto Buy has " +
+            "nothing to buy until one of them is turned back on.",
+            (string?)armed["policy"]);
+    }
+
+    [Fact]
+    public void Opening_a_breaker_carries_no_policy_line()
+    {
+        Assert.True(GameMcpAutomationFeatures.TryGet("auto_buy", out var buy));
+        var opened = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+            buy,
+            wasOn: true,
+            Configuration()));
+
+        Assert.False((bool)opened["on"]!["after"]!);
+        Assert.Null(opened["policy"]);
+    }
+
+    [Fact]
+    public void Every_breaker_can_say_what_it_does_under_any_settings()
+    {
+        Assert.All(GameMcpAutomationFeatures.All, feature =>
+        {
+            var policy = feature.Policy(new SuiteRuntimeConfiguration());
+            Assert.NotEqual(string.Empty, policy);
+            Assert.EndsWith(".", policy, StringComparison.Ordinal);
+            Assert.Equal(char.ToUpperInvariant(policy[0]), policy[0]);
+        });
+    }
+
     [Fact]
     public void Every_listed_feature_names_a_setting_the_committed_write_path_accepts()
     {
