@@ -579,7 +579,9 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         var responseBytes = System.Text.Encoding.UTF8.GetByteCount(
             result.ToString(Newtonsoft.Json.Formatting.None));
-        Assert.True(responseBytes < 2_409, "explanation was " + responseBytes + " bytes");
+        // Twenty-two bytes wider than it was: each unmet leaf now says "5 of 15" rather than
+        // restating its own code, and those two numbers are what a reader was pairing by eye.
+        Assert.True(responseBytes < 2_432, "explanation was " + responseBytes + " bytes");
 
         // A block that answered carries no verdict line. Inside a batch that silence is what
         // separates it from the block beside it that refused.

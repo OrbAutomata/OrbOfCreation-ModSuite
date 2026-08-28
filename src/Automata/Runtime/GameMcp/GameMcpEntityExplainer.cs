@@ -789,6 +789,16 @@ internal static class GameMcpEntityExplainer
         leaf["verdict"] = evaluated.Verdict.ToString();
         leaf["reasonCode"] = evaluated.ReasonCode;
 
+        // The unmet leaf is the one row on this graph holding both halves of its own answer, so it
+        // says them. The shared table would restate the code as "Requirement unmet." — which names
+        // no number and leaves a reader pairing two columns by eye on every unmet row of the graph.
+        if (string.Equals(evaluated.ReasonCode, "requirement_unmet", StringComparison.Ordinal))
+        {
+            leaf["reason"] = "This requirement is not met yet: " +
+                GameMcpNumberFormatter.Format(evaluated.Current) + " of " +
+                GameMcpNumberFormatter.Format(evaluated.Required) + ".";
+        }
+
         if (row.TargetId != Guid.Empty)
         {
             leaf["requirementUuid"] = row.TargetId.ToString("D");
@@ -1073,8 +1083,8 @@ internal static class GameMcpEntityExplainer
                 drainRows, ref drainBlocked);
         }
         return (
-            ResourceBlocker(bandwidthRows, bandwidthBlocked, "bandwidth"),
-            ResourceBlocker(drainRows, drainBlocked, "drain"));
+            ResourceBlocker(bandwidthRows, bandwidthBlocked, reasonCode: "bandwidth_blocked"),
+            ResourceBlocker(drainRows, drainBlocked, reasonCode: "drain_blocked"));
     }
 
     private static void CollectSpellCosts(
@@ -1106,8 +1116,8 @@ internal static class GameMcpEntityExplainer
         var drainRows = ResourceCosts(
             world, recipeId, WorldAlchemyCostKind.CurrentDrain, out var drainBlocked);
         return (
-            ResourceBlocker(bandwidthRows, bandwidthBlocked, "bandwidth"),
-            ResourceBlocker(drainRows, drainBlocked, "drain"));
+            ResourceBlocker(bandwidthRows, bandwidthBlocked, reasonCode: "bandwidth_blocked"),
+            ResourceBlocker(drainRows, drainBlocked, reasonCode: "drain_blocked"));
     }
 
     private static JArray ResourceCosts(
@@ -1193,7 +1203,7 @@ internal static class GameMcpEntityExplainer
                 ["blocked"] = oneBlocked,
             });
         }
-        return ResourceBlocker(rows, blocked, "bandwidth");
+        return ResourceBlocker(rows, blocked, reasonCode: "bandwidth_blocked");
     }
 
     private static JObject? CraftingDrainBlocker(in WorldCraftingRecipe recipe)
@@ -1206,10 +1216,20 @@ internal static class GameMcpEntityExplainer
             rows.Add(new GameMcpDomainValue(row));
             blocked |= row.Blocked;
         }
-        return ResourceBlocker(rows, blocked, "drain");
+        return ResourceBlocker(rows, blocked, reasonCode: "drain_blocked");
     }
 
-    private static JObject? ResourceBlocker(JArray rows, bool blocked, string axis)
+    /// <summary>
+    /// The blocked half of one resource axis, under the axis's own reason code.
+    /// </summary>
+    /// <remarks>
+    /// The code used to be built here by concatenation — <c>axis + "_blocked"</c> — so neither
+    /// <c>bandwidth_blocked</c> nor <c>drain_blocked</c> existed anywhere a table could meet them,
+    /// both landed on the default class, and both reached a caller as their own spelling with the
+    /// underscore taken out. A third axis added tomorrow would have inherited the same silence with
+    /// nothing to signal it; a whole code passed in cannot.
+    /// </remarks>
+    private static JObject? ResourceBlocker(JArray rows, bool blocked, string reasonCode)
     {
         if (rows.Count == 0) return null;
         var result = new JObject
@@ -1217,7 +1237,7 @@ internal static class GameMcpEntityExplainer
             ["blocked"] = blocked,
             ["rows"] = rows,
         };
-        if (blocked) result["reasonCode"] = axis + "_blocked";
+        if (blocked) result["reasonCode"] = reasonCode;
         return result;
     }
 

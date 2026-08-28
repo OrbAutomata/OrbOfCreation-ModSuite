@@ -265,7 +265,7 @@ internal static class WorldRequirementEvaluator
         {
             return new WorldRequirementLeafEvaluation(
                 WorldRequirementVerdict.Unevaluable,
-                "threshold_scaling_unavailable",
+                reasonCode: "threshold_scaling_unavailable",
                 "unsupported",
                 default,
                 default,
@@ -405,7 +405,7 @@ internal static class WorldRequirementEvaluator
         {
             return new WorldRequirementLeafEvaluation(
                 WorldRequirementVerdict.Unevaluable,
-                "unsupported_requirement_value",
+                reasonCode: "unsupported_requirement_value",
                 selected,
                 current,
                 required,
@@ -416,7 +416,7 @@ internal static class WorldRequirementEvaluator
 
         return new WorldRequirementLeafEvaluation(
             verdict,
-            verdict switch
+            reasonCode: verdict switch
             {
                 WorldRequirementVerdict.Met => "requirement_met",
                 WorldRequirementVerdict.Unmet => "requirement_unmet",

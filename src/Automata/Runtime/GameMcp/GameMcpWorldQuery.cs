@@ -3143,10 +3143,13 @@ internal static class GameMcpWorldQuery
             var glyphId = recipe.CoreGlyphs[index].GlyphId;
             if (!WorldRecipeBookGlyphLookup.TryFindBook(world.RecipeBookGlyphs, glyphId, out var book))
             {
+                // The world is published; this glyph simply has no book row in it. Saying
+                // `world_not_published` classed a perfectly healthy read as the suite having read
+                // nothing at all, and `IsSuiteDefect` would have called it the suite's own failure.
                 books.Add(new JObject
                 {
                     ["uuid"] = glyphId.ToString("D"),
-                    ["reasonCode"] = "world_not_published",
+                    ["reasonCode"] = "no_recipe_book",
                 });
                 continue;
             }

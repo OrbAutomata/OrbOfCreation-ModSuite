@@ -349,8 +349,8 @@ public sealed class GameMcpSpellLoadoutTests
 
         Assert.Equal("{\"available\":true}", Remove(world, ready));
         Assert.Equal(
-            "{\"available\":false,\"reasonCode\":\"ERR_STATE\"," +
-            "\"reason\":\"Cast in progress.\"}",
+            "{\"available\":false,\"reasonCode\":\"ERR_STATE\",\"reason\":\"This spell is " +
+            "mid-cast, so it cannot be removed until the cast finishes.\"}",
             Remove(world, midCast));
         Assert.Equal(
             "{\"available\":false,\"reasonCode\":\"ERR_STATE\",\"reason\":\"The game only " +

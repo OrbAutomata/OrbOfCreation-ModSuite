@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using OrbAutomata;
 using OrbAutomata.GameMcp;
@@ -389,5 +392,83 @@ public sealed class GameMcpDecisionReasonTests
         });
 
         Assert.Equal("Needs 20 Arcana (have 1); 4 Orb Advancement (have 0).", sentence);
+    }
+
+    /// <summary>
+    /// Every reason code the suite itself writes, and ships with no prose beside it, has a sentence
+    /// of its own rather than its own spelling with the underscores taken out.
+    /// </summary>
+    /// <remarks>
+    /// <c>Restate</c> exists for one input and one only: the world publishes a handful of refusals
+    /// as free text of its own, the encoder snake-cases those on the way in, and by the time the
+    /// table sees one it is indistinguishable from a code out of a closed set. One step earlier
+    /// they are not: the suite's codes are string literals in <c>src</c> and the game's words never are.
+    /// So the sweep reads the source rather than the table. A producer that writes its own sentence
+    /// beside the code answers for itself and needs no entry; a passing code is a yes and explains
+    /// nothing. Everything else reached a caller as "Bandwidth blocked." until this pin, and a
+    /// fifteenth code added tomorrow would have joined them with nothing to say so.
+    /// </remarks>
+    [Fact]
+    public void Every_code_the_suite_ships_bare_has_a_sentence_of_its_own()
+    {
+        var sourceRoot = Path.Combine(RepositoryRoot(), "src");
+        var written = new Regex(
+            "(?:\\[\"reasonCode\"\\]\\s*=|reasonCode:)\\s*\"([a-z][a-z0-9_]*)\"");
+        var offenders = new List<string>();
+        foreach (var path in Directory.EnumerateFiles(
+                     sourceRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
+            if (relative.StartsWith("bin", StringComparison.Ordinal) ||
+                relative.StartsWith("obj", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var lines = File.ReadAllLines(path);
+            for (var index = 0; index < lines.Length; index++)
+            {
+                var match = written.Match(lines[index]);
+                if (!match.Success) continue;
+                var code = match.Groups[1].Value;
+                if (GameMcpDecisionReason.IsPassing(code)) continue;
+                if (WritesItsOwnSentence(lines, index)) continue;
+                if (GameMcpDecisionReason.For(code) != Restated(code)) continue;
+                offenders.Add(relative + ":" + (index + 1) + " (" + code + ")");
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "A code the suite writes reaches a caller as its own spelling: " +
+            string.Join(", ", offenders));
+    }
+
+    private static bool WritesItsOwnSentence(string[] lines, int index)
+    {
+        var first = Math.Max(0, index - 4);
+        var last = Math.Min(lines.Length - 1, index + 5);
+        for (var line = first; line <= last; line++)
+        {
+            if (lines[line].Contains("[\"reason\"]", StringComparison.Ordinal)) return true;
+        }
+
+        return false;
+    }
+
+    private static string Restated(string code) =>
+        char.ToUpperInvariant(code[0]) + code.Substring(1).Replace('_', ' ') + ".";
+
+    private static string RepositoryRoot()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "src", "OrbModSuite.csproj")))
+                return directory.FullName;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate the repository source directory.");
     }
 }

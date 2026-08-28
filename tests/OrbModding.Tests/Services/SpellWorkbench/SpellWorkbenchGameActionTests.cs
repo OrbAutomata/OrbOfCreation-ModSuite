@@ -362,7 +362,10 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
 
         Assert.False(layout.Available);
         Assert.Equal(SpellWorkbenchPreflight.ContractUnavailable, layout.Preflight);
-        Assert.Contains("complete spell workbench binding set", layout.Reason);
+        Assert.Equal(
+            "The suite could not attach to Magic > Spellbook in this run, so it will refuse " +
+            "every press there until the run restarts.",
+            layout.Reason);
     }
 
 

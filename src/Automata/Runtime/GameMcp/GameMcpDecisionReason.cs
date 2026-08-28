@@ -210,6 +210,9 @@ internal static class GameMcpDecisionReason
         "tree_unavailable" or "source_unavailable" or "components_unavailable" or
         "no_current_offers" or
         "active_section_empty" or "control_unavailable" or "list_unavailable" or
+        // A glyph the game draws no Recipe Book for. It used to answer world_not_published — the
+        // suite having read nothing at all — for a healthy read of a published world.
+        "no_recipe_book" or
         "selection_unavailable" => ClassNotFound,
 
         // The target exists and is in the wrong state for this verb.
@@ -246,6 +249,10 @@ internal static class GameMcpDecisionReason
         "plot_quantity_insufficient" or "resource_or_headroom_insufficient" or
         "usage_budget_unavailable" or "research_leeway_exhausted" or "multi_buy_unavailable" or
         "augment_slots_exceeded" or
+        // Both resource axes of a recipe. Their rows already answer
+        // resource_or_headroom_insufficient one by one, and the axis that aggregates them says the
+        // same thing about the recipe as a whole.
+        "bandwidth_blocked" or "drain_blocked" or
         "engagement_drain_limited" or "screenshot_budget_reached" or
         "destination_full" or
         "slot_unavailable" or "level_cap_reached" or
@@ -280,7 +287,8 @@ internal static class GameMcpDecisionReason
         "lifecycle_replaced" or "stale_configuration_generation" or
         "post_state_timeout" or "post_state_not_observed" or "post_state_not_published" or
         "entity_data_incomplete" or "discovery_offer_read_incomplete" or
-        "unmodeled_requirement_leaf" or "suite_verdict_unevaluable" or
+        "unmodeled_requirement_leaf" or "unsupported_requirement_value" or
+        "suite_verdict_unevaluable" or
         "native_verdict_unavailable" or "native_verdict_mismatch" or
         "native_verdict_input_mismatch" or "navigation_unavailable" or
         "equipment_loadout_unavailable" or "equipment_manager_unavailable" or
@@ -489,6 +497,49 @@ internal static class GameMcpDecisionReason
         "loadout_unavailable" => "The game's equipment loadout was not readable in this world.",
         "switch_blocked" => "The game refuses a loadout swap right now.",
         "projection_refused" => "The suite's own resource-rate policy refuses this assignment.",
+
+        // The requirement graph. Every leaf on it used to ship its code with the underscores taken
+        // out — "Requirement unevaluable." — on the read whose whole job is explaining why a
+        // verb is shut, which is the loop this table exists to end. The unmet leaf writes its own sentence
+        // from the numbers already beside it and never reaches here.
+        "requirement_unevaluable" =>
+            "The game's own answer for this requirement could not be read, so whether it is " +
+            "met is unknown.",
+        "threshold_scaling_unavailable" =>
+            "This requirement's threshold changes with level and the game did not publish the " +
+            "scaled number, so it cannot be compared.",
+        "unsupported_requirement_value" =>
+            "This requirement compares something this build does not model; read it on the " +
+            "game's own tooltip.",
+        "unmodeled_requirement_leaf" =>
+            "One of this entity's requirements uses a condition this build does not model, so " +
+            "its graph is incomplete.",
+
+        // The two resource axes a recipe can be held on. Their codes used to be built by
+        // concatenation, so no table had ever met either of them.
+        "bandwidth_blocked" => "One of the resources this consumes has no bandwidth left.",
+        "drain_blocked" => "One of the resources this drains is already at its limit.",
+        "engagement_drain_limited" =>
+            "This recipe would drain a resource past what the game allows; the ratio it will " +
+            "allow is beside this.",
+
+        // Price and room, on the read side, where the mutation's own sentences do not reach.
+        "price_unavailable" =>
+            "The game has not published a price for this yet; open its screen and read again.",
+        "affordability_unavailable" =>
+            "The game published a price but not whether you can pay it; open its screen and read " +
+            "again.",
+        "queue_not_published" =>
+            "The action queue was not readable in this world, so queue room is unknown.",
+
+        // A glyph the game draws no Recipe Book for. It answered `world_not_published` — the suite
+        // having read nothing at all — for a perfectly healthy read of a published world.
+        "no_recipe_book" => "No recipe book for this glyph is in this run.",
+        "offer_not_in_explainable_world" =>
+            "This offer is on the screen but the world published no row for it, so nothing " +
+            "further can be said about it.",
+        "cast_in_progress" =>
+            "This spell is mid-cast, so it cannot be removed until the cast finishes.",
 
         // Checks that answered yes
         "passed" => "This check passes.",

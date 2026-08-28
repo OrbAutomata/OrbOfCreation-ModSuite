@@ -519,7 +519,14 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
             Assert.False(gameAction.PlayerBindingsAvailable);
             Assert.Equal(ConsumablePlayerPreflight.ContractUnavailable, result.Preflight);
-            Assert.Contains(missing, result.Reason);
+
+            // The answer used to name the binding that was absent, which no caller can look up or
+            // act on. Which one it was does not change what a player does next: the whole family is
+            // shut for the rest of the run either way, and the sentence says exactly that.
+            Assert.Equal(
+                "The suite could not attach to Inventory in this run, so it will refuse every " +
+                "press there until the run restarts.",
+                result.Reason);
         }
         Assert.Equal(1, item.GetQuantity());
     }

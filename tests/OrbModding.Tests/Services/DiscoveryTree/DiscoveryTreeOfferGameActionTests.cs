@@ -437,7 +437,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
         Assert.Equal(DiscoveryTreeOfferPreflight.IdentityUnavailable, result.Preflight);
-        Assert.Contains("ambiguous", result.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("That id names more than one live discovery tree.", result.Reason);
         Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
     }
 
