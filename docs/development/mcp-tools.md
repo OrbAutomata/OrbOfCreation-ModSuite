@@ -3687,7 +3687,15 @@ publish as `id`, and exactly one element may answer:
   two are separate objects with separately read sub-tooltips that may print different text.
 - **A real entity this screen does not draw** — `not_on_screen` (`ERR_NOT_FOUND`). For an upgrade the
   world publishes a `screen` column, so the refusal names the screen that does draw it; for everything
-  else it points at `game_screen_catalog`.
+  else it points at `game_screen_catalog`. Where that column names the screen the caller is
+  **already on**, the refusal says both facts instead of the first one: the screen does draw the
+  thing, and nothing it is drawing at this moment is about it, because the panel holding it is
+  closed, on another subtab, or scrolled out of view. It used to say "the world publishes it on
+  Workshop, so navigate there" to a caller standing on Workshop, which reads as the tooltip
+  contradicting the row. A `screen/subtab` destination under the current screen still names the
+  move, and says which screen the caller is standing on while it does. The comparison is the
+  navigation vocabulary's own — a screen word is the game's tab label spelled exactly, matched the
+  way `game_navigate` matches it.
 - **An id nothing in this build carries** — the existing `unknown_uuid`, which says the id names
   nothing anywhere rather than blaming this screen.
 - **An element with no tooltip** — the existing `tooltip_content_unavailable`.

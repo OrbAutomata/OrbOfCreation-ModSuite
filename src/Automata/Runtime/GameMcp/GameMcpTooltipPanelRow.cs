@@ -102,7 +102,8 @@ internal static class GameMcpTooltipPanelRow
         IReadOnlyList<string> paths,
         Guid requested,
         bool loaded,
-        string publishedScreen)
+        string publishedScreen,
+        string activeScreen = "")
     {
         if (entities is null) throw new ArgumentNullException(nameof(entities));
         if (paths is null) throw new ArgumentNullException(nameof(paths));
@@ -119,7 +120,8 @@ internal static class GameMcpTooltipPanelRow
         if (matches.Count == 0)
         {
             return loaded
-                ? EntityAddress.Refused("not_on_screen", NotOnScreen(publishedScreen))
+                ? EntityAddress.Refused(
+                    "not_on_screen", NotOnScreen(publishedScreen, activeScreen))
                 : EntityAddress.Refused(
                     "unknown_uuid",
                     "No entity in this build carries this id, so no element on any screen is " +
@@ -137,12 +139,44 @@ internal static class GameMcpTooltipPanelRow
             addresses);
     }
 
-    private static string NotOnScreen(string publishedScreen) =>
-        string.IsNullOrEmpty(publishedScreen)
-            ? "Nothing this screen draws is about this entity; page game_screen_catalog for the " +
-              "screens this build offers and navigate to the one that draws it."
-            : "Nothing this screen draws is about this entity; the world publishes it on " +
-              publishedScreen + ", so navigate there and read it again.";
+    /// <summary>
+    /// Why no element answered, told apart by where the caller already is.
+    /// </summary>
+    /// <remarks>
+    /// Sending a caller to the screen it is standing on is the defect this exists to stop: a live
+    /// round read "the world publishes it on Workshop, so navigate there" while standing on
+    /// Workshop. Both facts were true — the screen does draw the thing, and nothing drawn *right
+    /// now* is about it — and the sentence stated only the first, so it read as a contradiction of
+    /// the row the caller had just read. Where they agree the answer says both, and where the
+    /// destination is a subtab of the screen the caller is on it says that instead of "navigate to
+    /// where you are". The comparison is the navigation vocabulary's own: a screen word is the
+    /// game's tab label spelled exactly, matched the way <c>game_navigate</c> matches it.
+    /// </remarks>
+    private static string NotOnScreen(string publishedScreen, string activeScreen)
+    {
+        if (string.IsNullOrEmpty(publishedScreen))
+        {
+            return "Nothing this screen draws is about this entity; page game_screen_catalog for " +
+                "the screens this build offers and navigate to the one that draws it.";
+        }
+        var separator = publishedScreen.IndexOf('/');
+        var screen = separator < 0 ? publishedScreen : publishedScreen.Substring(0, separator);
+        if (string.IsNullOrEmpty(activeScreen) ||
+            !string.Equals(screen, activeScreen, StringComparison.Ordinal))
+        {
+            return "Nothing this screen draws is about this entity; the world publishes it on " +
+                publishedScreen + ", so navigate there and read it again.";
+        }
+        if (separator >= 0)
+        {
+            return "Nothing this screen draws is about this entity. The world publishes it on " +
+                publishedScreen + ", which is a subtab of the " + screen +
+                " screen you are already on, so navigate there and read it again.";
+        }
+        return "This is the screen the world publishes it on, and nothing it is drawing right now " +
+            "is about this entity: the panel holding it is closed, on another subtab, or scrolled " +
+            "out of view. Open it and read again, or address the element by path.";
+    }
 
     /// <summary>
     /// The one live element an entity id names, or the code, sentence and addresses that answer

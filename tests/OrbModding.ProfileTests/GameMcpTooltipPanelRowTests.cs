@@ -459,6 +459,81 @@ public sealed class GameMcpTooltipPanelRowTests
     }
 
     /// <summary>
+    /// A caller standing on the very screen the row names is never told to navigate to it. Both
+    /// facts are true at once — the screen does draw the thing, and nothing it is drawing right now
+    /// is about it — so the refusal says both, and names the reasons a screen draws something it is
+    /// not drawing at this moment. The old sentence stated only the first half and read as a flat
+    /// contradiction of the `screen:` field the caller had just read.
+    /// </summary>
+    [Fact]
+    public void The_screen_the_caller_is_already_on_is_never_offered_as_the_destination()
+    {
+        var here = GameMcpTooltipPanelRow.AddressEntity(
+            new[] { Cube },
+            new[] { "Canvas[0]/List[1]/Row[0]" },
+            BeamBurst,
+            loaded: true,
+            publishedScreen: "Workshop",
+            activeScreen: "Workshop");
+
+        Assert.False(here.Resolved);
+        Assert.Equal("not_on_screen", here.Code);
+        Assert.Equal(
+            "This is the screen the world publishes it on, and nothing it is drawing right now is " +
+            "about this entity: the panel holding it is closed, on another subtab, or scrolled out " +
+            "of view. Open it and read again, or address the element by path.",
+            here.Reason);
+    }
+
+    /// <summary>
+    /// The subtab of the screen the caller is on is still somewhere to go, so that refusal still
+    /// names the move — while saying which screen the caller is already standing on, so the two
+    /// sentences cannot be read as the same answer.
+    /// </summary>
+    [Fact]
+    public void A_subtab_of_the_current_screen_is_named_as_the_move_it_is()
+    {
+        var subtab = GameMcpTooltipPanelRow.AddressEntity(
+            new[] { Cube },
+            new[] { "Canvas[0]/List[1]/Row[0]" },
+            BeamBurst,
+            loaded: true,
+            publishedScreen: "World/Aspects",
+            activeScreen: "World");
+
+        Assert.Equal(
+            "Nothing this screen draws is about this entity. The world publishes it on " +
+            "World/Aspects, which is a subtab of the World screen you are already on, so navigate " +
+            "there and read it again.",
+            subtab.Reason);
+    }
+
+    /// <summary>
+    /// A different screen is still a destination, and a screen the suite could not read is still
+    /// the ordinary "navigate there" sentence rather than a claim about where the caller stands.
+    /// </summary>
+    [Theory]
+    [InlineData("Magic", "Workshop")]
+    [InlineData("Magic", "")]
+    public void A_screen_the_caller_is_not_on_is_still_the_destination(
+        string publishedScreen,
+        string activeScreen)
+    {
+        var address = GameMcpTooltipPanelRow.AddressEntity(
+            new[] { Cube },
+            new[] { "Canvas[0]/List[1]/Row[0]" },
+            BeamBurst,
+            loaded: true,
+            publishedScreen,
+            activeScreen);
+
+        Assert.Equal(
+            "Nothing this screen draws is about this entity; the world publishes it on " +
+            publishedScreen + ", so navigate there and read it again.",
+            address.Reason);
+    }
+
+    /// <summary>
     /// An id no loaded entity carries names nothing anywhere, which is not the same no as an id
     /// this screen happens not to draw — and the sentence has to send the caller somewhere else.
     /// </summary>

@@ -3967,8 +3967,15 @@ public sealed class Plugin : BaseUnityPlugin
                 ? published
                 : string.Empty;
 
+        // Where the caller already is, in the same vocabulary the published screen word uses: both
+        // are the game's own tab label. Without it a refusal could send a caller to the screen they
+        // were standing on, which reads as the row and the tooltip contradicting each other.
+        var activeScreen = _uiShell is not null && _uiShell.IsAlive
+            ? _uiShell.CaptureNativeTabsForGameMcp().FirstOrDefault(tab => tab.Active).Label
+            : string.Empty;
+
         var address = GameMcpTooltipPanelRow.AddressEntity(
-            entities, paths, command.TargetId, loaded, screen);
+            entities, paths, command.TargetId, loaded, screen, activeScreen);
         if (address.Resolved)
         {
             hover = active[address.Element].Hover;
