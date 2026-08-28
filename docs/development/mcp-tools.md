@@ -2371,7 +2371,10 @@ appears only when it is a problem: `runtime:`, `native contracts:`, `game_craft:
 each cost a line exactly when they read `unavailable`, followed by the reason that names why,
 `agent settings:` costs a line exactly while the last load could not normalize the settings every
 documented verb assumes, and feature and service names are grouped by state and reason code. Seven identical NotReady features
-therefore occupy one line, not seven objects. Features and services are named by the id
+therefore occupy one line, not seven objects. The whole roster is one `features ` line and the whole
+service list is one `services ` line, their groups separated by `; ` — `features
+configuration_disabled: auto_buy, auto_harvest; operational: mentor` — because the leading word was
+the only thing the four separate lines added, and this roster moved twice in a six-call round. Features and services are named by the id
 `suite_breakers` takes as an argument — `auto_buy`, not `Auto Buy` — so the nine features health
 reports on are recognisably the seven that verb lists plus the two with no breaker of their own, rather
 than a second vocabulary counting a differently sized set. It returns no structured payload because none of those

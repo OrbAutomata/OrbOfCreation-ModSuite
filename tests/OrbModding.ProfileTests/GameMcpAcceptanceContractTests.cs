@@ -695,8 +695,11 @@ public sealed class GameMcpProtocolSurfaceTests
             compact);
         // One name per feature across the two verbs that list features, so the seven suite_breakers
         // takes as arguments are recognisable inside the nine health reports on.
-        Assert.Contains("features configuration_disabled: auto_buy", compact, StringComparison.Ordinal);
-        Assert.Contains("features operational: mentor", compact, StringComparison.Ordinal);
+        // The whole roster is one line: the state groups are the facts, the repeated leading word
+        // was not.
+        Assert.Matches(
+            @"(?m)^features configuration_disabled: auto_buy; operational: mentor$",
+            compact);
         Assert.Contains("game_craft: unavailable", compact, StringComparison.Ordinal);
         Assert.Contains("game_modal: unavailable", compact, StringComparison.Ordinal);
         Assert.DoesNotContain("Orb Mentor", compact, StringComparison.Ordinal);

@@ -1951,37 +1951,43 @@ public sealed class Plugin : BaseUnityPlugin
             result.Append("agent settings: ").AppendLine(
                 GameMcpTextFormatter.Plain(context.AgentSettingsFailure));
 
+        // One roster, one line. The state groups are the facts; the word "features" in front of
+        // every one of them was the same nine characters repeated, on a roster that moved twice in
+        // a six-call round. Every state, every reason code and every name still ships.
         var featureGroups = context.FeatureStatuses
             .GroupBy(feature => new { feature.State, feature.Reason.Code })
             .OrderBy(group => group.Key.State.ToString(), StringComparer.Ordinal)
-            .ThenBy(group => group.Key.Code.ToString(), StringComparer.Ordinal);
-        foreach (var group in featureGroups)
-        {
-            var state = GameMcpEntityWireNormalizer.Snake(group.Key.State.ToString());
-            var reasonCode = GameMcpEntityWireNormalizer.Snake(group.Key.Code.ToString());
-            result.Append("features ").Append(state);
-            if (reasonCode.Length > 0 && reasonCode != "none" &&
-                !string.Equals(reasonCode, state, StringComparison.Ordinal))
-                result.Append(" (").Append(reasonCode).Append(')');
-            result.Append(": ").AppendLine(string.Join(", ", group.Select(
-                feature => GameMcpTextFormatter.Plain(
-                    CanonicalGameMcpFeatureName(feature.DisplayName)))));
-        }
+            .ThenBy(group => group.Key.Code.ToString(), StringComparer.Ordinal)
+            .Select(group =>
+            {
+                var state = GameMcpEntityWireNormalizer.Snake(group.Key.State.ToString());
+                var reasonCode = GameMcpEntityWireNormalizer.Snake(group.Key.Code.ToString());
+                var qualifier = reasonCode.Length > 0 && reasonCode != "none" &&
+                    !string.Equals(reasonCode, state, StringComparison.Ordinal)
+                        ? " (" + reasonCode + ")"
+                        : string.Empty;
+                return state + qualifier + ": " + string.Join(", ", group.Select(
+                    feature => GameMcpTextFormatter.Plain(
+                        CanonicalGameMcpFeatureName(feature.DisplayName))));
+            })
+            .ToArray();
+        if (featureGroups.Length > 0)
+            result.Append("features ").AppendLine(string.Join("; ", featureGroups));
 
         var runtimeServices = context.Runtime?.Services ?? Array.Empty<AutomataServiceFrameFacts>();
-        var serviceGroups = runtimeServices.GroupBy(service =>
-            service.HasRunner
-                ? service.Runner.Fault.IsValid ? "faulted" : service.Runner.Phase.ToString()
-                : "unavailable");
-        foreach (var group in serviceGroups.OrderBy(group => group.Key, StringComparer.Ordinal))
-        {
-            result.Append("services ")
-                .Append(GameMcpEntityWireNormalizer.Snake(group.Key))
-                .Append(": ")
-                .AppendLine(string.Join(", ", group.Select(
+        var serviceGroups = runtimeServices
+            .GroupBy(service =>
+                service.HasRunner
+                    ? service.Runner.Fault.IsValid ? "faulted" : service.Runner.Phase.ToString()
+                    : "unavailable")
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group =>
+                GameMcpEntityWireNormalizer.Snake(group.Key) + ": " + string.Join(", ", group.Select(
                     service => GameMcpTextFormatter.Plain(
-                        CanonicalGameMcpFeatureName(service.DisplayName)))));
-        }
+                        CanonicalGameMcpFeatureName(service.DisplayName)))))
+            .ToArray();
+        if (serviceGroups.Length > 0)
+            result.Append("services ").AppendLine(string.Join("; ", serviceGroups));
         return result.ToString().TrimEnd();
     }
 
