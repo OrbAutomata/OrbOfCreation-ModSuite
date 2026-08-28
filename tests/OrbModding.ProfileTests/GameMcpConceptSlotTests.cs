@@ -96,9 +96,9 @@ public sealed class GameMcpConceptSlotTests
         Assert.Equal(
             "Every Concept slot is in use.", (string?)state["canAdd"]!["reason"]);
 
-        // One decision, published once. The predicate names the block that holds it rather than
-        // reprinting the same verdict byte for byte beside it.
-        Assert.Equal("concept.canAdd", (string?)concept["predicates"]!["canAdd"]);
+        // One decision, published once, in the block that owns it. No predicate row copies the
+        // verdict and none points at it: a pointer is machine vocabulary where a value belongs.
+        Assert.Null(concept["predicates"]!["canAdd"]);
 
         // An alchemy recipe the Concept registry does not name carries none of it, so the block's
         // presence is the answer to "is this assignable at all".

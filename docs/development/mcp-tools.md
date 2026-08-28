@@ -1493,8 +1493,9 @@ filled slots — counting `alchemy-instances` rows can never reveal the capacity
 A Concept recipe is also an alchemy recipe, so `world_get` on one answers
 `category: alchemy-recipes` and carries a `concept` block with `assignedCount`, the same slot pair,
 and the `canAdd` decision. Answering the id under the one category and dropping the other half
-answered a question the caller did not ask. `predicates.canAdd` names that block — its value is the path
-`concept.canAdd` — rather than reprinting the verdict beside it, so one decision is published once.
+answered a question the caller did not ask. There is no `predicates.canAdd` beside it: the `concept`
+block is where that decision is published, its presence is the answer to "is this assignable at
+all", and one decision is published once.
 
 ### Ritual lifecycle
 
@@ -2246,10 +2247,10 @@ applies to never reads like an entity nobody evaluated. Only applicable predicat
 `canDiscover`, and `canUse`. Presence means applicable. Each slot answers under `available`, the same
 word every other decision on the surface answers under, and a slot that answered no carries the
 stable `reasonCode` saying why; absence means the predicate does not apply or the row beside it
-already answered it, never that it is false. A predicate
-points at the block that holds its evidence rather than reprinting it: `canUse` lists the slot
-numbers the spell is equipped in, and the same response already carries those slots in full under
-`row.equipped`; `canAdd` is the path `concept.canAdd`, where the whole decision is published.
+already answered it, never that it is false. A predicate's value is always a verdict, never a path to
+another field: `canUse` answers with the slot numbers the spell is equipped in, and where the block
+beside it already publishes the whole decision — `concept.canAdd` on an alchemy recipe — the
+predicate is dropped rather than made to point at it.
 A predicate whose verdict, class, and sentence are word for word what the row's own action already
 says is dropped, because the action is the thing a caller acts on: `canDiscover` goes where
 `row.discover` says the same no, `canPurchase` where `row.purchase` does, and likewise `canDevelop`

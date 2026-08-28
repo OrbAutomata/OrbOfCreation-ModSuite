@@ -336,13 +336,12 @@ internal static class GameMcpEntityExplainer
             case EntityKind.AlchemyRecipe:
             {
                 WorldLookup.TryFind(world.AlchemyRecipes, id, out var alchemy);
+                // No `canAdd` predicate. The same response's `concept:` block publishes that
+                // decision with its verdict and its reason, and the block's presence is itself the
+                // answer to "is this assignable at all". A row here could only be a second copy of
+                // that verdict or a pointer at it, and a pointer is machine vocabulary standing
+                // where a player-facing value belongs.
                 AddDiscoveryPredicates(result, world, id, alchemy.Discovered, nativeDiscoverable: true);
-                // The predicate names the block that holds the decision rather than carrying a
-                // second byte-identical copy of it. The same response already publishes the
-                // Concept's assignment state in full, and two copies of one verdict gave a caller
-                // two blocks with nothing to tell them apart.
-                if (WorldConceptRecipeLookup.TryFind(world.ConceptRecipes, id, out _))
-                    result["canAdd"] = "concept.canAdd";
                 break;
             }
             case EntityKind.CraftingRecipe:
