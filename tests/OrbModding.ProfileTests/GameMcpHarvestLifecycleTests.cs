@@ -121,6 +121,12 @@ public sealed class GameMcpHarvestLifecycleTests
         Assert.Equal("The element's capacity is already full.", (string?)blockedAdd["reason"]);
     }
 
+    /// <summary>
+    /// The count an action commit moved is the action's, so it is said under the action — the same
+    /// place the element's own row says it. Flat beside the element handle, `add_element` and
+    /// `add_element_action` both answered `active: 0 -&gt; 1`, and the response with two entities on
+    /// it never said which one had moved.
+    /// </summary>
     [Fact]
     public void Settled_action_delta_uses_the_new_world()
     {
@@ -137,11 +143,48 @@ public sealed class GameMcpHarvestLifecycleTests
 
         Assert.Equal("Fire", (string?)delta["name"]);
         Assert.Equal("Grow", (string?)delta["action"]!["name"]);
-        Assert.Equal(1, (int)delta["active"]!["before"]!);
-        Assert.Equal(2, (int)delta["active"]!["after"]!);
+        Assert.Null(delta["active"]);
+        Assert.Equal(1, (int)delta["action"]!["active"]!["before"]!);
+        Assert.Equal(2, (int)delta["action"]!["active"]!["after"]!);
         // A commit answers with what the press changed. What is possible next is the read
         // surface's job, and world_get agromancy-plot-actions already carries the same decision.
         Assert.Null(delta["next"]);
+    }
+
+    /// <summary>
+    /// The two verbs answer about two different things, so their two answers say two different
+    /// things. Both moved a count from 1 to 2 here; the element's is the element's own and the
+    /// action's is under the action, which is the only reason a reader can tell the responses apart
+    /// without remembering which call produced which.
+    /// </summary>
+    [Fact]
+    public void The_element_verb_and_the_action_verb_do_not_answer_the_same_line()
+    {
+        var element = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(World(elementActive: 2, actionActive: 1), generation: 92),
+            new GameMcpCommand(1, GameMcpCommandKind.HarvestLifecycle,
+                9, 3, "add_element", ElementId, Guid.Empty, "HarvestElementSO",
+                1, string.Empty, string.Empty, false,
+                frameContext: GameMcpTestHarness.Context(
+                    World(elementActive: 1, actionActive: 1), generation: 91)),
+            GameMcpCommandResult.Committed("committed", 9, 3)),
+            World(elementActive: 2, actionActive: 1));
+        var action = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(World(elementActive: 1, actionActive: 2), generation: 92),
+            new GameMcpCommand(1, GameMcpCommandKind.HarvestLifecycle,
+                9, 3, "add_element_action", ElementId, ActionId, "HarvestElementSO",
+                1, string.Empty, string.Empty, false,
+                frameContext: GameMcpTestHarness.Context(
+                    World(elementActive: 1, actionActive: 1), generation: 91)),
+            GameMcpCommandResult.Committed("committed", 9, 3)),
+            World(elementActive: 1, actionActive: 2));
+
+        Assert.Equal(2, (int)element["active"]!["after"]!);
+        Assert.Null(element["action"]);
+
+        Assert.Null(action["active"]);
+        Assert.Equal(2, (int)action["action"]!["active"]!["after"]!);
+        Assert.NotEqual(element.ToString(), action.ToString());
     }
 
     private static GameWorldState World(

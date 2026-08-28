@@ -2549,14 +2549,22 @@ internal static class GameMcpWorldQuery
         var hadActionBefore = oldWorld is not null && TryFindHarvestActionControl(
             oldWorld.HarvestActionControls, command.TargetId, command.SecondaryId,
             out previousAction);
+
+        // The count belongs to the action, so it is said under the action — the same place the
+        // element's own row says it, in `actions[]`. Flat beside the element handle it read as the
+        // element's count: `add_element` and `add_element_action` both answered `active: 0 -> 1`,
+        // and neither response said which of the two things on it had moved.
         return new JObject
         {
             ["uuid"] = command.TargetId.ToString("D"),
-            ["actionUuid"] = command.SecondaryId.ToString("D"),
-            ["active"] = new JObject
+            ["action"] = new JObject
             {
-                ["before"] = hadActionBefore ? previousAction.Active : (int?)null,
-                ["after"] = action.Active,
+                ["uuid"] = command.SecondaryId.ToString("D"),
+                ["active"] = new JObject
+                {
+                    ["before"] = hadActionBefore ? previousAction.Active : (int?)null,
+                    ["after"] = action.Active,
+                },
             },
         }.Freeze();
     }

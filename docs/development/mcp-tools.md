@@ -1645,7 +1645,11 @@ hidden selector state.
 
 The action boundary revalidates the concrete element/action pair, visibility, active-list room,
 standing usage capacity, and mastery-derived action maximum on Unity's main thread. Success returns
-only the active count before and after for the affected element or pair. The one mutation
+only the active count before and after for the thing the call acted on, said where that thing is:
+an element mode answers `active` on the element, and an action mode answers it **under** the named
+`action`, exactly as the element's own read row carries a count on itself and a count on each of its
+`actions[]`. Flat, both modes answered the identical line `active: 0 -> 1` on a response naming two
+entities, and nothing on it said which of the two had moved. The one mutation
 sentinel is that game-written active count moving in the requested
 direction; resource reservations and drain math are planning facts, never postcondition ledgers.
 
