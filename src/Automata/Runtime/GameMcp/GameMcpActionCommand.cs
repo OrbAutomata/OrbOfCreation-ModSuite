@@ -578,6 +578,13 @@ internal static class GameMcpActionResultCodeNames
                 return "Earlier purchases in this batch spent the margin this one was planned " +
                     "against.";
 
+            // The adapter writes the better sentence, because it holds the multiplier the pin asked
+            // for and the step that refused it. This is the fallback for a result that reaches the
+            // wire without one.
+            if (code == AutoBuyActionResultCodes.SingleBuyUnavailable)
+                return "The suite could not set the game's multi-buy multiplier, so no purchase " +
+                    "was attempted.";
+
             // The runtime writes the better sentence, because it holds the queue's capacity. This is
             // the fallback for a result that reaches the wire without one.
             if (code == AutoBuyActionResultCodes.ActionQueueFull)
@@ -675,6 +682,8 @@ internal static class GameMcpActionResultCodeNames
             if (code == AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch)
                 return "identity_unavailable";
             if (code == AutoBuyActionResultCodes.BatchSpendDrift) return "batch_spend_drift";
+            if (code == AutoBuyActionResultCodes.SingleBuyUnavailable)
+                return "single_buy_unavailable";
 
             // The vocabulary a caller already learned for an over-ask: the same name the research
             // develop verb refuses one with, carrying the same `maximumAmount` beside it. A second

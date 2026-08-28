@@ -38,6 +38,10 @@ public sealed class GameMcpDecisionReasonTests
     [InlineData("pair_contract_unavailable", "failed")]
     [InlineData("wrong_thread", "failed")]
     [InlineData("staged_write_failed", "failed")]
+    // The multi-buy multiplier the suite pins for one upgrade press. The pin is entirely the
+    // suite's own step, and when it will not hold, the game is never shown the press — so the word
+    // cannot be `refused`, which used to send a caller hunting for a game state to change.
+    [InlineData("single_buy_unavailable", "failed")]
     [InlineData("world_not_published", "failed")]
     [InlineData("entity_catalog_unavailable", "failed")]
     [InlineData("loadout_full", "refused")]

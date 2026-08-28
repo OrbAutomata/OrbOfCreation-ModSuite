@@ -542,7 +542,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
                     ? ServiceActionResult.Skipped(CommonActionResultCodes.Skipped)
                     : ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected);
             case AutoBuyPurchasePreflight.SingleBuyUnavailable:
-                return ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected);
+                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.SingleBuyUnavailable);
             case AutoBuyPurchasePreflight.ActionQueueFull:
                 return ServiceActionResult.Rejected(
                     AutoBuyActionResultCodes.ActionQueueFull);

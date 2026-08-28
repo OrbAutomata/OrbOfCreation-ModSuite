@@ -40,17 +40,36 @@ public sealed class AutoBuyPurchaseNarrationTests
     public void DescribeWarning_SuccessAndOrdinaryRefusalsAreSilent()
     {
         var verified = Attempted(before: 4, delta: 3, requested: 3);
-        var unavailable = AutoBuyPurchaseSubmission.Rejected(
-            AutoBuyPurchasePreflight.SingleBuyUnavailable);
         var refusalOwnedByResponder = AutoBuyPurchaseSubmission.Rejected(
             AutoBuyPurchasePreflight.NotAdmissible);
 
         Assert.Null(AutoBuyPurchaseNarration.DescribeWarning(
             AutoBuyCandidateKind.Upgrade, CandidateId, in verified));
         Assert.Null(AutoBuyPurchaseNarration.DescribeWarning(
-            AutoBuyCandidateKind.Upgrade, CandidateId, in unavailable));
-        Assert.Null(AutoBuyPurchaseNarration.DescribeWarning(
             AutoBuyCandidateKind.Upgrade, CandidateId, in refusalOwnedByResponder));
+    }
+
+    /// <summary>
+    /// The multiplier pin composes the only sentence that says which of its steps refused. It used
+    /// to be dropped from the trace as an ordinary no-op, while the wire dropped it too, so the one
+    /// fact about the failure existed nowhere.
+    /// </summary>
+    [Fact]
+    public void DescribeWarning_SingleBuyUnavailable_CarriesThePinsOwnReason()
+    {
+        var submission = AutoBuyPurchaseSubmission.Rejected(
+            AutoBuyPurchasePreflight.SingleBuyUnavailable,
+            "The suite could not set the game's multi-buy multiplier to 5, so no purchase was " +
+            "attempted: global multi-buy mutation is quarantined: restore failed.");
+
+        var warning = AutoBuyPurchaseNarration.DescribeWarning(
+            AutoBuyCandidateKind.Upgrade, CandidateId, in submission);
+
+        Assert.Equal(
+            $"Auto Buy failed to purchase Upgrade {CandidateId:D}: The suite could not set the " +
+            "game's multi-buy multiplier to 5, so no purchase was attempted: global multi-buy " +
+            "mutation is quarantined: restore failed.",
+            warning);
     }
 
     [Fact]

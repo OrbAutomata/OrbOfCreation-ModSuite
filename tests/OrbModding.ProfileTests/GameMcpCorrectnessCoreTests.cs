@@ -302,6 +302,35 @@ public sealed class GameMcpCorrectnessCoreTests
         Assert.DoesNotContain("native_rejected", names);
     }
 
+    /// <summary>
+    /// The multi-buy multiplier is the suite's own pin. When it will not hold, the game is never
+    /// shown the press, so the answer must not be the game's no.
+    /// </summary>
+    /// <remarks>
+    /// This shipped as <c>native_rejected</c> — "The game refused this at the moment it was asked,
+    /// and gave no reason of its own." — on the surface's most-used spending verb, blaming the game
+    /// for a suite failure while throwing away the sentence the pin had already composed saying
+    /// which of its steps refused.
+    /// </remarks>
+    [Fact]
+    public void A_multi_buy_pin_that_will_not_hold_is_the_suites_failure_and_carries_its_reason()
+    {
+        const string pinned =
+            "The suite could not set the game's multi-buy multiplier to 5, so no purchase was " +
+            "attempted: global multi-buy mutation is quarantined: restore failed.";
+        var result = ServiceActionResult.Rejected(AutoBuyActionResultCodes.SingleBuyUnavailable);
+
+        var answer = GameMcpCommandResult.FromAction(
+            in result, GameMcpCommandKind.Purchase, 1, 1, pinned);
+
+        Assert.Equal("single_buy_unavailable", answer.Code);
+        Assert.Equal("failed", answer.Status);
+        Assert.Equal(pinned, answer.Reason);
+        Assert.Equal(
+            GameMcpDecisionReason.ClassUnavailable,
+            GameMcpDecisionReason.Class(answer.Code));
+    }
+
     [Fact]
     public void Native_rejection_the_read_side_can_explain_never_answers_native_rejected()
     {

@@ -53,8 +53,7 @@ internal static class AutoBuyPurchaseNarration
         in AutoBuyPurchaseSubmission submission)
     {
         if (submission.Verified ||
-            submission.Preflight == AutoBuyPurchasePreflight.NotAdmissible ||
-            submission.Preflight == AutoBuyPurchasePreflight.SingleBuyUnavailable)
+            submission.Preflight == AutoBuyPurchasePreflight.NotAdmissible)
         {
             return null;
         }
@@ -62,6 +61,11 @@ internal static class AutoBuyPurchaseNarration
         var candidate = $"{kind} {EntityIdentityFormatter.Format(uuid)}";
         return submission.Preflight switch
         {
+            // The multiplier pin is the suite's own step, and which part of it failed is only ever
+            // written here: the trace used to drop this outcome entirely, so the sentence the pin
+            // composed was lost on the wire and in the log at once.
+            AutoBuyPurchasePreflight.SingleBuyUnavailable =>
+                $"Auto Buy failed to purchase {candidate}: {submission.Reason}",
             AutoBuyPurchasePreflight.CandidateUnavailable =>
                 $"Auto Buy failed to purchase {candidate}: candidate could not be resolved.",
             AutoBuyPurchasePreflight.AffordabilityUnavailable =>

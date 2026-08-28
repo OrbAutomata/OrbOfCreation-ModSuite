@@ -706,8 +706,13 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         // scope restores the operator's value afterwards; if it cannot guarantee that, no mutation
         // is attempted. The call commits between one and `count` levels (the game may afford fewer):
         // any committed level is a success, only zero is a failure.
-        if (!NativeMultiBuyScope.TryEnter(count, out var scope, out _))
-            return AutoBuyPurchaseSubmission.Rejected(AutoBuyPurchasePreflight.SingleBuyUnavailable);
+        if (!NativeMultiBuyScope.TryEnter(count, out var scope, out var scopeReason))
+        {
+            return AutoBuyPurchaseSubmission.Rejected(
+                AutoBuyPurchasePreflight.SingleBuyUnavailable,
+                $"The suite could not set the game's multi-buy multiplier to {count}, so no " +
+                $"purchase was attempted: {scopeReason}.");
+        }
 
         NativeMutationEvidence<int> evidence;
         using (scope)
