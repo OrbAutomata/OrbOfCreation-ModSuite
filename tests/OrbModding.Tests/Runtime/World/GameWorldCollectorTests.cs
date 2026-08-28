@@ -2770,6 +2770,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         public Guid Identity = Guid.NewGuid();
         public FakeModifierRecord value = new(0d);
         public bool isPercentVariable;
+        public bool isTimeVariable;
+        public bool isTimeAccurateVariable;
 
         public Guid GetGuid() => Identity;
     }
@@ -2781,6 +2783,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         public Guid Identity = Guid.NewGuid();
         public FakeModifierRecord value = new(0d);
         public bool isPercentVariable;
+        public bool isTimeVariable;
+        public bool isTimeAccurateVariable;
 
         internal FakeCount()
         {

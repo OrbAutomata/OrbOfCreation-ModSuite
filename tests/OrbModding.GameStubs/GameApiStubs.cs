@@ -14,6 +14,10 @@ public sealed class IntVariable
     public ValueModifierRecord value = new ValueModifierRecord(new BigDouble(0.0, 0));
     public bool isPercentVariable;
 
+    // The two flags that decide the value is a count of seconds, and how finely the game draws it.
+    public bool isTimeVariable;
+    public bool isTimeAccurateVariable;
+
     public Guid GetGuid() => uuid;
 
     // The game's AsInt() reads out of `value`; storing the answer separately let a fixture set a
@@ -342,6 +346,10 @@ public sealed class DoubleVariable
     public Guid uuid = Guid.NewGuid();
     public ValueModifierRecord value = new ValueModifierRecord(new BigDouble(0.0, 0));
     public bool isPercentVariable;
+
+    // The two flags that decide the value is a count of seconds, and how finely the game draws it.
+    public bool isTimeVariable;
+    public bool isTimeAccurateVariable;
 
     public Guid GetGuid() => uuid;
 }
