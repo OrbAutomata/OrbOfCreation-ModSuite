@@ -168,6 +168,40 @@ public sealed class GameMcpSpellWorkbenchTests
             (string?)searchRefusal["reason"]);
     }
 
+    /// <summary>
+    /// The two gates a mastery purchase can meet answer in two sentences: no level is ready, or one
+    /// is and the price is short by a named amount.
+    /// </summary>
+    /// <remarks>
+    /// One sentence stood for both — <c>This spell has no ready mastery level whose cost you can
+    /// afford</c> — and a round read it, could not tell which half it had met, and spent a mastery
+    /// listing, two navigations, a refused tooltip, a screenshot and a screen read finding out.
+    /// The research verb had answered the same shape of question two calls earlier in eighty-nine
+    /// bytes, and the same round called that the friendliest unaffordable wording it saw.
+    /// </remarks>
+    [Fact]
+    public void A_refused_mastery_level_says_which_of_the_two_gates_stopped_it()
+    {
+        var notReady = GameMcpWorldQuery.MasteryRefusalReason(
+            Named(World(discovered: true, discoveryAffordable: true, hasEmptySlot: true)),
+            RecipeId);
+        var shortfall = GameMcpWorldQuery.MasteryRefusalReason(
+            Named(World(
+                discovered: true,
+                discoveryAffordable: true,
+                hasEmptySlot: true,
+                masteryReady: true)),
+            RecipeId);
+
+        Assert.Equal(
+            "Gather Knowledge has no mastery level ready to buy: its mastery bar fills by " +
+            "casting it.",
+            notReady);
+        // The gap is the spendable pool, not the raw holding: this resource is bandwidth, so the
+        // three it can still commit is what a purchase would actually draw on.
+        Assert.Equal("Needs 12 Knowledge (have 3).", shortfall);
+    }
+
     [Fact]
     public void DiscoveredRecipePublishesTheExactLoadoutAddDecisionAndCurrentHoldings()
     {
@@ -544,6 +578,9 @@ public sealed class GameMcpSpellWorkbenchTests
                 GameMcpCommandKind.SpellWorkbench));
     }
 
+    private static GameWorldState Named(GameWorldState world) =>
+        world with { EntityIdentities = GameMcpTestHarness.EntityCatalog };
+
     private static GameMcpCommand Command(
         string mode,
         string payloadKey = "",
@@ -570,7 +607,8 @@ public sealed class GameMcpSpellWorkbenchTests
         bool discoveryVisible = true,
         bool canDiscover = true,
         bool usageBudget = false,
-        bool loadoutScreenUnlocked = true)
+        bool loadoutScreenUnlocked = true,
+        bool masteryReady = false)
     {
         var glyphs = PublicationTable<WorldSpellRecipeGlyph>.Create(new[]
         {
@@ -610,7 +648,7 @@ public sealed class GameMcpSpellWorkbenchTests
                     0,
                     BigDouble.Zero,
                     0,
-                    false,
+                    masteryReady,
                     false,
                     false,
                     0,
@@ -651,9 +689,15 @@ public sealed class GameMcpSpellWorkbenchTests
                 new WorldRecipeBook(SecondBookId, true),
                 new WorldRecipeBook(FirstBookId, true),
             }.OrderBy(book => book.EntityId).ToArray()),
-            Resources = usageBudget
+            Resources = usageBudget || masteryReady
                 ? PublicationTable<WorldResource>.Create(new[] { SpellWeightResource() })
                 : PublicationTable<WorldResource>.Empty,
+            MasteryCosts = masteryReady
+                ? PublicationTable<WorldMasteryCost>.Create(new[]
+                {
+                    new WorldMasteryCost(RecipeId, 0, ResourceId, new BigDouble(12), false),
+                })
+                : PublicationTable<WorldMasteryCost>.Empty,
             SpellWorkbench = new WorldSpellWorkbench(
                 equipped ? 1 : 0,
                 3,

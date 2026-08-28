@@ -366,6 +366,20 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                             PurchaseStopClause(world.Snapshot, in submission)));
                 }
             }
+            // One refusal stood for two gates — no level ready, and a level ready you cannot pay
+            // for — and a round could not tell which it had met. It spent a mastery listing, two
+            // navigations, a refused tooltip, a screenshot and a screen read finding out, while
+            // the research verb had answered the same shape of question in eighty-nine bytes two
+            // calls earlier. The boundary sees one verdict; the published world holds both halves,
+            // so the sentence separating them is composed here.
+            if (command.Kind == GameMcpCommandKind.SpellLevel &&
+                command.Mode != "all" &&
+                result.Code == SpellLevelActionResultCodes.LevelNotAffordable)
+            {
+                exactReason = GameMcpWorldQuery.MasteryRefusalReason(
+                    world.Snapshot, command.TargetId);
+            }
+
             if (command.Kind == GameMcpCommandKind.Cast &&
                 FindFeature(command.Kind) is AutoCastFeatureRuntime casts)
             {

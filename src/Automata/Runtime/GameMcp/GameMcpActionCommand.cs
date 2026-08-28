@@ -521,7 +521,12 @@ internal static class GameMcpActionResultCodeNames
         if (code == SpellLevelActionResultCodes.ProgressionLocked)
             return "native spell-level progression is not unlocked";
         if (code == SpellLevelActionResultCodes.LevelNotAffordable)
-            return "This spell has no ready mastery level whose cost you can afford.";
+        {
+            // One spell composes its own sentence from the published world, which separates "no
+            // level is ready" from "one is and you are short by this much". What reaches here is
+            // the level-all press, where the answer really is the union over every ready spell.
+            return "No spell has a mastery level ready whose cost you can afford.";
+        }
         if (code == AutoHarvestActionResultCodes.PairContractUnavailable)
             return "The current plot and harvest action cannot be matched safely.";
         if (code == AutoHarvestActionResultCodes.FeatureContractUnavailable)

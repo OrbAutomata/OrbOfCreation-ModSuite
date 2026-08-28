@@ -7286,6 +7286,55 @@ internal static class GameMcpWorldQuery
         return WorldResourceCoordinate.PlayerFacingCost(in resource, nominalCost);
     }
 
+    /// <summary>
+    /// Why one spell's next mastery level was refused: no level is ready, or one is and the price
+    /// is short by a named amount.
+    /// </summary>
+    /// <remarks>
+    /// The two were one sentence — <c>This spell has no ready mastery level whose cost you can
+    /// afford</c> — and a round could not tell which half it had met. It spent a mastery listing,
+    /// two navigations, a refused tooltip, a screenshot and a screen read to find out, while the
+    /// research verb two calls earlier had answered the same shape of question in eighty-nine
+    /// bytes. The game publishes both halves: <c>IsReady()</c> rides on the recipe and
+    /// <c>GetLevelCost()</c> rides in the mastery cost table, so the sentence is composed from
+    /// them rather than left as the union of two answers.
+    /// </remarks>
+    internal static string MasteryRefusalReason(GameWorldState world, Guid recipeId)
+    {
+        if (!WorldLookup.TryFind(world.SpellRecipes, recipeId, out var recipe))
+            return string.Empty;
+        if (!recipe.MasteryLevelReady)
+        {
+            return EntityIdentityFormatter.PlayerName(recipeId, world.EntityIdentities) +
+                " has no mastery level ready to buy: its mastery bar fills by casting it.";
+        }
+        if (!OwnedMasteryCostMath.TryFindRange(
+                world.MasteryCosts, recipeId, out var start, out var count) || count <= 0)
+        {
+            return string.Empty;
+        }
+        var rows = new List<(string, BigDouble, BigDouble)>();
+        for (var index = start; index < start + count; index++)
+        {
+            var cost = world.MasteryCosts[index];
+
+            // What is held and whether it covers the price are the same reading, so a resource the
+            // world carries no row for is left out rather than named with a holding of zero.
+            if (cost.Affordable ||
+                !WorldLookup.TryFind(world.Resources, cost.ResourceId, out var resource))
+            {
+                continue;
+            }
+            var identity = EntityIdentityFormatter.Describe(
+                cost.ResourceId, world.EntityIdentities);
+            rows.Add((
+                identity.HasName ? identity.Name : cost.ResourceId.ToString("D"),
+                PlayerFacingCost(world, cost.ResourceId, cost.Amount),
+                SpendableAmount(world, cost.ResourceId, resource.Reading.Quantity)));
+        }
+        return GameMcpDecisionReason.Shortfall(rows);
+    }
+
     internal static string ShortfallReason(
         GameWorldState world,
         PublicationTable<WorldResearchCost> costs)

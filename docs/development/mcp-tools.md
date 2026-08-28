@@ -2545,7 +2545,10 @@ a code that arrives without prose leaves with it. A producer holding the numbers
 sentence itself and keeps it: a shortfall names the resource, the price, and the holding, where the
 code alone can only say that something was short. A read block and the refusal of the mutation it
 guards therefore answer one gate in one sentence — `game_research develop` says
-`Needs 4 Orb Advancement (have 0).` whether it is asked or attempted.
+`Needs 4 Orb Advancement (have 0).` whether it is asked or attempted. `game_spell_mastery
+single` answers the same way, and its two gates stay apart: a spell with no level waiting says
+its mastery bar fills by casting it, and a spell with one waiting names the price and the
+holding.
 
 ### Refusal vocabulary
 
