@@ -358,6 +358,36 @@ public sealed class GameMcpGadgetTests
         Assert.True((bool)projected["runtimeAvailable"]!);
     }
 
+    /// <summary>
+    /// A load slower than the verb's wait says the press landed. The answer that got somewhere is
+    /// unchanged: a scene that has moved is its own proof and pays nothing for the clause.
+    /// </summary>
+    /// <remarks>
+    /// A round called Continue during a slow load, read back the scene it had called from, and
+    /// could not tell the press from a no-op. It spent a health round-trip on that and wrote a
+    /// wrong finding which stood for a day, until a screenshot showed the press had landed and the
+    /// screen was already black behind the loading spinner.
+    /// </remarks>
+    [Fact]
+    public void A_continue_whose_scene_has_not_moved_yet_still_says_the_press_landed()
+    {
+        var loading = GameMcpTestHarness.Json(GameMcpContinueProjection.Project(
+            "Start",
+            false,
+            "the ServiceCycle runtime has not been created in this session yet"));
+        var loaded = GameMcpTestHarness.Json(
+            GameMcpContinueProjection.Project("Main", true, string.Empty));
+
+        Assert.Equal(
+            new[] { "pressed", "scene", "runtimeAvailable", "runtimeReason" },
+            loading.Properties().Select(property => property.Name));
+        Assert.Equal(
+            "Continue landed; the scene has not changed yet", (string?)loading["pressed"]);
+        Assert.Equal(
+            new[] { "scene", "runtimeAvailable" },
+            loaded.Properties().Select(property => property.Name));
+    }
+
     [Fact]
     public void ReadAndMutationCommandsUseDisjointStatusVocabulary()
     {

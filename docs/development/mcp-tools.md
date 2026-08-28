@@ -3492,7 +3492,10 @@ tools/game-mcp-client.py screenshot --output artifacts/current-screen.png
 native `SaveStateManager.StartGame` method for the save the player has already selected. It cannot
 select, delete, reset, import, or rewrite a save, and it accepts no native type, method, or UI input
 from the caller. Its success waits for the transition and returns the new `scene` and
-`runtimeAvailable` state.
+`runtimeAvailable` state. A load slower than that wait still answers `scene: Start`, so that answer
+also carries `pressed: Continue landed; the scene has not changed yet` — the press is a fact the
+verb owns whether or not the scene has caught up, and without the clause a slow load reads exactly
+like a call that did nothing.
 
 The same load leaves the game in the shape every documented verb assumes: Research Queue Mode on,
 Cancellable Spells on, and number notation `Scientific`. Each is the exact write the settings

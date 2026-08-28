@@ -3043,14 +3043,11 @@ public sealed class Plugin : BaseUnityPlugin
                 "Game MCP could not normalize the agent-required game settings: " + settingsFailure);
         }
 
-        var details = new GameMcpObjectBuilder
-        {
-            ["scene"] = state.SceneName,
-            ["runtimeAvailable"] = state.RuntimeAvailable,
-        };
-        if (!state.RuntimeAvailable && state.RuntimeNotAvailableReason.Length > 0)
-            details["runtimeReason"] = state.RuntimeNotAvailableReason;
-        CompleteGameMcpCommand(command, committed.WithDetails(details.Freeze()));
+        CompleteGameMcpCommand(command, committed.WithDetails(
+            GameMcpContinueProjection.Project(
+                state.SceneName,
+                state.RuntimeAvailable,
+                state.RuntimeNotAvailableReason)));
     }
 
     private IEnumerator CaptureGameMcpAtEndOfFrame(
