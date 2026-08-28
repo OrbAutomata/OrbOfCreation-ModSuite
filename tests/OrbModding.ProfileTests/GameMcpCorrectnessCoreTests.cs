@@ -30,11 +30,24 @@ public sealed class GameMcpCorrectnessCoreTests
     /// its tolerance is not at capacity; Stability showing its whole pool is.
     /// </summary>
     /// <remarks>
-    /// The same rows pin what the reading is called. An inverted counter says <c>meter: left</c>,
-    /// because its <c>amount</c> is what is left of its <c>capacity</c> and falls as the total is
-    /// used; every other row says <c>held</c>. And on a <c>left</c> row the full/not-full bit is
-    /// said in used-ness words — Stability's whole pool showing means <c>nothing_used</c>, and a
-    /// plain <c>yes</c> there read as stuck while meaning the opposite.
+    /// <para>
+    /// The same rows pin what the reading is called, and both flags decide it. A row says
+    /// <c>meter: left</c> when its <c>amount</c> is the very pool it spends from — inverted display
+    /// and bandwidth spending, which is the twelve advancement currencies — so the number falls as
+    /// the total is used. Every other row says <c>held</c>: the number climbs toward the ceiling.
+    /// </para>
+    /// <para>
+    /// Toxicity is inverted and is not bandwidth, and it is the row that proves the rule needs both:
+    /// it displays 0 of a tolerance of 10 while holding 10 to spend, so paying 8 of it moves the
+    /// displayed number <em>up</em>. Called <c>left</c> off the display flag alone, the row told a
+    /// reader that number falls as the total is used, which is exactly backwards.
+    /// </para>
+    /// <para>
+    /// The used-ness pair rides only a <c>left</c> row, for the same reason: on a meter that fills,
+    /// full means blocked, and <c>nothing_used</c> would say the opposite of it. On a <c>left</c>
+    /// row a whole pool showing really is <c>nothing_used</c>, where a plain <c>yes</c> read as
+    /// stuck while meaning the opposite.
+    /// </para>
     /// </remarks>
     [Fact]
     public void ResourceCoordinatesCoverEveryBandwidthAndInvertedQuadrant()
@@ -86,18 +99,23 @@ public sealed class GameMcpCorrectnessCoreTests
         AssertCoordinates(
             world, 1, spellCapacityId, display: "3", spendable: 7, cost: 100,
             meter: "held", atCapacity: false);
+        // Inverted display, ordinary spending: 0 of 10 shown while 10 is spendable, and the shown
+        // number rises as that 10 is spent. A meter that fills, and nowhere near blocked.
         AssertCoordinates(
             world, 2, potionToxicityId, display: "0", spendable: 10, cost: 50,
-            meter: "left", atCapacity: "some_used");
+            meter: "held", atCapacity: false);
         AssertCoordinates(
             world, 3, glyphUpgradesId, display: "0", spendable: 0, cost: 100,
             meter: "left", atCapacity: "some_used");
+
+        // The same shape at the other end: the meter is full and there is nothing left to spend,
+        // which `atCapacity: yes` says and `nothing_used` denied.
         AssertCoordinates(
             world, 4, stabilityId, display: "10", spendable: 0, cost: 50,
-            meter: "left", atCapacity: "nothing_used");
+            meter: "held", atCapacity: true);
         AssertCoordinates(
             world, 5, timeAdvancementId, display: "6", spendable: 4, cost: 50,
-            meter: "left", atCapacity: "some_used");
+            meter: "held", atCapacity: false);
         AssertCoordinates(
             world, 6, arcanumId, display: "10", spendable: 10, cost: 50,
             meter: "held", atCapacity: true);

@@ -125,8 +125,16 @@ internal static class GameMcpListColumns
 
     /// <summary>
     /// The pair of numbers a resource row publishes reads the ordinary way round: <c>amount</c> is
-    /// what is stored and <c>capacity</c> is the ceiling it may reach.
+    /// what is held and <c>capacity</c> is the ceiling it may reach, so the number climbs toward
+    /// that ceiling and never past it.
     /// </summary>
+    /// <remarks>
+    /// This is also the word for a meter that fills as it is *used*, because such a meter reads the
+    /// same way round: Toxicity climbs toward its tolerance as potions are drunk, blocks the next
+    /// one at the top, and falls again as the stock recovers. What the row does not say is which
+    /// direction spending pushes the number — that is the cost row's job, and
+    /// <c>spendableAmount</c> beside a price is where a caller reads what it may spend.
+    /// </remarks>
     internal const string MeterHeld = "held";
 
     /// <summary>
@@ -134,13 +142,22 @@ internal static class GameMcpListColumns
     /// and it falls as the total is used and rises only as the total grows.
     /// </summary>
     /// <remarks>
-    /// Thirteen resources of this build carry the game's own <c>invertedResource</c> flag — the
-    /// twelve advancement currencies and Toxicity — and their counters render
-    /// <c>GetMissing() / maxQuantity</c>. Glyph Upgrades at 50/80 is fifty still to invest out of
-    /// eighty ever earned, with thirty already committed; every consumer not told so read it as
-    /// fifty held with room for thirty more, which is the reading that plans backwards. The numbers
-    /// stay the screen's numbers and this word says which way to read them. Detection is the
-    /// captured trait and never a name list.
+    /// <para>
+    /// Thirteen resources of this build carry the game's own <c>invertedResource</c> flag and render
+    /// <c>GetMissing() / maxQuantity</c>, but only twelve of them read this way: the advancement
+    /// currencies, which are bandwidth besides. Glyph Upgrades at 50/80 is fifty still to invest out
+    /// of eighty ever earned, with thirty already committed; every consumer not told so read it as
+    /// fifty held with room for thirty more, which is the reading that plans backwards.
+    /// </para>
+    /// <para>
+    /// The thirteenth is Toxicity, which is inverted and is not bandwidth, so the game spends its
+    /// stored quantity while displaying the missing half and its number climbs as potions are drunk.
+    /// It said <c>left</c> for a year on the strength of one flag and told a reader the number falls
+    /// as the total is used, which is backwards for that one row. Both flags decide the word now;
+    /// see <c>WorldResourceCoordinate.DisplaysWhatIsLeft</c>. The numbers stay the screen's numbers
+    /// and this word says which way to read them. Detection is the captured traits, never a name
+    /// list.
+    /// </para>
     /// </remarks>
     internal const string MeterLeft = "left";
 

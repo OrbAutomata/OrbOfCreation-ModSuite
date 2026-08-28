@@ -531,6 +531,30 @@ internal static class WorldResourceCoordinate
             : resource.Reading.Quantity;
 
     /// <summary>
+    /// Whether the number this resource displays is what is <em>left</em> of its ceiling: the very
+    /// pool the game spends from, falling as it is spent and rising only as the total grows.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both flags decide this, and reading one of them decided it wrongly. The display coordinate is
+    /// <c>invertedResource</c> — <c>ResourceSO.GetDisplayQuantity()</c> returns <c>GetMissing()</c>
+    /// when it is set — and the spending coordinate is <c>bandwidthResource</c>, because
+    /// <c>ResourceSO.HasAmount</c> tests missing capacity for bandwidth and stored quantity for
+    /// everything else. The two agree on the twelve advancement currencies, which carry both flags:
+    /// there the displayed number *is* the budget, so "left" is what it is.
+    /// </para>
+    /// <para>
+    /// Toxicity is the one resource in this build that is inverted and is not bandwidth. The game
+    /// spends its stored quantity while displaying the missing half, so its number climbs toward the
+    /// ceiling as potions are drunk, blocks the next one when it is full, and falls again as the
+    /// stock recovers — a meter that fills, which is the opposite of what "left" tells a reader.
+    /// Both flags were already captured; only the derivation read one of them.
+    /// </para>
+    /// </remarks>
+    internal static bool DisplaysWhatIsLeft(in WorldResource resource) =>
+        resource.Reading.Traits.InvertedResource && resource.Reading.Traits.BandwidthResource;
+
+    /// <summary>
     /// The pool shown beside a player-facing cost: bandwidth spends missing capacity; ordinary
     /// resources spend stored quantity after the cost is converted through quality.
     /// </summary>

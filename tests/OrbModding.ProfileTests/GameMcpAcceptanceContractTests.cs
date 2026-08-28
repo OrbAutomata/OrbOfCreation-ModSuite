@@ -861,12 +861,20 @@ public sealed class GameMcpConfigurationTests
         foreach (var descriptor in schema)
         {
             var entry = entries[(descriptor.Section, descriptor.Key)];
+
+            // The published text round-trips back to exactly the text the entry holds. It is not
+            // always the same string: a boolean is spelled the wire's way — `yes`/`no`, as every
+            // other boolean on this surface reads — and the file keeps TOML's `true`/`false`. The
+            // round trip is the invariant, because it is what makes a value read here writable back
+            // without the file changing shape.
             Assert.Equal(
                 entry.GetSerializedValue(),
-                GameMcpConfigurationSchema.SerializePublishedValue(
-                    configuration.Current,
-                    descriptor.Section,
-                    descriptor.Key));
+                GameMcpConfigurationValuePolicy.NativeSerializedValue(
+                    entry.SettingType,
+                    GameMcpConfigurationSchema.SerializePublishedValue(
+                        configuration.Current,
+                        descriptor.Section,
+                        descriptor.Key)));
         }
 
         var pinned = configuration.Current;
@@ -1274,7 +1282,9 @@ public sealed class GameMcpConfigurationTests
     /// themselves, not a word for their type.
     /// </summary>
     [Theory]
-    [InlineData("AutoBuy", "IncludeStructures", "yes", "bool")]
+    // `yes` was this row's unparseable value until the wire started spelling booleans that way.
+    // It commits now, and the value that does not is one that is neither spelling.
+    [InlineData("AutoBuy", "IncludeStructures", "maybe", "bool")]
     [InlineData("AutoBuy", "LeaveQueueSlots", "one", "int")]
     [InlineData("AutoCast", "StartResourcePercent", "half", "float")]
     [InlineData(

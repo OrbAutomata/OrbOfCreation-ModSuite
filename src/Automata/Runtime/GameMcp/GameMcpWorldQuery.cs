@@ -7297,12 +7297,12 @@ internal static class GameMcpWorldQuery
     internal static GameMcpValue ProjectResource(GameWorldState world, in WorldResource resource)
     {
         var amount = WorldResourceCoordinate.DisplayAmount(in resource);
-        var inverted = resource.Reading.Traits.InvertedResource;
+        var left = WorldResourceCoordinate.DisplaysWhatIsLeft(in resource);
         var result = new JObject
         {
             ["entityId"] = resource.EntityId.ToString("D"),
             ["category"] = "resources",
-            ["meter"] = inverted
+            ["meter"] = left
                 ? GameMcpListColumns.MeterLeft
                 : GameMcpListColumns.MeterHeld,
             ["amount"] = new GameMcpDomainValue(amount),
@@ -7314,15 +7314,20 @@ internal static class GameMcpWorldQuery
                 ? new GameMcpDomainValue(resource.Reading.Capacity)
                 : (object)GameMcpListColumns.Uncapped,
             ["netRatePerSecond"] = new GameMcpDomainValue(resource.TrueRate),
-            ["atCapacity"] = AtCapacityCell(in resource, inverted),
+            ["atCapacity"] = AtCapacityCell(in resource, left),
         };
         return result.Freeze();
     }
 
-    private static object AtCapacityCell(in WorldResource resource, bool inverted)
+    /// <summary>
+    /// Full, in the words the row's own meter reads in. The used-ness pair belongs to a
+    /// <see cref="GameMcpListColumns.MeterLeft"/> row and only there: on a meter that fills, full
+    /// means blocked, and <c>nothing_used</c> would have said the exact opposite of it.
+    /// </summary>
+    private static object AtCapacityCell(in WorldResource resource, bool left)
     {
         if (!resource.IsCapped) return GameMcpListColumns.Uncapped;
-        if (!inverted) return resource.IsAtCapacity;
+        if (!left) return resource.IsAtCapacity;
         return resource.IsAtCapacity
             ? GameMcpListColumns.NothingUsed
             : GameMcpListColumns.SomeUsed;

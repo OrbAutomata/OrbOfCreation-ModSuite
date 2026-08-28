@@ -342,12 +342,8 @@ internal static class GameMcpConfigurationValuePolicy
             "setting of that type writable");
     }
 
-    private static string FriendlyTypeName(Type type) => type switch
-    {
-        { IsEnum: true } => string.Join(", ", Enum.GetNames(type)),
-        _ when (Nullable.GetUnderlyingType(type) ?? type) == typeof(bool) => "yes or no",
-        _ => SettingTypeWord(type),
-    };
+    private static string FriendlyTypeName(Type type) =>
+        type.IsEnum ? string.Join(", ", Enum.GetNames(type)) : SettingTypeWord(type);
 }
 
 /// <summary>

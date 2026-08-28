@@ -1128,21 +1128,35 @@ under `capacity` and `atCapacity`: the game's uncapped marker is a negative nati
 is never serialized as a magnitude, and a bare `atCapacity: no` would answer "is it full" about a
 counter that cannot fill.
 
-**`meter` says which way the pair reads.** `held` is the ordinary counter — `amount` is what is
-stored, `capacity` is the ceiling it may reach. `left` is the inverted one: `amount` is what is
-**left** of `capacity`, it falls as the total is used, and it rises only when more is earned. The
-thirteen resources carrying the game's own `invertedResource` flag — the twelve advancement
-currencies and Toxicity — render `GetMissing() / maxQuantity` on screen, so Glyph Upgrades at
-`amount: 50, capacity: 80` is fifty still to invest out of eighty ever earned, with thirty already
-committed. The numbers are the screen's numbers either way and nothing is recomputed; the word is
-what stops a bare pair being read as fifty held with room for thirty more, which is the reading that
-plans backwards. The column is filled from the captured trait, never from a list of names.
+**`meter` says which way the pair reads,** and **two** captured traits decide it. `held` is the
+counter that climbs toward its ceiling — `amount` is what is held, `capacity` is the ceiling it may
+reach. `left` is the one that counts down: `amount` is what is **left** of `capacity`, it falls as
+the total is used, and it rises only when more is earned.
+
+A row is `left` exactly when the number it displays *is* the pool the game spends from. That takes
+both flags: `invertedResource` decides the display coordinate (`GetDisplayQuantity()` returns
+`GetMissing()`) and `bandwidthResource` decides the spending one (`HasAmount` tests missing capacity
+for bandwidth and stored quantity for everything else). They agree on the twelve advancement
+currencies, which carry both, so Glyph Upgrades at `amount: 50, capacity: 80` is fifty still to
+invest out of eighty ever earned, with thirty already committed — and the word is what stops a bare
+pair being read as fifty held with room for thirty more, which is the reading that plans backwards.
+
+Toxicity is the one resource in this build that is inverted and is **not** bandwidth: the game
+spends its stored quantity while displaying the missing half, so its number climbs as potions are
+drunk, blocks the next one at the top, and falls again as the stock recovers. Derived off the
+display flag alone it said `left` and told a reader the number falls as the total is used, while a
+live round watched paying 8 Toxicity move `amount` *up*. It is `held` — a meter that fills — and
+what may be spent against it is read where it is always read, on `spendableAmount` beside a price.
+The numbers are the screen's numbers either way and nothing is recomputed. The column is filled from
+the captured traits, never from a list of names.
 
 Where a ceiling applies, `atCapacity` answers in the same coordinate as `amount`: it is true exactly
 when the published `amount` reached `capacity`. On a `left` row that is true exactly when *nothing*
 has been used, so a plain `yes` there read as "stuck at the ceiling" and meant its precise opposite.
 Those rows answer `nothing_used` or `some_used` instead — the same bit, in words that cannot be read
-the wrong way round. Detailed
+the wrong way round. The pair rides a `left` row and only there: on a meter that fills, full means
+blocked, and `nothing_used` would have said the opposite of it — which is what Toxicity's row said
+while it was misclassified. Detailed
 factor math will belong to a future Details-panel tool; it is not leaked through world rows.
 
 Research rows distinguish the native evaluator's base and effective requirement levels. Their
@@ -3368,9 +3382,9 @@ The type is named in the words a caller writing a value would use, and in one vo
 whole catalog: `bool`, `int`, `float`, `string`, and for an enum its own suite name — `bool`, never
 `System.Boolean`, and `AutoBuyAffordabilityMode`, never the namespace it is declared in. A refusal
 says the same word the described row said, so "must parse exactly as `int`" and `"type": "int"` are
-one fact spelled once; an enum and a boolean are refused by naming the values they accept instead —
-"must parse exactly as `yes or no`" — because those are the choices themselves rather than a word
-for their type.
+one fact spelled once — `bool` included, whichever way the value happens to be spelled; an enum is
+refused by naming the values it accepts instead, because those are the choices themselves rather
+than a word for their type. Which two words a `bool` takes is the `domain` beside it.
 
 `suite_config_set` commits through `AutomataConfigurationStore`, the same single publication path
 as the in-game controls. BepInEx
