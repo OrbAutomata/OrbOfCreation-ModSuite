@@ -395,6 +395,50 @@ public sealed class GameMcpDecisionReasonTests
     }
 
     /// <summary>
+    /// The four tables that make up the wire's vocabulary agree about every code in them.
+    /// </summary>
+    /// <remarks>
+    /// A check that answered yes carries no class and no sentence — the encoder drops its code
+    /// outright — so a sentence written for one is dead the day it is written, and three of them
+    /// were: <c>passed</c>, <c>native_verdict_matched</c> and <c>native_develops_below_caps</c> all
+    /// had prose no response could ever carry. The other direction is the defect that matters: a
+    /// code the suite calls its own failure has to be classifiable, or the wire says <c>failed</c>
+    /// beside a class that means the game refused.
+    /// </remarks>
+    [Fact]
+    public void The_vocabulary_tables_agree_about_every_code_they_name()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            RepositoryRoot(), "src", "Automata", "Runtime", "GameMcp", "GameMcpDecisionReason.cs"));
+        var passing = Codes(source, "internal static bool IsPassing", "_ => false,");
+        var suiteDefects = Codes(source, "internal static bool IsSuiteDefect", "_ => false,");
+        var classified = Codes(
+            source, "internal static string Class(string reasonCode)", "_ => ClassRefused,");
+        var authored = Codes(
+            source, "private static string? Authored(string reasonCode)", "_ => null,");
+
+        Assert.NotEmpty(passing);
+        Assert.NotEmpty(suiteDefects);
+        Assert.All(passing, code => Assert.False(
+            GameMcpDecisionReason.Knows(code),
+            code + " answers yes, so its sentence can never reach a caller"));
+        Assert.All(passing, code => Assert.DoesNotContain(code, classified));
+        Assert.All(passing, code => Assert.DoesNotContain(code, authored));
+        Assert.All(suiteDefects, code => Assert.Contains(code, classified));
+    }
+
+    private static IReadOnlyCollection<string> Codes(string source, string from, string to)
+    {
+        var start = source.IndexOf(from, StringComparison.Ordinal);
+        Assert.True(start >= 0, "could not find " + from);
+        var end = source.IndexOf(to, start, StringComparison.Ordinal);
+        Assert.True(end > start, "could not find " + to);
+        return new SortedSet<string>(
+            Regex.Matches(source.Substring(start, end - start), "\"([a-z][a-z0-9_]*)\"")
+                .Select(match => match.Groups[1].Value));
+    }
+
+    /// <summary>
     /// A stop no producer accounted for is the suite failing to say anything, not the game saying
     /// no — and where the read side already has the sentence, both halves say the same thing.
     /// </summary>

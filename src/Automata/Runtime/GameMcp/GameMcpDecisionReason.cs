@@ -452,9 +452,6 @@ internal static class GameMcpDecisionReason
         "requirements_unmet" => "This does not meet its level requirements yet.",
         "research_leeway_exhausted" =>
             "This research has no leeway left and is at one of its caps.",
-        "native_develops_below_caps" =>
-            "This research has no leeway left, but both its caps are open, " +
-            "which is the game's other route to developing it.",
         "develop_range_refused" =>
             "The game's own develop gate is shut on this research.",
         "cancellable_spells_disabled" =>
@@ -573,10 +570,6 @@ internal static class GameMcpDecisionReason
             "further can be said about it.",
         "cast_in_progress" =>
             "This spell is mid-cast, so it cannot be removed until the cast finishes.",
-
-        // Checks that answered yes
-        "passed" => "This check passes.",
-        "native_verdict_matched" => "The suite's verdict matches the game's own.",
 
         _ => null,
     };
