@@ -819,6 +819,62 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal(0, (int?)overview["running"]?["activeConceptAssignments"]);
     }
 
+    /// <summary>
+    /// The overview says how long the run has taken, in the exact form the game prints its own
+    /// clock in.
+    /// </summary>
+    /// <remarks>
+    /// No surface answered "how long has this taken me" at all, and a round wanting it diffed
+    /// wall-clock stamps between its own calls — which measures the session, not the run. The game
+    /// keeps the number: <c>Time Played</c> is a saved <c>DoubleVariable</c> it accumulates every
+    /// frame, and its screen form is <c>Utils.BeautifyTimeUltraPrecise</c> — seconds under a
+    /// minute, years over one, and otherwise two-digit units joined by colons with leading empty
+    /// units dropped.
+    /// </remarks>
+    [Theory]
+    [InlineData(0d, "0s")]
+    [InlineData(45d, "45s")]
+    [InlineData(60d, "01:00")]
+    [InlineData(461d, "07:41")]
+    [InlineData(7661d, "02:07:41")]
+    [InlineData(359999d, "99:59:59")]
+    [InlineData(31557601d, "1y")]
+    public void The_overview_prints_the_runs_own_clock_the_way_the_game_does(
+        double seconds, string expected)
+    {
+        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(Clock(
+            new WorldNumberVariable(
+                KnownEntities.TimePlayed.Uuid, new BigDouble(seconds), isPercent: false))));
+
+        Assert.Equal(expected, (string?)overview["timePlayed"]);
+    }
+
+    /// <summary>
+    /// A world that never published the clock says nothing about it rather than printing a zero
+    /// that would read as a run that just started.
+    /// </summary>
+    [Fact]
+    public void An_unpublished_clock_is_absent_rather_than_zero()
+    {
+        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(Clock()));
+
+        Assert.Equal("available", (string?)overview["status"]);
+        Assert.Null(overview["timePlayed"]);
+    }
+
+    private static GameMcpFrameContext Clock(params WorldNumberVariable[] variables)
+    {
+        var world = new GameWorldState
+        {
+            DoubleVariables = PublicationTable<WorldNumberVariable>.Create(variables),
+            CollectedAtEpoch = 1,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(3));
+        return Snapshot(publisher.ReadLatest());
+    }
+
     [Fact]
     public void PurchaseCostRowsExposeAuthoredEffectiveSourcesAndAffordability()
     {

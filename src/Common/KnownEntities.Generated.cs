@@ -16,6 +16,7 @@ internal readonly struct CraftingInstanceListVariableContract { }
 internal readonly struct CraftingRecipeListVariableContract { }
 internal readonly struct CraftingRecipeSOContract { }
 internal readonly struct CraftingRecipeTypeSOContract { }
+internal readonly struct DoubleVariableContract { }
 internal readonly struct EnchantmentSOContract { }
 internal readonly struct IntVariableContract { }
 internal readonly struct PlotNodeActionInstanceListVariableContract { }
@@ -105,6 +106,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<ConsumableSOContract> ScrollLearning = new(new Guid("ec14ee5d-66a3-4b28-a271-25dca2414387"), "ConsumableSO", "ScrollLearning");
     public static readonly KnownEntity<ConsumableSOContract> ScrollPower = new(new Guid("4bb8af50-fc7d-44a7-b1fc-937c390f8aec"), "ConsumableSO", "ScrollPower");
     public static readonly KnownEntity<ConsumableSOContract> ScrollSpeed = new(new Guid("b2232a7d-5c97-44c9-9520-686e99fa8293"), "ConsumableSO", "ScrollSpeed");
+    public static readonly KnownEntity<DoubleVariableContract> TimePlayed = new(new Guid("02eac15e-9c92-4d06-b8a2-1275faf7df89"), "DoubleVariable", "TimePlayed");
     public static readonly KnownEntity<AlchemyTypeSOContract> Transmutation = new(new Guid("b42c6192-7d9b-40d0-aa40-3d46a9348e52"), "AlchemyTypeSO", "Transmutation");
     public static readonly KnownEntity<PlotNodeActionSOContract> TreasureTreeCollect = new(new Guid("3eb68f6f-c2f2-405a-88d2-e5c80345aeb4"), "PlotNodeActionSO", "PNATreasureTreeCollect");
     public static readonly KnownEntity<PlotNodeSOContract> TreasureTreePlot = new(new Guid("2d41cfc1-bffa-43b5-b3a8-5e4d5ad85434"), "PlotNodeSO", "PlotTreasureTree");

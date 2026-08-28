@@ -58,6 +58,7 @@ ScrollInvestment	da5eab6d-ab4c-4b32-aca1-2e83b6d3a64b	ScrollInvestment	Consumabl
 ScrollLearning	ec14ee5d-66a3-4b28-a271-25dca2414387	ScrollLearning	ConsumableSO
 ScrollPower	4bb8af50-fc7d-44a7-b1fc-937c390f8aec	ScrollPower	ConsumableSO
 ScrollSpeed	b2232a7d-5c97-44c9-9520-686e99fa8293	ScrollSpeed	ConsumableSO
+TimePlayed	02eac15e-9c92-4d06-b8a2-1275faf7df89	TimePlayed	DoubleVariable
 Transmutation	b42c6192-7d9b-40d0-aa40-3d46a9348e52	Transmutation	AlchemyTypeSO
 TreasureTreeCollect	3eb68f6f-c2f2-405a-88d2-e5c80345aeb4	PNATreasureTreeCollect	PlotNodeActionSO
 TreasureTreePlot	2d41cfc1-bffa-43b5-b3a8-5e4d5ad85434	PlotTreasureTree	PlotNodeSO

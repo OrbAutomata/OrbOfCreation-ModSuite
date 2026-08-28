@@ -443,9 +443,18 @@ rather than from the screen it is drawn on.
 detailed read: collection completeness with total successfully read and skipped row counts,
 unavailable categories, resource-row count, unlocked
 structure count, affordable-structure and affordable-upgrade counts, discovered/mastery-ready recipe
-counts, available views, visible plots, current action/spell/concept/plot occupancy, and the two
-global casting dials — `castingDials.outputLevel` and `castingDials.reserveLevel` — with their
-purchased maximums. Exact rows remain in list/get/search.
+counts, available views, visible plots, current action/spell/concept/plot occupancy, the run's own
+clock, and the two global casting dials — `castingDials.outputLevel` and `castingDials.reserveLevel`
+— with their purchased maximums. Exact rows remain in list/get/search.
+
+**`timePlayed` is that clock, in the game's own format.** The game keeps the number itself: `Time
+Played` is a saved `DoubleVariable` it adds every frame to, and marks as a time variable, so every
+screen that draws it prints it through `Utils.BeautifyTimeUltraPrecise` — the number and `s` under a
+minute, the number of years and `y` over one, and otherwise hours, minutes and seconds padded to two
+digits with leading empty units dropped: `07:41`, `02:07:41`. Nothing answered "how long has this
+taken me" before, so a round that wanted it diffed wall-clock stamps between its own calls and
+measured the session instead of the run. A world that has not published the variable carries no such
+key rather than a zero that would read as a run just begun.
 
 **`running.actionQueues` is one row per queue, not a count**, each carrying that queue's `uuid` and
 `name`, its `usedSlots`, and the `capacity` it is measured against. It was one unnamed number,

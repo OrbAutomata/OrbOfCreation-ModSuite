@@ -22,6 +22,10 @@ internal static class GameMcpWorldQuery
     private const int TargetingCandidatePageSize = 25;
     private const int MaximumPageSize = 200;
 
+    /// <summary>The two thresholds the game's own time format switches on: a minute, and a Julian year.</summary>
+    private static readonly BigDouble ClockMinute = new BigDouble(60d);
+    private static readonly BigDouble ClockYear = new BigDouble(31557600d);
+
     /// <summary>
     /// A category holding at most this many rows is read whole, in one call, when the caller named
     /// no page size of its own.
@@ -86,6 +90,12 @@ internal static class GameMcpWorldQuery
         var world = publication.Snapshot;
         var result = Envelope(publication);
         result["status"] = "available";
+        // The run's own clock, under the game's word for it and in the game's own format. Every
+        // other number here answers "what can I do next"; this one answers "how long has this taken
+        // me", which no surface could answer at all — a round wanting it had to diff wall-clock
+        // stamps across its own calls and got the session, not the run.
+        if (WorldLookup.TryFind(world.DoubleVariables, KnownEntities.TimePlayed.Uuid, out var played))
+            result["timePlayed"] = RunClock(played.Value);
         result["economy"] = new JObject
         {
             ["resourceRows"] = world.Resources.Count,
@@ -195,6 +205,40 @@ internal static class GameMcpWorldQuery
             if (world.SpellSlots[index].Occupied) occupied++;
         }
         return occupied;
+    }
+
+    /// <summary>One duration in the exact form the game prints a time variable in.</summary>
+    /// <remarks>
+    /// <para>
+    /// <c>Time Played</c> is a <c>DoubleVariable</c> the game marks <c>isTimeVariable</c> and
+    /// <c>isTimeAccurateVariable</c>, which sends it through <c>Utils.BeautifyTimeUltraPrecise</c>
+    /// on every screen that draws it: under a minute it is the number and <c>s</c>; over a Julian
+    /// year it is the number of years and <c>y</c>; between the two it is hours, minutes and
+    /// seconds, each padded to two digits, with leading empty units dropped — so a run of two
+    /// hours reads <c>02:07:41</c> and one of seven minutes reads <c>07:41</c>.
+    /// </para>
+    /// <para>
+    /// The two number branches print through the suite's own formatter rather than the game's, for
+    /// the same reason every other magnitude on this wire does: one notation per response.
+    /// </para>
+    /// </remarks>
+    private static string RunClock(BigDouble seconds)
+    {
+        if (seconds < BigDouble.Zero) return "-" + RunClock(BigDouble.Abs(seconds));
+        if (seconds < ClockMinute) return GameMcpNumberFormatter.Format(seconds) + "s";
+        if (seconds > ClockYear)
+            return GameMcpNumberFormatter.Format(seconds / ClockYear) + "y";
+
+        var total = (long)seconds.ToDouble();
+        var units = new[] { total / 3600L, total / 60L % 60L, total % 60L };
+        var text = new StringBuilder();
+        for (var index = 0; index < units.Length; index++)
+        {
+            if (text.Length == 0 && units[index] < 1) continue;
+            if (text.Length > 0) text.Append(':');
+            text.Append(units[index].ToString("D2", CultureInfo.InvariantCulture));
+        }
+        return text.ToString();
     }
 
     internal static JObject ListCategories(GameMcpFrameContext state)
