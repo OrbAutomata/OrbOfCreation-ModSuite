@@ -70,6 +70,7 @@ internal sealed class GameMcpOperationRequest
         Path = source.Path ?? string.Empty;
         Probe = source.Probe ?? string.Empty;
         AffordableOnly = source.AffordableOnly;
+        DiscoveredFilter = source.DiscoveredFilter;
         StateFilter = source.StateFilter ?? string.Empty;
         RunFilter = source.RunFilter ?? string.Empty;
         KeywordFilter = source.KeywordFilter;
@@ -108,6 +109,9 @@ internal sealed class GameMcpOperationRequest
     internal string Probe { get; }
     internal bool AffordableOnly { get; }
 
+    /// <summary>The discovery verdict a page was narrowed to, or nothing.</summary>
+    internal bool? DiscoveredFilter { get; }
+
     /// <summary>The one lifecycle word a search was narrowed to, or nothing.</summary>
     internal string StateFilter { get; }
 
@@ -145,6 +149,7 @@ internal sealed class GameMcpOperationRequestBuilder
     internal string Path { get; set; } = string.Empty;
     internal string Probe { get; set; } = string.Empty;
     internal bool AffordableOnly { get; set; }
+    internal bool? DiscoveredFilter { get; set; }
     internal string StateFilter { get; set; } = string.Empty;
     internal string RunFilter { get; set; } = string.Empty;
     internal Guid KeywordFilter { get; set; }

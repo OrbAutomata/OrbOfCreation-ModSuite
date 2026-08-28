@@ -1591,7 +1591,8 @@ public sealed class Plugin : BaseUnityPlugin
                     request.Offset,
                     request.Limit,
                     request.AffordableOnly,
-                    request.LimitFromCaller).Freeze());
+                    request.LimitFromCaller,
+                    request.DiscoveredFilter).Freeze());
                 return true;
             case "world_get":
                 execution = GameMcpToolExecution.Read(
@@ -1611,7 +1612,8 @@ public sealed class Plugin : BaseUnityPlugin
                         request.StateFilter,
                         request.RunFilter,
                         request.KeywordFilter,
-                        request.LimitFromCaller).Freeze());
+                        request.LimitFromCaller,
+                        request.DiscoveredFilter).Freeze());
                 return true;
             case "suite_health":
                 execution = GameMcpToolExecution.Text(ProjectGameMcpHealthText(context));

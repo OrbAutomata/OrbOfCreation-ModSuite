@@ -472,6 +472,13 @@ refused as `filter_not_supported` on a category whose rows carry no price column
 ignored, and the refusal says that: the filter narrows a page by one of its columns, so a category
 refusing it is a statement about the page rather than a claim that its entities are unpriced.
 
+`discovered=true` or `discovered=false` narrows the same way, on the categories whose rows carry
+that column — `spell-recipes` and `time-runes` — and `world_search` takes the same argument for the
+same rows. Everything else discoverable spells discovery as its lifecycle `state`: a ritual, a glyph
+and an alchemy recipe are all drawn on the member their screens read, which *is* `IsDiscovered()`,
+so `state` is the filter that reaches those and naming `discovered` beside one of them is refused
+rather than answered with a second word for one fact.
+
 `world_categories` is the authoritative inventory of what the world collects, not only of what it
 lists. Each row reports `category`, its row `count`, and — when something is wrong with it — the
 `reason` that says what, in one alphabetical list. Internal world-property and row-type names are
@@ -635,8 +642,8 @@ members is refused naming what that id is instead — `Deep Insight c1a000 is pu
 and its page counts no members, so it cannot narrow anything`. Handing back an empty page there would
 read as "there are none".
 
-A category with no lifecycle model still does not match a state filter, and is still not excluded
-from an unfiltered search: inventing a word here for rows whose own page never says one would be a
+A category with no lifecycle model still does not match a state filter — nor does one match a
+`discovered` filter — and is still not excluded from an unfiltered search: inventing a word here for rows whose own page never says one would be a
 second grammar for the same fact. `challenges` is read now because it now has a lifecycle to read —
 its `state` column used to hold the five run words, which moved to `run`. `category` narrows to one
 searchable category; naming a composite one is refused by name rather than answering an empty page.

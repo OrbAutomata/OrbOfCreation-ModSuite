@@ -393,7 +393,8 @@ internal static class GameMcpWorldQuery
         int offset,
         int limit,
         bool affordableOnly = false,
-        bool limitFromCaller = true)
+        bool limitFromCaller = true,
+        bool? discovered = null)
     {
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
@@ -407,6 +408,15 @@ internal static class GameMcpWorldQuery
                 "the affordable filter narrows a page by the price column its rows carry, and " +
                 "rows in " + category.Name + " carry none; the categories whose rows carry one " +
                 "are " + string.Join(", ", PricedCategories));
+        }
+        if (discovered is not null && !SupportsDiscoveredFilter(category))
+        {
+            return NotAvailable(
+                publication,
+                "filter_not_supported",
+                "the discovered filter narrows a page by the discovered column its rows carry, " +
+                "and rows in " + category.Name + " carry none; the categories whose rows carry " +
+                "one are " + string.Join(", ", DiscoverableCategories));
         }
         if (offset < 0)
             return NotAvailable(publication, "invalid_offset", "offset must be zero or greater");
@@ -454,6 +464,7 @@ internal static class GameMcpWorldQuery
         {
             var row = category.Row(world, index);
             if (affordableOnly && !IsAffordableRow(world, category, row)) continue;
+            if (discovered is { } wanted && IsDiscoveredRow(category, row) != wanted) continue;
 
             // The ordinal counts matching rows, so offset and nextOffset mean the same thing on a
             // filtered page as on an unfiltered one, and total is what the filter actually matched.
@@ -676,15 +687,24 @@ internal static class GameMcpWorldQuery
         }.Freeze();
 
     /// <summary>
-    /// What a search page promises to say about every hit, whatever category it came from.
+    /// Whether a row is discovered, for the categories that spell it in that word, and nothing for
+    /// the rest — which is how a lifecycle word reads on a category with no lifecycle model.
     /// </summary>
     /// <remarks>
-    /// <c>matchedOn</c> names the field the query hit, because the row alone does not show it: a
-    /// round searched for the letter "a" and got back Conductor, Runic, Tool and Ring under the
-    /// keyword Forging, where the letter appears in none of the four names, none of the keywords and
-    /// not in the category — and nothing in the reply said where it did appear. A filter-only call
-    /// applied no query, so the column says the mark for nothing rather than naming a field.
+    /// A round needed one discovered-but-unequipped spell recipe out of sixty-five, and no listing
+    /// answered either half: it guessed three names off their sound and paid a detail read to find
+    /// out two of them were wrong. Categories that spell discovery as their lifecycle
+    /// <c>state</c> — a ritual, a glyph and an alchemy recipe are all drawn on the member their
+    /// screens read, which <em>is</em> <c>IsDiscovered()</c> — are narrowed by the <c>state</c>
+    /// filter that already reaches them, not by a second word for one fact.
     /// </remarks>
+    private static bool? SearchDiscovery(object row) => row switch
+    {
+        WorldSpellRecipe recipe => recipe.Discovered,
+        WorldTimeRune rune => rune.Discovered,
+        _ => null,
+    };
+
     private static readonly string[] SearchColumns =
         { "entityId", "category", "keywords", "matchedOn" };
 
@@ -1118,6 +1138,33 @@ internal static class GameMcpWorldQuery
 
     /// <summary>The categories whose rows publish a price, and therefore an affordability.</summary>
     private static readonly string[] PricedCategories = { "structures", "upgrades" };
+
+    /// <summary>
+    /// The categories whose rows spell discovery in that word. The rest spell it as their
+    /// lifecycle <c>state</c> — a ritual, a glyph and an alchemy recipe are all drawn on the
+    /// member their screens read, which <em>is</em> <c>IsDiscovered()</c> — so a filter naming
+    /// them here would be a second grammar for a fact their own page already answers.
+    /// </summary>
+    private static readonly string[] DiscoverableCategories = { "spell-recipes", "time-runes" };
+
+    private static bool SupportsDiscoveredFilter(GameMcpWorldCategory category)
+    {
+        for (var index = 0; index < DiscoverableCategories.Length; index++)
+            if (string.Equals(
+                    category.Name, DiscoverableCategories[index], StringComparison.Ordinal))
+                return true;
+        return false;
+    }
+
+    /// <summary>Whether one row is discovered, read exactly as its own list row prints it.</summary>
+    private static bool IsDiscoveredRow(GameMcpWorldCategory category, object row) => row switch
+    {
+        WorldSpellRecipe recipe => recipe.Discovered,
+        WorldTimeRune rune => rune.Discovered,
+        _ => throw new InvalidOperationException(
+            "category " + category.Name +
+            " accepted the discovered filter without a discovered row"),
+    };
 
     private static bool SupportsAffordableFilter(GameMcpWorldCategory category)
     {
@@ -4289,7 +4336,8 @@ internal static class GameMcpWorldQuery
         string stateFilter = "",
         string runFilter = "",
         Guid keywordFilter = default,
-        bool limitFromCaller = true)
+        bool limitFromCaller = true,
+        bool? discoveredFilter = null)
     {
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
@@ -4334,6 +4382,16 @@ internal static class GameMcpWorldQuery
                 GameMcpListColumns.Available + ", " + GameMcpListColumns.Completed);
         }
 
+        if (discoveredFilter is not null && only is not null && !SupportsDiscoveredFilter(only))
+        {
+            return NotAvailable(
+                publication,
+                "discovered_filter_out_of_scope",
+                "the categories whose rows spell discovery in that word are " +
+                string.Join(", ", DiscoverableCategories) + ", so it cannot narrow " + only.Name +
+                "; the rest spell it as their state, which the state filter narrows");
+        }
+
         var wantedRun = (runFilter ?? string.Empty).Trim();
         if (wantedRun.Length > 0 && only is not null &&
             !string.Equals(only.Name, "challenges", StringComparison.Ordinal))
@@ -4349,13 +4407,13 @@ internal static class GameMcpWorldQuery
         // the two has to be there, and requiring both made a round invent eight filler queries — a
         // reach nobody could characterise, sitting under a count the whole sweep was judged on.
         if (normalized.Length == 0 && scope.Length == 0 && wanted.Length == 0 &&
-            wantedRun.Length == 0 && keywordFilter == Guid.Empty)
+            wantedRun.Length == 0 && keywordFilter == Guid.Empty && discoveredFilter is null)
         {
             return NotAvailable(
                 publication,
                 "query_required",
-                "name something to search for: a query, or a category, state, run or keyword " +
-                "filter");
+                "name something to search for: a query, or a category, state, run, discovered " +
+                "or keyword filter");
         }
 
         // The far side of the count a type's page prints, walked from the same index the count is
@@ -4427,6 +4485,11 @@ internal static class GameMcpWorldQuery
                 }
                 if (wantedRun.Length > 0 &&
                     !string.Equals(SearchRun(row), wantedRun, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+                if (discoveredFilter is { } wantedDiscovery &&
+                    SearchDiscovery(row) != wantedDiscovery)
                 {
                     continue;
                 }

@@ -262,6 +262,8 @@ internal sealed class GameMcpProtocolRouter
                     arguments, "limit", GameMcpWorldQuery.DefaultLimit);
                 builder.LimitFromCaller = arguments.ContainsKey("limit");
                 builder.AffordableOnly = OptionalBool(arguments, "affordable", false);
+                if (arguments.ContainsKey("discovered"))
+                    builder.DiscoveredFilter = RequireBool(arguments, "discovered");
                 break;
             case "world_get":
                 if (arguments.ContainsKey("category"))
@@ -294,6 +296,8 @@ internal sealed class GameMcpProtocolRouter
                     builder.RunFilter = RequireOneOf(
                         arguments, "run", "idle", "queued", "active", "passed", "failed");
                 }
+                if (arguments.ContainsKey("discovered"))
+                    builder.DiscoveredFilter = RequireBool(arguments, "discovered");
                 if (arguments.ContainsKey("keyword"))
                     builder.KeywordFilter = RequireUuid(arguments, "keyword");
                 break;
@@ -633,7 +637,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "world_list",
                 "List exact world rows",
-                "Page through one discoverable category from one immutable published world. Rows carry durable planning facts; what the game is doing at this instant is on world_get and on the action responses. Omit limit and a category of 25 rows or fewer comes back whole, with no nextOffset. Name a limit and it is an upper bound: the page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from. Set affordable=true on a category whose rows carry a price to page only the rows you can buy right now.",
+                "Page through one discoverable category from one immutable published world. Rows carry durable planning facts; what the game is doing at this instant is on world_get and on the action responses. Omit limit and a category of 25 rows or fewer comes back whole, with no nextOffset. Name a limit and it is an upper bound: the page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from. Set affordable=true on a category whose rows carry a price to page only the rows you can buy right now, and discovered=true or false on a category whose rows carry that column to page one side of it.",
                 ObjectSchema(
                     new JObject
                     {
@@ -643,6 +647,10 @@ internal sealed class GameMcpProtocolRouter
                         ["affordable"] = BooleanSchema(
                             "Return only rows whose price is met right now. Accepted on priced "
                                 + "categories; other categories refuse it rather than ignore it."),
+                        ["discovered"] = BooleanSchema(
+                            "Return only the discovered rows, or only the undiscovered ones. "
+                                + "Accepted on the categories whose rows carry a discovered "
+                                + "column; other categories refuse it rather than ignore it."),
                     },
                     "category")),
             Tool(
@@ -653,16 +661,19 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "world_search",
                 "Search published entities",
-                "Search every stable-UUID entity category at once and answer with one uniform row: id, name, category, keywords, matchedOn. A query is matched case-insensitively as a substring — the same rule the game's own search box uses — against the entity's player-facing name, its internal asset name, its id, the keywords the game prints on its tooltip type line, and the category and native type it belongs to. matchedOn names which of those the query actually hit on this row, so a hit whose name does not visibly contain the query says where it did: name, internalName, id, keywords, category or nativeType. Hits come back most relevant first: name matches, then keyword matches, then category matches, with id order inside each band. It does NOT search descriptions: the published world captures no entity descriptions at all, so a word that appears only in an entity's description text finds nothing here; read one entity's description with world_get. Keywords are empty for the classes the game authors none for (upgrades, challenges, views, achievements, advancements, recipe books, crafting recipes) and nothing is synthesized to fill the cell. query is optional whenever at least one filter is named: a filter-only call is the whole category or the whole state, matchedOn reads - because no query was applied, and no keywordHits line is emitted. Naming neither a query nor a filter is refused. state narrows to one lifecycle word and reaches every category whose own list page carries that column: upgrades, research, structures, alchemy-recipes, augment-glyphs, rituals, plot-nodes and challenges. A category with no lifecycle model matches no state filter, and no word is derived for it. run narrows to one challenge run word — idle, queued, active, passed or failed — and challenges are the only category that publishes that column, so a run filter beside any other category is refused naming it. keyword narrows to the things that wear one type asset, named by that asset's id: it is the far side of the members count a type's world_get prints, taken from the same reach, so keyword with that id and category set to a kind the members line named returns exactly the things it counted. It closes the structure subtype chain that count closes, which a query for the type's name cannot — a parent type's members are spelled with the child type's word. An id nothing wears is refused naming what that id is instead. category narrows to one searchable category. An entity the published world has no row for is not here, and composite diagnostic categories are intentionally excluded; use world_list for those rows and their localized partiality evidence. A page that matched nothing says under unprojected whether any id this build loaded answers to the query at all: either the only answers are internal machinery the published world carries no row for, or no loaded id answers to it, so whether it is in this build at all is answered on the page that raised the question. A result of 25 rows or fewer comes back whole when you name no limit. limit is otherwise an upper bound: a page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from. keywordHits appears when the query hit more than one keyword, and says how the whole result splits between them.",
+                "Search every stable-UUID entity category at once and answer with one uniform row: id, name, category, keywords, matchedOn. A query is matched case-insensitively as a substring — the same rule the game's own search box uses — against the entity's player-facing name, its internal asset name, its id, the keywords the game prints on its tooltip type line, and the category and native type it belongs to. matchedOn names which of those the query actually hit on this row, so a hit whose name does not visibly contain the query says where it did: name, internalName, id, keywords, category or nativeType. Hits come back most relevant first: name matches, then keyword matches, then category matches, with id order inside each band. It does NOT search descriptions: the published world captures no entity descriptions at all, so a word that appears only in an entity's description text finds nothing here; read one entity's description with world_get. Keywords are empty for the classes the game authors none for (upgrades, challenges, views, achievements, advancements, recipe books, crafting recipes) and nothing is synthesized to fill the cell. query is optional whenever at least one filter is named: a filter-only call is the whole category or the whole state, matchedOn reads - because no query was applied, and no keywordHits line is emitted. Naming neither a query nor a filter is refused. state narrows to one lifecycle word and reaches every category whose own list page carries that column: upgrades, research, structures, alchemy-recipes, augment-glyphs, rituals, plot-nodes and challenges. A category with no lifecycle model matches no state filter, and no word is derived for it. discovered narrows to one side of the discovery verdict and reaches the categories whose own list page carries that column: spell-recipes and time-runes. Everything else discoverable spells it as its state — a ritual, a glyph and an alchemy recipe are drawn on the member their screens read, which is IsDiscovered() — so state is the filter that reaches those, and naming discovered beside one of them is refused rather than answered with a second word for one fact. run narrows to one challenge run word — idle, queued, active, passed or failed — and challenges are the only category that publishes that column, so a run filter beside any other category is refused naming it. keyword narrows to the things that wear one type asset, named by that asset's id: it is the far side of the members count a type's world_get prints, taken from the same reach, so keyword with that id and category set to a kind the members line named returns exactly the things it counted. It closes the structure subtype chain that count closes, which a query for the type's name cannot — a parent type's members are spelled with the child type's word. An id nothing wears is refused naming what that id is instead. category narrows to one searchable category. An entity the published world has no row for is not here, and composite diagnostic categories are intentionally excluded; use world_list for those rows and their localized partiality evidence. A page that matched nothing says under unprojected whether any id this build loaded answers to the query at all: either the only answers are internal machinery the published world carries no row for, or no loaded id answers to it, so whether it is in this build at all is answered on the page that raised the question. A result of 25 rows or fewer comes back whole when you name no limit. limit is otherwise an upper bound: a page also stops at a 12 KB response budget, so wide rows come back short. nextOffset is present exactly when more rows remain, and is the offset to resume from. keywordHits appears when the query hit more than one keyword, and says how the whole result splits between them.",
                 ObjectSchema(
                     new JObject
                     {
                         ["query"] = StringSchema(
                             "Case-insensitive text or UUID fragment. Optional when a category, " +
-                            "state, run or keyword filter is named."),
+                            "state, run, discovered or keyword filter is named."),
                         ["category"] = StringSchema(
                             "Narrow to one category from world_categories."),
                         ["state"] = EnumSchema("locked", "available", "completed"),
+                        ["discovered"] = BooleanSchema(
+                            "Narrow to the discovered rows, or to the undiscovered ones. Reaches "
+                                + "the categories whose rows carry a discovered column."),
                         ["run"] = EnumSchema(
                             "idle", "queued", "active", "passed", "failed"),
                         ["keyword"] = StringSchema(

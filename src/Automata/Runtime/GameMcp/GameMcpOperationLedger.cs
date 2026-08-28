@@ -162,6 +162,8 @@ internal static class GameMcpOperationLedger
         if (request.Amount > 1)
             Add(text, "amount", request.Amount.ToString(CultureInfo.InvariantCulture));
         if (request.AffordableOnly) Add(text, "affordable", "true");
+        if (request.DiscoveredFilter is { } discovered)
+            Add(text, "discovered", discovered ? "true" : "false");
         return text.ToString();
     }
 

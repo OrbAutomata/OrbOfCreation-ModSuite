@@ -114,6 +114,60 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal("9e6", (string?)cost["spendableAmount"]);
     }
 
+    /// <summary>
+    /// Which spell recipes are discovered is a question the listings answer, on both the page that
+    /// carries the column and the search that reaches it — and a category that spells discovery as
+    /// its lifecycle state is told so rather than answered with a second word for one fact.
+    /// </summary>
+    /// <remarks>
+    /// A round needed one discovered-but-unequipped recipe out of sixty-five, of which twenty-four
+    /// were discovered. Neither listing could narrow it, so the round guessed three names off how
+    /// early they sounded and paid a 4,100-byte detail read to learn that two of the three were
+    /// wrong for the purpose.
+    /// </remarks>
+    [Fact]
+    public void The_listings_narrow_spell_recipes_to_one_side_of_the_discovery_verdict()
+    {
+        var context = GameMcpTestHarness.Context(World(
+            discovered: true, discoveryAffordable: true, hasEmptySlot: true));
+
+        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            context, "spell-recipes", 0, 50, discovered: true));
+        var listedOther = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            context, "spell-recipes", 0, 50, discovered: false));
+        var found = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            context, string.Empty, 0, 50, "spell-recipes", discoveredFilter: true));
+        var foundOther = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            context, string.Empty, 0, 50, "spell-recipes", discoveredFilter: false));
+
+        Assert.True((bool)Assert.Single(listed["rows"]!.Values<JObject>())!["discovered"]!);
+        Assert.Equal(1, (int)listed["total"]!);
+        Assert.Empty(listedOther["rows"]!.Values<JObject>());
+        Assert.Equal(0, (int)listedOther["total"]!);
+        Assert.Single(found["rows"]!.Values<JObject>());
+        Assert.Empty(foundOther["rows"]!.Values<JObject>());
+
+        // A category whose rows carry no such column is told which ones do, on both verbs, rather
+        // than being handed a silently unfiltered page.
+        var listRefusal = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            context, "resources", 0, 50, discovered: true));
+        var searchRefusal = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            context, string.Empty, 0, 50, "rituals", discoveredFilter: true));
+
+        Assert.Equal("ERR_INPUT", (string?)listRefusal["reasonCode"]);
+        Assert.Equal(
+            "the discovered filter narrows a page by the discovered column its rows carry, and " +
+            "rows in resources carry none; the categories whose rows carry one are " +
+            "spell-recipes, time-runes",
+            (string?)listRefusal["reason"]);
+        Assert.Equal("ERR_INPUT", (string?)searchRefusal["reasonCode"]);
+        Assert.Equal(
+            "the categories whose rows spell discovery in that word are spell-recipes, " +
+            "time-runes, so it cannot narrow rituals; the rest spell it as their state, which " +
+            "the state filter narrows",
+            (string?)searchRefusal["reason"]);
+    }
+
     [Fact]
     public void DiscoveredRecipePublishesTheExactLoadoutAddDecisionAndCurrentHoldings()
     {

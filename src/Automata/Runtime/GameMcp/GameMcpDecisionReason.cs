@@ -160,7 +160,8 @@ internal static class GameMcpDecisionReason
         // arm it met, so every already-run challenge and every wrong-state research refused as
         // though the caller's own argument had been malformed.
         "invalid_state_filter" or
-        "category_not_searchable" or "run_filter_out_of_scope" or "keyword_not_worn" or
+        "category_not_searchable" or "run_filter_out_of_scope" or
+        "discovered_filter_out_of_scope" or "keyword_not_worn" or
         "unsupported_type" or "composition_unsupported" or
         "wrong_mode" or "wrong_alchemy_surface" or "wrong_level_surface" or
         "wrong_loadout_surface" or "wrong_selection" or "wrong_configuration_surface" or
