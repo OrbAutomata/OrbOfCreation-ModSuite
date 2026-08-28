@@ -21,8 +21,8 @@ augments carry a keyword beginning `Spell `. See [vocabulary.md](vocabulary.md).
 25 of the 47 glyphs are unlockers, split Elemental 7, Forging 10, Alchemical 5, Manifestation 3. Each
 carries a same-named entry in the recipe-book list — the glyph *Arcane* and the recipe book *Arcane*
 are the two faces of one unlocker, linked by `GlyphSO.associatedRecipeBook`. 34 books ship, so nine
-(Compulsion Stone, Death Stone, Dismantle, Electric, Life Stone, Occultic, Principle Stone, Spirit
-Stone, Tempered) have no glyph behind them at all.
+(Compulsion, Death, Dismantle, Electric, Life, Occultic, Principle, Spirit, Tempered) have no glyph
+behind them at all.
 
 **Code shape:** what the player presses is the book tile, and `UIRecipeBookItem.IsVisible()` asks
 `RecipeBookSO.IsAvailable()` — the *book's* own prerequisite container, not the glyph's. The two
