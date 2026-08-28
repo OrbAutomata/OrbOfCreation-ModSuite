@@ -182,10 +182,14 @@ same idiom and no producer invents its own formatting.
     round's three-glyph read spent 796 of its 1,736 bytes, 46% of the answer, printing the same
     eighteen lines three times. What every block in one answer says identically is now said once
     under `these N share:`, indented one level in so it cannot read as the first block's own, and
-    each block keeps everything of its own. Only a line standing alone at a block's own indent is a
-    candidate: a header with a body under it belongs to the block that owns the body. A block never
-    gives up its last line, and the same measured worth test applies — a hoist that does not
-    shorten the page does not happen.
+    each block keeps everything of its own. **A candidate is one fact, and a nested block is one
+    fact**: a line at the block's own indent moves together with everything indented under it, so a
+    `blockers:` block byte-identical across every result is said once, header and body, while one
+    that reads differently anywhere stays with the result that owns it — the header alone would
+    leave each body attached to nothing. That recursion is what stopped a live round shipping 3,856
+    bytes of nested duplicates. A block never gives up its last fact, and the same measured worth
+    test applies — a hoist that does not shorten the page does not happen, which is why two results
+    sharing one short line keep it.
   - **One delimiter.** Every table separates its columns with ` | `, whatever its cells hold.
   - **An empty page is the same table with no rows**: `rows 0/180` and then the column set. It has
     no row to read that set off, so the producer states it, and a portable test holds every

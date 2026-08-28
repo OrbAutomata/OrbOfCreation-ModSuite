@@ -803,18 +803,49 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// A header with a body under it belongs to the block that owns the body: hoisting the header
-    /// away would leave the body attached to nothing, so a line with anything indented beneath it
-    /// is never a candidate however many blocks repeat it.
+    /// A header and the body under it are one fact and move as one. The fold used to see only the
+    /// lines with nothing beneath them, so a batch of entities shipped the same nested block once
+    /// per id — 3,856 bytes of one live round's answers.
     /// </summary>
     [Fact]
-    public void A_line_with_a_body_under_it_is_never_hoisted_away_from_it()
+    public void A_nested_block_every_result_repeats_is_hoisted_whole()
     {
         const string Blockers = @"'blockers':{'cap':{'blocked':true},'leeway':{'blocked':false}}";
         var page = Render(
             @"{'results':[
                 {'uuid':'aaa111','category':'glyphs','state':'locked'," + Blockers + @"},
                 {'uuid':'bbb222','category':'glyphs','state':'locked'," + Blockers + "}]}");
+
+        Assert.Equal(
+            new[]
+            {
+                "results 2:",
+                "  these 2 share:",
+                "    category: glyphs",
+                "    state: locked",
+                "    blockers:",
+                "      cap: blocked=yes",
+                "      leeway: blocked=no",
+                "  uuid: aaa111",
+                "  uuid: bbb222",
+            },
+            page.Split('\n'));
+    }
+
+    /// <summary>
+    /// A header is never lifted away from a body that is not the same body. Two blocks whose nested
+    /// block reads differently keep their own copies, header and all, because the header alone
+    /// would leave each body attached to nothing.
+    /// </summary>
+    [Fact]
+    public void A_nested_block_that_reads_differently_stays_with_its_result()
+    {
+        var page = Render(
+            @"{'results':[
+                {'uuid':'aaa111','category':'glyphs','state':'locked',
+                 'blockers':{'cap':{'blocked':true},'leeway':{'blocked':false}}},
+                {'uuid':'bbb222','category':'glyphs','state':'locked',
+                 'blockers':{'cap':{'blocked':false},'leeway':{'blocked':false}}}]}");
 
         Assert.Equal(
             new[]
@@ -831,7 +862,7 @@ public sealed class GameMcpTextPageTests
                 string.Empty,
                 "  uuid: bbb222",
                 "  blockers:",
-                "    cap: blocked=yes",
+                "    cap: blocked=no",
                 "    leeway: blocked=no",
             },
             page.Split('\n'));

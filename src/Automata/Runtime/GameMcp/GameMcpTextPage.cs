@@ -680,18 +680,24 @@ internal static class GameMcpTextPage
     private static void Hoist(List<List<string>> blocks, string indent, List<string> lines)
     {
         if (blocks.Count < 2) return;
-        var candidates = Standalone(blocks[0], indent);
-        for (var index = 1; index < blocks.Count && candidates.Count > 0; index++)
+        var units = new List<List<List<string>>>(blocks.Count);
+        for (var index = 0; index < blocks.Count; index++) units.Add(Units(blocks[index], indent));
+
+        var candidates = new List<List<string>>();
+        for (var index = 0; index < units[0].Count; index++)
         {
-            var here = Standalone(blocks[index], indent);
-            candidates.RemoveAll(line => !here.Contains(line));
+            var unit = units[0][index];
+            var everywhere = true;
+            for (var block = 1; block < units.Count && everywhere; block++)
+                everywhere = Holds(units[block], unit);
+            if (everywhere) candidates.Add(unit);
         }
         if (candidates.Count == 0) return;
 
-        // The last line of the shortest block is what decides how much may go: taking every line a
+        // The last fact of the shortest block is what decides how much may go: taking every fact a
         // block has leaves an answer that counts entities and then shows none of them.
         var floor = int.MaxValue;
-        for (var index = 0; index < blocks.Count; index++) floor = Math.Min(floor, blocks[index].Count);
+        for (var index = 0; index < units.Count; index++) floor = Math.Min(floor, units[index].Count);
         while (candidates.Count > 0 && candidates.Count >= floor)
             candidates.RemoveAt(candidates.Count - 1);
         if (candidates.Count == 0) return;
@@ -704,36 +710,94 @@ internal static class GameMcpTextPage
         var saved = 0;
         for (var index = 0; index < candidates.Count; index++)
         {
-            saved += (blocks.Count - 1) * (candidates[index].Length + 1);
-            cost += Indent.Length;
+            var unit = candidates[index];
+            for (var line = 0; line < unit.Count; line++)
+            {
+                saved += (blocks.Count - 1) * (unit[line].Length + 1);
+                cost += Indent.Length;
+            }
         }
         if (saved <= cost) return;
 
         lines.Add(header);
         for (var index = 0; index < candidates.Count; index++)
-            lines.Add(Indent + candidates[index]);
+        {
+            var unit = candidates[index];
+            for (var line = 0; line < unit.Count; line++) lines.Add(Indent + unit[line]);
+        }
         for (var index = 0; index < blocks.Count; index++)
         {
-            for (var line = 0; line < candidates.Count; line++)
-                blocks[index].Remove(candidates[line]);
+            for (var unit = 0; unit < candidates.Count; unit++)
+                Take(blocks[index], candidates[unit]);
         }
         if (blocks[0].Count > 1) lines.Add(string.Empty);
     }
 
     /// <summary>
-    /// The lines of one block that are a whole fact on their own: written at the block's own indent,
-    /// with nothing indented under them.
+    /// One block's facts: each a line written at the block's own indent, together with whatever is
+    /// indented under it.
     /// </summary>
-    private static List<string> Standalone(List<string> block, string indent)
+    /// <remarks>
+    /// The fold used to see only the lines with nothing under them, because lifting a header away
+    /// from its body would leave the body attached to nothing. A header and its body together are
+    /// one fact and move as one, which is how a batch of entities stops shipping the same nested
+    /// block once per id — 3,856 bytes of one live round's answers.
+    /// </remarks>
+    private static List<List<string>> Units(List<string> block, string indent)
     {
-        var alone = new List<string>(block.Count);
-        for (var index = 0; index < block.Count; index++)
+        var units = new List<List<string>>(block.Count);
+        var index = 0;
+        while (index < block.Count)
         {
-            if (!IsAt(block[index], indent)) continue;
-            if (index + 1 < block.Count && !IsAt(block[index + 1], indent)) continue;
-            alone.Add(block[index]);
+            if (!IsAt(block[index], indent))
+            {
+                index++;
+                continue;
+            }
+            var unit = new List<string> { block[index] };
+            index++;
+            while (index < block.Count && !IsAt(block[index], indent))
+            {
+                unit.Add(block[index]);
+                index++;
+            }
+            units.Add(unit);
         }
-        return alone;
+        return units;
+    }
+
+    /// <summary>Whether this block says the same fact, line for line.</summary>
+    private static bool Holds(List<List<string>> units, List<string> unit)
+    {
+        for (var index = 0; index < units.Count; index++)
+        {
+            if (Same(units[index], unit)) return true;
+        }
+        return false;
+    }
+
+    private static bool Same(List<string> left, List<string> right)
+    {
+        if (left.Count != right.Count) return false;
+        for (var index = 0; index < left.Count; index++)
+        {
+            if (!string.Equals(left[index], right[index], StringComparison.Ordinal)) return false;
+        }
+        return true;
+    }
+
+    /// <summary>Removes this fact's lines from the block, once.</summary>
+    private static void Take(List<string> block, List<string> unit)
+    {
+        for (var start = 0; start + unit.Count <= block.Count; start++)
+        {
+            var here = true;
+            for (var index = 0; index < unit.Count && here; index++)
+                here = string.Equals(block[start + index], unit[index], StringComparison.Ordinal);
+            if (!here) continue;
+            block.RemoveRange(start, unit.Count);
+            return;
+        }
     }
 
     /// <summary>Whether this line is written at exactly the given indent, not deeper.</summary>
