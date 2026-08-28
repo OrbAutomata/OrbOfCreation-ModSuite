@@ -3841,11 +3841,19 @@ namespace BepInEx.Configuration
             _value = value;
         }
 
+        /// <summary>
+        /// Writing the value it already holds is not a change, and BepInEx says so before it
+        /// stores anything: <c>set_Value</c> compares with <c>System.Object.Equals(object, object)</c>
+        /// and returns on equality, so neither the field nor the event moves. A stub that raised
+        /// unconditionally made every repeated write look like a committed change and hid the arm
+        /// where an accepted write publishes nothing.
+        /// </summary>
         public T Value
         {
             get => _value;
             set
             {
+                if (Equals(_value, value)) return;
                 _value = value;
                 SettingChanged?.Invoke(this, EventArgs.Empty);
                 ConfigFile.OnSettingChanged(this);

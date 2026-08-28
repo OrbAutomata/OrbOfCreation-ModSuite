@@ -1128,6 +1128,14 @@ public sealed class GameMcpConfigurationTests
     /// through this surface is byte-identical to one written through the in-game controls and a
     /// file already on disk still loads.
     /// </summary>
+    /// <remarks>
+    /// Each case is seeded to the opposite value first, because BepInEx does not treat writing what
+    /// an entry already holds as a change: <c>ConfigEntry&lt;T&gt;.set_Value</c> compares and returns
+    /// before it stores or raises. Without the seed, three of these six spellings would be asking
+    /// the store to publish a value that never moved — which exercises the settlement arm rather
+    /// than the spelling this fact is about. The seed's own outcome is deliberately not asserted:
+    /// whether it changed anything depends on the bound default, and this fact does not pin that.
+    /// </remarks>
     [Theory]
     [InlineData("yes", "true")]
     [InlineData("YES", "true")]
@@ -1142,6 +1150,10 @@ public sealed class GameMcpConfigurationTests
         var file = new ConfigFile();
         var configuration = BepInExAutomataConfiguration.Bind(file);
         var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", persisted == "true" ? "no" : "yes",
+            store.CurrentGeneration, out _, out _);
 
         var write = store.SetGameMcp(
             "AutoBuy", "IncludeStructures", written, store.CurrentGeneration,
@@ -1159,6 +1171,14 @@ public sealed class GameMcpConfigurationTests
     /// argument is what is wrong" — for a call whose argument the suite had just taken, and the
     /// two shared one bool so no producer could tell them apart.
     /// </summary>
+    /// <remarks>
+    /// All three arms are driven against a real store. The third is reached the way the game
+    /// reaches it: BepInEx's <c>ConfigEntry&lt;T&gt;.set_Value</c> compares the incoming value with
+    /// the one it holds and returns before storing or raising, so writing <c>no</c> onto an entry
+    /// already holding it is accepted and publishes nothing. That is the whole shape of the bug —
+    /// the suite took the caller's argument and then had no change to confirm — and it used to be
+    /// unreachable here only because the stub raised its event unconditionally.
+    /// </remarks>
     [Fact]
     public void An_accepted_write_the_suite_cannot_publish_is_the_suites_failure()
     {
@@ -1169,9 +1189,12 @@ public sealed class GameMcpConfigurationTests
             "AutoBuy", "IncludeStructures", "maybe", store.CurrentGeneration, out _, out _);
         var committed = store.SetGameMcp(
             "AutoBuy", "IncludeStructures", "no", store.CurrentGeneration, out _, out _);
+        var unconfirmed = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", "no", store.CurrentGeneration, out _, out _);
 
         Assert.Equal(AutomataConfigurationWrite.Refused, refused);
         Assert.Equal(AutomataConfigurationWrite.Committed, committed);
+        Assert.Equal(AutomataConfigurationWrite.Unconfirmed, unconfirmed);
         Assert.Equal(
             GameMcpDecisionReason.ClassUnavailable,
             GameMcpDecisionReason.Class("configuration_write_unconfirmed"));
