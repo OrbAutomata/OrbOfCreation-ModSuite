@@ -3307,11 +3307,11 @@ published as that list, so each entry crosses the wire as the named handle every
 reference on this surface uses instead of as hundreds of characters of raw id a caller then has to
 resolve one by one.
 
-A boolean setting reads `true` or `false` — what BepInEx itself writes into the config file this
-surface mirrors, and what every other boolean on this wire says. The read, a narrowed read,
-`mode="describe"` and a committed write's `{before, after}` pair all spell it that way. Writes are
-not case-sensitive about it, so a caller may hand `suite_config_set` back exactly what it read, or
-`True`, and neither is refused for its casing.
+A boolean setting reads `yes` or `no` — what every other boolean on this wire says, including every
+world row. The read, a narrowed read, `mode="describe"` and a committed write's `{before, after}`
+pair all spell it that way; the `true`/`false` BepInEx writes into its own TOML file is a fact about
+that file, restored on the way back in. Writes take either spelling and are not case-sensitive, so a
+caller may hand `suite_config_set` back exactly what it read, or `True`, and neither is refused.
 
 `section` is how one feature's settings are read in one go. The section is the word every row
 already wears in its own name, so there is no second vocabulary to learn and a narrowed row is
@@ -3322,9 +3322,9 @@ nothing else:
 AutoBuy/Mode: Active
 AutoBuy/AffordabilityMode: Excess100
 AutoBuy/UpgradeAffordabilityMode: Excess100
-AutoBuy/IncludeStructures: true
-AutoBuy/IncludeUpgrades: true
-AutoBuy/AutoLevelSpells: true
+AutoBuy/IncludeStructures: yes
+AutoBuy/IncludeUpgrades: yes
+AutoBuy/AutoLevelSpells: yes
 AutoBuy/LeaveQueueSlots: 1
 ```
 
@@ -3341,8 +3341,9 @@ unavailable (ERR_INPUT): unknown section 'autobuy_settings'; the sections are Ge
 `mode="describe"` is where the rest lives: each setting's type, the values it accepts, and the
 sentence saying what it does. Those three do not change between calls, so the ordinary read does not
 carry them — a caller reading current values pays for values. The accepted values are said the same
-way whichever kind they are, a range for a number and the list of names for an enum, so no caller
-has to learn two spellings of "what may I write here". A setting that declares a range also carries
+way whichever kind they are, a range for a number and the list of names for an enum or a boolean
+(`one of: yes, no`), so no caller has to learn two spellings of "what may I write here". A setting
+that declares a range also carries
 that range as the numbers `minimum` and `maximum`, the same two fields a refused write hands back,
 so no caller has to parse a range back out of a sentence before it may write.
 
@@ -3350,8 +3351,9 @@ The type is named in the words a caller writing a value would use, and in one vo
 whole catalog: `bool`, `int`, `float`, `string`, and for an enum its own suite name — `bool`, never
 `System.Boolean`, and `AutoBuyAffordabilityMode`, never the namespace it is declared in. A refusal
 says the same word the described row said, so "must parse exactly as `int`" and `"type": "int"` are
-one fact spelled once; an enum is refused by naming the values it accepts instead, because those
-are the choices themselves rather than a word for their type.
+one fact spelled once; an enum and a boolean are refused by naming the values they accept instead —
+"must parse exactly as `yes or no`" — because those are the choices themselves rather than a word
+for their type.
 
 `suite_config_set` commits through `AutomataConfigurationStore`, the same single publication path
 as the in-game controls. BepInEx
@@ -3393,9 +3395,9 @@ leave the row as it was. Config-on plus progression-locked is one answer rather 
 a name-by-name join.
 
 Both switches are present exactly when they are overriding, and never otherwise:
-`automationEnabled: false` appears exactly when the suite's global automation toggle is off, and
-`emergencyStop: true` exactly when the stop is engaged. Neither key ever ships in its ordinary
-state — there is no `automationEnabled: true` and no `emergencyStop: false` on this tool, because
+`automationEnabled: no` appears exactly when the suite's global automation toggle is off, and
+`emergencyStop: yes` exactly when the stop is engaged. Neither key ever ships in its ordinary
+state — there is no `automationEnabled: yes` and no `emergencyStop: no` on this tool, because
 an override that is not overriding is not a fact about the buttons. `suite_health` is the one place
 that reports the stop in both states, since its whole job is to say what the suite is doing.
 

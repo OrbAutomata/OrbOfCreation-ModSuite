@@ -254,7 +254,9 @@ internal sealed class BepInExAutomataConfiguration
 
         try
         {
-            selected.SetSerializedValue(serializedValue ?? string.Empty);
+            selected.SetSerializedValue(
+                GameMcpConfigurationValuePolicy.NativeSerializedValue(
+                    selected.SettingType, serializedValue ?? string.Empty));
             reason = string.Empty;
             return true;
         }

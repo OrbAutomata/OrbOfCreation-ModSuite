@@ -936,9 +936,9 @@ public sealed class GameMcpConfigurationTests
             "AutoBuy/Mode: Active\n" +
             "AutoBuy/AffordabilityMode: Excess100\n" +
             "AutoBuy/UpgradeAffordabilityMode: Excess100\n" +
-            "AutoBuy/IncludeStructures: true\n" +
-            "AutoBuy/IncludeUpgrades: true\n" +
-            "AutoBuy/AutoLevelSpells: true\n" +
+            "AutoBuy/IncludeStructures: yes\n" +
+            "AutoBuy/IncludeUpgrades: yes\n" +
+            "AutoBuy/AutoLevelSpells: yes\n" +
             "AutoBuy/LeaveQueueSlots: 1",
             narrowed);
     }
@@ -1060,8 +1060,8 @@ public sealed class GameMcpConfigurationTests
     {
         Assert.Equal(
             "AutoHarvest/Mode: Disabled\n" +
-            "AutoHarvest/CollectFruitTrees: true\n" +
-            "AutoHarvest/CollectTreasureTrees: true",
+            "AutoHarvest/CollectFruitTrees: yes\n" +
+            "AutoHarvest/CollectTreasureTrees: yes",
             GameMcpAcceptanceFixture.CallText(
                 "suite_configuration",
                 new JObject { ["section"] = "AutoHarvest" },
@@ -1070,10 +1070,10 @@ public sealed class GameMcpConfigurationTests
     }
 
     /// <summary>
-    /// One value, one spelling, whichever call printed it. A boolean is written the way BepInEx
-    /// writes it into the config file this surface mirrors and the way every other boolean on this
-    /// wire reads, on the whole catalog, on one section's rows, in <c>mode=describe</c>, and in the
-    /// <c>{before, after}</c> pair a committed write hands back.
+    /// One value, one spelling, whichever call printed it. A boolean is written the way every other
+    /// boolean on this wire reads — <c>yes</c> and <c>no</c> — on the whole catalog, on one
+    /// section's rows, in <c>mode=describe</c>, and in the <c>{before, after}</c> pair a committed
+    /// write hands back. The config file's own <c>true</c>/<c>false</c> is a fact about the file.
     /// </summary>
     [Fact]
     public void A_boolean_reads_the_same_way_on_every_surface_that_prints_it()
@@ -1081,17 +1081,17 @@ public sealed class GameMcpConfigurationTests
         var context = BoundConfigurationContext();
 
         Assert.Contains(
-            "AutoBuy/IncludeStructures: true",
+            "AutoBuy/IncludeStructures: yes",
             GameMcpAcceptanceFixture.CallText("suite_configuration", context: context));
         Assert.Contains(
-            "AutoBuy/IncludeStructures: true",
+            "AutoBuy/IncludeStructures: yes",
             GameMcpAcceptanceFixture.CallText(
                 "suite_configuration", new JObject { ["section"] = "AutoBuy" }, context));
 
         var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
             context, describe: true, section: "AutoBuy"));
         Assert.Equal(
-            "true",
+            "yes",
             (string?)described["settings"]!.Values<JObject>()
                 .Single(setting => (string?)setting!["setting"] == "AutoBuy/IncludeStructures")!
                 ["value"]);
@@ -1110,8 +1110,39 @@ public sealed class GameMcpConfigurationTests
         var after = GameMcpConfigurationSchema.SerializePublishedValue(
             configuration.Current, "AutoBuy", "IncludeStructures");
 
-        Assert.Equal("true", before);
-        Assert.Equal("false", after);
+        Assert.Equal("yes", before);
+        Assert.Equal("no", after);
+    }
+
+    /// <summary>
+    /// The whole page, scanned. One row spelling a boolean the .NET way would put two vocabularies
+    /// on a surface a caller reads top to bottom, so no rendered value on either mode may be a
+    /// <c>true</c>/<c>false</c> token — the setting names and prose that legitimately contain those
+    /// letters are not values, so the scan is of what follows each <c>: </c>.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void No_configuration_row_prints_a_dot_net_boolean(bool describe)
+    {
+        var arguments = new JObject();
+        if (describe) arguments["mode"] = "describe";
+        var page = GameMcpAcceptanceFixture.CallText(
+            "suite_configuration", arguments, BoundConfigurationContext());
+
+        var offending = new List<string>();
+        foreach (var line in page.Split('\n'))
+        {
+            var separator = line.IndexOf(": ", StringComparison.Ordinal);
+            if (separator < 0) continue;
+            var value = line[(separator + 2)..].Trim();
+            if (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "false", StringComparison.OrdinalIgnoreCase))
+                offending.Add(line.Trim());
+        }
+
+        Assert.Empty(offending);
+        Assert.Contains("yes", page, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1120,6 +1151,9 @@ public sealed class GameMcpConfigurationTests
     /// spelling rather than in the caller's.
     /// </summary>
     [Theory]
+    [InlineData("no", "yes")]
+    [InlineData("No", "Yes")]
+    [InlineData("NO", "YES")]
     [InlineData("false", "true")]
     [InlineData("False", "True")]
     [InlineData("FALSE", "TRUE")]
@@ -1134,7 +1168,7 @@ public sealed class GameMcpConfigurationTests
                 out var offReason, out _),
             offReason);
         Assert.Equal(
-            "false",
+            "no",
             GameMcpConfigurationSchema.SerializePublishedValue(
                 configuration.Current, "AutoBuy", "IncludeStructures"));
 
@@ -1144,7 +1178,7 @@ public sealed class GameMcpConfigurationTests
                 out var onReason, out _),
             onReason);
         Assert.Equal(
-            "true",
+            "yes",
             GameMcpConfigurationSchema.SerializePublishedValue(
                 configuration.Current, "AutoBuy", "IncludeStructures"));
     }

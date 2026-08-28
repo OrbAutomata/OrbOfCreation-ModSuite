@@ -148,6 +148,9 @@ internal static class GameMcpConfigurationValuePolicy
             domain = "integer >= 0, and below the live action-queue capacity";
         else if (entry.SettingType.IsEnum)
             domain = "one of: " + string.Join(", ", Enum.GetNames(entry.SettingType));
+        else if ((Nullable.GetUnderlyingType(entry.SettingType) ?? entry.SettingType) ==
+            typeof(bool))
+            domain = "one of: yes, no";
         return new GameMcpConfigurationConstraint(
             "exact_parse_and_domain",
             entry.Description.AcceptableValues?.ToDescriptionString() ?? string.Empty,
@@ -244,7 +247,7 @@ internal static class GameMcpConfigurationValuePolicy
             }
             if (type == typeof(bool))
             {
-                if (!bool.TryParse(serialized, out var boolean)) return false;
+                if (!TryParseBoolean(serialized, out var boolean)) return false;
                 value = boolean;
                 return true;
             }
@@ -266,6 +269,44 @@ internal static class GameMcpConfigurationValuePolicy
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// A boolean however the caller spelled it: the <c>yes</c>/<c>no</c> every read on this wire
+    /// prints, and the <c>true</c>/<c>false</c> the config file and .NET use. A caller handing back
+    /// exactly what it just read is never refused, and neither is one typing the spelling it knows
+    /// from the file.
+    /// </summary>
+    private static bool TryParseBoolean(string serialized, out bool value)
+    {
+        var text = serialized.Trim();
+        if (string.Equals(text, "yes", StringComparison.OrdinalIgnoreCase))
+        {
+            value = true;
+            return true;
+        }
+        if (string.Equals(text, "no", StringComparison.OrdinalIgnoreCase))
+        {
+            value = false;
+            return true;
+        }
+        return bool.TryParse(text, out value);
+    }
+
+    /// <summary>
+    /// The text BepInEx is handed for an admitted value. The wire spells a boolean <c>yes</c>/
+    /// <c>no</c>; the config file is TOML and spells the same fact <c>true</c>/<c>false</c>, so the
+    /// file's spelling is restored here rather than leaving a value this policy already admitted to
+    /// be refused a second time by the serializer beneath it.
+    /// </summary>
+    internal static string NativeSerializedValue(Type settingType, string serializedValue)
+    {
+        if (settingType is null) throw new ArgumentNullException(nameof(settingType));
+        var type = Nullable.GetUnderlyingType(settingType) ?? settingType;
+        if (type != typeof(bool)) return serializedValue;
+        return TryParseBoolean(serializedValue ?? string.Empty, out var boolean)
+            ? boolean ? "true" : "false"
+            : serializedValue;
     }
 
     private static bool Is(ConfigEntryBase entry, string section, string key) =>
@@ -301,8 +342,12 @@ internal static class GameMcpConfigurationValuePolicy
             "setting of that type writable");
     }
 
-    private static string FriendlyTypeName(Type type) =>
-        type.IsEnum ? string.Join(", ", Enum.GetNames(type)) : SettingTypeWord(type);
+    private static string FriendlyTypeName(Type type) => type switch
+    {
+        { IsEnum: true } => string.Join(", ", Enum.GetNames(type)),
+        _ when (Nullable.GetUnderlyingType(type) ?? type) == typeof(bool) => "yes or no",
+        _ => SettingTypeWord(type),
+    };
 }
 
 /// <summary>
