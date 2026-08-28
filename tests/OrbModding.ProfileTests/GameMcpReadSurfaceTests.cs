@@ -910,16 +910,59 @@ public sealed class GameMcpWorldEnvelopeTests
     }
 
     /// <summary>
+    /// The run's clock and the reset's clock, side by side and in the same form. After a reset the
+    /// two are different answers to "how long has this taken me", and the overview carried only the
+    /// one that never resets.
+    /// </summary>
+    /// <remarks>
+    /// <c>TimePlayedThisReset</c> is the game's own second clock — "Time Played this Reset", a
+    /// <c>DoubleVariable</c> with both duration flags set, visible behind <c>TimeResetUnlocked</c>
+    /// and with <c>dontResetValue: 0</c>, so it starts again at every reset while
+    /// <c>TimePlayed</c> keeps counting.
+    /// </remarks>
+    [Fact]
+    public void The_overview_prints_the_resets_clock_beside_the_runs()
+    {
+        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(Clock(
+            new WorldNumberVariable(
+                KnownEntities.TimePlayed.Uuid,
+                new BigDouble(7661d),
+                isPercent: false,
+                isTime: true,
+                isTimeAccurate: true),
+            new WorldNumberVariable(
+                KnownEntities.TimePlayedThisReset.Uuid,
+                new BigDouble(461d),
+                isPercent: false,
+                isTime: true,
+                isTimeAccurate: true))));
+
+        Assert.Equal("02:07:41", (string?)overview["timePlayed"]);
+        Assert.Equal("07:41", (string?)overview["timePlayedThisReset"]);
+    }
+
+    /// <summary>
     /// A world that never published the clock says nothing about it rather than printing a zero
-    /// that would read as a run that just started.
+    /// that would read as a run that just started. A save that has never reset publishes no reset
+    /// clock at all, and a zero there would claim a reset that never happened.
     /// </summary>
     [Fact]
     public void An_unpublished_clock_is_absent_rather_than_zero()
     {
         var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(Clock()));
+        var neverReset = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(Clock(
+            new WorldNumberVariable(
+                KnownEntities.TimePlayed.Uuid,
+                new BigDouble(7661d),
+                isPercent: false,
+                isTime: true,
+                isTimeAccurate: true))));
 
         Assert.Equal("available", (string?)overview["status"]);
         Assert.Null(overview["timePlayed"]);
+        Assert.Null(overview["timePlayedThisReset"]);
+        Assert.Equal("02:07:41", (string?)neverReset["timePlayed"]);
+        Assert.Null(neverReset["timePlayedThisReset"]);
     }
 
     private static GameMcpFrameContext Clock(params WorldNumberVariable[] variables)

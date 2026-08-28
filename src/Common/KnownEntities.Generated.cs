@@ -108,6 +108,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<ConsumableSOContract> ScrollPower = new(new Guid("4bb8af50-fc7d-44a7-b1fc-937c390f8aec"), "ConsumableSO", "ScrollPower");
     public static readonly KnownEntity<ConsumableSOContract> ScrollSpeed = new(new Guid("b2232a7d-5c97-44c9-9520-686e99fa8293"), "ConsumableSO", "ScrollSpeed");
     public static readonly KnownEntity<DoubleVariableContract> TimePlayed = new(new Guid("02eac15e-9c92-4d06-b8a2-1275faf7df89"), "DoubleVariable", "TimePlayed");
+    public static readonly KnownEntity<DoubleVariableContract> TimePlayedThisReset = new(new Guid("9ea78fb7-5fbc-4022-8025-f0b413684761"), "DoubleVariable", "TimePlayedThisReset");
     public static readonly KnownEntity<ViewSOContract> TimeTimeRuneCreate = new(new Guid("82047a67-9d57-438c-b5b1-99377e242e32"), "ViewSO", "TimeTimeRuneCreate");
     public static readonly KnownEntity<AlchemyTypeSOContract> Transmutation = new(new Guid("b42c6192-7d9b-40d0-aa40-3d46a9348e52"), "AlchemyTypeSO", "Transmutation");
     public static readonly KnownEntity<PlotNodeActionSOContract> TreasureTreeCollect = new(new Guid("3eb68f6f-c2f2-405a-88d2-e5c80345aeb4"), "PlotNodeActionSO", "PNATreasureTreeCollect");

@@ -444,7 +444,7 @@ detailed read: collection completeness with total successfully read and skipped 
 unavailable categories, resource-row count, unlocked
 structure count, affordable-structure and affordable-upgrade counts, discovered/mastery-ready recipe
 counts, available views, visible plots, current action/spell/concept/plot occupancy, the run's own
-clock, and the two global casting dials — `castingDials.outputLevel` and `castingDials.reserveLevel`
+clock and the reset's, and the two global casting dials — `castingDials.outputLevel` and `castingDials.reserveLevel`
 — with their purchased maximums. Exact rows remain in list/get/search.
 
 **`timePlayed` is that clock, in the game's own format.** The game keeps the number itself: `Time
@@ -457,6 +457,13 @@ measured the session instead of the run. A world that has not published the vari
 key rather than a zero that would read as a run just begun. The clock is not special-cased here: it
 is formatted by the flags the game sets on the variable, the same rule every duration on the wire
 follows — see *A duration is printed as one, wherever it appears*.
+
+**`timePlayedThisReset` is the second clock the game keeps**, beside the first and under the same
+rule. `Time Played this Reset` is the same kind of `DoubleVariable` with `dontResetValue: 0`, so it
+starts again at every world reset while `Time Played` keeps counting — after a reset the two are
+different answers to "how long has this taken me", and only one of them measures the run in front of
+you. It is visible behind `TimeResetUnlocked`, so a save that has never reset publishes no such
+variable and the key is simply absent; a zero there would claim a reset that never happened.
 
 **`running.actionQueues` is one row per queue, not a count**, each carrying that queue's `uuid` and
 `name`, its `usedSlots`, and the `capacity` it is measured against. It was one unnamed number,

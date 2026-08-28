@@ -104,6 +104,13 @@ internal static class GameMcpWorldQuery
         // the same variable's row can never print one duration two ways.
         if (WorldLookup.TryFind(world.DoubleVariables, KnownEntities.TimePlayed.Uuid, out var played))
             result["timePlayed"] = Clock(played.Value, played.IsTimeAccurate);
+        // The game keeps a second clock — "Time Played this Reset" — and a run that has reset has
+        // two different answers to "how long has this taken me". It is behind TimeResetUnlocked and
+        // it does not survive a reset, so a save that has never reset publishes no such variable
+        // and this key is simply absent; printing a zero there would claim a reset happened.
+        if (WorldLookup.TryFind(
+                world.DoubleVariables, KnownEntities.TimePlayedThisReset.Uuid, out var thisReset))
+            result["timePlayedThisReset"] = Clock(thisReset.Value, thisReset.IsTimeAccurate);
         result["economy"] = new JObject
         {
             ["resourceRows"] = world.Resources.Count,
