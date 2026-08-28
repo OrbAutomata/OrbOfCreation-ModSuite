@@ -516,6 +516,14 @@ bind failure or its skipped rows when it has either. No
 collector becomes listable by having a row; the row is how a reader tells an unlistable collector
 from an absent one without subtracting one diagnostic's collector count from this page's row count.
 
+**A name this page prints is never refused as unknown.** `world_list` and `world_search` answer a
+category the world collects but pages nothing under with `category_not_listable` (`ERR_INPUT`), and
+the sentence says where its rows are read: a collection report that feeds listable pages names them
+(`'structure-costs' is one of the collection reports the world runs, not a page of its own; its rows
+are read into purchase-costs, so list purchase-costs instead`), and a collector with no page at all
+says so in the same words the `unlistable:` sentence uses. `unknown_category` is left for a name
+nothing collects, and the retired `glyphs` keeps its pointer to both of its homes.
+
 `world_get` takes either a `uuids` list or the singular `uuid` alias; supplying
 both is a `mutually_exclusive` validation failure, and either form returns the same list shape. It
 requires nothing else: an id resolves its own table, so a caller holding one from a search, a
@@ -2616,7 +2624,7 @@ most, so an old code's new class can be looked up here:
 
 | Class | Internal codes that reach it |
 | --- | --- |
-| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required` |
+| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `category_not_listable`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `components_unavailable` |
 | `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached` |

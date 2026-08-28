@@ -224,6 +224,107 @@ public sealed class GameMcpCollectorAccountabilityTests
         Assert.Contains("purchase-costs", names);
     }
 
+    /// <summary>
+    /// A name printed by <c>world_categories</c> is a name this surface has heard of. Every category
+    /// the world collects that no page is named for used to refuse as "unknown category", which
+    /// contradicted the very page the caller read the name from.
+    /// </summary>
+    [Fact]
+    public void EveryCategoryTheWorldCollectsIsRefusedWithWhereItsRowsAreRead()
+    {
+        var reports = new GameWorldCollector().CategoryNames()
+            .Select(name => new WorldCollectionCategoryStatus(
+                name,
+                WorldCategoryOutcome.Collected,
+                sampled: 1,
+                skipped: 0,
+                firstFailure: string.Empty,
+                elapsedTicks: 1))
+            .ToArray();
+        var context = World(reports);
+        var listable = new HashSet<string>(Names(World()), StringComparer.Ordinal);
+
+        var unlistable = reports
+            .Select(report => GameMcpWorldQuery.Normalize(report.Category))
+            .Concat(GameMcpWorldQuery.ListedCollectionReportNames())
+            .Distinct(StringComparer.Ordinal)
+            .Where(name => !listable.Contains(name))
+            .ToArray();
+        Assert.NotEmpty(unlistable);
+
+        foreach (var name in unlistable)
+        {
+            var reason = Refusal(context, name);
+            Assert.Contains(name, reason, StringComparison.Ordinal);
+            Assert.DoesNotContain("unknown category", reason, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// The three answers the vocabulary has: a report read into a page, a collector with no page at
+    /// all, and a word nothing collects — which is the only one still called unknown.
+    /// </summary>
+    [Fact]
+    public void OnlyANameNothingCollectsIsCalledUnknown()
+    {
+        var context = World(
+            new WorldCollectionCategoryStatus(
+                "type modifiers",
+                WorldCategoryOutcome.Collected,
+                sampled: 63,
+                skipped: 0,
+                firstFailure: string.Empty));
+
+        Assert.Equal(
+            "'structure-costs' is one of the collection reports the world runs, not a page of its " +
+            "own; its rows are read into purchase-costs, so list purchase-costs instead",
+            Refusal(context, "structure-costs"));
+        Assert.Equal(
+            "'type-modifiers' is a category the world collects, and world_categories gives it a " +
+            "row with its row count, but this collector publishes no table of its own, so " +
+            "world_list cannot page it; its rows reach the wire inside the reads that carry them",
+            Refusal(context, "type-modifiers"));
+        Assert.Equal(
+            "unknown category 'sprockets'; call world_categories for the exact discoverable names",
+            Refusal(context, "sprockets"));
+
+        // The retired name keeps the pointer that names both of its homes.
+        Assert.Contains(
+            "'augment-glyphs' is the",
+            Refusal(context, "glyphs"),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>Search refuses the same name the same way list does.</summary>
+    [Fact]
+    public void SearchAndListRefuseAnUnlistableCategoryWithOneSentence()
+    {
+        var context = World(
+            new WorldCollectionCategoryStatus(
+                "entity keywords",
+                WorldCategoryOutcome.Collected,
+                sampled: 12,
+                skipped: 0,
+                firstFailure: string.Empty));
+
+        var searched = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.Search(context, "orb", 0, 25, "entity-keywords"));
+        Assert.Equal(GameMcpDecisionReason.ClassInput, (string?)searched["reasonCode"]);
+        Assert.Equal(Refusal(context, "entity-keywords"), (string?)searched["reason"]);
+    }
+
+    /// <summary>
+    /// What a caller sees when world_list cannot page the name they passed: one input class, and the
+    /// sentence that says which of the three answers this is.
+    /// </summary>
+    private static string Refusal(GameMcpFrameContext context, string category)
+    {
+        var refusal = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, category, 0, 25));
+        Assert.Equal("unavailable", (string?)refusal["status"]);
+        Assert.Equal(GameMcpDecisionReason.ClassInput, (string?)refusal["reasonCode"]);
+        return (string?)refusal["reason"] ?? string.Empty;
+    }
+
     private static List<string> Names(GameMcpFrameContext context) =>
         Categories(context).Select(row => (string)row["category"]!).ToList();
 

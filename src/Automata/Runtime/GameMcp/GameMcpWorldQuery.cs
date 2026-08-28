@@ -82,6 +82,12 @@ internal static class GameMcpWorldQuery
     /// </remarks>
     private static readonly Dictionary<string, string> CollectionReportPages = MapReportsToPages();
 
+    /// <summary>
+    /// Every page a collection report is read into, so a caller who named the report can be sent to
+    /// the pages that carry its rows rather than told the name means nothing.
+    /// </summary>
+    private static readonly Dictionary<string, string[]> ListedReportPageNames = MapReportsToPageNames();
+
     internal static JObject Overview(GameMcpFrameContext state)
     {
         if (!TryWorld(state, out var publication, out var unavailable))
@@ -364,7 +370,8 @@ internal static class GameMcpWorldQuery
     internal static string CollectionReportPage(string report) =>
         CollectionReportPages.TryGetValue(report, out var page) ? page : report;
 
-    private static Dictionary<string, string> MapReportsToPages()
+    /// <summary>Which listable pages each collection report is read into.</summary>
+    private static Dictionary<string, List<string>> FedReports()
     {
         var fed = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         for (var index = 0; index < Categories.Length; index++)
@@ -375,7 +382,20 @@ internal static class GameMcpWorldQuery
             for (var only = 0; only < category.FailureOnlyReportCategories.Length; only++)
                 Feeds(fed, category.FailureOnlyReportCategories[only], category.Name);
         }
+        return fed;
+    }
 
+    private static Dictionary<string, string[]> MapReportsToPageNames()
+    {
+        var fed = FedReports();
+        var result = new Dictionary<string, string[]>(fed.Count, StringComparer.Ordinal);
+        foreach (var pair in fed) result.Add(pair.Key, pair.Value.ToArray());
+        return result;
+    }
+
+    private static Dictionary<string, string> MapReportsToPages()
+    {
+        var fed = FedReports();
         var alone = new Dictionary<string, string>(fed.Count, StringComparer.Ordinal);
         foreach (var pair in fed)
         {
@@ -443,7 +463,7 @@ internal static class GameMcpWorldQuery
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
         if (!TryCategory(categoryName, out var category, out var reason))
-            return NotAvailable(publication, "unknown_category", reason);
+            return NoSuchCategory(publication, categoryName, reason);
         if (affordableOnly && !SupportsAffordableFilter(category))
         {
             return NotAvailable(
@@ -1715,7 +1735,7 @@ internal static class GameMcpWorldQuery
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
         if (!TryCategory(categoryName, out var category, out var reason))
-            return NotAvailable(publication, "unknown_category", reason);
+            return NoSuchCategory(publication, categoryName, reason);
         if (!Guid.TryParseExact(uuidText ?? string.Empty, "D", out var uuid))
             return NotAvailable(publication, "invalid_uuid", "That is not a valid id.");
         if (!string.Equals(
@@ -1823,7 +1843,7 @@ internal static class GameMcpWorldQuery
         if (!string.IsNullOrEmpty(categoryName))
         {
             if (!TryCategory(categoryName, out var named, out var reason))
-                return NotAvailable(publication, "unknown_category", reason);
+                return NoSuchCategory(publication, categoryName, reason);
             if (!string.Equals(
                     named.IdentityMode,
                     "stable_entity_uuid",
@@ -4422,7 +4442,7 @@ internal static class GameMcpWorldQuery
         if (scope.Length > 0)
         {
             if (!TryCategory(scope, out var scoped, out var reason))
-                return NotAvailable(publication, "unknown_category", reason);
+                return NoSuchCategory(publication, scope, reason);
             if (!IsSearchable(scoped))
             {
                 return NotAvailable(
@@ -9011,6 +9031,49 @@ internal static class GameMcpWorldQuery
                 "twenty-two a caster sockets into a spell, whose level buys slots. " +
                 "'recipe-books' is the thirty-four tiles that widen a discovery pool",
         };
+
+    /// <summary>
+    /// The refusal a name that is not a listable page earns. A name the world collects is told where
+    /// its rows are read; only a name nothing collects is called unknown.
+    /// </summary>
+    /// <remarks>
+    /// The collector runs more categories than this surface pages, and <c>world_categories</c> prints
+    /// every one of them — so a caller reading that page and asking for a name on it was answered
+    /// "unknown category", which contradicts the page they read it from. The vocabulary is not
+    /// authored here: a report feeding a listable page is named by the categories themselves, and
+    /// anything else is matched against the collection report the published world carries.
+    /// </remarks>
+    private static JObject NoSuchCategory(
+        WorldPublication<GameWorldState> publication,
+        string name,
+        string unknownReason)
+    {
+        var normalized = Normalize(name);
+        if (ListedReportPageNames.TryGetValue(normalized, out var pages))
+        {
+            return NotAvailable(
+                publication,
+                "category_not_listable",
+                "'" + normalized + "' is one of the collection reports the world runs, not a page " +
+                "of its own; its rows are read into " + string.Join(", ", pages) +
+                ", so list " + pages[0] + " instead");
+        }
+
+        for (var index = 0; index < publication.Snapshot.CollectionCategories.Count; index++)
+        {
+            var report = publication.Snapshot.CollectionCategories[index];
+            if (!string.Equals(Normalize(report.Category), normalized, StringComparison.Ordinal))
+                continue;
+            return NotAvailable(
+                publication,
+                "category_not_listable",
+                "'" + normalized + "' is a category the world collects, and world_categories gives " +
+                "it a row with its row count, but " +
+                GameMcpDecisionReason.For("collector_not_listable"));
+        }
+
+        return NotAvailable(publication, "unknown_category", unknownReason);
+    }
 
     /// <summary>Shares the exact world-query completeness rule with composite diagnostic tools.</summary>
     internal static bool TryCategoryAvailability(

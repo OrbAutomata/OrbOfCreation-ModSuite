@@ -160,7 +160,12 @@ internal static class GameMcpDecisionReason
         // arm it met, so every already-run challenge and every wrong-state research refused as
         // though the caller's own argument had been malformed.
         "invalid_state_filter" or
-        "category_not_searchable" or "run_filter_out_of_scope" or
+        "category_not_searchable" or
+        // A name the world collects under but pages nothing under. It is the caller's argument that
+        // is wrong for this verb, exactly as an unsearchable category is, and saying
+        // `unknown_category` for it contradicted the world_categories page the name was read from.
+        "category_not_listable" or
+        "run_filter_out_of_scope" or
         "discovered_filter_out_of_scope" or "keyword_not_worn" or
         "unsupported_type" or "composition_unsupported" or
         "wrong_mode" or "wrong_alchemy_surface" or "wrong_level_surface" or
