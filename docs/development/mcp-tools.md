@@ -1577,8 +1577,9 @@ is bought the game draws no level button at all — `GlyphSO.CanLevel()` being t
 fact about the interface, not about a button. `recipe-books` never carry a level: a `RecipeBookSO` has
 one instance field and the game draws it as owned or not. Available decisions include
 the exact named native usage cost and current spendable amount as `costs`; a control the game
-levels for nothing publishes `costs: []` with `free: true` rather than dropping the array.
-Inapplicable or unavailable controls do not publish priced ledgers.
+levels for nothing says `free: true` — whether the game names no price at all (`costs: []`, kept
+rather than dropped) or names one whose every line is zero, which is the same fact to a caller and
+gets the same word. Inapplicable or unavailable controls do not publish priced ledgers.
 
 Call `game_level_up(mode="purchase"|"bonus", uuid=..., amount=...)`. The tool derives the exact native type from
 the published category, repeats the visible button's live admission on Unity's main thread, and
@@ -1592,9 +1593,10 @@ levels than `amount` asked for, the answer adds
 under-delivery that read exactly like a satisfied `amount=1` let a caller batching its own
 progression accumulate drift with no signal.
 
-A route whose cost table is empty on both sides says `free: true` rather than staying quiet. No
-other pricing rides the answer: what a level cost and what the next one asks are read from
-`world_get`, where the whole curve lives. The paid route checks the game's persistent usage cost but
+A level that asked for nothing says `free: true` rather than staying quiet, in the same word the
+row uses and about the level this call bought — not about the next one, whose price is a different
+fact and no reason to withhold this one. No other pricing rides the answer: what a level cost and
+what the next one asks are read from `world_get`, where the whole curve lives. The paid route checks the game's persistent usage cost but
 does not perform a one-time payment; the concrete native level callback applies its own
 usage/effects. Research development and spell mastery stay on `game_research` and
 `game_spell_mastery`, respectively.

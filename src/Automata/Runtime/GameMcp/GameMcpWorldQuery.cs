@@ -2516,16 +2516,13 @@ internal static class GameMcpWorldQuery
             ["after"] = current.TotalLevel,
         };
 
-        // A level that asks for nothing is worth saying, because it changes what a caller does next.
-        // What it asked and what the next one asks are not: the world publication carries both cost
-        // curves for anything that plans off them, and a caller acting on this answer has bought
-        // the levels the pair above names.
+        // Whether this cost anything is what the call did, so it is answered about the level that
+        // was bought — the price standing in the world this call was made against — and in the
+        // same words the read side uses. It used to require the next level to be free as well,
+        // which silently withheld the answer from every kind whose curve starts at zero and rises.
         var bonus = command.Mode == "bonus";
-        if ((bonus ? current.BonusCosts : current.PaidCosts).Count == 0 &&
-            hadBefore && (bonus ? previous.BonusCosts : previous.PaidCosts).Count == 0)
-        {
+        if (hadBefore && AsksForNothing(bonus ? previous.BonusCosts : previous.PaidCosts))
             result["free"] = true;
-        }
 
         // What a glyph level buys is slots, and the game's own level panel says so in those words:
         // `[N] Slot` off GetMaxUsages() and `[M] Free Slot` off GetFreeUsages(). Those are the two
@@ -8183,9 +8180,8 @@ internal static class GameMcpWorldQuery
         {
             purchase["affordable"] = decision.PurchaseAffordable;
             if (!decision.PurchaseAffordable) purchase["reasonCode"] = "unaffordable";
-            var costs = ProjectLevelCosts(world, decision.PaidCosts);
-            purchase["costs"] = costs;
-            if (costs.Count == 0) purchase["free"] = true;
+            purchase["costs"] = ProjectLevelCosts(world, decision.PaidCosts);
+            if (AsksForNothing(decision.PaidCosts)) purchase["free"] = true;
         }
         result["purchase"] = purchase;
 
@@ -8205,11 +8201,28 @@ internal static class GameMcpWorldQuery
         {
             bonus["affordable"] = decision.BonusAffordable;
             if (!decision.BonusAffordable) bonus["reasonCode"] = "unaffordable";
-            var costs = ProjectLevelCosts(world, decision.BonusCosts);
-            bonus["costs"] = costs;
-            if (costs.Count == 0) bonus["free"] = true;
+            bonus["costs"] = ProjectLevelCosts(world, decision.BonusCosts);
+            if (AsksForNothing(decision.BonusCosts)) bonus["free"] = true;
         }
         result["bonus"] = bonus;
+    }
+
+    /// <summary>
+    /// Whether a level asks for nothing — either the game names no price at all, or it names one
+    /// and every line of it is zero.
+    /// </summary>
+    /// <remarks>
+    /// A round bought a glyph level and read <c>free: yes</c>, then bought a time-rune level whose
+    /// own row said <c>cost: 0 of 94 Time Advancement</c> and got no <c>free</c> at all, because
+    /// the test was "the game names no price" rather than "nothing is owed". Those are one fact to
+    /// a caller and were wearing two shapes, one of them silence — and an absent field reads as a
+    /// negative claim, which here would have been "you paid".
+    /// </remarks>
+    private static bool AsksForNothing(PublicationTable<WorldLevelableCost> costs)
+    {
+        for (var index = 0; index < costs.Count; index++)
+            if (costs[index].Amount > BigDouble.Zero) return false;
+        return true;
     }
 
     /// <summary>

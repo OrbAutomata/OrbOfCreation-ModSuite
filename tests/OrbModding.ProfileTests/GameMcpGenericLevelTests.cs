@@ -166,6 +166,39 @@ public sealed class GameMcpGenericLevelTests
         Assert.True((bool)glyph["purchase"]!["free"]!);
     }
 
+    /// <summary>
+    /// A price of zero is free, and says so in the same word an absent price does — on the row, and
+    /// on the answer the purchase settles at.
+    /// </summary>
+    /// <remarks>
+    /// A round bought a glyph level and read <c>free: yes</c>, then bought a time-rune level whose
+    /// own row said <c>cost: 0 of 94 Time Advancement</c> and got no such line: the test was "the
+    /// game names no price" rather than "nothing is owed", and the post-state additionally
+    /// withheld the answer unless the <em>next</em> level was free too. Same verb, same mode, two
+    /// shapes, and the missing one reads as a claim that the caller paid.
+    /// </remarks>
+    [Fact]
+    public void A_price_of_zero_is_free_on_the_row_and_on_what_the_purchase_settled_at()
+    {
+        var before = World(5, 2, purchaseAffordable: true, levelPriceIsZero: true);
+        var after = World(6, 2, purchaseAffordable: true);
+
+        var row = Row(before, "augment-glyphs", GlyphId);
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 902),
+            Command("purchase", before),
+            GameMcpCommandResult.Committed("committed", 9, 3)), after);
+
+        // The row keeps the price the screen draws, and answers the question that price raises.
+        var cost = Assert.Single(row["purchase"]!["costs"]!.Values<JObject>())!;
+        Assert.Equal("0", (string?)cost["cost"]);
+        Assert.True((bool)row["purchase"]!["free"]!);
+
+        // The next level up this curve is priced, and that does not make the one just bought cost
+        // anything.
+        Assert.True((bool)delta["free"]!);
+    }
+
     [Fact]
     public void Hidden_or_unlearned_rows_never_advertise_level_purchase()
     {
@@ -310,6 +343,7 @@ public sealed class GameMcpGenericLevelTests
         bool glyphDiscoveryRequired = false,
         bool resourceTypeHidden = false,
         bool levelsAreFree = false,
+        bool levelPriceIsZero = false,
         bool augmentTableUnlocked = true,
         int maximumUsages = 3,
         int maximumFreeUsages = 0)
@@ -317,7 +351,11 @@ public sealed class GameMcpGenericLevelTests
         var paidCosts = levelsAreFree
             ? PublicationTable<WorldLevelableCost>.Empty
             : PublicationTable<WorldLevelableCost>.Create(new[]
-                { new WorldLevelableCost(CostResourceId, new BigDouble(5)) });
+                {
+                    new WorldLevelableCost(
+                        CostResourceId,
+                        levelPriceIsZero ? BigDouble.Zero : new BigDouble(5)),
+                });
         var bonusCosts = PublicationTable<WorldLevelableCost>.Create(new[]
             { new WorldLevelableCost(CostResourceId, new BigDouble(2)) });
         var withBonus = new WorldLevelableDecision(total, bonus, true,
