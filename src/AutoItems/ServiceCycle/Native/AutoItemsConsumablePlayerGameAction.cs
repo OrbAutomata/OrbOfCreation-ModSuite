@@ -15,9 +15,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         if (_playerBindings is not { } native)
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.ContractUnavailable,
-                _playerBindingFailure.Length == 0
-                    ? "The lifecycle-scoped consumable player binding set is unavailable."
-                    : _playerBindingFailure);
+                GameActionAnswer.NotAttached("Inventory"));
 
         long liveLifecycle;
         try { liveLifecycle = _readLifecycleEpoch(); }
@@ -130,7 +128,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         if (selectedId == Guid.Empty || resultInfo is null)
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.NoCancellableUsage,
-                "The native pending usage has no stable identity or EffectResultInfo owner.");
+                "The game is not showing a queued use of this item that could be cancelled.");
         if (!TryPlayerPermit(in action, out var permitFailure)) return permitFailure;
 
         return Execute(

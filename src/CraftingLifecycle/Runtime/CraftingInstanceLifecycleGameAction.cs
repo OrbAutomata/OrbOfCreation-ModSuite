@@ -51,7 +51,8 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
             return Reject(CraftingInstanceLifecyclePreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(CraftingInstanceLifecyclePreflight.ContractUnavailable, _bindingFailure);
+            return Reject(CraftingInstanceLifecyclePreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("Workshop > Crafting"));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))

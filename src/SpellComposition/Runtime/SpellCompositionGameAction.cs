@@ -48,9 +48,7 @@ internal sealed class SpellCompositionGameAction : IDisposable
         if (_bindings is not { } native)
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.ContractUnavailable,
-                _bindingFailure.Length == 0
-                    ? "The lifecycle-scoped Casting-dial binding set is unavailable."
-                    : _bindingFailure);
+                GameActionAnswer.NotAttached("Magic > Casting"));
 
         long currentEpoch;
         try { currentEpoch = _readLifecycleEpoch(); }

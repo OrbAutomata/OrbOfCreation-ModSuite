@@ -69,9 +69,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         if (_bindings is not { } native)
             return GenericDiscoverySubmission.Reject(
                 GenericDiscoveryPreflight.ContractUnavailable,
-                _bindingFailure.Length == 0
-                    ? "The lifecycle-scoped generic discovery binding set is unavailable."
-                    : _bindingFailure);
+                GameActionAnswer.NotAttached("the discovery screen this is on"));
 
         long currentEpoch;
         try

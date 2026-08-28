@@ -106,7 +106,8 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable, _bindingFailure);
+            return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("Workshop > Artifacts"));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))
@@ -131,13 +132,14 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
             var manager = native.Manager();
             if (manager is null || manager.GetType() != native.ManagerType)
                 return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
-                    "EquipmentManager.instance was unavailable.");
+                    "The artifact loadout is not loaded right now.");
             var list = native.EquippedList(manager);
             var kind = native.ReadEquipmentType(target);
             var cost = native.UsageCost(target);
             if (list is null || kind is null || cost is null)
                 return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
-                    "The native equipment decision graph returned a null member.");
+                    "The game did not answer whether this is allowed right now; open " +
+                    "Workshop > Artifacts and read it again.");
             var before = Capture(native, list, target, kind, cost);
             if (action.Kind == EquipmentLoadoutActionKind.Equip)
             {

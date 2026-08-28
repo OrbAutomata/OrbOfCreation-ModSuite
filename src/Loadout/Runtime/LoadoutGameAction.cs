@@ -47,7 +47,8 @@ internal sealed class LoadoutGameAction : IDisposable
             return Reject(LoadoutPreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(LoadoutPreflight.ContractUnavailable, _bindingFailure);
+            return Reject(LoadoutPreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("Workshop > Artifacts and Alchemy"));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))

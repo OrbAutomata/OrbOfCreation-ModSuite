@@ -48,7 +48,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         if (_bindings is not { } native)
             return SpellWorkbenchStagedLayout.Unavailable(
                 SpellWorkbenchPreflight.ContractUnavailable,
-                _bindingFailure);
+                GameActionAnswer.NotAttached("Magic > Spellbook"));
         try
         {
             var manager = native.ReadManager();
@@ -1091,9 +1091,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         if (_bindings is not { } available)
         {
             preflight = SpellWorkbenchPreflight.ContractUnavailable;
-            reason = _bindingFailure.Length == 0
-                ? "The lifecycle-scoped spell workbench binding set is unavailable."
-                : _bindingFailure;
+            reason = GameActionAnswer.NotAttached("Magic > Spellbook");
             return false;
         }
         native = available;
@@ -1110,7 +1108,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             if (manager is null)
             {
                 preflight = SpellWorkbenchPreflight.ContractUnavailable;
-                reason = "SpellManager.instance is not available in the current lifecycle.";
+                reason = "The spellbook is not loaded right now.";
                 return false;
             }
             if (!TryResolveRecipe(native, recipeId, out recipe, out reason))
@@ -1144,8 +1142,8 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         }
         if (matches == 1) { reason = string.Empty; return true; }
         reason = matches == 0
-            ? $"No exact SpellRecipeSO with identity {EntityIdentityFormatter.PlayerName(id)} exists in the live registry."
-            : $"SpellRecipeSO identity {EntityIdentityFormatter.PlayerName(id)} is ambiguous across {matches} exact instances.";
+            ? "That spell recipe is not in this run."
+            : "That id names more than one live spell recipe.";
         return false;
     }
 

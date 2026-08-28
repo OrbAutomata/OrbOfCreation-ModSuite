@@ -37,7 +37,8 @@ internal sealed class TargetingGameAction : IDisposable
             return TargetingSubmission.Reject(TargetingPreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return TargetingSubmission.Reject(TargetingPreflight.ContractUnavailable, _bindingFailure);
+            return TargetingSubmission.Reject(TargetingPreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("Magic > Casting"));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception ex) when (Expected(ex))
@@ -56,7 +57,7 @@ internal sealed class TargetingGameAction : IDisposable
             var link = native.GetLink();
             if (link is null || link.GetType() != native.LinkType)
                 return TargetingSubmission.Reject(TargetingPreflight.NoPendingRequest,
-                    "Native targeting did not expose one exact current TargetLink.");
+                    "The game is not showing a targeting request right now.");
             return action.Kind switch
             {
                 TargetingActionKind.Submit => SubmitTarget(in action, native, link),
@@ -105,7 +106,7 @@ internal sealed class TargetingGameAction : IDisposable
     {
         if (native.GetAllTargets(link).Count == 0)
             return TargetingSubmission.Reject(TargetingPreflight.TargetUnavailable,
-                "The current request has no eligible StructureSO targets.");
+                "This targeting request is offering no target to pick.");
         if (!TryPermit(out var reason))
             return TargetingSubmission.Reject(TargetingPreflight.MutationPermitUnavailable, reason);
         object? candidate;
@@ -115,18 +116,20 @@ internal sealed class TargetingGameAction : IDisposable
             return Fault(TargetingPreflight.PostCommitFault, TargetingNativeStage.SelectRandom,
                 NativeMutationOutcome.ExecutionThrew, in action,
                 new NativeMutationCallOutcome(1, 1, 0),
-                "TargetLink.GetRandom threw after random selection began: " + ex.GetBaseException().Message);
+                "The game errored while picking a random target; pick a target by id instead.");
         }
         if (candidate is null || candidate.GetType() != native.StructureType)
             return Fault(TargetingPreflight.VerificationFailed, TargetingNativeStage.SelectRandom,
                 NativeMutationOutcome.PostconditionFailed, in action,
                 new NativeMutationCallOutcome(1, 1, 0),
-                "TargetLink.GetRandom did not return one exact StructureSO.");
+                "The game's randomize button did not settle on one target; pick a target " +
+                "by id instead.");
         if (!native.CheckTarget(link, candidate))
             return Fault(TargetingPreflight.VerificationFailed, TargetingNativeStage.SelectRandom,
                 NativeMutationOutcome.PostconditionFailed, in action,
                 new NativeMutationCallOutcome(1, 1, 0),
-                "The native random target failed the same TargetLink.CheckTarget verdict.");
+                "The game's randomize button picked a target it then refused; pick a target " +
+                "by id instead.");
         return MutateSubmit(in action, native, link, candidate, TargetingNativeStage.Submit, 1);
     }
 
@@ -164,7 +167,7 @@ internal sealed class TargetingGameAction : IDisposable
         var resultInfo = native.ReadResultInfo(link);
         if (resultInfo is null)
             return TargetingSubmission.Reject(TargetingPreflight.CancelUnavailable,
-                "The current TargetLink has no EffectResultInfo cancellation owner.");
+                "This targeting request has nothing to cancel.");
         if (!TryPermit(out var reason))
             return TargetingSubmission.Reject(TargetingPreflight.MutationPermitUnavailable, reason);
         try
@@ -172,11 +175,11 @@ internal sealed class TargetingGameAction : IDisposable
             native.Cancel(resultInfo);
             return native.IsCancelled(resultInfo) && OriginalRequestGone(native, link)
                 ? Verified(Guid.Empty, 1,
-                    "EffectResultInfo is cancelled and its exact request left the queue.")
+                    "The cast was cancelled and its request left the action queue.")
                 : Fault(TargetingPreflight.VerificationFailed, TargetingNativeStage.Verification,
                     NativeMutationOutcome.PostconditionFailed, in action,
                     new NativeMutationCallOutcome(1, 1, 0),
-                    "Cancel did not cancel its EffectResultInfo and retire the exact request.");
+                    GameActionAnswer.ChangeNotSeen("Magic > Casting"));
         }
         catch (Exception ex) when (Expected(ex))
         {

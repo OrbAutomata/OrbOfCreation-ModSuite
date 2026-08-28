@@ -38,7 +38,8 @@ internal sealed class PrestigeGameAction : IDisposable
             return PrestigeSubmission.Reject(PrestigePreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable, _bindingFailure);
+            return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("Time > Reset"));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))
@@ -55,7 +56,8 @@ internal sealed class PrestigeGameAction : IDisposable
             var manager = native.Manager();
             if (manager is null || manager.GetType() != native.ManagerType)
                 return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable,
-                    "The native persistent reset manager was unavailable.");
+                    "The reset is not available from here — return to a loaded save and open " +
+                    "Time > Reset.");
             if (!TryCapture(native, manager, epoch, out var before, out var captureFailure))
                 return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable, captureFailure);
             if (!before.WorldCycleComplete)
@@ -132,7 +134,8 @@ internal sealed class PrestigeGameAction : IDisposable
         if (complete is null || fetched is null)
         {
             state = default;
-            reason = "The native prestige decision graph returned a null member.";
+            reason = "The game did not answer whether a reset is allowed right now; open " +
+                "Time > Reset and read it again.";
             return false;
         }
         state = new PrestigeAdmissionState(epoch, native.GetBool(complete),

@@ -137,6 +137,10 @@ internal static class GameMcpDecisionReason
         // never made. This answered `native_rejected` — the game refusing — for a call the game
         // never saw.
         "single_buy_unavailable" or
+        // The suite asked for a control the screen has no button for. The router validates
+        // every mode before a boundary is reached, so arriving here is the suite contradicting
+        // its own router rather than the caller passing a bad word.
+        "unsupported_control" or
         // The suite has no world and no identity catalog to answer from.
         "world_not_published" or "entity_catalog_unavailable" => true,
         _ => false,
@@ -150,7 +154,7 @@ internal static class GameMcpDecisionReason
     internal static string Class(string reasonCode) => reasonCode switch
     {
         // The caller's own argument is what is wrong.
-        "invalid_uuid" or "invalid_offset" or "invalid_limit" or "invalid_mode" or
+        "invalid_uuid" or "invalid_offset" or "invalid_limit" or
         "invalid_purchase_amount" or "unknown_category" or "unknown_discovery_surface" or
         // A configuration section nothing is filed under is the same kind of no as a world
         // category nothing is filed under: the caller named a grouping word this surface has none
@@ -287,7 +291,7 @@ internal static class GameMcpDecisionReason
         // The suite staged a layout into the game's own selection lists and read back something
         // else. Nothing the caller passed is wrong and nothing in the game refused: the write the
         // suite performs did not land, which is the suite's defect to answer for.
-        "staged_write_failed" or "single_buy_unavailable" or
+        "staged_write_failed" or "single_buy_unavailable" or "unsupported_control" or
         "cost_unavailable" or "exact_cost_unavailable" or "usage_cost_unavailable" or
         "action_family_unavailable" or "screenshot_budget_unavailable" or
         "inline_screenshot_failed" or "request_canceled_before_claim" or

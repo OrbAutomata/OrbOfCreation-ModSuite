@@ -54,9 +54,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (_bindings is not { } native)
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.ContractUnavailable,
-                _bindingFailure.Length == 0
-                    ? "The lifecycle-scoped spell loadout binding set is unavailable."
-                    : _bindingFailure);
+                GameActionAnswer.NotAttached("Magic > Spellbook > Loadout"));
 
         long currentEpoch;
         try { currentEpoch = _readLifecycleEpoch(); }
@@ -138,15 +136,15 @@ internal sealed class SpellLoadoutGameAction : IDisposable
             if (TargetAbsentBestEffort(native, action.SpellInstanceId))
                 return Verified(
                     new NativeMutationCallOutcome(1, 1, 1),
-                    "SpellManager.RemoveSpell threw after the requested removal became observable.");
+                    "The game errored while removing this spell, but the spell was gone " +
+                    "from the slot afterwards.");
             return Fault(
                 in action,
                 SpellLoadoutPreflight.PostCommitFault,
                 SpellLoadoutNativeStage.Remove,
                 NativeMutationOutcome.ExecutionThrew,
                 new NativeMutationCallOutcome(1, 1, 0),
-                "SpellManager.RemoveSpell threw before the requested outcome was observable: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Magic > Spellbook > Loadout"));
         }
     }
 
@@ -320,7 +318,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         slotCount = 0;
         if (manager is null)
         {
-            reason = "SpellManager.instance is unavailable in this lifecycle.";
+            reason = "The spellbook is not loaded right now, so no spell can be moved or removed.";
             return false;
         }
         active = native.ReadActive(manager);

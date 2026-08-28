@@ -46,7 +46,8 @@ internal sealed class PlotLifecycleGameAction : IDisposable
             return Reject(PlotLifecyclePreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(PlotLifecyclePreflight.ContractUnavailable, _bindingFailure);
+            return Reject(PlotLifecyclePreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("World > Agromancy"));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))

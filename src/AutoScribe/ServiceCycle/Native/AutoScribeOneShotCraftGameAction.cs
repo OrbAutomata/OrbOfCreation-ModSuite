@@ -77,9 +77,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         if (_bindings is not { } native)
             return AutoScribeSubmission.Reject(
                 AutoScribePreflight.ContractUnavailable,
-                _bindingFailure.Length == 0
-                    ? "The lifecycle-scoped Auto Scribe binding set is unavailable."
-                    : _bindingFailure);
+                GameActionAnswer.NotAttached("Scholar > Scribe"));
 
         try
         {
@@ -128,7 +126,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
             if (totalCost.GetType() != native.ResourceCostType)
                 return AutoScribeSubmission.Reject(
                     AutoScribePreflight.ContractUnavailable,
-                    "CraftingRecipeSO.GetTotalCost returned a non-ResourceCostList value.");
+                    "The game did not publish a price for this recipe, so nothing could be " +
+                    "paid. Open Scholar > Scribe and read again.");
             if (!Invoke<bool>(native.CostHasEnough, totalCost))
                 return AutoScribeSubmission.Reject(
                     AutoScribePreflight.Unaffordable,
@@ -153,8 +152,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         {
             return AutoScribeSubmission.Reject(
                 AutoScribePreflight.ContractUnavailable,
-                "Auto Scribe preflight failed before payment: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("Scholar > Scribe"));
         }
     }
 
@@ -403,7 +401,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
             {
                 if (value is null || value.GetType() != native.RecipeType)
                 {
-                    reason = "ScribeCraftingRecipes contained a non-CraftingRecipeSO value.";
+                    reason =
+                "The game's scribe recipe list holds an entry this build does not model.";
                     return false;
                 }
                 if (Invoke<Guid>(native.Identity, value) == role.Recipe.Value.Uuid)
@@ -430,7 +429,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
     {
         if (native.CraftingTypes.GetValue(recipe) is not IEnumerable types)
         {
-            reason = "CraftingRecipeSO.craftingTypes was unavailable.";
+            reason = "The game did not publish what this recipe scribes.";
             return false;
         }
         var typeCount = 0;

@@ -50,7 +50,8 @@ internal sealed class RitualLifecycleGameAction : IDisposable
             return Reject(RitualLifecyclePreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(RitualLifecyclePreflight.ContractUnavailable, _bindingFailure);
+            return Reject(RitualLifecyclePreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("Rituals"));
 
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
@@ -230,7 +231,8 @@ internal sealed class RitualLifecycleGameAction : IDisposable
             {
                 var cost = native.ActivationCost(ritual) ??
                     throw new InvalidOperationException(
-                        "RitualSO.GetActivationCost returned null before payment");
+                        "The game did not publish this ritual's activation price, so it " +
+                        "could not be paid. Open Rituals and read again.");
                 if (!TrySelectFirst(native, selected, ritual, out var activateFailure))
                     return activateFailure;
                 if (!native.HasEnough(cost)) return Unaffordable(native, cost);

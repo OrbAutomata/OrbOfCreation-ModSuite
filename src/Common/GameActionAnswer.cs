@@ -30,6 +30,20 @@ internal static class GameActionAnswer
         screen + " and read it again.";
 
     /// <summary>
+    /// The suite never attached to the screen this verb presses, so it will keep refusing until the
+    /// run restarts. Standing and run-scoped, which is the fact a caller needs: retrying is futile
+    /// and no other press on that screen will work either.
+    /// </summary>
+    /// <remarks>
+    /// The detail behind it — which member of which type would not bind — stays in the binding
+    /// failure the health surface reads. It named a reflection failure, which is a maintainer's
+    /// fact and not a player's, and it sat where the answer to "what do I do now" belonged.
+    /// </remarks>
+    internal static string NotAttached(string screen) =>
+        "The suite could not attach to " + screen + " in this run, so it will refuse every press " +
+        "there until the run restarts.";
+
+    /// <summary>
     /// The suite stopped its own call before the game was asked, and holds nothing further to say
     /// about it. Never blame the game here: the game was not consulted.
     /// </summary>

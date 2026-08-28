@@ -309,6 +309,27 @@ internal sealed class GameMcpCommandResult
             default,
             null);
 
+    /// <summary>
+    /// The suite tripped before the game was asked. It is the same word
+    /// <see cref="GameMcpDecisionReason.IsSuiteDefect"/> derives from a result code, spelled out
+    /// for the sites that hold their own sentence and never go through a code.
+    /// </summary>
+    internal static GameMcpCommandResult Failed(
+        string code,
+        string reason,
+        long observedLifecycleGeneration = 0,
+        ulong observedConfigurationGeneration = 0) =>
+        new(
+            "failed",
+            code,
+            reason,
+            observedLifecycleGeneration,
+            observedConfigurationGeneration,
+            null,
+            false,
+            default,
+            null);
+
     internal static GameMcpCommandResult Faulted(
         string code,
         string reason,
@@ -918,7 +939,7 @@ internal static class GameMcpActionResultCodeNames
             if (code == ResearchActionResultCodes.IdentityUnavailable) return "identity_unavailable";
             if (code == ResearchActionResultCodes.DevelopUnavailable) return "develop_unavailable";
             if (code == ResearchActionResultCodes.MultiBuyUnavailable) return "multi_buy_unavailable";
-            if (code == ResearchActionResultCodes.InvalidMode) return "invalid_mode";
+            if (code == ResearchActionResultCodes.InvalidMode) return "unsupported_control";
             if (code == ResearchActionResultCodes.InvalidState) return "invalid_state";
             if (code == ResearchActionResultCodes.BonusUnavailable) return "bonus_unavailable";
             if (code == ResearchActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";

@@ -17,9 +17,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.ContractUnavailable,
-                _playerBindingFailure.Length == 0
-                    ? "The lifecycle-scoped player crafting binding set is unavailable."
-                    : _playerBindingFailure);
+                GameActionAnswer.NotAttached("Scholar > Scribe"));
 
         long liveLifecycle;
         try
@@ -86,7 +84,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.InvalidPurchaseAmount,
-                "CraftingRecipeSO.GetPurchaseQuantity(1) returned a non-positive amount.");
+                "The game published no amount for one press of this recipe, so nothing was " +
+                "bought.");
         if (!native.RecipeCanBuy(recipe))
             return CraftingPlayerSubmission.Reject(
                 in action,
@@ -113,8 +112,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 CraftingPlayerNativeStage.DirectExecute,
                 NativeMutationOutcome.ExecutionThrew,
                 1,
-                "CraftingRecipeSO.Execute threw after the direct composite began: " +
-                ex.GetBaseException().Message);
+                GameActionAnswer.GameErrored("Scholar > Scribe"));
         }
         int revisionAfter;
         try
@@ -139,7 +137,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 CraftingPlayerNativeStage.Verification,
                 NativeMutationOutcome.PostconditionFailed,
                 1,
-                "CraftingRecipeSO.Execute did not advance the native craft-effect publication.");
+                GameActionAnswer.ChangeNotSeen("Scholar > Scribe"));
         return Verified(
             in action,
             1,
@@ -159,7 +157,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.PageRelationAmbiguous,
-                "The authored page main type does not match CraftingRecipeSO.GetMainType().");
+                "This recipe is not the one the game draws on this page.");
         var mode = native.PageCraftMode(page);
         if (mode is not 0 and not 1)
             return CraftingPlayerSubmission.Reject(
@@ -172,7 +170,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.InvalidPurchaseAmount,
-                "CraftingRecipeSO.GetPurchaseQuantity(previous) returned a non-positive amount.");
+                "The game published no amount for the next press of this recipe, so nothing " +
+                "was bought.");
         var requestedTotal = previous + (purchase < BigDouble.One ? BigDouble.One : purchase);
         if (!native.RecipeCanBuyAt(recipe, requestedTotal))
             return CraftingPlayerSubmission.Reject(

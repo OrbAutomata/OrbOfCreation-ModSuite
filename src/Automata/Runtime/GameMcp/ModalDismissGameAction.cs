@@ -72,15 +72,22 @@ internal sealed class ModalDismissGameAction : IDisposable
     internal string BindingFailure => _bindingFailure;
 
     /// <summary>
+    /// What a caller can do about a build whose modal has no close control: nothing, and the
+    /// sentence says so rather than naming the reflection that would not bind.
+    /// </summary>
+    private const string NoCloseButton =
+        "This build does not expose a modal close button, so no modal can be dismissed.";
+
+    /// <summary>
     /// Dismissal is a screen action with no entity to name, so the caller has no lifecycle to
     /// submit. The boundary reads the live lifecycle itself and pins it for the settled read.
     /// </summary>
     internal ModalDismissSubmission Submit()
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return Refused("wrong_thread", "Modal controls are available only on the Unity thread.");
+            return Refused("wrong_thread", GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Refused("contract_unavailable", _bindingFailure);
+            return Refused("contract_unavailable", NoCloseButton);
 
         try
         {
@@ -160,12 +167,12 @@ internal sealed class ModalDismissGameAction : IDisposable
         reason = string.Empty;
         if (Environment.CurrentManagedThreadId != _mainThreadId)
         {
-            reason = "Modal controls are available only on the Unity thread.";
+            reason = GameActionAnswer.SuiteStopped();
             return false;
         }
         if (_bindings is not { } native)
         {
-            reason = _bindingFailure;
+            reason = NoCloseButton;
             return false;
         }
         try

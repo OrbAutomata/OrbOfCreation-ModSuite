@@ -45,7 +45,8 @@ internal sealed class ChallengeGameAction : IDisposable
             return ChallengeSubmission.Reject(ChallengePreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable, _bindingFailure);
+            return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("Time > Challenges"));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))
@@ -341,7 +342,12 @@ internal sealed class ChallengeGameAction : IDisposable
         var fetched = native.Fetched(resetManager);
         if (preferred is null || time is null || prestige is null || left is null ||
             complete is null || fetched is null)
-        { context = default; reason = "The native challenge decision graph returned a null member."; return false; }
+        {
+            context = default;
+            reason = "The game did not answer whether this is allowed right now; open " +
+                "Time > Challenges and read it again.";
+            return false;
+        }
         context = new NativeContext(challengeManager, resetManager, preferred, time, prestige,
             left, complete, fetched);
         reason = string.Empty;

@@ -473,9 +473,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             _ => (CastingDial?)null,
         };
         if (dial is null)
-            return GameMcpCommandResult.Rejected(
-                "unsupported_mode",
-                "the Casting action boundary accepts only the global Output and Reserve dials",
+            return GameMcpCommandResult.Failed(
+                "unsupported_control",
+                "The suite sent a control this screen has no button for; nothing was applied.",
                 lifecycle,
                 configurationGeneration);
         var action = new SpellCompositionAction(

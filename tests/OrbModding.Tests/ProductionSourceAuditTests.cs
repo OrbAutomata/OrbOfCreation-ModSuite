@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace OrbModding.Tests;
@@ -147,6 +148,64 @@ public sealed class ProductionSourceAuditTests
             offenders.Count == 0,
             "A GameAction wrote its own fault sentence; GameActionAnswer owns these: " +
             string.Join(", ", offenders));
+    }
+
+    /// <summary>
+    /// No sentence a GameAction puts on the wire names the game's own code.
+    /// </summary>
+    /// <remarks>
+    /// A caller told <c>SpellManager.instance is unavailable in this lifecycle</c> or
+    /// <c>TargetLink.GetRandom did not return one exact StructureSO</c> can look up neither name and
+    /// act on neither fact. The rule reads the prose rather than the code: a literal with a space in
+    /// it is a sentence, a bare type name in a comparison is not, and an internal <c>throw</c> is an
+    /// assertion no caller ever sees.
+    /// </remarks>
+    [Fact]
+    public void NoWireSentenceInAGameActionNamesTheGamesOwnCode()
+    {
+        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var nativeVocabulary = new[]
+        {
+            "binding set", "decision graph", "persistent reset manager", "live registry",
+            "SpellManager", "EquipmentManager", "ActionManager", "TargetLink", "GuidContainer",
+            "DiscoveryTreeOfferLifecycle", "ResourceCostList", "ITooltipable",
+            "RitualSO", "ResearchSO", "DiscoveryTreeSO", "SpellRecipeSO", "StructureSO",
+            "CraftingRecipeSO", "PlotNodeSO", "EffectResultInfo",
+        };
+        var literal = new Regex("\"([^\"]*)\"");
+        var offenders = new List<string>();
+        foreach (var path in Directory.EnumerateFiles(
+                     sourceRoot, "*GameAction.cs", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
+            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
+                relativePath.StartsWith("obj", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var lineNumber = 0;
+            foreach (var line in File.ReadLines(path))
+            {
+                lineNumber++;
+                if (line.Contains("throw", StringComparison.Ordinal)) continue;
+                foreach (Match match in literal.Matches(line))
+                {
+                    var text = match.Groups[1].Value;
+                    if (!text.Contains(' ')) continue;
+                    foreach (var name in nativeVocabulary)
+                    {
+                        if (text.Contains(name, StringComparison.Ordinal))
+                            offenders.Add(relativePath + ":" + lineNumber + " (" + name + ")");
+                    }
+                }
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "A wire sentence named the game's own code, which a caller can neither look up nor " +
+            "act on: " + string.Join(", ", offenders));
     }
 
     private static string FindRepositoryRoot()

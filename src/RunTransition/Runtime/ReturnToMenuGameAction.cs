@@ -48,7 +48,8 @@ internal sealed class ReturnToMenuGameAction : IDisposable
             return Reject(ReturnToMenuPreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(ReturnToMenuPreflight.ContractUnavailable, _bindingFailure);
+            return Reject(ReturnToMenuPreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("the game's own screen"));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))
@@ -119,8 +120,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
         catch (Exception exception) when (IsExpected(exception))
         {
             return Reject(ReturnToMenuPreflight.ContractUnavailable,
-                "Back to Main Menu preflight failed before transition: " +
-                exception.GetBaseException().Message);
+                GameActionAnswer.CouldNotRead("the game's own screen"));
         }
     }
 

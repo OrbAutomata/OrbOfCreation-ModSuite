@@ -45,7 +45,8 @@ internal sealed class CraftingStationGameAction : IDisposable
             return Reject(CraftingStationPreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(CraftingStationPreflight.ContractUnavailable, _bindingFailure);
+            return Reject(CraftingStationPreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("Workshop > Crafting"));
 
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
@@ -241,7 +242,8 @@ internal sealed class CraftingStationGameAction : IDisposable
                     native.StationId(candidate) != stationId) continue;
                 if (!ReferenceEquals(native.StationReference(candidate), owner))
                 {
-                    reason = "The Brewing Station's native owner did not match its registry entry.";
+                    reason = "The game moved this Brewing Station since it was read; open " +
+                        "Workshop > Crafting and read it again.";
                     return false;
                 }
                 structure = owner;

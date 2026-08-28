@@ -46,7 +46,8 @@ internal sealed class StructureLifecycleGameAction : IDisposable
             return Reject(StructureLifecyclePreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(StructureLifecyclePreflight.ContractUnavailable, _bindingFailure);
+            return Reject(StructureLifecyclePreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("the screen this structure is on"));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))

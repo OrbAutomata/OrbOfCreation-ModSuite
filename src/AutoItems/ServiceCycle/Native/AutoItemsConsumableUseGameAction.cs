@@ -68,9 +68,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
         if (_bindings is not { } native)
             return AutoItemsSubmission.Reject(
                 AutoItemsPreflight.ContractUnavailable,
-                _bindingFailure.Length == 0
-                    ? "The lifecycle-scoped Auto Items binding set is unavailable."
-                    : _bindingFailure);
+                GameActionAnswer.NotAttached("Inventory"));
         if (InvokeBool(native.IsTargeting, null))
             return AutoItemsSubmission.Reject(
                 AutoItemsPreflight.TargetingInProgress,

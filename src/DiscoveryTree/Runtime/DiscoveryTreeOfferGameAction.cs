@@ -48,9 +48,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         if (_bindings is not { } native)
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.ContractUnavailable,
-                _bindingFailure.Length == 0
-                    ? "The lifecycle-scoped Discovery Tree offer binding set is unavailable."
-                    : _bindingFailure);
+                GameActionAnswer.NotAttached("the screen this tree is drawn on"));
 
         long currentEpoch;
         try { currentEpoch = _readLifecycleEpoch(); }
@@ -339,8 +337,8 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             return true;
         }
         reason = matches == 0
-            ? $"No exact DiscoveryTreeSO with identity {EntityIdentityFormatter.PlayerName(treeId)} exists in the live registry."
-            : $"DiscoveryTreeSO identity {EntityIdentityFormatter.PlayerName(treeId)} is ambiguous across {matches} exact live instances.";
+            ? "That discovery tree is not in this run."
+            : "That id names more than one live discovery tree.";
         return false;
     }
 
@@ -403,7 +401,8 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             }
             reason = _readOwnershipFailure();
             if (string.IsNullOrWhiteSpace(reason))
-                reason = "The suite no longer owns DiscoveryTreeOfferLifecycle.";
+                reason = "Another part of the suite is driving discovery this instant; try " +
+                    "again in a moment.";
             return false;
         }
         catch (Exception ex) when (IsExpected(ex))

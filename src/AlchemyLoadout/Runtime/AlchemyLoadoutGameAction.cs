@@ -115,7 +115,8 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
             return Reject(AlchemyLoadoutPreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(AlchemyLoadoutPreflight.ContractUnavailable, _bindingFailure);
+            return Reject(AlchemyLoadoutPreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("Alchemy"));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))

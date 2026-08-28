@@ -40,7 +40,8 @@ internal sealed class ResearchGameAction : IDisposable
             return ResearchSubmission.Reject(ResearchPreflight.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return ResearchSubmission.Reject(ResearchPreflight.ContractUnavailable, _bindingFailure);
+            return ResearchSubmission.Reject(ResearchPreflight.ContractUnavailable,
+                GameActionAnswer.NotAttached("Scholar > Research"));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))
@@ -222,7 +223,8 @@ internal sealed class ResearchGameAction : IDisposable
                 { reason = "No associated research type has a free bonus level available."; return ResearchPreflight.BonusUnavailable; }
                 return ResearchPreflight.Proceeded;
             default:
-                reason = "The research mode is unsupported.";
+                reason =
+                    "The suite sent a control this screen has no button for; nothing was applied.";
                 return ResearchPreflight.InvalidMode;
         }
     }
