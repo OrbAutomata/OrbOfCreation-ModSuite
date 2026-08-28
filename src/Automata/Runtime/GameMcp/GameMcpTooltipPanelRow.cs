@@ -47,28 +47,32 @@ internal static class GameMcpTooltipPanelRow
     }
 
     /// <summary>
-    /// The address a panel of one element hands out: its own segment where that segment resolves on
-    /// its own and the row carries a uuid, and the whole tail otherwise.
+    /// The shortest tail of this element's path that no other live element answers to.
     /// </summary>
     /// <remarks>
-    /// Two identities for one row. A row carrying a uuid already has the handle the rest of this
-    /// surface addresses things by, and nine such rows of one round spent ~190 bytes each on an
-    /// absolute path the caller never once quoted back. A row with no uuid keeps the full tail —
-    /// that address is its only handle — and so does one whose segment two elements answer to: a
-    /// short handle that does not resolve is worse than a long one that does.
+    /// The address a caller quotes back only has to name one element, and this is the computation
+    /// the ambiguous <c>game_tooltip</c> refusal already performs to decide that it does not. A
+    /// live round spent 23% of this verb on Canvas-rooted ancestry no caller ever quoted: the chain
+    /// was there so that a row plus its page's prefix would resolve, and a tail that resolves on
+    /// its own needs neither. It lengthens one segment at a time and only where uniqueness
+    /// requires it, so the address is always a valid <c>path</c> argument and never longer than the
+    /// whole chain.
     /// </remarks>
-    internal static string Address(string tail, bool identified, IReadOnlyList<string> livePaths)
+    internal static string ShortestUnique(string path, IReadOnlyList<string> livePaths)
     {
-        if (tail is null) throw new ArgumentNullException(nameof(tail));
+        if (path is null) throw new ArgumentNullException(nameof(path));
         if (livePaths is null) throw new ArgumentNullException(nameof(livePaths));
-        if (!identified) return tail;
-        var cut = tail.LastIndexOf('/');
-        if (cut < 0) return tail;
-        var segment = tail.Substring(cut + 1);
-        var found = 0;
-        for (var index = 0; index < livePaths.Count && found < 2; index++)
-            if (NativeObjectPath.Addresses(livePaths[index], segment)) found++;
-        return found == 1 ? segment : tail;
+        var cut = path.Length;
+        while (true)
+        {
+            cut = path.LastIndexOf('/', cut - 1);
+            if (cut <= 0) return path;
+            var tail = path.Substring(cut + 1);
+            var found = 0;
+            for (var index = 0; index < livePaths.Count && found < 2; index++)
+                if (NativeObjectPath.Addresses(livePaths[index], tail)) found++;
+            if (found == 1) return tail;
+        }
     }
 
     /// <summary>
@@ -124,7 +128,7 @@ internal static class GameMcpTooltipPanelRow
 
         var addresses = new string[matches.Count];
         for (var index = 0; index < addresses.Length; index++)
-            addresses[index] = Address(paths[matches[index]], identified: true, paths);
+            addresses[index] = ShortestUnique(paths[matches[index]], paths);
         return EntityAddress.Ambiguous(
             "ambiguous_element",
             matches.Count.ToString(CultureInfo.InvariantCulture) +

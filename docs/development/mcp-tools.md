@@ -3594,24 +3594,17 @@ navigation, and any open modal. Closing a modal only drops its canvas group's al
 every panel the session ever opened stays active in the hierarchy — the catalog reads the game's own
 `UIModal.IsOpen()` up each element's ancestry and lists none of them, so what it counts is what the
 player can hover rather than what is instantiated.
-A screen's elements hang off a handful of panels, so the catalog is a list of panels: each says the
-ancestry its own elements share once, as `pathPrefix` and before them, and each element under it
-carries only its own last segment. The shared part is computed over the panel rather than over the
-page, because one prefix over a mixed page is only as deep as its most distant pair of rows — taken
-over a page spanning three panels it collapsed to a canvas name, leaving every row of every panel
-repeating some 150 identical characters of its own panel's ancestry. `pathPrefix` is present on a
-panel exactly when its elements have ancestry above their own last segment, and it is printed above
-the elements it explains rather than below them, which is where a key a reader needs to read row one
-belongs.
+A screen's elements hang off a handful of panels, so the catalog is a list of panels.
 
-**The page says its own root once.** Every panel prefix on a screen opens with the same canvas and
-content area, and on a list screen it goes far deeper than that — a round measured a third of the
-whole tooltip surface as address rather than content, half of it this one repetition. The response
-states that shared ancestry once as `pathRoot`, and each panel's `pathPrefix` is what the root did
-not already say. An absolute path is `pathRoot`, then the row's `pathPrefix`, then the element's own
-`path`, joined with `/` in that order; nothing is lost and nothing is said twice. The root is
-computed over the page that is actually being sent, so a resumed page states its own. A page whose
-panels share no ancestry states no `pathRoot` at all.
+**Every path printed here is the shortest tail of that element's path no other live element answers
+to.** It starts at the element's own last segment and lengthens one segment at a time, only where
+uniqueness requires it, so the address names exactly one element and is a valid `path` argument
+exactly as printed — nothing to prepend, and never longer than the whole chain. What went with the
+Canvas-rooted chain is `pathRoot` and `pathPrefix`: they existed so a row plus its page's ancestry
+would resolve, and a tail that resolves on its own needs neither. A live round measured 23% of this
+verb's whole wire as that ancestry, and the caller never quoted one back in 313 calls. Two paths a
+screen genuinely draws identically are the one case with no shorter answer, and each states its
+whole chain rather than a shorter one that would be a guess.
 
 **A panel of one component names it once.** Siblings under one parent are usually one component
 repeated with a different index, and re-typing the component per row cost a round 1,210 bytes inside
@@ -3621,26 +3614,19 @@ is only its own `[index]` — joined onto the component with no separator, becau
 index are one segment. The brackets stay on the row: a bare number in a `path` column beside a
 `slot` column is the confusion the slot column exists to end. The fold is per panel and it pays for
 itself — a panel mixing components, a segment with no index, and a component too short to earn its
-own line all keep every row's full segment.
+own line all keep every row's full address.
 
-**A panel holding one element inlines it.** Naming the panel anyway spent a prefix line and an
-indent level on a row whose whole content was one name — round ten's worst page was six panels of
-one element each, two thirds of it address. Such a panel is printed as the element itself; a panel
-that really groups several rows keeps the prefix its rows share. A lone element that carries an `id`
-states only its own segment, because the `id` is the handle the rest of this surface addresses
-things by and nine such rows of one round spent about 190 bytes each on an absolute path the caller
-never quoted back. A lone element with no `id` states its whole `path` against the `pathRoot` — that
-address is its only handle — and so does one whose segment another live element also answers to,
-because a short handle that does not resolve is worse than a long one that does.
+**A panel holding one element inlines it.** Naming the panel anyway spent a line and an indent level
+on a row whose whole content was one name — round ten's worst page was six panels of one element
+each, two thirds of it address. Such a panel is printed as the element itself.
 
 `game_tooltip` resolves a row by the tail it was handed: any tail of a live path, matched at a
 segment boundary, up to and including the whole path.
 A tail naming more than one live element is refused rather than resolved to the first, and the
-refusal says to prepend the `pathRoot` and `pathPrefix` the catalog returned with that row — two
-scroll lists on one screen hand out colliding tails routinely, and the prefix is what tells them
-apart. A row under a `pathComponent` is addressed by the component and its index joined, never by
-the bare index; the catalog never hands out a segment that does not resolve on its own, so a lone
-row's segment is always an address as printed. A tail naming none says to re-read the catalog instead, because the screen has moved on.
+refusal says to re-read the catalog, whose addresses name one element each — a tail that collides
+is one the caller shortened or one the screen has moved on from. A row under a `pathComponent` is
+addressed by the component and its index joined, never by the bare index.
+A tail naming none says to re-read the catalog instead, because the screen has moved on.
 The reply is compact plain screen text.
 
 **`game_tooltip` takes `path` or `uuid`, exactly one per call.** A path names a place on the screen

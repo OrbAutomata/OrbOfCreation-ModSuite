@@ -3756,15 +3756,11 @@ public sealed class Plugin : BaseUnityPlugin
         var first = Math.Max(offset, 0);
         var end = (int)Math.Min(panels.Count, (long)offset + command.Amount);
 
-        // The ancestry this page's panels all hang off, said once at the top and then never again.
-        // Every prefix on a screen opens with the same canvas and content area, and on a list screen
-        // it goes far deeper than that — a round measured a third of the whole tooltip surface as
-        // address rather than content, half of it this repetition. What each row carries is what the
-        // root does not already say, so an absolute path is the root and the row's own text joined
-        // in that order, and nothing is lost.
-        var pagePrefixes = new List<string>();
-        for (var index = first; index < end; index++) pagePrefixes.Add(panels[index].Prefix);
-        var root = NativeObjectPath.CommonPrefix(pagePrefixes);
+        // Every element is addressed by the shortest tail of its path that no other live element
+        // answers to. The Canvas-rooted chain existed so a row plus its page's prefix would
+        // resolve; a tail that resolves on its own needs neither, and a round measured 23% of this
+        // verb as ancestry no caller ever quoted back. The address lengthens one segment at a time
+        // and only where uniqueness requires it, so it is always a valid `path` argument.
         var projected = new GameMcpArrayBuilder();
         for (var index = first; index < end; index++)
         {
@@ -3773,8 +3769,6 @@ public sealed class Plugin : BaseUnityPlugin
             var members = new List<GameMcpObjectBuilder>(panel.Count);
             var segments = new List<string>(panel.Count);
             GameMcpObjectBuilder? sole = null;
-            var soleTail = string.Empty;
-            var soleIdentified = false;
             for (var member = panel.Start; member < panel.Start + panel.Count; member++)
             {
                 var entry = entries[member];
@@ -3792,7 +3786,7 @@ public sealed class Plugin : BaseUnityPlugin
                         "tooltip_contract_unavailable",
                         identityFailure);
                 }
-                var segment = NativeObjectPath.Relative(entry.Path, panel.Prefix);
+                var segment = GameMcpTooltipPanelRow.ShortestUnique(entry.Path, paths);
                 var tooltip = GameMcpTooltipPanelRow.Project(
                     segment,
                     item.GetName(),
@@ -3802,26 +3796,17 @@ public sealed class Plugin : BaseUnityPlugin
                 members.Add(tooltip);
                 segments.Add(segment);
                 sole = tooltip;
-                soleTail = NativeObjectPath.Relative(entry.Path, root);
-                soleIdentified = entityId != Guid.Empty;
             }
 
-            // A panel holding one element has no shared ancestry to name apart from that element:
-            // naming it anyway spent two lines and a prefix on a row whose whole content was one
-            // name. Round ten's worst page was six panels of one element each, two thirds of it
-            // address. So the panel says that element's own path and the element's own words, and a
-            // panel that really groups several keeps the prefix its rows share.
+            // A panel holding one element is that element: naming a group around it spent a line on
+            // a row whose whole content was one name. Round ten's worst page was six panels of one
+            // element each, two thirds of it address.
             if (sole is not null && panel.Count == 1)
             {
-                sole["path"] = GameMcpTooltipPanelRow.Address(soleTail, soleIdentified, paths);
                 projected.Add(sole);
                 continue;
             }
             var group = new GameMcpObjectBuilder();
-            var prefix = string.Equals(panel.Prefix, root, StringComparison.Ordinal)
-                ? string.Empty
-                : NativeObjectPath.Relative(panel.Prefix, root);
-            if (prefix.Length > 0) group["pathPrefix"] = prefix;
 
             // Siblings under one parent are usually one component repeated with a different index,
             // and typing that component once per row cost a round 1,210 bytes inside tables that
@@ -3841,7 +3826,6 @@ public sealed class Plugin : BaseUnityPlugin
         {
             ["scene"] = SceneManager.GetActiveScene().name,
         };
-        if (root.Length > 0) details["pathRoot"] = root;
         details["total"] = panels.Count;
         details["rows"] = projected;
         if (end < panels.Count) details["nextOffset"] = end;
@@ -3890,10 +3874,8 @@ public sealed class Plugin : BaseUnityPlugin
                     "tooltip_match_failed",
                     "tooltip path '" + requestedPath + "' matched " +
                     matches.Length + " active current-screen elements" +
-                    (matches.Length > 1
-                        ? "; prepend the pathRoot and pathPrefix game_screen_elements returned with this row " +
-                          "to name one"
-                        : "; re-read game_screen_elements for this screen's current paths"));
+                    "; re-read game_screen_elements for this screen's current paths, which name " +
+                    "one element each");
             }
             hover = matches[0].Hover;
         }

@@ -217,30 +217,47 @@ public sealed class GameMcpTooltipPanelRowTests
     }
 
     /// <summary>
-    /// A panel of one element that carries a uuid stops printing a second identity beside it: its
-    /// own segment is the address, because the uuid is what the rest of the surface addresses it
-    /// by. A row with no uuid, or one whose segment two live elements answer to, keeps the tail
-    /// that is its only handle.
+    /// Every row is addressed by the shortest tail of its path no other live element answers to,
+    /// whether it carries a uuid or not: the address only has to name one element, and the
+    /// Canvas-rooted chain around it was 23% of one round's whole screen-elements wire.
     /// </summary>
     [Fact]
-    public void A_lone_row_with_an_id_addresses_itself_by_its_own_segment()
+    public void A_row_is_addressed_by_the_shortest_tail_that_names_one_element()
     {
         var live = new[]
         {
             "Canvas[0]/ContentArea[2]/ScreenContent[2]/Panel[0]/NumberVarPlain[0]",
             "Canvas[0]/ContentArea[2]/ScreenContent[2]/Other[1]/Label[0]",
         };
-        const string Tail = "ScreenContent[2]/Panel[0]/NumberVarPlain[0]";
 
-        Assert.Equal("NumberVarPlain[0]", GameMcpTooltipPanelRow.Address(Tail, true, live));
-        Assert.Equal(Tail, GameMcpTooltipPanelRow.Address(Tail, false, live));
+        Assert.Equal("NumberVarPlain[0]", GameMcpTooltipPanelRow.ShortestUnique(live[0], live));
+        Assert.Equal("Label[0]", GameMcpTooltipPanelRow.ShortestUnique(live[1], live));
+    }
 
+    /// <summary>
+    /// It lengthens one segment at a time and only where uniqueness requires it, so the printed
+    /// address is always a valid <c>path</c> argument and never longer than the whole chain.
+    /// </summary>
+    [Fact]
+    public void An_address_two_elements_answer_to_grows_by_one_segment_at_a_time()
+    {
         var colliding = new[]
         {
             "Canvas[0]/ContentArea[2]/ScreenContent[2]/Panel[0]/NumberVarPlain[0]",
             "Canvas[0]/ContentArea[2]/ScreenContent[2]/Other[1]/NumberVarPlain[0]",
         };
-        Assert.Equal(Tail, GameMcpTooltipPanelRow.Address(Tail, true, colliding));
+
+        Assert.Equal(
+            "Panel[0]/NumberVarPlain[0]",
+            GameMcpTooltipPanelRow.ShortestUnique(colliding[0], colliding));
+        Assert.Equal(
+            "Other[1]/NumberVarPlain[0]",
+            GameMcpTooltipPanelRow.ShortestUnique(colliding[1], colliding));
+
+        // Nothing distinguishes two identical paths, so the address is the whole chain rather than
+        // a shorter one that would be a guess.
+        var twins = new[] { colliding[0], colliding[0] };
+        Assert.Equal(colliding[0], GameMcpTooltipPanelRow.ShortestUnique(colliding[0], twins));
     }
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
