@@ -9688,6 +9688,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
     },
     {
+      "id": "prerequisites.adjust-value",
+      "assembly": "assembly-csharp",
+      "type": "Prerequisites+Container",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "adjustValue",
+      "visibility": "private",
+      "static": false,
+      "valueType": "BigDouble",
+      "owners": [
+        "Common world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side. It is the number the no-argument Check() adds to every threshold it walks, so an unlock row cannot be evaluated without it.", "evidence": "kind:field BigDouble"}
+    },
+    {
       "id": "prerequisites.available",
       "assembly": "assembly-csharp",
       "type": "Prerequisites+Container",
@@ -16848,6 +16867,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
     },
     {
+      "id": "structure.prerequisites",
+      "assembly": "assembly-csharp",
+      "type": "StructureSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "prerequisites",
+      "visibility": "public",
+      "static": false,
+      "valueType": "Prerequisites+Container",
+      "owners": [
+        "Common world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side. IsAvailable() is this container's Check(), so its conditions are what holds the structure shut.", "evidence": "kind:field Prerequisites+Container"}
+    },
+    {
       "id": "structure.prerequisites-per-level",
       "assembly": "assembly-csharp",
       "type": "StructureSO",
@@ -18229,6 +18267,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "upgrade.prerequisites",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "prerequisites",
+      "visibility": "public",
+      "static": false,
+      "valueType": "Prerequisites+Container",
+      "owners": [
+        "Common world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side. IsAvailable() is this container's Check() below the level cap, so its conditions are what holds the upgrade shut.", "evidence": "kind:field Prerequisites+Container"}
     },
     {
       "id": "upgrade.prerequisites-per-level",
@@ -21080,6 +21137,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Prerequisites+Container"}
     },
     {
+      "id": "research.level-visibility-prereq",
+      "assembly": "assembly-csharp",
+      "type": "ResearchSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "levelVisibilityPrereq",
+      "visibility": "public",
+      "static": false,
+      "valueType": "Prerequisites+Container",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side. Initialize() builds it as levelPrerequisites.Filter().SetAdjustValue(-levelVisibilityRange), and IsVisible() ANDs its Check() with the other visibility container's, so it is half of what holds a research entry shut.", "evidence": "kind:field Prerequisites+Container"}
+    },
+    {
       "id": "research.meets-level-requirements",
       "assembly": "assembly-csharp",
       "type": "ResearchSO",
@@ -21118,6 +21194,25 @@
       ],
       "place": "capture",
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "research.visibility-prerequisites",
+      "assembly": "assembly-csharp",
+      "type": "ResearchSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "visibilityPrerequisites",
+      "visibility": "public",
+      "static": false,
+      "valueType": "Prerequisites+Container",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side. IsVisible() ANDs its Check() with levelVisibilityPrereq's, so it is half of what holds a research entry shut.", "evidence": "kind:field Prerequisites+Container"}
     },
     {
       "id": "resource-cost-list.is-within-capacity",

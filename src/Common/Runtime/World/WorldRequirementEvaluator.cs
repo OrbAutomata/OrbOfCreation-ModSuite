@@ -111,6 +111,17 @@ internal static class WorldRequirementEvaluator
     private const int MaximumExpansionDepth = 32;
 
     /// <summary>
+    /// The level an unlock container is checked at.
+    /// </summary>
+    /// <remarks>
+    /// Nought, and not the asking entity's level. The game reads an unlock container through the
+    /// no-argument <c>Container.Check()</c>, which builds <c>ConditionInfo.Adjust(adjustValue, 0L)</c> —
+    /// what varies between those containers is the threshold adjustment, never the level. Forwarding an
+    /// entity's own level here would scale thresholds by a number the game never applies.
+    /// </remarks>
+    internal const long UnlockCheckLevel = 0L;
+
+    /// <summary>
     /// The level an upgrade's per-level container is checked at, matching the game's
     /// <c>HasMetQueuedLevelRequirements()</c>: the level a purchase made now would land on.
     /// </summary>
@@ -646,16 +657,20 @@ internal static class WorldRequirementEvaluator
     /// <c>new ConditionValueInstance(value, conditionInfo)</c>.
     /// </summary>
     /// <remarks>
-    /// The instance adds <c>conditionInfo.adjustValue</c>, which is nought for every per-level check:
-    /// the level reaches <c>Check</c> through the implicit <c>int → ConditionInfo</c> conversion, which
-    /// leaves the adjustment at nought and the condition type at <c>HardRequirement</c>.
+    /// The instance is <c>LeveledValue.AtCondition(info) + info.adjustValue</c>, and the row carries
+    /// the adjustment the game's own evaluation of it supplies: the container's stored one where the
+    /// game reads the container through the no-argument <c>Check()</c>, and nought where the caller
+    /// builds the <c>ConditionInfo</c> from the level through the implicit <c>int → ConditionInfo</c>
+    /// conversion, which also leaves the condition type at <c>HardRequirement</c>.
     /// </remarks>
     private static bool TryThreshold(in WorldEntityRequirement row, long level, out BigDouble threshold)
     {
         if (TryModifier(row.PerLevel, out var perLevel) &&
-            TryModifier(row.ModPerLevel, out var modPerLevel))
+            TryModifier(row.ModPerLevel, out var modPerLevel) &&
+            GameLeveledValue.TryAtLevel(row.BaseValue, perLevel, modPerLevel, level, out var leveled))
         {
-            return GameLeveledValue.TryAtLevel(row.BaseValue, perLevel, modPerLevel, level, out threshold);
+            threshold = leveled + row.ThresholdAdjustment;
+            return true;
         }
 
         threshold = default;
