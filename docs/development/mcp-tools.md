@@ -1457,8 +1457,11 @@ duplicate identity (`treeId`, overrides, debug mode, and bonus-level cost) are i
 The Discovery Tree is a transient in-game event rather than a standing page, which is why its
 lifecycle lives inside the one discovery tool instead of a permanent tool of its own.
 
-In Idle mode, `initiate` reports `available`, a stable false `reasonCode` when needed, and each exact
-cost line as a named `resource` plus `cost`, canonical `spendableAmount`, and `affordable`. In
+In Idle mode, `initiate` reports `available`, a stable false `reasonCode` when needed, and — only
+where the price is the thing left to decide — each exact cost line as a named `resource` plus
+`cost`, canonical `spendableAmount`, and `affordable`. A tree the game is not showing, or one with
+nothing left in reach, carries the reason and no price: quoting one for a press that cannot happen
+sent a caller to earn a number it would still not be allowed to spend. In
 Choice mode, `offers` contains named handle/category references in native order.
 `selectedOffer` — the named reference every `…Uuid` becomes on the wire — appears only after
 selection. The `reroll` decision block appears only in Choice mode. An empty offer set omits

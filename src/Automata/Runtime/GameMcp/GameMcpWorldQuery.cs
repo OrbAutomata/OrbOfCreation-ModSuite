@@ -6008,28 +6008,29 @@ internal static class GameMcpWorldQuery
                 else if (hasNext) initiate["reasonCode"] = "unaffordable";
                 else AddNoDiscoveryReason(initiate, tree);
             }
-            if (hasNext)
+            // Priced only where the price is the thing left to decide. A tree the game is not
+            // showing quoted "400 of 100 Mana affordable=no" underneath "The game is not showing
+            // this discovery tree.", which sent a caller to go and earn a price for a press that
+            // would still not exist.
+            if (tree.Visible && hasNext && tree.NextItemCosts.Count > 0)
             {
-                if (tree.NextItemCosts.Count > 0)
+                var costs = new JArray();
+                for (var index = 0; index < tree.NextItemCosts.Count; index++)
                 {
-                    var costs = new JArray();
-                    for (var index = 0; index < tree.NextItemCosts.Count; index++)
+                    var cost = tree.NextItemCosts[index];
+                    var amount = SpendableAmount(
+                        world, cost.ResourceId, cost.AvailableAmount);
+                    costs.Add(new JObject
                     {
-                        var cost = tree.NextItemCosts[index];
-                        var amount = SpendableAmount(
-                            world, cost.ResourceId, cost.AvailableAmount);
-                        costs.Add(new JObject
-                        {
-                            ["resourceId"] = cost.ResourceId.ToString("D"),
-                            ["cost"] = new GameMcpDomainValue(
-                                PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
-                            ["amount"] = new GameMcpDomainValue(amount),
-                            ["affordable"] = CanAfford(
-                                world, cost.ResourceId, cost.Amount, cost.AvailableAmount),
-                        });
-                    }
-                    initiate["costs"] = costs;
+                        ["resourceId"] = cost.ResourceId.ToString("D"),
+                        ["cost"] = new GameMcpDomainValue(
+                            PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
+                        ["amount"] = new GameMcpDomainValue(amount),
+                        ["affordable"] = CanAfford(
+                            world, cost.ResourceId, cost.Amount, cost.AvailableAmount),
+                    });
                 }
+                initiate["costs"] = costs;
             }
             result["initiate"] = initiate;
         }

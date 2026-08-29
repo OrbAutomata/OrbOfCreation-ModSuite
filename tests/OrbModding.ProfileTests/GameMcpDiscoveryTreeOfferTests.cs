@@ -476,6 +476,40 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             (string?)unaffordable["row"]!["initiate"]!["costs"]![0]!["spendableAmount"]);
     }
 
+    /// <summary>
+    /// A tree the game is not showing quotes no price. The row used to print
+    /// "The game is not showing this discovery tree." and then <c>400 of 100 Mana affordable=no</c>
+    /// in the same block, which sent a caller to go and earn a price for a press that would still
+    /// not exist. An unpressable press says why it is unpressable and nothing else.
+    /// </summary>
+    [Fact]
+    public void ATreeTheGameIsNotShowingQuotesNoPrice()
+    {
+        var treeId = Guid.NewGuid();
+        var currencyId = Guid.Parse("eda26ca0-afcc-4fc3-9d8a-eb279123353d");
+        var hidden = new WorldDiscoveryTree(
+            treeId, false, 0, BigDouble.Zero, 1, false, Guid.Empty,
+            Array.Empty<Guid>(), false, false,
+            new[]
+            {
+                new WorldDiscoveryTreeCost(
+                    currencyId, new BigDouble(4, 2), new BigDouble(1, 2)),
+            },
+            Guid.Empty, Guid.Empty, 0, 0, false, 2, 8, 5, 9, true, true, false);
+
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(DiscoveryWorld(hidden), generation: 84),
+            "discovery-trees",
+            treeId.ToString("D")))["row"]!;
+
+        Assert.False((bool)row["initiate"]!["available"]!);
+        Assert.Equal("ERR_NOT_FOUND", (string?)row["initiate"]!["reasonCode"]);
+        Assert.Equal(
+            "The game is not showing this discovery tree.",
+            (string?)row["initiate"]!["reason"]);
+        Assert.Null(row["initiate"]!["costs"]);
+    }
+
     [Fact]
     public void ChoiceTreeOffersAreOrderedResolvableAndExplainableFromOneWorld()
     {
