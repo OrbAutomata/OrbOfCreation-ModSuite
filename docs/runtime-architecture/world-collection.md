@@ -158,11 +158,6 @@ that nobody has to infer them from a comparison count:
 - **Derived level facts** — `committedLevel`, `effectiveLevel`, `developmentProgress`, `isBounded`,
   `isExhausted`, `remainingLevels`, `isDeveloping` — and the derived capacity facts other than the two
   the collection check now pins.
-- **A prerequisite container's `adjustValue`.** The parameterised overload the requirement oracle
-  uses builds its `ConditionInfo` from the level alone, so both sides answer the unadjusted question
-  and the comparison stays honest — but a container authored with a nonzero adjustment is a
-  shortfall neither side models and the pass therefore cannot see
-  (`AutomataRequirementVerifier.cs:56-61`).
 - **Crafting worker enrichment, purchase-view route admission, and each decision reader's derived
   half.** These compose published facts under suite policy rather than transcribing a native chain, so
   there is no single member to disagree with; portable tests and the reason codes each verdict carries

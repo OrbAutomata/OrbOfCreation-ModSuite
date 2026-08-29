@@ -858,6 +858,108 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
             WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
     }
 
+    /// <summary>
+    /// The unlock program is checked at level nought, with the container's own adjustment added.
+    /// </summary>
+    /// <remarks>
+    /// Both halves are the no-argument <c>Container.Check()</c>'s own reading:
+    /// <c>ConditionInfo.Adjust(adjustValue, 0L)</c>. Forwarding the owner's level would scale an
+    /// unlock threshold by a number the game never applies there, and dropping the adjustment would
+    /// read the wrong threshold for the one container the game authors one for.
+    /// </remarks>
+    [Fact]
+    public void TheUnlockProgramIsCheckedAtLevelNoughtWithItsContainersAdjustment()
+    {
+        var gated = Upgrade();
+        var casting = new global::IntVariable { Value = 4 };
+        global::IntVariable.All.Add(casting);
+        gated.prerequisites.prerequisites.Add(new Requirements.NumberRequirement
+        {
+            item = casting,
+            reqType = Requirements.NumberRequirementType.Value,
+            value = new Requirements.LeveledValue
+            {
+                baseValue = 5d,
+                perLevel = new ValueModifier(ValueModifier.ValueModifierType.Raw, new BigDouble(1d)),
+            },
+        });
+
+        // Five at level nought, and the owner's own level never reaches the threshold.
+        Assert.Equal(
+            WorldRequirementVerdict.Unmet,
+            WorldRequirementEvaluator.Evaluate(
+                Collect(),
+                gated.GetGuid(),
+                WorldRequirementEvaluator.UnlockCheckLevel,
+                WorldRequirementProgramKind.Unlock));
+
+        // The adjustment moves the threshold, not the level: five minus three is two, and four holds.
+        gated.prerequisites.SetAdjustValue(new BigDouble(-3d));
+        Assert.Equal(
+            WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(
+                Collect(),
+                gated.GetGuid(),
+                WorldRequirementEvaluator.UnlockCheckLevel,
+                WorldRequirementProgramKind.Unlock));
+
+        // The per-level program is untouched by either: it authored no conditions at all.
+        Assert.Equal(
+            WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
+    /// <summary>
+    /// A research entry's two visibility containers are one ANDed program, not a choice between them.
+    /// </summary>
+    /// <remarks>
+    /// <c>ResearchSO.IsVisible()</c> is <c>visibilityPrerequisites.Check() &amp;&amp;
+    /// levelVisibilityPrereq.Check()</c>. The flat model already ANDs distinct group positions, so the
+    /// second container's conditions continue where the first's left off and the fold is the game's.
+    /// </remarks>
+    [Fact]
+    public void ResearchAndsBothOfItsVisibilityContainers()
+    {
+        var scribing = Research();
+        var held = Research();
+        held.level = 6;
+        var withheld = Research();
+        withheld.level = 0;
+
+        scribing.visibilityPrerequisites.prerequisites.Add(ResearchCondition(held, 6d));
+        scribing.levelVisibilityPrereq.prerequisites.Add(ResearchCondition(withheld, 1d));
+
+        var world = Collect();
+        Assert.Equal(
+            WorldRequirementVerdict.Unmet,
+            WorldRequirementEvaluator.Evaluate(
+                world,
+                scribing.GetGuid(),
+                WorldRequirementEvaluator.UnlockCheckLevel,
+                WorldRequirementProgramKind.Unlock));
+
+        // Both containers publish, at their own group positions, so neither can hide behind the other.
+        Assert.True(WorldEntityRequirementLookup.TryFindRange(
+            world.EntityRequirements, scribing.GetGuid(), out var start, out var count));
+        var rows = world.EntityRequirements.AsSpan();
+        var positions = new System.Collections.Generic.List<int>();
+        for (var offset = 0; offset < count; offset++)
+        {
+            ref readonly var row = ref rows[start + offset];
+            if (row.Program == WorldRequirementProgramKind.Unlock) positions.Add(row.GroupOrdinal);
+        }
+        Assert.Equal(new[] { 0, 1 }, positions);
+
+        withheld.level = 1;
+        Assert.Equal(
+            WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(
+                Collect(),
+                scribing.GetGuid(),
+                WorldRequirementEvaluator.UnlockCheckLevel,
+                WorldRequirementProgramKind.Unlock));
+    }
+
     private static global::UpgradeSO Upgrade()
     {
         var upgrade = new global::UpgradeSO { maxLevel = -1 };

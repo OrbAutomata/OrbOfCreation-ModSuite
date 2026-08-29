@@ -511,12 +511,12 @@ internal static class GameMcpDecisionReason
             "The game keeps this locked, and says nothing about what would unlock it.",
 
         // The lock and the next level's requirements are two different authored lists, and this
-        // block only ever carried the second. Saying "met" of the rows below while the thing was
-        // shut read as a green light three rounds running; the sentence names which question the
-        // rows answer so the caller stops looking for the lock among them.
+        // block once carried only the second. Saying "met" of the rows below while the thing was
+        // shut read as a green light three rounds running; the sentence names which list answers
+        // which question so the caller stops looking for the lock among the wrong rows.
         "unlock_conditions_unmet" =>
-            "The game keeps this locked, and its lock is a separate list of conditions from the " +
-            "ones its next level needs — the requirements here are the next level's.",
+            "The game keeps this locked. What would unlock it is under \"unlocksWhen\"; the " +
+            "requirements beside it are what its next level needs, which is a separate list.",
 
         // Offers, challenges and prestige
         "not_offered" => "This is not among the offers the game is showing.",

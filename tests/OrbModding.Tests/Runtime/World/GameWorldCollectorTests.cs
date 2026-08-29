@@ -2537,6 +2537,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         public FakeCostList baseCost = new();
         public FakeModifierRef costPerQuantity = new();
         public FakePrerequisites prerequisitesPerLevel = new();
+        public FakePrerequisites prerequisites = new();
         public FakeScribeEnchantTable enchantTable = new();
 
         public int GetPurchaseLevel() => Level;
@@ -2590,6 +2591,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         public FakeCostList resourceCost = new();
         public FakeModifierListRef resourceCostModPerLevel = new();
         public FakePrerequisites prerequisitesPerLevel = new();
+        public FakePrerequisites prerequisites = new();
 
         /// <summary>What one level of this upgrade permanently applies.</summary>
         public FakePermanentEffects permanentEffects = new();
@@ -2660,6 +2662,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         public bool flagged;
         public bool Available = true;
         public FakePrerequisites levelPrerequisites = new();
+        public FakePrerequisites visibilityPrerequisites = new();
+        public FakePrerequisites levelVisibilityPrereq = new();
         public bool hiddenLevel;
         public int levelVisibilityRange = 2;
         public int requiredStagesCached;

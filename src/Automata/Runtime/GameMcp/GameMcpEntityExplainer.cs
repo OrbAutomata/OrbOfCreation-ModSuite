@@ -609,6 +609,16 @@ internal static class GameMcpEntityExplainer
         };
         if (lockedByUnlockGate) requirements["reasonCode"] = "unlock_conditions_unmet";
 
+        // What would actually unlock it, which the block could not say while the unlock containers
+        // were uncaptured. Only while the gate is shut: an entity the game already lets through has
+        // no lock to explain, and its latched `available` means the game would not walk these
+        // conditions again either.
+        if (lockedByUnlockGate)
+        {
+            var unlocksWhen = ProjectUnlockConditions(world, id);
+            if (unlocksWhen is not null) requirements["unlocksWhen"] = unlocksWhen;
+        }
+
         // The line a player can act on, first. Everything a locked entity is waiting for, each row
         // naming the thing, what it asks and what is held — read straight off the leaves below, so
         // it can never disagree with them. A round read one of these out of column ten of a
@@ -660,6 +670,51 @@ internal static class GameMcpEntityExplainer
                 !research.Visible,
             _ => false,
         };
+
+    /// <summary>
+    /// The conditions behind the game's own unlock gate, worded like every other requirement row.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Read at level nought, which is the level the no-argument <c>Container.Check()</c> walks its
+    /// conditions at, with each row carrying the container's own threshold adjustment. It is not the
+    /// asking entity's check level: an unlock container has no level of its own.
+    /// </para>
+    /// <para>
+    /// Its unmet leaves are deliberately not folded into the block's <c>unmet</c> summary. That list
+    /// documents itself as the next level's, and two authored lists sharing one summary would leave a
+    /// caller unable to tell which question a line answers — the exact confusion the lock verdict was
+    /// fixed to end. Every leaf here already carries its own <c>needs</c> and <c>met</c>, and a lock is
+    /// a short list.
+    /// </para>
+    /// </remarks>
+    private static JObject? ProjectUnlockConditions(GameWorldState world, Guid ownerId)
+    {
+        if (!WorldEntityRequirementLookup.TryFindContainerRange(
+                world.EntityRequirements, ownerId, containerIndex: 0, out var start, out var count))
+        {
+            return null;
+        }
+
+        var children = new JArray();
+        ProjectFlatRequirementGroups(
+            world,
+            world.EntityRequirements.AsSpan(),
+            start,
+            count,
+            WorldRequirementEvaluator.UnlockCheckLevel,
+            new HashSet<RequirementKey>(),
+            depth: 0,
+            children,
+            new JArray(),
+            WorldRequirementProgramKind.Unlock);
+
+        // Nothing captured means nothing honest to say. An empty operator node would assert a
+        // structure this entity does not have and read as a lock with no conditions.
+        return children.Count == 0
+            ? null
+            : new JObject { ["operator"] = "AND", ["children"] = children };
+    }
 
     private static JObject ProjectRequirementContainer(
         GameWorldState world,
@@ -726,14 +781,14 @@ internal static class GameMcpEntityExplainer
         HashSet<RequirementKey> trail,
         int depth,
         JArray destination,
-        JArray unmet)
+        JArray unmet,
+        WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel)
     {
         var priorGroup = -1;
         for (var offset = 0; offset < count; offset++)
         {
             ref readonly var first = ref rows[start + offset];
-            if (first.Program != WorldRequirementProgramKind.NextLevel ||
-                first.GroupOrdinal == priorGroup)
+            if (first.Program != program || first.GroupOrdinal == priorGroup)
             {
                 continue;
             }

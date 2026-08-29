@@ -990,6 +990,11 @@ public class UpgradeSO : IdScriptableObject, IActionable
     // checks it as prerequisitesPerLevel.Check(level + queuedLevels + 1), which takes a level and so
     // cannot be a latched boolean the way `available` is.
     public Prerequisites.Container prerequisitesPerLevel = new Prerequisites.Container();
+
+    // The whole-upgrade gate, as distinct from the gate on the level being bought. IsAvailable() is
+    // this container's no-argument Check() below the level cap, and that call is what leaves
+    // `available` latched — which is why the stub's IsAvailable() answers from the latch.
+    public Prerequisites.Container prerequisites = new Prerequisites.Container();
     public List<ViewListVariable.ListTuple> viewListAdditions = new List<ViewListVariable.ListTuple>();
     public BigDouble buildTime;
     public double developmentTime = 5.0;
@@ -1079,6 +1084,9 @@ public class StructureSO : UpgradeableObject, Targeting.ITargetable, IActionable
 
     // The structure's own per-level gate, checked at its quantity rather than at a level count.
     public Prerequisites.Container prerequisitesPerLevel = new Prerequisites.Container();
+
+    // The whole-structure gate. IsAvailable() is this container's no-argument Check().
+    public Prerequisites.Container prerequisites = new Prerequisites.Container();
 
     // World collection's reading. Field names mirror the game's.
     public int queuedEchos;
@@ -1604,6 +1612,26 @@ public class Prerequisites
         /// </summary>
         public List<object> prerequisites = new List<object>();
 
+        /// <summary>
+        /// What the no-argument <c>Check()</c> adds to every threshold it walks.
+        /// </summary>
+        /// <remarks>
+        /// Private, as the game declares it, because the suite reads it by reflection and a public
+        /// stub field would let a binding that cannot see the real one pass here. The game authors a
+        /// nonzero one exactly once — <c>ResearchSO.Initialize()</c> gives
+        /// <c>levelVisibilityPrereq</c> the negated <c>levelVisibilityRange</c> — and reaches it
+        /// through this setter.
+        /// </remarks>
+        private BigDouble adjustValue;
+
+        public Container SetAdjustValue(BigDouble value)
+        {
+            adjustValue = value;
+            return this;
+        }
+
+        public BigDouble AdjustValue => adjustValue;
+
         public bool Check()
         {
             CheckCalls++;
@@ -2041,6 +2069,12 @@ public class ResearchSO : ILevelable
     public ResourceCostList researchCost = new ResourceCostList();
     public ResourceFillList resourceFillList = new ResourceFillList();
     public Prerequisites.Container levelPrerequisites = new Prerequisites.Container();
+
+    // The two containers IsVisible() ANDs. `levelVisibilityPrereq` is not authored on its own: the
+    // game builds it in Initialize() as levelPrerequisites.Filter().SetAdjustValue(-levelVisibilityRange),
+    // which is where the only nonzero threshold adjustment in the game comes from.
+    public Prerequisites.Container visibilityPrerequisites = new Prerequisites.Container();
+    public Prerequisites.Container levelVisibilityPrereq = new Prerequisites.Container();
     public bool hiddenLevel;
     public int levelVisibilityRange = 2;
     public ModifierRecord requirementsAdjust = new ModifierRecord();

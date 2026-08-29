@@ -65,6 +65,83 @@ public sealed class ProductionSourceAuditTests
     }
 
     /// <summary>
+    /// Nothing on the requirement path may reach the <c>Check()</c> overload that latches.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>Prerequisites.Container</c> ships two <c>Check</c> overloads and only one of them is a read.
+    /// The no-argument one calls <c>CheckGameId()</c>, returns early on the <c>available</c> it latched
+    /// before, and on success stores <c>available = true</c> — so a suite that called it while
+    /// explaining a lock would unlock the thing it was asked about. The parameterised one stores
+    /// nothing, which is what makes the unlock rows readable and the differential possible.
+    /// </para>
+    /// <para>
+    /// The forbidden tokens are the ways that overload is actually reachable by reflection: resolving
+    /// <c>Check</c> against <c>Type.EmptyTypes</c>, binding it through the no-argument call binder, and
+    /// the three whole-entity predicates whose bodies are that call. This is scoped to the files that
+    /// capture, evaluate, verify and project requirements — the entity categories do call
+    /// <c>IsAvailable()</c> and <c>IsVisible()</c> on purpose, because the latched <c>available</c> is
+    /// the published gate W58 designed and their manifest rows declare the latch as a side effect.
+    /// Widening this sweep to them would be a ruling about W58 rather than a test.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void TheRequirementPathNeverBindsTheCheckOverloadThatLatches()
+    {
+        var root = FindRepositoryRoot();
+        var scoped = new[]
+        {
+            Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldEntityRequirement.cs"),
+            Path.Combine(root, "src", "Common", "Runtime", "World", "WorldRequirementEvaluator.cs"),
+            Path.Combine(root, "src", "Automata", "Runtime", "Verification", "AutomataRequirementVerifier.cs"),
+            Path.Combine(root, "src", "Automata", "Runtime", "GameMcp", "GameMcpEntityExplainer.cs"),
+        };
+        var predicates = new[] { "\"IsAvailable\"", "\"IsVisible\"", "\"IsEnabled\"" };
+        var offenders = new List<string>();
+        var parameterisedBindings = 0;
+        foreach (var path in scoped)
+        {
+            Assert.True(File.Exists(path), "the requirement path moved: " + path);
+            var lineNumber = 0;
+            foreach (var line in File.ReadLines(path))
+            {
+                lineNumber++;
+                var name = Path.GetFileName(path) + ":" + lineNumber;
+                if (line.Contains("Requirements.ConditionInfo", StringComparison.Ordinal) ||
+                    line.Contains("parameters.Length == 1", StringComparison.Ordinal))
+                {
+                    parameterisedBindings++;
+                }
+
+                if (line.TrimStart().StartsWith("//", StringComparison.Ordinal)) continue;
+                if (line.TrimStart().StartsWith("///", StringComparison.Ordinal)) continue;
+                foreach (var predicate in predicates)
+                {
+                    if (line.Contains(predicate, StringComparison.Ordinal))
+                        offenders.Add(name + " " + predicate);
+                }
+
+                if (!line.Contains("\"Check\"", StringComparison.Ordinal)) continue;
+                if (line.Contains("EmptyTypes", StringComparison.Ordinal))
+                    offenders.Add(name + " resolves Check with no parameters");
+                if (line.Contains("Call<bool>(", StringComparison.Ordinal))
+                    offenders.Add(name + " binds Check through the no-argument call binder");
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "the no-argument Container.Check() latches `available`, so the requirement path reads " +
+            "the container's rows instead and asks the parameterised overload for the game's own " +
+            "verdict: " + string.Join(", ", offenders));
+
+        // Without this the sweep would also pass if the oracle were deleted outright.
+        Assert.True(
+            parameterisedBindings >= 2,
+            "the parameterised Check must still be how the requirement path asks the game.");
+    }
+
+    /// <summary>
     /// A requirement row on the wire says what a player must do about it. The game's own C# class
     /// names are not that, and neither is the suite's account of how it read them.
     /// </summary>

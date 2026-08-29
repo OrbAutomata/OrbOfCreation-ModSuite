@@ -2454,15 +2454,30 @@ levelVisibilityPrereq.Check()`. The rows below come from `prerequisitesPerLevel`
 `HasMetLevelRequirements()` and `MeetsLevelRequirements()` ask. So the lock and the next level's
 requirements are two different authored lists, and `suiteVerdict` folds in the game's own published
 answer for the first: while an entity's own gate is shut the block reads `Unmet` with
-`unlock_conditions_unmet`, whose sentence says the lock is a separate list and that these rows are
-the next level's. Without that fold the block said `Met` beside `state: locked` on the same
-response, three rounds running, and `nativeParity` could not see it because both sides of that
-differential read the same per-level container. `predicates.available` still carries the game's own
+`unlock_conditions_unmet`, whose sentence points at `unlocksWhen` for the lock and says these rows
+are the next level's, a separate list. Without that fold the block said `Met` beside `state: locked` on the same
+response, three rounds running. `predicates.available` still carries the game's own
 gate and its reason code. There is no `authority` paragraph beside them: it restated `suiteVerdict:
 Met` in prose, and eight of its nine appearances in a live round sat under `root: no conditions`,
 declaring a set of authored rows met for entities that have no rows at all. The installed v1.05
 contract additionally pins that a structure quantity requirement reads purchased `quantity`, not
 `selfBonusLevels` or an effective/total level.
+
+**A locked entity also says what would unlock it.** Those unlock containers are captured as a
+requirement program of their own, so a shut gate ships an `unlocksWhen` node beside the next level's
+`root`, and its leaves word themselves like every other leaf — `needs: Expand Magic owned`, `needs:
+4 Orb Advancement (have 0)`, `met: no`. An entity whose gate is open ships no such node. Three
+details in it are the game's, not the suite's: the program is read at level nought, the level the
+game's own no-argument `Check()` builds its `ConditionInfo` at; each container's `adjustValue`
+shifts that container's own thresholds, so it is captured per row and added to the leveled value the
+way `ConditionValueInstance` adds it; and a Research authors two visibility containers the game
+ANDs, so the second's groups continue after the first's and the ordinary all-of fold across them is
+that AND. The suite never calls the no-argument `Check()` from a read — that overload latches
+`available` on the game's own object — so capture reads fields, a source sweep pins that no
+read-side binding names it, and the differential hands the parameterized overload the exact
+`ConditionInfo` the latching one would have built. `nativeParity` covers the new program as three
+more passes — upgrade unlock, structure unlock, research visibility — so a suite verdict that
+disagrees with the game's own is `native_verdict_mismatch` here as anywhere else.
 
 Research blocks separate base, scaled, and native effective requirement thresholds and retain
 every direct adjustment's UUID, source native type, modifier type, amount, order, and passive state,

@@ -825,11 +825,11 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Equal("ERR_LOCKED", (string?)requirements["reasonCode"]);
 
         // The sentence has to add what `predicates.available` does not already say, or it is the
-        // restating paragraph coming back under a new name: which of the two authored lists the
-        // rows below belong to.
+        // restating paragraph coming back under a new name: which of the two authored lists answers
+        // which question, now that the block carries both.
         Assert.Equal(
-            "The game keeps this locked, and its lock is a separate list of conditions from the " +
-            "ones its next level needs — the requirements here are the next level's.",
+            "The game keeps this locked. What would unlock it is under \"unlocksWhen\"; the " +
+            "requirements beside it are what its next level needs, which is a separate list.",
             (string?)requirements["reason"]);
         Assert.Null(requirements["authority"]);
 
@@ -875,6 +875,72 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         // The differential agreed, which is exactly why this survived: it is not a parity failure.
         Assert.Null(requirements["nativeParity"]);
+
+        // Nothing was captured for the lock here, so the block says nothing about it rather than
+        // publishing an empty node that would read as a lock with no conditions.
+        Assert.Null(requirements["unlocksWhen"]);
+    }
+
+    /// <summary>
+    /// A locked entity says what would unlock it, in the same words its other rows use.
+    /// </summary>
+    /// <remarks>
+    /// The lock's conditions and the next level's are two authored lists, and until they were both
+    /// captured the block could name the lock but not read it. They stay apart on the wire: the
+    /// <c>unmet</c> summary documents itself as the next level's, so folding the lock's leaves into it
+    /// would leave a caller unable to tell which list a line came from.
+    /// </remarks>
+    [Fact]
+    public void ALockedUpgradeSaysWhichConditionsWouldUnlockIt()
+    {
+        var owner = Upgrade();
+        owner.available = false;
+        var opened = ResearchStub(level: 6);
+        var shut = ResearchStub(level: 1);
+        owner.prerequisitesPerLevel.prerequisites.Add(Require(opened, 5));
+        owner.prerequisitesPerLevel.ParameterizedCheckResult = true;
+        owner.prerequisites.prerequisites.Add(Require(shut, 4));
+
+        var requirements = Explain(Collect(), owner.GetGuid(), 949)["requirements"]!;
+
+        Assert.Equal("Unmet", (string?)requirements["suiteVerdict"]);
+        Assert.Equal("ERR_LOCKED", (string?)requirements["reasonCode"]);
+
+        var lockNode = Assert.IsType<JObject>(requirements["unlocksWhen"]);
+        Assert.Equal("AND", (string?)lockNode["operator"]);
+        var leaf = Assert.Single(lockNode["children"]!.OfType<JObject>());
+
+        // The leaf shape is every other requirement row's: what it needs, and whether it holds.
+        Assert.False((bool)leaf["met"]!);
+        Assert.Equal(new[] { "needs", "met", "requirement" }, leaf.Properties().Select(p => p.Name));
+        Assert.Contains("4", (string?)leaf["needs"]);
+
+        // The next level's rows are still the next level's, and still met.
+        var nextLevel = Assert.Single(
+            Assert.IsType<JObject>(requirements["root"])["children"]!.OfType<JObject>());
+        Assert.True((bool)nextLevel["met"]!);
+
+        // The lock's unmet leaf is not folded into the next level's summary.
+        Assert.Null(requirements["unmet"]);
+    }
+
+    /// <summary>
+    /// An entity the game is not holding shut shows nothing new. Its unlock container has latched, so
+    /// the game would not walk those conditions again either.
+    /// </summary>
+    [Fact]
+    public void AnUnlockedUpgradeCarriesNoLockExplanation()
+    {
+        var owner = Upgrade();
+        owner.available = true;
+        var shut = ResearchStub(level: 1);
+        owner.prerequisites.prerequisites.Add(Require(shut, 4));
+
+        var requirements = Explain(Collect(), owner.GetGuid(), 949)["requirements"]!;
+
+        Assert.Null(requirements["unlocksWhen"]);
+        Assert.Null(requirements["reasonCode"]);
+        Assert.Equal("Met", (string?)requirements["suiteVerdict"]);
     }
 
     [Fact]

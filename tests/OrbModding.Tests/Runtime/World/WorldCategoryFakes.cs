@@ -2771,6 +2771,19 @@ internal sealed class FakePrerequisites
     public List<object> prerequisites = new();
 
     /// <summary>
+    /// The threshold adjustment the no-argument <c>Check()</c> folds into its own
+    /// <c>ConditionInfo</c>. Private, as the game declares it, so a binding that could not read the
+    /// real one would fail here too.
+    /// </summary>
+    private BigDouble adjustValue;
+
+    public FakePrerequisites SetAdjustValue(BigDouble value)
+    {
+        adjustValue = value;
+        return this;
+    }
+
+    /// <summary>
     /// The read-only parameterized overload world collection binds as a differential oracle. This
     /// traversal fake intentionally answers only the unconditional case; requirement arithmetic is
     /// covered by the native-shaped shared stubs and evaluator tests.

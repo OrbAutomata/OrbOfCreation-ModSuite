@@ -26,6 +26,15 @@ internal enum RequirementOwnerShape
 
     /// <summary><c>PrerequisiteLinkSO.LinkDefinition.CheckPassivesEnabled()</c>, once per tier.</summary>
     PrerequisiteLinkTier = 3,
+
+    /// <summary>The container behind <c>UpgradeSO.IsAvailable()</c>.</summary>
+    UpgradeUnlock = 4,
+
+    /// <summary>The container behind <c>StructureSO.IsAvailable()</c>.</summary>
+    StructureUnlock = 5,
+
+    /// <summary>Both containers <c>ResearchSO.IsVisible()</c> ANDs.</summary>
+    ResearchVisibility = 6,
 }
 
 /// <summary>
@@ -53,11 +62,11 @@ internal enum RequirementOwnerShape
 /// shape; see <see cref="RequirementOwnerShape"/>.
 /// </para>
 /// <para>
-/// <b>Neither side models the container's <c>adjustValue</c>.</b> The parameterised overload the
-/// oracle uses builds its <c>ConditionInfo</c> from the level alone, so both sides answer the
-/// unadjusted question and the comparison stays honest — but a container authored with a nonzero
-/// adjustment is a shortfall this pass cannot see. It is recorded as parity debt rather than papered
-/// over here.
+/// <b>The container's <c>adjustValue</c> belongs to the unlock program alone.</b> The parameterised
+/// overload builds nothing of its own, and only the no-argument <c>Check()</c> ever reads that
+/// field — so a per-level pass answering the unadjusted question is answering the game's own
+/// question, while an unlock pass hands the oracle the exact
+/// <c>ConditionInfo.Adjust(adjustValue, 0L)</c> the no-argument overload would have built.
 /// </para>
 /// <para>
 /// An entity whose conditions the suite cannot evaluate is unverifiable rather than a mismatch. That
@@ -217,10 +226,14 @@ internal sealed class AutomataRequirementVerifier
             return ContainerReading.Comparable;
         }
 
+        // An owner publishes one set of rows per program and this pass compares one of them. Without
+        // the filter an unlock row would decide whether the per-level container is comparable.
+        var program = contract.Program;
         var rows = world.EntityRequirements.AsSpan();
         for (var offset = 0; offset < count; offset++)
         {
             ref readonly var row = ref rows[start + offset];
+            if (row.Program != program) continue;
             if (row.NodeKind == WorldRequirementNodeKind.Group) continue;
             if (!NamesNothing(in row)) continue;
 
@@ -237,6 +250,7 @@ internal sealed class AutomataRequirementVerifier
         for (var offset = 0; offset < count; offset++)
         {
             ref readonly var row = ref rows[start + offset];
+            if (row.Program != program) continue;
             if (row.NodeKind == WorldRequirementNodeKind.Group) continue;
             if (WorldRequirementEvaluator.Evaluate(world, in row, level) !=
                 WorldRequirementVerdict.Unevaluable)
@@ -283,6 +297,12 @@ internal sealed class AutomataRequirementVerifier
         private readonly FieldInfo? _tiers;
         private readonly FieldInfo? _tierContainer;
 
+        // An unlock owner can hold a second container the game ANDs with the first, and each carries
+        // its own threshold adjustment, which the no-argument Check() folds into its ConditionInfo.
+        private readonly FieldInfo? _secondContainer;
+        private readonly FieldInfo? _adjustValue;
+        private readonly MethodInfo? _adjust;
+
         private readonly FieldInfo? _level;
         private readonly FieldInfo? _queuedLevels;
         private readonly MethodInfo? _requirementLevel;
@@ -297,7 +317,10 @@ internal sealed class AutomataRequirementVerifier
             FieldInfo? tierContainer,
             FieldInfo? level,
             FieldInfo? queuedLevels,
-            MethodInfo? requirementLevel)
+            MethodInfo? requirementLevel,
+            FieldInfo? secondContainer,
+            FieldInfo? adjustValue,
+            MethodInfo? adjust)
         {
             _shape = shape;
             _check = check;
@@ -309,7 +332,20 @@ internal sealed class AutomataRequirementVerifier
             _level = level;
             _queuedLevels = queuedLevels;
             _requirementLevel = requirementLevel;
+            _secondContainer = secondContainer;
+            _adjustValue = adjustValue;
+            _adjust = adjust;
         }
+
+        /// <summary>Whether this shape reads what holds the entity shut rather than what a level costs.</summary>
+        private bool IsUnlock => _shape is RequirementOwnerShape.UpgradeUnlock
+            or RequirementOwnerShape.StructureUnlock
+            or RequirementOwnerShape.ResearchVisibility;
+
+        /// <summary>Which of the owner's published programs this pass compares.</summary>
+        internal WorldRequirementProgramKind Program => IsUnlock
+            ? WorldRequirementProgramKind.Unlock
+            : WorldRequirementProgramKind.NextLevel;
 
         internal static RequirementContract? TryResolve(Type ownerType, RequirementOwnerShape shape)
         {
@@ -321,6 +357,7 @@ internal sealed class AutomataRequirementVerifier
             FieldInfo? container = null;
             FieldInfo? tiers = null;
             FieldInfo? tierContainer = null;
+            FieldInfo? secondContainer = null;
             Type containerType;
 
             if (shape == RequirementOwnerShape.PrerequisiteLinkTier)
@@ -336,12 +373,23 @@ internal sealed class AutomataRequirementVerifier
             else
             {
                 container = ownerType.GetField(
-                    shape == RequirementOwnerShape.ResearchRequirementLevel
-                        ? "levelPrerequisites"
-                        : "prerequisitesPerLevel",
+                    shape switch
+                    {
+                        RequirementOwnerShape.ResearchRequirementLevel => "levelPrerequisites",
+                        RequirementOwnerShape.ResearchVisibility => "visibilityPrerequisites",
+                        RequirementOwnerShape.UpgradeUnlock or
+                            RequirementOwnerShape.StructureUnlock => "prerequisites",
+                        _ => "prerequisitesPerLevel",
+                    },
                     Instance);
                 if (container is null) return null;
                 containerType = container.FieldType;
+
+                if (shape == RequirementOwnerShape.ResearchVisibility)
+                {
+                    secondContainer = ownerType.GetField("levelVisibilityPrereq", Instance);
+                    if (secondContainer is null) return null;
+                }
             }
 
             FieldInfo? level = null;
@@ -370,13 +418,35 @@ internal sealed class AutomataRequirementVerifier
             var check = FindParameterisedCheck(containerType);
             if (check is null) return null;
 
-            var conditionInfo = check.GetParameters()[0].ParameterType
-                .GetConstructor(new[] { typeof(long) });
-            return conditionInfo is null
-                ? null
-                : new RequirementContract(
-                    shape, check, conditionInfo, getGuid,
-                    container, tiers, tierContainer, level, queuedLevels, requirementLevel);
+            var conditionInfoType = check.GetParameters()[0].ParameterType;
+            var conditionInfo = conditionInfoType.GetConstructor(new[] { typeof(long) });
+            if (conditionInfo is null) return null;
+
+            // An unlock container is asked at level nought with its own adjustment folded in, which is
+            // the ConditionInfo the no-argument Check() builds for itself. Reproducing it through the
+            // game's own factory rather than a constructor keeps the two sides one call apart.
+            FieldInfo? adjustValue = null;
+            MethodInfo? adjust = null;
+            var unlock = shape is RequirementOwnerShape.UpgradeUnlock
+                or RequirementOwnerShape.StructureUnlock
+                or RequirementOwnerShape.ResearchVisibility;
+            if (unlock)
+            {
+                adjustValue = containerType.GetField("adjustValue", Instance);
+                if (adjustValue is null) return null;
+                adjust = conditionInfoType.GetMethod(
+                    "Adjust",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static,
+                    null,
+                    new[] { adjustValue.FieldType, typeof(long) },
+                    null);
+                if (adjust is null || adjust.ReturnType != conditionInfoType) return null;
+            }
+
+            return new RequirementContract(
+                shape, check, conditionInfo, getGuid,
+                container, tiers, tierContainer, level, queuedLevels, requirementLevel,
+                secondContainer, adjustValue, adjust);
         }
 
         /// <summary>
@@ -441,7 +511,7 @@ internal sealed class AutomataRequirementVerifier
             long level) =>
             _shape == RequirementOwnerShape.PrerequisiteLinkTier
                 ? WorldRequirementEvaluator.EvaluateContainer(world, ownerId, containerIndex, level)
-                : WorldRequirementEvaluator.Evaluate(world, ownerId, level);
+                : WorldRequirementEvaluator.Evaluate(world, ownerId, level, Program);
 
         internal bool TryFindRows(
             GameWorldState world,
@@ -458,10 +528,14 @@ internal sealed class AutomataRequirementVerifier
         internal string Label(int containerIndex, long level) =>
             _shape == RequirementOwnerShape.PrerequisiteLinkTier
                 ? $"tier{containerIndex}@{level}"
-                : $"requirements@{level}";
+                : IsUnlock
+                    ? "unlock"
+                    : $"requirements@{level}";
 
         internal bool InvokeCheck(object entity, int containerIndex, long level)
         {
+            if (IsUnlock) return CheckUnlock(entity);
+
             var tier = _shape == RequirementOwnerShape.PrerequisiteLinkTier
                 ? (_tiers!.GetValue(entity) as IList)?[containerIndex]
                 : entity;
@@ -473,6 +547,38 @@ internal sealed class AutomataRequirementVerifier
             if (container is null) return true;
 
             var info = _conditionInfo.Invoke(new object[] { level });
+            return (bool)_check.Invoke(container, new[] { info })!;
+        }
+
+        /// <summary>
+        /// The game's own unlock answer, taken through the overload that does not latch.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The no-argument <c>Check()</c> would answer this too, and would answer it wrong for a
+        /// comparison: it short-circuits on the <c>available</c> it latched earlier, so a container
+        /// that once held would keep saying so after the conditions stopped holding — and the suite
+        /// would be marked as disagreeing with a verdict the game did not recompute. Handing the
+        /// parameterised overload the exact <c>ConditionInfo</c> the latching one builds for itself
+        /// asks the same question of the same conditions with nothing cached in front of it.
+        /// </para>
+        /// <para>
+        /// The owner's own short-circuits are deliberately not reproduced: <c>UpgradeSO.IsAvailable()</c>
+        /// answers false at the level cap before it reaches the container, which is not the container
+        /// disagreeing about anything. This compares containers with containers.
+        /// </para>
+        /// </remarks>
+        private bool CheckUnlock(object entity)
+        {
+            if (!CheckOne(_container!.GetValue(entity))) return false;
+            return _secondContainer is null || CheckOne(_secondContainer.GetValue(entity));
+        }
+
+        private bool CheckOne(object? container)
+        {
+            if (container is null) return true;
+            var info = _adjust!.Invoke(
+                null, new[] { _adjustValue!.GetValue(container), (object)0L });
             return (bool)_check.Invoke(container, new[] { info })!;
         }
     }

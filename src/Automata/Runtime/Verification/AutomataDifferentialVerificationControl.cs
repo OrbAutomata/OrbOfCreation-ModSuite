@@ -213,6 +213,12 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
             "Prerequisite link tier",
             "PrerequisiteLinkSO",
             RequirementOwnerShape.PrerequisiteLinkTier));
+        RunPass(new RequirementPass(
+            "Upgrade unlock", "UpgradeSO", RequirementOwnerShape.UpgradeUnlock));
+        RunPass(new RequirementPass(
+            "Structure unlock", "StructureSO", RequirementOwnerShape.StructureUnlock));
+        RunPass(new RequirementPass(
+            "Research visibility", "ResearchSO", RequirementOwnerShape.ResearchVisibility));
         RunPass(new UsagePrerequisitePass());
 
         whole.Stop();
