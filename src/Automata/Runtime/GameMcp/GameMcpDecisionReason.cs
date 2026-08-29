@@ -295,7 +295,7 @@ internal static class GameMcpDecisionReason
         // the caller's next move is to open a Recipe Book, which is a different move from giving up
         // on the tree — and while both wore ERR_NOT_FOUND, nothing on the wire told them apart.
         "no_discoveries_in_reach" or
-        "screen_locked" or
+        "screen_locked" or "unlock_conditions_unmet" or
         "native_unavailable" or "native_leeway_exhausted" => ClassLocked,
 
         // The suite or the game could not read or serve the fact.
@@ -502,6 +502,14 @@ internal static class GameMcpDecisionReason
         // learns there is nothing further to look up, which is a decision it can act on.
         "native_unavailable" =>
             "The game keeps this locked, and says nothing about what would unlock it.",
+
+        // The lock and the next level's requirements are two different authored lists, and this
+        // block only ever carried the second. Saying "met" of the rows below while the thing was
+        // shut read as a green light three rounds running; the sentence names which question the
+        // rows answer so the caller stops looking for the lock among them.
+        "unlock_conditions_unmet" =>
+            "The game keeps this locked, and its lock is a separate list of conditions from the " +
+            "ones its next level needs — the requirements here are the next level's.",
 
         // Offers, challenges and prestige
         "not_offered" => "This is not among the offers the game is showing.",

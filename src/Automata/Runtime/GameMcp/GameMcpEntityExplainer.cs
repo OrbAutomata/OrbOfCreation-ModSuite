@@ -526,6 +526,7 @@ internal static class GameMcpEntityExplainer
             _ => StructureCheckLevel(world, id),
         };
         var suite = WorldRequirementEvaluator.Evaluate(world, id, checkLevel);
+        var lockedByUnlockGate = IsLockedByItsUnlockGate(world, id, kind);
         var unmet = new JArray();
         var root = ProjectRequirementContainer(
             world,
@@ -593,10 +594,20 @@ internal static class GameMcpEntityExplainer
             }
         }
 
+        // The verdict is the screen's, not one container's. The rows below are the *next level's*
+        // container; the game's own lock is `UpgradeSO.prerequisites` / `StructureSO.prerequisites`
+        // / `ResearchSO.visibilityPrerequisites`, a different authored list the reader never walks.
+        // While the block published the per-level answer alone it said `Met` beside `state: locked`
+        // on the same response, three rounds running, and the native-parity guard could not catch
+        // it because both sides of that differential read the same per-level container.
+        var verdict = suite == WorldRequirementVerdict.Unevaluable || !lockedByUnlockGate
+            ? suite
+            : WorldRequirementVerdict.Unmet;
         var requirements = new JObject
         {
-            ["suiteVerdict"] = suite.ToString(),
+            ["suiteVerdict"] = verdict.ToString(),
         };
+        if (lockedByUnlockGate) requirements["reasonCode"] = "unlock_conditions_unmet";
 
         // The line a player can act on, first. Everything a locked entity is waiting for, each row
         // naming the thing, what it asks and what is held — read straight off the leaves below, so
@@ -616,6 +627,37 @@ internal static class GameMcpEntityExplainer
         if (parityFailure is not null) requirements["nativeParity"] = parity;
         return requirements;
     }
+
+    /// <summary>
+    /// Whether the game's own unlock gate — the container the suite does not read — is what holds
+    /// this entity shut.
+    /// </summary>
+    /// <remarks>
+    /// Each owner family keeps two authored containers and the suite walks only the per-level one:
+    /// <c>UpgradeSO.IsVisible()</c> and <c>IsAvailable()</c> are <c>prerequisites.Check()</c>,
+    /// <c>StructureSO.IsAvailable()</c> is <c>prerequisites.Check()</c> (and its
+    /// <c>IsVisible()</c> is that same call), and <c>ResearchSO.IsVisible()</c> is
+    /// <c>visibilityPrerequisites.Check() &amp;&amp; levelVisibilityPrereq.Check()</c> — while
+    /// <c>HasMetQueuedLevelRequirements()</c>, <c>HasMetLevelRequirements()</c> and
+    /// <c>MeetsLevelRequirements()</c> all ask <c>prerequisitesPerLevel</c> /
+    /// <c>levelPrerequisites</c>. The world already publishes each family's native answer, so the
+    /// lock is read from that rather than re-derived from a container nobody captured.
+    /// <para>
+    /// An upgrade at its ceiling reports <c>IsAvailable()</c> false for a reason that is not a lock,
+    /// so being exhausted is excluded here; <c>state</c> and the cap blocker already say it.
+    /// </para>
+    /// </remarks>
+    private static bool IsLockedByItsUnlockGate(GameWorldState world, Guid id, EntityKind kind) =>
+        kind switch
+        {
+            EntityKind.Upgrade => WorldLookup.TryFind(world.Upgrades, id, out var upgrade) &&
+                !upgrade.Reading.Available && !upgrade.IsExhausted,
+            EntityKind.Structure => WorldLookup.TryFind(world.Structures, id, out var structure) &&
+                !structure.Reading.Unlocked,
+            EntityKind.Research => WorldLookup.TryFind(world.Research, id, out var research) &&
+                !research.Visible,
+            _ => false,
+        };
 
     private static JObject ProjectRequirementContainer(
         GameWorldState world,

@@ -783,16 +783,17 @@ public sealed class GameMcpEntityDetailTests : IDisposable
     }
 
     /// <summary>
-    /// The gap between "the authored rows are met" and "the game still refuses" is named by the
-    /// two fields that already carry it: <c>suiteVerdict</c>, scoped to the rows it read, and
-    /// <c>predicates.available</c> with the game's own no. The <c>authority</c> paragraph that used
-    /// to sit between them said the first of those again in prose, and a live round emitted it nine
-    /// times byte-identical — eight of them on entities whose <c>root</c> is "no conditions", where
-    /// it declared a set of authored rows met that does not exist. This is the post-prestige shape:
-    /// levels reset to nought, no authored condition published, and the game's own gate shut.
+    /// A locked entity never reads <c>Met</c>. The lock is <c>UpgradeSO.prerequisites</c> and the
+    /// rows are <c>prerequisitesPerLevel</c> — two different authored containers — so a block that
+    /// published the per-level answer alone said "requirements met" of a thing the screen draws
+    /// shut, three live rounds running. There is still no <c>authority</c> paragraph: it restated
+    /// the verdict in prose, and eight of its nine appearances in a live round sat under <c>root:
+    /// no conditions</c>, declaring a set of authored rows met that does not exist. This is the
+    /// post-prestige shape: levels reset to nought, no authored condition published, and the game's
+    /// own gate shut.
     /// </summary>
     [Fact]
-    public void RequirementsMetOnAnEntityTheGameHoldsShutCarryNoRestatingParagraph()
+    public void RequirementsNeverReadMetWhileTheGameHoldsTheEntityShut()
     {
         var id = Guid.Parse("34444444-4444-4444-8444-4444444444a1");
         var reading = new RawUpgradeSample(
@@ -812,8 +813,18 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         Assert.False((bool)result["predicates"]!["available"]!["available"]!);
         Assert.Equal("ERR_LOCKED", (string?)result["predicates"]!["available"]!["reasonCode"]);
-        Assert.Equal("Met", (string?)result["requirements"]!["suiteVerdict"]);
-        Assert.Null(result["requirements"]!["authority"]);
+        var requirements = result["requirements"]!;
+        Assert.Equal("Unmet", (string?)requirements["suiteVerdict"]);
+        Assert.Equal("ERR_LOCKED", (string?)requirements["reasonCode"]);
+
+        // The sentence has to add what `predicates.available` does not already say, or it is the
+        // restating paragraph coming back under a new name: which of the two authored lists the
+        // rows below belong to.
+        Assert.Equal(
+            "The game keeps this locked, and its lock is a separate list of conditions from the " +
+            "ones its next level needs — the requirements here are the next level's.",
+            (string?)requirements["reason"]);
+        Assert.Null(requirements["authority"]);
 
         // One class per fact: the row keeps the fact and gives up its second opinion about it.
         // Prerequisites unmet and nothing bought is the first of the three lifecycle words, and
@@ -823,6 +834,40 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Null(result["row"]!["available"]);
         Assert.Null(result["row"]!["reasonCode"]);
         Assert.Null(result["row"]!["reason"]);
+    }
+
+    /// <summary>
+    /// The shape the game actually has, and the one three live rounds hit: an authored per-level
+    /// requirement that is genuinely satisfied on an upgrade the game's own
+    /// <c>prerequisites</c> container holds shut. Both sides of <c>nativeParity</c> read
+    /// <c>prerequisitesPerLevel</c>, so the guard agrees with itself and sees nothing; the lock is
+    /// in a container neither of them looks at.
+    /// </summary>
+    [Fact]
+    public void AnUpgradeWhoseNextLevelRowsAreMetStillReadsUnmetWhileItsOwnGateIsShut()
+    {
+        var owner = Upgrade();
+        owner.available = false;
+        var research = ResearchStub(level: 6);
+        owner.prerequisitesPerLevel.prerequisites.Add(Require(research, 5));
+        owner.prerequisitesPerLevel.ParameterizedCheckResult = true;
+
+        var requirements = Explain(Collect(), owner.GetGuid(), 949)["requirements"]!;
+
+        // The rows themselves are not overwritten: the leaf that holds still says so, and the
+        // block's verdict is the screen's rather than that leaf's.
+        var leaf = Assert.Single(
+            Assert.IsType<JObject>(requirements["root"])["children"]!.OfType<JObject>());
+        Assert.True((bool)leaf["met"]!);
+        Assert.Equal("Unmet", (string?)requirements["suiteVerdict"]);
+        Assert.Equal("ERR_LOCKED", (string?)requirements["reasonCode"]);
+
+        // Nothing is unmet among the rows, so the array that answers "what is stopping this" is
+        // still absent — the sentence is what points at the lock.
+        Assert.Null(requirements["unmet"]);
+
+        // The differential agreed, which is exactly why this survived: it is not a parity failure.
+        Assert.Null(requirements["nativeParity"]);
     }
 
     [Fact]

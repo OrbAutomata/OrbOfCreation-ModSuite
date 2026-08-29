@@ -74,6 +74,27 @@ can be acted on, and a node's absence is a data question, not an interface bug.
 Requirements can also be **per level**: the same node can demand different things at level 3 than it
 did at level 1.
 
+### Every owner authors two containers, and the lock is the one that is not per level
+
+`StaticallyVerified` on v1.05. The lock and the next level's requirements are different authored
+lists, held in different fields:
+
+| Owner | The lock | The next level's requirements |
+|---|---|---|
+| `UpgradeSO` | `prerequisites` — `IsVisible()`, and `IsAvailable()` behind `!IsMaxLevel()` | `prerequisitesPerLevel` — `HasMetLevelRequirements()`, `HasMetQueuedLevelRequirements()` |
+| `StructureSO` | `prerequisites` — `IsAvailable()`, and `IsVisible()` is that same call | `prerequisitesPerLevel` — `HasMetLevelRequirements()` |
+| `ResearchSO` | `visibilityPrerequisites && levelVisibilityPrereq` — `IsVisible()` | `levelPrerequisites` — `MeetsLevelRequirements()` |
+
+Both are `Prerequisites.Container`, so nothing about their shape distinguishes them; only the field
+name and the caller do. The lock is reached through the **no-argument** `Check()`, which latches
+`available` and stamps a frame, so it is never called from a read pass — the game's own
+`IsVisible()` / `IsAvailable()` reading is what a snapshot carries for it. `StructureSO` also
+authors `prerequisitesSoft`, which is neither: its only readers are the development-penalty path
+(`CheckInsufficientReqPenalty`, `GetDevelopmentPenaltyNodes`, `IsLocalDependenciesVisible`).
+
+A verdict computed from the per-level container alone answers a real question and is not the
+screen's. Reporting one as the other is how "requirements met" gets printed beside a locked node.
+
 ## Containers and reusable link tiers
 
 An authored `Prerequisites.Container` combines its top-level conditions with **AND**. Nested

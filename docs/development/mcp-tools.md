@@ -2420,14 +2420,24 @@ The worker compares its graph verdict with that same-publication native answer. 
 unevaluable suite math, a different owner/level, or a disagreement makes that id's whole block
 `unavailable`; a disagreement returns both verdicts and `native_verdict_mismatch`.
 
-Requirements met while the game still holds the entity shut is not a disagreement — the authored
-rows are one gate among several, and the game folds in conditions it never published as rows.
-`suiteVerdict` scopes itself to the rows it read, and `predicates.available` says what the game's
-own gate answers, with its reason code. There is no `authority` paragraph beside them: it restated
-`suiteVerdict: Met` in prose, and eight of its nine appearances in a live round sat under `root: no
-conditions`, declaring a set of authored rows met for entities that have no rows at all. The
-installed v1.05 contract additionally pins that a structure quantity requirement reads purchased
-`quantity`, not `selfBonusLevels` or an effective/total level.
+**A locked entity never reads `Met`.** Each owner family authors *two* prerequisite containers and
+the requirement rows are read from one of them. `UpgradeSO.IsVisible()` and `IsAvailable()` are
+`prerequisites.Check()`; `StructureSO.IsAvailable()` is `prerequisites.Check()` and its
+`IsVisible()` is that same call; `ResearchSO.IsVisible()` is `visibilityPrerequisites.Check() &&
+levelVisibilityPrereq.Check()`. The rows below come from `prerequisitesPerLevel` /
+`levelPrerequisites`, which is what `HasMetQueuedLevelRequirements()`,
+`HasMetLevelRequirements()` and `MeetsLevelRequirements()` ask. So the lock and the next level's
+requirements are two different authored lists, and `suiteVerdict` folds in the game's own published
+answer for the first: while an entity's own gate is shut the block reads `Unmet` with
+`unlock_conditions_unmet`, whose sentence says the lock is a separate list and that these rows are
+the next level's. Without that fold the block said `Met` beside `state: locked` on the same
+response, three rounds running, and `nativeParity` could not see it because both sides of that
+differential read the same per-level container. `predicates.available` still carries the game's own
+gate and its reason code. There is no `authority` paragraph beside them: it restated `suiteVerdict:
+Met` in prose, and eight of its nine appearances in a live round sat under `root: no conditions`,
+declaring a set of authored rows met for entities that have no rows at all. The installed v1.05
+contract additionally pins that a structure quantity requirement reads purchased `quantity`, not
+`selfBonusLevels` or an effective/total level.
 
 Research blocks separate base, scaled, and native effective requirement thresholds and retain
 every direct adjustment's UUID, source native type, modifier type, amount, order, and passive state,
@@ -2703,7 +2713,7 @@ most, so an old code's new class can be looked up here:
 | `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning`, `continue_wrong_scene` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached`, `bandwidth_blocked`, `drain_blocked` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
-| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `research_leeway_exhausted`, `native_leeway_exhausted` |
+| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `unlock_conditions_unmet`, `research_leeway_exhausted`, `native_leeway_exhausted` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `configuration_not_available`,
 `stale_configuration_generation`, `configuration_write_unconfirmed`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `unsupported_requirement_value`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable`, `single_buy_unavailable`, `unsupported_control`, `native_navigation_unavailable`, `native_plot_navigation_unavailable`, `native_plot_list_unavailable`, `native_probe_unavailable`, `tooltip_contract_unavailable`, `tooltip_read_faulted`, `continue_contract_unavailable`, `navigation_request_invalid`, `unsupported_probe` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused`, `native_tab_rejected`, `subtab_selection_failed` — the game's own gate said no and reported nothing else |
