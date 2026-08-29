@@ -4,6 +4,7 @@ using System.Collections;
 using System.Globalization;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata.GameMcp;
@@ -96,7 +97,8 @@ internal static class GameMcpObjectProjector
                 result[name] = new JObject
                 {
                     ["status"] = "not_available",
-                    ["reason"] = exception.GetBaseException().Message,
+                    ["reason"] = name + " could not be read." +
+                        GameActionFaultLog.Record(exception, name),
                 };
             }
         }

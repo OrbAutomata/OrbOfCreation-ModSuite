@@ -209,7 +209,8 @@ public sealed class ProductionSourceAuditTests
     }
 
     /// <summary>
-    /// No GameAction hands a caller the game's own .NET exception text.
+    /// Nothing a caller can read carries the game's own .NET exception text — across the whole MCP
+    /// transport, every feature's GameAction, and the plugin that answers with them.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -218,25 +219,100 @@ public sealed class ProductionSourceAuditTests
     /// <c>GameActionFaultLog</c> writes it to the suite log under a reference the sentence ends
     /// with. The rule is mechanical because the alternative is remembering it: a new fault arm
     /// that concatenates <c>GetBaseException().Message</c> onto its reason reads exactly like the
-    /// thirty-four that used to, and only a sweep tells the two apart.
+    /// thirty-four that used to, and only a sweep tells the two apart. Enumerating
+    /// <c>*GameAction.cs</c> alone was too narrow to say that: it left
+    /// <c>GameMcpTooltipProjector</c> appending the game's exception text straight into the
+    /// tooltip words a caller reads, so the roots are the whole transport.
     /// </para>
     /// <para>
-    /// One shape stays, and it is not an exemption granted to make this pass. A binding
-    /// composition failure's text is the suite's own — the binding helpers throw
-    /// <c>owner.Name + "." + name + " did not match."</c> — so it names the native member rather
-    /// than a runtime fault, and
-    /// <c>docs/development/mcp-tools.md</c> keeps that deliberately: a
-    /// <c>contract_unavailable</c> result is a defect report and the member is its subject.
-    /// It is recognised by the field it lands in, so a wire sentence cannot borrow it.
+    /// Two shapes stay and neither is an exemption granted to make this pass; both are recognised
+    /// by the sink they write to rather than by a path, so no file is exempt and a wire sentence
+    /// cannot borrow them. <c>_bindingFailure</c> holds the suite's own composition text — the
+    /// binding helpers throw <c>owner.Name + "." + name + " did not match."</c> — which names the
+    /// native member rather than a runtime fault, and <c>docs/development/mcp-tools.md</c> keeps
+    /// that deliberately: a <c>contract_unavailable</c> result is a defect report and the member is
+    /// its subject. <c>nativeDetail</c> is the tooltip reader's log-only sink, which
+    /// <c>Plugin.TooltipsUnreadableBecause</c> writes to the log before answering the caller with
+    /// an authored sentence. A statement that writes to a log is the third shape, and it is the
+    /// destination this whole rule exists to push the text towards —
+    /// <c>AutomaticSaveBackupStatus.Failed</c> named among them because the backup health surface
+    /// is Mod Config's own diagnostic, not a wire answer.
+    /// </para>
+    /// <para>
+    /// Exactly one site is exempt by name: the JSON-RPC parse error in <c>GameMcpHttpServer</c>.
+    /// Its text describes the caller's own bytes, which is the single exception text a caller can
+    /// act on, and no part of the game failed — so there is no fault to mint a reference for.
     /// </para>
     /// </remarks>
     [Fact]
-    public void NoGameActionPutsTheGamesOwnExceptionTextOnTheWire()
+    public void NoRawExceptionTextReachesTheWire()
     {
         var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var diagnosticSinks = new[]
+        {
+            "_bindingFailure", "nativeDetail", "AutomaticSaveBackupStatus.Failed",
+        };
+        var logCalls = new[]
+        {
+            "logerror", "logwarning", "logmessage", "loginfo", "logdebug", "logfatal",
+        };
+        const string parseErrorFile = "Automata/Runtime/GameMcp/GameMcpHttpServer.cs";
+        const string parseErrorSentence = "The request body is not JSON-RPC the suite can read: ";
+
         var offenders = new List<string>();
-        foreach (var path in Directory.EnumerateFiles(
-                     sourceRoot, "*GameAction.cs", SearchOption.AllDirectories))
+        foreach (var path in FilesWhoseTextCanReachACaller(sourceRoot))
+        {
+            var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
+            var lineNumber = 0;
+            var allowedStatement = false;
+            foreach (var line in File.ReadLines(path))
+            {
+                lineNumber++;
+                foreach (var sink in diagnosticSinks)
+                {
+                    if (line.Contains(sink, StringComparison.Ordinal)) allowedStatement = true;
+                }
+                foreach (var call in logCalls)
+                {
+                    if (line.Contains(call, StringComparison.OrdinalIgnoreCase))
+                        allowedStatement = true;
+                }
+                if (string.Equals(relativePath, parseErrorFile, StringComparison.Ordinal) &&
+                    line.Contains(parseErrorSentence, StringComparison.Ordinal))
+                {
+                    allowedStatement = true;
+                }
+
+                if (line.Contains("GetBaseException", StringComparison.Ordinal) &&
+                    !allowedStatement)
+                {
+                    offenders.Add(relativePath + ":" + lineNumber);
+                }
+                if (line.TrimEnd().EndsWith(";", StringComparison.Ordinal))
+                    allowedStatement = false;
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "The game's own exception text reached a caller; hand the exception to " +
+            "GameActionFaultLog.Record instead so it goes to the suite log under the reference " +
+            "the sentence names: " + string.Join(", ", offenders));
+    }
+
+    private static IEnumerable<string> FilesWhoseTextCanReachACaller(string sourceRoot)
+    {
+        var candidates = new List<string>();
+        candidates.AddRange(Directory.EnumerateFiles(
+            Path.Combine(sourceRoot, "Automata", "Runtime", "GameMcp"),
+            "*.cs",
+            SearchOption.AllDirectories));
+        candidates.AddRange(Directory.EnumerateFiles(
+            sourceRoot, "*GameAction.cs", SearchOption.AllDirectories));
+        candidates.Add(Path.Combine(sourceRoot, "Plugin.cs"));
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var path in candidates)
         {
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
             if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
@@ -244,29 +320,8 @@ public sealed class ProductionSourceAuditTests
             {
                 continue;
             }
-
-            var lineNumber = 0;
-            var bindingFailureStatement = false;
-            foreach (var line in File.ReadLines(path))
-            {
-                lineNumber++;
-                if (line.Contains("_bindingFailure", StringComparison.Ordinal))
-                    bindingFailureStatement = true;
-                if (line.Contains("GetBaseException", StringComparison.Ordinal) &&
-                    !bindingFailureStatement)
-                {
-                    offenders.Add(relativePath + ":" + lineNumber);
-                }
-                if (line.TrimEnd().EndsWith(";", StringComparison.Ordinal))
-                    bindingFailureStatement = false;
-            }
+            if (seen.Add(relativePath)) yield return path;
         }
-
-        Assert.True(
-            offenders.Count == 0,
-            "A GameAction put the game's own exception text where a caller reads it; hand the " +
-            "exception to GameActionAnswer.CouldNotRead or GameErrored instead so it goes to the " +
-            "suite log under a reference: " + string.Join(", ", offenders));
     }
 
     private static string FindRepositoryRoot()

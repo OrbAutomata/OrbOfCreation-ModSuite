@@ -2592,7 +2592,16 @@ the game rather than a class name. An unhandled error inside the suite names the
 handling, says nothing was applied, and carries a short reference; the exception and its stack go
 to the suite log under that same reference, which is what a report of the problem quotes. Raw
 exception text never reaches a caller, who can do nothing with a stack trace and should not be
-handed one as an explanation.
+handed one as an explanation. That holds across the whole transport rather than only the tool
+answers: a value a read projection cannot produce names the key it failed on, a screenshot the run
+folder will not store says screenshots cannot be stored right now, and a tooltip row whose value
+throws says its text is unavailable — each ending with the same `MCP-…` reference and none of them
+carrying a path, a member, or a .NET type.
+
+One request is answered differently, and it is the only one: a body that is not JSON-RPC comes back
+`-32700` under the suite's own sentence with the parser's words after it. That text describes the
+caller's own bytes, which is the single exception text a caller can act on, and no part of the game
+failed — so there is no fault to file a reference for.
 
 A tool's status word never depends on one of its arguments: `game_screenshot`
 answers `committed` whether or not `save` was asked for, because the capture is something the

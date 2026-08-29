@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -365,6 +367,54 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Equal(
             typeof(SuiteRuntimeConfiguration).FullName,
             (string?)projected["equalityContract"]);
+    }
+
+    private sealed class WedgedProjection
+    {
+        public string Readable => "read";
+
+        public string Wedged =>
+            throw new InvalidOperationException("SpellManager.instance was null while projecting");
+    }
+
+    /// <summary>
+    /// A projected value that will not read says so in the suite's own words, names the key it is
+    /// about, and hands back the reference the whole exception is filed under.
+    /// </summary>
+    /// <remarks>
+    /// The generic projector has no screen and no press, so neither shared GameAction sentence fits
+    /// it — but the key it failed on is the one fact a caller can act on, and the exception behind
+    /// it is the one thing a caller cannot. The two are joined by the reference rather than by
+    /// putting the second on the wire, and the neighbouring keys still project.
+    /// </remarks>
+    [Fact]
+    public void A_projected_value_that_will_not_read_names_its_key_and_carries_the_log_reference()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        try
+        {
+            var projected = GameMcpObjectProjector.Project(new WedgedProjection());
+
+            var wedged = projected["wedged"]!;
+            Assert.Equal("not_available", (string?)wedged["status"]);
+            var reason = (string?)wedged["reason"] ?? string.Empty;
+            Assert.StartsWith("wedged could not be read.", reason, StringComparison.Ordinal);
+            Assert.DoesNotContain("SpellManager.instance was null", reason);
+
+            var reference = Assert.Single(
+                Regex.Matches(reason, "MCP-[0-9A-F]{8}").Select(match => match.Value));
+            var line = Assert.Single(
+                logged, entry => entry.Contains(reference, StringComparison.Ordinal));
+            Assert.Contains("SpellManager.instance was null", line);
+            Assert.Contains("wedged", line);
+
+            Assert.Equal("read", (string?)projected["readable"]);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
     }
 
     [Fact]

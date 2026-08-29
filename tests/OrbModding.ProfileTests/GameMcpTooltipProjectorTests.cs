@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using OrbAutomata.GameMcp;
+using OrbModding.Common;
 using Xunit;
 
 namespace OrbModding.ProfileTests;
@@ -52,6 +54,55 @@ public sealed class GameMcpTooltipProjectorTests
         Assert.Contains("Nested\nFixture\nNested description\nnested row", text, StringComparison.Ordinal);
         Assert.Contains("Inspected\nFixture\nInspected description\npanel row", text, StringComparison.Ordinal);
         Assert.Equal(1, computations);
+    }
+
+    /// <summary>
+    /// A computed row whose value throws is answered in the suite's own words and carries the
+    /// reference the exception is filed under; the rest of the tooltip still reads.
+    /// </summary>
+    /// <remarks>
+    /// This body is tooltip words a player reads, so the game's own exception text landing in it
+    /// reached the wire as surely as any refusal did. The row it failed on is the caller's fact;
+    /// the type and member that threw are the maintainer's.
+    /// </remarks>
+    [Fact]
+    public void AComputedRowThatThrowsCarriesAReferenceInsteadOfTheGamesExceptionText()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        try
+        {
+            var wedged = new TooltipNode(string.Empty)
+            {
+                nodeType = TooltipNode.NodeType.IconText,
+                textFn = () => throw new InvalidOperationException(
+                    "EffectResultInfo.GetValue found no result"),
+            };
+            var root = new TooltipNode("section")
+            {
+                nodeType = TooltipNode.NodeType.Parent,
+                parentType = TooltipNode.ParentType.Boxed,
+                children = new List<TooltipNode> { new("authored child"), wedged },
+            };
+
+            var result = GameMcpTestHarness.Json(GameMcpTooltipProjector.Project(
+                new FakeTooltip("Primary", root), null, null));
+
+            var text = (string?)result["text"] ?? string.Empty;
+            Assert.Contains("authored child", text, StringComparison.Ordinal);
+            Assert.Contains("Tooltip text unavailable.", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("EffectResultInfo.GetValue found no result", text);
+
+            var reference = Assert.Single(
+                Regex.Matches(text, "MCP-[0-9A-F]{8}").Select(match => match.Value));
+            var line = Assert.Single(
+                logged, entry => entry.Contains(reference, StringComparison.Ordinal));
+            Assert.Contains("EffectResultInfo.GetValue found no result", line);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
     }
 
     [Fact]

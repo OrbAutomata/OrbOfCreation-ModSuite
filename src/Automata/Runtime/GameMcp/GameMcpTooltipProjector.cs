@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using OrbModding.Common;
 using JObject = OrbAutomata.GameMcp.GameMcpObjectBuilder;
 
 namespace OrbAutomata.GameMcp;
@@ -193,8 +194,11 @@ internal static class GameMcpTooltipProjector
             }
             catch (Exception exception)
             {
-                AppendLine(lines, "Tooltip text unavailable: " +
-                    exception.GetBaseException().Message, ref truncated);
+                AppendLine(
+                    lines,
+                    "Tooltip text unavailable." +
+                        GameActionFaultLog.Record(exception, "tooltip text"),
+                    ref truncated);
             }
             if (node.tooltipable is not null)
                 AppendTooltip(node.tooltipable, lines, visited, ref truncated);

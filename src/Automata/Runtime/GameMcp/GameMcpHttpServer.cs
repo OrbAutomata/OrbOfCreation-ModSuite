@@ -186,6 +186,10 @@ internal sealed class GameMcpHttpServer : IDisposable
                 request = token as JObject ??
                     throw new JsonException("The MCP body must be one JSON-RPC object.");
             }
+            // The one place a parser's own text may reach a caller: it describes the caller's own
+            // bytes, which is the single exception text a caller can act on, and nothing of the
+            // game's has failed — so there is no fault to log a reference for. Named by
+            // ProductionSourceAuditTests.NoRawExceptionTextReachesTheWire, which exempts no other.
             catch (Exception exception) when (
                 exception is JsonException or InvalidDataException or DecoderFallbackException)
             {
@@ -195,7 +199,8 @@ internal sealed class GameMcpHttpServer : IDisposable
                     GameMcpProtocolRouter.Error(
                         null,
                         -32700,
-                        "invalid JSON-RPC body: " + exception.GetBaseException().Message));
+                        "The request body is not JSON-RPC the suite can read: " +
+                        exception.GetBaseException().Message));
                 return;
             }
 

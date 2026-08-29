@@ -10,6 +10,14 @@ namespace OrbAutomata.GameMcp;
 /// Process-lifetime native layout binding for the debug tooltip reader. It caches only a compiled
 /// field accessor, never a Unity object; live tooltip objects are still resolved per command.
 /// </summary>
+/// <remarks>
+/// Every failure here hands back a <c>nativeDetail</c>, and the name is the contract: it names the
+/// game's own members and carries the game's own exception text, so
+/// <c>Plugin.TooltipsUnreadableBecause</c> logs it and answers the caller with the authored
+/// <c>TooltipsUnreadable</c> sentence instead. Called a "reason" it would be indistinguishable from
+/// a sentence bound for the wire — which is what
+/// <c>ProductionSourceAuditTests.NoRawExceptionTextReachesTheWire</c> recognises it by.
+/// </remarks>
 internal sealed class GameMcpTooltipNativeAccess
 {
     private readonly Func<object, IList?> _subTooltips;
@@ -39,12 +47,12 @@ internal sealed class GameMcpTooltipNativeAccess
         Type? spellType,
         Type? passiveAbilityType,
         out GameMcpTooltipNativeAccess access,
-        out string reason)
+        out string nativeDetail)
     {
         access = null!;
         if (hoverTooltipType is null)
         {
-            reason = "HoverTooltip type was unavailable during MCP startup binding";
+            nativeDetail = "HoverTooltip type was unavailable during MCP startup binding";
             return false;
         }
         var elementType = NativeAccessorBinder.CollectionElementType(
@@ -53,27 +61,27 @@ internal sealed class GameMcpTooltipNativeAccess
         var read = NativeAccessorBinder.CollectionField(hoverTooltipType, "subTooltips");
         if (elementType != typeof(ITooltipable) || read is null)
         {
-            reason = "HoverTooltip.subTooltips was not the exact audited List<ITooltipable> field";
+            nativeDetail = "HoverTooltip.subTooltips was not the exact audited List<ITooltipable> field";
             return false;
         }
 
         var spellRecipeId = NativeAccessorBinder.CallReferenceGuid(spellType, "get_reference");
         if (spellType is null || spellRecipeId is null)
         {
-            reason = "Spell.get_reference was not the exact audited recipe accessor";
+            nativeDetail = "Spell.get_reference was not the exact audited recipe accessor";
             return false;
         }
         var passiveAbilityId =
             NativeAccessorBinder.CallReferenceGuid(passiveAbilityType, "get_reference");
         if (passiveAbilityType is null || passiveAbilityId is null)
         {
-            reason = "PassiveAbility.get_reference was not the exact audited passive accessor";
+            nativeDetail = "PassiveAbility.get_reference was not the exact audited passive accessor";
             return false;
         }
 
         access = new GameMcpTooltipNativeAccess(
             read, spellType, spellRecipeId, passiveAbilityType, passiveAbilityId);
-        reason = string.Empty;
+        nativeDetail = string.Empty;
         return true;
     }
 
@@ -97,15 +105,15 @@ internal sealed class GameMcpTooltipNativeAccess
     /// <see langword="false"/> here and an empty id is not.
     /// </para>
     /// </remarks>
-    internal bool TryReadEntityId(ITooltipable? item, out Guid uuid, out string reason)
+    internal bool TryReadEntityId(ITooltipable? item, out Guid uuid, out string nativeDetail)
     {
         uuid = Guid.Empty;
         if (Environment.CurrentManagedThreadId != _mainThreadId)
         {
-            reason = "tooltip native access was rejected off the Unity startup thread";
+            nativeDetail = "tooltip native access was rejected off the Unity startup thread";
             return false;
         }
-        reason = string.Empty;
+        nativeDetail = string.Empty;
         if (item is null) return true;
         if (item is IdScriptableObject entity)
         {
@@ -121,7 +129,7 @@ internal sealed class GameMcpTooltipNativeAccess
         catch (Exception exception)
         {
             uuid = Guid.Empty;
-            reason = "reading the bound tooltip item's recipe reference failed: " +
+            nativeDetail = "reading the bound tooltip item's recipe reference failed: " +
                 exception.GetBaseException().Message;
             return false;
         }
@@ -151,18 +159,18 @@ internal sealed class GameMcpTooltipNativeAccess
     internal bool TryReadSubTooltips(
         object hoverTooltip,
         out ITooltipable[] subTooltips,
-        out string reason)
+        out string nativeDetail)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
         {
             subTooltips = Array.Empty<ITooltipable>();
-            reason = "tooltip native access was rejected off the Unity startup thread";
+            nativeDetail = "tooltip native access was rejected off the Unity startup thread";
             return false;
         }
         if (hoverTooltip is null)
         {
             subTooltips = Array.Empty<ITooltipable>();
-            reason = "the live HoverTooltip reference was null";
+            nativeDetail = "the live HoverTooltip reference was null";
             return false;
         }
 
@@ -174,14 +182,14 @@ internal sealed class GameMcpTooltipNativeAccess
         catch (Exception exception)
         {
             subTooltips = Array.Empty<ITooltipable>();
-            reason = "reading bound HoverTooltip.subTooltips failed: " +
+            nativeDetail = "reading bound HoverTooltip.subTooltips failed: " +
                 exception.GetBaseException().Message;
             return false;
         }
         if (values is null || values.Count == 0)
         {
             subTooltips = Array.Empty<ITooltipable>();
-            reason = string.Empty;
+            nativeDetail = string.Empty;
             return true;
         }
 
@@ -191,13 +199,13 @@ internal sealed class GameMcpTooltipNativeAccess
             if (values[index] is not ITooltipable item)
             {
                 subTooltips = Array.Empty<ITooltipable>();
-                reason = "bound HoverTooltip.subTooltips contained a non-ITooltipable entry";
+                nativeDetail = "bound HoverTooltip.subTooltips contained a non-ITooltipable entry";
                 return false;
             }
             result[index] = item;
         }
         subTooltips = result;
-        reason = string.Empty;
+        nativeDetail = string.Empty;
         return true;
     }
 }
