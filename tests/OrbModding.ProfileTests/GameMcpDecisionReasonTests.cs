@@ -8,6 +8,7 @@ using OrbAutomata;
 using OrbAutomata.GameMcp;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.World;
 using Xunit;
 
 namespace OrbModding.ProfileTests;
@@ -426,6 +427,81 @@ public sealed class GameMcpDecisionReasonTests
         Assert.All(passing, code => Assert.DoesNotContain(code, authored));
         Assert.All(suiteDefects, code => Assert.Contains(code, classified));
     }
+
+    /// <summary>
+    /// Every comparison this build ships has a phrase in the screen's words, and no phrase is
+    /// written for a comparison that does not exist.
+    /// </summary>
+    /// <remarks>
+    /// Concept coverage, not type bookkeeping: the two halves are authored apart on purpose — the
+    /// vocabulary turns a condition class's own <c>reqType</c> ordinal into the comparison the game
+    /// performs, and the explainer words that comparison for a player — so nothing but this pairing
+    /// stops a newly mapped ordinal from reaching a caller with no sentence. There is no fallback
+    /// wording to fall back to: <c>RequirementNeeds</c> throws on an unworded comparison, and this
+    /// test is what makes that throw a build failure rather than a live one.
+    /// </remarks>
+    [Fact]
+    public void Every_requirement_comparison_the_game_ships_has_a_player_phrase()
+    {
+        var shipped = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var (kind, ordinals) in ComparisonOrdinals)
+        {
+            foreach (var reqType in ordinals)
+            {
+                var check = GameMcpNativeVocabulary.RequirementCheck(kind, reqType);
+                Assert.True(
+                    check is { Length: > 0 },
+                    kind + " ordinal " + reqType + " maps to no comparison");
+                shipped.Add(check!);
+            }
+        }
+
+        var source = File.ReadAllText(Path.Combine(
+            RepositoryRoot(),
+            "src", "Automata", "Runtime", "GameMcp", "GameMcpEntityExplainer.cs"));
+        var start = source.IndexOf(
+            "var check = GameMcpNativeVocabulary.RequirementCheck(", StringComparison.Ordinal);
+        Assert.True(start >= 0, "could not find the requirement phrase switch");
+        var end = source.IndexOf(
+            "_ => throw new InvalidOperationException(", start, StringComparison.Ordinal);
+        Assert.True(end > start, "the requirement phrase switch has no throwing default");
+        var worded = new SortedSet<string>(
+            Regex.Matches(source.Substring(start, end - start), "\"([a-z][a-z-]*[a-z])\" =>")
+                .Select(match => match.Groups[1].Value),
+            StringComparer.Ordinal);
+
+        Assert.Equal(shipped, worded);
+    }
+
+    /// <summary>
+    /// Every <c>reqType</c> ordinal the game's condition classes declare, read off the enums the
+    /// contract suite pins against the audited build.
+    /// </summary>
+    private static IEnumerable<(WorldRequirementConditionKind Kind, int[] Ordinals)>
+        ComparisonOrdinals =>
+        new[]
+        {
+            // ResearchRequirement is declared over UpgradeRequirementType, so both read the same map.
+            (WorldRequirementConditionKind.Upgrade,
+                Ordinals<Requirements.UpgradeRequirementType>()),
+            (WorldRequirementConditionKind.Research,
+                Ordinals<Requirements.UpgradeRequirementType>()),
+            (WorldRequirementConditionKind.Structure,
+                Ordinals<Requirements.StructureRequirementType>()),
+            (WorldRequirementConditionKind.Spell, Ordinals<Requirements.SpellRequirementType>()),
+            (WorldRequirementConditionKind.AlchemyRecipe,
+                Ordinals<Requirements.AlchemyRecipeType>()),
+            (WorldRequirementConditionKind.Ritual, Ordinals<Requirements.RitualRequirementType>()),
+            (WorldRequirementConditionKind.Number, Ordinals<Requirements.NumberRequirementType>()),
+            (WorldRequirementConditionKind.Generic,
+                Ordinals<Requirements.GenericRequirementType>()),
+            (WorldRequirementConditionKind.PrerequisiteLink,
+                Ordinals<Requirements.PrerequisiteLinkType>()),
+            (WorldRequirementConditionKind.List, Ordinals<Requirements.ListRequirementType>()),
+        };
+
+    private static int[] Ordinals<TEnum>() where TEnum : struct, Enum =>
+        Enum.GetValues<TEnum>().Select(value => Convert.ToInt32(value)).Distinct().ToArray();
 
     private static IReadOnlyCollection<string> Codes(string source, string from, string to)
     {

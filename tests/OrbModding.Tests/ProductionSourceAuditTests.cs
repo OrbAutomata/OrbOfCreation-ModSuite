@@ -65,6 +65,53 @@ public sealed class ProductionSourceAuditTests
     }
 
     /// <summary>
+    /// A requirement row on the wire says what a player must do about it. The game's own C# class
+    /// names are not that, and neither is the suite's account of how it read them.
+    /// </summary>
+    /// <remarks>
+    /// Three of these shipped as columns a caller read: <c>conditionTypeName</c> on the rows the
+    /// suite could not model, <c>ownerKind</c> beside a uuid that already answers which registry the
+    /// owner is in, and <c>requirementNativeType</c> on every leaf of every tree. The rest are the
+    /// suite's own reading mechanics — which accessor it selected, and two of the three thresholds
+    /// it folded to reach the one the screen draws. Named literals rather than a pattern, because
+    /// the rule is that these particular columns do not come back, and a review that swept the sites
+    /// it could see left the scan projection carrying two of them.
+    /// </remarks>
+    [Fact]
+    public void NoRequirementColumnCarriesANativeTypeNameOrTheSuitesOwnMechanics()
+    {
+        var retired = new[]
+        {
+            "conditionTypeName", "conditionType", "ownerKind", "requirementNativeType",
+            "selectedValueKind", "baseThreshold", "scaledThreshold", "nodeKind", "parentOrdinal",
+            "checkLevel",
+        };
+        var surfaceRoot = Path.Combine(
+            FindRepositoryRoot(), "src", "Automata", "Runtime", "GameMcp");
+        var offenders = new List<string>();
+        foreach (var path in Directory.EnumerateFiles(
+                     surfaceRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            var lineNumber = 0;
+            foreach (var line in File.ReadLines(path))
+            {
+                lineNumber++;
+                if (line.TrimStart().StartsWith("//", StringComparison.Ordinal)) continue;
+                foreach (var column in retired)
+                {
+                    if (line.Contains("\"" + column + "\"", StringComparison.Ordinal))
+                        offenders.Add(Path.GetFileName(path) + ":" + lineNumber + " " + column);
+                }
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "requirement rows publish what a player needs and whether it holds, not the game's " +
+            "class names or the suite's reading mechanics: " + string.Join(", ", offenders));
+    }
+
+    /// <summary>
     /// The MCP surface names entities the way a player does, everywhere and without exception.
     /// </summary>
     /// <remarks>

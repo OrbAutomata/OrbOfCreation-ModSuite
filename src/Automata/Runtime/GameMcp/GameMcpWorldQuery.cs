@@ -541,7 +541,7 @@ internal static class GameMcpWorldQuery
         var availability = Availability(publication.Snapshot, category);
         var localizedRequirementCategory = !availability.Available &&
             string.Equals(category.Name, "entity-requirements", StringComparison.Ordinal) &&
-            TryLocalizedRequirementFailures(publication.Snapshot, out _, out _);
+            TryLocalizedRequirementFailures(publication.Snapshot, out _);
         if (!availability.Available && !localizedRequirementCategory)
         {
             return NotAvailable(
@@ -5052,7 +5052,7 @@ internal static class GameMcpWorldQuery
             ["skipped"] = skippedRows,
         };
         if (unavailable.Count > 0) result["unavailableCategories"] = unavailable;
-        if (TryLocalizedRequirementFailures(world, out var implicated, out _) &&
+        if (TryLocalizedRequirementFailures(world, out var implicated) &&
             implicated.Length > 0)
         {
             // The overview is read every few calls and this evidence is the same bytes every time:
@@ -8991,7 +8991,7 @@ internal static class GameMcpWorldQuery
     {
         var result = new JArray();
         if (touchedIdentities.Count == 0 ||
-            !TryLocalizedRequirementFailures(world, out var failures, out var collectorReason))
+            !TryLocalizedRequirementFailures(world, out var failures))
         {
             return result;
         }
@@ -9000,17 +9000,18 @@ internal static class GameMcpWorldQuery
         {
             var failure = failures[index];
             if (!touchedIdentities.Contains(failure.OwnerId)) continue;
+            // No `ownerKind`, no `conditionTypeName`, and no `collectorReason`. All three put the
+            // game's own class names into wire columns of a row a caller reads: the first says
+            // which registry the owner is in, which its uuid already answers, and the other two
+            // name the C# class the suite failed to model. `unmodeled_requirement_leaf` carries an
+            // authored sentence that says the same thing in the reader's words.
             result.Add(new JObject
             {
                 ["category"] = "entity-requirements",
                 ["reasonCode"] = "unmodeled_requirement_leaf",
                 ["ownerUuid"] = failure.OwnerId.ToString("D"),
-                ["ownerKind"] = failure.OwnerKind.ToString(),
                 ["containerIndex"] = failure.ContainerIndex,
                 ["ordinal"] = failure.Ordinal,
-                ["parentOrdinal"] = failure.ParentOrdinal,
-                ["conditionTypeName"] = failure.ConditionTypeName,
-                ["collectorReason"] = collectorReason,
             });
         }
         return result;
@@ -9053,10 +9054,8 @@ internal static class GameMcpWorldQuery
     /// </summary>
     private static bool TryLocalizedRequirementFailures(
         GameWorldState world,
-        out WorldEntityRequirement[] failures,
-        out string collectorReason)
+        out WorldEntityRequirement[] failures)
     {
-        collectorReason = string.Empty;
         var skipped = 0;
         var reportFound = false;
         for (var index = 0; index < world.CollectionCategories.Count; index++)
@@ -9076,9 +9075,6 @@ internal static class GameMcpWorldQuery
                 return false;
             }
             skipped = report.Skipped;
-            collectorReason = report.FirstFailure.Length == 0
-                ? "the collector did not publish a failure reason"
-                : report.FirstFailure;
             break;
         }
         if (!reportFound)
@@ -9737,8 +9733,7 @@ internal static class GameMcpWorldQuery
         },
         "entity-requirements" => new[]
         {
-            "ownerId", "ownerKind", "ordinal", "kind", "conditionTypeName",
-            "targetId", "reqType", "baseValue",
+            "ownerId", "ordinal", "kind", "targetId", "reqType", "baseValue",
         },
         "treasure-pools" => new[]
         {

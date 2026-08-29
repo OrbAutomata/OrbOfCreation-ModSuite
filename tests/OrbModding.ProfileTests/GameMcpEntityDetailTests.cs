@@ -524,27 +524,28 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Equal(2, top.Length);
         Assert.Equal("OR", (string?)top[0]["operator"]);
         var orChildren = top[0]["children"]!.OfType<JObject>().ToArray();
-        Assert.Equal(
-            "AndRequirement",
-            (string?)orChildren[1]["diagnostics"]!["conditionType"]);
-        Assert.Equal("Unevaluable", (string?)orChildren[1]["verdict"]);
+        // A condition class this build cannot read says so in one authored sentence pointing at the
+        // screen that draws it. It used to publish the game's own C# class name in a `conditionType`
+        // column beside a `verdict` word, which told a reader neither what was wanted nor where to
+        // look for it.
+        Assert.False((bool)orChildren[1]["met"]!);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)orChildren[1]["reasonCode"]);
+        Assert.StartsWith(
+            "This requirement is one the suite cannot read yet; open ",
+            (string?)orChildren[1]["reason"]);
+        Assert.Null(orChildren[1]["diagnostics"]);
+        Assert.Null(orChildren[1]["verdict"]);
 
-        // The player's four facts lead the leaf; the authored-tree and native-class evidence sits
-        // under `diagnostics`, where a reader knows it is here to diagnose the suite rather than to
-        // be acted on.
+        // What it needs, in the screen's words, and whether it holds. Nothing else: the tree
+        // position, the native class, the selected value's internal name and three thresholds of
+        // which one is ever displayed were all the suite explaining itself.
         var firstLeaf = orChildren[0];
         Assert.Equal(GameMcpTestHarness.Handle(research.GetGuid()),
             (string?)firstLeaf["requirement"]!["uuid"]);
-        Assert.Equal(
-            "ResearchSO",
-            (string?)firstLeaf["diagnostics"]!["requirementNativeType"]);
-        Assert.Equal("total_level", (string?)firstLeaf["diagnostics"]!["selectedValueKind"]);
-        Assert.NotNull(firstLeaf["current"]);
-        Assert.NotNull(firstLeaf["required"]);
+        Assert.EndsWith(" at level 5 (at 0)", (string?)firstLeaf["needs"]);
         Assert.False((bool)firstLeaf["met"]!);
         Assert.Equal(
-            new[] { "met", "checks", "current", "required", "verdict", "reasonCode",
-                "reason", "diagnostics", "requirement" },
+            new[] { "needs", "met", "requirement" },
             firstLeaf.Children<Newtonsoft.Json.Linq.JProperty>()
                 .Select(property => property.Name)
                 .ToArray());
@@ -579,9 +580,10 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         var responseBytes = System.Text.Encoding.UTF8.GetByteCount(
             result.ToString(Newtonsoft.Json.Formatting.None));
-        // Twenty-two bytes wider than it was: each unmet leaf now says "5 of 15" rather than
-        // restating its own code, and those two numbers are what a reader was pairing by eye.
-        Assert.True(responseBytes < 2_432, "explanation was " + responseBytes + " bytes");
+        // A third narrower than it was, and every byte that went was the suite talking about itself:
+        // tree coordinates, the native class, three thresholds per leaf of which one is displayed,
+        // and a code restating `met: false`.
+        Assert.True(responseBytes < 1_664, "explanation was " + responseBytes + " bytes");
 
         // A block that answered carries no verdict line. Inside a batch that silence is what
         // separates it from the block beside it that refused.
@@ -590,30 +592,35 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.NotNull(result["row"]);
         var requirements = Assert.IsType<JObject>(result["requirements"]);
         Assert.Null(requirements["applicable"]);
-        Assert.Equal(1, (long)requirements["checkLevel"]!);
+        // The level a threshold was scaled to belongs on the rows whose threshold scales, in their
+        // own terms. As a block-wide number it was a mechanism reading nobody could act on.
+        Assert.Null(requirements["checkLevel"]);
         var root = Assert.IsType<JObject>(requirements["root"]);
         var orGroup = Assert.Single(root["children"]!.OfType<JObject>());
         Assert.Equal("OR", (string?)orGroup["operator"]);
         var leaves = orGroup["children"]!.OfType<JObject>().ToArray();
         Assert.Equal(2, leaves.Length);
         Assert.Equal(GameMcpTestHarness.Handle(wizardryId), (string?)leaves[0]["requirement"]!["uuid"]);
-        Assert.Equal("total_level", (string?)leaves[0]["diagnostics"]!["selectedValueKind"]);
-        Assert.Equal("5", (string?)leaves[0]["current"]);
-        Assert.Equal("5", (string?)leaves[0]["required"]);
+        Assert.EndsWith(" at level 5", (string?)leaves[0]["needs"]);
         Assert.True((bool)leaves[0]["met"]!);
         Assert.Equal(GameMcpTestHarness.Handle(expansionId), (string?)leaves[1]["requirement"]!["uuid"]);
-        Assert.Equal("0", (string?)leaves[1]["current"]);
-        Assert.Equal("15", (string?)leaves[1]["required"]);
+        // The two numbers a reader was pairing by eye out of `current` and `required` are one
+        // phrase, and a met row does not print its own current at all — it is not news.
+        Assert.EndsWith(" at level 15 (at 0)", (string?)leaves[1]["needs"]);
         Assert.False((bool)leaves[1]["met"]!);
+        Assert.Null(leaves[0]["current"]);
+        Assert.Null(leaves[0]["required"]);
+        Assert.Null(leaves[1]["current"]);
+        Assert.Null(leaves[1]["required"]);
         Assert.Null(requirements["nativeParity"]);
 
-        // A met leaf carries no class and no sentence. It used to carry both — every satisfied
-        // condition in the tool's main content read `met: yes … ERR_REFUSED`, which is a caller
-        // branching on "has a class means it was refused" being told a finished entity is blocked.
+        // Neither leaf carries a class or a sentence. A met row never did; an unmet one used to read
+        // `ERR_LOCKED` beside a paragraph restating that a requirement is unmet, which is the one
+        // thing `met: false` already says.
         Assert.Null(leaves[0]["reasonCode"]);
         Assert.Null(leaves[0]["reason"]);
-        Assert.Equal("ERR_LOCKED", (string?)leaves[1]["reasonCode"]);
-        Assert.NotNull(leaves[1]["reason"]);
+        Assert.Null(leaves[1]["reasonCode"]);
+        Assert.Null(leaves[1]["reason"]);
 
         var predicates = result["predicates"]!;
         Assert.False((bool)predicates["available"]!["available"]!);
@@ -1004,9 +1011,13 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Null(upgradeResult["blockers"]!["queue"]!["evidence"]);
         Assert.True((bool)upgradeResult["blockers"]!["cap"]!["blocked"]!);
 
+        // The threshold the screen draws, and only that one: `baseThreshold` and `scaledThreshold`
+        // were the same field read twice, published beside the effective number that supersedes
+        // both, and `selectedValueKind` named the accessor rather than the value.
         var thresholds = researchResult["researchThresholds"]!;
-        Assert.Equal(10, (int)thresholds["baseThreshold"]!);
-        Assert.Equal(10, (int)thresholds["scaledThreshold"]!);
+        Assert.Null(thresholds["baseThreshold"]);
+        Assert.Null(thresholds["scaledThreshold"]);
+        Assert.Null(thresholds["selectedValueKind"]);
         Assert.Equal(5, (int)thresholds["effectiveThreshold"]!);
         var adjustment = Assert.Single(thresholds["activeAdjustments"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(challengeId), (string?)adjustment["source"]!["uuid"]);

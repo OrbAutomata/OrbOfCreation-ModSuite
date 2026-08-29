@@ -1427,9 +1427,9 @@ public sealed class GameMcpWorldEnvelopeTests
         var searchFailure = Assert.Single(
             affectedMatch["implicatedSkippedRows"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)searchFailure["uuid"]);
-        Assert.Equal("Upgrade", (string?)searchFailure["ownerKind"]);
+        Assert.Null(searchFailure["ownerKind"]);
         Assert.Equal(4, (int)searchFailure["ordinal"]!);
-        Assert.Equal("ListRequirement", (string?)searchFailure["conditionTypeName"]);
+        Assert.Null(searchFailure["conditionTypeName"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)searchFailure["reasonCode"]);
 
         var unaffectedGet = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
@@ -1494,7 +1494,13 @@ public sealed class GameMcpWorldEnvelopeTests
         var requirementFailure = Assert.Single(
             requirementRow["implicatedSkippedRows"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)requirementFailure["uuid"]);
-        Assert.Equal("ListRequirement", (string?)requirementFailure["conditionTypeName"]);
+        Assert.Null(requirementFailure["conditionTypeName"]);
+        Assert.Null(requirementFailure["ownerKind"]);
+        Assert.Null(requirementFailure["collectorReason"]);
+        Assert.Equal(
+            "One of this entity's requirements uses a condition this build does not model, so " +
+            "its graph is incomplete.",
+            (string?)requirementFailure["reason"]);
 
         // Which conditions this build authors that the suite cannot model does not change between
         // calls, and the overview is read far more often than the rows are. It says how many, of
@@ -1635,7 +1641,7 @@ public sealed class GameMcpWorldEnvelopeTests
             incompleteRow["implicatedSkippedRows"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(ownerId), (string?)failure["uuid"]);
         Assert.Equal(1, (int)failure["ordinal"]!);
-        Assert.Equal("ListRequirement", (string?)failure["conditionTypeName"]);
+        Assert.Null(failure["conditionTypeName"]);
     }
 
     [Fact]

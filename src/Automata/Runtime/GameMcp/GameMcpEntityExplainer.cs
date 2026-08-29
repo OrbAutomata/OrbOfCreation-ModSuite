@@ -614,8 +614,10 @@ internal static class GameMcpEntityExplainer
         // it can never disagree with them. A round read one of these out of column ten of a
         // twenty-column table and wrote down that it was buried; a reader who needs no more than
         // this now stops at the second line of the block.
+        // No block-wide `checkLevel`. It is the level the thresholds scale to, which matters only on
+        // the rows whose threshold scales at all — those carry it as `forLevel` — and on every other
+        // entity it was a number printed once per read that changed nothing.
         if (unmet.Count > 0) requirements["unmet"] = unmet;
-        requirements["checkLevel"] = checkLevel;
         requirements["root"] = root;
 
         // No `authority` paragraph. It was 178 bytes of fixed prose asserting that the authored
@@ -762,13 +764,6 @@ internal static class GameMcpEntityExplainer
             {
                 ["operator"] = first.GroupKind == WorldRequirementGroupKind.Any ? "OR" : "AND",
                 ["children"] = groupChildren,
-                ["diagnostics"] = new JObject
-                {
-                    ["nodeKind"] = "group",
-                    ["ordinal"] = first.GroupOrdinal,
-                    ["parentOrdinal"] = -1,
-                    ["depth"] = 0,
-                },
             });
         }
     }
@@ -794,52 +789,53 @@ internal static class GameMcpEntityExplainer
                 children.Add(ProjectRequirementNode(
                     world, rows, start, count, in child, checkLevel, trail, depth + 1, unmet));
             }
-            var group = new JObject
+            // The node is its operator and its arms. `nodeKind`, `ordinal`, `parentOrdinal` and
+            // `depth` said where it sat in a tree the reader is already holding: the nesting is the
+            // nesting, and the order is the authored order.
+            return new JObject
             {
                 ["operator"] = row.Operator.ToString().ToUpperInvariant(),
                 ["children"] = children,
-                ["diagnostics"] = new JObject
-                {
-                    ["nodeKind"] = "group",
-                    ["ordinal"] = row.Ordinal,
-                    ["parentOrdinal"] = row.ParentOrdinal,
-                    ["depth"] = row.Depth,
-                },
             };
-            return group;
+        }
+
+        // A condition class this build does not model has nothing to word and no target to name, so
+        // it says exactly that, in one sentence, and points at the screen that does draw it. It used
+        // to answer `unsupported_requirement_value` — the sentence for a *comparison* nobody
+        // modelled — beside a `conditionType` column carrying the game's own class name.
+        if (row.Kind == WorldRequirementConditionKind.Unknown)
+        {
+            return new JObject
+            {
+                ["met"] = false,
+                ["reasonCode"] = "requirement_class_unread",
+                ["reason"] = UnreadRequirementSentence(world, in row),
+            };
         }
 
         var evaluated = WorldRequirementEvaluator.ExplainLeaf(world, in row, checkLevel);
 
-        // The four facts a player acts on lead, in the order they answer the question: does this
-        // hold, what does it compare, what is held, and what it wants. A live round met these in
-        // column ten of twenty, under a header that opened `nodeKind | ordinal | parentOrdinal |
-        // depth | conditionType | …`, and wrote down that the one line it could use was buried.
+        // What the row wants, in the words the screen uses for it, then whether it holds. Those are
+        // the two facts a player acts on. Everything the leaf used to carry beside them — the tree
+        // position, the native class, the selected value's internal name, and three thresholds of
+        // which only one is ever displayed — was the suite explaining itself: a live round met the
+        // one usable line in column ten of twenty and wrote down that it was buried.
+        var needs = RequirementNeeds(world, in row, in evaluated);
         var leaf = new JObject
         {
+            ["needs"] = needs,
             ["met"] = evaluated.Met,
         };
 
-        // What this row compares, in words. It shipped as the game's raw `reqType` ordinal, which
-        // is not one vocabulary but ten — the same `2` is "at least this level" on an upgrade, "at
-        // least this mastery level" on a spell, and "any available" on a list — so the cell could
-        // not be read at all without knowing the condition class and having the game's source.
-        var check = GameMcpNativeVocabulary.RequirementCheck(row.Kind, row.ReqType);
-        if (check is not null) leaf["checks"] = check;
-        leaf["current"] = ProjectNumber(evaluated.Current);
-        leaf["required"] = ProjectNumber(evaluated.Required);
-        leaf["verdict"] = evaluated.Verdict.ToString();
-        leaf["reasonCode"] = evaluated.ReasonCode;
+        // The level the threshold was scaled to, on the rows whose threshold scales at all. On every
+        // other row it is a number that changes nothing, which is why it is not a block-wide field.
+        if (ThresholdScales(in row)) leaf["forLevel"] = checkLevel;
 
-        // The unmet leaf is the one row on this graph holding both halves of its own answer, so it
-        // says them. The shared table would restate the code as "Requirement unmet." — which names
-        // no number and leaves a reader pairing two columns by eye on every unmet row of the graph.
-        if (string.Equals(evaluated.ReasonCode, "requirement_unmet", StringComparison.Ordinal))
-        {
-            leaf["reason"] = "This requirement is not met yet: " +
-                GameMcpNumberFormatter.Format(evaluated.Current) + " of " +
-                GameMcpNumberFormatter.Format(evaluated.Required) + ".";
-        }
+        // A met or unmet row is fully answered by the two fields above. Only a row the suite could
+        // not evaluate carries a class and a sentence, because only that one asks the reader to do
+        // something else — read it on the game's own tooltip.
+        if (evaluated.Verdict == WorldRequirementVerdict.Unevaluable)
+            leaf["reasonCode"] = evaluated.ReasonCode;
 
         if (row.TargetId != Guid.Empty)
         {
@@ -849,9 +845,7 @@ internal static class GameMcpEntityExplainer
                 unmet.Add(new JObject
                 {
                     ["requirementUuid"] = row.TargetId.ToString("D"),
-                    ["checks"] = check ?? GameMcpListColumns.Absent,
-                    ["current"] = ProjectNumber(evaluated.Current),
-                    ["required"] = ProjectNumber(evaluated.Required),
+                    ["needs"] = needs,
                 });
             }
         }
@@ -861,26 +855,6 @@ internal static class GameMcpEntityExplainer
                 world, in row, checkLevel, evaluated, trail, depth + 1, unmet);
             if (tiers.Count > 0) leaf["prerequisiteLinkTiers"] = tiers;
         }
-
-        // The rest is how the suite reached that answer: where the row sits in the authored tree,
-        // which native class it came from, and the three thresholds the scaling passes through.
-        // None of it is a thing a player does anything about, and all of it is what a defect in
-        // this evaluation is diagnosed from — so it keeps every field, under a name that says which
-        // of the two it is.
-        leaf["diagnostics"] = new JObject
-        {
-            ["nodeKind"] = "leaf",
-            ["ordinal"] = row.Ordinal,
-            ["parentOrdinal"] = row.ParentOrdinal,
-            ["depth"] = row.Depth,
-            ["conditionType"] = row.ConditionTypeName,
-            ["conditionKind"] = row.Kind.ToString(),
-            ["requirementNativeType"] = RequirementNativeType(row.Kind),
-            ["selectedValueKind"] = evaluated.SelectedValueKind,
-            ["baseThreshold"] = ProjectNumber(evaluated.BaseThreshold),
-            ["scaledThreshold"] = ProjectNumber(evaluated.ScaledThreshold),
-            ["effectiveThreshold"] = ProjectNumber(evaluated.EffectiveThreshold),
-        };
         return leaf;
     }
 
@@ -927,12 +901,12 @@ internal static class GameMcpEntityExplainer
     {
         if (kind != EntityKind.Research || !WorldLookup.TryFind(world.Research, id, out var research))
             return null;
+        // The effective threshold is the number the screen draws, and it is the only one here that
+        // was ever news: `baseThreshold` and `scaledThreshold` were the same field read twice, and
+        // `selectedValueKind` was the suite naming its own accessor beside the value it read.
         var result = new JObject
         {
-            ["selectedValueKind"] = "total_level",
             ["current"] = research.TotalLevel,
-            ["baseThreshold"] = research.BaseRequirementLevel,
-            ["scaledThreshold"] = research.BaseRequirementLevel,
             ["effectiveThreshold"] = research.EffectiveRequirementLevel,
             ["leeway"] = research.Modifiers.LeewayPoints.ToInt(),
             ["metWithLeeway"] = research.StillHasLeeway,
@@ -1441,19 +1415,106 @@ internal static class GameMcpEntityExplainer
     private static GameMcpValue ProjectNumber(BigDouble value) =>
         new GameMcpDomainValue(value);
 
-    private static string RequirementNativeType(WorldRequirementConditionKind kind) => kind switch
+    /// <summary>
+    /// One requirement as the screen words it: the thing, what is asked of it, and — only while it
+    /// is not met — what is held.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The parenthetical rides on the unmet rows alone. On a satisfied row it restates a number the
+    /// reader has no move to make about, and its absence is the same signal <c>met</c> gives.
+    /// </para>
+    /// <para>
+    /// Every check word the vocabulary can produce has a phrase here and the default throws, for the
+    /// same reason <see cref="GameMcpNativeVocabulary.RequirementCheck"/>'s arms throw: a comparison
+    /// the game ships and this table has no words for is a phrase to write, not a gap to paper over
+    /// with the word itself.
+    /// </para>
+    /// </remarks>
+    private static string RequirementNeeds(
+        GameWorldState world,
+        in WorldEntityRequirement row,
+        in WorldRequirementLeafEvaluation evaluated)
     {
-        WorldRequirementConditionKind.Upgrade => "UpgradeSO",
-        WorldRequirementConditionKind.Research => "ResearchSO",
-        WorldRequirementConditionKind.Structure => "StructureSO",
-        WorldRequirementConditionKind.Spell => "SpellRecipeSO",
-        WorldRequirementConditionKind.AlchemyRecipe => "AlchemyRecipeSO",
-        WorldRequirementConditionKind.Ritual => "RitualSO",
-        WorldRequirementConditionKind.Number => "NumberVariable",
-        WorldRequirementConditionKind.Generic => "UpgradeableObject",
-        WorldRequirementConditionKind.PrerequisiteLink => "PrerequisiteLinkSO",
-        _ => "unknown",
-    };
+        // An authored empty composite compares nothing at all: its identity value is the whole of
+        // what it says, and Enumerable.All of nothing is true where Enumerable.Any of nothing is
+        // false. There is no target to name and no threshold to print.
+        if (row.Kind == WorldRequirementConditionKind.Literal)
+        {
+            return row.ReqType == 1
+                ? "nothing — this group is empty"
+                : "one of an empty group, which nothing can satisfy";
+        }
+
+        var name = RequirementTargetName(world, row.TargetId);
+        var required = GameMcpNumberFormatter.Format(evaluated.Required);
+        var current = GameMcpNumberFormatter.Format(evaluated.Current);
+        var at = evaluated.Met ? string.Empty : " (at " + current + ")";
+        var have = evaluated.Met ? string.Empty : " (have " + current + ")";
+        var check = GameMcpNativeVocabulary.RequirementCheck(row.Kind, row.ReqType);
+        return check switch
+        {
+            "any-level" => name + " at any level" + at,
+            "at-maximum-level" => name + " at its maximum level " + required + at,
+            "at-least-level" => name + " at level " + required + at,
+            "at-least-mastery-level" => name + " at mastery level " + required + at,
+            "at-least-mastery-ready-level" => name + " at mastery-ready level " + required + at,
+            "at-least-maximum-level" => name + " at recipe level " + required + at,
+            "at-least-advancement-level" => name + " at advancement level " + required + at,
+            "at-least-reached-level" => name + " taken to level " + required + at,
+            "at-least-quantity" => required + " " + name + have,
+            "at-least-value" => required + " " + name + have,
+            "at-least-count" => required + " of " + name + have,
+            "discovered" => name,
+            "visible" => name + " shown",
+            "available" => name + " available",
+            "any-visible" => "something from " + name,
+            "any-available" => "something available from " + name,
+            "first-tier-enabled" => "the " + name + " gate",
+            "named-tier-enabled" => "the " + name + " gate at tier " + required,
+            _ => throw new InvalidOperationException(
+                "a requirement row reached the wire checking '" + check + "' with no player " +
+                "phrase for it; a comparison the game ships is a phrase to write, not a suite word " +
+                "to pass through."),
+        };
+    }
+
+    /// <summary>
+    /// The requirement's target, named the way the player sees it, never as a bare UUID in prose.
+    /// </summary>
+    private static string RequirementTargetName(GameWorldState world, Guid targetId)
+    {
+        if (targetId == Guid.Empty) return "something this build authors no reference for";
+        var identity = EntityIdentityFormatter.Describe(targetId, world.EntityIdentities);
+        return identity.HasName
+            ? identity.Name
+            : EntityIdentityFormatter.PlayerHandle(targetId, world.EntityIdentities);
+    }
+
+    /// <summary>
+    /// Whether this row's threshold moves with the level being checked, which is the only condition
+    /// under which the level is worth publishing.
+    /// </summary>
+    /// <remarks>
+    /// The threshold is <c>baseValue</c> folded through two authored <c>ValueModifier</c>s. Both
+    /// carrying nought is the identity fold, so the row asks the same number at level one and at
+    /// level forty and <c>forLevel</c> would be a constant nobody can act on.
+    /// </remarks>
+    private static bool ThresholdScales(in WorldEntityRequirement row) =>
+        row.PerLevel.Amount != BigDouble.Zero || row.ModPerLevel.Amount != BigDouble.Zero;
+
+    /// <summary>
+    /// The one sentence for a condition class this build cannot read, pointing at the screen that
+    /// draws the entity holding it wherever the world publishes one.
+    /// </summary>
+    private static string UnreadRequirementSentence(
+        GameWorldState world,
+        in WorldEntityRequirement row) =>
+        "This requirement is one the suite cannot read yet; open " +
+        (GameMcpWorldQuery.TryPublishedScreen(world, row.OwnerId, out var screen)
+            ? screen
+            : "this entity's own screen") +
+        " to see it.";
 
     private readonly struct RequirementKey : IEquatable<RequirementKey>
     {

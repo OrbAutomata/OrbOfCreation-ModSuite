@@ -2383,36 +2383,48 @@ explicit native `AND`/`OR` nodes, authored order, and recursively expanded prere
 Every operator node carries its `children` list, so an entity with no requirements reads as an
 empty list rather than as an operator over an unstated set.
 
-**A leaf leads with the four facts a player acts on**, in the order they answer the question: `met`,
-what this row `checks`, what is `current`, and what is `required`, then the `verdict` and its class.
-Everything else is how the suite reached that answer — where the row sits in the authored tree
-(`nodeKind`, `ordinal`, `parentOrdinal`, `depth`), which native class it came from
-(`conditionType`, `conditionKind`, `requirementNativeType`), the value the native evaluator selected
-(`selectedValueKind`: `purchased_level`, `total_level`, `purchased_quantity`, discovery, mastery,
-recipe, advancement, reached, numeric, or link gate), and the three thresholds the scaling passes
-through (`baseThreshold`, `scaledThreshold`, `effectiveThreshold`). None of that is a thing a player
-does anything about and all of it is what a defect in this evaluation is diagnosed from, so it keeps
-every field under `diagnostics`, at the tail of the leaf, where a name says which of the two it is.
-A live round met the one usable line in column ten of twenty under a header opening `nodeKind |
-ordinal | parentOrdinal | depth | conditionType | …` and wrote down that it was buried.
+**A leaf says what it needs and whether it has it, and nothing else.** `needs` is the requirement in
+the screen's own words — `Formation recipe book`, `15 Knowledge (have 5)`, `Expand Magic at level 3
+(at 1)` — and `met` is yes or no. A row whose threshold moves with the level being bought also says
+`forLevel`, the level it was checked at, in that row's own terms; a row that asks the same number at
+level one and at level forty does not, because there it is a constant nobody can act on. A leaf
+whose subject is a published entity carries that entity under `requirement`, so a caller can read it
+next.
+
+Ten fields are retired, and each was the suite accounting for itself rather than stating the
+requirement: `nodeKind`, `ordinal` and `parentOrdinal` (the nesting is the nesting and the authored
+order is the row order), `conditionType` and `requirementNativeType` (the game's own C# class
+names), `selectedValueKind` (which accessor the suite read), `baseThreshold` and `scaledThreshold`
+(the effective one is the only number the screen shows), `checkLevel` as a block-wide field (it is
+`forLevel` now, on the rows where it changes an answer), and the `current`/`required` pair (the two
+numbers a reader was pairing by eye are one phrase). `diagnostics` goes with them. A live round met
+the one usable line in column ten of twenty under a header opening `nodeKind | ordinal |
+parentOrdinal | depth | conditionType | …` and wrote down that it was buried.
 
 A `requirements` block therefore leads with `suiteVerdict`, then `unmet` — one entry per unsatisfied
-leaf naming the requirement, what it checks, what is held and what is wanted — and only then the
-`checkLevel` and the whole authored `root`. `unmet` is absent when nothing is unmet, so its presence
-is the answer to "what is stopping this" and its contents are the answer to "by how much".
-Unsupported comparisons return a structured unevaluable result.
+leaf, naming the requirement and what it needs — and then the whole authored `root`. `unmet` is
+absent when nothing is unmet, so its presence is the answer to "what is stopping this" and each
+entry's `needs` is the answer to "by how much".
 
-A leaf says what it compares under `checks`, in words: `at-least-level`, `at-maximum-level`,
+**A requirement this build cannot read says so in one sentence**: `This requirement is one the suite
+cannot read yet; open <screen> to see it.`, with `met: false` and no class name anywhere. It used to
+publish `conditionTypeName` — the game's own class — as a column, on that leaf and on the
+`entity-requirements` rows the collector skipped alike, beside an `ownerKind` repeating what the
+owner's uuid already answers. A caller can do nothing with a C# class name; it can open the screen.
+
+Behind `needs` sits one closed vocabulary of comparisons — `at-least-level`, `at-maximum-level`,
 `any-level`, `visible`, `discovered`, `at-least-quantity`, `available`, `at-least-mastery-level`,
 `at-least-mastery-ready-level`, `at-least-maximum-level`, `at-least-advancement-level`,
 `at-least-reached-level`, `at-least-value`, `at-least-count`, `any-visible`, `any-available`,
-`first-tier-enabled`, `named-tier-enabled`. The game's own `reqType` ordinal is not published,
-because it is not one vocabulary but ten — every condition class declares its own enum, and `2`
-means "at least this level" on an upgrade, "at least this mastery level" on a spell, and "any
-available" on a list. Each map is pinned from that class's own `InternalIsValid` switch, and an
-ordinal outside it throws rather than reaching a cell. Two node kinds carry no `checks` at all: an
-unmodelled condition class, whose row has nothing read to word, and an authored empty composite,
-where the same slot holds the group's Any/All identity rather than a comparison.
+`first-tier-enabled`, `named-tier-enabled` — each with a phrase of its own, and none of them
+published as a word. The game's `reqType` ordinal is not published either, because it is not one
+vocabulary but ten: every condition class declares its own enum, and `2` means "at least this level"
+on an upgrade, "at least this mastery level" on a spell and "any available" on a list. Each map is
+pinned from that class's own `InternalIsValid` switch, an ordinal outside it throws rather than
+reaching a cell, and a comparison with no phrase written for it is a failing test rather than a
+fallback wording. An authored empty composite words itself directly — `nothing — this group is
+empty` for an all-of group, `one of an empty group, which nothing can satisfy` for an any-of one —
+because there the slot a comparison would sit in holds the group's Any/All identity instead.
 
 The collector also captures the safe parameterized
 `Prerequisites.Container.Check(Requirements.ConditionInfo)` answer at the exact next-purchase level.
