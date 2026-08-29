@@ -972,8 +972,8 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         owner.available = false;
         var shut = ResearchStub(level: 1);
         owner.visibilityPrerequisites.prerequisites.Add(Require(shut, 4));
-        owner.levelVisibilityPrereq.prerequisites.Add(Require(shut, 2));
-        owner.levelVisibilityPrereq.SetAdjustValue(new BigDouble(-3d));
+        owner.LevelVisibilityPrereq.prerequisites.Add(Require(shut, 2));
+        owner.LevelVisibilityPrereq.SetAdjustValue(new BigDouble(-3d));
 
         var requirements = Explain(Collect(), owner.GetGuid(), 949)["requirements"]!;
 

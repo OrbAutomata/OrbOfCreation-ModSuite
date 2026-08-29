@@ -21143,7 +21143,7 @@
       "typeVisibility": "public",
       "kind": "field",
       "member": "levelVisibilityPrereq",
-      "visibility": "public",
+      "visibility": "private",
       "static": false,
       "valueType": "Prerequisites+Container",
       "owners": [

@@ -927,7 +927,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
         withheld.level = 0;
 
         scribing.visibilityPrerequisites.prerequisites.Add(ResearchCondition(held, 6d));
-        scribing.levelVisibilityPrereq.prerequisites.Add(ResearchCondition(withheld, 1d));
+        scribing.LevelVisibilityPrereq.prerequisites.Add(ResearchCondition(withheld, 1d));
 
         var world = Collect();
         Assert.Equal(

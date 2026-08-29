@@ -2074,7 +2074,13 @@ public class ResearchSO : ILevelable
     // game builds it in Initialize() as levelPrerequisites.Filter().SetAdjustValue(-levelVisibilityRange),
     // which is where the only nonzero threshold adjustment in the game comes from.
     public Prerequisites.Container visibilityPrerequisites = new Prerequisites.Container();
-    public Prerequisites.Container levelVisibilityPrereq = new Prerequisites.Container();
+
+    // Private, as the game declares it: the suite reads it by reflection, and a public stub field
+    // would let a binding that cannot see the real one pass here. A test reaches the same instance
+    // through the property below.
+    private Prerequisites.Container levelVisibilityPrereq = new Prerequisites.Container();
+
+    public Prerequisites.Container LevelVisibilityPrereq => levelVisibilityPrereq;
     public bool hiddenLevel;
     public int levelVisibilityRange = 2;
     public ModifierRecord requirementsAdjust = new ModifierRecord();
