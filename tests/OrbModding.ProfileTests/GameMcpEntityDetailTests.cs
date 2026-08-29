@@ -943,6 +943,50 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Equal("Met", (string?)requirements["suiteVerdict"]);
     }
 
+    /// <summary>A structure's gate is the same container under a different predicate.</summary>
+    [Fact]
+    public void ALockedStructureSaysWhichConditionsWouldUnlockIt()
+    {
+        var owner = Structure();
+        owner.available = false;
+        var shut = ResearchStub(level: 1);
+        owner.prerequisites.prerequisites.Add(Require(shut, 4));
+
+        var requirements = Explain(Collect(), owner.GetGuid(), 949)["requirements"]!;
+
+        Assert.Equal("ERR_LOCKED", (string?)requirements["reasonCode"]);
+        var leaf = Assert.Single(
+            Assert.IsType<JObject>(requirements["unlocksWhen"])["children"]!.OfType<JObject>());
+        Assert.False((bool)leaf["met"]!);
+        Assert.Contains("4", (string?)leaf["needs"]);
+    }
+
+    /// <summary>
+    /// A research authors two visibility containers the game ANDs, and the second one carries a
+    /// threshold adjustment of its own. Both have to show, and the verdict has to be their AND.
+    /// </summary>
+    [Fact]
+    public void AHiddenResearchShowsBothVisibilityContainersAsOneAnd()
+    {
+        var owner = ResearchStub(level: 0);
+        owner.available = false;
+        var shut = ResearchStub(level: 1);
+        owner.visibilityPrerequisites.prerequisites.Add(Require(shut, 4));
+        owner.levelVisibilityPrereq.prerequisites.Add(Require(shut, 2));
+        owner.levelVisibilityPrereq.SetAdjustValue(new BigDouble(-3d));
+
+        var requirements = Explain(Collect(), owner.GetGuid(), 949)["requirements"]!;
+
+        var children = Assert.IsType<JObject>(requirements["unlocksWhen"])["children"]!
+            .OfType<JObject>()
+            .ToArray();
+        Assert.Equal(2, children.Length);
+
+        // The first container is unmet at 4; the second asks for 2 shifted by -3, which holds.
+        Assert.False((bool)children[0]["met"]!);
+        Assert.True((bool)children[1]["met"]!);
+    }
+
     [Fact]
     public void ThresholdCostAndTypedBlockersCarryCompleteEvidence()
     {
@@ -1496,6 +1540,13 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var upgrade = new global::UpgradeSO { maxLevel = -1 };
         global::UpgradeSO.All.Add(upgrade);
         return upgrade;
+    }
+
+    private static global::StructureSO Structure()
+    {
+        var structure = new global::StructureSO();
+        global::StructureSO.All.Add(structure);
+        return structure;
     }
 
     private static global::ResearchSO ResearchStub(
