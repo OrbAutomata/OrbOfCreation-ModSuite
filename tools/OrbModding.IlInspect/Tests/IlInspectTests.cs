@@ -143,6 +143,58 @@ public sealed class IlInspectTests
         }
     }
 
+    /// <summary>
+    /// A DLL the game ships outside <c>Managed</c> is named by its path from the game directory and
+    /// inspected where it actually lives.
+    /// </summary>
+    /// <remarks>
+    /// BepInEx ships under <c>BepInEx/core</c>, and <c>--assembly</c> used to mean "one file name
+    /// directly under Managed" — so pinning a BepInEx contract needed a directory named
+    /// <c>Managed</c> symlinked over <c>BepInEx/core</c>, which is a workaround standing between
+    /// the inspector and the evidence it exists to produce. References still resolve from Managed,
+    /// because that is where such an assembly's engine and game dependencies are.
+    /// </remarks>
+    [Fact]
+    public void AnAssemblyTheGameShipsOutsideManagedIsInspectedWhereItLives()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"il-inspect-{Guid.NewGuid():N}");
+        var managed = Path.Combine(root, "Orb Of Creation_Data", "Managed");
+        var core = Path.Combine(root, "BepInEx", "core");
+        Directory.CreateDirectory(managed);
+        Directory.CreateDirectory(core);
+        File.Copy(FixtureAssembly, Path.Combine(managed, "Assembly-CSharp.dll"));
+        var shipped = Path.Combine(core, "BepInEx.dll");
+        File.Copy(FixtureAssembly, shipped);
+        try
+        {
+            var command = CommandLine.Parse(
+                new[]
+                {
+                    "--game-dir", root,
+                    "--assembly", "BepInEx/core/BepInEx.dll",
+                    "strings", "fixture literal",
+                },
+                () => null);
+
+            Assert.Equal(shipped, command.AssemblyPath);
+            Assert.Equal(managed, command.ManagedDirectory);
+
+            using var inspector = AssemblyInspector.Open(
+                command.AssemblyPath, command.ManagedDirectory);
+            using var output = new StringWriter();
+            inspector.WriteHeader(output);
+            inspector.Execute(command.Verb, command.Query, output);
+
+            var text = output.ToString();
+            Assert.Contains($"assembly: {shipped}", text);
+            Assert.Contains("\"fixture literal\"", text);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static string Inspect(string verb, string query)
     {
         using var inspector = AssemblyInspector.Open(FixtureAssembly);

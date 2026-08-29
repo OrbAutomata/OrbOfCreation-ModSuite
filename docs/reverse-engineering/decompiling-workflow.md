@@ -12,6 +12,12 @@ cannot be defended.
 | [`data/entity-*.tsv`](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/data/README.md) + `tools/find-entity.py` | UUID ↔ managed type ↔ internal name ↔ display name | relationships, state |
 | the live Game MCP against a running perf-debug build | current registry population, live values, whether a call is admitted | why the game answered that way |
 
+The inspector reads `Assembly-CSharp.dll` from the game's `Managed` directory unless told
+otherwise. `--assembly` names any other DLL the game ships: a file name for one beside it in
+`Managed`, or a path from the game directory for one elsewhere —
+`--assembly BepInEx/core/BepInEx.dll` pins a loader contract in place, with references still
+resolving from `Managed`.
+
 The in-game differential verifier sits across all four: it recomputes costs, rates, modifiers,
 affordability, accessors, and structure/upgrade requirements from decompiled formulas and compares
 each against the game's own answer, entity by entity, on a live save. It is how a formula read out

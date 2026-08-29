@@ -17,7 +17,8 @@ internal static class IlInspectApplication
             var command = CommandLine.Parse(
                 args,
                 gameDirectoryEnvironment ?? (() => Environment.GetEnvironmentVariable("OOC_GAME_DIR")));
-            using var inspector = AssemblyInspector.Open(command.AssemblyPath);
+            using var inspector = AssemblyInspector.Open(
+                command.AssemblyPath, command.ManagedDirectory);
             inspector.WriteHeader(output);
             inspector.Execute(command.Verb, command.Query, output);
             return 0;
