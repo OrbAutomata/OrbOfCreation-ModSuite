@@ -535,7 +535,6 @@ public sealed class GameMcpTypeWorthTests
                 new WorldResearchRequirementAdjustment(
                     Guid.Parse("b0" + index.ToString("D6") + "-0000-4000-8000-000000000001"),
                     entry.Source,
-                    "UpgradeSO",
                     (int)entry.Kind,
                     new BigDouble(entry.Amount),
                     0,

@@ -2479,9 +2479,13 @@ read-side binding names it, and the differential hands the parameterized overloa
 more passes — upgrade unlock, structure unlock, research visibility — so a suite verdict that
 disagrees with the game's own is `native_verdict_mismatch` here as anywhere else.
 
-Research blocks separate base, scaled, and native effective requirement thresholds and retain
-every direct adjustment's UUID, source native type, modifier type, amount, order, and passive state,
-including challenge sources. Their `levelPrerequisites` graph uses the native
+Research blocks print the effective requirement threshold and retain every direct adjustment's
+UUID, source handle, modifier type, amount, order, and passive state, including challenge sources.
+Two more fields there are retired. `sourceNativeType` printed `ChallengeSO` beside a `source` that
+already carries that challenge's handle and the name the player reads, and a C# class name is not
+something a caller can act on. `nativeStillHasLeeway` was `metWithLeeway`'s own field printed a
+second time; `metWithLeeway` is the one kept, because it says what the screen says rather than where
+the suite read it. Their `levelPrerequisites` graph uses the native
 `GetRequirementLevel()` as its check level. A Research prerequisite leaf selects the target's native
 total level because `ResearchRequirement` dispatches the virtual `GetLevel()` accessor; completion
 and the maximum-level cap instead use native base level, which includes purchased/base grants but
@@ -2753,12 +2757,12 @@ most, so an old code's new class can be looked up here:
 | `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning`, `continue_wrong_scene` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached`, `bandwidth_blocked`, `drain_blocked` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
-| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `unlock_conditions_unmet`, `research_leeway_exhausted`, `native_leeway_exhausted` |
+| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `unlock_conditions_unmet`, `tree_unavailable`, `research_leeway_exhausted`, `native_leeway_exhausted` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `configuration_not_available`,
 `stale_configuration_generation`, `configuration_write_unconfirmed`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `unsupported_requirement_value`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable`, `single_buy_unavailable`, `unsupported_control`, `native_navigation_unavailable`, `native_plot_navigation_unavailable`, `native_plot_list_unavailable`, `native_probe_unavailable`, `tooltip_contract_unavailable`, `tooltip_read_faulted`, `continue_contract_unavailable`, `navigation_request_invalid`, `unsupported_probe` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused`, `native_tab_rejected`, `subtab_selection_failed` — the game's own gate said no and reported nothing else |
 
-Five of those placements are worth reading twice, because the obvious guess is wrong.
+These placements are worth reading twice, because the obvious guess is wrong.
 `slot_out_of_range` is `ERR_INPUT` and not `ERR_LIMIT`: the caller named a slot the list never had,
 which is a bad argument rather than a ceiling reached. `configuration_write_rejected` is `ERR_INPUT`
 for the same reason a dial value outside the game's range is: one kind of no is one class wherever
@@ -2773,7 +2777,11 @@ suite's to own.
 `ERR_LIMIT` for the reason its own row gives — no level list in this game has a ceiling, so a shut
 level gate is always a gate rather than an exhausted supply. Both leeway codes are `ERR_LOCKED` and
 not `ERR_LIMIT`: research leeway is a gate the game opens as the requirement level moves, not a
-supply the caller spent.
+supply the caller spent. `tree_unavailable` is `ERR_LOCKED` and not `ERR_NOT_FOUND`, because its
+sentence — *the game is not showing this discovery tree* — is a shut screen, and every producer of
+it holds the tree already: the read side reads `visible` off the published row, and the action's
+preflight reaches it only after resolving the tree, answering `identity_unavailable` when the tree
+genuinely is not there.
 
 The screen, tooltip, probe and Continue gadgets reached none of these rows at all until their
 sixteen codes were placed: every one fell to the default, so a stale page marker, a label matching

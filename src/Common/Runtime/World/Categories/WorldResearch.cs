@@ -776,7 +776,6 @@ internal readonly struct WorldResearchRequirementAdjustment
     internal WorldResearchRequirementAdjustment(
         Guid modifierId,
         Guid sourceId,
-        string sourceNativeType,
         int modifierType,
         BigDouble amount,
         int order,
@@ -784,7 +783,6 @@ internal readonly struct WorldResearchRequirementAdjustment
     {
         ModifierId = modifierId;
         SourceId = sourceId;
-        SourceNativeType = sourceNativeType ?? string.Empty;
         ModifierType = modifierType;
         Amount = amount;
         Order = order;
@@ -794,8 +792,6 @@ internal readonly struct WorldResearchRequirementAdjustment
     internal Guid ModifierId { get; }
 
     internal Guid SourceId { get; }
-
-    internal string SourceNativeType { get; }
 
     internal int ModifierType { get; }
 

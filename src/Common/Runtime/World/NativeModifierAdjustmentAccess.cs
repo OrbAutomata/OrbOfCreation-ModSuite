@@ -326,7 +326,6 @@ internal sealed class NativeModifierAdjustmentAccess
                 destination[index++] = new WorldResearchRequirementAdjustment(
                     entry.Key,
                     source is null ? Guid.Empty : readSourceId(source),
-                    source?.GetType().Name ?? string.Empty,
                     readType(entry.Value),
                     readAmount(entry.Value),
                     readOrder(entry.Value),

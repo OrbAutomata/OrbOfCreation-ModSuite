@@ -328,6 +328,21 @@ public sealed class GameMcpDecisionReasonTests
             GameMcpDecisionReason.Class("invalid_state_filter"));
 
     /// <summary>
+    /// The class has to match the sentence. <c>tree_unavailable</c> says the game is not showing
+    /// this discovery tree — a shut screen, not a missing thing — and every producer of it holds the
+    /// tree already: the read side reads visibility off the published row, and the action's
+    /// preflight reaches it only after resolving the tree, and has its own code for a tree it could
+    /// not resolve. It wore ERR_NOT_FOUND, which sent a caller looking for a different id.
+    /// </summary>
+    [Fact]
+    public void A_tree_the_game_is_not_showing_is_locked_rather_than_missing()
+    {
+        Assert.Equal(
+            GameMcpDecisionReason.ClassLocked, GameMcpDecisionReason.Class("tree_unavailable"));
+        Assert.Contains("not showing", GameMcpDecisionReason.For("tree_unavailable"));
+    }
+
+    /// <summary>
     /// The rule, not this press's effect: "does nothing" read as a shrug about the button just
     /// pressed, so a round spent a second mutation asking whether the next row behaved the same.
     /// </summary>

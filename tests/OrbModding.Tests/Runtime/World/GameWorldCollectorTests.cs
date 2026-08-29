@@ -455,7 +455,6 @@ public sealed class GameWorldCollectorTests : IDisposable
         var adjustment = Assert.Single(research.RequirementAdjustments.AsSpan().ToArray());
         Assert.Equal(authoredModifier, adjustment.ModifierId);
         Assert.Equal(focusImprovedScribing, adjustment.SourceId);
-        Assert.Equal("ChallengeSO", adjustment.SourceNativeType);
         Assert.Equal((int)FakeModifierKind.Raw, adjustment.ModifierType);
         Assert.Equal(-5d, adjustment.Amount.ToDouble());
         Assert.Equal(0, adjustment.Order);
@@ -5623,7 +5622,6 @@ public sealed class GameWorldCollectorTests : IDisposable
             ContributionsOf(world, type.Identity), row => row.Property == "power");
         Assert.Equal(modifier, contribution.Contribution.ModifierId);
         Assert.Equal(sourceId, contribution.Contribution.SourceId);
-        Assert.Equal("ChallengeSO", contribution.Contribution.SourceNativeType);
         Assert.Equal((int)FakeModifierKind.MultiStacking, contribution.Contribution.ModifierType);
         Assert.Equal(0.4d, contribution.Contribution.Amount.ToDouble());
         Assert.Equal(2, contribution.Contribution.Order);

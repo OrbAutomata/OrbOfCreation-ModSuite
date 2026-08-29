@@ -6123,7 +6123,6 @@ internal static class GameMcpWorldQuery
                 {
                     ["modifierId"] = value.ModifierId.ToString("D"),
                     ["sourceId"] = value.SourceId.ToString("D"),
-                    ["sourceNativeType"] = value.SourceNativeType,
                     ["modifierType"] = value.ModifierType,
                     ["amount"] = new GameMcpDomainValue(value.Amount),
                     ["order"] = value.Order,

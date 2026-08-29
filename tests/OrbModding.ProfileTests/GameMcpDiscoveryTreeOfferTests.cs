@@ -503,7 +503,8 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             treeId.ToString("D")))["row"]!;
 
         Assert.False((bool)row["initiate"]!["available"]!);
-        Assert.Equal("ERR_NOT_FOUND", (string?)row["initiate"]!["reasonCode"]);
+        // A tree whose screen is shut is locked, not missing: the row is right here.
+        Assert.Equal("ERR_LOCKED", (string?)row["initiate"]!["reasonCode"]);
         Assert.Equal(
             "The game is not showing this discovery tree.",
             (string?)row["initiate"]!["reason"]);
@@ -586,7 +587,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
     }
 
     [Theory]
-    [InlineData(false, 2, false, 1, "ERR_NOT_FOUND", "The game is not showing this discovery tree.")]
+    [InlineData(false, 2, false, 1, "ERR_LOCKED", "The game is not showing this discovery tree.")]
     [InlineData(true, 0, false, 1, null, null)]
     [InlineData(true, 2, true, 1, "ERR_STATE",
         "This tree has a discovery to take first, so its offers cannot be rerolled.")]

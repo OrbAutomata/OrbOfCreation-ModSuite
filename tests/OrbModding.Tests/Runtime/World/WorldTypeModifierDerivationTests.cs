@@ -611,7 +611,7 @@ public sealed class WorldTypeModifierDerivationTests
                 entry.TypeId,
                 entry.Property,
                 new WorldResearchRequirementAdjustment(
-                    Guid.NewGuid(), Guid.NewGuid(), "UpgradeSO", (int)entry.Kind,
+                    Guid.NewGuid(), Guid.NewGuid(), (int)entry.Kind,
                     new BigDouble(entry.Amount), entry.Order, passive: false)))
             .ToArray();
         Array.Sort(rows, static (left, right) =>

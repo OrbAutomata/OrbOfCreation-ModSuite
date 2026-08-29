@@ -959,6 +959,8 @@ internal static class GameMcpEntityExplainer
         // The effective threshold is the number the screen draws, and it is the only one here that
         // was ever news: `baseThreshold` and `scaledThreshold` were the same field read twice, and
         // `selectedValueKind` was the suite naming its own accessor beside the value it read.
+        // `nativeStillHasLeeway` went the same way: it was `metWithLeeway`'s own field printed a
+        // second time under a name that says where the fact came from rather than what it says.
         var result = new JObject
         {
             ["current"] = research.TotalLevel,
@@ -966,7 +968,6 @@ internal static class GameMcpEntityExplainer
             ["leeway"] = research.Modifiers.LeewayPoints.ToInt(),
             ["metWithLeeway"] = research.StillHasLeeway,
             ["nativeMeetsLevelRequirements"] = research.MeetsLevelRequirements,
-            ["nativeStillHasLeeway"] = research.StillHasLeeway,
             ["adjustment"] = research.RequirementLevelAdjustment,
         };
         if (research.RequirementAdjustments.Count > 0)

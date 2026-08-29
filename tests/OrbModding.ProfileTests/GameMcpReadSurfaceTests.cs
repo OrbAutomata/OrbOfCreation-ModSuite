@@ -1830,7 +1830,6 @@ public sealed class GameMcpWorldEnvelopeTests
         var adjustment = new WorldResearchRequirementAdjustment(
             modifierId,
             challengeId,
-            "ChallengeSO",
             modifierType: 0,
             amount: new BigDouble(-5d),
             order: 0,
@@ -1912,7 +1911,9 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal("Requirement Offset", (string?)projected["modifier"]!["name"]);
         Assert.Equal(GameMcpTestHarness.Handle(challengeId), (string?)projected["source"]!["uuid"]);
         Assert.Equal("Improved Scribing", (string?)projected["source"]!["name"]);
-        Assert.Equal("ChallengeSO", (string?)projected["sourceNativeType"]);
+        // The source's own C# class name sat beside a handle that already names the thing in the
+        // player's words, and nothing a caller does with `ChallengeSO` beats reading that name.
+        Assert.Null(projected["sourceNativeType"]);
         Assert.Equal("-5", (string?)projected["amount"]);
         Assert.True((bool)projected["passive"]!);
     }

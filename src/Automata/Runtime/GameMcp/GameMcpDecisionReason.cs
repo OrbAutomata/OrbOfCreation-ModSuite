@@ -219,7 +219,7 @@ internal static class GameMcpDecisionReason
         "not_on_screen" or
         "not_offered" or "offer_unavailable" or "item_unavailable" or "instance_unavailable" or
         "target_unavailable" or "recipe_unavailable" or "element_unavailable" or
-        "tree_unavailable" or "source_unavailable" or "components_unavailable" or
+        "source_unavailable" or "components_unavailable" or
         "no_current_offers" or
         "active_section_empty" or "control_unavailable" or "list_unavailable" or
         // The UI gadgets. Every one of their codes used to fall to the default class, so a caller
@@ -295,6 +295,11 @@ internal static class GameMcpDecisionReason
         // the caller's next move is to open a Recipe Book, which is a different move from giving up
         // on the tree — and while both wore ERR_NOT_FOUND, nothing on the wire told them apart.
         "no_discoveries_in_reach" or
+        // Every producer of this code has the tree in hand and finds `IsVisible(tree)` false — the
+        // read side off the published row, the action off its own preflight, which answers
+        // `identity_unavailable` when the tree genuinely is not there. A tree whose screen is shut
+        // is locked, and the sentence has always said so.
+        "tree_unavailable" or
         "screen_locked" or "unlock_conditions_unmet" or
         "native_unavailable" or "native_leeway_exhausted" => ClassLocked,
 

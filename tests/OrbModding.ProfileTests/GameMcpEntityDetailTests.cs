@@ -998,7 +998,6 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var challengeAdjustment = new WorldResearchRequirementAdjustment(
             adjustmentId,
             challengeId,
-            "ChallengeSO",
             modifierType: 0,
             amount: new BigDouble(-5d),
             order: 0,
@@ -1131,7 +1130,10 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Equal(5, (int)thresholds["effectiveThreshold"]!);
         var adjustment = Assert.Single(thresholds["activeAdjustments"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(challengeId), (string?)adjustment["source"]!["uuid"]);
-        Assert.Equal("ChallengeSO", (string?)adjustment["sourceNativeType"]);
+        Assert.Null(adjustment["sourceNativeType"]);
+        // One field, printed once: `nativeStillHasLeeway` was `metWithLeeway`'s own value again.
+        Assert.NotNull(thresholds["metWithLeeway"]);
+        Assert.Null(thresholds["nativeStillHasLeeway"]);
         // This research still has leeway, so that axis is not what refuses and is not listed; the
         // cap is, and it prints in full beside it.
         Assert.Null(researchResult["blockers"]!["leeway"]);
