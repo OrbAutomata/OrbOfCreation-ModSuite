@@ -11,7 +11,37 @@ internal static class AutoBuyPurchaseNarration
     /// submitted. A missing native surface is an actionable anomaly.
     /// </summary>
     public static string QueueRoomUnavailable(AutoBuyCandidateKind kind, Guid uuid) =>
-        $"Auto Buy failed to purchase {kind} {uuid:D}: queue room unavailable.";
+        $"Auto Buy failed to purchase {kind} {EntityIdentityFormatter.Format(uuid)}: queue room unavailable.";
+
+    /// <summary>
+    /// The purchase-screen topology was published, for which run, and how much it admits.
+    /// </summary>
+    /// <remarks>
+    /// This is the one fact every purchase is admitted against, and it used to leave no trace: when
+    /// it was published under the wrong run the log showed only refusals, so which run it belonged
+    /// to had to be recovered from source. Announcing it costs one line per run.
+    /// </remarks>
+    public static string TopologyPublished(long lifecycleEpoch, int rows) =>
+        $"Auto Buy purchase-screen topology published for run {lifecycleEpoch}: {rows} " +
+        "candidate(s) admitted.";
+
+    /// <summary>
+    /// Why a purchase found no captured purchase-screen entry to be admitted against.
+    /// </summary>
+    /// <remarks>
+    /// All three numbers are load-bearing and none can be inferred from the others. A snapshot
+    /// stamped at zero was never published under a lifecycle; one stamped at another epoch means the
+    /// game moved on; one stamped at the asked epoch simply has no entry for this target, which is a
+    /// different problem with a different fix. Diagnosing the outage that motivated this took
+    /// crossing log timestamps against source, because the refusal named none of them.
+    /// </remarks>
+    public static string TopologyUncaptured(long stampedEpoch, long askedEpoch, int rows) =>
+        stampedEpoch == askedEpoch
+            ? $"This run's purchase-screen topology (epoch {stampedEpoch}, {rows} row(s)) holds no " +
+              "entry for this target."
+            : "The purchase-screen topology holds no admission evidence for this run: it is " +
+              $"stamped at epoch {stampedEpoch} with {rows} row(s), and this purchase was planned " +
+              $"at epoch {askedEpoch}.";
 
     /// <summary>
     /// Returns one warning for a refusal that requires attention, or null for successful and ordinary
@@ -23,15 +53,19 @@ internal static class AutoBuyPurchaseNarration
         in AutoBuyPurchaseSubmission submission)
     {
         if (submission.Verified ||
-            submission.Preflight == AutoBuyPurchasePreflight.NotAdmissible ||
-            submission.Preflight == AutoBuyPurchasePreflight.SingleBuyUnavailable)
+            submission.Preflight == AutoBuyPurchasePreflight.NotAdmissible)
         {
             return null;
         }
 
-        var candidate = $"{kind} {uuid:D}";
+        var candidate = $"{kind} {EntityIdentityFormatter.Format(uuid)}";
         return submission.Preflight switch
         {
+            // The multiplier pin is the suite's own step, and which part of it failed is only ever
+            // written here: the trace used to drop this outcome entirely, so the sentence the pin
+            // composed was lost on the wire and in the log at once.
+            AutoBuyPurchasePreflight.SingleBuyUnavailable =>
+                $"Auto Buy failed to purchase {candidate}: {submission.Reason}",
             AutoBuyPurchasePreflight.CandidateUnavailable =>
                 $"Auto Buy failed to purchase {candidate}: candidate could not be resolved.",
             AutoBuyPurchasePreflight.AffordabilityUnavailable =>
@@ -42,6 +76,14 @@ internal static class AutoBuyPurchaseNarration
                 Refusal(candidate, "owning view relation missing"),
             AutoBuyPurchasePreflight.OwningViewRelationUnreadable =>
                 Refusal(candidate, "owning view relation unreadable"),
+            AutoBuyPurchasePreflight.OwningViewTopologyUnbound =>
+                Refusal(candidate, "the owning view topology contract never bound"),
+            AutoBuyPurchasePreflight.OwningViewTopologyUncaptured =>
+                $"Auto Buy failed to purchase {candidate}: {submission.Reason}",
+            AutoBuyPurchasePreflight.OwningViewRelationStatusUnmodeled =>
+                Refusal(candidate, "the owning view relation carries an unmodelled status"),
+            AutoBuyPurchasePreflight.OwningViewAvailabilityUnreadable =>
+                Refusal(candidate, "live owning view availability could not be read"),
             AutoBuyPurchasePreflight.OwningViewRelationContradictory =>
                 Refusal(candidate, "owning view relation contradictory"),
             AutoBuyPurchasePreflight.StructureUnavailable =>

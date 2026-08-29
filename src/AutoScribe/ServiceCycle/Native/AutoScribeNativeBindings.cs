@@ -23,11 +23,8 @@ internal sealed class AutoScribeNativeBindings
         Type instanceType,
         Type instanceListType,
         Type consumableType,
-        Type consumableCountType,
         Type enchantmentType,
         Type resourceCostType,
-        Type resourceTupleType,
-        Type resourceType,
         Type bigDoubleType,
         Type instantBlockType,
         Type instantScriptType,
@@ -52,9 +49,6 @@ internal sealed class AutoScribeNativeBindings
         FieldInfo onUseEffects,
         FieldInfo targetOptions,
         FieldInfo enchantScriptEnchantment,
-        FieldInfo consumableCounts,
-        FieldInfo costs,
-        FieldInfo tupleResource,
         MethodInfo identity,
         MethodInfo consumableIdentity,
         MethodInfo enchantmentIdentity,
@@ -64,9 +58,6 @@ internal sealed class AutoScribeNativeBindings
         MethodInfo recipeMainType,
         MethodInfo recipePurchase,
         MethodInfo costHasEnough,
-        MethodInfo tupleValue,
-        MethodInfo resourceIdentity,
-        MethodInfo resourceQuantity,
         MethodInfo queueHasRoom,
         MethodInfo queueAdd,
         MethodInfo instanceRecipe,
@@ -75,8 +66,6 @@ internal sealed class AutoScribeNativeBindings
         MethodInfo instanceInitiate,
         MethodInfo instanceInstantCheck,
         MethodInfo instanceInstant,
-        MethodInfo countLevel,
-        MethodInfo countQuantity,
         MethodInfo scalingBasic,
         MethodInfo getTargeting,
         MethodInfo getRandomList)
@@ -87,11 +76,8 @@ internal sealed class AutoScribeNativeBindings
         InstanceType = instanceType;
         InstanceListType = instanceListType;
         ConsumableType = consumableType;
-        ConsumableCountType = consumableCountType;
         EnchantmentType = enchantmentType;
         ResourceCostType = resourceCostType;
-        ResourceTupleType = resourceTupleType;
-        ResourceType = resourceType;
         BigDoubleType = bigDoubleType;
         InstantBlockType = instantBlockType;
         InstantScriptType = instantScriptType;
@@ -116,9 +102,6 @@ internal sealed class AutoScribeNativeBindings
         OnUseEffects = onUseEffects;
         TargetOptions = targetOptions;
         EnchantScriptEnchantment = enchantScriptEnchantment;
-        ConsumableCounts = consumableCounts;
-        Costs = costs;
-        TupleResource = tupleResource;
         Identity = identity;
         ConsumableIdentity = consumableIdentity;
         EnchantmentIdentity = enchantmentIdentity;
@@ -128,9 +111,6 @@ internal sealed class AutoScribeNativeBindings
         RecipeMainType = recipeMainType;
         RecipePurchase = recipePurchase;
         CostHasEnough = costHasEnough;
-        TupleValue = tupleValue;
-        ResourceIdentity = resourceIdentity;
-        ResourceQuantity = resourceQuantity;
         QueueHasRoom = queueHasRoom;
         QueueAdd = queueAdd;
         InstanceRecipe = instanceRecipe;
@@ -139,8 +119,6 @@ internal sealed class AutoScribeNativeBindings
         InstanceInitiate = instanceInitiate;
         InstanceInstantCheck = instanceInstantCheck;
         InstanceInstant = instanceInstant;
-        CountLevel = countLevel;
-        CountQuantity = countQuantity;
         ScalingBasic = scalingBasic;
         GetTargeting = getTargeting;
         GetRandomList = getRandomList;
@@ -152,11 +130,8 @@ internal sealed class AutoScribeNativeBindings
     internal Type InstanceType { get; }
     internal Type InstanceListType { get; }
     internal Type ConsumableType { get; }
-    internal Type ConsumableCountType { get; }
     internal Type EnchantmentType { get; }
     internal Type ResourceCostType { get; }
-    internal Type ResourceTupleType { get; }
-    internal Type ResourceType { get; }
     internal Type BigDoubleType { get; }
     internal Type InstantBlockType { get; }
     internal Type InstantScriptType { get; }
@@ -181,9 +156,6 @@ internal sealed class AutoScribeNativeBindings
     internal FieldInfo OnUseEffects { get; }
     internal FieldInfo TargetOptions { get; }
     internal FieldInfo EnchantScriptEnchantment { get; }
-    internal FieldInfo ConsumableCounts { get; }
-    internal FieldInfo Costs { get; }
-    internal FieldInfo TupleResource { get; }
     internal MethodInfo Identity { get; }
     internal MethodInfo ConsumableIdentity { get; }
     internal MethodInfo EnchantmentIdentity { get; }
@@ -193,9 +165,6 @@ internal sealed class AutoScribeNativeBindings
     internal MethodInfo RecipeMainType { get; }
     internal MethodInfo RecipePurchase { get; }
     internal MethodInfo CostHasEnough { get; }
-    internal MethodInfo TupleValue { get; }
-    internal MethodInfo ResourceIdentity { get; }
-    internal MethodInfo ResourceQuantity { get; }
     internal MethodInfo QueueHasRoom { get; }
     internal MethodInfo QueueAdd { get; }
     internal MethodInfo InstanceRecipe { get; }
@@ -204,8 +173,6 @@ internal sealed class AutoScribeNativeBindings
     internal MethodInfo InstanceInitiate { get; }
     internal MethodInfo InstanceInstantCheck { get; }
     internal MethodInfo InstanceInstant { get; }
-    internal MethodInfo CountLevel { get; }
-    internal MethodInfo CountQuantity { get; }
     internal MethodInfo ScalingBasic { get; }
     internal MethodInfo GetTargeting { get; }
     internal MethodInfo GetRandomList { get; }
@@ -221,11 +188,8 @@ internal sealed class AutoScribeNativeBindings
             var instance = Type("CraftingInstance");
             var instanceList = Type("CraftingInstanceListVariable");
             var consumable = Type("ConsumableSO");
-            var count = Type("ConsumableCount");
             var enchantment = Type("EnchantmentSO");
             var cost = Type("ResourceCostList");
-            var tuple = Type("ResourceTuple");
-            var resource = Type("ResourceSO");
             var big = Type("BigDouble");
             var block = Type("InstantEffectBlock");
             var script = Type("IInstantEffectScript");
@@ -245,11 +209,8 @@ internal sealed class AutoScribeNativeBindings
                 instance,
                 instanceList,
                 consumable,
-                count,
                 enchantment,
                 cost,
-                tuple,
-                resource,
                 big,
                 block,
                 script,
@@ -274,9 +235,6 @@ internal sealed class AutoScribeNativeBindings
                 CollectionField(consumable, "onUseEffects", block),
                 Field(request, "targetOptions", options),
                 Field(enchantScript, "enchantment", enchantment),
-                CollectionField(consumable, "consumableCounts", count),
-                CollectionField(cost, "costs", tuple),
-                Field(tuple, "resource", resource),
                 MethodFromHierarchy(recipe, "GetGuid", typeof(Guid)),
                 MethodFromHierarchy(consumable, "GetGuid", typeof(Guid)),
                 MethodFromHierarchy(enchantment, "GetGuid", typeof(Guid)),
@@ -286,9 +244,6 @@ internal sealed class AutoScribeNativeBindings
                 Method(recipe, "GetMainType", recipeType),
                 Method(recipe, "PurchaseQuantity", typeof(void), big, big),
                 Method(cost, "HasEnough", typeof(bool)),
-                Method(tuple, "GetValue", big),
-                MethodFromHierarchy(resource, "GetGuid", typeof(Guid)),
-                Method(resource, "GetTrueQuantity", big),
                 MethodFromHierarchy(instanceList, "HasEmptySpot", typeof(bool)),
                 MethodFromHierarchy(instanceList, "Add", typeof(void), instance),
                 MethodFromHierarchy(instance, "GetGuidReference", typeof(Guid)),
@@ -297,8 +252,6 @@ internal sealed class AutoScribeNativeBindings
                 Method(instance, "Initiate", typeof(void)),
                 Method(instance, "CheckInstantCraft", typeof(bool)),
                 Method(instance, "InstantCraft", typeof(void)),
-                Method(count, "GetLevel", typeof(int)),
-                Method(count, "GetQuantity", typeof(int)),
                 StaticMethod(scaling, "Basic", scaling, big),
                 Method(options, "GetTargeting", selection),
                 Method(

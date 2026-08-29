@@ -106,21 +106,42 @@ public sealed class DifferentialVerificationTests
 
         Assert.Equal(50, run.MismatchCount);
         Assert.Equal(2, run.Failures.Count);
-        Assert.Contains("48 further disagreements not recorded", run.Summarize(), StringComparison.Ordinal);
+        Assert.Equal(
+            "… 48 further disagreements not recorded.",
+            run.Finding().Detail[run.Finding().Detail.Count - 1]);
     }
 
     [Fact]
-    public void TheSummaryStatesPassOrFailPlainly()
+    public void AMerelyCloseComparisonIsCountedAndNeverGivenARow()
     {
-        var passing = new DifferentialRun();
-        passing.Compare(Structure, Water.ToString(), new BigDouble(10d), new BigDouble(10d));
-        Assert.Contains("PASSED", passing.Summarize(), StringComparison.Ordinal);
+        // Twenty rows a call printed two byte-identical numbers behind two full UUIDs. Close is
+        // agreement; what survives it is the count, which is the early warning worth keeping.
+        var run = new DifferentialRun();
+        run.Compare(Structure, Water.ToString(), new BigDouble(1d, 30), new BigDouble(1.0000000000001d, 30));
 
-        var failing = new DifferentialRun();
-        failing.Compare(Structure, Water.ToString(), new BigDouble(10d), new BigDouble(20d));
-        Assert.Contains("FAILED", failing.Summarize(), StringComparison.Ordinal);
+        var finding = run.Finding();
 
-        // An empty run must not read as success — nothing verified is not the same as verified.
-        Assert.DoesNotContain("PASSED", new DifferentialRun().Summarize(), StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Agree, finding.Verdict);
+        Assert.Equal(1, finding.WithinTolerance);
+        Assert.Empty(finding.Detail);
+        Assert.Empty(run.Failures);
+    }
+
+    [Fact]
+    public void TheFindingStatesAgreementOrDisagreementInOneVocabulary()
+    {
+        var agreeing = new DifferentialRun();
+        agreeing.Compare(Structure, Water.ToString(), new BigDouble(10d), new BigDouble(10d));
+        Assert.Equal("Game math AGREE: 1 compared.", agreeing.Finding().Headline());
+
+        var disagreeing = new DifferentialRun();
+        disagreeing.Compare(Structure, Water.ToString(), new BigDouble(10d), new BigDouble(20d));
+        Assert.Equal(
+            "Game math DISAGREE: 1 compared, 0 agree, 1 differ.",
+            disagreeing.Finding().Headline());
+
+        // An empty run must not read as agreement — nothing verified is not the same as verified.
+        Assert.Equal(
+            VerificationVerdict.Inconclusive, new DifferentialRun().Finding().Verdict);
     }
 }

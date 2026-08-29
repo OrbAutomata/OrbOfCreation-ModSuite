@@ -17,6 +17,9 @@ internal static class ManualFullTraceTimelineView
         foreach (var item in segment.Events)
         {
             if (item.Kind == ServiceCycleSemanticEventKind.PumpCompleted) continue;
+            // Sixty-odd spans four times a second would be the whole timeline, and they are a
+            // distribution rather than a sequence: the category view above is the form they answer in.
+            if (item.Kind == ServiceCycleSemanticEventKind.WorldCategoryCollected) continue;
             wroteEvent = true;
             writer.Write("- #");
             writer.Write(item.Id.Sequence.ToString(CultureInfo.InvariantCulture));
@@ -37,7 +40,11 @@ internal static class ManualFullTraceTimelineView
             }
             writer.WriteLine();
         }
-        if (!wroteEvent) writer.WriteLine("No non-pump semantic events were recorded.");
+        if (!wroteEvent)
+        {
+            writer.WriteLine(
+                "No semantic events outside the pump and collection-span summaries were recorded.");
+        }
     }
 
     private static string OffsetMilliseconds(long timestamp, long origin) =>

@@ -1,0 +1,1273 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Newtonsoft.Json.Linq;
+using OrbAutomata.GameMcp;
+using OrbModding.Common;
+using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.World;
+using Xunit;
+
+namespace OrbModding.ProfileTests;
+
+/// <summary>
+/// A category's list columns are declared and total, so the header a page shows is a fact about the
+/// category rather than about which rows that page happened to hold.
+/// </summary>
+public sealed class GameMcpListColumnsTests
+{
+    private static readonly Guid Capped = Guid.Parse("41111111-1111-4111-8111-111111111111");
+    private static readonly Guid Uncapped = Guid.Parse("42222222-2222-4222-8222-222222222222");
+    private static readonly Guid Exhausted = Guid.Parse("43333333-3333-4333-8333-333333333333");
+    private static readonly Guid Scholarly = Guid.Parse("44444444-4444-4444-8444-444444444445");
+    private static readonly Guid Aspect = Guid.Parse("45555555-5555-4555-8555-555555555555");
+
+    /// <summary>
+    /// The round-8 defect: reading the upgrades page before a prestige listed the ceiling, and
+    /// reading it after — when every upgrade was uncapped — dropped the column, so the one page
+    /// that most needed to say caps exist was the page that said nothing about them.
+    /// </summary>
+    [Fact]
+    public void An_all_uncapped_upgrades_page_shows_the_columns_a_capped_page_shows()
+    {
+        var mixed = Columns(Page(Upgrade(Capped, bounded: true), Upgrade(Uncapped, bounded: false)));
+        var allUncapped = Columns(Page(
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Capped, bounded: false)));
+
+        Assert.Equal(mixed, allUncapped);
+        Assert.Contains("maximum", mixed);
+        Assert.Contains("state", mixed);
+        Assert.Contains("affordable", mixed);
+    }
+
+    /// <summary>
+    /// The ceiling a page has none of is spelled, not omitted and not invented: <c>0</c> would read
+    /// as a cap of zero and as nothing left to buy, which is the opposite of what it means. The
+    /// column reads <c>1</c>, the finite count, or the word — nothing else.
+    /// </summary>
+    [Fact]
+    public void An_upgrade_with_no_ceiling_says_so_instead_of_publishing_a_number()
+    {
+        Assert.Equal(
+            "uncapped",
+            (string?)Rows(Page(Upgrade(Uncapped, bounded: false))).Single()["maximum"]);
+        Assert.Equal(
+            10,
+            (int?)Rows(Page(Upgrade(Capped, bounded: true))).Single()["maximum"]);
+    }
+
+    /// <summary>
+    /// A finished upgrade has no next level, so there is no price for one — the same absence a row
+    /// the world published no cost for has. It used to answer <c>already_maxed</c> here, which was
+    /// the completed state said a second time in a column that asks about money.
+    /// </summary>
+    [Fact]
+    public void A_row_with_no_price_names_which_kind_of_no_price_it_is()
+    {
+        var rows = Rows(Page(
+            Upgrade(Exhausted, bounded: true, exhausted: true),
+            Upgrade(Uncapped, bounded: false)));
+
+        Assert.Equal("unpriced", (string?)rows[0]["affordable"]);
+        Assert.Equal("completed", (string?)rows[0]["state"]);
+        Assert.Equal("unpriced", (string?)rows[1]["affordable"]);
+        Assert.Equal("available", (string?)rows[1]["state"]);
+    }
+
+    /// <summary>
+    /// A page whose every row says the same word names the word once beside the count instead of on
+    /// every row — and still names the columns, because a reader who has only ever seen this page
+    /// has to be able to learn from it that ceilings exist. The share line and the header together
+    /// are the declared set, in declaration order; neither on its own is.
+    /// </summary>
+    [Fact]
+    public void A_page_of_uncapped_upgrades_says_uncapped_once_and_still_names_both_ceiling_columns()
+    {
+        var page = GameMcpTextPage.Render(Page(
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Capped, bounded: false),
+            Upgrade(Exhausted, bounded: false),
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Capped, bounded: false),
+            Upgrade(Exhausted, bounded: false)));
+
+        Assert.Contains(
+            "these 6 share: level=3, queuedLevels=0, screen=Magic, state=available, " +
+            "maximum=uncapped, requirements=met, affordable=unpriced",
+            page,
+            StringComparison.Ordinal);
+
+        // Every column the share line settled leaves the rows: a page that printed `uncapped` six
+        // more times under a line that just said all six share it is the same fact said seven times.
+        Assert.Equal("[id | name]", Bracket(page));
+        Assert.DoesNotContain("| uncapped |", page, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Most categories render straight from their declared field list, and that list is what the
+    /// header promises. Skipping a declared field the row happened to carry nothing under made the
+    /// header a fact about the page's rows instead — the same defect, one layer down and across
+    /// every category that has no hand-written projection.
+    /// </summary>
+    [Fact]
+    public void A_declared_field_the_row_carries_nothing_under_says_so()
+    {
+        var selected = Guid.Parse("44444444-4444-4444-8444-444444444444");
+        var rows = Rows(AlchemyTypes(selected, Guid.Empty));
+
+        Assert.Equal("-", (string?)rows[1]["selectedLevel"]);
+        Assert.NotNull(rows[0]["selectedLevel"]);
+        Assert.Equal(
+            Columns(AlchemyTypes(selected, selected)),
+            Columns(AlchemyTypes(Guid.Empty, Guid.Empty)));
+    }
+
+    /// <summary>
+    /// The declaration is the contract, so it answers for categories that exist. A stale name would
+    /// be a column set nothing is held to, which reads like enforcement and is not.
+    /// </summary>
+    [Fact]
+    public void Every_declared_column_set_belongs_to_a_registered_category()
+    {
+        var registered = new HashSet<string>(
+            GameMcpWorldQuery.RegisteredCategoryNames(), StringComparer.Ordinal);
+
+        Assert.NotEmpty(GameMcpListColumns.Categories);
+        Assert.All(GameMcpListColumns.Categories, name => Assert.Contains(name, registered));
+    }
+
+    /// <summary>
+    /// Every declaring category is listed once here, from a world holding one row of each, so a
+    /// column set is held to its own rows rather than only to the categories some other test
+    /// happens to read. The rows carry the game's zero values on purpose: that is the state in
+    /// which a conditional field is most likely to disappear.
+    /// </summary>
+    [Fact]
+    public void Every_declaring_category_builds_rows_its_declaration_accepts()
+    {
+        var context = GameMcpTestHarness.Context(OneRowOfEach(), generation: 4242);
+
+        Assert.All(GameMcpListColumns.Categories, category =>
+        {
+            var page = GameMcpTestHarness.Json(
+                GameMcpWorldQuery.ListRows(context, category, 0, 50));
+            Assert.True(
+                page["rows"] is not null,
+                category + ": " + (string?)page["status"] + " " + (string?)page["reason"]);
+            Assert.NotEmpty(page["rows"]!.Values<JObject>());
+        });
+    }
+
+    /// <summary>
+    /// An empty page of a category names the same columns a full page of it shows, for every
+    /// category the surface lists. That header is the only thing an empty page has instead of a
+    /// row to read the shape off, so a declaration that drifted from the rows would put its worst
+    /// header on the one read with nothing on it to say so.
+    /// </summary>
+    [Fact]
+    public void An_empty_page_of_a_category_names_the_columns_a_full_page_shows()
+    {
+        var context = GameMcpTestHarness.Context(OneRowOfEach(), generation: 4242);
+
+        Assert.All(GameMcpWorldQuery.RegisteredCategoryNames(), category =>
+        {
+            var page = GameMcpTestHarness.Json(
+                GameMcpWorldQuery.ListRows(context, category, 0, 50));
+            if (page["rows"] is not JArray rows || rows.Count == 0) return;
+            var empty = GameMcpTestHarness.Json(
+                GameMcpWorldQuery.ListRows(context, category, rows.Count, 50));
+            var emptyPage = GameMcpTextPage.Render(empty);
+
+            Assert.Empty(empty["rows"]!.Values<JObject>());
+            Assert.Equal(
+                "rows 0/" + rows.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                emptyPage.Split('\n')[0]);
+            var declared = Bracket(emptyPage)
+                .Trim('[', ']')
+                .Split(" | ", StringSplitOptions.None);
+            var shown = Bracket(GameMcpTextPage.Render(page))
+                .Trim('[', ']')
+                .Split(" | ", StringSplitOptions.None);
+
+            // The fixture's rows carry the game's zero identity, which the wire drops rather than
+            // handing back an address nothing answers to, so a page here can show fewer columns
+            // than it declares. It may never show one the declaration does not name, and never in
+            // another order — either would be a header the empty page of this category would get
+            // wrong with nothing on it to say so. The verdict pair used to be exempt here, which
+            // is what let a page holding one blocked row be wider than the same page without it.
+            var next = 0;
+            foreach (var column in shown)
+            {
+                var found = Array.IndexOf(declared, column, next);
+                Assert.True(
+                    found >= 0,
+                    category + " renders [" + string.Join(" | ", shown) + "] against declared [" +
+                    string.Join(" | ", declared) + "]");
+                next = found + 1;
+            }
+        });
+    }
+
+    /// <summary>
+    /// One vocabulary, and every word in it readable at a glance. A cell that carried a sentence
+    /// made the reader parse prose out of a column; a cell that carried an <c>ERR_</c> class made
+    /// them look the class up. Both are gone, and this is the shape of what replaced them.
+    /// </summary>
+    /// <remarks>
+    /// The <c>screen</c> column is not in this vocabulary and is pinned by
+    /// <see cref="Every_screen_word_is_a_destination_game_navigate_accepts"/> instead: its cells are
+    /// not facts about the row, they are destinations, and a destination has to be spelled the way
+    /// the tool that takes it spells it.
+    /// </remarks>
+    [Fact]
+    public void Every_word_a_cell_can_carry_is_one_lowercase_fact()
+    {
+        var vocabulary = new[]
+        {
+            GameMcpListColumns.Yes,
+            GameMcpListColumns.No,
+            GameMcpListColumns.Uncapped,
+            GameMcpListColumns.Locked,
+            GameMcpListColumns.Available,
+            GameMcpListColumns.Completed,
+            GameMcpListColumns.Met,
+            GameMcpListColumns.Unmet,
+            GameMcpListColumns.Unmodelled,
+            GameMcpListColumns.Unpriced,
+            GameMcpListColumns.Unevaluated,
+            GameMcpListColumns.Unreadable,
+            GameMcpListColumns.Empty,
+            GameMcpListColumns.Manual,
+            GameMcpListColumns.Unslotted,
+            GameMcpListColumns.RunIdle,
+            GameMcpListColumns.RunQueued,
+            GameMcpListColumns.RunActive,
+            GameMcpListColumns.RunPassed,
+            GameMcpListColumns.RunFailed,
+        }
+            .Concat(BlockedCodes.Select(GameMcpListColumns.Word))
+            .ToArray();
+
+        Assert.All(vocabulary, word =>
+        {
+            Assert.Equal(word.ToLowerInvariant(), word);
+            Assert.DoesNotContain(" ", word, StringComparison.Ordinal);
+            Assert.DoesNotContain(".", word, StringComparison.Ordinal);
+            Assert.DoesNotContain("ERR_", word, StringComparison.OrdinalIgnoreCase);
+            Assert.InRange(word.Length, 2, 14);
+        });
+
+        // One fact, one word: the game publishing no price is the same fact whether an
+        // `affordable` column or an agromancy `add` cell is the one asking.
+        Assert.Equal(GameMcpListColumns.Unpriced, GameMcpListColumns.Word("cost_unavailable"));
+
+        // Absence is not a word in this vocabulary; it is the one mark, and no word may spell it a
+        // second time. `empty` and `uncapped` are here because each states a fact — a slot exists
+        // and holds nothing, a ceiling does not exist — and neither means "nothing here".
+        Assert.Equal("-", GameMcpListColumns.Absent);
+        Assert.DoesNotContain(GameMcpListColumns.Absent, vocabulary);
+        Assert.DoesNotContain("unset", vocabulary);
+        Assert.DoesNotContain("none", vocabulary);
+        Assert.Contains(GameMcpListColumns.Empty, vocabulary);
+
+        // The lifecycle is three words and no more, and none of them is `purchasable` — a word
+        // that reads as "you can buy this now" while naming a state that says nothing about price.
+        Assert.Equal(
+            new[] { "available", "completed", "locked" },
+            new[]
+            {
+                GameMcpListColumns.Locked,
+                GameMcpListColumns.Available,
+                GameMcpListColumns.Completed,
+            }.OrderBy(word => word, StringComparer.Ordinal).ToArray());
+        Assert.DoesNotContain("purchasable", vocabulary);
+
+        // The run vocabulary is a fifth of the surface's words and none of it is a lifecycle word:
+        // the two shared the column name `state` on challenges, and that is the collision the
+        // rename resolved. `active` in particular is not `available` in disguise.
+        var run = new[]
+        {
+            GameMcpListColumns.RunIdle, GameMcpListColumns.RunQueued,
+            GameMcpListColumns.RunActive, GameMcpListColumns.RunPassed,
+            GameMcpListColumns.RunFailed,
+        };
+        Assert.Equal(5, run.Distinct(StringComparer.Ordinal).Count());
+        Assert.Empty(run.Intersect(new[]
+        {
+            GameMcpListColumns.Locked,
+            GameMcpListColumns.Available,
+            GameMcpListColumns.Completed,
+        }, StringComparer.Ordinal));
+
+        // A code with no word is a defect, not a cell to improvise in.
+        Assert.Throws<InvalidOperationException>(
+            () => GameMcpListColumns.Word("some_code_nobody_gave_a_word"));
+    }
+
+    /// <summary>
+    /// The whole point of the vocabulary is that it fits. A word that needed a column wider than a
+    /// short number would put the page back where the sentences had it.
+    /// </summary>
+    private static readonly string[] BlockedCodes =
+    {
+        "not_offered", "ambiguous_offer", "cost_unavailable", "plot_quantity_insufficient",
+        "plot_action_list_full", "prerequisite_unverified", "not_active", "insufficient_bandwidth",
+    };
+
+    private static GameWorldState OneRowOfEach()
+    {
+        // A public category's availability also rests on the helper collections its rows are
+        // joined from, so every report a category can require is present and clean here.
+        var collected = GameMcpWorldQuery.RegisteredCategoryNames()
+            .Concat(new[]
+            {
+                "structure-costs", "upgrade-costs", "crafting-recipe-state", "crafting-decisions",
+                "loadouts", "concept-instances", "ordinary-alchemy-loadout", "action-queues",
+                "plot-actions", "plot-action-instances", "harvest-resources",
+                "harvest-element-controls", "harvest-action-controls", "harvest-lifecycle-costs",
+                "crafting-stations", "crafting-station-options", "crafting-station-drains",
+                            // The three type rosters whose wire name is not their collector's name.
+                "harvest-types", "harvest-action-types", "consumable-families",
+                "attribute-group-members",
+})
+            .Distinct(StringComparer.Ordinal)
+            .Select(name => new WorldCollectionCategoryStatus(
+                name, WorldCategoryOutcome.Collected, 1, 0, string.Empty))
+            .ToArray();
+        return new GameWorldState
+        {
+            Structures = PublicationTable<WorldStructure>.Create(new WorldStructure[1]),
+            Upgrades = PublicationTable<WorldUpgrade>.Create(new WorldUpgrade[1]),
+            Equipment = PublicationTable<WorldEquipment>.Create(new WorldEquipment[1]),
+            Rituals = PublicationTable<WorldRitual>.Create(new WorldRitual[1]),
+            Research = PublicationTable<WorldResearch>.Create(new WorldResearch[1]),
+            ResourceTypes = PublicationTable<WorldResourceType>.Create(new WorldResourceType[1]),
+            EquipmentTypes = PublicationTable<WorldEquipmentType>.Create(new WorldEquipmentType[1]),
+            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new WorldGlyph[1]),
+            AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new WorldAlchemyRecipe[1]),
+            PlotNodes = PublicationTable<WorldPlotNode>.Create(new WorldPlotNode[1]),
+            PurchaseCosts = PublicationTable<WorldPurchaseCost>.Create(new WorldPurchaseCost[1]),
+            Challenges = PublicationTable<WorldChallenge>.Create(new WorldChallenge[1]),
+            CraftingRecipes =
+                PublicationTable<WorldCraftingRecipe>.Create(new WorldCraftingRecipe[1]),
+            DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new WorldDiscoveryTree[1]),
+            RecipeBooks = PublicationTable<WorldRecipeBook>.Create(new WorldRecipeBook[1]),
+            Resources = PublicationTable<WorldResource>.Create(new WorldResource[1]),
+            PlayerLoadouts = PublicationTable<WorldPlayerLoadout>.Create(new WorldPlayerLoadout[1]),
+            SnapshotLoadouts =
+                PublicationTable<WorldSnapshotLoadout>.Create(new WorldSnapshotLoadout[1]),
+            SnapshotSlots = PublicationTable<WorldSnapshotSlot>.Create(new WorldSnapshotSlot[1]),
+            SnapshotEntries =
+                PublicationTable<WorldSnapshotEntry>.Create(new WorldSnapshotEntry[1]),
+            CraftingQueueEntries =
+                PublicationTable<WorldCraftingQueueEntry>.Create(new WorldCraftingQueueEntry[1]),
+            SpellSlots = PublicationTable<WorldSpellSlot>.Create(new WorldSpellSlot[1]),
+            SpellCosts = PublicationTable<WorldSpellCost>.Create(new WorldSpellCost[1]),
+            AlchemyInstances =
+                PublicationTable<WorldAlchemyInstance>.Create(new WorldAlchemyInstance[1]),
+            AlchemyLoadout = PublicationTable<WorldAlchemyLoadoutDecision>.Create(
+                new WorldAlchemyLoadoutDecision[1]),
+            ActionQueueSlots =
+                PublicationTable<WorldActionQueueSlot>.Create(new WorldActionQueueSlot[1]),
+            PlotActions = PublicationTable<WorldPlotAction>.Create(new WorldPlotAction[1]),
+            // A request the game never made is not a default struct: the constructor is what
+            // guarantees its three names are non-null, so the fixture goes through it.
+            Targeting = PublicationTable<WorldTargetingRequest>.Create(new[]
+            {
+                new WorldTargetingRequest(
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    cancelAvailable: false,
+                    PublicationTable<WorldTargetingCandidate>.Empty),
+            }),
+            CollectionCategories =
+                PublicationTable<WorldCollectionCategoryStatus>.Create(collected),
+            CollectedAtEpoch = 25,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+    }
+
+    /// <summary>
+    /// Every purchasable row says exactly one of three words, and it says how far the player has
+    /// come — never whether the next press would go through. A reader who sorts by <c>state</c> is
+    /// asking a progression question; a reader who sorts by <c>affordable</c> is asking a wallet
+    /// question; the page answers both without either word standing in for the other.
+    /// </summary>
+    [Fact]
+    public void An_upgrades_page_says_one_lifecycle_word_per_row_beside_a_separate_price_axis()
+    {
+        var page = GameMcpTextPage.Render(Page(
+            Upgrade(Capped, bounded: true, locked: true),
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Exhausted, bounded: true, exhausted: true)));
+        var rows = Rows(Page(
+            Upgrade(Capped, bounded: true, locked: true),
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Exhausted, bounded: true, exhausted: true)));
+
+        Assert.Equal(
+            new[] { "locked", "available", "completed" },
+            rows.Select(row => (string?)row["state"]).ToArray());
+
+        // The ceiling is the honest one on all three rows: a finite count, the word, a finite
+        // count. Nothing on this page repeats the state as a number.
+        Assert.Equal(
+            new object?[] { 10, "uncapped", 10 },
+            rows.Select(row => row["maximum"]!.Type == JTokenType.String
+                ? (object?)(string?)row["maximum"]
+                : (int?)row["maximum"]).ToArray());
+        Assert.DoesNotContain("remainingLevels", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("already_maxed", page, StringComparison.Ordinal);
+
+        // The word the whole model exists to keep off the surface.
+        Assert.DoesNotContain("purchasable", page, StringComparison.OrdinalIgnoreCase);
+
+        // The two axes this test is about both vary here, so both are columns. The four that do not
+        // vary are named once above the rows, and between the two lines the declared set is whole.
+        Assert.Contains(
+            "these 3 share: queuedLevels=0, screen=Magic, requirements=met, affordable=unpriced",
+            page,
+            StringComparison.Ordinal);
+        Assert.Equal("[id | name | level | state | maximum]", Bracket(page));
+    }
+
+    /// <summary>
+    /// Every row says which screen shows it, including the twenty-seven Scholar upgrades and the
+    /// three aspects whose lists no view in the game points at.
+    /// </summary>
+    /// <remarks>
+    /// This is the page the column exists for. Before it, deriving the screen from the captured
+    /// view routes would have left Scholar's upgrades blank — indistinguishable from the four
+    /// cap-raisers that genuinely sit on no screen panel — which is why the column was held back
+    /// rather than built from routes alone. The Scholar and aspect words come from pinned list
+    /// identities, and they are exactly as much of a fact as the routed ones.
+    /// </remarks>
+    [Fact]
+    public void An_upgrades_page_names_the_screen_that_shows_each_row_including_the_prefab_only_lists()
+    {
+        var memberships = new[]
+        {
+            new WorldUpgradeListMembership(Capped, KnownEntities.UpgradesMagicScreen.Uuid),
+            new WorldUpgradeListMembership(Capped, KnownEntities.UpgradesAll.Uuid),
+            new WorldUpgradeListMembership(Scholarly, KnownEntities.UpgradesScholarScreen.Uuid),
+            new WorldUpgradeListMembership(Scholarly, KnownEntities.UpgradesAll.Uuid),
+            new WorldUpgradeListMembership(Aspect, KnownEntities.UpgradesAspectsScreen.Uuid),
+            new WorldUpgradeListMembership(Aspect, KnownEntities.UpgradesAll.Uuid),
+            new WorldUpgradeListMembership(Uncapped, KnownEntities.UpgradesAll.Uuid),
+        };
+        var upgrades = new[]
+        {
+            Upgrade(Capped, bounded: true),
+            Upgrade(Scholarly, bounded: true),
+            Upgrade(Aspect, bounded: true),
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Exhausted, bounded: true, exhausted: true),
+        };
+
+        var rows = Rows(Page(memberships, upgrades));
+
+        Assert.Equal(
+            new[] { "Magic", "Scholar", "World/Aspects", "all", "unreadable" },
+            rows.Select(row => (string?)row["screen"]).ToArray());
+
+        // The catch-all carries every upgrade in the game, so it is never the word for a row a
+        // screen panel also carries — only for the row no screen panel carries at all.
+        Assert.Equal("Magic", (string?)rows[0]["screen"]);
+
+        // Five rows, five different answers, so the column that this page exists for is on the page
+        // rather than settled above it — the share line takes constants and nothing else.
+        var page = GameMcpTextPage.Render(Page(memberships, upgrades));
+        Assert.Contains(
+            "these 5 share: queuedLevels=0, requirements=met, affordable=unpriced",
+            page,
+            StringComparison.Ordinal);
+        Assert.Equal("[id | name | level | screen | state | maximum]", Bracket(page));
+    }
+
+    /// <summary>
+    /// A `screen` cell answers "where do I go", so its value has to be something the tool that goes
+    /// there accepts. `game_navigate` matches the live catalog label with
+    /// <c>StringComparison.Ordinal</c>, so the grammar is the game's own label exactly, or
+    /// <c>Screen/Subtab</c> where the destination is a subtab, or the sentinel `all` — which is
+    /// deliberately not any label, so it can never be mistaken for a destination.
+    /// </summary>
+    [Fact]
+    public void Every_screen_word_is_a_destination_game_navigate_accepts()
+    {
+        var labels = ViewLabels();
+
+        Assert.Equal(
+            new[]
+            {
+                "Magic", "Workshop", "World", "Alchemy",
+                "Rituals", "Scholar", "World/Aspects", "Time",
+            },
+            GameMcpListColumns.Screens.Select(screen => screen.Word).ToArray());
+
+        Assert.All(GameMcpListColumns.Screens, screen =>
+        {
+            var segments = screen.Word.Split('/');
+            Assert.InRange(segments.Length, 1, 2);
+            Assert.All(segments, segment => Assert.Contains(segment, labels));
+        });
+
+        Assert.DoesNotContain(GameMcpListColumns.ScreenAll, labels);
+
+        // The screen vocabulary is closed and every word in it is distinct: one authored list, one
+        // word, and the catch-all is not one of the eight screens.
+        Assert.Equal(
+            GameMcpListColumns.Screens.Length,
+            GameMcpListColumns.Screens.Select(screen => screen.ListId).Distinct().Count());
+        Assert.DoesNotContain(
+            GameMcpListColumns.EveryUpgradeList,
+            GameMcpListColumns.Screens.Select(screen => screen.ListId));
+        Assert.DoesNotContain(
+            GameMcpListColumns.ScreenAll,
+            GameMcpListColumns.Screens.Select(screen => screen.Word));
+    }
+
+    /// <summary>Every label the authored view graph offers a navigator, from the shipped mapping.</summary>
+    private static HashSet<string> ViewLabels() => File
+        .ReadLines(Path.Combine(AppContext.BaseDirectory, "data", "entity-display-names.tsv"))
+        .Skip(1)
+        .Select(line => line.Split('\t'))
+        .Where(cells => cells.Length > 3 && string.Equals(cells[1], "ViewSO", StringComparison.Ordinal))
+        .Select(cells => cells[3])
+        .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
+    /// A membership publication that did not land says so on every row instead of demoting thirty
+    /// upgrades to "on no screen", which is a different and equally sayable fact.
+    /// </summary>
+    [Fact]
+    public void A_withheld_membership_publication_never_reads_as_a_screen()
+    {
+        var rows = Rows(Page(
+            Array.Empty<WorldUpgradeListMembership>(),
+            Upgrade(Capped, bounded: true),
+            Upgrade(Uncapped, bounded: false)));
+
+        Assert.Equal(
+            new[] { "unreadable", "unreadable" },
+            rows.Select(row => (string?)row["screen"]).ToArray());
+    }
+
+    /// <summary>
+    /// Two screen panels claiming one row is not a screen fact this suite is entitled to pick a
+    /// winner for. It cannot happen on the pinned build — the eight lists are disjoint — and the
+    /// column is what would say so if it ever did.
+    /// </summary>
+    [Fact]
+    public void A_row_two_screens_both_claim_is_refused_rather_than_worded()
+    {
+        var rows = Rows(Page(
+            new[]
+            {
+                new WorldUpgradeListMembership(Capped, KnownEntities.UpgradesMagicScreen.Uuid),
+                new WorldUpgradeListMembership(Capped, KnownEntities.UpgradesWorldScreen.Uuid),
+            },
+            Upgrade(Capped, bounded: true)));
+
+        Assert.Equal("unreadable", (string?)rows.Single()["screen"]);
+    }
+
+    /// <summary>
+    /// A structure has no <c>maxLevel</c> field at all, so there is no level at which one is
+    /// finished. Two words is its whole lifecycle, and the third can never appear on the category
+    /// however many levels a structure is taken to.
+    /// </summary>
+    [Fact]
+    public void A_structures_page_never_reaches_the_third_lifecycle_word()
+    {
+        var rows = Rows(Structures(
+            Structure(Capped, unlocked: false),
+            Structure(Uncapped, unlocked: true, level: 2136)));
+
+        Assert.Equal(
+            new[] { "locked", "available" },
+            rows.Select(row => (string?)row["state"]).ToArray());
+        Assert.DoesNotContain(
+            "completed",
+            rows.Select(row => (string?)row["state"]).ToArray());
+    }
+
+    /// <summary>
+    /// The lifecycle word belongs to every category the player can meet a locked thing in, and each
+    /// of these five says it off the member the game's own row renderer asks — so a row this page
+    /// calls <c>locked</c> is exactly a row the player is shown no way to click.
+    /// </summary>
+    /// <remarks>
+    /// Before this, each of the five said its own half of the answer in its own grammar:
+    /// <c>discovered</c> for a recipe and a ritual, <c>available</c> for a glyph, <c>visible</c> for
+    /// a plot node, and for a challenge nothing at all — its <c>state</c> column was the run.
+    /// </remarks>
+    [Fact]
+    public void Every_category_a_locked_thing_can_be_met_in_says_the_lifecycle_word()
+    {
+        var context = GameMcpTestHarness.Context(LockedAndOpen(), generation: 4243);
+
+        Assert.All(
+            new[] { "alchemy-recipes", "augment-glyphs", "rituals", "plot-nodes", "challenges" },
+            category =>
+            {
+                var rows = GameMcpTestHarness
+                    .Json(GameMcpWorldQuery.ListRows(context, category, 0, 50))["rows"]!
+                    .Values<JObject>()
+                    .Select(row => (string?)row!["state"])
+                    .ToArray();
+                Assert.Equal(new[] { "locked", "available" }, rows);
+            });
+    }
+
+    /// <summary>
+    /// Two words is the honest whole of four of them. Only a ceiling makes <c>completed</c>
+    /// reachable, and a recipe's <c>maxLevel</c> is the level it has reached, a glyph's
+    /// <c>CanLevel()</c> is the constant <c>true</c>, a ritual is re-run forever and a plot node's
+    /// mastery has no top — so the word is absent because the fact is, not because it was withheld.
+    /// </summary>
+    [Fact]
+    public void A_category_with_no_ceiling_never_reaches_the_third_word()
+    {
+        var context = GameMcpTestHarness.Context(LockedAndOpen(), generation: 4244);
+
+        Assert.All(
+            new[] { "alchemy-recipes", "augment-glyphs", "rituals", "plot-nodes" },
+            category => Assert.DoesNotContain(
+                "completed",
+                GameMcpTestHarness
+                    .Json(GameMcpWorldQuery.ListRows(context, category, 0, 50))["rows"]!
+                    .Values<JObject>()
+                    .Select(row => (string?)row!["state"])
+                    .ToArray()));
+
+        // Challenges do have one — ChallengeSO.IsMaxLevel() — so they reach all three, and it is
+        // asked before availability exactly as the game's own IsAvailableToRun() asks it.
+        var challenges = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(ChallengeWorld(
+                Challenge(Capped, availableToRun: false, maxLevelReached: false, run: 0),
+                Challenge(Uncapped, availableToRun: true, maxLevelReached: false, run: 3),
+                Challenge(Exhausted, availableToRun: false, maxLevelReached: true, run: 3)),
+                generation: 4245),
+            "challenges", 0, 50));
+
+        Assert.Equal(
+            new[] { "locked", "available", "completed" },
+            challenges["rows"]!.Values<JObject>()
+                .Select(row => (string?)row!["state"]).ToArray());
+    }
+
+    /// <summary>
+    /// The collision the rename exists for: a challenge whose last run passed is <c>available</c>
+    /// again at the next level, so the two columns disagree on the same row and neither is the
+    /// other's synonym. One name meant both facts before, on the one category that has both.
+    /// </summary>
+    [Fact]
+    public void A_challenge_says_its_lifecycle_and_its_run_in_two_columns_that_disagree()
+    {
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(ChallengeWorld(
+                Challenge(Uncapped, availableToRun: true, maxLevelReached: false, run: 3),
+                Challenge(Capped, availableToRun: false, maxLevelReached: false, run: 0)),
+                generation: 4246),
+            "challenges", 0, 50));
+        var page = GameMcpTextPage.Render(response);
+        var row = Rows(response)[0];
+
+        Assert.Equal("available", (string?)row["state"]);
+        Assert.Equal("passed", (string?)row["run"]);
+        Assert.Equal("locked", (string?)Rows(response)[1]["state"]);
+        Assert.Equal("idle", (string?)Rows(response)[1]["run"]);
+
+        // Two columns that move apart from each other are two columns on the page: neither can be
+        // settled above the rows, because neither holds one value for the whole page.
+        Assert.Contains("| available | passed |", page, StringComparison.Ordinal);
+        Assert.Contains("| locked | idle |", page, StringComparison.Ordinal);
+        Assert.Equal("[id | name | state | run | level]", Bracket(page));
+    }
+
+    /// <summary>
+    /// A recipe behind a visibility prerequisite has a lock this suite cannot read without making
+    /// the game latch a prerequisite container mid-collection, so the cell says the read failed
+    /// rather than calling it locked. No authored recipe on the pinned build is on that branch; the
+    /// word exists so that a build where one was would say so.
+    /// </summary>
+    [Fact]
+    public void A_recipe_whose_gate_this_suite_cannot_read_says_so_instead_of_guessing()
+    {
+        var rows = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(
+                AlchemyWorld(
+                    Recipe(Capped, discovered: true, gate: 1),
+                    Recipe(Uncapped, discovered: false, gate: 1)),
+                generation: 4247),
+            "alchemy-recipes", 0, 50))["rows"]!.Values<JObject>().ToArray();
+
+        // Both branches of `discovered` answer the same way, because `discovered` is not what the
+        // game reads for this recipe at all.
+        Assert.Equal(
+            new[] { "unreadable", "unreadable" },
+            rows.Select(row => (string?)row!["state"]).ToArray());
+    }
+
+    /// <summary>
+    /// A category that builds its own rows is held to its declaration on every row it builds, so a
+    /// projection edit that made one column conditional again cannot reach a page.
+    /// </summary>
+    [Fact]
+    public void A_row_that_drops_a_declared_column_is_refused_rather_than_published()
+    {
+        var partial = new GameMcpObjectBuilder
+        {
+            ["entityId"] = Guid.Empty.ToString("D"),
+            ["level"] = 1,
+            ["queuedLevels"] = 0,
+            ["state"] = "available",
+            ["enabled"] = true,
+        }.Freeze();
+
+        var refusal = Assert.Throws<InvalidOperationException>(
+            () => GameMcpListColumns.Verify("structures", partial));
+
+        Assert.Contains("affordable", refusal.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_row_that_invents_a_column_is_refused_rather_than_published()
+    {
+        var extra = new GameMcpObjectBuilder
+        {
+            ["entityId"] = Guid.Empty.ToString("D"),
+            ["totalLevel"] = 1,
+            ["hidden"] = false,
+            ["mood"] = "curious",
+        }.Freeze();
+
+        var refusal = Assert.Throws<InvalidOperationException>(
+            () => GameMcpListColumns.Verify("resource-types", extra));
+
+        Assert.Contains("mood", refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A list read answers a planning question, and the test for a column is whether two reads
+    /// seconds apart with nobody playing between them would agree. These five did not: each named
+    /// what the game was doing at the instant it was asked, so a page of them was stale on arrival
+    /// and — as a live round caught with spell-slots' <c>casting</c> — could change the header
+    /// between two pages of one scan. They are named here so a later edit cannot bring one back by
+    /// only looking at the row in front of it.
+    /// </summary>
+    [Fact]
+    public void No_declared_column_names_what_the_game_is_doing_this_instant()
+    {
+        var transient = new[]
+        {
+            ("spell-slots", "casting"),
+            ("agromancy-processing", "processing"),
+            ("alchemy-instances", "settled"),
+            ("plot-nodes", "idleQuantity"),
+            ("research", "development"),
+        };
+
+        Assert.All(transient, pair =>
+        {
+            Assert.True(
+                GameMcpListColumns.TryDeclared(pair.Item1, out var declared),
+                pair.Item1 + " stopped declaring its columns");
+            Assert.DoesNotContain(pair.Item2, declared);
+        });
+
+        // The durable half of the one column that had both keeps its own name: a pause is the
+        // player's saved switch, and it is the fact a planner scans this category for.
+        Assert.True(GameMcpListColumns.TryDeclared("research", out var research));
+        Assert.Contains("paused", research);
+    }
+
+    /// <summary>
+    /// A category small enough to read in one call is read in one call. Paging it charges a second
+    /// request, and charges every reader the thought a <c>next=</c> demands, to discover that there
+    /// was never a second page. The count line still says how many rows there are, because that is
+    /// a fact whether or not any were withheld.
+    /// </summary>
+    [Fact]
+    public void A_category_small_enough_to_read_whole_is_not_paged()
+    {
+        var context = GameMcpTestHarness.Context(
+            UpgradesWorld(
+                Upgrade(Capped, bounded: true),
+                Upgrade(Uncapped, bounded: false),
+                Upgrade(Exhausted, bounded: true, exhausted: true)),
+            generation: 735);
+
+        var whole = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            context, "upgrades", 0, GameMcpWorldQuery.DefaultLimit, limitFromCaller: false));
+
+        Assert.Equal(3, Rows(whole).Length);
+        Assert.Equal(3, (int)whole["total"]!);
+        Assert.Null(whole["nextOffset"]);
+        Assert.Equal("rows 3/3", GameMcpTextPage.Render(whole).Split('\n')[0]);
+
+        // A caller that named a smaller page gets the page it named, and is told where to resume.
+        // The rule raises no page above what was asked for; it only stops lowering one below the
+        // whole of a category nobody asked to have cut up.
+        var asked = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            context, "upgrades", 0, 2, limitFromCaller: true));
+
+        Assert.Equal(2, Rows(asked).Length);
+        Assert.Equal(2, (int)asked["nextOffset"]!);
+    }
+
+    /// <summary>
+    /// Absence says one thing per surface, in one mark. In a table it is printed, because the
+    /// header promised a column and a page that dropped it would be a header about its rows.
+    /// Outside a table there is no header to keep and no siblings to line up with, so absence is
+    /// silence — the same answer a spell with nothing to toggle already gives, and the same one the
+    /// wire normalizer already gives for the zero identity on every projection that declares no
+    /// paths.
+    /// </summary>
+    [Fact]
+    public void A_member_the_row_carries_nothing_under_is_marked_in_a_table_and_silent_outside_one()
+    {
+        var identity = Guid.Parse("45000000-0000-4000-8000-000000000000");
+        var context = GameMcpTestHarness.Context(
+            AlchemyTypesWorld(Guid.Empty), generation: 736);
+
+        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            context, "alchemy-types", 0, 50))["rows"]!.Values<JObject>());
+        Assert.Equal("-", (string?)row!["selectedLevel"]);
+
+        var detail = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            context, "alchemy-types", new[] { identity.ToString("D") }));
+        var got = Assert.Single(detail["results"]!.Values<JObject>())!["row"]!;
+
+        Assert.Null(got["selectedLevel"]);
+        Assert.DoesNotContain(
+            "selectedLevel",
+            GameMcpTextPage.Render(detail),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// One response, one notation. A type's level reached its row as a plain <c>10300</c> beside
+    /// the same quantity written <c>1.03e4</c> in the worth block below it, because the wire
+    /// rewrote the screen's own spelling back into an integer for every field named like a count.
+    /// The rewrite also invented precision it could not have: <c>1.03e4</c> is a rounded reading,
+    /// so the exact-looking <c>10300</c> was a number the game never held. A count small enough
+    /// that the screen writes it plainly still ships as the integer a caller can hand back.
+    /// </summary>
+    [Fact]
+    public void A_level_the_screen_writes_as_an_exponent_stays_the_way_the_screen_writes_it()
+    {
+        var identity = Guid.Parse("45000000-0000-4000-8000-000000000000");
+        var big = GameMcpTestHarness.Context(
+            AlchemyTypesWorld(new BigDouble(10300), Guid.Empty), generation: 737);
+        var small = GameMcpTestHarness.Context(
+            AlchemyTypesWorld(new BigDouble(7), Guid.Empty), generation: 738);
+
+        Assert.Equal("1.03e4", (string?)TypeRow(big, identity)["level"]);
+        Assert.Equal(7, (int?)TypeRow(small, identity)["level"]);
+    }
+
+    private static JObject TypeRow(GameMcpFrameContext context, Guid identity) =>
+        (JObject)Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            context, "alchemy-types", new[] { identity.ToString("D") }))["results"]!
+            .Values<JObject>())!["row"]!;
+
+    private static GameWorldState AlchemyTypesWorld(params Guid[] selectedLevels) =>
+        AlchemyTypesWorld(BigDouble.Zero, selectedLevels);
+
+    private static GameWorldState AlchemyTypesWorld(
+        BigDouble level,
+        params Guid[] selectedLevels)
+    {
+        var types = new WorldAlchemyType[selectedLevels.Length];
+        for (var index = 0; index < selectedLevels.Length; index++)
+        {
+            types[index] = new WorldAlchemyType(
+                Guid.Parse("4500000" + index + "-0000-4000-8000-000000000000"),
+                selectedLevels[index],
+                maxUsageByMastery: false,
+                level: level);
+        }
+        return new GameWorldState
+        {
+            AlchemyTypes = PublicationTable<WorldAlchemyType>.Create(types),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus(
+                    "alchemy-types", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+            }),
+            CollectedAtEpoch = 25,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+    }
+
+    private static JObject AlchemyTypes(params Guid[] selectedLevels)
+    {
+        using var publisher =
+            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(AlchemyTypesWorld(selectedLevels), new WorldGeneration(734));
+        return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(publisher.ReadLatest()), "alchemy-types", 0, 50));
+    }
+
+    /// <summary>
+    /// The authored list each fixture upgrade sits on. All three share one screen so the pages that
+    /// pin a share line still hoist every column; the screen vocabulary itself is pinned by the page
+    /// that gives each row its own list.
+    /// </summary>
+    private static WorldUpgradeListMembership[] OneScreen() => new[]
+    {
+        new WorldUpgradeListMembership(Capped, KnownEntities.UpgradesMagicScreen.Uuid),
+        new WorldUpgradeListMembership(Uncapped, KnownEntities.UpgradesMagicScreen.Uuid),
+        new WorldUpgradeListMembership(Exhausted, KnownEntities.UpgradesMagicScreen.Uuid),
+    };
+
+    /// <summary>
+    /// The membership table exactly as the world publishes it, through the production deriver, so a
+    /// fixture cannot hand the surface an ordering the collector would never produce.
+    /// </summary>
+    private static PublicationTable<WorldUpgradeListMembership> Published(
+        WorldUpgradeListMembership[] memberships)
+    {
+        var buffer = new WorldRelationBuffer<WorldUpgradeListMembership>();
+        foreach (var membership in memberships) buffer.Append(membership);
+        return WorldUpgradeListMembershipDeriver.Build(buffer);
+    }
+
+    private static GameWorldState UpgradesWorld(params WorldUpgrade[] upgrades) =>
+        UpgradesWorld(OneScreen(), upgrades);
+
+    private static GameWorldState UpgradesWorld(
+        WorldUpgradeListMembership[] memberships,
+        WorldUpgrade[] upgrades) =>
+        new()
+        {
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(1, new[]
+            {
+                new EntityIdentityName(Capped, "UpgradeSO", "Capped Rite", "cappedRite"),
+                new EntityIdentityName(Uncapped, "UpgradeSO", "Endless Rite", "endlessRite"),
+                new EntityIdentityName(Exhausted, "UpgradeSO", "Spent Rite", "spentRite"),
+                new EntityIdentityName(Scholarly, "UpgradeSO", "Scribism Scrolls II", "scribeScroll2"),
+                new EntityIdentityName(Aspect, "UpgradeSO", "Aspect: Rituals", "aspectRituals"),
+            }),
+            Upgrades = PublicationTable<WorldUpgrade>.Create(upgrades),
+            UpgradeListMemberships = Published(memberships),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus(
+                    "upgrades", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+            }),
+            CollectedAtEpoch = 25,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+    private static JObject Page(params WorldUpgrade[] upgrades) =>
+        Page(OneScreen(), upgrades);
+
+    private static JObject Page(
+        WorldUpgradeListMembership[] memberships,
+        params WorldUpgrade[] upgrades)
+    {
+        using var publisher =
+            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(UpgradesWorld(memberships, upgrades), new WorldGeneration(733));
+        return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(publisher.ReadLatest()), "upgrades", 0, 50));
+    }
+
+    private static JObject Structures(params WorldStructure[] structures)
+    {
+        var world = new GameWorldState
+        {
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(1, new[]
+            {
+                new EntityIdentityName(Capped, "StructureSO", "Shut Hall", "shutHall"),
+                new EntityIdentityName(Uncapped, "StructureSO", "Open Hall", "openHall"),
+            }),
+            Structures = PublicationTable<WorldStructure>.Create(structures),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus(
+                    "structures", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+            }),
+            CollectedAtEpoch = 25,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        using var publisher =
+            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(734));
+        return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(publisher.ReadLatest()), "structures", 0, 50));
+    }
+
+    private static WorldStructure Structure(Guid id, bool unlocked, int level = 0)
+    {
+        var modifiers = new RawStructureModifiers(
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero);
+        var reading = new RawStructureSample(
+            id,
+            Guid.Empty,
+            new BigDouble(level),
+            BigDouble.Zero,
+            unlocked,
+            queuedEchos: 0,
+            completedEchos: 0,
+            selfBonusLevels: 0,
+            queueTimeLeft: BigDouble.Zero,
+            currentBuildTime: BigDouble.Zero,
+            flagged: false,
+            baseLevel: 0,
+            queueTimeTotal: 0,
+            debugStructure: false,
+            disabled: false,
+            observableId: 0,
+            insufficientReqPenaltyActive: false,
+            bufferDevelopedQuantity: 0,
+            costPerQuantityId: Guid.Empty,
+            in modifiers);
+        return new WorldStructure(
+            in reading,
+            new BigDouble(level),
+            hasWorkInFlight: false,
+            new BigDouble(level),
+            developmentProgress: 0);
+    }
+
+    /// <summary>
+    /// One shut row and one open row in each of the five categories the player can meet a locked
+    /// thing in, each shut through the member that category's own screen renders on.
+    /// </summary>
+    private static GameWorldState LockedAndOpen() => new()
+    {
+        AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new[]
+        {
+            Recipe(Capped, discovered: false),
+            Recipe(Uncapped, discovered: true),
+        }),
+        AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]
+        {
+            Glyph(Capped, learned: false),
+            Glyph(Uncapped, learned: true),
+        }),
+        Rituals = PublicationTable<WorldRitual>.Create(new[]
+        {
+            Ritual(Capped, discovered: false),
+            Ritual(Uncapped, discovered: true),
+        }),
+        PlotNodes = PublicationTable<WorldPlotNode>.Create(new[]
+        {
+            Plot(Capped, visible: false),
+            Plot(Uncapped, visible: true),
+        }),
+        Challenges = PublicationTable<WorldChallenge>.Create(new[]
+        {
+            Challenge(Capped, availableToRun: false, maxLevelReached: false, run: 0),
+            Challenge(Uncapped, availableToRun: true, maxLevelReached: false, run: 0),
+        }),
+        CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(Reports(
+            "alchemy-recipes", "augment-glyphs", "rituals", "plot-nodes", "challenges")),
+        CollectedAtEpoch = 25,
+        CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+    };
+
+    private static GameWorldState AlchemyWorld(params WorldAlchemyRecipe[] recipes) => new()
+    {
+        AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(recipes),
+        CollectionCategories =
+            PublicationTable<WorldCollectionCategoryStatus>.Create(Reports("alchemy-recipes")),
+        CollectedAtEpoch = 25,
+        CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+    };
+
+    private static GameWorldState ChallengeWorld(params WorldChallenge[] challenges) => new()
+    {
+        Challenges = PublicationTable<WorldChallenge>.Create(challenges),
+        CollectionCategories =
+            PublicationTable<WorldCollectionCategoryStatus>.Create(Reports("challenges")),
+        CollectedAtEpoch = 25,
+        CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+    };
+
+    private static WorldCollectionCategoryStatus[] Reports(params string[] categories) => categories
+        .Select(name => new WorldCollectionCategoryStatus(
+            name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
+        .ToArray();
+
+    private static WorldAlchemyRecipe Recipe(
+        Guid id,
+        bool discovered,
+        int gate = WorldAlchemyRecipe.DiscoverGate) => new(
+        id,
+        Guid.Empty,
+        discovered,
+        maxLevel: 1,
+        advancementLevel: 0,
+        discoveryRarityLevel: 0,
+        masteryXp: BigDouble.Zero,
+        masteryLevel: 0,
+        recipeTime: BigDouble.One,
+        isRequiredDiscovery: false,
+        isCompletionRecipe: false,
+        isAdvancementRecipe: false,
+        completionTime: 0,
+        isDebugAlchemy: false,
+        power: BigDouble.Zero,
+        speed: BigDouble.Zero,
+        drainCostMod: BigDouble.Zero,
+        special: BigDouble.Zero,
+        timeReqMod: BigDouble.Zero,
+        timeScalingMod: BigDouble.Zero,
+        masteryXpRate: BigDouble.Zero,
+        effectLevels: BigDouble.Zero,
+        overdrivePower: BigDouble.Zero,
+        overdriveSpeed: BigDouble.Zero,
+        overdriveDrainCostMod: BigDouble.Zero,
+        overdriveXpRate: BigDouble.Zero,
+        freeUsageSlots: BigDouble.Zero,
+        maxUsageSlots: BigDouble.One,
+        cachedCompletionTime: BigDouble.Zero,
+        requiredExperience: BigDouble.One,
+        discovery: default,
+        currentLevel: 1,
+        visibilityGate: gate);
+
+    /// <summary>
+    /// <c>learned</c> is the binder's name for <c>GlyphSO.IsAvailable()</c>, which is the whole of
+    /// what the picker renders a glyph on.
+    /// </summary>
+    private static WorldGlyph Glyph(Guid id, bool learned) => new(
+        id,
+        level: 0,
+        freeLevels: 0,
+        discoveryRarityLevel: 0,
+        learned,
+        discoverable: true,
+        discoveryRequired: true,
+        augmentsSpells: false,
+        requiresDuration: false,
+        requiresToggleable: false,
+        masteryReqCount: 0,
+        freeUsages: BigDouble.Zero,
+        freeLoadoutUsages: BigDouble.Zero,
+        maxUsages: BigDouble.Zero);
+
+    private static WorldRitual Ritual(Guid id, bool discovered)
+    {
+        var modifiers = default(RawRitualModifiers);
+        return new WorldRitual(
+            id,
+            discovered,
+            inBattle: false,
+            activeInstances: 0,
+            reachedLevel: 0,
+            lastReachedLevel: 0,
+            selectedLevel: 1,
+            wavesCompleted: 0,
+            discoveryRarityLevel: 0,
+            critLevel: 0,
+            echoLevel: 0,
+            chainLevel: 0,
+            durationRewardBlocks: 0,
+            battleTotalWeight: BigDouble.Zero,
+            in modifiers,
+            hideEndScreenResults: false,
+            isDiscoverRequired: false,
+            forceLevel: false,
+            forceLevelValue: 0,
+            baseWaves: 0,
+            maxWaves: 0,
+            requiredWaves: 0,
+            baseWeight: 0,
+            minimumEffectLevel: 0,
+            failedRun: false);
+    }
+
+    private static WorldPlotNode Plot(Guid id, bool visible)
+    {
+        var reading = new RawPlotNodeSample(
+            id, visible, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            masteryLevel: 0, noMastery: false, noSizeDisplay: false, useVisibilityPrereq: true,
+            hasErraticGrowth: false, debugMode: false, erraticQuantity: 0,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            lastQuantity: 0, idleQuantity: 0, totalQuantity: 0);
+        return new WorldPlotNode(in reading, remainingQuantity: 0, remainingTotalQuantity: 0);
+    }
+
+    /// <summary>
+    /// <c>run</c> is <c>ChallengeSO.state</c> — 0 idle, 3 passed — and it moves without the
+    /// lifecycle moving, which is the whole reason the two are separate columns.
+    /// </summary>
+    private static WorldChallenge Challenge(
+        Guid id,
+        bool availableToRun,
+        bool maxLevelReached,
+        int run) => new(
+        id,
+        level: 0,
+        state: run,
+        seen: true,
+        rewardQueued: false,
+        maxLevel: 5,
+        weight: 0,
+        difficulty: 0,
+        baseReward: 0,
+        availableToRun,
+        completedOnce: run == 3,
+        maxLevelReached);
+
+    private static JObject[] Rows(JObject page) =>
+        page["rows"]!.Values<JObject>().Select(row => row!).ToArray();
+
+    /// <summary>Every column the page's rows carry, which is every column it declares.</summary>
+    private static IReadOnlyList<string> Columns(JObject page)
+    {
+        var names = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var row in Rows(page))
+            foreach (var property in row.Properties())
+                names.Add(property.Name);
+        return names.ToArray();
+    }
+
+    /// <summary>The rendered column set: its own line, so a reader finds it the same way twice.</summary>
+    private static string Bracket(string page) => page
+        .Split('\n')
+        .Single(line => line.StartsWith("[", StringComparison.Ordinal));
+
+    private static WorldUpgrade Upgrade(
+        Guid id,
+        bool bounded,
+        bool exhausted = false,
+        bool locked = false)
+    {
+        var reading = new RawUpgradeSample(
+            id,
+            level: exhausted ? 10 : 3,
+            maxLevel: bounded ? 10 : -1,
+
+            // IsAvailable() is the game's own `!IsMaxLevel() && prerequisites.Check()`, so it is
+            // false for both of the states that are not `available`, for two different reasons.
+            available: !exhausted && !locked,
+            queuedLevels: 0,
+            buildTime: BigDouble.Zero,
+            developmentTime: 1d,
+            cachedCostLevel: 0);
+        return new WorldUpgrade(
+            in reading,
+            isBounded: bounded,
+            isExhausted: exhausted,
+            remainingLevels: bounded ? (exhausted ? 0 : 7) : 0,
+            committedLevel: exhausted ? 10 : 3,
+            isDeveloping: false,
+            developmentProgress: 0d);
+    }
+}

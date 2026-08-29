@@ -99,7 +99,7 @@
       "orbmodding.servicecycletrace": {
         "type": "Project",
         "dependencies": {
-          "OrbModSuite": "[0.5.0, )"
+          "OrbModSuite": "[0.5.1, )"
         }
       },
       "orbmodsuite": {

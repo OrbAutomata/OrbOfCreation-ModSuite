@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using OrbModding.Common;
+using OrbModding.Common.Runtime.World;
 using UnityEngine;
 
 namespace OrbAutomata;
@@ -73,7 +75,8 @@ internal sealed class AutoItemsTemporaryItemCatalogSnapshot
 /// </summary>
 internal static class AutoItemsTemporaryItemCatalog
 {
-    internal static AutoItemsTemporaryItemCatalogSnapshot Capture()
+    internal static AutoItemsTemporaryItemCatalogSnapshot Capture(
+        EntityIdentityCatalogSnapshot? identities = null)
     {
         try
         {
@@ -81,6 +84,7 @@ internal static class AutoItemsTemporaryItemCatalog
                 return AutoItemsTemporaryItemCatalogSnapshot.Failed(reason);
 
             var native = bindings!;
+            var catalog = identities ?? EntityIdentityCatalogPublication.Current;
             var options = new List<AutoItemsTemporaryItemOption>();
             var seen = new HashSet<Guid>();
             foreach (var entry in native.Entries)
@@ -98,7 +102,7 @@ internal static class AutoItemsTemporaryItemCatalog
                     return AutoItemsTemporaryItemCatalogSnapshot.Failed(
                         "The discovered consumable catalog contained an empty or duplicate stable UUID.");
 
-                var families = ReadFamilies(entry, itemId, native);
+                var families = ReadFamilies(entry, itemId, native, catalog);
                 var supportedFamilies = new AutoItemsConsumableFamilySet();
                 for (var index = 0; index < families.Count; index++)
                 {
@@ -106,31 +110,31 @@ internal static class AutoItemsTemporaryItemCatalog
                     if (candidate == AutoItemsConsumableFamily.Unknown) continue;
                     if (supportedFamilies.TryAdd(candidate)) continue;
                     return AutoItemsTemporaryItemCatalogSnapshot.Failed(
-                        $"Discovered consumable {itemId:D} repeated supported family {candidate}.");
+                        $"Discovered consumable {EntityIdentityFormatter.Format(itemId, catalog)} repeated supported family {candidate}.");
                 }
                 if (supportedFamilies.Count == 0) continue;
                 if (!supportedFamilies.TryResolveExecutionFamily(out var operation))
                     return AutoItemsTemporaryItemCatalogSnapshot.Failed(
-                        $"Discovered consumable {itemId:D} has incoherent supported family " +
+                        $"Discovered consumable {EntityIdentityFormatter.Format(itemId, catalog)} has incoherent supported family " +
                         $"memberships [{supportedFamilies.Describe()}].");
                 if (!AutoItemsConsumableFamilies.IsTemporary(operation)) continue;
 
-                var displayName = Invoke<string>(native.GetName, entry).Trim();
-                if (displayName.Length == 0)
+                var identity = EntityIdentityFormatter.Describe(itemId, catalog);
+                if (!identity.HasName)
                     return AutoItemsTemporaryItemCatalogSnapshot.Failed(
-                        $"Discovered temporary item {itemId:D} returned an empty native name.");
+                        $"Discovered temporary item {EntityIdentityFormatter.Format(itemId, catalog)} has no live catalog name.");
                 if (native.Quantity.GetValue(entry) is not int stock || stock < 0)
                     return AutoItemsTemporaryItemCatalogSnapshot.Failed(
-                        $"Discovered temporary item {itemId:D} returned invalid current stock.");
+                        $"Discovered temporary item {EntityIdentityFormatter.Format(itemId, catalog)} returned invalid current stock.");
                 if (native.GetIcon.Invoke(entry, Array.Empty<object>()) is not Sprite icon)
                     return AutoItemsTemporaryItemCatalogSnapshot.Failed(
-                        $"Discovered temporary item {itemId:D} returned no audited native icon.");
+                        $"Discovered temporary item {EntityIdentityFormatter.Format(itemId, catalog)} returned no audited native icon.");
 
                 options.Add(new AutoItemsTemporaryItemOption(
                     itemId,
                     operation,
                     OrderFamiliesForDisplay(families, operation),
-                    displayName,
+                    identity.Name,
                     stock,
                     icon));
             }
@@ -149,11 +153,12 @@ internal static class AutoItemsTemporaryItemCatalog
     private static IReadOnlyList<AutoItemsTemporaryItemFamily> ReadFamilies(
         object item,
         Guid itemId,
-        AutoItemsTemporaryItemCatalogBindings bindings)
+        AutoItemsTemporaryItemCatalogBindings bindings,
+        EntityIdentityCatalogSnapshot identities)
     {
         if (bindings.Families.GetValue(item) is not IEnumerable entries)
             throw new InvalidOperationException(
-                $"ConsumableSO.consumableTypes was unavailable for {itemId:D}.");
+                $"ConsumableSO.consumableTypes was unavailable for {EntityIdentityFormatter.Format(itemId, identities)}.");
 
         var families = new List<AutoItemsTemporaryItemFamily>();
         var seen = new HashSet<Guid>();
@@ -161,19 +166,21 @@ internal static class AutoItemsTemporaryItemCatalog
         {
             if (entry is null || entry.GetType() != bindings.FamilyType)
                 throw new InvalidOperationException(
-                    $"ConsumableSO.consumableTypes contained the wrong exact native type for {itemId:D}.");
+                    $"ConsumableSO.consumableTypes contained the wrong exact native type for {EntityIdentityFormatter.Format(itemId, identities)}.");
             var typeId = Invoke<Guid>(bindings.FamilyGuid, entry);
             if (typeId == Guid.Empty || !seen.Add(typeId))
                 throw new InvalidOperationException(
-                    $"ConsumableSO.consumableTypes contained an empty or duplicate family UUID for {itemId:D}.");
-            var displayName = Invoke<string>(bindings.FamilyName, entry).Trim();
-            if (displayName.Length == 0)
+                    $"ConsumableSO.consumableTypes contained an empty or duplicate family UUID for {EntityIdentityFormatter.Format(itemId, identities)}.");
+            var identity = EntityIdentityFormatter.Describe(
+                typeId,
+                identities);
+            if (!identity.HasName)
                 throw new InvalidOperationException(
-                    $"Consumable family {typeId:D} returned an empty native name for {itemId:D}.");
+                    $"Consumable family {EntityIdentityFormatter.Format(typeId, identities)} has no live catalog name for {EntityIdentityFormatter.Format(itemId, identities)}.");
             families.Add(new AutoItemsTemporaryItemFamily(
                 typeId,
                 AutoItemsConsumableFamilies.FromTypeId(typeId),
-                displayName));
+                identity.Name));
         }
         return families;
     }

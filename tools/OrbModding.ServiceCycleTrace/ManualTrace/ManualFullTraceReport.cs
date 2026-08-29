@@ -34,6 +34,7 @@ internal static class ManualFullTraceReport
         writer.WriteLine();
         ManualFullTraceStoreView.Write(writer, session);
         ManualFullTraceServiceView.Write(writer, session);
+        ManualFullTraceCategoryView.Write(writer, session);
         ManualFullTracePumpView.Write(writer, session);
         ManualFullTraceTimelineView.Write(writer, session);
     }

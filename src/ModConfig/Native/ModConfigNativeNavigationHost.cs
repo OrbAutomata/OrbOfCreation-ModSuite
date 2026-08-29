@@ -150,18 +150,21 @@ internal sealed class ModConfigNativeNavigationHost : IDisposable
         foreach (var component in EnumerateNativeButtons())
         {
             var label = component.GetComponentInChildren<TextMeshProUGUI>(includeInactive: true);
+            var view = NativeViewAdapter.ReadView(component);
             result.Add(new GameMcpNativeTab(
                 result.Count,
                 label?.text?.Trim() ?? string.Empty,
                 NativeObjectPath.BuildIndexed(component),
-                component));
+                component,
+                NativeViewAdapter.IsAlive(view) && NativeViewAdapter.IsActive(view!)));
         }
         result.Add(new GameMcpNativeTab(
             result.Count,
             _button.GetComponentInChildren<TextMeshProUGUI>(includeInactive: true)?.text?.Trim() ??
                 "Mods",
             NativeObjectPath.BuildIndexed(_button),
-            _button));
+            _button,
+            _modsActive));
         return result;
     }
 
@@ -323,17 +326,24 @@ internal sealed class ModConfigNativeNavigationHost : IDisposable
 #if SERVICE_CYCLE_PROFILE
 internal readonly struct GameMcpNativeTab
 {
-    internal GameMcpNativeTab(int index, string label, string path, Component component)
+    internal GameMcpNativeTab(
+        int index,
+        string label,
+        string path,
+        Component component,
+        bool active)
     {
         Index = index;
         Label = label ?? string.Empty;
         Path = path ?? string.Empty;
         Component = component ?? throw new ArgumentNullException(nameof(component));
+        Active = active;
     }
 
     internal int Index { get; }
     internal string Label { get; }
     internal string Path { get; }
     internal Component Component { get; }
+    internal bool Active { get; }
 }
 #endif

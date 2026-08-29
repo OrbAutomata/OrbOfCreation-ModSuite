@@ -1,0 +1,1609 @@
+#if SERVICE_CYCLE_PROFILE
+using System;
+using System.Collections.Generic;
+using OrbModding.Common;
+using OrbModding.Common.Runtime.World;
+using JObject = OrbAutomata.GameMcp.GameMcpObjectBuilder;
+using JArray = OrbAutomata.GameMcp.GameMcpArrayBuilder;
+
+namespace OrbAutomata.GameMcp;
+
+/// <summary>
+/// The evaluated half of one entity's detail read: what the game will let a player do with this id,
+/// why, at what price, and what is holding it. <c>world_get</c> owns the identity and the published
+/// row and calls in here for the rest, so one id answers once.
+/// </summary>
+internal static class GameMcpEntityExplainer
+{
+    private const int MaximumRequirementExpansionDepth = 32;
+
+    /// <summary>
+    /// Bound on first use and kept, because binding is the expensive half and every request that
+    /// reaches it runs on the same Unity thread inside a frame operation.
+    /// </summary>
+    private static WorldRequirementNativeVerdictProbe? _nativeVerdicts;
+
+    private static WorldRequirementNativeVerdictProbe NativeVerdicts =>
+        _nativeVerdicts ??= new WorldRequirementNativeVerdictProbe();
+
+    /// <summary>Whether this build evaluates decisions, requirements and blockers for this id.</summary>
+    internal static bool HasDetail(GameWorldState world, Guid uuid) =>
+        TryResolve(
+            world ?? throw new ArgumentNullException(nameof(world)),
+            uuid,
+            out _,
+            out _,
+            out _);
+
+    /// <summary>
+    /// The authored description the game itself would print on this entity's tooltip, read live for
+    /// this one id. Empty for an entity this build publishes no evaluated detail for: the read is
+    /// exactly as wide as it has always been, and the merge gave it no new reach.
+    /// </summary>
+    internal static string ReadDescription(GameWorldState world, Guid uuid)
+    {
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        return TryResolve(world, uuid, out _, out _, out var nativeType)
+            ? TryReadNativeDescription(uuid, nativeType)
+            : string.Empty;
+    }
+
+    /// <summary>
+    /// The authored description for one id, read through the native type its own category declares.
+    /// </summary>
+    /// <remarks>
+    /// The description used to be reachable only through the evaluated-detail resolver, which
+    /// answers thirteen kinds because that is the set this build evaluates predicates and blockers
+    /// for. Nothing about a description follows from that set — it follows from the id's type being
+    /// <c>ITooltipable</c> — so a live round walked the <c>agromancy-actions</c> and
+    /// <c>plot-node-actions</c> graphs to a detail page and found no description on either, though
+    /// both native types carry one and the page already holds the type name to read it with.
+    /// </remarks>
+    internal static string ReadDescription(Guid uuid, string nativeType) =>
+        string.IsNullOrEmpty(nativeType) ? string.Empty : TryReadNativeDescription(uuid, nativeType);
+
+    /// <summary>
+    /// Everything a detail read says beyond identity and the published row: the decisions the game
+    /// will accept, the requirement graph behind them, the exact price and what is holding it.
+    /// </summary>
+    /// <remarks>
+    /// Silent for an id whose category this build evaluates no verdicts for. That id still answers
+    /// — with its identity and its row — because "there is nothing more to say about this one" and
+    /// "this one could not be read" are different answers and a missing block said both.
+    /// </remarks>
+    internal static void AddDetail(JObject result, GameWorldState world, Guid uuid)
+    {
+        if (result is null) throw new ArgumentNullException(nameof(result));
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        if (!TryResolve(world, uuid, out var kind, out _, out _)) return;
+
+        // A Concept recipe is an alchemy recipe the game also lets you assign to a slot. Answering
+        // it under the one kind and dropping the other half answered a question the caller did not
+        // ask, and the assignment state was reachable only from a second read.
+        if (WorldConceptRecipeLookup.TryFind(world.ConceptRecipes, uuid, out var conceptRecipe))
+        {
+            result["concept"] = new JObject
+            {
+                ["assignedCount"] = WorldAlchemyInstanceLookup.TryFind(
+                    world.AlchemyInstances, uuid, out var assignment)
+                    ? assignment.Quantity
+                    : 0,
+                ["usedSlots"] = world.AlchemyInstances.Count,
+                ["maximumSlots"] = conceptRecipe.SlotCount,
+                ["canAdd"] = GameMcpWorldQuery.ConceptAddDecision(world, in conceptRecipe),
+            };
+        }
+        // Both blocks are always present. An entity with no applicable predicate and one whose
+        // predicates were never evaluated are different answers, and an omitted key said both.
+        result["predicates"] = Predicates(world, uuid, kind);
+        var requirements = Requirements(
+            world, uuid, kind, out var parityFailure, out var parityFailureCode);
+        if (requirements is not null) result["requirements"] = requirements;
+        var researchThresholds = ResearchThresholds(world, uuid, kind);
+        if (researchThresholds is not null) result["researchThresholds"] = researchThresholds;
+        var purchase = Purchase(world, uuid, kind);
+        if (purchase is not null) result["purchase"] = purchase;
+        result["blockers"] = Blockers(world, uuid, kind);
+        if (parityFailure is null) return;
+        result["status"] = "not_available";
+        result["code"] = parityFailureCode;
+        result["reason"] = parityFailure;
+    }
+
+    /// <summary>
+    /// The refusal for an id no published category is addressed by, naming which kind of miss it is
+    /// and the read that does carry the id.
+    /// </summary>
+    internal static JObject UnresolvedEntity(GameWorldState world, Guid uuid)
+    {
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        var known = world.EntityIdentities.TryGet(uuid, out var identity);
+
+        // A runtime instance is not a loaded asset, so the asset catalog does not know it — but the
+        // world published it minutes earlier inside a composite row. Answering "nothing in this
+        // process knows this UUID" was wrong about the process and pointed at a registry that could
+        // never resolve it.
+        if (!known && TryOwningList(world, uuid, out var owningCategory))
+        {
+            return Unresolved(
+                uuid,
+                "not_world_projected",
+                "this is a runtime member of a published row rather than an entity of its own; " +
+                "read the row that owns it",
+                new JObject
+                {
+                    ["tool"] = "world_list",
+                    ["category"] = owningCategory,
+                });
+        }
+        if (!known)
+        {
+            // An id this build never published is the one case where a caller has no name to search
+            // with — the missing name is the whole problem — so pointing at a name search sent them
+            // to a tool that could not answer. The categories are what they can actually page.
+            return Unresolved(
+                uuid,
+                "unknown_uuid",
+                "no entity in this build carries this id; page world_categories for the category " +
+                "you meant, or check the id you copied",
+                new JObject { ["tool"] = "world_categories" });
+        }
+        // The twenty-five retired unlockers. They are loaded `GlyphSO`, so the native-type arm below
+        // would send a caller to `augment-glyphs`, where their row will never be — the whole point of
+        // retiring them. The world publishes the link, so the refusal names the book that answers
+        // for the id instead of a page that cannot.
+        if (WorldRecipeBookGlyphLookup.TryFindBook(world.RecipeBookGlyphs, uuid, out var book))
+        {
+            return Unresolved(
+                uuid,
+                "not_world_projected",
+                "what answers to this id is internal machinery the world does not publish; the " +
+                "Recipe Book it is the internal half of is " +
+                EntityIdentityFormatter.PlayerHandle(book, world.EntityIdentities),
+                new JObject
+                {
+                    ["tool"] = "world_get",
+                    ["category"] = "recipe-books",
+                    ["uuid"] = book.ToString("D"),
+                });
+        }
+        if (GameMcpEntityCapabilityMap.TryCategoryForNativeType(
+                identity.RuntimeType,
+                out var knownCategory))
+        {
+            return Unresolved(
+                uuid,
+                "not_world_projected",
+                "this is loaded in this build, but no published row is addressed by this id; the " +
+                "rows that carry it are in " + knownCategory,
+                new JObject
+                {
+                    ["tool"] = "world_list",
+                    ["category"] = knownCategory,
+                });
+        }
+        // A remedy names a verb that will answer, and there is none to name: an id no published
+        // category claims is this build's own internal machinery, and its whole readable identity
+        // is on this block already. This arm used to split — a pointer at the page that listed the
+        // leftovers, or no pointer for machinery — and the world publishes those leftovers now, so
+        // the pointing half named a page that would come back empty even before the verb retired.
+        // The sentence says what is true of the id and stops.
+        return Unresolved(
+            uuid,
+            "not_world_projected",
+            "this is loaded in this build, but it is internal machinery no published row covers; " +
+            "its identity is all there is to read, and it is here",
+            readWith: null);
+    }
+
+    private static JObject Unresolved(Guid uuid, string code, string reason, JObject? readWith)
+    {
+        var result = new JObject
+        {
+            ["status"] = "not_available",
+            ["code"] = code,
+            ["reason"] = reason,
+            ["uuid"] = uuid.ToString("D"),
+        };
+        if (readWith is not null) result["readWith"] = readWith;
+        return result;
+    }
+
+    /// <summary>
+    /// The published list whose rows carry this UUID as a member rather than as their own identity.
+    /// Equipped spell instances are the one such member the world publishes; nothing here guesses
+    /// at a category that does not actually name the UUID it was handed.
+    /// </summary>
+    private static bool TryOwningList(GameWorldState world, Guid uuid, out string category)
+    {
+        for (var index = 0; index < world.SpellSlots.Count; index++)
+        {
+            if (world.SpellSlots[index].SpellInstanceId != uuid) continue;
+            category = "spell-slots";
+            return true;
+        }
+        category = string.Empty;
+        return false;
+    }
+
+    private static string TryReadNativeDescription(Guid uuid, string nativeType)
+    {
+        try
+        {
+            var type = Type.GetType(nativeType + ", Assembly-CSharp", throwOnError: false);
+            if (type is null) return string.Empty;
+            var resolved = TypedRegistryResolver.Shared.Resolve(uuid, type);
+            if (!resolved.IsResolved || resolved.Value is not ITooltipable tooltip)
+                return string.Empty;
+            return tooltip.GetDescription()?.Trim() ?? string.Empty;
+        }
+        catch (Exception)
+        {
+            return string.Empty;
+        }
+    }
+
+    private static JObject Predicates(GameWorldState world, Guid id, EntityKind kind)
+    {
+        var result = new JObject();
+        switch (kind)
+        {
+            case EntityKind.Structure:
+            {
+                WorldLookup.TryFind(world.Structures, id, out var structure);
+                result["available"] = Verdict(
+                    structure.Reading.Unlocked,
+                    "native_unavailable");
+                result["canPurchase"] = PurchaseVerdict(
+                    world, id, structure.Reading.Unlocked, "native_unavailable");
+                break;
+            }
+            case EntityKind.Upgrade:
+            {
+                WorldLookup.TryFind(world.Upgrades, id, out var upgrade);
+                result["available"] = Verdict(
+                    upgrade.Reading.Available,
+                    "native_unavailable");
+                result["canPurchase"] = PurchaseVerdict(
+                    world, id, upgrade.Reading.Available && !upgrade.IsExhausted,
+                    upgrade.IsExhausted ? "already_maxed" : "native_unavailable");
+                break;
+            }
+            case EntityKind.Research:
+            {
+                WorldLookup.TryFind(world.Research, id, out var research);
+                result["visible"] = Verdict(
+                    research.Visible,
+                    "native_hidden");
+                result["available"] = Verdict(
+                    research.Available,
+                    research.Complete ? "already_maxed" : "native_unavailable");
+                // ResearchSO.IsWithinDevelopRange's own gates, in its own order, under the same
+                // words and the same codes the research row uses for them. Cost is asked before
+                // level requirements because the native method asks it there, and asking it at all
+                // is what this predicate was missing: the price is inside IsWithinDevelopRange, so
+                // an unaffordable node fell through every named gate and answered with the range
+                // itself — one blocked action carrying "Needs 2 Ability Advancement (have 1)." on
+                // the row and a range refusal eight lines below it, pointing a reader at a gate
+                // that was not the problem. Leeway and the two caps are one gate: native develops
+                // on leeway OR on being below both caps, so an exhausted leeway beside an open cap
+                // is not what refused. CanDevelop() adds !IsDeveloping() on top of the whole
+                // expression, so a running development is asked last.
+                var decision = research.Decision;
+                var reason = research.Complete
+                    ? "already_maxed"
+                    : decision.Available && !decision.DevelopmentCostAffordable
+                        ? "unaffordable"
+                        : !research.MeetsLevelRequirements
+                            ? "requirements_unmet"
+                            : !research.StillHasLeeway &&
+                              !(research.BelowArtificialMaxLevel && research.BelowMaxInvestmentLevel)
+                                ? "research_leeway_exhausted"
+                                : !research.WithinDevelopRange
+                                    ? "develop_range_refused"
+                                    : research.IsDeveloping
+                                        ? "already_developing"
+                                        : research.CanDevelop
+                                            ? "can_develop"
+                                            : "native_can_develop_refused";
+
+                // The shortfall sentence is the row's own, written from the same costs, so the two
+                // are byte-identical and the per-field collapse folds the predicate away instead of
+                // printing one refusal twice.
+                result["canDevelop"] = string.Equals(reason, "unaffordable", StringComparison.Ordinal)
+                    ? Verdict(
+                        research.CanDevelop,
+                        reason,
+                        GameMcpWorldQuery.ShortfallReason(world, decision.DevelopmentCosts))
+                    : Verdict(research.CanDevelop, reason);
+                break;
+            }
+            case EntityKind.SpellRecipe:
+            {
+                WorldLookup.TryFind(world.SpellRecipes, id, out var spell);
+                var offered = IsCurrentDiscoveryOffer(world, id);
+                var visible = Verdict(
+                    spell.Discovered || !spell.HiddenDiscovery || offered,
+                    "hidden_discovery");
+                result["visible"] = visible;
+                result["available"] = visible;
+                result["canDiscover"] = Verdict(
+                    !spell.Discovered && (!spell.HiddenDiscovery || offered),
+                    spell.Discovered ? "already_discovered" : "hidden_discovery");
+                result["canUse"] = SpellCanUse(world, id);
+                break;
+            }
+            case EntityKind.AlchemyRecipe:
+            {
+                WorldLookup.TryFind(world.AlchemyRecipes, id, out var alchemy);
+                // No `canAdd` predicate. The same response's `concept:` block publishes that
+                // decision with its verdict and its reason, and the block's presence is itself the
+                // answer to "is this assignable at all". A row here could only be a second copy of
+                // that verdict or a pointer at it, and a pointer is machine vocabulary standing
+                // where a player-facing value belongs.
+                AddDiscoveryPredicates(result, world, id, alchemy.Discovered, nativeDiscoverable: true);
+                break;
+            }
+            case EntityKind.CraftingRecipe:
+            {
+                WorldLookup.TryFind(world.CraftingRecipes, id, out var recipe);
+                var visible = Verdict(
+                    recipe.Reading.Visible,
+                    recipe.Reading.VisibilityReasonCode);
+                result["visible"] = visible;
+                result["available"] = visible;
+                result["canPurchase"] = Verdict(
+                    recipe.Reading.CanBuyAtStartingQuantity,
+                    recipe.Reading.NativePurchaseReasonCode);
+                break;
+            }
+            case EntityKind.Consumable:
+            {
+                WorldLookup.TryFind(world.Consumables, id, out var consumable);
+                var visible = Verdict(
+                    consumable.Visible,
+                    "not_visible");
+                result["visible"] = visible;
+                result["available"] = visible;
+                result["canUse"] = Verdict(
+                    consumable.CanFire,
+                    consumable.Quantity <= 0 ? "none_owned" : "native_can_fire_refused");
+                break;
+            }
+            case EntityKind.Resource:
+            {
+                WorldLookup.TryFind(world.Resources, id, out var resource);
+                var visible = Verdict(
+                    resource.Reading.Visible,
+                    "not_visible");
+                result["visible"] = visible;
+                result["available"] = visible;
+                break;
+            }
+            case EntityKind.Ritual:
+            {
+                WorldLookup.TryFind(world.Rituals, id, out var ritual);
+                AddDiscoveryPredicates(result, world, id, ritual.Discovered, nativeDiscoverable: true);
+                break;
+            }
+            case EntityKind.Glyph:
+            {
+                WorldLookup.TryFind(world.AugmentGlyphs, id, out var glyph);
+
+                // The game cannot show a glyph it will not offer: GlyphSO.IsVisible() is a call to
+                // IsAvailable(), and the picker tile's own IsVisible() calls IsAvailable() too. The
+                // two verdicts are one fact, so the discovery-shaped predicate that used to stand in
+                // for `visible` contradicted `state` on all 25 unlockers at once — for them the raw
+                // discovered field is not what availability reads, and no unlocker is ever a
+                // discovery-tree offer, so both of that predicate's inputs were the wrong facts.
+                // Whether an undiscovered augment is on offer right now is a real fact and rides on
+                // the row's own `discover` block.
+                var picker = Verdict(
+                    glyph.Learned,
+                    glyph.Discoverable ? "not_discovered" : "prerequisites_unmet");
+                result["visible"] = picker;
+                result["available"] = picker;
+                result["canDiscover"] = Verdict(
+                    !glyph.Discovered && glyph.Discoverable,
+                    glyph.Discovered
+                        ? "already_discovered"
+                        : !glyph.Discoverable
+                            ? "native_not_discoverable"
+                            : "discovery_unavailable");
+                break;
+            }
+            case EntityKind.Equipment:
+            {
+                WorldLookup.TryFind(world.Equipment, id, out var equipment);
+                AddDiscoveryPredicates(result, world, id, equipment.IsCreated, nativeDiscoverable: true);
+                break;
+            }
+            case EntityKind.TimeRune:
+            {
+                WorldLookup.TryFind(world.TimeRunes, id, out var timeRune);
+                AddDiscoveryPredicates(result, world, id, timeRune.Discovered, nativeDiscoverable: true);
+                break;
+            }
+        }
+        return result;
+    }
+
+    private static void AddDiscoveryPredicates(
+        JObject result,
+        GameWorldState world,
+        Guid id,
+        bool discovered,
+        bool nativeDiscoverable)
+    {
+        var offered = IsCurrentDiscoveryOffer(world, id);
+        var visible = discovered || offered;
+        result["visible"] = Verdict(
+            visible,
+            "not_discovered_or_offered");
+        result["available"] = result["visible"]!;
+        result["canDiscover"] = Verdict(
+            !discovered && nativeDiscoverable,
+            discovered
+                ? "already_discovered"
+                : !nativeDiscoverable
+                    ? "native_not_discoverable"
+                    : "discovery_unavailable");
+    }
+
+    private static bool IsCurrentDiscoveryOffer(GameWorldState world, Guid id)
+    {
+        for (var treeIndex = 0; treeIndex < world.DiscoveryTrees.Count; treeIndex++)
+        {
+            var offers = world.DiscoveryTrees[treeIndex].CurrentOfferIds;
+            for (var offerIndex = 0; offerIndex < offers.Count; offerIndex++)
+            {
+                if (offers[offerIndex] == id) return true;
+            }
+        }
+        return false;
+    }
+
+    private static JObject SpellCanUse(GameWorldState world, Guid recipeId)
+    {
+        var found = false;
+        var ready = false;
+        var reason = "spell_not_equipped";
+        var slots = new JArray();
+        for (var index = 0; index < world.SpellSlots.Count; index++)
+        {
+            var slot = world.SpellSlots[index];
+            if (!slot.Occupied || slot.SpellRecipeId != recipeId) continue;
+            found = true;
+            ready |= slot.CastReady;
+            if (!slot.CastReady)
+            {
+                reason = !slot.ResourcesCovered
+                    ? "resources_uncovered"
+                    : !slot.ChargeAvailable
+                        ? "charge_unavailable"
+                        : slot.Attuning
+                            ? "attuning"
+                            : slot.Casting || slot.ReadyingCast
+                                ? "cast_in_progress"
+                                : "native_can_cast_refused";
+            }
+            // The slot number, not the slot. The same response already carries every equipped
+            // instance in full under `equipped`, so reprinting each one here answered a predicate by
+            // echoing the block above it; the number is what points at that block and what every
+            // spell verb takes.
+            slots.Add(GameMcpSlotNumbering.Wire(slot.SlotIndex));
+        }
+        var result = Verdict(
+            found && ready,
+            found ? reason : "spell_not_equipped");
+        if (slots.Count > 0) result["slots"] = slots;
+        return result;
+    }
+
+    private static JObject? Requirements(
+        GameWorldState world,
+        Guid id,
+        EntityKind kind,
+        out string? parityFailure,
+        out string parityFailureCode)
+    {
+        parityFailure = null;
+        parityFailureCode = string.Empty;
+        if (kind is not EntityKind.Structure and not EntityKind.Upgrade and not EntityKind.Research)
+            return null;
+
+        var ownerKind = kind switch
+        {
+            EntityKind.Upgrade => WorldRequirementOwnerKind.Upgrade,
+            EntityKind.Research => WorldRequirementOwnerKind.Research,
+            _ => WorldRequirementOwnerKind.Structure,
+        };
+        var checkLevel = kind switch
+        {
+            EntityKind.Upgrade => UpgradeCheckLevel(world, id),
+            EntityKind.Research when WorldLookup.TryFind(world.Research, id, out var research) =>
+                research.EffectiveRequirementLevel,
+            _ => StructureCheckLevel(world, id),
+        };
+        var suite = WorldRequirementEvaluator.Evaluate(world, id, checkLevel);
+        var lockedByUnlockGate = IsLockedByItsUnlockGate(world, id, kind);
+        var unmet = new JArray();
+        var root = ProjectRequirementContainer(
+            world,
+            id,
+            containerIndex: 0,
+            checkLevel,
+            new HashSet<RequirementKey>(),
+            depth: 0,
+            unmet);
+        var parity = new JObject
+        {
+            ["suiteVerdict"] = suite.ToString(),
+        };
+        // Asked here, on the Unity thread, for this one entity. It used to be a table the world
+        // capture filled for every upgrade, structure, and research four times a second, of which
+        // one row was ever read.
+        if (!NativeVerdicts.TryRead(id, out var native, out var probeFailure))
+        {
+            parityFailureCode = "native_verdict_unavailable";
+            parityFailure =
+                "The game's own prerequisite verdict could not be read for this entity: " +
+                probeFailure + ".";
+            parity["status"] = "not_available";
+            parity["reasonCode"] = parityFailureCode;
+            parity["reason"] = parityFailure;
+        }
+        else if (native.OwnerKind != ownerKind || native.CheckLevel != checkLevel)
+        {
+            parityFailureCode = "native_verdict_input_mismatch";
+            parityFailure =
+                "The game's prerequisite verdict answers about a different owner or level, " +
+                "so it does not answer the same question.";
+            parity["status"] = "not_available";
+            parity["reasonCode"] = parityFailureCode;
+            parity["reason"] = parityFailure;
+            parity["nativeOwnerKind"] = native.OwnerKind.ToString();
+            parity["nativeCheckLevel"] = native.CheckLevel;
+        }
+        else
+        {
+            parity["nativeVerdict"] = native.Met ? "Met" : "Unmet";
+            if (suite == WorldRequirementVerdict.Unevaluable)
+            {
+                parityFailureCode = "suite_verdict_unevaluable";
+                parityFailure =
+                    "The suite could not evaluate a requirement the game answered, " +
+                    "so the two verdicts cannot be compared.";
+                parity["status"] = "not_available";
+                parity["reasonCode"] = parityFailureCode;
+                parity["reason"] = parityFailure;
+            }
+            else if ((suite == WorldRequirementVerdict.Met) != native.Met)
+            {
+                parityFailureCode = "native_verdict_mismatch";
+                parityFailure = "The suite reads this requirement as " + suite +
+                    " where the game reads it as " + (native.Met ? "Met" : "Unmet") + ".";
+                parity["status"] = "mismatch";
+                parity["reasonCode"] = parityFailureCode;
+                parity["reason"] = parityFailure;
+            }
+            else
+            {
+                parity["status"] = "matched";
+                parity["reasonCode"] = "native_verdict_matched";
+            }
+        }
+
+        // The verdict is the screen's, not one container's. The rows below are the *next level's*
+        // container; the game's own lock is `UpgradeSO.prerequisites` / `StructureSO.prerequisites`
+        // / `ResearchSO.visibilityPrerequisites`, a different authored list the reader never walks.
+        // While the block published the per-level answer alone it said `Met` beside `state: locked`
+        // on the same response, three rounds running, and the native-parity guard could not catch
+        // it because both sides of that differential read the same per-level container.
+        var verdict = suite == WorldRequirementVerdict.Unevaluable || !lockedByUnlockGate
+            ? suite
+            : WorldRequirementVerdict.Unmet;
+        var requirements = new JObject
+        {
+            ["suiteVerdict"] = verdict.ToString(),
+        };
+        if (lockedByUnlockGate) requirements["reasonCode"] = "unlock_conditions_unmet";
+
+        // What would actually unlock it, which the block could not say while the unlock containers
+        // were uncaptured. Only while the gate is shut: an entity the game already lets through has
+        // no lock to explain, and its latched `available` means the game would not walk these
+        // conditions again either.
+        if (lockedByUnlockGate)
+        {
+            var unlocksWhen = ProjectUnlockConditions(world, id);
+            if (unlocksWhen is not null) requirements["unlocksWhen"] = unlocksWhen;
+        }
+
+        // The line a player can act on, first. Everything a locked entity is waiting for, each row
+        // naming the thing, what it asks and what is held — read straight off the leaves below, so
+        // it can never disagree with them. A round read one of these out of column ten of a
+        // twenty-column table and wrote down that it was buried; a reader who needs no more than
+        // this now stops at the second line of the block.
+        // No block-wide `checkLevel`. It is the level the thresholds scale to, which matters only on
+        // the rows whose threshold scales at all — those carry it as `forLevel` — and on every other
+        // entity it was a number printed once per read that changed nothing.
+        if (unmet.Count > 0) requirements["unmet"] = unmet;
+        requirements["root"] = root;
+
+        // No `authority` paragraph. It was 178 bytes of fixed prose asserting that the authored
+        // rows are met and are not what holds the entity shut — the claim `suiteVerdict: Met`
+        // already makes one line above it, and the gap it was written to name is what
+        // `predicates.available` says with its own reason code. A live round emitted it nine times,
+        // byte-identical, and in eight of those it sat under `root: no conditions`: it declared a
+        // set of rows met for entities that have no rows at all.
+        if (parityFailure is not null) requirements["nativeParity"] = parity;
+        return requirements;
+    }
+
+    /// <summary>
+    /// Whether the game's own unlock gate — the container the suite does not read — is what holds
+    /// this entity shut.
+    /// </summary>
+    /// <remarks>
+    /// Each owner family keeps two authored containers and the suite walks only the per-level one:
+    /// <c>UpgradeSO.IsVisible()</c> and <c>IsAvailable()</c> are <c>prerequisites.Check()</c>,
+    /// <c>StructureSO.IsAvailable()</c> is <c>prerequisites.Check()</c> (and its
+    /// <c>IsVisible()</c> is that same call), and <c>ResearchSO.IsVisible()</c> is
+    /// <c>visibilityPrerequisites.Check() &amp;&amp; levelVisibilityPrereq.Check()</c> — while
+    /// <c>HasMetQueuedLevelRequirements()</c>, <c>HasMetLevelRequirements()</c> and
+    /// <c>MeetsLevelRequirements()</c> all ask <c>prerequisitesPerLevel</c> /
+    /// <c>levelPrerequisites</c>. The world already publishes each family's native answer, so the
+    /// lock is read from that rather than re-derived from a container nobody captured.
+    /// <para>
+    /// An upgrade at its ceiling reports <c>IsAvailable()</c> false for a reason that is not a lock,
+    /// so being exhausted is excluded here; <c>state</c> and the cap blocker already say it.
+    /// </para>
+    /// </remarks>
+    private static bool IsLockedByItsUnlockGate(GameWorldState world, Guid id, EntityKind kind) =>
+        kind switch
+        {
+            EntityKind.Upgrade => WorldLookup.TryFind(world.Upgrades, id, out var upgrade) &&
+                !upgrade.Reading.Available && !upgrade.IsExhausted,
+            EntityKind.Structure => WorldLookup.TryFind(world.Structures, id, out var structure) &&
+                !structure.Reading.Unlocked,
+            EntityKind.Research => WorldLookup.TryFind(world.Research, id, out var research) &&
+                !research.Visible,
+            _ => false,
+        };
+
+    /// <summary>
+    /// The conditions behind the game's own unlock gate, worded like every other requirement row.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Read at level nought, which is the level the no-argument <c>Container.Check()</c> walks its
+    /// conditions at, with each row carrying the container's own threshold adjustment. It is not the
+    /// asking entity's check level: an unlock container has no level of its own.
+    /// </para>
+    /// <para>
+    /// Its unmet leaves are deliberately not folded into the block's <c>unmet</c> summary. That list
+    /// documents itself as the next level's, and two authored lists sharing one summary would leave a
+    /// caller unable to tell which question a line answers — the exact confusion the lock verdict was
+    /// fixed to end. Every leaf here already carries its own <c>needs</c> and <c>met</c>, and a lock is
+    /// a short list.
+    /// </para>
+    /// </remarks>
+    private static JObject? ProjectUnlockConditions(GameWorldState world, Guid ownerId)
+    {
+        if (!WorldEntityRequirementLookup.TryFindContainerRange(
+                world.EntityRequirements, ownerId, containerIndex: 0, out var start, out var count))
+        {
+            return null;
+        }
+
+        var children = new JArray();
+        ProjectFlatRequirementGroups(
+            world,
+            world.EntityRequirements.AsSpan(),
+            start,
+            count,
+            WorldRequirementEvaluator.UnlockCheckLevel,
+            new HashSet<RequirementKey>(),
+            depth: 0,
+            children,
+            new JArray(),
+            WorldRequirementProgramKind.Unlock);
+
+        // Nothing captured means nothing honest to say. An empty operator node would assert a
+        // structure this entity does not have and read as a lock with no conditions.
+        return children.Count == 0
+            ? null
+            : new JObject { ["operator"] = "AND", ["children"] = children };
+    }
+
+    private static JObject ProjectRequirementContainer(
+        GameWorldState world,
+        Guid ownerId,
+        int containerIndex,
+        long checkLevel,
+        HashSet<RequirementKey> trail,
+        int depth,
+        JArray unmet)
+    {
+        var key = new RequirementKey(ownerId, containerIndex);
+        if (depth > MaximumRequirementExpansionDepth)
+            return Refusal("requirement_depth_exceeded", ownerId, containerIndex);
+        if (!trail.Add(key)) return Refusal("requirement_cycle", ownerId, containerIndex);
+        try
+        {
+            var children = new JArray();
+            if (WorldEntityRequirementLookup.TryFindContainerRange(
+                    world.EntityRequirements, ownerId, containerIndex, out var start, out var count))
+            {
+                var rows = world.EntityRequirements.AsSpan();
+                if (count > 0 && rows[start].OwnerKind != WorldRequirementOwnerKind.PrerequisiteLink)
+                {
+                    ProjectFlatRequirementGroups(
+                        world, rows, start, count, checkLevel, trail, depth, children, unmet);
+                }
+                else
+                {
+                    for (var offset = 0; offset < count; offset++)
+                    {
+                        ref readonly var row = ref rows[start + offset];
+                        if (row.ParentOrdinal >= 0) continue;
+                        children.Add(ProjectRequirementNode(
+                            world, rows, start, count, in row, checkLevel, trail, depth + 1,
+                            unmet));
+                    }
+                }
+            }
+            var result = new JObject
+            {
+                ["status"] = "available",
+                ["ownerUuid"] = ownerId.ToString("D"),
+                ["tierIndex"] = containerIndex,
+                ["operator"] = "AND",
+
+                // An operator node always carries its list. Dropping an empty one left a node
+                // asserting a structure it did not have, and read the same as one nobody expanded.
+                ["children"] = children,
+            };
+            return result;
+        }
+        finally
+        {
+            trail.Remove(key);
+        }
+    }
+
+    private static void ProjectFlatRequirementGroups(
+        GameWorldState world,
+        ReadOnlySpan<WorldEntityRequirement> rows,
+        int start,
+        int count,
+        long checkLevel,
+        HashSet<RequirementKey> trail,
+        int depth,
+        JArray destination,
+        JArray unmet,
+        WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel)
+    {
+        var priorGroup = -1;
+        for (var offset = 0; offset < count; offset++)
+        {
+            ref readonly var first = ref rows[start + offset];
+            if (first.Program != program || first.GroupOrdinal == priorGroup)
+            {
+                continue;
+            }
+            priorGroup = first.GroupOrdinal;
+
+            var groupChildren = new JArray();
+            JObject? singleton = null;
+            for (var candidateOffset = 0; candidateOffset < count; candidateOffset++)
+            {
+                ref readonly var candidate = ref rows[start + candidateOffset];
+                if (candidate.Program != first.Program ||
+                    candidate.GroupOrdinal != first.GroupOrdinal)
+                {
+                    continue;
+                }
+                var projected = ProjectRequirementNode(
+                    world, rows, start, count, in candidate, checkLevel, trail, depth + 1, unmet);
+                singleton = projected;
+                groupChildren.Add(projected);
+            }
+
+            if (groupChildren.Count == 1)
+            {
+                destination.Add(singleton!);
+                continue;
+            }
+            destination.Add(new JObject
+            {
+                ["operator"] = first.GroupKind == WorldRequirementGroupKind.Any ? "OR" : "AND",
+                ["children"] = groupChildren,
+            });
+        }
+    }
+
+    private static JObject ProjectRequirementNode(
+        GameWorldState world,
+        ReadOnlySpan<WorldEntityRequirement> rows,
+        int start,
+        int count,
+        in WorldEntityRequirement row,
+        long checkLevel,
+        HashSet<RequirementKey> trail,
+        int depth,
+        JArray unmet)
+    {
+        if (row.NodeKind == WorldRequirementNodeKind.Group)
+        {
+            var children = new JArray();
+            for (var offset = 0; offset < count; offset++)
+            {
+                ref readonly var child = ref rows[start + offset];
+                if (child.ParentOrdinal != row.Ordinal) continue;
+                children.Add(ProjectRequirementNode(
+                    world, rows, start, count, in child, checkLevel, trail, depth + 1, unmet));
+            }
+            // The node is its operator and its arms. `nodeKind`, `ordinal`, `parentOrdinal` and
+            // `depth` said where it sat in a tree the reader is already holding: the nesting is the
+            // nesting, and the order is the authored order.
+            return new JObject
+            {
+                ["operator"] = row.Operator.ToString().ToUpperInvariant(),
+                ["children"] = children,
+            };
+        }
+
+        // A condition class this build does not model has nothing to word and no target to name, so
+        // it says exactly that, in one sentence, and points at the screen that does draw it. It used
+        // to answer `unsupported_requirement_value` — the sentence for a *comparison* nobody
+        // modelled — beside a `conditionType` column carrying the game's own class name.
+        if (row.Kind == WorldRequirementConditionKind.Unknown)
+        {
+            return new JObject
+            {
+                ["met"] = false,
+                ["reasonCode"] = "requirement_class_unread",
+                ["reason"] = UnreadRequirementSentence(world, in row),
+            };
+        }
+
+        var evaluated = WorldRequirementEvaluator.ExplainLeaf(world, in row, checkLevel);
+
+        // What the row wants, in the words the screen uses for it, then whether it holds. Those are
+        // the two facts a player acts on. Everything the leaf used to carry beside them — the tree
+        // position, the native class, the selected value's internal name, and three thresholds of
+        // which only one is ever displayed — was the suite explaining itself: a live round met the
+        // one usable line in column ten of twenty and wrote down that it was buried.
+        var needs = RequirementNeeds(world, in row, in evaluated);
+        var leaf = new JObject
+        {
+            ["needs"] = needs,
+            ["met"] = evaluated.Met,
+        };
+
+        // The level the threshold was scaled to, on the rows whose threshold scales at all. On every
+        // other row it is a number that changes nothing, which is why it is not a block-wide field.
+        if (ThresholdScales(in row)) leaf["forLevel"] = checkLevel;
+
+        // A met or unmet row is fully answered by the two fields above. Only a row the suite could
+        // not evaluate carries a class and a sentence, because only that one asks the reader to do
+        // something else — read it on the game's own tooltip.
+        if (evaluated.Verdict == WorldRequirementVerdict.Unevaluable)
+            leaf["reasonCode"] = evaluated.ReasonCode;
+
+        if (row.TargetId != Guid.Empty)
+        {
+            leaf["requirementUuid"] = row.TargetId.ToString("D");
+            if (!evaluated.Met)
+            {
+                unmet.Add(new JObject
+                {
+                    ["requirementUuid"] = row.TargetId.ToString("D"),
+                    ["needs"] = needs,
+                });
+            }
+        }
+        if (row.Kind == WorldRequirementConditionKind.PrerequisiteLink)
+        {
+            var tiers = ProjectLinkTiers(
+                world, in row, checkLevel, evaluated, trail, depth + 1, unmet);
+            if (tiers.Count > 0) leaf["prerequisiteLinkTiers"] = tiers;
+        }
+        return leaf;
+    }
+
+    private static JArray ProjectLinkTiers(
+        GameWorldState world,
+        in WorldEntityRequirement row,
+        long checkLevel,
+        in WorldRequirementLeafEvaluation evaluation,
+        HashSet<RequirementKey> trail,
+        int depth,
+        JArray unmet)
+    {
+        var selectedTier = row.ReqType == 0
+            ? 0L
+            : BigDouble.Round(evaluation.ScaledThreshold).ToLong();
+        var tiers = new JArray();
+        for (var index = 0; index < world.PrerequisiteLinkTiers.Count; index++)
+        {
+            var tier = world.PrerequisiteLinkTiers[index];
+            if (tier.LinkId != row.TargetId) continue;
+            tiers.Add(new JObject
+            {
+                ["tierIndex"] = tier.TierIndex,
+                ["selected"] = selectedTier == tier.TierIndex,
+                ["activeEnabled"] = tier.ActiveEnabled,
+                ["passiveEnabled"] = tier.PassiveEnabled,
+                ["evaluatedFrame"] = tier.EvaluatedFrame,
+                ["collectedFrame"] = tier.CollectedFrame,
+                ["evaluatedThisFrame"] = tier.EvaluatedThisFrame,
+                ["requirements"] = ProjectRequirementContainer(
+                    world,
+                    row.TargetId,
+                    tier.TierIndex,
+                    checkLevel,
+                    trail,
+                    depth,
+                    unmet),
+            });
+        }
+        return tiers;
+    }
+
+    private static JObject? ResearchThresholds(GameWorldState world, Guid id, EntityKind kind)
+    {
+        if (kind != EntityKind.Research || !WorldLookup.TryFind(world.Research, id, out var research))
+            return null;
+        // The effective threshold is the number the screen draws, and it is the only one here that
+        // was ever news: `baseThreshold` and `scaledThreshold` were the same field read twice, and
+        // `selectedValueKind` was the suite naming its own accessor beside the value it read.
+        // `nativeStillHasLeeway` went the same way: it was `metWithLeeway`'s own field printed a
+        // second time under a name that says where the fact came from rather than what it says.
+        var result = new JObject
+        {
+            ["current"] = research.TotalLevel,
+            ["effectiveThreshold"] = research.EffectiveRequirementLevel,
+            ["leeway"] = research.Modifiers.LeewayPoints.ToInt(),
+            ["metWithLeeway"] = research.StillHasLeeway,
+            ["nativeMeetsLevelRequirements"] = research.MeetsLevelRequirements,
+            ["adjustment"] = research.RequirementLevelAdjustment,
+        };
+        if (research.RequirementAdjustments.Count > 0)
+            result["activeAdjustments"] = new GameMcpDomainValue(
+                research.RequirementAdjustments);
+        return result;
+    }
+
+    private static JObject? Purchase(GameWorldState world, Guid id, EntityKind kind)
+    {
+        if (kind is not EntityKind.Structure and not EntityKind.Upgrade)
+            return null;
+        if (kind == EntityKind.Structure &&
+            (!WorldLookup.TryFind(world.Structures, id, out var structure) ||
+             !structure.Reading.Unlocked))
+            return null;
+        if (kind == EntityKind.Upgrade &&
+            (!WorldLookup.TryFind(world.Upgrades, id, out var upgrade) ||
+             !upgrade.Reading.Available || upgrade.IsExhausted))
+            return null;
+        if (!WorldPurchaseCostLookup.TryFindRange(
+                world.PurchaseCosts, id, out var start, out var count))
+        {
+            return new JObject
+            {
+                ["evaluated"] = false,
+                ["reasonCode"] = "exact_cost_unavailable",
+            };
+        }
+        var rows = new JArray();
+        for (var index = 0; index < count; index++)
+        {
+            var row = world.PurchaseCosts[start + index];
+            rows.Add(GameMcpWorldQuery.ProjectPurchaseCost(world, in row));
+        }
+
+        // No outer status around the array: each row already carries its own verdict, and a row
+        // without one was not evaluated.
+        return new JObject
+        {
+            ["rows"] = rows,
+        };
+    }
+
+    private static JObject Blockers(GameWorldState world, Guid id, EntityKind kind)
+    {
+        var result = new JObject();
+
+        if (kind is EntityKind.Structure or EntityKind.Upgrade)
+        {
+            JObject queue;
+            if (WorldLookup.TryFind(
+                    world.ActionQueues, KnownEntities.ActiveActionables.Uuid, out var actionQueue))
+            {
+                queue = Blocker(
+                    !actionQueue.Consistent || !actionQueue.HasEmptySlot,
+                    !actionQueue.Consistent
+                        ? "queue_reading_inconsistent"
+                        : actionQueue.HasEmptySlot ? "queue_room_available" : "queue_full");
+            }
+            else
+            {
+                queue = Blocker(true, "queue_not_published");
+            }
+            result["queue"] = queue;
+        }
+        if (kind == EntityKind.Upgrade && WorldLookup.TryFind(world.Upgrades, id, out var upgrade))
+        {
+            result["cap"] = Blocker(upgrade.IsExhausted, upgrade.IsExhausted
+                ? "level_cap_reached"
+                : "below_level_cap");
+        }
+        else if (kind == EntityKind.Research &&
+                 WorldLookup.TryFind(world.Research, id, out var research))
+        {
+            var slack = research.Modifiers.LeewayPoints.ToInt();
+            // Leeway blocks only together with the caps: native develops on leeway OR on being
+            // below both caps, so an exhausted leeway beside an open cap is not a blocker.
+            //
+            // The reason has to say the same thing the verdict does. It used to be chosen off the
+            // leeway term alone while the verdict was chosen off the whole gate, so a spent leeway
+            // under open caps published `blocked: no` beside "Native leeway exhausted." — one field
+            // contradicting the other in the same block. Three states, three answers.
+            var capsOpen =
+                research.BelowArtificialMaxLevel && research.BelowMaxInvestmentLevel;
+            var leewayBlocks = !research.StillHasLeeway && !capsOpen;
+            var leeway = Blocker(
+                leewayBlocks,
+                research.StillHasLeeway
+                    ? "native_leeway_available"
+                    : leewayBlocks
+                        ? "native_leeway_exhausted"
+                        : "native_develops_below_caps");
+            // The four numbers behind the verdict ride only where the verdict is a no. Every one of
+            // them is published one block down in `researchThresholds` — `current`, `leeway`,
+            // `effectiveThreshold`, `nativeMeetsLevelRequirements` — which is always beside this on
+            // a research page, so an open axis was spending them on a reader who already had them.
+            if (leewayBlocks)
+            {
+                leeway["currentTotalLevel"] = research.TotalLevel;
+                leeway["leeway"] = slack;
+                leeway["effectiveRequirement"] = research.EffectiveRequirementLevel;
+                leeway["nativeMeetsLevelRequirements"] = research.MeetsLevelRequirements;
+            }
+            result["leeway"] = leeway;
+            var cap = Blocker(
+                research.Complete || !research.BelowArtificialMaxLevel ||
+                    !research.BelowMaxInvestmentLevel,
+                research.Complete
+                    ? "already_maxed"
+                    : !research.BelowArtificialMaxLevel
+                        ? "artificial_research_cap_reached"
+                        : !research.BelowMaxInvestmentLevel
+                            ? "research_investment_cap_reached"
+                            : "below_research_cap");
+            // The four level readings the row above already prints under these same words ride only
+            // where the cap is what refused; the cap's own facts ride always. An open axis restating
+            // the row was 943 bytes of one round on a block whose name the caller never once wrote.
+            if ((bool)cap["blocked"]!)
+            {
+                cap["queuedLevels"] = GameMcpWorldQuery.ResearchQueuedLevels(in research);
+                cap["purchasedLevel"] = research.PurchasedLevels;
+                cap["bonusLevel"] = research.BonusLevel;
+                cap["totalLevel"] = research.TotalLevel;
+            }
+            cap["baseLevelExcludingBonus"] = research.BaseLevel;
+            if (research.MaxLevel >= 0) cap["effectiveCap"] = research.MaxLevel;
+            if (research.ArtificialMaxLevel >= 0)
+                cap["artificialCap"] = research.ArtificialMaxLevel;
+            cap["nativeComplete"] = research.Complete;
+            result["cap"] = cap;
+        }
+        if (kind == EntityKind.SpellRecipe &&
+            WorldLookup.TryFind(world.SpellRecipes, id, out var spell))
+        {
+            result["recipeDiscovery"] = Blocker(
+                !spell.Discovered,
+                spell.Discovered ? "recipe_discovered" : "recipe_not_discovered");
+            var (bandwidth, drain) = SpellResourceBlockers(world, id);
+            if (bandwidth is not null) result["bandwidth"] = bandwidth;
+            if (drain is not null) result["drain"] = drain;
+        }
+        else if (kind == EntityKind.AlchemyRecipe &&
+                 WorldLookup.TryFind(world.AlchemyRecipes, id, out var alchemy))
+        {
+            result["recipeDiscovery"] = Blocker(
+                !alchemy.Discovered,
+                alchemy.Discovered ? "recipe_discovered" : "recipe_not_discovered");
+            var (bandwidth, drain) = AlchemyResourceBlockers(world, id);
+            if (bandwidth is not null) result["bandwidth"] = bandwidth;
+            if (drain is not null) result["drain"] = drain;
+        }
+        else if (kind == EntityKind.CraftingRecipe &&
+                 WorldLookup.TryFind(world.CraftingRecipes, id, out var crafting))
+        {
+            result["recipeDiscovery"] = Blocker(
+                !crafting.Reading.Visible,
+                crafting.Reading.VisibilityReasonCode);
+            var bandwidth = CraftingBandwidthBlocker(world, in crafting);
+            var drain = CraftingDrainBlocker(in crafting);
+            if (bandwidth is not null) result["bandwidth"] = bandwidth;
+            if (drain is not null) result["drain"] = drain;
+        }
+
+        return result;
+    }
+
+    private static (JObject? Bandwidth, JObject? Drain) SpellResourceBlockers(
+        GameWorldState world,
+        Guid recipeId)
+    {
+        var bandwidthRows = new JArray();
+        var drainRows = new JArray();
+        var bandwidthBlocked = false;
+        var drainBlocked = false;
+        for (var slotIndex = 0; slotIndex < world.SpellSlots.Count; slotIndex++)
+        {
+            var slot = world.SpellSlots[slotIndex];
+            if (!slot.Occupied || slot.SpellRecipeId != recipeId) continue;
+            CollectSpellCosts(
+                world, slot.SlotIndex, WorldSpellCostKind.Immediate,
+                bandwidthRows, ref bandwidthBlocked);
+            CollectSpellCosts(
+                world, slot.SlotIndex, WorldSpellCostKind.Drain,
+                drainRows, ref drainBlocked);
+        }
+        return (
+            ResourceBlocker(bandwidthRows, bandwidthBlocked, reasonCode: "bandwidth_blocked"),
+            ResourceBlocker(drainRows, drainBlocked, reasonCode: "drain_blocked"));
+    }
+
+    private static void CollectSpellCosts(
+        GameWorldState world,
+        int slotIndex,
+        WorldSpellCostKind kind,
+        JArray rows,
+        ref bool blocked)
+    {
+        if (!WorldSpellCostLookup.TryFindRange(
+                world.SpellCosts, slotIndex, kind, out var start, out var count)) return;
+        for (var index = 0; index < count; index++)
+        {
+            var cost = world.SpellCosts[start + index];
+            var row = ResourceCostEvidence(world, cost.ResourceId, cost.Amount, out var oneBlocked);
+            row["slot"] = GameMcpSlotNumbering.Wire(slotIndex);
+            row["costKind"] = kind.ToString();
+            rows.Add(row);
+            blocked |= oneBlocked;
+        }
+    }
+
+    private static (JObject? Bandwidth, JObject? Drain) AlchemyResourceBlockers(
+        GameWorldState world,
+        Guid recipeId)
+    {
+        var bandwidthRows = ResourceCosts(
+            world, recipeId, WorldAlchemyCostKind.RecipeDrain, out var bandwidthBlocked);
+        var drainRows = ResourceCosts(
+            world, recipeId, WorldAlchemyCostKind.CurrentDrain, out var drainBlocked);
+        return (
+            ResourceBlocker(bandwidthRows, bandwidthBlocked, reasonCode: "bandwidth_blocked"),
+            ResourceBlocker(drainRows, drainBlocked, reasonCode: "drain_blocked"));
+    }
+
+    private static JArray ResourceCosts(
+        GameWorldState world,
+        Guid recipeId,
+        WorldAlchemyCostKind kind,
+        out bool blocked)
+    {
+        blocked = false;
+        var rows = new JArray();
+        if (!WorldAlchemyCostLookup.TryFindRange(
+                world.AlchemyCosts, recipeId, kind, out var start, out var count)) return rows;
+        for (var index = 0; index < count; index++)
+        {
+            var cost = world.AlchemyCosts[start + index];
+            var row = ResourceCostEvidence(world, cost.ResourceId, cost.Amount, out var oneBlocked);
+            row["costKind"] = kind.ToString();
+            rows.Add(row);
+            blocked |= oneBlocked;
+        }
+        return rows;
+    }
+
+    private static JObject ResourceCostEvidence(
+        GameWorldState world,
+        Guid resourceId,
+        BigDouble amount,
+        out bool blocked)
+    {
+        var available = BigDouble.Zero;
+        var playerCost = amount;
+        var bandwidth = false;
+        if (WorldLookup.TryFind(world.Resources, resourceId, out var resource))
+        {
+            bandwidth = resource.Reading.Traits.BandwidthResource;
+            available = WorldResourceCoordinate.SpendableAmount(in resource);
+            playerCost = WorldResourceCoordinate.PlayerFacingCost(in resource, amount);
+            blocked = !WorldResourceCoordinate.HasAmount(in resource, amount);
+        }
+        else
+        {
+            blocked = true;
+        }
+        var result = new JObject
+        {
+            ["resourceUuid"] = resourceId.ToString("D"),
+            ["cost"] = ProjectNumber(playerCost),
+            ["amount"] = ProjectNumber(available),
+            ["affordable"] = !blocked,
+            ["blocked"] = blocked,
+        };
+        if (bandwidth) result["bandwidth"] = true;
+        if (blocked) result["reasonCode"] = "resource_or_headroom_insufficient";
+        return result;
+    }
+
+    private static JObject? CraftingBandwidthBlocker(
+        GameWorldState world,
+        in WorldCraftingRecipe recipe)
+    {
+        var rows = new JArray();
+        var blocked = false;
+        for (var index = 0; index < recipe.Resources.Count; index++)
+        {
+            var resource = recipe.Resources[index];
+            if (resource.Kind != WorldCraftingRecipeResourceKind.AuthoredInput ||
+                !resource.BandwidthResource) continue;
+            var available = WorldLookup.TryFind(
+                world.Resources, resource.ResourceId, out var resourceState);
+            var oneBlocked = !available ||
+                !WorldResourceCoordinate.HasAmount(in resourceState, resource.Amount);
+            var spendable = available
+                ? WorldResourceCoordinate.SpendableAmount(in resourceState)
+                : BigDouble.Zero;
+            blocked |= oneBlocked;
+            rows.Add(new JObject
+            {
+                ["resourceUuid"] = resource.ResourceId.ToString("D"),
+                ["cost"] = ProjectNumber(resource.Amount),
+                ["amount"] = ProjectNumber(spendable),
+                ["affordable"] = !oneBlocked,
+                ["bandwidth"] = true,
+                ["blocked"] = oneBlocked,
+            });
+        }
+        return ResourceBlocker(rows, blocked, reasonCode: "bandwidth_blocked");
+    }
+
+    private static JObject? CraftingDrainBlocker(in WorldCraftingRecipe recipe)
+    {
+        var rows = new JArray();
+        var blocked = false;
+        for (var index = 0; index < recipe.DrainBlocks.Count; index++)
+        {
+            var row = recipe.DrainBlocks[index];
+            rows.Add(new GameMcpDomainValue(row));
+            blocked |= row.Blocked;
+        }
+        return ResourceBlocker(rows, blocked, reasonCode: "drain_blocked");
+    }
+
+    /// <summary>
+    /// The blocked half of one resource axis, under the axis's own reason code.
+    /// </summary>
+    /// <remarks>
+    /// The code used to be built here by concatenation — <c>axis + "_blocked"</c> — so neither
+    /// <c>bandwidth_blocked</c> nor <c>drain_blocked</c> existed anywhere a table could meet them,
+    /// both landed on the default class, and both reached a caller as their own spelling with the
+    /// underscore taken out. A third axis added tomorrow would have inherited the same silence with
+    /// nothing to signal it; a whole code passed in cannot.
+    /// </remarks>
+    private static JObject? ResourceBlocker(JArray rows, bool blocked, string reasonCode)
+    {
+        if (rows.Count == 0) return null;
+        var result = new JObject
+        {
+            ["blocked"] = blocked,
+            ["rows"] = rows,
+        };
+        if (blocked) result["reasonCode"] = reasonCode;
+        return result;
+    }
+
+    internal static bool TryDescribePublishedEntity(
+        GameWorldState world,
+        Guid id,
+        out string category,
+        out string nativeType,
+        out object row)
+    {
+        if (!TryResolve(world, id, out var kind, out row, out nativeType))
+        {
+            category = string.Empty;
+            return false;
+        }
+        category = kind switch
+        {
+            EntityKind.Structure => "structures",
+            EntityKind.Upgrade => "upgrades",
+            EntityKind.Research => "research",
+            EntityKind.SpellRecipe => "spell-recipes",
+            EntityKind.AlchemyRecipe => "alchemy-recipes",
+            EntityKind.CraftingRecipe => "crafting-recipes",
+            EntityKind.Consumable => "consumables",
+            EntityKind.Resource => "resources",
+            EntityKind.Ritual => "rituals",
+            EntityKind.Glyph => "augment-glyphs",
+            EntityKind.Equipment => "equipment",
+            EntityKind.TimeRune => "time-runes",
+            EntityKind.DiscoveryTree => "discovery-trees",
+            _ => string.Empty,
+        };
+        return category.Length != 0;
+    }
+
+    private static bool TryResolve(
+        GameWorldState world,
+        Guid id,
+        out EntityKind kind,
+        out object row,
+        out string nativeType)
+    {
+        var matches = 0;
+        var resolvedKind = EntityKind.Unknown;
+        object? resolvedRow = null;
+        var resolvedNativeType = string.Empty;
+        void Found(EntityKind candidateKind, object candidate, string candidateType)
+        {
+            matches++;
+            resolvedKind = candidateKind;
+            resolvedRow = candidate;
+            resolvedNativeType = candidateType;
+        }
+
+        if (WorldLookup.TryFind(world.Structures, id, out var structure))
+            Found(EntityKind.Structure, structure, "StructureSO");
+        if (WorldLookup.TryFind(world.Upgrades, id, out var upgrade))
+            Found(EntityKind.Upgrade, upgrade, "UpgradeSO");
+        if (WorldLookup.TryFind(world.Research, id, out var research))
+            Found(EntityKind.Research, research, "ResearchSO");
+        if (WorldLookup.TryFind(world.SpellRecipes, id, out var spell))
+            Found(EntityKind.SpellRecipe, spell, "SpellRecipeSO");
+        if (WorldLookup.TryFind(world.AlchemyRecipes, id, out var alchemy))
+            Found(EntityKind.AlchemyRecipe, alchemy, "AlchemyRecipeSO");
+        if (WorldLookup.TryFind(world.CraftingRecipes, id, out var crafting))
+            Found(EntityKind.CraftingRecipe, crafting, "CraftingRecipeSO");
+        if (WorldLookup.TryFind(world.Consumables, id, out var consumable))
+            Found(EntityKind.Consumable, consumable, "ConsumableSO");
+        if (WorldLookup.TryFind(world.Resources, id, out var resource))
+            Found(EntityKind.Resource, resource, "ResourceSO");
+        if (WorldLookup.TryFind(world.Rituals, id, out var ritual))
+            Found(EntityKind.Ritual, ritual, "RitualSO");
+        if (WorldLookup.TryFind(world.AugmentGlyphs, id, out var glyph))
+            Found(EntityKind.Glyph, glyph, "GlyphSO");
+        if (WorldLookup.TryFind(world.Equipment, id, out var equipment))
+            Found(EntityKind.Equipment, equipment, "EquipmentSO");
+        if (WorldLookup.TryFind(world.TimeRunes, id, out var timeRune))
+            Found(EntityKind.TimeRune, timeRune, "TimeRuneSO");
+        if (WorldLookup.TryFind(world.DiscoveryTrees, id, out var discoveryTree))
+            Found(EntityKind.DiscoveryTree, discoveryTree, "DiscoveryTreeSO");
+        kind = resolvedKind;
+        row = resolvedRow!;
+        nativeType = resolvedNativeType;
+        return matches == 1;
+    }
+
+    private static long UpgradeCheckLevel(GameWorldState world, Guid id)
+    {
+        WorldLookup.TryFind(world.Upgrades, id, out var row);
+        return WorldRequirementEvaluator.UpgradeCheckLevel(in row);
+    }
+
+    private static long StructureCheckLevel(GameWorldState world, Guid id)
+    {
+        WorldLookup.TryFind(world.Structures, id, out var row);
+        return WorldRequirementEvaluator.StructureCheckLevel(in row);
+    }
+
+    /// <summary>
+    /// One grammar for every yes/no on the page. The explainer's verdicts answered under
+    /// <c>value</c> while every decision elsewhere answers under <c>available</c>, so a caller
+    /// reading both had to learn that two words mean the same thing.
+    /// </summary>
+    private static JObject Verdict(
+        bool value,
+        string falseReason) => new()
+    {
+        ["available"] = value,
+        ["reasonCode"] = value ? "passed" : falseReason,
+    };
+
+    /// <summary>
+    /// A verdict that carries the same sentence the row action beside it writes, for a gate they
+    /// both judge. The sentence has to be here rather than left to the code's own table because the
+    /// row writes its own from the numbers it holds, and a predicate answering the table's generic
+    /// line would disagree with its twin word for word and survive the collapse.
+    /// </summary>
+    private static JObject Verdict(
+        bool value,
+        string falseReason,
+        string falseSentence)
+    {
+        var verdict = Verdict(value, falseReason);
+        if (!value) verdict["reason"] = falseSentence;
+        return verdict;
+    }
+
+    private static JObject PurchaseVerdict(
+        GameWorldState world,
+        Guid id,
+        bool available,
+        string unavailableReason)
+    {
+        if (!available) return Verdict(false, unavailableReason);
+        if (!WorldPurchaseCostLookup.TryFindRange(
+                world.PurchaseCosts, id, out var start, out var count) || count == 0)
+            return Verdict(false, "price_unavailable");
+        var cost = world.PurchaseCosts[start];
+        if (!cost.AffordabilityEvaluated)
+            return Verdict(false, "affordability_unavailable");
+        return Verdict(cost.Affordable,
+            cost.Affordable ? "passed" : "unaffordable");
+    }
+
+    private static JObject Blocker(bool blocked, string reasonCode) => new()
+    {
+        ["blocked"] = blocked,
+        ["reasonCode"] = reasonCode,
+    };
+
+    private static JObject Refusal(string code, Guid ownerId, int tierIndex) => new()
+    {
+        ["status"] = "not_available",
+        ["code"] = code,
+        ["ownerUuid"] = ownerId.ToString("D"),
+        ["tierIndex"] = tierIndex,
+    };
+
+    private static GameMcpValue ProjectNumber(BigDouble value) =>
+        new GameMcpDomainValue(value);
+
+    /// <summary>
+    /// One requirement as the screen words it: the thing, what is asked of it, and — only while it
+    /// is not met — what is held.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The parenthetical rides on the unmet rows alone. On a satisfied row it restates a number the
+    /// reader has no move to make about, and its absence is the same signal <c>met</c> gives.
+    /// </para>
+    /// <para>
+    /// Every check word the vocabulary can produce has a phrase here and the default throws, for the
+    /// same reason <see cref="GameMcpNativeVocabulary.RequirementCheck"/>'s arms throw: a comparison
+    /// the game ships and this table has no words for is a phrase to write, not a gap to paper over
+    /// with the word itself.
+    /// </para>
+    /// </remarks>
+    private static string RequirementNeeds(
+        GameWorldState world,
+        in WorldEntityRequirement row,
+        in WorldRequirementLeafEvaluation evaluated)
+    {
+        // An authored empty composite compares nothing at all: its identity value is the whole of
+        // what it says, and Enumerable.All of nothing is true where Enumerable.Any of nothing is
+        // false. There is no target to name and no threshold to print.
+        if (row.Kind == WorldRequirementConditionKind.Literal)
+        {
+            return row.ReqType == 1
+                ? "nothing — this group is empty"
+                : "one of an empty group, which nothing can satisfy";
+        }
+
+        var name = RequirementTargetName(world, row.TargetId);
+        var required = GameMcpNumberFormatter.Format(evaluated.Required);
+        var current = GameMcpNumberFormatter.Format(evaluated.Current);
+        var at = evaluated.Met ? string.Empty : " (at " + current + ")";
+        var have = evaluated.Met ? string.Empty : " (have " + current + ")";
+        var check = GameMcpNativeVocabulary.RequirementCheck(row.Kind, row.ReqType);
+        return check switch
+        {
+            "any-level" => name + " at any level" + at,
+            "at-maximum-level" => name + " at its maximum level " + required + at,
+            "at-least-level" => name + " at level " + required + at,
+            "at-least-mastery-level" => name + " at mastery level " + required + at,
+            "at-least-mastery-ready-level" => name + " at mastery-ready level " + required + at,
+            "at-least-maximum-level" => name + " at recipe level " + required + at,
+            "at-least-advancement-level" => name + " at advancement level " + required + at,
+            "at-least-reached-level" => name + " taken to level " + required + at,
+            "at-least-quantity" => required + " " + name + have,
+            "at-least-value" => required + " " + name + have,
+            "at-least-count" => required + " of " + name + have,
+            "discovered" => name,
+            "visible" => name + " shown",
+            "available" => name + " available",
+            "any-visible" => "something from " + name,
+            "any-available" => "something available from " + name,
+            "first-tier-enabled" => "the " + name + " gate",
+            "named-tier-enabled" => "the " + name + " gate at tier " + required,
+            _ => throw new InvalidOperationException(
+                "a requirement row reached the wire checking '" + check + "' with no player " +
+                "phrase for it; a comparison the game ships is a phrase to write, not a suite word " +
+                "to pass through."),
+        };
+    }
+
+    /// <summary>
+    /// The requirement's target, named the way the player sees it, never as a bare UUID in prose.
+    /// </summary>
+    private static string RequirementTargetName(GameWorldState world, Guid targetId)
+    {
+        if (targetId == Guid.Empty) return "something this build authors no reference for";
+        var identity = EntityIdentityFormatter.Describe(targetId, world.EntityIdentities);
+        return identity.HasName
+            ? identity.Name
+            : EntityIdentityFormatter.PlayerHandle(targetId, world.EntityIdentities);
+    }
+
+    /// <summary>
+    /// Whether this row's threshold moves with the level being checked, which is the only condition
+    /// under which the level is worth publishing.
+    /// </summary>
+    /// <remarks>
+    /// The threshold is <c>baseValue</c> folded through two authored <c>ValueModifier</c>s. Both
+    /// carrying nought is the identity fold, so the row asks the same number at level one and at
+    /// level forty and <c>forLevel</c> would be a constant nobody can act on.
+    /// </remarks>
+    private static bool ThresholdScales(in WorldEntityRequirement row) =>
+        row.PerLevel.Amount != BigDouble.Zero || row.ModPerLevel.Amount != BigDouble.Zero;
+
+    /// <summary>
+    /// The one sentence for a condition class this build cannot read, pointing at the screen that
+    /// draws the entity holding it wherever the world publishes one.
+    /// </summary>
+    private static string UnreadRequirementSentence(
+        GameWorldState world,
+        in WorldEntityRequirement row) =>
+        "This requirement is one the suite cannot read yet; open " +
+        (GameMcpWorldQuery.TryPublishedScreen(world, row.OwnerId, out var screen)
+            ? screen
+            : "this entity's own screen") +
+        " to see it.";
+
+    private readonly struct RequirementKey : IEquatable<RequirementKey>
+    {
+        internal RequirementKey(Guid ownerId, int tierIndex)
+        {
+            OwnerId = ownerId;
+            TierIndex = tierIndex;
+        }
+
+        private Guid OwnerId { get; }
+        private int TierIndex { get; }
+        public bool Equals(RequirementKey other) =>
+            OwnerId == other.OwnerId && TierIndex == other.TierIndex;
+        public override bool Equals(object? obj) => obj is RequirementKey other && Equals(other);
+        public override int GetHashCode() => HashCode.Combine(OwnerId, TierIndex);
+    }
+
+    private enum EntityKind
+    {
+        Unknown = 0,
+        Structure = 1,
+        Upgrade = 2,
+        Research = 3,
+        SpellRecipe = 4,
+        AlchemyRecipe = 5,
+        CraftingRecipe = 6,
+        Consumable = 7,
+        Resource = 8,
+        Ritual = 9,
+        Glyph = 10,
+        Equipment = 11,
+        TimeRune = 12,
+        DiscoveryTree = 13,
+    }
+}
+#endif

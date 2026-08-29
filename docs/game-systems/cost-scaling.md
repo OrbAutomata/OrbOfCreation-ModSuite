@@ -15,6 +15,10 @@ Each level's cost exceeds the previous level's by a factor clustering at **≈×
 group around ×1.30 and a real tail *below* 1.0 — a handful of entities actually get **cheaper** per
 level. Which entities sit in that tail is unextracted; see [open-questions.md](open-questions.md).
 
+The four `Raise <thing> Level` cap-raisers sit far outside that cluster: one observed level of
+Raise Alchemy Level multiplied its own next price by **≈×267**, in both of its currencies at once.
+See [attributes-and-upgrades.md](attributes-and-upgrades.md).
+
 Costs span an enormous range: roughly `10⁻¹` through `10⁶⁰` on the observed mid-progression save,
 and far beyond it late — endgame saves reach magnitudes on the order of `10⁵⁰⁰⁰`.
 

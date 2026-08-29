@@ -151,6 +151,60 @@ public sealed class BufferedSegmentSinkFailureTests
         Assert.Equal(6, sink.Metrics().DiscardedRecords);
     }
 
+    /// <summary>
+    /// The producer stopping is how a recording ends when the runtime shuts down. A 43-minute
+    /// capture whose every one of 486,377 accepted records was durable still published
+    /// <c>Incomplete</c> with a first-missing sequence of 486,378 — one past the last record it had
+    /// written — and the next reader has to disprove that by arithmetic before trusting anything in
+    /// the session.
+    /// </summary>
+    [Fact]
+    public void AProducerStopThatLostNothingCompletesInsteadOfClaimingTruncation()
+    {
+        using var consumer = new BufferedSegmentTestConsumer();
+        using var sink = Create(consumer);
+        ForStatus(sink, BufferedSegmentStatus.Running);
+
+        AppendBlock(sink, 1);
+        Assert.Equal(BufferedSegmentAppendResult.Accepted, sink.Append(3));
+
+        sink.FailProducer(BufferedSegmentFaultReason.ProducerStopped);
+
+        ForSignal(consumer.CompletionObserved, "producer-stop completion");
+        ForStatus(sink, BufferedSegmentStatus.Stopped);
+        Assert.True(consumer.Completion.Complete);
+        Assert.Equal(BufferedSegmentFaultReason.None, consumer.Completion.FaultReason);
+        Assert.Equal(0, consumer.Completion.FirstIncompleteSequence);
+        Assert.Equal(3, consumer.Completion.AcceptedRecords);
+        Assert.Equal(3, consumer.Completion.WrittenRecords);
+        var metrics = sink.Metrics();
+        Assert.Equal(BufferedSegmentFaultReason.None, metrics.FaultReason);
+        Assert.Equal(0, metrics.FirstIncompleteSequence);
+    }
+
+    /// <summary>
+    /// Every accepted record being durable is not by itself completeness: a producer that faulted
+    /// stopped producing records the session was meant to hold, and the counters cannot see the ones
+    /// that were never accepted.
+    /// </summary>
+    [Fact]
+    public void AProducerFaultStaysIncompleteWithEveryAcceptedRecordDurable()
+    {
+        using var consumer = new BufferedSegmentTestConsumer();
+        using var sink = Create(consumer);
+        ForStatus(sink, BufferedSegmentStatus.Running);
+
+        AppendBlock(sink, 1);
+        sink.FailProducer();
+
+        ForSignal(consumer.CompletionObserved, "producer-fault completion");
+        ForStatus(sink, BufferedSegmentStatus.Faulted);
+        Assert.False(consumer.Completion.Complete);
+        Assert.Equal(BufferedSegmentFaultReason.ProducerFailed, consumer.Completion.FaultReason);
+        Assert.Equal(2, consumer.Completion.AcceptedRecords);
+        Assert.Equal(2, consumer.Completion.WrittenRecords);
+    }
+
     private static void AppendBlock(BufferedSegmentSink<int> sink, int first)
     {
         Assert.Equal(BufferedSegmentAppendResult.Accepted, sink.Append(first));

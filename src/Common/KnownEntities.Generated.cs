@@ -16,6 +16,7 @@ internal readonly struct CraftingInstanceListVariableContract { }
 internal readonly struct CraftingRecipeListVariableContract { }
 internal readonly struct CraftingRecipeSOContract { }
 internal readonly struct CraftingRecipeTypeSOContract { }
+internal readonly struct DoubleVariableContract { }
 internal readonly struct EnchantmentSOContract { }
 internal readonly struct IntVariableContract { }
 internal readonly struct PlotNodeActionInstanceListVariableContract { }
@@ -25,6 +26,7 @@ internal readonly struct ResourceSOContract { }
 internal readonly struct ScalingWeightSOContract { }
 internal readonly struct SpellListVariableContract { }
 internal readonly struct TreasurePoolSOContract { }
+internal readonly struct UpgradeListVariableContract { }
 internal readonly struct UpgradeSOContract { }
 internal readonly struct ViewListVariableContract { }
 internal readonly struct ViewSOContract { }
@@ -50,6 +52,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<PlotNodeActionInstanceListVariableContract> ActivePlotNodeActions = new(new Guid("70871e86-100b-4ae0-ba9b-fc96e09b7e1f"), "PlotNodeActionInstanceListVariable", "ActivePlotNodeActions");
     public static readonly KnownEntity<CraftingInstanceListVariableContract> ActiveScribeInstances = new(new Guid("b557060a-e109-40de-9a7d-f2b02bc9766d"), "CraftingInstanceListVariable", "ActiveScribeInstances");
     public static readonly KnownEntity<SpellListVariableContract> ActiveSpells = new(new Guid("1614158d-6485-4995-90d0-79cc6b4dced4"), "SpellListVariable", "ActiveSpells");
+    public static readonly KnownEntity<ViewSOContract> AlchAlchemyDiscover = new(new Guid("70aabd3c-7790-4771-a863-5e5c41bff493"), "ViewSO", "AlchAlchemyDiscover");
     public static readonly KnownEntity<AlchemyTypeSOContract> Alchemy = new(new Guid("f9c93e42-e9e8-4fe3-a1f3-5aec5430b5c2"), "AlchemyTypeSO", "Alchemy");
     public static readonly KnownEntity<ViewSOContract> AlchemyScreen = new(new Guid("3ae45ec0-4449-4903-b3d0-b5182e03dca3"), "ViewSO", "ScreenAlchemy");
     public static readonly KnownEntity<CraftingInstanceListVariableContract> AutoScribeInstances = new(new Guid("f6cb65a8-a959-477c-9293-ff66f646c95d"), "CraftingInstanceListVariable", "AutoScribeInstances");
@@ -83,13 +86,19 @@ internal static class KnownEntities
     public static readonly KnownEntity<PlotNodeActionSOContract> FruitTreeCollect = new(new Guid("60ea60a2-44e9-41c2-86d6-3935fae0b647"), "PlotNodeActionSO", "PNAFruitTreeCollect");
     public static readonly KnownEntity<PlotNodeSOContract> FruitTreePlot = new(new Guid("6782dd13-e229-4385-a1aa-8ed86e6ea1ed"), "PlotNodeSO", "PlotFruitTree");
     public static readonly KnownEntity<TreasurePoolSOContract> FruitTreeRewardPool = new(new Guid("b3ab80f0-80c7-41d4-b4c7-f34c3e909104"), "TreasurePoolSO", "FruitTreasurePool");
+    public static readonly KnownEntity<ViewSOContract> MagicGlyphsDiscover = new(new Guid("35141301-f428-450f-93b8-ce28f506d704"), "ViewSO", "MagicGlyphsDiscover");
+    public static readonly KnownEntity<ViewSOContract> MagicGlyphsUpgrade = new(new Guid("2754f10f-d88c-4b15-946b-e9a97c731300"), "ViewSO", "MagicGlyphsUpgrade");
     public static readonly KnownEntity<ViewSOContract> MagicSpellbook = new(new Guid("ca934900-0253-4f71-93e9-733fb91132b7"), "ViewSO", "MagicSpellbook");
+    public static readonly KnownEntity<ViewSOContract> MagicSpellbookLearn = new(new Guid("cdfbbee5-7fa2-41fe-a6aa-903beb692fb2"), "ViewSO", "MagicSpellbookLearn");
+    public static readonly KnownEntity<ViewSOContract> MagicSpellbookLoadout = new(new Guid("accf9abb-d916-4fdf-96d7-1b1d5fdd548c"), "ViewSO", "MagicSpellbookLoadout");
     public static readonly KnownEntity<ViewSOContract> MasteriesEnabled = new(new Guid("07dfae7e-76b9-4b38-bf81-38abc40b9ed7"), "ViewSO", "MasteriesEnabled");
     public static readonly KnownEntity<IntVariableContract> MultiBuy = new(new Guid("37a84399-98b5-463c-b858-c1ecf2f9bf34"), "IntVariable", "MultiBuy");
     public static readonly KnownEntity<ResourceSOContract> PotionToxicity = new(new Guid("4dd4e062-2015-4809-a50f-f37647bda339"), "ResourceSO", "PotionToxicity");
     public static readonly KnownEntity<AlchemyTypeSOContract> Reductive = new(new Guid("47b787b9-d4cd-43c8-a7e3-63a1e4e0ae94"), "AlchemyTypeSO", "Reductive");
     public static readonly KnownEntity<AlchemyTypeSOContract> Refinement = new(new Guid("32b6b099-19f2-4470-b47b-6c2a8b0388e1"), "AlchemyTypeSO", "Refinement");
     public static readonly KnownEntity<AlchemyTypeSOContract> Reflective = new(new Guid("8f258dcc-c39a-4d64-b915-4239e746c49d"), "AlchemyTypeSO", "Reflective");
+    public static readonly KnownEntity<ViewSOContract> RitualsDiscover = new(new Guid("443bc384-3df6-49ac-aa52-28abe080595c"), "ViewSO", "RitualsDiscover");
+    public static readonly KnownEntity<ViewSOContract> ScholarConceptDiscover = new(new Guid("f0e4b59a-b510-4de3-ae3e-dfca0fd76239"), "ViewSO", "ScholarConceptDiscover");
     public static readonly KnownEntity<CraftingRecipeTypeSOContract> ScribeCrafting = new(new Guid("ee001474-8209-4238-9566-84899a877226"), "CraftingRecipeTypeSO", "ScribeCrafting");
     public static readonly KnownEntity<CraftingRecipeListVariableContract> ScribeCraftingRecipes = new(new Guid("2917516f-34a5-47b7-85b2-0b2f9ab3a29f"), "CraftingRecipeListVariable", "ScribeCraftingRecipes");
     public static readonly KnownEntity<ConsumableSOContract> ScrollAdvancement = new(new Guid("5f6aa08d-7da6-4c7a-89c9-aabcfe48e886"), "ConsumableSO", "ScrollAdvancement");
@@ -100,11 +109,24 @@ internal static class KnownEntities
     public static readonly KnownEntity<ConsumableSOContract> ScrollLearning = new(new Guid("ec14ee5d-66a3-4b28-a271-25dca2414387"), "ConsumableSO", "ScrollLearning");
     public static readonly KnownEntity<ConsumableSOContract> ScrollPower = new(new Guid("4bb8af50-fc7d-44a7-b1fc-937c390f8aec"), "ConsumableSO", "ScrollPower");
     public static readonly KnownEntity<ConsumableSOContract> ScrollSpeed = new(new Guid("b2232a7d-5c97-44c9-9520-686e99fa8293"), "ConsumableSO", "ScrollSpeed");
+    public static readonly KnownEntity<DoubleVariableContract> TimePlayed = new(new Guid("02eac15e-9c92-4d06-b8a2-1275faf7df89"), "DoubleVariable", "TimePlayed");
+    public static readonly KnownEntity<DoubleVariableContract> TimePlayedThisReset = new(new Guid("9ea78fb7-5fbc-4022-8025-f0b413684761"), "DoubleVariable", "TimePlayedThisReset");
+    public static readonly KnownEntity<ViewSOContract> TimeTimeRuneCreate = new(new Guid("82047a67-9d57-438c-b5b1-99377e242e32"), "ViewSO", "TimeTimeRuneCreate");
     public static readonly KnownEntity<AlchemyTypeSOContract> Transmutation = new(new Guid("b42c6192-7d9b-40d0-aa40-3d46a9348e52"), "AlchemyTypeSO", "Transmutation");
     public static readonly KnownEntity<PlotNodeActionSOContract> TreasureTreeCollect = new(new Guid("3eb68f6f-c2f2-405a-88d2-e5c80345aeb4"), "PlotNodeActionSO", "PNATreasureTreeCollect");
     public static readonly KnownEntity<PlotNodeSOContract> TreasureTreePlot = new(new Guid("2d41cfc1-bffa-43b5-b3a8-5e4d5ad85434"), "PlotNodeSO", "PlotTreasureTree");
     public static readonly KnownEntity<TreasurePoolSOContract> TreasureTreeRewardPool = new(new Guid("1a370ff9-fea7-4a2a-bca7-57fdb2862356"), "TreasurePoolSO", "CoreTreasurePool");
     public static readonly KnownEntity<UpgradeSOContract> UnlockLevelAllSpells = new(new Guid("b5efd19a-9655-4359-ad27-f391bb86c2e4"), "UpgradeSO", "UnlockLevelAllSpells");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesAlchemyScreen = new(new Guid("3a609f91-a7b0-4061-abdf-bba47399c38f"), "UpgradeListVariable", "AlchemyUpgradesList");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesAll = new(new Guid("6c47753b-cc11-4157-a194-64345c406c9d"), "UpgradeListVariable", "AllUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesAspectsScreen = new(new Guid("e36e1a05-8b98-41ab-adef-b888f090f02a"), "UpgradeListVariable", "AspectUpgradesList");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesMagicScreen = new(new Guid("8b90d935-be4e-4389-98b6-60e1db2551e2"), "UpgradeListVariable", "MagicScreenUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesRitualScreen = new(new Guid("8c82ee01-42ef-46c3-93ad-639036ddaa52"), "UpgradeListVariable", "RItualScreenUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesScholarScreen = new(new Guid("297aae92-8d7e-4879-bdcf-3cbe614128e3"), "UpgradeListVariable", "ScholarScreenUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesTimeScreen = new(new Guid("32c8ff0a-cbf5-41b3-88d8-52a2c28f7fa9"), "UpgradeListVariable", "TimeScreenUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesWorkshopScreen = new(new Guid("0b19f88b-8ab8-4c59-8c9c-34c3a577c6d3"), "UpgradeListVariable", "WorkshopScreenUpgrades");
+    public static readonly KnownEntity<UpgradeListVariableContract> UpgradesWorldScreen = new(new Guid("d9cbbc6b-b8c6-4fa6-9bea-3551a2107eae"), "UpgradeListVariable", "WorldScreenUpgrades");
     public static readonly KnownEntity<ViewSOContract> WorkshopArtifact = new(new Guid("668a2a7a-468f-4e0e-b182-979b12a4b0ad"), "ViewSO", "WorkshopArtifact");
+    public static readonly KnownEntity<ViewSOContract> WorkshopArtifactCreate = new(new Guid("05e1f545-5daa-4bd0-9cbb-8770f4cf6a13"), "ViewSO", "WorkshopArtifactCreate");
     public static readonly KnownEntity<IntVariableContract> WorldAspectSlots = new(new Guid("4b1bb2de-723a-4360-827c-8e4483f3ff8d"), "IntVariable", "WorldAspectSlots");
 }

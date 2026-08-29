@@ -44,17 +44,20 @@ internal static class AutoScribeServiceProjection
             {
                 case DecisionKindKey
                     when entry.Value.Integer is >= (int)AutoScribeDecisionKind.Disabled
-                        and <= (int)AutoScribeDecisionKind.ExternallyProducing:
+                        and <= (int)AutoScribeDecisionKind.QueueBusy:
                     kind = (AutoScribeDecisionKind)entry.Value.Integer;
                     foundKind = true;
                     break;
                 case BlockedRoleKey:
                     blockedRole = checked((int)entry.Value.Integer);
                     break;
-                case BlockedReasonKey
-                    when entry.Value.Integer is >= (int)AutoScribeEvidenceReason.None
-                        and <= (int)AutoScribeEvidenceReason.TargetEvidenceContradictory:
-                    blockedReason = (AutoScribeEvidenceReason)entry.Value.Integer;
+                case BlockedReasonKey:
+                    blockedReason = entry.Value.Integer is >= int.MinValue and <= int.MaxValue &&
+                        System.Enum.IsDefined(
+                            typeof(AutoScribeEvidenceReason),
+                            (int)entry.Value.Integer)
+                        ? (AutoScribeEvidenceReason)entry.Value.Integer
+                        : AutoScribeEvidenceReason.Unknown;
                     break;
             }
         }

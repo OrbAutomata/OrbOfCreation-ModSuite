@@ -240,6 +240,17 @@ all and latches into the published `available` field, while `prerequisitesPerLev
 being bought — `Check(level + queuedLevels + 1)` for an upgrade, `Check(quantity)` for a structure — so
 there is no field to read and no parameterless call to make.
 
+**The gating container is rows too, under its own program.** A published `available: false` says a
+row is locked and nothing more, and "what would unlock it" is the question a player actually asks, so
+`UpgradeSO.prerequisites`, `StructureSO.prerequisites` and both of `ResearchSO`'s visibility
+containers are read as a third program kind, `Unlock`. Reading them is fields only — the no-argument
+`Check()` that answers them is the write W36 refused, and it stays refused: the program is evaluated
+at level nought because that is the level that overload's own `ConditionInfo` carries, and the
+container's `adjustValue`, which only that overload reads, rides on each row and is added to the
+leveled threshold the way `ConditionValueInstance` adds it. A Research's two containers are ANDed by
+the game, so the second one's group ordinals continue after the first's and the existing all-of fold
+across group positions *is* that AND — no new node kind, no operator row.
+
 **What is published is the conditions, not the verdict.** Every value a condition compares against is
 already a row in the same snapshot, so the verdict is arithmetic a worker can do, and doing it there
 keeps the snapshot free of an answer only true at one level. It also leaves the rows for consumers that
@@ -249,7 +260,9 @@ is a property of the owner.
 
 **Eight of the twenty-six comparisons are refused.** Six reach the latching no-argument `Check()` W36
 logged as a write — none occurs in a per-level container on this baseline, but "none today" is what
-needs a guard rather than a habit. `SpellRequirement.MasteryLevelReady` asks for state the snapshot did
+needs a guard rather than a habit, and the guard is what carries the refusal into the gating
+containers, where such a comparison publishes its `Unknown` row and leaves that entity's verdict
+unevaluable rather than wrong. `SpellRequirement.MasteryLevelReady` asks for state the snapshot did
 not publish (W59 adds it). `GenericRequirement.Discovered` targets an arbitrary `UpgradeableObject`
 whose `IsDiscovered()` is virtual across six implementers reading different fields, and a row carries
 an identity rather than a type, so there is no way to pick the right override — the same ground

@@ -14,6 +14,7 @@ namespace OrbModding.ProfileTests;
 /// than being retired. It is the same reflective work against the same registries, only now it runs
 /// once for the pair about to be mutated instead of once per cycle for both.
 /// </remarks>
+[Collection(NativeRegistryCollection.Name)]
 public sealed class AutoHarvestActionBindingProfileTests
 {
     [Fact]

@@ -122,19 +122,6 @@ public static class ReflectionUtil
         return false;
     }
 
-    public static string? TryInvokeString(object instance, params string[] names)
-    {
-        foreach (var name in names)
-        {
-            if (InvokeNoArgs(instance, name) is string stringValue)
-            {
-                return stringValue;
-            }
-        }
-
-        return null;
-    }
-
     public static object? InvokeNoArgs(object instance, string name)
     {
         var method = instance.GetType().GetMethod(name, InstanceFlags, null, Type.EmptyTypes, null);
@@ -254,38 +241,4 @@ public static class ReflectionUtil
         return null;
     }
 
-    public static string? ReadDisplayName(object instance)
-    {
-        foreach (var method in new[] { "GetDisplayName", "GetName", "GetTitle", "ToString" })
-        {
-            var value = TryInvokeString(instance, method);
-            if (!string.IsNullOrWhiteSpace(value) && !LooksLikeTypeName(value, instance.GetType()))
-            {
-                return value;
-            }
-        }
-
-        foreach (var name in new[] { "displayName", "DisplayName", "localizedName", "LocalizedName", "title", "Title", "name", "Name" })
-        {
-            var member = ReadMember(instance, name);
-            if (member is null)
-            {
-                continue;
-            }
-
-            var text = member.ToString();
-            if (!string.IsNullOrWhiteSpace(text) && !LooksLikeTypeName(text, instance.GetType()))
-            {
-                return text;
-            }
-        }
-
-        return null;
-    }
-
-    private static bool LooksLikeTypeName(string value, Type type)
-    {
-        return string.Equals(value, type.FullName, StringComparison.Ordinal) ||
-            string.Equals(value, type.Name, StringComparison.Ordinal);
-    }
 }

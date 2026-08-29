@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoScribe;
@@ -11,6 +13,8 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 {
     private readonly Dictionary<Guid, object> _registry = new();
     private readonly AutoScribeIdentityProfile _profile = AutoScribeIdentityCatalog.Audited;
+    private long _lifecycle = 1;
+    private bool _permit = true;
 
     public AutoScribeOneShotCraftGameActionTests()
     {
@@ -29,7 +33,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     }
 
     [Fact]
-    public void VerifiedQueueAdmissionProvesPaymentCeilingAndExactOutcome()
+    public void VerifiedQueueAdmissionCommitsTheExactWorkOutcome()
     {
         var fixture = Fixture();
         using var actionBoundary = GameAction();
@@ -37,16 +41,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         var result = Submit(actionBoundary, fixture.Action);
 
         Assert.True(result.Verified, result.Reason);
-        Assert.Equal(new BigDouble(95, 0), fixture.Resource.GetTrueQuantity());
-        Assert.Equal(3, fixture.RecipeType.maxStartingLevel);
         Assert.Single(fixture.Active.value);
-        Assert.True(result.Receipt.PaymentInvoked);
-        Assert.True(result.Receipt.EvidenceAvailable);
-        Assert.True(result.Receipt.ResourcesCharged);
-        Assert.True(result.Receipt.CostMatched);
-        Assert.True(result.Receipt.CeilingTransitionObserved);
-        Assert.True(result.Receipt.AdmittedToQueue);
-        Assert.False(result.Receipt.AdmittedToInstantStock);
         Assert.Equal(new NativeMutationCallOutcome(4, 1, 1), result.CallOutcome);
     }
 
@@ -65,6 +60,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         Assert.Equal(24d, Assert.Single(fixture.Active.value).Quantity.ToDouble());
         Assert.Equal(67, fixture.RecipeType.maxStartingLevel);
         Assert.Equal(1, fixture.Recipe.PurchaseCalls);
+        Assert.False(AutoScribeActionHealth.IsFailure(in result));
     }
 
     [Fact]
@@ -91,7 +87,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     }
 
     [Fact]
-    public void VerifiedInstantAdmissionProvesPaymentCeilingAndExactStockOutcome()
+    public void VerifiedInstantAdmissionCommitsTheNativeCompletionOutcome()
     {
         var fixture = Fixture();
         fixture.Recipe.InstantCraftEnabled = true;
@@ -100,19 +96,29 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         var result = Submit(actionBoundary, fixture.Action);
 
         Assert.True(result.Verified, result.Reason);
-        Assert.Equal(new BigDouble(95, 0), fixture.Resource.GetTrueQuantity());
-        Assert.Equal(3, fixture.RecipeType.maxStartingLevel);
         Assert.Empty(fixture.Active.value);
-        Assert.True(result.Receipt.CostMatched);
-        Assert.True(result.Receipt.CeilingTransitionObserved);
-        Assert.False(result.Receipt.AdmittedToQueue);
-        Assert.True(result.Receipt.AdmittedToInstantStock);
-        Assert.Equal(1, result.Receipt.StockDelta);
+        Assert.Single(fixture.Scroll.consumableCounts);
         Assert.Equal(new NativeMutationCallOutcome(4, 1, 1), result.CallOutcome);
+        Assert.False(AutoScribeActionHealth.IsFailure(in result));
     }
 
     [Fact]
-    public void FailureAfterPurchaseCarriesPaidPartialCommitAndQuarantines()
+    public void MissingInstantCompletionCannotBeReportedAsVerified()
+    {
+        var fixture = Fixture();
+        fixture.Recipe.InstantCraftEnabled = true;
+        fixture.Recipe.SuppressInstantAdmission = true;
+        using var actionBoundary = GameAction();
+
+        var result = Submit(actionBoundary, fixture.Action);
+
+        Assert.Equal(AutoScribePreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome);
+        Assert.True(actionBoundary.IsQuarantined);
+    }
+
+    [Fact]
+    public void FailureAfterPurchaseWithoutWorkOutcomeQuarantines()
     {
         var fixture = Fixture();
         fixture.Recipe.ThrowAfterPurchase = true;
@@ -124,33 +130,14 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 
         Assert.Equal(AutoScribeNativeStage.Payment, failed.Stage);
         Assert.Equal(new NativeMutationCallOutcome(1, 1, 0), failed.CallOutcome);
-        Assert.True(failed.Receipt.ResourcesCharged);
-        Assert.True(failed.Receipt.CostMatched);
-        Assert.True(failed.Receipt.CeilingTransitionObserved);
-        Assert.False(failed.Receipt.AdmittedToQueue);
         Assert.Equal(AutoScribePreflight.Quarantined, blocked.Preflight);
         Assert.Equal(AutoScribeNativeStage.Payment, health.Stage);
-        Assert.Contains("after purchase", health.Reason);
+        Assert.Contains("after Payment", health.Reason);
+        Assert.DoesNotContain("injected failure", health.Reason);
     }
 
     [Fact]
-    public void DuplicateCostRowsAreVerifiedAsOneExactResourceCharge()
-    {
-        var fixture = Fixture();
-        fixture.Recipe.TotalCost.costs.Add(
-            new ResourceTuple(fixture.Resource, new BigDouble(2, 0)));
-        using var actionBoundary = GameAction();
-
-        var result = Submit(actionBoundary, fixture.Action);
-
-        Assert.True(result.Verified, result.Reason);
-        Assert.Equal(new BigDouble(93, 0), fixture.Resource.GetTrueQuantity());
-        Assert.True(result.Receipt.ResourcesCharged);
-        Assert.True(result.Receipt.CostMatched);
-    }
-
-    [Fact]
-    public void FailureDuringConstructionPreservesPaymentAndNamesConstruction()
+    public void FailureDuringConstructionWithoutWorkOutcomeNamesAndQuarantines()
     {
         var fixture = Fixture();
         fixture.Recipe.ThrowDuringConstruction = true;
@@ -161,15 +148,14 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 
         Assert.Equal(AutoScribeNativeStage.Construction, failed.Stage);
         Assert.Equal(new NativeMutationCallOutcome(2, 1, 0), failed.CallOutcome);
-        Assert.True(failed.Receipt.CostMatched);
-        Assert.False(failed.Receipt.AdmittedToQueue);
         Assert.True(actionBoundary.IsQuarantined);
         Assert.Equal(AutoScribeNativeStage.Construction, health.Stage);
-        Assert.Contains("construction", health.Reason);
+        Assert.Contains("after Construction", health.Reason);
+        Assert.DoesNotContain("injected failure", health.Reason);
     }
 
     [Fact]
-    public void FailureAfterInitiationPreservesPaymentAndNamesInitiation()
+    public void FailureAfterInitiationWithoutWorkOutcomeNamesAndQuarantines()
     {
         var fixture = Fixture();
         fixture.Recipe.ThrowAfterInitiation = true;
@@ -180,31 +166,24 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 
         Assert.Equal(AutoScribeNativeStage.Initiation, failed.Stage);
         Assert.Equal(new NativeMutationCallOutcome(3, 1, 0), failed.CallOutcome);
-        Assert.True(failed.Receipt.CostMatched);
-        Assert.False(failed.Receipt.AdmittedToQueue);
         Assert.True(actionBoundary.IsQuarantined);
         Assert.Equal(AutoScribeNativeStage.Initiation, health.Stage);
-        Assert.Contains("initiation", health.Reason);
+        Assert.Contains("after Initiation", health.Reason);
+        Assert.DoesNotContain("injected failure", health.Reason);
     }
 
     [Fact]
-    public void FailureAfterFinalAdmissionRecordsAdmittedPartialCommit()
+    public void FailureAfterFinalAdmissionCommitsWhenExactWorkIsObservable()
     {
         var fixture = Fixture();
         fixture.Active.ThrowAfterAdd = true;
         using var actionBoundary = GameAction();
 
-        var failed = Submit(actionBoundary, fixture.Action);
-        var health = Observe(failed);
+        var result = Submit(actionBoundary, fixture.Action);
 
-        Assert.Equal(AutoScribeNativeStage.Admission, failed.Stage);
-        Assert.Equal(new NativeMutationCallOutcome(4, 1, 0), failed.CallOutcome);
-        Assert.True(failed.Receipt.CostMatched);
-        Assert.True(failed.Receipt.AdmittedToQueue);
-        Assert.Equal(1, failed.Receipt.QueueDelta);
-        Assert.True(actionBoundary.IsQuarantined);
-        Assert.Equal(AutoScribeNativeStage.Admission, health.Stage);
-        Assert.Contains("admission", health.Reason);
+        Assert.True(result.Verified, result.Reason);
+        Assert.Single(fixture.Active.value);
+        Assert.False(actionBoundary.IsQuarantined);
     }
 
     [Fact]
@@ -223,7 +202,6 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 
         Assert.False(actionBoundary.IsQuarantined);
         Assert.True(retried.Verified, retried.Reason);
-        Assert.Equal(new BigDouble(90, 0), fixture.Resource.GetTrueQuantity());
     }
 
     [Fact]
@@ -239,6 +217,45 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         Assert.Equal(0, fixture.Recipe.PurchaseCalls);
         Assert.Equal(new BigDouble(100, 0), fixture.Resource.GetTrueQuantity());
         Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
+        Assert.False(Observe(result).HasFailure);
+    }
+
+    [Fact]
+    public void MissingExactQueueAdmissionCannotBeReportedAsVerified()
+    {
+        var fixture = Fixture();
+        fixture.Active.SuppressAdd = true;
+        using var actionBoundary = GameAction();
+
+        var result = Submit(actionBoundary, fixture.Action);
+
+        Assert.Equal(AutoScribePreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome);
+        Assert.True(actionBoundary.IsQuarantined);
+    }
+
+    [Fact]
+    public void LifecycleAndUnityThreadAreRevalidatedInsideTheGameAction()
+    {
+        var fixture = Fixture();
+        using var actionBoundary = GameAction();
+
+        _lifecycle = 2;
+        var stale = Submit(actionBoundary, fixture.Action);
+        _lifecycle = 0;
+        var epochZero = new AutoScribeCycleAction(
+            fixture.Action.RecipeId,
+            fixture.Action.ScrollId,
+            fixture.Action.Level,
+            collectedAtEpoch: 0);
+        var invalid = Submit(actionBoundary, epochZero);
+        _lifecycle = 1;
+        var wrongThread = ForeignThread.Run(() => Submit(actionBoundary, fixture.Action));
+
+        Assert.Equal(AutoScribePreflight.LifecycleReplaced, stale.Preflight);
+        Assert.Equal(AutoScribePreflight.LifecycleReplaced, invalid.Preflight);
+        Assert.Equal(AutoScribePreflight.WrongThread, wrongThread.Preflight);
+        Assert.Equal(0, fixture.Recipe.PurchaseCalls);
     }
 
     [Fact]
@@ -255,7 +272,16 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         var result = Submit(actionBoundary, fixture.Action);
 
         Assert.Equal(AutoScribePreflight.CompetingSupply, result.Preflight);
-        Assert.Contains(KnownEntities.AutoScribeInstances.Uuid.ToString("D"), result.Reason);
+
+        // The sentence names the queue; the UUID is identity and travels as a field, not as prose.
+        Assert.Contains(
+            EntityIdentityFormatter.PlayerName(KnownEntities.AutoScribeInstances.Uuid),
+            result.Reason,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            KnownEntities.AutoScribeInstances.Uuid.ToString("D"),
+            result.Reason,
+            StringComparison.Ordinal);
         Assert.Equal(0, fixture.Recipe.PurchaseCalls);
     }
 
@@ -291,17 +317,82 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         Assert.Equal(0, fixture.Recipe.PurchaseCalls);
     }
 
-    private AutoScribeOneShotCraftGameAction GameAction()
+    [Fact]
+    public void RegistryNotReadyIdentityRejectionIsQuietBackpressure()
+    {
+        var fixture = Fixture();
+        using var actionBoundary = GameAction(
+            static () => TypedRegistrySourceSnapshot.NotReady("Registry publication pending."));
+
+        var result = Submit(actionBoundary, fixture.Action);
+        var health = new AutoScribeActionHealth();
+
+        Assert.Equal(AutoScribePreflight.IdentityUnavailable, result.Preflight);
+        Assert.True(result.Retryable);
+        Assert.Contains("Status=RegistryNotReady", result.Reason);
+        Assert.Equal(
+            ServiceActionDisposition.Rejected,
+            AutoScribeCycleActionAdapter.Map(in result).Disposition);
+        Assert.False(health.Observe(in result));
+        Assert.False(health.HasFailure);
+        Assert.Equal(0, fixture.Recipe.PurchaseCalls);
+    }
+
+    [Fact]
+    public void WrongTypeIdentityRejectionEntersHealthOnceAndStaysUserVisible()
+    {
+        var fixture = Fixture();
+        var wrongType = new ConsumableSO();
+        wrongType.SetGuid(fixture.Action.RecipeId);
+        _registry[fixture.Action.RecipeId] = wrongType;
+        using var actionBoundary = GameAction();
+
+        var first = Submit(actionBoundary, fixture.Action);
+        var repeated = Submit(actionBoundary, fixture.Action);
+        var health = new AutoScribeActionHealth();
+
+        Assert.Equal(AutoScribePreflight.IdentityUnavailable, first.Preflight);
+        Assert.False(first.Retryable);
+        Assert.Contains("Status=WrongType", first.Reason);
+        Assert.Equal(
+            ServiceActionDisposition.Faulted,
+            AutoScribeCycleActionAdapter.Map(in first).Disposition);
+        Assert.True(health.Observe(in first));
+        Assert.False(health.Observe(in repeated));
+
+        var status = AutoScribeServiceCycleDiagnosticsBridge.ProjectStatus(
+            _profile,
+            emergencyDisabled: false,
+            ownsActionFamily: true,
+            ownershipReason: string.Empty,
+            bindingsAvailable: true,
+            bindingFailure: string.Empty,
+            health,
+            cycleObserved: true,
+            AutoScribeDecisionKind.Planned,
+            blockedRole: -1,
+            AutoScribeEvidenceReason.None);
+
+        Assert.Equal(FeatureStatusState.ContractUnavailable, status.State);
+        Assert.Equal(FeatureStatusReasonCode.IdentityMismatch, status.Reason);
+        Assert.Contains("Status=WrongType", status.Summary);
+        Assert.Equal(0, fixture.Recipe.PurchaseCalls);
+    }
+
+    private AutoScribeOneShotCraftGameAction GameAction(
+        Func<TypedRegistrySourceSnapshot>? readRegistry = null)
     {
         IDictionary dictionary = _registry;
+        readRegistry ??= () => TypedRegistrySourceSnapshot.Ready(dictionary);
         var resolver = new TypedRegistryResolver(
-            static () => 1,
-            () => TypedRegistrySourceSnapshot.Ready(dictionary),
+            () => _lifecycle,
+            readRegistry,
             value => value is IdScriptableObject item ? item.GetGuid() : null);
         return new AutoScribeOneShotCraftGameAction(
             resolver,
             _profile,
-            static () => true,
+            () => _lifecycle,
+            () => _permit,
             static () => string.Empty);
     }
 

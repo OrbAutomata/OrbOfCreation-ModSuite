@@ -43,7 +43,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
     [Fact]
     [Trait("Category", "HeadlessIntegration")]
-    public void BatchedDepthClampsToLiveMasteryCap()
+    public void BatchedDepthRefusesWhenTheLiveMasteryCapCannotHonorTheRequest()
     {
         var resource = new ConceptResource();
         var recipe = new AlchemyRecipeSO(
@@ -63,11 +63,11 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var submission = runtime.Submit(in action, new AutoConceptConfiguration());
 
-        Assert.True(submission.Verified, submission.Reason);
-        Assert.Equal(2, submission.AppliedDelta);
-        Assert.Equal(1, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
-        Assert.Equal(1, runtime.LastNativeMutationOutcome.MutationsCommitted);
-        Assert.Equal(2, Assert.Single(active.value).queuedQuantity);
+        Assert.Equal(AutoConceptPreflight.ResourceBackpressure, submission.Preflight);
+        Assert.Contains("at most 2 more", submission.Reason, StringComparison.Ordinal);
+        Assert.Equal(0, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
+        Assert.Equal(0, runtime.LastNativeMutationOutcome.MutationsCommitted);
+        Assert.Empty(active.value);
     }
 
     [Fact]
@@ -213,7 +213,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         Assert.True(submission.Verified, submission.Reason);
         Assert.Equal(-1, submission.AppliedDelta);
-        Assert.Equal(0, Assert.Single(active.value).queuedQuantity);
+        Assert.Empty(active.value);
     }
 
     [Fact]

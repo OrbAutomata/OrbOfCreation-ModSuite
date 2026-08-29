@@ -117,6 +117,35 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
         catch { Fault(); }
     }
 
+    /// <summary>
+    /// Records one category of one world-collection pass, through the same no-throw boundary every
+    /// other fact crosses. Collection runs on the main thread inside the capture the game is read by,
+    /// so a span that threw would fault that capture; here it costs the recording and nothing else.
+    /// </summary>
+    internal void WorldCategoryCollected(
+        int category,
+        int sampled,
+        int passCategories,
+        ulong lifecycle,
+        long frameIdentity,
+        MonotonicTimestamp observedAt,
+        MonotonicDuration elapsed)
+    {
+        if (_faulted) return;
+        try
+        {
+            _recorder.WorldCategoryCollected(
+                category,
+                sampled,
+                passCategories,
+                lifecycle,
+                frameIdentity,
+                observedAt,
+                elapsed);
+        }
+        catch { Fault(); }
+    }
+
     internal void EnterFrame(long frameIdentity)
     {
         if (_faulted) return;

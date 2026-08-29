@@ -157,3 +157,20 @@ internal static class BufferedSegmentFailurePolicy
     internal static bool IsProcessFatal(Exception exception) =>
         exception is StackOverflowException or OutOfMemoryException or AccessViolationException;
 }
+
+internal static class BufferedSegmentShutdown
+{
+    /// <summary>
+    /// How long a teardown waits for one writer to finish the drain it has already been asked for.
+    /// </summary>
+    /// <remarks>
+    /// The writer thread is a background thread, so process exit kills it wherever it stands. A stop
+    /// that only signals therefore leaves the last segments and the whole manifest to a race the
+    /// drain loses whenever the host quits promptly — and the profiling session hands its entire
+    /// payload over at exactly that moment. Bounded rather than an open join, because a writer wedged
+    /// in a storage call must never hold the host's quit; background remains the last-resort net
+    /// behind this wait. Two seconds is the bound the suite's own HTTP shutdown already uses, and a
+    /// healthy drain returns long before it.
+    /// </remarks>
+    internal static readonly TimeSpan DrainBound = TimeSpan.FromSeconds(2);
+}

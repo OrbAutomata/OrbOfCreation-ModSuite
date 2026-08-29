@@ -1,8 +1,28 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 public sealed class StructureTypeSO : UpgradeableObject
 {
+    public static List<StructureTypeSO> All = new List<StructureTypeSO>();
+    public List<StructureTypeSO> subTypes = new List<StructureTypeSO>();
+    public int baseEffectLevel;
+    public double baseBuildTime;
+    public bool overrideRankDefault;
+    public int overrideRank;
+    public ModifierRecord activeCostMod = new ModifierRecord();
+    public ModifierRecord attributeRankEffectMod = new ModifierRecord();
+    public ModifierRecord bonusLevels = new ModifierRecord();
+    public ModifierRecord buildSpeedMod = new ModifierRecord();
+    public ModifierRecord costScalingMod = new ModifierRecord();
+    public ModifierRecord drainCostMod = new ModifierRecord();
+    public ModifierRecord echoBuildRating = new ModifierRecord();
+    public ModifierRecord effectLevels = new ModifierRecord();
+    public ModifierRecord passiveCostMod = new ModifierRecord();
+    public ModifierRecord powerBuildRating = new ModifierRecord();
+    public ModifierRecord structurePower = new ModifierRecord();
+    public ModifierRecord structurePowerScaling = new ModifierRecord();
+    public ModifierRecord structureSpeed = new ModifierRecord();
     private List<StructureSO> structures = StructureSO.All;
 
     public void RegisterStructure(StructureSO structure) => structures.Add(structure);
@@ -16,6 +36,9 @@ public sealed class StructureTypeSO : UpgradeableObject
 public sealed class SpellTypeSO : IdScriptableObject
 {
     public static List<SpellTypeSO> All = new List<SpellTypeSO>();
+
+    /// <summary>What one more level of the type buys.</summary>
+    public List<PersistentEffectBlock> perLevelEffects = new List<PersistentEffectBlock>();
     public int typeLevel;
     public BigDouble typeXp;
     public double typeXpRequiredBase;
@@ -51,9 +74,20 @@ public sealed class SpellTypeSO : IdScriptableObject
 }
 
 
-public sealed class EquipmentTypeSO : IdScriptableObject
+public interface ILevelable
+{
+}
+
+public interface ILevelableHasFree
+{
+}
+
+public sealed class EquipmentTypeSO : IdScriptableObject, ILevelable, ILevelableHasFree
 {
     public static List<EquipmentTypeSO> All = new List<EquipmentTypeSO>();
+
+    /// <summary>What one more level of the type buys.</summary>
+    public List<PersistentEffectBlock> levelEffects = new List<PersistentEffectBlock>();
     public int level;
     public int freeLevels;
     public int baseUsage;
@@ -61,12 +95,32 @@ public sealed class EquipmentTypeSO : IdScriptableObject
     public ValueModifierRecord maxTypeSlots = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ModifierRecord powerMod = new ModifierRecord();
     public ModifierRecord experienceRateMod = new ModifierRecord();
+    public ResourceCostList LevelCost = new ResourceCostList();
+    public ResourceCostList BonusLevelCost = new ResourceCostList();
+    public bool NativeCanLevel = true;
+    public bool NativeVisible = true;
+    public bool NativeAvailable = true;
+    public bool SuppressLevelPurchase;
+    public bool SuppressBonusPurchase;
+    public int GetMaxTypeSlots() => maxTypeSlots.GetValue().ToInt();
+    public int GetLevel() => level + freeLevels;
+    public int GetFreeLevels() => freeLevels;
+    public bool CanLevel() => NativeCanLevel;
+    public bool IsVisible() => NativeVisible;
+    public bool IsAvailable() => NativeAvailable;
+    public ResourceCostList GetLevelCost() => LevelCost;
+    public ResourceCostList GetFreeLevelCost() => BonusLevelCost;
+    public void PurchaseLevel() { if (!SuppressLevelPurchase) level++; }
+    public void PurchaseFreeLevel() { if (!SuppressBonusPurchase) freeLevels++; }
 }
 
 
-public sealed class ResourceTypeSO : IdScriptableObject
+public sealed class ResourceTypeSO : IdScriptableObject, ILevelable, ILevelableHasFree
 {
     public static List<ResourceTypeSO> All = new List<ResourceTypeSO>();
+
+    /// <summary>What one more level of the type buys.</summary>
+    public List<PersistentEffectBlock> levelEffects = new List<PersistentEffectBlock>();
     public int level;
     public int freeLevels;
     public bool specialHidden;
@@ -95,6 +149,22 @@ public sealed class ResourceTypeSO : IdScriptableObject
     public ModifierRecord replenishTimeMod = new ModifierRecord();
     public ModifierRecord decayRatio = new ModifierRecord();
     public ModifierRecord decayTimeMod = new ModifierRecord();
+    public ResourceCostList LevelCost = new ResourceCostList();
+    public ResourceCostList BonusLevelCost = new ResourceCostList();
+    public bool NativeCanLevel = true;
+    public bool NativeVisible = true;
+    public bool NativeAvailable = true;
+    public bool SuppressLevelPurchase;
+    public bool SuppressBonusPurchase;
+    public int GetLevel() => level + freeLevels;
+    public int GetFreeLevels() => freeLevels;
+    public bool CanLevel() => NativeCanLevel;
+    public bool IsVisible() => NativeVisible && !specialHidden;
+    public bool IsAvailable() => NativeAvailable && IsVisible();
+    public ResourceCostList GetLevelCost() => LevelCost;
+    public ResourceCostList GetFreeLevelCost() => BonusLevelCost;
+    public void PurchaseLevel() { if (!SuppressLevelPurchase) level++; }
+    public void PurchaseFreeLevel() { if (!SuppressBonusPurchase) freeLevels++; }
 }
 
 
@@ -135,11 +205,16 @@ public sealed class CraftingRecipeSO : IdScriptableObject
 {
     public static List<CraftingRecipeSO> All = new List<CraftingRecipeSO>();
     public List<CraftingRecipeTypeSO> craftingTypes = new List<CraftingRecipeTypeSO>();
+    public ResourceCostList recipeCost = new ResourceCostList();
+    public ResourceCostList generatedResources = new ResourceCostList();
+    public List<PersistentEffectBlock> engagementEffects = new List<PersistentEffectBlock>();
     public List<InstantEffectBlock> completeEffects = new List<InstantEffectBlock>();
     public bool useQuantityAsLevel;
+    public double timeToComplete;
     public bool visible;
     public bool BuyAllowed = true;
     public int MaximumAffordableLevel = int.MaxValue;
+    public BigDouble StartingQuantity = BigDouble.One;
     public ResourceCostList TotalCost = new ResourceCostList();
     public CraftingRecipeTypeSO MainType = new CraftingRecipeTypeSO
     {
@@ -152,22 +227,60 @@ public sealed class CraftingRecipeSO : IdScriptableObject
     public bool ThrowDuringConstruction;
     public bool ThrowAfterInitiation;
     public bool ThrowAfterInstantAdmission;
+    public bool ThrowAfterExecute;
+    public bool SuppressEffectPublication;
+    public bool SuppressInstantAdmission;
     public int PurchaseCalls;
+    public int VisibilityCalls;
+    public int StartingQuantityCalls;
+    public int CanBuyCalls;
+    public int ExecuteCalls;
+    public BigDouble? MultiBuyQuantityOverride;
+    private readonly PassiveObservable.Channel effectChannel = new("craft");
 
-    public bool IsVisible() => visible;
-    public bool CanBuyAt(BigDouble quantity) =>
-        BuyAllowed &&
-        quantity > BigDouble.Zero &&
-        quantity.ToDouble() <= MaximumAffordableLevel &&
-        TotalCost.HasEnough();
+    public bool IsVisible()
+    {
+        VisibilityCalls++;
+        return visible;
+    }
+    public bool CanBuyAt(BigDouble quantity)
+    {
+        CanBuyCalls++;
+        return BuyAllowed &&
+            quantity > BigDouble.Zero &&
+            quantity.ToDouble() <= MaximumAffordableLevel &&
+            TotalCost.HasEnough();
+    }
+    public bool CanBuy() => IsVisible() && CanBuyAt(GetPurchaseQuantity(BigDouble.One));
+    public BigDouble GetPurchaseQuantity(BigDouble previousQuantity) =>
+        useQuantityAsLevel ? GetStartingQuantity() : BigDouble.One;
+    public BigDouble GetMultiBuyQuantity(BigDouble previousQuantity) =>
+        MultiBuyQuantityOverride ?? previousQuantity + GlobalVariables.GetMultiBuy().AsInt();
+    public static int CalcAutomatedQuantity(BigDouble quantity) => quantity.ToInt();
+    public BigDouble GetStartingQuantity()
+    {
+        StartingQuantityCalls++;
+        return StartingQuantity;
+    }
     public ResourceCostList GetTotalCost(BigDouble previousQuantity, BigDouble purchasedQuantity) =>
         TotalCost;
     public CraftingRecipeTypeSO GetMainType() => MainType;
+
+    public void Execute()
+    {
+        ExecuteCalls++;
+        if (!CanBuy()) return;
+        recipeCost.Multiply(GetPurchaseQuantity(BigDouble.One)).PerformCost();
+        if (!SuppressEffectPublication) effectChannel.Update("craft");
+        if (ThrowAfterExecute)
+            throw new InvalidOperationException("injected failure after direct execution");
+    }
 
     public void PurchaseQuantity(BigDouble purchasedQuantity, BigDouble previousQuantity)
     {
         PurchaseCalls++;
         TotalCost.PerformCost();
+        effectChannel.Update("craft");
         if (MainType.isLevelType)
             MainType.maxStartingLevel = Math.Max(
                 MainType.maxStartingLevel,
@@ -175,11 +288,65 @@ public sealed class CraftingRecipeSO : IdScriptableObject
         if (ThrowAfterPurchase)
             throw new InvalidOperationException("injected failure after purchase");
     }
+
+    public PassiveObservable.Channel GetEffectChannel() => effectChannel;
 }
 
 public sealed class CraftingInstanceListVariable : GenericListVariable<CraftingInstance>
 {
     public bool isAutoList;
+    public bool SuppressAutomation;
+    public bool SuppressAutomationRemoval;
+
+    public BigDouble GetQuantity(CraftingRecipeSO recipe)
+    {
+        var total = BigDouble.Zero;
+        for (var index = 0; index < value.Count; index++)
+            if (ReferenceEquals(value[index].reference, recipe)) total += value[index].Quantity;
+        return total;
+    }
+
+    public CraftingInstance? GetInstance(CraftingRecipeSO recipe) =>
+        value.Find(instance => ReferenceEquals(instance.reference, recipe));
+
+    public CraftingInstance AutomateCraft(CraftingRecipeSO recipe, int amount)
+    {
+        var instance = GetInstance(recipe);
+        if (instance is not null)
+        {
+            if (!SuppressAutomation) instance.AddAutomationQuantity(amount);
+            return instance;
+        }
+        instance = new CraftingInstance(recipe, amount).SetAuto(true);
+        instance.Initiate();
+        if (!SuppressAutomation) instance.SetAutomationQuantity(amount);
+        Add(instance);
+        return instance;
+    }
+
+    public void RemoveAutomation(CraftingInstance instance, int amount)
+    {
+        if (SuppressAutomationRemoval) return;
+        instance.AddAutomationQuantity(amount);
+        if (instance.Quantity <= BigDouble.Zero)
+        {
+            instance.Remove();
+            Remove(instance);
+        }
+    }
+}
+
+public sealed class UICraftingPage : UnityEngine.Object
+{
+    public CraftingRecipeListVariable availableRecipes = new CraftingRecipeListVariable();
+    public CraftingInstanceListVariable craftingQueueInstances = new CraftingInstanceListVariable();
+    public CraftingInstanceListVariable craftingAutomationInstances =
+        new CraftingInstanceListVariable { isAutoList = true };
+    public IntVariable craftMode = new IntVariable();
+    public CraftingRecipeTypeSO mainCraftType = new CraftingRecipeTypeSO();
+
+    private int GetAutoCraftingQuantity(CraftingRecipeSO recipe) =>
+        craftingAutomationInstances.GetInstance(recipe)?.GetAutomationQuantity() ?? 0;
 }
 
 public sealed class CraftingInstance : AbstractRefInstance<CraftingRecipeSO>
@@ -188,6 +355,10 @@ public sealed class CraftingInstance : AbstractRefInstance<CraftingRecipeSO>
     public bool Automatic;
     public bool Expired;
     public bool Initiated;
+    public bool SuppressAddQuantity;
+    public bool ThrowAfterAddQuantity;
+    public int AutomationQuantity;
+    public bool Removed;
 
     public CraftingInstance()
     {
@@ -210,9 +381,34 @@ public sealed class CraftingInstance : AbstractRefInstance<CraftingRecipeSO>
 
     public bool CheckInstantCraft() => reference.InstantCraftEnabled;
 
+    public void AddQuantity(BigDouble quantity)
+    {
+        if (!SuppressAddQuantity) Quantity += quantity;
+        if (ThrowAfterAddQuantity)
+            throw new InvalidOperationException("injected failure after quantity addition");
+    }
+
+    public CraftingInstance SetAuto(bool automatic)
+    {
+        Automatic = automatic;
+        return this;
+    }
+
+    public int GetAutomationQuantity() => AutomationQuantity;
+    public void AddAutomationQuantity(int amount) =>
+        SetAutomationQuantity(AutomationQuantity + amount);
+    public void SetAutomationQuantity(int amount)
+    {
+        AutomationQuantity = amount;
+        Quantity = new BigDouble(amount);
+    }
+
+    public void Remove() => Removed = true;
+    public void CancelCraft() => Remove();
+
     public void InstantCraft()
     {
-        if (reference.InstantOutput is not null)
+        if (!reference.SuppressInstantAdmission && reference.InstantOutput is not null)
         {
             var level = Quantity.ToInt();
             var count = reference.InstantOutput.consumableCounts.Find(row => row.Level == level);
@@ -223,6 +419,7 @@ public sealed class CraftingInstance : AbstractRefInstance<CraftingRecipeSO>
             }
             count.Quantity++;
         }
+        if (!reference.SuppressInstantAdmission) Expired = true;
         if (reference.ThrowAfterInstantAdmission)
             throw new InvalidOperationException("injected failure after instant admission");
     }
@@ -232,8 +429,10 @@ public sealed class CraftingInstance : AbstractRefInstance<CraftingRecipeSO>
     public bool IsExpired() => Expired;
 }
 
-public sealed class EnchantmentSO : IdScriptableObject
+public sealed class EnchantmentSO : TooltipableObject
 {
+    public static List<EnchantmentSO> All = new List<EnchantmentSO>();
+
     public sealed class EnchantTable
     {
         public List<EnchantmentInstance> enchantments = new List<EnchantmentInstance>();
@@ -253,9 +452,10 @@ public sealed class EnchantmentInstance : AbstractRefInstance<EnchantmentSO>
 }
 
 
-public sealed class HarvestElementSO : IdScriptableObject
+public sealed class HarvestElementSO : UpgradeableObject
 {
     public static List<HarvestElementSO> All = new List<HarvestElementSO>();
+    public List<HarvestTypeSO> harvestTypes = new List<HarvestTypeSO>();
     public BigDouble masteryXp;
     public int masteryLevel;
     public double harvestTime;
@@ -275,6 +475,18 @@ public sealed class HarvestElementSO : IdScriptableObject
     public ValueModifierRecord actionCostMod = new ValueModifierRecord(new BigDouble(0.0, 0));
     private BigDouble harvestRate;
     private BigDouble lastOutputRate;
+    public bool visible = true;
+    public bool available = true;
+    public ResourceCostList usageCost = new ResourceCostList();
+    public int MaximumAdditional = 16;
+    private readonly List<HarvestActionInstance> actionInstances = new();
+
+    public bool IsVisible() => visible;
+    public bool IsAvailable() => available;
+    public BigDouble MaximumNumberInstances() => new BigDouble(MaximumAdditional);
+    public List<HarvestActionInstance> GetActionInstances() => actionInstances;
+    public void AddAction(HarvestActionSO action) =>
+        actionInstances.Add(new HarvestActionInstance(this, action));
 
     /// <summary>
     /// Private in the game, created by the element rather than registered, which is why the resource
@@ -283,10 +495,102 @@ public sealed class HarvestElementSO : IdScriptableObject
     private ResourceSO harvestResource = new ResourceSO();
 }
 
+public sealed class HarvestActionSO : UpgradeableObject
+{
+    public static List<HarvestActionSO> All = new List<HarvestActionSO>();
+    public List<HarvestActionTypeSO> actionTypes = new List<HarvestActionTypeSO>();
+    public ValueModifierRecord power = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public ValueModifierRecord speed = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public ValueModifierRecord costMod = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public bool visible = true;
+    public ResourceCostList DrainCost = new ResourceCostList();
+    public BigDouble NextDrainPercent = new BigDouble(100);
+}
 
-public sealed class TimeRuneSO : IdScriptableObject
+public sealed class HarvestActionInstance
+{
+    private readonly HarvestElementSO elementReference;
+    private readonly HarvestActionSO reference;
+
+    public HarvestActionInstance(HarvestElementSO element, HarvestActionSO action)
+    {
+        elementReference = element;
+        reference = action;
+    }
+
+    public int instances;
+    public HarvestActionSO GetAction() => reference;
+    public HarvestElementSO GetElement() => elementReference;
+    public bool IsVisible() => reference.visible;
+    public int GetMaximumInstances() => elementReference.masteryLevel + 1;
+    public ScalingInfo GetScalingInfo(int count) => new ScalingInfo
+    {
+        Level = count,
+        DrainCostMod = reference.NextDrainPercent,
+    };
+    private ResourceCostList ComputeResourceCost() => reference.DrainCost;
+    public bool IsSameRef(HarvestActionInstance other) => other is not null &&
+        ReferenceEquals(other.elementReference, elementReference) &&
+        ReferenceEquals(other.reference, reference);
+    public bool IsEmpty() => instances <= 0;
+    public void ChangeInstance(int amount) =>
+        instances = Math.Max(0, Math.Min(instances + amount, GetMaximumInstances()));
+}
+
+public sealed class HarvestElementListVariable : StackableListVariable<HarvestElementSO>
+{
+    public bool SuppressMutation { get; set; }
+
+    public void AddInstance(HarvestElementSO element, BigDouble amount)
+    {
+        if (!SuppressMutation) Stack(element, amount.ToInt());
+    }
+
+    public void RemoveInstance(HarvestElementSO element, BigDouble amount)
+    {
+        if (!SuppressMutation) Unstack(element, amount.ToInt());
+    }
+}
+
+public sealed class HarvestActionInstanceListVariable : GenericListVariable<HarvestActionInstance>
+{
+    public bool SuppressMutation { get; set; }
+
+    public HarvestActionInstance? FindInstance(HarvestActionInstance prototype) =>
+        value.Find(candidate => candidate.IsSameRef(prototype));
+
+    public void AddInstance(HarvestActionInstance prototype, int amount)
+    {
+        if (SuppressMutation) return;
+        var current = FindInstance(prototype);
+        if (current is null)
+        {
+            if (!HasEmptySpot()) return;
+            current = new HarvestActionInstance(prototype.GetElement(), prototype.GetAction());
+            Add(current);
+        }
+        current.ChangeInstance(amount);
+    }
+
+    public void RemoveInstance(HarvestActionInstance instance, int amount)
+    {
+        if (SuppressMutation) return;
+        var current = FindInstance(instance);
+        if (current is null) return;
+        current.ChangeInstance(-amount);
+        if (current.IsEmpty()) Remove(current);
+    }
+}
+
+
+public sealed class TimeRuneSO : UpgradeableObject, IDiscoverable, ILevelable
 {
     public static List<TimeRuneSO> All = new List<TimeRuneSO>();
+
+    // The one holder whose per-level list is instant rather than persistent: on the pinned build
+    // every block here grants advancement experience and none applies a modifier.
+    public List<InstantEffectBlock> onLevelEffects = new List<InstantEffectBlock>();
+    public List<TimeRuneTypeSO> timeRuneTypes = new List<TimeRuneTypeSO>();
     public bool discovered;
     public int level;
     public int discRarityLevel;
@@ -294,16 +598,56 @@ public sealed class TimeRuneSO : IdScriptableObject
     public int masteryLevel;
     public bool isDiscoverRequired;
     public bool seen;
+    public ResourceCostList discoveryCost = new ResourceCostList();
+    public List<GlyphSO> glyphRecipe = new List<GlyphSO>();
+    public List<ResourceSO> resourceRecipe = new List<ResourceSO>();
+    public bool NativeDiscoverVisible { get; set; } = true;
+    public bool NativeCanDiscover { get; set; } = true;
+    public bool SuppressDiscovery { get; set; }
+    public bool ThrowBeforeDiscovery { get; set; }
+    public bool ThrowAfterDiscovery { get; set; }
+    public int DiscoverCalls { get; private set; }
     public ValueModifierRecord freeUsages = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ValueModifierRecord power = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ValueModifierRecord powerScalingMod = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ValueModifierRecord masteryXpMod = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public ResourceCostList LevelCost = new ResourceCostList();
+    public bool NativeCanLevel = true;
+    public bool NativeVisible = true;
+    public bool NativeAvailable = true;
+    public bool SuppressLevelPurchase;
+
+    public ResourceCostList GetDiscoverCost() => discoveryCost;
+    public List<GlyphSO> GetGlyphRecipe() => new List<GlyphSO>(glyphRecipe);
+    public List<ResourceSO> GetResourceRecipe() => new List<ResourceSO>(resourceRecipe);
+    public bool IsDiscoverVisible() => NativeDiscoverVisible;
+    public bool CanDiscover() => NativeCanDiscover;
+    public bool IsDiscovered() => discovered;
+    public bool IsDiscoverRequired() => isDiscoverRequired;
+    public int GetLevel() => level;
+    public bool CanLevel() => NativeCanLevel;
+    public bool IsVisible() => NativeVisible;
+    public bool IsAvailable() => NativeAvailable;
+    public ResourceCostList GetLevelCost() => LevelCost;
+    public void PurchaseLevel() { if (!SuppressLevelPurchase) level++; }
+    public void Discover()
+    {
+        DiscoverCalls++;
+        if (ThrowBeforeDiscovery)
+            throw new InvalidOperationException("injected failure before discovery");
+        if (!SuppressDiscovery) discovered = true;
+        if (ThrowAfterDiscovery)
+            throw new InvalidOperationException("injected failure after discovery");
+    }
 }
 
 
-public sealed class GlyphSO : IdScriptableObject
+public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, ILevelable, ILevelableHasFree
 {
     public static List<GlyphSO> All = new List<GlyphSO>();
+    public List<GlyphTypeSO> glyphTypes = new List<GlyphTypeSO>();
+    public string DisplayName = string.Empty;
+    public string Description = string.Empty;
     public int level;
     public int freeLevels;
     public int discRarityLevel;
@@ -313,14 +657,128 @@ public sealed class GlyphSO : IdScriptableObject
     public bool augmentsSpells;
     public bool requiresDuration;
     public bool requiresToggleable;
+
+    // GlyphSO.IsAvailable() returns `discovered` when `discoverable` is set and this container's
+    // Check() otherwise, so only the recipe-book half authors anything here.
+    public Prerequisites.Container prerequisites = new Prerequisites.Container();
+
+    // Authored one way and non-null on exactly the twenty-five that are the internal half of a
+    // Recipe Book. The world publishes an Augment Glyph row only where this is null.
+    public RecipeBookSO? associatedRecipeBook;
+    public bool NativeAvailable { get; set; } = true;
+    public bool NativeVisible { get; set; } = true;
+    public ResourceCostList discoveryCost = new ResourceCostList();
+    public List<GlyphSO> glyphRecipe = new List<GlyphSO>();
+    public List<ResourceSO> resourceRecipe = new List<ResourceSO>();
+    public bool NativeDiscoverVisible { get; set; } = true;
+    public bool NativeCanDiscover { get; set; } = true;
+    public bool SuppressDiscovery { get; set; }
+    public bool ThrowBeforeDiscovery { get; set; }
+    public bool ThrowAfterDiscovery { get; set; }
+    public int DiscoverCalls { get; private set; }
     public int masteryReqCount;
     public ValueModifierRecord freeUsages = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ValueModifierRecord freeLoadoutUsages = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ValueModifierRecord maxUsages = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public ValueModifier creationCostMod;
+
+    // The fourteen spell slots that stand beside creationCostMod, in the order the game's own
+    // tooltip walks them. An empty modifier is the default and publishes no row.
+    public ValueModifier spellPower;
+    public ValueModifier spellSpecialEffect;
+    public ValueModifier spellDuration;
+    public ValueModifier spellCost;
+    public ValueModifier spellDrainCost;
+    public ValueModifier spellCooldown;
+    public ValueModifier spellBaseCooldown;
+    public ValueModifier spellCastSpeed;
+    public ValueModifier spellExperienceRate;
+    public ValueModifier spellSpellCharges;
+    public ValueModifier spellCriticalRating;
+    public ValueModifier spellCriticalEffect;
+    public ValueModifier spellDoubleCastRating;
+    public ValueModifier spellDoubleCastEffect;
+    public ResourceCostList LevelCost = new ResourceCostList();
+    public ResourceCostList BonusLevelCost = new ResourceCostList();
+    public bool NativeCanLevel = true;
+    public bool SuppressLevelPurchase;
+    public bool SuppressBonusPurchase;
+
+    /// <summary>What one more level of the glyph buys, as against what it does at any level.</summary>
+    public List<PersistentEffectBlock> levelingEffects = new List<PersistentEffectBlock>();
+
+    public string GetName() => DisplayName;
+    public bool IsAvailable() => NativeAvailable;
+    public bool IsVisible() => NativeVisible;
+    public ResourceCostList GetDiscoverCost() => discoveryCost;
+    public List<GlyphSO> GetGlyphRecipe() => new List<GlyphSO>(glyphRecipe);
+    public List<ResourceSO> GetResourceRecipe() => new List<ResourceSO>(resourceRecipe);
+    public bool IsDiscoverVisible() => NativeDiscoverVisible;
+    public bool CanDiscover() => NativeCanDiscover;
+    public bool IsDiscovered() => discovered;
+    public int GetLevel() => level + freeLevels;
+    public int GetFreeLevels() => freeLevels;
+    public bool CanLevel() => NativeCanLevel;
+    public ResourceCostList GetLevelCost() => LevelCost;
+    public ResourceCostList GetFreeLevelCost() => BonusLevelCost;
+    public void PurchaseLevel() { if (!SuppressLevelPurchase) level++; }
+    public void PurchaseFreeLevel() { if (!SuppressBonusPurchase) freeLevels++; }
+    public bool IsDiscoverRequired() => discoveryRequired;
+    public void Discover()
+    {
+        DiscoverCalls++;
+        if (ThrowBeforeDiscovery)
+            throw new InvalidOperationException("injected failure before discovery");
+        if (!SuppressDiscovery) discovered = true;
+        if (ThrowAfterDiscovery)
+            throw new InvalidOperationException("injected failure after discovery");
+    }
+    public bool IsSpellAugment() => augmentsSpells;
+    public int GetMaxUsages() => (int)maxUsages.GetValue().ToDouble();
+    public int GetFreeUsages() => (int)freeUsages.GetValue().ToDouble();
+    public static ResourceCostList GetCreationCostOfList(
+        ResourceCostList startingCost,
+        IEnumerable<GlyphSO> glyphs)
+    {
+        var result = startingCost;
+        foreach (var glyph in glyphs)
+            if (glyph is not null) result = result.Apply(glyph.creationCostMod);
+        return result;
+    }
+    public static bool MeetsNonLvRequirements(List<GlyphSO> glyphs, Spell spell)
+    {
+        foreach (var glyph in glyphs)
+            if (glyph.requiresDuration && !spell.IsDurationSpell() ||
+                glyph.requiresToggleable && !spell.IsToggledSpell())
+                return false;
+        return true;
+    }
+    public static int GetMasterReqOfList(List<GlyphSO> glyphs)
+    {
+        var result = 0;
+        foreach (var glyph in glyphs) result = Math.Max(result, glyph.masteryReqCount);
+        return result;
+    }
+    public string GetDisplayType() => "Glyph";
+    public UnityEngine.Sprite GetIcon() => new UnityEngine.Sprite();
+    public UnityEngine.Color GetColor() => default;
+    public bool IsColoredIcon() => false;
+    public bool HasAltTooltips() => false;
+    public string GetDescription() => Description;
+    public List<TooltipNode> GetTooltipNodes() => new List<TooltipNode>();
+    public List<TooltipNode> GetAltTooltipNodes() => new List<TooltipNode>();
 }
 
 public sealed class ConsumableTypeSO : IdScriptableObject
 {
+    public static List<ConsumableTypeSO> All = new List<ConsumableTypeSO>();
+    public bool hidden;
+    public int sortOrder;
+    public ModifierRecord bonusLevels = new ModifierRecord();
+    public ModifierRecord durationMod = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public ModifierRecord prepSpeed = new ModifierRecord();
+    public ModifierRecord special = new ModifierRecord();
     public string DisplayName = string.Empty;
     public IntVariable maximumCarryLoad = new IntVariable();
 
@@ -354,6 +812,7 @@ public sealed partial class ConsumableSO : IdScriptableObject
     private int quantity;
     private int queuedQuantity;
     private int gainedSince;
+    private ConsumableUsage? nextUsage;
     public bool FireAllowed = true;
     public bool SelectionNoOp;
     public int MaximumCarryLoad;
@@ -390,18 +849,36 @@ public sealed partial class ConsumableSO : IdScriptableObject
             consumeCost.PerformCost();
             if (hasDuration)
             {
-                consumableUsages.Add(new ConsumableUsage
+                nextUsage = new ConsumableUsage
                 {
                     en = false,
                     dr = new BigDouble(durationBase),
                     maxDr = new BigDouble(durationBase),
-                });
+                };
+                consumableUsages.Add(nextUsage);
             }
         }
         Inventory.BeginPreparing();
     }
 
     public void SetRandomization(bool randomizationN) => randomized = randomizationN;
+
+    public void CancelUsage()
+    {
+        var usage = nextUsage ?? consumableUsages.Find(candidate => !candidate.en);
+        if (usage is null) return;
+        queuedQuantity = Math.Max(0, queuedQuantity - 1);
+        usage.GetResultInfo().Cancel();
+        consumableUsages.Remove(usage);
+        if (ReferenceEquals(nextUsage, usage)) nextUsage = null;
+        Inventory.Preparing = false;
+    }
+
+    public void Discard(int amount)
+    {
+        var actual = Math.Min(Math.Max(0, amount), quantity);
+        quantity -= actual;
+    }
 
     public bool IsRandomized() => canBeRandomized && randomized;
 
@@ -449,15 +926,19 @@ public sealed class ConsumableUsage
     public bool en;
     public BigDouble dr;
     public BigDouble maxDr;
+    private readonly EffectResultInfo resultInfo = new EffectResultInfo();
 
     public Guid GetGuid() => Identity;
+    public EffectResultInfo GetResultInfo() => resultInfo;
 }
 
 public sealed class ScalingInfo
 {
     public int Level = 1;
+    public BigDouble DrainCostMod = new BigDouble(100);
 
     public int GetLevelInt() => Level;
+    public BigDouble GetDrainCostMod() => DrainCostMod;
     public static ScalingInfo Basic(BigDouble level) =>
         new ScalingInfo { Level = level.ToInt() };
 }
@@ -514,16 +995,31 @@ namespace Targeting
 
 public sealed class Inventory
 {
+    private static Inventory _instance = new Inventory();
+    public ConsumableRefListVariable hotBar = new ConsumableRefListVariable();
+    public ConsumableRefListVariable allConsumables = new ConsumableRefListVariable();
     public static bool Preparing { get; set; }
 
     public static bool CanUseConsumable() => !Preparing;
 
     public static void BeginPreparing() => Preparing = true;
+
+    public static Inventory Current => _instance;
+
+    public static void ResetLists()
+    {
+        _instance = new Inventory();
+    }
 }
 
-public sealed class RitualSO : IdScriptableObject
+public sealed class ConsumableRefListVariable : GenericListVariable<ConsumableSO>
+{
+}
+
+public sealed class RitualSO : IdScriptableObject, IDiscoverable
 {
     public static List<RitualSO> All = new List<RitualSO>();
+    public List<RitualTypeSO> ritualTypes = new List<RitualTypeSO>();
     public bool discovered;
     public bool inBattle;
     public int lastReachedLevel;
@@ -531,6 +1027,23 @@ public sealed class RitualSO : IdScriptableObject
     public int wavesCompleted;
     public int selectedLevel;
     public int discRarityLevel;
+    public ResourceCostList discoveryCost = new ResourceCostList();
+    public List<GlyphSO> glyphRecipe = new List<GlyphSO>();
+    public List<ResourceSO> resourceRecipe = new List<ResourceSO>();
+    public bool NativeDiscoverVisible { get; set; } = true;
+    public bool NativeCanDiscover { get; set; } = true;
+    public bool SuppressDiscovery { get; set; }
+    public bool ThrowBeforeDiscovery { get; set; }
+    public bool ThrowAfterDiscovery { get; set; }
+    public int DiscoverCalls { get; private set; }
+    public ResourceCostList activationCost = new ResourceCostList();
+    public ResourceCostList completionCost = new ResourceCostList();
+    public ModifierListRef completionCostPerLevel = new ModifierListRef();
+    public ResourceFillList resourceFillList = new ResourceFillList();
+    public bool NativeUsageRequirementsMet { get; set; } = true;
+    public int NativeMaximumSelectedLevel { get; set; } = 1;
+    public bool SuppressLevelChange { get; set; }
+    public bool SuppressCancel { get; set; }
 
     /// <summary>
     /// Left null by default on purpose: the game leaves these null before first use, and the count
@@ -559,6 +1072,23 @@ public sealed class RitualSO : IdScriptableObject
     private int echoLevel;
     private int chainLevel;
 
+    public ResourceCostList GetDiscoverCost() => discoveryCost;
+    public List<GlyphSO> GetGlyphRecipe() => new List<GlyphSO>(glyphRecipe);
+    public List<ResourceSO> GetResourceRecipe() => new List<ResourceSO>(resourceRecipe);
+    public bool IsDiscoverVisible() => NativeDiscoverVisible;
+    public bool CanDiscover() => NativeCanDiscover;
+    public bool IsDiscovered() => discovered;
+    public bool IsDiscoverRequired() => isDiscoverRequired;
+    public void Discover()
+    {
+        DiscoverCalls++;
+        if (ThrowBeforeDiscovery)
+            throw new InvalidOperationException("injected failure before discovery");
+        if (!SuppressDiscovery) discovered = true;
+        if (ThrowAfterDiscovery)
+            throw new InvalidOperationException("injected failure after discovery");
+    }
+
     public void SetRunState(int critLevelN, int echoLevelN, int chainLevelN, BigDouble totalWeight)
     {
         critLevel = critLevelN;
@@ -566,14 +1096,172 @@ public sealed class RitualSO : IdScriptableObject
         chainLevel = chainLevelN;
         battleTotalWeight = totalWeight;
     }
+    public int GetMaxSelectedLevel() => NativeMaximumSelectedLevel;
+    public bool HasMetUsageRequirements() => NativeUsageRequirementsMet;
+    public ResourceCostList GetActivationCost() => activationCost;
+    public ResourceCostList GetSelectedCompletionCost() => completionCost;
+    public void ChangeStartingLevel(int value)
+    {
+        if (!SuppressLevelChange)
+            selectedLevel = Math.Max(0, Math.Min(value, GetMaxSelectedLevel()));
+    }
+    public bool IsDurationRitual() => durationRewardBlocks.Count > 0;
+    public bool IsDurationActive() => ritualInstances is { Count: > 0 };
+    public void Cancel()
+    {
+        if (!SuppressCancel) ritualInstances?.Clear();
+    }
     public bool hideEndScreenResults;
     public bool isDiscoverRequired;
     public bool forceLevel;
     public int forceLevelValue;
     public int baseWaves;
     public int maxWaves;
+    public int wavesPerLevel;
     public double baseWeight;
     public int minimumEffectLevel;
+
+    /// <summary>The results screen's own record: what the run banked, and the game's verdict on it.</summary>
+    public List<SpoilsRecordEntry> currentSpoils = new List<SpoilsRecordEntry>();
+
+    public bool IsFailedRun() => wavesCompleted < 5;
+    public int GetCurrentLevel() => forceLevel ? forceLevelValue : selectedLevel;
+    public int GetRequiredWaves() => Math.Min(
+        baseWaves + (wavesPerLevel * GetCurrentLevel()),
+        maxWaves > 0 ? maxWaves : int.MaxValue);
+}
+
+public sealed class SpoilsRecordEntry
+{
+    public SpoilsRecordEntry(ResourceSO resource, BigDouble quantity)
+    {
+        this.resource = resource;
+        this.quantity = quantity;
+    }
+
+    public BigDouble quantity;
+    public ResourceSO resource { get; }
+}
+
+public sealed class RitualVariable
+{
+    public RitualSO? Value { get; private set; }
+    public bool SuppressToggle { get; set; }
+
+    public bool IsItem(RitualSO ritual) => ReferenceEquals(Value, ritual);
+    public void ToggleValue(RitualSO ritual)
+    {
+        if (SuppressToggle) return;
+        Value = ReferenceEquals(Value, ritual) ? null : ritual;
+    }
+}
+
+public sealed class RitualManager
+{
+    public static RitualManager? instance;
+    public RitualVariable selectedRitual = new RitualVariable();
+    public bool SuppressActivation { get; set; }
+
+    public void ActivateSelectedRitual()
+    {
+        if (!SuppressActivation && selectedRitual.Value is { } ritual)
+        {
+            ritual.inBattle = true;
+            if (BattleManager.instance?.activeRitual.Value is null)
+                BattleManager.instance?.activeRitual.ToggleValue(ritual);
+        }
+    }
+}
+
+public sealed class BattleManager
+{
+    public static BattleManager? instance;
+    public RitualVariable activeRitual = new RitualVariable();
+    public bool SuppressEndRitual { get; set; }
+    public bool IsInCombat() => activeRitual.Value is not null;
+    public void EndRitual()
+    {
+        if (SuppressEndRitual || activeRitual.Value is not { } ritual) return;
+        ritual.inBattle = false;
+        activeRitual.ToggleValue(ritual);
+    }
+}
+
+public sealed class UIModal : UnityEngine.MonoBehaviour
+{
+    private bool isOpen;
+    private bool isClosing;
+    private float graceTime;
+    public TMPro.TextMeshProUGUI modalTitle = new TMPro.TextMeshProUGUI();
+
+    public UIModal()
+    {
+        var root = new UnityEngine.GameObject("Modal");
+        gameObject = root;
+        transform = root.transform;
+        name = root.name;
+    }
+
+    public bool SuppressClose { get; set; }
+    public bool SuppressOpen { get; set; }
+    public bool IsOpen() => isOpen;
+    public void OpenForTest(float grace = 0f, string title = "")
+    {
+        isOpen = true;
+        isClosing = false;
+        graceTime = grace;
+        modalTitle.text = title;
+    }
+    public void FinishCloseForTest() => isOpen = false;
+    public void CloseModal()
+    {
+        if (!isOpen || isClosing || graceTime > 0f || SuppressClose) return;
+        isClosing = true;
+    }
+
+    /// <summary>The visible half of the game's open: the panel's own subtree becomes live.</summary>
+    public void PerformOpen()
+    {
+        if (SuppressOpen) return;
+        isOpen = true;
+        Activate(transform);
+    }
+
+    private static void Activate(UnityEngine.Transform node)
+    {
+        node.gameObject.SetActive(true);
+        for (var index = 0; index < node.childCount; index++) Activate(node.GetChild(index));
+    }
+}
+
+public sealed class UIModalActivator : UnityEngine.MonoBehaviour
+{
+    private readonly UnityEngine.UI.Button button;
+    private readonly UIModal createdModal;
+    private readonly bool modalCreated;
+
+    public UIModalActivator(UIModal modal, string label = "Panel button")
+    {
+        var root = new UnityEngine.GameObject(label);
+        gameObject = root;
+        transform = root.transform;
+        name = label;
+        button = root.AddComponent<UnityEngine.UI.Button>();
+        createdModal = modal;
+        modalCreated = modal is not null;
+    }
+
+    public void SetLiveForTest(bool value)
+    {
+        gameObject.SetActive(value);
+        button.interactable = value;
+    }
+
+    public void OpenModal()
+    {
+        if (!modalCreated) return;
+        createdModal.PerformOpen();
+    }
 }
 
 public sealed class AchievementSO : IdScriptableObject
@@ -599,16 +1287,46 @@ public sealed class AdvancementSO : IdScriptableObject
 }
 
 
+/// <summary>
+/// The failure condition a challenge's run is held to.
+/// </summary>
+/// <remarks>
+/// <c>GetTimeLimit</c> is private in the game and private here, because that is the shape the world
+/// binder has to reach through. The arithmetic behind it is the game's own — the authored
+/// <c>TimeValue</c> folded through a modifier list at the level being attempted — and the suite
+/// never transcribes it, so what this stand-in models is the signature, the visibility, and the
+/// dependence on the level it is handed.
+/// </remarks>
+public sealed class ChallengeCondition
+{
+    public enum BeforeType
+    {
+        None,
+        Time,
+        Prereq,
+    }
+
+    public BeforeType beforeType;
+    public double timeLimitSeconds;
+    public double timeLimitScalingPerLevel;
+
+    private BigDouble GetTimeLimit(int level) =>
+        new BigDouble(timeLimitSeconds * (1.0 + (timeLimitScalingPerLevel * level)), 0);
+}
+
 public sealed class ChallengeSO : IdScriptableObject
 {
     public enum ChallengeState
     {
         None,
-        Active,
-        Completed,
+        QueuedStart,
+        CurrentlyActive,
+        Passed,
+        Failed,
     }
 
     public static List<ChallengeSO> All = new List<ChallengeSO>();
+    public List<ChallengeTypeSO> challengeTypes = new List<ChallengeTypeSO>();
     public int level;
     public ChallengeState state;
     public bool hasBeenSeen;
@@ -617,6 +1335,283 @@ public sealed class ChallengeSO : IdScriptableObject
     public int weight;
     public double difficulty;
     public double baseReward;
+    public ChallengeCondition challengeCondition = new ChallengeCondition();
+    public bool NativeAvailableToRun { get; set; } = true;
+    public bool SuppressQueueActivation { get; set; }
+    public bool SuppressQueueToggle { get; set; }
+    public bool SuppressAbandon { get; set; }
+    public bool ThrowAfterQueueToggle { get; set; }
+    public bool ThrowAfterAbandon { get; set; }
+    public int QueueToggleCalls { get; private set; }
+    public int AbandonCalls { get; private set; }
+
+    public bool IsAvailableToRun() => NativeAvailableToRun && !IsMaxLevel();
+    public bool IsCompletedOnce() => state == ChallengeState.Passed || level > 0;
+    public bool IsMaxLevel() => maxLevel >= 0 && level >= maxLevel;
+    public BigDouble GetDifficulty() => new BigDouble(difficulty, 0);
+    public BigDouble GetNextInstanceBaseReward() => new BigDouble(baseReward, 0);
+    public void QueueActivation()
+    {
+        if (!SuppressQueueActivation) state = ChallengeState.QueuedStart;
+        hasBeenSeen = true;
+    }
+    public void EmptyState() { state = ChallengeState.None; }
+    public void ToggleQueueActivation()
+    {
+        QueueToggleCalls++;
+        if (!SuppressQueueToggle)
+        {
+            if (state == ChallengeState.None) QueueActivation();
+            else if (state == ChallengeState.QueuedStart) state = ChallengeState.None;
+        }
+        if (ThrowAfterQueueToggle) throw new InvalidOperationException("injected failure after queue toggle");
+    }
+    public void AbandonChallenge()
+    {
+        AbandonCalls++;
+        if (!SuppressAbandon) state = ChallengeState.Failed;
+        if (ThrowAfterAbandon) throw new InvalidOperationException("injected failure after abandon");
+    }
+}
+
+/// <summary>
+/// The keyword taxonomies whose only member the suite reads is the stable identity behind the word.
+/// </summary>
+/// <remarks>
+/// A real type asset is a full modifier-bearing sibling entity; these carry identity alone because
+/// the keyword capture reads identity alone. The members that make them modifier-bearing belong to
+/// whichever category publishes their bonus math.
+/// </remarks>
+public sealed class PassiveAbilityTypeSO : UpgradeableObject
+{
+    public ModifierRecord cooldown = new ModifierRecord();
+    public ModifierRecord costMod = new ModifierRecord();
+    public ModifierRecord durationMod = new ModifierRecord();
+    public ModifierRecord maxStacksMod = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public static List<PassiveAbilityTypeSO> All = new List<PassiveAbilityTypeSO>();
+}
+
+public sealed class TimeRuneTypeSO : UpgradeableObject
+{
+    public bool initialized;
+    public ModifierRecord freeUsages = new ModifierRecord();
+    public ModifierRecord masteryXpMod = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public ModifierRecord powerScalingMod = new ModifierRecord();
+    // The pinned build declares this one a ValueModifierRecord: it holds a number of its own
+    // rather than distributing one into members. See docs/reverse-engineering/type-model.md.
+    public ValueModifierRecord totalLevel = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public static List<TimeRuneTypeSO> All = new List<TimeRuneTypeSO>();
+}
+
+public sealed class GlyphTypeSO : TooltipableObject
+{
+    public static List<GlyphTypeSO> All = new List<GlyphTypeSO>();
+}
+
+/// <summary>
+/// The ritual layer's authored vocabulary. Each of these is a registry of words the game prints and
+/// never changes, and the stub carries exactly the members the world binders read.
+/// </summary>
+public sealed class CombatStatusSO : TooltipableObject
+{
+    public static List<CombatStatusSO> All = new List<CombatStatusSO>();
+    public bool isBuff;
+    public double maxDuration;
+    public bool stacksSeparately;
+    public bool resetDurationOnApplication;
+    public double effectTimer;
+}
+
+public sealed class DamageTypeSO : TooltipableObject
+{
+    public static List<DamageTypeSO> All = new List<DamageTypeSO>();
+    public double damageReductionRate;
+    public bool ignoreEntrenched;
+}
+
+public sealed class CharacterAttributeSO : TooltipableObject
+{
+    public static List<CharacterAttributeSO> All = new List<CharacterAttributeSO>();
+    public DamageTypeSO? damageType;
+    public string associatedStat = string.Empty;
+}
+
+public sealed class CharacterModifierSO : TooltipableObject
+{
+    public static List<CharacterModifierSO> All = new List<CharacterModifierSO>();
+    public float weightChance;
+}
+
+public sealed class CharacterActionSO : TooltipableObject
+{
+    public static List<CharacterActionSO> All = new List<CharacterActionSO>();
+    public double prepTime;
+    public double actionTime;
+    public double speedMod;
+}
+
+public sealed class RuneStoneSO : TooltipableObject
+{
+    public static List<RuneStoneSO> All = new List<RuneStoneSO>();
+}
+
+/// <summary>
+/// The Statistics tab's headings. The distribution is the whole point of the type, so the stub
+/// carries the reference list and the three numbers each reference merges with.
+/// </summary>
+public sealed class AttributeGroupSO : UpgradeableObject
+{
+    public static List<AttributeGroupSO> All = new List<AttributeGroupSO>();
+    public List<MergingRecordReference> recordReferences = new List<MergingRecordReference>();
+
+    public sealed class MergingRecordReference
+    {
+        public IdScriptableObject? upgradeableObject;
+        public string propertyType = string.Empty;
+        public int propertyIndex;
+        public double ratio = 1d;
+        public double ratioExp = 1d;
+        public int orderAdjust;
+    }
+}
+
+public sealed class HarvestActionTypeSO : UpgradeableObject
+{
+    public ModifierRecord costMod = new ModifierRecord();
+    public ModifierRecord growthSizeMod = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public ModifierRecord refundRating = new ModifierRecord();
+    public ModifierRecord speed = new ModifierRecord();
+    public static List<HarvestActionTypeSO> All = new List<HarvestActionTypeSO>();
+}
+
+public sealed class RitualTypeSO : UpgradeableObject
+{
+    public bool initiated;
+
+    // The pinned build declares this one a ValueModifierRecord: it holds a number of its own
+    // rather than distributing one into members. See docs/reverse-engineering/type-model.md.
+    public ValueModifierRecord activeRituals = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public ModifierRecord chainLengthBonus = new ModifierRecord();
+    public ModifierRecord chainPower = new ModifierRecord();
+    public ModifierRecord completionCostMod = new ModifierRecord();
+    public ModifierRecord completionRateMod = new ModifierRecord();
+    public ModifierRecord critDurationMod = new ModifierRecord();
+    public ModifierRecord critPower = new ModifierRecord();
+    public ModifierRecord critRating = new ModifierRecord();
+    public ModifierRecord durationMod = new ModifierRecord();
+    public ModifierRecord echoPower = new ModifierRecord();
+    public ModifierRecord echoRating = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public ModifierRecord special = new ModifierRecord();
+    public ModifierRecord speed = new ModifierRecord();
+    public static List<RitualTypeSO> All = new List<RitualTypeSO>();
+}
+
+public sealed class CharacterTypeSO : TooltipableObject
+{
+    public static List<CharacterTypeSO> All = new List<CharacterTypeSO>();
+}
+
+public sealed class PlotNodeTypeSO : UpgradeableObject
+{
+    public ModifierRecord actionCostMod = new ModifierRecord();
+    public ModifierRecord actionSpeed = new ModifierRecord();
+    public ModifierRecord actionXpRate = new ModifierRecord();
+    public ModifierRecord growingSpeed = new ModifierRecord();
+    public ModifierRecord qualityMod = new ModifierRecord();
+    public ModifierRecord recoverySizeMod = new ModifierRecord();
+    public ModifierRecord restingSpeed = new ModifierRecord();
+    public ModifierRecord sizeMod = new ModifierRecord();
+    public ModifierRecord specialMod = new ModifierRecord();
+    // The pinned build declares this one a ValueModifierRecord: it holds a number of its own
+    // rather than distributing one into members. See docs/reverse-engineering/type-model.md.
+    public ValueModifierRecord totalLevel = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public ModifierRecord yieldMod = new ModifierRecord();
+    public static List<PlotNodeTypeSO> All = new List<PlotNodeTypeSO>();
+}
+
+public sealed class HarvestTypeSO : UpgradeableObject
+{
+    public ModifierRecord autoGenerationMod = new ModifierRecord();
+    public ModifierRecord drainCostMod = new ModifierRecord();
+    public ModifierRecord experienceRateMod = new ModifierRecord();
+    public ModifierRecord growthSpeedMod = new ModifierRecord();
+    public ModifierRecord harvestSpeedMod = new ModifierRecord();
+    // The pinned build declares this one a ValueModifierRecord: it holds a number of its own
+    // rather than distributing one into members. See docs/reverse-engineering/type-model.md.
+    public ValueModifierRecord level = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public ModifierRecord maxQuantity = new ModifierRecord();
+    public ModifierRecord maxRestGrowth = new ModifierRecord();
+    public ModifierRecord power = new ModifierRecord();
+    public ModifierRecord qualityMod = new ModifierRecord();
+    public ModifierRecord restingGrowthSpeedMod = new ModifierRecord();
+    public static List<HarvestTypeSO> All = new List<HarvestTypeSO>();
+}
+
+public sealed class ChallengeTypeSO : IdScriptableObject
+{
+    public static List<ChallengeTypeSO> All = new List<ChallengeTypeSO>();
+    public double weight;
+    public bool restrictedInstances;
+    public bool excludeFromRandomSelection;
+    public bool limitedToOneInstance;
+    public bool IsLimitedToOneInstance() => limitedToOneInstance;
+}
+
+public sealed class ChallengeListVariable : GenericListVariable<ChallengeSO>
+{
+    /// <summary>
+    /// The restricted set is built from the types held by the challenges <em>currently in this
+    /// list</em>, so a row leaving the list takes its restriction with it. A fixed answer could not
+    /// tell a conflict from a swap whose give-up press clears the conflict.
+    /// </summary>
+    public bool IsChallengeRestricted(ChallengeSO challenge)
+    {
+        var restricted = new HashSet<ChallengeTypeSO>();
+        foreach (var held in value)
+        {
+            foreach (var type in held.challengeTypes)
+            {
+                if (type.IsLimitedToOneInstance()) restricted.Add(type);
+            }
+        }
+        return restricted.Count > 0 && challenge.challengeTypes.Any(restricted.Contains);
+    }
+
+    public void CycleOut()
+    {
+        foreach (var challenge in value) challenge.EmptyState();
+    }
+    public void Instantiate()
+    {
+        foreach (var challenge in value) challenge.QueueActivation();
+    }
+}
+
+public sealed class ChallengeManager
+{
+    public static ChallengeManager instance = new ChallengeManager();
+    public ChallengeListVariable activeChallenges = new ChallengeListVariable();
+    public ChallengeListVariable preferredChallenges = new ChallengeListVariable();
+    public List<ChallengeSO> NextChallenges { get; } = new List<ChallengeSO>();
+    public bool SuppressFetch { get; set; }
+    public bool ThrowAfterFetch { get; set; }
+    public int FetchCalls { get; private set; }
+
+    public void LoadNewActiveChallenges()
+    {
+        FetchCalls++;
+        if (!SuppressFetch)
+        {
+            activeChallenges.CycleOut();
+            activeChallenges.value = new List<ChallengeSO>(NextChallenges);
+            activeChallenges.Instantiate();
+        }
+        if (ThrowAfterFetch) throw new InvalidOperationException("injected failure after time challenge fetch");
+    }
 }
 
 
@@ -640,8 +1635,15 @@ public sealed class TutorialSO : IdScriptableObject
 }
 
 
-public sealed class PlotNodeActionSO : IdScriptableObject
+/// <remarks>
+/// The game derives this from <c>UpgradeableObject</c>, so it is a <c>TooltipableObject</c> and an
+/// <c>ITooltipable</c> carrying an authored description. The stub had it on
+/// <c>IdScriptableObject</c>, which made every test of it model a type the game does not have.
+/// </remarks>
+public sealed class PlotNodeActionSO : UpgradeableObject
 {
+    public List<HarvestActionTypeSO> actionTypes = new List<HarvestActionTypeSO>();
+
     /// <summary>How an action charges its element cost. The game nests this here.</summary>
     public enum CostType
     {
@@ -696,6 +1698,9 @@ public class EffectBlock
 {
     public Prerequisites.Container prerequisites = new Prerequisites.Container();
     public List<object> effectMods = new List<object>();
+    public BigDouble NecessaryDrainRatio = BigDouble.One;
+
+    private BigDouble GetEffectNecessaryDrainRatio() => NecessaryDrainRatio;
 }
 
 public class InstantEffectBlock : EffectBlock
@@ -713,6 +1718,7 @@ public partial class ConsumableSO
 
 public class PersistentEffectBlock : EffectBlock
 {
+    public List<IPersistentEffectScript> effectScripts = new List<IPersistentEffectScript>();
 }
 
 /// <summary>The weight a completion effect scales its payout by.</summary>
@@ -755,6 +1761,7 @@ public sealed class FilterEffectMod
 public sealed class PassiveAbilitySO : IdScriptableObject
 {
     public static List<PassiveAbilitySO> All = new List<PassiveAbilitySO>();
+    public List<PassiveAbilityTypeSO> passiveTypes = new List<PassiveAbilityTypeSO>();
     public bool muted;
     public bool touched;
     public bool hidden;
@@ -771,10 +1778,35 @@ public sealed class PassiveAbilitySO : IdScriptableObject
     public ValueModifierRecord tokenRate = new ValueModifierRecord(new BigDouble(0.0, 0));
 }
 
+/// <summary>
+/// The live passive the passive bar's buttons are assigned, as far as its identity goes. The game's
+/// <c>PassiveAbility</c> is not an <see cref="IdScriptableObject"/> and reaches its asset through
+/// <c>reference</c>, which is the accessor the tooltip catalog binds to give those rows an id.
+/// </summary>
+public sealed class PassiveAbility : ITooltipable
+{
+    private readonly PassiveAbilitySO? reference;
+
+    public PassiveAbility(PassiveAbilitySO? reference) => this.reference = reference;
+
+    public PassiveAbilitySO? get_reference() => reference;
+
+    public string GetName() => "Passive";
+    public string GetDisplayType() => "Passive Ability";
+    public UnityEngine.Sprite GetIcon() => new UnityEngine.Sprite();
+    public UnityEngine.Color GetColor() => UnityEngine.Color.white;
+    public bool IsColoredIcon() => false;
+    public bool HasAltTooltips() => false;
+    public string GetDescription() => string.Empty;
+    public List<TooltipNode> GetTooltipNodes() => new List<TooltipNode>();
+    public List<TooltipNode> GetAltTooltipNodes() => new List<TooltipNode>();
+}
+
 
 public sealed class CharacterSO : IdScriptableObject
 {
     public static List<CharacterSO> All = new List<CharacterSO>();
+    public List<CharacterTypeSO> characterTypes = new List<CharacterTypeSO>();
     public bool discovered;
 
     /// <summary>A double in the game too: the count runs past what an int holds.</summary>
@@ -782,12 +1814,64 @@ public sealed class CharacterSO : IdScriptableObject
     public bool floats;
 }
 
+public interface IHasGuid
+{
+    Guid GetGuid();
+}
+
+public interface IDiscoverable : IHasGuid
+{
+    List<GlyphSO> GetGlyphRecipe();
+    List<ResourceSO> GetResourceRecipe();
+    ResourceCostList GetDiscoverCost();
+    bool IsDiscoverVisible();
+    bool CanDiscover();
+    bool IsDiscovered();
+    bool IsDiscoverRequired();
+    void Discover();
+}
+
+public sealed class DiscoveryTestItemSO : IdScriptableObject, IDiscoverable
+{
+    public ResourceCostList discoverCost = new ResourceCostList();
+    public bool discoverVisible = true;
+    public bool canDiscover = true;
+    public bool discovered;
+    public bool required;
+    public bool suppressDiscover;
+    public bool throwBeforeDiscover;
+    public bool throwAfterDiscover;
+    public int discoverCalls;
+    public List<GlyphSO> glyphRecipe = new List<GlyphSO>();
+    public List<ResourceSO> resourceRecipe = new List<ResourceSO>();
+
+    List<GlyphSO> IDiscoverable.GetGlyphRecipe() => new List<GlyphSO>(glyphRecipe);
+    List<ResourceSO> IDiscoverable.GetResourceRecipe() => new List<ResourceSO>(resourceRecipe);
+    ResourceCostList IDiscoverable.GetDiscoverCost() => discoverCost;
+    bool IDiscoverable.IsDiscoverVisible() => discoverVisible;
+    bool IDiscoverable.CanDiscover() => canDiscover;
+    bool IDiscoverable.IsDiscovered() => discovered;
+    bool IDiscoverable.IsDiscoverRequired() => required;
+    Guid IHasGuid.GetGuid() => GetGuid();
+
+    void IDiscoverable.Discover()
+    {
+        discoverCalls++;
+        if (throwBeforeDiscover)
+            throw new InvalidOperationException("injected failure before discovery");
+        if (!suppressDiscover) discovered = true;
+        if (throwAfterDiscover)
+            throw new InvalidOperationException("injected failure after discovery");
+    }
+}
+
 public sealed class DiscoveryTreeSO : IdScriptableObject
 {
     public enum DiscoveryTreeModes
     {
         Idle,
-        Discovering,
+        Crafting,
+        Choice,
     }
 
     public static List<DiscoveryTreeSO> All = new List<DiscoveryTreeSO>();
@@ -795,20 +1879,172 @@ public sealed class DiscoveryTreeSO : IdScriptableObject
     public BigDouble actionTime;
     public int rerollsLeft;
     public bool usedRerollsLastDiscover;
+    public List<GuidContainer> currentChoiceIds = new List<GuidContainer>();
+    public List<GuidContainer> nextExcludedIds = new List<GuidContainer>();
 
     /// <summary>An identity the game already holds as one, rather than a live reference.</summary>
     public GuidContainer selectedChoiceId = new GuidContainer();
 
     public IntVariable overrideDiscoveryRerolls;
     public IntVariable overrideDiscoveryChoices;
+
+    /// <summary>The books this tree's pool draws from, and the tiles its page renders.</summary>
+    public RecipeBookListVariable availableRecipeBooks;
+
     public int additionalDiscoveryChoices;
     public int discoveryBonusLevelCost;
     public bool debugMode;
     private int totalDiscoveredCount;
     private int poolDiscoveredCount;
     private bool hasRequiredDiscovery;
-    private bool hasRemainingDiscovery;
+    private bool hasRemainingDiscovery = true;
     private bool hasCompletedAllDiscoveries;
+
+    public ResourceCostList nextItemCost = new ResourceCostList();
+    public List<IDiscoverable> allDiscoverableItems = new List<IDiscoverable>();
+    public List<IDiscoverable> mainDiscoverableItemPool = new List<IDiscoverable>();
+    public int maximumRerolls = 1;
+    public bool visible = true;
+    public bool immediateRequired;
+    public bool suppressInitiate;
+    public bool suppressSelect;
+    public bool suppressConfirm;
+    public bool suppressReroll;
+    public bool throwAfterInitiate;
+    public bool throwAfterSelect;
+    public bool throwAfterConfirmReset;
+    public bool throwAfterReroll;
+    public bool throwAfterSelectionClear;
+    public bool driftInitiateEvidence;
+    public bool driftSelectEvidence;
+    public bool driftConfirmEvidence;
+    public bool driftRerollEvidence;
+    public int initiateCalls;
+    public int selectCalls;
+    public int confirmCalls;
+    public int rerollCalls;
+
+    public bool IsVisible() => visible;
+    public bool IsInIdleMode() => actionMode == DiscoveryTreeModes.Idle;
+    public bool IsInCraftingMode() => actionMode == DiscoveryTreeModes.Crafting;
+    public bool IsInChoiceMode() => actionMode == DiscoveryTreeModes.Choice;
+    public bool HasCurrentlyRemMainPoolDiscoveries() => hasRemainingDiscovery;
+    public bool HasImmediateRequiredDiscover() => immediateRequired;
+    public int GetCurrentRerolls() => rerollsLeft;
+    public int GetMaxRerolls() => maximumRerolls;
+    public ResourceCostList GetNextItemCost() => nextItemCost;
+
+    public IDiscoverable? GetItemFromGuid(Guid guid)
+    {
+        for (var index = 0; index < allDiscoverableItems.Count; index++)
+            if (allDiscoverableItems[index].GetGuid() == guid) return allDiscoverableItems[index];
+        return null;
+    }
+
+    public void InitiateCraftingMode()
+    {
+        initiateCalls++;
+        if (!suppressInitiate)
+        {
+            if (!usedRerollsLastDiscover)
+                rerollsLeft = Math.Min(rerollsLeft + 1, maximumRerolls);
+            usedRerollsLastDiscover = false;
+            actionMode = DiscoveryTreeModes.Crafting;
+            actionTime = BigDouble.Zero;
+            if (driftInitiateEvidence)
+            {
+                actionTime = new BigDouble(7, 0);
+                rerollsLeft = 99;
+                usedRerollsLastDiscover = true;
+                currentChoiceIds.Add(new GuidContainer(Guid.NewGuid()));
+                totalDiscoveredCount += 3;
+                poolDiscoveredCount += 2;
+            }
+        }
+        if (throwAfterInitiate)
+            throw new InvalidOperationException("injected failure after initiate");
+    }
+
+    public void SelectItemId(Guid guid)
+    {
+        selectCalls++;
+        if (!suppressSelect)
+        {
+            selectedChoiceId = new GuidContainer(guid);
+            if (driftSelectEvidence)
+            {
+                actionMode = DiscoveryTreeModes.Idle;
+                actionTime = new BigDouble(8, 0);
+                currentChoiceIds.Clear();
+                nextExcludedIds.Add(new GuidContainer(Guid.NewGuid()));
+                rerollsLeft += 4;
+                usedRerollsLastDiscover = !usedRerollsLastDiscover;
+                totalDiscoveredCount += 2;
+                poolDiscoveredCount += 1;
+            }
+        }
+        if (throwAfterSelect || (guid == Guid.Empty && throwAfterSelectionClear))
+            throw new InvalidOperationException("injected failure after selection");
+    }
+
+    public void DiscoverSelectedItem()
+    {
+        confirmCalls++;
+        var selected = selectedChoiceId.guid;
+        if (selected == Guid.Empty) return;
+        var item = GetItemFromGuid(selected);
+        if (item is null) return;
+        if (!suppressConfirm)
+        {
+            totalDiscoveredCount++;
+            if (!item.IsDiscoverRequired()) poolDiscoveredCount++;
+            actionMode = DiscoveryTreeModes.Idle;
+            actionTime = BigDouble.Zero;
+            currentChoiceIds.Clear();
+            selectedChoiceId = new GuidContainer();
+        }
+        if (throwAfterConfirmReset)
+            throw new InvalidOperationException("injected failure after confirm reset");
+        item.Discover();
+        if (driftConfirmEvidence)
+        {
+            actionMode = DiscoveryTreeModes.Choice;
+            actionTime = new BigDouble(9, 0);
+            currentChoiceIds.Add(new GuidContainer(selected));
+            selectedChoiceId = new GuidContainer(selected);
+            totalDiscoveredCount += 4;
+            poolDiscoveredCount += 3;
+            rerollsLeft += 2;
+            usedRerollsLastDiscover = !usedRerollsLastDiscover;
+        }
+    }
+
+    public void RerollChoices()
+    {
+        rerollCalls++;
+        if (actionMode != DiscoveryTreeModes.Choice || rerollsLeft <= 0) return;
+        if (!suppressReroll)
+        {
+            nextExcludedIds = new List<GuidContainer>(currentChoiceIds);
+            currentChoiceIds = new List<GuidContainer>();
+            rerollsLeft--;
+            usedRerollsLastDiscover = true;
+            actionMode = DiscoveryTreeModes.Crafting;
+            actionTime = BigDouble.Zero;
+            if (driftRerollEvidence)
+            {
+                actionTime = new BigDouble(10, 0);
+                rerollsLeft += 5;
+                usedRerollsLastDiscover = false;
+                currentChoiceIds.Add(new GuidContainer(Guid.NewGuid()));
+                nextExcludedIds.Clear();
+                totalDiscoveredCount += 2;
+                poolDiscoveredCount += 1;
+            }
+        }
+        if (throwAfterReroll)
+            throw new InvalidOperationException("injected failure after reroll");
+    }
 }
 
 public sealed class RecipeBookSO : IdScriptableObject
@@ -816,12 +2052,21 @@ public sealed class RecipeBookSO : IdScriptableObject
     public static List<RecipeBookSO> All = new List<RecipeBookSO>();
     public bool available;
 
+    /// <summary>The class's only instance field, and the whole of what owning one depends on.</summary>
+    public Prerequisites.Container prerequisites = new Prerequisites.Container();
+
     public bool IsAvailable() => available;
+}
+
+/// <summary>The authored book list a discovery tree draws its pool from.</summary>
+public sealed class RecipeBookListVariable : GenericListVariable<RecipeBookSO>
+{
 }
 
 public sealed class PlotNodeSO : IdScriptableObject
 {
     public static List<PlotNodeSO> All = new List<PlotNodeSO>();
+    public List<PlotNodeTypeSO> nodeTypes = new List<PlotNodeTypeSO>();
     public bool visible;
     public BigDouble currentTime;
     public BigDouble nextErraticTime;
@@ -869,9 +2114,49 @@ public sealed class PlotNodeSO : IdScriptableObject
     public List<PlotNodeActionSO> availableActions = new List<PlotNodeActionSO>();
     private List<PlotNodeActionInstance> actionInstances = new List<PlotNodeActionInstance>();
 
+    /// <summary>
+    /// The two answers the differential pass compares its ports against, held as fixture values.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not recomputed here. A stub that evaluated the same expression as the port would
+    /// agree with it by construction, and the pass would report a clean run for arithmetic nobody
+    /// checked. What offline can prove is the wiring — which members are bound, which inputs are fed
+    /// into the port, and that a disagreement surfaces as one.
+    /// </remarks>
+    public int RemainingQuantityAnswer;
+
+    public int RemainingTotalQuantityAnswer;
+
     public bool IsVisible() => visible;
 
+    public int GetQuantity(PlotNodePhases phase)
+    {
+        var total = 0;
+        foreach (var instance in phaseInstances)
+            if (instance.phase == phase) total += instance.timers.q;
+        return total;
+    }
+
+    public int GetTotalQuantity()
+    {
+        var total = 0;
+        foreach (var instance in phaseInstances) total += instance.timers.q;
+        return total;
+    }
+
+    public int GetRemainingQuantity() => RemainingQuantityAnswer;
+
+    public int GetRemainingTotalQuantity() => RemainingTotalQuantityAnswer;
+
     public List<PlotNodeActionInstance> GetActionInstances() => actionInstances;
+
+    public PlotNodeActionInstance AddAction(PlotNodeActionSO action)
+    {
+        availableActions.Add(action);
+        var instance = new PlotNodeActionInstance(this, action);
+        actionInstances.Add(instance);
+        return instance;
+    }
 }
 
 /// <summary>
@@ -921,12 +2206,20 @@ public sealed class PlotNodeActionInstance
 
     public int GetMaximumInstances() => MaximumInstances;
 
+    public bool IsAtMinimumQuantity() => quantity == 1;
+
+    public void Cancel()
+    {
+        quantity = 0;
+        engaged = false;
+    }
+
     /// <summary>
     /// Models the shipped existing-row path: it clamps against the absolute maximum, not the
     /// remaining maximum, and performs no affordability check.
     /// </summary>
     public void PlayerChangeInstanceQuantity(int change) =>
-        quantity = Math.Max(0, Math.Min(quantity + change, GetMaximumInstances()));
+        quantity = Math.Max(1, Math.Min(quantity + change, GetMaximumInstances()));
 
     public void Engage() => engaged = true;
 }
@@ -1014,4 +2307,145 @@ public sealed class TreasurePoolSO : IdScriptableObject
     public bool forceLevel;
     private int treasureLevel;
     private bool calculatedTreasureLevel;
+}
+
+public sealed class CraftingStructureSO : TooltipableObject
+{
+    public sealed class TypeElement
+    {
+        private readonly ITooltipable? value;
+        public TypeElement(ITooltipable? value = null) => this.value = value;
+        public ITooltipable? GetTooltipable() => value;
+        public bool Available { get; set; } = true;
+        public bool IsAvailable() => Available;
+    }
+
+    public sealed class TypeListElement
+    {
+        public List<TypeElement> elements = new List<TypeElement>();
+        public List<TypeElement> GetElements() => elements;
+    }
+
+    public sealed class Recipe
+    {
+        public GuidContainer guidContainer = new GuidContainer(Guid.NewGuid());
+        public List<TypeElement> ingredients = new List<TypeElement>();
+        public TypeElement output = new TypeElement();
+        public Guid GetGuid() => guidContainer.guid;
+        public TypeElement GetOutput() => output;
+    }
+
+    public static List<CraftingStructureSO> All = new List<CraftingStructureSO>();
+    public CraftingStructureListVariable instances = new CraftingStructureListVariable();
+    public List<TypeListElement> ingredientLists = new List<TypeListElement>();
+    public List<Recipe> recipes = new List<Recipe>();
+}
+
+public sealed class CraftingStructureListVariable
+{
+    public List<CraftingStructure> value = new List<CraftingStructure>();
+
+    public List<CraftingStructure> GetAll() => value;
+}
+
+public sealed class CraftingStructure
+{
+    public GuidContainer guidContainer = new GuidContainer(Guid.NewGuid());
+    public CraftingStructureSO referenceObj;
+    public GuidContainer recipeId = new GuidContainer(Guid.Empty);
+    public bool active;
+    public int selectedLevel = 1;
+    private bool isLoaded;
+    private readonly List<CraftingStructureSO.TypeElement?> ingredients =
+        new List<CraftingStructureSO.TypeElement?> { null, null };
+    private ResourceCostList resourceDrain = new ResourceCostList();
+    public bool SuppressMutation { get; set; }
+
+    public CraftingStructure(CraftingStructureSO reference)
+    {
+        referenceObj = reference;
+        reference.instances.value.Add(this);
+    }
+
+    public CraftingStructureSO get_reference() => referenceObj;
+    public Guid GetGuid() => guidContainer.guid;
+    public CraftingStructureSO.TypeElement? GetIngredient(int index) => ingredients[index];
+    public CraftingStructureSO.TypeElement? GetOutput()
+    {
+        for (var index = 0; index < referenceObj.recipes.Count; index++)
+            if (referenceObj.recipes[index].GetGuid() == recipeId.guid)
+                return referenceObj.recipes[index].GetOutput();
+        return null;
+    }
+    public List<CraftingStructureSO.TypeElement> GetOutputList()
+    {
+        var result = new List<CraftingStructureSO.TypeElement>();
+        for (var index = 0; index < referenceObj.recipes.Count; index++)
+            result.Add(referenceObj.recipes[index].GetOutput());
+        return result;
+    }
+    public bool IsOutputVisible(CraftingStructureSO.TypeElement element) => element.IsAvailable();
+    public bool IsLoaded() => isLoaded;
+    public bool IsActive() => active;
+    public int GetLevel() => selectedLevel;
+    public int GetMinSelectedLevel() => 1;
+    public int GetMaxSelectedLevel() => 10;
+    public ResourceCostList GetCurrentDrain() => resourceDrain;
+
+    public void SetIngredient(int index, CraftingStructureSO.TypeElement element)
+    {
+        if (SuppressMutation) return;
+        ingredients[index] = element;
+        MatchRecipe();
+    }
+
+    public void SetOutput(CraftingStructureSO.TypeElement element)
+    {
+        if (SuppressMutation) return;
+        for (var index = 0; index < referenceObj.recipes.Count; index++)
+        {
+            var recipe = referenceObj.recipes[index];
+            if (!ReferenceEquals(recipe.GetOutput().GetTooltipable(), element.GetTooltipable())) continue;
+            ingredients[0] = recipe.ingredients.Count > 0 ? recipe.ingredients[0] : null;
+            ingredients[1] = recipe.ingredients.Count > 1 ? recipe.ingredients[1] : null;
+            recipeId = new GuidContainer(recipe.GetGuid());
+            isLoaded = true;
+            active = false;
+            return;
+        }
+    }
+
+    public void SetSelectedLevel(int level)
+    {
+        if (SuppressMutation) return;
+        selectedLevel = Math.Max(GetMinSelectedLevel(), Math.Min(level, GetMaxSelectedLevel()));
+        active = false;
+    }
+
+    public void SetActive(bool value)
+    {
+        if (!SuppressMutation && (!value || isLoaded)) active = value;
+    }
+
+    public void SetDrain(ResourceCostList drain) => resourceDrain = drain;
+
+    private void MatchRecipe()
+    {
+        isLoaded = false;
+        recipeId = new GuidContainer(Guid.Empty);
+        for (var index = 0; index < referenceObj.recipes.Count; index++)
+        {
+            var recipe = referenceObj.recipes[index];
+            if (recipe.ingredients.Count != ingredients.Count) continue;
+            var matches = true;
+            for (var ingredientIndex = 0; ingredientIndex < ingredients.Count; ingredientIndex++)
+                matches &= ReferenceEquals(
+                    recipe.ingredients[ingredientIndex].GetTooltipable(),
+                    ingredients[ingredientIndex]?.GetTooltipable());
+            if (!matches) continue;
+            recipeId = new GuidContainer(recipe.GetGuid());
+            isLoaded = true;
+            return;
+        }
+    }
 }

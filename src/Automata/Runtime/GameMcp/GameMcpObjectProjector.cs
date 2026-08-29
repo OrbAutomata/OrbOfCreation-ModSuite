@@ -4,6 +4,8 @@ using System.Collections;
 using System.Globalization;
 using System.Reflection;
 using Newtonsoft.Json.Linq;
+using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata.GameMcp;
 
@@ -12,7 +14,11 @@ internal static class GameMcpObjectProjector
 {
     private const int MaximumDepth = 14;
 
-    internal static JToken Project(object? value) => Project(value, 0);
+    internal static JToken Project(object? value)
+    {
+        GameMcpFrameThreadBoundary.AssertTransportWorkAllowed("reflective object projection");
+        return Project(value, 0);
+    }
 
     private static JToken Project(object? value, int depth)
     {
@@ -44,13 +50,13 @@ internal static class GameMcpObjectProjector
                 : new JValue(number);
         }
         if (type.Name == "BigDouble")
+            return new JValue(GameMcpNumberFormatter.Format(value));
+        if (value is IPublicationTableProjection table)
         {
-            return new JObject
-            {
-                ["text"] = value.ToString(),
-                ["mantissa"] = ReadNumericProperty(value, "Mantissa"),
-                ["exponent"] = ReadNumericProperty(value, "Exponent"),
-            };
+            var rows = new JArray();
+            for (var index = 0; index < table.ProjectionCount; index++)
+                rows.Add(Project(table.ProjectionRow(index), depth + 1));
+            return rows;
         }
         if (value is IEnumerable enumerable)
         {
@@ -77,39 +83,26 @@ internal static class GameMcpObjectProjector
             var name = Camel(property.Name);
             try
             {
-                result[name] = Project(property.GetValue(value), depth + 1);
+                var projected = Project(property.GetValue(value), depth + 1);
+                if (projected.Type == JTokenType.Null ||
+                    projected is JArray { Count: 0 } ||
+                    projected is JObject { Count: 0 })
+                {
+                    continue;
+                }
+                result[name] = projected;
             }
             catch (Exception exception)
             {
                 result[name] = new JObject
                 {
                     ["status"] = "not_available",
-                    ["reason"] = exception.GetBaseException().Message,
+                    ["reason"] = name + " could not be read." +
+                        GameActionFaultLog.Record(exception, name),
                 };
             }
         }
         return result;
-    }
-
-    private static JToken ReadNumericProperty(object value, string propertyName)
-    {
-        var property = value.GetType().GetProperty(
-            propertyName,
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        if (property is null) return JValue.CreateNull();
-        var reading = property.GetValue(value);
-        if (reading is null) return JValue.CreateNull();
-        var type = reading.GetType();
-        if (IsIntegral(type))
-            return new JValue(Convert.ToInt64(reading, CultureInfo.InvariantCulture));
-        if (IsFloating(type))
-        {
-            var number = Convert.ToDouble(reading, CultureInfo.InvariantCulture);
-            return double.IsNaN(number) || double.IsInfinity(number)
-                ? new JValue(number.ToString("R", CultureInfo.InvariantCulture))
-                : new JValue(number);
-        }
-        return new JValue(reading.ToString());
     }
 
     private static bool IsIntegral(Type type) =>

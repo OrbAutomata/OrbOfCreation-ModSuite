@@ -16,9 +16,10 @@ schema at lifecycle scope, re-resolves stable UUID plus exact type, rechecks fam
 global live targeting idleness, native inventory idleness, `CanFire()`, Scroll randomization/live
 targeting, and temporary
 duration/toxicity-only cost vectors. It captures ownership permits, submits through
-`SelectAndFire()` under native multi-buy quantity one, and verifies exact stock/queue evidence plus
-temporary usage creation where applicable. A Scroll/Relic ambiguous mutation quarantines the whole
-action; a temporary ambiguity quarantines only that exact UUID.
+`SelectAndFire()` under native multi-buy quantity one, and verifies one outcome: the exact item
+entered the native preparation queue. It does not snapshot stock, randomization, or usage counts as
+parallel postconditions. An absent Scroll/Relic transition quarantines the whole action; an absent
+temporary-item transition quarantines only that exact UUID.
 
 One lifecycle-scoped follow-up observes the committed temporary item through later publications.
 Exactly one usage must engage before disappearing. Multiple usages, premature expiry, or missing
@@ -39,9 +40,20 @@ ownership lease as a fast backstop.
 
 The Mods page is the only in-game editor for exact temporary-item approval. It sends each discovered
 item through the worker's shared exact-topology family resolver and lists only resolved Fruit,
-Potion, and Thread operations, ordered by operation then native name. Fruit + Relic items therefore
+Potion, and Thread operations, ordered by operation then displayed name. Fruit + Relic items therefore
 remain Relics and are not listed. Each row shows the native icon, its resolved operation followed by
 every other authored family name, and current stock beside a raised/recessed approval row.
+
+That display capture runs on the Unity main thread and validates its complete read set before it
+enumerates one item: `ConsumableSO.All`, each entry's exact `GetGuid()` identity, the visible
+discovery flag, the `consumableTypes` relationship with every type's own `GetGuid()`, the item's
+native `GetIcon()`, and the current private `quantity` stock field. Names are deliberately not in
+that set. Every item and family label comes from Common's already-bound live entity catalog, so the
+picker owns no parallel `GetName()` reflection contract and the manifest carries no picker-owned
+name binding; an item or family the catalog cannot name is a loud failure rather than a
+UUID-labelled row. The capture keeps only immutable facts plus each item's captured sprite — no
+consumable, family, or native UI object survives the call.
+
 The state line always says how many
 discovered items are approved. Stored UUIDs that do not resolve remain explicit removable rows; a
 failed native discovery read is a red failure state and never masquerades as the healthy

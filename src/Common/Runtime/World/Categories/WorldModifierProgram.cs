@@ -54,6 +54,8 @@ internal readonly struct WorldModifierProgram : IWorldEntity
 
     internal Guid OwnerId { get; }
     public Guid EntityId => OwnerId;
+
+    [WorldRowKeyPart(0)]
     internal WorldModifierProgramRole Role { get; }
     internal bool IsRecord { get; }
     internal double BaseValue { get; }
@@ -86,8 +88,14 @@ internal readonly struct WorldModifierProgramEntry : IWorldEntity
 
     internal Guid OwnerId { get; }
     public Guid EntityId => OwnerId;
+
+    [WorldRowKeyPart(0)]
     internal WorldModifierProgramRole Role { get; }
+
+    [WorldRowKeyPart(1)]
     internal WorldModifierProgramEntrySet Set { get; }
+
+    [WorldRowKeyPart(2)]
     internal int Position { get; }
     /// <summary>Native dictionary key for records; empty for positional ValueModifierList entries.</summary>
     internal Guid ModifierId { get; }

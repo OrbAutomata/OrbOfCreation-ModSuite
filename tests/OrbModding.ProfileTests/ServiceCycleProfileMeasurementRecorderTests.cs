@@ -1,6 +1,6 @@
-using System;
 using System.Collections.Generic;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.ProfileTests;
@@ -65,23 +65,13 @@ public sealed class ServiceCycleProfileMeasurementRecorderTests
         var counters = default(ServiceCycleProfileOperationCounters);
         for (var index = 0; index < 16; index++) Record(recorder, in context, in counters);
 
-        for (var attempt = 0; attempt < 3; attempt++)
-        {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            var collectionsBefore = GC.CollectionCount(0);
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            var result = ServiceCycleProfileMeasurementResult.Faulted;
-            for (var index = 0; index < 64; index++)
-                result = Record(recorder, in context, in counters);
-            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            if (GC.CollectionCount(0) != collectionsBefore) continue;
-            Assert.Equal(ServiceCycleProfileMeasurementResult.Accepted, result);
-            Assert.Equal(0, allocated);
-            return;
-        }
-        Assert.Fail("The measurement allocation probe never completed without GC interference.");
+        var result = ServiceCycleProfileMeasurementResult.Faulted;
+        var allocated = AllocationProbe.MeasureRepeated(
+            64,
+            () => result = Record(recorder, in context, in counters));
+
+        Assert.Equal(ServiceCycleProfileMeasurementResult.Accepted, result);
+        Assert.Equal(0, allocated);
     }
 
     internal static ServiceCycleProfileMeasurementRecorder Recorder(

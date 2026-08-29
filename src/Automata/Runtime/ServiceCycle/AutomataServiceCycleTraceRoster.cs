@@ -1,6 +1,7 @@
 using System;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Roster;
+using OrbModding.Common.Runtime.ServiceCycle.Observation.WorldCollection;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 
 namespace OrbAutomata;
@@ -39,12 +40,23 @@ internal static class AutomataServiceCycleTraceRoster
     /// ordinal plus one, the same derivation the semantic emitters use, because the roster has to name
     /// the number a reader will actually see in the stream.
     /// </summary>
-    internal static ServiceCycleTraceRoster Build(ServiceCycleRegistry registry)
+    internal static ServiceCycleTraceRoster Build(ServiceCycleRegistry registry) =>
+        Build(registry, ReadOnlySpan<string>.Empty);
+
+    /// <inheritdoc cref="Build(ServiceCycleRegistry)"/>
+    /// <param name="worldCategories">
+    /// What the collector calls its categories, in traversal order, so a collection span reads as a
+    /// category rather than as a number. Empty when collection is not registered on this build, which
+    /// is a roster with no category rows rather than a roster that is wrong.
+    /// </param>
+    internal static ServiceCycleTraceRoster Build(
+        ServiceCycleRegistry registry,
+        ReadOnlySpan<string> worldCategories)
     {
         if (registry is null) throw new ArgumentNullException(nameof(registry));
         var count = registry.OrdinalCount;
         if (count <= 0) return ServiceCycleTraceRoster.Empty;
-        var entries = new ServiceCycleTraceRosterEntry[count];
+        var entries = new ServiceCycleTraceRosterEntry[count + worldCategories.Length];
         for (var ordinal = 0; ordinal < count; ordinal++)
         {
             var service = registry.GetServiceId(ordinal);
@@ -53,6 +65,16 @@ internal static class AutomataServiceCycleTraceRoster
                 checked((ulong)ordinal + 1),
                 service.Value,
                 DisplayName(service));
+        }
+        for (var index = 0; index < worldCategories.Length; index++)
+        {
+            // No display name: a category's registered name is already the name a reader wants, and
+            // restating it in both fields would invite the two to disagree.
+            entries[count + index] = new ServiceCycleTraceRosterEntry(
+                ServiceCycleTraceRoster.WorldCategoryKind,
+                checked((ulong)index + 1),
+                worldCategories[index],
+                string.Empty);
         }
         return new ServiceCycleTraceRoster(entries);
     }

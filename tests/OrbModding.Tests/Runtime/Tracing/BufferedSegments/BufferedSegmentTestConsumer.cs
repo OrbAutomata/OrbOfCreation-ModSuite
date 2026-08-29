@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 using Xunit;
@@ -85,7 +86,19 @@ internal readonly record struct WrittenTestSegment(
 
 internal static class BufferedSegmentTestWait
 {
-    private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(2);
+    /// <summary>
+    /// How long a test waits on the sink's writer thread before calling it hung.
+    /// </summary>
+    /// <remarks>
+    /// A hang detector, not a latency budget. Every wait built on this waits for work a deliberately
+    /// <see cref="ThreadPriority.Lowest"/> writer thread performs, so the deadline is not part of
+    /// what the test asserts, and a healthy wait returns the moment its condition holds — the gate
+    /// costs the same either way. Two seconds asserted something no test meant to assert: that this
+    /// machine was not busy at that moment. Generous, but far inside the gate's own per-attempt
+    /// deadline, so a genuinely hung writer reports the named expectation it never reached rather
+    /// than an anonymous gate timeout.
+    /// </remarks>
+    private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(15);
 
     internal static void ForStatus<TRecord>(
         BufferedSegmentSink<TRecord> sink,
@@ -93,10 +106,27 @@ internal static class BufferedSegmentTestWait
         where TRecord : struct
     {
         Assert.True(
-            SpinWait.SpinUntil(() => sink.Metrics().Status == expected, Deadline),
+            PollUntil(() => sink.Metrics().Status == expected),
             $"Expected {expected}; observed {sink.Metrics().Status}.");
     }
 
     internal static void ForSignal(ManualResetEventSlim signal, string description) =>
         Assert.True(signal.Wait(Deadline), $"Timed out waiting for {description}.");
+
+    /// <summary>
+    /// Polls a sink condition to the shared <see cref="Deadline"/>, asleep rather than spinning,
+    /// because the awaited work runs on the sink's lowest-priority writer thread and a hot spinner
+    /// competes with it for the core it needs.
+    /// </summary>
+    internal static bool PollUntil(Func<bool> condition)
+    {
+        var elapsed = Stopwatch.StartNew();
+        while (elapsed.Elapsed < Deadline)
+        {
+            if (condition()) return true;
+            Thread.Sleep(1);
+        }
+
+        return condition();
+    }
 }

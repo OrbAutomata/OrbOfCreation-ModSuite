@@ -121,7 +121,8 @@ SuiteFramePump
 
 World collection registers first so the world is published before the services that read it evaluate.
 That ordering is a convenience, not a guarantee: nothing enforces order between services, and a consumer
-whose first cycle beat the first collection would simply wait a frame.
+whose first cycle beat the first collection would simply wait a frame. These nine registrations are the
+complete production runtime roster.
 
 Registration rejects duplicate service IDs and capacity overflow; records stable immutable ordinals and
 seals composition before pumping; creates the typed runner, sleeping worker, and reusable
@@ -146,6 +147,23 @@ projects whatever shape it needs off-thread; there is no view broker or lease po
 cycle never overlaps one service's capture and evaluation. Only the raw grab of native values belongs on
 the main thread, and the one declared exception is the modifier memo rule that
 [world collection](world-collection.md) owns.
+
+## The Mods screen is ours, not the game's
+
+The **Mods** entry in the top rail is a suite surface. `ModConfigNativeNavigationInstaller` finds the
+native `MainContentContainer/TopBar/ViewRadio` strip, clones its last live `UIViewRadioButton` into
+`OrbModConfig.ModsButton`, and parents a suite panel beside the native screens under
+`Canvas/ContentArea/MainContentContainer/ScreenContent`. `ModConfigNativeNavigationHost` owns that
+clone: it remembers the native view that was active, deactivates the native views while Mods is
+open, restores the previous one when the player leaves, and unwinds the whole installation on
+dispose. Nothing about Mods exists in the audited v1.0.5 assets.
+
+Two consequences follow. Mods belongs in this dossier and in the user guide, never in
+`docs/game-systems/`, which documents only what the game itself ships. And every surface that
+enumerates screens sees Mods as one more entry with the same shape as a native one: the screen
+catalog lists it in rail order, `game_navigate` reaches it through the same catalog-indexed button
+path, and its own pages are reported as that screen's subtab strip. Selecting Mods while it is
+already active is an idempotent reselect, so no Mods-only case exists anywhere in the MCP surface.
 
 ## Superseded paths stay gone
 

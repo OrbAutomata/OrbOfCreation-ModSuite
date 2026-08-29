@@ -1,24 +1,17 @@
 using System;
+using System.Collections.Generic;
 using OrbModding.Common.Runtime.World;
 using Xunit;
 
 namespace OrbModding.Tests.Runtime.World;
 
-/// <summary>
-/// The per-level prerequisite container becomes published rows.
-/// </summary>
+/// <summary>The per-level prerequisite container becomes published rows.</summary>
 /// <remarks>
-/// <para>
 /// The game gates each level of a purchase on <c>prerequisitesPerLevel.Check(level)</c>, which takes
 /// the level being bought and so cannot be published as a latched boolean the way the whole-entity
-/// gate is. What can be published is the container's contents, and these tests are about reading them
-/// off the live objects: which entity a condition looks at, which comparison it makes, and what its
-/// threshold is before scaling.
-/// </para>
-/// <para>
-/// Nothing here evaluates a condition. Whether one currently holds is arithmetic over other published
-/// rows, done on a worker; this is only the reading.
-/// </para>
+/// gate is. What collection publishes is the container's contents; the native verdict for a given
+/// level is asked at request time, by the explainer's probe and by the requirement passes, and is a
+/// differential oracle rather than a replacement evaluator.
 /// </remarks>
 public sealed class WorldEntityRequirementTests : IDisposable
 {
@@ -83,6 +76,61 @@ public sealed class WorldEntityRequirementTests : IDisposable
     }
 
     /// <summary>
+    /// <c>RecipeBookSO.IsAvailable()</c> is <c>prerequisites.Check()</c>, and <c>prerequisites</c> is
+    /// the class's only instance field, so a book's single authored condition is the whole of what
+    /// holds it shut and the whole of what tells a player how to own it.
+    /// </summary>
+    [Fact]
+    public void ARecipeBooksUnlockConditionIsPublishedAsItsOwnKindOfOwner()
+    {
+        var arcane = new global::RecipeBookSO();
+        global::RecipeBookSO.All.Add(arcane);
+        var researchArcane = new global::ResearchSO();
+        global::ResearchSO.All.Add(researchArcane);
+        arcane.prerequisites.prerequisites.Add(new Requirements.ResearchRequirement
+        {
+            item = researchArcane,
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+            value = new Requirements.LeveledValue { baseValue = 0d },
+        });
+
+        var row = Single(Collect());
+
+        Assert.Equal(arcane.GetGuid(), row.OwnerId);
+        Assert.Equal(WorldRequirementOwnerKind.RecipeBook, row.OwnerKind);
+        Assert.Equal(WorldRequirementConditionKind.Research, row.Kind);
+        Assert.Equal(researchArcane.GetGuid(), row.TargetId);
+    }
+
+    /// <summary>
+    /// No glyph authors a gate the world reads any more. The twenty-two Augment Glyphs are held by
+    /// their own <c>discovered</c> field, and the twenty-five unlockers' containers describe
+    /// machinery the world publishes no row for — and are not even the book's condition: Gloves and
+    /// Herbalize sit behind <c>UnobtainableResearch</c> while their books answer to a research and
+    /// an upgrade a player can actually buy.
+    /// </summary>
+    [Fact]
+    public void AGlyphPublishesNoUnlockCondition()
+    {
+        var fortunate = new global::GlyphSO { discoverable = true };
+        global::GlyphSO.All.Add(fortunate);
+        var unlocker = new global::GlyphSO();
+        global::GlyphSO.All.Add(unlocker);
+        var research = new global::ResearchSO();
+        global::ResearchSO.All.Add(research);
+        unlocker.prerequisites.prerequisites.Add(new Requirements.ResearchRequirement
+        {
+            item = research,
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+            value = new Requirements.LeveledValue { baseValue = 0d },
+        });
+
+        var world = Collect();
+
+        Assert.Equal(0, world.EntityRequirements.Count);
+    }
+
+    /// <summary>
     /// The common case, and it is a fact rather than a gap: an empty container's <c>Check</c> passes
     /// unconditionally, so an entity with no rows has nothing gating its next level.
     /// </summary>
@@ -96,6 +144,131 @@ public sealed class WorldEntityRequirementTests : IDisposable
         Assert.Equal(0, world.EntityRequirements.Count);
         Assert.False(WorldEntityRequirementLookup.TryFindRange(
             world.EntityRequirements, global::UpgradeSO.All[0].GetGuid(), out _, out _));
+    }
+
+    /// <summary>
+    /// The game's own verdict is asked for one entity, at that owner's own check level, when asked.
+    /// </summary>
+    /// <remarks>
+    /// It used to be a table the capture pass filled for every upgrade, structure, and research four
+    /// times a second, of which one row was ever read. The level expressions the probe reproduces are
+    /// the game's own and are not the same shape, which is the half most worth pinning.
+    /// </remarks>
+    [Fact]
+    public void TheNativeVerdictProbeAsksAtTheOwnersOwnCheckLevel()
+    {
+        var emptyUpgrade = Author(new global::UpgradeSO
+        {
+            level = 2,
+            queuedLevels = 1,
+            maxLevel = -1,
+        });
+        var gatedUpgrade = Author(new global::UpgradeSO
+        {
+            level = 4,
+            queuedLevels = 2,
+            maxLevel = -1,
+        });
+        gatedUpgrade.prerequisitesPerLevel.prerequisites.Add(
+            new Requirements.UnsupportedRequirement());
+        var structure = new global::StructureSO { quantity = 7, queuedQuantity = 3 };
+        global::StructureSO.All.Add(structure);
+
+        var probe = new WorldRequirementNativeVerdictProbe();
+        Assert.True(probe.IsAvailable);
+
+        Assert.True(probe.TryRead(emptyUpgrade.GetGuid(), out var empty, out _));
+        Assert.Equal(WorldRequirementOwnerKind.Upgrade, empty.OwnerKind);
+        Assert.Equal(4L, empty.CheckLevel);
+        Assert.True(empty.Met);
+
+        Assert.True(probe.TryRead(gatedUpgrade.GetGuid(), out var gated, out _));
+        Assert.Equal(7L, gated.CheckLevel);
+        Assert.False(gated.Met);
+
+        Assert.True(probe.TryRead(structure.GetGuid(), out var structureVerdict, out _));
+        Assert.Equal(WorldRequirementOwnerKind.Structure, structureVerdict.OwnerKind);
+        Assert.Equal(7L, structureVerdict.CheckLevel);
+        Assert.True(structureVerdict.Met);
+    }
+
+    /// <summary>
+    /// An identity no owner registry carries is named as unreadable rather than answered.
+    /// </summary>
+    [Fact]
+    public void TheNativeVerdictProbeRefusesAnIdentityNoOwnerCarries()
+    {
+        var probe = new WorldRequirementNativeVerdictProbe();
+
+        Assert.False(probe.TryRead(Guid.NewGuid(), out _, out var failure));
+        Assert.NotEmpty(failure);
+    }
+
+    /// <summary>
+    /// An owner the game holds no container for is named as unreadable, not answered "met".
+    /// </summary>
+    /// <remarks>
+    /// The probe is the suite's one native oracle for these verdicts. Reading a missing container as
+    /// a passing check would make it agree with the suite on an entity neither of them evaluated,
+    /// which is the shape of agreement a differential pass exists to rule out.
+    /// </remarks>
+    [Fact]
+    public void TheNativeVerdictProbeRefusesAnOwnerWithNoContainer()
+    {
+        var upgrade = Author(new global::UpgradeSO { level = 4, maxLevel = -1 });
+        upgrade.prerequisitesPerLevel = null!;
+
+        var probe = new WorldRequirementNativeVerdictProbe();
+
+        Assert.False(probe.TryRead(upgrade.GetGuid(), out _, out var failure));
+        Assert.NotEmpty(failure);
+    }
+
+    /// <summary>
+    /// Collecting the authored graph calls no container predicate at all.
+    /// </summary>
+    /// <remarks>
+    /// The parameterised <c>Check</c> neither stamps nor latches, so this is a cost rule rather than
+    /// a safety one — but a capture pass that computes a verdict the game would compute on demand is
+    /// exactly what capture is not for.
+    /// </remarks>
+    [Fact]
+    public void CollectingTheAuthoredGraphAsksTheGameNothing()
+    {
+        var gated = Author(new global::UpgradeSO { level = 4, maxLevel = -1 });
+        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.UnsupportedRequirement());
+
+        Collect();
+
+        Assert.Equal(0, gated.prerequisitesPerLevel.ParameterizedCheckCalls);
+        Assert.Equal(0, gated.prerequisitesPerLevel.CheckCalls);
+    }
+
+    /// <summary>
+    /// A build without the parameterised <c>Check</c> leaves the probe unavailable, and the
+    /// parameterless overload is never reached for.
+    /// </summary>
+    /// <remarks>
+    /// Picking <c>Check</c> by name alone would bind the overload that latches <c>available</c> and
+    /// stamps a game id, turning a diagnostic into a mutation of the state it reports on.
+    /// </remarks>
+    [Fact]
+    public void MissingParameterizedCheckMakesTheProbeUnavailableRatherThanLatching()
+    {
+        MissingCheckContainer.ParameterlessCalls = 0;
+        var probe = new WorldRequirementNativeVerdictProbe(name => name switch
+        {
+            "UpgradeSO" => typeof(MissingCheckUpgrade),
+            "StructureSO" => typeof(MissingCheckStructure),
+            "ResearchSO" => typeof(global::ResearchSO),
+            _ => null,
+        });
+
+        Assert.False(probe.IsAvailable);
+        Assert.False(probe.TryRead(Guid.NewGuid(), out _, out var failure));
+
+        Assert.Contains("UpgradeSO", failure);
+        Assert.Equal(0, MissingCheckContainer.ParameterlessCalls);
     }
 
     /// <summary>
@@ -218,6 +391,71 @@ public sealed class WorldEntityRequirementTests : IDisposable
     }
 
     /// <summary>
+    /// A list comparison names a whole list, so the row's edge is the list and the membership behind
+    /// it is published beside it — a header row saying the list was read, then one row per position.
+    /// </summary>
+    [Fact]
+    public void AListConditionPublishesTheMembershipItsFoldNeeds()
+    {
+        var gated = Author(new global::UpgradeSO { maxLevel = 1 });
+        var first = new global::ConsumableSO();
+        var second = new global::ConsumableSO();
+        var list = new global::ConsumableRefListVariable { isStatic = true };
+        list.value.Add(first);
+        list.value.Add(second);
+        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.ListRequirement
+        {
+            item = list,
+            reqType = Requirements.ListRequirementType.AnyVisible,
+            value = new Requirements.LeveledValue(),
+        });
+
+        var world = Collect();
+
+        var row = Single(world);
+        Assert.Equal(WorldRequirementConditionKind.List, row.Kind);
+        Assert.Equal("ListRequirement", row.ConditionTypeName);
+        Assert.Equal(list.GetGuid(), row.TargetId);
+
+        Assert.True(WorldRequirementListLookup.TryFindRange(
+            world.RequirementListMembers, list.GetGuid(), out var start, out var count));
+        Assert.Equal(3, count);
+        Assert.Equal(
+            WorldRequirementListMember.HeaderPosition,
+            world.RequirementListMembers[start].Position);
+        Assert.Equal(first.GetGuid(), world.RequirementListMembers[start + 1].MemberId);
+        Assert.Equal(second.GetGuid(), world.RequirementListMembers[start + 2].MemberId);
+    }
+
+    /// <summary>
+    /// This reader is epoch-scoped, so a list the run plays into cannot be published from it without
+    /// freezing at whatever the lifecycle started with. It is named as a shortfall instead, which is
+    /// the same reading a condition class nobody has modelled gets.
+    /// </summary>
+    [Fact]
+    public void AListTheRunPlaysIntoIsNamedRatherThanPublishedStale()
+    {
+        var gated = Author(new global::UpgradeSO { maxLevel = 1 });
+        var hotbar = new global::ConsumableRefListVariable { isStatic = false };
+        hotbar.value.Add(new global::ConsumableSO());
+        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.ListRequirement
+        {
+            item = hotbar,
+            reqType = Requirements.ListRequirementType.AnyVisible,
+            value = new Requirements.LeveledValue(),
+        });
+
+        var collector = new GameWorldCollector();
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 1 };
+        var report = collector.Collect(frame);
+        var category = report.For("entity requirements");
+
+        Assert.Equal(1, category.Skipped);
+        Assert.Contains("the run plays into", category.FirstFailure, StringComparison.Ordinal);
+        Assert.Equal(0, GameWorldFrameDeriver.Build(frame).RequirementListMembers.Count);
+    }
+
+    /// <summary>
     /// The unmodelled class is named once, where an operator will see it: the pass reports itself as
     /// incomplete and says which class it found. The reader runs once per lifecycle, so that is once
     /// per run of the game.
@@ -236,6 +474,84 @@ public sealed class WorldEntityRequirementTests : IDisposable
         Assert.Equal(1, category.Skipped);
         Assert.Contains("OpaqueRequirement", category.FirstFailure, StringComparison.Ordinal);
         Assert.False(report.IsComplete);
+    }
+
+    [Fact]
+    public void DeeperCompositeGroupsRemainNamedAndUnevaluable()
+    {
+        var gated = Author(new global::UpgradeSO { maxLevel = 1 });
+        var scribing = new global::ResearchSO();
+        global::ResearchSO.All.Add(scribing);
+        var quarry = new global::StructureSO();
+        global::StructureSO.All.Add(quarry);
+
+        var outer = new Requirements.OrRequirement();
+        outer.orConditions.Add(new Requirements.ResearchRequirement
+        {
+            item = scribing,
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+            value = new Requirements.LeveledValue { baseValue = 6d },
+        });
+        var nested = new Requirements.AndRequirement();
+        nested.andConditions.Add(new Requirements.StructureRequirement
+        {
+            item = quarry,
+            reqType = Requirements.StructureRequirementType.Quantity,
+            value = new Requirements.LeveledValue { baseValue = 3d },
+        });
+        outer.orConditions.Add(nested);
+        gated.prerequisitesPerLevel.prerequisites.Add(outer);
+
+        var rows = Collect().EntityRequirements.AsSpan();
+
+        Assert.Equal(2, rows.Length);
+        Assert.Equal(WorldRequirementConditionKind.Research, rows[0].Kind);
+        Assert.Equal(WorldRequirementGroupKind.Any, rows[0].GroupKind);
+        Assert.Equal(WorldRequirementConditionKind.Unknown, rows[1].Kind);
+        Assert.Equal("AndRequirement", rows[1].ConditionTypeName);
+        Assert.Equal(WorldRequirementGroupKind.Any, rows[1].GroupKind);
+    }
+
+    [Fact]
+    public void EveryPrerequisiteLinkTierIsPublishedAsItsOwnOrderedContainer()
+    {
+        var link = new global::PrerequisiteLinkSO();
+        global::PrerequisiteLinkSO.All.Add(link);
+        var scribing = new global::ResearchSO();
+        global::ResearchSO.All.Add(scribing);
+
+        var baseTier = new global::PrerequisiteLinkSO.LinkDefinition();
+        baseTier.prerequisites.prerequisites.Add(new Requirements.ResearchRequirement
+        {
+            item = scribing,
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+            value = new Requirements.LeveledValue { baseValue = 1d },
+        });
+        link.linkTiers.Add(baseTier);
+        var secondTier = new global::PrerequisiteLinkSO.LinkDefinition();
+        secondTier.prerequisites.prerequisites.Add(new Requirements.ResearchRequirement
+        {
+            item = scribing,
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+            value = new Requirements.LeveledValue { baseValue = 7d },
+        });
+        link.linkTiers.Add(secondTier);
+
+        var world = Collect();
+
+        Assert.True(WorldEntityRequirementLookup.TryFindContainerRange(
+            world.EntityRequirements, link.GetGuid(), 0, out var first, out var firstCount));
+        Assert.True(WorldEntityRequirementLookup.TryFindContainerRange(
+            world.EntityRequirements, link.GetGuid(), 1, out var second, out var secondCount));
+        Assert.Equal(2, firstCount);
+        Assert.Equal(2, secondCount);
+        Assert.Equal(WorldRequirementOwnerKind.PrerequisiteLink,
+            world.EntityRequirements[first].OwnerKind);
+        Assert.Equal(WorldRequirementNodeKind.Group, world.EntityRequirements[first].NodeKind);
+        Assert.Equal(WorldRequirementOperator.And, world.EntityRequirements[first].Operator);
+        Assert.Equal(0, world.EntityRequirements[first + 1].ParentOrdinal);
+        Assert.Equal(1d, world.EntityRequirements[first + 1].BaseValue);
+        Assert.Equal(7d, world.EntityRequirements[second + 1].BaseValue);
     }
 
     /// <summary>
@@ -299,7 +615,61 @@ public sealed class WorldEntityRequirementTests : IDisposable
         global::UpgradeSO.All.Clear();
         global::StructureSO.All.Clear();
         global::ResearchSO.All.Clear();
+        global::ConsumableSO.All.Clear();
         global::AlchemyRecipeSO.All.Clear();
         global::IntVariable.All.Clear();
+        global::PrerequisiteLinkSO.All.Clear();
+        global::GlyphSO.All.Clear();
+        global::RecipeBookSO.All.Clear();
+        global::GameManager.currentFrame = 0;
+    }
+
+    private sealed class MissingCheckUpgrade
+    {
+        public MissingCheckUpgrade()
+        {
+            level = 0;
+            queuedLevels = 0;
+        }
+
+        public static List<MissingCheckUpgrade> All { get; } = new();
+        public MissingCheckContainer prerequisitesPerLevel = new();
+        public int level;
+        public int queuedLevels;
+        public Guid GetGuid() => Guid.NewGuid();
+        public int GetPurchaseLevel() => level;
+    }
+
+    private sealed class MissingCheckStructure
+    {
+        public MissingCheckStructure() => quantity = 0;
+
+        public static List<MissingCheckStructure> All { get; } = new();
+        public MissingCheckContainer prerequisitesPerLevel = new();
+        public int quantity;
+        public Guid GetGuid() => Guid.NewGuid();
+    }
+
+    private sealed class MissingCheckLink
+    {
+        public sealed class LinkDefinition
+        {
+            public MissingCheckContainer prerequisites = new();
+        }
+
+        public static List<MissingCheckLink> All { get; } = new();
+        public List<LinkDefinition> linkTiers = new();
+        public Guid GetGuid() => Guid.NewGuid();
+    }
+
+    private sealed class MissingCheckContainer
+    {
+        internal static int ParameterlessCalls;
+        public List<object> prerequisites = new();
+        public bool Check()
+        {
+            ParameterlessCalls++;
+            return true;
+        }
     }
 }

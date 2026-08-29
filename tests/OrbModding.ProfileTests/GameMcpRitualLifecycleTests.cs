@@ -1,0 +1,516 @@
+using System;
+using System.Linq;
+using Newtonsoft.Json.Linq;
+using OrbAutomata.GameMcp;
+using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.World;
+using Xunit;
+
+namespace OrbModding.ProfileTests;
+
+public sealed class GameMcpRitualLifecycleTests
+{
+    private static readonly Guid RitualId =
+        Guid.Parse("fa000000-0000-0000-0000-000000000001");
+    private static readonly Guid ResourceId =
+        Guid.Parse("fa000000-0000-0000-0000-000000000002");
+
+    [Fact]
+    public void Tool_exposes_only_the_live_ritual_list_controls()
+    {
+        var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate["name"] == "game_ritual");
+
+        Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
+        Assert.Equal(new[] { "mode", "uuid" },
+            tool["inputSchema"]!["required"]!.Values<string>());
+        Assert.Equal(
+            new[] { "select", "deselect", "set_level", "activate", "cancel_duration", "end" },
+            tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
+        Assert.Null(tool["inputSchema"]!["properties"]!["expectedNativeType"]);
+        var operation = GameMcpProtocolRouter.BuildOperation("game_ritual", new JObject
+        {
+            ["mode"] = "activate",
+            ["uuid"] = RitualId.ToString("D"),
+        });
+        Assert.Equal(GameMcpOperationClass.Gameplay, operation.Classification);
+    }
+
+    [Fact]
+    public void Set_level_requires_level_and_other_modes_reject_it()
+    {
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
+            new JObject
+            {
+                ["name"] = "game_ritual",
+                ["arguments"] = new JObject
+                {
+                    ["mode"] = "set_level",
+                    ["uuid"] = RitualId.ToString("D"),
+                },
+            }));
+        var extra = router.Handle(GameMcpAcceptanceFixture.Request(2, "tools/call",
+            new JObject
+            {
+                ["name"] = "game_ritual",
+                ["arguments"] = new JObject
+                {
+                    ["mode"] = "select",
+                    ["uuid"] = RitualId.ToString("D"),
+                    ["level"] = 2,
+                },
+            }));
+
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: required " +
+            "field 'level' is missing for mode 'set_level'", GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'level' is accepted only for mode 'set_level'", GameMcpTestHarness.Page(extra));
+    }
+
+    [Fact]
+    public void Set_level_refuses_the_level_the_native_minus_button_cannot_reach()
+    {
+        var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate["name"] == "game_ritual");
+        Assert.Equal(1, (int)tool["inputSchema"]!["properties"]!["level"]!["minimum"]!);
+
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var response = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
+            new JObject
+            {
+                ["name"] = "game_ritual",
+                ["arguments"] = new JObject
+                {
+                    ["mode"] = "set_level",
+                    ["uuid"] = RitualId.ToString("D"),
+                    ["level"] = 0,
+                },
+            }));
+
+        // The floor is real and is stated. The ceiling was int.MaxValue - 1, and printing it beside
+        // the floor published 2147483646 as if the game had chosen it; the game's own ceiling on
+        // this dial was 240.
+        var page = GameMcpTestHarness.Page(response);
+        Assert.Contains("level must be 1 or greater", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("2147483646", page, StringComparison.Ordinal);
+        Assert.Null(tool["inputSchema"]!["properties"]!["level"]!["maximum"]);
+    }
+
+    [Fact]
+    public void Selected_ritual_publishes_both_bounds_of_the_native_starting_level_control()
+    {
+        var world = World(selected: true, level: 4, activeInstances: 1);
+        var response = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 803),
+            "rituals", RitualId.ToString("D")).Freeze(), world);
+
+        var setLevel = response["row"]!["setLevel"]!;
+        Assert.Equal(1, (int)setLevel["minimum"]!);
+        Assert.Equal(8, (int)setLevel["maximum"]!);
+    }
+
+    [Fact]
+    public void Selected_ritual_detail_carries_only_the_live_next_decisions_and_named_costs()
+    {
+        var world = World(selected: true, level: 4, activeInstances: 1);
+        var response = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 801),
+            "rituals", RitualId.ToString("D")).Freeze(), world);
+
+        var row = response["row"]!;
+        Assert.Equal("Moon Rite", (string?)row["name"]);
+        Assert.True((bool)row["selected"]!);
+        Assert.True((bool)row["setLevel"]!["available"]!);
+        Assert.Equal(8, (int)row["setLevel"]!["maximum"]!);
+        Assert.True((bool)row["activate"]!["available"]!);
+        var cost = Assert.Single(row["activate"]!["costs"]!.Values<JObject>());
+        Assert.Equal("Knowledge", (string?)cost["resource"]!["name"]);
+        Assert.Equal("5", (string?)cost["cost"]);
+        Assert.Equal("80", (string?)cost["spendableAmount"]);
+
+        // The same per-row verdict every other cost row carries, so no caller compares two
+        // formatted magnitudes for itself.
+        Assert.True((bool)cost["affordable"]!);
+        Assert.True((bool)row["cancelDuration"]!["available"]!);
+    }
+
+    /// <remarks>
+    /// One presence rule for one block: the ceiling is Math.Max(reachedLevel + 1, ceremonial level),
+    /// which the ritual and the player answer whether or not anything is selected. Publishing it
+    /// only for the selected ritual made selecting one the way to discover the range exists — and
+    /// the verb presses the screen's own selection toggle itself, so the decision no longer waits
+    /// on a step the caller had to make in the right order.
+    /// </remarks>
+    [Fact]
+    public void The_starting_level_decision_does_not_wait_for_a_selection()
+    {
+        var world = World(selected: false, level: 0, activeInstances: 0);
+        var response = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 804),
+            "rituals", RitualId.ToString("D")).Freeze(), world);
+
+        var setLevel = response["row"]!["setLevel"]!;
+        Assert.True((bool)setLevel["available"]!);
+        Assert.Null(setLevel["reasonCode"]);
+        Assert.Equal(1, (int)setLevel["minimum"]!);
+        Assert.Equal(8, (int)setLevel["maximum"]!);
+    }
+
+    /// <remarks>
+    /// GetActivationCost() scales the ritual's own stored cost by its own level, repeat penalty and
+    /// usage gate and reads the selection for none of it, and the verb presses the selection toggle
+    /// itself. Pricing only the held ritual therefore made "which of these can I afford" a question
+    /// a caller answered by selecting each in turn — reading the world by mutating it.
+    /// </remarks>
+    [Fact]
+    public void An_unselected_ritual_carries_its_price_and_is_activatable()
+    {
+        var world = World(selected: false, level: 0, activeInstances: 0);
+        var response = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 802),
+            "rituals", RitualId.ToString("D")).Freeze(), world);
+
+        var activate = response["row"]!["activate"]!;
+        Assert.False((bool)response["row"]!["selected"]!);
+        Assert.True((bool)activate["available"]!);
+        Assert.Null(activate["reasonCode"]);
+        Assert.True((bool)activate["affordable"]!);
+        Assert.Equal(
+            "Knowledge",
+            (string?)activate["costs"]!.Values<JObject>().Single()["resource"]!["name"]);
+        Assert.Single(activate["completionCosts"]!.Values<JObject>());
+    }
+
+    /// <summary>
+    /// Comparing 32 rituals used to mean 32 detail pages, because the list row carried nothing the
+    /// screen is scanned by. Every column here is written unconditionally, so the header a caller
+    /// parses is the same one after a prestige.
+    /// </summary>
+    [Fact]
+    public void A_ritual_list_row_carries_what_the_ritual_screen_is_scanned_by()
+    {
+        var world = World(selected: true, level: 3, activeInstances: 0);
+        var response = Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 806), "rituals", 0, 50).Freeze(), world);
+        var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
+
+        Assert.Equal("Moon Rite", (string?)row["name"]);
+
+        // `discovered` said the lifecycle under its own name: RitualSO.IsAvailable() and
+        // IsVisible() are both IsDiscovered(), so the row says it once, in the shared word.
+        Assert.Equal("available", (string?)row["state"]);
+        Assert.Null(row["discovered"]);
+        Assert.True((bool)row["selected"]!);
+        Assert.Equal(6, (int)row["reachedLevel"]!);
+        Assert.Equal(3, (int)row["selectedLevel"]!);
+        Assert.Equal(10, (int)row["waveTotal"]!);
+        Assert.True((bool)row["affordable"]!);
+    }
+
+    [Fact]
+    public void Finished_run_leaves_its_record_on_the_row_the_next_read_returns()
+    {
+        // The results modal is gone the moment it is dismissed, and the record behind it survives
+        // until the next activation. A caller that reads the ritual afterwards asked "how did that
+        // go", and the row answered with nothing at all.
+        var world = World(
+            selected: true, level: 4, activeInstances: 1, inBattle: false, wavesCompleted: 7,
+            spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(12)) });
+        var row = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 804),
+            "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
+
+        Assert.Equal(13, (int)row["waveTotal"]!);
+        Assert.Equal("succeeded", (string?)row["lastRun"]!["result"]);
+        Assert.Equal(7, (int)row["lastRun"]!["wavesCompleted"]!);
+        var spoil = Assert.Single(row["lastRun"]!["spoils"]!.Values<JObject>());
+        Assert.Equal("Knowledge", (string?)spoil!["resource"]!["name"]);
+        Assert.Equal("12", (string?)spoil["amount"]);
+        Assert.Null(row["wavesCompleted"]);
+    }
+
+    [Fact]
+    public void Ritual_nobody_has_played_reports_no_run_rather_than_a_failed_one()
+    {
+        // IsFailedRun() is wavesCompleted < 5, so an unconditional verdict calls every untouched
+        // ritual a failure. A cleared count with no spoils is exactly the never-run state.
+        var world = World(selected: false, level: 0, activeInstances: 0);
+        var row = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 805),
+            "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
+
+        Assert.Null(row["lastRun"]);
+        Assert.Null(row["wavesCompleted"]);
+        Assert.Equal(1, (int)row["waveTotal"]!);
+    }
+
+    [Fact]
+    public void Run_in_progress_reports_its_own_progress_and_never_a_verdict()
+    {
+        var world = World(
+            selected: true, level: 4, activeInstances: 0, inBattle: true, wavesCompleted: 3,
+            spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(4)) });
+        var row = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 806),
+            "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
+
+        Assert.Equal(3, (int)row["wavesCompleted"]!);
+        Assert.Equal(13, (int)row["waveTotal"]!);
+        Assert.Equal("4", (string?)Assert.Single(row["spoils"]!.Values<JObject>())!["amount"]);
+        Assert.Null(row["lastRun"]);
+    }
+
+    [Fact]
+    public void Settled_select_delta_uses_the_new_world()
+    {
+        var before = World(selected: false, level: 0, activeInstances: 0);
+        var after = World(selected: true, level: 3, activeInstances: 0);
+        var command = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
+            9, 3, "select", RitualId, Guid.Empty, "RitualSO",
+            1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 91));
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 92), command,
+            GameMcpCommandResult.Committed("committed", 9, 3)), after);
+
+        Assert.False((bool)delta["selected"]!["before"]!);
+        Assert.True((bool)delta["selected"]!["after"]!);
+
+        // A commit answers with what the press changed. The decisions it reopened are a read, and
+        // world_get rituals is the one place every verb sends a caller for them.
+        Assert.Null(delta["next"]);
+    }
+
+    /// <summary>
+    /// "Activate a ritual" answers in battle vocabulary, so the answer says what the battle it just
+    /// started holds shut. A live round read <c>activeBattle: no -&gt; yes</c>, found nothing on the
+    /// wire naming a consequence, and twenty minutes later committed the round's one irreversible
+    /// action while still guessing whether a running battle blocked it. Ending a battle says
+    /// nothing about the gate, because there is none left to state.
+    /// </summary>
+    [Fact]
+    public void An_activate_names_what_the_battle_it_started_holds_shut()
+    {
+        var before = World(selected: true, level: 4, activeInstances: 0, inBattle: false);
+        var after = World(selected: true, level: 4, activeInstances: 0, inBattle: true);
+        var activate = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
+            9, 3, "activate", RitualId, Guid.Empty, "RitualSO",
+            1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 97));
+        var end = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
+            9, 3, "end", RitualId, Guid.Empty, "RitualSO",
+            1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(after, generation: 98));
+
+        var started = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 98), activate,
+            GameMcpCommandResult.Committed("committed", 9, 3)), after);
+        var finished = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(before, generation: 99), end,
+            GameMcpCommandResult.Committed("committed", 9, 3)), before);
+
+        Assert.True((bool)started["activeBattle"]!["after"]!);
+        Assert.Equal(
+            "While a ritual battle runs no ritual can be activated and no ritual's starting level " +
+            "can be set; no other decision on this surface is gated on it.",
+            (string?)started["gates"]);
+        Assert.Null(finished["gates"]);
+    }
+
+    [Fact]
+    public void Settled_end_delta_reports_the_observed_active_battle_clear()
+    {
+        var before = World(selected: true, level: 4, activeInstances: 0, inBattle: true);
+        var after = World(selected: true, level: 4, activeInstances: 0, inBattle: false);
+        var command = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
+            9, 3, "end", RitualId, Guid.Empty, "RitualSO",
+            1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 93));
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 94), command,
+            GameMcpCommandResult.Committed("committed", 9, 3)), after);
+
+        Assert.Equal(GameMcpTestHarness.Handle(RitualId), (string?)delta["uuid"]);
+        Assert.True((bool)delta["activeBattle"]!["before"]!);
+        Assert.False((bool)delta["activeBattle"]!["after"]!);
+    }
+
+    [Fact]
+    public void Settled_end_delta_reports_the_battle_result()
+    {
+        // RitualSO.End() writes neither wavesCompleted nor currentSpoils — only the next Initiate()
+        // clears them — so a run stopped on its first wave still reads 1 after the battle ends.
+        var before = World(
+            selected: true, level: 4, activeInstances: 0, inBattle: true, wavesCompleted: 1);
+        var after = World(
+            selected: true, level: 4, activeInstances: 2, inBattle: false, wavesCompleted: 1,
+            spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(12)) });
+        var command = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
+            9, 3, "end", RitualId, Guid.Empty, "RitualSO",
+            1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 95));
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 96), command,
+            GameMcpCommandResult.Committed("committed", 9, 3)), after);
+
+        Assert.Equal(1, (int)delta["wavesCompleted"]!["before"]!);
+        Assert.Equal(1, (int)delta["wavesCompleted"]!["after"]!);
+        Assert.Equal(5, (int)delta["reachedLevel"]!);
+        Assert.Equal(2, (int)delta["activeInstances"]!);
+
+        // The results modal says the run failed and lists what it banked; the wire said neither,
+        // and a wave count alone cannot separate a clean win from a run stopped on the last wave.
+        Assert.Equal("failed", (string?)delta["result"]);
+        var spoil = Assert.Single(delta["spoils"]!.Values<JObject>());
+        Assert.Equal("Knowledge", (string?)spoil!["resource"]!["name"]);
+        Assert.Equal("12", (string?)spoil["amount"]);
+
+        Assert.Null(delta["next"]);
+    }
+
+    [Fact]
+    public void A_cleared_run_ends_with_the_verdict_its_own_results_modal_shows()
+    {
+        var before = World(
+            selected: true, level: 4, activeInstances: 0, inBattle: true, wavesCompleted: 6);
+        var after = World(
+            selected: true, level: 4, activeInstances: 0, inBattle: false, wavesCompleted: 7,
+            spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(30)) });
+        var command = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
+            9, 3, "end", RitualId, Guid.Empty, "RitualSO",
+            1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 97));
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 98), command,
+            GameMcpCommandResult.Committed("committed", 9, 3)), after);
+
+        Assert.Equal(7, (int)delta["wavesCompleted"]!["after"]!);
+        Assert.Equal("succeeded", (string?)delta["result"]);
+        Assert.Equal("30", (string?)Assert.Single(delta["spoils"]!.Values<JObject>())!["amount"]);
+    }
+
+    [Fact]
+    public void Activate_reports_the_battle_it_started_and_never_a_verdict_for_it()
+    {
+        // An activate whose settled capture has not flipped inBattle yet takes the same branch as
+        // end. Gating on the battle flag answered it with a verdict and an empty spoils list for a
+        // run that is starting; the mode is what says whether a result exists.
+        var before = World(selected: true, level: 4, activeInstances: 0, wavesCompleted: 3);
+        var after = World(selected: true, level: 4, activeInstances: 0, wavesCompleted: 0);
+        var command = new GameMcpCommand(1, GameMcpCommandKind.RitualLifecycle,
+            9, 3, "activate", RitualId, Guid.Empty, "RitualSO",
+            1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 99));
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 100), command,
+            GameMcpCommandResult.Committed("committed", 9, 3)), after);
+
+        Assert.False((bool)delta["activeBattle"]!["after"]!);
+        Assert.Null(delta["result"]);
+        Assert.Null(delta["spoils"]);
+    }
+
+    /// <summary>
+    /// Nothing on the surface aggregated "a battle is running", so a live round making a lifecycle
+    /// decision had no verb to ask and hedged into the round's one irreversible action. The overview
+    /// names the ritual that is in the battle and the gate it holds shut — and says nothing at all
+    /// while no battle runs, because a fact that costs no decision costs no line.
+    /// </summary>
+    [Fact]
+    public void The_overview_names_a_running_battle_and_what_it_gates()
+    {
+        var quiet = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+            GameMcpTestHarness.Context(
+                World(selected: true, level: 4, activeInstances: 0), generation: 101)));
+        var fighting = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+            GameMcpTestHarness.Context(
+                World(selected: true, level: 4, activeInstances: 0, inBattle: true),
+                generation: 102)));
+
+        Assert.Null(quiet["ritualBattle"]);
+        Assert.Equal(
+            GameMcpTestHarness.Handle(RitualId),
+            (string?)fighting["ritualBattle"]!["ritual"]!["uuid"]);
+        Assert.Equal(
+            "While a ritual battle runs no ritual can be activated and no ritual's starting level " +
+            "can be set; no other decision on this surface is gated on it.",
+            (string?)fighting["ritualBattle"]!["gates"]);
+    }
+
+    private static GameWorldState World(
+        bool selected,
+        int level,
+        int activeInstances,
+        bool inBattle = false,
+        int wavesCompleted = 0,
+        WorldRitualSpoil[]? spoils = null)
+    {
+        // The verdict is never an independent fixture input: RitualSO.IsFailedRun() is
+        // wavesCompleted < 5, so a world that sets the two separately can assert a result the wave
+        // count it publishes contradicts.
+        var failedRun = wavesCompleted < 5;
+        // The price is a fact of the ritual and the player, so the collector reads it whether or not
+        // this is the held one; a fixture that emptied it for an unselected ritual would model a
+        // world the collector no longer publishes.
+        var activation = PublicationTable<WorldRitualCost>.Create(new[]
+            { new WorldRitualCost(ResourceId, new BigDouble(5)) });
+        var completion = PublicationTable<WorldRitualCost>.Create(new[]
+            { new WorldRitualCost(ResourceId, new BigDouble(2)) });
+        var decision = new WorldRitualDecision(selected, 8, true, true,
+            activation, completion);
+        var modifiers = default(RawRitualModifiers);
+
+        // GetRequiredWaves() scales the ritual's own base by the staged level and clamps to the
+        // maximum, so the fixture derives it too rather than publishing a wave total that the
+        // bounds beside it contradict.
+        const int baseWaves = 1;
+        const int maxWaves = 20;
+        const int wavesPerLevel = 3;
+        var requiredWaves = Math.Min(baseWaves + (wavesPerLevel * level), maxWaves);
+        var ritual = new WorldRitual(RitualId, true, inBattle, activeInstances,
+            6, 5, level, wavesCompleted, 0, 0, 0, 0, 1, BigDouble.Zero, in modifiers,
+            false, false, false, 0, baseWaves, maxWaves, requiredWaves, 1d, 0, failedRun, spoils,
+            decision: decision);
+        var rateInputs = default(RawResourceRateInputs);
+        var traits = default(RawResourceTraits);
+        var resourceModifiers = default(RawResourceModifiers);
+        var reading = new RawResourceSample(ResourceId, new BigDouble(80), new BigDouble(100),
+            true, BigDouble.Zero, BigDouble.Zero, new BigDouble(100),
+            new BigDouble(100), BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, false, false,
+            false, 0, Guid.Empty, in rateInputs, in traits, in resourceModifiers);
+        var resource = new WorldResource(in reading, true, new BigDouble(20), 0.8, false,
+            new BigDouble(80), BigDouble.Zero);
+        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
+        {
+            new EntityIdentityName(RitualId, "RitualSO", "Moon Rite", "moon_rite"),
+            new EntityIdentityName(ResourceId, "ResourceSO", "Knowledge", "knowledge"),
+        }).OrderBy(row => row.EntityId).ToArray();
+        return new GameWorldState
+        {
+            CollectedAtEpoch = 9,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            Rituals = PublicationTable<WorldRitual>.Create(new[] { ritual }),
+            Resources = PublicationTable<WorldResource>.Create(new[] { resource }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus("rituals", WorldCategoryOutcome.Collected,
+                    1, 0, string.Empty),
+                new WorldCollectionCategoryStatus("resources", WorldCategoryOutcome.Collected,
+                    1, 0, string.Empty),
+            }),
+        };
+    }
+
+    private static JObject Json(GameMcpValue value, GameWorldState world) =>
+        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
+}

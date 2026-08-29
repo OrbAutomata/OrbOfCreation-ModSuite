@@ -51,9 +51,7 @@ public sealed class AutoConceptNativeJourneyIntegrationTests : IDisposable
         var removed = native.Submit(in remove, in config);
 
         Assert.True(removed.Verified, removed.Reason);
-        var released = Assert.Single(active.value, value => value.reference == activeRecipe);
-        Assert.Equal(0, released.queuedQuantity);
-        released.quantity = 0;
+        Assert.DoesNotContain(active.value, value => value.reference == activeRecipe);
 
         var assignBelief = new AutoConceptPlanBelief(0, 0, 3, Guid.Empty, 0);
         var assign = new AutoConceptCycleAction(

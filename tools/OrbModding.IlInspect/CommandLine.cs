@@ -4,7 +4,11 @@ using System.IO;
 
 namespace OrbModding.IlInspect;
 
-internal sealed record InspectionCommand(string AssemblyPath, string Verb, string Query);
+internal sealed record InspectionCommand(
+    string AssemblyPath,
+    string ManagedDirectory,
+    string Verb,
+    string Query);
 
 internal sealed class CommandLineException : Exception
 {
@@ -16,7 +20,7 @@ internal sealed class CommandLineException : Exception
 internal static class CommandLine
 {
     internal const string Usage =
-        "Usage: OrbModding.IlInspect [--game-dir <path>] [--assembly <name.dll>] " +
+        "Usage: OrbModding.IlInspect [--game-dir <path>] [--assembly <name.dll|relative/path.dll>] " +
         "<type|method|callers|implementers|strings> <query>";
 
     private static readonly HashSet<string> Verbs = new(StringComparer.Ordinal)
@@ -68,16 +72,12 @@ internal static class CommandLine
                 "No game directory was provided. Pass --game-dir or set OOC_GAME_DIR.");
         }
 
-        ValidateAssemblyName(assemblyName);
+        ValidateAssemblyReference(assemblyName);
         var managedDirectory = ResolveManagedDirectory(gameDirectory);
-        var assemblyPath = Path.GetFullPath(Path.Combine(managedDirectory, assemblyName));
-        if (!File.Exists(assemblyPath))
-        {
-            throw new FileNotFoundException(
-                $"Target assembly was not found: {assemblyPath}", assemblyPath);
-        }
+        var assemblyPath = ResolveAssemblyPath(gameDirectory, managedDirectory, assemblyName);
 
-        return new InspectionCommand(assemblyPath, positionals[0], positionals[1]);
+        return new InspectionCommand(
+            assemblyPath, managedDirectory, positionals[0], positionals[1]);
     }
 
     private static string ReadOption(IReadOnlyList<string> args, ref int index, string option)
@@ -90,16 +90,45 @@ internal static class CommandLine
         return args[index];
     }
 
-    private static void ValidateAssemblyName(string assemblyName)
+    /// <summary>
+    /// A DLL the game ships, named relative to what the game ships it under. A bare name is the
+    /// common case and means the Managed directory; anything a mod loader puts elsewhere —
+    /// <c>BepInEx/core/BepInEx.dll</c> — is named by its path from the game directory. Rooted paths
+    /// and <c>..</c> are refused, so no argument names a file outside the game.
+    /// </summary>
+    private static void ValidateAssemblyReference(string assembly)
     {
-        if (string.IsNullOrWhiteSpace(assemblyName) ||
-            !assemblyName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ||
-            Path.IsPathRooted(assemblyName) ||
-            !string.Equals(Path.GetFileName(assemblyName), assemblyName, StringComparison.Ordinal))
+        if (!string.IsNullOrWhiteSpace(assembly) &&
+            assembly.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) &&
+            !Path.IsPathRooted(assembly) &&
+            !Array.Exists(assembly.Split('/', '\\'), part => part == ".."))
         {
-            throw new CommandLineException(
-                "--assembly must be the name of one DLL directly under the Managed directory.");
+            return;
         }
+
+        throw new CommandLineException(
+            "--assembly must be one DLL under the game directory, named either by its file name " +
+            "in Managed or by its relative path such as BepInEx/core/BepInEx.dll.");
+    }
+
+    private static string ResolveAssemblyPath(
+        string gameDirectory,
+        string managedDirectory,
+        string assembly)
+    {
+        var candidates = new[]
+        {
+            Path.GetFullPath(Path.Combine(managedDirectory, assembly)),
+            Path.GetFullPath(Path.Combine(Path.GetFullPath(gameDirectory), assembly)),
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (File.Exists(candidate)) return candidate;
+        }
+
+        throw new FileNotFoundException(
+            "Target assembly was not found: " + string.Join(", ", candidates), candidates[0]);
     }
 
     private static string ResolveManagedDirectory(string gameDirectory)

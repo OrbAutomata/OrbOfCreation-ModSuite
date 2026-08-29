@@ -106,6 +106,32 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         Assert.Equal(0, frost.FireCalls);
     }
 
+    /// <summary>
+    /// The refusal names what took the slot, because that is the fact a caller replans against.
+    /// </summary>
+    /// <remarks>
+    /// "The planned spell identity changed" leaves a caller with nothing to do but read the loadout
+    /// again; naming the occupant is the whole difference between a refusal and an answer. It rides
+    /// as an id as well as a name: the sentence is for a person, and a caller that wants to act on
+    /// whatever took the slot had nowhere else to read it, because the structured id beside the
+    /// sentence names the spell that was planned — the one already known not to be there.
+    /// </remarks>
+    [Fact]
+    public void ARearrangedLoadoutNamesTheSpellThatTookTheSlot()
+    {
+        Equip(Frost);
+
+        var submission = new AutoCastNativeAdapter().Fire(0, Ember, holdFullCharge: false);
+
+        Assert.Equal(AutoCastPreflight.SlotIdentityChanged, submission.Preflight);
+        Assert.Equal(Frost, submission.Occupant);
+        Assert.Contains("slot 1", submission.Reason);
+
+        // The handle a caller can type, not the 36-character canonical form no surface prints.
+        Assert.Contains(Frost.ToString("D").Substring(0, 6), submission.Reason);
+        Assert.DoesNotContain(Frost.ToString("D"), submission.Reason);
+    }
+
     [Fact]
     public void APositionThatIsNoLongerEquippedRefuses()
     {
@@ -220,6 +246,53 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         Assert.False(spell.HoldingCharge);
     }
 
+    /// <summary>
+    /// "This spell has no charged cast" is a claim about the spell, so the boundary only makes it
+    /// once the position resolved to the spell the caller named — and it asks the live game, not a
+    /// published loadout a rearrangement can have outrun.
+    /// </summary>
+    [Fact]
+    public void AHoldOnASpellTheGameDoesNotChargeIsRefusedAsTheSpellFactItIs()
+    {
+        var spell = Equip(Ember);
+        spell.NativeCanCharge = false;
+
+        var result = Execute(Fire(0, Ember, chargeable: true), fullCharge: true);
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(AutoCastActionResultCodes.SpellNotChargeable, result.Code);
+        Assert.Equal(0, spell.FireCalls);
+        Assert.False(spell.HoldingCharge);
+    }
+
+    /// <summary>
+    /// A slot that moved, emptied, or fell off the bar mid-cadence answers as the position fact it
+    /// is, in its own words. Told instead that the spell cannot be charged, a caller keeps a false
+    /// belief about a capability long after the slot it was really about has been fixed.
+    /// </summary>
+    [Theory]
+    [InlineData("moved", 0, "now holds")]
+    [InlineData("absent", 3, "is not on the bar")]
+    [InlineData("empty", 0, "is empty")]
+    public void AChargedFireOnASlotThatMovedSaysSoRatherThanBlamingTheSpell(
+        string state,
+        int slotIndex,
+        string expected)
+    {
+        var occupant = Equip(state == "moved" ? Frost : Ember);
+        if (state == "empty") occupant.NativeEmpty = true;
+
+        var result = Execute(Fire(slotIndex, Ember, chargeable: true), fullCharge: true);
+        var submission = new AutoCastNativeAdapter().Fire(slotIndex, Ember, holdFullCharge: true);
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(AutoCastActionResultCodes.SlotIdentityChanged, result.Code);
+        Assert.Equal(AutoCastPreflight.SlotIdentityChanged, submission.Preflight);
+        Assert.Contains(expected, submission.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("charge", submission.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, occupant.FireCalls);
+    }
+
     [Fact]
     public void AReleaseLetsGoWithoutAskingWhetherTheSpellIsStillCharging()
     {
@@ -236,10 +309,81 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
+    public void AnActiveToggleUsesTheSameFireRouteAsTheUiAndCommitsWhenItStopsCasting()
+    {
+        var spell = Equip(Ember);
+        spell.ToggledSpell = true;
+        spell.NativeCasting = true;
+
+        var result = Execute(ToggleOff(0, Ember));
+
+        Assert.Equal(ServiceActionDisposition.Committed, result.Disposition);
+        Assert.Equal(CommonActionResultCodes.Committed, result.Code);
+        Assert.Equal(1, spell.FireCalls);
+        Assert.False(spell.NativeCasting);
+    }
+
+    [Theory]
+    [InlineData(false, true, 3080)]
+    [InlineData(true, false, 3081)]
+    public void ToggleOffRefusesWhenTheSlotIsNotAnActiveToggle(
+        bool toggleable,
+        bool casting,
+        int expectedCode)
+    {
+        var spell = Equip(Ember);
+        spell.ToggledSpell = toggleable;
+        spell.NativeCasting = casting;
+
+        var result = Execute(ToggleOff(0, Ember));
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(expectedCode, result.Code.Value);
+        Assert.Equal(0, spell.FireCalls);
+    }
+
+    [Fact]
+    public void ToggleOffRefusesWhenThePlayersCancellationSettingDisablesTheUiPath()
+    {
+        var spell = Equip(Ember);
+        spell.ToggledSpell = true;
+        spell.NativeCasting = true;
+        global::SettingsManager.CancellableSpells = false;
+
+        var result = Execute(ToggleOff(0, Ember));
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(AutoCastActionResultCodes.CancellationDisabled, result.Code);
+        Assert.Equal(0, spell.FireCalls);
+        Assert.True(spell.NativeCasting);
+    }
+
+    [Fact]
+    public void ToggleOffFaultsAndBlocksWhenTheNativeFireRouteLeavesTheToggleActive()
+    {
+        var spell = Equip(Ember);
+        spell.ToggledSpell = true;
+        spell.NativeCasting = true;
+        spell.SuppressToggleOff = true;
+        var natives = new AutoCastNativeAdapter();
+
+        var first = Execute(ToggleOff(0, Ember), natives: natives);
+        Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
+        Assert.Equal(1, spell.FireCalls);
+        Assert.True(spell.NativeCasting);
+
+        spell.SuppressToggleOff = false;
+        var second = Execute(ToggleOff(0, Ember), natives: natives);
+        Assert.Equal(ServiceActionDisposition.Faulted, second.Disposition);
+        Assert.Equal(1, spell.FireCalls);
+        Assert.True(spell.NativeCasting);
+    }
+
+    [Fact]
     public void ACastResolvesEveryTargetRequestItOpens()
     {
         var spell = Equip(Ember);
-        var target = new object();
+        var target = new StructureSO();
         global::TargetingManager.AvailableTarget = target;
         spell.RequestsOnFire = 2;
 
@@ -315,6 +459,9 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
     private static AutoCastCycleAction Release(int slotIndex, Guid spellId) =>
         new(AutoCastActionKind.ReleaseCharge, slotIndex, spellId, PlannedEpoch);
 
+    private static AutoCastCycleAction ToggleOff(int slotIndex, Guid spellId) =>
+        new(AutoCastActionKind.ToggleOff, slotIndex, spellId, PlannedEpoch);
+
     private static global::Spell Equip(Guid spellId)
     {
         var spell = new global::Spell(new global::SpellRecipeSO { uuid = spellId.ToString("D") });
@@ -366,6 +513,7 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
     {
         global::SpellManager.instance = new global::SpellManager();
         global::SpellManager.NativeCanCast = true;
+        global::SettingsManager.CancellableSpells = true;
         global::TargetingManager.Reset();
         global::Spell.FireSignal = AutoCastManualSignal.NotifySpellFire;
     }

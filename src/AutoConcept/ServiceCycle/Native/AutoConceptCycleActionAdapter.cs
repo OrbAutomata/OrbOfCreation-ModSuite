@@ -17,6 +17,8 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<bool> _ownsActionFamily;
 
+    internal AutoConceptSubmission LastSubmission { get; private set; }
+
     internal AutoConceptCycleActionAdapter(
         IAutoConceptNativePort native,
         Func<long> readLifecycleEpoch,
@@ -47,6 +49,7 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
         in ServiceActionContext context,
         bool requireAutomationPolicy)
     {
+        LastSubmission = default;
         if (requireAutomationPolicy && !AutoConceptConfigurationPolicy.IsOperational(config))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
         if (!Owns())
@@ -58,6 +61,7 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
         try
         {
             submission = _native.Submit(in action, config.AutoConcept);
+            LastSubmission = submission;
         }
         catch (Exception ex) when (
             ex is TargetInvocationException or ArgumentException or InvalidOperationException or
@@ -91,7 +95,7 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
             case AutoConceptPreflight.MasteryLimitChanged:
                 return ServiceActionResult.Rejected(AutoConceptActionResultCodes.MasteryLimitChanged);
             case AutoConceptPreflight.ResourceBackpressure:
-                return ServiceActionResult.Skipped(AutoConceptActionResultCodes.ProjectionRefused);
+                return ServiceActionResult.Skipped(AutoConceptActionResultCodes.AmountUnavailable);
         }
 
         var evidence = ServiceNativeMutationEvidence.Observed(
@@ -109,9 +113,9 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
             submission.Preflight == AutoConceptPreflight.ResourceBackpressure) return;
         var replacement = action.ReplacementId == Guid.Empty
             ? string.Empty
-            : $" with replacement {action.ReplacementId:D}";
+            : $" with replacement {EntityIdentityFormatter.Format(action.ReplacementId)}";
         var message =
-            $"Auto Concept did not complete {action.Kind} for {action.RecipeId:D}{replacement}: " +
+            $"Auto Concept did not complete {action.Kind} for {EntityIdentityFormatter.Format(action.RecipeId)}{replacement}: " +
             submission.Reason;
         Plugin.Log?.LogAutomataWarning(message);
     }

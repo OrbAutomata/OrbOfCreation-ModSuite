@@ -7,6 +7,7 @@ namespace OrbAutomata;
 
 internal enum AutoScribeEvidenceReason
 {
+    Unknown = -1,
     None = 0,
     CollectionUnavailable = 1,
     RecipeRegistryIncomplete = 2,
@@ -16,6 +17,7 @@ internal enum AutoScribeEvidenceReason
     TargetEvidenceMissing = 6,
     NonPositiveCarryLimit = 7,
     TargetEvidenceContradictory = 8,
+    QueueEvidenceUnavailable = 9,
 }
 
 internal enum ScrollCoverageState
@@ -66,6 +68,7 @@ internal enum ScrollCraftSelectionKind
     Idle = 1,
     Selected = 2,
     EvidenceBlocked = 3,
+    QueueBusy = 4,
 }
 
 internal readonly struct ScrollCraftSelectionResult
@@ -116,20 +119,29 @@ internal readonly struct ScrollCraftSelectionResult
             throw new ArgumentException("Evidence blocking requires an exact reason.", nameof(reason));
         return new(ScrollCraftSelectionKind.EvidenceBlocked, default, roleOrdinal, reason);
     }
+
+    internal static ScrollCraftSelectionResult QueueBusy() =>
+        new(ScrollCraftSelectionKind.QueueBusy, default, -1, AutoScribeEvidenceReason.None);
 }
 
 internal sealed class ScrollCoveragePlan
 {
-    internal ScrollCoveragePlan(long frame, long epoch, ScrollRoleCoverage[] roles)
+    internal ScrollCoveragePlan(
+        long frame,
+        long epoch,
+        ScrollRoleCoverage[] roles,
+        bool activeQueueHasRoom)
     {
         CollectedAtFrame = frame;
         CollectedAtEpoch = epoch;
         Roles = roles ?? throw new ArgumentNullException(nameof(roles));
+        ActiveQueueHasRoom = activeQueueHasRoom;
     }
 
     internal long CollectedAtFrame { get; }
     internal long CollectedAtEpoch { get; }
     internal ScrollRoleCoverage[] Roles { get; }
+    internal bool ActiveQueueHasRoom { get; }
 
     /// <summary>
     /// F4 fail-closed selection: an evidence-blocked enabled role blocks the whole publication
@@ -179,8 +191,14 @@ internal sealed class ScrollCoveragePlan
                 foundWrapped = true;
             }
         }
-        if (foundAfter) return ScrollCraftSelectionResult.Selected(in selected);
-        if (foundWrapped) return ScrollCraftSelectionResult.Selected(in wrapped);
+        if (foundAfter)
+            return ActiveQueueHasRoom
+                ? ScrollCraftSelectionResult.Selected(in selected)
+                : ScrollCraftSelectionResult.QueueBusy();
+        if (foundWrapped)
+            return ActiveQueueHasRoom
+                ? ScrollCraftSelectionResult.Selected(in wrapped)
+                : ScrollCraftSelectionResult.QueueBusy();
         return ScrollCraftSelectionResult.Idle();
     }
 }
@@ -197,10 +215,22 @@ internal static class ScrollCoveragePlanner
         if (profile is null) throw new ArgumentNullException(nameof(profile));
         var categoryClean = IsCategoryClean(world);
         var registryClean = HasCompleteRegistry(world, profile);
+        var activeQueueHasRoom = false;
+        var queueEvidenceKnown = categoryClean &&
+            TryReadActiveQueueCapacity(world, out activeQueueHasRoom);
         var rows = new ScrollRoleCoverage[profile.Roles.Count];
         for (var index = 0; index < rows.Length; index++)
-            rows[index] = BuildRole(world, profile.Roles[index], categoryClean, registryClean);
-        return new ScrollCoveragePlan(world.CollectedAtFrame, world.CollectedAtEpoch, rows);
+            rows[index] = BuildRole(
+                world,
+                profile.Roles[index],
+                categoryClean,
+                registryClean,
+                queueEvidenceKnown);
+        return new ScrollCoveragePlan(
+            world.CollectedAtFrame,
+            world.CollectedAtEpoch,
+            rows,
+            queueEvidenceKnown && activeQueueHasRoom);
     }
 
     internal static string DescribeEvidence(
@@ -214,7 +244,7 @@ internal static class ScrollCoveragePlanner
             AutoScribeEvidenceReason.RecipeRegistryIncomplete =>
                 prefix + " is blocked because ScribeCraftingRecipes was not exactly the six audited recipes.",
             AutoScribeEvidenceReason.RecipeMissing =>
-                prefix + $" is blocked because recipe {role.RecipeId:D} was absent.",
+                prefix + $" is blocked because recipe {EntityIdentityFormatter.Format(role.RecipeId)} was absent.",
             AutoScribeEvidenceReason.RecipeRelationshipMismatch =>
                 prefix + " is blocked because its live recipe/type/output/level relationship contradicted the audited role.",
             AutoScribeEvidenceReason.TargetLevelUnavailable =>
@@ -226,7 +256,13 @@ internal static class ScrollCoveragePlanner
                 "output when maximum carry load is non-positive.",
             AutoScribeEvidenceReason.TargetEvidenceContradictory =>
                 prefix + " is blocked because its Scroll target count contradicted the completeness marker.",
-            _ => prefix + " has complete evidence.",
+            AutoScribeEvidenceReason.QueueEvidenceUnavailable =>
+                prefix + " is blocked because ActiveScribeInstances capacity evidence was missing or contradictory.",
+            AutoScribeEvidenceReason.None => prefix + " has complete evidence.",
+            AutoScribeEvidenceReason.Unknown =>
+                prefix + " is blocked because the service projection reported an unknown evidence reason.",
+            _ => prefix +
+                " is blocked because Auto Scribe does not recognize the evidence reason.",
         };
     }
 
@@ -252,7 +288,8 @@ internal static class ScrollCoveragePlanner
         GameWorldState world,
         in AutoScribeRoleDescriptor role,
         bool categoryClean,
-        bool registryClean)
+        bool registryClean,
+        bool queueEvidenceKnown)
     {
         if (!role.IsProducible)
             return Row(role, 0, AutoScribeEvidenceReason.None, ScrollCoverageState.CoverageOnly);
@@ -263,6 +300,10 @@ internal static class ScrollCoveragePlanner
         if (!registryClean)
             return Row(
                 role, 0, AutoScribeEvidenceReason.RecipeRegistryIncomplete,
+                ScrollCoverageState.EvidenceUnknown);
+        if (!queueEvidenceKnown)
+            return Row(
+                role, 0, AutoScribeEvidenceReason.QueueEvidenceUnavailable,
                 ScrollCoverageState.EvidenceUnknown);
 
         var recipeId = role.Recipe!.Value.Uuid;
@@ -435,6 +476,25 @@ internal static class ScrollCoveragePlanner
                 return false;
         }
         return true;
+    }
+
+    private static bool TryReadActiveQueueCapacity(
+        GameWorldState world,
+        out bool hasRoom)
+    {
+        hasRoom = false;
+        var found = false;
+        for (var index = 0; index < world.ScribeQueues.Count; index++)
+        {
+            var queue = world.ScribeQueues[index];
+            if (queue.QueueId != KnownEntities.ActiveScribeInstances.Uuid) continue;
+            if (found || queue.IsAutomatic || queue.Used < 0 || queue.Maximum < 0 ||
+                queue.Used > queue.Maximum)
+                return false;
+            found = true;
+            hasRoom = queue.Used < queue.Maximum;
+        }
+        return found;
     }
 
     private static bool TryRoleFrontier(

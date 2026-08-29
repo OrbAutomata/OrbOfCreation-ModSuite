@@ -27,8 +27,37 @@ namespace OrbModding.Common.Runtime.World;
 /// </remarks>
 internal interface IWorldEntity
 {
-    /// <summary>The entity's stable UUID, unique across every category in one snapshot.</summary>
+    /// <summary>
+    /// The entity's stable UUID, unique within any one published table unless the row declares more
+    /// key with <see cref="WorldRowKeyPartAttribute"/>. Several tables may file rows under it: a
+    /// per-owner detail table keys its rows by the entity they describe, on purpose.
+    /// </summary>
     Guid EntityId { get; }
+}
+
+/// <summary>One more member of a row's key, beyond the entity the row is filed under.</summary>
+/// <remarks>
+/// <para>
+/// A few detail tables hold several rows per owner on purpose — one modifier program per role, one
+/// entry per position inside it, one mastery cost per position of a spell's leveling tuple — and
+/// every reader of them searches on the whole key rather than on the id alone. There
+/// <see cref="IWorldEntity.EntityId"/> is the owner half of the key and nothing more.
+/// </para>
+/// <para>
+/// The row declares that here rather than a checker keeping a list of table names, because a list is
+/// a second place to remember and the only symptom of forgetting is a check that accuses an honest
+/// table or excuses a broken one. Annotated, the key travels with the shape it belongs to: a new key
+/// member is declared where it is added, and a table nobody annotates is still audited on the id
+/// alone — which fails loudly rather than passing quietly.
+/// </para>
+/// </remarks>
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+internal sealed class WorldRowKeyPartAttribute : Attribute
+{
+    internal WorldRowKeyPartAttribute(int order) => Order = order;
+
+    /// <summary>Where this member sits in the key, ascending, so one key reads in one fixed order.</summary>
+    internal int Order { get; }
 }
 
 /// <summary>Construction of one category's published table, with the invariants lookups depend on.</summary>
@@ -160,6 +189,20 @@ internal abstract class WorldRowBinder<TSample, TRow>
 
     /// <summary>Reads one entity. Runs on the Unity thread and must not write game state.</summary>
     internal abstract TSample Read(object entity);
+
+    /// <summary>
+    /// Whether this registry entry is one of the things the category publishes. Runs on the Unity
+    /// thread, before <see cref="Read"/>, and must not write game state.
+    /// </summary>
+    /// <remarks>
+    /// One native class is not always one player concept. <c>GlyphSO</c> holds two: the twenty-two
+    /// Augment Glyphs the game draws a grid and an upgrade button for, and twenty-five assets that
+    /// are the internal half of a Recipe Book. The second set has no screen, no price and no button,
+    /// so a row for one was an offer the game never draws. A registry entry this refuses is not a
+    /// failure and is not skipped work — it is not this category's, and the collection report counts
+    /// it neither way.
+    /// </remarks>
+    internal virtual bool Publishes(object entity) => true;
 
     /// <summary>
     /// The pure half of this category, as a separate object so the worker can hold it without
@@ -409,6 +452,36 @@ internal sealed class WorldMemberBinding
     internal Func<object, TValue>? Call<TValue>(string name) =>
         Record(name, NativeAccessorBinder.Call<TValue>(_type, name));
 
+    internal Func<object, object?>? CallObject(string name, Type? exactReturnType) =>
+        Record(name, NativeAccessorBinder.CallObject(_type, name, exactReturnType));
+
+    internal Func<object, IList?>? CallList(string name, Type? exactElementType) =>
+        Record(name, NativeAccessorBinder.CallList(_type, name, exactElementType));
+
+    internal Func<object, TArgument, TValue>? Call<TArgument, TValue>(string name) =>
+        Record(name, NativeAccessorBinder.Call<TArgument, TValue>(_type, name));
+
+    internal Func<object, TFirst, TSecond, TValue>? Call<TFirst, TSecond, TValue>(string name) =>
+        Record(name, NativeAccessorBinder.Call<TFirst, TSecond, TValue>(_type, name));
+
+    internal Func<object, TArgument, object?>? CallObject<TArgument>(
+        string name,
+        Type? exactReturnType) =>
+        Record(name, NativeAccessorBinder.CallObject<TArgument>(
+            _type, name, exactReturnType));
+
+    internal Func<object, TFirst, TSecond, object?>? CallObject<TFirst, TSecond>(
+        string name,
+        Type? exactReturnType) =>
+        Record(name, NativeAccessorBinder.CallObject<TFirst, TSecond>(
+            _type, name, exactReturnType));
+
+    internal Func<object, object, TValue>? CallWithObjectArgument<TValue>(
+        string name,
+        Type? argumentType) =>
+        Record(name, NativeAccessorBinder.CallWithObjectArgument<TValue>(
+            _type, name, argumentType));
+
     internal Func<object, int>? EnumField(string name) =>
         Record(name, NativeAccessorBinder.EnumField(_type, name));
 
@@ -459,6 +532,9 @@ internal sealed class WorldMemberBinding
     internal Func<object, Guid>? ReferenceGuid(string name) =>
         Record(name, NativeAccessorBinder.ReferenceGuid(_type, name));
 
+    internal Func<object, object?>? Reference(string name, Type? exactFieldType) =>
+        Record(name, NativeAccessorBinder.Reference(_type, name, exactFieldType));
+
     /// <summary>The same edge, where the game exposes it as an accessor rather than as a field.</summary>
     internal Func<object, Guid>? CallReferenceGuid(string name) =>
         Record(name, NativeAccessorBinder.CallReferenceGuid(_type, name));
@@ -485,6 +561,46 @@ internal sealed class WorldMemberBinding
         {
             var owner = root(source);
             return owner is null ? default! : accessor(owner);
+        };
+    }
+
+    private Func<object, TArgument, TValue>? Record<TArgument, TValue>(
+        string name,
+        Func<object, TArgument, TValue>? accessor)
+    {
+        if (accessor is null)
+        {
+            _failures.Add(Qualify(name));
+            return null;
+        }
+
+        var root = _root;
+        if (root is null) return accessor;
+
+        return (source, argument) =>
+        {
+            var owner = root(source);
+            return owner is null ? default! : accessor(owner, argument);
+        };
+    }
+
+    private Func<object, TFirst, TSecond, TValue>? Record<TFirst, TSecond, TValue>(
+        string name,
+        Func<object, TFirst, TSecond, TValue>? accessor)
+    {
+        if (accessor is null)
+        {
+            _failures.Add(Qualify(name));
+            return null;
+        }
+
+        var root = _root;
+        if (root is null) return accessor;
+
+        return (source, first, second) =>
+        {
+            var owner = root(source);
+            return owner is null ? default! : accessor(owner, first, second);
         };
     }
 
@@ -555,6 +671,13 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
     /// </summary>
     private readonly Func<GameWorldCycleFrame, WorldSampleBuffer<TSample, TRow>> _buffer;
 
+    /// <summary>
+    /// Reads this category's registry. Resolved once with the rest of the binding rather than looked
+    /// up per pass: the member does not move within a lifecycle, and rediscovering it four times a
+    /// second for every category is a fixed cost paid for nothing.
+    /// </summary>
+    private readonly Func<IList?>? _registry;
+
     internal WorldCategoryReader(
         WorldRowBinder<TSample, TRow> binder,
         Type? nativeType,
@@ -566,6 +689,7 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
         _unavailable = nativeType is null
             ? $"the {binder.TypeName} type was not found on this build"
             : binder.Bind(nativeType);
+        _registry = NativeAccessorBinder.StaticListAccessor(nativeType, binder.RegistryMember);
     }
 
     public string Category => _binder.Category;
@@ -578,7 +702,7 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
         buffer.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var entities = NativeAccessorBinder.StaticList(_nativeType, _binder.RegistryMember);
+        var entities = _registry?.Invoke();
         if (entities is null)
         {
             return WorldCategoryReport.Missing(
@@ -600,6 +724,8 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
 
             try
             {
+                if (!_binder.Publishes(entity)) continue;
+
                 // The identity comes off the sample, never off a derived row: derivation belongs to
                 // the worker, and calling it here to learn a Guid would quietly move it back onto the
                 // Unity thread — and would run it twice per entity into the bargain.

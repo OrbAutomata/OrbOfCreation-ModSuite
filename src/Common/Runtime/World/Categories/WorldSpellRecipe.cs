@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
@@ -27,6 +28,43 @@ internal readonly struct RawSpellRecipeSample : IWorldEntity
         bool hasAlertedThisMastery,
         BigDouble requiredMasteryXp = default,
         bool requiredMasteryXpCaptured = false)
+        : this(
+            spellRecipeId, discovered, discRarityLevel, masteryXp, masteryLevel,
+            masteryLevelReady, hiddenDiscovery, isRequiredDiscovery, penaltyUsageCost,
+            castSpeed, baseCharges, repeatInstantEffects, spellPowerMod, spellCostMod,
+            spellCdSpeedMod, spellDurationMod, spellSpecialMod, spellXpMod,
+            hasAlertedThisMastery, PublicationTable<WorldSpellRecipeGlyph>.Empty,
+            PublicationTable<WorldDiscoverableCost>.Empty, false, default,
+            requiredMasteryXp, requiredMasteryXpCaptured)
+    {
+    }
+
+    internal RawSpellRecipeSample(
+        Guid spellRecipeId,
+        bool discovered,
+        int discRarityLevel,
+        BigDouble masteryXp,
+        int masteryLevel,
+        bool masteryLevelReady,
+        bool hiddenDiscovery,
+        bool isRequiredDiscovery,
+        int penaltyUsageCost,
+        double castSpeed,
+        int baseCharges,
+        bool repeatInstantEffects,
+        BigDouble spellPowerMod,
+        BigDouble spellCostMod,
+        BigDouble spellCdSpeedMod,
+        BigDouble spellDurationMod,
+        BigDouble spellSpecialMod,
+        BigDouble spellXpMod,
+        bool hasAlertedThisMastery,
+        PublicationTable<WorldSpellRecipeGlyph> coreGlyphs,
+        PublicationTable<WorldDiscoverableCost> discoveryCosts,
+        bool discoveryAffordable,
+        WorldDiscoverableDecision discovery,
+        BigDouble requiredMasteryXp = default,
+        bool requiredMasteryXpCaptured = false)
     {
         SpellRecipeId = spellRecipeId;
         Discovered = discovered;
@@ -49,6 +87,10 @@ internal readonly struct RawSpellRecipeSample : IWorldEntity
         HasAlertedThisMastery = hasAlertedThisMastery;
         RequiredMasteryXp = requiredMasteryXp;
         RequiredMasteryXpCaptured = requiredMasteryXpCaptured;
+        CoreGlyphs = coreGlyphs ?? throw new ArgumentNullException(nameof(coreGlyphs));
+        DiscoveryCosts = discoveryCosts ?? throw new ArgumentNullException(nameof(discoveryCosts));
+        DiscoveryAffordable = discoveryAffordable;
+        Discovery = discovery;
     }
 
     public Guid EntityId => SpellRecipeId;
@@ -74,11 +116,50 @@ internal readonly struct RawSpellRecipeSample : IWorldEntity
     internal BigDouble SpellSpecialMod { get; }
     internal BigDouble SpellXpMod { get; }
     internal bool HasAlertedThisMastery { get; }
+    internal PublicationTable<WorldSpellRecipeGlyph> CoreGlyphs { get; }
+    internal PublicationTable<WorldDiscoverableCost> DiscoveryCosts { get; }
+    internal bool DiscoveryAffordable { get; }
+    internal WorldDiscoverableDecision Discovery { get; }
 }
 
 /// <summary>One spell recipe as published: discovery, its mastery track, and the six cached records that say what a cast of it is worth.</summary>
 internal readonly struct WorldSpellRecipe : IWorldEntity
 {
+    internal WorldSpellRecipe(
+        Guid spellRecipeId,
+        bool discovered,
+        int discRarityLevel,
+        BigDouble masteryXp,
+        int masteryLevel,
+        bool masteryLevelReady,
+        bool hiddenDiscovery,
+        bool isRequiredDiscovery,
+        int penaltyUsageCost,
+        double castSpeed,
+        int baseCharges,
+        bool repeatInstantEffects,
+        BigDouble spellPowerMod,
+        BigDouble spellCostMod,
+        BigDouble spellCdSpeedMod,
+        BigDouble spellDurationMod,
+        BigDouble spellSpecialMod,
+        BigDouble spellXpMod,
+        bool hasAlertedThisMastery,
+        PublicationTable<WorldSpellRecipeGlyph>? coreGlyphs = null,
+        PublicationTable<WorldDiscoverableCost>? discoveryCosts = null,
+        bool discoveryAffordable = false,
+        WorldDiscoverableDecision discovery = default)
+        : this(
+            spellRecipeId, discovered, discRarityLevel, masteryXp, masteryLevel,
+            masteryLevelReady, false, hiddenDiscovery,
+            isRequiredDiscovery, penaltyUsageCost, castSpeed, baseCharges,
+            repeatInstantEffects, spellPowerMod, spellCostMod, spellCdSpeedMod,
+            spellDurationMod, spellSpecialMod, spellXpMod, hasAlertedThisMastery,
+            default, coreGlyphs, discoveryCosts, discoveryAffordable,
+            discovery)
+    {
+    }
+
     internal WorldSpellRecipe(
         Guid spellRecipeId,
         bool discovered,
@@ -100,13 +181,18 @@ internal readonly struct WorldSpellRecipe : IWorldEntity
         BigDouble spellSpecialMod,
         BigDouble spellXpMod,
         bool hasAlertedThisMastery,
-        BigDouble requiredMasteryXp = default)
+        BigDouble requiredMasteryXp = default,
+        PublicationTable<WorldSpellRecipeGlyph>? coreGlyphs = null,
+        PublicationTable<WorldDiscoverableCost>? discoveryCosts = null,
+        bool discoveryAffordable = false,
+        WorldDiscoverableDecision discovery = default)
         : this(
             spellRecipeId, discovered, discRarityLevel, masteryXp, masteryLevel,
             masteryLevelReady, masteryLevelAffordable, 0, Guid.Empty, hiddenDiscovery,
             isRequiredDiscovery, penaltyUsageCost, castSpeed, baseCharges, repeatInstantEffects,
             spellPowerMod, spellCostMod, spellCdSpeedMod, spellDurationMod, spellSpecialMod,
-            spellXpMod, hasAlertedThisMastery, requiredMasteryXp)
+            spellXpMod, hasAlertedThisMastery, requiredMasteryXp,
+            coreGlyphs, discoveryCosts, discoveryAffordable, discovery)
     {
     }
 
@@ -133,7 +219,11 @@ internal readonly struct WorldSpellRecipe : IWorldEntity
         BigDouble spellSpecialMod,
         BigDouble spellXpMod,
         bool hasAlertedThisMastery,
-        BigDouble requiredMasteryXp = default)
+        BigDouble requiredMasteryXp = default,
+        PublicationTable<WorldSpellRecipeGlyph>? coreGlyphs = null,
+        PublicationTable<WorldDiscoverableCost>? discoveryCosts = null,
+        bool discoveryAffordable = false,
+        WorldDiscoverableDecision discovery = default)
     {
         SpellRecipeId = spellRecipeId;
         Discovered = discovered;
@@ -158,6 +248,10 @@ internal readonly struct WorldSpellRecipe : IWorldEntity
         SpellXpMod = spellXpMod;
         HasAlertedThisMastery = hasAlertedThisMastery;
         RequiredMasteryXp = requiredMasteryXp;
+        CoreGlyphs = coreGlyphs ?? PublicationTable<WorldSpellRecipeGlyph>.Empty;
+        DiscoveryCosts = discoveryCosts ?? PublicationTable<WorldDiscoverableCost>.Empty;
+        DiscoveryAffordable = discoveryAffordable;
+        Discovery = discovery;
     }
 
     internal Guid SpellRecipeId { get; }
@@ -225,6 +319,22 @@ internal readonly struct WorldSpellRecipe : IWorldEntity
     internal BigDouble SpellXpMod { get; }
 
     internal bool HasAlertedThisMastery { get; }
+    internal PublicationTable<WorldSpellRecipeGlyph> CoreGlyphs { get; }
+    internal PublicationTable<WorldDiscoverableCost> DiscoveryCosts { get; }
+    internal bool DiscoveryAffordable { get; }
+    internal WorldDiscoverableDecision Discovery { get; }
+}
+
+internal readonly struct WorldSpellRecipeGlyph
+{
+    internal WorldSpellRecipeGlyph(int position, Guid glyphId)
+    {
+        Position = position;
+        GlyphId = glyphId;
+    }
+
+    internal int Position { get; }
+    internal Guid GlyphId { get; }
 }
 
 internal sealed class WorldSpellRecipeBinder : WorldRowBinder<RawSpellRecipeSample, WorldSpellRecipe>
@@ -248,6 +358,9 @@ internal sealed class WorldSpellRecipeBinder : WorldRowBinder<RawSpellRecipeSamp
     private Func<object, BigDouble>? _spellSpecialMod;
     private Func<object, BigDouble>? _spellXpMod;
     private Func<object, bool>? _hasAlertedThisMastery;
+    private Func<object, IList?>? _coreGlyphs;
+    private Func<object, Guid>? _glyphId;
+    private WorldDiscoverableBinding? _discovery;
 
     internal override string Category => "spell recipes";
 
@@ -275,11 +388,40 @@ internal sealed class WorldSpellRecipeBinder : WorldRowBinder<RawSpellRecipeSamp
         _spellSpecialMod = bind.ModifierRecord("spellSpecialMod");
         _spellXpMod = bind.ModifierRecord("spellXpMod");
         _hasAlertedThisMastery = bind.Field<bool>("hasAlertedThisMastery");
+        const System.Reflection.BindingFlags instance =
+            System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.Public |
+            System.Reflection.BindingFlags.NonPublic;
+        var glyphMethod = type.GetMethod("GetGlyphRecipe", instance, null, Type.EmptyTypes, null);
+        var glyphType = glyphMethod?.ReturnType is { IsGenericType: true } glyphList
+            ? glyphList.GetGenericArguments()[0]
+            : null;
+        _coreGlyphs = bind.CallList("GetGlyphRecipe", glyphType);
+        _glyphId = NativeAccessorBinder.Call<Guid>(glyphType, "GetGuid");
+        _discovery = new WorldDiscoverableBinding(type, TypeName);
+        if (_glyphId is null || _discovery.Failure.Length != 0)
+        {
+            var failure = bind.Failure.Length == 0 ? _discovery.Failure : bind.Failure;
+            return failure.Length == 0
+                ? "SpellRecipeSO decision members did not expose their complete nested identity and cost shape on this build"
+                : failure;
+        }
         return bind.Failure;
     }
 
-    internal override RawSpellRecipeSample Read(object entity) =>
-        new(
+    internal override RawSpellRecipeSample Read(object entity)
+    {
+        var glyphValues = _coreGlyphs!(entity);
+        var glyphs = new WorldSpellRecipeGlyph[glyphValues?.Count ?? 0];
+        for (var index = 0; index < glyphs.Length; index++)
+        {
+            var glyph = glyphValues![index];
+            glyphs[index] = new WorldSpellRecipeGlyph(
+                index,
+                glyph is null ? Guid.Empty : _glyphId!(glyph));
+        }
+        var discovery = _discovery!.Read(entity);
+        return new RawSpellRecipeSample(
             _id!(entity),
             _discovered!(entity),
             _discRarityLevel!(entity),
@@ -299,8 +441,13 @@ internal sealed class WorldSpellRecipeBinder : WorldRowBinder<RawSpellRecipeSamp
             _spellSpecialMod!(entity),
             _spellXpMod!(entity),
             _hasAlertedThisMastery!(entity),
+            PublicationTable<WorldSpellRecipeGlyph>.Create(glyphs),
+            discovery.Costs,
+            discovery.Affordable,
+            discovery,
             _requiredMasteryXp!(entity),
             requiredMasteryXpCaptured: true);
+    }
 }
 
 internal sealed class WorldSpellRecipeDeriver : WorldRowDeriver<RawSpellRecipeSample, WorldSpellRecipe>
@@ -351,6 +498,10 @@ internal sealed class WorldSpellRecipeDeriver : WorldRowDeriver<RawSpellRecipeSa
             sample.SpellSpecialMod,
             sample.SpellXpMod,
             sample.HasAlertedThisMastery,
-            sample.RequiredMasteryXp);
+            sample.RequiredMasteryXp,
+            sample.CoreGlyphs,
+            sample.DiscoveryCosts,
+            sample.DiscoveryAffordable,
+            sample.Discovery);
     }
 }

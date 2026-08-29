@@ -1,9 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
+using System.Globalization;
 using System.Linq;
+using System.IO;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Configuration;
@@ -12,8 +15,6 @@ using HarmonyLib;
 using OrbAutomata;
 #if SERVICE_CYCLE_PROFILE
 using OrbAutomata.GameMcp;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using TMPro;
 using UnityEngine.UI;
 #endif
@@ -23,6 +24,7 @@ using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.Configuration;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Outcomes;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Status;
@@ -46,11 +48,25 @@ public sealed class Plugin : BaseUnityPlugin
     private const int StartStatusFailureLogFrameThreshold = 120;
 #if SERVICE_CYCLE_PROFILE
     private const bool AutoStartServiceCycleDiagnostics = true;
-    private const float GameMcpCaptureIntervalSeconds = 0.1f;
-    private GameMcpStateStore? _gameMcpState;
-    private GameMcpCommandBus? _gameMcpCommands;
+    private static readonly string GameMcpDllSha256 = ComputeExecutingDllSha256();
+    private GameMcpFrameInbox? _gameMcpOperations;
     private GameMcpHttpServer? _gameMcpServer;
-    private float _gameMcpCaptureElapsed;
+    private GameMcpWritableSettingDescriptor[] _gameMcpWritableConfiguration =
+        Array.Empty<GameMcpWritableSettingDescriptor>();
+    private GameMcpTooltipNativeAccess? _gameMcpTooltipNativeAccess;
+    private ModalDismissGameAction? _modalDismissGameAction;
+    private string _gameMcpTooltipContractFailure =
+        "tooltip native layout has not been bound";
+
+    /// <summary>
+    /// What a caller is told when the suite cannot read the game's tooltips. The binding layer's
+    /// own account of which accessor was missing goes to the log, where it is actionable; on the
+    /// wire it named types no caller can look up and gave them nothing to do.
+    /// </summary>
+    private const string TooltipsUnreadable =
+        "The suite could not attach to the game's tooltips in this run, so no tooltip can be " +
+        "read until the run restarts.";
+    private string _gameMcpAgentSettingsFailure = string.Empty;
 #else
     private const bool AutoStartServiceCycleDiagnostics = false;
 #endif
@@ -170,6 +186,11 @@ public sealed class Plugin : BaseUnityPlugin
     {
         Instance = this;
         Log = Logger;
+        EntityIdentityFormatter.ConfigureDiagnostics(
+            message => Logger.LogWarning(message),
+            message => Logger.LogError(message));
+        GameActionFaultLog.ConfigureLog(message => Logger.LogError(message));
+        EntityIdentityCatalog.Shared.Reset(GameLifecycleMonitor.Shared.Current.Generation);
 
         RunAutomaticSaveBackup();
 
@@ -265,8 +286,11 @@ public sealed class Plugin : BaseUnityPlugin
 
         ComposeDiagnosticsBundle();
         ComposeModConfig();
-        if (_runtimeActivationAllowed && _configurationStore.Current.General.Enabled)
+        if (GameMcpActionRegistrationPolicy.ShouldCompose(_runtimeActivationAllowed))
         {
+            // The shared runtime also owns the player's MCP GameActions. Automation policy still
+            // honors General/Enabled and every feature mode, but those settings must not remove
+            // the game's manual action boundary from the MCP surface.
             EnsureRuntimeComposition();
         }
         else if (!_runtimeActivationAllowed && _automaticSaveBackup.AllowsAutomation)
@@ -274,18 +298,23 @@ public sealed class Plugin : BaseUnityPlugin
             Log.LogAutomataWarning(
                 "Compatibility emergency stop is active. Press Resume all in Mods > General or the top-left STOP control to accept and resume, or use Advanced to accept while keeping STOP engaged.");
         }
-        else if (_runtimeActivationAllowed)
-        {
-            Log.LogAutomataInfo(
-                "Orb Of Creation automation is disabled by General/Enabled; configuration and emergency recovery remain available.");
-        }
 #if SERVICE_CYCLE_PROFILE
-        _gameMcpState = new GameMcpStateStore();
-        _gameMcpCommands = new GameMcpCommandBus();
-        CaptureGameMcpState();
+        if (!GameMcpTooltipNativeAccess.TryCreate(
+                typeof(HoverTooltip),
+                typeof(Spell),
+                typeof(PassiveAbility),
+                out _gameMcpTooltipNativeAccess,
+                out _gameMcpTooltipContractFailure))
+        {
+            Logger.LogWarning(
+                "Game MCP tooltip inspection is unavailable: " +
+                _gameMcpTooltipContractFailure);
+        }
+        _gameMcpWritableConfiguration = _automataConfig.CreateGameMcpWritableSchema();
+        _modalDismissGameAction = new ModalDismissGameAction(() => _lifecycleGeneration);
+        _gameMcpOperations = new GameMcpFrameInbox();
         _gameMcpServer = GameMcpHttpServer.TryStart(
-            _gameMcpState,
-            _gameMcpCommands,
+            _gameMcpOperations,
             message => Logger.LogInfo(message),
             message => Logger.LogError(message));
 #endif
@@ -428,11 +457,12 @@ public sealed class Plugin : BaseUnityPlugin
                             readAutoHarvestLifecycleEpoch,
                             static report =>
                             {
-                                if (report.IsComplete) Log.LogInfo(report.Describe());
-                                else Log.LogWarning(report.Describe());
+                                var line = report.Describe() + " " + report.DescribeCost();
+                                if (report.IsComplete) Log.LogInfo(line);
+                                else Log.LogWarning(line);
                             },
                             createCollector: () =>
-                                new GameWorldCollector(_mentorMasteryJournal)),
+                                GameWorldCollector.ForSession(_mentorMasteryJournal)),
                         new AutoItemsServiceCycleFeature(
                             new AutoItemsFeatureDependencies(
                                 autoHarvestRegistryResolver,
@@ -507,7 +537,176 @@ public sealed class Plugin : BaseUnityPlugin
                                         }) == true,
                                 featureStatus: featureStatuses.Mentor)),
                     },
-                    Log);
+                    Log
+#if SERVICE_CYCLE_PROFILE
+                    , createDiscoveryTreeOffers: () => new DiscoveryTreeOfferGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureDiscoveryTreeOfferMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .DiscoveryTreeOfferOwnershipFailure)
+                    , createSpellWorkbench: () => new SpellWorkbenchGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureSpellWorkbenchMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .SpellWorkbenchOwnershipFailure)
+                    , createSpellComposition: () => new SpellCompositionGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureSpellCompositionMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .SpellCompositionOwnershipFailure)
+                    , createSpellLoadout: () => new SpellLoadoutGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureSpellLoadoutMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .SpellLoadoutOwnershipFailure)
+                    , createTargeting: () => new TargetingGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureTargetingMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .TargetingOwnershipFailure)
+                    , createGenericDiscovery: () => new GenericDiscoveryGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureGenericDiscoveryMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .GenericDiscoveryOwnershipFailure)
+                    , createEquipmentLoadout: () => new EquipmentLoadoutGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureEquipmentLoadoutMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .EquipmentLoadoutOwnershipFailure)
+                    , createAlchemyLoadout: () => new AlchemyLoadoutGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureAlchemyLoadoutMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .AlchemyLoadoutOwnershipFailure)
+                    , createRitualLifecycle: () => new RitualLifecycleGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureRitualLifecycleMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .RitualLifecycleOwnershipFailure)
+                    , createGenericLevel: () => new GenericLevelGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureGenericLevelMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .GenericLevelOwnershipFailure)
+                    , createCraftingStations: () => new CraftingStationGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureScribeMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .ScribeOwnershipFailure)
+                    , createCraftingInstances: () => new CraftingInstanceLifecycleGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureScribeMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .ScribeOwnershipFailure)
+                    , createLoadouts: (equipment, alchemy) => new LoadoutGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCapturePlayerLoadoutMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .PlayerLoadoutOwnershipFailure,
+                        equipment,
+                        alchemy)
+                    , createHarvestLifecycle: () => new HarvestLifecycleGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureHarvestLifecycleMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .HarvestLifecycleOwnershipFailure)
+                    , createPlotLifecycle: () => new PlotLifecycleGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureHarvestMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .HarvestOwnershipFailure)
+                    , createStructureLifecycle: () => new StructureLifecycleGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureStructureLifecycleMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .StructureLifecycleOwnershipFailure)
+                    , createReturnToMenu: () => new ReturnToMenuGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureRunTransitionMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .RunTransitionOwnershipFailure,
+                        readScene: () => SceneManager.GetActiveScene().name,
+                        findLoadedObjects: type => Resources.FindObjectsOfTypeAll(type)
+                            .Cast<object>()
+                            .ToArray())
+                    , createChallenges: () => new ChallengeGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureChallengeMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .ChallengeOwnershipFailure)
+                    , createPrestige: () => new PrestigeGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCapturePrestigeMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .PrestigeOwnershipFailure)
+                    , createResearch: () => new ResearchGameAction(
+                        readAutoHarvestLifecycleEpoch,
+                        tryCaptureMutationPermit: () =>
+                            _automataActionFamilyOwnership!
+                                .TryCaptureResearchMutationPermit(),
+                        readOwnershipFailure: () =>
+                            _automataActionFamilyOwnership!
+                                .ResearchOwnershipFailure)
+#endif
+                    );
             },
             _configurationStore!.Current,
             _configurationStore!.CurrentGeneration,
@@ -637,7 +836,7 @@ public sealed class Plugin : BaseUnityPlugin
         UpdateBuildCompatibilityOverride();
         PublishChangedConfiguration();
         ValidateSuiteShortcuts();
-        if (!_runtimeActivationAllowed || !_configurationStore!.Current.General.Enabled)
+        if (!GameMcpActionRegistrationPolicy.ShouldCompose(_runtimeActivationAllowed))
         {
             _runtimeCompositionAttempted = false;
         }
@@ -649,10 +848,10 @@ public sealed class Plugin : BaseUnityPlugin
             }
             catch (Exception ex)
             {
-                Logger.LogError("Could not activate automation after the master switch was enabled: " +
+                Logger.LogError("Could not compose the shared gameplay runtime: " +
                                 ex.GetBaseException().Message);
                 _featureStatuses?.ObserveServiceCycleUnavailable(
-                    _configurationStore.Current,
+                    _configurationStore!.Current,
                     _configurationStore.CurrentGeneration);
             }
         }
@@ -668,22 +867,12 @@ public sealed class Plugin : BaseUnityPlugin
         UpdateAutomata();
         _diagnosticsBundleController?.Tick();
 #if SERVICE_CYCLE_PROFILE
-        _gameMcpCommands?.ObserveEmergencyStop(
-            _configurationStore!.Current.Safety.EmergencyDisable);
-        DrainGameMcpCommands();
+        DrainGameMcpOperations();
 #endif
         UpdateMentor();
         UpdateUiStartupReadiness(Time.unscaledDeltaTime);
         UpdateQuickControls(Time.unscaledDeltaTime);
         UpdateModConfig();
-#if SERVICE_CYCLE_PROFILE
-        _gameMcpCaptureElapsed += Time.unscaledDeltaTime;
-        if (_gameMcpCaptureElapsed >= GameMcpCaptureIntervalSeconds)
-        {
-            CaptureGameMcpState();
-            _gameMcpCaptureElapsed = 0f;
-        }
-#endif
     }
 
     private void UpdateBuildCompatibilityOverride()
@@ -867,16 +1056,7 @@ public sealed class Plugin : BaseUnityPlugin
             Log.LogAutomataWarning(
                 "AutobuyOrb is loaded. Automata will block Structure and Upgrade purchases because those native action families overlap; Auto Cast, Auto Concept, Spell Leveling, and Mentor remain independent.");
         }
-#if SERVICE_CYCLE_PROFILE
-        if (_gameMcpServer?.IsListening == true)
-            _automataActionFamilyOwnership?.RefreshForGameMcp(
-                configuration, lifecycleReady, Time.frameCount);
-        else
-            _automataActionFamilyOwnership?.Refresh(
-                configuration, lifecycleReady, Time.frameCount);
-#else
         _automataActionFamilyOwnership?.Refresh(configuration, lifecycleReady, Time.frameCount);
-#endif
         if (lifecycleReady)
         {
             _serviceCycleActivation?.Tick(deltaTime);
@@ -969,13 +1149,17 @@ public sealed class Plugin : BaseUnityPlugin
     private void OnDestroy()
     {
 #if SERVICE_CYCLE_PROFILE
-        _gameMcpCommands?.Close(
+        _gameMcpOperations?.Close(
             "suite_shutdown",
             "the suite is shutting down; pending MCP commands cannot mutate native state");
         _gameMcpServer?.Dispose();
         _gameMcpServer = null;
-        _gameMcpCommands = null;
-        _gameMcpState = null;
+        _gameMcpOperations = null;
+        _gameMcpWritableConfiguration = Array.Empty<GameMcpWritableSettingDescriptor>();
+        _gameMcpTooltipNativeAccess = null;
+        _modalDismissGameAction?.Dispose();
+        _modalDismissGameAction = null;
+        _gameMcpTooltipContractFailure = "tooltip native layout has been released";
 #endif
         _startStatusView?.Dispose();
         _startStatusView = null;
@@ -1005,6 +1189,17 @@ public sealed class Plugin : BaseUnityPlugin
         GameLifecycleMonitor.Shared.Transitioned -= OnLifecycleTransition;
         SceneManager.activeSceneChanged -= OnActiveSceneChanged;
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        if (_serviceCycleActivation is not null)
+        {
+            // The runtime engages the emergency stop as it tears down, deliberately as a
+            // non-clearable shutdown episode so a resume cannot revive a disposed runtime. That
+            // leaves EmergencyEntered as the last thing a recording ever hears from the suite, with
+            // no EmergencyCleared behind it, which reads exactly like a suite that died mid-run.
+            Logger.LogAutomataInfo(
+                "Suite shutdown stops automation and leaves it stopped: the emergency stop entered " +
+                "here is the teardown interlock and is never cleared, because the runtime it " +
+                "protects is going away.");
+        }
         _serviceCycleActivation?.Dispose();
         _serviceCycleActivation = null;
         _automataActionFamilyOwnership?.Dispose();
@@ -1187,8 +1382,14 @@ public sealed class Plugin : BaseUnityPlugin
     private void OnLifecycleTransition(GameLifecycleTransition transition)
     {
         if (transition.Current.Generation == _lifecycleGeneration) return;
+        Logger.LogAutomataInfo(transition.Describe());
         _lifecycleGeneration = transition.Current.Generation;
+        EntityIdentityCatalog.Shared.Reset(_lifecycleGeneration);
         _serviceCycleActivation?.InvalidateLifecycle();
+#if SERVICE_CYCLE_PROFILE
+        _modalDismissGameAction?.InvalidateLifecycle();
+        _gameMcpAgentSettingsFailure = string.Empty;
+#endif
         _automataActionFamilyOwnership?.ReleaseLifecycleClaims();
         if (_configurationStore is not null)
             _featureStatuses?.ObserveLifecycleNotReady(
@@ -1256,97 +1457,1409 @@ public sealed class Plugin : BaseUnityPlugin
     }
 
 #if SERVICE_CYCLE_PROFILE
-    private void DrainGameMcpCommands()
+    private void DrainGameMcpOperations()
     {
-        if (_gameMcpCommands is null) return;
-        const int maximumCommandsPerFrame = 4;
-        for (var index = 0;
-             index < maximumCommandsPerFrame &&
-             _gameMcpCommands.TryDequeue(out var command);
-             index++)
+        if (_gameMcpOperations is null) return;
+        GameMcpFrameBatchExecutor.Drain(
+            _gameMcpOperations,
+            CaptureGameMcpFrameContext,
+            ExecuteGameMcpFrameOperation,
+            ProjectGameMcpFrameOperationFault);
+    }
+
+    private GameMcpToolExecution? ExecuteGameMcpFrameOperation(
+        GameMcpFrameOperation operation,
+        GameMcpFrameContext context)
+    {
+        // Every operation the frame answers itself writes its own ledger line here, so the sequence
+        // has no holes in it: a read used to draw an operation number and never write a completion,
+        // and a command refused inside its claiming frame did the same. A command that leaves the
+        // frame — a gadget, or a mutation waiting for post-state settlement — returns null and is
+        // written when it completes instead, so nothing is written twice.
+        var startedAtRawTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+        if (!TryExecuteGameMcpFrameOperation(operation, context, out var result))
+            return null;
+        var answered = result.WithEntityIdentities(EntityIdentities(context));
+        Logger.LogAutomataInfo(GameMcpOperationLedger.DescribeAnswered(
+            operation,
+            answered,
+            Time.frameCount,
+            (System.Diagnostics.Stopwatch.GetTimestamp() - startedAtRawTicks) * 1000.0 /
+                System.Diagnostics.Stopwatch.Frequency));
+        return answered;
+    }
+
+    /// <summary>
+    /// The answer for an operation that threw inside the frame.
+    /// </summary>
+    /// <remarks>
+    /// It shipped the exception's own message, which names types and members from inside the suite
+    /// and the game: a caller can act on none of it, and it is the one thing whoever fixes the
+    /// defect needs. It goes to the suite log under a reference the caller is handed and can quote.
+    /// </remarks>
+    private GameMcpToolExecution ProjectGameMcpFrameOperationFault(
+        GameMcpFrameOperation operation,
+        GameMcpFrameContext? context,
+        Exception exception)
+    {
+        var reference = "MCP-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
+        Logger.LogError(
+            "Game MCP internal error " + reference + " on " +
+            operation.Request.ToolName + ": " + exception);
+        var result = new GameMcpObjectBuilder
         {
-            GameMcpCommandResult result;
-            var completeNow = true;
-            try
-            {
-                if (command.Kind is GameMcpCommandKind.ConfigurationSet or
-                    GameMcpCommandKind.EmergencyStop)
-                {
-                    result = ExecuteAdministrativeGameMcp(command);
-                }
-                else if (command.Kind is >= GameMcpCommandKind.Screenshot and
-                         <= GameMcpCommandKind.ContinueRun)
-                {
-                    completeNow = TryExecuteGameMcpGadget(command, out result);
-                }
-                else if (_serviceCycleActivation is null ||
-                         !_serviceCycleActivation.TryExecuteGameMcp(command, out result))
-                {
-                    result = GameMcpCommandResult.Rejected(
-                        "runtime_not_available",
-                        "the ServiceCycle runtime is not active in this scene");
-                }
-            }
-            catch (Exception exception)
-            {
-                result = GameMcpCommandResult.Faulted(
-                    "command_dispatch_fault",
-                    exception.GetBaseException().Message);
-            }
-            if (completeNow) CompleteGameMcpCommand(command, result);
-        }
+            ["status"] = "faulted",
+            ["code"] = "operation_dispatch_fault",
+            ["reason"] = GameMcpProtocolRouter.InternalErrorReason(
+                operation.Request.ToolName, reference),
+        };
+        return GameMcpToolExecution.Error(result.Freeze()).WithEntityIdentities(
+            context is null
+                ? EntityIdentityCatalogPublication.Current
+                : EntityIdentities(context));
     }
 
     private void CompleteGameMcpCommand(
         GameMcpCommand command,
         GameMcpCommandResult result)
     {
-        _gameMcpCommands?.Complete(command, result);
-        Logger.LogInfo(
-            "Game MCP command " + command.Sequence + " completed " +
-            result.Status + " (" + result.Code + "): " + result.Reason);
+        if (command.SourceOperation is not null && command.FrameContext is not null)
+        {
+            var payload = result.Project(command);
+            _gameMcpOperations?.Complete(
+                command.SourceOperation,
+                new GameMcpToolExecution(
+                    payload,
+                    result.InlinePng,
+                    result.IsProtocolError,
+                    EntityIdentities(command.FrameContext)));
+        }
+        Logger.LogAutomataInfo(
+            GameMcpOperationLedger.Describe(command, result, Time.frameCount));
     }
 
-    private GameMcpCommandResult ExecuteAdministrativeGameMcp(GameMcpCommand command)
+    private GameMcpFrameContext CaptureGameMcpFrameContext(GameMcpFrameData required)
+    {
+        var includeServices = (required & GameMcpFrameData.ServiceHealth) != 0;
+        AutomataRuntimeFrameFacts? runtime = null;
+        if ((required & (GameMcpFrameData.World | GameMcpFrameData.ServiceHealth)) != 0 &&
+            _serviceCycleActivation is not null &&
+            _serviceCycleActivation.TryCaptureFrameFacts(includeServices, out var captured))
+        {
+            runtime = captured;
+        }
+
+        var configuration = runtime?.Configuration ?? new ConfigurationPublication(
+            _configurationStore?.CurrentGeneration ?? default,
+            _configurationStore?.Current ?? new SuiteRuntimeConfiguration());
+        var features = (required & GameMcpFrameData.FeatureHealth) != 0
+            ? FeatureStatusRegistry.Shared.GetSnapshot().ToArray()
+            : Array.Empty<FeatureStatusSnapshot>();
+        var trace = (required & GameMcpFrameData.TraceWriterHealth) != 0
+            ? DecisionJournalStatusRegistry.Shared.Status
+            : DecisionJournalStatus.Unavailable;
+        var traceRevision = (required & GameMcpFrameData.TraceWriterHealth) != 0
+            ? DecisionJournalStatusRegistry.Shared.Revision
+            : 0;
+        var writable = (required & GameMcpFrameData.WritableConfiguration) != 0
+            ? _gameMcpWritableConfiguration
+            : Array.Empty<GameMcpWritableSettingDescriptor>();
+        return new GameMcpFrameContext(
+            runtime?.World,
+            runtime,
+            configuration,
+            _lifecycleGeneration,
+            (required & GameMcpFrameData.Scene) != 0
+                ? SceneManager.GetActiveScene().name
+                : string.Empty,
+            (required & GameMcpFrameData.NativeContractHealth) != 0 &&
+                _nativeContractsAvailable,
+            features,
+            trace,
+            traceRevision,
+            writable,
+            _modalDismissGameAction?.BindingsAvailable == true,
+            _modalDismissGameAction?.BindingFailure ??
+                "the modal action boundary was not composed",
+            GameLifecycleMonitor.Shared.Current.State,
+            _gameMcpAgentSettingsFailure);
+    }
+
+    private bool TryExecuteGameMcpFrameOperation(
+        GameMcpFrameOperation operation,
+        GameMcpFrameContext context,
+        out GameMcpToolExecution execution)
+    {
+        var request = operation.Request;
+        switch (request.ToolName)
+        {
+            case "world_overview":
+                execution = GameMcpToolExecution.Read(
+                    GameMcpWorldQuery.Overview(context).Freeze());
+                return true;
+            case "world_categories":
+                execution = GameMcpToolExecution.Read(
+                    GameMcpWorldQuery.ListCategories(context).Freeze());
+                return true;
+            case "world_list":
+                execution = GameMcpToolExecution.Read(GameMcpWorldQuery.ListRows(
+                    context,
+                    request.Category,
+                    request.Offset,
+                    request.Limit,
+                    request.AffordableOnly,
+                    request.LimitFromCaller,
+                    request.DiscoveredFilter).Freeze());
+                return true;
+            case "world_get":
+                execution = GameMcpToolExecution.Read(
+                    GameMcpWorldQuery.GetRows(
+                        context,
+                        request.Category,
+                        request.Uuids).Freeze());
+                return true;
+            case "world_search":
+                execution = GameMcpToolExecution.Read(
+                    GameMcpWorldQuery.Search(
+                        context,
+                        request.Query,
+                        request.Offset,
+                        request.Limit,
+                        request.Category,
+                        request.StateFilter,
+                        request.RunFilter,
+                        request.KeywordFilter,
+                        request.LimitFromCaller,
+                        request.DiscoveredFilter).Freeze());
+                return true;
+            case "suite_health":
+                execution = GameMcpToolExecution.Text(ProjectGameMcpHealthText(context));
+                return true;
+            case "suite_check_game_math":
+                execution = RunGameMcpGameMathCheck();
+                return true;
+            case "game_screen_catalog":
+                execution = GameMcpToolExecution.Read(CaptureScreenCatalogGameMcp());
+                return true;
+            case "suite_configuration":
+                execution = GameMcpToolExecution.Read(ProjectGameMcpConfiguration(
+                    context, request.Mode == "describe", request.Section));
+                return true;
+            case "suite_breakers" when request.Mode == "list":
+                execution = GameMcpToolExecution.Read(
+                    ProjectGameMcpAutomationFeatures(context));
+                return true;
+            case "time_challenge" when request.Mode == "state":
+                execution = GameMcpToolExecution.Read(
+                    GameMcpWorldQuery.ChallengeStateRead(context).Freeze());
+                return true;
+            case "trace_health":
+                execution = GameMcpToolExecution.Text(ProjectGameMcpTraceHealthText(context));
+                return true;
+            case "game_discover" when request.Mode == "preview":
+                execution = GameMcpToolExecution.Read(
+                    GameMcpWorldQuery.ProjectDiscoveryPreview(context, request.Uuid));
+                return true;
+            case "game_spell_loadout" when request.Mode == "preview":
+                var glyphs = new SpellWorkbenchGlyphStack[request.UuidCounts.Length];
+                for (var index = 0; index < glyphs.Length; index++)
+                    glyphs[index] = new SpellWorkbenchGlyphStack(
+                        request.UuidCounts[index].Uuid,
+                        request.UuidCounts[index].Count);
+                var previewRequest = new SpellWorkbenchLoadPreviewRequest(
+                    request.Uuid,
+                    _lifecycleGeneration,
+                    glyphs);
+                SpellWorkbenchLoadPreview preview;
+                if (_serviceCycleActivation is null ||
+                    !_serviceCycleActivation.TryPreviewSpellWorkbench(
+                        in previewRequest,
+                        out preview))
+                {
+                    preview = SpellWorkbenchLoadPreview.Refused(
+                        SpellWorkbenchPreflight.ContractUnavailable,
+                        "The suite is not running on this screen, so nothing can be previewed.");
+                }
+                execution = GameMcpToolExecution.Read(
+                    GameMcpSpellWorkbenchProjection.ProjectLoadPreview(
+                        in preview));
+                return true;
+            case "game_spell_loadout" when request.Mode == "staged":
+                SpellWorkbenchStagedLayout staged;
+                if (_serviceCycleActivation is null ||
+                    !_serviceCycleActivation.TryReadStagedSpellWorkbench(out staged))
+                {
+                    staged = SpellWorkbenchStagedLayout.Unavailable(
+                        SpellWorkbenchPreflight.ContractUnavailable,
+                        "The suite is not running on this screen, so nothing can be read here.");
+                }
+                execution = GameMcpToolExecution.Read(
+                    GameMcpSpellWorkbenchProjection.ProjectStagedLayout(in staged));
+                return true;
+            case "resource_read":
+                execution = ExecuteGameMcpResource(request.ResourceUri, context);
+                return true;
+        }
+
+        if (!TryPrepareGameMcpCommand(operation, context, out var command, out var failure))
+        {
+            execution = ProjectGameMcpCommand(command, failure);
+            return true;
+        }
+
+        if (command.Kind is GameMcpCommandKind.ConfigurationSet or
+            GameMcpCommandKind.AutomationSet or GameMcpCommandKind.EmergencyStop)
+        {
+            execution = ProjectGameMcpCommand(
+                command,
+                ExecuteAdministrativeGameMcp(command, context));
+            return true;
+        }
+        if (command.Kind is >= GameMcpCommandKind.Screenshot and
+            <= GameMcpCommandKind.ContinueRun or GameMcpCommandKind.Modal)
+        {
+            if (!TryExecuteGameMcpGadget(command, out var gadgetResult))
+            {
+                execution = null!;
+                return false;
+            }
+            execution = ProjectGameMcpCommand(command, gadgetResult);
+            return true;
+        }
+        if (_automataActionFamilyOwnership is null)
+        {
+            execution = ProjectGameMcpCommand(
+                command,
+                GameMcpCommandResult.Rejected(
+                    "action_family_unavailable",
+                    "the action-family ownership registry is unavailable"));
+            return true;
+        }
+        if (!_automataActionFamilyOwnership.TryBeginGameMcpOperation(
+                command.Kind,
+                command.Mode,
+                out var ownershipScope,
+                out var ownershipReason))
+        {
+            execution = ProjectGameMcpCommand(
+                command,
+                GameMcpCommandResult.Rejected(
+                    "action_family_unavailable",
+                    ownershipReason.Length == 0
+                        ? "the exact gameplay action family could not be claimed"
+                        : ownershipReason));
+            return true;
+        }
+        GameMcpCommandResult result;
+        using (ownershipScope)
+        {
+            if (_serviceCycleActivation is null ||
+                !_serviceCycleActivation.TryExecuteGameMcp(command, out result))
+            {
+                result = GameMcpCommandResult.Failed(
+                    "runtime_not_available",
+                    "The suite is not running on this screen, so no action can be sent to the " +
+                    "game.");
+            }
+        }
+        if (string.Equals(result.Status, "committed", StringComparison.Ordinal))
+        {
+            if (!GameMcpCommandKinds.RequiresPostStateSettlement(command.Kind))
+            {
+                execution = ProjectGameMcpCommand(command, result);
+                return true;
+            }
+            var actionCompletedAtUtcTicks = DateTime.UtcNow.Ticks;
+            StartCoroutine(CompleteGameMcpGameplayPostState(
+                command,
+                result,
+                context.World?.Generation.Value ?? 0,
+                actionCompletedAtUtcTicks));
+            execution = null!;
+            return false;
+        }
+        execution = ProjectGameMcpCommand(command, result);
+        return true;
+    }
+
+    private IEnumerator CompleteGameMcpGameplayPostState(
+        GameMcpCommand command,
+        GameMcpCommandResult committed,
+        ulong actionWorldGeneration,
+        long actionCompletedAtUtcTicks)
+    {
+        var deadline = Time.realtimeSinceStartup + GameMcpPostStateSettlement.WaitSeconds(command);
+        GameMcpFrameContext? latest = null;
+        while (Time.realtimeSinceStartup < deadline)
+        {
+            yield return null;
+            latest = CaptureGameMcpFrameContext(
+                command.Kind == GameMcpCommandKind.Prestige
+                    ? GameMcpFrameData.World | GameMcpFrameData.Scene
+                    : GameMcpFrameData.World);
+            if (GameMcpPostStateSettlement.IsReady(
+                    latest, actionWorldGeneration, actionCompletedAtUtcTicks, command))
+                break;
+        }
+
+        GameMcpValue state;
+        if (GameMcpPostStateSettlement.IsReady(
+                latest, actionWorldGeneration, actionCompletedAtUtcTicks, command))
+        {
+            state = GameMcpWorldQuery.ProjectGameplayPostState(
+                latest!, command, committed);
+        }
+        else
+        {
+            state = GameMcpPostStateSettlement.TimedOut(command, latest);
+        }
+        CompleteGameMcpCommand(command, committed.WithDetails(state));
+    }
+
+    private static EntityIdentityCatalogSnapshot EntityIdentities(
+        GameMcpFrameContext context) =>
+        context.World?.Snapshot.EntityIdentities ??
+        EntityIdentityCatalogPublication.Current;
+
+    private static GameMcpToolExecution ProjectGameMcpCommand(
+        GameMcpCommand command,
+        GameMcpCommandResult result)
+    {
+        if (command.Kind == GameMcpCommandKind.TooltipRead &&
+            result.InlinePng is null &&
+            string.Equals(result.Status, "committed", StringComparison.Ordinal) &&
+            result.Details is GameMcpObject tooltip &&
+            TryReadText(tooltip, out var text))
+            return GameMcpToolExecution.Text(text);
+        return new GameMcpToolExecution(
+            result.Project(command),
+            result.InlinePng,
+            result.IsProtocolError);
+    }
+
+    private static bool TryReadText(GameMcpObject document, out string text)
+    {
+        for (var index = 0; index < document.Properties.Count; index++)
+        {
+            var property = document.Properties[index];
+            if (property.Name == "text" && property.Value is GameMcpScalar scalar &&
+                scalar.Value is string value && value.Length > 0)
+            {
+                text = value;
+                return true;
+            }
+        }
+        text = string.Empty;
+        return false;
+    }
+
+    private GameMcpToolExecution ExecuteGameMcpResource(
+        string uri,
+        GameMcpFrameContext context)
+    {
+        if (uri == "orb://world/overview")
+            return GameMcpToolExecution.Read(GameMcpWorldQuery.Overview(context).Freeze());
+        if (uri == "orb://world/categories")
+            return GameMcpToolExecution.Read(GameMcpWorldQuery.ListCategories(context).Freeze());
+        if (uri == "orb://suite/health")
+            return GameMcpToolExecution.Text(ProjectGameMcpHealthText(context));
+        if (uri == "orb://suite/configuration")
+            return GameMcpToolExecution.Read(ProjectGameMcpConfiguration(context, describe: false));
+        if (uri == "orb://trace/health")
+            return GameMcpToolExecution.Text(ProjectGameMcpTraceHealthText(context));
+        var category = Uri.UnescapeDataString(
+            uri.Substring("orb://world/category/".Length));
+        return GameMcpToolExecution.Read(GameMcpWorldQuery.ListRows(
+            context,
+            category,
+            0,
+            GameMcpWorldQuery.DefaultLimit,
+            limitFromCaller: false).Freeze());
+    }
+
+    /// <summary>
+    /// Runs the differential check the Runtime page's action runs, and answers with its verdict
+    /// lines instead of leaving them in the log for a human to find.
+    /// </summary>
+    /// <remarks>
+    /// This is the whole run, in this frame, on the Unity thread — the same seconds-long stall the
+    /// button costs. It is deliberately not spread over frames: every pass would otherwise read a
+    /// different frame's game state and the verdicts would not be comparable to each other.
+    /// </remarks>
+    private GameMcpToolExecution RunGameMcpGameMathCheck()
+    {
+        // A no is a result. `isError` is reserved for a tool that failed before it produced a
+        // domain answer, so both of these arrive the way every other refusal in the suite does —
+        // a caller branches on the class, not on which of two transports carried it.
+        if (_mathVerification is null)
+        {
+            return GameMcpToolExecution.Read(new GameMcpObjectBuilder
+            {
+                ["status"] = "unavailable",
+                ["reasonCode"] = "contract_unavailable",
+                ["reason"] = "The suite's game math check is not composed in this scene.",
+            });
+        }
+        if (!_mathVerification.TryRunNow(out var lines, out var code, out var reason))
+        {
+            return GameMcpToolExecution.Read(new GameMcpObjectBuilder
+            {
+                ["status"] = "refused",
+                ["reasonCode"] = code,
+                ["reason"] = reason,
+            });
+        }
+        return GameMcpToolExecution.Text(string.Join("\n", lines));
+    }
+
+    internal static string ProjectGameMcpHealthText(GameMcpFrameContext context)
+    {
+        var stopped = context.Runtime?.EmergencyStopEngaged ??
+            context.Configuration.Snapshot.Safety.EmergencyDisable;
+        var result = new StringBuilder()
+            .AppendLine("available")
+            .Append("build: ").Append(PluginIds.Version).Append(" dll sha256 ")
+            .AppendLine(GameMcpDllSha256)
+            .Append("scene: ").AppendLine(GameMcpTextFormatter.Plain(context.SceneName))
+            // The same lifecycle fact game_probe reports and the world reads refuse on, so the three
+            // cannot hold three beliefs about whether a game exists.
+            .Append("lifecycle: ").Append(context.LifecycleState.ToString())
+            .Append(", generation ")
+            .AppendLine(context.LifecycleGeneration.ToString(CultureInfo.InvariantCulture))
+            // The scene name alone cannot tell a caller which run a verdict describes: the runtime
+            // outlives every scene change, so the same scene answered both ways across one session.
+            // The publication counter is what actually moves, so it is published — and a lifecycle
+            // boundary flushes the publication, so this reads "not published" again once the run
+            // it described is gone. It counts publications and says so: the line above already
+            // spends the word "generation" on the lifecycle, and one word for two counters that
+            // move independently is what sent a reader comparing them.
+            .Append("world: ").AppendLine(GameMcpWorldQuery.IsWorldPublished(context)
+                ? "publication " +
+                    context.World!.Generation.Value.ToString(CultureInfo.InvariantCulture)
+                : "not published")
+            .Append("emergency stop: ").AppendLine(stopped ? "engaged" : "clear");
+        // Health is exception-shaped, the way it already is for features and services: a capability
+        // that works says nothing, so every line on the page is a thing the caller has to act on.
+        // The page leads with "available", which is the standing answer for everything unlisted.
+        if (!context.RuntimeAvailable) result.AppendLine("runtime: unavailable");
+        if (!context.NativeContractsAvailable) result.AppendLine("native contracts: unavailable");
+        if (context.Runtime is not
+            { PlayerCraftingAvailable: true, CraftingInstancesAvailable: true })
+            result.AppendLine("game_craft: unavailable");
+        if (!context.ModalDismissAvailable) result.AppendLine("game_modal: unavailable");
+        if (!context.RuntimeAvailable && context.RuntimeNotAvailableReason.Length > 0)
+            result.Append("runtime reason: ").AppendLine(
+                GameMcpTextFormatter.Plain(context.RuntimeNotAvailableReason));
+        else if (context.Runtime is { } runtime)
+        {
+            var craftingReason = !runtime.PlayerCraftingAvailable
+                ? runtime.PlayerCraftingUnavailableReason
+                : !runtime.CraftingInstancesAvailable
+                    ? runtime.CraftingInstancesUnavailableReason
+                    : string.Empty;
+            if (craftingReason.Length > 0)
+                result.Append("game_craft reason: ").AppendLine(
+                    GameMcpTextFormatter.Plain(craftingReason));
+        }
+        if (!context.ModalDismissAvailable && context.ModalDismissUnavailableReason.Length > 0)
+            result.Append("game_modal reason: ").AppendLine(
+                GameMcpTextFormatter.Plain(context.ModalDismissUnavailableReason));
+        // The load normalizes three settings the documented verbs assume, and a caller never asked
+        // for them — so when one did not land, the develop queue and the spell cancel it silently
+        // costs are refusals nothing else on the wire can explain.
+        if (context.AgentSettingsFailure.Length > 0)
+            result.Append("agent settings: ").AppendLine(
+                GameMcpTextFormatter.Plain(context.AgentSettingsFailure));
+
+        // One roster, one line. The state groups are the facts; the word "features" in front of
+        // every one of them was the same nine characters repeated, on a roster that moved twice in
+        // a six-call round. Every state, every reason code and every name still ships.
+        var featureGroups = context.FeatureStatuses
+            .GroupBy(feature => new { feature.State, feature.Reason.Code })
+            .OrderBy(group => group.Key.State.ToString(), StringComparer.Ordinal)
+            .ThenBy(group => group.Key.Code.ToString(), StringComparer.Ordinal)
+            .Select(group =>
+            {
+                var state = GameMcpEntityWireNormalizer.Snake(group.Key.State.ToString());
+                var reasonCode = GameMcpEntityWireNormalizer.Snake(group.Key.Code.ToString());
+                var qualifier = reasonCode.Length > 0 && reasonCode != "none" &&
+                    !string.Equals(reasonCode, state, StringComparison.Ordinal)
+                        ? " (" + reasonCode + ")"
+                        : string.Empty;
+                return state + qualifier + ": " + string.Join(", ", group.Select(
+                    feature => GameMcpTextFormatter.Plain(
+                        CanonicalGameMcpFeatureName(feature.DisplayName))));
+            })
+            .ToArray();
+        if (featureGroups.Length > 0)
+            result.Append("features ").AppendLine(string.Join("; ", featureGroups));
+
+        var runtimeServices = context.Runtime?.Services ?? Array.Empty<AutomataServiceFrameFacts>();
+        var serviceGroups = runtimeServices
+            .GroupBy(service =>
+                service.HasRunner
+                    ? service.Runner.Fault.IsValid ? "faulted" : service.Runner.Phase.ToString()
+                    : "unavailable")
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group =>
+                GameMcpEntityWireNormalizer.Snake(group.Key) + ": " + string.Join(", ", group.Select(
+                    service => GameMcpTextFormatter.Plain(
+                        CanonicalGameMcpFeatureName(service.DisplayName)))))
+            .ToArray();
+        if (serviceGroups.Length > 0)
+            result.Append("services ").AppendLine(string.Join("; ", serviceGroups));
+        return result.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// The one name a suite feature answers to, on health and on the automation list alike.
+    /// </summary>
+    /// <remarks>
+    /// Health said <c>Auto Buy</c> and the automation list said <c>auto_buy</c> for one feature, and
+    /// health names nine where the list names seven — so a caller comparing them had a naming
+    /// difference and a count difference at once and no way to see that one set contains the other.
+    /// Both now speak the ids the automation verb takes as arguments, and the two extra names on
+    /// health read as the two features that have no on/off button rather than as a contradiction.
+    /// </remarks>
+    private static string CanonicalGameMcpFeatureName(string name) =>
+        string.Equals(name, "Orb Mentor", StringComparison.Ordinal)
+            ? "mentor"
+            : GameMcpEntityWireNormalizer.Snake(name);
+
+    /// <summary>
+    /// The committed value of every writable setting, one setting per line, or of one section's.
+    /// </summary>
+    /// <remarks>
+    /// What a setting means and which values it takes do not change between calls, so they are
+    /// documentation, not an answer: the ordinary read is the values a caller came for, and
+    /// <c>mode=describe</c> is where the type, the domain — a range or a list of names, said the
+    /// same way for both — and the sentence live for whoever is deciding what to write.
+    /// <para>
+    /// The section is the grouping word every setting already wears in its own name, so
+    /// <c>section=AutoBuy</c> is "everything Auto Buy has" and needs no second vocabulary. It
+    /// narrows both modes, because the read whose answer is longest is the one worth narrowing. An
+    /// answer that was not narrowed names the sections it holds, so the word is read off the
+    /// surface rather than guessed at.
+    /// </para>
+    /// </remarks>
+    internal static GameMcpValue ProjectGameMcpConfiguration(
+        GameMcpFrameContext context,
+        bool describe,
+        string section = "")
+    {
+        if (!context.ConfigurationGeneration.IsValid)
+        {
+            return new GameMcpObjectBuilder
+            {
+                ["status"] = "not_available",
+                ["code"] = "configuration_unpublished",
+                ["reason"] = "no committed configuration has been published yet",
+            }.Freeze();
+        }
+        var narrowed = section.Length > 0;
+        if (narrowed &&
+            !TryConfigurationSection(
+                context.WritableConfiguration, section, out section, out var unknown))
+        {
+            return new GameMcpObjectBuilder
+            {
+                ["status"] = "not_available",
+                ["code"] = "unknown_section",
+                ["reason"] = unknown,
+            }.Freeze();
+        }
+        var described = new GameMcpArrayBuilder();
+        var values = new GameMcpObjectBuilder();
+        for (var index = 0; index < context.WritableConfiguration.Length; index++)
+        {
+            var item = context.WritableConfiguration[index];
+            if (narrowed && !string.Equals(item.Section, section, StringComparison.Ordinal))
+                continue;
+            var value = CanonicalConfigurationValue(
+                GameMcpConfigurationSchema.SerializePublishedValue(
+                    context.Configuration.Snapshot,
+                    item.Section,
+                    item.Key));
+            if (!describe)
+            {
+                values[item.Section + "/" + item.Key] = value;
+                continue;
+            }
+            var setting = new GameMcpObjectBuilder
+            {
+                ["setting"] = item.Section + "/" + item.Key,
+                ["value"] = value,
+                ["type"] = item.SettingType,
+            };
+            var domain = item.Constraint.Domain.Length > 0
+                ? item.Constraint.Domain
+                : PlainConfigurationDomain(item.Constraint.AcceptableValues);
+            if (domain.Length > 0) setting["domain"] = domain;
+
+            // The same two numbers a refused write hands back. A caller that has to parse a range
+            // out of prose before it may write is a caller that will get the parse wrong once.
+            GameMcpConfigurationValuePolicy.AddBound(setting, item.Constraint.Bound);
+            setting["description"] = item.Description;
+            described.Add(setting);
+        }
+        var result = new GameMcpObjectBuilder();
+        if (!narrowed)
+            result["sections"] = ConfigurationSectionNames(context.WritableConfiguration);
+        if (describe)
+        {
+            if (described.Count > 0) result["settings"] = described;
+            return result.Freeze();
+        }
+        result.CopyFrom(values);
+        return result.Freeze();
+    }
+
+    /// <summary>
+    /// The section a caller named, spelled the way every row spells it, or the sentence refusing it.
+    /// </summary>
+    /// <remarks>
+    /// The refusal names the sections that exist rather than pointing at a call that would list
+    /// them: there are few enough to fit on the line, and a caller who mistyped one should not have
+    /// to spend a round trip learning what it should have been.
+    /// </remarks>
+    private static bool TryConfigurationSection(
+        GameMcpWritableSettingDescriptor[] writable,
+        string requested,
+        out string canonical,
+        out string reason)
+    {
+        for (var index = 0; index < writable.Length; index++)
+        {
+            if (!string.Equals(
+                    writable[index].Section, requested, StringComparison.OrdinalIgnoreCase))
+                continue;
+            canonical = writable[index].Section;
+            reason = string.Empty;
+            return true;
+        }
+        canonical = string.Empty;
+        reason = "unknown section '" + requested + "'; the sections are " +
+            string.Join(", ", ConfigurationSectionNames(writable));
+        return false;
+    }
+
+    /// <summary>Each section once, in the order the writable schema declares its settings.</summary>
+    private static string[] ConfigurationSectionNames(
+        GameMcpWritableSettingDescriptor[] writable)
+    {
+        var names = new List<string>();
+        for (var index = 0; index < writable.Length; index++)
+        {
+            var section = writable[index].Section;
+            if (!names.Contains(section)) names.Add(section);
+        }
+        return names.ToArray();
+    }
+
+    internal static GameMcpValue ProjectGameMcpAutomationFeatures(GameMcpFrameContext context)
+    {
+        var config = context.Configuration.Snapshot;
+        var features = new GameMcpArrayBuilder();
+        foreach (var feature in GameMcpAutomationFeatures.All)
+        {
+            var row = new GameMcpObjectBuilder
+            {
+                ["feature"] = feature.Name,
+            };
+
+            // Every row names its feature the way the Mods rail names it. Publishing the name only
+            // where it was not the id in title case saved a column and left `-` on six of seven
+            // rows, which reads as a feature the suite could not name, while the reader was
+            // silently expected to derive the other six by a rule the page never stated. The name
+            // is a suite-side constant and the same one `suite_health` and a commit already print.
+            row["name"] = feature.DisplayName;
+            row["on"] = feature.IsOn(config);
+            if (RuntimeQualifier(context, feature.Name) is { } qualifier)
+                row["runtime"] = qualifier;
+            features.Add(row);
+        }
+        var result = new GameMcpObjectBuilder
+        {
+            ["features"] = features,
+        };
+        // Both of these silence every feature that reads as on, so a list that omitted them would
+        // be answering a different question than the caller asked.
+        GameMcpAutomationFeatures.AddSuiteOverrides(result, config);
+        return result.Freeze();
+    }
+
+    /// <summary>
+    /// What the runtime does with a feature the config says is on, said in the words
+    /// <c>suite_health</c> uses, or nothing where the runtime agrees with the switch.
+    /// </summary>
+    /// <remarks>
+    /// The <c>on</c> column is a config value wearing a runtime word: a feature can read
+    /// <c>on: yes</c> for a whole session while the runtime holds it progression-locked, and the
+    /// only way to see that was a second call to <c>suite_health</c> and a name-by-name join. This
+    /// follows the suite-override rule beside it — the qualifier appears exactly where it
+    /// contradicts the switch, so an agreeing row still costs the page nothing. A
+    /// configuration-disabled runtime is the switch itself and is not repeated.
+    /// </remarks>
+    private static string? RuntimeQualifier(GameMcpFrameContext context, string featureName)
+    {
+        var statuses = context.FeatureStatuses;
+        for (var index = 0; index < statuses.Length; index++)
+        {
+            var status = statuses[index];
+            if (!string.Equals(
+                    CanonicalGameMcpFeatureName(status.DisplayName),
+                    featureName,
+                    StringComparison.Ordinal))
+            {
+                continue;
+            }
+            if (status.State is FeatureStatusState.Operational or
+                FeatureStatusState.ConfigurationDisabled)
+            {
+                return null;
+            }
+            var state = GameMcpEntityWireNormalizer.Snake(status.State.ToString());
+            var code = GameMcpEntityWireNormalizer.Snake(status.Reason.Code.ToString());
+            return code.Length == 0 || code == "none" ||
+                string.Equals(code, state, StringComparison.Ordinal)
+                ? state
+                : state + " (" + code + ")";
+        }
+        return null;
+    }
+
+    internal static GameMcpValue ProjectGameMcpAutomationCommit(
+        GameMcpAutomationFeature feature,
+        bool wasOn,
+        SuiteRuntimeConfiguration settled)
+    {
+        var result = new GameMcpObjectBuilder
+        {
+            ["feature"] = feature.Name,
+            ["name"] = feature.DisplayName,
+            ["on"] = new GameMcpObjectBuilder
+            {
+                ["before"] = wasOn,
+                ["after"] = feature.IsOn(settled),
+            },
+        };
+        // Closing a breaker is an instruction, and an instruction whose answer is "on: yes" says
+        // nothing about what was just set running. The settings that decide that are already in
+        // hand, so the write answers with them rather than sending the caller to the settings pen —
+        // including when they add up to a feature that will do nothing at all. A breaker being
+        // opened needs no such line: nothing is about to happen.
+        if (feature.IsOn(settled)) result["policy"] = feature.Policy(settled);
+        // A caller who turns a feature on under an engaged stop has to read that here, in the
+        // answer to the write, not on a later list call.
+        GameMcpAutomationFeatures.AddSuiteOverrides(result, settled);
+        return result.Freeze();
+    }
+
+    /// <summary>
+    /// The published text of one setting, as the wire says it. How a value is spelled is decided
+    /// where it becomes text, in <see cref="GameMcpConfigurationSchema.SerializePublishedValue"/>,
+    /// so nothing here re-decides it by reading a type name back off the descriptor.
+    /// </summary>
+    private static object CanonicalConfigurationValue(string value)
+    {
+        // An allowlist stored as joined UUIDs printed 288 characters that resolved to nothing a
+        // caller could use, on a surface that says every other id as a named handle. Written as the
+        // list it is, each entry crosses the wire the way every other entity reference does.
+        var entries = TryConfigurationIdentityList(value);
+        if (entries is null) return value;
+        var list = new GameMcpArrayBuilder();
+        for (var index = 0; index < entries.Length; index++) list.Add(entries[index]);
+        return list;
+    }
+
+    /// <summary>The whole UUIDs a joined setting holds, or nothing when it holds something else.</summary>
+    private static string[]? TryConfigurationIdentityList(string value)
+    {
+        if (value.Length == 0) return null;
+        var entries = value.Split(',');
+        for (var index = 0; index < entries.Length; index++)
+        {
+            entries[index] = entries[index].Trim();
+            if (!Guid.TryParseExact(entries[index], "D", out _)) return null;
+        }
+        return entries;
+    }
+
+    private static string PlainConfigurationDomain(string value)
+    {
+        var result = (value ?? string.Empty).Trim();
+        const string marker = "# Acceptable value range:";
+        if (result.StartsWith(marker, StringComparison.OrdinalIgnoreCase))
+            result = result.Substring(marker.Length).Trim();
+        return result;
+    }
+
+    internal static string ProjectGameMcpTraceHealthText(GameMcpFrameContext context)
+    {
+        var status = context.TraceWriterStatus;
+        if (status.State == DecisionJournalStatusState.Unavailable)
+        {
+            // The writer and the collection pass are two independent facts, and the pass is the one
+            // a session driving the game asks about. Returning here on the writer alone made the
+            // spans unreadable in exactly the runs that had no trace to open afterwards.
+            return "unavailable\nreason: the decision journal writer is not active in this runtime\n" +
+                GameMcpCollectionSpans.Describe(context);
+        }
+        var result = new StringBuilder()
+            .AppendLine("available")
+            .Append("trace writer: ").AppendLine(
+                GameMcpEntityWireNormalizer.Snake(status.State.ToString()));
+        var outcome = GameMcpEntityWireNormalizer.Snake(status.Result.ToString());
+        if (outcome.Length > 0 && outcome != "none")
+            result.Append("result: ").AppendLine(outcome);
+        result.Append("records: accepted ").Append(
+                status.AcceptedRecords.ToString(CultureInfo.InvariantCulture))
+            .Append(", written ").Append(
+                status.WrittenRecords.ToString(CultureInfo.InvariantCulture))
+            .Append(", discarded ").AppendLine(
+                status.DiscardedRecords.ToString(CultureInfo.InvariantCulture))
+            .Append("bytes written: ").AppendLine(
+                status.BytesWritten.ToString(CultureInfo.InvariantCulture))
+            .Append("segments: written ").Append(
+                status.WrittenSegments.ToString(CultureInfo.InvariantCulture))
+            .Append(", retained ").AppendLine(
+                status.RetainedSegments.ToString(CultureInfo.InvariantCulture))
+            .Append("pending blocks: ").Append(
+                status.PendingBlocks.ToString(CultureInfo.InvariantCulture))
+            .Append(" (peak ").Append(
+                status.PeakPendingBlocks.ToString(CultureInfo.InvariantCulture))
+            .AppendLine(")");
+        if (status.ArtifactName.Length > 0)
+            result.Append("artifact: ").AppendLine(
+                GameMcpTextFormatter.Plain(status.ArtifactName));
+        if (status.FaultSite.Length > 0)
+            result.Append("fault site: ").AppendLine(
+                GameMcpTextFormatter.Plain(status.FaultSite));
+        if (status.FaultMessage.Length > 0)
+            result.Append("fault: ").AppendLine(
+                GameMcpTextFormatter.Plain(status.FaultMessage));
+        result.Append("revision: ").AppendLine(
+            context.TraceWriterRevision.ToString(CultureInfo.InvariantCulture));
+        result.Append(GameMcpCollectionSpans.Describe(context));
+        return result.ToString();
+    }
+
+    private static string ComputeExecutingDllSha256()
+    {
+        try
+        {
+            var path = Assembly.GetExecutingAssembly().Location;
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return "unavailable";
+            using var stream = File.OpenRead(path);
+            using var sha = SHA256.Create();
+            // A build fingerprint answers one question: same DLL or not. Six bytes settle it; the
+            // remaining twenty-six were a constant sixty-four-character tax on every health call.
+            return string.Concat(sha.ComputeHash(stream).Take(6).Select(
+                value => value.ToString("x2", CultureInfo.InvariantCulture)));
+        }
+        catch (Exception)
+        {
+            return "unavailable";
+        }
+    }
+
+    internal static bool TryPrepareGameMcpCommand(
+        GameMcpFrameOperation operation,
+        GameMcpFrameContext context,
+        out GameMcpCommand command,
+        out GameMcpCommandResult failure)
+    {
+        var request = operation.Request;
+        var kind = GameMcpCommandKinds.FromRequest(
+            request.ToolName,
+            request.Mode,
+            request.Key);
+
+        var mode = request.Mode;
+        var targetId = request.Uuid;
+        var secondaryId = request.SecondaryUuid;
+        var nativeType = string.Empty;
+        var amount = request.Amount;
+        var payloadKey = string.Empty;
+        var payloadValue = string.Empty;
+        GameMcpCommandResult? preparationFailure = null;
+        if (kind == GameMcpCommandKind.Purchase && context.World is not null)
+        {
+            var structure = WorldLookup.TryFind(
+                context.World.Snapshot.Structures, request.Uuid, out _);
+            var upgrade = WorldLookup.TryFind(
+                context.World.Snapshot.Upgrades, request.Uuid, out _);
+            if (structure != upgrade)
+            {
+                mode = structure ? "structure" : "upgrade";
+                nativeType = structure ? "StructureSO" : "UpgradeSO";
+            }
+        }
+        else if (kind == GameMcpCommandKind.Cast)
+        {
+            nativeType = "SpellRecipeSO";
+            amount = request.SlotIndex;
+            payloadValue = request.SerializedValue;
+        }
+        else if (kind == GameMcpCommandKind.Concept)
+            nativeType = "AlchemyRecipeSO";
+        else if (kind == GameMcpCommandKind.Harvest)
+        {
+            nativeType = "PlotNodeSO";
+            mode = request.Mode;
+        }
+        else if (kind == GameMcpCommandKind.SpellLevel)
+            nativeType = "SpellRecipeSO";
+        else if (kind == GameMcpCommandKind.DiscoveryTreeOffer)
+        {
+            nativeType = "DiscoveryTreeSO";
+            mode = request.Mode.Substring("offer_".Length);
+        }
+        else if (kind == GameMcpCommandKind.SpellWorkbench)
+        {
+            nativeType = "SpellRecipeSO";
+            mode = "create";
+        }
+        else if (kind == GameMcpCommandKind.SpellComposition)
+        {
+            nativeType = "IntVariable";
+
+            // Two dials share one screen, so the committed response names the one it moved.
+            payloadKey = request.Key;
+        }
+        else if (kind == GameMcpCommandKind.SpellLoadout)
+        {
+            nativeType = "Spell";
+            amount = request.Mode == "move" ? request.SlotIndex : 1;
+            if (context.World is null)
+                preparationFailure = GameMcpCommandResult.Rejected(
+                    "world_not_published", context.RuntimeNotAvailableReason);
+            else if (!GameMcpWorldQuery.TryEquippedSpellSlot(
+                         context.World.Snapshot, request.Amount,
+                         out targetId, out var spellSlotReason))
+                preparationFailure = GameMcpCommandResult.Rejected(
+                    "slot_unavailable", spellSlotReason);
+        }
+        else if (kind == GameMcpCommandKind.Targeting)
+            nativeType = request.Mode == "submit" ? "StructureSO" : "TargetingManager+TargetLink";
+        else if (kind == GameMcpCommandKind.Consumable)
+        {
+            nativeType = "ConsumableSO";
+            payloadKey = request.Key;
+            payloadValue = request.SerializedValue;
+            if (request.Mode == "move") amount = request.SlotIndex;
+        }
+        else if (kind == GameMcpCommandKind.Crafting)
+            nativeType = "CraftingRecipeSO";
+        else if (kind == GameMcpCommandKind.GenericDiscovery)
+        {
+            if (context.World is null)
+                preparationFailure = GameMcpCommandResult.Rejected(
+                    "world_not_published",
+                    context.RuntimeNotAvailableReason);
+            else if (!GameMcpWorldQuery.TryResolveDiscoveryTarget(
+                         context.World.Snapshot,
+                         request.Uuid,
+                         out nativeType,
+                         out _,
+                         out var resolutionCode,
+                         out var resolutionReason))
+                preparationFailure = GameMcpCommandResult.Rejected(
+                    resolutionCode,
+                    resolutionReason);
+        }
+        else if (kind == GameMcpCommandKind.EquipmentLoadout)
+            nativeType = "EquipmentSO";
+        else if (kind == GameMcpCommandKind.AlchemyLoadout)
+        {
+            nativeType = "AlchemyRecipeSO";
+            if (request.Mode == "move") amount = request.SlotIndex;
+        }
+        else if (kind == GameMcpCommandKind.RitualLifecycle)
+            nativeType = "RitualSO";
+        else if (kind == GameMcpCommandKind.GenericLevel)
+        {
+            if (context.World is null)
+                preparationFailure = GameMcpCommandResult.Rejected(
+                    "world_not_published", context.RuntimeNotAvailableReason);
+            else if (!GameMcpEntityCapabilityMap.TryResolveGenericLevelType(
+                         context.World.Snapshot, request.Uuid,
+                         out nativeType, out var levelReason))
+                preparationFailure = GameMcpCommandResult.Rejected(
+                    "level_target_unavailable", levelReason);
+        }
+        else if (kind == GameMcpCommandKind.CraftingStation)
+        {
+            nativeType = "CraftingStructure";
+            if (request.Mode == "set_ingredient") amount = request.SlotIndex;
+            else if (request.Mode == "set_level") amount = request.Amount;
+        }
+        else if (kind == GameMcpCommandKind.Loadout)
+        {
+            var snapshotMode = request.Mode.StartsWith("snapshot_", StringComparison.Ordinal);
+            if (context.World is null)
+            {
+                preparationFailure = GameMcpCommandResult.Rejected(
+                    "world_not_published", context.RuntimeNotAvailableReason);
+            }
+            else if (snapshotMode)
+            {
+                if (GameMcpWorldQuery.TrySnapshotList(
+                        context.World.Snapshot, request.Key, out targetId, out var listReason))
+                    nativeType = request.Key == "alchemy"
+                        ? "AlchemySnapshotListVariable"
+                        : "EquipmentSnapshotListVariable";
+                else
+                    preparationFailure = GameMcpCommandResult.Rejected(
+                        "loadout_unavailable", listReason);
+            }
+            else if (GameMcpWorldQuery.TryPlayerLoadout(
+                         context.World.Snapshot, request.Amount,
+                         out targetId, out var loadoutReason))
+            {
+                nativeType = "PlayerLoadout";
+            }
+            else
+            {
+                preparationFailure = GameMcpCommandResult.Rejected(
+                    "loadout_unavailable", loadoutReason);
+            }
+            mode = request.Mode == "set_section"
+                ? request.Key == "equipment" ? "set_equipment" : "set_alchemy"
+                : request.Mode;
+            payloadKey = request.Key;
+            payloadValue = request.SerializedValue;
+            // Only a snapshot mode addresses a slot. A loadout position is resolved here into the
+            // identity the boundary acts on, so it must not also ride along as a slot number.
+            amount = snapshotMode ? request.SlotIndex : 1;
+        }
+        else if (kind == GameMcpCommandKind.HarvestLifecycle)
+            nativeType = "HarvestElementSO";
+        else if (kind == GameMcpCommandKind.StructureLifecycle)
+            nativeType = "StructureSO";
+        else if (kind == GameMcpCommandKind.ReturnToMenu)
+        {
+            nativeType = "UIBackToMenuButton";
+            mode = "return_to_menu";
+        }
+        else if (kind == GameMcpCommandKind.Challenge)
+        {
+            nativeType = "ChallengeSO";
+            if (request.Mode == "select" && context.World is not null)
+                secondaryId = GameMcpWorldQuery.ChallengeSelectionToReplace(
+                    context.World.Snapshot, targetId);
+        }
+        else if (kind == GameMcpCommandKind.Prestige)
+            nativeType = "PersistentResetManager";
+        else if (kind == GameMcpCommandKind.Research)
+            nativeType = "ResearchSO";
+        else if (kind == GameMcpCommandKind.ConfigurationSet)
+        {
+            mode = request.Section;
+            payloadKey = request.Key;
+            payloadValue = request.SerializedValue;
+        }
+        else if (kind == GameMcpCommandKind.AutomationSet)
+        {
+            mode = request.Mode;
+            payloadKey = request.Key;
+            payloadValue = request.SerializedValue;
+        }
+        else if (kind == GameMcpCommandKind.EmergencyStop)
+            mode = request.Mode;
+        else if (kind == GameMcpCommandKind.Screenshot)
+            mode = "capture";
+        else if (kind == GameMcpCommandKind.Navigation)
+            mode = "navigate";
+        else if (kind == GameMcpCommandKind.Probe)
+            mode = request.Probe;
+        else if (kind == GameMcpCommandKind.ScreenCatalog)
+            mode = "catalog";
+        else if (kind == GameMcpCommandKind.TooltipCatalog)
+        {
+            mode = "catalog";
+            amount = request.Limit;
+            payloadValue = request.Offset.ToString(
+                System.Globalization.CultureInfo.InvariantCulture);
+        }
+        else if (kind == GameMcpCommandKind.TooltipRead)
+        {
+            mode = "read";
+            payloadValue = request.Path;
+        }
+        else if (kind == GameMcpCommandKind.ContinueRun)
+            mode = "continue";
+
+        command = new GameMcpCommand(
+            operation.Sequence,
+            kind,
+            request.Classification == GameMcpOperationClass.Gameplay
+                ? context.LifecycleGeneration
+                : 0,
+            request.Classification is GameMcpOperationClass.Gameplay or
+                GameMcpOperationClass.SuiteAdministration
+                    ? context.ConfigurationGeneration.Value
+                    : 0,
+            mode.Length == 0 ? request.ToolName : mode,
+            targetId,
+            secondaryId,
+            nativeType,
+            amount <= 0 ? 1 : amount,
+            payloadKey,
+            payloadValue,
+            request.SaveCapture,
+            operation,
+            context,
+            request.UuidCounts);
+
+        if (request.Classification != GameMcpOperationClass.Gameplay)
+        {
+            failure = null!;
+            return true;
+        }
+        if (context.World is null)
+        {
+            failure = GameMcpCommandResult.Rejected(
+                "world_not_available",
+                context.RuntimeNotAvailableReason.Length == 0
+                    ? "The game state has not been read yet."
+                    : context.RuntimeNotAvailableReason);
+            return false;
+        }
+        if (context.LifecycleGeneration <= 0)
+        {
+            failure = GameMcpCommandResult.Rejected(
+                "lifecycle_not_available",
+                "No game is loaded, so there is nothing to act on.");
+            return false;
+        }
+        if (!context.ConfigurationGeneration.IsValid)
+        {
+            failure = GameMcpCommandResult.Rejected(
+                "configuration_not_available",
+                GameMcpDecisionReason.For("configuration_not_available"));
+            return false;
+        }
+        if (preparationFailure is not null)
+        {
+            failure = preparationFailure;
+            return false;
+        }
+        var reason = string.Empty;
+        if (GameMcpCommandKinds.IsEntityGameplayAction(kind) &&
+            (nativeType.Length == 0 || !GameMcpEntityCapabilityMap.Contains(
+                context.World.Snapshot,
+                targetId,
+                kind,
+                out reason)))
+        {
+            // Nothing pending is not an unsupported target: the verb exists, the screen just has
+            // no selection open. That is the whole answer, so no entity-ownership hint refines it.
+            var noPendingTarget = kind == GameMcpCommandKind.Targeting &&
+                !GameMcpEntityCapabilityMap.HasPendingTargetSelection(context.World.Snapshot);
+            var code = noPendingTarget ? "no_pending_target" : "unsupported_action_target";
+            if (!noPendingTarget && GameMcpEntityCapabilityMap.TryOwningTool(
+                    context.World.Snapshot,
+                    targetId,
+                    out var owningCategory,
+                    out var owningNativeType,
+                    out var owningTool))
+            {
+                // The name a player reads and the handle they can act on. Spelling the subject the
+                // way a log does — display name, asset name in brackets, whole canonical UUID —
+                // put an address nobody could type into prose beside the same entity's own
+                // structured fields, and the game's internal type name beside a category that had
+                // already said the same thing in the player's word for it.
+                var identity = EntityIdentityFormatter.PlayerHandle(
+                    targetId,
+                    context.World.Snapshot.EntityIdentities);
+                if (owningTool.Length > 0 && !string.Equals(
+                        owningTool, request.ToolName, StringComparison.Ordinal))
+                {
+                    code = "wrong_action_tool";
+                    reason = identity + " lives under " + owningCategory +
+                        "; use " + owningTool + " for its player action";
+                }
+                else if (owningTool.Length > 0)
+                {
+                    code = "action_target_unavailable";
+                    if (reason.Length == 0)
+                        reason = identity + " is not available for this action right now";
+                }
+                else
+                {
+                    code = "read_only_entity";
+                    reason = identity + " is available under " + owningCategory +
+                        " but has no gameplay verb; inspect it with world_get";
+                }
+            }
+            failure = GameMcpCommandResult.Rejected(
+                code,
+                reason.Length == 0
+                    ? "the UUID is not supported by " + request.ToolName
+                    : reason);
+            return false;
+        }
+        failure = null!;
+        return true;
+    }
+
+    /// <summary>
+    /// The half of a configuration write that only the live game can settle. A declared range is
+    /// checked against the setting; a range that is a game fact is checked against the world this
+    /// frame published, so a write that would silence a feature is refused instead of stored.
+    /// </summary>
+    private static bool TryAdmitConfigurationWriteAgainstWorld(
+        GameMcpCommand command,
+        GameMcpFrameContext context,
+        out GameMcpCommandResult failure)
+    {
+        if (GameMcpConfigurationValuePolicy.TryValidateAgainstWorld(
+                command.Mode,
+                command.PayloadKey,
+                command.PayloadValue,
+                context.World?.Snapshot,
+                out var reason,
+                out var bound))
+        {
+            failure = null!;
+            return true;
+        }
+        failure = GameMcpCommandResult.Rejected(
+            "configuration_write_rejected",
+            reason,
+            details: GameMcpConfigurationValuePolicy.RefusalFacts(command, in bound));
+        return false;
+    }
+
+    private GameMcpCommandResult ExecuteAdministrativeGameMcp(
+        GameMcpCommand command,
+        GameMcpFrameContext context)
     {
         if (_configurationStore is null)
             return GameMcpCommandResult.Rejected(
                 "configuration_not_available",
-                "the committed suite configuration store is not composed");
+                GameMcpDecisionReason.For("configuration_not_available"));
         var expected = command.ExpectedConfigurationGeneration;
         var before = _configurationStore.CurrentGeneration;
         if (expected != before.Value)
         {
             return GameMcpCommandResult.Rejected(
                 "stale_configuration_generation",
-                "command expected configuration generation " + expected +
-                " but the main thread now has generation " + before.Value,
+                GameMcpDecisionReason.For("stale_configuration_generation"),
                 observedConfigurationGeneration: before.Value);
         }
 
         if (command.Kind == GameMcpCommandKind.ConfigurationSet)
         {
-            if (!_configurationStore.TrySetGameMcp(
-                    command.Mode,
-                    command.PayloadKey,
-                    command.PayloadValue,
-                    before,
-                    out var reason))
+            if (GameMcpAutomationFeatures.IsBreakerSetting(command.Mode, command.PayloadKey))
+                return GameMcpCommandResult.Rejected(
+                    "wrong_configuration_surface",
+                    GameMcpDecisionReason.For("wrong_configuration_surface"),
+                    observedLifecycleGeneration: _lifecycleGeneration,
+                    observedConfigurationGeneration: before.Value);
+            // The publication the write is about to replace, held as the snapshot it is rather than
+            // as text. Only an address the store admitted has a published value to spell, so the
+            // pair is rendered on the committed path and a name that resolves to no setting is
+            // refused by the store in its own words.
+            var priorConfiguration = _configurationStore.Current;
+            if (!TryAdmitConfigurationWriteAgainstWorld(command, context, out var worldFailure))
+                return worldFailure;
+            var written = _configurationStore.SetGameMcp(
+                command.Mode,
+                command.PayloadKey,
+                command.PayloadValue,
+                before,
+                out var reason,
+                out var bound);
+            if (written == AutomataConfigurationWrite.Unconfirmed)
+                return GameMcpCommandResult.Failed(
+                    "configuration_write_unconfirmed",
+                    GameMcpDecisionReason.For("configuration_write_unconfirmed"),
+                    observedConfigurationGeneration:
+                        _configurationStore.CurrentGeneration.Value);
+            if (written == AutomataConfigurationWrite.Refused)
             {
                 return GameMcpCommandResult.Rejected(
                     "configuration_write_rejected",
                     reason,
                     observedConfigurationGeneration:
-                        _configurationStore.CurrentGeneration.Value);
+                        _configurationStore.CurrentGeneration.Value,
+                    details: GameMcpConfigurationValuePolicy.RefusalFacts(command, in bound));
             }
             return GameMcpCommandResult.Committed(
                 "configuration_committed",
-                "the BepInEx entry was committed through configuration generation " +
-                _configurationStore.CurrentGeneration.Value,
-                observedWorldGeneration: 0,
                 observedLifecycleGeneration: _lifecycleGeneration,
                 observedConfigurationGeneration:
-                    _configurationStore.CurrentGeneration.Value);
+                    _configurationStore.CurrentGeneration.Value,
+                details: new GameMcpObjectBuilder
+                {
+                    ["setting"] = new GameMcpObjectBuilder
+                    {
+                        ["section"] = command.Mode,
+                        ["key"] = command.PayloadKey,
+
+                        // What a write changed is the pair, not the endpoint. A caller that reads
+                        // only `value` cannot tell a committed change from a no-op it repeated.
+                        ["value"] = new GameMcpObjectBuilder
+                        {
+                            ["before"] = GameMcpConfigurationSchema.SerializePublishedValue(
+                                priorConfiguration,
+                                command.Mode,
+                                command.PayloadKey),
+                            ["after"] = GameMcpConfigurationSchema.SerializePublishedValue(
+                                _configurationStore.Current,
+                                command.Mode,
+                                command.PayloadKey),
+                        },
+                    },
+                }.Freeze());
+        }
+
+        if (command.Kind == GameMcpCommandKind.AutomationSet)
+        {
+            if (!GameMcpAutomationFeatures.TryGet(command.PayloadKey, out var feature))
+                return GameMcpCommandResult.Rejected(
+                    "automation_feature_unknown",
+                    "no automation feature is registered as " + command.PayloadKey);
+            var requested = command.PayloadValue == "Active";
+            var wasOn = feature.IsOn(_configurationStore.Current);
+            if (wasOn == requested)
+                return GameMcpCommandResult.Rejected(
+                    "already_in_requested_state",
+                    feature.DisplayName + " is already " + (requested ? "on" : "off"),
+                    observedLifecycleGeneration: _lifecycleGeneration,
+                    observedConfigurationGeneration: before.Value);
+            var automationWrite = _configurationStore.SetGameMcp(
+                feature.Section,
+                feature.Key,
+                command.PayloadValue,
+                before,
+                out var automationReason,
+                out _);
+            if (automationWrite == AutomataConfigurationWrite.Unconfirmed)
+                return GameMcpCommandResult.Failed(
+                    "configuration_write_unconfirmed",
+                    GameMcpDecisionReason.For("configuration_write_unconfirmed"),
+                    observedConfigurationGeneration:
+                        _configurationStore.CurrentGeneration.Value);
+            if (automationWrite == AutomataConfigurationWrite.Refused)
+            {
+                return GameMcpCommandResult.Rejected(
+                    "configuration_write_rejected",
+                    automationReason,
+                    observedConfigurationGeneration:
+                        _configurationStore.CurrentGeneration.Value);
+            }
+            return GameMcpCommandResult.Committed(
+                "automation_committed",
+                observedLifecycleGeneration: _lifecycleGeneration,
+                observedConfigurationGeneration:
+                    _configurationStore.CurrentGeneration.Value,
+                details: ProjectGameMcpAutomationCommit(
+                    feature,
+                    wasOn,
+                    _configurationStore.Current));
         }
 
         var engage = command.Mode == "engage";
@@ -1378,19 +2891,20 @@ public sealed class Plugin : BaseUnityPlugin
         _configurationStore.SetEmergencyStop(engage);
         return GameMcpCommandResult.Committed(
             engage ? "emergency_stop_engaged" : "emergency_stop_resume_committed",
-            engage
-                ? "the committed safety setting is true and prepared native actions were cancelled"
-                : "the committed safety setting is false; dispatch resumes only after the host accepts a fresh world",
-            observedWorldGeneration: 0,
             observedLifecycleGeneration: _lifecycleGeneration,
             observedConfigurationGeneration:
-                _configurationStore.CurrentGeneration.Value);
+                _configurationStore.CurrentGeneration.Value,
+            details: new GameMcpObjectBuilder
+            {
+                ["emergencyStopEngaged"] = _configurationStore.Current.Safety.EmergencyDisable,
+            }.Freeze());
     }
 
     private bool TryExecuteGameMcpGadget(
         GameMcpCommand command,
         out GameMcpCommandResult result)
     {
+        var access = GameMcpGadgetPolicy.AccessFor(command.Kind);
         if (command.SaveCapture)
         {
             var admission = GameMcpScreenshotBudget.BeforeCapture(
@@ -1401,44 +2915,109 @@ public sealed class Plugin : BaseUnityPlugin
                 return true;
             }
         }
-        if (command.Kind == GameMcpCommandKind.Screenshot)
+        if (access == GameMcpGadgetAccess.Framebuffer)
         {
             StartCoroutine(CaptureGameMcpAtEndOfFrame(
                 command,
                 GadgetCommitted(
                     "screenshot_captured",
-                    "the game framebuffer was captured after the current frame completed",
-                    new JObject { ["operation"] = "screenshot" })));
+                    new GameMcpObjectBuilder())));
             result = null!;
             return false;
         }
-        if (command.Kind == GameMcpCommandKind.Navigation)
+        if (access == GameMcpGadgetAccess.Navigation)
         {
             StartCoroutine(NavigateGameMcpAcrossFrames(command));
             result = null!;
             return false;
         }
-
-        result = command.Kind switch
+        if (access == GameMcpGadgetAccess.ContinueRun)
         {
-            GameMcpCommandKind.Probe => ProbeGameMcp(command),
-            GameMcpCommandKind.ScreenCatalog => CaptureScreenCatalogGameMcp(),
-            GameMcpCommandKind.TooltipCatalog => CaptureTooltipCatalogGameMcp(command),
-            GameMcpCommandKind.TooltipRead => ReadTooltipGameMcp(command),
-            GameMcpCommandKind.ContinueRun => ContinueRunGameMcp(),
-            _ => GameMcpCommandResult.Rejected(
-                "unsupported_gadget",
-                "the requested gadget is not allowlisted",
-                observedLifecycleGeneration: _lifecycleGeneration,
-                observedConfigurationGeneration:
-                    _configurationStore?.CurrentGeneration.Value ?? 0),
-        };
-        if (command.Capture && string.Equals(result.Status, "committed", StringComparison.Ordinal))
+            result = ContinueRunGameMcp();
+            if (string.Equals(result.Status, "committed", StringComparison.Ordinal))
+            {
+                StartCoroutine(CompleteContinueRunGameMcp(command, result));
+                return false;
+            }
+            return true;
+        }
+        if (access == GameMcpGadgetAccess.Modal)
         {
-            StartCoroutine(CaptureGameMcpAtEndOfFrame(command, result));
+            if (_modalDismissGameAction is null)
+            {
+                result = GadgetRejected("contract_unavailable",
+                    "The native modal close control is unavailable.");
+                return true;
+            }
+            var submission = _modalDismissGameAction.Submit();
+            if (!submission.Committed)
+            {
+                result = GadgetRejected(submission.Code, submission.Reason);
+                return true;
+            }
+            StartCoroutine(CompleteModalDismissGameMcp(command, submission.Title));
+            result = null!;
             return false;
         }
+
+        result = access switch
+        {
+            GameMcpGadgetAccess.Probe => ProbeGameMcp(command),
+            GameMcpGadgetAccess.ScreenCatalog => throw new InvalidOperationException(
+                "the screen catalog is executed as a text read before gadget dispatch"),
+            GameMcpGadgetAccess.TooltipCatalog => CaptureTooltipCatalogGameMcp(command),
+            GameMcpGadgetAccess.TooltipRead => ReadTooltipGameMcp(command),
+            GameMcpGadgetAccess.ContinueRun => throw new InvalidOperationException(
+                "Continue is completed after its scene transition"),
+            _ => throw new InvalidOperationException(
+                "the request-time MCP gadget mapping is incomplete"),
+        };
         return true;
+    }
+
+    private IEnumerator CompleteModalDismissGameMcp(GameMcpCommand command, string title)
+    {
+        var deadline = Time.realtimeSinceStartup + GameMcpPostStateSettlement.MaximumWaitSeconds;
+        while (Time.realtimeSinceStartup < deadline)
+        {
+            yield return null;
+            var dismissed = false;
+            var reason = string.Empty;
+            if (_modalDismissGameAction is null ||
+                !_modalDismissGameAction.TryObserveDismissed(out dismissed, out reason))
+            {
+                CompleteGameMcpCommand(command, GameMcpCommandResult.Faulted(
+                    "modal_state_unavailable",
+                    reason.Length == 0 ? "The modal settled state is unavailable." : reason));
+                yield break;
+            }
+            if (!dismissed) continue;
+            // Which modal went away. A zero-byte body left the caller with nothing to compare
+            // against the screen, and a screenshot was the only way to learn the press had landed;
+            // the title was in hand the whole time, read off the control before it closed.
+            CompleteGameMcpCommand(command, GadgetCommitted(
+                "modal_dismissed",
+                DismissedModal(title)));
+            yield break;
+        }
+        var timedOut = DismissedModal(title);
+        timedOut["postStateUnavailable"] = new GameMcpObjectBuilder
+        {
+            ["reasonCode"] = "post_state_timeout",
+            ["reason"] = "the modal began closing but remained open after one second",
+        }.Freeze();
+        CompleteGameMcpCommand(command, GadgetCommitted("modal_dismissed", timedOut));
+    }
+
+    /// <summary>
+    /// The dismissal's own post-state: the name of the modal that closed. An untitled modal has no
+    /// name to publish, and absence says so rather than an empty string pretending to be one.
+    /// </summary>
+    private static GameMcpObjectBuilder DismissedModal(string title)
+    {
+        var details = new GameMcpObjectBuilder();
+        if (!string.IsNullOrWhiteSpace(title)) details["dismissed"] = title;
+        return details;
     }
 
     private GameMcpCommandResult ContinueRunGameMcp()
@@ -1450,7 +3029,7 @@ public sealed class Plugin : BaseUnityPlugin
         {
             return GameMcpCommandResult.Rejected(
                 "continue_wrong_scene",
-                "the audited Continue action exists only on the Start scene",
+                "Continue is only on the game's title screen; you are already in a run.",
                 observedLifecycleGeneration: _lifecycleGeneration,
                 observedConfigurationGeneration:
                     _configurationStore?.CurrentGeneration.Value ?? 0);
@@ -1463,9 +3042,10 @@ public sealed class Plugin : BaseUnityPlugin
         var startGame = AccessTools.Method("SaveStateManager:StartGame");
         if (manager is null || startGame is null)
         {
-            return GameMcpCommandResult.Rejected(
+            return GameMcpCommandResult.Failed(
                 "continue_contract_unavailable",
-                "the audited SaveStateManager.StartGame contract could not be resolved",
+                "This build does not expose the Continue button, so a save cannot be started " +
+                "from here.",
                 observedLifecycleGeneration: _lifecycleGeneration,
                 observedConfigurationGeneration:
                     _configurationStore?.CurrentGeneration.Value ?? 0);
@@ -1474,13 +3054,41 @@ public sealed class Plugin : BaseUnityPlugin
         startGame.Invoke(manager, Array.Empty<object>());
         return GadgetCommitted(
             "continue_invoked",
-            "the game's audited native Continue action was invoked for the selected save",
-            new JObject
-            {
-                ["sceneBefore"] = "Start",
-                ["nativeType"] = "SaveStateManager",
-                ["nativeMethod"] = "StartGame",
-            });
+            new GameMcpObjectBuilder());
+    }
+
+    private IEnumerator CompleteContinueRunGameMcp(
+        GameMcpCommand command,
+        GameMcpCommandResult committed)
+    {
+        const float timeoutSeconds = 10f;
+        var deadline = Time.realtimeSinceStartup + timeoutSeconds;
+        GameMcpFrameContext state;
+        do
+        {
+            yield return null;
+            state = CaptureGameMcpFrameContext(GameMcpFrameData.World | GameMcpFrameData.Scene);
+        }
+        while (Time.realtimeSinceStartup < deadline &&
+               (string.Equals(state.SceneName, "Start", StringComparison.Ordinal) ||
+                !state.RuntimeAvailable));
+
+        // The load leaves the game in the shape every documented verb assumes, and says nothing
+        // about it: an unattended caller should never have to know a settings screen exists. A
+        // normalization that did not land is the one case worth a word, and health is where the
+        // suite's own broken capabilities are already named — the log alone reaches nobody the
+        // refusals will land on.
+        _gameMcpAgentSettingsFailure = string.Empty;
+        if (!string.Equals(state.SceneName, "Start", StringComparison.Ordinal) &&
+            !AgentSettingsNormalization.TryNormalize(out var settingsFailure))
+        {
+            _gameMcpAgentSettingsFailure = settingsFailure;
+            Logger.LogWarning(
+                "Game MCP could not normalize the agent-required game settings: " + settingsFailure);
+        }
+
+        CompleteGameMcpCommand(command, committed.WithDetails(
+            GameMcpContinueProjection.Project(state.SceneName, state.RuntimeAvailable)));
     }
 
     private IEnumerator CaptureGameMcpAtEndOfFrame(
@@ -1489,21 +3097,32 @@ public sealed class Plugin : BaseUnityPlugin
     {
         yield return new WaitForEndOfFrame();
         Texture2D? texture = null;
+        Texture2D? encodedTexture = null;
         try
         {
             texture = ScreenCapture.CaptureScreenshotAsTexture();
             if (texture is null)
                 throw new InvalidOperationException(
                     "ScreenCapture.CaptureScreenshotAsTexture returned null");
-            var png = texture.EncodeToPNG();
+            encodedTexture = DownscaleScreenshot(
+                texture, GameMcpGadgetPolicy.CaptureWidth);
+            var png = encodedTexture.EncodeToPNG();
             if (png is null || png.Length == 0)
                 throw new InvalidOperationException("Texture2D.EncodeToPNG returned no bytes");
-            var details = string.IsNullOrWhiteSpace(baseResult.DetailsJson)
-                ? new JObject()
-                : JObject.Parse(baseResult.DetailsJson);
-            details["captureFrame"] = Time.frameCount;
-            details["mimeType"] = "image/png";
-            details["inlineBytes"] = png.Length;
+            var details = new GameMcpObjectBuilder();
+            if (baseResult.Details is GameMcpObject existingDetails)
+                details.CopyFrom(existingDetails);
+            details["width"] = encodedTexture.width;
+            details["height"] = encodedTexture.height;
+            details["scene"] = SceneManager.GetActiveScene().name;
+            if (_uiShell is not null && _uiShell.IsAlive)
+            {
+                var tabs = _uiShell.CaptureNativeTabsForGameMcp();
+                var activeTab = tabs.FirstOrDefault(tab => tab.Active);
+                if (!string.IsNullOrWhiteSpace(activeTab.Label))
+                    details["activeScreen"] = activeTab.Label;
+            }
+            AppendOpenModals(details);
             if (command.SaveCapture)
             {
                 var directory = AutomataTraceRunRoot.Child("mcp-screenshots");
@@ -1526,13 +3145,12 @@ public sealed class Plugin : BaseUnityPlugin
                 {
                     stream.Write(png, 0, png.Length);
                 }
-                details["savedPath"] = path;
                 details["savedRelativePath"] =
                     AutomataTraceRunRoot.FormatRelativePath("mcp-screenshots/" + name);
             }
             CompleteGameMcpCommand(
                 command,
-                baseResult.WithInlinePng(details.ToString(Formatting.None), png));
+                baseResult.WithInlinePng(details.Freeze(), png));
         }
         catch (Exception exception)
         {
@@ -1540,14 +3158,16 @@ public sealed class Plugin : BaseUnityPlugin
                 command,
                 GameMcpCommandResult.Faulted(
                     "inline_screenshot_failed",
-                    "server defect: the end-of-frame screenshot did not finish: " +
-                    exception.GetBaseException().Message,
+                    "server defect: the end-of-frame screenshot did not finish." +
+                    GameActionFaultLog.Record(exception, "the screen being captured"),
                     observedLifecycleGeneration: _lifecycleGeneration,
                     observedConfigurationGeneration:
                         _configurationStore?.CurrentGeneration.Value ?? 0));
         }
         finally
         {
+            if (encodedTexture is not null && !ReferenceEquals(encodedTexture, texture))
+                Destroy(encodedTexture);
             if (texture is not null) Destroy(texture);
         }
     }
@@ -1570,51 +3190,183 @@ public sealed class Plugin : BaseUnityPlugin
                 observedConfigurationGeneration: configuration);
     }
 
-    private GameMcpCommandResult CaptureScreenCatalogGameMcp()
+    private static Texture2D DownscaleScreenshot(Texture2D source, int maxWidth)
     {
-        if (!TryCaptureScreenCatalog(out var tabs, out var subtabs, out var reason))
-            return GadgetRejected("screen_catalog_unavailable", reason);
-        return GadgetCommitted(
-            "screen_catalog_read",
-            "the live closed-world screen catalog was read on Unity's main thread",
-            new JObject
+        if (source.width <= maxWidth) return source;
+        var width = maxWidth;
+        var height = Math.Max(1, (int)Math.Round(
+            source.height * (double)width / source.width,
+            MidpointRounding.AwayFromZero));
+        var result = new Texture2D(width, height);
+        for (var y = 0; y < height; y++)
+        {
+            var v = height == 1 ? 0f : y / (float)(height - 1);
+            for (var x = 0; x < width; x++)
             {
-                ["scene"] = SceneManager.GetActiveScene().name,
-                ["tabs"] = tabs,
-                ["subtabs"] = subtabs,
-            });
+                var u = width == 1 ? 0f : x / (float)(width - 1);
+                result.SetPixel(x, y, source.GetPixelBilinear(u, v));
+            }
+        }
+        result.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+        return result;
+    }
+
+    private GameMcpValue CaptureScreenCatalogGameMcp()
+    {
+        var scene = SceneManager.GetActiveScene().name;
+        if (scene != "Main" || _uiShell is null || !_uiShell.IsAlive)
+            return ProjectGameMcpScreenCatalog(
+                scene,
+                navigationAvailable: false,
+                Array.Empty<(string Label, bool Active)>(),
+                Array.Empty<(string Strip, string Label, bool Active)>());
+        var tabs = _uiShell.CaptureNativeTabsForGameMcp();
+        var subtabs = CaptureSubtabs();
+        return ProjectGameMcpScreenCatalog(
+            scene,
+            navigationAvailable: true,
+            tabs.Select(tab => (tab.Label, tab.Active)).ToArray(),
+            subtabs.Select(subtab => (subtab.StripKey, subtab.Label, subtab.Active)).ToArray());
+    }
+
+    internal static GameMcpValue ProjectGameMcpScreenCatalog(
+        string scene,
+        bool navigationAvailable,
+        IReadOnlyList<(string Label, bool Active)> tabs,
+        IReadOnlyList<(string Strip, string Label, bool Active)> subtabs)
+    {
+        var result = new GameMcpObjectBuilder
+        {
+            ["status"] = navigationAvailable ? "available" : "unavailable",
+            ["scene"] = scene,
+            ["navigationAvailable"] = navigationAvailable,
+        };
+        if (!navigationAvailable)
+        {
+            result["reasonCode"] = "navigation_unavailable";
+            result["reason"] = "the game is not showing its screen tabs right now — this answers " +
+                "only while a save is open";
+            result["screens"] = new GameMcpArrayBuilder();
+            return result.Freeze();
+        }
+        var projectedTabs = new GameMcpArrayBuilder();
+        for (var index = 0; index < tabs.Count; index++)
+        {
+            var tab = tabs[index];
+            var projectedTab = new GameMcpObjectBuilder
+            {
+                ["label"] = tab.Label,
+                ["active"] = tab.Active,
+            };
+            if (!tab.Active || subtabs.Count == 0)
+            {
+                projectedTabs.Add(projectedTab);
+                continue;
+            }
+            projectedTab["subtabStrips"] = ProjectGameMcpSubtabStrips(subtabs);
+            projectedTabs.Add(projectedTab);
+        }
+        result["screens"] = projectedTabs;
+        return result.Freeze();
+    }
+
+    /// <summary>
+    /// Names whatever native modal is covering the board. A screen read that stayed silent about
+    /// an open Settings panel is what made a covered board look like a working one.
+    /// </summary>
+    private void AppendOpenModals(GameMcpObjectBuilder details)
+    {
+        if (_modalDismissGameAction is null)
+        {
+            details["openModalsUnavailable"] =
+                "The native modal contracts were not composed.";
+            return;
+        }
+        if (!_modalDismissGameAction.TryReadOpenModals(out var titles, out var reason))
+        {
+            details["openModalsUnavailable"] =
+                reason.Length == 0 ? "The open modal titles are unavailable." : reason;
+            return;
+        }
+        if (titles.Length == 0) return;
+        var open = new GameMcpArrayBuilder();
+        foreach (var title in titles) open.Add(title);
+        details["openModals"] = open;
+    }
+
+    private static GameMcpValue ProjectGameMcpSubtabStrips(
+        IEnumerable<(string Strip, string Label, bool Active)> subtabs)
+    {
+        var projectedStrips = new GameMcpArrayBuilder();
+        var strips = subtabs.GroupBy(subtab => subtab.Strip, StringComparer.Ordinal);
+        foreach (var strip in strips)
+        {
+            var labels = new GameMcpArrayBuilder();
+            var projectedStrip = new GameMcpObjectBuilder();
+            foreach (var subtab in strip)
+            {
+                labels.Add(subtab.Label);
+                if (subtab.Active) projectedStrip["active"] = subtab.Label;
+            }
+            projectedStrip["labels"] = labels;
+            projectedStrips.Add(projectedStrip);
+        }
+        return projectedStrips.Freeze();
     }
 
     private bool TryBeginNavigateGameMcp(
         GameMcpCommand command,
-        out JObject request,
-        out JObject details,
+        out GameMcpNavigationSelector? subtabSelector,
+        out GameMcpObjectBuilder details,
         out GameMcpCommandResult failure)
     {
-        request = new JObject();
-        details = new JObject();
+        subtabSelector = null;
+        details = new GameMcpObjectBuilder();
         failure = null!;
         var scene = SceneManager.GetActiveScene().name;
         if (scene != "Main" || _uiShell is null || !_uiShell.IsAlive)
         {
             failure = GadgetRejected(
                 "native_navigation_unavailable",
-                "the live native navigation catalog is available only while the Main scene shell is alive");
+                "The game is not showing its screen tabs right now — this answers only while a " +
+                "save is open.");
             return false;
         }
 
-        try { request = JObject.Parse(command.PayloadValue); }
-        catch (JsonException exception)
+        var request = command.SourceOperation?.Request;
+        if (request?.Tab is null)
         {
-            failure = GadgetRejected(
+            failure = GadgetFailed(
                 "navigation_request_invalid",
-                "the immutable navigation request could not be decoded: " + exception.Message);
+                "The suite sent a navigation that named no screen, so nothing was applied.");
             return false;
         }
-        var tabs = _uiShell.CaptureNativeTabsForGameMcp();
-        if (!TryResolveTabSelector(request["tab"] as JObject, tabs, out var tab, out var tabReason))
+        if (command.TargetId != Guid.Empty &&
+            !GameMcpGadgetPolicy.IsPlotDestination(
+                request.Tab.Label,
+                request.Subtab?.Label))
         {
-            failure = GadgetRejected("tab_match_failed", tabReason);
+            // One spelling for one destination: the catalog path this tool takes, the same way
+            // every screen cell on the surface prints it.
+            var requestedDestination = request.Subtab is null
+                ? request.Tab.Label
+                : request.Tab.Label + "/" + request.Subtab.Label;
+            failure = GadgetRejected(
+                "plot_destination_mismatch",
+                "Agromancy plots can be selected only on World/Agromancy, not " +
+                requestedDestination);
+            return false;
+        }
+        subtabSelector = request.Subtab;
+        var tabs = _uiShell.CaptureNativeTabsForGameMcp();
+        if (!TryResolveTabSelector(request.Tab, tabs, out var tab, out var tabReason))
+        {
+            failure = NavigationRefusal(
+                "screen_match_failed",
+                tabReason,
+                null,
+                "screenCandidates",
+                tabs.Select(candidate => candidate.Label));
             return false;
         }
         if (!_uiShell.TrySelectNativeTabForGameMcp(tab.Index, out var selectReason))
@@ -1623,29 +3375,29 @@ public sealed class Plugin : BaseUnityPlugin
             return false;
         }
 
-        details = new JObject
-        {
-            ["operation"] = "navigate",
-            ["sceneBefore"] = scene,
-            ["tab"] = ProjectNavigationEntry(tab.Index, tab.Label, tab.Path),
-        };
+        details = new GameMcpObjectBuilder { ["activeScreen"] = tab.Label };
         return true;
     }
 
     private IEnumerator NavigateGameMcpAcrossFrames(GameMcpCommand command)
     {
-        if (!TryBeginNavigateGameMcp(command, out var request, out var details, out var failure))
+        if (!TryBeginNavigateGameMcp(
+                command,
+                out var subtabSelector,
+                out var details,
+                out var failure))
         {
             CompleteGameMcpCommand(command, failure);
             yield break;
         }
+        // Native tab selection changes the active content hierarchy over the following frames.
+        // Resolving a subtab against a half-built hierarchy is what made one screen's strip match a
+        // name that belongs to another: the candidates the matcher searched were not the ones the
+        // catalog advertises for the screen the caller asked for.
+        var settledScreen = new bool[1];
+        yield return SettleNavigation(settledScreen);
 
-        // Native tab selection changes the active content hierarchy during the next Unity frame.
-        // Waiting here makes a compound tab/subtab/plot request one real navigation operation instead
-        // of requiring the caller to retry after the first control becomes active.
-        yield return null;
-
-        if (request["subtab"] is JObject subtabSelector)
+        if (subtabSelector is not null)
         {
             var subtabs = CaptureSubtabs();
             if (!TryResolveSubtabSelector(
@@ -1654,20 +3406,24 @@ public sealed class Plugin : BaseUnityPlugin
                     out var subtab,
                     out var subtabReason))
             {
-                CompleteGameMcpCommand(
+                yield return CompleteNavigateGameMcpAfterSettlement(
                     command,
-                    GadgetRejected("subtab_match_failed", subtabReason));
+                    NavigationRefusal(
+                        "subtab_match_failed",
+                        SubtabRefusalReason(subtabReason, settledScreen[0]),
+                        details,
+                        "subtabCandidates",
+                        subtabs.Select(candidate => candidate.Label)));
                 yield break;
             }
             if (!subtab.TrySelect(out var selectionReason))
             {
-                CompleteGameMcpCommand(
+                yield return CompleteNavigateGameMcpAfterSettlement(
                     command,
-                    GadgetRejected("subtab_selection_failed", selectionReason));
+                    GadgetRejected("subtab_selection_failed", selectionReason)
+                        .WithDetails(details.Freeze()));
                 yield break;
             }
-            details["subtab"] =
-                ProjectNavigationEntry(subtab.Index, subtab.Label, subtab.Path);
             yield return null;
         }
         if (command.TargetId != Guid.Empty)
@@ -1677,21 +3433,106 @@ public sealed class Plugin : BaseUnityPlugin
                 SceneManager.GetActiveScene().name);
             if (!string.Equals(plotResult.Status, "committed", StringComparison.Ordinal))
             {
-                CompleteGameMcpCommand(command, plotResult);
+                yield return CompleteNavigateGameMcpAfterSettlement(
+                    command,
+                    plotResult.WithDetails(details.Freeze()));
                 yield break;
             }
             details["plotNodeUuid"] = command.TargetId.ToString("D");
         }
+        // The strips are read once, after arrival settles, in one place. Reading them here — a
+        // single frame after the subtab click, with the destination still assembling — is what let
+        // the departed screen's strip ride along and made identical navigations disagree.
         var result = GadgetCommitted(
             "navigation_arrived",
-            "the requested catalog destination was invoked through native UI controls",
             details);
-        if (command.Capture)
+        yield return CompleteNavigateGameMcpAfterSettlement(command, result);
+    }
+
+    /// <summary>
+    /// Runs until the navigation shell reports the same screen and strips two frames running, or
+    /// until one second has passed. <paramref name="settled"/>'s single slot records which it was.
+    /// </summary>
+    private IEnumerator SettleNavigation(bool[] settled)
+    {
+        var deadline = Time.realtimeSinceStartup + 1f;
+        var stableFrames = 0;
+        string? previous = null;
+        while (Time.realtimeSinceStartup < deadline && stableFrames < 2)
         {
-            yield return CaptureGameMcpAtEndOfFrame(command, result);
-            yield break;
+            yield return null;
+            var current = NavigationSettlementSignature();
+            stableFrames = string.Equals(previous, current, StringComparison.Ordinal)
+                ? stableFrames + 1
+                : 0;
+            previous = current;
+        }
+        settled[0] = stableFrames >= 2;
+    }
+
+    private IEnumerator CompleteNavigateGameMcpAfterSettlement(
+        GameMcpCommand command,
+        GameMcpCommandResult result)
+    {
+        var settled = new bool[1];
+        yield return SettleNavigation(settled);
+        if (string.Equals(result.Status, "committed", StringComparison.Ordinal) &&
+            !settled[0])
+        {
+            result = GadgetCommitted(
+                "navigation_arrived",
+                new GameMcpObjectBuilder
+                {
+                    ["postStateUnavailable"] = new GameMcpObjectBuilder
+                    {
+                        ["reasonCode"] = "post_state_timeout",
+                        ["reason"] = "the destination did not settle within one second",
+                    }.Freeze(),
+                });
+        }
+        else if (string.Equals(result.Status, "committed", StringComparison.Ordinal) &&
+                 (_uiShell is null || !_uiShell.IsAlive))
+        {
+            result = GadgetCommitted(
+                "navigation_arrived",
+                new GameMcpObjectBuilder
+                {
+                    ["scene"] = SceneManager.GetActiveScene().name,
+                    ["subtabStripsUnavailable"] =
+                        "The navigation shell was no longer alive after the destination settled.",
+                });
+        }
+        else if (string.Equals(result.Status, "committed", StringComparison.Ordinal))
+        {
+            var tabs = _uiShell!.CaptureNativeTabsForGameMcp();
+            var activeTab = tabs.FirstOrDefault(tab => tab.Active);
+            var subtabs = CaptureSubtabs();
+            var details = new GameMcpObjectBuilder
+            {
+                ["scene"] = SceneManager.GetActiveScene().name,
+                ["subtabStrips"] = ProjectGameMcpSubtabStrips(
+                    subtabs.Select(value =>
+                        (value.StripKey, value.Label, value.Active))),
+            };
+            if (!string.IsNullOrWhiteSpace(activeTab.Label))
+                details["activeScreen"] = activeTab.Label;
+            if (command.TargetId != Guid.Empty)
+                details["selectedPlot"] = command.TargetId.ToString("D");
+            AppendOpenModals(details);
+            result = GadgetCommitted("navigation_arrived", details);
         }
         CompleteGameMcpCommand(command, result);
+    }
+
+    private string NavigationSettlementSignature()
+    {
+        var values = CaptureSubtabs();
+        var activeTab = _uiShell is not null && _uiShell.IsAlive
+            ? _uiShell.CaptureNativeTabsForGameMcp().FirstOrDefault(tab => tab.Active).Label
+            : string.Empty;
+        return SceneManager.GetActiveScene().name + "|" + activeTab + "|" +
+            string.Join("|", values.Select(value =>
+                value.StripKey + ":" + value.Label + ":" + (value.Active ? "1" : "0")));
     }
 
     private GameMcpCommandResult NavigateExactPlot(
@@ -1702,18 +3543,17 @@ public sealed class Plugin : BaseUnityPlugin
         {
             return GadgetRejected(
                 "wrong_scene",
-                "plot selection is available only in the Main scene, not " + scene);
+                "Plots can only be picked while a save is open.");
         }
 
-        const string expectedNativeType = "PlotNodeSO";
-        var plotType = AccessTools.TypeByName(expectedNativeType);
+        const string plotNativeType = "PlotNodeSO";
+        var plotType = AccessTools.TypeByName(plotNativeType);
         var listType = AccessTools.TypeByName("UIPlotNodeList");
         if (plotType is null || listType is null)
         {
             return GadgetRejected(
                 "native_plot_navigation_unavailable",
-                "required native types are unavailable: expected " +
-                expectedNativeType + " and UIPlotNodeList");
+                "This build does not expose the plot list, so a plot cannot be selected.");
         }
 
         var plot = TypedRegistryResolver.Shared.Resolve(stableUuid, plotType);
@@ -1721,8 +3561,8 @@ public sealed class Plugin : BaseUnityPlugin
         {
             return GadgetRejected(
                 "native_plot_not_resolved",
-                "stable plot " + stableUuid.ToString("D") + " as " +
-                expectedNativeType + " was not resolved: " + plot.Reason);
+                "No plot in this run carries that id; page World > Agromancy for the plots it " +
+                "does draw.");
         }
 
         var activeLists = Resources.FindObjectsOfTypeAll(listType)
@@ -1733,8 +3573,8 @@ public sealed class Plugin : BaseUnityPlugin
         {
             return GadgetRejected(
                 "native_plot_list_unavailable",
-                "expected exactly one active UIPlotNodeList but found " +
-                activeLists.Length);
+                "The game is showing " + (activeLists.Length == 0 ? "no plot list" : "more than " +
+                "one plot list") + " right now, so which plot was meant is unclear.");
         }
 
         var onNodeClick = listType.GetMethod(
@@ -1747,52 +3587,18 @@ public sealed class Plugin : BaseUnityPlugin
         {
             return GadgetRejected(
                 "native_plot_navigation_unavailable",
-                "UIPlotNodeList.OnNodeClick(" + expectedNativeType +
-                ") -> System.Void could not be resolved");
+                "This build does not expose the plot list, so a plot cannot be selected.");
         }
 
         onNodeClick.Invoke(activeLists[0], new[] { plot.Value });
         return GadgetCommitted(
             "navigation_invoked",
-            "the exact audited plot was selected through the native plot-list click path",
-            new JObject
+            new GameMcpObjectBuilder
             {
-                ["operation"] = "select_plot_node",
                 ["plotUuid"] = stableUuid.ToString("D"),
-                ["expectedNativeType"] = expectedNativeType,
                 ["nativeMethod"] = "UIPlotNodeList.OnNodeClick",
                 ["sceneBefore"] = scene,
             });
-    }
-
-    private bool TryCaptureScreenCatalog(
-        out JArray tabs,
-        out JArray subtabs,
-        out string reason)
-    {
-        tabs = new JArray();
-        subtabs = new JArray();
-        if (SceneManager.GetActiveScene().name != "Main" ||
-            _uiShell is null ||
-            !_uiShell.IsAlive)
-        {
-            reason = "the Main scene native navigation shell is not alive";
-            return false;
-        }
-        var nativeTabs = _uiShell.CaptureNativeTabsForGameMcp();
-        for (var index = 0; index < nativeTabs.Count; index++)
-        {
-            var tab = nativeTabs[index];
-            tabs.Add(ProjectNavigationEntry(tab.Index, tab.Label, tab.Path));
-        }
-        var nativeSubtabs = CaptureSubtabs();
-        for (var index = 0; index < nativeSubtabs.Count; index++)
-        {
-            var subtab = nativeSubtabs[index];
-            subtabs.Add(ProjectNavigationEntry(subtab.Index, subtab.Label, subtab.Path));
-        }
-        reason = string.Empty;
-        return true;
     }
 
     private IReadOnlyList<GameMcpSubtab> CaptureSubtabs()
@@ -1810,6 +3616,8 @@ public sealed class Plugin : BaseUnityPlugin
                     index,
                     pages[index],
                     "Mods/Page[" + index + "]",
+                    "Mods",
+                    index == _uiShell.SelectedPageIndexForGameMcp,
                     () => _uiShell.TrySelectPageForGameMcp(pageIndex, out var reason)
                         ? string.Empty
                         : reason);
@@ -1846,6 +3654,9 @@ public sealed class Plugin : BaseUnityPlugin
                 index,
                 candidate.Label!.text?.Trim() ?? string.Empty,
                 candidate.Path,
+                ParentPath(candidate.Path),
+                NativeViewAdapter.IsAlive(NativeViewAdapter.ReadView(candidate.Component)) &&
+                    NativeViewAdapter.IsActive(NativeViewAdapter.ReadView(candidate.Component)!),
                 () =>
                 {
                     candidate.Button!.onClick.Invoke();
@@ -1855,8 +3666,35 @@ public sealed class Plugin : BaseUnityPlugin
         return result;
     }
 
+    private static GameMcpArrayBuilder ProjectSubtabStrips(
+        IReadOnlyList<GameMcpSubtab> subtabs)
+    {
+        var strips = new GameMcpArrayBuilder();
+        foreach (var group in subtabs.GroupBy(subtab => subtab.StripKey, StringComparer.Ordinal))
+        {
+            var labels = new GameMcpArrayBuilder();
+            var strip = new GameMcpObjectBuilder();
+            var firstLabel = string.Empty;
+            foreach (var subtab in group)
+            {
+                if (firstLabel.Length == 0) firstLabel = subtab.Label;
+                labels.Add(subtab.Label);
+                if (subtab.Active) strip["active"] = subtab.Label;
+            }
+            strip["labels"] = labels;
+            strips.Add(strip);
+        }
+        return strips;
+    }
+
+    private static string ParentPath(string path)
+    {
+        var separator = path.LastIndexOf('/');
+        return separator <= 0 ? path : path.Substring(0, separator);
+    }
+
     private static bool TryResolveTabSelector(
-        JObject? selector,
+        GameMcpNavigationSelector? selector,
         IReadOnlyList<GameMcpNativeTab> entries,
         out GameMcpNativeTab selected,
         out string reason)
@@ -1867,24 +3705,9 @@ public sealed class Plugin : BaseUnityPlugin
             reason = "tab selector is absent";
             return false;
         }
-        var kind = (string?)selector["kind"];
-        if (kind == "index")
+        if (selector.Label.Length > 0)
         {
-            var requested = (int?)selector["value"] ?? -1;
-            for (var index = 0; index < entries.Count; index++)
-            {
-                if (entries[index].Index != requested) continue;
-                selected = entries[index];
-                reason = string.Empty;
-                return true;
-            }
-            selected = default;
-            reason = "tab index " + requested + " matched zero live catalog entries";
-            return false;
-        }
-        if (kind == "name")
-        {
-            var requested = (string?)selector["value"] ?? string.Empty;
+            var requested = selector.Label;
             var matches = new List<GameMcpNativeTab>();
             for (var index = 0; index < entries.Count; index++)
                 if (string.Equals(entries[index].Label, requested, StringComparison.Ordinal))
@@ -1901,28 +3724,20 @@ public sealed class Plugin : BaseUnityPlugin
             return false;
         }
         selected = default;
-        reason = "tab selector kind is not name or index";
+        reason = "tab name is empty";
         return false;
     }
 
     private static bool TryResolveSubtabSelector(
-        JObject selector,
+        GameMcpNavigationSelector selector,
         IReadOnlyList<GameMcpSubtab> entries,
         out GameMcpSubtab selected,
         out string reason)
     {
-        var kind = (string?)selector["kind"];
         var matches = new List<GameMcpSubtab>();
-        if (kind == "index")
+        if (selector.Label.Length > 0)
         {
-            var requested = (int?)selector["value"] ?? -1;
-            for (var index = 0; index < entries.Count; index++)
-                if (entries[index].Index == requested) matches.Add(entries[index]);
-            reason = "subtab index " + requested;
-        }
-        else if (kind == "name")
-        {
-            var requested = (string?)selector["value"] ?? string.Empty;
+            var requested = selector.Label;
             for (var index = 0; index < entries.Count; index++)
                 if (string.Equals(entries[index].Label, requested, StringComparison.Ordinal))
                     matches.Add(entries[index]);
@@ -1931,7 +3746,7 @@ public sealed class Plugin : BaseUnityPlugin
         else
         {
             selected = null!;
-            reason = "subtab selector kind is not name or index";
+            reason = "subtab name is empty";
             return false;
         }
         if (matches.Count == 1)
@@ -1945,18 +3760,16 @@ public sealed class Plugin : BaseUnityPlugin
         return false;
     }
 
-    private static JObject ProjectNavigationEntry(int index, string label, string path) =>
-        new()
-        {
-            ["index"] = index,
-            ["name"] = label,
-            ["path"] = path,
-            ["selectableByName"] = label.Length > 0,
-        };
-
     private GameMcpCommandResult CaptureTooltipCatalogGameMcp(GameMcpCommand command)
     {
-        var entries = CaptureActiveHoverTooltips();
+        var nativeAccess = _gameMcpTooltipNativeAccess;
+        if (nativeAccess is null)
+        {
+            return TooltipsUnreadableBecause(_gameMcpTooltipContractFailure);
+        }
+        var entries = CaptureActiveHoverTooltips()
+            .Where(static entry => entry.Hover.tooltipItem is not null)
+            .ToArray();
         if (!int.TryParse(
                 command.PayloadValue,
                 System.Globalization.NumberStyles.None,
@@ -1965,130 +3778,291 @@ public sealed class Plugin : BaseUnityPlugin
         {
             return GadgetRejected(
                 "tooltip_offset_invalid",
-                "the immutable tooltip catalog offset could not be decoded");
+                "That page marker is not one game_screen_elements printed; page it again — the " +
+                "markers change when the screen does.");
         }
-        var projected = new JArray();
-        var subTooltipsField = typeof(HoverTooltip).GetField(
-            "subTooltips",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        if (subTooltipsField is null)
+        // A page is a stretch of panels, not a stretch of elements. One prefix over a mixed page is
+        // only as deep as its most distant pair of rows, so a page holding three panels factored out
+        // a canvas name and left every row carrying its own panel's ancestry in full. Each panel now
+        // says the ancestry its own rows share, once and before them, and its rows are leaves — so
+        // the prefix a row is read against is the line directly above it rather than a line 25 rows
+        // below, and a screen that used to take four pages of repeated path fits in one call.
+        var paths = new string[entries.Length];
+        for (var index = 0; index < entries.Length; index++) paths[index] = entries[index].Path;
+        var panels = NativeObjectPath.Runs(paths);
+        var first = Math.Max(offset, 0);
+        var end = (int)Math.Min(panels.Count, (long)offset + command.Amount);
+
+        // Every element is addressed by the shortest tail of its path that no other live element
+        // answers to. The Canvas-rooted chain existed so a row plus its page's prefix would
+        // resolve; a tail that resolves on its own needs neither, and a round measured 23% of this
+        // verb as ancestry no caller ever quoted back. The address lengthens one segment at a time
+        // and only where uniqueness requires it, so it is always a valid `path` argument.
+        var projected = new GameMcpArrayBuilder();
+        for (var index = first; index < end; index++)
         {
-            return GadgetRejected(
-                "tooltip_contract_unavailable",
-                "audited HoverTooltip.subTooltips could not be resolved");
-        }
-        var end = (int)Math.Min(entries.Count, (long)offset + command.Amount);
-        for (var index = offset; index < end; index++)
-        {
-            var hover = entries[index];
-            var item = hover.tooltipItem;
-            if (item is null) continue;
-            var children = subTooltipsField.GetValue(hover) as ICollection<ITooltipable>;
-            projected.Add(new JObject
+            var panel = panels[index];
+            var elements = new GameMcpArrayBuilder();
+            var members = new List<GameMcpObjectBuilder>(panel.Count);
+            var segments = new List<string>(panel.Count);
+            GameMcpObjectBuilder? sole = null;
+            for (var member = panel.Start; member < panel.Start + panel.Count; member++)
             {
-                ["index"] = index,
-                ["path"] = NativeObjectPath.BuildIndexed(hover),
-                ["name"] = item.GetName(),
-                ["displayType"] = item.GetDisplayType(),
-                ["hasAltTooltips"] = item.HasAltTooltips(),
-                ["nestedTooltipCount"] = children?.Count ?? 0,
-            });
+                var entry = entries[member];
+                var hover = entry.Hover;
+                var item = hover.tooltipItem!;
+                if (!nativeAccess.TryReadSubTooltips(hover, out var children, out var readFailure))
+                {
+                    return TooltipsUnreadableBecause(readFailure);
+                }
+                if (!nativeAccess.TryReadEntityId(item, out var entityId, out var identityFailure))
+                {
+                    return TooltipsUnreadableBecause(identityFailure);
+                }
+                var segment = GameMcpTooltipPanelRow.ShortestUnique(entry.Path, paths);
+                var tooltip = GameMcpTooltipPanelRow.Project(
+                    segment,
+                    item.GetName(),
+                    entityId,
+                    command.FrameContext?.World?.Snapshot);
+                elements.Add(tooltip);
+                members.Add(tooltip);
+                segments.Add(segment);
+                sole = tooltip;
+            }
+
+            // A panel holding one element is that element: naming a group around it spent a line on
+            // a row whose whole content was one name. Round ten's worst page was six panels of one
+            // element each, two thirds of it address.
+            if (sole is not null && panel.Count == 1)
+            {
+                projected.Add(sole);
+                continue;
+            }
+            var group = new GameMcpObjectBuilder();
+
+            // Siblings under one parent are usually one component repeated with a different index,
+            // and typing that component once per row cost a round 1,210 bytes inside tables that
+            // already name what their rows share. The panel says it once and each row keeps its own
+            // bracket index — brackets included, because a bare number in a path column beside a
+            // slot column is exactly the confusion that cost round eleven a refused cast.
+            if (GameMcpTooltipPanelRow.TrySharedComponent(segments, out var component))
+            {
+                group["pathComponent"] = component;
+                for (var member = 0; member < members.Count; member++)
+                    members[member]["path"] = segments[member].Substring(component.Length);
+            }
+            group["elements"] = elements;
+            projected.Add(group);
         }
+        var details = new GameMcpObjectBuilder
+        {
+            ["scene"] = SceneManager.GetActiveScene().name,
+        };
+        details["total"] = panels.Count;
+        details["rows"] = projected;
+        if (end < panels.Count) details["nextOffset"] = end;
         return GadgetCommitted(
             "tooltip_catalog_read",
-            "active tooltip-bearing elements were enumerated from the current native screen",
-            new JObject
-            {
-                ["scene"] = SceneManager.GetActiveScene().name,
-                ["tooltips"] = projected,
-                ["identity"] = "exact current-screen sibling-indexed native hierarchy path",
-                ["total"] = entries.Count,
-                ["offset"] = offset,
-                ["limit"] = command.Amount,
-                ["hasMore"] = end < entries.Count,
-            });
+            details);
     }
 
     private GameMcpCommandResult ReadTooltipGameMcp(GameMcpCommand command)
     {
         var requestedPath = command.PayloadValue;
-        var matches = CaptureActiveHoverTooltips()
-            .Where(hover => string.Equals(
-                NativeObjectPath.BuildIndexed(hover),
-                requestedPath,
-                StringComparison.Ordinal))
-            .ToArray();
-        if (matches.Length != 1)
+        var active = CaptureActiveHoverTooltips();
+        var nativeAccess = _gameMcpTooltipNativeAccess;
+        if (nativeAccess is null)
         {
-            return GadgetRejected(
-                "tooltip_match_failed",
-                "exact tooltip path '" + requestedPath + "' matched " +
-                matches.Length + " active current-screen elements");
+            return TooltipsUnreadableBecause(_gameMcpTooltipContractFailure);
         }
-        var hover = matches[0];
+
+        HoverTooltip hover;
+        if (command.TargetId != Guid.Empty)
+        {
+            if (!TryAddressTooltipByEntity(
+                    command, nativeAccess, active, out hover, out var entityRefusal))
+            {
+                return entityRefusal;
+            }
+        }
+        else
+        {
+            // The catalog hands out the part of the path its page's shared prefix does not already
+            // say, and which prefix that was depends on which page the row came from. So a row
+            // resolves by the tail it was given: the whole path, or any path ending in it at an
+            // element boundary.
+            var matches = active
+                .Where(entry => NativeObjectPath.Addresses(entry.Path, requestedPath))
+                .ToArray();
+            if (matches.Length != 1)
+            {
+                // Naming the next step is the point. A tail is only as unique as the page it came
+                // from, and two scroll lists on one screen hand out colliding tails routinely; the
+                // catalog already published the prefix that separates them, so the refusal says to
+                // put it back on rather than leaving a caller to guess that a longer path exists.
+                return GadgetRejected(
+                    "tooltip_match_failed",
+                    "tooltip path '" + requestedPath + "' matched " +
+                    matches.Length + " active current-screen elements" +
+                    "; re-read game_screen_elements for this screen's current paths, which name " +
+                    "one element each");
+            }
+            hover = matches[0].Hover;
+        }
         if (hover.tooltipItem is null)
         {
             return GadgetRejected(
                 "tooltip_content_unavailable",
-                "the exact HoverTooltip has no assigned ITooltipable");
+                "The game draws no tooltip for this element.");
         }
-        var subTooltipsField = typeof(HoverTooltip).GetField(
-            "subTooltips",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        if (subTooltipsField is null)
+        if (!nativeAccess.TryReadSubTooltips(hover, out var children, out var readFailure))
+        {
+            return TooltipsUnreadableBecause(readFailure);
+        }
+        var inspected = UITooltipContainer.globalTooltips?
+            .Where(panel => panel is not null && panel.item is not null)
+            .Select(panel => panel.item!)
+            .ToArray() ?? Array.Empty<ITooltipable>();
+        if (!nativeAccess.TryReadEntityId(hover.tooltipItem, out var entityId, out var identityFailure))
+        {
+            return TooltipsUnreadableBecause(identityFailure);
+        }
+        GameMcpObjectBuilder details;
+        try
+        {
+            details = GameMcpTooltipProjector.Project(
+                hover.tooltipItem,
+                children,
+                inspected);
+            if (entityId != Guid.Empty) details["uuid"] = entityId.ToString("D");
+        }
+        catch (Exception)
         {
             return GadgetRejected(
-                "tooltip_contract_unavailable",
-                "audited HoverTooltip.subTooltips could not be resolved");
+                "tooltip_read_faulted",
+                "The game errored while producing this tooltip, so its text cannot be read.");
         }
-        var children = subTooltipsField.GetValue(hover) as ICollection<ITooltipable>;
-        var nested = new JArray();
-        if (children is not null)
-        {
-            foreach (var child in children)
-                nested.Add(ProjectTooltipText(child));
-        }
-        if (command.Capture) hover.OpenTooltip();
-        var details = ProjectTooltipText(hover.tooltipItem);
-        details["path"] = requestedPath;
-        details["nestedTooltips"] = nested;
-        details["structuralDepth"] = 1;
-        details["contentLimit"] =
-            "core authored text is included; rendered TooltipNode value rows are a follow-up";
-        return GadgetCommitted(
+        var result = GadgetCommitted(
             "tooltip_read",
-            "core tooltip text and authored nested-tooltip links were read from the native element",
             details);
+        return result;
     }
 
-    private static JObject ProjectTooltipText(ITooltipable item) =>
-        new()
+    /// <summary>
+    /// The one live element a published entity id addresses, or the refusal that answers instead.
+    /// </summary>
+    /// <remarks>
+    /// The element-to-entity binding is the catalog's own, taken per element, so a uuid addresses
+    /// exactly the elements the catalog would have printed that id on. A binding that cannot be
+    /// taken at all refuses the whole call rather than quietly narrowing the set the answer was
+    /// chosen from.
+    /// </remarks>
+    private bool TryAddressTooltipByEntity(
+        GameMcpCommand command,
+        GameMcpTooltipNativeAccess nativeAccess,
+        IReadOnlyList<TooltipElement> active,
+        out HoverTooltip hover,
+        out GameMcpCommandResult refusal)
+    {
+        hover = null!;
+        var entities = new Guid[active.Count];
+        var paths = new string[active.Count];
+        for (var index = 0; index < active.Count; index++)
         {
-            ["name"] = item.GetName(),
-            ["displayType"] = item.GetDisplayType(),
-            ["description"] = item.GetDescription(),
-            ["hasAltTooltips"] = item.HasAltTooltips(),
-        };
+            var entry = active[index];
+            paths[index] = entry.Path;
+            if (entry.Hover.tooltipItem is null) continue;
+            if (!nativeAccess.TryReadEntityId(
+                    entry.Hover.tooltipItem, out var entityId, out var identityFailure))
+            {
+                refusal = TooltipsUnreadableBecause(identityFailure);
+                return false;
+            }
+            entities[index] = entityId;
+        }
 
-    private static IReadOnlyList<HoverTooltip> CaptureActiveHoverTooltips() =>
+        // An id the live catalog does not carry names nothing anywhere, which is a different answer
+        // from an id this screen happens not to draw. An unbound catalog claims neither: with no
+        // save loaded there is nothing to be on screen either, and the screen refusal is the honest
+        // one.
+        var catalog = EntityIdentities(command.FrameContext!);
+        var loaded = !catalog.IsBound || catalog.TryGet(command.TargetId, out _);
+        var world = command.FrameContext?.World?.Snapshot;
+        var screen = world is not null &&
+            GameMcpWorldQuery.TryPublishedScreen(world, command.TargetId, out var published)
+                ? published
+                : string.Empty;
+
+        // Where the caller already is, in the same vocabulary the published screen word uses: both
+        // are the game's own tab label. Without it a refusal could send a caller to the screen they
+        // were standing on, which reads as the row and the tooltip contradicting each other.
+        var activeScreen = _uiShell is not null && _uiShell.IsAlive
+            ? _uiShell.CaptureNativeTabsForGameMcp().FirstOrDefault(tab => tab.Active).Label
+            : string.Empty;
+
+        var address = GameMcpTooltipPanelRow.AddressEntity(
+            entities, paths, command.TargetId, loaded, screen, activeScreen);
+        if (address.Resolved)
+        {
+            hover = active[address.Element].Hover;
+            refusal = null!;
+            return true;
+        }
+
+        GameMcpObjectBuilder? details = null;
+        if (address.Paths.Count > 0)
+        {
+            var listed = new GameMcpArrayBuilder();
+            for (var index = 0; index < address.Paths.Count; index++) listed.Add(address.Paths[index]);
+            details = new GameMcpObjectBuilder { ["paths"] = listed };
+        }
+        refusal = GadgetRejected(address.Code, address.Reason, details);
+        return false;
+    }
+
+    /// <summary>One live hover element with the hierarchy keys already read off it.</summary>
+    private readonly struct TooltipElement
+    {
+        internal TooltipElement(HoverTooltip hover, NativeObjectPath.Placement placement)
+        {
+            Hover = hover;
+            Placement = placement;
+        }
+
+        internal HoverTooltip Hover { get; }
+        internal NativeObjectPath.Placement Placement { get; }
+        internal string Path => Placement.Path;
+    }
+
+    /// <summary>
+    /// Every hover element the player can currently see, in screen order, each carrying its own
+    /// hierarchy path.
+    /// </summary>
+    /// <remarks>
+    /// The ancestry is walked once per element. Sorting, the shared prefix, and each row's printed
+    /// path all read that one result, where they previously walked the same chain three times over.
+    /// </remarks>
+    private static IReadOnlyList<TooltipElement> CaptureActiveHoverTooltips() =>
         Resources.FindObjectsOfTypeAll(typeof(HoverTooltip))
             .OfType<HoverTooltip>()
             .Where(hover =>
                 hover.enabled &&
-                hover.gameObject.activeInHierarchy)
-            .OrderBy(hover => NativeObjectPath.BuildIndexed(hover), StringComparer.Ordinal)
+                hover.gameObject.activeInHierarchy &&
+                GameMcpTooltipNativeAccess.OnScreen(hover))
+            .Select(static hover => new TooltipElement(hover, NativeObjectPath.Locate(hover)))
+            .OrderBy(static entry => entry.Placement.OrderKey, StringComparer.Ordinal)
             .ToArray();
 
     private GameMcpCommandResult ProbeGameMcp(GameMcpCommand command)
     {
-        JObject details;
+        GameMcpObjectBuilder details;
         switch (command.Mode)
         {
             case "runtime":
                 var lifecycle = GameLifecycleMonitor.Shared.Current;
-                details = new JObject
+                details = new GameMcpObjectBuilder
                 {
-                    ["probe"] = "runtime",
                     ["scene"] = SceneManager.GetActiveScene().name,
                     ["frame"] = Time.frameCount,
                     ["timeScale"] = Time.timeScale,
@@ -2103,60 +4077,119 @@ public sealed class Plugin : BaseUnityPlugin
                 if (!queue.TryReadRemainingRoom(out var remaining))
                     return GadgetRejected(
                         "native_probe_unavailable",
-                        "ActionManager.GetRemainingRoom could not be resolved or returned an invalid value");
-                details = new JObject
+                        "This build does not expose the action queue's free room, so it cannot " +
+                        "be read.");
+                // The game's own upgrade button queues past the maximum, so the reading goes
+                // negative. Nought free slots is the answer either way; the overshoot rides beside
+                // it as the fact it is, and is absent when there is none.
+                details = new GameMcpObjectBuilder
                 {
-                    ["probe"] = "action_queue_room",
-                    ["remainingRoom"] = remaining,
-                    ["nativeContract"] = "ActionManager.GetRemainingRoom()",
+                    ["remainingRoom"] = Math.Max(0, remaining),
                 };
+                if (remaining < 0)
+                    details["entriesBeyondCapacity"] = -remaining;
                 break;
             case "navigation":
                 var tabs = _uiShell is not null && _uiShell.IsAlive
                     ? _uiShell.CaptureNativeTabsForGameMcp()
                     : Array.Empty<GameMcpNativeTab>();
-                details = new JObject
+                details = new GameMcpObjectBuilder
                 {
-                    ["probe"] = "navigation",
                     ["scene"] = SceneManager.GetActiveScene().name,
                     ["nativeTabCount"] = tabs.Count,
                     ["activeNativeSubtabCount"] = CaptureSubtabs().Count,
-                    ["catalogTool"] = "game_screen_catalog",
                 };
                 break;
             default:
-                return GadgetRejected(
+                return GadgetFailed(
                     "unsupported_probe",
-                    "probe '" + command.Mode +
-                    "' is not allowlisted; supported probes are runtime, " +
-                    "action_queue_room, and navigation");
+                    "The suite asked for a reading this build does not take, so nothing was read.");
         }
         return GadgetCommitted(
             "probe_read",
-            "the allowlisted read-only probe completed on Unity's main thread",
             details);
     }
 
     private GameMcpCommandResult GadgetCommitted(
         string code,
-        string reason,
-        JObject details) =>
+        GameMcpObjectBuilder details) =>
         GameMcpCommandResult.Committed(
             code,
-            reason,
-            observedWorldGeneration: 0,
             observedLifecycleGeneration: _lifecycleGeneration,
             observedConfigurationGeneration:
                 _configurationStore?.CurrentGeneration.Value ?? 0,
-            details.ToString(Formatting.None));
+            details.Freeze());
 
-    private GameMcpCommandResult GadgetRejected(string code, string reason) =>
-        GameMcpCommandResult.Rejected(
+    /// <summary>
+    /// A gadget answer for a call the suite stopped on its own, with the game never asked.
+    /// </summary>
+    /// <remarks>
+    /// The router validates every screen and every probe name before a gadget is reached, so the
+    /// guards below it are reachable only by the suite contradicting its own router. They stay —
+    /// a wrong assumption must fail closed rather than fall through — but the word for them is not
+    /// <c>refused</c>, which reads as the game having said no and sends a caller looking for a game
+    /// state to change that does not exist.
+    /// </remarks>
+    /// <summary>
+    /// The one tooltip-unreadable answer, with the binding layer's own account of what was missing
+    /// written to the suite log rather than dropped.
+    /// </summary>
+    private GameMcpCommandResult TooltipsUnreadableBecause(string nativeDetail)
+    {
+        if (nativeDetail.Length > 0)
+            Logger.LogWarning("Game MCP could not read a tooltip: " + nativeDetail);
+        return GadgetFailed("tooltip_contract_unavailable", TooltipsUnreadable);
+    }
+
+    private GameMcpCommandResult GadgetFailed(string code, string reason) =>
+        GameMcpCommandResult.Failed(
             code,
             reason,
             observedLifecycleGeneration: _lifecycleGeneration,
             observedConfigurationGeneration:
                 _configurationStore?.CurrentGeneration.Value ?? 0);
+
+    private GameMcpCommandResult GadgetRejected(
+        string code,
+        string reason,
+        GameMcpObjectBuilder? details = null) =>
+        GameMcpCommandResult.Rejected(
+            code,
+            reason,
+            observedLifecycleGeneration: _lifecycleGeneration,
+            observedConfigurationGeneration:
+                _configurationStore?.CurrentGeneration.Value ?? 0,
+            details?.Freeze());
+
+    /// <summary>
+    /// A navigate that reached the requested screen and then failed on its subtab moved the board.
+    /// The sentence says so, because a bare "refused" reads as "nothing happened" and the caller's
+    /// next read finds a screen it did not ask to be on.
+    /// </summary>
+    private static string SubtabRefusalReason(
+        string subtabReason,
+        bool settled)
+    {
+        var arrived = settled
+            ? "The requested screen is now active"
+            : "The requested screen was selected but did not settle within one second";
+        return arrived + " and was not left; " + subtabReason + ".";
+    }
+
+    private GameMcpCommandResult NavigationRefusal(
+        string code,
+        string reason,
+        GameMcpObjectBuilder? state,
+        string candidateField,
+        IEnumerable<string> candidates)
+    {
+        var values = new GameMcpArrayBuilder();
+        foreach (var candidate in candidates) values.Add(candidate);
+        var details = new GameMcpObjectBuilder();
+        if (state is not null) details.CopyFrom(state);
+        if (values.Count > 0) details[candidateField] = values;
+        return GadgetRejected(code, reason).WithDetails(details.Freeze());
+    }
 
     private sealed class GameMcpSubtab
     {
@@ -2166,17 +4199,23 @@ public sealed class Plugin : BaseUnityPlugin
             int index,
             string label,
             string path,
+            string stripKey,
+            bool active,
             Func<string> select)
         {
             Index = index;
             Label = label ?? string.Empty;
             Path = path ?? string.Empty;
+            StripKey = stripKey ?? string.Empty;
+            Active = active;
             _select = select ?? throw new ArgumentNullException(nameof(select));
         }
 
         internal int Index { get; }
         internal string Label { get; }
         internal string Path { get; }
+        internal string StripKey { get; }
+        internal bool Active { get; }
         internal bool TrySelect(out string reason)
         {
             reason = _select();
@@ -2184,27 +4223,6 @@ public sealed class Plugin : BaseUnityPlugin
         }
     }
 
-    private void CaptureGameMcpState()
-    {
-        if (_gameMcpState is null || _configurationStore is null) return;
-        GameMcpRuntimeState? runtime = null;
-        if (_serviceCycleActivation is not null &&
-            _serviceCycleActivation.TryCaptureGameMcpState(out var captured))
-        {
-            runtime = captured;
-        }
-        _gameMcpState.Capture(
-            _configurationStore.Current,
-            _configurationStore.CurrentGeneration,
-            _automataConfig?.CaptureGameMcpWritableSettings() ?? "[]",
-            _lifecycleGeneration,
-            SceneManager.GetActiveScene().name,
-            _nativeContractsAvailable,
-            FeatureStatusRegistry.Shared.GetSnapshot(),
-            DecisionJournalStatusRegistry.Shared.Status,
-            DecisionJournalStatusRegistry.Shared.Revision,
-            runtime);
-    }
 #endif
 
     private void StandDownAutoBuy(string summary)

@@ -24,13 +24,15 @@ internal readonly struct AutoConceptSubmission
         NativeMutationCallOutcome callOutcome,
         NativeMutationOutcome outcome,
         string reason,
-        int appliedDelta)
+        int appliedDelta,
+        int maximumAmount)
     {
         Preflight = preflight;
         CallOutcome = callOutcome;
         Outcome = outcome;
         Reason = reason;
         AppliedDelta = appliedDelta;
+        MaximumAmount = maximumAmount;
     }
 
     public AutoConceptPreflight Preflight { get; }
@@ -38,6 +40,7 @@ internal readonly struct AutoConceptSubmission
     public NativeMutationOutcome Outcome { get; }
     public string Reason { get; }
     public int AppliedDelta { get; }
+    public int MaximumAmount { get; }
     public bool Verified =>
         Preflight == AutoConceptPreflight.Proceeded &&
         CallOutcome.MutationAttempts == 1 &&
@@ -45,11 +48,13 @@ internal readonly struct AutoConceptSubmission
 
     internal static AutoConceptSubmission Rejected(
         AutoConceptPreflight preflight,
-        string reason)
+        string reason,
+        int maximumAmount = 0)
     {
         if (preflight == AutoConceptPreflight.Proceeded)
             throw new ArgumentOutOfRangeException(nameof(preflight));
-        return new AutoConceptSubmission(preflight, default, default, reason, 0);
+        return new AutoConceptSubmission(
+            preflight, default, default, reason, 0, maximumAmount);
     }
 
     internal static AutoConceptSubmission Attempted(
@@ -62,7 +67,8 @@ internal readonly struct AutoConceptSubmission
             outcome,
             mutationOutcome,
             reason,
-            appliedDelta);
+            appliedDelta,
+            0);
 }
 
 internal interface IAutoConceptNativePort

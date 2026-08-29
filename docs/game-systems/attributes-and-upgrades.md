@@ -35,6 +35,44 @@ with infinite levels — and **scales more slowly** as a structure than it did a
 Two consequences: the same thing appears on two different kinds of list over its lifetime, and its
 cost curve visibly changes shape at the boundary.
 
+## A `Raise …` upgrade buys a ceiling, and the level it caps is a separate dial
+
+Some levels are two things wearing one name. The screen shows one number like `264 / 264`, but the
+game holds it as a **dial** and a **cap**, and the buy button beside it touches only the cap. Alchemy
+Level is the worked example, and the same shape carries the Casting page's two dials — see
+[output-and-reserve.md](output-and-reserve.md).
+
+There are exactly four of these rows: **Raise Alchemy Level**, **Raise Output Lv**, **Raise Reserve
+Lv** and **Raise Druidry Lv**. Each is described as a large gain "at an even greater cost", none of
+them ever crosses over into an attribute, and late in a run they are typically the only upgrades
+left to buy at all, everything else having been bought out.
+
+| Aspect | Authored as | What it is |
+|---|---|---|
+| The dial | `AlchemyOutputLevel`, an `IntVariable` shown as **Alchemy Lv** | The level actually in effect; its persistent effects scale the alchemy speed and drain groups |
+| The cap | `MaxAlchemyLevel`, an `IntVariable` shown as **Max Alchemy Level** | The ceiling the dial may be set to, starting at 1 |
+| The purchase | `RaiseAlchemyLevel`, an `UpgradeSO` shown as **Raise Alchemy Level** | Adds `+1` to `MaxAlchemyLevel` per level bought, and nothing else |
+
+Three consequences worth stating plainly:
+
+- **The upgrade has no maximum.** `RaiseAlchemyLevel` is authored `maxLevel: -1`, so it is never
+  maxed and never cap-blocked. A dial reading `264 / 264` says the *dial* is at its ceiling; it says
+  nothing at all about whether the upgrade beside it can be bought.
+- **The purchase's whole authored effect is the ceiling.** `RaiseAlchemyLevel` carries one permanent
+  effect, `MaxAlchemyLevel +1`, and no effect on the dial. Whether the dial follows its ceiling is
+  therefore not an authored fact but a per-dial behaviour: **Alchemy Lv follows on its own** —
+  buying Raise Alchemy Level at upgrade Lv 263 took the bar from `264 / 264` to `265 / 265` in one
+  press — while the Casting dials have to be set by hand.
+- **The two numbers are never the same number.** The upgrade's own level counts purchases made; the
+  cap starts at 1 and the dial starts wherever it was left. Reading one as the other is the mistake
+  the shape invites.
+- **A full bar is their resting state, not a blocker.** Because the Alchemy dial follows its cap,
+  all four rows sit at `Lv N/N` permanently, and a refusal on one of them is a price refusal and
+  nothing else. Their per-level price growth is far outside the ordinary curve — observed at
+  ≈×267 on Raise Alchemy Level, enough to carry one press from comfortably affordable to refused —
+  and the price is two-currency, so a row can read affordable on one line while the other falls
+  short. See [cost-scaling.md](cost-scaling.md).
+
 ## Disabled kills the effect, not the row
 
 An attribute flagged as disabled has its **effect** killed, not its purchasability: it can still be

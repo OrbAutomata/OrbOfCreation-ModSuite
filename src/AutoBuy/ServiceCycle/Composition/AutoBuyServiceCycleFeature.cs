@@ -93,6 +93,7 @@ internal sealed class AutoBuyFeatureRuntime : IAutomataServiceCycleFeatureRuntim
 
     public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report)
     {
+        _actions.AnnounceTopologyPublication();
 #if SERVICE_CYCLE_PROFILE
         _actions.EmitRouteDiagnostic(_dependencies.ReadLifecycleEpoch());
 #endif
@@ -131,5 +132,7 @@ internal sealed class AutoBuyFeatureRuntime : IAutomataServiceCycleFeatureRuntim
         in SuiteRuntimeConfiguration config,
         in ServiceActionContext context) =>
         _actions.TryExecuteGameMcp(in action, in config, in context);
+
+    internal AutoBuyPurchaseSubmission LastGameMcpSubmission => _actions.LastSubmission;
 #endif
 }

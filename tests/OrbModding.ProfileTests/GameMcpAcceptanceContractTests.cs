@@ -6,6 +6,7 @@ using BepInEx.Configuration;
 using Newtonsoft.Json.Linq;
 using OrbAutomata;
 using OrbAutomata.GameMcp;
+using OrbMentor;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
@@ -28,99 +29,417 @@ public sealed class GameMcpPublicationConsistencyTests
         var pinned = GameMcpAcceptanceFixture.Snapshot(publisher.ReadLatest());
         publisher.Publish(GameMcpAcceptanceFixture.SpellWorld(9, 32), new WorldGeneration(1002));
 
-        var result = GameMcpWorldQuery.GetRow(
+        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             pinned,
             "spell-recipes",
-            GameMcpAcceptanceFixture.SpellId.ToString("D"),
-            string.Empty);
+            GameMcpAcceptanceFixture.SpellId.ToString("D")));
 
-        Assert.Equal((ulong)1001, (ulong)result["worldGeneration"]!);
-        Assert.Equal(31, (long)result["collectedEpoch"]!);
+        Assert.Null(result["worldGeneration"]);
+        Assert.Null(result["lifecycleGeneration"]);
         Assert.Equal(3, (int)result["row"]!["masteryLevel"]!);
+    }
+}
+
+/// <summary>
+/// A refusal is read by an agent, so it says what went wrong in the words the game uses. The id it
+/// was handed is already the argument the caller sent, and the batch form repeats it in its own
+/// field; reciting thirty-six characters of GUID mid-sentence buried the part that was news.
+/// </summary>
+public sealed class GameMcpRefusalSentenceTests
+{
+    private static readonly Guid Absent = Guid.Parse("3f2a6c18-9b41-4f0e-8d77-1c5a2e6b90d4");
+
+    [Fact]
+    public void An_id_no_row_carries_is_refused_without_reciting_the_id()
+    {
+        var state = GameMcpAcceptanceFixture.SpellSnapshot(4);
+
+        var result = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.GetRow(state, "spell-recipes", Absent.ToString("D")));
+
+        Assert.Equal("ERR_NOT_FOUND", (string?)result["reasonCode"]);
+        var reason = (string?)result["reason"] ?? string.Empty;
+        Assert.DoesNotContain(Absent.ToString("D"), reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("spell-recipes", reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_all_zero_id_is_refused_as_an_id_that_names_nothing()
+    {
+        var state = GameMcpAcceptanceFixture.SpellSnapshot(4);
+
+        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            state, "spell-recipes", new[] { Guid.Empty.ToString("D") }));
+
+        var row = Assert.Single(result["results"]!.Values<JObject>())!;
+        Assert.Equal("ERR_INPUT", (string?)row["reasonCode"]);
+        Assert.Contains("names nothing", (string?)row["reason"]!, StringComparison.Ordinal);
     }
 }
 
 public sealed class GameMcpWorldQueryTests
 {
     [Fact]
+    public void ResourceRowsUseOnlyNamedPlayerFacingSpendableFacts()
+    {
+        var resourceId = Guid.Parse("eda26ca0-afcc-4fc3-9d8a-eb279123353d");
+        var rateInputs = default(RawResourceRateInputs);
+        var traits = default(RawResourceTraits);
+        var modifiers = default(RawResourceModifiers);
+        var reading = new RawResourceSample(
+            resourceId,
+            new BigDouble(5d, 24),
+            new BigDouble(8d, 26),
+            visible: true,
+            lifetimeQuantity: new BigDouble(1d, 28),
+            discoveryTime: BigDouble.Zero,
+            quality: new BigDouble(100d),
+            gainRate: new BigDouble(100d),
+            drain: BigDouble.Zero,
+            reservation: BigDouble.Zero,
+            usage: BigDouble.Zero,
+            inLossMode: false,
+            inRestMode: true,
+            inRallyMode: false,
+            appliedLevels: 0,
+            levelVariableId: Guid.Empty,
+            in rateInputs,
+            in traits,
+            in modifiers);
+        var resource = new WorldResource(
+            in reading,
+            isCapped: true,
+            headroom: new BigDouble(7.5d, 26),
+            fillFraction: 0.00625d,
+            isAtCapacity: false,
+            trueQuantity: new BigDouble(5.63d, 24),
+            trueRate: new BigDouble(1.4d, 21));
+        var world = new GameWorldState
+        {
+            Resources = PublicationTable<WorldResource>.Create(new[] { resource }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                new[]
+                {
+                    new WorldCollectionCategoryStatus(
+                        "resources", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+                }),
+            CollectedAtEpoch = 1,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Context(world, generation: 1003),
+            "resources",
+            new[] { resourceId.ToString("D") }));
+        var block = Assert.Single(response["results"]!.Values<JObject>())!;
+        var row = block["row"]!;
+
+        // Identity is said once, on the block, and the row under it carries only its own columns.
+        // The row used to repeat the same handle, name and category the block already published.
+        // `nativeType` is gone from a block a category names: `resources` is one native class and
+        // `world_categories` publishes which, so the block said the same fact twice.
+        Assert.Equal(
+            new[] { "uuid", "name", "category", "row", "predicates" },
+            block.Children<JProperty>().Select(property => property.Name));
+        Assert.Equal(
+            new[] { "meter", "amount", "capacity", "netRatePerSecond", "atCapacity" },
+            row.Children<JProperty>().Select(property => property.Name));
+        Assert.Equal("Knowledge", (string?)block["name"]);
+        Assert.Equal("resources", (string?)block["category"]);
+        Assert.Equal("held", (string?)row["meter"]);
+        Assert.Equal("5e24", (string?)row["amount"]);
+        Assert.Equal("8e26", (string?)row["capacity"]);
+        Assert.Equal("1.4e21", (string?)row["netRatePerSecond"]);
+        Assert.False((bool)row["atCapacity"]!);
+        Assert.Null(row["reading"]);
+        Assert.Null(row["quantity"]);
+        Assert.Null(row["trueQuantity"]);
+        Assert.Null(row["rateInputs"]);
+        Assert.Null(row["traits"]);
+        Assert.Null(row["modifiers"]);
+        // The detail read costs what the detail costs: identity said once and the decisions the
+        // merge folded in, on top of the row a list page would have shown. It costs 26 bytes less
+        // than it did for saying `nativeType: ResourceSO` beside a category that means exactly
+        // that, and 15 more than that for the one word that says which way the pair reads.
+        Assert.Equal(252, System.Text.Encoding.UTF8.GetByteCount(
+            response.ToString(Newtonsoft.Json.Formatting.None)));
+
+        var list = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 1003),
+            "resources",
+            0,
+            10));
+        var listed = Assert.Single(list["rows"]!.Values<JObject>())!;
+        Assert.Equal((string?)row["amount"], (string?)listed["amount"]);
+        Assert.Equal("5e24", (string?)listed["amount"]);
+    }
+
+    [Fact]
+    public void UncappedResourceNamesThatInsteadOfTheNativeNegativeCapacitySentinel()
+    {
+        var resourceId = Guid.Parse("67acd892-3260-47b7-aaca-23e49c5903d4");
+        var rateInputs = default(RawResourceRateInputs);
+        var traits = default(RawResourceTraits);
+        var modifiers = default(RawResourceModifiers);
+        var reading = new RawResourceSample(
+            resourceId,
+            new BigDouble(5d, 24),
+            new BigDouble(-9.48d, 9),
+            visible: true,
+            lifetimeQuantity: BigDouble.Zero,
+            discoveryTime: BigDouble.Zero,
+            quality: new BigDouble(100d),
+            gainRate: new BigDouble(100d),
+            drain: BigDouble.Zero,
+            reservation: BigDouble.Zero,
+            usage: BigDouble.Zero,
+            inLossMode: false,
+            inRestMode: true,
+            inRallyMode: false,
+            appliedLevels: 0,
+            levelVariableId: Guid.Empty,
+            in rateInputs,
+            in traits,
+            in modifiers);
+        var resource = new WorldResource(
+            in reading,
+            isCapped: false,
+            headroom: BigDouble.Zero,
+            fillFraction: 0d,
+            isAtCapacity: false,
+            trueQuantity: new BigDouble(9.83d, 24),
+            trueRate: BigDouble.Zero);
+        var world = new GameWorldState
+        {
+            Resources = PublicationTable<WorldResource>.Create(new[] { resource }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                new[]
+                {
+                    new WorldCollectionCategoryStatus(
+                        "resources", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+                }),
+            CollectedAtEpoch = 1,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Context(world, generation: 1004),
+            "resources",
+            new[] { resourceId.ToString("D") }));
+        var row = Assert.Single(response["results"]!.Values<JObject>())!["row"]!;
+
+        Assert.Equal("5e24", (string?)row["amount"]);
+        Assert.Equal("0", (string?)row["netRatePerSecond"]);
+
+        // The native ceiling here is -9.48e9. Neither that number nor a plain `atCapacity: no`
+        // belongs on a resource that cannot fill, and dropping the pair let a page of uncapped
+        // resources read as a page whose reader was never told capacities exist.
+        Assert.Equal("uncapped", (string?)row["capacity"]);
+        Assert.Equal("uncapped", (string?)row["atCapacity"]);
+    }
+
+    [Fact]
+    public void BoundedLevelsUseJsonCardinalsEvenWhenProjectedFromBigDouble()
+    {
+        var encoded = GameMcpDocumentJsonEncoder.Encode(
+            new GameMcpObjectBuilder
+            {
+                ["rows"] = new GameMcpArrayBuilder(
+                    new GameMcpObjectBuilder { ["effectiveLevel"] = 1 },
+                    new GameMcpObjectBuilder
+                    {
+                        ["effectiveLevel"] = new GameMcpDomainValue(new BigDouble(1.57d, 2)),
+                    }),
+            }.Freeze(),
+            GameMcpTestHarness.EntityCatalog);
+        var rows = encoded["rows"]!.OfType<JObject>().ToArray();
+
+        Assert.Equal(1, (int)rows[0]["effectiveLevel"]!);
+        Assert.Equal(157, (int)rows[1]["effectiveLevel"]!);
+    }
+
+    [Fact]
+    public void DomainProjectionFieldsNormalizeToOneWireDialect()
+    {
+        var uuid = Guid.Parse("eda26ca0-afcc-4fc3-9d8a-eb279123353d");
+        var encoded = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            new GameMcpObjectBuilder
+            {
+                ["entityId"] = uuid,
+                ["mcpCategory"] = "resources",
+                ["quantity"] = new GameMcpDomainValue(new BigDouble(2.5d, 3)),
+                ["unlocked"] = true,
+                ["outcome"] = "PostconditionFailed",
+                ["execution"] = "OneShotQueue",
+            }.Freeze(),
+            GameMcpTestHarness.EntityCatalog));
+
+        Assert.Equal(GameMcpTestHarness.Handle(uuid), (string?)encoded["uuid"]);
+        Assert.Equal("Knowledge", (string?)encoded["name"]);
+        Assert.Equal("resources", (string?)encoded["category"]);
+        Assert.Equal("2.5e3", (string?)encoded["amount"]);
+        Assert.True((bool)encoded["available"]!);
+        Assert.Equal("postcondition_failed", (string?)encoded["outcome"]);
+        Assert.Equal("one_shot_queue", (string?)encoded["execution"]);
+        Assert.Null(encoded["entityId"]);
+        Assert.Null(encoded["mcpCategory"]);
+        Assert.Null(encoded["quantity"]);
+        Assert.Null(encoded["unlocked"]);
+    }
+
+    [Fact]
+    public void RecursiveWireAuditRejectsBareEntityUuidsAndLegacyIdentifierAliases()
+    {
+        var tree = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+        var resource = Guid.Parse("eda26ca0-afcc-4fc3-9d8a-eb279123353d");
+        var weak = Guid.Parse("168e3734-1ecb-4938-bd4a-d011ff13e201");
+        var magnified = Guid.Parse("b0387ddd-2bd8-4799-8cd0-f8c624458930");
+        var improvedCasting = Guid.Parse("21628be0-4377-4b13-b28c-171ab29324bf");
+        var encoded = GameMcpDocumentJsonEncoder.Encode(new GameMcpObjectBuilder
+        {
+            ["tree"] = new GameMcpObjectBuilder { ["entityId"] = tree },
+            ["cost"] = new GameMcpObjectBuilder { ["resourceUuid"] = resource },
+            ["offers"] = new GameMcpArrayBuilder(weak, magnified),
+            ["implicated"] = new GameMcpObjectBuilder { ["ownerUuid"] = improvedCasting },
+        }.Freeze(), GameMcpTestHarness.EntityCatalog);
+
+        var banned = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "entityId", "resourceUuid", "resourceId", "glyphId", "treeUuid",
+            "offerUuid", "selectedUuid",
+        };
+        var document = Assert.IsType<JObject>(encoded);
+        Assert.DoesNotContain(
+            document.DescendantsAndSelf().OfType<JProperty>(),
+            property => banned.Contains(property.Name));
+        var references = document.DescendantsAndSelf()
+            .OfType<JObject>()
+            .Where(item => item["uuid"] is not null)
+            .ToArray();
+        Assert.Equal(5, references.Length);
+        Assert.All(references, reference =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace((string?)reference["name"]));
+            if (reference["internalName"] is JToken internalName)
+            {
+                Assert.NotEqual(
+                    (string?)reference["name"],
+                    (string?)internalName);
+            }
+        });
+    }
+
+    [Fact]
     public void OverviewIsCompactAndExactReadDerivesNativeType()
     {
         var state = GameMcpAcceptanceFixture.SpellSnapshot(4);
-        var overview = GameMcpWorldQuery.Overview(state);
+        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(state));
         Assert.Equal("available", (string?)overview["status"]);
         Assert.NotNull(overview["economy"]);
         Assert.NotNull(overview["progression"]);
         Assert.NotNull(overview["running"]);
+        Assert.Null(overview["detailCategories"]);
         Assert.Null(overview["unlocks"]);
         Assert.Null(overview["harvest"]);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(
+            overview.ToString(Newtonsoft.Json.Formatting.None)) < 1_650);
 
-        var exact = GameMcpWorldQuery.GetRow(
+        var exact = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             state,
             "spell-recipes",
-            GameMcpAcceptanceFixture.SpellId.ToString("D"),
-            string.Empty);
+            GameMcpAcceptanceFixture.SpellId.ToString("D")));
         Assert.Equal("available", (string?)exact["status"]);
-        Assert.Equal("SpellRecipeSO", (string?)exact["expectedNativeType"]);
+        Assert.Null(exact["expectedNativeType"]);
         Assert.Equal(4, (int)exact["row"]!["masteryLevel"]!);
     }
 
     [Fact]
-    public void OptionalNativeTypeAssertionFailsClosedOnlyOnMismatch()
-    {
-        var state = GameMcpAcceptanceFixture.SpellSnapshot(4);
-        var mismatch = GameMcpWorldQuery.GetRow(
-            state,
-            "spell-recipes",
-            GameMcpAcceptanceFixture.SpellId.ToString("D"),
-            "AlchemyRecipeSO");
-        Assert.Equal("not_available", (string?)mismatch["status"]);
-        Assert.Equal("native_type_mismatch", (string?)mismatch["code"]);
-    }
-
-    [Fact]
-    public void ListRowsAreScanProjectionsAndGetRetainsTheCompleteRecord()
+    public void ListIsLeanAndGetCarriesTheCuratedDecisionDetail()
     {
         var state = GameMcpAcceptanceFixture.SpellSnapshot(4);
 
-        var list = GameMcpWorldQuery.ListRows(state, "spell-recipes", 0, 10);
+        var list = GameMcpTestHarness.Json(
+            GameMcpWorldQuery.ListRows(state, "spell-recipes", 0, 10));
         var scan = Assert.Single(list["rows"]!.Values<JObject>())!;
-        Assert.Equal(GameMcpAcceptanceFixture.SpellId.ToString("D"), (string?)scan["entityId"]);
+        Assert.Equal(GameMcpTestHarness.Handle(GameMcpAcceptanceFixture.SpellId), (string?)scan["uuid"]);
+        Assert.Null(scan["nameEvidence"]);
         Assert.Equal(4, (int)scan["masteryLevel"]!);
         Assert.Null(scan["spellPowerMod"]);
-        Assert.Null(scan["mcpCategory"]);
+        Assert.Null(scan["category"]);
+        Assert.Null(scan["loadoutAdd"]);
+        Assert.Equal(99, System.Text.Encoding.UTF8.GetByteCount(
+            list.ToString(Newtonsoft.Json.Formatting.None)));
 
-        var exact = GameMcpWorldQuery.GetRow(
+        var reportNames = GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
+            {
+                "plot-node-actions", "concept-instances", "plot-authoring",
+                "crafting-recipe-state", "crafting-decisions", "consumable-inventory",
+                "loadouts", "harvest-elements", "harvest-actions", "plot-actions",
+                "action-queue-slots",
+                            // The three type rosters whose wire name is not their collector's name.
+                "harvest-types", "harvest-action-types", "consumable-families",
+                "attribute-group-members",
+})
+            .Distinct(StringComparer.Ordinal)
+            .Select(name => new WorldCollectionCategoryStatus(
+                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
+            .ToArray();
+        var searchState = GameMcpAcceptanceFixture.Snapshot(
+            GameMcpAcceptanceFixture.SpellWorld(4, 30) with
+            {
+                CollectionCategories =
+                    PublicationTable<WorldCollectionCategoryStatus>.Create(reportNames),
+            });
+        var search = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            searchState,
+            GameMcpAcceptanceFixture.SpellId.ToString("D"),
+            0,
+            5));
+        // A match names the entity, the category that reads the rest of it, and the words the game
+        // prints on it. Borrowing each category's scan columns unioned every category's headings
+        // onto one page and left nine cells in ten empty, on the tool whose whole job is routing
+        // the caller to the right read.
+        var match = Assert.Single(search["rows"]!.Values<JObject>())!;
+        Assert.Equal((string?)scan["uuid"], (string?)match["uuid"]);
+        Assert.Equal((string?)scan["name"], (string?)match["name"]);
+        Assert.Equal("spell-recipes", (string?)match["category"]);
+        Assert.Equal("id", (string?)match["matchedOn"]);
+        Assert.Equal(5, match.Properties().Count());
+
+        var exact = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             state,
             "spell-recipes",
-            GameMcpAcceptanceFixture.SpellId.ToString("D"),
-            string.Empty);
-        Assert.NotNull(exact["row"]!["spellPowerMod"]);
-        Assert.Equal("spell-recipes", (string?)exact["row"]!["mcpCategory"]);
+            GameMcpAcceptanceFixture.SpellId.ToString("D")));
+        Assert.Null(exact["row"]!["spellPowerMod"]);
+        Assert.Equal("spell-recipes", (string?)exact["row"]!["category"]);
+        Assert.NotNull(exact["row"]!["loadoutAdd"]);
     }
 }
 
 public sealed class GameMcpActionAdmissionTests
 {
     [Fact]
-    public void DecisionWorldGenerationNeverCreatesAnAgeRejection()
+    public void ActionAdmissionHasNoWorldGenerationGate()
     {
-        var command = GameMcpAcceptanceFixture.NativeCommand(decisionGeneration: 1);
+        var command = GameMcpAcceptanceFixture.NativeCommand();
         Assert.False(GameMcpNativeActionAdmission.TryReject(
             command,
-            currentWorldGeneration: 1_000_000,
-            command.ExpectedLifecycleGeneration,
-            command.ExpectedConfigurationGeneration,
+            currentLifecycleGeneration: command.ExpectedLifecycleGeneration,
+            currentConfigurationGeneration: command.ExpectedConfigurationGeneration,
             emergencyStopEngaged: false,
             out _));
+        Assert.DoesNotContain(
+            typeof(GameMcpCommand).GetProperties(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic),
+            property => property.Name.Contains("WorldGeneration", StringComparison.Ordinal));
     }
 
     [Fact]
     public void LifecycleConfigurationAndEmergencyStopRemainLiveGates()
     {
-        var command = GameMcpAcceptanceFixture.NativeCommand(null);
+        var command = GameMcpAcceptanceFixture.NativeCommand();
         Assert.True(GameMcpNativeActionAdmission.TryReject(
             command,
-            500,
             command.ExpectedLifecycleGeneration + 1,
             command.ExpectedConfigurationGeneration,
             false,
@@ -129,7 +448,6 @@ public sealed class GameMcpActionAdmissionTests
 
         Assert.True(GameMcpNativeActionAdmission.TryReject(
             command,
-            500,
             command.ExpectedLifecycleGeneration,
             command.ExpectedConfigurationGeneration,
             true,
@@ -138,66 +456,42 @@ public sealed class GameMcpActionAdmissionTests
     }
 }
 
-public sealed class GameMcpActionFailureReasonTests
-{
-    [Fact]
-    public void MissingHarvestPrerequisiteEvidenceDoesNotClaimTheNativeCheckFailed()
-    {
-        var reason = AutomataServiceCycleRuntime.HarvestPrerequisiteEvidenceReason(
-            "fruit_tree",
-            PlotActionPrerequisiteEvidence.Unknown);
-
-        Assert.NotNull(reason);
-        Assert.Contains("no plot-action prerequisite latch evidence", reason);
-        Assert.DoesNotContain("unmet", reason);
-        Assert.Null(AutomataServiceCycleRuntime.HarvestPrerequisiteEvidenceReason(
-            "fruit_tree",
-            PlotActionPrerequisiteEvidence.UnknownNeedsNativeValidation));
-    }
-}
-
 public sealed class GameMcpInlineCompletionTests
 {
     [Fact]
-    public void TerminalCompletionCarriesInlineNativeProofAndOptionalAuditGeneration()
+    public void FinalGameplayCompletionIsFlatOnlyAfterObservedPostStateIsAttached()
     {
-        var commands = new GameMcpCommandBus();
-        var submitted = GameMcpAcceptanceFixture.SubmitPurchase(commands, 51);
-        Assert.True(commands.TryDequeue(out var command));
+        var command = GameMcpAcceptanceFixture.NativeCommand();
         var evidence = ServiceNativeMutationEvidence.Observed(
             NativeMutationOutcome.Verified,
             new NativeMutationCallOutcome(1, 1, 1));
         var native = ServiceActionResult.Committed(CommonActionResultCodes.Committed, evidence);
-        commands.Complete(
-            command,
-            GameMcpCommandResult.FromAction(
-                in native,
-                GameMcpCommandKind.Purchase,
-                900,
-                12,
-                7));
-
-        Assert.True(submitted.Completion.TryWait(TimeSpan.FromMilliseconds(50), out var terminal));
-        var projected = terminal.Project(submitted);
+        var terminal = GameMcpCommandResult.FromAction(
+            in native,
+            GameMcpCommandKind.Purchase,
+            12,
+            7).WithDetails(new GameMcpObjectBuilder
+            {
+                ["level"] = 4,
+                ["available"] = false,
+            }.Freeze());
+        var projected = GameMcpTestHarness.Json(terminal.Project(command));
         Assert.Equal("committed", (string?)projected["status"]);
-        Assert.Equal((ulong)51, (ulong)projected["decisionWorldGeneration"]!);
-        Assert.Equal((ulong)900, (ulong)projected["observedWorldGeneration"]!);
-        Assert.Equal(1, (int)projected["nativeCallsAttempted"]!);
-        Assert.Equal(1, (int)projected["verifiedMutations"]!);
+        Assert.Null(projected["code"]);
+        Assert.Equal(new[] { "status", "level", "available" },
+            projected.Properties().Select(property => property.Name));
         Assert.Null(projected["receiptId"]);
     }
 
     [Fact]
-    public void QueueOverflowReturnsAnImmediateTerminalRejection()
+    public void InboxClaimsEveryAcceptedOperationWithoutAnArbitraryCapacity()
     {
-        var commands = new GameMcpCommandBus();
-        for (var index = 0; index < GameMcpCommandBus.MaximumPending; index++)
-            GameMcpAcceptanceFixture.SubmitHarvest(commands);
-        var overflow = GameMcpAcceptanceFixture.SubmitHarvest(commands);
+        var operations = new GameMcpFrameInbox();
+        for (var index = 0; index < 128; index++)
+            GameMcpAcceptanceFixture.SubmitHarvest(operations);
 
-        Assert.True(overflow.Completion.TryWait(TimeSpan.FromMilliseconds(50), out var terminal));
-        Assert.Equal("command_queue_full", terminal.Code);
-        Assert.Equal(GameMcpCommandBus.MaximumPending, commands.PendingCount);
+        Assert.Equal(128, operations.ClaimPending().Length);
+        Assert.Empty(operations.ClaimPending());
     }
 }
 
@@ -212,10 +506,70 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.Contains("trace_health", names);
         Assert.Contains("game_screen_catalog", names);
         Assert.Contains("game_navigate", names);
-        Assert.Contains("game_tooltips", names);
+        Assert.Contains("game_screen_elements", names);
         Assert.Contains("game_tooltip", names);
         Assert.Contains("game_screenshot", names);
+
+        // A retired name stays retired: no alias, no tombstone verb, no second door onto
+        // the detail read. The tool list simply stops carrying it.
+        Assert.DoesNotContain("explain_entity", names);
+        Assert.Contains("world_get", names);
     }
+
+    /// <summary>
+    /// Four verbs were named for something other than the button they press. <c>game_level</c> read
+    /// as a noun as easily as a verb; <c>game_spell_level</c> was named for Spell Lv, a screen
+    /// number it never moves, while the number it does move is Mastery Lv; <c>game_tooltips</c>
+    /// differed from the reader beside it by one letter, and a round that could not tell them apart
+    /// never called the reader at all; and <c>suite_automation</c> named a family rather than the
+    /// seven switches it flips. Every old name is retired outright — no alias, no second door.
+    /// </summary>
+    [Fact]
+    public void Every_renamed_verb_answers_only_to_its_new_name_and_its_title_says_what_it_presses()
+    {
+        var tools = GameMcpAcceptanceFixture.Tools();
+        var names = GameMcpAcceptanceFixture.ToolNames();
+
+        Assert.DoesNotContain("game_level", names);
+        Assert.DoesNotContain("game_spell_level", names);
+        Assert.DoesNotContain("game_tooltips", names);
+        Assert.DoesNotContain("suite_automation", names);
+
+        Assert.Equal(
+            "Level a glyph, artifact type, resource type or Time Rune",
+            Title(tools, "game_level_up"));
+        Assert.Equal("Confirm a spell's mastery", Title(tools, "game_spell_mastery"));
+
+        // The pair teaches itself: one lists what is on the screen and mints the addresses, the
+        // other reads what one of them says.
+        Assert.Equal("List the screen's hoverable elements", Title(tools, "game_screen_elements"));
+        Assert.Equal("Read one element's tooltip text", Title(tools, "game_tooltip"));
+
+        Assert.Equal("Read or flip the suite's seven breakers", Title(tools, "suite_breakers"));
+    }
+
+    /// <summary>
+    /// The verb is named for Mastery Lv and says so: Spell Lv is the global casting dial, and a
+    /// description that let the two share a word is what put the wrong screen number on the tool.
+    /// </summary>
+    [Fact]
+    public void Confirming_mastery_names_the_button_it_presses_and_the_dial_it_does_not_move()
+    {
+        var description = Description(GameMcpAcceptanceFixture.Tools(), "game_spell_mastery");
+
+        Assert.Equal(
+            "Press Confirm Mastery for one spell, which raises the Mastery Lv its card shows. " +
+            "mode=all presses the native Level All Spells sweep instead, which walks the whole " +
+            "spellbook and skips only the spells it cannot afford. Spell Lv is the global casting " +
+            "dial and is never moved here; that is game_casting_dial.",
+            description);
+    }
+
+    private static string Title(IReadOnlyList<JObject> tools, string name) =>
+        (string)Assert.Single(tools, tool => (string?)tool["name"] == name)["title"]!;
+
+    private static string Description(IReadOnlyList<JObject> tools, string name) =>
+        (string)Assert.Single(tools, tool => (string?)tool["name"] == name)["description"]!;
 
     [Fact]
     public void ActionSchemasRequireIdentityButNotGenerationKindOrNativeType()
@@ -224,12 +578,15 @@ public sealed class GameMcpProtocolSurfaceTests
         var purchase = Assert.Single(
             tools,
             tool => (string?)tool["name"] == "game_purchase");
+        Assert.Equal("Purchase an attribute or upgrade", (string?)purchase["title"]);
+        Assert.Contains("native StructureSO", (string?)purchase["description"]);
         var required = purchase["inputSchema"]!["required"]!.Values<string>().ToArray();
-        Assert.Equal(new[] { "uuid" }, required);
+        Assert.Equal(new[] { "uuid", "amount" }, required);
         var properties = (JObject)purchase["inputSchema"]!["properties"]!;
-        Assert.NotNull(properties["worldGeneration"]);
-        Assert.NotNull(properties["expectedNativeType"]);
+        Assert.Null(properties["worldGeneration"]);
+        Assert.Null(properties["expectedNativeType"]);
         Assert.Null(properties["kind"]);
+        Assert.Null(properties["count"]);
 
         var screenshot = Assert.Single(
             tools,
@@ -238,104 +595,206 @@ public sealed class GameMcpProtocolSurfaceTests
     }
 
     [Fact]
-    public void TraceHealthIsWriterHealthOnly()
+    public void EveryActionSchemaRejectsWorldGenerationAndVerbosityCeremony()
     {
-        var result = GameMcpAcceptanceFixture.Call(
-            new GameMcpProtocolRouter(
-                GameMcpAcceptanceFixture.ConfiguredStore(),
-                new GameMcpCommandBus()),
-            "trace_health");
-        Assert.NotNull(result["traceWriterStatus"]);
-        Assert.Equal("not_available", (string?)result["events"]);
-        Assert.Null(result["mcpEvents"]);
-        Assert.Null(result["cursor"]);
+        var actionNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "game_purchase", "game_cast", "game_concept", "game_agromancy",
+            "game_structure",
+            "game_return_to_menu",
+            "game_modal",
+            "game_spell_mastery", "game_casting_dial", "game_spell_loadout", "game_discover",
+            "game_equipment", "game_alchemy", "game_ritual", "suite_config_set",
+            "game_loadout",
+            "suite_emergency_stop", "game_screenshot", "game_continue",
+            "game_navigate", "game_tooltip",
+            "game_targeting",
+        };
+
+        foreach (var tool in GameMcpAcceptanceFixture.Tools().Where(tool =>
+                     actionNames.Contains((string)tool["name"]!)))
+        {
+            var properties = Assert.IsType<JObject>(tool["inputSchema"]!["properties"]);
+            Assert.Null(properties["worldGeneration"]);
+            Assert.Null(properties["detail"]);
+            Assert.Null(properties["verbosity"]);
+        }
+    }
+
+    /// <summary>
+    /// The detail read takes an id and nothing else is required. A caller holding an id from a
+    /// search, a refusal or an action response can read it without first learning which table it
+    /// lives in, which is the whole of what naming a category used to cost them.
+    /// </summary>
+    [Fact]
+    public void DetailReadRequiresNoCategoryAndHasNoIdAlias()
+    {
+        var detail = Assert.Single(
+            GameMcpAcceptanceFixture.Tools(),
+            tool => (string?)tool["name"] == "world_get");
+        Assert.Null(detail["inputSchema"]!["required"]);
+        var properties = Assert.IsType<JObject>(detail["inputSchema"]!["properties"]);
+        Assert.NotNull(properties["uuid"]);
+        Assert.NotNull(properties["uuids"]);
+        Assert.NotNull(properties["category"]);
+        Assert.Null(properties["id"]);
+
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var invalid = router.Handle(GameMcpAcceptanceFixture.Request(
+            1,
+            "tools/call",
+            new JObject
+            {
+                ["name"] = "world_get",
+                ["arguments"] = new JObject { ["uuid"] = "not-a-guid" },
+            }));
+        Assert.Equal(
+            "refused (ERR_INPUT): uuid must be a whole canonical UUID or an id handle " +
+            "that names one published entity", GameMcpTestHarness.Page(invalid));
     }
 
     [Fact]
-    public void CompactHealthAndExactServiceDetailAreSeparateQuestions()
+    public void TraceHealthIsWriterHealthOnly()
     {
-        var health = new JObject
-        {
-            ["runtimeAvailable"] = true,
-            ["runtimeNotAvailableReason"] = string.Empty,
-            ["scene"] = "Main",
-            ["nativeContractsAvailable"] = true,
-            ["configurationGeneration"] = 3,
-            ["lifecycleGeneration"] = 9,
-            ["runtimeLifecycle"] = 9,
-            ["emergencyStopEngaged"] = false,
-            ["acceptedFrameCount"] = 42,
-            ["features"] = new JArray
+        var result = GameMcpAcceptanceFixture.CallText("trace_health");
+        Assert.StartsWith("unavailable\n", result, StringComparison.Ordinal);
+        Assert.Contains("reason: the decision journal writer is not active", result,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("scope", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("events", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("worldGeneration", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("cursor", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HealthHasOneCanonicalShapeAndRejectsDetailOptions()
+    {
+        var feature = new FeatureStatusSnapshot(
+            new FeatureStatusKey(PluginIds.SuiteGuid, "AutoBuy"),
+            "Auto Buy",
+            configuredEnabled: false,
+            FeatureStatusState.ConfigurationDisabled,
+            new FeatureStatusReason(
+                FeatureStatusReasonCode.ConfigurationDisabled,
+                "disabled"),
+            lifecycleGeneration: 9);
+        var mentor = new FeatureStatusSnapshot(
+            new FeatureStatusKey(PluginIds.SuiteGuid, "Mentor"),
+            "Orb Mentor",
+            configuredEnabled: true,
+            FeatureStatusState.Operational,
+            new FeatureStatusReason(FeatureStatusReasonCode.None, string.Empty),
+            lifecycleGeneration: 9);
+        var context = GameMcpTestHarness.Context(features: new[] { feature, mentor });
+        var compact = Plugin.ProjectGameMcpHealthText(context);
+        Assert.StartsWith("available\n", compact, StringComparison.Ordinal);
+        // The fingerprint answers "same DLL or not", which twelve hex characters settle as well as
+        // sixty-four did — and this is a line every health call pays for.
+        Assert.Matches(
+            @"(?m)^build: \S+ dll sha256 [0-9a-f]{12}$",
+            compact);
+        // One name per feature across the two verbs that list features, so the seven suite_breakers
+        // takes as arguments are recognisable inside the nine health reports on.
+        // The whole roster is one line: the state groups are the facts, the repeated leading word
+        // was not.
+        Assert.Matches(
+            @"(?m)^features configuration_disabled: auto_buy; operational: mentor$",
+            compact);
+        Assert.Contains("game_craft: unavailable", compact, StringComparison.Ordinal);
+        Assert.Contains("game_modal: unavailable", compact, StringComparison.Ordinal);
+        Assert.DoesNotContain("Orb Mentor", compact, StringComparison.Ordinal);
+        Assert.DoesNotContain("mailbox", compact, StringComparison.Ordinal);
+
+        var modalAvailable = new GameMcpFrameContext(
+            world: null,
+            runtime: null,
+            configuration: context.Configuration,
+            lifecycleGeneration: 9,
+            sceneName: "Main",
+            nativeContractsAvailable: true,
+            featureStatuses: Array.Empty<FeatureStatusSnapshot>(),
+            traceWriterStatus: DecisionJournalStatus.Unavailable,
+            traceWriterRevision: 0,
+            writableConfiguration: Array.Empty<GameMcpWritableSettingDescriptor>(),
+            modalDismissAvailable: true);
+        var withoutRuntime = Plugin.ProjectGameMcpHealthText(modalAvailable);
+        // Health names exceptions, the way it already does for features and services. A capability
+        // that works is covered by the leading verdict, so it costs no line at all.
+        Assert.DoesNotContain("game_modal", withoutRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("native contracts", withoutRuntime, StringComparison.Ordinal);
+        // The settings the load normalizes are ones no caller chose, so a normalization that landed
+        // says nothing and one that did not names itself here rather than only in the log.
+        Assert.DoesNotContain("agent settings", withoutRuntime, StringComparison.Ordinal);
+        Assert.Contains(
+            "agent settings: Research Queue Mode did not stay on after the setting was written",
+            Plugin.ProjectGameMcpHealthText(new GameMcpFrameContext(
+                world: null,
+                runtime: null,
+                configuration: context.Configuration,
+                lifecycleGeneration: 9,
+                sceneName: "Main",
+                nativeContractsAvailable: true,
+                featureStatuses: Array.Empty<FeatureStatusSnapshot>(),
+                traceWriterStatus: DecisionJournalStatus.Unavailable,
+                traceWriterRevision: 0,
+                writableConfiguration: Array.Empty<GameMcpWritableSettingDescriptor>(),
+                modalDismissAvailable: true,
+                agentSettingsFailure:
+                    "Research Queue Mode did not stay on after the setting was written")),
+            StringComparison.Ordinal);
+
+        // The runtime outlives every scene change, so a scene name alone answered the same question
+        // both ways in one session. The absent runtime is named as a session fact, and the world the
+        // verdict describes is identified.
+        Assert.Contains("world: not published", withoutRuntime, StringComparison.Ordinal);
+        Assert.Contains(
+            "runtime reason: the suite has not begun reading the game in this session; " +
+            "open a save and try again.",
+            withoutRuntime,
+            StringComparison.Ordinal);
+        // A collected world always carries the moment it was read; health answers published exactly
+        // when the world readers do, so the fixture has to be a world they would serve.
+        var withWorld = Plugin.ProjectGameMcpHealthText(
+            GameMcpTestHarness.Context(
+                new GameWorldState { CollectedAtUtcTicks = DateTime.UtcNow.Ticks },
+                generation: 1207));
+        Assert.Contains("lifecycle: Playing, generation 9", withWorld, StringComparison.Ordinal);
+        Assert.Contains("world: publication 1207", withWorld, StringComparison.Ordinal);
+        Assert.DoesNotContain("world: generation", withWorld, StringComparison.Ordinal);
+
+        var tool = Assert.Single(
+            GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate["name"] == "suite_health");
+        Assert.Empty((JObject)tool["inputSchema"]!["properties"]!);
+
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var rejected = router.Handle(GameMcpAcceptanceFixture.Request(
+            99,
+            "tools/call",
+            new JObject
             {
-                new JObject
-                {
-                    ["key"] = new JObject { ["featureId"] = "AutoBuy" },
-                    ["displayName"] = "Auto Buy",
-                    ["configuredEnabled"] = false,
-                    ["state"] = "ConfigurationDisabled",
-                    ["reason"] = new JObject
-                    {
-                        ["code"] = "ConfigurationDisabled",
-                        ["summary"] = "detail-only feature reason",
-                    },
-                },
-            },
-            ["services"] = new JArray
-            {
-                new JObject
-                {
-                    ["serviceId"] = "orbautomata.world-collection",
-                    ["displayName"] = "World collection",
-                    ["hasRunner"] = true,
-                    ["runner"] = new JObject
-                    {
-                        ["phase"] = "Waiting",
-                        ["hasInFlightCycle"] = false,
-                        ["hasWakeDue"] = true,
-                        ["committedCount"] = 1,
-                        ["fault"] = new JObject
-                        {
-                            ["isValid"] = false,
-                            ["occurrenceCount"] = 0,
-                        },
-                        ["deepExactEvidence"] = "detail-only",
-                    },
-                },
-            },
-        };
-        var store = GameMcpAcceptanceFixture.StoreWithHealth(health);
-        var router = new GameMcpProtocolRouter(store, new GameMcpCommandBus());
-
-        var compact = GameMcpAcceptanceFixture.Call(router, "suite_health");
-        Assert.Equal("situational", (string?)compact["scope"]);
-        Assert.NotNull(compact["mailbox"]);
-        var feature = Assert.Single(compact["features"]!.Values<JObject>())!;
-        Assert.Equal("AutoBuy", (string?)feature["featureId"]);
-        Assert.Equal("ConfigurationDisabled", (string?)feature["state"]);
-        Assert.Null(feature["displayName"]);
-        Assert.Null(feature["reason"]);
-        var summary = Assert.Single(compact["services"]!.Values<JObject>())!;
-        Assert.Equal("Waiting", (string?)summary["state"]);
-        Assert.Null(summary["runner"]);
-        Assert.Null(summary["deepExactEvidence"]);
-
-        var detail = GameMcpAcceptanceFixture.Call(
-            router,
-            "suite_health",
-            new JObject { ["detail"] = "orbautomata.world-collection" });
-        Assert.Equal("exact_service_detail", (string?)detail["scope"]);
+                ["name"] = "suite_health",
+                ["arguments"] = new JObject { ["detail"] = "AutoBuy" },
+            }));
         Assert.Equal(
-            "detail-only",
-            (string?)detail["service"]!["runner"]!["deepExactEvidence"]);
+            "refused (ERR_INPUT): tool arguments failed schema validation: field " +
+            "'detail' is not accepted by suite_health", GameMcpTestHarness.Page(rejected));
+    }
 
-        var featureDetail = GameMcpAcceptanceFixture.Call(
-            router,
-            "suite_health",
-            new JObject { ["detail"] = "AutoBuy" });
-        Assert.Equal("exact_feature_detail", (string?)featureDetail["scope"]);
+    [Fact]
+    public void TextToolsReturnOnlyTheAgentReadableTextContent()
+    {
+        var result = GameMcpToolExecution.Text(
+            "scene: Main\ntabs:\n    Magic\n  * Scholar\n    subtabs:\n      * Discover")
+            .ToProtocolResult();
+
+        Assert.Null(result["structuredContent"]);
+        Assert.Null(result["isError"]);
+        var content = Assert.Single(result["content"]!.Values<JObject>())!;
+        Assert.Equal("text", (string?)content["type"]);
         Assert.Equal(
-            "detail-only feature reason",
-            (string?)featureDetail["feature"]!["reason"]!["summary"]);
+            "scene: Main\ntabs:\n    Magic\n  * Scholar\n    subtabs:\n      * Discover",
+            (string?)content["text"]);
     }
 }
 
@@ -344,7 +803,7 @@ public sealed class GameMcpCommandPrimitiveTests
     [Fact]
     public void ImmutableCommandCrossesNoJsonOrUnityObjects()
     {
-        var command = GameMcpAcceptanceFixture.NativeCommand(null);
+        var command = GameMcpAcceptanceFixture.NativeCommand();
         var properties = typeof(GameMcpCommand).GetProperties(
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.DoesNotContain(
@@ -361,15 +820,686 @@ public sealed class GameMcpCommandPrimitiveTests
 public sealed class GameMcpConfigurationTests
 {
     [Fact]
-    public void QueryReturnsOneCommittedGenerationAndWritableCatalog()
+    public void QueryReturnsOnlyTheWritableCatalog()
     {
-        var router = new GameMcpProtocolRouter(
-            GameMcpAcceptanceFixture.ConfiguredStore(
-                "[{\"section\":\"AutoCast\",\"key\":\"Mode\",\"settingType\":\"Mode\",\"serializedValue\":\"Disabled\"}]"),
-            new GameMcpCommandBus());
-        var result = GameMcpAcceptanceFixture.Call(router, "suite_configuration");
-        Assert.Equal((ulong)3, (ulong)result["configurationGeneration"]!);
-        Assert.Single(result["writableSettings"]!.Values<JObject>());
+        var writable = new GameMcpWritableSettingDescriptor(
+            "AutoCast",
+            "Mode",
+            "Mode",
+            string.Empty,
+            new GameMcpConfigurationConstraint(
+                "exact_parse_and_domain",
+                string.Empty,
+                string.Empty));
+        var context = GameMcpTestHarness.Context(writable: new[] { writable });
+        var listed = GameMcpAcceptanceFixture.CallText("suite_configuration", context: context);
+        var described = GameMcpAcceptanceFixture.CallText(
+            "suite_configuration", new JObject { ["mode"] = "describe" }, context);
+
+        // The ordinary read is one line per setting under the grouping words those settings use,
+        // and nothing else: what a setting does and what it takes are the same words on every call,
+        // so they live in the tool's own documentation.
+        Assert.Equal("sections: AutoCast\nAutoCast/Mode: Disabled", listed);
+        Assert.Contains("AutoCast/Mode", described);
+        Assert.Contains("type", described);
+        Assert.Contains("description", described);
+    }
+
+    [Fact]
+    public void WritableSchemaIsStaticAndValuesComeFromThePinnedPublication()
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var schema = configuration.CreateGameMcpWritableSchema();
+        var entries = typeof(BepInExAutomataConfiguration)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Select(property => property.GetValue(configuration))
+            .OfType<ConfigEntryBase>()
+            .ToDictionary(
+                entry => (entry.Definition.Section, entry.Definition.Key));
+
+        Assert.Equal(29, schema.Length);
+        Assert.Equal(29, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
+        foreach (var descriptor in schema)
+        {
+            var entry = entries[(descriptor.Section, descriptor.Key)];
+
+            // The published text round-trips back to exactly the text the entry holds. It is not
+            // always the same string: a boolean is spelled the wire's way — `yes`/`no`, as every
+            // other boolean on this surface reads — and the file keeps TOML's `true`/`false`. The
+            // round trip is the invariant, because it is what makes a value read here writable back
+            // without the file changing shape.
+            Assert.Equal(
+                entry.GetSerializedValue(),
+                GameMcpConfigurationValuePolicy.NativeSerializedValue(
+                    entry.SettingType,
+                    GameMcpConfigurationSchema.SerializePublishedValue(
+                        configuration.Current,
+                        descriptor.Section,
+                        descriptor.Key)));
+        }
+
+        var pinned = configuration.Current;
+        configuration.AutoCastMode.Value = AutoCastOperationMode.Active;
+        var result = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            GameMcpTestHarness.Context(
+                configurationGeneration: 12,
+                writable: schema,
+                configuration: pinned),
+            describe: false));
+
+        Assert.Null(result["configurationGeneration"]);
+        Assert.Null(result["configuration"]);
+        Assert.DoesNotContain(
+            result.DescendantsAndSelf().OfType<JProperty>(),
+            property => property.Name == "equalityContract");
+        Assert.Equal("Disabled", (string?)result["AutoCast/Mode"]);
+        Assert.Equal("Active", configuration.AutoCastMode.GetSerializedValue());
+        Assert.Same(schema, GameMcpTestHarness.Context(writable: schema).WritableConfiguration);
+    }
+
+    /// <summary>
+    /// Closing the second write door onto the seven breakers takes nothing away from the read:
+    /// their values stay in the one catalog <c>suite_configuration</c> pages, beside every other
+    /// setting, so a caller can still see what a breaker is set to without pressing anything.
+    /// </summary>
+    [Fact]
+    public void TheSevenBreakerSettingsStayReadableAlongsideEveryOtherSetting()
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+
+        // The mentor's breaker rides on its own binding, so the seventh reaches this catalog only
+        // once that binding is attached — exactly as it does in a composed process.
+        configuration.AttachMentor(MentorConfig.Bind(new ConfigFile()));
+        var schema = configuration.CreateGameMcpWritableSchema();
+
+        Assert.All(GameMcpAutomationFeatures.All, feature =>
+            Assert.Single(
+                schema,
+                descriptor => descriptor.Section == feature.Section &&
+                    descriptor.Key == feature.Key));
+
+        var listed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            GameMcpTestHarness.Context(
+                writable: schema,
+                configuration: configuration.Current),
+            describe: false));
+
+        Assert.Equal("Disabled", (string?)listed["AutoHarvest/Mode"]);
+        Assert.Equal("Disabled", (string?)listed["Mentor/Mode"]);
+    }
+
+    /// <summary>
+    /// Orb Mentor's breaker is addressed by the feature it belongs to. It is the one setting whose
+    /// wire address is not the address the config file holds it at: the file keeps its
+    /// <c>[General] Mode</c> line, because renaming that section would move a player's existing one
+    /// and silently reset the breaker, while the wire stops filing it under OrbAutomata's own
+    /// <c>General</c>.
+    /// </summary>
+    [Fact]
+    public void Orb_Mentors_switch_is_addressed_by_the_mod_it_belongs_to()
+    {
+        var file = new ConfigFile();
+        var configuration = BepInExAutomataConfiguration.Bind(file);
+        var mentor = MentorConfig.Bind(file);
+        configuration.AttachMentor(mentor);
+        var schema = configuration.CreateGameMcpWritableSchema();
+
+        Assert.Single(
+            schema,
+            item => item.Section == "Mentor" && item.Key == "Mode");
+        Assert.DoesNotContain(
+            schema,
+            item => item.Section == "General" && item.Key == "Mode");
+
+        // OrbAutomata's own master switch is the other setting in that section and does not move.
+        Assert.Single(
+            schema,
+            item => item.Section == "General" && item.Key == "Enabled");
+
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+        Assert.Equal(
+            AutomataConfigurationWrite.Committed,
+            store.SetGameMcp(
+                "Mentor", "Mode", "Active", store.CurrentGeneration, out var reason, out _));
+        Assert.Equal(string.Empty, reason);
+
+        // The write lands on the line the file has always held, under the section the file has
+        // always spelled it — the wire address never reaches disk.
+        file.Save();
+        Assert.True(file.TryGetPersisted("General", "Mode", out var stored));
+        Assert.Equal("Active", stored);
+        Assert.False(file.TryGetPersisted("Mentor", "Mode", out _));
+
+        // And it reads back at the address it was written at, through the same round trip every
+        // other setting makes: what the wire prints deserializes to exactly what the entry holds.
+        Assert.Equal(
+            "Active",
+            GameMcpConfigurationSchema.SerializePublishedValue(
+                configuration.Current, "Mentor", "Mode"));
+        Assert.Equal(
+            mentor.Mode.GetSerializedValue(),
+            GameMcpConfigurationValuePolicy.NativeSerializedValue(
+                mentor.Mode.SettingType,
+                GameMcpConfigurationSchema.SerializePublishedValue(
+                    configuration.Current, "Mentor", "Mode")));
+
+        var listed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            GameMcpTestHarness.Context(
+                writable: schema,
+                configuration: configuration.Current),
+            describe: false));
+
+        Assert.Equal("Active", (string?)listed["Mentor/Mode"]);
+        Assert.Null(listed["General/Mode"]);
+        Assert.Equal("yes", (string?)listed["General/Enabled"]);
+    }
+
+    /// <summary>
+    /// A caller holding the address the wire used to answer to is told where its setting went, in
+    /// the same class of no an address nothing owns earns — a name this surface does not answer to.
+    /// Being told the suite has no such setting would be true and useless.
+    /// </summary>
+    [Fact]
+    public void The_address_the_wire_used_to_answer_to_says_where_the_setting_went()
+    {
+        var file = new ConfigFile();
+        var configuration = BepInExAutomataConfiguration.Bind(file);
+        configuration.AttachMentor(MentorConfig.Bind(file));
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        Assert.Equal(
+            AutomataConfigurationWrite.Refused,
+            store.SetGameMcp(
+                "General", "Mode", "Active", store.CurrentGeneration, out var retired, out _));
+        Assert.Equal(
+            "setting General/Mode is now addressed as Mentor/Mode, under the mod it belongs to; " +
+            "the setting itself is unchanged",
+            retired);
+        Assert.Equal(
+            GameMcpDecisionReason.ClassInput,
+            GameMcpDecisionReason.Class("configuration_write_rejected"));
+
+        // A name nothing has ever answered to is still told it is not one, not sent somewhere.
+        Assert.Equal(
+            AutomataConfigurationWrite.Refused,
+            store.SetGameMcp(
+                "Mentor", "Enabled", "true", store.CurrentGeneration, out var unknown, out _));
+        Assert.StartsWith(
+            "setting Mentor/Enabled is not in the perf-debug MCP allowlist",
+            unknown,
+            StringComparison.Ordinal);
+
+        // The other setting in that section is OrbAutomata's own and still writes there.
+        Assert.Equal(
+            AutomataConfigurationWrite.Committed,
+            store.SetGameMcp(
+                "General", "Enabled", "no", store.CurrentGeneration, out _, out _));
+        Assert.Equal(
+            "no",
+            GameMcpConfigurationSchema.SerializePublishedValue(
+                configuration.Current, "General", "Enabled"));
+    }
+
+    /// <summary>
+    /// "Show me everything Auto Buy has" is one call. The narrowing word is the section every row
+    /// already wears, so the rows come back spelled exactly as the whole catalog spells them and go
+    /// straight into a write without being rejoined.
+    /// </summary>
+    [Fact]
+    public void One_call_answers_every_setting_one_feature_owns()
+    {
+        var narrowed = GameMcpAcceptanceFixture.CallText(
+            "suite_configuration",
+            new JObject { ["section"] = "AutoBuy" },
+            BoundConfigurationContext());
+
+        Assert.Equal(
+            "AutoBuy/Mode: Active\n" +
+            "AutoBuy/AffordabilityMode: Excess100\n" +
+            "AutoBuy/UpgradeAffordabilityMode: Excess100\n" +
+            "AutoBuy/IncludeStructures: yes\n" +
+            "AutoBuy/IncludeUpgrades: yes\n" +
+            "AutoBuy/AutoLevelSpells: yes\n" +
+            "AutoBuy/LeaveQueueSlots: 1",
+            narrowed);
+    }
+
+    /// <summary>
+    /// The narrowed answer is the same rows the whole catalog carries, minus the ones belonging to
+    /// other features — never a second spelling of them.
+    /// </summary>
+    [Fact]
+    public void A_narrowed_answer_is_the_whole_catalog_minus_the_other_features()
+    {
+        var context = BoundConfigurationContext();
+        var whole = GameMcpAcceptanceFixture.CallText("suite_configuration", context: context);
+        var narrowed = GameMcpAcceptanceFixture.CallText(
+            "suite_configuration", new JObject { ["section"] = "AutoBuy" }, context);
+
+        Assert.Equal(
+            narrowed.Split('\n'),
+            whole.Split('\n').Where(line => line.StartsWith("AutoBuy/", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    /// The word a caller narrows by is read off the surface, not guessed at: an answer nobody
+    /// narrowed leads with the sections it holds, in the order the writable schema declares them.
+    /// </summary>
+    [Fact]
+    public void An_answer_nobody_narrowed_names_the_sections_it_holds()
+    {
+        var context = BoundConfigurationContext();
+
+        Assert.Equal(
+            "sections: General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, " +
+            "AutoScribe, Reserves, Mentor",
+            GameMcpAcceptanceFixture.CallText("suite_configuration", context: context)
+                .Split('\n')[0]);
+        Assert.Equal(
+            "sections: General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, " +
+            "AutoScribe, Reserves, Mentor",
+            GameMcpAcceptanceFixture.CallText(
+                    "suite_configuration", new JObject { ["mode"] = "describe" }, context)
+                .Split('\n')[0]);
+        Assert.DoesNotContain(
+            "sections:",
+            GameMcpAcceptanceFixture.CallText(
+                "suite_configuration", new JObject { ["section"] = "Reserves" }, context));
+    }
+
+    /// <summary>
+    /// The longest answer is the one worth narrowing, so the section narrows <c>describe</c> too —
+    /// one filter over one set, rendered each mode's own way rather than an argument that works on
+    /// one of them.
+    /// </summary>
+    [Fact]
+    public void The_section_narrows_the_described_answer_as_well()
+    {
+        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            BoundConfigurationContext(),
+            describe: true,
+            section: "Reserves"));
+        var settings = described["settings"]!.Values<JObject>().ToArray();
+
+        Assert.Equal(
+            new[] { "Reserves/AbsoluteReserve", "Reserves/RelativeReserveMultiplier" },
+            settings.Select(setting => (string?)setting!["setting"]));
+        Assert.All(settings, setting => Assert.NotNull(setting!["description"]));
+        Assert.Null(described["sections"]);
+    }
+
+    /// <summary>
+    /// A section nobody files settings under is refused by naming the ones that exist, so the fix
+    /// is on the page that refused rather than a round trip away.
+    /// </summary>
+    [Fact]
+    public void An_unknown_section_is_refused_by_naming_the_real_ones()
+    {
+        var refusal = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            BoundConfigurationContext(),
+            describe: false,
+            section: "autobuy_settings"));
+
+        Assert.Equal("unavailable", (string?)refusal["status"]);
+        Assert.Equal(GameMcpDecisionReason.ClassInput, (string?)refusal["reasonCode"]);
+        Assert.Equal(
+            "unknown section 'autobuy_settings'; the sections are General, AutoBuy, AutoCast, " +
+            "AutoConcept, AutoHarvest, AutoItems, AutoScribe, Reserves, Mentor",
+            (string?)refusal["reason"]);
+        Assert.Null(refusal["sections"]);
+
+        // The caller's own filter word, which is one class of no wherever it is passed.
+        Assert.Equal(
+            GameMcpDecisionReason.ClassInput,
+            GameMcpDecisionReason.Class("unknown_section"));
+    }
+
+    /// <summary>
+    /// The section is matched the way an enum value a caller writes is matched, so the one spelling
+    /// difference between "AutoBuy" and how a caller types it is not a refusal — and the rows still
+    /// come back in the surface's own spelling.
+    /// </summary>
+    [Fact]
+    public void The_section_is_matched_however_the_caller_cased_it()
+    {
+        var context = BoundConfigurationContext();
+
+        Assert.Equal(
+            GameMcpAcceptanceFixture.CallText(
+                "suite_configuration", new JObject { ["section"] = "AutoBuy" }, context),
+            GameMcpAcceptanceFixture.CallText(
+                "suite_configuration", new JObject { ["section"] = "autobuy" }, context));
+    }
+
+    /// <summary>
+    /// The read arm sees the seven breaker settings through the section view exactly as it always
+    /// saw them through the whole catalog. Narrowing is a read; the one door that flips them is
+    /// still <c>suite_breakers</c>.
+    /// </summary>
+    [Fact]
+    public void The_section_view_reads_a_breaker_setting_it_still_may_not_write()
+    {
+        Assert.Equal(
+            "AutoHarvest/Mode: Disabled\n" +
+            "AutoHarvest/CollectFruitTrees: yes\n" +
+            "AutoHarvest/CollectTreasureTrees: yes",
+            GameMcpAcceptanceFixture.CallText(
+                "suite_configuration",
+                new JObject { ["section"] = "AutoHarvest" },
+                BoundConfigurationContext()));
+        Assert.True(GameMcpAutomationFeatures.IsBreakerSetting("AutoHarvest", "Mode"));
+    }
+
+    /// <summary>
+    /// One value, one spelling, whichever call printed it. A boolean is written the way every other
+    /// boolean on this wire reads — <c>yes</c> and <c>no</c> — on the whole catalog, on one
+    /// section's rows, in <c>mode=describe</c>, and in the <c>{before, after}</c> pair a committed
+    /// write hands back. The config file's own <c>true</c>/<c>false</c> is a fact about the file.
+    /// </summary>
+    [Fact]
+    public void A_boolean_reads_the_same_way_on_every_surface_that_prints_it()
+    {
+        var context = BoundConfigurationContext();
+
+        Assert.Contains(
+            "AutoBuy/IncludeStructures: yes",
+            GameMcpAcceptanceFixture.CallText("suite_configuration", context: context));
+        Assert.Contains(
+            "AutoBuy/IncludeStructures: yes",
+            GameMcpAcceptanceFixture.CallText(
+                "suite_configuration", new JObject { ["section"] = "AutoBuy" }, context));
+
+        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            context, describe: true, section: "AutoBuy"));
+        Assert.Equal(
+            "yes",
+            (string?)described["settings"]!.Values<JObject>()
+                .Single(setting => (string?)setting!["setting"] == "AutoBuy/IncludeStructures")!
+                ["value"]);
+
+        // The pair a committed write returns is this same projection, so the echo cannot drift
+        // from the read a caller compared it against.
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+        var before = GameMcpConfigurationSchema.SerializePublishedValue(
+            configuration.Current, "AutoBuy", "IncludeStructures");
+        var write = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", "false", store.CurrentGeneration,
+            out var reason, out _);
+        Assert.True(write == AutomataConfigurationWrite.Committed, reason);
+        var after = GameMcpConfigurationSchema.SerializePublishedValue(
+            configuration.Current, "AutoBuy", "IncludeStructures");
+
+        Assert.Equal("yes", before);
+        Assert.Equal("no", after);
+    }
+
+    /// <summary>
+    /// The wire's spelling is a display fact and stops at the wire. The config file is TOML and
+    /// keeps TOML's <c>true</c>/<c>false</c> whichever spelling the caller wrote, so a save written
+    /// through this surface is byte-identical to one written through the in-game controls and a
+    /// file already on disk still loads.
+    /// </summary>
+    /// <remarks>
+    /// Each case is seeded to the opposite value first, because BepInEx does not treat writing what
+    /// an entry already holds as a change: <c>ConfigEntry&lt;T&gt;.set_Value</c> compares and returns
+    /// before it stores or raises. Without the seed, three of these six spellings would be asking
+    /// the store to publish a value that never moved — which exercises the settlement arm rather
+    /// than the spelling this fact is about. The seed's own outcome is deliberately not asserted:
+    /// whether it changed anything depends on the bound default, and this fact does not pin that.
+    /// </remarks>
+    [Theory]
+    [InlineData("yes", "true")]
+    [InlineData("YES", "true")]
+    [InlineData("True", "true")]
+    [InlineData("no", "false")]
+    [InlineData("No", "false")]
+    [InlineData("FALSE", "false")]
+    public void A_boolean_written_as_the_wire_spells_it_is_stored_as_the_file_spells_it(
+        string written,
+        string persisted)
+    {
+        var file = new ConfigFile();
+        var configuration = BepInExAutomataConfiguration.Bind(file);
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", persisted == "true" ? "no" : "yes",
+            store.CurrentGeneration, out _, out _);
+
+        var write = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", written, store.CurrentGeneration,
+            out var reason, out _);
+        Assert.True(write == AutomataConfigurationWrite.Committed, reason);
+        file.Save();
+
+        Assert.True(file.TryGetPersisted("AutoBuy", "IncludeStructures", out var stored));
+        Assert.Equal(persisted, stored);
+    }
+
+    /// <summary>
+    /// A write the suite accepted and then could not publish is the suite's failure, not the
+    /// caller's. It shipped as <c>configuration_write_rejected</c> — ERR_INPUT, "the caller's own
+    /// argument is what is wrong" — for a call whose argument the suite had just taken, and the
+    /// two shared one bool so no producer could tell them apart.
+    /// </summary>
+    /// <remarks>
+    /// All three arms are driven against a real store. The third is reached the way the game
+    /// reaches it: BepInEx's <c>ConfigEntry&lt;T&gt;.set_Value</c> compares the incoming value with
+    /// the one it holds and returns before storing or raising, so writing <c>no</c> onto an entry
+    /// already holding it is accepted and publishes nothing. That is the whole shape of the bug —
+    /// the suite took the caller's argument and then had no change to confirm — and it used to be
+    /// unreachable here only because the stub raised its event unconditionally.
+    /// </remarks>
+    [Fact]
+    public void An_accepted_write_the_suite_cannot_publish_is_the_suites_failure()
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        var refused = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", "maybe", store.CurrentGeneration, out _, out _);
+        var committed = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", "no", store.CurrentGeneration, out _, out _);
+        var unconfirmed = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", "no", store.CurrentGeneration, out _, out _);
+
+        Assert.Equal(AutomataConfigurationWrite.Refused, refused);
+        Assert.Equal(AutomataConfigurationWrite.Committed, committed);
+        Assert.Equal(AutomataConfigurationWrite.Unconfirmed, unconfirmed);
+        Assert.Equal(
+            GameMcpDecisionReason.ClassUnavailable,
+            GameMcpDecisionReason.Class("configuration_write_unconfirmed"));
+        Assert.NotEqual(
+            GameMcpDecisionReason.Class("configuration_write_rejected"),
+            GameMcpDecisionReason.Class("configuration_write_unconfirmed"));
+        Assert.True(GameMcpDecisionReason.IsSuiteDefect("configuration_write_unconfirmed"));
+        Assert.False(GameMcpDecisionReason.IsSuiteDefect("configuration_write_rejected"));
+        Assert.Equal(
+            "The setting was accepted but the suite could not confirm it took; read it back and, " +
+            "if it is unchanged, report this.",
+            GameMcpDecisionReason.For("configuration_write_unconfirmed"));
+        Assert.Equal(
+            "failed",
+            GameMcpCommandResult.Failed(
+                "configuration_write_unconfirmed",
+                GameMcpDecisionReason.For("configuration_write_unconfirmed")).Status);
+    }
+
+    /// <summary>
+    /// The whole page, scanned. One row spelling a boolean the .NET way would put two vocabularies
+    /// on a surface a caller reads top to bottom, so no rendered value on either mode may be a
+    /// <c>true</c>/<c>false</c> token — the setting names and prose that legitimately contain those
+    /// letters are not values, so the scan is of what follows each <c>: </c>.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void No_configuration_row_prints_a_dot_net_boolean(bool describe)
+    {
+        var arguments = new JObject();
+        if (describe) arguments["mode"] = "describe";
+        var page = GameMcpAcceptanceFixture.CallText(
+            "suite_configuration", arguments, BoundConfigurationContext());
+
+        var offending = new List<string>();
+        foreach (var line in page.Split('\n'))
+        {
+            var separator = line.IndexOf(": ", StringComparison.Ordinal);
+            if (separator < 0) continue;
+            var value = line[(separator + 2)..].Trim();
+            if (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "false", StringComparison.OrdinalIgnoreCase))
+                offending.Add(line.Trim());
+        }
+
+        Assert.Empty(offending);
+        Assert.Contains("yes", page, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A caller handing back exactly what a read showed is never refused for casing, and neither is
+    /// one that types the .NET spelling. Both commit, and both read back in the surface's own
+    /// spelling rather than in the caller's.
+    /// </summary>
+    [Theory]
+    [InlineData("no", "yes")]
+    [InlineData("No", "Yes")]
+    [InlineData("NO", "YES")]
+    [InlineData("false", "true")]
+    [InlineData("False", "True")]
+    [InlineData("FALSE", "TRUE")]
+    public void A_boolean_write_is_accepted_however_the_caller_cased_it(string off, string on)
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        var offWrite = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", off, store.CurrentGeneration,
+            out var offReason, out _);
+        Assert.True(offWrite == AutomataConfigurationWrite.Committed, offReason);
+        Assert.Equal(
+            "no",
+            GameMcpConfigurationSchema.SerializePublishedValue(
+                configuration.Current, "AutoBuy", "IncludeStructures"));
+
+        var onWrite = store.SetGameMcp(
+            "AutoBuy", "IncludeStructures", on, store.CurrentGeneration,
+            out var onReason, out _);
+        Assert.True(onWrite == AutomataConfigurationWrite.Committed, onReason);
+        Assert.Equal(
+            "yes",
+            GameMcpConfigurationSchema.SerializePublishedValue(
+                configuration.Current, "AutoBuy", "IncludeStructures"));
+    }
+
+    /// <summary>
+    /// What a setting takes is said in the words a caller writing a value would use, and in one
+    /// vocabulary for the whole catalog: a setting that takes <c>true</c> is a <c>bool</c>, never
+    /// the runtime's <c>System.Boolean</c>. An enum keeps its own suite name, because that name is
+    /// a concept the caller already meets elsewhere and its values are listed beside it — but not
+    /// the namespace it happens to be declared in, which is a fact about the code and not the game.
+    /// </summary>
+    [Fact]
+    public void Every_setting_names_its_type_in_one_player_facing_vocabulary()
+    {
+        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+            BoundConfigurationContext(), describe: true));
+
+        Assert.Equal(
+            new[]
+            {
+                "General/Enabled: bool",
+                "AutoBuy/Mode: AutoBuyOperationMode",
+                "AutoBuy/AffordabilityMode: AutoBuyAffordabilityMode",
+                "AutoBuy/UpgradeAffordabilityMode: AutoBuyAffordabilityMode",
+                "AutoBuy/IncludeStructures: bool",
+                "AutoBuy/IncludeUpgrades: bool",
+                "AutoBuy/AutoLevelSpells: bool",
+                "AutoBuy/LeaveQueueSlots: int",
+                "AutoCast/Mode: AutoCastOperationMode",
+                "AutoCast/StartResourcePercent: float",
+                "AutoCast/ManualPauseSeconds: float",
+                "AutoCast/FullCharge: bool",
+                "AutoConcept/Mode: AutoConceptOperationMode",
+                "AutoConcept/SlotManagementMode: AutoConceptSlotManagementMode",
+                "AutoConcept/TrainingPeriodSeconds: int",
+                "AutoConcept/RateReservePercent: float",
+                "AutoConcept/MinimumResourcePercent: float",
+                "AutoConcept/MinimumDrainRatio: float",
+                "AutoHarvest/Mode: AutoHarvestOperationMode",
+                "AutoHarvest/CollectFruitTrees: bool",
+                "AutoHarvest/CollectTreasureTrees: bool",
+                "AutoItems/Mode: AutoItemsOperationMode",
+                "AutoItems/UseScrolls: bool",
+                "AutoItems/UseRelics: bool",
+                "AutoItems/TemporaryItemAllowlist: string",
+                "AutoScribe/Mode: AutoScribeOperationMode",
+                "AutoScribe/Roles: string",
+                "Reserves/AbsoluteReserve: string",
+                "Reserves/RelativeReserveMultiplier: float",
+                "Mentor/Mode: MentorOperationMode",
+            },
+            described["settings"]!.Values<JObject>()
+                .Select(setting =>
+                    (string?)setting!["setting"] + ": " + (string?)setting!["type"]));
+    }
+
+    /// <summary>
+    /// A refusal and the described row say the same word for the same setting, so a caller told
+    /// what a value must parse as reads the vocabulary it already saw rather than a second one. An
+    /// enum is refused by naming the values it accepts, as it always was: those are the choices
+    /// themselves, not a word for their type.
+    /// </summary>
+    [Theory]
+    // `yes` was this row's unparseable value until the wire started spelling booleans that way.
+    // It commits now, and the value that does not is one that is neither spelling.
+    [InlineData("AutoBuy", "IncludeStructures", "maybe", "bool")]
+    [InlineData("AutoBuy", "LeaveQueueSlots", "one", "int")]
+    [InlineData("AutoCast", "StartResourcePercent", "half", "float")]
+    [InlineData(
+        "AutoBuy", "AffordabilityMode", "Cheap", "BuyAll, Excess10, Excess100, Excess1000")]
+    public void A_refused_write_names_what_it_takes_in_the_words_the_read_used(
+        string section,
+        string key,
+        string requested,
+        string expected)
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        Assert.Equal(
+            AutomataConfigurationWrite.Refused,
+            store.SetGameMcp(
+                section, key, requested, store.CurrentGeneration, out var reason, out _));
+        Assert.Equal(section + "/" + key + " must parse exactly as " + expected, reason);
+    }
+
+    /// <summary>
+    /// A writable setting of a type the wire has no word for is a defect surfaced where the schema
+    /// is built, not a row that quietly wears .NET's name for it. Every type the suite binds today
+    /// has a word, so this never fires on a shipped build.
+    /// </summary>
+    [Fact]
+    public void A_type_the_wire_has_no_word_for_is_refused_rather_than_leaked()
+    {
+        var failure = Assert.Throws<InvalidOperationException>(
+            () => GameMcpConfigurationValuePolicy.SettingTypeWord(typeof(double)));
+
+        Assert.Equal(
+            "no wire word is declared for writable setting type 'System.Double'; declare one in " +
+            "GameMcpConfigurationValuePolicy.SettingTypeWord before making a setting of that " +
+            "type writable",
+            failure.Message);
+    }
+
+    private static GameMcpFrameContext BoundConfigurationContext()
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        configuration.AttachMentor(MentorConfig.Bind(new ConfigFile()));
+        return GameMcpTestHarness.Context(
+            writable: configuration.CreateGameMcpWritableSchema(),
+            configuration: configuration.Current);
     }
 
     [Fact]
@@ -379,35 +1509,65 @@ public sealed class GameMcpConfigurationTests
         var publications = 0;
         var store = new AutomataConfigurationStore(configuration, (_, _) => publications++);
         var before = store.CurrentGeneration;
-        Assert.True(store.TrySetGameMcp(
+        Assert.Equal(AutomataConfigurationWrite.Committed, store.SetGameMcp(
             configuration.AutoCastMode.Definition.Section,
             configuration.AutoCastMode.Definition.Key,
             "Active",
             before,
+            out _,
             out _));
-        Assert.False(store.TrySetGameMcp(
+        Assert.Equal(AutomataConfigurationWrite.Refused, store.SetGameMcp(
             configuration.AutoCastMode.Definition.Section,
             configuration.AutoCastMode.Definition.Key,
             "Disabled",
             before,
+            out _,
             out _));
         Assert.Equal(1, publications);
+    }
+
+    /// <remarks>
+    /// BepInEx writes its own domain for a config-file comment, and splicing that text into a
+    /// refusal made the surface say "must be From 0 to 60" — the game's file format leaking into a
+    /// player-facing sentence, with no machine field a caller could retry against.
+    /// </remarks>
+    [Fact]
+    public void A_write_outside_the_declared_domain_answers_with_the_domain_as_numbers()
+    {
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var store = new AutomataConfigurationStore(configuration, (_, _) => { });
+
+        Assert.Equal(AutomataConfigurationWrite.Refused, store.SetGameMcp(
+            "AutoCast",
+            "ManualPauseSeconds",
+            "600",
+            store.CurrentGeneration,
+            out var reason,
+            out var bound));
+
+        Assert.Equal("AutoCast/ManualPauseSeconds must be from 0 to 60", reason);
+        Assert.Equal(0d, bound.Minimum);
+        Assert.Equal(60d, bound.Maximum);
     }
 }
 
 public sealed class GameMcpEmergencyStopTests
 {
     [Fact]
-    public void AcceptedStopOwnsHeadOfLineAndClosesGameplayAdmission()
+    public void StopAndGameplayRetainSubmissionOrderForFrameExecution()
     {
-        var commands = new GameMcpCommandBus();
-        GameMcpAcceptanceFixture.SubmitHarvest(commands);
-        var stop = commands.SubmitEmergencyStop(1, engaged: true);
-        var blocked = GameMcpAcceptanceFixture.SubmitHarvest(commands);
-        Assert.True(blocked.Completion.TryWait(TimeSpan.FromMilliseconds(50), out var rejection));
-        Assert.Equal("emergency_stop_pending", rejection.Code);
-        Assert.True(commands.TryDequeue(out var first));
-        Assert.Same(stop, first);
+        var operations = new GameMcpFrameInbox();
+        var before = GameMcpAcceptanceFixture.SubmitHarvest(operations);
+        var stop = operations.Submit(new GameMcpOperationRequestBuilder
+        {
+            ToolName = "suite_emergency_stop",
+            Classification = GameMcpOperationClass.SuiteAdministration,
+            RequiredData = GameMcpFrameData.Configuration,
+            Mode = "engage",
+        }.Freeze());
+        var after = GameMcpAcceptanceFixture.SubmitHarvest(operations);
+
+        Assert.Equal(new[] { before, stop, after }, operations.ClaimPending());
     }
 }
 
@@ -441,7 +1601,7 @@ internal static class GameMcpAcceptanceFixture
 
     internal static IReadOnlyList<JObject> Tools()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpStateStore(), new GameMcpCommandBus());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
         var response = router.Handle(Request(1, "tools/list", new JObject()));
         return response.Body!["result"]!["tools"]!.Values<JObject>().OfType<JObject>().ToArray();
     }
@@ -449,85 +1609,62 @@ internal static class GameMcpAcceptanceFixture
     internal static string[] ToolNames() =>
         Tools().Select(tool => (string)tool["name"]!).ToArray();
 
-    internal static JObject Call(
-        GameMcpProtocolRouter router,
+    /// <summary>
+    /// One tool call as a caller sees it: the page of text the protocol returns, and nothing beside
+    /// it. Every tool answers this way now, so there is one helper rather than one per shape.
+    /// </summary>
+    internal static string CallText(
         string tool,
-        JObject? arguments = null)
+        JObject? arguments = null,
+        GameMcpFrameContext? context = null)
     {
-        var response = router.Handle(Request(
+        var inbox = new GameMcpFrameInbox();
+        var router = new GameMcpProtocolRouter(inbox);
+        var pinned = context ?? GameMcpTestHarness.Context();
+        var response = GameMcpTestHarness.Handle(router, inbox, Request(
             1,
             "tools/call",
             new JObject
             {
                 ["name"] = tool,
                 ["arguments"] = arguments ?? new JObject(),
-            }));
+            }), operation => operation.Request.ToolName switch
+            {
+                "suite_health" => GameMcpToolExecution.Text(
+                    Plugin.ProjectGameMcpHealthText(pinned)),
+                "suite_configuration" => GameMcpToolExecution.Read(
+                    Plugin.ProjectGameMcpConfiguration(
+                        pinned,
+                        operation.Request.Mode == "describe",
+                        operation.Request.Section)),
+                "trace_health" => GameMcpToolExecution.Text(
+                    Plugin.ProjectGameMcpTraceHealthText(pinned)),
+                _ => GameMcpTestHarness.ExecuteRead(operation, pinned),
+            });
         Assert.Equal(200, response.StatusCode);
         Assert.Null(response.Body?["error"]);
-        return (JObject)response.Body!["result"]!["structuredContent"]!;
+        Assert.Null(response.Body!["result"]!["structuredContent"]);
+        var content = Assert.Single(response.Body["result"]!["content"]!.Values<JObject>());
+        Assert.Equal("text", (string?)content["type"]);
+        return (string)content["text"]!;
     }
 
-    internal static GameMcpStateStore ConfiguredStore(string writableConfiguration = "[]")
-    {
-        var store = new GameMcpStateStore();
-        store.Capture(
-            new SuiteRuntimeConfiguration(),
-            new ConfigGeneration(3),
-            writableConfiguration,
-            lifecycleGeneration: 9,
-            sceneName: "Main",
-            nativeContractsAvailable: true,
-            Array.Empty<FeatureStatusSnapshot>(),
-            DecisionJournalStatus.Unavailable,
-            journalRevision: 2,
-            runtime: null);
-        return store;
-    }
-
-    internal static GameMcpStateStore StoreWithHealth(JObject health)
-    {
-        var store = new GameMcpStateStore();
-        var snapshot = new GameMcpStateSnapshot(
-            (ServiceWorldPublication?)null,
-            new ConfigGeneration(3),
-            lifecycleGeneration: 9,
-            DateTime.UtcNow.Ticks,
-            "{}",
-            "[]",
-            health.ToString(Newtonsoft.Json.Formatting.None),
-            "{}",
-            runtimeAvailable: true,
-            runtimeNotAvailableReason: string.Empty);
-        typeof(GameMcpStateStore)
-            .GetField("_latest", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(store, snapshot);
-        return store;
-    }
-
-    internal static GameMcpStateSnapshot SpellSnapshot(int masteryLevel) =>
+    internal static GameMcpFrameContext SpellSnapshot(int masteryLevel) =>
         Snapshot(SpellWorld(masteryLevel, 30));
 
-    internal static GameMcpStateSnapshot Snapshot(GameWorldState world)
+    internal static GameMcpFrameContext Snapshot(GameWorldState world)
     {
         using var publisher =
             new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(1001));
+        publisher.Publish(
+            world with { EntityIdentities = GameMcpTestHarness.EntityCatalog },
+            new WorldGeneration(1001));
         return Snapshot(publisher.ReadLatest());
     }
 
-    internal static GameMcpStateSnapshot Snapshot(
+    internal static GameMcpFrameContext Snapshot(
         WorldPublication<GameWorldState> publication) =>
-        new(
-            publication,
-            new ConfigGeneration(3),
-            lifecycleGeneration: 9,
-            DateTime.UtcNow.Ticks,
-            "{}",
-            "[]",
-            "{}",
-            "{}",
-            runtimeAvailable: true,
-            runtimeNotAvailableReason: string.Empty);
+        GameMcpTestHarness.Context(publication);
 
     internal static GameWorldState SpellWorld(int masteryLevel, long epoch) => new()
     {
@@ -572,40 +1709,29 @@ internal static class GameMcpAcceptanceFixture
             1),
     };
 
-    internal static GameMcpCommand NativeCommand(ulong? decisionGeneration)
-    {
-        var commands = new GameMcpCommandBus();
-        var command = SubmitPurchase(commands, decisionGeneration);
-        Assert.True(commands.TryDequeue(out var dequeued));
-        Assert.Same(command, dequeued);
-        return command;
-    }
-
-    internal static GameMcpCommand SubmitPurchase(
-        GameMcpCommandBus commands,
-        ulong? decisionGeneration) =>
-        commands.Submit(
+    internal static GameMcpCommand NativeCommand() =>
+        new(
+            sequence: 1,
             GameMcpCommandKind.Purchase,
-            decisionGeneration,
             expectedLifecycleGeneration: 12,
             expectedConfigurationGeneration: 7,
             mode: "structure",
             Guid.NewGuid(),
             Guid.Empty,
             derivedNativeType: "StructureSO",
-            expectedNativeType: string.Empty,
-            amount: 1);
+            amount: 1,
+            payloadKey: string.Empty,
+            payloadValue: string.Empty,
+            saveCapture: false);
 
-    internal static GameMcpCommand SubmitHarvest(GameMcpCommandBus commands) =>
-        commands.Submit(
-            GameMcpCommandKind.Harvest,
-            decisionWorldGeneration: null,
-            expectedLifecycleGeneration: 1,
-            expectedConfigurationGeneration: 1,
-            mode: "fruit_tree",
-            KnownEntities.FruitTreePlot.Uuid,
-            Guid.Empty,
-            derivedNativeType: "PlotNodeSO",
-            expectedNativeType: string.Empty,
-            amount: 1);
+    internal static GameMcpFrameOperation SubmitHarvest(GameMcpFrameInbox operations) =>
+        operations.Submit(new GameMcpOperationRequestBuilder
+        {
+            ToolName = "game_agromancy",
+            Classification = GameMcpOperationClass.Gameplay,
+            RequiredData = GameMcpFrameData.World | GameMcpFrameData.Configuration,
+            Uuid = KnownEntities.FruitTreePlot.Uuid,
+            SecondaryUuid = KnownEntities.FruitTreeCollect.Uuid,
+            Mode = "add",
+        }.Freeze());
 }

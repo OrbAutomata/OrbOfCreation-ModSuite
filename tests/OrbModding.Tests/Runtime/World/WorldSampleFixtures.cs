@@ -1,5 +1,6 @@
 using System;
 using OrbAutomata;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 
 namespace OrbModding.Tests.Runtime.World;
@@ -182,7 +183,6 @@ internal static class WorldSamples
         double powerBuildRating = 0d,
         int baseLevel = 0,
         float queueTimeTotal = 1f,
-        int quantity = 0,
         bool debugStructure = false,
         int observableId = 0,
         bool insufficientReqPenaltyActive = false,
@@ -204,7 +204,6 @@ internal static class WorldSamples
             flagged,
             baseLevel,
             queueTimeTotal,
-            quantity,
             debugStructure,
             disabled,
             observableId,
@@ -266,7 +265,9 @@ internal static class WorldSamples
         int levelVisibilityRange = 2,
         int requiredStagesCached = 0,
         double requiredTimeCached = 0d,
-        int requirementsAdjustModifiers = 0) =>
+        int? baseRequirementLevel = null,
+        int? effectiveRequirementLevel = null,
+        WorldResearchRequirementAdjustment[]? requirementAdjustments = null) =>
         new(
             researchId,
             level,
@@ -279,11 +280,27 @@ internal static class WorldSamples
             isActive,
             flagged,
             available,
+            visible: available,
+            complete: maxLevel > 0 && level + (int)baseLevels >= maxLevel,
+            canDevelop: available && !isDeveloping,
+            withinDevelopRange: available,
+            meetsLevelRequirements: true,
+            stillHasLeeway: true,
+            belowArtificialMaxLevel: true,
+            belowMaxInvestmentLevel: maxLevel <= 0 || level + (int)baseLevels < maxLevel,
+            purchasedLevels: level,
+            baseLevel: level + (int)baseLevels,
+            bonusLevel: (int)bonusLevels,
+            totalLevel: level + (int)baseLevels + (int)bonusLevels,
+            artificialMaxLevel: (int)maxLevelCap,
             hiddenLevel,
             levelVisibilityRange,
             requiredStagesCached,
             new BigDouble(requiredTimeCached),
-            requirementsAdjustModifiers,
+            baseRequirementLevel ?? level,
+            effectiveRequirementLevel ?? baseRequirementLevel ?? level,
+            PublicationTable<WorldResearchRequirementAdjustment>.Create(
+                requirementAdjustments ?? Array.Empty<WorldResearchRequirementAdjustment>()),
             new RawResearchModifiers(
                 new BigDouble(bonusLevels),
                 new BigDouble(baseLevels),

@@ -61,8 +61,17 @@ internal static partial class ServiceCycleSemanticPayloadValidation
         ServiceCycleSemanticFields.PumpDurations | ServiceCycleSemanticFields.Timestamp |
         ServiceCycleSemanticFields.Code | ServiceCycleSemanticFields.ActionIndex;
 
+    // No service and no cycle: the suite has one collector and one pass, and a span that named the
+    // collection service would invite a reader to fold it into that service's cycle rows — which is
+    // the one thing it is not, because a pass is sixty-odd spans and a cycle is one row.
+    private const ServiceCycleSemanticFields WorldCategoryFields =
+        ServiceCycleSemanticFields.Code | ServiceCycleSemanticFields.Timestamp |
+        ServiceCycleSemanticFields.Duration | ServiceCycleSemanticFields.ActionCount |
+        ServiceCycleSemanticFields.OccurrenceCount;
+
     private static ServiceCycleSemanticFields ExpectedFields(ServiceCycleSemanticEventKind kind) => kind switch
     {
+        ServiceCycleSemanticEventKind.WorldCategoryCollected => WorldCategoryFields,
         ServiceCycleSemanticEventKind.ConfigurationPublished => PublicationFields | ServiceCycleSemanticFields.Configuration,
         ServiceCycleSemanticEventKind.StrategyPublished => PublicationFields | ServiceCycleSemanticFields.Strategy,
         ServiceCycleSemanticEventKind.LifecycleRequested or ServiceCycleSemanticEventKind.LifecycleActivated or
@@ -117,6 +126,11 @@ internal static partial class ServiceCycleSemanticPayloadValidation
             ServiceCycleSemanticEventKind.CaptureUnavailable or ServiceCycleSemanticEventKind.CaptureFaulted or
             ServiceCycleSemanticEventKind.ActionAttempted or ServiceCycleSemanticEventKind.ActionRejected =>
             ServiceCycleSemanticFields.FrameIdentity,
+        // A pass reads the game inside a pump frame and under a lifecycle epoch, and says both. It
+        // says neither before the game has a lifecycle to name, which is a real state during startup
+        // and a worse span to refuse than to record without an epoch.
+        ServiceCycleSemanticEventKind.WorldCategoryCollected =>
+            ServiceCycleSemanticFields.FrameIdentity | ServiceCycleSemanticFields.Lifecycle,
         _ => ServiceCycleSemanticFields.None,
     };
 

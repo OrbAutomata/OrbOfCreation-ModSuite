@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
@@ -313,6 +314,7 @@ internal static class WorldActionQueueSlotDeriver
 internal sealed class WorldActionQueueReader : IWorldCategoryReader
 {
     private readonly Type? _registryType;
+    private readonly RuntimeIdentityRegistryBinding _registryBinding;
     private readonly Type? _slotQueueType;
     private readonly Type? _occupancyQueueType;
     private readonly Type? _slotType;
@@ -336,6 +338,8 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
         Type? occupancyQueueType)
     {
         _registryType = registryType;
+        _registryBinding = new RuntimeIdentityRegistryBinding(
+            () => registryType, requireStableIdentityContract: false);
         _slotQueueType = slotQueueType;
         _occupancyQueueType = occupancyQueueType;
         if (registryType is null)
@@ -392,9 +396,10 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
         slots.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var registry = NativeAccessorBinder.StaticDictionary(_registryType, "RuntimeLookup");
-        if (registry is null)
-            return WorldCategoryReport.Missing(Category, "the identity registry was unreadable");
+        var source = _registryBinding.Read();
+        if (!source.IsReady || source.Registry is null)
+            return WorldCategoryReport.Missing(Category, source.Reason);
+        var registry = source.Registry;
 
         var sampled = 0;
         var skipped = 0;

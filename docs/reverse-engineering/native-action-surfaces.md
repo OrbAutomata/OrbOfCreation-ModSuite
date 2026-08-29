@@ -2,27 +2,102 @@
 
 [Back to index](README.md)
 
-Three action paths are decompiled: purchasing, consumable use, and crafting. Each is given as the
-call sequence, the admission short-circuit in its real order, the stable identities involved, and
-the constraints that make a naive call fail.
+Each decompiled action path is given as the call sequence, the admission short-circuit in its real
+order, the stable identities involved, and the constraints that make a naive call fail. Metadata
+tokens are from the audited build ([audited-build.md](audited-build.md)) and die with a game update;
+they identify a member, they do not replace resolving it.
 
 The costs these paths charge are in [resources-and-bigdouble.md](resources-and-bigdouble.md).
 
 ---
 
+## Active toggle-spell deactivation
+
+`UISpellList.OnSpellFire(Spell)` is the visible spell-row button path. It checks the row's
+interaction state, calls `Spell.CanFire()`, and then calls `Spell.Fire()`. The indexed
+`SpellManager.FireSpellIndex(int)` route performs the same `CanFire()` then `Fire()` pair for the
+spell occupying that loadout position, so the action can retain stable slot addressing without
+inventing another deactivation path.
+
+`Spell.Fire()` branches on `Spell.IsCasting()`. The inactive branch casts; the active branch calls
+the static `SettingsManager.CanCancelSpells()` setting. When cancellation is allowed it calls
+`Spell.EndCasting()` and `Spell.CancelDoubleCast()`; otherwise it only shows the game's settings
+message and does not end the spell. `Spell.IsToggledSpell()` classifies the visible toggle/charm
+cast types. Therefore an honest toggle-off action revalidates exact slot and recipe identity,
+`IsToggledSpell`, current `IsCasting`, `CanCancelSpells`, and `CanFire`, invokes
+`FireSpellIndex`, and accepts only `IsCasting` changing from true to false. No resource or cast
+counter participates in that outcome.
+
+Installed contracts pin the UI and indexed-wrapper calls to `CanFire`/`Fire`, and pin the native
+`Fire` body references to `IsCasting`, `CanCancelSpells`, and `EndCasting`.
+
+---
+
+## The game counts manual casts per spell
+
+`Spell.numCasts` is a private `System.Int32` on the runtime spell instance. `Spell.ExecuteSpell()`
+is the only body that writes it: after the cast sound, it reads `Spell.activeData`, calls
+`Spell.SpellCastData.IsManual()`, and on true loads `Spell.numCasts`, adds one, and stores it back
+before granting casting experience through `Player.GetCastingExperience()` and mastery through
+`SpellRecipeSO.GainMasteryExp(BigDouble)`. The unconditional counter next to it is global, not
+per-spell: `ExecuteSpell` also calls `Player.GetSpellsCasted()` and `NumberVariable.Add(1)` for
+every execution regardless of who triggered it.
+
+`Spell.SpellCastData.IsManual()` compares the instance's cast-type field against zero, and
+`Spell.Cast()` builds its data through `CreateCastData` with that same zero constant. So the cast
+type the visible spell button produces is exactly the one `numCasts` counts, and every press that
+reaches `Cast()` → `ExecuteSpell()` adds exactly one. Echoes and delayed repeats do not: they come
+from `Spell.AddNewCastData(System.Double, ScalingInfo)`, which builds its data with cast type `2`,
+and `Spell.Increment(System.Single, BigDouble)` loads those through `Spell.LoadSpellData` before the
+execution that replays them.
+
+That makes `numCasts` the per-press fact the game itself writes, which is why the world capture
+reads it and `game_cast fire` publishes it as a before/after pair. It is a capture-only field: no
+action writes it, and the toggle-off outcome above still turns on `IsCasting` alone.
+
+---
+
+## Two routers sit above several families
+
+`UICostButton.OnClick` (`0x06002204`) is the paid-action router. It checks
+`ResourceCostList.HasEnough()` (`0x06001E0F`), invokes `PerformCost()` (`0x06001E19`), and only then
+invokes its configured callback. Every family reached through a cost button therefore pays **before**
+the domain call, and the domain method itself neither prices nor charges. Re-driving such a path at
+the data layer means reproducing that order on purpose: read and decide, then `PerformCost`, then the
+domain method. The order is not universal — read the terminal method before assuming payment came
+first, because at least one family commits before it pays.
+
+`UILevelableItem.PurchaseLevel` (`0x06002467`) routes to `ILevelable.PurchaseLevel`, and
+`PurchaseFreeLevel` (`0x06002468`) routes to `ILevelableHasFree.PurchaseFreeLevel`. One control
+therefore levels several unrelated native types. Audited implementers are a partial list —
+`GlyphSO`, `EquipmentTypeSO` (`0x06000B66`), `ResourceTypeSO`, `TimeRuneSO` (`0x06001847`) — so
+enumerate the interface's implementations in the assembly rather than assuming this set.
+
+---
+
 ## Purchasing structures and upgrades
+
+The UI calls the levelled rows **Attributes**, but their concrete purchase target is
+`StructureSO`. `UIStructureList.PostSetupItem` wires each row to
+`UIStructureList.PurchaseStructure(StructureSO)` (`0x06002763`); its ordinary branch invokes the
+parameterless `StructureSO.Purchase()` (`0x06001783`), which delegates to
+`StructureSO.Purchase(bool)` (`0x06001784`) with `false`. The separate native `AttributeSO` type is
+the Statistics-tab descriptor: it has no purchase cost, level, admission, or mutation method and is
+not a player purchase target. A tool that added an `AttributeSO` purchase branch would therefore
+invent a verb the UI does not expose.
 
 ### Surface
 
 | Concern | Structure | Upgrade |
 |---|---|---|
 | Registry | `StructureSO.All` | `UpgradeSO.All` |
+| UI entry | `UIStructureList.PurchaseStructure` (`0x06002763`) | `UIUpgradeButton.ClickUpgradeButton` (`0x06002944`) |
 | Availability | `IsAvailable()` | `IsAvailable()` |
 | Admission | `CanPurchase()` | `CanPurchase()` |
 | Cost | `GetPurchaseCost()` → `ResourceCostList` | `GetPurchaseCost()` → `ResourceCostList` |
 | Current level | `GetPurchaseLevel()` | `GetPurchaseLevel()` |
 | Queued state | `GetQueuedQuantity()` | `GetQueuedPurchaseLevel()` |
-| Mutation | `Purchase(bool)` | `Purchase()` |
+| Mutation | `Purchase(bool)` (`0x06001784`) | `Purchase()` (`0x060018A6`) |
 | Queue signal | `QueueBuild(int)` | `Purchase()` |
 | Completion | `CompleteAction()` | `CompleteAction()` |
 | Finite lifecycle | — | `HasFiniteLevels()`, `IsMaxLevel()`, `IsMaxQueuedLevel()` |
@@ -72,8 +147,9 @@ game's own verdict on the price, not a re-pricing.
 
 If only `HasEnough()` refuses, quantities moved after you read them; that is ordinary staleness.
 If availability or a level cap refuses, your model of the entity is wrong. **If every readable
-term passes, the parameterized per-level prerequisite is the refusing term by elimination** — it
-is the only one you cannot read directly, so this is how you name it.
+term passes, the parameterized per-level prerequisite is the refusing term by elimination.** You can
+also ask that term directly: its one-parameter `Check(ConditionInfo)` overload is safe to call from
+a read pass, unlike the parameterless `Check()` — see [requirements.md](requirements.md).
 
 ### The owning-view reachability chain
 
@@ -117,6 +193,14 @@ the first; a bulk upgrade buy is **one call** with `GlobalVariables.GetMultiBuy(
 restored afterwards (protocol in [modding-hooks.md](modding-hooks.md)). Both accept a queued delta
 in `[1, N]` — either can commit fewer levels than asked for, any committed level is a success, and
 only a zero delta is a miss.
+
+### Disabling a structure
+
+`UIStructureList.ToggleDisableStructure` (`0x06002765`) calls `StructureSO.ToggleDisabled`, and each
+half is ordered: `DisableStructure` sets the disabled flag and then calls `RemoveEffects`, while
+`EnableStructure` clears the flag and then calls `ApplyEffects`. The UI callback performs no other
+admission or state write. The stable `disabled` flag is therefore the action's one outcome sentinel;
+effect application is the native callback's consequence, not a second suite-owned ledger.
 
 ### Where an upgrade's reward lands
 
@@ -166,7 +250,31 @@ only which are possible.
 
 ---
 
-## Using a consumable
+## Consumables
+
+### Surface
+
+Five verbs share the inventory list. Each one's UI route ends in a `ConsumableSO` member:
+
+| Verb | UI route | Terminal member |
+|---|---|---|
+| Use | `UIConsumableRefList.ClickConsumable` (`0x0600229B`) | `SelectAndFire()` |
+| Cancel one pending use | `UIConsumableRefList.CancelConsumable` (`0x0600229D`) | `CancelUsage` (`0x060009D2`) |
+| Discard stock | `UIConsumableRefList.DiscardConsumable` (`0x0600229E`) | `Discard` (`0x060009D3`) |
+| Randomize on/off | `UIConsumableRefItem.TurnRandomizationOn/Off` (`0x06002296`/`0x06002297`) | `SetRandomization` (`0x060009D1`) |
+| Reorder | `UIConsumableRefList.OnDrop` (`0x0600229A`) | list `SwapPositions` → `UpdateObservable` |
+
+Discard reads `GlobalVariables.GetMultiBuy()` for its amount and the native call clamps to
+`min(requested, live amount)` — asking for more than you hold is not a refusal.
+
+`CancelUsage` is identity work, not counter work: it obtains `ConsumableUsage.GetResultInfo`
+(`0x06000DD1`), calls `EffectResultInfo.Cancel` (`0x06001BFC`), removes that usage, then calls
+`PrepNextUsage`. The thing cancelled is one exact `ConsumableUsage`, so a queue count that fell by
+one proves nothing about *which* pending use ended.
+
+Reorder is same-list only. `OnDrop` guards on same-list and differing indices, swaps within the
+authored `ConsumableRefListVariable`, and the hotbar then applies `SetAt`. Moving an item between
+the inventory and the hotbar is not a native verb; there is no member to drive for it.
 
 ### Family is a set, not a subtype
 
@@ -288,10 +396,50 @@ naming that role's Scroll, exactly one `RequestTargetEffectScript` on the Scroll
 missing, extra, wrong-typed or contradictory edge leaves the relationship unknown; it never
 degrades to a name-based mapping.
 
-### There is no non-UI one-shot composite
+### Two routes, chosen by whether a page owns the recipe
 
-The only entry point is re-driving the data layer under `UICraftingPage.QueueCraft`; the sequence
-and its consequences are in [ui-internals.md](ui-internals.md).
+`UICraftingRecipeList.ClickCraft` (`0x060022E1`) invokes the installed page callback when there is
+one and otherwise calls `CraftingRecipeSO.Execute` (`0x06000A32`). Which route a recipe takes is a
+property of the authored page relations, not a caller decision.
+
+`Execute` is the synchronous direct composite — the one place crafting has a non-UI entry point:
+
+```text
+CraftingRecipeSO.Execute()
+  → CanBuy()                          0x06000A2A
+  → GetPurchaseQuantity()             0x06000A30
+  → recipeCost                        0x040005F1
+  → ResourceCostList.Multiply()       0x06001E3B
+  → ResourceCostList.PerformCost()    0x06001E19
+  → PassiveObservable.Channel.Update()
+```
+
+`GetEffectChannel().Observe("craft").GetObservableId()` is the direct route's directional outcome
+sentinel: the audited composite increments it only after cost admission, so a strictly larger id
+proves the synchronous native action completed without reconstructing a resource ledger.
+
+The page route has no equivalent. `UICraftingPage.UIStart` installs `ContextRecipeClick` and
+`ContextRecipeInteraction` and owns the authored recipe-list, queue, mode and main-type relations;
+`ContextRecipeClick` reads the recipe's current queue quantity, obtains
+`GetPurchaseQuantity(previous)`, then calls `UICraftingPage.QueueCraft` (`0x060022F0`), whose
+sequence and consequences are in [ui-internals.md](ui-internals.md). Automating a timed recipe means
+re-driving that sequence below the handler.
+
+Three constraints follow, and each breaks a naive call:
+
+- **The page relation is the queue.** A timed recipe with no authored page has no queue to join, and
+  a recipe reachable from two loaded pages is ambiguous rather than a free choice. Prove that exactly
+  one page holds the same recipe object before choosing a route.
+- **Stack versus new instance is a native read.** `QueueCraft` reads the native craft mode and either
+  calls `CraftingInstance.AddQuantity` (`0x06000DE2`) on the exact existing instance for that recipe
+  or constructs a new one; the caller does not pick.
+- **Queue room is branch-dependent.** `HasSpaceForCraft` permits a full queue in stack mode when the
+  exact recipe already has an instance, and requires native list room otherwise. A blanket capacity
+  check refuses work the game accepts.
+
+Cost lineage differs by route too: the direct route prices `recipeCost.Multiply(purchaseAmount)`,
+the page route `GetTotalCost(previousQuantity, purchaseAmount)`. Quoting one route's price for the
+other misprices the craft.
 
 ### Level authority
 
@@ -324,7 +472,602 @@ Two `CraftingInstanceListVariable`s hold the live work: `ActiveScribeInstances`
 repeating instance per recipe in the second; neither list retains caller ownership, so those
 instances are observable but not editable by anyone else.
 
+Queue ownership and `CraftingInstance.IsAuto()` normally agree, but the game does not make that
+an invariant at insertion. `CraftingInstanceListVariable.Initialize()` normalizes existing items
+with `SetAuto(isAutoList)`, `UICraftingPage.QueueCraft()` creates a non-auto instance, and
+`CraftingInstanceListVariable.AutomateCraft()` calls `SetAuto()` before adding an automatic one.
+However, inherited `GenericListVariable<CraftingInstance>.Add()` does not set the flag and the
+public `CraftingInstance.SetAuto(bool)` remains mutable after insertion. World capture therefore
+verifies both facts and fails loudly if an instance contradicts its containing queue.
+
+The visible automated add route is
+`UICraftingPage.ContextRecipeClick` → the recipe's multi-buy/automation helpers →
+`CraftingInstanceListVariable.AutomateCraft`. Its increment is capped by the global
+multi-buy. The instance-list click route calls `RemoveAutomation` for automated work;
+manual work calls `CancelCraft` and then removes the exact instance from the queue.
+`CancelCraft` contains no resource-cost or refund call, so cancellation success is queue
+state only and refund behavior remains a live-validation question.
+
+This mechanism was audited from Orb of Creation v1.0.5 `Assembly-CSharp.dll`, SHA-256
+`46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc`, decompiled with
+ILSpy 10.1.1.8388.
+
+New queued work is proved by reference membership of the exact newly constructed instance, not by
+finding any instance with the same recipe and quantity. Instant work has no queue destination;
+`CraftingInstance.InstantCraft()` reaches `CompleteCraft`, whose monotonic sentinel for a one-shot
+instance is `IsExpired()` changing to true.
+
 Every `StructureSO` owns an `EnchantmentSO.EnchantTable`. A native enchantment upgrade keeps a
 stronger existing instance and replaces an equal-or-lower one only when the proposed scaling is
 **strictly** stronger under `CanUpgradeEnchantment`. An apply that appears to do nothing usually
 proposed equal scaling.
+
+---
+
+## Research development
+
+### Surface
+
+| Concern | Member |
+|---|---|
+| Identity | `ResearchSO` |
+| Develop | `UIResearchItem.DevelopResearch` (`0x060025F0`) → `ResearchSO.PurchaseLevel` (`0x060011B4`) |
+| Route switch | `SettingsManager.IsResearchQueueMode` → `Develop` (`0x060011B5`) or `QueueDevelopment` (`0x060011B6`) |
+| Pause / resume | `UIResearchItem.PauseResearch` / `ResumeResearch` (`0x060025F1`/`0x060025F2`) → the same-named `ResearchSO` members |
+| Cancel | `UIResearchItem.CancelDevelopment` (`0x060025F7`) → `ResearchSO.CancelDevelopment` (`0x060011B7`) |
+| Free bonus level | `UIResearchItem.AddBonusLevel` (`0x060025F8`) → `CanApplyBonusLevels` → `SubmitBonusLevel` (`0x060011BA`) |
+
+`PurchaseLevel` is a dispatcher, not a verb: one setting decides whether the same click develops now
+or queues.
+
+### The queued route accepts a prefix, and its cost probe lies
+
+```text
+QueueDevelopment()
+  → read native multi-buy
+  → clamp against the authored maximum
+  → per candidate level:
+      GetDevelopmentCostAtLevel(level)
+      ResourceCostList.Add(cumulative)
+      cumulative HasEnough()
+      IsWithinDevelopRangeAt(level)
+  → ApplyResearchCost for the accepted levels only
+  → an idle target immediately starts the first accepted level
+```
+
+Affordability is cumulative across the batch, so the accepted set is a prefix ending at the first
+level that fails `HasEnough` or `IsWithinDevelopRangeAt`. **`ResourceCostList.Add` mutates the
+cumulative list before the failing candidate is rejected**, so the object left behind after the loop
+includes a level the game refused. Quoting it overstates the price; rebuild the accepted prefix in a
+second pass through the same native cost members instead of returning the last probe.
+
+Waiting levels live inside the research node. They are not entries in the global action queue, and
+queue room is not a term in this admission.
+
+### The other four verbs
+
+The immediate route sets developing and active state, applies the research cost, recalculates derived
+research data, and establishes its drain. Pause and resume change the active-drain state only, and
+the interface exposes them **only with Research Queue Mode disabled**. Cancel clears active,
+developing and waiting state, reapplies the cost calculation, recalculates, and calls
+`ResourceFillList.ClearInvestment`. Bonus submission applies one self-bonus level and updates its
+research-type usage; the compiler-generated predicate behind `CanApplyBonusLevels` asks each
+associated `ResearchTypeSO.HasFreeBonusLevelsLeft`.
+
+Which level a research node reports depends on the accessor called, and the prerequisite, completion
+and cap paths do not agree — see [requirements.md](requirements.md).
+
+---
+
+## Ordinary Alchemy list lifecycle
+
+The ordinary Alchemy page is one global ordered `AlchemyManager.activeAlchemy` list. It is not the
+concept-assignment surface and it is not a per-recipe level selector. Cecil evidence from the pinned
+v1.0.5 assembly fixes the visible routes:
+
+| UI gesture | Native route |
+|---|---|
+| Click an ordinary recipe | `UIAlchemyRecipeList.ClickItem` (`0x0600217B`) → `AlchemyInstanceListVariable.EngageAlchemy` (`0x06001604`) |
+| Click an active instance | `UIAlchemyInstanceList.ClickItem` (`0x06002167`) → `DisengageAlchemy` (`0x06001606`) |
+| Drop an active instance | `UIAlchemyInstanceList.OnDrop` (`0x06002168`) → `AbstractListVariable<AlchemyInstance>.SwapPositions(int,int)` → `UpdateObservable()` |
+
+`EngageAlchemy` first requires either list room or an existing instance. It then derives remaining
+free and maximum uses from `GetFreeUsageSlots` / `GetMaxUsageSlots` for a new recipe, or the instance's
+remaining-use accessors for an existing one. `GetUsageCost().MaximumCostTimes()` contributes the
+resource ceiling, and `GlobalVariables.GetMultiBuy()` clamps the UI click before the private
+`AddAlchemyInstances(AlchemyRecipeSO,int)` call. `DisengageAlchemy` similarly forwards its strip
+value to `RemoveAlchemyInstances(AlchemyRecipeSO,int)`. The MCP deliberately does not mirror that
+global UI preference: its explicit `amount` is admitted against the same live capacity facts and
+then passed to these counted core methods, which own instance creation/removal and quantity change.
+
+The list's game-written queued quantity is the simplest directional outcome sentinel: it must rise
+after engage and fall after disengage. Reordering requires the same exact recipe to appear at the
+requested index after the swap. Resource debits and free-use accounting are admission inputs, not
+postcondition ledgers. The shared `AlchemyGameplayDomainClassifier` is the boundary between these six
+ordinary families and recipes in the native `ConceptRecipes` list.
+
+---
+
+## Discovering a discoverable
+
+`IDiscoverable` has exactly six implementers in this build:
+
+| Type | `Discover` |
+|---|---|
+| `AlchemyRecipeSO` | `0x06000850` |
+| `EquipmentSO` | `0x06000B10` |
+| `GlyphSO` | `0x06000BFB` |
+| `RitualSO` | `0x06001366` |
+| `SpellRecipeSO` | `0x06001432` |
+| `TimeRuneSO` | `0x06001858` |
+
+The interface owns the whole read side of the decision: `Discover` (`0x06001C97`),
+`GetDiscoverCost` (`0x06001C92`), `IsDiscoverVisible` (`0x06001C93`), `CanDiscover` (`0x06001C94`),
+`IsDiscovered` (`0x06001C95`) and `IsDiscoverRequired` (`0x06001C96`).
+
+`UIDiscoverablePage.HandleClick` (`0x0600231C`) hands the selected object to a `UICostButton` whose
+terminal callback is that object's own `Discover`, so payment precedes discovery on this path.
+
+Two implementers are not plain. `EquipmentSO.Discover` immediately calls `EquipmentSO.Create`
+(`0x06000B11`) and equips nothing. `SpellRecipeSO` is driven through the spell manager's state
+machine below, whose payment ordering is the reverse of this one.
+
+---
+
+## Discovery tree offers
+
+### Surface
+
+| Concern | Member |
+|---|---|
+| Registry | `DiscoveryTreeSO.All` |
+| Visibility | `IsVisible()` (`0x06000AD5`) |
+| Mode gates | `IsInIdleMode()`, `IsInCraftingMode()`, `IsInChoiceMode()` |
+| Anything to offer | `HasCurrentlyRemMainPoolDiscoveries()`, `HasImmediateRequiredDiscover()` (`0x06000AC6`) |
+| Start | `InitiateCraftingMode()` (`0x06000AA8`) |
+| Select | `SelectItemId(Guid)` (`0x06000AAB`) |
+| Confirm | `DiscoverSelectedItem()` (`0x06000AAC`) → `DiscoverItem(IDiscoverable)` (`0x06000AAD`) |
+| Reroll | `RerollChoices()` (`0x06000AB1`), capped by `GetMaxRerolls()` (`0x06000ACB`) |
+| Next price | `GetNextItemCost()` (`0x06000AB8`) |
+| Offer resolution | `GetItemFromGuid(Guid)` (`0x06000ABF`) |
+| State | `actionMode` (`0x04000643`), `actionTime` (`0x04000644`), `rerollsLeft` (`0x04000645`), `usedRerollsLastDiscover` (`0x04000646`), `currentChoiceIds` (`0x04000647`), `nextExcludedIds`, `selectedChoiceId` |
+
+Offer UUIDs arrive wrapped: `currentChoiceIds` holds `GuidContainer` values read through
+`get_guid()` (`0x06001B44`). The UI edges are `UIDiscoveryTreePage.OnDiscoveryClick`
+(`0x0600232B`), `OnDiscoveryItemClick` (`0x0600232C`), `OnConfirmClick` (`0x0600232D`) and
+`OnRerollClick` (`0x0600232E`).
+
+### Initiating is synchronous; the offers are not
+
+`InitiateCraftingMode` refreshes the earned reroll under a `Math.Min` against `GetMaxRerolls`,
+clears `usedRerollsLastDiscover`, calls `FetchRarityLevels` (`0x06000AB3`), then `EnterCraftingMode`
+(`0x06000AA9`) → `EnterMode` (`0x06000AA7`), which writes `actionMode` and `actionTime` and calls
+`PassiveObservable.UpdateObservable` (`0x06001DD9`). That observable only increments an observed id
+and invokes no UI code, so Idle → Crafting has no render dependency whatsoever: **a returning
+initiate that leaves the tree Idle is a contract divergence, not a missing screen.**
+
+Offers materialize later inside the game's own increment loop, where `IncrementCrafting`
+(`0x06000AA0`) calls `EnterChoiceMode` (`0x06000AAA`) to create `currentChoiceIds` — and resets to
+Idle if no choice can be made. Crafting is the outcome of initiating; a populated offer list is not.
+
+`InitiateCraftingMode` does not pay. The cost button does, so a data-layer re-drive invokes
+`PerformCost` itself, first.
+
+### Selection and confirmation
+
+`SelectItemId` assigns `selectedChoiceId` and nothing else. **Membership in `currentChoiceIds` is
+the eligibility gate, not `CanDiscover`**: `CollectDiscoveryChoices` deliberately offers future
+choices whose ordinary prerequisite verdict is false, so gating a selection on `CanDiscover` refuses
+offers the game means you to be able to take.
+
+`DiscoverItem` increments counts, removes rarity, resets mode, offers and selection, and calls the
+target's `Discover` **last**. An exception part-way therefore leaves a real partial commit — counters
+moved and tree reset, target not discovered — and the tree's own state cannot tell you which side of
+that line you are on. Read the target's `IsDiscovered`.
+
+### Reroll leaves the old selection behind
+
+`RerollChoices` copies the current offers into `nextExcludedIds`, clears the offers, debits a reroll,
+sets the used-reroll flag, and re-enters Crafting. It does **not** clear `selectedChoiceId`, so a
+stale selection survives until new offers appear; drive `SelectItemId(Guid.Empty)` yourself if that
+matters. Reroll is not offered on the immediate-required path.
+
+### The ledger cannot verify this path
+
+An audited initiate charged `4.4e3` and `8.9e6` against holdings of `2.1e19` and `5.7e23`.
+`BigDouble` could represent neither subtraction, so both holdings stayed byte-for-byte unchanged
+while the same call moved the tree from Idle to Crafting and offers duly appeared. A resource delta
+is evidence about the ledger, never proof about the action — see
+[resources-and-bigdouble.md](resources-and-bigdouble.md).
+
+---
+
+## Spell discovery and creation
+
+### Surface
+
+| Concern | Member |
+|---|---|
+| Manager | `SpellManager.instance` (`0x040004AD`) |
+| Selection lists | `selectedCoreGlyphs` (`0x04000499`), `selectedAugmentGlyphs` (`0x0400049A`) |
+| Loadout | `activeSpells` (`0x0400049C`), `AddSpell` (`0x0600074B`) |
+| Recipe registry | `SpellRecipeSO.All` (`0x04000A32`) |
+| Authored cores | `SpellRecipeSO.GetGlyphRecipe()` (`0x06001447`) |
+| Selection resolution | `SpellManager.GetSpellFromRecipe(List<GlyphSO>)` (`0x06000747`) |
+| Discover button | `UIDiscoverablePage.HandleClick()` (`0x0600231C`) → `IDiscoverable.Discover()` (`0x06001C97`), which for a recipe is `SpellRecipeSO.Discover()` (`0x06001432`) |
+| Dead discover path | `SpellManager.DiscoverSpell()` (`0x06000741`) has no callers in the build |
+| Create | `SpellManager.CreateSpell()` (`0x0600073F`) → `CreateRecipe` → `SpellRecipeSO.CreateWith(...)` |
+| Costs | Discovery: `SpellRecipeSO.GetDiscoverCost()` (`0x06001442`); screen-priced creation: `SpellManager.GetSpellCreateCost(List<GlyphSO>)` (`0x0600074A`); lower-level modifier fold: `GlyphSO.GetCreationCostOfList(ResourceCostList, IEnumerable<GlyphSO>)` |
+| Verdicts | `SpellRecipeSO.CanDiscover()` (`0x06001451`), `IsCreatable()` (`0x0600144F`) |
+| Room | `EmptyTypeListVariable<T>.HasEmptySpot()` (`0x0600155C`), `GenericListVariable<T>.Empty()` (`0x06001569`) |
+| Instance identity | `Spell.guidContainer` (`0x040007DF`) |
+
+### Selection has no method
+
+No native member represents the selection gesture. The UI drives list operations, and so must
+anything else that needs the selection at all — which is creation, not discovery: `CreateRecipe`
+reads `selectedAugmentGlyphs`, while the Discover button reads nothing back off the page.
+
+`GetSpellFromRecipe` is the only proof that a selection means what you think it means; a list of the
+right length is not.
+
+### The Discover button is one press on the row it is showing
+
+Spell discovery is not `SpellManager.DiscoverSpell()`. That method has no callers in the build; the
+screen the player presses is a `UIDiscoverablePage`, the same page every other discovery surface
+uses:
+
+```text
+UIDiscoverablePage.OnDiscoverableClick(row)  → selectedGlyphs   = row.GetGlyphRecipe()
+                                             → selectedResources = row.GetResourceRecipe()
+UIDiscoverablePage.Render()                  → currentRecipe = GetDiscoverableFromRecipe(...)
+                                             → totalCost = currentRecipe.GetDiscoverCost()
+                                             → discoverButton.SetCost(totalCost)
+UICostButton.OnClick()                       → costList.HasEnough() → PerformCost() → callback
+UIDiscoverablePage.HandleClick()             → IsGlyphSelectionValid() → currentRecipe.Discover()
+```
+
+The page's selection lists are a view mirror of the clicked row's own authored recipe, and the
+discover path never reads them back for anything but re-deriving that same row. `HandleClick` is
+guarded by `IsGlyphSelectionValid()`, which is `selectedGlyphs.Count > 0 && totalCost != null &&
+totalCost.HasEnough() && currentRecipe != null && currentRecipe.CanDiscover() &&
+!currentRecipe.IsDiscovered()`. Payment happens in the button, before the callback, so this surface
+does keep the cost-button order.
+
+`SpellRecipeSO.Discover()` is `discovered = true` plus `SpellManager.PostDiscoverRecipe(this)`, which
+loads the new spell when the loadout has a free spot and the spell's usage cost fits — so a discovery
+can change the loadout without being asked to. `SpellManager.DiscoverRecipe(recipe)` is not the
+button's path: it calls `Discover()` and then runs `PostDiscoverRecipe` a second time.
+
+### Creation is instance work
+
+`CreateSpell()` resolves the current core selection and delegates to `CreateRecipe`, which consumes
+the selected augments, calls `SpellRecipeSO.CreateWith(...)`, adds the result through `AddSpell`, and
+then clears the selection. The interface's own gate is `GetSpellCreateCost(...).HasEnough()` beside a
+discovered, `IsCreatable()` recipe and `activeSpells.HasEmptySpot()`.
+
+**StaticallyVerified (macOS v1.0.5-2 baseline):** `UICreateSpellButton.Render` concatenates the
+selected core and augment lists, resolves that full list with `GetSpellFromRecipe`, and passes the
+same list to `SpellManager.GetSpellCreateCost`. The manager returns an empty cost when resolution
+fails; otherwise it filters that list with `GlyphSO.IsSpellAugment` and folds only those augment
+glyphs through `GlyphSO.GetCreationCostOfList`, starting from a new empty `ResourceCostList`. The
+lower-level static combiner is therefore an implementation step, not an equivalent screen-pricing
+entry point for an unfiltered core-plus-augment list.
+
+**StaticallyVerified (macOS v1.0.5-2 baseline):** the Loadout list's row is a different button on a
+different screen and reaches `CreateRecipe(recipe)` directly. That path reads only
+`selectedAugmentGlyphs.GetStackedRecord()` — never the Recipe Book selection — and touches no
+creation cost at all: `UISpellRecipeButton.RenderContent` disables the row on
+`meetsNonLvReq && (item.HasMetUsageRequirements() || selectedAugmentGlyphs.Count <= 0) &&
+usageCostList.HasEnough() && (activeSpells == null || activeSpells.HasEmptySpot()) &&
+loadoutCompatible`, where `usageCostList` is `SpellManager.GetUsageCostOfSpell(currentSpell)`. So
+loading a discovered spell into the loadout is priced by the usage allocation and by nothing else.
+
+The result is a runtime `Spell` carrying its own non-empty `guidContainer` UUID. **Recipe UUID and
+name are not instance identity**: two instances of one recipe are separate targets for every later
+verb, and a loadout count that grew does not name what was created.
+
+---
+
+## Spell output level and augment composition
+
+### Output is one global dial
+
+`Spell.GetOutputLevel()` reads `Player.GetSpellOutputLevel()` (`0x06000690`), and `Spell.GetLevel()`
+derives from that output plus the base-effect level. `UISpellInformation.SetSpellLevel()` calls
+`Spell.SetLevel()`, but that member only recomputes cost — it owns no persistent per-spell level.
+The truthful mutation is `IntVariable.SetValue(int)` (`0x060015AC`) on the one variable behind
+`Player.GetSpellOutputLevel()`, read with `AsInt()` (`0x060015AE`) and bounded by
+`Player.maxSpellOutputLevel` (`0x04000420`). Valid input is `1..maximum`, and it moves every spell at
+once; a per-spell output level does not exist to be set.
+
+### Augments are replaced whole
+
+`Spell.SetAugmentGlyphs(StackedIdRecord<GlyphSO>)` (`0x06000FAC`) replaces both the UUID-reference
+stack and the resolved-glyph stack, invokes `SpellRecipeSO.LoadGlyphs`, then recomputes spell cost.
+There is no add-one or remove-one member: pass the complete intended stack, built through
+`AbstractStackedRecord<GlyphSO, IdReference<GlyphSO>>.Set(GlyphSO, int)` (`0x060029E8`), and an empty
+record clears. Read it back through `Spell.GetAugmentGlyphs()` (`0x06001075`) and
+`Spell.GetQuantityOfGlyph(GlyphSO)` (`0x06001049`).
+
+Admission is per glyph and then combined:
+
+| Term | Member |
+|---|---|
+| exact glyph | `GlyphSO.All` (`0x040006D9`) |
+| available | `GlyphSO.IsAvailable()` (`0x06000BB6`): when `discoverable` is true it returns the raw `discovered` field; otherwise it evaluates `prerequisites.Check()` |
+| is an augment | `GlyphSO.IsSpellAugment()` (`0x06000BB8`) |
+| count ceiling | `GlyphSO.GetMaxUsages()` (`0x06000BCE`) |
+| combined compatibility | `GlyphSO.MeetsNonLvRequirements(List<GlyphSO>, Spell)` (`0x06000C0E`) |
+| required mastery | `GlyphSO.GetMasterReqOfList(List<GlyphSO>)` (`0x06000C09`) against `Spell.GetRecipeMasteryLevel()` (`0x06001047`) |
+
+The two combined predicates take the **expanded** list — counts unrolled into repeated entries — not
+a distinct set. Passing distinct glyphs understates the stack and admits compositions the game
+refuses.
+
+### A glyph's visibility is its availability, and its list is its page
+
+`GlyphSO.IsVisible()` is a call to `GlyphSO.IsAvailable()` and nothing else, and
+`UIGlyphListItem.IsVisible()` loads its item and calls the same method (`StaticallyVerified`). The
+game therefore cannot show a glyph it will not offer, and any surface reporting available ≠ visible
+for a glyph is reporting its own defect.
+
+`GlyphSO.IsDiscoverRequired()` has **no callers anywhere in the assembly** (`StaticallyVerified`), so
+the authored `discoveryRequired` field — true for exactly two glyphs, Quick and Heavy, the only two
+carrying a `discoveryCost` — decides nothing on this build and is not a population discriminator.
+
+The population split is `GlyphSO.discoverable`, 22 true against 25 false, and it agrees row for row
+with two other authored facts (`SerializedAssetVerified`): membership of `AugmentSpellGlyphs`, and
+carrying an `associatedRecipeBook` (null for all 22, set for all 25). `GlyphSO.augmentsSpells` is
+**not** the split — Distinct, Weak and Wrath are discoverable, book-less members of the augment list
+that carry it false, so it divides 19/28. No `DiscoveryTreeSO` names a glyph directly — the one tree
+that offers glyphs names the whole `AugmentSpellGlyphs` list — and each of the 25 non-discoverable
+glyphs carries exactly one authored condition in `GlyphSO.prerequisites`: a
+`ResearchRequirement`, an `UpgradeRequirement` or a `PrerequisiteLinkRequirement` — which
+`Prerequisites.Container.Check()` evaluates at level 0, that being what the no-argument overload
+passes to `ConditionInfo.Adjust`.
+
+Which page shows a glyph is the list it is on, through the same `ViewSO.relevantLists` edge the
+owning-view chain above uses. Nine `GlyphListVariable` assets ship; four are authored populations and
+the rest are runtime selections plus the whole-catalogue `AllGlyphs` (`SerializedAssetVerified`):
+
+| list | members | named by |
+|---|---|---|
+| `AugmentSpellGlyphs` | 22 | `MagicGlyphsUpgrade`, `MagicSpellbookLoadout`, `GlyphDiscoveryTree.discoverList` |
+| `CoreSpellGlyphs` | 10 | `MagicSpellbook`, `MagicSpellbookLearn`, `BrewingStation.ingredientLists` |
+| `CoreAlchemyGlyphs` | 12 | `AlchAlchemyDiscover` |
+| `EquipmentGlyphs` | 17 | **nothing** — its only mention in the serialized graph is its own name |
+
+The four hold 61 edges over the 47 glyphs, and no glyph is off all of them. Seven — Arcane, Dragon,
+Expansion, Flow, Nature, Psionic and Storm — are on all three unlocker lists at once, and ten are on
+`EquipmentGlyphs` alone. A view names a glyph list and never a glyph, so a glyph's page cannot be
+read from the item: it is read from the list, exactly as a structure's tab is.
+
+---
+
+## Equipped-spell removal and reorder
+
+**StaticallyVerified (macOS v1.0.5-2 baseline):** `SpellManager.RemoveSpell(Spell)` (`0x0600074C`)
+carries the whole rule and applies it to itself. It returns immediately on `Spell.IsEmpty()`; then,
+unless `Spell.IsAtMaxCharges() && !Spell.IsCasting() && !Spell.IsReadyingCast()`, it takes the
+refused branch — error sfx, the popup "Cannot remove a spell that is still recharging.", and, when
+`GetRechargeProcessor().HasType(0)` is false, the popup "Switching to time based cooldown." plus
+`Duration.Processor.AddFlags(2)` and a new `MicroProcessor` core module — and returns without
+removing anything. So a refused removal is not a no-op: it changes how the spell recharges. Only on
+the admitted branch does it remove the instance from `activeSpells`, call `Spell.Destroy()`, then
+`SpellManager.RecomputeSpellWeight()`.
+
+`Spell.CanRemove()` (`0x06001038`) reads like that rule and is not it: its IL consults
+`Spell.IsChargeAvailable()` and then `Spell.IsCasting()`, and no removal path calls it. Ask the
+manager's own three questions before calling; answering from `CanRemove` refuses removals the game
+would have allowed.
+
+Reorder is a swap, not an insert. `UISpellList.OnDrop` (`0x06002701`) checks
+`DragDropContext.ListsMatch()` and `IndicesMatch()`, then calls
+`AbstractListVariable<Spell>.SwapPositions(source, destination)` and `UpdateObservable()`
+(`0x060014ED`). Empty slots take part, so moving into a hole exchanges the hole rather than
+compacting the list.
+
+Whether a removal leaves a hole or compacts is not an assumed invariant: read the raw slot sequence
+including empties and compare identities, not counts. `Spell.IsEmpty()` (`0x06001027`) distinguishes
+an empty slot, and `Spell.GetName()` (`0x06001087`) is diagnostics.
+
+---
+
+## Targeting requests
+
+`TargetingManager` exposes one queue-head request at a time through `IsTargeting()` (`0x06000770`)
+and `GetTargetingLink()` (`0x06000771`); `TargetingManager.RequestTarget` (`0x0600076E`) is what
+opens one. `TargetLink.GetAllTargets()` (`0x06003268`) evaluates the authored selection and scaling,
+and in this build `StructureSO` is the only direct `Targeting.ITargetable` implementer.
+
+| Verb | Route | Constraint |
+|---|---|---|
+| submit | `TargetingManager.SubmitTarget` (`0x06000775`) | re-resolve the UUID inside the current `GetAllTargets` result and re-run `TargetLink.CheckTarget` (`0x0600326B`) immediately before calling |
+| randomize | `UITargetingInterface.Randomize` (`0x0600276E`) → `TargetLink.GetRandom` → `SubmitTarget` | terminal submission, not a candidate shuffle |
+| cancel | link `resultInfo` (`0x04001A96`) → `EffectResultInfo.Cancel` (`0x06001BFC`) | `UITargetingInterface.Close` (`0x0600276C`) closes presentation and calls no `RemoveRequest` |
+
+`SubmitTarget` assigns the supplied object **before** removing the queue head, so the settled shape
+is the link's private `target` (`0x04001A94`) holding that exact object, `HasTarget` (`0x06003265`)
+true, and the original link no longer current. Cancel marks the owning result cancelled and retires
+its target links — one result can own several, and all of them go.
+
+The candidate list and `CheckTarget` are the only authority here, and a request is transient by
+construction: both have to be re-read at the moment of submission.
+
+---
+
+## Equipment loadout
+
+`EquipmentSO.Discover` (`0x06000B10`) calls `EquipmentSO.Create` (`0x06000B11`), which sets the
+asset's `isCreated` state and emits the game's observables, audio and popup. It equips nothing;
+creation and equipping are separate transactions.
+
+The loadout interface reaches `EquipmentManager.ToggleItem(Guid/EquipmentSO)`
+(`0x06000514`/`0x06000515`) and from there the exact object overloads `EquipItem(EquipmentSO)`
+(`0x06000517`) or `UnEquipItem(EquipmentSO)` (`0x06000519`).
+
+### Equip clamps three ways
+
+```text
+EquipItem(EquipmentSO)
+  → equipment.GetUsageCost().HasEnough()
+  → for an absent target, reject a globally full equippedEquipment list
+  → remaining stacks  = GetMaxLevel() - GetStacks(target)
+  → affordable stacks = Floor(GetUsageCost().MaximumCostTimes()).ToInt()
+  → amount = min(GlobalVariables.GetMultiBuy(), remaining stacks, affordable stacks)
+  → equippedEquipment.Stack(target, amount)
+  → refresh the native stack observer
+  → equipment.Equip(equippedEquipment.GetStacks(target))
+  → native audio
+```
+
+The manager commits whatever that clamp allows, which can be fewer stacks than asked for.
+
+**`UIEquipmentItem.CanEquip` (`0x060023C3`) owns one admission rule the manager does not.** For a new
+target, `HasTypeRoom` (`0x060023C4`) requires both a global slot and
+`GetTypesEquipped(primaryType) < primaryType.GetMaxTypeSlots()`. Calling the manager without
+reproducing that guard reaches a loadout the interface refuses to produce.
+
+`EquipmentSO.Equip(int)` (`0x06000B12`) applies the resulting **total** stack level, not a delta: a
+positive level reserves `GetUsageCost() * equippedLevel`, applies effects, and starts or
+quick-completes attunement, while zero removes the UUID-keyed usage reservation and effects and
+clears attunement. Usage is a standing reservation, not a purchase ledger.
+
+Unequip checks `IsEquipped`, clamps the removal by live multi-buy and current stacks, un-stacks the
+exact target, refreshes the observer, calls `EquipmentSO.Equip(remaining)` and plays audio. It
+accepts no arbitrary amount; the native shape is one player click.
+
+---
+
+## Challenges
+
+### Identity and state
+
+`ChallengeSO.ChallengeState` is a fixed five-value enum:
+
+| Value | Member | Meaning |
+|---:|---|---|
+| 0 | `None` | idle, neither queued nor active |
+| 1 | `QueuedStart` | selected to activate at the next applicable transition |
+| 2 | `CurrentlyActive` | active and applying its authored effects |
+| 3 | `Passed` | completed successfully |
+| 4 | `Failed` | abandoned or otherwise failed |
+
+The read side of a challenge row is `IsAvailableToRun()`, `IsCompletedOnce()` and `IsMaxLevel()`
+beside its level, cap, seen and reward flags, and its next difficulty and next base reward. The
+selection cap, reroll count and fetched flags belong to the managers and lists, not to the
+challenge.
+
+### Surface
+
+| Verb | Route | Admission |
+|---|---|---|
+| select / unselect | `UIChallengeItem.ToggleSelection` (`0x0600224E`) → `ChallengeListVariable.Toggle` on the preferred list | target is in the current Time or prestige offer list, `HasEmptySpot`, and `IsChallengeRestricted(target)` false |
+| queue / unqueue | `UIChallengeItem.ToggleActivate` (`0x0600224C`) → `ChallengeSO.ToggleQueueActivation` (`0x06000936`) | currently offered, and state `None` or `QueuedStart` |
+| abandon | `UIChallengeItem.AbandonActivation` (`0x0600224D`) → `ChallengeSO.AbandonChallenge` (`0x06000937`) | state `CurrentlyActive`; the requested terminal state is `Failed` |
+| fetch Time offers | `UITimeScreenManager.FetchNewChallenges` (`0x06002444`) → `ChallengeManager.LoadNewActiveChallenges` (`0x060004DA`) | first fetch, or a positive reroll count |
+| fetch prestige offers | `UIPersistentResetModal.FetchNewChallenges` (`0x060024EE`) → `PersistentResetManager.FetchNewChallenges` (`0x06000653`) | first fetch, or a positive reroll count |
+
+`UIChallengeItem.FireActionButton` (`0x0600224B`) is the row's one button: its inactive branch
+queues and its active branch abandons. Unselecting stays available when the selection list is full or
+the target would now conflict — those gates admit the selecting direction only.
+
+`IsChallengeRestricted` asks about the list as it stands, not about the challenge. It calls
+`GetRestrictedTypes()`, which rebuilds `restrictedTypes` through an `ObservingCache` over the list
+itself whenever the list changed, and `BuildRestrictedTypes()` enumerates that list's own members,
+adding every `challengeTypes` entry whose `ChallengeTypeSO.IsLimitedToOneInstance()` is true. The
+answer is then `target.challengeTypes.Any(restricted.Contains)`, and an empty restricted set answers
+false without reading the target at all. A row leaving the list therefore takes its restriction with
+it, which is why the screen's two-press swap can select a row conflicting with the one given up: the
+give-up press lands first, and the conflict is asked of what remains.
+
+### The fetch bookkeeping lives in the UI, not the manager
+
+Both UI fetch methods set `hasFetchedChallenges` on the first fetch, or decrement
+`challengeRerollsLeft` on later ones, **before** calling their native offer callback. The manager
+pipelines contain no such bookkeeping, so re-driving a manager alone silently hands out free fetches.
+
+`UITimeScreenManager.RenderNewChallengeButton` reads that same flag and relabels the one button:
+`newChallengesAttr` while `hasFetchedChallenges` is false, `rerollChallengesAttr` after. The player
+concept is therefore a single control whose first press per world cycle is free and whose every
+later press spends a reroll — there is no separate free-fetch control to model, which is why the MCP
+names both modes `reroll_*` and publishes `challengesFetched` and `rerollsLeft` as pairs on every
+press. `StaticallyVerified` against the audited build.
+
+Both native fetchers call `ChallengeListVariable.CycleOut` (`0x06001634`) before `Instantiate`
+(`0x06001631`); `CycleOut` calls `ChallengeSO.EmptyState()` on every outgoing offer and
+`Instantiate` calls `ChallengeSO.QueueActivation` (`0x06000935`) on every incoming one, so a
+materialized offer is in `QueuedStart`.
+
+### A redraw is not promised to be different
+
+`ChallengeManager.LoadNewActiveChallenges` fills the list from `GenerateNewChallengeList`, which
+draws from `challengesByType` through two `WeightedTable` picks seeded by `challengeRandom`, blocks
+only `ChallengeSO.incompatibleChallenges` and types flagged `restrictedInstances`, and finishes with
+`List.Sort(SortChallenges)`. Nothing in that body excludes the challenges currently on offer, and the
+final sort makes the ordering deterministic — so drawing the same challenges in the same order is an
+ordinary outcome, not a failed press. (`DiscoveryTreeSO.RerollChoices` is the contrast: it *does*
+copy the current offers into `nextExcludedIds` first.) A press therefore lands on its own settled
+bookkeeping — the UI flag on the first press, the reroll decrement on every later one — and the offer
+identity says only whether the redraw moved. `StaticallyVerified` against the audited build.
+
+Neither fetch needs its screen rendered; the UI methods are only the flag-and-reroll wrapper around
+the manager pipeline.
+
+---
+
+## Persistent reset
+
+`PersistentResetManager.PersistentReset` (`0x06000651`) is presentation plus a callback: it
+references `UIScreenFlash.FadeIn` and installs `PersistentResetLogic` (`0x06000652`) as the
+animation-complete callback. The fade is neither gameplay admission nor part of the transaction
+identity. The private method is the transaction:
+
+```text
+PersistentResetLogic()
+  → SetupPersistentValues()
+  → GameManager.PersistentResetGameState()
+  → ChallengeListVariable.ActivateRewards()
+  → ChallengeListVariable.Activate()
+  → SetPersistentResource()
+  → GameManager.CleanGame()          // reloads the active scene
+```
+
+Every native reference dies inside that call. The reset also has no price: there is no cost or
+affordability term anywhere on the path.
+
+Its admission is two authored booleans, and their binding is **unproven**.
+`UIPersistentResetModal.ResetWorldInteractable` reads two authored `BoolVariable` fields named
+`hasCompleteWorldCycle` and `hasFetchedChallenges`, and `PersistentResetManager` exposes fields with
+the same names and types — but assembly metadata cannot prove the prefab references point at the
+same two assets. A manager-side read is the screen-independent *analogue* of the modal's gate, not a
+proven equivalent; settling it needs the shipped prefab or a comparison observed in game.
+
+---
+
+## Back to Menu
+
+`UIBackToMenuButton.BackToMenu` (`0x0600280D`) raises its authored `manualSave` event before calling
+`SaveStateManager.BackToMainMenu` (`0x060006FF`). The manager method passes the literal `Start` to
+`AnimateChangeScene` (`0x06000700`). Calling the manager directly is not UI-equivalent because it
+omits the save event.
+
+`AnimateChangeScene` starts `UIScreenFlash.FadeIn`, enables the loading animation, and registers the
+actual scene load as the animation-complete callback. `FadeIn` synchronously writes private
+`UIScreenFlash.isActive` before animating alpha. That directional false-to-true fact is the only
+stable transition sentinel available before the callback tears down the current lifecycle. The
+complete contract and validation list live in
+[`return-to-menu-native-pipeline.md`](return-to-menu-native-pipeline.md).
+
+---
+
+## Clean exit
+
+The visible `UIQuitButton.QuitApplication` callback (`0x06002507`) and
+`SaveStateManager.QuitGame` (`0x06000702`) are byte-identical direct calls to
+`UnityEngine.Application.Quit`; neither carries a game-defined save edge or a post-call state.
+Because process termination cannot both be invoked and verified before a terminal MCP response,
+there is deliberately no clean-exit GameAction or MCP tool. The audited drop and its precise
+revisit condition are recorded in
+[`clean-exit-boundary.md`](clean-exit-boundary.md).

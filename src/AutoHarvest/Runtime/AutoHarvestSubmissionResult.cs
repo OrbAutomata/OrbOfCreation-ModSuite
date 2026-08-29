@@ -19,47 +19,18 @@ internal enum AutoHarvestSubmissionFailureCode
     NativeMaximumRemainingInstancesRefused = 13,
 }
 
-/// <summary>The exact latch/check/latch sequence observed before native quantity mutation.</summary>
-internal readonly struct AutoHarvestPrerequisiteValidationEvidence
-{
-    public AutoHarvestPrerequisiteValidationEvidence(
-        bool hasBeforeLatch,
-        bool beforeLatch,
-        bool hasCheckResult,
-        bool checkResult,
-        bool hasAfterLatch,
-        bool afterLatch)
-    {
-        HasBeforeLatch = hasBeforeLatch;
-        BeforeLatch = beforeLatch;
-        HasCheckResult = hasCheckResult;
-        CheckResult = checkResult;
-        HasAfterLatch = hasAfterLatch;
-        AfterLatch = afterLatch;
-    }
-
-    public bool HasBeforeLatch { get; }
-    public bool BeforeLatch { get; }
-    public bool HasCheckResult { get; }
-    public bool CheckResult { get; }
-    public bool HasAfterLatch { get; }
-    public bool AfterLatch { get; }
-}
-
 internal readonly struct AutoHarvestSubmissionResult
 {
     public AutoHarvestSubmissionResult(
-        AutoHarvestSubmissionFailureCode failureCode,
-        AutoHarvestPrerequisiteValidationEvidence prerequisiteValidation = default)
-        : this(false, default, default, failureCode, prerequisiteValidation)
+        AutoHarvestSubmissionFailureCode failureCode)
+        : this(false, default, default, failureCode)
     {
     }
 
     public AutoHarvestSubmissionResult(
         NativeMutationOutcome outcome,
-        NativeMutationCallOutcome callOutcome,
-        AutoHarvestPrerequisiteValidationEvidence prerequisiteValidation = default)
-        : this(true, outcome, callOutcome, AutoHarvestSubmissionFailureCode.None, prerequisiteValidation)
+        NativeMutationCallOutcome callOutcome)
+        : this(true, outcome, callOutcome, AutoHarvestSubmissionFailureCode.None)
     {
     }
 
@@ -67,8 +38,7 @@ internal readonly struct AutoHarvestSubmissionResult
         bool hasNativeMutationOutcome,
         NativeMutationOutcome nativeMutationOutcome,
         NativeMutationCallOutcome nativeMutationCallOutcome,
-        AutoHarvestSubmissionFailureCode failureCode,
-        AutoHarvestPrerequisiteValidationEvidence prerequisiteValidation)
+        AutoHarvestSubmissionFailureCode failureCode)
     {
         if (hasNativeMutationOutcome && failureCode != AutoHarvestSubmissionFailureCode.None)
             throw new ArgumentException("Native mutation evidence cannot carry a preflight failure code.", nameof(failureCode));
@@ -78,14 +48,12 @@ internal readonly struct AutoHarvestSubmissionResult
         NativeMutationOutcome = nativeMutationOutcome;
         NativeMutationCallOutcome = nativeMutationCallOutcome;
         FailureCode = failureCode;
-        PrerequisiteValidation = prerequisiteValidation;
     }
 
     public bool HasNativeMutationOutcome { get; }
     public NativeMutationOutcome NativeMutationOutcome { get; }
     public NativeMutationCallOutcome NativeMutationCallOutcome { get; }
     public AutoHarvestSubmissionFailureCode FailureCode { get; }
-    public AutoHarvestPrerequisiteValidationEvidence PrerequisiteValidation { get; }
     public bool Verified => HasNativeMutationOutcome && NativeMutationOutcome == NativeMutationOutcome.Verified;
     public bool MutationAttempted => NativeMutationCallOutcome.MutationAttempts != 0;
 }

@@ -44,15 +44,9 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
                 AutoHarvestSubmissionFailureCode.NativePairIdentityRevalidationRefused);
         }
 
-        var prerequisiteFailure = ValidatePrerequisites(
-            current,
-            out var prerequisiteValidation);
+        var prerequisiteFailure = ValidatePrerequisites(current);
         if (prerequisiteFailure != AutoHarvestSubmissionFailureCode.None)
-        {
-            return new AutoHarvestSubmissionResult(
-                prerequisiteFailure,
-                prerequisiteValidation);
-        }
+            return new AutoHarvestSubmissionResult(prerequisiteFailure);
 
         AutoHarvestSubmissionState before;
 #if SERVICE_CYCLE_PROFILE
@@ -69,8 +63,7 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
         {
             return new AutoHarvestSubmissionResult(
                 NativeMutationOutcome.BeforeCaptureFailed,
-                default,
-                prerequisiteValidation);
+                default);
         }
 #if SERVICE_CYCLE_PROFILE
         finally { beforeSnapshot.Complete(); }
@@ -84,8 +77,7 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
         if (!decision.ShouldSubmit)
         {
             return new AutoHarvestSubmissionResult(
-                AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected,
-                prerequisiteValidation);
+                AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected);
         }
 
         object? prototype;
@@ -103,15 +95,13 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
             if (admissionFailure != AutoHarvestSubmissionFailureCode.None)
             {
                 return new AutoHarvestSubmissionResult(
-                    admissionFailure,
-                    prerequisiteValidation);
+                    admissionFailure);
             }
         }
         catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
         {
             return new AutoHarvestSubmissionResult(
-                AutoHarvestSubmissionFailureCode.RuntimeReadFailed,
-                prerequisiteValidation);
+                AutoHarvestSubmissionFailureCode.RuntimeReadFailed);
         }
 #if SERVICE_CYCLE_PROFILE
         finally { revalidation.Complete(); }
@@ -120,17 +110,15 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
 
         return SubmitAdmitted(
             current.Target.ActionUuid,
-            before,
-            prerequisiteValidation,
             () =>
             {
 #if SERVICE_CYCLE_PROFILE
                 return Measure(
-                    () => _stateReader.CaptureSubmissionState(current),
+                    () => _stateReader.IsPairEngaged(current),
                     ServiceCycleProfileSpan.AutoHarvestActionAfterSnapshot,
                     actionContext);
 #else
-                return _stateReader.CaptureSubmissionState(current);
+                return _stateReader.IsPairEngaged(current);
 #endif
             },
             () =>
@@ -153,21 +141,14 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
                     new[] { prototype!, (object)1 });
 #endif
             }
-#if SERVICE_CYCLE_PROFILE
-            , (capturedBefore, capturedAfter) => Measure(
-                () => VerifyAdmittedTransition(capturedBefore, capturedAfter),
-                ServiceCycleProfileSpan.AutoHarvestActionPostconditionVerification,
-                actionContext)
-#endif
             );
     }
 
     internal static AutoHarvestSubmissionResult SubmitCaptured(
         string actionUuid,
         in AutoHarvestSubmissionState before,
-        Func<AutoHarvestSubmissionState> captureAfter,
-        Action execute,
-        Func<AutoHarvestSubmissionState, AutoHarvestSubmissionState, bool>? verify = null)
+        Func<bool> observeAfter,
+        Action execute)
     {
         if (!CanSubmit(before))
         {
@@ -179,50 +160,36 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
 
         return SubmitAdmitted(
             actionUuid,
-            before,
-            default,
-            captureAfter,
-            execute,
-            verify ?? VerifyAdmittedTransition);
+            observeAfter,
+            execute);
     }
 
     private static AutoHarvestSubmissionResult SubmitAdmitted(
         string actionUuid,
-        in AutoHarvestSubmissionState before,
-        in AutoHarvestPrerequisiteValidationEvidence prerequisiteValidation,
-        Func<AutoHarvestSubmissionState> captureAfter,
-        Action execute,
-        Func<AutoHarvestSubmissionState, AutoHarvestSubmissionState, bool>? verify = null)
+        Func<bool> observeAfter,
+        Action execute)
     {
         var evidence = NativeMutationVerifier.ExecuteAfterCapture(
             "Auto Harvest",
             actionUuid,
-            "one exact native plot action is engaged using one available action entry",
-            before,
-            captureAfter,
+            "the exact native plot action is engaged",
+            false,
+            observeAfter,
             execute,
-            verify ?? VerifyAdmittedTransition);
+            static (_, after) => after);
         return new AutoHarvestSubmissionResult(
             evidence.Outcome,
-            NativeMutationCallOutcome.FromEvidence(evidence),
-            prerequisiteValidation);
+            NativeMutationCallOutcome.FromEvidence(evidence));
     }
 
     /// <summary>
     /// Calls the parameterless domain validator exactly once on the UUID/type-resolved current
-    /// action. The before and after latch reads are evidence only; neither substitutes for the fresh
-    /// result.
+    /// action. Its result is the admission decision; cached latches are not reread as evidence.
     /// </summary>
     private static AutoHarvestSubmissionFailureCode ValidatePrerequisites(
-        in ResolvedAutoHarvestPair resolved,
-        out AutoHarvestPrerequisiteValidationEvidence evidence)
+        in ResolvedAutoHarvestPair resolved)
     {
-        var hasBefore = false;
-        var before = false;
-        var hasResult = false;
-        var result = false;
-        var hasAfter = false;
-        var after = false;
+        bool result;
         try
         {
             var contract = resolved.Contract;
@@ -232,37 +199,16 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
             var prerequisites = contract.ActionPrerequisites(action) ??
                 throw new InvalidOperationException("resolved harvest action has no prerequisite container");
 
-            before = contract.PrerequisitesAvailable(prerequisites);
-            hasBefore = true;
             result = contract.PrerequisitesCheck(prerequisites);
-            hasResult = true;
-            after = contract.PrerequisitesAvailable(prerequisites);
-            hasAfter = true;
         }
         catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
         {
-            evidence = new AutoHarvestPrerequisiteValidationEvidence(
-                hasBefore,
-                before,
-                hasResult,
-                result,
-                hasAfter,
-                after);
             return AutoHarvestSubmissionFailureCode.NativePrerequisiteValidationUnavailable;
         }
 
-        evidence = new AutoHarvestPrerequisiteValidationEvidence(
-            hasBefore,
-            before,
-            hasResult,
-            result,
-            hasAfter,
-            after);
-        if (!result)
-            return AutoHarvestSubmissionFailureCode.NativePrerequisitesCurrentlyUnmet;
-        return after
+        return result
             ? AutoHarvestSubmissionFailureCode.None
-            : AutoHarvestSubmissionFailureCode.NativePrerequisiteValidationUnavailable;
+            : AutoHarvestSubmissionFailureCode.NativePrerequisitesCurrentlyUnmet;
     }
 
 #if SERVICE_CYCLE_PROFILE
@@ -300,21 +246,10 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
         state.SupportedCollectCount == 0 &&
         state.PairMatchCount == 0;
 
-    internal static bool VerifyTransition(
-        AutoHarvestSubmissionState before,
-        AutoHarvestSubmissionState after) =>
-        CanSubmit(before) &&
-        VerifyAdmittedTransition(before, after);
-
     private static bool VerifyAdmittedTransition(
         AutoHarvestSubmissionState before,
         AutoHarvestSubmissionState after) =>
         after.IsValid &&
-        after.UsedEntryCount == before.UsedEntryCount + 1 &&
-        after.EmptyEntryCount == before.EmptyEntryCount - 1 &&
-        after.NativeHasEmptyEntry == (after.EmptyEntryCount > 0) &&
-        after.SupportedCollectCount == 1 &&
         after.PairMatchCount == 1 &&
-        after.PairQuantity == 1 &&
         after.PairEngaged;
 }

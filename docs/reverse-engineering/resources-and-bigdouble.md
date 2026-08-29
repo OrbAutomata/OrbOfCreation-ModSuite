@@ -92,8 +92,8 @@ and the next `GetValue()` someone reaches for will not be this one.
 ## Rounding
 
 Two variants, not interchangeable: `RoundToTwoSigsEarly()` closes the Structure cost chain and
-`RoundToTwoSigs()` closes the Upgrade chain. A third rule appears in bandwidth affordability
-below — an integer `RoundToInt` comparison, not a significant-digit round.
+`RoundToTwoSigs()` closes the Upgrade chain. Bandwidth affordability uses the separate
+`Utils.SnapFloorToInt()` rule documented below, not a significant-digit round.
 
 ## Structure cost
 
@@ -163,6 +163,25 @@ identity for it would mean reproducing that nine-way mapping.
 
 ## Affordability
 
+### Display and spendability use different native classifiers
+
+Statically verified against the audited v1.0.5 Windows assembly: the resource counter and the
+transaction boundary do not classify resources with the same flag.
+
+- `ResourceSO.GetDisplayQuantity()` calls `IsInvertedResource()`. It returns `GetMissing()` for an
+  inverted resource and `GetQuantity()` otherwise. `UIResourceDisplay.RenderContent()` repeats that
+  choice for `trueQuantity`, then floors the displayed quantity only when
+  `IsBandwidthResource()` is true.
+- `ResourceSO.HasAmount(BigDouble)` branches on the `bandwidthResource` field. Bandwidth delegates
+  to `HasUsageMissing(BigDouble)`; ordinary resources compare the stored `quantity` with
+  `GetTrueSpend(BigDouble)`.
+- `ResourceSO.HasUsageMissing(BigDouble)` compares `GetMissing()` with the nominal cost after both
+  operands pass through `Utils.SnapFloorToInt(BigDouble)`.
+
+The two flags are independent in shipped data. A display amount therefore answers only “what does
+the counter show?”, while a spendable amount answers “what operand does native admission compare?”
+They must retain distinct names rather than sharing one guessed resource-family classifier.
+
 Ordinary resource:
 
 ```text
@@ -179,12 +198,13 @@ Bandwidth resource — this one is genuinely surprising:
 
 ```text
 missing   = Max(maxQuantity.GetValue() - quantity, 0)
-hasAmount = RoundToInt(missing.ToFloat())
-            >= RoundToInt(nominalCost.ToFloat())
+hasAmount = SnapFloorToInt(missing)
+            >= SnapFloorToInt(nominalCost)
+SnapFloorToInt(value) = floor(value.ToFloat() + 0.001f)
 ```
 
-Both sides are rounded to `int` before the comparison, so a bandwidth cost is admitted or refused
-at integer boundaries rather than at exact `BigDouble` ones.
+Both sides are snap-floored before the comparison, so a bandwidth cost is admitted or refused at
+those integer boundaries rather than at exact `BigDouble` ones.
 
 `ResourceCostList.HasEnough()` checks each tuple **independently**. A cost list naming the same
 resource twice is therefore not summed by the game; anything that combines duplicate tuples by

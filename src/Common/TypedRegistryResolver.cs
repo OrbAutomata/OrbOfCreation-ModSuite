@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
 
 namespace OrbModding.Common;
@@ -94,7 +93,7 @@ public sealed class TypedRegistryResolution
         lifecycleGeneration == LifecycleGeneration;
 
     public string Format() =>
-        $"UUID={Uuid}, ExpectedType={ExpectedTypeName}, Status={Status}, Membership={Membership}, " +
+        $"Identity={EntityIdentityFormatter.Format(Uuid)}, ExpectedType={ExpectedTypeName}, Status={Status}, Membership={Membership}, " +
         $"Level={Evidence.Level}, Sources={Evidence.Sources}, Reason={Reason}";
 }
 
@@ -488,35 +487,12 @@ public sealed class TypedRegistryResolver
 
     private static TypedRegistryResolver CreateShared()
     {
-        var source = new ReflectionRuntimeRegistrySource();
+        var source = RuntimeIdentityRegistryBinding.Shared;
         return new TypedRegistryResolver(
             () => GameLifecycleMonitor.Shared.Current.Generation,
             source.Read,
             source.ReadStableUuid);
     }
-
-    internal static bool HasExactRuntimeLookupContract(FieldInfo? field, Type idType)
-    {
-        if (field is null ||
-            field.DeclaringType != idType ||
-            !field.IsPublic ||
-            !field.IsStatic ||
-            !field.FieldType.IsGenericType ||
-            field.FieldType.GetGenericTypeDefinition() != typeof(Dictionary<,>))
-            return false;
-        var arguments = field.FieldType.GetGenericArguments();
-        return arguments.Length == 2 &&
-            arguments[0] == typeof(Guid) &&
-            arguments[1] == idType;
-    }
-
-    internal static bool HasExactGetGuidContract(MethodInfo? method, Type idType) =>
-        method is not null &&
-        method.DeclaringType == idType &&
-        method.IsPublic &&
-        !method.IsStatic &&
-        method.ReturnType == typeof(Guid) &&
-        method.GetParameters().Length == 0;
 
     private static bool IsExpectedReadFailure(Exception exception) =>
         exception is InvalidOperationException or
@@ -530,46 +506,4 @@ public sealed class TypedRegistryResolver
         MissingMemberException or
         TypeLoadException;
 
-    private sealed class ReflectionRuntimeRegistrySource
-    {
-        private const BindingFlags StaticFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly;
-        private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly;
-        private FieldInfo? _runtimeLookup;
-        private MethodInfo? _getGuid;
-        private string? _contractFailure;
-
-        public TypedRegistrySourceSnapshot Read()
-        {
-            if (_contractFailure is not null)
-                return TypedRegistrySourceSnapshot.ContractUnavailable(_contractFailure);
-            if (_runtimeLookup is null)
-            {
-                var idType = Type.GetType("IdScriptableObject, Assembly-CSharp", false);
-                if (idType is null)
-                {
-                    return TypedRegistrySourceSnapshot.NotReady("native IdScriptableObject type is not loaded yet");
-                }
-                _runtimeLookup = idType.GetField("RuntimeLookup", StaticFlags);
-                _getGuid = idType.GetMethod("GetGuid", InstanceFlags, null, Type.EmptyTypes, null);
-                if (!HasExactRuntimeLookupContract(_runtimeLookup, idType) ||
-                    !HasExactGetGuidContract(_getGuid, idType))
-                {
-                    _contractFailure = "native public IdScriptableObject.RuntimeLookup/GetGuid contract is unavailable";
-                    return TypedRegistrySourceSnapshot.ContractUnavailable(_contractFailure);
-                }
-            }
-
-            return _runtimeLookup.GetValue(null) is IDictionary registry
-                ? TypedRegistrySourceSnapshot.Ready(registry)
-                : TypedRegistrySourceSnapshot.NotReady("native IdScriptableObject.RuntimeLookup is not ready");
-        }
-
-        public Guid? ReadStableUuid(object value)
-        {
-            if (_getGuid is null)
-                throw new MissingMethodException("IdScriptableObject", "GetGuid");
-            return _getGuid.Invoke(value, Array.Empty<object>()) is Guid uuid ? uuid : null;
-        }
-
-    }
 }

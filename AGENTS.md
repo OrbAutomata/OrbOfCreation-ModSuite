@@ -39,6 +39,15 @@ saves, and player control; fail closed when a game contract is unknown.
   unexplained delta is a failure, not a new baseline.
 - Report a gate as passing only when it ran against the current working tree.
 
+## Game vocabulary traps
+
+- Glyph = Recipe Book = pool unlocker; the socketable Spell Augment / Augment Glyph is a different system (docs/game-systems/vocabulary.md).
+- Pool-unlocker learned-ness follows `GlyphSO.IsAvailable()`: non-discoverable glyphs use the "Learn X" prerequisite edge (docs/game-systems/pool-unlockers.md).
+- `Divination` displays as "Divining" (docs/game-systems/spell-types.md).
+- A screen label is not an entity label; resolve screens through the translation table (docs/reverse-engineering/naming-traps.md).
+- Discovery is one mechanism on seven trees, Concepts included (docs/game-systems/discovery.md).
+- Prices round to two significant digits under two different rules (docs/game-systems/numbers-and-rounding.md).
+
 ## References
 
 - Game knowledge: `docs/game-systems/README.md` (facts) and

@@ -124,10 +124,10 @@ internal sealed class AutoConceptNativeAdapter :
             var recipesId = AlchemyGameplayDomainClassifier.ConceptRecipesUuid;
             var activeResolution = _registryResolver.Resolve(activeId, activeType);
             if (!activeResolution.IsResolved)
-                return HandleRegistryFailure(KnownEntities.ActiveConcepts.DiagnosticName, activeResolution, out reason);
+                return HandleRegistryFailure(EntityIdentityFormatter.Format(activeId), activeResolution, out reason);
             var recipesResolution = _registryResolver.Resolve(recipesId, recipeListType);
             if (!recipesResolution.IsResolved)
-                return HandleRegistryFailure(KnownEntities.ConceptRecipes.DiagnosticName, recipesResolution, out reason);
+                return HandleRegistryFailure(EntityIdentityFormatter.Format(recipesId), recipesResolution, out reason);
             var active = activeResolution.Value!;
             var recipes = recipesResolution.Value!;
             _activeConceptsResolution = activeResolution;
@@ -215,9 +215,10 @@ internal sealed class AutoConceptNativeAdapter :
                 active.TryGetValue(recipe, out var instance);
                 var quantity = instance is null ? 0 : Convert.ToInt32(_instanceQuantityField!.GetValue(instance) ?? 0);
                 var queued = instance is null ? 0 : Convert.ToInt32(_instanceQueuedQuantityField!.GetValue(instance) ?? 0);
+                var identity = EntityIdentityFormatter.Describe(recipeId);
                 candidate = new NativeConceptCandidate(
                     uuid,
-                    ReflectionUtil.ReadDisplayName(recipe) ?? uuid,
+                    identity.HasName ? identity.Name : uuid,
                     recipe,
                     maximum,
                     instance,
@@ -356,6 +357,15 @@ internal sealed class AutoConceptNativeAdapter :
                     ? AutoConceptPreflight.ResourceBackpressure
                     : AutoConceptPreflight.ProjectionRefused,
                 reason);
+        if (safeTarget != desiredTarget)
+        {
+            var maximumAdditional = Math.Max(0, safeTarget - candidate.Quantity);
+            return AutoConceptSubmission.Rejected(
+                AutoConceptPreflight.ResourceBackpressure,
+                "The current resource limits allow at most " + maximumAdditional +
+                " more concept " + (maximumAdditional == 1 ? "assignment" : "assignments") + ".",
+                maximumAdditional);
+        }
         var delta = safeTarget - candidate.Quantity;
         var succeeded = TryAdd(candidate, delta, out reason);
         return _lastNativeMutationOutcome.MutationAttempts == 0
@@ -819,8 +829,13 @@ internal sealed class AutoConceptNativeAdapter :
         return false;
     }
 
-    private static string ResourceName(object resource) =>
-        ReflectionUtil.ReadDisplayName(resource) ?? ReflectionUtil.ReadStableId(resource) ?? "resource";
+    private static string ResourceName(object resource)
+    {
+        var stableId = ReflectionUtil.ReadStableId(resource);
+        return Guid.TryParse(stableId, out var uuid) && uuid != Guid.Empty
+            ? EntityIdentityFormatter.Format(uuid)
+            : "resource";
+    }
 
     private readonly struct NativeCostEntry
     {

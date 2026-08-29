@@ -1,0 +1,604 @@
+using System;
+using System.Linq;
+using Newtonsoft.Json.Linq;
+using OrbAutomata;
+using OrbAutomata.GameMcp;
+using OrbModding.Common;
+using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.World;
+using Xunit;
+
+namespace OrbModding.ProfileTests;
+
+public sealed class GameMcpResearchTests
+{
+    private static readonly Guid ResearchId = Guid.Parse("f8000000-0000-0000-0000-000000000001");
+    private static readonly Guid ResourceId = Guid.Parse("f8000000-0000-0000-0000-000000000002");
+    private static readonly Guid TypeId = Guid.Parse("f8000000-0000-0000-0000-000000000003");
+
+    [Fact]
+    public void Tool_requires_an_explicit_amount_for_develop_only()
+    {
+        var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate["name"] == "game_research");
+
+        Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
+        var schema = tool["inputSchema"]!;
+        Assert.Equal(new[] { "mode", "uuid" }, schema["required"]!.Values<string>());
+        Assert.Equal(new[] { "develop", "pause", "resume", "cancel", "bonus" },
+            schema["properties"]!["mode"]!["enum"]!.Values<string>());
+        Assert.Null(schema["properties"]!["worldGeneration"]);
+        Assert.NotNull(schema["properties"]!["amount"]);
+    }
+
+    [Fact]
+    public void Validation_names_missing_uuid_and_rejects_removed_generation_metadata()
+    {
+        var inbox = new GameMcpFrameInbox();
+        var router = new GameMcpProtocolRouter(inbox);
+        var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
+            new JObject
+            {
+                ["name"] = "game_research",
+                ["arguments"] = new JObject { ["mode"] = "develop" },
+            }));
+        var rejected = router.Handle(GameMcpAcceptanceFixture.Request(2, "tools/call",
+            new JObject
+            {
+                ["name"] = "game_research",
+                ["arguments"] = new JObject
+                {
+                    ["mode"] = "develop",
+                    ["uuid"] = ResearchId.ToString("D"),
+                    ["amount"] = 1,
+                    ["worldGeneration"] = 9,
+                },
+            }));
+
+        // One transport: an argument refusal is the page every other refusal is, and its sentence
+        // names the offending field rather than repeating it in a parallel machine array.
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: " +
+            "required field 'uuid' is missing",
+            GameMcpTestHarness.Page(missing));
+        Assert.Equal(
+            "refused (ERR_INPUT): tool arguments failed schema validation: " +
+            "field 'worldGeneration' is not accepted by game_research",
+            GameMcpTestHarness.Page(rejected));
+        Assert.Empty(inbox.ClaimPending());
+    }
+
+    [Fact]
+    public void Develop_without_an_amount_asks_for_one_level_instead_of_failing_validation()
+    {
+        var operation = GameMcpProtocolRouter.BuildOperation(
+            "game_research",
+            new JObject
+            {
+                ["mode"] = "develop",
+                ["uuid"] = ResearchId.ToString("D"),
+            });
+
+        Assert.Equal(1, operation.Amount);
+    }
+
+    [Fact]
+    public void Research_row_is_a_named_complete_queue_decision_with_cost_holdings_and_progress()
+    {
+        var world = World();
+        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2801),
+            "research", ResearchId.ToString("D")).Freeze(), world);
+        var row = response["row"]!;
+
+        Assert.Equal("Improved Casting", (string?)row["name"]);
+        Assert.Equal("available", (string?)row["state"]);
+        Assert.Equal("active", (string?)row["development"]);
+        Assert.Equal(3, (int)row["queuedLevels"]!);
+        Assert.Equal("queue", (string?)row["develop"]!["route"]);
+        Assert.Equal(3, (int)row["develop"]!["maximumBatch"]!);
+        Assert.Equal(2, (int)row["develop"]!["levels"]!);
+        Assert.True((bool)row["develop"]!["affordable"]!);
+        var cost = Assert.Single(row["develop"]!["costs"]!).Value<JObject>()!;
+        Assert.Equal("Arcana", (string?)cost["resource"]!["name"]);
+        Assert.Equal("20", (string?)cost["cost"]);
+        Assert.Equal("80", (string?)cost["spendableAmount"]);
+        Assert.Equal("40", (string?)row["investment"]![0]!["invested"]);
+        Assert.Equal("Insight", (string?)row["researchTypes"]![0]!["researchType"]!["name"]);
+        Assert.Equal(2, (int)row["researchTypes"]![0]!["remainingBonusLevels"]!);
+    }
+
+    [Fact]
+    public void Research_cost_uses_spendable_amount_while_native_affordability_remains_authoritative()
+    {
+        var world = World(
+            developmentCostAffordable: false,
+            spendableAmount: 1,
+            investmentRemaining: 100);
+        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2803),
+            "research", ResearchId.ToString("D")).Freeze(), world);
+        var develop = response["row"]!["develop"]!;
+        var cost = Assert.Single(develop["costs"]!).Value<JObject>()!;
+
+        Assert.Equal("1", (string?)cost["spendableAmount"]);
+        Assert.False((bool)develop["affordable"]!);
+        Assert.Equal("ERR_UNAFFORDABLE", (string?)develop["reasonCode"]);
+        Assert.Null(cost["lifetimeAmount"]);
+    }
+
+    [Fact]
+    public void Investment_names_the_remaining_price_beside_what_the_player_actually_holds()
+    {
+        var world = World(investmentRemaining: 60, heldAmount: 90);
+        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2804),
+            "research", ResearchId.ToString("D")).Freeze(), world);
+        var investment = Assert.Single(response["row"]!["investment"]!).Value<JObject>()!;
+
+        Assert.Equal("40", (string?)investment["invested"]);
+        Assert.Equal("100", (string?)investment["required"]);
+        Assert.Equal("90", (string?)investment["spendableAmount"]);
+        Assert.Null(investment["availableToInvest"]);
+
+        // A price is spelled `cost` wherever the surface prints one. This table is richer than the
+        // four-column form beside it, and the extra columns are what make it richer — but the
+        // column that says what to pay reads the same word here as on a glyph or a develop.
+        Assert.Equal("60", (string?)investment["cost"]);
+        Assert.Null(investment["remainingCost"]);
+    }
+
+    [Fact]
+    public void An_unpublished_investment_resource_omits_holdings_instead_of_reporting_none()
+    {
+        var world = World(investmentRemaining: 60);
+        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2805),
+            "research", ResearchId.ToString("D")).Freeze(), world);
+        var investment = Assert.Single(response["row"]!["investment"]!).Value<JObject>()!;
+
+        Assert.Equal("60", (string?)investment["cost"]);
+        Assert.Null(investment["spendableAmount"]);
+    }
+
+    /// <remarks>
+    /// The game shuts its own develop gate once the price is out of reach, and that gate was what
+    /// published <c>costs</c>. A row observed in play said "Needs 4 Orb Advancement (have 0)" while
+    /// publishing no cost row at all, and <c>investment</c> — the native fill bar — named only
+    /// resources that were not short. The sentence was the only place the blocking resource
+    /// appeared, so the numbers behind it could not be read.
+    /// </remarks>
+    [Fact]
+    public void A_row_refused_for_its_price_publishes_the_price_that_refused_it()
+    {
+        var world = World(
+            developmentCostAffordable: false,
+            withinDevelopRange: false,
+            canDevelop: false,
+            spendableAmount: 1,
+            heldAmount: 1);
+        var response = Json(GameMcpWorldQuery.GetRow(Pinned(world, 2807),
+            "research", ResearchId.ToString("D")).Freeze(), world);
+        var develop = response["row"]!["develop"]!;
+
+        Assert.Equal("ERR_UNAFFORDABLE", (string?)develop["reasonCode"]);
+        Assert.Equal("Needs 20 Arcana (have 1).", (string?)develop["reason"]);
+        var cost = Assert.Single(develop["costs"]!).Value<JObject>()!;
+        Assert.Equal("Arcana", (string?)cost["resource"]!["name"]);
+        Assert.Equal("20", (string?)cost["cost"]);
+        Assert.Equal("1", (string?)cost["spendableAmount"]);
+        Assert.False((bool)cost["affordable"]!);
+    }
+
+    /// <summary>
+    /// One blocked action, one refusal. A node out of reach on price answered
+    /// <c>develop: no (ERR_UNAFFORDABLE) "Needs 20 Arcana (have 1)."</c> on the row and
+    /// <c>canDevelop: no (ERR_REFUSED) "Native development range refused."</c> eight lines under
+    /// it — two classes and two sentences for one gate, the second naming a gate that was not the
+    /// problem. The price is inside <c>IsWithinDevelopRange</c>, so the predicate asks it where the
+    /// native asks it, and the per-field collapse then folds the agreeing predicate away.
+    /// </summary>
+    [Fact]
+    public void An_unaffordable_research_states_its_one_refusal_once()
+    {
+        var world = World(
+            developmentCostAffordable: false,
+            withinDevelopRange: false,
+            canDevelop: false,
+            spendableAmount: 1,
+            heldAmount: 1);
+        var entity = Assert.Single(Json(GameMcpWorldQuery.GetRows(
+                    Pinned(world, 2812), "research", new[] { ResearchId.ToString("D") }).Freeze(),
+                world)["results"]!.Values<JObject>())!;
+        var develop = entity["row"]!["develop"]!;
+
+        Assert.False((bool)develop["available"]!);
+        Assert.Equal("ERR_UNAFFORDABLE", (string?)develop["reasonCode"]);
+        Assert.Equal("Needs 20 Arcana (have 1).", (string?)develop["reason"]);
+        Assert.Null(entity["predicates"]!["canDevelop"]);
+
+        // The fold takes the copy, not the block: the research is still an available one that
+        // happens to be out of reach on price this moment, and that answer keeps its line.
+        Assert.True((bool)entity["predicates"]!["available"]!["available"]!);
+    }
+
+    /// <summary>
+    /// What is left of the range refusal is the range refusal: a shut gate none of the four named
+    /// ones accounts for. It keeps a class that says the game is holding the door and a sentence
+    /// that says so in words, which is what <c>ERR_REFUSED</c> plus
+    /// "Native development range refused." never did.
+    /// </summary>
+    [Fact]
+    public void The_range_refusal_that_is_left_is_classified_and_says_what_it_means()
+    {
+        Assert.Equal("ERR_LOCKED", GameMcpDecisionReason.Class("develop_range_refused"));
+        Assert.Equal(
+            "The game's own develop gate is shut on this research.",
+            GameMcpDecisionReason.For("develop_range_refused"));
+    }
+
+    [Fact]
+    public void A_refusal_that_is_not_about_price_publishes_no_price_verdict()
+    {
+        var world = World(complete: true, developmentCostAffordable: false,
+            investmentRemaining: 100, heldAmount: 1);
+        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2806),
+            "research", ResearchId.ToString("D")).Freeze(), world);
+        var develop = response["row"]!["develop"]!;
+
+        Assert.Equal("ERR_STATE", (string?)develop["reasonCode"]);
+        Assert.Null(develop["affordable"]);
+    }
+
+    [Fact]
+    public void Failure_names_the_missing_outcome_while_success_yields_to_fresh_world_poststate()
+    {
+        var failed = new ResearchSubmission(ResearchPreflight.VerificationFailed,
+            ResearchNativeStage.Verification, NativeMutationOutcome.PostconditionFailed,
+            new NativeMutationCallOutcome(1, 1, 0), "unchanged");
+        var success = new ResearchSubmission(ResearchPreflight.Proceeded,
+            ResearchNativeStage.Verification, NativeMutationOutcome.Verified,
+            new NativeMutationCallOutcome(1, 1, 1), "changed");
+
+        var failure = Json(GameMcpResearchProjection.Project(in failed), World());
+        var committed = Json(GameMcpResearchProjection.Project(in success), World());
+
+        Assert.Equal("requested research transition", (string?)failure["missingOutcome"]);
+        Assert.Single(failure.Properties());
+        Assert.Empty(committed.Properties());
+    }
+
+    [Fact]
+    public void Committed_poststate_is_the_same_named_research_row_with_next_decisions()
+    {
+        var world = World();
+        var response = Json(GameMcpWorldQuery.ProjectPostState(
+            GameMcpTestHarness.Context(world, 2802), "research", ResearchId), world);
+
+        Assert.Equal("Improved Casting", (string?)response["name"]);
+        Assert.NotNull(response["develop"]);
+        Assert.Null(response["pause"]);
+        Assert.NotNull(response["cancel"]);
+        Assert.Null(response["receipt"]);
+        Assert.Null(response["payment"]);
+    }
+
+    /// <summary>
+    /// A develop buys research time rather than a level: the levels enter the queue and the game
+    /// drains them over the minutes that follow. Narrating that hop published three facts that had
+    /// all reverted before the caller could read them — <c>development: idle -&gt; active</c> and
+    /// <c>queuedLevels: 0 -&gt; 1</c> both read back as their own before-value seconds later — so the
+    /// press says it queued and stops. The settlement above already proved the count.
+    /// </summary>
+    [Fact]
+    public void A_develop_commit_says_it_queued_and_narrates_no_queue_internals()
+    {
+        var before = World(queuedLevels: 3);
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Research, 41, 8, "develop", ResearchId, Guid.Empty,
+            "ResearchSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 51));
+        var after = World(queuedLevels: 4);
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 52),
+            command,
+            GameMcpCommandResult.Committed("committed", 41, 8)), after);
+
+        Assert.True((bool)delta["queued"]!);
+        Assert.Null(delta["queuedLevels"]);
+        Assert.Null(delta["development"]);
+        Assert.Null(delta["state"]);
+        Assert.Null(delta["totalLevel"]);
+    }
+
+    /// <summary>
+    /// The count rides only where there is a count to say. It is the amount that was asked for,
+    /// which the settlement predicate has already proved the queue rose by exactly.
+    /// </summary>
+    [Fact]
+    public void A_multi_level_develop_says_how_many_it_queued()
+    {
+        var before = World(queuedLevels: 3);
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Research, 41, 8, "develop", ResearchId, Guid.Empty,
+            "ResearchSO", 4, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 51));
+        var after = World(queuedLevels: 7);
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 52),
+            command,
+            GameMcpCommandResult.Committed("committed", 41, 8)), after);
+
+        Assert.Equal(4, (int)delta["queued"]!);
+    }
+
+    /// <summary>
+    /// Pause, resume, and cancel apply when they are pressed, so each still says the one fact it
+    /// moved. Only the queueing verb loses its pair. What a pause moves is the development queue,
+    /// which is why it is not the column the lifecycle uses: a paused research is exactly as
+    /// available as it was a moment earlier.
+    /// </summary>
+    [Fact]
+    public void A_pause_still_reports_the_state_it_moved()
+    {
+        var before = World(isDeveloping: true, queueMode: false);
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Research, 41, 8, "pause", ResearchId, Guid.Empty,
+            "ResearchSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 51));
+        var after = World(isDeveloping: true, isActive: false, queueMode: false);
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 52),
+            command,
+            GameMcpCommandResult.Committed("committed", 41, 8)), after);
+
+        Assert.Equal("paused", (string?)delta["development"]!["after"]);
+        Assert.Null(delta["state"]);
+        Assert.Null(delta["queued"]);
+    }
+
+    [Fact]
+    public void OrdinaryDevelopSettlementUsesTheActionSentinelInsteadOfWaitingForCompletion()
+    {
+        var completedAt = DateTime.UtcNow.Ticks;
+        var before = World(isDeveloping: false, queueMode: false);
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Research, 41, 8, "develop", ResearchId, Guid.Empty,
+            "ResearchSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 51));
+        var started = World(
+            isDeveloping: true, collectedAtUtcTicks: completedAt + 1, queueMode: false);
+        var idle = World(
+            isDeveloping: false, collectedAtUtcTicks: completedAt + 1, queueMode: false);
+
+        Assert.True(GameMcpPostStateSettlement.IsReady(
+            GameMcpTestHarness.Context(started, generation: 52), 51, completedAt, command));
+        Assert.False(GameMcpPostStateSettlement.IsReady(
+            GameMcpTestHarness.Context(idle, generation: 52), 51, completedAt, command));
+
+        var timeout = Json(GameMcpPostStateSettlement.TimedOut(
+            command, GameMcpTestHarness.Context(idle, generation: 52)), idle);
+        Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
+        Assert.Contains("it was idle before and it is idle now",
+            (string?)timeout["postStateUnavailable"]!["reason"]);
+    }
+
+    [Fact]
+    public void QueueDevelopTimeoutNamesTheExpectedAndObservedPendingLevels()
+    {
+        var before = World(isDeveloping: true, queueMode: true);
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Research, 41, 8, "develop", ResearchId, Guid.Empty,
+            "ResearchSO", 2, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 51));
+        var unchanged = World(isDeveloping: true, queueMode: true);
+
+        var timeout = Json(GameMcpPostStateSettlement.TimedOut(
+            command, GameMcpTestHarness.Context(unchanged, generation: 52)), unchanged);
+
+        Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
+        Assert.Contains("research queue has 4 pending levels, not the requested 6",
+            (string?)timeout["postStateUnavailable"]!["reason"]);
+    }
+
+    [Theory]
+    [InlineData(false, "it was not published before and it is developing now")]
+    [InlineData(true, "research queue before state was not published")]
+    public void DevelopTimeoutDoesNotInventAnAbsentBeforeState(
+        bool queueMode,
+        string expectedReason)
+    {
+        var before = new GameWorldState();
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Research, 41, 8, "develop", ResearchId, Guid.Empty,
+            "ResearchSO", 2, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 51));
+        var after = World(isDeveloping: true, queueMode: queueMode);
+
+        var timeout = Json(GameMcpPostStateSettlement.TimedOut(
+            command, GameMcpTestHarness.Context(after, generation: 52)), after);
+
+        Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
+        Assert.Contains(expectedReason,
+            (string?)timeout["postStateUnavailable"]!["reason"]);
+    }
+
+    private static GameWorldState World(
+        bool developmentCostAffordable = true,
+        double spendableAmount = 80,
+        double investmentRemaining = 60,
+        bool isDeveloping = true,
+        bool isActive = true,
+        long? collectedAtUtcTicks = null,
+        bool queueMode = true,
+        bool complete = false,
+        double? heldAmount = null,
+        int queuedLevels = 3,
+        int totalLevel = 1,
+        bool withinDevelopRange = true,
+        bool canDevelop = true)
+    {
+        var decision = new WorldResearchDecision(
+            queueMode,
+            3,
+            queuedLevels,
+            developmentCostAffordable ? 2 : 0,
+            1,
+            new BigDouble(30), new BigDouble(30), new BigDouble(0.5), true, 2,
+            developmentCostAffordable,
+            PublicationTable<WorldResearchCost>.Create(new[]
+            {
+                new WorldResearchCost(
+                    ResourceId,
+                    new BigDouble(20),
+                    new BigDouble(spendableAmount)),
+            }),
+            PublicationTable<WorldResearchInvestment>.Create(new[]
+            {
+                new WorldResearchInvestment(ResourceId, new BigDouble(40),
+                    new BigDouble(100), new BigDouble(investmentRemaining)),
+            }),
+            PublicationTable<WorldResearchTypeDecision>.Create(new[]
+            {
+                new WorldResearchTypeDecision(TypeId, 2, 1, 5),
+            }));
+        var modifiers = new RawResearchModifiers(BigDouble.Zero, BigDouble.Zero,
+            new BigDouble(100), BigDouble.Zero, BigDouble.Zero);
+        var research = new WorldResearch(ResearchId, 1, 2, 0, 0, 10, 60,
+            isDeveloping, isActive, false, true, true, complete, canDevelop, withinDevelopRange,
+            true, true, true, true,
+            1, 1, 0, totalLevel, 10, false, 2, 1, new BigDouble(60), 1, 1,
+            PublicationTable<WorldResearchRequirementAdjustment>.Empty, in modifiers, in decision);
+        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
+        {
+            new EntityIdentityName(ResearchId, "ResearchSO", "Improved Casting", "improvedCasting"),
+            new EntityIdentityName(ResourceId, "ResourceSO", "Arcana", "arcana"),
+            new EntityIdentityName(TypeId, "ResearchTypeSO", "Insight", "insight"),
+        }).OrderBy(row => row.EntityId).ToArray();
+        return new GameWorldState
+        {
+            CollectedAtEpoch = 41,
+            CollectedAtUtcTicks = collectedAtUtcTicks ?? DateTime.UtcNow.Ticks,
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(41, identities),
+            Resources = heldAmount is null
+                ? PublicationTable<WorldResource>.Empty
+                : PublicationTable<WorldResource>.Create(new[] { Held(heldAmount.Value) }),
+            Research = PublicationTable<WorldResearch>.Create(new[] { research }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus("research", WorldCategoryOutcome.Collected,
+                    1, 0, string.Empty),
+            }),
+        };
+    }
+
+    /// <summary>
+    /// Choosing among 148 researches used to need a detail page per candidate. `state` is the same
+    /// lifecycle word every purchasable row on the surface says, so `visible`, `available` and
+    /// `complete` — the three facts it is derived from — do not each repeat a third of it.
+    /// </summary>
+    /// <remarks>
+    /// What the queue is doing this moment is not on the row. `development` said
+    /// `idle`/`active`/`paused`, and only the pause in that was durable: the other half turned over
+    /// on its own as a level finished, and said no more than `queuedLevels` was already saying on
+    /// the same row. `paused` is what is left, and it is the player's own saved switch.
+    /// </remarks>
+    [Fact]
+    public void A_research_list_row_carries_what_a_caller_picks_the_next_research_by()
+    {
+        var world = World(developmentCostAffordable: false);
+        var response = Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, 2811), "research", 0, 50).Freeze(), world);
+        var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
+
+        Assert.Equal("Improved Casting", (string?)row["name"]);
+        Assert.Equal("available", (string?)row["state"]);
+        Assert.False((bool)row["paused"]!);
+        Assert.Equal(1, (int)row["totalLevel"]!);
+        Assert.Equal(3, (int)row["queuedLevels"]!);
+        Assert.Equal("met", (string?)row["requirements"]);
+        Assert.False((bool)row["canDevelop"]!);
+        Assert.False((bool)row["affordable"]!);
+        Assert.Null(row["complete"]);
+        Assert.Null(row["visible"]);
+        Assert.Null(row["available"]);
+        Assert.Null(row["development"]);
+    }
+
+    /// <summary>
+    /// The pause the row reports is the player's saved switch, not a reading of the queue: a
+    /// research nobody has queued anything into is not paused, and a paused one says so whether or
+    /// not a level happens to be in flight. The retired `development` column could not say the
+    /// second of those — it reached `paused` only while developing, so the one row a planner most
+    /// wants to find, a stalled entry with an empty pipeline, read exactly like a healthy one.
+    /// </summary>
+    [Fact]
+    public void A_paused_research_says_so_whether_or_not_a_level_is_in_flight()
+    {
+        foreach (var developing in new[] { true, false })
+        {
+            var world = World(developmentCostAffordable: false, isActive: false, isDeveloping: developing);
+            var response = Json(GameMcpWorldQuery.ListRows(
+                GameMcpTestHarness.Context(world, 2811), "research", 0, 50).Freeze(), world);
+            var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
+
+            Assert.True((bool)row["paused"]!, "developing: " + developing);
+        }
+    }
+
+    [Fact]
+    public void Develop_over_ask_carries_the_ceiling_its_own_sentence_names()
+    {
+        var refused = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            GameMcpResearchProjection.Project(
+                ResearchSubmission.Reject(
+                    ResearchPreflight.AmountUnavailable,
+                    "Research Queue Mode is off, so one develop starts one level and this " +
+                    "call takes at most 1 level.",
+                    1)),
+            EntityIdentityCatalogSnapshot.Unbound(1)));
+
+        Assert.Equal(1, (int)refused["maximumAmount"]!);
+
+        var noCeiling = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            GameMcpResearchProjection.Project(
+                ResearchSubmission.Reject(
+                    ResearchPreflight.DevelopUnavailable,
+                    "The next research level is unavailable or unaffordable.")),
+            EntityIdentityCatalogSnapshot.Unbound(1)));
+
+        Assert.Null(noCeiling["maximumAmount"]);
+    }
+
+    private static WorldResource Held(double quantity)
+    {
+        var rateInputs = default(RawResourceRateInputs);
+        var modifiers = default(RawResourceModifiers);
+        var traits = default(RawResourceTraits);
+        var held = new BigDouble(quantity);
+        var reading = new RawResourceSample(
+            ResourceId, held, new BigDouble(-1), true,
+            BigDouble.Zero, BigDouble.Zero, new BigDouble(100),
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero,
+            false, false, false, 0, Guid.Empty,
+            in rateInputs, in traits, in modifiers);
+        return new WorldResource(
+            in reading, true, BigDouble.Zero, 0d, false, held, BigDouble.Zero);
+    }
+
+    /// <summary>
+    /// A frame pinned to the world's own identity catalog, the way a live frame is. The shared
+    /// harness swaps in its own, which leaves a sentence composed at read time naming a UUID the
+    /// normalizer then resolves for every other field.
+    /// </summary>
+    private static GameMcpFrameContext Pinned(GameWorldState world, ulong generation)
+    {
+        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        publisher.Publish(world, new WorldGeneration(generation));
+        return GameMcpTestHarness.Context(publisher.ReadLatest());
+    }
+
+    private static JObject Json(GameMcpValue value, GameWorldState world) =>
+        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
+}

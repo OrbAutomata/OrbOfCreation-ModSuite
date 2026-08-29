@@ -26,4 +26,13 @@
     <ProjectReference Include="../../tools/OrbModding.ServiceCycleTrace/OrbModding.ServiceCycleTrace.csproj"
                       AdditionalProperties="EnableServiceCycleProfiler=true;UseGameStubs=true" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../TestSupport/**/*.cs" Link="TestSupport/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../data/entity-mappings.tsv" Link="data/entity-mappings.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../data/entity-display-names.tsv" Link="data/entity-display-names.tsv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

@@ -11,14 +11,12 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
     private readonly AutoScribeOneShotCraftGameAction _gameAction;
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<bool> _ownsActionFamily;
-    private readonly Func<string> _readOwnershipFailure;
     private readonly AutoScribeActionHealth _health;
 
     internal AutoScribeCycleActionAdapter(
         AutoScribeOneShotCraftGameAction gameAction,
         Func<long> readLifecycleEpoch,
         Func<bool> ownsActionFamily,
-        Func<string> readOwnershipFailure,
         AutoScribeActionHealth health)
     {
         _gameAction = gameAction ?? throw new ArgumentNullException(nameof(gameAction));
@@ -26,8 +24,6 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
             throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _ownsActionFamily = ownsActionFamily ??
             throw new ArgumentNullException(nameof(ownsActionFamily));
-        _readOwnershipFailure = readOwnershipFailure ??
-            throw new ArgumentNullException(nameof(readOwnershipFailure));
         _health = health ?? throw new ArgumentNullException(nameof(health));
     }
 
@@ -42,11 +38,6 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
         if (!Owns())
         {
-            var ownership = ReadOwnershipFailure();
-            var rejected = AutoScribeSubmission.Reject(
-                AutoScribePreflight.MutationPermitUnavailable,
-                ownership);
-            _health.Observe(in rejected);
             return ServiceActionResult.Rejected(
                 AutoScribeActionResultCodes.MutationPermitUnavailable);
         }
@@ -54,8 +45,8 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
             return ServiceActionResult.Rejected(CommonActionResultCodes.LifecycleReplaced);
 
         var submission = _gameAction.Submit(in action);
-        _health.Observe(in submission);
-        if (!submission.Verified)
+        var enteredFailure = _health.Observe(in submission);
+        if (enteredFailure)
             Plugin.Log?.LogAutomataWarning(
                 $"Auto Scribe {submission.Stage}/{submission.Preflight}: {submission.Reason}");
         return Map(in submission);
@@ -86,6 +77,9 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
                 AutoScribeActionResultCodes.PostPaymentFault,
             AutoScribePreflight.VerificationFailed =>
                 AutoScribeActionResultCodes.VerificationFailed,
+            AutoScribePreflight.LifecycleReplaced =>
+                CommonActionResultCodes.LifecycleReplaced,
+            AutoScribePreflight.WrongThread => AutoScribeActionResultCodes.WrongThread,
             AutoScribePreflight.Proceeded => CommonActionResultCodes.Committed,
             _ => CommonActionResultCodes.AdapterFault,
         };
@@ -98,45 +92,13 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
                 ? ServiceActionResult.Committed(CommonActionResultCodes.Committed, evidence)
                 : ServiceActionResult.Faulted(code, evidence);
         }
-        return IsExpectedRejection(submission.Preflight)
+        return AutoScribeSubmissionPolicy.Classify(in submission) ==
+            AutoScribeSubmissionClass.Backpressure
             ? ServiceActionResult.Rejected(code)
             : ServiceActionResult.Faulted(code);
     }
 
-    private static bool IsExpectedRejection(AutoScribePreflight preflight) =>
-        preflight is AutoScribePreflight.IdentityUnavailable or
-            AutoScribePreflight.RelationshipMismatch or
-            AutoScribePreflight.RecipeUnavailable or
-            AutoScribePreflight.TargetUnavailable or
-            AutoScribePreflight.QueueFull or
-            AutoScribePreflight.CompetingSupply or
-            AutoScribePreflight.Unaffordable or
-            AutoScribePreflight.MutationPermitUnavailable or
-            AutoScribePreflight.Quarantined;
-
-    private bool Owns()
-    {
-        try { return _ownsActionFamily(); }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
-        {
-            return false;
-        }
-    }
-
-    private string ReadOwnershipFailure()
-    {
-        try
-        {
-            var reason = _readOwnershipFailure();
-            return string.IsNullOrWhiteSpace(reason)
-                ? "Auto Scribe does not own CraftingQueueSubmission."
-                : reason;
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
-        {
-            return "Auto Scribe ownership evidence failed: " + ex.GetBaseException().Message;
-        }
-    }
+    private bool Owns() => AutoScribeActionFamilyAccess.Owns(_ownsActionFamily);
 
     private bool EpochMatches(long planned)
     {

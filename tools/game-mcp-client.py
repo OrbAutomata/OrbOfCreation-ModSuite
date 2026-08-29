@@ -158,27 +158,20 @@ def structured(result: dict[str, Any]) -> dict[str, Any]:
     return value
 
 
+def text_content(result: dict[str, Any]) -> str:
+    for item in result.get("content", []):
+        if isinstance(item, dict) and item.get("type") == "text":
+            value = item.get("text")
+            if isinstance(value, str):
+                return value
+    raise RuntimeError("tool returned no text content")
+
+
 def parse_arguments_json(value: str) -> dict[str, Any]:
     parsed = json.loads(value)
     if not isinstance(parsed, dict):
         raise argparse.ArgumentTypeError("tool arguments must be a JSON object")
     return parsed
-
-
-def parse_selector(value: str) -> str | int:
-    try:
-        parsed = int(value)
-    except ValueError:
-        return value
-    if parsed < 0:
-        raise argparse.ArgumentTypeError("selector index must be zero or greater")
-    return parsed
-
-
-def maybe_audit(arguments: dict[str, Any], observed: dict[str, Any], enabled: bool) -> None:
-    generation = observed.get("worldGeneration")
-    if enabled and isinstance(generation, int) and generation > 0:
-        arguments["worldGeneration"] = generation
 
 
 def save_inline_image(result: dict[str, Any], output: pathlib.Path | None) -> dict[str, Any]:
@@ -239,36 +232,43 @@ def build_parser() -> argparse.ArgumentParser:
     screenshot.add_argument("--output", type=pathlib.Path, required=True)
 
     navigate = commands.add_parser("navigate")
-    navigate.add_argument("tab", type=parse_selector)
-    navigate.add_argument("--subtab", type=parse_selector)
-    navigate.add_argument("--plot-node-uuid")
+    navigate.add_argument("screen")
+    navigate.add_argument("--subtab")
+    navigate.add_argument("--uuid")
     navigate.add_argument("--capture", type=pathlib.Path)
 
     tooltip = commands.add_parser("tooltip")
     tooltip.add_argument("path")
-    tooltip.add_argument("--capture", type=pathlib.Path)
 
     purchase = commands.add_parser("purchase")
     purchase.add_argument("uuid")
-    purchase.add_argument("--count", type=int, default=1)
-    purchase.add_argument("--audit-generation", action="store_true")
+    purchase.add_argument("--amount", type=int, default=1)
 
     cast = commands.add_parser("cast")
     cast.add_argument("slot_index", type=int)
-    cast.add_argument("--mode", choices=("fire", "release"), default="fire")
-    cast.add_argument("--audit-generation", action="store_true")
+    cast.add_argument("--mode", choices=("fire", "release", "toggle_off"), default="fire")
 
-    harvest = commands.add_parser("harvest")
-    harvest.add_argument("plot_node_uuid")
-    harvest.add_argument("--audit-generation", action="store_true")
+    agromancy = commands.add_parser("agromancy")
+    agromancy.add_argument(
+        "mode",
+        choices=(
+            "add_plot_action",
+            "remove_plot_action",
+            "add_element",
+            "remove_element",
+            "add_element_action",
+            "remove_element_action",
+        ),
+    )
+    agromancy.add_argument("uuid")
+    agromancy.add_argument("--action-uuid")
+    agromancy.add_argument("--amount", type=int, default=1)
 
     concept = commands.add_parser("concept-add")
     concept.add_argument("uuid")
-    concept.add_argument("--audit-generation", action="store_true")
 
     spell = commands.add_parser("spell-level")
     spell.add_argument("uuid")
-    spell.add_argument("--audit-generation", action="store_true")
 
     resource = commands.add_parser("resource")
     resource.add_argument("uri")
@@ -277,7 +277,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def doctor(client: GameMcpClient, initialized: dict[str, Any]) -> dict[str, Any]:
     tools = require_result(client.request("tools/list", {}))
-    health = structured(client.call_tool("suite_health", {}))
+    health = text_content(client.call_tool("suite_health", {}))
     world = structured(client.call_tool("world_overview", {}))
     names = [item.get("name") for item in tools.get("tools", [])]
     required = {
@@ -285,12 +285,12 @@ def doctor(client: GameMcpClient, initialized: dict[str, Any]) -> dict[str, Any]
         "trace_health",
         "game_purchase",
         "game_cast",
-        "game_harvest",
+        "game_agromancy",
         "game_screenshot",
         "game_continue",
         "game_screen_catalog",
         "game_navigate",
-        "game_tooltips",
+        "game_screen_elements",
         "game_tooltip",
     }
     missing = sorted(required.difference(names))
@@ -319,7 +319,7 @@ def observe_rows(
     value = structured(
         client.call_tool("world_list", {"category": category, "limit": limit})
     )
-    if value.get("status") != "available" or not isinstance(value.get("rows"), list):
+    if not isinstance(value.get("rows"), list):
         raise RuntimeError(f"{category} is not available: {value}")
     return value
 
@@ -328,34 +328,31 @@ def observe_and_purchase(client: GameMcpClient, args: argparse.Namespace) -> dic
     observed = structured(
         client.call_tool("world_search", {"query": args.uuid, "limit": 50})
     )
-    if observed.get("status") != "available":
-        raise RuntimeError(f"purchase facts are unavailable: {observed}")
-    matches = observed.get("matches")
-    if not isinstance(matches, list):
-        raise RuntimeError("purchase search returned no matches")
+    rows = observed.get("rows")
+    if not isinstance(rows, list):
+        raise RuntimeError("purchase search returned no rows")
     target = next(
         (
-            match
-            for match in matches
-            if isinstance(match, dict)
-            and match.get("category") in {"structures", "upgrades"}
+            row
+            for row in rows
+            if isinstance(row, dict)
+            and row.get("category") in {"structures", "upgrades"}
         ),
         None,
     )
-    cost = next(
-        (
-            match
-            for match in matches
-            if isinstance(match, dict) and match.get("category") == "purchase-costs"
-        ),
-        None,
+    if target is None:
+        raise RuntimeError("published purchase target is absent")
+    explanation = structured(
+        client.call_tool("explain_entity", {"uuid": args.uuid})
     )
-    if target is None or cost is None:
-        raise RuntimeError("published target or purchase-cost row is absent")
-    action = {"uuid": args.uuid, "count": args.count}
-    maybe_audit(action, observed, args.audit_generation)
+    if explanation.get("status") != "available":
+        raise RuntimeError(f"purchase explanation is unavailable: {explanation}")
+    action = {"uuid": args.uuid, "amount": args.amount}
     terminal = structured(client.call_tool("game_purchase", action))
-    return {"observed": {"target": target, "cost": cost}, "terminal": terminal}
+    return {
+        "observed": {"target": target, "explanation": explanation},
+        "terminal": terminal,
+    }
 
 
 def observe_and_cast(client: GameMcpClient, args: argparse.Namespace) -> dict[str, Any]:
@@ -370,36 +367,36 @@ def observe_and_cast(client: GameMcpClient, args: argparse.Namespace) -> dict[st
     )
     if not isinstance(slot, dict) or not slot.get("occupied"):
         raise RuntimeError(f"spell slot {args.slot_index} is not occupied")
-    recipe = slot.get("spellRecipeId")
+    recipe_reference = slot.get("spellRecipe")
+    recipe = recipe_reference.get("uuid") if isinstance(recipe_reference, dict) else None
     if not isinstance(recipe, str):
-        raise RuntimeError("occupied slot has no spellRecipeId")
+        raise RuntimeError("occupied slot has no named spellRecipe reference")
     action = {
         "mode": args.mode,
         "slotIndex": args.slot_index,
-        "spellRecipeUuid": recipe,
+        "uuid": recipe,
     }
-    maybe_audit(action, observed, args.audit_generation)
     return {
         "observed": slot,
         "terminal": structured(client.call_tool("game_cast", action)),
     }
 
 
-def observe_and_harvest(client: GameMcpClient, args: argparse.Namespace) -> dict[str, Any]:
-    observed = structured(
-        client.call_tool(
-            "world_get",
-            {"category": "plot-nodes", "uuid": args.plot_node_uuid},
-        )
-    )
-    if observed.get("status") != "available":
-        raise RuntimeError(f"plot node is unavailable: {observed}")
-    action = {"plotNodeUuid": args.plot_node_uuid}
-    maybe_audit(action, observed, args.audit_generation)
-    return {
-        "observed": observed["row"],
-        "terminal": structured(client.call_tool("game_harvest", action)),
+def run_agromancy(client: GameMcpClient, args: argparse.Namespace) -> dict[str, Any]:
+    action = {"mode": args.mode, "uuid": args.uuid, "amount": args.amount}
+    action_modes = {
+        "add_plot_action",
+        "remove_plot_action",
+        "add_element_action",
+        "remove_element_action",
     }
+    if args.mode in action_modes:
+        if not args.action_uuid:
+            raise RuntimeError(f"agromancy {args.mode} requires --action-uuid")
+        action["actionUuid"] = args.action_uuid
+    elif args.action_uuid:
+        raise RuntimeError(f"agromancy {args.mode} does not accept --action-uuid")
+    return structured(client.call_tool("game_agromancy", action))
 
 
 def observe_and_concept(client: GameMcpClient, args: argparse.Namespace) -> dict[str, Any]:
@@ -408,14 +405,14 @@ def observe_and_concept(client: GameMcpClient, args: argparse.Namespace) -> dict
         (
             row
             for row in observed["rows"]
-            if isinstance(row, dict) and row.get("recipeId") == args.uuid
+            if isinstance(row, dict)
+            and row.get("uuid") == args.uuid
         ),
         None,
     )
-    if not isinstance(recipe, dict) or recipe.get("canAddNow") is not True:
+    if not isinstance(recipe, dict) or recipe.get("canAdd") is not True:
         raise RuntimeError(f"concept {args.uuid} is not addable")
-    action = {"mode": "add", "recipeUuid": args.uuid, "amount": 1}
-    maybe_audit(action, observed, args.audit_generation)
+    action = {"mode": "add", "uuid": args.uuid, "amount": 1}
     return {
         "observed": recipe,
         "terminal": structured(client.call_tool("game_concept", action)),
@@ -426,16 +423,17 @@ def observe_and_spell_level(client: GameMcpClient, args: argparse.Namespace) -> 
     observed = structured(
         client.call_tool(
             "world_get",
-            {"category": "spell-recipes", "uuid": args.uuid},
+            {"category": "spell-recipes", "uuids": [args.uuid]},
         )
     )
-    if observed.get("status") != "available":
+    results = observed.get("results")
+    row_result = results[0] if isinstance(results, list) and results else None
+    if not isinstance(row_result, dict) or not isinstance(row_result.get("row"), dict):
         raise RuntimeError(f"spell recipe is unavailable: {observed}")
-    action = {"mode": "single", "spellRecipeUuid": args.uuid}
-    maybe_audit(action, observed, args.audit_generation)
+    action = {"mode": "single", "uuid": args.uuid}
     return {
-        "observed": observed["row"],
-        "terminal": structured(client.call_tool("game_spell_level", action)),
+        "observed": row_result["row"],
+        "terminal": structured(client.call_tool("game_spell_mastery", action)),
     }
 
 
@@ -445,52 +443,49 @@ def measure_reads(client: GameMcpClient) -> dict[str, Any]:
         ("world_categories", {}),
         ("world_list", {"category": "resources", "limit": 25}),
         ("suite_health", {}),
-        ("suite_health", {"detail": "orbautomata.world-collection"}),
         ("suite_configuration", {}),
         ("trace_health", {}),
         ("game_probe", {"probe": "runtime"}),
         ("game_screen_catalog", {}),
-        ("game_tooltips", {"offset": 0, "limit": 25}),
+        ("game_screen_elements", {"offset": 0, "limit": 25}),
     ]
     resource_list = structured(client.call_tool("world_list", {"category": "resources", "limit": 1}))
     rows = resource_list.get("rows")
     if isinstance(rows, list) and rows and isinstance(rows[0], dict):
-        uuid = rows[0].get("entityId")
+        uuid = rows[0].get("uuid")
         if isinstance(uuid, str):
-            calls.insert(3, ("world_get", {"category": "resources", "uuid": uuid}))
+            calls.insert(3, ("world_get", {"category": "resources", "uuids": [uuid]}))
             calls.insert(4, ("world_search", {"query": uuid, "limit": 20}))
 
     measurements = []
     for name, arguments in calls:
         result = client.call_tool(name, arguments)
         encoded = json.dumps(result, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        structured_value = result.get("structuredContent")
         measurements.append(
             {
                 "tool": name,
                 "arguments": arguments,
                 "bytes": len(encoded),
                 "approxTokens": math.ceil(len(encoded) / 4),
-                "status": structured(result).get("status"),
+                "status": structured_value.get("status")
+                if isinstance(structured_value, dict)
+                else "text",
             }
         )
     tooltip_catalog = structured(
-        client.call_tool("game_tooltips", {"offset": 0, "limit": 1})
+        client.call_tool("game_screen_elements", {"offset": 0, "limit": 1})
     )
-    tooltip_details = tooltip_catalog.get("details")
-    tooltip_rows = (
-        tooltip_details.get("tooltips")
-        if isinstance(tooltip_details, dict)
-        else None
-    )
+    tooltip_rows = tooltip_catalog.get("rows")
     if isinstance(tooltip_rows, list) and tooltip_rows and isinstance(tooltip_rows[0], dict):
         path = tooltip_rows[0].get("path")
         if isinstance(path, str):
-            result = client.call_tool("game_tooltip", {"path": path, "capture": False})
+            result = client.call_tool("game_tooltip", {"path": path})
             encoded = json.dumps(result, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
             measurements.append(
                 {
                     "tool": "game_tooltip",
-                    "arguments": {"path": path, "capture": False},
+                    "arguments": {"path": path},
                     "bytes": len(encoded),
                     "approxTokens": math.ceil(len(encoded) / 4),
                     "status": structured(result).get("status"),
@@ -526,7 +521,7 @@ def main() -> int:
             result = client.call_tool("game_continue", {})
         elif args.command == "tooltips":
             result = client.call_tool(
-                "game_tooltips",
+                "game_screen_elements",
                 {"offset": args.offset, "limit": args.limit},
             )
         elif args.command == "screenshot":
@@ -535,11 +530,11 @@ def main() -> int:
                 args.output,
             )
         elif args.command == "navigate":
-            arguments: dict[str, Any] = {"tab": args.tab}
+            arguments: dict[str, Any] = {"screen": args.screen}
             if args.subtab is not None:
                 arguments["subtab"] = args.subtab
-            if args.plot_node_uuid:
-                arguments["plotNodeUuid"] = args.plot_node_uuid
+            if args.uuid:
+                arguments["uuid"] = args.uuid
             if args.capture is not None:
                 arguments["capture"] = True
             result = save_inline_image(
@@ -547,17 +542,13 @@ def main() -> int:
                 args.capture,
             )
         elif args.command == "tooltip":
-            arguments = {"path": args.path, "capture": args.capture is not None}
-            result = save_inline_image(
-                client.call_tool("game_tooltip", arguments),
-                args.capture,
-            )
+            result = client.call_tool("game_tooltip", {"path": args.path})
         elif args.command == "purchase":
             result = observe_and_purchase(client, args)
         elif args.command == "cast":
             result = observe_and_cast(client, args)
-        elif args.command == "harvest":
-            result = observe_and_harvest(client, args)
+        elif args.command == "agromancy":
+            result = run_agromancy(client, args)
         elif args.command == "concept-add":
             result = observe_and_concept(client, args)
         elif args.command == "spell-level":

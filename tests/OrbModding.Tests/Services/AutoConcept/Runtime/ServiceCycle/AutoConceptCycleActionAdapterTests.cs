@@ -50,7 +50,7 @@ public sealed class AutoConceptCycleActionAdapterTests
             "resource would fall below reserve"));
 
         Assert.Equal(ServiceActionDisposition.Skipped, result.Disposition);
-        Assert.Equal(AutoConceptActionResultCodes.ProjectionRefused, result.Code);
+        Assert.Equal(AutoConceptActionResultCodes.AmountUnavailable, result.Code);
         Assert.False(result.HasNativeEvidence);
     }
 

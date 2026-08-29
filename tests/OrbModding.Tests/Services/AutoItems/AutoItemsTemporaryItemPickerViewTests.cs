@@ -4,6 +4,7 @@ using BepInEx.Configuration;
 using OrbAutomata;
 using OrbModConfig;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.World;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,6 +17,7 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
     public AutoItemsTemporaryItemPickerViewTests()
     {
         ConsumableSO.All.Clear();
+        EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(0));
         var prototype = new GameObject("prototype").AddComponent<MonoBehaviour>();
         ModConfigUiFactory.UseNativeVisuals(new NativeFeatureRailVisualPrimitives(
             prototype,
@@ -29,7 +31,11 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
             new Sprite()));
     }
 
-    public void Dispose() => ConsumableSO.All.Clear();
+    public void Dispose()
+    {
+        ConsumableSO.All.Clear();
+        EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(0));
+    }
 
     [Fact]
     public void PickerRowsUseAuditedFramesAndIconsAndStageThroughTheEditValue()
@@ -151,6 +157,7 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
         nativeItem.SetGuid(Guid.Parse("a1799c52-f9ff-4556-b052-f577ac3e7270"));
         nativeItem.consumableTypes.Add(family);
         ConsumableSO.All.Add(nativeItem);
+        EntityIdentityCatalogPublication.Publish(Catalog());
         var catalog = ConfigCatalog.Build(new[]
         {
             new ConfigPluginSource(
@@ -195,7 +202,7 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
         Assert.True(statePreferred <= state.sizeDelta.y);
 
         var reasonText = Child(panel, "Reason").gameObject.GetComponent<TextMeshProUGUI>()!;
-        Assert.Contains("returned an empty native name", reasonText.text);
+        Assert.Contains("has no live catalog name", reasonText.text);
         var reasonPreferred = reasonText.GetPreferredValues(
             reasonText.text,
             editorWidth * 0.93f,
@@ -222,6 +229,7 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
         nativeItem.SetStock(3, 0, 0);
         nativeItem.consumableTypes.Add(family);
         ConsumableSO.All.Add(nativeItem);
+        EntityIdentityCatalogPublication.Publish(Catalog());
 
         var catalog = ConfigCatalog.Build(new[]
         {
@@ -297,6 +305,24 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
         transform.gameObject.GetComponent<TextMeshProUGUI>()!.text;
 
     private static float Top(RectTransform rect) => -rect.anchoredPosition.y;
+
+    private static EntityIdentityCatalogSnapshot Catalog()
+    {
+        var rows = new System.Collections.Generic.Dictionary<Guid, EntityIdentityName>();
+        foreach (var item in ConsumableSO.All)
+        {
+            rows[item.GetGuid()] = new EntityIdentityName(
+                item.GetGuid(), nameof(ConsumableSO), item.GetName(), item.name);
+            foreach (var family in item.consumableTypes)
+            {
+                rows[family.GetGuid()] = new EntityIdentityName(
+                    family.GetGuid(), nameof(ConsumableTypeSO), family.GetName(), family.name);
+            }
+        }
+        return EntityIdentityCatalogSnapshot.Bound(
+            1,
+            rows.Values.OrderBy(row => row.EntityId).ToArray());
+    }
 
     private static float Bottom(RectTransform rect) => Top(rect) + rect.sizeDelta.y;
 }

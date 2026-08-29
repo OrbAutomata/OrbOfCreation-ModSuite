@@ -273,3 +273,93 @@ internal sealed class AutomataSpellLevelVerifier
         }
     }
 }
+
+/// <summary>
+/// Checks the derived spell type layer against the factor <c>Spell.GetPower()</c> multiplies in.
+/// </summary>
+/// <remarks>
+/// <para>
+/// This is the one type total that is a factor, so it is the one that can be checked at all. Every
+/// other taxonomy distributes into its members, which leaves the type's contribution already inside
+/// the member value the world publishes and nothing independent to compare; <c>SpellTypeSO</c>
+/// distributes nothing, so this product stands beside the member value and the game multiplies it in
+/// whether or not the suite reproduced it faithfully.
+/// </para>
+/// <para>
+/// One term, deliberately. The oracle is the whole product, and comparing the factors underneath it
+/// would mean reading the effective type set natively too — a second reading whose only use is to
+/// explain a disagreement that the one number has already reported.
+/// </para>
+/// </remarks>
+internal sealed class AutomataSpellTypeLayerVerifier
+{
+    private readonly Func<object, BigDouble>? _typePowerPercent;
+
+    internal AutomataSpellTypeLayerVerifier(Type? spellType) =>
+        _typePowerPercent = NativeAccessorBinder.Call<BigDouble>(
+            spellType, "GetSpellTypePowerPercent");
+
+    internal bool IsAvailable => _typePowerPercent is not null;
+
+    /// <summary>
+    /// Compares one loadout position. The position is the key rather than an identity, because that
+    /// is what the game addresses a cast by and what the derived rows are keyed on.
+    /// </summary>
+    internal bool TryVerify(
+        object spell,
+        int slotIndex,
+        GameWorldState world,
+        DifferentialRun run,
+        DifferentialVerificationSession timing,
+        out string failure)
+    {
+        try
+        {
+            if (!WorldSpellSlotLookup.TryFind(world.SpellSlots, slotIndex, out var slot))
+            {
+                failure = $"spell slot {slotIndex} was absent from the immutable world.";
+                return false;
+            }
+
+            // An empty position has no types to multiply and no row to compare, and asking the game
+            // for the product of a spell that is not there is not a reading anyone wants taken.
+            if (!slot.Occupied)
+            {
+                timing.RecordExpectedSkip();
+                failure = string.Empty;
+                return true;
+            }
+
+            // The deriver fails closed: a slot naming a type the world did not publish gets no row
+            // at all. That absence is the finding, so it is reported rather than skipped over.
+            if (!WorldSpellTypeResonanceLookup.TryFind(
+                    world.SpellTypeResonance, slotIndex, out var ours))
+            {
+                failure = $"spell slot {slotIndex} published no derived spell type layer.";
+                return false;
+            }
+
+            var ourStart = Stopwatch.GetTimestamp();
+            var ourPercent = ours.TypePowerPercent;
+            var ourTicks = Stopwatch.GetTimestamp() - ourStart;
+            var theirStart = Stopwatch.GetTimestamp();
+            var theirPercent = _typePowerPercent!(spell);
+            var theirTicks = Stopwatch.GetTimestamp() - theirStart;
+            timing.RecordTiming(ourTicks, theirTicks);
+
+            run.Compare(
+                ours.SpellRecipeId,
+                $"Spell slot={slotIndex} term=type-power-percent",
+                ourPercent,
+                theirPercent);
+
+            failure = string.Empty;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            failure = $"reading the Spell type layer oracle threw: {ex.GetBaseException().Message}";
+            return false;
+        }
+    }
+}
