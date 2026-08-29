@@ -108,7 +108,8 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
                     "The exact registered " + action.ExpectedNativeType +
                     " does not implement IDiscoverable at the action boundary.");
             var name = EntityIdentityFormatter.PlayerName(action.TargetId);
-            if (!TryAdmitScreen(native, action.ExpectedNativeType, out var screenRefusal))
+            if (!TryAdmitScreen(
+                    native, action.ExpectedNativeType, target, name, out var screenRefusal))
                 return screenRefusal;
             if (native.GetGlyphRecipe(target).Count == 0)
                 return GenericDiscoverySubmission.Reject(
@@ -176,7 +177,7 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
             var book = native.GetGlyphRecipeBook(glyph);
             if (book is null || native.IsRecipeBookOwned(book)) continue;
             return "It needs the " +
-                EntityIdentityFormatter.PlayerName(native.GetRecipeBookId(book)) +
+                EntityIdentityFormatter.PlayerName(native.GetStableId(book)) +
                 " recipe book, which is not owned.";
         }
         return "Every recipe book it is made of is owned, so what is left is its own " +
@@ -205,15 +206,16 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
     /// Each discovery tree names the view it is drawn under, as an authored
     /// <c>DiscoveryTreeSO.viewLocation</c> breadcrumb whose last element is that view, so five of
     /// the six discoverable kinds are pinned by the game's own authoring rather than inferred.
-    /// <c>AlchemyRecipeSO</c> is the exception and stays ungated: its rows are drawn on two
-    /// screens, because <c>ConceptDiscoveryTree</c> ends at <c>ScholarConceptDiscover</c> while
-    /// <c>AlchemyDiscoveryTree</c> ends at <c>AlchAlchemyDiscover</c>, and naming either one here
-    /// would refuse a row the other screen is happily drawing. Its rows keep the answer they
-    /// already give: <c>IsDiscoverVisible()</c> is false while the game does not draw them.
+    /// <c>AlchemyRecipeSO</c> is the sixth and is drawn on two of them —
+    /// <c>ConceptDiscoveryTree</c> ends at <c>ScholarConceptDiscover</c> while
+    /// <c>AlchemyDiscoveryTree</c> ends at <c>AlchAlchemyDiscover</c> — so its screen is read from
+    /// the recipe rather than from its kind. See <see cref="TryRouteAlchemyRecipe"/>.
     /// </remarks>
     private bool TryAdmitScreen(
         GenericDiscoveryNativeBindings native,
         string expectedNativeType,
+        object target,
+        string name,
         out GenericDiscoverySubmission refusal)
     {
         refusal = default;
@@ -241,8 +243,12 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
                 screen = KnownEntities.TimeTimeRuneCreate.Uuid;
                 path = "Time > Time Runes > Create";
                 break;
+            case "AlchemyRecipeSO":
             default:
-                return true;
+                if (!TryRouteAlchemyRecipe(
+                        native, target, name, out screen, out path, out refusal))
+                    return false;
+                break;
         }
         var resolution = _registry.Resolve(screen, native.ViewType);
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
@@ -263,6 +269,53 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
             return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// Which of the two alchemy discovery screens draws this recipe, read from the recipe itself.
+    /// </summary>
+    /// <remarks>
+    /// Ordinary alchemy and Scholar concepts are the same native kind on two screens, and the game
+    /// separates them by <c>AlchemyTypeSO</c>: on the pinned build every one of the seventy-nine
+    /// recipes in <c>AlchemyRecipes</c> carries an ordinary type and every one of the forty-six in
+    /// <c>ConceptRecipes</c> carries a concept type, with no recipe mixing the two. The audited
+    /// mapping lives once, in <see cref="AlchemyGameplayDomainClassifier"/>. A type outside it is a
+    /// suite fault rather than a guess: naming the wrong screen would refuse a press the other
+    /// screen would have taken.
+    /// </remarks>
+    private static bool TryRouteAlchemyRecipe(
+        GenericDiscoveryNativeBindings native,
+        object target,
+        string name,
+        out Guid screen,
+        out string path,
+        out GenericDiscoverySubmission refusal)
+    {
+        refusal = default;
+        screen = Guid.Empty;
+        path = string.Empty;
+        var coreType = native.GetCoreAlchemyType(target);
+        var domain = coreType is null
+            ? AlchemyGameplayDomain.Unknown
+            : AlchemyGameplayDomainClassifier.ClassifyTypeUuid(native.GetStableId(coreType));
+        switch (domain)
+        {
+            case AlchemyGameplayDomain.OrdinaryAlchemy:
+                screen = KnownEntities.AlchAlchemyDiscover.Uuid;
+                path = "Alchemy > Alchemy > Learn";
+                return true;
+            case AlchemyGameplayDomain.ScholarConcept:
+                screen = KnownEntities.ScholarConceptDiscover.Uuid;
+                path = "Scholar > Concepts > Discover";
+                return true;
+            default:
+                refusal = GenericDiscoverySubmission.Reject(
+                    GenericDiscoveryPreflight.ContractUnavailable,
+                    "The game draws alchemy discoveries on two screens and the alchemy type of " +
+                    name + " belongs to neither, so which screen would draw its row is unknown. " +
+                    "Nothing was spent.");
+                return false;
+        }
     }
 
     private GenericDiscoverySubmission Execute(

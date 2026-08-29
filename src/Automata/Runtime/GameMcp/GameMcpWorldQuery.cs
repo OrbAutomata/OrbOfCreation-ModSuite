@@ -7589,9 +7589,34 @@ internal static class GameMcpWorldQuery
             if (!instance.IsSettled) result["queuedCount"] = instance.QueuedQuantity;
         }
         AddAlchemyLoadoutDecision(world, result, recipe.RecipeId);
-        AddDiscoveryDecision(world, result, recipe.Discovery);
+        AddDiscoveryDecision(
+            world,
+            result,
+            recipe.Discovery,
+            screenUnlocked: AlchemyDiscoveryScreenUnlocked(world, recipe.CoreTypeId));
         return result.Freeze();
     }
+
+    /// <summary>
+    /// Whether the alchemy discovery screen that draws this recipe is unlocked, or null when which
+    /// of the two draws it cannot be told.
+    /// </summary>
+    /// <remarks>
+    /// Ordinary alchemy and Scholar concepts are one native kind on two screens, and the game
+    /// separates them by the recipe's own <c>AlchemyTypeSO</c>: the seventy-nine recipes
+    /// <c>AlchemyDiscoveryTree</c> draws all carry an ordinary type and the forty-six
+    /// <c>ConceptDiscoveryTree</c> draws all carry a concept type. The press reads the same fact at
+    /// the boundary, so the preview and the press cannot disagree.
+    /// </remarks>
+    private static bool? AlchemyDiscoveryScreenUnlocked(GameWorldState world, Guid coreTypeId) =>
+        AlchemyGameplayDomainClassifier.ClassifyTypeUuid(coreTypeId) switch
+        {
+            AlchemyGameplayDomain.OrdinaryAlchemy =>
+                IsScreenUnlocked(world, KnownEntities.AlchAlchemyDiscover.Uuid),
+            AlchemyGameplayDomain.ScholarConcept =>
+                IsScreenUnlocked(world, KnownEntities.ScholarConceptDiscover.Uuid),
+            _ => null,
+        };
 
     private static void AddAlchemyLoadoutDecision(
         GameWorldState world,
@@ -8591,12 +8616,13 @@ internal static class GameMcpWorldQuery
     /// "not discovered yet", which is the opposite of the truth for a glyph learned by prerequisite.
     /// </summary>
     /// <remarks>
-    /// <paramref name="screenUnlocked"/> defaults to true for one kind only. Every discovery tree
-    /// names the view it is drawn under in its authored <c>viewLocation</c>, and five of the six
-    /// kinds resolve to one view each; <c>alchemy-recipes</c> spans two, because concepts are
-    /// alchemy recipes drawn on Scholar &gt; Concepts &gt; Discover rather than Alchemy &gt; Learn.
-    /// Naming either screen for that page would refuse rows the other screen draws, so those rows
-    /// keep the verdict their own visibility already gives.
+    /// <paramref name="screenUnlocked"/> defaults to true for the kinds no discovery screen draws.
+    /// Every discovery tree names the view it is drawn under in its authored <c>viewLocation</c>,
+    /// and five of the six kinds resolve to one view each; <c>alchemy-recipes</c> spans two,
+    /// because concepts are alchemy recipes drawn on Scholar &gt; Concepts &gt; Discover rather
+    /// than Alchemy &gt; Alchemy &gt; Learn, so that page reads its screen off the recipe's own
+    /// alchemy type. Null is the third answer: which of the two draws this row could not be told,
+    /// and naming either would be a guess.
     /// </remarks>
     private static void AddDiscoveryDecision(
         GameWorldState world,
@@ -8604,9 +8630,10 @@ internal static class GameMcpWorldQuery
         WorldDiscoverableDecision decision,
         bool nativeDiscoverable = true,
         bool offered = false,
-        bool screenUnlocked = true)
+        bool? screenUnlocked = true)
     {
-        var available = nativeDiscoverable && screenUnlocked && decision.Visible &&
+        var screenDraws = screenUnlocked == true;
+        var available = nativeDiscoverable && screenDraws && decision.Visible &&
             decision.CanDiscover && !decision.Discovered && decision.Affordable;
         var discover = new JObject { ["available"] = available };
         if (!available)
@@ -8615,15 +8642,17 @@ internal static class GameMcpWorldQuery
                 ? "already_discovered"
                 : !nativeDiscoverable
                     ? "native_not_discoverable"
-                    : !screenUnlocked
-                        ? "screen_locked"
-                        : !decision.Visible
-                            ? "not_visible"
-                            : !decision.CanDiscover
-                                ? "native_discovery_refused"
-                                : "unaffordable";
+                    : screenUnlocked is null
+                        ? "owning_screen_unknown"
+                        : !screenDraws
+                            ? "screen_locked"
+                            : !decision.Visible
+                                ? "not_visible"
+                                : !decision.CanDiscover
+                                    ? "native_discovery_refused"
+                                    : "unaffordable";
         }
-        if (nativeDiscoverable && screenUnlocked && decision.Visible && !decision.Discovered &&
+        if (nativeDiscoverable && screenDraws && decision.Visible && !decision.Discovered &&
             decision.CanDiscover && decision.Costs.Count > 0)
         {
             var costs = new JArray();

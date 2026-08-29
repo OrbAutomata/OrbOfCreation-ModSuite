@@ -4,6 +4,7 @@ ActiveConcepts	9121924d-2692-428b-9599-165224ccd899	ActiveConcepts	AlchemyInstan
 ActivePlotNodeActions	70871e86-100b-4ae0-ba9b-fc96e09b7e1f	ActivePlotNodeActions	PlotNodeActionInstanceListVariable
 ActiveScribeInstances	b557060a-e109-40de-9a7d-f2b02bc9766d	ActiveScribeInstances	CraftingInstanceListVariable
 ActiveSpells	1614158d-6485-4995-90d0-79cc6b4dced4	ActiveSpells	SpellListVariable
+AlchAlchemyDiscover	70aabd3c-7790-4771-a863-5e5c41bff493	AlchAlchemyDiscover	ViewSO
 Alchemy	f9c93e42-e9e8-4fe3-a1f3-5aec5430b5c2	Alchemy	AlchemyTypeSO
 AlchemyScreen	3ae45ec0-4449-4903-b3d0-b5182e03dca3	ScreenAlchemy	ViewSO
 AutoScribeInstances	f6cb65a8-a959-477c-9293-ff66f646c95d	AutoScribeInstances	CraftingInstanceListVariable
@@ -49,6 +50,7 @@ Reductive	47b787b9-d4cd-43c8-a7e3-63a1e4e0ae94	Reductive	AlchemyTypeSO
 Refinement	32b6b099-19f2-4470-b47b-6c2a8b0388e1	Refinement	AlchemyTypeSO
 Reflective	8f258dcc-c39a-4d64-b915-4239e746c49d	Reflective	AlchemyTypeSO
 RitualsDiscover	443bc384-3df6-49ac-aa52-28abe080595c	RitualsDiscover	ViewSO
+ScholarConceptDiscover	f0e4b59a-b510-4de3-ae3e-dfca0fd76239	ScholarConceptDiscover	ViewSO
 ScribeCrafting	ee001474-8209-4238-9566-84899a877226	ScribeCrafting	CraftingRecipeTypeSO
 ScribeCraftingRecipes	2917516f-34a5-47b7-85b2-0b2f9ab3a29f	ScribeCraftingRecipes	CraftingRecipeListVariable
 ScrollAdvancement	5f6aa08d-7da6-4c7a-89c9-aabcfe48e886	ScrollAdvancement	ConsumableSO

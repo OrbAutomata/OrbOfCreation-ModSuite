@@ -7,8 +7,8 @@ one mechanism on **seven trees**:
 |---|---|---|
 | Spellcraft | Magic > Spellbook > Unlock | spell recipes |
 | Glyphcraft | Magic > Augments > Glyphcraft | augment glyphs |
-| Concepts | Scholar > Concepts | concepts |
-| Alchemy | Alchemy > Learn | alchemy recipes |
+| Concepts | Scholar > Concepts > Discover | concepts |
+| Alchemy | Alchemy > Alchemy > Learn | alchemy recipes |
 | Artifacts | Workshop > Artifacts > Create | artifacts |
 | Devote | Rituals > Discover | rituals |
 | Runecraft | Time > Time Runes > Create | time runes |

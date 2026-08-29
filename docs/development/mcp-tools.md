@@ -1517,6 +1517,16 @@ does not draw yet, a button reading "Has Requirements", a price larger than you 
 answer is the target's post-state row, and a discovered spell also reports whether the game's own
 `PostDiscoverRecipe` loaded it and into which slot.
 
+**All six kinds refuse a locked screen ahead of the press, and the read says so first.** Each
+`DiscoveryTreeSO` names the view its page is drawn under in an authored `viewLocation`, so five
+kinds resolve to one screen each. `AlchemyRecipeSO` is drawn on two — ordinary alchemy on Alchemy >
+Alchemy > Learn, Scholar concepts on Scholar > Concepts > Discover — and both the row and the press
+tell them apart by the recipe's own `AlchemyTypeSO`, which is exactly how the game files them: every
+recipe `AlchemyDiscoveryTree` draws carries an ordinary type and every one `ConceptDiscoveryTree`
+draws carries a concept type. Locking one of the two never refuses a row the other one draws. A
+recipe whose type is in neither set answers `owning_screen_unknown` on the read and `failed` on the
+press rather than naming a screen that would be wrong half the time.
+
 The `offer_initiate`, `offer_select`, `offer_confirm`, and `offer_reroll` modes address a Discovery
 Tree by `uuid` and take the chosen offer as `offerUuid`, because the transient offer UI really does
 show and select those exact entities.
@@ -2814,11 +2824,11 @@ What each internal code means is below; the class is how it reaches the wire.
 | `components_unavailable` | The game builds this from glyphs and it names none, so no discovery screen ever draws a Discover button for it — `UIDiscoverablePage.IsGlyphSelectionValid` starts at `selectedGlyphs.Count > 0`. The whole core-glyph vocabulary it replaced (`recipe_has_no_core_glyph`, `core_glyph_not_published`, `core_glyph_augments_only`, `core_glyph_not_owned`, `core_glyph_not_leveled`) went with the component resolver that produced it | `discover` decisions, `game_discover confirm` |
 | `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so nothing was submitted and nothing was spent. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `augment_slots_exceeded` | The layout names more different augments than "Max Spell Augment Slots" holds, which is the only ceiling the load path has. It replaces `layout_resolves_to_other_spell` and `recipe_not_offered`, which belonged to a layout matcher this verb no longer runs | `game_spell_loadout preview`, `game_spell_loadout add` |
-| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen and the upgrade that opens it | `spell-recipes` loadout-add and `discover` decisions, `augment-glyphs` `discover` and `purchase` decisions, `rituals`, `equipment` and `time-runes` `discover` decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move`, `game_discover confirm` |
+| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen and the upgrade that opens it | `spell-recipes` loadout-add and `discover` decisions, `augment-glyphs` `discover` and `purchase` decisions, `rituals`, `equipment`, `time-runes` and `alchemy-recipes` `discover` decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move`, `game_discover confirm` |
 | `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `discover` decisions on an augment glyph the game never offers, `game_discover` on a uuid no discovery screen draws a row for |
 | `projection_refused` | The suite's own resource-rate policy refuses the assignment; the game did not | `game_concept` |
-| `owning_screen_unknown` / `owning_screen_unreadable` / `owning_screen_contradictory` / `owning_screen_status_unmodelled` / `owning_screen_availability_unreadable` / `topology_not_captured` | The five distinct ways the purchase-screen admission chain says no, which used to share one number. Only `topology_not_captured` is fixed by waiting for the next lifecycle; its sentence names the epoch the topology is stamped at, the epoch the call asked for, and how many rows it holds | `game_purchase` |
+| `owning_screen_unknown` / `owning_screen_unreadable` / `owning_screen_contradictory` / `owning_screen_status_unmodelled` / `owning_screen_availability_unreadable` / `topology_not_captured` | The five distinct ways the purchase-screen admission chain says no, which used to share one number. Only `topology_not_captured` is fixed by waiting for the next lifecycle; its sentence names the epoch the topology is stamped at, the epoch the call asked for, and how many rows it holds. `owning_screen_unknown` has a second producer: an alchemy recipe whose own alchemy type is in neither audited set, so neither alchemy discovery screen claims it | `game_purchase`, `alchemy-recipes` `discover` decisions |
 | `destination_full` | Every slot this upgrade would fill is already occupied | `game_purchase` on a slot-filling upgrade |
 | `single_buy_unavailable` | The suite could not hold the game's multi-buy multiplier at one for the press, so nothing was pressed and nothing was spent. It answered `native_rejected` — the game refusing — for a call the game never saw | the single-buy purchase path |
 | `bandwidth_blocked` / `drain_blocked` | The whole-recipe verdict for the two resource axes its per-resource rows already answer one by one: something it consumes has no bandwidth left, or something it drains is at its limit. Both codes used to be built by string concatenation, so no class or sentence table had ever met either | `world_get` recipe blockers |
@@ -3358,7 +3368,7 @@ which is the coordinate that call returns, so a caller is never invited to retry
 `game_discover`'s `preview` and `confirm` take the target's own `uuid`. `preview` answers that row's
 admission, price, holdings, affordability, and — for a spell — whether the press would also load it;
 it is a read and mutates nothing. `confirm` re-resolves the exact registered target on Unity's main
-thread, then re-asks the button's own ladder: the owning screen where the suite pins one, a glyph
+thread, then re-asks the button's own ladder: the owning screen, a glyph
 recipe the row could be drawn from, already-discovered, native visibility, `CanDiscover`, the exact
 `GetDiscoverCost()` list, and affordability. It captures the shared family permit last, then keeps
 the button's `PerformCost`-before-`Discover` ordering. Success is the exact named target becoming

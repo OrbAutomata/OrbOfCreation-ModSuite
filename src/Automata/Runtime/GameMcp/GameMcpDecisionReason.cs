@@ -371,6 +371,12 @@ internal static class GameMcpDecisionReason
         // Not the same as unaffordable and not the same as full: the screen this action lives on
         // is not unlocked, so the game draws no button at all.
         "screen_locked" => "The screen this action lives on is not unlocked yet.",
+        // Not the same no as a locked screen: which screen this is drawn on could not be told at
+        // all, so whether it is unlocked was never asked. Restating the code said "Owning screen
+        // unknown." — the suite's own words for its own gap, in a sentence meant for a player.
+        "owning_screen_unknown" =>
+            "Which screen the game draws this on could not be told, so whether that screen is " +
+            "unlocked is unknown.",
         "not_visible" => "The game is not showing this yet.",
         "undiscovered" or "not_discovered" =>
             "This has not been discovered yet.",

@@ -52,6 +52,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<PlotNodeActionInstanceListVariableContract> ActivePlotNodeActions = new(new Guid("70871e86-100b-4ae0-ba9b-fc96e09b7e1f"), "PlotNodeActionInstanceListVariable", "ActivePlotNodeActions");
     public static readonly KnownEntity<CraftingInstanceListVariableContract> ActiveScribeInstances = new(new Guid("b557060a-e109-40de-9a7d-f2b02bc9766d"), "CraftingInstanceListVariable", "ActiveScribeInstances");
     public static readonly KnownEntity<SpellListVariableContract> ActiveSpells = new(new Guid("1614158d-6485-4995-90d0-79cc6b4dced4"), "SpellListVariable", "ActiveSpells");
+    public static readonly KnownEntity<ViewSOContract> AlchAlchemyDiscover = new(new Guid("70aabd3c-7790-4771-a863-5e5c41bff493"), "ViewSO", "AlchAlchemyDiscover");
     public static readonly KnownEntity<AlchemyTypeSOContract> Alchemy = new(new Guid("f9c93e42-e9e8-4fe3-a1f3-5aec5430b5c2"), "AlchemyTypeSO", "Alchemy");
     public static readonly KnownEntity<ViewSOContract> AlchemyScreen = new(new Guid("3ae45ec0-4449-4903-b3d0-b5182e03dca3"), "ViewSO", "ScreenAlchemy");
     public static readonly KnownEntity<CraftingInstanceListVariableContract> AutoScribeInstances = new(new Guid("f6cb65a8-a959-477c-9293-ff66f646c95d"), "CraftingInstanceListVariable", "AutoScribeInstances");
@@ -97,6 +98,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<AlchemyTypeSOContract> Refinement = new(new Guid("32b6b099-19f2-4470-b47b-6c2a8b0388e1"), "AlchemyTypeSO", "Refinement");
     public static readonly KnownEntity<AlchemyTypeSOContract> Reflective = new(new Guid("8f258dcc-c39a-4d64-b915-4239e746c49d"), "AlchemyTypeSO", "Reflective");
     public static readonly KnownEntity<ViewSOContract> RitualsDiscover = new(new Guid("443bc384-3df6-49ac-aa52-28abe080595c"), "ViewSO", "RitualsDiscover");
+    public static readonly KnownEntity<ViewSOContract> ScholarConceptDiscover = new(new Guid("f0e4b59a-b510-4de3-ae3e-dfca0fd76239"), "ViewSO", "ScholarConceptDiscover");
     public static readonly KnownEntity<CraftingRecipeTypeSOContract> ScribeCrafting = new(new Guid("ee001474-8209-4238-9566-84899a877226"), "CraftingRecipeTypeSO", "ScribeCrafting");
     public static readonly KnownEntity<CraftingRecipeListVariableContract> ScribeCraftingRecipes = new(new Guid("2917516f-34a5-47b7-85b2-0b2f9ab3a29f"), "CraftingRecipeListVariable", "ScribeCraftingRecipes");
     public static readonly KnownEntity<ConsumableSOContract> ScrollAdvancement = new(new Guid("5f6aa08d-7da6-4c7a-89c9-aabcfe48e886"), "ConsumableSO", "ScrollAdvancement");

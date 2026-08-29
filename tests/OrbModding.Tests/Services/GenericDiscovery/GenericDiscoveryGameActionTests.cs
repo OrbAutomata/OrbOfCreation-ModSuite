@@ -14,14 +14,16 @@ public sealed class GenericDiscoveryGameActionTests : IDisposable
     private readonly IDictionary _registry = new Hashtable();
 
     /// <summary>
-    /// The five discovery screens whose owning view the suite pins, unlocked. A locked screen draws
-    /// no rows at all, so every press that expects a row needs them open.
+    /// The seven discovery screens the six discoverable kinds are drawn on, unlocked. A locked
+    /// screen draws no rows at all, so every press that expects a row needs them open.
     /// </summary>
     private readonly ViewSO _spellbookUnlock = Screen(KnownEntities.MagicSpellbookLearn.Uuid);
     private readonly ViewSO _glyphcraft = Screen(KnownEntities.MagicGlyphsDiscover.Uuid);
     private readonly ViewSO _ritualsDiscover = Screen(KnownEntities.RitualsDiscover.Uuid);
     private readonly ViewSO _artifactCreate = Screen(KnownEntities.WorkshopArtifactCreate.Uuid);
     private readonly ViewSO _timeRuneCreate = Screen(KnownEntities.TimeTimeRuneCreate.Uuid);
+    private readonly ViewSO _alchemyLearn = Screen(KnownEntities.AlchAlchemyDiscover.Uuid);
+    private readonly ViewSO _conceptDiscover = Screen(KnownEntities.ScholarConceptDiscover.Uuid);
 
     public GenericDiscoveryGameActionTests()
     {
@@ -30,6 +32,8 @@ public sealed class GenericDiscoveryGameActionTests : IDisposable
         _registry.Add(_ritualsDiscover.GetGuid(), _ritualsDiscover);
         _registry.Add(_artifactCreate.GetGuid(), _artifactCreate);
         _registry.Add(_timeRuneCreate.GetGuid(), _timeRuneCreate);
+        _registry.Add(_alchemyLearn.GetGuid(), _alchemyLearn);
+        _registry.Add(_conceptDiscover.GetGuid(), _conceptDiscover);
     }
 
     public void Dispose()
@@ -180,14 +184,14 @@ public sealed class GenericDiscoveryGameActionTests : IDisposable
     }
 
     /// <summary>
-    /// A locked screen is refused in the screen's own words, before any row fact — on all five
-    /// kinds whose owning view the game's own authoring names.
+    /// A locked screen is refused in the screen's own words, before any row fact — on all six
+    /// discoverable kinds.
     /// </summary>
     /// <remarks>
     /// <c>ViewSO.IsAvailable()</c> is the game's own question about the screen, and each discovery
-    /// tree names the view it is drawn under in its authored <c>viewLocation</c>. Alchemy recipes
-    /// are the one kind with no single answer — concepts are alchemy recipes drawn on a different
-    /// screen — so they keep the answer their rows already give.
+    /// tree names the view it is drawn under in its authored <c>viewLocation</c>. Five kinds
+    /// resolve to one view each; alchemy recipes resolve through the recipe's own alchemy type,
+    /// because the same kind is drawn on two screens.
     /// </remarks>
     [Theory]
     [InlineData("GlyphSO", "Magic > Augments > Glyphcraft")]
@@ -195,14 +199,11 @@ public sealed class GenericDiscoveryGameActionTests : IDisposable
     [InlineData("RitualSO", "Rituals > Discover")]
     [InlineData("EquipmentSO", "Workshop > Artifacts > Create")]
     [InlineData("TimeRuneSO", "Time > Time Runes > Create")]
+    [InlineData("AlchemyRecipeSO", "Alchemy > Alchemy > Learn")]
     public void A_locked_discovery_screen_refuses_before_any_row_fact(
         string nativeType, string path)
     {
-        _glyphcraft.available = false;
-        _spellbookUnlock.available = false;
-        _ritualsDiscover.available = false;
-        _artifactCreate.available = false;
-        _timeRuneCreate.available = false;
+        LockEveryScreen();
         SpellManager.instance = new SpellManager();
         var target = Target(nativeType);
         Register(target);
@@ -218,30 +219,70 @@ public sealed class GenericDiscoveryGameActionTests : IDisposable
     }
 
     /// <summary>
-    /// Alchemy recipes are the one discoverable kind with two screens, so the press gates on
-    /// neither and the row's own visibility stays the whole answer.
+    /// Alchemy recipes are the one discoverable kind drawn on two screens, and each row is gated on
+    /// the one that draws it: locking Alchemy &gt; Alchemy &gt; Learn refuses an ordinary recipe
+    /// while a Scholar concept still presses, and the other way round.
     /// </summary>
     /// <remarks>
     /// <c>AlchemyDiscoveryTree.viewLocation</c> ends at <c>AlchAlchemyDiscover</c> and
-    /// <c>ConceptDiscoveryTree.viewLocation</c> ends at <c>ScholarConceptDiscover</c>, and both
-    /// trees discover <c>AlchemyRecipeSO</c>. Naming either view here would refuse a press the
-    /// other screen would have taken.
+    /// <c>ConceptDiscoveryTree.viewLocation</c> ends at <c>ScholarConceptDiscover</c>, and the game
+    /// separates the two by the recipe's own <c>AlchemyTypeSO</c>. Gating both on one view would
+    /// refuse a press the other screen would have taken.
     /// </remarks>
     [Fact]
-    public void A_kind_drawn_on_two_screens_is_gated_on_neither()
+    public void Each_alchemy_screen_gates_only_the_recipes_it_draws()
     {
-        _glyphcraft.available = false;
-        _spellbookUnlock.available = false;
-        _ritualsDiscover.available = false;
-        _artifactCreate.available = false;
-        _timeRuneCreate.available = false;
-        var potion = Target("AlchemyRecipeSO");
+        var potion = AlchemyRecipe(AlchemyGameplayDomainClassifier.BrewingTypeUuid);
+        potion.SetGuid(Guid.NewGuid());
+        var concept = AlchemyRecipe(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid);
+        concept.SetGuid(Guid.NewGuid());
         Register(potion);
+        Register(concept);
         using var boundary = Boundary();
 
-        var alchemy = Submit(boundary, potion, "AlchemyRecipeSO");
+        _alchemyLearn.available = false;
+        var shutLearn = Submit(boundary, potion, "AlchemyRecipeSO");
+        var openConcepts = Submit(boundary, concept, "AlchemyRecipeSO");
+        _alchemyLearn.available = true;
+        _conceptDiscover.available = false;
+        var openLearn = Submit(boundary, potion, "AlchemyRecipeSO");
+        var shutConcepts = Submit(boundary, concept, "AlchemyRecipeSO");
 
-        Assert.True(alchemy.Verified, alchemy.Reason);
+        Assert.Equal(GenericDiscoveryPreflight.ScreenLocked, shutLearn.Preflight);
+        Assert.Equal(
+            "Alchemy > Alchemy > Learn is not unlocked yet, so the game draws no row to " +
+            "discover. Nothing was spent.",
+            shutLearn.Reason);
+        Assert.True(openConcepts.Verified, openConcepts.Reason);
+        Assert.True(openLearn.Verified, openLearn.Reason);
+        Assert.Equal(GenericDiscoveryPreflight.ScreenLocked, shutConcepts.Preflight);
+        Assert.Equal(
+            "Scholar > Concepts > Discover is not unlocked yet, so the game draws no row to " +
+            "discover. Nothing was spent.",
+            shutConcepts.Reason);
+    }
+
+    /// <summary>
+    /// A recipe whose alchemy type belongs to neither screen is the suite's own fault, not a guess:
+    /// naming either screen would refuse a press the other one would have taken.
+    /// </summary>
+    [Fact]
+    public void An_alchemy_recipe_belonging_to_neither_screen_is_a_suite_fault()
+    {
+        var orphan = AlchemyRecipe(Guid.Parse("11111111-2222-3333-4444-555555555555"));
+        orphan.SetGuid(Guid.NewGuid());
+        Register(orphan);
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, orphan, "AlchemyRecipeSO");
+
+        Assert.Equal(GenericDiscoveryPreflight.ContractUnavailable, result.Preflight);
+        Assert.EndsWith(
+            "belongs to neither, so which screen would draw its row is unknown. Nothing was spent.",
+            result.Reason,
+            StringComparison.Ordinal);
+        Assert.Equal(0, Discoverable(orphan).GetDiscoverCost().PerformCalls);
+        Assert.False(Discoverable(orphan).IsDiscovered());
     }
 
     /// <summary>
@@ -443,6 +484,17 @@ public sealed class GenericDiscoveryGameActionTests : IDisposable
         _registry.Add(guid, target);
     }
 
+    private void LockEveryScreen()
+    {
+        _glyphcraft.available = false;
+        _spellbookUnlock.available = false;
+        _ritualsDiscover.available = false;
+        _artifactCreate.available = false;
+        _timeRuneCreate.available = false;
+        _alchemyLearn.available = false;
+        _conceptDiscover.available = false;
+    }
+
     private static ViewSO Screen(Guid uuid)
     {
         var view = new ViewSO { available = true };
@@ -450,11 +502,23 @@ public sealed class GenericDiscoveryGameActionTests : IDisposable
         return view;
     }
 
+    /// <summary>
+    /// An alchemy recipe filed under one alchemy type. The type is what says which of the two
+    /// alchemy discovery screens draws the recipe, so every alchemy target names one.
+    /// </summary>
+    private static AlchemyRecipeSO AlchemyRecipe(Guid coreTypeUuid)
+    {
+        var recipe = new AlchemyRecipeSO { discovered = false };
+        recipe.coreType.SetGuid(coreTypeUuid);
+        return recipe;
+    }
+
     private static object Target(string nativeType)
     {
         object value = nativeType switch
         {
-            "AlchemyRecipeSO" => new AlchemyRecipeSO { discovered = false },
+            "AlchemyRecipeSO" =>
+                AlchemyRecipe(AlchemyGameplayDomainClassifier.BrewingTypeUuid),
             "EquipmentSO" => new EquipmentSO { isCreated = false },
             "GlyphSO" => new GlyphSO { discovered = false },
             "RitualSO" => new RitualSO { discovered = false },

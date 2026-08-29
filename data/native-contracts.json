@@ -24144,6 +24144,16 @@
       "place": "action"
     },
     {
+      "id": "generic-discovery.alchemy-type.type-action",
+      "assembly": "assembly-csharp",
+      "type": "AlchemyTypeSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": ["Automata generic discovery GameAction"],
+      "usages": ["reflection"],
+      "place": "action"
+    },
+    {
       "id": "generic-discovery.equipment.type-action",
       "assembly": "assembly-csharp",
       "type": "EquipmentSO",
@@ -24268,7 +24278,7 @@
       "place": "action"
     },
     {
-      "id": "generic-discovery.recipe-book-identity-action",
+      "id": "generic-discovery.identity-action",
       "assembly": "assembly-csharp",
       "type": "IdScriptableObject",
       "typeVisibility": "public",
@@ -24277,6 +24287,25 @@
       "visibility": "public",
       "static": false,
       "returnType": "System.Guid",
+      "parameters": [],
+      "owners": [
+        "Automata generic discovery GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "generic-discovery.recipe-core-type-action",
+      "assembly": "assembly-csharp",
+      "type": "AlchemyRecipeSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetCoreType",
+      "visibility": "public",
+      "static": false,
+      "returnType": "AlchemyTypeSO",
       "parameters": [],
       "owners": [
         "Automata generic discovery GameAction"

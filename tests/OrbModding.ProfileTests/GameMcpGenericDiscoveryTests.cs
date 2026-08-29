@@ -334,26 +334,27 @@ public sealed class GameMcpGenericDiscoveryTests
     }
 
     /// <summary>
-    /// Every discoverable kind whose owning screen the game names is gated on that screen, and the
-    /// one kind drawn on two screens is gated on neither.
+    /// Every discoverable kind is gated on the screen its tree is drawn under, alchemy recipes
+    /// included — both of theirs.
     /// </summary>
     /// <remarks>
     /// Each <c>DiscoveryTreeSO</c> carries an authored <c>viewLocation</c> whose last element is
     /// the view its page is drawn under: rituals end at <c>RitualsDiscover</c>, artifacts at
-    /// <c>WorkshopArtifactCreate</c>, time runes at <c>TimeTimeRuneCreate</c>. Alchemy recipes are
-    /// the exception — <c>ConceptDiscoveryTree</c> ends at <c>ScholarConceptDiscover</c> while
-    /// <c>AlchemyDiscoveryTree</c> ends at <c>AlchAlchemyDiscover</c>, and both trees discover
-    /// <c>AlchemyRecipeSO</c> — so those rows keep the verdict their own visibility gives.
+    /// <c>WorkshopArtifactCreate</c>, time runes at <c>TimeTimeRuneCreate</c>.
+    /// <c>AlchemyRecipeSO</c> is drawn on two — <c>ConceptDiscoveryTree</c> ends at
+    /// <c>ScholarConceptDiscover</c> while <c>AlchemyDiscoveryTree</c> ends at
+    /// <c>AlchAlchemyDiscover</c> — so its row reads the screen off the recipe's own alchemy type.
     /// </remarks>
     [Theory]
     [InlineData("rituals", "2ebf945f-56bc-44fe-a82a-7f117779ce37")]
     [InlineData("equipment", "02c64c96-de30-4e73-bafe-5f454bb58a66")]
     [InlineData("time-runes", "01a6d158-0fcd-40bc-a3a2-8f748086201d")]
-    [InlineData("alchemy-recipes", "")]
+    [InlineData("alchemy-recipes", "05589125-5a98-4e74-a1ae-2b2146ea68c4")]
+    [InlineData("alchemy-recipes", "6f7f6b2c-6ad0-4a05-9a35-0f2ab7e0e0d1")]
     public void A_discovery_row_is_gated_on_the_screen_its_tree_is_drawn_under(
         string category, string uuid)
     {
-        var id = uuid.Length == 0 ? AlchemyRecipeId : Guid.Parse(uuid);
+        var id = Guid.Parse(uuid);
 
         var open = Json(GameMcpWorldQuery.GetRow(
             ScreenContext(screensUnlocked: true), category, id.ToString("D")))["row"]!;
@@ -361,11 +362,6 @@ public sealed class GameMcpGenericDiscoveryTests
             ScreenContext(screensUnlocked: false), category, id.ToString("D")))["row"]!;
 
         Assert.True((bool)open["discover"]!["available"]!);
-        if (uuid.Length == 0)
-        {
-            Assert.True((bool)shut["discover"]!["available"]!);
-            return;
-        }
         Assert.False((bool)shut["discover"]!["available"]!);
         Assert.Equal("ERR_LOCKED", (string?)shut["discover"]!["reasonCode"]);
         Assert.Equal(
@@ -373,16 +369,96 @@ public sealed class GameMcpGenericDiscoveryTests
             (string?)shut["discover"]!["reason"]);
     }
 
+    /// <summary>
+    /// Each of the two alchemy screens gates only the recipes it draws: with Alchemy &gt; Alchemy
+    /// &gt; Learn shut and Scholar &gt; Concepts &gt; Discover open, the ordinary recipe answers
+    /// locked and the concept answers available, and the other way round.
+    /// </summary>
+    [Fact]
+    public void Neither_alchemy_screen_gates_the_rows_the_other_one_draws()
+    {
+        var conceptsOnly = ScreenContext(
+            screensUnlocked: false, conceptDiscoverUnlocked: true);
+        var learnOnly = ScreenContext(
+            screensUnlocked: false, alchemyLearnUnlocked: true);
+
+        var shutPotion = Json(GameMcpWorldQuery.GetRow(
+            conceptsOnly, "alchemy-recipes", AlchemyRecipeId.ToString("D")))["row"]!;
+        var openConcept = Json(GameMcpWorldQuery.GetRow(
+            conceptsOnly, "alchemy-recipes", ConceptRecipeId.ToString("D")))["row"]!;
+        var openPotion = Json(GameMcpWorldQuery.GetRow(
+            learnOnly, "alchemy-recipes", AlchemyRecipeId.ToString("D")))["row"]!;
+        var shutConcept = Json(GameMcpWorldQuery.GetRow(
+            learnOnly, "alchemy-recipes", ConceptRecipeId.ToString("D")))["row"]!;
+
+        Assert.False((bool)shutPotion["discover"]!["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)shutPotion["discover"]!["reasonCode"]);
+        Assert.True((bool)openConcept["discover"]!["available"]!);
+        Assert.True((bool)openPotion["discover"]!["available"]!);
+        Assert.False((bool)shutConcept["discover"]!["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)shutConcept["discover"]!["reasonCode"]);
+    }
+
+    /// <summary>
+    /// A recipe whose alchemy type belongs to neither screen answers that it could not be told,
+    /// rather than naming a screen and being wrong half the time.
+    /// </summary>
+    [Fact]
+    public void An_alchemy_row_belonging_to_neither_screen_says_the_screen_is_unknown()
+    {
+        var row = Json(GameMcpWorldQuery.GetRow(
+            ScreenContext(screensUnlocked: true),
+            "alchemy-recipes",
+            OrphanRecipeId.ToString("D")))["row"]!;
+
+        Assert.False((bool)row["discover"]!["available"]!);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)row["discover"]!["reasonCode"]);
+        Assert.Equal(
+            "Which screen the game draws this on could not be told, so whether that screen is " +
+            "unlocked is unknown.",
+            (string?)row["discover"]!["reason"]);
+    }
+
     private static readonly Guid AlchemyRecipeId =
         Guid.Parse("05589125-5a98-4e74-a1ae-2b2146ea68c4");
     private static readonly Guid AlchemyTypeId =
         Guid.Parse("b42c6192-7d9b-40d0-aa40-3d46a9348e52");
+    private static readonly Guid ConceptRecipeId =
+        Guid.Parse("6f7f6b2c-6ad0-4a05-9a35-0f2ab7e0e0d1");
+    private static readonly Guid OrphanRecipeId =
+        Guid.Parse("6f7f6b2c-6ad0-4a05-9a35-0f2ab7e0e0d2");
+
+    /// <summary>An alchemy type in neither audited set, so neither screen claims its recipe.</summary>
+    private static readonly Guid OrphanAlchemyTypeId =
+        Guid.Parse("11111111-2222-3333-4444-555555555555");
+
+    private static WorldAlchemyRecipe AlchemyRecipe(
+        Guid recipeId,
+        Guid coreTypeId,
+        WorldDiscoverableDecision discovery) => new(
+        recipeId, coreTypeId, discovered: false, maxLevel: 1,
+        advancementLevel: 0, discoveryRarityLevel: 0, masteryXp: BigDouble.Zero,
+        masteryLevel: 0, recipeTime: BigDouble.One, isRequiredDiscovery: false,
+        isCompletionRecipe: false, isAdvancementRecipe: false, completionTime: 0,
+        isDebugAlchemy: false, power: BigDouble.Zero, speed: BigDouble.Zero,
+        drainCostMod: BigDouble.Zero, special: BigDouble.Zero,
+        timeReqMod: BigDouble.Zero, timeScalingMod: BigDouble.Zero,
+        masteryXpRate: BigDouble.Zero, effectLevels: BigDouble.Zero,
+        overdrivePower: BigDouble.Zero, overdriveSpeed: BigDouble.Zero,
+        overdriveDrainCostMod: BigDouble.Zero, overdriveXpRate: BigDouble.Zero,
+        freeUsageSlots: BigDouble.One, maxUsageSlots: new BigDouble(8),
+        cachedCompletionTime: BigDouble.Zero, requiredExperience: BigDouble.One,
+        discovery: discovery);
 
     /// <summary>
-    /// One row of each screen-gated kind, all offered by the game, with the four owning views
-    /// either open or shut together.
+    /// One row of each screen-gated kind, all offered by the game, with the owning views open or
+    /// shut together — and the two alchemy screens separately settable, because the two alchemy
+    /// rows are drawn on different ones.
     /// </summary>
-    private static GameMcpFrameContext ScreenContext(bool screensUnlocked)
+    private static GameMcpFrameContext ScreenContext(
+        bool screensUnlocked,
+        bool? alchemyLearnUnlocked = null,
+        bool? conceptDiscoverUnlocked = null)
     {
         var offered = new WorldDiscoverableDecision(
             visible: true,
@@ -405,7 +481,7 @@ public sealed class GameMcpGenericDiscoveryTests
                 new WorldCollectionCategoryStatus(
                     "time runes", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
                 new WorldCollectionCategoryStatus(
-                    "alchemy recipes", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+                    "alchemy recipes", WorldCategoryOutcome.Collected, 3, 0, string.Empty),
             }),
             Views = PublicationTable<WorldView>.Create(new[]
             {
@@ -415,6 +491,12 @@ public sealed class GameMcpGenericDiscoveryTests
                     KnownEntities.WorkshopArtifactCreate.Uuid, false, false, screensUnlocked),
                 new WorldView(
                     KnownEntities.TimeTimeRuneCreate.Uuid, false, false, screensUnlocked),
+                new WorldView(
+                    KnownEntities.AlchAlchemyDiscover.Uuid, false, false,
+                    alchemyLearnUnlocked ?? screensUnlocked),
+                new WorldView(
+                    KnownEntities.ScholarConceptDiscover.Uuid, false, false,
+                    conceptDiscoverUnlocked ?? screensUnlocked),
             }.OrderBy(view => view.EntityId).ToArray()),
             Rituals = PublicationTable<WorldRitual>.Create(new[]
             {
@@ -467,21 +549,13 @@ public sealed class GameMcpGenericDiscoveryTests
             }),
             AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new[]
             {
-                new WorldAlchemyRecipe(
-                    AlchemyRecipeId, AlchemyTypeId, discovered: false, maxLevel: 1,
-                    advancementLevel: 0, discoveryRarityLevel: 0, masteryXp: BigDouble.Zero,
-                    masteryLevel: 0, recipeTime: BigDouble.One, isRequiredDiscovery: false,
-                    isCompletionRecipe: false, isAdvancementRecipe: false, completionTime: 0,
-                    isDebugAlchemy: false, power: BigDouble.Zero, speed: BigDouble.Zero,
-                    drainCostMod: BigDouble.Zero, special: BigDouble.Zero,
-                    timeReqMod: BigDouble.Zero, timeScalingMod: BigDouble.Zero,
-                    masteryXpRate: BigDouble.Zero, effectLevels: BigDouble.Zero,
-                    overdrivePower: BigDouble.Zero, overdriveSpeed: BigDouble.Zero,
-                    overdriveDrainCostMod: BigDouble.Zero, overdriveXpRate: BigDouble.Zero,
-                    freeUsageSlots: BigDouble.One, maxUsageSlots: new BigDouble(8),
-                    cachedCompletionTime: BigDouble.Zero, requiredExperience: BigDouble.One,
-                    discovery: offered),
-            }),
+                AlchemyRecipe(AlchemyRecipeId, AlchemyTypeId, offered),
+                AlchemyRecipe(
+                    ConceptRecipeId,
+                    AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid,
+                    offered),
+                AlchemyRecipe(OrphanRecipeId, OrphanAlchemyTypeId, offered),
+            }.OrderBy(recipe => recipe.EntityId).ToArray()),
         };
         return GameMcpTestHarness.Context(world, generation: 2311);
     }

@@ -40,7 +40,9 @@ internal sealed class GenericDiscoveryNativeBindings
         "generic-discovery.recipe-book.type-action",
         "generic-discovery.glyph-recipe-book-action",
         "generic-discovery.recipe-book-owned-action",
-        "generic-discovery.recipe-book-identity-action",
+        "generic-discovery.identity-action",
+        "generic-discovery.alchemy-type.type-action",
+        "generic-discovery.recipe-core-type-action",
     };
 
     private GenericDiscoveryNativeBindings(
@@ -59,7 +61,8 @@ internal sealed class GenericDiscoveryNativeBindings
         Func<object, bool> isViewAvailable,
         Func<object, object?> getGlyphRecipeBook,
         Func<object, bool> isRecipeBookOwned,
-        Func<object, Guid> getRecipeBookId)
+        Func<object, Guid> getStableId,
+        Func<object, object> getCoreAlchemyType)
     {
         DiscoverableType = discoverableType;
         CostType = costType;
@@ -76,7 +79,8 @@ internal sealed class GenericDiscoveryNativeBindings
         IsViewAvailable = isViewAvailable;
         GetGlyphRecipeBook = getGlyphRecipeBook;
         IsRecipeBookOwned = isRecipeBookOwned;
-        GetRecipeBookId = getRecipeBookId;
+        GetStableId = getStableId;
+        GetCoreAlchemyType = getCoreAlchemyType;
     }
 
     internal Type DiscoverableType { get; }
@@ -106,7 +110,18 @@ internal sealed class GenericDiscoveryNativeBindings
 
     internal Func<object, bool> IsRecipeBookOwned { get; }
 
-    internal Func<object, Guid> GetRecipeBookId { get; }
+    /// <summary>
+    /// The stable UUID of any <c>IdScriptableObject</c>. One compiled accessor serves the recipe
+    /// book a hidden row waits on and the alchemy type that says which screen draws a recipe,
+    /// because <c>GetGuid</c> is declared once on the shared base.
+    /// </summary>
+    internal Func<object, Guid> GetStableId { get; }
+
+    /// <summary>
+    /// The alchemy type a recipe is filed under, or null. <c>AlchemyRecipeSO</c> is the one
+    /// discoverable kind the game draws on two screens, and this is what tells them apart.
+    /// </summary>
+    internal Func<object, object> GetCoreAlchemyType { get; }
 
     internal static bool TryCreate(
         out GenericDiscoveryNativeBindings? bindings,
@@ -176,7 +191,10 @@ internal sealed class GenericDiscoveryNativeBindings
                 throw new InvalidOperationException(
                     "GlyphSO.associatedRecipeBook did not match the audited signature");
             var bookOwned = M(ContractIds[20], recipeBook, "IsAvailable", typeof(bool));
-            var bookId = M(ContractIds[21], recipeBook, "GetGuid", typeof(Guid));
+            var stableId = M(ContractIds[21], recipeBook, "GetGuid", typeof(Guid));
+            var alchemyType = T(ContractIds[22], "AlchemyTypeSO");
+            var coreType = M(
+                ContractIds[23], supported["AlchemyRecipeSO"], "GetCoreType", alchemyType);
 
             bindings = new GenericDiscoveryNativeBindings(
                 discoverable,
@@ -194,7 +212,8 @@ internal sealed class GenericDiscoveryNativeBindings
                 InstanceFunc<bool>(viewAvailable),
                 InstanceFieldFunc(glyphBook),
                 InstanceFunc<bool>(bookOwned),
-                InstanceFunc<Guid>(bookId));
+                InstanceFunc<Guid>(stableId),
+                InstanceObjectFunc(coreType));
             reason = string.Empty;
             return true;
         }
