@@ -52,6 +52,53 @@ public sealed class GenericLevelGameActionTests
         Assert.Equal(0, cost.PerformCalls);
     }
 
+    /// <summary>
+    /// A press that buys several levels was charged for several rungs, and says so.
+    /// </summary>
+    /// <remarks>
+    /// The game prices each rung separately, so the price standing before the press answers for
+    /// the whole ask only when the ask is one. A round bought five rune levels off a ladder whose
+    /// first level is free, read <c>free: yes</c>, and watched Time Advancements fall anyway.
+    /// </remarks>
+    [Fact]
+    public void A_multi_level_press_carries_what_every_rung_it_bought_asked_for()
+    {
+        var target = Target("TimeRuneSO");
+        var resource = Resource(100);
+        PaidCost(target).costs.Add(new ResourceTuple(resource, new BigDouble(2)));
+        Register(target);
+        using var boundary = Boundary();
+
+        var action = new GenericLevelAction(
+            GenericLevelActionKind.Purchase, target.GetGuid(), "TimeRuneSO", 5, Epoch);
+        var result = boundary.Submit(in action);
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(5, TotalLevel(target));
+        Assert.Equal(5, result.LevelsCharged);
+        Assert.False(result.ChargedNothing);
+        var charge = Assert.Single(result.Charges.ToArray());
+        Assert.Equal(resource.GetGuid(), charge.ResourceId);
+        Assert.Equal(new BigDouble(10), charge.Amount);
+    }
+
+    [Fact]
+    public void A_press_whose_every_rung_asked_for_nothing_is_the_only_free_one()
+    {
+        var target = Target("TimeRuneSO");
+        Register(target);
+        using var boundary = Boundary();
+
+        var action = new GenericLevelAction(
+            GenericLevelActionKind.Purchase, target.GetGuid(), "TimeRuneSO", 5, Epoch);
+        var result = boundary.Submit(in action);
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(5, result.LevelsCharged);
+        Assert.True(result.ChargedNothing);
+        Assert.Empty(result.Charges.ToArray());
+    }
+
     [Fact]
     public void Time_rune_refuses_a_bonus_control_it_does_not_have()
     {

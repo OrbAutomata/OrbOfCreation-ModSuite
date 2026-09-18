@@ -164,6 +164,7 @@ internal sealed class GenericLevelGameAction : IDisposable
             ? binding.GetBonusLevels!(target)
             : binding.GetLevel(target);
         var stage = GenericLevelNativeStage.NativeCallback;
+        var tally = new GenericLevelChargeTally();
         try
         {
             for (var index = 0; index < action.Amount; index++)
@@ -174,6 +175,7 @@ internal sealed class GenericLevelGameAction : IDisposable
                     var cost = binding.GetLevelCost(target) ??
                         throw new InvalidOperationException("GetLevelCost returned null before payment");
                     if (!native.HasEnough(cost)) break;
+                    tally.Take(native, cost);
                     binding.PurchaseLevel(target);
                 }
                 else
@@ -181,20 +183,21 @@ internal sealed class GenericLevelGameAction : IDisposable
                     var cost = binding.GetBonusCost!(target) ??
                         throw new InvalidOperationException("GetFreeLevelCost returned null before mutation");
                     if (!native.ResourcesVisible(cost) || !native.HasEnough(cost)) break;
+                    tally.Take(native, cost);
                     binding.PurchaseBonus!(target);
                 }
             }
 
             stage = GenericLevelNativeStage.Verification;
             return Current(in action, binding, target) > before
-                ? Verified()
+                ? Verified(in tally)
                 : Fault(in action, GenericLevelPreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
                     "The requested level did not increase.");
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            if (Current(in action, binding, target) > before) return Verified();
+            if (Current(in action, binding, target) > before) return Verified(in tally);
             return Fault(in action, GenericLevelPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("the screen this is levelled on", exception));
@@ -241,12 +244,14 @@ internal sealed class GenericLevelGameAction : IDisposable
     private static GenericLevelSubmission Reject(GenericLevelPreflight preflight, string reason) =>
         GenericLevelSubmission.Reject(preflight, reason);
 
-    private static GenericLevelSubmission Verified() =>
+    private static GenericLevelSubmission Verified(in GenericLevelChargeTally tally) =>
         new(GenericLevelPreflight.Proceeded,
             GenericLevelNativeStage.Verification,
             NativeMutationOutcome.Verified,
             new NativeMutationCallOutcome(1, 1, 1),
-            "The requested level increase is visible.");
+            "The requested level increase is visible.",
+            tally.Levels,
+            tally.Rows());
 
     private static GenericLevelSubmission Fault(
         in GenericLevelAction action,

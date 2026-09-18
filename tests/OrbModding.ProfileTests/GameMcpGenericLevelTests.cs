@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using OrbAutomata;
 using OrbAutomata.GameMcp;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -125,12 +126,14 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal(0, (int)paidDelta["freeSlots"]!["before"]!);
         Assert.Equal(1, (int)paidDelta["freeSlots"]!["after"]!);
 
-        // Payment reporting left the wire on both level-buying verbs. A level that asks for nothing
-        // still says so, because that changes what a caller does next; what a level cost and what
-        // the next one asks belong to the world publication, which keeps both curves in full.
+        // Payment reporting left the wire on both level-buying verbs, and the settled worlds cannot
+        // put it back: a ladder prices every rung on its own, so two publications know the first
+        // rung's price and the next one's, never the ones in between. Whether the press cost
+        // anything is the press's own answer.
         Assert.Null(paidDelta["paid"]);
         Assert.Null(paidDelta["costPerLevel"]);
         Assert.Null(paidDelta["free"]);
+        Assert.Null(paidDelta["charged"]);
     }
 
     [Fact]
@@ -167,37 +170,68 @@ public sealed class GameMcpGenericLevelTests
     }
 
     /// <summary>
-    /// A price of zero is free, and says so in the same word an absent price does — on the row, and
-    /// on the answer the purchase settles at.
+    /// A price of zero is free, and the row says so in the same word an absent price does.
     /// </summary>
     /// <remarks>
     /// A round bought a glyph level and read <c>free: yes</c>, then bought a time-rune level whose
     /// own row said <c>cost: 0 of 94 Time Advancement</c> and got no such line: the test was "the
-    /// game names no price" rather than "nothing is owed", and the post-state additionally
-    /// withheld the answer unless the <em>next</em> level was free too. Same verb, same mode, two
-    /// shapes, and the missing one reads as a claim that the caller paid.
+    /// game names no price" rather than "nothing is owed". The row answers about the next level,
+    /// which is the level it prices.
     /// </remarks>
     [Fact]
-    public void A_price_of_zero_is_free_on_the_row_and_on_what_the_purchase_settled_at()
+    public void A_price_of_zero_is_free_on_the_row_that_prices_that_level()
     {
         var before = World(5, 2, purchaseAffordable: true, levelPriceIsZero: true);
-        var after = World(6, 2, purchaseAffordable: true);
 
         var row = Row(before, "augment-glyphs", GlyphId);
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            GameMcpTestHarness.Context(after, generation: 902),
-            Command("purchase", before),
-            GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
         // The row keeps the price the screen draws, and answers the question that price raises.
         var cost = Assert.Single(row["purchase"]!["costs"]!.Values<JObject>())!;
         Assert.Equal("0", (string?)cost["cost"]);
         Assert.True((bool)row["purchase"]!["free"]!);
-
-        // The next level up this curve is priced, and that does not make the one just bought cost
-        // anything.
-        Assert.True((bool)delta["free"]!);
     }
+
+    /// <summary>
+    /// What a press cost is answered by the press, for the whole amount it bought.
+    /// </summary>
+    /// <remarks>
+    /// A round bought five rune levels off a ladder whose first level is free, read
+    /// <c>free: yes</c>, and watched Time Advancements fall 94 → 84 anyway: the answer came from
+    /// the world standing before the press, and that world prices one rung. <c>free</c> is now a
+    /// fact about the amount asked, and the press is the only thing that saw every price in it.
+    /// </remarks>
+    [Fact]
+    public void Only_a_press_charged_nothing_for_every_level_is_free()
+    {
+        var resource = Guid.Parse("1f2e3d4c-5b6a-4798-8899-aabbccddeeff");
+
+        var freePress = GameMcpGenericLevelProjection.Project(
+            Bought(levels: 5, charges: Array.Empty<GenericLevelCharge>()));
+        var chargedPress = GameMcpGenericLevelProjection.Project(
+            Bought(levels: 5, charges: new[]
+            {
+                new GenericLevelCharge(resource, new BigDouble(10)),
+            }));
+
+        var free = GameMcpTestHarness.Json(freePress);
+        var charged = GameMcpTestHarness.Json(chargedPress);
+        Assert.True((bool)free["free"]!);
+        Assert.Null(free["charged"]);
+        Assert.Null(charged["free"]);
+        Assert.Equal(5, (int)charged["chargedLevels"]!);
+        var row = Assert.Single(charged["charged"]!.Values<JObject>())!;
+        Assert.Equal("10", (string?)row["cost"]);
+        Assert.NotNull(row["resource"]);
+    }
+
+    private static GenericLevelSubmission Bought(int levels, GenericLevelCharge[] charges) =>
+        new(GenericLevelPreflight.Proceeded,
+            GenericLevelNativeStage.Verification,
+            NativeMutationOutcome.Verified,
+            new NativeMutationCallOutcome(1, 1, 1),
+            "The requested level increase is visible.",
+            levels,
+            charges.Length == 0 ? null : charges);
 
     [Fact]
     public void Hidden_or_unlearned_rows_never_advertise_level_purchase()

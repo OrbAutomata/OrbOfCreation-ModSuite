@@ -2717,13 +2717,11 @@ internal static class GameMcpWorldQuery
             ["after"] = current.TotalLevel,
         };
 
-        // Whether this cost anything is what the call did, so it is answered about the level that
-        // was bought — the price standing in the world this call was made against — and in the
-        // same words the read side uses. It used to require the next level to be free as well,
-        // which silently withheld the answer from every kind whose curve starts at zero and rises.
-        var bonus = command.Mode == "bonus";
-        if (hadBefore && AsksForNothing(bonus ? previous.BonusCosts : previous.PaidCosts))
-            result["free"] = true;
+        // What the press cost is not answered here. This projector sees two worlds, and a ladder
+        // prices every rung on its own, so the world standing before the press knows only the
+        // first one's price — which is how a ×5 rune buy off a free first rung read `free: yes`
+        // while Time Advancements fell. The press saw all five prices and says so itself; see
+        // GameMcpGenericLevelProjection.
 
         // What a glyph level buys is slots, and the game's own level panel says so in those words:
         // `[N] Slot` off GetMaxUsages() and `[M] Free Slot` off GetFreeUsages(). Those are the two
