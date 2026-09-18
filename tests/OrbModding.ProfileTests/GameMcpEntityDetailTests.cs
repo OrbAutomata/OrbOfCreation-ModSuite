@@ -917,6 +917,51 @@ public sealed class GameMcpEntityDetailTests : IDisposable
     }
 
     /// <summary>
+    /// A locked entity's availability verdict points at the unlock block standing beside it, and
+    /// says "nothing to look up" only when there is nothing to look up.
+    /// </summary>
+    /// <remarks>
+    /// Learn Expansion is the shape: `available: no` with "the game says nothing about what would
+    /// unlock it" printed directly above `unlocksWhen: needs=Wizardry`. The verdict was hardcoded
+    /// while the block beside it was read from the captured unlock container, so the one line a
+    /// caller would act on contradicted the one line under it.
+    /// </remarks>
+    [Fact]
+    public void ALockedUpgradesVerdictNamesItsUnlockBlockWhenThereIsOne()
+    {
+        var named = Upgrade();
+        named.available = false;
+        var shut = ResearchStub(level: 1);
+        named.prerequisites.prerequisites.Add(Require(shut, 4));
+
+        var detail = Explain(Collect(), named.GetGuid(), 951);
+
+        var available = detail["predicates"]!["available"]!;
+        Assert.False((bool)available["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)available["reasonCode"]);
+        Assert.Contains("unlocksWhen", (string?)available["reason"]);
+        Assert.NotNull(detail["requirements"]!["unlocksWhen"]);
+    }
+
+    /// <summary>
+    /// The old sentence is still the right one where the game really names no condition.
+    /// </summary>
+    [Fact]
+    public void ALockedUpgradeWithNoUnlockConditionsStillSaysTheGameNamesNothing()
+    {
+        var silent = Upgrade();
+        silent.available = false;
+
+        var detail = Explain(Collect(), silent.GetGuid(), 952);
+
+        var available = detail["predicates"]!["available"]!;
+        Assert.False((bool)available["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)available["reasonCode"]);
+        Assert.Contains("says nothing about what would unlock it", (string?)available["reason"]);
+        Assert.Null(detail["requirements"]?["unlocksWhen"]);
+    }
+
+    /// <summary>
     /// A locked entity says what would unlock it, in the same words its other rows use.
     /// </summary>
     /// <remarks>

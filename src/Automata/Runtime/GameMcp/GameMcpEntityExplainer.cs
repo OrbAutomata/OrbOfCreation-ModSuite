@@ -95,9 +95,14 @@ internal static class GameMcpEntityExplainer
         }
         // Both blocks are always present. An entity with no applicable predicate and one whose
         // predicates were never evaluated are different answers, and an omitted key said both.
-        result["predicates"] = Predicates(world, uuid, kind);
         var requirements = Requirements(
             world, uuid, kind, out var parityFailure, out var parityFailureCode);
+
+        // The requirement block is built first so the predicates beside it can read it. A predicate
+        // that answered "the game says nothing about what would unlock this" while the block under
+        // it listed exactly that sent a caller looking for an explanation that was one line away.
+        result["predicates"] = Predicates(
+            world, uuid, kind, requirements?["unlocksWhen"] is JObject);
         if (requirements is not null) result["requirements"] = requirements;
         var researchThresholds = ResearchThresholds(world, uuid, kind);
         if (researchThresholds is not null) result["researchThresholds"] = researchThresholds;
@@ -243,8 +248,18 @@ internal static class GameMcpEntityExplainer
         }
     }
 
-    private static JObject Predicates(GameWorldState world, Guid id, EntityKind kind)
+    private static JObject Predicates(
+        GameWorldState world,
+        Guid id,
+        EntityKind kind,
+        bool unlockConditionsPublished)
     {
+        // What a locked entity says when it is asked why. `native_unavailable` means "the game
+        // refuses and names nothing", which is only true while no unlock block stands beside this
+        // one; where the block exists it names the conditions, and this points at them.
+        var lockedReason = unlockConditionsPublished
+            ? "unlock_conditions_unmet"
+            : "native_unavailable";
         var result = new JObject();
         switch (kind)
         {
@@ -253,9 +268,9 @@ internal static class GameMcpEntityExplainer
                 WorldLookup.TryFind(world.Structures, id, out var structure);
                 result["available"] = Verdict(
                     structure.Reading.Unlocked,
-                    "native_unavailable");
+                    lockedReason);
                 result["canPurchase"] = PurchaseVerdict(
-                    world, id, structure.Reading.Unlocked, "native_unavailable");
+                    world, id, structure.Reading.Unlocked, lockedReason);
                 break;
             }
             case EntityKind.Upgrade:
@@ -263,10 +278,10 @@ internal static class GameMcpEntityExplainer
                 WorldLookup.TryFind(world.Upgrades, id, out var upgrade);
                 result["available"] = Verdict(
                     upgrade.Reading.Available,
-                    "native_unavailable");
+                    lockedReason);
                 result["canPurchase"] = PurchaseVerdict(
                     world, id, upgrade.Reading.Available && !upgrade.IsExhausted,
-                    upgrade.IsExhausted ? "already_maxed" : "native_unavailable");
+                    upgrade.IsExhausted ? "already_maxed" : lockedReason);
                 break;
             }
             case EntityKind.Research:
