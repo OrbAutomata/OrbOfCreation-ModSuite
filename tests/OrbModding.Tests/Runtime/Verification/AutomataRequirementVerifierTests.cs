@@ -85,12 +85,17 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
     }
 
     /// <summary>
-    /// A condition the suite cannot evaluate makes the entity unverifiable and names the class. It is
-    /// deliberately not a mismatch: the verdict already refuses the purchase, so what needs reporting
-    /// is which class nobody has modelled.
+    /// A condition the suite cannot evaluate makes the entity unverifiable and says what therefore
+    /// went unchecked. It is deliberately not a mismatch: the verdict already refuses the purchase.
     /// </summary>
+    /// <remarks>
+    /// The sentence used to be <c>the OpaqueRequirement condition on {guid} is not modelled</c> — a
+    /// C# class name and a raw id, in prose, naming neither the entity the way every other sentence
+    /// names one nor the decision that went unanswered. Which class the suite does not model is
+    /// reported once, by the collection check that owns that fact.
+    /// </remarks>
     [Fact]
-    public void AnUnmodelledConditionIsUnverifiableAndNamesItsClass()
+    public void AnUnmodelledConditionIsUnverifiableAndSaysWhatWentUnchecked()
     {
         var upgrade = new global::UpgradeSO { maxLevel = -1 };
         global::UpgradeSO.All.Add(upgrade);
@@ -102,7 +107,15 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
 
         Assert.False(verifier.TryVerify(upgrade, Collect(), run, Session(), out var failure));
 
-        Assert.Contains("OpaqueRequirement", failure, StringComparison.Ordinal);
+        var identity = upgrade.GetGuid().ToString("D");
+        Assert.DoesNotContain("OpaqueRequirement", failure, StringComparison.Ordinal);
+        Assert.DoesNotContain(identity, failure, StringComparison.Ordinal);
+        Assert.Contains(identity.Substring(0, 6), failure, StringComparison.Ordinal);
+        Assert.Equal(
+            "a condition this suite does not model holds them, first on (unnamed " +
+            identity.Substring(0, 6) + "), so whether the game would sell you their next upgrade " +
+            "level is unchecked.",
+            failure);
         Assert.Equal(0, run.Compared);
     }
 
@@ -214,6 +227,33 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         Assert.Equal(1, run.Compared);
         Assert.True(run.Passed);
         Assert.Equal(1, recipe.usagePrerequisites.CheckCalls);
+    }
+
+    /// <summary>
+    /// The usage oracle says the same kind of sentence as the per-level and unlock passes: the
+    /// entity as a handle, and the decision it therefore has no answer for.
+    /// </summary>
+    [Fact]
+    public void AnUnmodelledUsageConditionSaysWhatWentUnchecked()
+    {
+        var recipe = new global::AlchemyRecipeSO();
+        recipe.usagePrerequisites.prerequisites.Add(new Requirements.OpaqueRequirement());
+        global::AlchemyRecipeSO.All.Add(recipe);
+
+        var verifier = new AutomataUsagePrerequisiteVerifier(typeof(global::AlchemyRecipeSO));
+        var run = new DifferentialRun("Concept usage prerequisite");
+
+        Assert.False(verifier.TryVerify(recipe, Collect(), run, out var failure));
+
+        var identity = recipe.GetGuid().ToString("D");
+        Assert.DoesNotContain("OpaqueRequirement", failure, StringComparison.Ordinal);
+        Assert.DoesNotContain(identity, failure, StringComparison.Ordinal);
+        Assert.Equal(
+            "a condition this suite does not model holds them, first on (unnamed " +
+            identity.Substring(0, 6) + "), so whether the game lets you use those concepts is " +
+            "unchecked.",
+            failure);
+        Assert.Equal(0, run.Compared);
     }
 
     [Fact]

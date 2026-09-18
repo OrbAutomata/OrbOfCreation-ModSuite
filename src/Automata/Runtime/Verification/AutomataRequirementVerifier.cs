@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Reflection;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.World;
 
@@ -145,8 +146,7 @@ internal sealed class AutomataRequirementVerifier
         for (var containerIndex = 0; containerIndex < containers; containerIndex++)
         {
             var level = contract.ReadCheckLevel(entity);
-            var reading = ReadContainer(
-                contract, world, entityId, containerIndex, level, out var name);
+            var reading = ReadContainer(contract, world, entityId, containerIndex, level);
             if (reading == ContainerReading.Unauthored)
             {
                 // The game authored no reference for this condition, so its own Check would
@@ -162,7 +162,7 @@ internal sealed class AutomataRequirementVerifier
 
             if (reading == ContainerReading.Unmodelled)
             {
-                failure = $"the {name} condition on {entityId} is not modelled.";
+                failure = Unreadable(contract.Shape, entityId);
                 return false;
             }
 
@@ -217,10 +217,8 @@ internal sealed class AutomataRequirementVerifier
         GameWorldState world,
         Guid ownerId,
         int containerIndex,
-        long level,
-        out string conditionTypeName)
+        long level)
     {
-        conditionTypeName = string.Empty;
         if (!contract.TryFindRows(world, ownerId, containerIndex, out var start, out var count))
         {
             return ContainerReading.Comparable;
@@ -237,7 +235,6 @@ internal sealed class AutomataRequirementVerifier
             if (row.NodeKind == WorldRequirementNodeKind.Group) continue;
             if (!NamesNothing(in row)) continue;
 
-            conditionTypeName = Name(in row);
             return ContainerReading.Unauthored;
         }
 
@@ -258,7 +255,6 @@ internal sealed class AutomataRequirementVerifier
                 continue;
             }
 
-            conditionTypeName = Name(in row);
             return ContainerReading.Unmodelled;
         }
 
@@ -274,8 +270,37 @@ internal sealed class AutomataRequirementVerifier
         row.Kind != WorldRequirementConditionKind.Unknown &&
         row.Kind != WorldRequirementConditionKind.Literal;
 
-    private static string Name(in WorldEntityRequirement row) =>
-        row.ConditionTypeName.Length == 0 ? "unnamed" : row.ConditionTypeName;
+    /// <summary>
+    /// What a pass could not check, in the words of the thing the player is looking at.
+    /// </summary>
+    /// <remarks>
+    /// This used to read <c>the ResourceRequirement condition on
+    /// c508d6a2-d569-4b22-927a-050edad2dad0 is not modelled</c>, three times in one answer: a C#
+    /// class name and a raw id, in prose, saying nothing about what went unchecked. Which class the
+    /// suite does not model is said once already, on the collection line that owns that fact. What
+    /// belongs here is the entity named the way every other sentence names one, and the decision
+    /// this pass therefore has no answer for.
+    /// </remarks>
+    private static string Unreadable(RequirementOwnerShape shape, Guid entityId) =>
+        "a condition this suite does not model holds them, first on " +
+        EntityIdentityFormatter.PlayerHandle(entityId) + ", so " + Unanswered(shape) +
+        " is unchecked.";
+
+    private static string Unanswered(RequirementOwnerShape shape) => shape switch
+    {
+        RequirementOwnerShape.UpgradeUnlock => "whether the game shows those upgrades at all",
+        RequirementOwnerShape.StructureUnlock => "whether the game shows those attributes at all",
+        RequirementOwnerShape.ResearchVisibility => "whether the game shows that research at all",
+        RequirementOwnerShape.UpgradeQueuedLevel =>
+            "whether the game would sell you their next upgrade level",
+        RequirementOwnerShape.StructureQuantity =>
+            "whether the game would sell you another of those attributes",
+        RequirementOwnerShape.ResearchRequirementLevel =>
+            "whether the game would start their next research level",
+        RequirementOwnerShape.PrerequisiteLinkTier => "whether those tiers count as passed",
+        _ => throw new InvalidOperationException(
+            "requirement owner shape '" + shape + "' has no sentence for what it could not check"),
+    };
 
     /// <summary>
     /// The reflected members needed to ask the game its own answer, for one owner shape. Resolved
@@ -338,6 +363,8 @@ internal sealed class AutomataRequirementVerifier
         }
 
         /// <summary>Whether this shape reads what holds the entity shut rather than what a level costs.</summary>
+        internal RequirementOwnerShape Shape => _shape;
+
         private bool IsUnlock => _shape is RequirementOwnerShape.UpgradeUnlock
             or RequirementOwnerShape.StructureUnlock
             or RequirementOwnerShape.ResearchVisibility;
