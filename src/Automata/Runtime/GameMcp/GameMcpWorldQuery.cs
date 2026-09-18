@@ -261,6 +261,16 @@ internal static class GameMcpWorldQuery
     /// recharging", so one moment wore two words and a round could not tell it was the same state.
     /// The game's word wins, and the numbers the screen does not print ride with it.
     /// </remarks>
+    /// <summary>The two recharge numbers, wherever a spell's charge state reaches the wire.</summary>
+    internal static void AddRechargeFacts(JObject target, in WorldSpellSlot slot)
+    {
+        if (slot.CurrentCharges >= slot.MaximumCharges) return;
+        target["charges"] = slot.CurrentCharges.ToString(CultureInfo.InvariantCulture) +
+            " of " + slot.MaximumCharges.ToString(CultureInfo.InvariantCulture);
+        if (slot.CooldownRemaining > BigDouble.Zero)
+            target["nextChargeIn"] = CoarseClock(slot.CooldownRemaining);
+    }
+
     internal static string RechargeClause(in WorldSpellSlot slot)
     {
         var text = new StringBuilder("it holds ")
@@ -2367,10 +2377,6 @@ internal static class GameMcpWorldQuery
         {
             return PostStateNotPublished("that spell in that slot");
         }
-        var prior = default(WorldSpellSlot);
-        var hasBefore = Before(command) is { } before &&
-            WorldSpellSlotLookup.TryFind(before.SpellSlots, slotIndex, out prior) &&
-            prior.Occupied && prior.SpellRecipeId == command.TargetId;
         var result = new JObject
         {
             ["uuid"] = command.TargetId.ToString("D"),
@@ -2415,14 +2421,6 @@ internal static class GameMcpWorldQuery
         // it: the settled slot always knows, and an idle one-shot that dropped the key made its
         // silence carry the answer.
         result["active"] = after.Casting;
-        if (hasBefore && prior.CurrentCharges != after.CurrentCharges)
-        {
-            result["charges"] = new JObject
-            {
-                ["before"] = prior.CurrentCharges,
-                ["after"] = after.CurrentCharges,
-            };
-        }
         // Named after the term it reads, because that term is not a prediction that the next press
         // lands. The game's own Spell.Fire asks IsCasting() BEFORE it asks CanCast(), so a running
         // spell answers CanCast() with true and answers the press with nothing — which is how a
@@ -2430,8 +2428,14 @@ internal static class GameMcpWorldQuery
         // would do additionally needs the live target selector, which no published world holds, so
         // the field says what it measures and `casting` beside it says the rest.
         result["castReady"] = after.CastReady;
-        result["cooldown"] = new GameMcpDomainValue(
-            BigDouble.Max(after.CooldownRemaining, BigDouble.Zero));
+
+        // The game's own recharge facts, or nothing. `cooldown: 0` rode on all 144 casts of one
+        // round while the spell was visibly recharging — the game's charge timer is not what that
+        // field reads, and a zero the screen never draws is worse than silence. A charge count
+        // rode on two of those 144, because it was published only when the settlement window
+        // happened to catch the number moving. Both are now the same rule: when the spell is short
+        // of full charges the answer says so, and when it is not there is nothing to say.
+        AddRechargeFacts(result, in after);
         return result.Freeze();
     }
 
@@ -3372,8 +3376,59 @@ internal static class GameMcpWorldQuery
             oldWorld.SpellRecipes, command.TargetId, out var previous)
             ? previous.MasteryLevel
             : (int?)null;
-        return Change(command.TargetId, before, current.MasteryLevel, "mastery");
+        var result = new JObject
+        {
+            ["uuid"] = command.TargetId.ToString("D"),
+            ["mastery"] = new JObject { ["before"] = before, ["after"] = current.MasteryLevel },
+        };
+
+        // A mastery level is bought, and the answer used to say only that the level moved. The
+        // caller is presumed to have paid — nothing here verifies a payment — but the resources
+        // the price names are published, and where they stand now against where they stood is the
+        // post-state a caller would otherwise spend a read on.
+        AddPriceResources(result, oldWorld, state.World.Snapshot, command.TargetId);
+        return result.Freeze();
     }
+
+    /// <summary>
+    /// Where the resources this entity's price names stand now, and where they stood before.
+    /// </summary>
+    /// <remarks>
+    /// These are two readings of a published resource, not an arithmetic of what was charged: a
+    /// spell casting while the answer settles moves the same number. That is why the block says
+    /// only which resources the price names and what each reads — the claim it makes is one a
+    /// later read would agree with.
+    /// </remarks>
+    private static void AddPriceResources(
+        JObject target,
+        GameWorldState? before,
+        GameWorldState after,
+        Guid ownerId)
+    {
+        if (!OwnedMasteryCostMath.TryFindRange(
+                after.MasteryCosts, ownerId, out var start, out var count) || count <= 0)
+        {
+            return;
+        }
+        var rows = new JArray();
+        for (var index = start; index < start + count; index++)
+        {
+            var resourceId = after.MasteryCosts[index].ResourceId;
+            if (!WorldLookup.TryFind(after.Resources, resourceId, out var now)) continue;
+            var row = new JObject { ["resourceId"] = resourceId.ToString("D") };
+            if (before is not null &&
+                WorldLookup.TryFind(before.Resources, resourceId, out var then))
+            {
+                row["before"] = new GameMcpDomainValue(
+                    SpendableAmount(before, resourceId, then.Reading.Quantity));
+            }
+            row["after"] = new GameMcpDomainValue(
+                SpendableAmount(after, resourceId, now.Reading.Quantity));
+            rows.Add(row);
+        }
+        if (rows.Count > 0) target["resources"] = rows;
+    }
+
 
     private static GameMcpValue ProjectEquipmentDelta(
         GameMcpFrameContext state,
@@ -7252,14 +7307,12 @@ internal static class GameMcpWorldQuery
             {
                 ["available"] = false,
                 ["reasonCode"] = "spell_recharging",
-                ["charges"] = slot.CurrentCharges + "/" + slot.MaximumCharges,
                 ["reason"] = EntityIdentityFormatter.PlayerName(
                         slot.SpellRecipeId, world.EntityIdentities) +
                     " is still recharging: " + RechargeClause(in slot) +
                     ". The game only removes a spell at full charges.",
             };
-            if (slot.CooldownRemaining > BigDouble.Zero)
-                recharging["nextChargeIn"] = new GameMcpDomainValue(slot.CooldownRemaining);
+            AddRechargeFacts(recharging, in slot);
             result["remove"] = recharging;
         }
         else

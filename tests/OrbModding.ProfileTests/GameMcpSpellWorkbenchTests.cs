@@ -628,6 +628,40 @@ public sealed class GameMcpSpellWorkbenchTests
         false,
         frameContext: before is null ? null : GameMcpTestHarness.Context(before));
 
+    /// <summary>
+    /// A bought mastery level says where the resources its price names now stand.
+    /// </summary>
+    /// <remarks>
+    /// The post-state said only <c>mastery: 1 -&gt; 2</c>, and a round bought two of them without
+    /// ever being told what they drew on. Nothing here verifies a payment — the caller is presumed
+    /// to have paid — but the resources the price names are published on both sides of the press,
+    /// and a later read would agree with both readings.
+    /// </remarks>
+    [Fact]
+    public void A_mastery_purchase_says_where_the_resources_its_price_names_now_stand()
+    {
+        var before = World(
+            discovered: true, discoveryAffordable: true, hasEmptySlot: true,
+            masteryReady: true, held: 12, spendable: 12);
+        var after = World(
+            discovered: true, discoveryAffordable: true, hasEmptySlot: true,
+            masteryReady: true, held: 0, spendable: 0);
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.SpellLevel, 9, 3, "single", RecipeId, Guid.Empty,
+            "SpellRecipeSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(before, generation: 71));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, generation: 72),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.NotNull(delta["mastery"]);
+        var row = Assert.Single(delta["resources"]!.Values<JObject>())!;
+        Assert.Equal("12", (string?)row["before"]);
+        Assert.Equal("0", (string?)row["after"]);
+    }
+
     private static GameWorldState World(
         bool discovered,
         bool discoveryAffordable,
@@ -637,7 +671,9 @@ public sealed class GameMcpSpellWorkbenchTests
         bool canDiscover = true,
         bool usageBudget = false,
         bool loadoutScreenUnlocked = true,
-        bool masteryReady = false)
+        bool masteryReady = false,
+        int held = 5,
+        int spendable = 3)
     {
         var glyphs = PublicationTable<WorldSpellRecipeGlyph>.Create(new[]
         {
@@ -719,7 +755,8 @@ public sealed class GameMcpSpellWorkbenchTests
                 new WorldRecipeBook(FirstBookId, true),
             }.OrderBy(book => book.EntityId).ToArray()),
             Resources = usageBudget || masteryReady
-                ? PublicationTable<WorldResource>.Create(new[] { SpellWeightResource() })
+                ? PublicationTable<WorldResource>.Create(
+                    new[] { SpellWeightResource(held, spendable) })
                 : PublicationTable<WorldResource>.Empty,
             MasteryCosts = masteryReady
                 ? PublicationTable<WorldMasteryCost>.Create(new[]
@@ -763,7 +800,7 @@ public sealed class GameMcpSpellWorkbenchTests
     /// One spell-weight resource: a bandwidth counter whose spendable pool is the room left under
     /// its ceiling, which is exactly what the usage gate compares a candidate spell against.
     /// </summary>
-    private static WorldResource SpellWeightResource()
+    private static WorldResource SpellWeightResource(int held = 5, int spendable = 3)
     {
         var rateInputs = default(RawResourceRateInputs);
         var traits = new RawResourceTraits(
@@ -776,12 +813,13 @@ public sealed class GameMcpSpellWorkbenchTests
             BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, false);
         var modifiers = default(RawResourceModifiers);
         var reading = new RawResourceSample(
-            ResourceId, new BigDouble(5), new BigDouble(8),
+            ResourceId, new BigDouble(held), new BigDouble(8),
             true, BigDouble.Zero, BigDouble.Zero, new BigDouble(8),
             new BigDouble(8), BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, false, false,
             false, 0, Guid.Empty, in rateInputs, in traits, in modifiers);
         return new WorldResource(
-            in reading, true, new BigDouble(3), 0.625, false, new BigDouble(5), BigDouble.Zero);
+            in reading, true, new BigDouble(spendable), 0.625, false,
+            new BigDouble(held), BigDouble.Zero);
     }
 
     /// <summary>One Augment Glyph, as the game authors them: discoverable and spent on spells.</summary>

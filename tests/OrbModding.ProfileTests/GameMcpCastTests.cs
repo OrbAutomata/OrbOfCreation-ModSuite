@@ -154,7 +154,9 @@ public sealed class GameMcpCastTests
             charges: 1,
             immediateCostResource: resourceId,
             immediateCost: new BigDouble(25),
-            castCount: 8);
+            castCount: 8,
+            maximumCharges: 3,
+            cooldownRemaining: new BigDouble(41d));
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Cast, 9, 3, "fire", RecipeId, Guid.Empty,
             "SpellRecipeSO", 1, string.Empty, string.Empty, false,
@@ -168,9 +170,14 @@ public sealed class GameMcpCastTests
         Assert.Null(delta["costs"]);
         Assert.Equal("25", (string?)delta["nextCastCosts"]![0]!["cost"]);
         Assert.True((bool)delta["active"]!);
-        Assert.Equal(2, (int)delta["charges"]!["before"]!);
-        Assert.Equal(1, (int)delta["charges"]!["after"]!);
         Assert.True((bool)delta["casting"]!);
+
+        // A charge count reached the wire on two of one round's 144 casts, because it was
+        // published only when the settlement window caught the number moving. The rule is now the
+        // state itself: short of full charges says so, in the game's own format, with its
+        // countdown beside it.
+        Assert.Equal("1 of 3", (string?)delta["charges"]);
+        Assert.Equal("41.0s", (string?)delta["nextChargeIn"]);
     }
 
     /// <summary>
@@ -390,8 +397,14 @@ public sealed class GameMcpCastTests
         Assert.Equal(JTokenType.Boolean, delta["charging"]!.Type);
         Assert.False((bool)delta["charging"]!);
         Assert.NotNull(delta["castReady"]);
-        Assert.NotNull(delta["cooldown"]);
         Assert.Equal(mode == "fire", delta["casting"] is not null);
+
+        // `cooldown: 0` rode on every cast of a round while the spell was visibly recharging: the
+        // field does not read the game's charge timer, and a zero no screen draws is worse than
+        // silence. A spell at full charges now says nothing about recharging.
+        Assert.Null(delta["cooldown"]);
+        Assert.Null(delta["charges"]);
+        Assert.Null(delta["nextChargeIn"]);
     }
 
     /// <summary>

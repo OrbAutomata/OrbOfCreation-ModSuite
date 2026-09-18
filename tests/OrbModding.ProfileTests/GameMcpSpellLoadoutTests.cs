@@ -361,7 +361,7 @@ public sealed class GameMcpSpellLoadoutTests
             "{\"available\":false,\"reasonCode\":\"ERR_STATE\",\"reason\":\"" +
             FirstRecipeId.ToString("D") + " is still recharging: it holds 2 of 3 charges, next " +
             "in 4.50s. The game only removes a spell at full charges.\"," +
-            "\"charges\":\"2/3\",\"nextChargeIn\":\"4.5\"}",
+            "\"charges\":\"2 of 3\",\"nextChargeIn\":\"4.50s\"}",
             Remove(world, recharging));
     }
 
