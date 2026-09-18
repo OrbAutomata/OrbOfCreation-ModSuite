@@ -101,7 +101,10 @@ batch.
   `request_canceled_before_claim`. `ClaimPending` omits it, so no Unity handler or mutation can run.
 - **After claim:** cancellation loses ownership. The HTTP worker waits without a second timeout for
   the actual terminal result. A client cannot receive a timeout while a hidden mutation executes
-  later.
+  later. That missing deadline is the design and not an oversight: an answer about an operation
+  still running on Unity's main thread is exactly the unverified terminal outcome the boundary
+  doctrine refuses, so an operation that does not come back is bounded inside itself — the tooltip
+  walk's depth and visit caps are the worked example — rather than cut short from the socket.
 - **Completion:** exactly one terminal result is legal; duplicate completion throws.
 - **Shutdown:** closing the inbox completes every still-pending operation once with
   `suite_shutdown`. Already-claimed operations retain terminal ownership.
