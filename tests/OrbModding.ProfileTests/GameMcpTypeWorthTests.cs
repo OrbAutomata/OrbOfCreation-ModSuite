@@ -307,6 +307,10 @@ public sealed class GameMcpTypeWorthTests
     /// say what they are worth — same keys, same bytes, no empty block standing in for the one it
     /// has no reason to carry.
     /// </summary>
+    /// <remarks>
+    /// The one key that left since is <c>canDiscover: yes</c>, which stood beside this row's
+    /// <c>discover: no (ERR_LOCKED)</c> — two answers to one question, and the coarser one.
+    /// </remarks>
     [Fact]
     public void An_entity_that_is_no_type_is_answered_byte_for_byte_as_it_was()
     {
@@ -326,8 +330,7 @@ public sealed class GameMcpTypeWorthTests
             "\"reason\":\"The game is not showing this yet.\"}},\"predicates\":{" +
             "\"visible\":{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
             "\"reason\":\"This has not been discovered yet.\"},\"available\":{\"available\":false," +
-            "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"This has not been discovered yet.\"}," +
-            "\"canDiscover\":{\"available\":true}}}",
+            "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"This has not been discovered yet.\"}}}",
             detail.ToString(Formatting.None));
     }
 

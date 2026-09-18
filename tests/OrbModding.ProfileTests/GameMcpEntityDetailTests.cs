@@ -104,16 +104,27 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // "true" on one key and "this entity has no such predicate" on the next.
         Assert.True(Predicate(readySpell, "visible"));
         Assert.True(Predicate(readySpell, "available"));
-        Assert.False(Predicate(readySpell, "canDiscover"));
         Assert.True(Predicate(readySpell, "canUse"));
-        Assert.True(Predicate(waitingSpell, "canDiscover"));
         Assert.False(Predicate(waitingSpell, "canUse"));
         Assert.True(Predicate(readyResearch, "available"));
         Assert.False(Predicate(blockedResearch, "available"));
-        Assert.False(Predicate(blockedResearch, "canDevelop"));
         Assert.True(Predicate(readyCrafting, "visible"));
         Assert.False(Predicate(blockedCrafting, "visible"));
         Assert.False(Predicate(blockedCrafting, "available"));
+
+        // A predicate whose question the row already answers is gone, holding or not: the row's
+        // block is the screen's truth and it is where both answers are read. Where the row
+        // publishes no such block — a discovered spell has no `discover`, an invisible crafting
+        // recipe no `purchase` — the predicate is the only answer and stays: the rule is one
+        // verdict per row, not fewer.
+        Assert.Null(readySpell["row"]!["discover"]);
+        Assert.False(Predicate(readySpell, "canDiscover"));
+        Assert.Null(waitingSpell["predicates"]!["canDiscover"]);
+        Assert.False((bool)waitingSpell["row"]!["discover"]!["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)waitingSpell["row"]!["discover"]!["reasonCode"]);
+        Assert.Null(blockedResearch["predicates"]!["canDevelop"]);
+        Assert.False((bool)blockedResearch["row"]!["develop"]!["available"]!);
+        Assert.Null(blockedCrafting["row"]!["purchase"]);
         Assert.False(Predicate(blockedCrafting, "canPurchase"));
         Assert.Null(readySpell["predicates"]!["canDevelop"]);
         Assert.Null(readySpell["predicates"]!["canPurchase"]);
@@ -683,16 +694,21 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             result.Properties().TakeWhile(property => property.Name != "description")
                 .All(property => property.Name is "worldGeneration" or "status" or "uuid" or
                     "name" or "category" or "nativeType"));
-        // Every predicate that applies ships, passing or not. Asserting only that each carries a
-        // boolean would hold just as well if the passing ones went back to being stripped, so the
-        // one that passes here is named: an undiscovered discoverable glyph can be discovered.
+        // Every predicate that applies ships, passing or not: dropping the passing ones would make
+        // absence mean "true" on one key and "no such predicate" on the next.
         var predicates = Assert.IsType<JObject>(result["predicates"]);
         Assert.All(
             predicates.Properties(),
             predicate => Assert.Equal(
                 JTokenType.Boolean, predicate.Value["available"]?.Type));
-        Assert.True((bool)predicates["canDiscover"]!["available"]!);
         Assert.False((bool)predicates["visible"]!["available"]!);
+
+        // The discovery verdict is the row's, once. Native discoverability said yes while the
+        // screen that would draw the press is not unlocked in this world — the round-14 shape,
+        // where the coarser predicate survived precisely where it contradicted the row.
+        Assert.Null(predicates["canDiscover"]);
+        Assert.False((bool)result["row"]!["discover"]!["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)result["row"]!["discover"]!["reasonCode"]);
     }
 
     [Fact]
@@ -733,7 +749,25 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             requirementAdjustments: PublicationTable<WorldResearchRequirementAdjustment>.Empty,
             modifiers: new RawResearchModifiers(
                 BigDouble.Zero, BigDouble.Zero, new BigDouble(100d),
-                new BigDouble(1d), BigDouble.Zero));
+                new BigDouble(1d), BigDouble.Zero),
+            // Every research row the game publishes carries a develop decision; one without it
+            // reads as "the research state was not readable", which is a collection fault rather
+            // than a capped row.
+            decision: new WorldResearchDecision(
+                queueMode: false,
+                multiBuy: 0,
+                queuedLevels: 0,
+                levelsAvailable: 0,
+                currentInvestmentLevel: 0,
+                currentTime: BigDouble.Zero,
+                remainingTime: BigDouble.Zero,
+                timeRatio: BigDouble.Zero,
+                canApplyBonusLevel: false,
+                freeBonusLevels: 0,
+                developmentCostAffordable: true,
+                developmentCosts: PublicationTable<WorldResearchCost>.Empty,
+                investment: PublicationTable<WorldResearchInvestment>.Empty,
+                researchTypes: PublicationTable<WorldResearchTypeDecision>.Empty));
         var world = new GameWorldState
         {
             Research = PublicationTable<WorldResearch>.Create(new[] { research }),
@@ -751,8 +785,9 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Equal("available", (string?)result["row"]!["state"]);
         Assert.Null(result["state"]);
         Assert.Null(result["row"]!["complete"]);
-        Assert.False((bool)result["predicates"]!["canDevelop"]!["available"]!);
-        Assert.Equal("ERR_LIMIT", (string?)result["predicates"]!["canDevelop"]!["reasonCode"]);
+        Assert.Null(result["predicates"]!["canDevelop"]);
+        Assert.False((bool)result["row"]!["develop"]!["available"]!);
+        Assert.Equal("ERR_LIMIT", (string?)result["row"]!["develop"]!["reasonCode"]);
         var cap = result["blockers"]!["cap"]!;
         Assert.Equal(1, (int)cap["artificialCap"]!);
         Assert.Null(cap["effectiveCap"]);

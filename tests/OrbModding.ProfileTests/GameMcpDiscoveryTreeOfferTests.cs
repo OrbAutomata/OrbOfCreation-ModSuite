@@ -557,9 +557,11 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.Null(explanation["status"]);
         Assert.Equal("Ability Persist", (string?)explanation["name"]);
 
-        // The offered rune passes every predicate, and says so rather than going silent.
+        // The offered rune passes every predicate, and says so rather than going silent. Its
+        // discovery verdict is the row's alone: `canDiscover` was the same answer a second time.
         Assert.True((bool)explanation["predicates"]!["visible"]!["available"]!);
-        Assert.True((bool)explanation["predicates"]!["canDiscover"]!["available"]!);
+        Assert.Null(explanation["predicates"]!["canDiscover"]);
+        Assert.False((bool)explanation["row"]!["discover"]!["available"]!);
     }
 
     [Fact]

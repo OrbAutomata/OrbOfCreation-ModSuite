@@ -8655,6 +8655,13 @@ internal static class GameMcpWorldQuery
     /// than Alchemy &gt; Alchemy &gt; Learn, so that page reads its screen off the recipe's own
     /// alchemy type. Null is the third answer: which of the two draws this row could not be told,
     /// and naming either would be a guess.
+    /// <para>
+    /// <c>IDiscoverable.IsDiscoverRequired()</c> is captured and is not published here. It printed
+    /// as a bare <c>required: true</c> that nothing on this block turns on — not the verdict, not
+    /// one reason code — so it read as a fact about the entity while being a fact about the tree
+    /// holding it: the tree's own row says <c>reroll: no (ERR_STATE)</c> with the sentence that
+    /// names it, and that is where a caller acts on it.
+    /// </para>
     /// </remarks>
     private static void AddDiscoveryDecision(
         GameWorldState world,
@@ -8704,7 +8711,6 @@ internal static class GameMcpWorldQuery
             }
             discover["costs"] = costs;
         }
-        if (decision.Required) discover["required"] = true;
         if (offered) discover["offered"] = true;
         result["discover"] = discover;
     }

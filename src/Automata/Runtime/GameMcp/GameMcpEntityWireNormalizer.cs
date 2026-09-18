@@ -641,8 +641,8 @@ internal static class GameMcpEntityWireNormalizer
 
     /// <summary>
     /// Which row action answers the same question as which predicate. A predicate beside one of
-    /// these is a coarser second opinion, and where it agrees word for word it is the same opinion
-    /// twice.
+    /// these is a coarser second opinion: where it agrees it is the same opinion twice, and where
+    /// it disagrees it is two answers to one question, which is worse.
     /// </summary>
     private static readonly (string Predicate, string Action)[] PredicateActions =
     {
@@ -665,9 +665,14 @@ internal static class GameMcpEntityWireNormalizer
     /// in the caller's entire reasoning and <c>blockers</c> never appeared at all.
     /// </para>
     /// <para>
-    /// The rule is per field and it turns on the duplicate being present. A <c>canDiscover</c> whose
-    /// row publishes no <c>discover</c> action still prints. A predicate carrying anything of its
-    /// own still prints, which is why <c>canUse: yes slots=[1]</c> keeps its slot list — that list
+    /// The rule is per field and it turns on the duplicate being present, not on the two agreeing.
+    /// Agreement was the wrong test: three augments of one live round printed
+    /// <c>canDiscover: yes</c> under a row saying <c>discover: no (ERR_LOCKED)</c>, so the coarser
+    /// answer survived precisely where it contradicted the screen. The row's block is the screen's
+    /// truth — it knows the costs, the owning page and whether that page is drawn — and one
+    /// question gets one answer. A <c>canDiscover</c> whose row publishes no <c>discover</c> action
+    /// still prints, because then nothing else answers it. A predicate carrying anything of its own
+    /// still prints, which is why <c>canUse: yes slots=[1]</c> keeps its slot list — that list
     /// appears nowhere else on the page. A blocked axis prints in full, because the numbers behind a
     /// no are what a caller acts on; an axis whose whole content is that it is not blocking says
     /// what an unlisted axis already says, and <c>blockers</c> then reads as the list of what
@@ -684,8 +689,8 @@ internal static class GameMcpEntityWireNormalizer
             {
                 var pair = PredicateActions[index];
                 if (predicates[pair.Predicate] is not JObject verdict) continue;
-                if (row[pair.Action] is not JObject twin) continue;
-                if (!SameVerdict(verdict, twin)) continue;
+                if (row[pair.Action] is not JObject) continue;
+                if (!CarriesOnlyAVerdict(verdict)) continue;
                 predicates.Remove(pair.Predicate);
             }
         }
@@ -700,18 +705,16 @@ internal static class GameMcpEntityWireNormalizer
         }
     }
 
-    /// <summary>Whether two verdict blocks say the same yes or the same no for the same reason.</summary>
+    /// <summary>Whether a predicate block is nothing but a verdict about the row's own action.</summary>
     /// <remarks>
     /// A predicate with a field of its own is never a copy of anything: the field is the finding,
     /// and the verdict it sits beside is what gives it its meaning.
     /// </remarks>
-    private static bool SameVerdict(JObject predicate, JObject action)
+    private static bool CarriesOnlyAVerdict(JObject predicate)
     {
         foreach (var property in predicate.Properties())
             if (property.Name is not ("available" or "reasonCode" or "reason")) return false;
-        return JToken.DeepEquals(predicate["available"], action["available"]) &&
-            JToken.DeepEquals(predicate["reasonCode"], action["reasonCode"]) &&
-            JToken.DeepEquals(predicate["reason"], action["reason"]);
+        return true;
     }
 
     private static void DeduplicateChildIdentity(JObject item, string field)

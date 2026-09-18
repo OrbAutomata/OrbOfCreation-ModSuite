@@ -158,7 +158,10 @@ public sealed class GameMcpGenericDiscoveryTests
         Assert.Equal(GameMcpTestHarness.Handle(GlyphId), (string?)glyph["uuid"]);
         Assert.Equal("Amplify", (string?)glyph["name"]);
         Assert.True((bool)glyph["discover"]!["available"]!);
-        Assert.True((bool)glyph["discover"]!["required"]!);
+
+        // `IsDiscoverRequired()` is captured and not published: a bare flag no verdict here turns
+        // on. The tree that holds the required discovery says so on its own row.
+        Assert.Null(glyph["discover"]!["required"]);
         var cost = Assert.Single(glyph["discover"]!["costs"]!).Value<JObject>()!;
         Assert.Equal(GameMcpTestHarness.Handle(ResourceId), (string?)cost["resource"]!["uuid"]);
         Assert.Equal("Arcane Dust", (string?)cost["resource"]!["name"]);
