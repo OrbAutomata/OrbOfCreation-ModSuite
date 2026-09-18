@@ -13333,6 +13333,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
     },
     {
+      "id": "resource.visible-prerequisites",
+      "assembly": "assembly-csharp",
+      "type": "ResourceSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "visiblePrerequisites",
+      "visibility": "public",
+      "static": false,
+      "valueType": "Prerequisites+Container",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side. CheckVisibility() latches ResourceSO.visible from startVisible AND this container's Check(), so it is the whole of what puts a resource in the game's resource list.", "evidence": "kind:field Prerequisites+Container"}
+    },
+    {
       "id": "resource.visible",
       "assembly": "assembly-csharp",
       "type": "ResourceSO",

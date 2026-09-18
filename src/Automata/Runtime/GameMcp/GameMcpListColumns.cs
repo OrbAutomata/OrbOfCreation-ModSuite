@@ -434,6 +434,7 @@ internal static class GameMcpListColumns
         ["resources"] = new[]
         {
             "entityId", "category", "meter", "amount", "capacity", "netRatePerSecond", "atCapacity",
+            "inLedger",
         },
         ["player-loadouts"] = new[] { "name", "selected" },
         ["snapshot-loadouts"] = new[] { "name", "kind", "slots" },

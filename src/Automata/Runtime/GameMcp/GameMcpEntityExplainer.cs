@@ -370,16 +370,13 @@ internal static class GameMcpEntityExplainer
                     consumable.Quantity <= 0 ? "none_owned" : "native_can_fire_refused");
                 break;
             }
+            // A resource has no predicate of its own. Its one evaluated fact is whether the game
+            // counts it in its resource list, and that rides on the row as `inLedger`, where it can
+            // carry the sentence that says what the bit means. It used to be published here twice —
+            // `visible` and a copy of it under `available` — so a resource with a computed capacity,
+            // a bar on the open screen and another entity's price quoted in it read as unavailable.
             case EntityKind.Resource:
-            {
-                WorldLookup.TryFind(world.Resources, id, out var resource);
-                var visible = Verdict(
-                    resource.Reading.Visible,
-                    "not_visible");
-                result["visible"] = visible;
-                result["available"] = visible;
                 break;
-            }
             case EntityKind.Ritual:
             {
                 WorldLookup.TryFind(world.Rituals, id, out var ritual);
@@ -509,6 +506,21 @@ internal static class GameMcpEntityExplainer
     {
         parityFailure = null;
         parityFailureCode = string.Empty;
+
+        // A resource's only authored gate is the container CheckVisibility() consults, so the block
+        // it publishes is that container and nothing else: there is no per-level program to state a
+        // suite verdict about, and no native parity probe answers for a ResourceSO. While the game
+        // already counts it, there is no lock to explain.
+        if (kind == EntityKind.Resource)
+        {
+            if (!WorldLookup.TryFind(world.Resources, id, out var resource) ||
+                resource.Reading.Visible)
+            {
+                return null;
+            }
+            var unlocks = ProjectUnlockConditions(world, id);
+            return unlocks is null ? null : new JObject { ["unlocksWhen"] = unlocks };
+        }
         if (kind is not EntityKind.Structure and not EntityKind.Upgrade and not EntityKind.Research)
             return null;
 

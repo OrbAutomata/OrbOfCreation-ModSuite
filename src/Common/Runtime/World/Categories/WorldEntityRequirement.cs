@@ -35,6 +35,14 @@ internal enum WorldRequirementOwnerKind
     /// name the wrong purchase on those two, so the book's own container is what is walked.
     /// </remarks>
     RecipeBook = 6,
+
+    /// <summary>
+    /// A resource. <c>ResourceSO.CheckVisibility()</c> latches <c>visible</c> from
+    /// <c>startVisible &amp;&amp; visiblePrerequisites.Check()</c>, so that container is the whole of
+    /// what puts a resource in the game's resource list and the whole of what a row can say about
+    /// one that is not in it yet.
+    /// </summary>
+    Resource = 7,
 }
 
 internal enum WorldRequirementProgramKind
@@ -817,6 +825,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     private readonly Type? _prerequisiteLinkType;
     private readonly Type? _alchemyType;
     private readonly Type? _recipeBookType;
+    private readonly Type? _resourceType;
     private readonly string _unavailable;
 
     private readonly Func<object, Guid>? _recipeBookId;
@@ -837,6 +846,8 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     private readonly Func<object, object?>? _structureUnlockContainer;
     private readonly Func<object, object?>? _researchVisibilityContainer;
     private readonly Func<object, object?>? _researchLevelVisibilityContainer;
+    private readonly Func<object, Guid>? _resourceId;
+    private readonly Func<object, object?>? _resourceVisibilityContainer;
     private readonly Func<object, BigDouble>? _containerAdjustValue;
 
     /// <summary>
@@ -867,7 +878,8 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         Type? researchType,
         Type? prerequisiteLinkType,
         Type? alchemyType,
-        Type? recipeBookType)
+        Type? recipeBookType,
+        Type? resourceType)
     {
         _upgradeType = upgradeType;
         _structureType = structureType;
@@ -875,8 +887,10 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         _prerequisiteLinkType = prerequisiteLinkType;
         _alchemyType = alchemyType;
         _recipeBookType = recipeBookType;
+        _resourceType = resourceType;
         if (upgradeType is null || structureType is null || researchType is null ||
-            prerequisiteLinkType is null || alchemyType is null || recipeBookType is null)
+            prerequisiteLinkType is null || alchemyType is null || recipeBookType is null ||
+            resourceType is null)
         {
             _unavailable = upgradeType is null
                 ? "the UpgradeSO type was not found on this build"
@@ -888,7 +902,9 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                             ? "the PrerequisiteLinkSO type was not found on this build"
                             : alchemyType is null
                                 ? "the AlchemyRecipeSO type was not found on this build"
-                                : "the RecipeBookSO type was not found on this build";
+                                : recipeBookType is null
+                                    ? "the RecipeBookSO type was not found on this build"
+                                    : "the ResourceSO type was not found on this build";
             return;
         }
 
@@ -933,6 +949,10 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             NativeAccessorBinder.Reference(researchType, "visibilityPrerequisites");
         _researchLevelVisibilityContainer =
             NativeAccessorBinder.Reference(researchType, "levelVisibilityPrereq");
+        var resource = new WorldMemberBinding(resourceType, "ResourceSO");
+        _resourceId = resource.Call<Guid>("GetGuid");
+        _resourceVisibilityContainer =
+            NativeAccessorBinder.Reference(resourceType, "visiblePrerequisites");
         _containerAdjustValue = NativeAccessorBinder.Field<BigDouble>(containerType, "adjustValue");
 
         if (_upgradeContainer is null || _structureContainer is null ||
@@ -943,22 +963,25 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             _recipeBookId is null || _recipeBookContainer is null ||
             _upgradeUnlockContainer is null || _structureUnlockContainer is null ||
             _researchVisibilityContainer is null || _researchLevelVisibilityContainer is null ||
+            _resourceId is null || _resourceVisibilityContainer is null ||
             _containerAdjustValue is null)
         {
             _unavailable = "UpgradeSO, StructureSO, ResearchSO, PrerequisiteLinkSO, " +
-                "AlchemyRecipeSO, and RecipeBookSO did not " +
+                "AlchemyRecipeSO, RecipeBookSO, and ResourceSO did not " +
                 "expose the complete prerequisite graph on this build";
             return;
         }
-        _unavailable = upgrade.Failure.Length > 0
-            ? upgrade.Failure
-            : structure.Failure.Length > 0
-                ? structure.Failure
-                : research.Failure.Length > 0
-                    ? research.Failure
-                    : link.Failure.Length > 0
-                        ? link.Failure
-                        : recipeBook.Failure;
+        _unavailable = resource.Failure.Length > 0
+            ? resource.Failure
+            : upgrade.Failure.Length > 0
+                ? upgrade.Failure
+                : structure.Failure.Length > 0
+                    ? structure.Failure
+                    : research.Failure.Length > 0
+                        ? research.Failure
+                        : link.Failure.Length > 0
+                            ? link.Failure
+                            : recipeBook.Failure;
     }
 
     public string Category => "entity requirements";
@@ -967,6 +990,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         _upgradeType is not null && _structureType is not null &&
         _researchType is not null && _prerequisiteLinkType is not null &&
         _alchemyType is not null && _recipeBookType is not null &&
+        _resourceType is not null &&
         _unavailable.Length == 0;
 
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
@@ -1038,6 +1062,18 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             ref sampled,
             ref unmodelled,
             ref firstFailure);
+        // A resource has no per-level program at all: nothing about it is bought a level at a time.
+        // Its one container is the unlock gate ResourceSO.CheckVisibility() consults every frame.
+        Walk(
+            NativeAccessorBinder.StaticList(_resourceType, "All"),
+            WorldRequirementOwnerKind.Resource,
+            _resourceId!,
+            container: null,
+            buffer,
+            ref sampled,
+            ref unmodelled,
+            ref firstFailure,
+            _resourceVisibilityContainer);
 
         // An unmodelled condition is counted as skipped even though its row is published. The row
         // exists so the shortfall can be named; the count exists so the pass reports itself as
@@ -1105,7 +1141,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         IList? owners,
         WorldRequirementOwnerKind kind,
         Func<object, Guid> identity,
-        Func<object, object?> container,
+        Func<object, object?>? container,
         WorldEntityRequirementBuffer buffer,
         ref int sampled,
         ref int unmodelled,
@@ -1153,7 +1189,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         object owner,
         WorldRequirementOwnerKind kind,
         Func<object, Guid> identity,
-        Func<object, object?> container,
+        Func<object, object?>? container,
         WorldEntityRequirementBuffer buffer,
         ref int unmodelled,
         ref string firstFailure,
@@ -1165,7 +1201,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         if (ownerId == Guid.Empty) return 0;
 
         var appended = 0;
-        var held = container(owner);
+        var held = container?.Invoke(owner);
         if (held is not null)
         {
             appended = AppendConditions(

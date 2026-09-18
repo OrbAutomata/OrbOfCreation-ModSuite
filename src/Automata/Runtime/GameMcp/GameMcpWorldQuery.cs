@@ -7430,9 +7430,41 @@ internal static class GameMcpWorldQuery
                 : (object)GameMcpListColumns.Uncapped,
             ["netRatePerSecond"] = new GameMcpDomainValue(resource.TrueRate),
             ["atCapacity"] = AtCapacityCell(in resource, left),
+            ["inLedger"] = LedgerCell(in resource),
         };
         return result.Freeze();
     }
+
+    /// <summary>
+    /// Whether the game counts this resource in its own resource list yet, which is the whole of
+    /// what <c>ResourceSO.visible</c> means.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The bit used to reach a caller as <c>predicates.visible</c> and again, copied, as
+    /// <c>predicates.available</c>, under the sentence "The game is not showing this yet" — which
+    /// the screen contradicts whenever a page owns a bar. <c>ResourceSO.CheckVisibility()</c> sets
+    /// it from <c>startVisible &amp;&amp; visiblePrerequisites.Check()</c> and it gates ledger
+    /// membership (<c>ResourceTypeSO.GetVisibleResources</c>), whether a price prints as a known
+    /// resource (<c>ResourceCostList.AllVisible</c>), and the rarity and global-progress math. A
+    /// page-owned bar is bound to its resource and drawn by the page, filtered through none of that.
+    /// </para>
+    /// <para>
+    /// The game's own name for the bit is <c>ResourceSO.IsDiscovered()</c>, a one-line call to
+    /// <c>IsVisible()</c>; the word is not reused here because on every other row of this surface
+    /// <c>discovered</c> means a discovery button was pressed, and no resource has one. The game's
+    /// resource list has no label of its own to borrow — the only callers of
+    /// <c>GetVisibleResources</c> are tooltip builders.
+    /// </para>
+    /// </remarks>
+    private static object LedgerCell(in WorldResource resource) =>
+        resource.Reading.Visible
+            ? new JObject { ["available"] = true }.Freeze()
+            : new JObject
+            {
+                ["available"] = false,
+                ["reasonCode"] = "not_in_resource_list",
+            }.Freeze();
 
     /// <summary>
     /// Full, in the words the row's own meter reads in. The used-ness pair belongs to a

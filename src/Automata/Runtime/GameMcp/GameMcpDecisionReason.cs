@@ -308,6 +308,10 @@ internal static class GameMcpDecisionReason
         // list draws no copy to socket, which is a gate rather than a missing entity — the suite
         // resolved the glyph before it asked.
         "glyph_unavailable" or
+        // ResourceSO.visible is false: the game does not count this resource in its own resource
+        // list yet. A gate the unlock container beside it names, not a thing that is missing and
+        // not a claim about what any screen draws.
+        "not_in_resource_list" or
         "native_unavailable" or "native_leeway_exhausted" => ClassLocked,
 
         // The suite or the game could not read or serve the fact.
@@ -392,6 +396,13 @@ internal static class GameMcpDecisionReason
         "not_visible" => "The game is not showing this yet.",
         "undiscovered" or "not_discovered" =>
             "This has not been discovered yet.",
+        // ResourceSO.visible, in the one thing it actually governs. It used to answer "The game is
+        // not showing this yet", which the Scholar page contradicted while drawing a Scholar Xp bar
+        // of its own and pricing Mentality in Psi on the row above it.
+        "not_in_resource_list" =>
+            "The game does not count this in its resource list yet, so prices that name it print " +
+            "as an unknown resource; a page that owns a bar for it still draws one. What would " +
+            "add it is under \"unlocksWhen\".",
         "already_discovered" => "This is already discovered.",
         "already_maxed" => "This is already at its maximum level.",
         "hidden_or_undiscovered" =>

@@ -987,6 +987,79 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.True((bool)children[1]["met"]!);
     }
 
+    /// <summary>
+    /// A resource the game counts says so on its row, and has no lock to explain.
+    /// </summary>
+    [Fact]
+    public void AResourceTheGameCountsSaysSoAndExplainsNoLock()
+    {
+        var resource = Resource(inLedger: true);
+
+        var detail = Explain(Collect(), resource.GetGuid(), 949);
+
+        Assert.True((bool)detail["row"]!["inLedger"]!["available"]!);
+        Assert.Null(detail["row"]!["inLedger"]!["reasonCode"]);
+        Assert.Null(detail["requirements"]);
+    }
+
+    /// <summary>
+    /// A resource the game has not counted yet says what would add it, read off the container
+    /// <c>ResourceSO.CheckVisibility()</c> consults.
+    /// </summary>
+    /// <remarks>
+    /// The bit used to answer "The game is not showing this yet" — which the Scholar page
+    /// contradicted while drawing a Scholar Xp bar of its own — and nothing on the wire named the
+    /// gate, because <c>visiblePrerequisites</c> was captured nowhere.
+    /// </remarks>
+    [Fact]
+    public void AResourceTheGameHasNotCountedSaysWhatWouldAddIt()
+    {
+        var resource = Resource(inLedger: false);
+        var shut = ResearchStub(level: 1);
+        resource.visiblePrerequisites.prerequisites.Add(Require(shut, 4));
+
+        var detail = Explain(Collect(), resource.GetGuid(), 949);
+
+        var ledger = detail["row"]!["inLedger"]!;
+        Assert.False((bool)ledger["available"]!);
+        Assert.Equal("ERR_LOCKED", (string?)ledger["reasonCode"]);
+        Assert.Contains("resource list", (string?)ledger["reason"]);
+
+        var unlocks = Assert.IsType<JObject>(detail["requirements"]!["unlocksWhen"]);
+        Assert.Equal("AND", (string?)unlocks["operator"]);
+        var leaf = Assert.Single(unlocks["children"]!.OfType<JObject>());
+        Assert.False((bool)leaf["met"]!);
+        Assert.Contains("4", (string?)leaf["needs"]);
+    }
+
+    /// <summary>
+    /// The ledger bit is not an availability verdict, and no longer answers as one.
+    /// </summary>
+    /// <remarks>
+    /// One bit used to be published twice — as <c>visible</c> and as a copy of it under
+    /// <c>available</c> — so Scholar Xp, with a computed capacity and a bar on the open screen, read
+    /// as locked and unavailable, and Psi read the same on the line under the price quoted in it.
+    /// </remarks>
+    [Fact]
+    public void AResourcesLedgerBitIsNotCopiedOntoAnAvailabilityVerdict()
+    {
+        var counted = Resource(inLedger: true);
+        var uncounted = Resource(inLedger: false);
+
+        var world = Collect();
+        var countedDetail = Explain(world, counted.GetGuid(), 949);
+        var uncountedDetail = Explain(world, uncounted.GetGuid(), 950);
+
+        Assert.Null(countedDetail["predicates"]?["available"]);
+        Assert.Null(countedDetail["predicates"]?["visible"]);
+        Assert.Null(uncountedDetail["predicates"]?["available"]);
+        Assert.Null(uncountedDetail["predicates"]?["visible"]);
+
+        // The bit still reaches a caller, once, under the name that says what it is.
+        Assert.True((bool)countedDetail["row"]!["inLedger"]!["available"]!);
+        Assert.False((bool)uncountedDetail["row"]!["inLedger"]!["available"]!);
+    }
+
     [Fact]
     public void ThresholdCostAndTypedBlockersCarryCompleteEvidence()
     {
@@ -1544,6 +1617,17 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         return upgrade;
     }
 
+    private static global::ResourceSO Resource(bool inLedger)
+    {
+        var resource = new global::ResourceSO
+        {
+            uuid = Guid.NewGuid().ToString("D"),
+            visible = inLedger,
+        };
+        global::ResourceSO.All.Add(resource);
+        return resource;
+    }
+
     private static global::StructureSO Structure()
     {
         var structure = new global::StructureSO();
@@ -1675,6 +1759,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         global::AlchemyRecipeSO.All.Clear();
         global::RitualSO.All.Clear();
         global::GlyphSO.All.Clear();
+        global::ResourceSO.All.Clear();
         global::IntVariable.All.Clear();
         global::PrerequisiteLinkSO.All.Clear();
         global::IdScriptableObject.RuntimeLookup.Clear();

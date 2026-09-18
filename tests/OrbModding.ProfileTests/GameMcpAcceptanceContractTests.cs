@@ -138,11 +138,16 @@ public sealed class GameMcpWorldQueryTests
         // The row used to repeat the same handle, name and category the block already published.
         // `nativeType` is gone from a block a category names: `resources` is one native class and
         // `world_categories` publishes which, so the block said the same fact twice.
+        // No `predicates`: a resource's one gate is its ledger membership, and that is a row fact
+        // under the name that says what it is rather than a verdict on the resource itself.
         Assert.Equal(
-            new[] { "uuid", "name", "category", "row", "predicates" },
+            new[] { "uuid", "name", "category", "row" },
             block.Children<JProperty>().Select(property => property.Name));
         Assert.Equal(
-            new[] { "meter", "amount", "capacity", "netRatePerSecond", "atCapacity" },
+            new[]
+            {
+                "meter", "amount", "capacity", "netRatePerSecond", "atCapacity", "inLedger",
+            },
             row.Children<JProperty>().Select(property => property.Name));
         Assert.Equal("Knowledge", (string?)block["name"]);
         Assert.Equal("resources", (string?)block["category"]);
@@ -157,11 +162,10 @@ public sealed class GameMcpWorldQueryTests
         Assert.Null(row["rateInputs"]);
         Assert.Null(row["traits"]);
         Assert.Null(row["modifiers"]);
-        // The detail read costs what the detail costs: identity said once and the decisions the
-        // merge folded in, on top of the row a list page would have shown. It costs 26 bytes less
-        // than it did for saying `nativeType: ResourceSO` beside a category that means exactly
-        // that, and 15 more than that for the one word that says which way the pair reads.
-        Assert.Equal(252, System.Text.Encoding.UTF8.GetByteCount(
+        // The detail read costs what the detail costs: identity said once, on top of the row a list
+        // page would have shown. The retired `predicates` block spent its bytes on a copy of the
+        // ledger bit under two names; `inLedger` spends fewer on the bit itself, said once.
+        Assert.Equal(207, System.Text.Encoding.UTF8.GetByteCount(
             response.ToString(Newtonsoft.Json.Formatting.None)));
 
         var list = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(

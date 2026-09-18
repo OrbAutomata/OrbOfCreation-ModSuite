@@ -1974,6 +1974,10 @@ public class ResourceSO : UpgradeableObject
     public bool invertedResource;
     public bool excludeFromGlobals;
     public bool startVisible;
+
+    // What CheckVisibility() ANDs with startVisible to latch `visible`. The container the suite
+    // publishes as a resource's unlock block, and the only authored gate a resource has.
+    public Prerequisites.Container visiblePrerequisites = new Prerequisites.Container();
     public BigDouble appliedMaxQuantity;
     public int quantitySoftCapOrder;
     public int quantitySoftCapMagnitude;

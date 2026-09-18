@@ -386,7 +386,8 @@ internal sealed class GameWorldCollector
             resolveType("ResearchSO"),
             resolveType("PrerequisiteLinkSO"),
             resolveType("AlchemyRecipeSO"),
-            resolveType("RecipeBookSO"));
+            resolveType("RecipeBookSO"),
+            resolveType("ResourceSO"));
         _recipeBookGlyphs = new WorldRecipeBookGlyphReader(resolveType);
         _discoveryTreeBooks = new WorldDiscoveryTreeBookReader(resolveType);
         _effectFactors = new WorldEffectFactorReader(resolveType);

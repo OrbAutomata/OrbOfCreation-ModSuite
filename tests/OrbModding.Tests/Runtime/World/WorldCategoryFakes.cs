@@ -2013,6 +2013,9 @@ internal sealed class FakeResource
     public bool invertedResource;
     public bool excludeFromGlobals;
     public bool startVisible;
+
+    // The other half of CheckVisibility(): what the game ANDs with startVisible to latch `visible`.
+    public FakePrerequisites visiblePrerequisites = new();
     public BigDouble appliedMaxQuantity;
     public int quantitySoftCapOrder;
     public int quantitySoftCapMagnitude;

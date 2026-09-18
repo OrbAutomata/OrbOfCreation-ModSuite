@@ -77,6 +77,42 @@ public sealed class RequirementEvaluatorContractTests
     }
 
     /// <summary>
+    /// A resource's ledger bit is a stored field, and the container that moves it is the one the
+    /// suite reads to say what would move it.
+    /// </summary>
+    /// <remarks>
+    /// <c>ResourceSO.IsVisible()</c> is the field alone, so nothing a read does can move it;
+    /// <c>CheckVisibility()</c> — called from <c>Increment</c>, the ordinary per-frame element tick —
+    /// is what latches it, from <c>startVisible</c> AND <c>visiblePrerequisites.Check()</c>. That
+    /// container is therefore the whole authored answer to "what puts this in the resource list",
+    /// and it is what the unlock block beside the bit publishes.
+    /// </remarks>
+    [GameAssemblyFact]
+    public void AResourcesLedgerBitIsStoredAndItsGateIsTheContainerTheSuiteReads()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.Equal("System.Boolean", assembly.GetFieldType("ResourceSO", "visible"));
+        Assert.Equal("System.Boolean", assembly.GetFieldType("ResourceSO", "startVisible"));
+        Assert.Equal(
+            "Prerequisites+Container",
+            assembly.GetFieldType("ResourceSO", "visiblePrerequisites"));
+
+        Assert.Equal(
+            new[] { "ResourceSO.visible" },
+            assembly.GetMethodBodyDefinitionReferences("ResourceSO", "IsVisible")
+                .Concat(assembly.GetMethodBodyMemberReferences("ResourceSO", "IsVisible"))
+                .Select(reference => reference.DeclaringType + "." + reference.MemberName)
+                .ToArray());
+        Assert.True(assembly.MethodReferencesField(
+            "ResourceSO", "CheckVisibility", "ResourceSO", "startVisible"));
+        Assert.True(assembly.MethodReferencesField(
+            "ResourceSO", "CheckVisibility", "ResourceSO", "visiblePrerequisites"));
+        Assert.True(assembly.MethodReferencesField(
+            "ResourceSO", "CheckVisibility", "ResourceSO", "visible"));
+    }
+
+    /// <summary>
     /// Only the no-argument <c>Check()</c> latches, and only it applies the container's adjustment.
     /// </summary>
     /// <remarks>
