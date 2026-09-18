@@ -12,21 +12,61 @@ internal static class GameMcpTooltipProjector
 {
     private const int MaximumLines = 200;
 
-    internal static JObject Project(
+    /// <summary>
+    /// How far this walk follows the graph, and how much of it it visits, before it gives up.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The line budget above is not a bound on the walk: a subgraph whose nodes carry empty or
+    /// repeated text spends none of it, and a graph that mints a fresh wrapper object at every level
+    /// defeats <see cref="WalkBounds"/>'s reference identity as well. One tooltip read of that shape
+    /// took the Unity main thread and several gigabytes with it, so the walk needs a bound that does
+    /// not depend on the text it produces. Neither number is a setting.
+    /// </para>
+    /// <para>
+    /// The game itself renders one tooltipable's own node tree and hands <c>TooltipNode.tooltipable</c>
+    /// and its sub-tooltips to <c>HoverTooltip.Setup</c> as the target of the player's next hover
+    /// (<c>UITooltipNode.Setup</c>), so nothing the player sees at once is nested at this depth:
+    /// every level past the first is a link this projector follows on the reader's behalf. Sixty-four
+    /// is many times the longest such chain the game's own tooltip builders compose, and two thousand
+    /// visits is ten times a line budget the suite already treats as more tooltip than any caller
+    /// wants.
+    /// </para>
+    /// </remarks>
+    private const int MaximumDepth = 64;
+    private const int MaximumVisits = 2_000;
+
+    /// <summary>
+    /// The tooltip's words, or <c>false</c> when the walk hit <see cref="MaximumDepth"/> or
+    /// <see cref="MaximumVisits"/> and was abandoned.
+    /// </summary>
+    /// <remarks>
+    /// What was collected before a bound trips is not the tooltip's first part: a walk that spends
+    /// its budget inside one repeating subgraph emits nothing at all, and the name and description it
+    /// did emit read exactly like a short, complete tooltip. Answering with that would present an
+    /// unfinished read as the read. The 200-line budget is the other case and stays what it is — the
+    /// walk finished, the body is the tooltip's own first two hundred lines, and the last line says
+    /// so.
+    /// </remarks>
+    internal static bool TryProject(
         ITooltipable primary,
         IEnumerable<ITooltipable>? authoredNested,
-        IEnumerable<ITooltipable>? inspectedPanels)
+        IEnumerable<ITooltipable>? inspectedPanels,
+        out JObject details)
     {
         if (primary is null) throw new ArgumentNullException(nameof(primary));
         var lines = new List<string>();
-        var visited = new HashSet<ITooltipable>(ReferenceComparer.Instance);
+        var bounds = new WalkBounds();
         var truncated = false;
-        AppendSource(primary, lines, visited, ref truncated);
-        AppendSources(authoredNested, lines, visited, ref truncated);
-        AppendSources(inspectedPanels, lines, visited, ref truncated);
+        AppendSource(primary, lines, bounds, ref truncated);
+        AppendSources(authoredNested, lines, bounds, ref truncated);
+        AppendSources(inspectedPanels, lines, bounds, ref truncated);
+        details = new JObject();
+        if (bounds.Exceeded) return false;
         DropRepeatedTail(lines);
         if (truncated) lines.Add("Tooltip truncated after 200 lines.");
-        return new JObject { ["text"] = string.Join("\n", lines) };
+        details["text"] = string.Join("\n", lines);
+        return true;
     }
 
     /// <summary>
@@ -45,11 +85,11 @@ internal static class GameMcpTooltipProjector
     private static void AppendSource(
         ITooltipable tooltip,
         List<string> lines,
-        HashSet<ITooltipable> visited,
+        WalkBounds bounds,
         ref bool truncated)
     {
         var start = lines.Count;
-        AppendTooltip(tooltip, lines, visited, ref truncated);
+        AppendTooltip(tooltip, lines, bounds, ref truncated);
         if (SaysNothingNew(lines, start, lines, start, lines.Count))
             lines.RemoveRange(start, lines.Count - start);
     }
@@ -83,12 +123,12 @@ internal static class GameMcpTooltipProjector
     private static void AppendSources(
         IEnumerable<ITooltipable>? tooltips,
         List<string> lines,
-        HashSet<ITooltipable> visited,
+        WalkBounds bounds,
         ref bool truncated)
     {
         if (tooltips is null) return;
         foreach (var tooltip in tooltips)
-            if (tooltip is not null) AppendSource(tooltip, lines, visited, ref truncated);
+            if (tooltip is not null) AppendSource(tooltip, lines, bounds, ref truncated);
     }
 
     /// <summary>
@@ -125,18 +165,18 @@ internal static class GameMcpTooltipProjector
     private static void AppendTooltips(
         IEnumerable<ITooltipable>? tooltips,
         List<string> lines,
-        HashSet<ITooltipable> visited,
+        WalkBounds bounds,
         ref bool truncated)
     {
         if (tooltips is null) return;
         foreach (var tooltip in tooltips)
-            if (tooltip is not null) AppendTooltip(tooltip, lines, visited, ref truncated);
+            if (tooltip is not null) AppendTooltip(tooltip, lines, bounds, ref truncated);
     }
 
     private static void AppendTooltip(
         ITooltipable tooltip,
         List<string> lines,
-        HashSet<ITooltipable> visited,
+        WalkBounds bounds,
         ref bool truncated)
     {
         if (lines.Count >= MaximumLines)
@@ -144,30 +184,53 @@ internal static class GameMcpTooltipProjector
             truncated = true;
             return;
         }
-        if (!visited.Add(tooltip)) return;
+        if (!bounds.Spend()) return;
+        if (!bounds.Remember(tooltip)) return;
+        if (!bounds.Descend()) return;
         AppendLine(lines, tooltip.GetName(), ref truncated);
         AppendLine(lines, tooltip.GetDisplayType(), ref truncated);
         AppendLine(lines, tooltip.GetDescription(), ref truncated);
-        AppendNodes(tooltip.GetTooltipNodes(), lines, visited, ref truncated);
-        if (!tooltip.HasAltTooltips()) return;
+        AppendNodes(tooltip.GetTooltipNodes(), lines, bounds, ref truncated);
+        if (tooltip.HasAltTooltips()) AppendAlternate(tooltip, lines, bounds, ref truncated);
+        bounds.Ascend();
+    }
 
-        // The alt block is one more block, judged by the one rule. Comparing it to the primary
-        // block as a whole sequence was too narrow: a resource pill's alt paints the bare values a
-        // reader has already seen threaded through the nested statistic definitions, so the two
-        // sequences differ line for line while the alt says nothing new — and the whole body ended
-        // in the same five numbers twice with nothing to tell the copies apart. The repeated-tail
-        // pass could not reach it either, because the earlier copy was interleaved rather than
-        // adjacent.
+    /// <summary>
+    /// The alt block is one more block, judged by the one rule.
+    /// </summary>
+    /// <remarks>
+    /// Comparing it to the primary block as a whole sequence was too narrow: a resource pill's alt
+    /// paints the bare values a reader has already seen threaded through the nested statistic
+    /// definitions, so the two sequences differ line for line while the alt says nothing new — and
+    /// the whole body ended in the same five numbers twice with nothing to tell the copies apart.
+    /// The repeated-tail pass could not reach it either, because the earlier copy was interleaved
+    /// rather than adjacent.
+    /// <para>
+    /// The block is speculative, so what it visited is remembered only if it is kept — but it is
+    /// judged against one shared record, rolled back to a saved mark, rather than against a copy of
+    /// that record. A copy per level made live memory quadratic in depth for no behavioural gain,
+    /// and it was the depth that put gigabytes behind one tooltip read. What the block spent of the
+    /// visit budget is never rolled back: the walk really did that work.
+    /// </para>
+    /// </remarks>
+    private static void AppendAlternate(
+        ITooltipable tooltip,
+        List<string> lines,
+        WalkBounds bounds,
+        ref bool truncated)
+    {
         var alternate = new List<string>();
-        var alternateVisited = new HashSet<ITooltipable>(visited, ReferenceComparer.Instance);
+        var mark = bounds.Mark;
         var alternateTruncated = false;
-        AppendNodes(
-            tooltip.GetAltTooltipNodes(), alternate, alternateVisited, ref alternateTruncated);
-        if (!SaysNothingNew(lines, lines.Count, alternate, 0, alternate.Count))
+        AppendNodes(tooltip.GetAltTooltipNodes(), alternate, bounds, ref alternateTruncated);
+        if (SaysNothingNew(lines, lines.Count, alternate, 0, alternate.Count))
+        {
+            bounds.Forget(mark);
+        }
+        else
         {
             for (var index = 0; index < alternate.Count; index++)
                 AppendLine(lines, alternate[index], ref truncated);
-            visited.UnionWith(alternateVisited);
         }
         if (alternateTruncated) truncated = true;
     }
@@ -175,19 +238,21 @@ internal static class GameMcpTooltipProjector
     private static void AppendNodes(
         IReadOnlyList<TooltipNode>? nodes,
         List<string> lines,
-        HashSet<ITooltipable> visited,
+        WalkBounds bounds,
         ref bool truncated)
     {
         if (nodes is null) return;
+        if (!bounds.Descend()) return;
         for (var index = 0; index < nodes.Count; index++)
         {
             if (lines.Count >= MaximumLines)
             {
                 truncated = true;
-                return;
+                break;
             }
             var node = nodes[index];
             if (node is null) continue;
+            if (!bounds.Spend()) break;
             try
             {
                 AppendLine(lines, node.textFn is null ? node.text : node.textFn(), ref truncated);
@@ -201,10 +266,11 @@ internal static class GameMcpTooltipProjector
                     ref truncated);
             }
             if (node.tooltipable is not null)
-                AppendTooltip(node.tooltipable, lines, visited, ref truncated);
-            AppendTooltips(node.subTooltips, lines, visited, ref truncated);
-            AppendNodes(node.children, lines, visited, ref truncated);
+                AppendTooltip(node.tooltipable, lines, bounds, ref truncated);
+            AppendTooltips(node.subTooltips, lines, bounds, ref truncated);
+            AppendNodes(node.children, lines, bounds, ref truncated);
         }
+        bounds.Ascend();
     }
 
     private static void AppendLine(List<string> lines, string? text, ref bool truncated)
@@ -218,6 +284,76 @@ internal static class GameMcpTooltipProjector
             return;
         }
         lines.Add(plain);
+    }
+
+    /// <summary>
+    /// What the walk has seen, how deep it is, and how much of its budget is left.
+    /// </summary>
+    /// <remarks>
+    /// Reference identity recognises a graph that leads back to the same object, which is a real
+    /// shape and the one the cycle test covers. It is not a bound, and the game offers nothing
+    /// better: <c>ITooltipable</c> declares nine presentation members and no identity;
+    /// <c>BasicTooltip</c> keeps no reference to whatever it was built from — its
+    /// <c>.ctor(ITooltipable)</c> copies the name, description, display type, icon and node list and
+    /// drops the argument — and its <c>GetObservableId()</c> reads a field no constructor sets;
+    /// <c>AbstractRefInstance&lt;T&gt;</c>'s interface-reachable <c>GetGuidReference()</c> answers
+    /// the guid of the asset it points at rather than its own, so two instances a player can tell
+    /// apart share it and keying on it would drop a tooltip the screen is showing. So the wrappers
+    /// win the identity argument, and <see cref="MaximumDepth"/> and <see cref="MaximumVisits"/> are
+    /// what actually stops the walk.
+    /// </remarks>
+    private sealed class WalkBounds
+    {
+        private readonly HashSet<ITooltipable> _seen = new(ReferenceComparer.Instance);
+        private readonly List<ITooltipable> _order = new();
+        private int _depth;
+        private int _visits;
+
+        /// <summary>Whether the walk gave up rather than finished.</summary>
+        internal bool Exceeded { get; private set; }
+
+        /// <summary>The point a speculative block's visits can be rolled back to.</summary>
+        internal int Mark => _order.Count;
+
+        internal bool Spend()
+        {
+            if (Exceeded) return false;
+            if (_visits >= MaximumVisits)
+            {
+                Exceeded = true;
+                return false;
+            }
+            _visits++;
+            return true;
+        }
+
+        internal bool Descend()
+        {
+            if (Exceeded) return false;
+            if (_depth >= MaximumDepth)
+            {
+                Exceeded = true;
+                return false;
+            }
+            _depth++;
+            return true;
+        }
+
+        internal void Ascend() => _depth--;
+
+        /// <summary>Whether this is the first time the walk has reached this exact object.</summary>
+        internal bool Remember(ITooltipable tooltip)
+        {
+            if (!_seen.Add(tooltip)) return false;
+            _order.Add(tooltip);
+            return true;
+        }
+
+        internal void Forget(int mark)
+        {
+            for (var index = mark; index < _order.Count; index++) _seen.Remove(_order[index]);
+            _order.RemoveRange(mark, _order.Count - mark);
+        }
     }
 
     private sealed class ReferenceComparer : IEqualityComparer<ITooltipable>

@@ -40,10 +40,7 @@ public sealed class GameMcpTooltipProjectorTests
         var nested = new FakeTooltip("Nested", new TooltipNode("nested row"));
         var inspected = new FakeTooltip("Inspected", new TooltipNode("panel row"));
 
-        var result = GameMcpTestHarness.Json(GameMcpTooltipProjector.Project(
-            primary,
-            new[] { nested },
-            new[] { inspected }));
+        var result = Projected(primary, new[] { nested }, new[] { inspected });
 
         Assert.Single(result.Properties());
         var text = (string?)result["text"];
@@ -85,8 +82,7 @@ public sealed class GameMcpTooltipProjectorTests
                 children = new List<TooltipNode> { new("authored child"), wedged },
             };
 
-            var result = GameMcpTestHarness.Json(GameMcpTooltipProjector.Project(
-                new FakeTooltip("Primary", root), null, null));
+            var result = Projected(new FakeTooltip("Primary", root));
 
             var text = (string?)result["text"] ?? string.Empty;
             Assert.Contains("authored child", text, StringComparison.Ordinal);
@@ -112,8 +108,7 @@ public sealed class GameMcpTooltipProjectorTests
         var node = new TooltipNode("cycle") { tooltipable = tooltip };
         tooltip.Nodes.Add(node);
 
-        var result = GameMcpTestHarness.Json(
-            GameMcpTooltipProjector.Project(tooltip, null, null));
+        var result = Projected(tooltip);
 
         Assert.Equal("Cycle\nFixture\nCycle description\ncycle", (string?)result["text"]);
         Assert.Single(result.Properties());
@@ -131,8 +126,7 @@ public sealed class GameMcpTooltipProjectorTests
         };
         tooltip.AltNodes.Add(altNode);
 
-        var result = GameMcpTestHarness.Json(
-            GameMcpTooltipProjector.Project(tooltip, null, null));
+        var result = Projected(tooltip);
 
         Assert.Equal(
             "Resource\nEssence Resource\nSpendable List<T> supply.\nQuantity:",
@@ -171,8 +165,7 @@ public sealed class GameMcpTooltipProjectorTests
         tooltip.AltNodes.Add(new TooltipNode("193"));
         tooltip.AltNodes.Add(new TooltipNode("(+193, x1)"));
 
-        var result = GameMcpTestHarness.Json(
-            GameMcpTooltipProjector.Project(tooltip, null, null));
+        var result = Projected(tooltip);
 
         Assert.Equal(
             "Glyph Upgrades\nAdvancement Resource\nSpent on advancements.\n" +
@@ -197,8 +190,7 @@ public sealed class GameMcpTooltipProjectorTests
         tooltip.AltNodes.Add(new TooltipNode("4"));
         tooltip.AltNodes.Add(new TooltipNode("Next tier: 9"));
 
-        var result = GameMcpTestHarness.Json(
-            GameMcpTooltipProjector.Project(tooltip, null, null));
+        var result = Projected(tooltip);
 
         Assert.Equal(
             "Ward\nEffect\nAbsorbs damage.\nShield:\n4\nShield:\n4\nNext tier: 9",
@@ -225,8 +217,7 @@ public sealed class GameMcpTooltipProjectorTests
             Description = "Raw magic.",
         };
 
-        var result = GameMcpTestHarness.Json(
-            GameMcpTooltipProjector.Project(tooltip, null, null));
+        var result = Projected(tooltip);
 
         Assert.Equal(
             "Mana\nResource\nRaw magic.\nQuantity: 6/13\nCapacity: 13\n(+13, x1)",
@@ -255,8 +246,7 @@ public sealed class GameMcpTooltipProjectorTests
             Description = "Absorbs damage.",
         };
 
-        var result = GameMcpTestHarness.Json(
-            GameMcpTooltipProjector.Project(tooltip, null, null));
+        var result = Projected(tooltip);
 
         Assert.Equal(
             "Ward\nEffect\nAbsorbs damage.\n" +
@@ -275,8 +265,7 @@ public sealed class GameMcpTooltipProjectorTests
             tooltip.AltNodes.Add(new TooltipNode(text));
         }
 
-        var result = GameMcpTestHarness.Json(
-            GameMcpTooltipProjector.Project(tooltip, null, null));
+        var result = Projected(tooltip);
         var encoded = result.ToString(Newtonsoft.Json.Formatting.None);
 
         Assert.Single(result.Properties());
@@ -292,13 +281,96 @@ public sealed class GameMcpTooltipProjectorTests
         for (var index = 0; index < 205; index++)
             tooltip.Nodes.Add(new TooltipNode("Fact " + index));
 
-        var result = GameMcpTestHarness.Json(
-            GameMcpTooltipProjector.Project(tooltip, null, null));
+        var result = Projected(tooltip);
         var lines = ((string)result["text"]!).Split('\n');
 
         Assert.Equal(201, lines.Length);
         Assert.Equal("Tooltip truncated after 200 lines.", lines[^1]);
         Assert.DoesNotContain("Fact 204", lines);
+    }
+
+    /// <summary>
+    /// The shape that took the game's main thread down. Every level hands out a brand-new wrapper
+    /// object, so reference identity recognises none of them, and no level says anything, so the
+    /// line budget is never spent. Nothing about this graph ends: without a bound of its own the
+    /// walk does not come back, and neither does this test.
+    /// </summary>
+    [Fact]
+    public void A_graph_that_never_ends_is_answered_as_a_bound_rather_than_a_tooltip()
+    {
+        var minted = new int[1];
+
+        Assert.False(GameMcpTooltipProjector.TryProject(
+            new EndlessWrapperTooltip(minted), null, null, out var details));
+
+        Assert.Empty(GameMcpTestHarness.Json(details).Properties());
+        Assert.True(minted[0] < 1_000, "one tooltip read built " + minted[0] + " wrapper objects");
+    }
+
+    /// <summary>
+    /// The second bound on its own: a graph one hop deep and far wider than the walk will read. The
+    /// visit budget stops it before the last row, which is what this asserts — a graph that says
+    /// nothing cannot buy more walking by being flat instead of deep.
+    /// </summary>
+    [Fact]
+    public void A_graph_too_wide_to_walk_stops_before_its_last_row()
+    {
+        var touched = new int[1];
+        var root = new FakeTooltip("Wide")
+        {
+            DisplayType = string.Empty,
+            Description = string.Empty,
+        };
+        for (var index = 0; index < 4096; index++)
+        {
+            root.Nodes.Add(new TooltipNode(string.Empty)
+            {
+                tooltipable = new SilentTooltip(touched),
+            });
+        }
+
+        Assert.False(GameMcpTooltipProjector.TryProject(root, null, null, out var details));
+
+        Assert.Empty(GameMcpTestHarness.Json(details).Properties());
+        Assert.True(touched[0] < 4096, "the walk read " + touched[0] + " of 4096 rows");
+    }
+
+    /// <summary>
+    /// A genuine tooltip is not cut off by the bound. Thirty-one nested tooltip links is far more
+    /// nesting than the game itself draws — it renders one tooltipable's own nodes and hands the
+    /// links to the next hover — and it still reads in full.
+    /// </summary>
+    [Fact]
+    public void A_deep_tooltip_inside_the_bound_still_reads_in_full()
+    {
+        var tooltip = new FakeTooltip("Link 30", new TooltipNode("row 30"));
+        for (var level = 29; level >= 0; level--)
+        {
+            var parent = new FakeTooltip("Link " + level, new TooltipNode("row " + level));
+            parent.Nodes[0].tooltipable = tooltip;
+            tooltip = parent;
+        }
+
+        var text = (string?)Projected(tooltip)["text"] ?? string.Empty;
+
+        for (var level = 0; level <= 30; level++)
+            Assert.Contains("Link " + level, text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The projection of a tooltip whose walk finishes. Every fixture below is one, so each of them
+    /// asserts the walk came back on its own rather than leaving that to the two tests that cross
+    /// the bound deliberately.
+    /// </summary>
+    private static JObject Projected(
+        ITooltipable primary,
+        IEnumerable<ITooltipable>? nested = null,
+        IEnumerable<ITooltipable>? inspected = null)
+    {
+        Assert.True(
+            GameMcpTooltipProjector.TryProject(primary, nested, inspected, out var details),
+            "the walk gave up on a fixture that is inside its bound");
+        return GameMcpTestHarness.Json(details);
     }
 
     private sealed class FakeTooltip : ITooltipable
@@ -323,5 +395,60 @@ public sealed class GameMcpTooltipProjectorTests
         public string GetDescription() => Description ?? Name + " description";
         public List<TooltipNode> GetTooltipNodes() => Nodes;
         public List<TooltipNode> GetAltTooltipNodes() => AltNodes;
+    }
+
+    /// <summary>
+    /// A graph with no end and nothing to say: every level is a fresh object, and every line is
+    /// empty, so neither of the two stop conditions the walk had before could ever fire.
+    /// </summary>
+    private sealed class EndlessWrapperTooltip : ITooltipable
+    {
+        private readonly int[] _minted;
+
+        internal EndlessWrapperTooltip(int[] minted)
+        {
+            _minted = minted;
+            _minted[0]++;
+        }
+
+        public string GetName() => string.Empty;
+        public string GetDisplayType() => string.Empty;
+        public string GetDescription() => string.Empty;
+        public UnityEngine.Sprite GetIcon() => new();
+        public UnityEngine.Color GetColor() => UnityEngine.Color.white;
+        public bool IsColoredIcon() => false;
+        public bool HasAltTooltips() => false;
+        public List<TooltipNode> GetAltTooltipNodes() => new();
+
+        public List<TooltipNode> GetTooltipNodes() => new()
+        {
+            new TooltipNode(string.Empty)
+            {
+                tooltipable = new EndlessWrapperTooltip(_minted),
+            },
+        };
+    }
+
+    /// <summary>One row that says nothing and counts having been read.</summary>
+    private sealed class SilentTooltip : ITooltipable
+    {
+        private readonly int[] _touched;
+
+        internal SilentTooltip(int[] touched) => _touched = touched;
+
+        public string GetName()
+        {
+            _touched[0]++;
+            return string.Empty;
+        }
+
+        public string GetDisplayType() => string.Empty;
+        public string GetDescription() => string.Empty;
+        public UnityEngine.Sprite GetIcon() => new();
+        public UnityEngine.Color GetColor() => UnityEngine.Color.white;
+        public bool IsColoredIcon() => false;
+        public bool HasAltTooltips() => false;
+        public List<TooltipNode> GetTooltipNodes() => new();
+        public List<TooltipNode> GetAltTooltipNodes() => new();
     }
 }

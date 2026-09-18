@@ -3931,10 +3931,17 @@ public sealed class Plugin : BaseUnityPlugin
         GameMcpObjectBuilder details;
         try
         {
-            details = GameMcpTooltipProjector.Project(
-                hover.tooltipItem,
-                children,
-                inspected);
+            if (!GameMcpTooltipProjector.TryProject(
+                    hover.tooltipItem,
+                    children,
+                    inspected,
+                    out details))
+            {
+                return GadgetRejected(
+                    "tooltip_depth_exceeded",
+                    "This tooltip leads on through more of the game than the suite will read in " +
+                    "one answer, so none of its text is returned; the screen still shows it.");
+            }
             if (entityId != Guid.Empty) details["uuid"] = entityId.ToString("D");
         }
         catch (Exception)

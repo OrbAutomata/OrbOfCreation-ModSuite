@@ -341,6 +341,12 @@ internal static class GameMcpDecisionReason
         "native_navigation_unavailable" or "native_plot_navigation_unavailable" or
         "native_plot_list_unavailable" or "native_probe_unavailable" or
         "tooltip_contract_unavailable" or "tooltip_read_faulted" or
+        // The tooltip's graph goes further than the projector walks, so the read was abandoned
+        // rather than answered with the part of it that had been collected. Not a ceiling the
+        // caller can ask under — the tool takes no size — and not the game refusing: the fact is
+        // simply not one this suite will serve, which is what this class says. The same spelling as
+        // `requirement_depth_exceeded`, which is the same concept one graph over.
+        "tooltip_depth_exceeded" or
         "navigation_request_invalid" or "unsupported_probe" or
         "continue_contract_unavailable" or
         "cost_unavailable" or "exact_cost_unavailable" or "usage_cost_unavailable" or
