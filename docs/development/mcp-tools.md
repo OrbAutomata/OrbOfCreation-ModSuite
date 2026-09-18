@@ -551,12 +551,15 @@ row comes from the same pinned publication; the server does not issue a
 generation or retain a snapshot token across calls. A call refused as a whole is the one-line
 refusal every other reader answers with, with no empty `results` collection beside it; the
 collection is a property of an answered batch.
-Localized collection gaps mark only the implicated list/search/get row unavailable and attach the
-partial row plus exact evidence there; unaffected rows in the same call remain ordinary results.
-`world_overview` therefore summarises those gaps in one sentence rather than restating them:
-`collection.gap` says how many leaves, of which condition types, on which named owners, and which
-read returns them. The per-leaf evidence is the same bytes on every call for a given build and
-already lives on the owner's own `world_get`, as `implicatedSkippedRows`.
+Localized collection gaps stay local, and a page and a detail read carry them differently. A
+`world_get` on the implicated entity answers unavailable and attaches its `partialRow` plus the
+exact `implicatedSkippedRows`; the same entity in a `world_list` or `world_search` page stays an
+ordinary row with its own columns and one extra `incomplete` sentence that says what is missing and
+sends a reader to `world_get` for it. Unaffected rows in the same call are ordinary results either
+way. `world_overview` summarises the gap in one sentence rather than restating it: `collection.gap`
+says how many leaves, on how many entities, which condition classes this build authors that the
+suite does not model, and the two reads that hold the rest. It names no owners — on a mature save
+that was a wall of two hundred and forty names on every overview call, for one fact.
 
 Every paged read — `world_list`, `world_search`, and `game_screen_elements` — pages one
 way. Each takes `offset` and `limit`
@@ -924,6 +927,12 @@ reads: `SpellDiscoveryTree` names `ScreenMagic, MagicSpellbook, MagicSpellbookLe
 `AlchemyDiscoveryTree` names `ScreenAlchemy, AlchAlchemy, AlchAlchemyDiscover`, neither of which is a
 navigable subtab word.
 
+**Nine books are only ever books.** Twenty-five of the thirty-four are carried by an augment glyph,
+so a discovery can produce them; the other nine are owned by meeting their prerequisite and by
+nothing else. Those nine say so on their own row, in a sentence under `obtaining`, rather than as a
+flag a reader would have to be taught: *No augment glyph carries this book, so no discovery produces
+it: it is owned by meeting its prerequisite and nothing else.*
+
 **Six books share a name with a spell type** — Arcane, Dragon, Expansion, Flow, Psionic and Storm —
 and a single spell-recipe response prints both, its books under `composedOf` and its types under
 `belongsTo.spellTypes`. A book row says `nameSharedWith` naming the twin's uuid and category, because
@@ -1198,10 +1207,10 @@ has one.
 Where a ceiling applies, `atCapacity` answers in the same coordinate as `amount`: it is true exactly
 when the published `amount` reached `capacity`. On a `left` row that is true exactly when *nothing*
 has been used, so a plain `yes` there read as "stuck at the ceiling" and meant its precise opposite.
-Those rows answer `nothing_used` or `some_used` instead — the same bit, in words that cannot be read
-the wrong way round. The pair rides a `left` row and only there: on a meter that fills, full means
-blocked, and `nothing_used` would have said the opposite of it — which is what Toxicity's row said
-while it was misclassified. Detailed
+Those rows answer `none committed` or `some committed` instead — the same bit, in words that cannot
+be read the wrong way round and that need no glossary. The pair rides a `left` row and only there:
+on a meter that fills, full means blocked, and `none committed` would have said the opposite of it —
+which is what Toxicity's row said while it was misclassified. Detailed
 factor math will belong to a future Details-panel tool; it is not leaked through world rows.
 
 Research rows distinguish the native evaluator's base and effective requirement levels. Their
@@ -1416,14 +1425,17 @@ whether to print that line at all.
 
 #### A glyph's `effects`
 
-One entry per authored modifier slot the game would print: `property`, the `statistic` or `variable`
-it moves it on, `modifierType`, `amount`, `order`. A `GlyphSO` carries fifteen inline `ValueModifier`
-slots and nearly all are empty on any one glyph, so a glyph that fills none carries no block rather
-than an empty one.
+One entry per authored modifier slot the game would print: the `statistic` or `variable` it moves it
+on, `modifierType`, `amount`, `order`. A `GlyphSO` carries fifteen inline `ValueModifier` slots and
+nearly all are empty on any one glyph, so a glyph that fills none carries no block rather than an
+empty one.
 
-`property` is the glyph's own slot name and is on every entry, because the target does not tell two
-entries apart: `spellCooldown` and `spellBaseCooldown` are both printed under the Cooldown statistic
-and are different factors with different arithmetic.
+**No entry carries the slot's own field name.** `GlyphSO.GetQuantityTooltipNodes` prints every
+non-empty slot through `AttributeSO.CreateNamedNode` on the attribute the `GlobalVariables`
+accessor returns, so the word the tooltip prints *is* the edge's own name — `Cost`, `Cooldown`,
+`Power`. Two slots that resolve to one statistic — `spellCooldown` and `spellBaseCooldown` both
+reach Cooldown — are two lines on that tooltip and two entries here, told apart by their
+`modifierType`, `amount` and `order`, which is how the screen tells them apart too.
 
 **Every slot the game gives a target names it.** Ten of the fifteen resolve through
 `AttributeSO.globalDefinition` to a `statistics` row, taken from the literals
@@ -1431,9 +1443,10 @@ and are different factors with different arithmetic.
 `statistic` edge. Four are printed against a `DoubleVariable` the game reads off the player — the
 critical and echo rating and effect slots — and carry a `variable` edge instead, read through the
 `Player` accessor the game itself reads them through rather than by matching a name here. The
-fifteenth, `creationCostMod`, is never printed as a named factor at all: it is applied straight to a
-resource cost list, which is not an entity this surface publishes, so it carries its slot and its
-three numbers and no edge. Inventing one would hand a reader an edge the game does not author.
+fifteenth is never printed as a named factor at all: it is applied straight to a resource cost list,
+which is not an entity this surface publishes, so in place of an edge it says what it moves in
+words — `affects: what the spell costs to create` — beside its three numbers. Inventing an edge
+would hand a reader one the game does not author.
 
 #### Every levelable thing's `levelEffects`
 
@@ -1467,7 +1480,9 @@ one publishes it rather than silently losing it.
 
 `discovery-trees` is the pre-decision surface for `game_discover`'s `offer_*` modes; attempting an
 action is never the way to learn its cost or choices. Every row names the tree UUID/type, semantic
-mode, rerolls left, discovered count, and whether discoveries remain. Authoring/debug members and
+mode, rerolls left, discovered count, and whether discoveries remain. A crafting tree also says its
+`actionTime`, and says it as a duration through the same clock every countdown on this surface uses
+(`2.72s`) rather than as a bare number of seconds that a caller has to guess the unit of. Authoring/debug members and
 duplicate identity (`treeId`, overrides, debug mode, and bonus-level cost) are intentionally absent.
 The Discovery Tree is a transient in-game event rather than a standing page, which is why its
 lifecycle lives inside the one discovery tool instead of a permanent tool of its own.
@@ -1491,8 +1506,9 @@ These values are copied during the shared 250-millisecond world capture from lif
 delegates for native visibility, immediate-required state, current choices, exact next cost,
 affordability, and resource true quantity. The MCP worker only projects the immutable row. A choice
 UUID must resolve in the same generation as an alchemy recipe, equipment, glyph, ritual, spell
-recipe, or time rune. If it does not, only the implicated tree read returns
-`discovery_offer_read_incomplete` with `implicatedOffers`; the UUID is never silently omitted.
+recipe, or time rune. If it does not, the tree's `world_get` returns
+`discovery_offer_read_incomplete` with `implicatedOffers` and the tree's row on a page carries the
+`incomplete` sentence instead; the UUID is never silently omitted.
 Current offers are also resolvable through `world_get`, including authored
 metadata and applicable discovery predicates.
 
@@ -1500,9 +1516,12 @@ metadata and applicable discovery predicates.
 
 Every `alchemy-recipes`, `equipment`, `rituals`, `spell-recipes`, `time-runes`, and `augment-glyphs`
 row has one `discover` decision from the native `IDiscoverable` evaluator. A row the discovery page
-does not draw answers the same verb rather than omitting the block, and the refusal names the Recipe
-Book it is waiting on — *It needs the Formation recipe book, which is not owned* — because a caller
-cannot tell a missing block from a row nobody evaluated. A discovery decision names whether the entity
+does not draw answers the same verb rather than omitting the block, because a caller cannot tell a
+missing block from a row nobody evaluated. The press names the Recipe Book it is waiting on for all
+six kinds, and so does a hidden `spell-recipes` row — *It needs the Expansion recipe book, which is
+not owned* — because that row publishes the glyph → book → `owned` edges the sentence is read from.
+The other five kinds publish no book edge, so their rows say the general sentence rather than naming
+a book from evidence the world does not carry. A discovery decision names whether the entity
 is visible, already discovered, required for downstream play, currently discoverable, and
 affordable. Its ordered `costs` pair each named resource's screen-formatted `cost` with the same
 canonical `spendableAmount` used everywhere else. Failed decision axes carry a stable reason;
@@ -1667,7 +1686,9 @@ one instance field and the game draws it as owned or not. Available decisions in
 the exact named native usage cost and current spendable amount as `costs`; a control the game
 levels for nothing says `free: true` — whether the game names no price at all (`costs: []`, kept
 rather than dropped) or names one whose every line is zero, which is the same fact to a caller and
-gets the same word. Inapplicable or unavailable controls do not publish priced ledgers.
+gets the same word. That `free` is about the *next* level, which is the level a row is about; a
+press answers about the levels it bought. Inapplicable or unavailable controls do not publish priced
+ledgers.
 
 Call `game_level_up(mode="purchase"|"bonus", uuid=..., amount=...)`. The tool derives the exact native type from
 the published category, repeats the visible button's live admission on Unity's main thread, and
@@ -1681,13 +1702,22 @@ levels than `amount` asked for, the answer adds
 under-delivery that read exactly like a satisfied `amount=1` let a caller batching its own
 progression accumulate drift with no signal.
 
-A level that asked for nothing says `free: true` rather than staying quiet, in the same word the
-row uses and about the level this call bought — not about the next one, whose price is a different
-fact and no reason to withhold this one. No other pricing rides the answer: what a level cost and
-what the next one asks are read from `world_get`, where the whole curve lives. The paid route checks the game's persistent usage cost but
+**A press says what the whole ask was charged.** `charged` pairs each named resource with the
+`cost` that press paid across every level it bought, and `chargedLevels` says how many levels that
+covers; `free: true` rides instead, in the same word the row uses, exactly when every level in the
+ask asked for nothing. `free` cannot be read off the standing before the press, because the game
+prices every rung on its own: a ×5 rune buy off a ladder whose first rung is free answered
+`free: true` while Time Advancements fell 94 → 84 → 74 → 64. A settled charge names the `cost` and
+the resource and nothing else — `spendableAmount` and `affordable` answer whether you *can* pay, and
+this press already did — and the curve is still read from `world_get`, where every level's price
+lives. The paid route checks the game's persistent usage cost but
 does not perform a one-time payment; the concrete native level callback applies its own
 usage/effects. Research development and spell mastery stay on `game_research` and
-`game_spell_mastery`, respectively.
+`game_spell_mastery`, respectively. A landed mastery press answers its `mastery` pair and, under
+`resources`, where each resource the mastery price names stood before and after. The block is
+`resources` and not `spent` on purpose: those are two published readings a later read would agree
+with, not an arithmetic of what was charged — a spell casting while the answer settles moves the
+same number.
 
 ### Agromancy
 
@@ -1881,7 +1911,9 @@ challenges queued for the reset, surviving rewards, the exact `reset.available` 
 
 `timeAdvancements` carries the game's three Time Advancement figures under the game's own three
 display names, **and each figure names the run it belongs to beside its number** — `starting=94
-(next reset's start)`, `previous=74 (this run's start)`, `new=20 (more than previous)`. The words
+(next reset's start)`, `previous=74 (this run's start)`, `new=20 (gain over this run's start)`. The
+three anchors are all noun phrases on purpose: `more than previous` is a claim, and beside a `new=0`
+it read as the wire asserting that nothing is more than something. The words
 are the screen's and stay so; the parenthetical is the suite's, because read cold the words point at
 the wrong runs and a live round read `starting` as this run's own start, called the wire
 contradictory against this doc, and only unpicked it a paragraph later. `starting` is "Starting Time
@@ -1945,7 +1977,10 @@ The MCP-only offer sequence is seven calls when two offers need explanations:
    `selectedOffer`. It omits `offers`: a selection changes which offer is held, not what is
    offered, and the caller just picked from that list.
 6. Call `offer_confirm` with the same UUID; its terminal response is the Idle tree plus the next
-   initiate costs. There are no post-mutation `world_get` calls, snapshot tokens, or receipt polls.
+   initiate costs, and — when the confirmed offer is a spell recipe the game discovered and loaded —
+   the same `loadout` block a by-row `game_discover confirm` ends with. One discovery has one
+   post-state whichever route reached it. There are no post-mutation `world_get` calls, snapshot
+   tokens, or receipt polls.
 
 ### Spell discovery and loadout-add loop
 
@@ -1966,9 +2001,11 @@ own screen has: `screen_locked` when Magic > Spellbook > Unlock is not unlocked,
 `components_unavailable` when the game builds the recipe from glyphs and it names none,
 `not_visible`, `discovery_unavailable`, or `unaffordable`.
 
-Where the page says `available: yes` it also names `verbDecides` — the gates only a live resolution
-settles, in the order the verb applies them: usage budget, augment requirements.
-The page predicts what it can read and promises nothing about the rest; it never
+Where the page says `available: yes` it also says under `notYetChecked`, in one sentence, what only
+the press settles: whether the spell these augments make fits the loadout's spell weight, and
+whether the augments meet their own requirements. It is a sentence and not a list of tokens,
+because a list of two words a reader has never seen sends them looking for a vocabulary page that
+does not exist. The page predicts what it can read and promises nothing about the rest; it never
 states a rule the game's add path does not have. The unique-spell rule was a fourth entry until the
 world published the fact it reads: every equipped instance of this recipe is on this same row under
 `equipped`, each carrying `isLoadoutUnique`, so a caller settles the rule before it calls rather
@@ -2010,7 +2047,7 @@ The MCP-only base-recipe sequence is:
 2. For an undiscovered recipe, call `game_discover(mode="preview", uuid=...)` with that row's own
    uuid and check the admission, price, and whether the press would also load the spell, then
    repeat the call with `mode:"confirm"`. The response reports the discovery transition and, when
-   the game loaded the new spell, the slot it went into.
+   the game loaded the new spell, the `loadout` block naming the bar slot it went into.
 3. If an equipped instance is wanted, call
    `game_spell_loadout(mode="preview", uuid=..., glyphs=[...])`. This read resolves and prices the
    submitted layout through the same native manager methods used by add, without touching the
@@ -2060,10 +2097,12 @@ the count it may be used to — and it rides the decision whether that decision 
 the recipe the equipped spell was baked from, its slot, active cast/ready/attune state when
 applicable, whether it can be removed right now, `isLoadoutUnique`, and whether that spell can move
 at all. A blocked `remove` says `screen_locked` when Magic > Spellbook > Loadout is not unlocked,
-and otherwise which of the game's own three gates said no: `cast_in_progress`
-while the spell is casting or readying a cast, and `spell_recharging` below full charges — which
-also carries `charges` as the screen prints it and `nextChargeIn` while a cooldown is running,
-because the row itself prints no charge count. Where it can
+and otherwise which of the game's own three gates said no. The game answers a blocked removal with
+one popup for two of them — *Cannot remove a spell that is still recharging.* — so both sentences
+open in its words and then say which: `cast_in_progress` while the spell is casting or readying a
+cast, and `spell_recharging` below full charges, which also carries `charges` in the one spelling
+every surface uses (`2 of 3`) and `nextChargeIn` as a duration while a cooldown is running, because
+the row itself prints no charge count. Where it can
 move is the slot list, which is one read for the whole bar: inlined per spell, explaining eight
 spells delivered the same eight-slot roster eight times. Augment choices
 appear only on a discovered recipe's `loadoutAdd` decision. `loadBudget` — `used`, `maximum`,
@@ -2585,9 +2624,11 @@ queries for the whole category unavailable. The deliberate exception is an unmod
 requirement leaf: the collector publishes that leaf with its owner UUID, container, ordinal, and
 runtime condition type. When those rows reconcile exactly with the skipped count, `world_get` and
 `world_list` keep other owners authoritative, while `world_search` localizes the evidence only when
-a returned stable entity owns the leaf. An entity get/list/search that touches the affected owner
-returns that row with `status: unavailable`, `reasonCode: entity_data_incomplete`, and exact
-`implicatedSkippedRows`; unaffected rows remain ordinary available results. A UUID found only in a composite row
+a returned stable entity owns the leaf. A `world_get` on the affected owner
+returns it with `status: unavailable`, `reasonCode: entity_data_incomplete`, and exact
+`implicatedSkippedRows`; the same owner's row on a `world_list` or `world_search` page keeps its own
+columns and carries the `incomplete` sentence, which points back at that `world_get`. Unaffected
+rows remain ordinary available results either way. A UUID found only in a composite row
 remains outside search coverage and is diagnosed through `world_list`. If even one skipped read cannot
 be tied to a published owner/leaf, the category-global refusal remains. Derived tables also require
 every upstream collection report to be clean.
@@ -2744,6 +2785,15 @@ only the fact, not a second opinion about it. Two classes for one fact make the 
 for control flow: a caller branching on one runs a different program than a caller branching on the
 other.
 
+**A uuid handed to the wrong tool is answered with the verb that does take it.** The refusal names
+the category the entity lives under and the tool whose player action reaches it, and that pointer is
+derived from the entity's own capabilities together with its live state rather than from the order
+its category happens to declare them. A time rune that is already discovered is pointed at
+`game_level_up`; one that is neither discovered nor levelled is pointed at both — *Studious Persist
+(eace1e) lives under time-runes; use game_discover and game_level_up for its player actions*.
+Answering with the first declared verb sent a round to a tool whose own row, on the same call, read
+`discover: no (ERR_STATE): This is already discovered.`
+
 **A no with no axis is a lock, not a refusal.** A read that publishes `available: false` and names
 no reason is the game holding something shut and publishing no condition for it, so it answers
 `ERR_LOCKED` and says exactly that. It used to answer `ERR_REFUSED` and a sentence announcing it had
@@ -2868,7 +2918,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `components_unavailable` | The game builds this from glyphs and it names none, so no discovery screen ever draws a Discover button for it — `UIDiscoverablePage.IsGlyphSelectionValid` starts at `selectedGlyphs.Count > 0`. The whole core-glyph vocabulary it replaced (`recipe_has_no_core_glyph`, `core_glyph_not_published`, `core_glyph_augments_only`, `core_glyph_not_owned`, `core_glyph_not_leveled`) went with the component resolver that produced it | `discover` decisions, `game_discover confirm` |
 | `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so nothing was submitted and nothing was spent. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `augment_slots_exceeded` | The layout names more different augments than "Max Spell Augment Slots" holds, which is the only ceiling the load path has. It replaces `layout_resolves_to_other_spell` and `recipe_not_offered`, which belonged to a layout matcher this verb no longer runs | `game_spell_loadout preview`, `game_spell_loadout add` |
-| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen and the upgrade that opens it | `spell-recipes` loadout-add and `discover` decisions, `augment-glyphs` `discover` and `purchase` decisions, `rituals`, `equipment`, `time-runes` and `alchemy-recipes` `discover` decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move`, `game_discover confirm` |
+| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen by the route a player walks to it — *Rituals > Discover is not unlocked yet, so the game draws no row for this.* One table maps a view to its breadcrumb, so a row and the press it predicts cannot spell one screen two ways; a view that table does not pin keeps the unnamed sentence rather than pointing at the wrong page | `spell-recipes` loadout-add and `discover` decisions, `augment-glyphs` `discover` and `purchase` decisions, `rituals`, `equipment`, `time-runes` and `alchemy-recipes` `discover` decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move`, `game_discover confirm` |
 | `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `discover` decisions on an augment glyph the game never offers, `game_discover` on a uuid no discovery screen draws a row for |
 | `projection_refused` | The suite's own resource-rate policy refuses the assignment; the game did not | `game_concept` |
@@ -3078,7 +3128,7 @@ absence is spelled:
 | `upgrades` | `affordable` | `unpriced` | — |
 | `structures` | `affordable` | `unpriced` | — |
 | `resources` | `capacity`, `atCapacity` | `uncapped` | — |
-| `resources` | `atCapacity` on a `meter: left` row | `nothing_used` / `some_used` | — |
+| `resources` | `atCapacity` on a `meter: left` row | `none committed` / `some committed` | — |
 | `purchase-costs` | `spendableAmount`, `affordable` | `unevaluated` | — |
 | `alchemy-instances` | `drainRatio` | `unreadable` | `drainReadable` |
 | `alchemy-loadout` | `slot` | `unslotted` | — |
@@ -3124,8 +3174,12 @@ an error with no exceptions.
 The declaration is enforced rather than described. Every row a hand-written projection builds is
 checked against its category's set as it is built, so a column left off one row or invented for
 another refuses the read instead of reaching a page — the same loudness a category with no scan
-projection already has. A row the suite could not fully read is a different shape, not a shorter
-one: it keeps the whole declared set under `partialRow` and states the incompleteness beside it.
+projection already has. A `world_get` the suite could not fully read is a different shape, not a
+shorter one: it keeps the whole declared set under `partialRow` and states the incompleteness beside
+it. **A page row is never that shape.** It keeps its own declared columns and adds one
+`incomplete` sentence, because a read whose whole job is a table of rows cannot answer with a
+refusal block in place of most of page one — which is what an unmodelled condition gating a third
+of the upgrades in a mature save produced.
 
 An identity is a handle and a name, and nothing else. The asset name (`internalName`), the runtime
 type (`nativeType`) and the category the type implies are catalog-browsing facts: the `world_get`
@@ -3330,6 +3384,14 @@ answering `ready: yes, cooldown: 0` invited the press this same tool then refuse
 call. Whether a press would land is not answerable from a published world at all: the remaining
 terms are a live per-spell target-selector query and a global targeting interaction, and no world
 publication holds either.
+
+**A fire says the instant the spell is in.** Where the press left the spell short of full charges
+the response carries `charges` in the one spelling every surface uses (`1 of 3`) and `nextChargeIn`
+as a duration; at full charges it carries neither. Present exactly when the spell is short is a rule
+a caller can predict, unlike a pair that appeared whenever the settlement window happened to catch a
+number moving — two of one round's 144 casts. There is no `cooldown` field: it read no charge timer
+of the game's, so it answered `0` on all 144 while the spell was recharging, and a number no screen
+shows is worse than silence.
 
 `fire` takes an optional `charge`, default false, which is the player's held cast button: the spell
 charges instead of firing at once, and `release` lets it go, landing more power the longer it was
@@ -3728,8 +3790,9 @@ to touch one argues for it first. Each line names where the shape is specified.
     resource — whichever verb built the row and whichever member the producer read it from —
     *How a response reads*.
 
-Six shapes this list used to protect are retired, and a round that reintroduces one is undoing a
-ruling rather than restoring a contract:
+Retired shapes are listed below, and a round that reintroduces one is undoing a ruling rather than
+restoring a contract. The first six were entries in the list above; the rest never were, and are
+collected here so that one page answers what a name on an older transcript meant:
 
 - **The cast-counter echo.** A cast press answered with a counter that had not moved yet, because
   the game writes it when a cast finishes rather than when one is pressed — so the pair reported no
@@ -3745,8 +3808,10 @@ ruling rather than restoring a contract:
   every identity for 21.1% of one live round and nothing read them. They live on the `world_get`
   block now, and nowhere else — *Presence semantics*.
 - **`paid[]` and `costPerLevel[]`.** A commit reports the levels it bought; what a level costs and
-  what the next one asks are read on `world_get` and `purchase-costs`, where the whole curve is —
-  *Presence semantics*.
+  what the next one asks are read on `world_get` and `purchase-costs`, where the whole curve is. The
+  `charged` total a press answers with is not that curve returning: it is one settled figure per
+  resource for the whole ask, which no read can reconstruct because the game prices every rung on
+  its own — *Presence semantics*.
 - **`required` on a discovery block.** `IDiscoverable.IsDiscoverRequired()` printed as a bare
   `required: true` beside a discovery verdict that turned on none of it — a fact about the tree
   holding the entity, worn as a fact about the entity. The tree's own row says it in a sentence
@@ -3756,6 +3821,34 @@ ruling rather than restoring a contract:
   is not showing this yet" — which the open screen contradicted whenever a page drew a bar for the
   resource. `ResourceSO.visible` is ledger membership, it rides the row as `inLedger` with a
   sentence that says so, and a resource carries no predicate block at all — *Presence semantics*.
+- **`cooldown` on a cast post-state.** It read no charge timer of the game's, so it answered `0` on
+  every one of 144 casts of a live round while the spell was recharging. A fire carries `charges`
+  and `nextChargeIn` exactly while the spell is short of full charges, and neither when it is not —
+  *Presence semantics*.
+- **`verbDecides`.** Two bare tokens beside `available: yes`, naming the gates only the press
+  settles. The tokens belonged to no published vocabulary, so a reader went looking for a glossary
+  page that does not exist. One sentence under `notYetChecked` says the same thing and needs no page
+  — *Spell discovery and loadout-add loop*.
+- **`property` on a glyph's `effects`.** The `GlyphSO` slot's own field name, beside an edge that
+  already names what the tooltip prints. Two spellings of one fact, and the retired one was the
+  spelling the game never shows — *A glyph's `effects`*.
+- **`nothing_used` and `some_used`.** The right bit in the wrong register: snake-case tokens on a
+  row a person reads. `none committed` and `some committed` are the same bit in words — *Tool
+  surface*.
+- **The refusal block inside a page row.** A `world_list` or `world_search` row whose entity an
+  unmodelled condition implicated was replaced by a `status`, an `ERR_` code, a reason, the row
+  itself demoted to `partialRow`, and every skipped leaf inline — which on a mature save is most of
+  page one. A row keeps its own columns and adds one `incomplete` sentence; the block belongs to
+  `world_get`, which is where that sentence sends a reader — *How a response reads*.
+- **The overview's list of implicated owners.** `collection.gap` named every entity an unmodelled
+  condition gates: two hundred and forty names on every overview call, for one fact that does not
+  change between calls. It says how many leaves, on how many entities, which classes, and the two
+  reads that hold the rest — *How a response reads*.
+- **The class name and the raw id in a math-check finding.** *the ResourceRequirement condition on
+  c508d6a2-d569-4b22-927a-050edad2dad0 is not modelled*, three times in one answer. The class is
+  named once by the check that accounts for the suite's coverage; a per-check line names the entity
+  as every other sentence does and says what went unchecked — *Checking the suite's math against the
+  game*.
 
 ## Screenshots and navigation
 
@@ -4088,6 +4181,15 @@ The rules that make it read that way:
   Two count something else — targeting samples only while a native request is open, crafting stations
   count instances of content this build never creates — so they are named on the non-scoring
   `Empty on purpose:` line with the reason, instead of accusing the build of losing them.
+- **A check that could not read something says what went unchecked, not which class it is.** An
+  `INCOMPLETE` per-check line names the entity the way every other sentence on this surface names
+  one — name and short handle — and then the decision the pass therefore has no answer for, in the
+  words of the thing on screen: *a condition this suite does not model holds them, first on
+  Scholarism (c508d6), so whether the game shows those upgrades at all is unchecked.* Which C# class
+  this build authors that the suite does not model is a real fact and is reported exactly once, by
+  the `Category traversal` check that accounts for the suite's coverage. Repeating it per check, as
+  *the ResourceRequirement condition on c508d6a2-d569-4b22-927a-050edad2dad0 is not modelled*, spent
+  three lines of one answer on a class name and a raw id and said nothing about what went unchecked.
 - **One line per distinct finding, however many rows it was found on.** A check writes a row per fact
   it walked; where the same sentence comes back on many rows it is said once with the count in front
   of it (`6× …`), keeping every uuid and every distinct finding. One defect on a per-owner table once
