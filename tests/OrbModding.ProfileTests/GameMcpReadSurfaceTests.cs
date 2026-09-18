@@ -1421,16 +1421,19 @@ public sealed class GameMcpWorldEnvelopeTests
             10));
         Assert.Null(affectedSearch["status"]);
         Assert.Null(affectedSearch["reasonCode"]);
+        // A hit is a row of a page, so it keeps its own columns and says the one thing that is
+        // missing. The refusal block it used to be swapped for lives on world_get.
         var affectedMatch = Assert.Single(affectedSearch["rows"]!.Values<JObject>());
-        Assert.Equal("unavailable", (string?)affectedMatch["status"]);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)affectedMatch["reasonCode"]);
-        var searchFailure = Assert.Single(
-            affectedMatch["implicatedSkippedRows"]!.Values<JObject>())!;
-        Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)searchFailure["uuid"]);
-        Assert.Null(searchFailure["ownerKind"]);
-        Assert.Equal(4, (int)searchFailure["ordinal"]!);
-        Assert.Null(searchFailure["conditionTypeName"]);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)searchFailure["reasonCode"]);
+        Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)affectedMatch["uuid"]);
+        Assert.Equal("upgrades", (string?)affectedMatch["category"]);
+        Assert.Null(affectedMatch["status"]);
+        Assert.Null(affectedMatch["reasonCode"]);
+        Assert.Null(affectedMatch["partialRow"]);
+        Assert.Null(affectedMatch["implicatedSkippedRows"]);
+        Assert.Equal(
+            "One of this entity's requirements uses a condition this build does not " +
+            "model, so its graph is incomplete. world_get on this uuid names the requirement.",
+            (string?)affectedMatch["incomplete"]);
 
         var unaffectedGet = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             state,
@@ -1446,7 +1449,19 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal("unavailable", (string?)affectedGet["status"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)affectedGet["reasonCode"]);
         Assert.NotNull(affectedGet["partialRow"]);
-        Assert.Single(affectedGet["implicatedSkippedRows"]!.Values<JObject>());
+        // world_get is where the leaf itself is named, and it names it without putting the game's
+        // own class names into columns a caller reads.
+        var getFailure = Assert.Single(
+            affectedGet["implicatedSkippedRows"]!.Values<JObject>())!;
+        Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)getFailure["uuid"]);
+        Assert.Equal(4, (int)getFailure["ordinal"]!);
+        Assert.Null(getFailure["ownerKind"]);
+        Assert.Null(getFailure["conditionTypeName"]);
+        Assert.Null(getFailure["collectorReason"]);
+        Assert.Equal(
+            "One of this entity's requirements uses a condition this build does not model, so " +
+            "its graph is incomplete.",
+            (string?)getFailure["reason"]);
 
         var batch = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
             state,
@@ -1479,10 +1494,16 @@ public sealed class GameMcpWorldEnvelopeTests
         var pageRows = page["rows"]!.Values<JObject>().ToArray();
         Assert.Null(pageRows[0]["status"]);
         Assert.Equal(10, (int)pageRows[0]["maximum"]!);
-        Assert.Equal("unavailable", (string?)pageRows[1]["status"]);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)pageRows[1]["reasonCode"]);
-        Assert.NotNull(pageRows[1]["partialRow"]);
-        Assert.Single(pageRows[1]["implicatedSkippedRows"]!.Values<JObject>());
+        Assert.Null(pageRows[0]["incomplete"]);
+        Assert.Null(pageRows[1]["status"]);
+        Assert.Null(pageRows[1]["reasonCode"]);
+        Assert.Null(pageRows[1]["partialRow"]);
+        Assert.Null(pageRows[1]["implicatedSkippedRows"]);
+        Assert.Equal(10, (int)pageRows[1]["maximum"]!);
+        Assert.Equal(
+            "One of this entity's requirements uses a condition this build does not " +
+            "model, so its graph is incomplete. world_get on this uuid names the requirement.",
+            (string?)pageRows[1]["incomplete"]);
 
         var requirements = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(state, "entity-requirements", 0, 10));
@@ -1490,17 +1511,17 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Null(requirements["reasonCode"]);
         Assert.NotNull(requirements["rows"]);
         var requirementRow = Assert.Single(requirements["rows"]!.Values<JObject>());
-        Assert.Equal("unavailable", (string?)requirementRow["status"]);
-        var requirementFailure = Assert.Single(
-            requirementRow["implicatedSkippedRows"]!.Values<JObject>())!;
-        Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)requirementFailure["uuid"]);
-        Assert.Null(requirementFailure["conditionTypeName"]);
-        Assert.Null(requirementFailure["ownerKind"]);
-        Assert.Null(requirementFailure["collectorReason"]);
+        Assert.Null(requirementRow["status"]);
+        Assert.Null(requirementRow["implicatedSkippedRows"]);
         Assert.Equal(
-            "One of this entity's requirements uses a condition this build does not model, so " +
-            "its graph is incomplete.",
-            (string?)requirementFailure["reason"]);
+            "One of this entity's requirements uses a condition this build does not " +
+            "model, so its graph is incomplete. world_get on this uuid names the requirement.",
+            (string?)requirementRow["incomplete"]);
+
+        // The pin the whole item exists for: a page's rows carry no ERR_ token anywhere in them.
+        foreach (var rendered in new[] { page, requirements, affectedSearch })
+            foreach (var row in rendered["rows"]!.Values<JObject>())
+                Assert.DoesNotContain("ERR_", row!.ToString(), StringComparison.Ordinal);
 
         // Which conditions this build authors that the suite cannot model does not change between
         // calls, and the overview is read far more often than the rows are. It says how many, of
@@ -1508,9 +1529,13 @@ public sealed class GameMcpWorldEnvelopeTests
         var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(state));
         var gap = (string?)overview["collection"]!["gap"];
         Assert.NotNull(gap);
-        Assert.Contains("1 requirement leaves of type ListRequirement", gap);
-        Assert.Contains(GameMcpTestHarness.Handle(affectedId), gap);
-        Assert.Contains("world_get", gap);
+        Assert.Equal(
+            "1 requirement leaf on 1 entity uses a condition this build authors and this suite " +
+            "does not model (ListRequirement), so those entities are never planned. world_list " +
+            "category=entity-requirements lists the leaves, and world_get on one of the " +
+            "entities names its own.",
+            gap);
+        Assert.DoesNotContain(GameMcpTestHarness.Handle(affectedId), gap);
         Assert.Null(overview["collection"]!["skippedEntities"]);
     }
 
@@ -1561,7 +1586,7 @@ public sealed class GameMcpWorldEnvelopeTests
     }
 
     [Fact]
-    public void SearchExcludesCompositeOnlyOwnersAndWorldListRetainsTheirLocalizedEvidence()
+    public void SearchExcludesCompositeOnlyOwnersAndWorldListSaysWhatItCouldNotModel()
     {
         var ownerId = Guid.Parse("b4505524-0000-4000-8000-000000000001");
         var scaling = default(WorldRequirementScaling);
@@ -1636,12 +1661,16 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Null(page["status"]);
         Assert.Null(page["reasonCode"]);
         var incompleteRow = Assert.Single(page["rows"]!.Values<JObject>());
-        Assert.Equal("unavailable", (string?)incompleteRow["status"]);
-        var failure = Assert.Single(
-            incompleteRow["implicatedSkippedRows"]!.Values<JObject>())!;
-        Assert.Equal(GameMcpTestHarness.Handle(ownerId), (string?)failure["uuid"]);
-        Assert.Equal(1, (int)failure["ordinal"]!);
-        Assert.Null(failure["conditionTypeName"]);
+        Assert.Null(incompleteRow["status"]);
+        Assert.Null(incompleteRow["reasonCode"]);
+        Assert.Null(incompleteRow["partialRow"]);
+        Assert.Null(incompleteRow["implicatedSkippedRows"]);
+        Assert.Equal(1, (int)incompleteRow["ordinal"]!);
+        Assert.Equal(
+            "One of this entity's requirements uses a condition this build does not " +
+            "model, so its graph is incomplete. world_get on this uuid names the requirement.",
+            (string?)incompleteRow["incomplete"]);
+        Assert.DoesNotContain("ERR_", incompleteRow.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

@@ -614,27 +614,9 @@ internal static class GameMcpWorldQuery
                 ? new JArray()
                 : LocalizedDiscoveryOfferImplications(
                     world, new HashSet<Guid> { identity });
-            if (local.Count == 0 && localOffers.Count == 0)
-            {
-                rows.Add(projected);
-            }
-            else
-            {
-                var incompleteRow = new JObject
-                {
-                    ["status"] = "not_available",
-                    ["code"] = local.Count > 0
-                        ? "entity_data_incomplete"
-                        : "discovery_offer_read_incomplete",
-                    ["reason"] = local.Count > 0
-                        ? "this row has incomplete published requirement evidence"
-                        : "this discovery tree has an offer absent from the published entity rows",
-                    ["partialRow"] = projected,
-                };
-                if (local.Count > 0) incompleteRow["implicatedSkippedRows"] = local;
-                if (localOffers.Count > 0) incompleteRow["implicatedOffers"] = localOffers;
-                rows.Add(incompleteRow);
-            }
+            rows.Add(local.Count == 0 && localOffers.Count == 0
+                ? projected
+                : WithIncompleteNote(projected, IncompleteRowNote(local.Count > 0)));
             estimatedBytes += rowBytes;
         }
 
@@ -796,6 +778,49 @@ internal static class GameMcpWorldQuery
     /// spell their type line as a constant — and an empty cell prints as the absence mark rather than
     /// borrowing a word from somewhere the player would not recognise it.
     /// </remarks>
+    /// <summary>
+    /// What a page row says when the world could not publish all of what gates its entity.
+    /// </summary>
+    /// <remarks>
+    /// A row of a list stays a row. It used to be swapped for a refusal block — a status, a code
+    /// that reads <c>ERR_</c> on the wire, a reason, the row itself demoted to <c>partialRow</c>
+    /// and the whole leaf list inline — once for every entity an unmodelled condition gates, which
+    /// on a mature save is most of page one. The row's own columns are what the page is for; one
+    /// sentence says what is missing, and the read that holds the detail is <c>world_get</c>.
+    /// </remarks>
+    private static string IncompleteRowNote(bool requirementGap) =>
+        requirementGap
+            ? GameMcpDecisionReason.For("unmodeled_requirement_leaf") +
+              " world_get on this uuid names the requirement."
+            : GameMcpDecisionReason.For("offer_not_in_explainable_world");
+
+    /// <summary>
+    /// The note, on a hand-written projection or on a reflected one, without either losing what it
+    /// already carries.
+    /// </summary>
+    private static GameMcpValue WithIncompleteNote(GameMcpValue projected, string note)
+    {
+        switch (projected)
+        {
+            case GameMcpObject frozen:
+            {
+                var row = new JObject();
+                row.CopyFrom(frozen);
+                row["incomplete"] = note;
+                return row.Freeze();
+            }
+            case GameMcpProjectedDomainValue reflected:
+            {
+                var blocks = new JObject();
+                if (reflected.Attached is not null) blocks.CopyFrom(reflected.Attached);
+                blocks["incomplete"] = note;
+                return reflected.With(blocks.Freeze());
+            }
+            default:
+                return projected;
+        }
+    }
+
     private static GameMcpValue ProjectSearchMatch(
         GameMcpWorldCategory category,
         Guid identity,
@@ -4824,28 +4849,15 @@ internal static class GameMcpWorldQuery
                 world, new HashSet<Guid> { hit.Identity });
             var matchBytes = EstimateListRowBytes(world, category, row, projected);
             GameMcpValue match;
+            // A search hit is a row of a page, so it wears what a list row wears.
             if (local.Count == 0 && localOffers.Count == 0)
             {
                 match = projected;
             }
             else
             {
-                var incomplete = new JObject
-                {
-                    ["status"] = "not_available",
-                    ["code"] = local.Count > 0
-                        ? "entity_data_incomplete"
-                        : "discovery_offer_read_incomplete",
-                    ["reason"] = local.Count > 0
-                        ? "this match has incomplete published requirement evidence"
-                        : "this discovery tree has an offer absent from the published entity rows",
-                    ["partialRow"] = projected,
-                };
-                if (local.Count > 0) incomplete["implicatedSkippedRows"] = local;
-                if (localOffers.Count > 0) incomplete["implicatedOffers"] = localOffers;
-                match = incomplete.Freeze();
-                matchBytes = checked(
-                    matchBytes + 192 + local.Count * 128 + localOffers.Count * 128);
+                match = WithIncompleteNote(projected, IncompleteRowNote(local.Count > 0));
+                matchBytes = checked(matchBytes + 192);
             }
             if (rows.Count > 0 && !whole &&
                 estimatedBytes + matchBytes > MaximumListResponseBytes)
@@ -5172,31 +5184,31 @@ internal static class GameMcpWorldQuery
         if (TryLocalizedRequirementFailures(world, out var implicated) &&
             implicated.Length > 0)
         {
-            // The overview is read every few calls and this evidence is the same bytes every time:
-            // which condition classes the collector cannot localize is a fact of the build. The
-            // summary says how many and of what, names the entities that carry them, and points at
-            // the read that holds every leaf — world_get on an implicated owner answers
-            // entity_data_incomplete with the full implicatedSkippedRows.
-            var owners = new List<string>();
+            // The overview is read every few calls and this evidence is the same bytes every
+            // time. It used to name every owner, which on a mature save is a wall of two hundred
+            // and forty names on every single call, for a fact that is one fact: this build has a
+            // condition the suite does not model, and the entities carrying it cannot be planned.
+            // How many, on how many entities, which class, and the two reads that hold the rest.
+            // The class name stays: it is the suite saying what it does not model, which is the
+            // one thing nobody else can say, and it is not a column on an entity's row.
             var seenOwners = new HashSet<Guid>();
             var nativeTypes = new List<string>();
             var seenTypes = new HashSet<string>(StringComparer.Ordinal);
             for (var index = 0; index < implicated.Length; index++)
             {
                 var leaf = implicated[index];
-                if (seenOwners.Add(leaf.OwnerId))
-                {
-                    owners.Add(
-                        GameMcpEntityHandle.Name(leaf.OwnerId, world.EntityIdentities) + " " +
-                        GameMcpEntityHandle.Format(leaf.OwnerId));
-                }
+                seenOwners.Add(leaf.OwnerId);
                 if (seenTypes.Add(leaf.ConditionTypeName)) nativeTypes.Add(leaf.ConditionTypeName);
             }
             result["gap"] =
                 implicated.Length.ToString(CultureInfo.InvariantCulture) +
-                " requirement leaves of type " + string.Join(", ", nativeTypes) +
-                " could not be localized; world_get on " + string.Join(", ", owners) +
-                " returns every leaf";
+                (implicated.Length == 1 ? " requirement leaf on " : " requirement leaves on ") +
+                seenOwners.Count.ToString(CultureInfo.InvariantCulture) +
+                (seenOwners.Count == 1 ? " entity uses " : " entities use ") +
+                "a condition this build authors and this suite does not model (" +
+                string.Join(", ", nativeTypes) + "), so those entities are never planned. " +
+                "world_list category=entity-requirements lists the leaves, and world_get on one " +
+                "of the entities names its own.";
         }
         return result;
     }
