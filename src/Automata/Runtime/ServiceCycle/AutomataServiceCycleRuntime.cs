@@ -1111,6 +1111,16 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         GameWorldState world,
         in ServiceActionResult result)
     {
+        // The cast boundary asks the game's own CanCast() and binds no charge reader, so its
+        // refusal could only report that the game had said no. The published slot holds the two
+        // facts that say why, so the sentence is written where they are.
+        if (command.Kind == GameMcpCommandKind.Cast &&
+            result.Code == AutoCastActionResultCodes.SpellNotReady)
+        {
+            var sentence = GameMcpWorldQuery.CastNotReadyReason(
+                world, command.Amount - 1, command.TargetId);
+            return sentence.Length == 0 ? null : sentence;
+        }
         if (command.Kind != GameMcpCommandKind.Purchase ||
             !string.Equals(command.Mode, "upgrade", StringComparison.Ordinal) ||
             result.Disposition != ServiceActionDisposition.Skipped ||

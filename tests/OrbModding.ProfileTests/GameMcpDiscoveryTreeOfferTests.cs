@@ -474,6 +474,13 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             (string?)unaffordable["row"]!["initiate"]!["costs"]![0]!["cost"]);
         Assert.Equal("100",
             (string?)unaffordable["row"]!["initiate"]!["costs"]![0]!["spendableAmount"]);
+
+        // The price row reads in the screen's rounding, and a round read `cost: 5 of 5 Knowledge
+        // affordable=no` off 4.6 Knowledge and went looking for a suite bug. The sentence carries
+        // the same two numbers game_purchase's refusal does, so a near miss reads as a near miss
+        // rather than as "The named resources fall short of the price."
+        Assert.Equal("Needs 1.1e24 Knowledge (have 100).",
+            (string?)unaffordable["row"]!["initiate"]!["reason"]);
     }
 
     /// <summary>

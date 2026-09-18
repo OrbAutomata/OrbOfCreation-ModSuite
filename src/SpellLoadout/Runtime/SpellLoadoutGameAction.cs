@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.GameMath;
 
 namespace OrbAutomata;
 
@@ -196,19 +197,20 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (native.IsCasting(spell) || native.IsReadyingCast(spell))
         {
             refusal = SpellLoadoutPreflight.CastInProgress;
-            reason = name + " is mid-cast. The game answers a removal now with " +
-                "\"Cannot remove a spell that is still recharging.\" " +
-                "Wait for the cast to finish, then remove it.";
+            reason = name + " is still recharging: it is mid-cast, and the game answers a " +
+                "removal now with \"Cannot remove a spell that is still recharging.\" " +
+                "Wait for the cast to finish.";
             return false;
         }
         if (!native.IsAtMaxCharges(spell))
         {
             var maximum = native.ReadMaximumCharges(spell);
             refusal = SpellLoadoutPreflight.SpellRecharging;
-            reason = name + " is still recharging, and the game only removes a spell at full " +
-                "charges: \"Cannot remove a spell that is still recharging.\" It holds " +
+            reason = name + " is still recharging: it holds " +
                 native.ReadCurrentCharges(spell) + " of " + maximum + " charges" +
-                NextChargeClause(native, spell) + ". Remove it once it reads " + maximum +
+                NextChargeClause(native, spell) +
+                ". The game only removes a spell at full charges — \"Cannot remove a spell that " +
+                "is still recharging.\" — so remove it once it reads " + maximum +
                 " of " + maximum + ".";
             return false;
         }
@@ -233,9 +235,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
     {
         var remaining = native.ReadCooldownRemaining(spell);
         return remaining > BigDouble.Zero
-            ? ", and the next one is " +
-                Math.Round(remaining.ToDouble(), 1).ToString(CultureInfo.InvariantCulture) +
-                "s away"
+            ? ", next in " + GameDurationText.Accurate(remaining)
             : string.Empty;
     }
 

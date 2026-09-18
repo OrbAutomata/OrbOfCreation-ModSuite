@@ -22,10 +22,6 @@ internal static class GameMcpWorldQuery
     private const int TargetingCandidatePageSize = 25;
     private const int MaximumPageSize = 200;
 
-    /// <summary>The two thresholds the game's own time format switches on: a minute, and a Julian year.</summary>
-    private static readonly BigDouble ClockMinute = new BigDouble(60d);
-    private static readonly BigDouble ClockYear = new BigDouble(31557600d);
-
     /// <summary>
     /// A category holding at most this many rows is read whole, in one call, when the caller named
     /// no page size of its own.
@@ -250,47 +246,55 @@ internal static class GameMcpWorldQuery
         ultraPrecise ? RunClock(seconds) : CoarseClock(seconds);
 
     /// <summary>
-    /// <c>Utils.BeautifyTimeAccurate</c>: one unit, and nothing under it. Its second branches lose
-    /// a decimal each decade — <c>1.23s</c>, <c>12.3s</c>, <c>123s</c> — and its unit thresholds are
-    /// the game's own rather than the obvious ones: seconds up to 1000, minutes up to 60000, hours
-    /// up to 86400000. Two hours reads <c>128m</c> on the game's screens, so it reads <c>128m</c>
-    /// here.
+    /// The game's two duration formats live in <see cref="GameDurationText"/>, because the
+    /// spell-loadout boundary prints countdowns too and a countdown must not read two ways.
     /// </summary>
-    private static string CoarseClock(BigDouble seconds)
+    internal static string CoarseClock(BigDouble seconds) => GameDurationText.Accurate(seconds);
+
+    /// <summary>
+    /// What the game says about a spell that is not ready, in the game's own word for it.
+    /// </summary>
+    /// <remarks>
+    /// The game's popup for a blocked removal is "Cannot remove a spell that is still recharging.",
+    /// and it says that whether the spell is mid-cast or merely below full charges. The read side
+    /// answered the first case with "mid-cast" and the verb answered the second with "still
+    /// recharging", so one moment wore two words and a round could not tell it was the same state.
+    /// The game's word wins, and the numbers the screen does not print ride with it.
+    /// </remarks>
+    internal static string RechargeClause(in WorldSpellSlot slot)
     {
-        if (seconds < BigDouble.Zero) return "-" + CoarseClock(BigDouble.Abs(seconds));
-        if (seconds < new BigDouble(10)) return Fixed(seconds, 2) + "s";
-        if (seconds < new BigDouble(100)) return Fixed(seconds, 1) + "s";
-        if (seconds < new BigDouble(1000)) return Fixed(seconds, 0) + "s";
-        if (seconds < new BigDouble(60000)) return Fixed(seconds / new BigDouble(60), 0) + "m";
-        if (seconds < new BigDouble(3600000)) return Fixed(seconds / new BigDouble(3600), 0) + "h";
-        if (seconds < new BigDouble(86400000)) return Fixed(seconds / new BigDouble(86400), 0) + "d";
-        return GameMcpNumberFormatter.Format(seconds / ClockYear) + "y";
-    }
-
-    private static string Fixed(BigDouble value, int decimals) =>
-        value.ToDouble().ToString(
-            "F" + decimals.ToString(CultureInfo.InvariantCulture),
-            CultureInfo.InvariantCulture);
-
-    private static string RunClock(BigDouble seconds)
-    {
-        if (seconds < BigDouble.Zero) return "-" + RunClock(BigDouble.Abs(seconds));
-        if (seconds < ClockMinute) return GameMcpNumberFormatter.Format(seconds) + "s";
-        if (seconds > ClockYear)
-            return GameMcpNumberFormatter.Format(seconds / ClockYear) + "y";
-
-        var total = (long)seconds.ToDouble();
-        var units = new[] { total / 3600L, total / 60L % 60L, total % 60L };
-        var text = new StringBuilder();
-        for (var index = 0; index < units.Length; index++)
-        {
-            if (text.Length == 0 && units[index] < 1) continue;
-            if (text.Length > 0) text.Append(':');
-            text.Append(units[index].ToString("D2", CultureInfo.InvariantCulture));
-        }
+        var text = new StringBuilder("it holds ")
+            .Append(slot.CurrentCharges.ToString(CultureInfo.InvariantCulture))
+            .Append(" of ")
+            .Append(slot.MaximumCharges.ToString(CultureInfo.InvariantCulture))
+            .Append(" charges");
+        if (slot.CooldownRemaining > BigDouble.Zero)
+            text.Append(", next in ").Append(CoarseClock(slot.CooldownRemaining));
         return text.ToString();
     }
+
+    /// <summary>
+    /// Why the game refused a cast, when the published slot holds the answer.
+    /// </summary>
+    /// <remarks>
+    /// The boundary asks the game's own <c>CanCast()</c> and has no charge reader of its own, so
+    /// its refusal could say only that the game had said no on its readiness terms — twenty-five
+    /// times in one round, never once with a number. The world publishes the charges and the
+    /// countdown for every equipped slot, so the sentence is written here, where they are.
+    /// </remarks>
+    internal static string CastNotReadyReason(GameWorldState world, int slotIndex, Guid recipeId)
+    {
+        if (!WorldSpellSlotLookup.TryFind(world.SpellSlots, slotIndex, out var slot) ||
+            !slot.Occupied || slot.SpellRecipeId != recipeId ||
+            slot.CurrentCharges >= slot.MaximumCharges)
+        {
+            return string.Empty;
+        }
+        return EntityIdentityFormatter.PlayerName(recipeId, world.EntityIdentities) +
+            " is still recharging: " + RechargeClause(in slot) + ".";
+    }
+
+    private static string RunClock(BigDouble seconds) => GameDurationText.UltraPrecise(seconds);
 
     internal static JObject ListCategories(GameMcpFrameContext state)
     {
@@ -6013,22 +6017,42 @@ internal static class GameMcpWorldQuery
             if (tree.Visible && hasNext && tree.NextItemCosts.Count > 0)
             {
                 var costs = new JArray();
+                var shortfalls = new List<(string, BigDouble, BigDouble)>();
                 for (var index = 0; index < tree.NextItemCosts.Count; index++)
                 {
                     var cost = tree.NextItemCosts[index];
                     var amount = SpendableAmount(
                         world, cost.ResourceId, cost.AvailableAmount);
+                    var affordable = CanAfford(
+                        world, cost.ResourceId, cost.Amount, cost.AvailableAmount);
                     costs.Add(new JObject
                     {
                         ["resourceId"] = cost.ResourceId.ToString("D"),
                         ["cost"] = new GameMcpDomainValue(
                             PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
                         ["amount"] = new GameMcpDomainValue(amount),
-                        ["affordable"] = CanAfford(
-                            world, cost.ResourceId, cost.Amount, cost.AvailableAmount),
+                        ["affordable"] = affordable,
                     });
+                    if (affordable) continue;
+                    var identity = EntityIdentityFormatter.Describe(
+                        cost.ResourceId, world.EntityIdentities);
+                    shortfalls.Add((
+                        identity.HasName ? identity.Name : cost.ResourceId.ToString("D"),
+                        PlayerFacingCost(world, cost.ResourceId, cost.Amount),
+                        amount));
                 }
                 initiate["costs"] = costs;
+
+                // The price row reads in the screen's rounding, and a round read `cost: 5 of 5
+                // Knowledge affordable=no` off 4.6 Knowledge and went looking for a bug. The
+                // sentence carries the same two numbers game_purchase's does, so the near miss is
+                // legible as a near miss.
+                var sentence = GameMcpDecisionReason.Shortfall(shortfalls);
+                if (sentence.Length > 0 &&
+                    (string?)initiate["reasonCode"] == "unaffordable")
+                {
+                    initiate["reason"] = sentence;
+                }
             }
             result["initiate"] = initiate;
         }
@@ -7215,6 +7239,11 @@ internal static class GameMcpWorldQuery
             {
                 ["available"] = false,
                 ["reasonCode"] = "cast_in_progress",
+                ["reason"] = EntityIdentityFormatter.PlayerName(
+                        slot.SpellRecipeId, world.EntityIdentities) +
+                    " is still recharging: it is mid-cast, and the game answers a removal now " +
+                    "with \"Cannot remove a spell that is still recharging.\" Wait for the cast " +
+                    "to finish.",
             };
         }
         else if (slot.CurrentCharges < slot.MaximumCharges)
@@ -7224,6 +7253,10 @@ internal static class GameMcpWorldQuery
                 ["available"] = false,
                 ["reasonCode"] = "spell_recharging",
                 ["charges"] = slot.CurrentCharges + "/" + slot.MaximumCharges,
+                ["reason"] = EntityIdentityFormatter.PlayerName(
+                        slot.SpellRecipeId, world.EntityIdentities) +
+                    " is still recharging: " + RechargeClause(in slot) +
+                    ". The game only removes a spell at full charges.",
             };
             if (slot.CooldownRemaining > BigDouble.Zero)
                 recharging["nextChargeIn"] = new GameMcpDomainValue(slot.CooldownRemaining);

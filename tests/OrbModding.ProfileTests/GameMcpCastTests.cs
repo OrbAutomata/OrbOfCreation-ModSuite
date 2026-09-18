@@ -430,6 +430,33 @@ public sealed class GameMcpCastTests
         false,
         frameContext: before);
 
+    /// <summary>
+    /// A cast the game refuses on readiness answers with the game's own recharge facts.
+    /// </summary>
+    /// <remarks>
+    /// One round met "the game refused the cast on its own readiness terms" twenty-five times and
+    /// never once with a number, while the loadout's removal refusal for the same state was
+    /// quoting charges and a countdown. The boundary binds no charge reader; the world publishes
+    /// both for every equipped slot, so the sentence is written there.
+    /// </remarks>
+    [Fact]
+    public void A_cast_the_game_calls_unready_names_its_charges_and_its_countdown()
+    {
+        var world = World(
+            casting: false, cancellationEnabled: true, charges: 0, maximumCharges: 3,
+            cooldownRemaining: new BigDouble(41d));
+
+        Assert.Equal(
+            RecipeId.ToString("D") + " is still recharging: it holds 0 of 3 charges, " +
+            "next in 41.0s.",
+            GameMcpWorldQuery.CastNotReadyReason(world, 0, RecipeId));
+
+        // At full charges the world holds no fact the sentence could carry, so it says nothing and
+        // the boundary's own account stands.
+        Assert.Equal(string.Empty, GameMcpWorldQuery.CastNotReadyReason(
+            World(casting: false, cancellationEnabled: true), 0, RecipeId));
+    }
+
     private static GameWorldState World(
         bool casting,
         bool cancellationEnabled,
@@ -439,7 +466,9 @@ public sealed class GameMcpCastTests
         BigDouble immediateCost = default,
         bool toggled = true,
         int castCount = 0,
-        bool chargeable = false) => new()
+        bool chargeable = false,
+        int maximumCharges = 1,
+        BigDouble cooldownRemaining = default) => new()
     {
         CollectedAtEpoch = 9,
         CollectedAtUtcTicks = collectedAtUtcTicks,
@@ -461,8 +490,8 @@ public sealed class GameMcpCastTests
                 canRemove: false,
                 resourcesCovered: true,
                 currentCharges: charges,
-                maximumCharges: 1,
-                cooldownRemaining: BigDouble.Zero,
+                maximumCharges: maximumCharges,
+                cooldownRemaining: cooldownRemaining,
                 outputLevel: 1,
                 effectiveLevel: 1,
                 requiredMasteryLevel: 0,

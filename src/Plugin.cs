@@ -2677,8 +2677,13 @@ public sealed class Plugin : BaseUnityPlugin
                         owningTool, request.ToolName, StringComparison.Ordinal))
                 {
                     code = "wrong_action_tool";
+
+                    // Several verbs is the ordinary case — a rune is discovered and then levelled —
+                    // so the pointer lists what stands rather than picking one of them for the
+                    // caller. Only a tool list carries a space; one tool name never does.
+                    var several = owningTool.IndexOf(' ') >= 0;
                     reason = identity + " lives under " + owningCategory +
-                        "; use " + owningTool + " for its player action";
+                        "; use " + owningTool + " for its player action" + (several ? "s" : "");
                 }
                 else if (owningTool.Length > 0)
                 {

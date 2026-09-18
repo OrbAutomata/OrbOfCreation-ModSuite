@@ -74,9 +74,9 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
 
         Assert.Equal(SpellLoadoutPreflight.SpellRecharging, result.Preflight);
         Assert.Equal(
-            recipe.GetGuid().ToString("D") + " is still recharging, and the game only removes a " +
-            "spell at full charges: \"Cannot remove a spell that is still recharging.\" It holds " +
-            "2 of 3 charges, and the next one is 4.5s away. Remove it once it reads 3 of 3.",
+            recipe.GetGuid().ToString("D") + " is still recharging: it holds 2 of 3 charges, " +
+            "next in 4.50s. The game only removes a spell at full charges — \"Cannot remove a " +
+            "spell that is still recharging.\" — so remove it once it reads 3 of 3.",
             result.Reason);
         Assert.Equal(0, permitCalls);
         Assert.Equal(0, SpellManager.instance.RemoveCalls);
@@ -96,9 +96,9 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
 
         Assert.Equal(SpellLoadoutPreflight.CastInProgress, result.Preflight);
         Assert.Equal(
-            recipe.GetGuid().ToString("D") + " is mid-cast. The game answers a removal now with " +
-            "\"Cannot remove a spell that is still recharging.\" " +
-            "Wait for the cast to finish, then remove it.",
+            recipe.GetGuid().ToString("D") + " is still recharging: it is mid-cast, and the game " +
+            "answers a removal now with \"Cannot remove a spell that is still recharging.\" " +
+            "Wait for the cast to finish.",
             result.Reason);
         Assert.Equal(0, SpellManager.instance.RemoveCalls);
         Assert.False(spell.SwitchedToTimeBasedCooldown);

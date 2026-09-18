@@ -1,6 +1,7 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
 using System.Collections.Generic;
+using System.Text;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
@@ -466,6 +467,17 @@ internal static class GameMcpEntityCapabilityMap
     internal static bool Supports(string category, GameMcpCommandKind capability) =>
         ByCategory.TryGetValue(category, out var descriptor) && descriptor.Supports(capability);
 
+    /// <summary>
+    /// The verbs this entity's own screen offers it, named the way a caller would call them.
+    /// </summary>
+    /// <remarks>
+    /// This used to answer with whichever capability its category declared first. A round asked
+    /// game_purchase for a level of the already-discovered Studious Persist rune and was sent to
+    /// <c>game_discover</c>, because <c>time-runes</c> declares discovery before levelling — the
+    /// one verb that could not apply, since the rune was discovered. Equipment already answered
+    /// from the entity's own state (<c>IsCreated</c>); every discoverable kind now does, and where
+    /// more than one verb still stands the answer names them all rather than picking.
+    /// </remarks>
     internal static bool TryOwningTool(
         GameWorldState world,
         Guid target,
@@ -479,23 +491,56 @@ internal static class GameMcpEntityCapabilityMap
         if (target == Guid.Empty || !world.EntityIdentities.TryGet(target, out var identity))
             return false;
         nativeType = identity.RuntimeType;
-        if (nativeType == "EquipmentSO" &&
-            WorldLookup.TryFind(world.Equipment, target, out var equipment))
-        {
-            category = "equipment";
-            tool = equipment.IsCreated ? "game_equipment" : "game_discover";
-            return true;
-        }
         if (!TryCategoryForNativeType(nativeType, out category) ||
             !ByCategory.TryGetValue(category, out var descriptor)) return false;
+        var discovered = IsAlreadyDiscovered(world, target, nativeType);
+        var names = new List<string>();
         for (var index = 0; index < descriptor.Capabilities.Count; index++)
         {
-            var candidate = GameMcpCommandKinds.ToolName(descriptor.Capabilities[index]);
-            if (candidate.Length == 0) continue;
-            tool = candidate;
-            return true;
+            var capability = descriptor.Capabilities[index];
+            if (discovered && capability == GameMcpCommandKind.GenericDiscovery) continue;
+            var candidate = GameMcpCommandKinds.ToolName(capability);
+            if (candidate.Length == 0 || names.Contains(candidate)) continue;
+            names.Add(candidate);
         }
+        tool = names.Count switch
+        {
+            0 => string.Empty,
+            1 => names[0],
+            _ => Join(names),
+        };
         return true;
+    }
+
+    /// <summary>Whether the game already counts this entity as discovered.</summary>
+    private static bool IsAlreadyDiscovered(GameWorldState world, Guid target, string nativeType) =>
+        nativeType switch
+        {
+            "EquipmentSO" => WorldLookup.TryFind(world.Equipment, target, out var equipment) &&
+                equipment.IsCreated,
+            "GlyphSO" => WorldLookup.TryFind(world.AugmentGlyphs, target, out var glyph) &&
+                glyph.Discovered,
+            "TimeRuneSO" => WorldLookup.TryFind(world.TimeRunes, target, out var rune) &&
+                rune.Discovered,
+            "RitualSO" => WorldLookup.TryFind(world.Rituals, target, out var ritual) &&
+                ritual.Discovered,
+            "SpellRecipeSO" => WorldLookup.TryFind(world.SpellRecipes, target, out var recipe) &&
+                recipe.Discovered,
+            "AlchemyRecipeSO" => WorldLookup.TryFind(world.AlchemyRecipes, target, out var alchemy) &&
+                alchemy.Discovered,
+            _ => false,
+        };
+
+    /// <summary>Several verbs, in one phrase a caller reads as a list rather than a choice.</summary>
+    private static string Join(List<string> names)
+    {
+        var text = new StringBuilder();
+        for (var index = 0; index < names.Count; index++)
+        {
+            if (index > 0) text.Append(index == names.Count - 1 ? " and " : ", ");
+            text.Append(names[index]);
+        }
+        return text.ToString();
     }
 
     private static bool PurchaseTarget(GameWorldState world, Guid target, out string reason)

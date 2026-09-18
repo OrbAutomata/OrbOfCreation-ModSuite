@@ -347,14 +347,20 @@ public sealed class GameMcpSpellLoadoutTests
                 new[] { ready, midCast, recharging }),
         };
 
+        // One state, one word. The read side used to answer a cast with "mid-cast" while the verb
+        // answered the same moment with "still recharging", which is the game's own word for both:
+        // its popup is "Cannot remove a spell that is still recharging." whichever of the two it is.
         Assert.Equal("{\"available\":true}", Remove(world, ready));
         Assert.Equal(
-            "{\"available\":false,\"reasonCode\":\"ERR_STATE\",\"reason\":\"This spell is " +
-            "mid-cast, so it cannot be removed until the cast finishes.\"}",
+            "{\"available\":false,\"reasonCode\":\"ERR_STATE\",\"reason\":\"" +
+            SecondRecipeId.ToString("D") + " is still recharging: it is mid-cast, and the game " +
+            "answers a removal now with \\\"Cannot remove a spell that is still recharging.\\\" " +
+            "Wait for the cast to finish.\"}",
             Remove(world, midCast));
         Assert.Equal(
-            "{\"available\":false,\"reasonCode\":\"ERR_STATE\",\"reason\":\"The game only " +
-            "removes a spell at full charges, and this one is still recharging.\"," +
+            "{\"available\":false,\"reasonCode\":\"ERR_STATE\",\"reason\":\"" +
+            FirstRecipeId.ToString("D") + " is still recharging: it holds 2 of 3 charges, next " +
+            "in 4.50s. The game only removes a spell at full charges.\"," +
             "\"charges\":\"2/3\",\"nextChargeIn\":\"4.5\"}",
             Remove(world, recharging));
     }

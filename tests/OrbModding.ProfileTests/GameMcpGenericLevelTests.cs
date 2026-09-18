@@ -224,6 +224,33 @@ public sealed class GameMcpGenericLevelTests
         Assert.NotNull(row["resource"]);
     }
 
+    /// <summary>
+    /// A wrong-tool pointer names the verb this entity's own state leaves standing.
+    /// </summary>
+    /// <remarks>
+    /// A round asked <c>game_purchase</c> for a level of the already-discovered Studious Persist
+    /// rune and was answered "use game_discover for its player action" — the one verb that could
+    /// not apply, chosen because <c>time-runes</c> declares discovery before levelling.
+    /// </remarks>
+    [Fact]
+    public void A_discovered_rune_is_pointed_at_the_verb_that_levels_it()
+    {
+        var world = World(5, 0, purchaseAffordable: true);
+
+        Assert.True(GameMcpEntityCapabilityMap.TryOwningTool(
+            world, TimeRuneId, out var category, out var nativeType, out var tool));
+        Assert.Equal("time-runes", category);
+        Assert.Equal("TimeRuneSO", nativeType);
+        Assert.Equal("game_level_up", tool);
+
+        // A glyph the world has not discovered still has both verbs, and the pointer names both
+        // rather than choosing for the caller.
+        var undiscovered = World(5, 0, purchaseAffordable: true, glyphLearned: false);
+        Assert.True(GameMcpEntityCapabilityMap.TryOwningTool(
+            undiscovered, GlyphId, out _, out _, out var glyphTools));
+        Assert.Equal("game_discover and game_level_up", glyphTools);
+    }
+
     private static GenericLevelSubmission Bought(int levels, GenericLevelCharge[] charges) =>
         new(GenericLevelPreflight.Proceeded,
             GenericLevelNativeStage.Verification,
