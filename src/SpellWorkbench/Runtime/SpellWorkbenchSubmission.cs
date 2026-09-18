@@ -34,6 +34,16 @@ internal enum SpellWorkbenchPreflight
 
     /// <summary>The screen the button lives on is not unlocked, so the game draws no button.</summary>
     ScreenLocked = 26,
+
+    /// <summary>
+    /// <c>GlyphSO.IsAvailable()</c> is false, so the glyph list offers no copy of it to socket.
+    /// </summary>
+    GlyphUnavailable = 27,
+
+    /// <summary>
+    /// The layout asks one glyph for more uses than <c>GlyphSO.GetMaxUsages()</c> allows.
+    /// </summary>
+    GlyphUsagesExceeded = 28,
 }
 
 internal enum SpellWorkbenchNativeStage

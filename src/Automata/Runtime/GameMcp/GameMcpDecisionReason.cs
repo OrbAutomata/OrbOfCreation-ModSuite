@@ -264,6 +264,9 @@ internal static class GameMcpDecisionReason
         "amount_unavailable" or "loadout_full" or "automation_full" or "harvest_list_full" or
         "plot_action_list_full" or "research_queue_full" or "queue_full" or
         "equipment_type_full" or "maximum_stacks" or "selection_full" or "capacity_exhausted" or
+        // One glyph asked for more uses than its own GlyphSO.GetMaxUsages() allows. A ceiling on
+        // one row of a layout, which a smaller count on that row fixes.
+        "glyph_usages_exceeded" or
         "no_rerolls" or "reroll_unavailable" or "element_capacity_unavailable" or
         "plot_quantity_insufficient" or "resource_or_headroom_insufficient" or
         "usage_budget_unavailable" or "research_leeway_exhausted" or "multi_buy_unavailable" or
@@ -301,6 +304,10 @@ internal static class GameMcpDecisionReason
         // is locked, and the sentence has always said so.
         "tree_unavailable" or
         "screen_locked" or "unlock_conditions_unmet" or
+        // GlyphSO.IsAvailable() is false: undiscovered, or its prerequisites are not met. The glyph
+        // list draws no copy to socket, which is a gate rather than a missing entity — the suite
+        // resolved the glyph before it asked.
+        "glyph_unavailable" or
         "native_unavailable" or "native_leeway_exhausted" => ClassLocked,
 
         // The suite or the game could not read or serve the fact.

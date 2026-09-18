@@ -422,6 +422,35 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Contains("Max Spell Augment Slots", (string?)response["reason"]);
     }
 
+    /// <summary>
+    /// A glyph the caller named and the suite resolved is never "not found". A shut availability
+    /// gate is a lock, and asking one glyph for more uses than it has is a ceiling.
+    /// </summary>
+    /// <remarks>
+    /// Both refusals used to ship <c>ERR_NOT_FOUND</c>, which sent a caller holding a live uuid off
+    /// to look for an entity that was in its hand.
+    /// </remarks>
+    [Fact]
+    public void AResolvedGlyphIsRefusedAsAGateOrACeilingRatherThanAsAMiss()
+    {
+        var unavailable = SpellWorkbenchLoadPreview.Refused(
+            SpellWorkbenchPreflight.GlyphUnavailable, "Quick, in the screen's words.");
+        var overCapacity = SpellWorkbenchLoadPreview.Refused(
+            SpellWorkbenchPreflight.GlyphUsagesExceeded, "Quick, in the screen's numbers.");
+
+        var locked = GameMcpTestHarness.Json(
+            GameMcpSpellWorkbenchProjection.ProjectLoadPreview(in unavailable));
+        var limited = GameMcpTestHarness.Json(
+            GameMcpSpellWorkbenchProjection.ProjectLoadPreview(in overCapacity));
+
+        Assert.Equal("refused", (string?)locked["status"]);
+        Assert.Equal("ERR_LOCKED", (string?)locked["reasonCode"]);
+        Assert.Equal("Quick, in the screen's words.", (string?)locked["reason"]);
+        Assert.Equal("refused", (string?)limited["status"]);
+        Assert.Equal("ERR_LIMIT", (string?)limited["reasonCode"]);
+        Assert.Equal("Quick, in the screen's numbers.", (string?)limited["reason"]);
+    }
+
     [Fact]
     public void UnavailableDiscoveryNamesTheNativeVisibilityPredicateWithoutSelectionCeremony()
     {

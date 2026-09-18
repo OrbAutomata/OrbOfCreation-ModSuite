@@ -811,6 +811,10 @@ internal static class GameMcpActionResultCodeNames
                 return "augment_slots_exceeded";
             if (code == SpellWorkbenchActionResultCodes.ScreenLocked)
                 return "screen_locked";
+            if (code == SpellWorkbenchActionResultCodes.GlyphUnavailable)
+                return "glyph_unavailable";
+            if (code == SpellWorkbenchActionResultCodes.GlyphUsagesExceeded)
+                return "glyph_usages_exceeded";
         }
         if (commandKind == GameMcpCommandKind.SpellComposition)
         {

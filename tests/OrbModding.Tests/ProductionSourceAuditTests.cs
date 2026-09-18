@@ -40,6 +40,46 @@ public sealed class ProductionSourceAuditTests
             "Production C# source must not vary for game stubs: " + string.Join(", ", offenders));
     }
 
+    /// <summary>
+    /// No source claims a spell glyph has to be leveled before it can be socketed.
+    /// </summary>
+    /// <remarks>
+    /// The game's socket gate is <c>GlyphSO.IsAvailable()</c> plus <c>GetMaxUsages()</c> headroom;
+    /// neither <c>GlyphSO.level</c> nor <c>GetLevel()</c> appears in the glyph tile's own
+    /// interactability ladder. The suite invented the level predicate and refused every augment
+    /// discovered before the Upgrade Glyphs upgrade exists — level 0, one usable copy, a clickable
+    /// tile — with a sentence that read as the game's own rule. It is swept rather than deleted
+    /// once because the sentence is the part a reader believes.
+    /// </remarks>
+    [Fact]
+    public void NoSourceSentenceMakesAGlyphLevelTheGateOnSocketingIt()
+    {
+        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var offenders = new List<string>();
+        foreach (var path in Directory.EnumerateFiles(
+                     sourceRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
+            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
+                relativePath.StartsWith("obj", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var lineNumber = 0;
+            foreach (var line in File.ReadLines(path))
+            {
+                lineNumber++;
+                if (line.Contains("owned level above zero", StringComparison.Ordinal))
+                    offenders.Add(relativePath + ":" + lineNumber);
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "A glyph's level is not the game's socket gate: " + string.Join(", ", offenders));
+    }
+
     [Fact]
     public void GameMcpProjectionsLeaveWireCodeNormalizationToTheEncoder()
     {

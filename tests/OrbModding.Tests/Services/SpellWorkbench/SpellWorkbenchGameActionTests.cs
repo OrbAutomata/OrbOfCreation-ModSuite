@@ -72,8 +72,60 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
                 new SpellWorkbenchGlyphStack(augment.GetGuid(), 1),
             }));
 
-        Assert.Equal(SpellWorkbenchPreflight.SelectionUnavailable, result.Preflight);
-        Assert.Contains("Requested 3 uses", result.Reason);
+        Assert.Equal(SpellWorkbenchPreflight.GlyphUsagesExceeded, result.Preflight);
+        Assert.Equal(
+            Name(augment) + " allows 2 uses per spell and this layout asks for 3 of 2. Ask for 2 " +
+            "or fewer.",
+            result.Reason);
+        Assert.Empty(SpellManager.instance!.activeSpells.value);
+    }
+
+    /// <summary>
+    /// A glyph is socketable when the game says so. The game's socket gate is
+    /// <c>GlyphSO.IsAvailable()</c> plus <c>GetMaxUsages()</c> headroom, and neither reads a level:
+    /// a freshly discovered augment is available at level 0 with one usable copy, and the Loadout
+    /// page draws its tile as clickable. The suite refused that press for an ownership predicate
+    /// the game does not have, which blocked every augment discovered before Upgrade Glyphs exists.
+    /// </summary>
+    [Fact]
+    public void LoadoutAddSocketsAnAvailableAugmentTheGameHasNeverLeveled()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var augment = Augment(maximum: 1);
+        augment.level = 0;
+        using var action = Action();
+
+        var result = action.Submit(new SpellWorkbenchAction(
+            recipe.GetGuid(), Epoch,
+            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 1) }));
+
+        Assert.True(result.Verified, result.Reason);
+        var equipped = Assert.Single(SpellManager.instance!.activeSpells.value);
+        Assert.Equal(1, equipped.GetQuantityOfGlyph(augment));
+    }
+
+    /// <summary>
+    /// The one glyph gate the game does keep, said in the game's own words. A resolved glyph was
+    /// never missing, so the refusal names the screen that would offer it rather than answering
+    /// "not found".
+    /// </summary>
+    [Fact]
+    public void LoadoutAddRefusesAGlyphTheGameOffersNoCopyOf()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var augment = Augment(maximum: 1);
+        augment.NativeAvailable = false;
+        using var action = Action();
+
+        var result = action.Submit(new SpellWorkbenchAction(
+            recipe.GetGuid(), Epoch,
+            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 1) }));
+
+        Assert.Equal(SpellWorkbenchPreflight.GlyphUnavailable, result.Preflight);
+        Assert.Equal(
+            Name(augment) + " is not available yet, so Magic > Spellbook > Loadout offers no copy " +
+            "of it to socket. Discover it, or meet the requirements it names, first.",
+            result.Reason);
         Assert.Empty(SpellManager.instance!.activeSpells.value);
     }
 
@@ -242,28 +294,6 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.Empty(SpellManager.instance.activeSpells.value);
         Assert.Equal(new[] { stagedCore }, SpellManager.instance.selectedCoreGlyphs.value);
         Assert.Equal(new[] { stagedAugment }, SpellManager.instance.selectedAugmentGlyphs.value);
-    }
-
-    [Fact]
-    public void LoadoutAddRejectsUnownedAugmentsAndLoadsTheOwnedOne()
-    {
-        var (recipe, _, _) = Recipe(discovered: true);
-        var owned = Augment();
-        var unowned = Augment();
-        unowned.level = 0;
-        using var action = Action();
-
-        var refused = action.Submit(new SpellWorkbenchAction(
-            recipe.GetGuid(), Epoch,
-            new[] { new SpellWorkbenchGlyphStack(unowned.GetGuid(), 1) }));
-        var committed = action.Submit(new SpellWorkbenchAction(
-            recipe.GetGuid(), Epoch,
-            new[] { new SpellWorkbenchGlyphStack(owned.GetGuid(), 1) }));
-
-        Assert.Equal(SpellWorkbenchPreflight.SelectionUnavailable, refused.Preflight);
-        Assert.Contains("not owned", refused.Reason);
-        Assert.True(committed.Verified, committed.Reason);
-        Assert.Single(SpellManager.instance!.activeSpells.value);
     }
 
     /// <summary>

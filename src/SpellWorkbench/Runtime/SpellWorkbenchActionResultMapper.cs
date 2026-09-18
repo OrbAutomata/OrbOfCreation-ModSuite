@@ -41,6 +41,8 @@ internal static class SpellWorkbenchActionResultMapper
         SpellWorkbenchPreflight.StagedWriteFailed => SpellWorkbenchActionResultCodes.StagedWriteFailed,
         SpellWorkbenchPreflight.AugmentSlotsExceeded => SpellWorkbenchActionResultCodes.AugmentSlotsExceeded,
         SpellWorkbenchPreflight.ScreenLocked => SpellWorkbenchActionResultCodes.ScreenLocked,
+        SpellWorkbenchPreflight.GlyphUnavailable => SpellWorkbenchActionResultCodes.GlyphUnavailable,
+        SpellWorkbenchPreflight.GlyphUsagesExceeded => SpellWorkbenchActionResultCodes.GlyphUsagesExceeded,
         _ => SpellWorkbenchActionResultCodes.ContractUnavailable,
     };
 }

@@ -6714,8 +6714,7 @@
       "static": false,
       "valueType": "System.Int32",
       "owners": [
-        "Automata world collection",
-        "Spell workbench action"
+        "Automata world collection"
       ],
       "usages": [
         "reflection"

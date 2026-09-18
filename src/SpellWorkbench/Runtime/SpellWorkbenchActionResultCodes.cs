@@ -25,4 +25,6 @@ internal static class SpellWorkbenchActionResultCodes
     internal static ServiceActionResultCode StagedWriteFailed => new(4420);
     internal static ServiceActionResultCode AugmentSlotsExceeded => new(4423);
     internal static ServiceActionResultCode ScreenLocked => new(4424);
+    internal static ServiceActionResultCode GlyphUnavailable => new(4425);
+    internal static ServiceActionResultCode GlyphUsagesExceeded => new(4426);
 }

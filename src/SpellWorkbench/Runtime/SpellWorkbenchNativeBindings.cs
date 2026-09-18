@@ -32,7 +32,6 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-workbench.resource-has-amount-action",
         "spell-workbench.glyph-is-available",
         "spell-workbench.glyph-is-augment",
-        "glyph.level",
         "spell-composition.glyph-maximum-uses-action",
         "spell-composition.glyph-meets-non-level-requirements-action",
         "spell-workbench.list-value-action",
@@ -65,7 +64,6 @@ internal sealed class SpellWorkbenchNativeBindings
         Func<object, IList> costEntries, Func<object, BigDouble> costValue,
         Func<object, object?> costResource, Func<object, BigDouble, bool> resourceHasAmount,
         Func<IList> createGlyphList, Func<object, bool> glyphAvailable,
-        Func<object, int> glyphLevel,
         Func<object, bool> glyphAugment, Func<object, int> glyphMaximumUsages,
         Action<object, object> setListStack, Func<object, object?> readListStack,
         Func<object, int> listMax, Func<object, bool> hasEmpty,
@@ -102,7 +100,6 @@ internal sealed class SpellWorkbenchNativeBindings
         HasResourceAmount = resourceHasAmount;
         CreateGlyphList = createGlyphList;
         IsGlyphAvailable = glyphAvailable;
-        ReadGlyphLevel = glyphLevel;
         IsGlyphAugment = glyphAugment;
         GetGlyphMaximumUsages = glyphMaximumUsages;
         SetListStack = setListStack;
@@ -159,7 +156,6 @@ internal sealed class SpellWorkbenchNativeBindings
     internal Func<object, BigDouble, bool> HasResourceAmount { get; }
     internal Func<IList> CreateGlyphList { get; }
     internal Func<object, bool> IsGlyphAvailable { get; }
-    internal Func<object, int> ReadGlyphLevel { get; }
     internal Func<object, bool> IsGlyphAugment { get; }
     internal Func<object, int> GetGlyphMaximumUsages { get; }
     /// <summary>
@@ -261,7 +257,6 @@ internal sealed class SpellWorkbenchNativeBindings
             var hasResourceAmount = Method(resourceType, "HasAmount", typeof(bool), bigDoubleType);
             var glyphAvailable = Method(glyphType, "IsAvailable", typeof(bool));
             var glyphAugment = Method(glyphType, "IsSpellAugment", typeof(bool));
-            var glyphLevel = Field(glyphType, "level", typeof(int), false);
             var glyphMaximumUsages = Method(glyphType, "GetMaxUsages", typeof(int));
             var listValue = HierarchyField(glyphListType, "value", glyphList);
             var activeValue = HierarchyField(spellListType, "value", spellList);
@@ -296,7 +291,7 @@ internal sealed class SpellWorkbenchNativeBindings
                 InstanceList(costEntries), InstanceFunc<BigDouble>(costValue),
                 ObjectNullableField(costResource), InstanceValueFunc<BigDouble, bool>(hasResourceAmount),
                 NewList(glyphList),
-                InstanceFunc<bool>(glyphAvailable), IntField(glyphLevel),
+                InstanceFunc<bool>(glyphAvailable),
                 InstanceFunc<bool>(glyphAugment),
                 InstanceFunc<int>(glyphMaximumUsages),
                 InstanceObjectAction(setListStack),
@@ -397,14 +392,6 @@ internal sealed class SpellWorkbenchNativeBindings
         var target = Expression.Parameter(typeof(object), "target");
         return Expression.Lambda<Func<object, object>>(
             Expression.Convert(Expression.Field(Expression.Convert(target, field.DeclaringType!), field), typeof(object)), target).Compile();
-    }
-
-    private static Func<object, int> IntField(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, int>>(
-            Expression.Field(Expression.Convert(target, field.DeclaringType!), field),
-            target).Compile();
     }
 
     private static Func<object, object?> ObjectNullableField(FieldInfo field)

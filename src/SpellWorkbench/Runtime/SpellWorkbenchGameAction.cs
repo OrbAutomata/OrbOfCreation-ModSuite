@@ -130,7 +130,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         out object? usageCost,
         out bool unique,
         out string reason,
-        bool requireOwnedGlyphs = true)
+        bool requireAvailableGlyphs = true)
     {
         spellId = Guid.Empty;
         recipeId = Guid.Empty;
@@ -190,7 +190,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 return false;
             }
             if (!TryValidateStoredGlyph(native, glyph, native.ReadIdentity(glyph), false,
-                    requireOwnedGlyphs, out reason) ||
+                    requireAvailableGlyphs, out reason) ||
                 !IncrementGlyph(native, glyph, glyphCounts, out reason))
                 return false;
         }
@@ -204,7 +204,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 return false;
             }
             if (!TryValidateStoredGlyph(native, glyph, native.ReadIdentity(glyph), true,
-                    requireOwnedGlyphs, out reason) ||
+                    requireAvailableGlyphs, out reason) ||
                 !IncrementGlyph(native, glyph, glyphCounts, out reason))
                 return false;
         }
@@ -229,11 +229,11 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         object glyph,
         Guid glyphId,
         bool expectAugment,
-        bool requireOwnedGlyphs,
+        bool requireAvailableGlyphs,
         out string reason)
     {
-        if (requireOwnedGlyphs)
-            return TryValidateGlyph(native, glyph, glyphId, expectAugment, out reason);
+        if (requireAvailableGlyphs)
+            return TryValidateGlyph(native, glyph, glyphId, expectAugment, out _, out reason);
         if (glyph.GetType() != native.GlyphType)
         {
             reason = "A saved spell component has the wrong native type.";
@@ -309,10 +309,9 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                     expectAugment: true,
                     native,
                     out var augments,
+                    out var augmentRefusal,
                     out var augmentReason))
-                return SpellWorkbenchLoadPreview.Refused(
-                    SpellWorkbenchPreflight.SelectionUnavailable,
-                    augmentReason);
+                return SpellWorkbenchLoadPreview.Refused(augmentRefusal, augmentReason);
             if (!TryAdmitLoad(native, manager, recipe, augments, out preflight, out var admitReason))
                 return SpellWorkbenchLoadPreview.Refused(preflight, admitReason);
             var candidate = BuildCandidate(native, recipe, augments);
@@ -364,9 +363,8 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
     {
         if (!TryResolveGlyphLayout(
                 action.AugmentGlyphs, expectAugment: true, native,
-                out var augments, out var augmentReason))
-            return SpellWorkbenchSubmission.Reject(
-                SpellWorkbenchPreflight.SelectionUnavailable, augmentReason);
+                out var augments, out var augmentRefusal, out var augmentReason))
+            return SpellWorkbenchSubmission.Reject(augmentRefusal, augmentReason);
         if (!TryAdmitLoad(native, manager, recipe, augments, out var refusal, out var refusalReason))
             return SpellWorkbenchSubmission.Reject(refusal, refusalReason);
 
@@ -662,6 +660,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         bool expectAugment,
         SpellWorkbenchNativeBindings native,
         out List<object> glyphs,
+        out SpellWorkbenchPreflight refusal,
         out string reason)
     {
         glyphs = new List<object>();
@@ -676,8 +675,9 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             var total = (long)prior + stack.Count;
             if (total > int.MaxValue)
             {
-                reason = "The requested glyph count exceeds the supported native integer range.";
-                return false;
+                return Refuse(SpellWorkbenchPreflight.SelectionUnavailable,
+                    "The requested glyph count exceeds the supported native integer range.",
+                    out refusal, out reason);
             }
             totals[stack.GlyphId] = (int)total;
         }
@@ -687,22 +687,25 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             var resolution = _registry.Resolve(glyphId, native.GlyphType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
             {
-                reason = resolution.IsResolved
-                    ? GameActionAnswer.Replaced("glyph")
-                    : resolution.Reason;
-                return false;
+                return Refuse(SpellWorkbenchPreflight.SelectionUnavailable,
+                    resolution.IsResolved ? GameActionAnswer.Replaced("glyph") : resolution.Reason,
+                    out refusal, out reason);
             }
             var glyph = resolution.Value!;
-            if (!TryValidateGlyph(native, glyph, glyphId, expectAugment, out reason))
+            if (!TryValidateGlyph(native, glyph, glyphId, expectAugment, out refusal, out reason))
                 return false;
             var maximum = native.GetGlyphMaximumUsages(glyph);
             var requested = totals[glyphId];
             if (requested > maximum)
             {
-                reason = "Requested " + requested + " uses of " +
-                    EntityIdentityFormatter.PlayerName(glyphId) +
-                    ", but the live usable count is " + maximum + ".";
-                return false;
+                var glyphName = EntityIdentityFormatter.PlayerName(glyphId);
+                return Refuse(SpellWorkbenchPreflight.GlyphUsagesExceeded,
+                    maximum <= 0
+                        ? glyphName + " has no usable copy in this run, so no layout can hold one."
+                        : glyphName + " allows " + maximum + (maximum == 1 ? " use" : " uses") +
+                          " per spell and this layout asks for " + requested + " of " + maximum +
+                          ". Ask for " + maximum + " or fewer.",
+                    out refusal, out reason);
             }
             resolved[glyphId] = glyph;
         }
@@ -712,42 +715,50 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             for (var count = 0; count < totals[glyphId]; count++)
                 glyphs.Add(resolved[glyphId]);
         }
+        refusal = SpellWorkbenchPreflight.Proceeded;
         reason = string.Empty;
         return true;
     }
 
+    /// <summary>
+    /// The glyph tile's own gate, and nothing beside it. <c>UIGlyphListItem.GetInteractable()</c>
+    /// reduces to <c>GlyphSO.IsAvailable()</c> plus <c>GetMaxUsages()</c> headroom; neither
+    /// <c>GlyphSO.level</c> nor <c>GetLevel()</c> appears anywhere in it. A freshly discovered
+    /// augment is available at level 0 with one usable copy, and the Loadout page lets a player
+    /// socket it — the suite refused that press for an ownership predicate the game does not have.
+    /// </summary>
     private static bool TryValidateGlyph(
         SpellWorkbenchNativeBindings native,
         object glyph,
         Guid glyphId,
         bool expectAugment,
+        out SpellWorkbenchPreflight refusal,
         out string reason)
     {
         if (glyph.GetType() != native.GlyphType)
         {
-            reason = "The resolved spell component has the wrong native type.";
-            return false;
+            return Refuse(SpellWorkbenchPreflight.SelectionUnavailable,
+                "The resolved spell component has the wrong native type.",
+                out refusal, out reason);
         }
         if (native.IsGlyphAugment(glyph) != expectAugment)
         {
-            reason = EntityIdentityFormatter.PlayerName(glyphId) +
+            return Refuse(SpellWorkbenchPreflight.SelectionUnavailable,
+                EntityIdentityFormatter.PlayerName(glyphId) +
                 (expectAugment
                     ? " is not a spell augment."
-                    : " is an augment and cannot be a core discovery component.");
-            return false;
+                    : " is an augment and cannot be a core discovery component."),
+                out refusal, out reason);
         }
         if (!native.IsGlyphAvailable(glyph))
         {
-            reason = EntityIdentityFormatter.PlayerName(glyphId) +
-                " is not available for this spell layout.";
-            return false;
+            return Refuse(SpellWorkbenchPreflight.GlyphUnavailable,
+                EntityIdentityFormatter.PlayerName(glyphId) +
+                " is not available yet, so Magic > Spellbook > Loadout offers no copy of it to " +
+                "socket. Discover it, or meet the requirements it names, first.",
+                out refusal, out reason);
         }
-        if (native.ReadGlyphLevel(glyph) <= 0)
-        {
-            reason = EntityIdentityFormatter.PlayerName(glyphId) +
-                " is not owned; spell glyphs require an owned level above zero.";
-            return false;
-        }
+        refusal = SpellWorkbenchPreflight.Proceeded;
         reason = string.Empty;
         return true;
     }
