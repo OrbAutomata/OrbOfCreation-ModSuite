@@ -2292,6 +2292,12 @@ internal static class GameMcpWorldQuery
             ["hasRemainingDiscoveries"] = after.HasRemainingDiscovery ||
                 after.HasImmediateRequiredDiscovery,
         };
+        // A spell taken off a tree is discovered by the same press as one taken off a row, and the
+        // game loads it the same way. The tree route answered with the tree alone, so a caller that
+        // confirmed an offer had to read the loadout again to learn where its new spell was.
+        if (WorldLookup.TryFind(world.SpellRecipes, command.SecondaryId, out var recipe) &&
+            recipe.Discovered)
+            result["loadout"] = ProjectDiscoveredSpellLoadout(world, command.SecondaryId);
         return result.Freeze();
     }
 
@@ -3554,7 +3560,7 @@ internal static class GameMcpWorldQuery
             var loaded = new JObject
             {
                 ["loaded"] = true,
-                ["slot"] = slot.SlotIndex,
+                ["slot"] = GameMcpSlotNumbering.Wire(slot.SlotIndex),
             };
             var budget = ProjectSpellUsageBudget(world);
             if (budget.Count > 0) loaded["usageBudget"] = budget;
@@ -3674,7 +3680,7 @@ internal static class GameMcpWorldQuery
         {
             var slot = slots[index];
             if (slot.List == list && slot.ConsumableId == consumableId)
-                return slot.Position;
+                return GameMcpSlotNumbering.Wire(slot.Position);
         }
         return null;
     }
@@ -3934,7 +3940,7 @@ internal static class GameMcpWorldQuery
                     ["uuid"] = command.TargetId.ToString("D"),
                     ["slot"] = new JObject
                     {
-                        ["before"] = null,
+                        ["before"] = GameMcpListColumns.Empty,
                         ["after"] = GameMcpSlotNumbering.Wire(slot.SlotIndex),
                     },
                 };
@@ -8103,7 +8109,8 @@ internal static class GameMcpWorldQuery
             {
                 ["starting"] = Anchored(context.PersistenceCurrent, "next reset's start"),
                 ["previous"] = Anchored(context.PersistencePrevious, "this run's start"),
-                ["new"] = Anchored(context.PersistenceProjected, "more than previous"),
+                ["new"] = Anchored(
+                    context.PersistenceProjected, "gain over this run's start"),
             },
             ["resetCount"] = context.ResetCount,
 

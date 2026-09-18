@@ -77,7 +77,7 @@ public sealed class GameMcpPrestigeTests
         var advancements = prestige["timeAdvancements"]!;
         Assert.Equal("7 (next reset's start)", (string?)advancements["starting"]);
         Assert.Equal("5 (this run's start)", (string?)advancements["previous"]);
-        Assert.Equal("11 (more than previous)", (string?)advancements["new"]);
+        Assert.Equal("11 (gain over this run's start)", (string?)advancements["new"]);
         Assert.Equal(4, (int)prestige["resetCount"]!);
         Assert.Equal("Persistent Light", (string?)prestige["persistentResource"]!["resource"]!["name"]);
         Assert.Equal("80", (string?)prestige["persistentResource"]!["amount"]);
@@ -110,7 +110,7 @@ public sealed class GameMcpPrestigeTests
         Assert.Null(advancements["change"]);
         Assert.Contains(
             "timeAdvancements: starting=7 (next reset's start), " +
-            "previous=5 (this run's start), new=11 (more than previous)",
+            "previous=5 (this run's start), new=11 (gain over this run's start)",
             GameMcpTextPage.Render(prestige).Split('\n'));
     }
 
@@ -132,7 +132,8 @@ public sealed class GameMcpPrestigeTests
 
         Assert.Contains("starting=7 (next reset's start)", line, StringComparison.Ordinal);
         Assert.Contains("previous=5 (this run's start)", line, StringComparison.Ordinal);
-        Assert.Contains("new=11 (more than previous)", line, StringComparison.Ordinal);
+        Assert.Contains(
+            "new=11 (gain over this run's start)", line, StringComparison.Ordinal);
     }
 
     /// <summary>

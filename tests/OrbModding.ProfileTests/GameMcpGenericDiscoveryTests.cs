@@ -215,6 +215,32 @@ public sealed class GameMcpGenericDiscoveryTests
     }
 
     /// <summary>
+    /// The press that discovers a spell may also load it, and the number it answers with is the one
+    /// the player will count to on the bar. The array index reached the wire: a confirm that filled
+    /// bar slot 5 said <c>slot: 4</c> while the bar, the screen reader and <c>world_get</c> all said
+    /// 5, so the caller's next press addressed the spell beside it.
+    /// </summary>
+    [Fact]
+    public void A_confirmed_spell_says_the_bar_slot_the_screen_shows()
+    {
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.GenericDiscovery, 9, 3, "confirm", SpellRecipeId, Guid.Empty,
+            "SpellRecipeSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(World(), generation: 41));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(
+                World(spellDiscovered: true, loadedSlotIndex: 4), generation: 42),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.False((bool)delta["discovered"]!["before"]!);
+        Assert.True((bool)delta["discovered"]!["after"]!);
+        Assert.True((bool)delta["loadout"]!["loaded"]!);
+        Assert.Equal(5, (int)delta["loadout"]!["slot"]!);
+    }
+
+    /// <summary>
     /// A locked discovery screen is the row's own answer, not a surprise saved for the press.
     /// </summary>
     /// <remarks>
@@ -582,7 +608,9 @@ public sealed class GameMcpGenericDiscoveryTests
         bool ambiguous = false,
         bool componentLearned = true,
         bool loadoutHasRoom = true,
-        bool screensUnlocked = true)
+        bool screensUnlocked = true,
+        bool spellDiscovered = false,
+        int loadedSlotIndex = -1)
     {
         var costs = PublicationTable<WorldDiscoverableCost>.Create(new[]
         {
@@ -614,7 +642,19 @@ public sealed class GameMcpGenericDiscoveryTests
                 new WorldView(KnownEntities.MagicSpellbookLearn.Uuid, false, false, screensUnlocked),
             }),
             AugmentGlyphs = PublicationTable<WorldGlyph>.Create(glyphs),
-            SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[] { SpellRecipe(decision) }),
+            SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(
+                new[] { SpellRecipe(decision, spellDiscovered) }),
+            SpellSlots = loadedSlotIndex < 0
+                ? PublicationTable<WorldSpellSlot>.Empty
+                : PublicationTable<WorldSpellSlot>.Create(new[]
+                {
+                    new WorldSpellSlot(
+                        loadedSlotIndex, SpellRecipeId, occupied: true, casting: false,
+                        readyingCast: false, attuning: false, channeled: false, toggled: false,
+                        chargeable: false, castReady: true, chargeAvailable: true,
+                        resourcesCovered: true, currentCharges: 1, maximumCharges: 1,
+                        cooldownRemaining: BigDouble.Zero),
+                }),
             SpellWorkbench = new WorldSpellWorkbench(
                 equippedCount: loadoutHasRoom ? 0 : 1,
                 maximumEquipped: 1,
@@ -628,9 +668,11 @@ public sealed class GameMcpGenericDiscoveryTests
         };
     }
 
-    private static WorldSpellRecipe SpellRecipe(WorldDiscoverableDecision decision) => new(
+    private static WorldSpellRecipe SpellRecipe(
+        WorldDiscoverableDecision decision,
+        bool discovered = false) => new(
         SpellRecipeId,
-        false,
+        discovered,
         1,
         BigDouble.Zero,
         0,

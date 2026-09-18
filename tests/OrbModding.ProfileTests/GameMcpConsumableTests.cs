@@ -140,6 +140,28 @@ public sealed class GameMcpConsumableTests
             randomizationPostState.ToString(Newtonsoft.Json.Formatting.None)));
     }
 
+    /// <summary>
+    /// The inventory the player drags in counts from one, so a move says where the item now sits in
+    /// that counting. The array index reached the wire, and a move to the third place answered
+    /// <c>slot: 1 -&gt; 2</c>.
+    /// </summary>
+    [Fact]
+    public void A_move_says_the_place_in_the_list_the_player_counts()
+    {
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Consumable, 9, 3, "move", ConsumableId,
+            Guid.Empty, "ConsumableSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(World(inventoryPosition: 0)));
+
+        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(World(inventoryPosition: 2)),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.Equal(1, (int)delta["slot"]!["before"]!);
+        Assert.Equal(3, (int)delta["slot"]!["after"]!);
+    }
+
     [Fact]
     public void FaultNamesTheMissingOutcomeWhileSuccessIsEmptyForPostStateReplacement()
     {
@@ -164,7 +186,10 @@ public sealed class GameMcpConsumableTests
         Assert.Empty(success.Properties());
     }
 
-    private static GameWorldState World(int quantity = 3, bool randomized = false)
+    private static GameWorldState World(
+        int quantity = 3,
+        bool randomized = false,
+        int inventoryPosition = 0)
     {
         var modifiers = default(RawConsumableModifiers);
         var primary = new WorldConsumable(
@@ -227,7 +252,7 @@ public sealed class GameMcpConsumableTests
                 PublicationTable<WorldConsumableSlot>.Create(new[]
                 {
                     new WorldConsumableSlot(
-                        WorldConsumableListKind.Inventory, 0, ConsumableId),
+                        WorldConsumableListKind.Inventory, inventoryPosition, ConsumableId),
                     new WorldConsumableSlot(
                         WorldConsumableListKind.Inventory, 1, OtherConsumableId),
                     new WorldConsumableSlot(

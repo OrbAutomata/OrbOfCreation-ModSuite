@@ -508,7 +508,7 @@ public sealed class GameMcpSpellWorkbenchTests
             success.Properties().Select(property => property.Name));
         Assert.Equal("committed", (string?)success["status"]);
         Assert.Equal("Gather Knowledge", (string?)success["name"]);
-        Assert.Null((int?)success["slot"]!["before"]);
+        Assert.Equal("empty", (string?)success["slot"]!["before"]);
         Assert.Equal(1, (int)success["slot"]!["after"]!);
         Assert.Null(success["preflight"]);
         Assert.Null(success["before"]);
@@ -557,6 +557,10 @@ public sealed class GameMcpSpellWorkbenchTests
         var added = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(afterAdd), addCommand, terminal));
 
+        // An add moves the spell from no slot at all onto the bar, which is the pair a removal
+        // already prints the other way round. Dropping the empty half left `slot: after=1`, a
+        // line a caller cannot tell from a slot that did not move.
+        Assert.Equal("empty", (string?)added["slot"]!["before"]);
         Assert.Equal(1, (int)added["slot"]!["after"]!);
         Assert.Equal(0, (int)added["loadBudget"]!["used"]!["before"]!);
         Assert.Equal(1, (int)added["loadBudget"]!["used"]!["after"]!);

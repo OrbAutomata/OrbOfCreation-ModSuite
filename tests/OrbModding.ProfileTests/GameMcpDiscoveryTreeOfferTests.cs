@@ -250,6 +250,63 @@ public sealed class GameMcpDiscoveryTreeOfferTests
     }
 
     /// <summary>
+    /// A spell taken off a tree and a spell taken off a row are the same discovery, and the game
+    /// loads either one the same way. The tree route answered with the tree's counts alone, so a
+    /// caller that confirmed an offer had to read the loadout again to learn whether its new spell
+    /// was already on the bar and where.
+    /// </summary>
+    [Fact]
+    public void Confirming_a_spell_offer_ends_with_the_loadout_block_a_row_confirm_prints()
+    {
+        var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+        var spellId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_confirm", treeId, spellId,
+            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 2), generation: 41));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(
+                Tree(
+                    treeId,
+                    actionMode: 0,
+                    discoveredCount: 1,
+                    discoveredSpellId: spellId,
+                    loadedSlotIndex: 3),
+                generation: 42),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.True((bool)delta["loadout"]!["loaded"]!);
+        // The bar the player looks at counts from one.
+        Assert.Equal(4, (int)delta["loadout"]!["slot"]!);
+    }
+
+    /// <summary>
+    /// Nothing but a spell has a loadout, so nothing but a spell answers with one.
+    /// </summary>
+    [Fact]
+    public void Confirming_an_offer_that_is_not_a_spell_says_nothing_about_a_loadout()
+    {
+        var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+        var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_confirm", treeId, offerId,
+            "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 2), generation: 41));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 0, discoveredCount: 1), generation: 42),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.Null(delta["loadout"]);
+    }
+
+    /// <summary>
     /// A spent reroll answers the way the challenge reroll does: the budget as a pair, whether the
     /// offers actually moved, and the offers themselves. A bare post-value with no offers said
     /// nothing about what the press bought, so the caller re-read the whole tree to find out.
@@ -315,10 +372,32 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         long collectedAtUtcTicks = 0,
         int discoveredCount = 0,
         int rerollsLeft = 2,
-        Guid[]? offers = null) => new()
+        Guid[]? offers = null,
+        Guid discoveredSpellId = default,
+        int loadedSlotIndex = -1) => new()
         {
             CollectedAtEpoch = 7,
             CollectedAtUtcTicks = collectedAtUtcTicks,
+            SpellRecipes = discoveredSpellId == Guid.Empty
+                ? PublicationTable<WorldSpellRecipe>.Empty
+                : PublicationTable<WorldSpellRecipe>.Create(new[]
+                {
+                    new WorldSpellRecipe(
+                        discoveredSpellId, true, 0, BigDouble.Zero, 0, false, false, false,
+                        0, 1d, 1, false, BigDouble.One, BigDouble.One, BigDouble.One,
+                        BigDouble.One, BigDouble.One, BigDouble.One, false),
+                }),
+            SpellSlots = loadedSlotIndex < 0
+                ? PublicationTable<WorldSpellSlot>.Empty
+                : PublicationTable<WorldSpellSlot>.Create(new[]
+                {
+                    new WorldSpellSlot(
+                        loadedSlotIndex, discoveredSpellId, occupied: true, casting: false,
+                        readyingCast: false, attuning: false, channeled: false, toggled: false,
+                        chargeable: false, castReady: true, chargeAvailable: true,
+                        resourcesCovered: true, currentCharges: 1, maximumCharges: 1,
+                        cooldownRemaining: BigDouble.Zero),
+                }),
             DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new[]
             {
                 new WorldDiscoveryTree(
