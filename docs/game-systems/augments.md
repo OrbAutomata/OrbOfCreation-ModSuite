@@ -43,6 +43,20 @@ modifiers.
   non-free copy costs **one Spell Weight**, and copies are never merged into a single weight
   charge.
 
+### The two panels print different numbers
+
+Magic > Augments and Magic > Spellbook > Loadout both draw a glyph as `N/M` with a level beside it,
+and the pairs are not the same fact.
+
+- **Magic > Augments** draws the augment's **purchased level** and the usable copies above.
+- **Magic > Spellbook > Loadout** draws **free usages of maximum** — `1/1` is one free copy out of a
+  maximum of one — and a "Lv N" that counts the **copies staged into this layout**, floored at one.
+
+A fresh augment the game already offers therefore sits at purchased level **0** while its Loadout row
+reads "Lv 1". Nothing is owned at that point and nothing needs to be: what decides whether a glyph
+can be socketed is `GlyphSO.IsAvailable()`, and how many copies fit is `GetMaxUsages()`. A level is
+neither question's answer.
+
 ## The layout is chosen before the spell is added
 
 1. Set the glyph layout for a spell first.

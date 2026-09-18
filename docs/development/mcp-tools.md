@@ -1153,7 +1153,7 @@ inverted/bandwidth flags never overload one field with two meanings. These field
 include Auto Buy's configurable reserve or excess policy.
 
 A `resources` row is deliberately only named identity, `meter`, the counter's on-screen `amount`,
-`netRatePerSecond`, `capacity` and `atCapacity`. A resource with no storage ceiling reads `uncapped`
+`netRatePerSecond`, `capacity`, `atCapacity` and `inLedger`. A resource with no storage ceiling reads `uncapped`
 under `capacity` and `atCapacity`: the game's uncapped marker is a negative native capacity, which
 is never serialized as a magnitude, and a bare `atCapacity: no` would answer "is it full" about a
 counter that cannot fill.
@@ -1179,6 +1179,21 @@ live round watched paying 8 Toxicity move `amount` *up*. It is `held` — a mete
 what may be spent against it is read where it is always read, on `spendableAmount` beside a price.
 The numbers are the screen's numbers either way and nothing is recomputed. The column is filled from
 the captured traits, never from a list of names.
+
+**`inLedger` says whether the game counts this resource yet,** which is the whole of what
+`ResourceSO.visible` means. `CheckVisibility()` latches it from `startVisible &&
+visiblePrerequisites.Check()`, and it decides ledger membership, whether a price naming the resource
+prints as a known resource, and the rarity and global-progress math. It does **not** decide whether
+anything is drawn: a page that owns a bar for a resource draws one regardless, which is why the bit
+used to reach a caller twice — as `predicates.visible` and again as `predicates.available` — under
+"The game is not showing this yet", contradicting the open screen. A resource carries no predicate
+block of its own now: the one evaluated fact about it is this bit, and it rides the row where it can
+carry a sentence that says what the list is. An unledgered resource's detail read answers
+`requirements: unlocksWhen:` with the conditions out of that same container, and nothing else — a
+resource has no per-level program to state a suite verdict about. The game's own name for the bit is
+`ResourceSO.IsDiscovered()`, a one-line call to `IsVisible()`; the word is not reused because
+`discovered` everywhere else on this surface means a discovery button was pressed, and no resource
+has one.
 
 Where a ceiling applies, `atCapacity` answers in the same coordinate as `amount`: it is true exactly
 when the published `amount` reached `capacity`. On a `left` row that is true exactly when *nothing*
@@ -2355,13 +2370,16 @@ already answered it, never that it is false. A predicate's value is always a ver
 another field: `canUse` answers with the slot numbers the spell is equipped in, and where the block
 beside it already publishes the whole decision — `concept.canAdd` on an alchemy recipe — the
 predicate is dropped rather than made to point at it.
-A predicate whose verdict, class, and sentence are word for word what the row's own action already
-says is dropped, because the action is the thing a caller acts on: `canDiscover` goes where
-`row.discover` says the same no, `canPurchase` where `row.purchase` does, and likewise `canDevelop`
-and `canUse`. The drop is per field and turns on the twin being present. A `canDiscover` on a
-discovered spell — whose row offers `loadoutAdd` and no `discover` at all — still prints; a
-predicate that disagrees with its row keeps both readings; and `canUse: yes slots=[1]` keeps its
-slot list, because that list appears nowhere else.
+A predicate that is nothing but a verdict on a question the row's own action already answers is
+dropped, because the action is the thing a caller acts on: `canDiscover` goes where `row.discover`
+answers, `canPurchase` where `row.purchase` does, and likewise `canDevelop` and `canUse`. The drop is
+per field and turns on the twin being present, **not** on the two agreeing. Agreement was the wrong
+test: it kept the coarser answer precisely where it contradicted the screen, and a live round read
+`canDiscover: yes` under `discover: no (ERR_LOCKED)` on three augments at once. The row's block is
+the screen's truth — it knows the costs, the owning page and whether that page is drawn. A
+`canDiscover` on a discovered spell — whose row offers `loadoutAdd` and no `discover` at all — still
+prints, because then nothing else answers it; and `canUse: yes slots=[1]` keeps its slot list,
+because that list appears nowhere else.
 **The block says its repetition once.** A block whose every slot is a bare affirmative verdict is one
 line — `predicates: visible, available — yes` — and inside a block that is not, slots whose verdict,
 class and sentence are the same three facts are named together on one line:
@@ -2755,9 +2773,9 @@ most, so an old code's new class can be looked up here:
 | `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `category_not_listable`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required`, `tooltip_offset_invalid`, `plot_destination_mismatch` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `components_unavailable`, `no_recipe_book`, `tooltip_match_failed`, `tooltip_content_unavailable`, `native_plot_not_resolved` |
 | `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning`, `continue_wrong_scene` |
-| `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached`, `bandwidth_blocked`, `drain_blocked` |
+| `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached`, `bandwidth_blocked`, `drain_blocked`, `glyph_usages_exceeded` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
-| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `unlock_conditions_unmet`, `tree_unavailable`, `research_leeway_exhausted`, `native_leeway_exhausted` |
+| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `unlock_conditions_unmet`, `tree_unavailable`, `research_leeway_exhausted`, `native_leeway_exhausted`, `glyph_unavailable`, `not_in_resource_list` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `configuration_not_available`,
 `stale_configuration_generation`, `configuration_write_unconfirmed`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `unsupported_requirement_value`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable`, `single_buy_unavailable`, `unsupported_control`, `native_navigation_unavailable`, `native_plot_navigation_unavailable`, `native_plot_list_unavailable`, `native_probe_unavailable`, `tooltip_contract_unavailable`, `tooltip_read_faulted`, `continue_contract_unavailable`, `navigation_request_invalid`, `unsupported_probe` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused`, `native_tab_rejected`, `subtab_selection_failed` — the game's own gate said no and reported nothing else |
@@ -2865,7 +2883,10 @@ What each internal code means is below; the class is how it reaches the wire.
 | `continue_wrong_scene` / `continue_contract_unavailable` | Continue exists only on the title screen, and being in a run is a state that moves; or this build does not expose the Continue button, so no save can be started from here | `game_continue` |
 | `runtime_not_available` | The suite has not begun reading the game in this session, so the fact asked for has no source yet. The game is never asked | every gadget and read that needs a live runtime |
 | `native_rejected` | The game refused and the published world does not explain why | any native mutation, reserved for exactly that case |
-| `native_unavailable` | The game keeps this shut and publishes no condition that would open it. The read-side counterpart of `native_rejected`, and the answer a bare `available: false` reaches | every read that publishes availability, and the glyph and component decisions that act on one |
+| `native_unavailable` | The game keeps this shut and publishes no condition that would open it. The read-side counterpart of `native_rejected`, and the answer a bare `available: false` reaches. On an upgrade or a structure it is now reached only while no `unlocksWhen` block stands beside it; where the block exists the verdict is `unlock_conditions_unmet` and points at it | every read that publishes availability, and the glyph and component decisions that act on one |
+| `glyph_unavailable` | `GlyphSO.IsAvailable()` is false, so Magic > Spellbook > Loadout offers no copy of this glyph to socket. It answered `ERR_NOT_FOUND` — a glyph the read could not resolve — for a glyph resolved in full and gated | `game_spell_loadout preview`, `game_spell_loadout add` |
+| `glyph_usages_exceeded` | The layout asks one glyph for more uses than `GlyphSO.GetMaxUsages()` allows. The sentence carries `x of y` | `game_spell_loadout preview`, `game_spell_loadout add` |
+| `not_in_resource_list` | The game does not count this resource in its own resource list yet, so prices naming it print as an unknown resource. It is not a claim about what is drawn: a page owning a bar for the resource draws one either way. What would add it is under `unlocksWhen` | a `resources` row's `inLedger` |
 
 `native_rejected` is the last resort, not the default: a refusal the read side can already account
 for answers with that account's own code. A mutation refused by a gate the read side already
@@ -3341,7 +3362,14 @@ outcome; there is nothing to pay. Remove rechecks the three live facts the game'
 on — full charges, not casting, not readying a cast; move re-resolves the source slot and invokes
 the same native swap-plus-notify path as the spellbook. Every mode first reads
 `ViewSO.IsAvailable()` for Magic > Spellbook > Loadout, because a screen the game has not unlocked
-has no button to press and no bar to change.
+has no button to press and no bar to change. A glyph named in a layout is admitted on the game's own
+two facts and no others: `GlyphSO.IsAvailable()`, whether the Loadout page offers a copy at all, and
+`GetMaxUsages()`, how many copies one spell may hold. A refusal for a glyph that resolved is never a
+miss — unavailable answers `glyph_unavailable` (`ERR_LOCKED`) and names the screen, over-asking
+answers `glyph_usages_exceeded` (`ERR_LIMIT`) and carries `x of y`. The suite asked a third question
+until round 14, that `GlyphSO.level` be above zero, and refused augments the game was offering: a
+purchased level is not what the game gates socketing on, and the Loadout page's "Lv N" counts the
+copies staged rather than any level owned.
 Success is the exact added instance, exact target absence, or the exact target at its destination.
 A committed result returns only the recipe identity and slot change; a failure names only the unmet
 admission or missing outcome.
@@ -3700,7 +3728,7 @@ to touch one argues for it first. Each line names where the shape is specified.
     resource — whichever verb built the row and whichever member the producer read it from —
     *How a response reads*.
 
-Four shapes this list used to protect are retired, and a round that reintroduces one is undoing a
+Six shapes this list used to protect are retired, and a round that reintroduces one is undoing a
 ruling rather than restoring a contract:
 
 - **The cast-counter echo.** A cast press answered with a counter that had not moved yet, because
@@ -3719,6 +3747,15 @@ ruling rather than restoring a contract:
 - **`paid[]` and `costPerLevel[]`.** A commit reports the levels it bought; what a level costs and
   what the next one asks are read on `world_get` and `purchase-costs`, where the whole curve is —
   *Presence semantics*.
+- **`required` on a discovery block.** `IDiscoverable.IsDiscoverRequired()` printed as a bare
+  `required: true` beside a discovery verdict that turned on none of it — a fact about the tree
+  holding the entity, worn as a fact about the entity. The tree's own row says it in a sentence
+  (`reroll: no (ERR_STATE)`), which is where a caller acts on it. The fact is still captured —
+  *How a response reads*.
+- **A resource's `visible` and `available` predicates.** One bit, published twice, under "The game
+  is not showing this yet" — which the open screen contradicted whenever a page drew a bar for the
+  resource. `ResourceSO.visible` is ledger membership, it rides the row as `inLedger` with a
+  sentence that says so, and a resource carries no predicate block at all — *Presence semantics*.
 
 ## Screenshots and navigation
 
