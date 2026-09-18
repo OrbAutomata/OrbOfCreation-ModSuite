@@ -1204,13 +1204,13 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_navigate",
                 "Navigate the live screen catalog",
-                "UI-only, no gameplay/save mutation. Select one catalog screen, an optional subtab of that screen, and an optional published plot node; the answer is the arrived screen in words. game_screenshot is the only tool that captures the framebuffer.",
+                "UI-only, no gameplay/save mutation. Select one catalog screen, an optional subtab of that screen, and an optional tile that page draws; the answer is the arrived screen in words. game_screenshot is the only tool that captures the framebuffer.",
                 ObjectSchema(
                     new JObject
                     {
                         ["screen"] = StringSchema("Exact player-facing top-level screen name."),
                         ["subtab"] = StringSchema("Optional exact player-facing subtab name."),
-                        ["uuid"] = StringSchema("Optional published plot id to select after navigation."),
+                        ["uuid"] = StringSchema("Optional published tile to pick on the destination page: an Agromancy plot on World/Agromancy, or a recipe book on Magic/Unlock, whose spells the answer then lists."),
                     },
                     "screen"),
                 readOnly: false,

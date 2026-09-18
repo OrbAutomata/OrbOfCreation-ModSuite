@@ -216,6 +216,88 @@ public sealed class GameMcpGadgetTests
             GameMcpGadgetPolicy.IsPlotDestination(screen, subtab));
     }
 
+    /// <summary>
+    /// A tile is picked on the page that draws it, and each kind has exactly one such page.
+    /// </summary>
+    /// <remarks>
+    /// Round fourteen could not check a spell's book membership because the Unlock page's
+    /// undiscovered panel stays empty until a book tile is picked and no verb picked one. A book
+    /// tile is a tile in a list on a page — the same shape as the Agromancy plot this verb has
+    /// always picked — so it is the same argument on the same verb rather than a second meaning
+    /// for <c>game_discover</c>'s <c>select</c>, which chooses among the offers a paid roll drew.
+    /// </remarks>
+    [Theory]
+    [InlineData("Magic", "Unlock", true)]
+    [InlineData("Magic", "Spellbook", false)]
+    [InlineData("Magic", "Loadout", false)]
+    [InlineData("Scholar", "Unlock", false)]
+    [InlineData("Magic", null, false)]
+    public void RecipeBookSelectionIsAdmittedOnlyOnTheUnlockPage(
+        string screen,
+        string? subtab,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            GameMcpGadgetPolicy.IsRecipeBookDestination(screen, subtab));
+        Assert.Equal(
+            expected || GameMcpGadgetPolicy.IsPlotDestination(screen, subtab),
+            GameMcpGadgetPolicy.IsTileDestination(screen, subtab));
+    }
+
+    /// <summary>
+    /// A picked book answers with the spells its page now lists, not with a selection ledger.
+    /// </summary>
+    /// <remarks>
+    /// The press is the action; which spells the panel draws afterwards is the one observable that
+    /// proves it landed and the one thing the caller came for. The suite reads no selection list
+    /// of the game's and keeps no copy of one.
+    /// </remarks>
+    [Fact]
+    public void APickedRecipeBookAnswersWithTheSpellsThePanelNowLists()
+    {
+        var command = new GameMcpCommand(
+            1,
+            GameMcpCommandKind.Navigation,
+            0,
+            0,
+            "navigate",
+            System.Guid.Parse("a9a4dd00-0000-4000-8000-000000000001"),
+            System.Guid.Empty,
+            string.Empty, 1,
+            string.Empty,
+            string.Empty,
+            saveCapture: false);
+        var terminal = GameMcpCommandResult.Committed(
+            "navigation_arrived",
+            observedLifecycleGeneration: 1,
+            observedConfigurationGeneration: 1,
+            details: new GameMcpObjectBuilder
+            {
+                ["activeScreen"] = "Magic",
+                ["selectedBook"] = "a9a4dd00-0000-4000-8000-000000000001",
+                ["spells"] = new GameMcpArrayBuilder(
+                    new GameMcpObjectBuilder
+                    {
+                        ["name"] = "Profusion",
+                        ["uuid"] = "b0000000-0000-4000-8000-000000000002",
+                    },
+                    new GameMcpObjectBuilder { ["name"] = "Radiance" }),
+            }.Freeze());
+
+        var projected = GameMcpTestHarness.Json(terminal.Project(command));
+
+        Assert.Equal("committed", (string?)projected["status"]);
+        Assert.Equal("Magic", (string?)projected["activeScreen"]);
+        Assert.Null(projected["selectedPlot"]);
+        Assert.Equal("a9a4dd", (string?)projected["selectedBook"]!["uuid"]);
+        var spells = projected["spells"]!.OfType<JObject>().ToArray();
+        Assert.Equal(new[] { "Profusion", "Radiance" },
+            spells.Select(spell => (string?)spell["name"]).ToArray());
+        Assert.Equal("b00000", (string?)spells[0]["uuid"]);
+        Assert.Null(spells[1]["uuid"]);
+    }
+
     [Fact]
     public void NavigationReturnsPerStripDestinationStateWithoutMutationCeremony()
     {

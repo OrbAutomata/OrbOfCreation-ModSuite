@@ -52,5 +52,19 @@ internal static class GameMcpGadgetPolicy
     internal static bool IsPlotDestination(string screen, string? subtab) =>
         string.Equals(screen, "World", StringComparison.Ordinal) &&
         string.Equals(subtab, "Agromancy", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The one page whose recipe-book tiles decide which spells the panel beneath them lists.
+    /// </summary>
+    internal static bool IsRecipeBookDestination(string screen, string? subtab) =>
+        string.Equals(screen, "Magic", StringComparison.Ordinal) &&
+        string.Equals(subtab, "Unlock", StringComparison.Ordinal);
+
+    internal static bool IsTileDestination(string screen, string? subtab) =>
+        IsPlotDestination(screen, subtab) || IsRecipeBookDestination(screen, subtab);
+
+    /// <summary>Where the selectable tiles live, for the refusal that has to say so.</summary>
+    internal const string TileDestinations =
+        "Agromancy plots on World/Agromancy and recipe books on Magic/Unlock";
 }
 #endif

@@ -24283,7 +24283,8 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata generic discovery GameAction"
+        "Automata generic discovery GameAction",
+        "Automata screen navigation tile selection"
       ],
       "usages": [
         "reflection"
@@ -24316,7 +24317,10 @@
       "type": "SpellRecipeSO",
       "typeVisibility": "public",
       "kind": "type",
-      "owners": ["Automata generic discovery GameAction"],
+      "owners": [
+        "Automata generic discovery GameAction",
+        "Automata screen navigation tile selection"
+      ],
       "usages": ["reflection"],
       "place": "action"
     },

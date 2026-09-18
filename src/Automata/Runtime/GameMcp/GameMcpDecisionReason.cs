@@ -203,7 +203,7 @@ internal static class GameMcpDecisionReason
         // which taught a caller that the class described the tool rather than the failure.
         "configuration_write_rejected" or
         // The caller quoted a page marker or a destination the screen catalog never printed.
-        "tooltip_offset_invalid" or "plot_destination_mismatch" or
+        "tooltip_offset_invalid" or "tile_destination_mismatch" or
         "composite_identity_required" => ClassInput,
 
         // The named thing is not there.
@@ -228,7 +228,7 @@ internal static class GameMcpDecisionReason
         // branching on the class was told the game had refused for all fourteen, including the
         // three that are a bad argument, a miss, and a fact this build cannot read.
         "tooltip_match_failed" or "tooltip_content_unavailable" or
-        "native_plot_not_resolved" or
+        "native_plot_not_resolved" or "recipe_book_tile_not_found" or
         // A glyph the game draws no Recipe Book for. It used to answer world_not_published — the
         // suite having read nothing at all — for a healthy read of a published world.
         "no_recipe_book" or
@@ -341,7 +341,8 @@ internal static class GameMcpDecisionReason
         // The UI gadgets again: a shell that is not drawing tabs, a build that exposes no plot
         // list or no queue-room reading, and the two guards the router already makes unreachable.
         "native_navigation_unavailable" or "native_plot_navigation_unavailable" or
-        "native_plot_list_unavailable" or "native_probe_unavailable" or
+        "native_plot_list_unavailable" or "native_recipe_book_unavailable" or
+        "native_probe_unavailable" or
         "tooltip_contract_unavailable" or "tooltip_read_faulted" or
         // The tooltip's graph goes further than the projector walks, so the read was abandoned
         // rather than answered with the part of it that had been collected. Not a ceiling the

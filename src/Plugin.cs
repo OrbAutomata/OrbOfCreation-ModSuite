@@ -3347,7 +3347,7 @@ public sealed class Plugin : BaseUnityPlugin
             return false;
         }
         if (command.TargetId != Guid.Empty &&
-            !GameMcpGadgetPolicy.IsPlotDestination(
+            !GameMcpGadgetPolicy.IsTileDestination(
                 request.Tab.Label,
                 request.Subtab?.Label))
         {
@@ -3357,9 +3357,9 @@ public sealed class Plugin : BaseUnityPlugin
                 ? request.Tab.Label
                 : request.Tab.Label + "/" + request.Subtab.Label;
             failure = GadgetRejected(
-                "plot_destination_mismatch",
-                "Agromancy plots can be selected only on World/Agromancy, not " +
-                requestedDestination);
+                "tile_destination_mismatch",
+                "A tile can be picked on the page that draws it — " +
+                GameMcpGadgetPolicy.TileDestinations + " — not on " + requestedDestination);
             return false;
         }
         subtabSelector = request.Subtab;
@@ -3433,17 +3433,21 @@ public sealed class Plugin : BaseUnityPlugin
         }
         if (command.TargetId != Guid.Empty)
         {
-            var plotResult = NavigateExactPlot(
-                command.TargetId,
-                SceneManager.GetActiveScene().name);
-            if (!string.Equals(plotResult.Status, "committed", StringComparison.Ordinal))
+            var scene = SceneManager.GetActiveScene().name;
+            var picksBook = GameMcpGadgetPolicy.IsRecipeBookDestination(
+                command.SourceOperation?.Request?.Tab?.Label ?? string.Empty,
+                command.SourceOperation?.Request?.Subtab?.Label);
+            var tileResult = picksBook
+                ? SelectExactRecipeBook(command.TargetId, scene)
+                : NavigateExactPlot(command.TargetId, scene);
+            if (!string.Equals(tileResult.Status, "committed", StringComparison.Ordinal))
             {
                 yield return CompleteNavigateGameMcpAfterSettlement(
                     command,
-                    plotResult.WithDetails(details.Freeze()));
+                    tileResult.WithDetails(details.Freeze()));
                 yield break;
             }
-            details["plotNodeUuid"] = command.TargetId.ToString("D");
+            if (!picksBook) details["plotNodeUuid"] = command.TargetId.ToString("D");
         }
         // The strips are read once, after arrival settles, in one place. Reading them here — a
         // single frame after the subtab click, with the destination still assembling — is what let
@@ -3522,7 +3526,20 @@ public sealed class Plugin : BaseUnityPlugin
             if (!string.IsNullOrWhiteSpace(activeTab.Label))
                 details["activeScreen"] = activeTab.Label;
             if (command.TargetId != Guid.Empty)
-                details["selectedPlot"] = command.TargetId.ToString("D");
+            {
+                if (GameMcpGadgetPolicy.IsRecipeBookDestination(
+                        command.SourceOperation?.Request?.Tab?.Label ?? string.Empty,
+                        command.SourceOperation?.Request?.Subtab?.Label))
+                {
+                    details["selectedBook"] = command.TargetId.ToString("D");
+                    var spells = ProjectPanelSpellRecipes();
+                    if (spells is not null) details["spells"] = spells;
+                }
+                else
+                {
+                    details["selectedPlot"] = command.TargetId.ToString("D");
+                }
+            }
             AppendOpenModals(details);
             result = GadgetCommitted("navigation_arrived", details);
         }
@@ -3604,6 +3621,101 @@ public sealed class Plugin : BaseUnityPlugin
                 ["nativeMethod"] = "UIPlotNodeList.OnNodeClick",
                 ["sceneBefore"] = scene,
             });
+    }
+
+    /// <summary>
+    /// Presses the recipe-book tile the Unlock page draws for one book.
+    /// </summary>
+    /// <remarks>
+    /// The tile is the element the screen catalog already publishes with that book's id, and the
+    /// press is the player's own: <c>UIGenericItem.UIStart</c> registers the item click on the
+    /// tile's own <c>Button</c>, so invoking that button is the click whatever else the prefab
+    /// wired to it. Nothing here reads or writes the game's selection list — which books the page
+    /// ends up holding is the game's business, and the panel's spells afterwards is the answer.
+    /// </remarks>
+    private GameMcpCommandResult SelectExactRecipeBook(Guid stableUuid, string scene)
+    {
+        if (scene != "Main")
+        {
+            return GadgetRejected(
+                "wrong_scene",
+                "Recipe books can only be picked while a save is open.");
+        }
+        var nativeAccess = _gameMcpTooltipNativeAccess;
+        if (nativeAccess is null) return TooltipsUnreadableBecause(_gameMcpTooltipContractFailure);
+        var bookType = AccessTools.TypeByName("RecipeBookSO");
+        if (bookType is null)
+        {
+            return GadgetRejected(
+                "native_recipe_book_unavailable",
+                "This build does not expose recipe books, so a book tile cannot be picked.");
+        }
+        var matches = new List<Button>();
+        foreach (var entry in CaptureActiveHoverTooltips())
+        {
+            var item = entry.Hover.tooltipItem;
+            if (item is null || !bookType.IsInstanceOfType(item)) continue;
+            if (!nativeAccess.TryReadEntityId(item, out var entityId, out var identityFailure))
+                return TooltipsUnreadableBecause(identityFailure);
+            if (entityId != stableUuid) continue;
+            var button = TileButton(entry.Hover);
+            if (button is not null) matches.Add(button);
+        }
+        if (matches.Count != 1)
+        {
+            return GadgetRejected(
+                "recipe_book_tile_not_found",
+                matches.Count == 0
+                    ? "Magic > Spellbook > Unlock draws no book tile for that book right now; " +
+                        "game_screen_elements lists the tiles it does draw."
+                    : "More than one tile on this page answers to that book, so which one was " +
+                        "meant is unclear.");
+        }
+        matches[0].onClick.Invoke();
+        return GadgetCommitted(
+            "navigation_invoked",
+            new GameMcpObjectBuilder
+            {
+                ["recipeBookUuid"] = stableUuid.ToString("D"),
+                ["sceneBefore"] = scene,
+            });
+    }
+
+    /// <summary>
+    /// The button a hovered tile is pressed by: its own, or the nearest one above it.
+    /// </summary>
+    private static Button? TileButton(Component element)
+    {
+        for (var node = element.transform; node is not null; node = node.parent)
+        {
+            var button = node.GetComponent<Button>();
+            if (button is not null) return button;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// The spell rows the current page draws, which on the Unlock page is what the book tiles
+    /// decide. Absent rather than empty when the page draws none.
+    /// </summary>
+    private GameMcpValue? ProjectPanelSpellRecipes()
+    {
+        var nativeAccess = _gameMcpTooltipNativeAccess;
+        var recipeType = AccessTools.TypeByName("SpellRecipeSO");
+        if (nativeAccess is null || recipeType is null) return null;
+        var rows = new GameMcpArrayBuilder();
+        var drawn = 0;
+        foreach (var entry in CaptureActiveHoverTooltips())
+        {
+            var item = entry.Hover.tooltipItem;
+            if (item is null || !recipeType.IsInstanceOfType(item)) continue;
+            if (!nativeAccess.TryReadEntityId(item, out var entityId, out _)) continue;
+            drawn++;
+            var row = new GameMcpObjectBuilder { ["name"] = item.GetName() };
+            if (entityId != Guid.Empty) row["uuid"] = entityId.ToString("D");
+            rows.Add(row);
+        }
+        return drawn == 0 ? null : rows.Freeze();
     }
 
     private IReadOnlyList<GameMcpSubtab> CaptureSubtabs()
