@@ -251,7 +251,7 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.True((bool)add["acceptsAugments"]!);
         Assert.Equal("ERR_LOCKED", (string?)add["reasonCode"]);
         Assert.Equal(
-            "The screen this action lives on is not unlocked yet.",
+            "Magic > Spellbook > Loadout is not unlocked yet, so the game draws no row for this.",
             (string?)add["reason"]);
         Assert.Null(add["verbDecides"]);
         // The vocabulary the call needs still rides on the refusal: the page that refuses you is

@@ -388,7 +388,8 @@ public sealed class GameMcpSpellLoadoutTests
 
         Assert.Equal(
             "{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
-            "\"reason\":\"The screen this action lives on is not unlocked yet.\"}",
+            "\"reason\":\"Magic > Spellbook > Loadout is not unlocked yet, so the game draws " +
+            "no row for this.\"}",
             Remove(world, world.SpellSlots[0]));
     }
 

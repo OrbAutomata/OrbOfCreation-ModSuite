@@ -225,31 +225,26 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         {
             case "SpellRecipeSO":
                 screen = KnownEntities.MagicSpellbookLearn.Uuid;
-                path = "Magic > Spellbook > Unlock";
                 break;
             case "GlyphSO":
                 screen = KnownEntities.MagicGlyphsDiscover.Uuid;
-                path = "Magic > Augments > Glyphcraft";
                 break;
             case "RitualSO":
                 screen = KnownEntities.RitualsDiscover.Uuid;
-                path = "Rituals > Discover";
                 break;
             case "EquipmentSO":
                 screen = KnownEntities.WorkshopArtifactCreate.Uuid;
-                path = "Workshop > Artifacts > Create";
                 break;
             case "TimeRuneSO":
                 screen = KnownEntities.TimeTimeRuneCreate.Uuid;
-                path = "Time > Time Runes > Create";
                 break;
             case "AlchemyRecipeSO":
             default:
-                if (!TryRouteAlchemyRecipe(
-                        native, target, name, out screen, out path, out refusal))
+                if (!TryRouteAlchemyRecipe(native, target, name, out screen, out refusal))
                     return false;
                 break;
         }
+        path = GameScreenPath.For(screen);
         var resolution = _registry.Resolve(screen, native.ViewType);
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
             resolution.Value is not { } view)
@@ -288,12 +283,10 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         object target,
         string name,
         out Guid screen,
-        out string path,
         out GenericDiscoverySubmission refusal)
     {
         refusal = default;
         screen = Guid.Empty;
-        path = string.Empty;
         var coreType = native.GetCoreAlchemyType(target);
         var domain = coreType is null
             ? AlchemyGameplayDomain.Unknown
@@ -302,11 +295,9 @@ internal sealed class GenericDiscoveryGameAction : IDisposable
         {
             case AlchemyGameplayDomain.OrdinaryAlchemy:
                 screen = KnownEntities.AlchAlchemyDiscover.Uuid;
-                path = "Alchemy > Alchemy > Learn";
                 return true;
             case AlchemyGameplayDomain.ScholarConcept:
                 screen = KnownEntities.ScholarConceptDiscover.Uuid;
-                path = "Scholar > Concepts > Discover";
                 return true;
             default:
                 refusal = GenericDiscoverySubmission.Reject(

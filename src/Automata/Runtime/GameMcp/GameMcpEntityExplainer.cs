@@ -337,14 +337,25 @@ internal static class GameMcpEntityExplainer
             {
                 WorldLookup.TryFind(world.SpellRecipes, id, out var spell);
                 var offered = IsCurrentDiscoveryOffer(world, id);
-                var visible = Verdict(
-                    spell.Discovered || !spell.HiddenDiscovery || offered,
-                    "hidden_discovery");
+                // A hidden row's whole answer used to be that it was hidden. The book it is behind
+                // is the one thing a caller can act on, and the row beside these predicates now
+                // names it, so the predicates say the same sentence rather than a shorter one.
+                var hidden = GameMcpWorldQuery.MissingRecipeBookReason(world, in spell);
+                var visible = hidden.Length > 0
+                    ? Verdict(
+                        spell.Discovered || !spell.HiddenDiscovery || offered,
+                        "hidden_discovery",
+                        hidden)
+                    : Verdict(
+                        spell.Discovered || !spell.HiddenDiscovery || offered,
+                        "hidden_discovery");
                 result["visible"] = visible;
                 result["available"] = visible;
-                result["canDiscover"] = Verdict(
-                    !spell.Discovered && (!spell.HiddenDiscovery || offered),
-                    spell.Discovered ? "already_discovered" : "hidden_discovery");
+                var discoverable = !spell.Discovered && (!spell.HiddenDiscovery || offered);
+                var discoverCode = spell.Discovered ? "already_discovered" : "hidden_discovery";
+                result["canDiscover"] = !spell.Discovered && hidden.Length > 0
+                    ? Verdict(discoverable, discoverCode, hidden)
+                    : Verdict(discoverable, discoverCode);
                 result["canUse"] = SpellCanUse(world, id);
                 break;
             }

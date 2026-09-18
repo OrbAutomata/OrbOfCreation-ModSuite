@@ -203,6 +203,31 @@ public sealed class GameMcpRecipeBookTests
     /// both — its books under <c>composedOf</c> and its types under <c>belongsTo</c>. The row names
     /// the twin so a caller reading "Expansion" twice knows they are two entities.
     /// </summary>
+    /// <summary>
+    /// Twenty-five of the thirty-four books are the far half of an augment glyph of the same name.
+    /// The other nine — Compulsion, Death, Dismantle, Electric, Life, Occultic, Principle, Spirit
+    /// and Tempered — are books and nothing else, and their rows were shaped exactly like the
+    /// twenty-five: a live round read all thirty-four and could not tell the two kinds apart, with
+    /// the only tell being that five of the nine happen to carry an internal name.
+    /// </summary>
+    [Fact]
+    public void A_book_no_augment_glyph_carries_says_it_is_only_ever_a_book()
+    {
+        var world = World(
+            new WorldRecipeBook(ExpansionBookId, available: true),
+            new WorldRecipeBook(InsightBookId, available: true));
+
+        var context = GameMcpTestHarness.Context(world);
+        var bookOnly = GameMcpTestHarness.Detail(context, ExpansionBookId)["row"]!;
+        var hasGlyph = GameMcpTestHarness.Detail(context, InsightBookId)["row"]!;
+
+        Assert.Equal(
+            "No augment glyph carries this book, so no discovery produces it: it is owned by " +
+            "meeting its prerequisite and nothing else.",
+            (string?)bookOnly["obtaining"]);
+        Assert.Null(hasGlyph["obtaining"]);
+    }
+
     [Fact]
     public void A_book_that_shares_its_name_with_a_spell_type_names_the_twin()
     {

@@ -1,6 +1,8 @@
 #if SERVICE_CYCLE_PROFILE
+using System;
 using System.Collections.Generic;
 using System.Text;
+using OrbModding.Common;
 
 namespace OrbAutomata.GameMcp;
 
@@ -378,6 +380,23 @@ internal static class GameMcpDecisionReason
     /// </summary>
     internal static string For(string reasonCode) =>
         Authored(reasonCode) ?? Restate(reasonCode);
+
+    /// <summary>The locked-screen answer with the door named.</summary>
+    /// <remarks>
+    /// "The screen this action lives on is not unlocked yet" is true and unusable: a live round met
+    /// it on a ritual, on an artifact and on a spell's own loadout row, and each time had to work
+    /// out which page it meant. Every producer holds the view's identity, so the path is always
+    /// available; a view the suite has not pinned a route for keeps the unnamed sentence rather
+    /// than a guessed route, because a reader sent to the wrong page cannot tell which half was
+    /// wrong.
+    /// </remarks>
+    internal static string ScreenLocked(Guid viewId)
+    {
+        var path = GameScreenPath.For(viewId);
+        return path.Length == 0
+            ? For("screen_locked")
+            : path + " is not unlocked yet, so the game draws no row for this.";
+    }
 
     /// <summary>
     /// Whether this table has a sentence of its own for the code, as opposed to falling back to

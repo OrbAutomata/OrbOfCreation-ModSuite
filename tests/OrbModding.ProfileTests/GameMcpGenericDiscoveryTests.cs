@@ -26,6 +26,8 @@ public sealed class GameMcpGenericDiscoveryTests
         Guid.Parse("f3000000-0000-0000-0000-000000000005");
     private static readonly Guid StructureId =
         Guid.Parse("f3000000-0000-0000-0000-000000000006");
+    private static readonly Guid RecipeBookId =
+        Guid.Parse("f3000000-0000-0000-0000-000000000007");
 
     [Fact]
     public void ToolAdvertisesOneTargetAddressedAndEventOfferDiscoveryNamespace()
@@ -241,6 +243,25 @@ public sealed class GameMcpGenericDiscoveryTests
     }
 
     /// <summary>
+    /// A hidden spell's whole answer used to be that it was hidden. The Recipe Book it is behind is
+    /// the one thing a caller can act on, and the press has named it since the discovery boundary
+    /// landed: a live round met two hidden spells whose rows said only "The game is not showing
+    /// this yet" and had to go and work out which book each was waiting on.
+    /// </summary>
+    [Fact]
+    public void A_hidden_spell_row_names_the_recipe_book_it_is_waiting_on()
+    {
+        var row = Json(GameMcpWorldQuery.ProjectPostState(
+            Context(spellHidden: true), "spell-recipes", SpellRecipeId))["discover"]!;
+
+        Assert.False((bool)row["available"]!);
+        Assert.Equal(
+            "The game is not showing this yet. It needs the Expansion recipe book, which is not " +
+            "owned.",
+            (string?)row["reason"]);
+    }
+
+    /// <summary>
     /// A locked discovery screen is the row's own answer, not a surprise saved for the press.
     /// </summary>
     /// <remarks>
@@ -261,7 +282,8 @@ public sealed class GameMcpGenericDiscoveryTests
         Assert.False((bool)glyph["available"]!);
         Assert.Equal("ERR_LOCKED", (string?)glyph["reasonCode"]);
         Assert.Equal(
-            "The screen this action lives on is not unlocked yet.", (string?)glyph["reason"]);
+            "Magic > Augments > Glyphcraft is not unlocked yet, so the game draws no row for this.",
+            (string?)glyph["reason"]);
         Assert.Null(glyph["costs"]);
         Assert.False((bool)recipe["available"]!);
         Assert.Equal("ERR_LOCKED", (string?)recipe["reasonCode"]);
@@ -375,13 +397,17 @@ public sealed class GameMcpGenericDiscoveryTests
     /// <c>AlchAlchemyDiscover</c> — so its row reads the screen off the recipe's own alchemy type.
     /// </remarks>
     [Theory]
-    [InlineData("rituals", "2ebf945f-56bc-44fe-a82a-7f117779ce37")]
-    [InlineData("equipment", "02c64c96-de30-4e73-bafe-5f454bb58a66")]
-    [InlineData("time-runes", "01a6d158-0fcd-40bc-a3a2-8f748086201d")]
-    [InlineData("alchemy-recipes", "05589125-5a98-4e74-a1ae-2b2146ea68c4")]
-    [InlineData("alchemy-recipes", "6f7f6b2c-6ad0-4a05-9a35-0f2ab7e0e0d1")]
+    [InlineData("rituals", "2ebf945f-56bc-44fe-a82a-7f117779ce37", "Rituals > Discover")]
+    [InlineData("equipment", "02c64c96-de30-4e73-bafe-5f454bb58a66",
+        "Workshop > Artifacts > Create")]
+    [InlineData("time-runes", "01a6d158-0fcd-40bc-a3a2-8f748086201d",
+        "Time > Time Runes > Create")]
+    [InlineData("alchemy-recipes", "05589125-5a98-4e74-a1ae-2b2146ea68c4",
+        "Alchemy > Alchemy > Learn")]
+    [InlineData("alchemy-recipes", "6f7f6b2c-6ad0-4a05-9a35-0f2ab7e0e0d1",
+        "Scholar > Concepts > Discover")]
     public void A_discovery_row_is_gated_on_the_screen_its_tree_is_drawn_under(
-        string category, string uuid)
+        string category, string uuid, string path)
     {
         var id = Guid.Parse(uuid);
 
@@ -393,8 +419,10 @@ public sealed class GameMcpGenericDiscoveryTests
         Assert.True((bool)open["discover"]!["available"]!);
         Assert.False((bool)shut["discover"]!["available"]!);
         Assert.Equal("ERR_LOCKED", (string?)shut["discover"]!["reasonCode"]);
+        // The door is named. "The screen this action lives on" is true and unusable: a live round
+        // met it on a ritual and on an artifact and had to work out which page it meant.
         Assert.Equal(
-            "The screen this action lives on is not unlocked yet.",
+            path + " is not unlocked yet, so the game draws no row for this.",
             (string?)shut["discover"]!["reason"]);
     }
 
@@ -593,12 +621,18 @@ public sealed class GameMcpGenericDiscoveryTests
         bool ambiguous = false,
         bool componentLearned = true,
         bool loadoutHasRoom = true,
-        bool screensUnlocked = true)
+        bool screensUnlocked = true,
+        bool spellHidden = false)
     {
         using var publisher =
             new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
         publisher.Publish(
-            World(ambiguous, componentLearned, loadoutHasRoom, screensUnlocked),
+            World(
+                ambiguous,
+                componentLearned,
+                loadoutHasRoom,
+                screensUnlocked,
+                spellHidden: spellHidden),
             new WorldGeneration(2301));
         return GameMcpTestHarness.Context(
             publisher.ReadLatest(), configurationGeneration: 8, lifecycleGeneration: 15);
@@ -610,7 +644,8 @@ public sealed class GameMcpGenericDiscoveryTests
         bool loadoutHasRoom = true,
         bool screensUnlocked = true,
         bool spellDiscovered = false,
-        int loadedSlotIndex = -1)
+        int loadedSlotIndex = -1,
+        bool spellHidden = false)
     {
         var costs = PublicationTable<WorldDiscoverableCost>.Create(new[]
         {
@@ -618,6 +653,15 @@ public sealed class GameMcpGenericDiscoveryTests
         });
         var decision = new WorldDiscoverableDecision(
             visible: true,
+            canDiscover: true,
+            discovered: false,
+            required: true,
+            affordable: true,
+            costs,
+            PublicationTable<Guid>.Create(new[] { ComponentId }),
+            PublicationTable<Guid>.Create(new[] { ResourceId }));
+        var hidden = new WorldDiscoverableDecision(
+            visible: false,
             canDiscover: true,
             discovered: false,
             required: true,
@@ -643,7 +687,15 @@ public sealed class GameMcpGenericDiscoveryTests
             }),
             AugmentGlyphs = PublicationTable<WorldGlyph>.Create(glyphs),
             SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(
-                new[] { SpellRecipe(decision, spellDiscovered) }),
+                new[] { SpellRecipe(spellHidden ? hidden : decision, spellDiscovered) }),
+            RecipeBookGlyphs = PublicationTable<WorldRecipeBookGlyph>.Create(new[]
+            {
+                new WorldRecipeBookGlyph(ComponentId, RecipeBookId),
+            }),
+            RecipeBooks = PublicationTable<WorldRecipeBook>.Create(new[]
+            {
+                new WorldRecipeBook(RecipeBookId, available: false),
+            }),
             SpellSlots = loadedSlotIndex < 0
                 ? PublicationTable<WorldSpellSlot>.Empty
                 : PublicationTable<WorldSpellSlot>.Create(new[]
@@ -765,6 +817,7 @@ public sealed class GameMcpGenericDiscoveryTests
             new EntityIdentityName(AmbiguousOutputId, "GlyphSO", "Echo", "echo"),
             new EntityIdentityName(SpellRecipeId, "SpellRecipeSO", "Firebolt", "firebolt"),
             new EntityIdentityName(StructureId, "StructureSO", "Watchtower", "watchtower"),
+            new EntityIdentityName(RecipeBookId, "RecipeBookSO", "Expansion", "expansion"),
         }).OrderBy(row => row.EntityId).ToArray();
         return EntityIdentityCatalogSnapshot.Bound(15, rows);
     }

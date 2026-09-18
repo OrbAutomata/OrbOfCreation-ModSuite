@@ -3136,6 +3136,49 @@ internal static class GameMcpWorldQuery
     /// dropped: a recipe silently one book short is a recipe a caller would plan against.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Which Recipe Book a hidden spell is waiting on, in the same words the press refuses in.
+    /// </summary>
+    /// <remarks>
+    /// The verb has named the book since the discovery boundary landed, and the row the caller
+    /// reads first never did: a live round met two hidden spells whose whole answer was "The game
+    /// is not showing this yet" and had to go and work out which book each was behind. The walk is
+    /// the verb's own — the recipe names its core glyphs, each core glyph names the book it is the
+    /// internal half of, and the first unowned one is the answer — done here over the published
+    /// edges the row already prints under <c>composedOf</c>.
+    /// <para>
+    /// A book the world publishes no row for is not named. Ownership is the fact the sentence turns
+    /// on, and a book whose row is missing has no ownership to read; naming it anyway would tell a
+    /// caller to go and buy something the suite never checked.
+    /// </para>
+    /// </remarks>
+    internal static string MissingRecipeBookReason(GameWorldState world, in WorldSpellRecipe recipe)
+    {
+        for (var index = 0; index < recipe.CoreGlyphs.Count; index++)
+        {
+            var glyphId = recipe.CoreGlyphs[index].GlyphId;
+            if (!WorldRecipeBookGlyphLookup.TryFindBook(
+                    world.RecipeBookGlyphs, glyphId, out var bookId))
+            {
+                continue;
+            }
+            if (!WorldLookup.TryFind(world.RecipeBooks, bookId, out var book) || book.Available)
+                continue;
+            return GameMcpDecisionReason.For("not_visible") + " It needs the " +
+                EntityIdentityFormatter.PlayerName(bookId, world.EntityIdentities) +
+                " recipe book, which is not owned.";
+        }
+        return string.Empty;
+    }
+
+    /// <summary>Whether any augment glyph is the other half of this book.</summary>
+    private static bool HasGlyphTwin(GameWorldState world, Guid bookId)
+    {
+        for (var index = 0; index < world.RecipeBookGlyphs.Count; index++)
+            if (world.RecipeBookGlyphs[index].RecipeBookId == bookId) return true;
+        return false;
+    }
+
     private static JArray RecipeBookEdges(GameWorldState world, in WorldSpellRecipe recipe)
     {
         var books = new JArray();
@@ -3213,6 +3256,17 @@ internal static class GameMcpWorldQuery
             for (var index = 0; index < count; index++)
                 widens.Add(EntityReference(world, world.DiscoveryTreeBooks[start + index].TreeId));
             result["widens"] = widens;
+        }
+
+        // Twenty-five of the thirty-four books are the far half of an augment glyph of the same
+        // name, and nine are not. Their rows were identical, so a reader could not tell a book
+        // that is discovered on the Glyphcraft page from one that only ever arrives as a book —
+        // and the only tell on the wire was that five of the nine happen to carry an internal
+        // name, which is a diagnostic and not a statement.
+        if (!HasGlyphTwin(world, book.EntityId))
+        {
+            result["obtaining"] = "No augment glyph carries this book, so no discovery produces " +
+                "it: it is owned by meeting its prerequisite and nothing else.";
         }
 
         var bookName = EntityIdentityFormatter.PlayerName(book.EntityId, world.EntityIdentities);
@@ -6709,6 +6763,8 @@ internal static class GameMcpWorldQuery
             if (!unlocked)
             {
                 next["reasonCode"] = "screen_locked";
+                next["reason"] = GameMcpDecisionReason.ScreenLocked(
+                    KnownEntities.MagicSpellbookLoadout.Uuid);
             }
             else if (!available)
             {
@@ -6752,11 +6808,19 @@ internal static class GameMcpWorldQuery
             }
             next["available"] = structurallyAvailable && recipe.DiscoveryAffordable;
             if (!unlockScreen)
+            {
                 next["reasonCode"] = "screen_locked";
+                next["reason"] = GameMcpDecisionReason.ScreenLocked(
+                    KnownEntities.MagicSpellbookLearn.Uuid);
+            }
             else if (recipe.CoreGlyphs.Count == 0)
                 next["reasonCode"] = "components_unavailable";
             else if (!recipe.Discovery.Visible)
+            {
                 next["reasonCode"] = "not_visible";
+                var book = MissingRecipeBookReason(world, in recipe);
+                if (book.Length > 0) next["reason"] = book;
+            }
             else if (!recipe.Discovery.CanDiscover)
                 next["reasonCode"] = "discovery_unavailable";
             else if (!recipe.DiscoveryAffordable)
@@ -7292,6 +7356,8 @@ internal static class GameMcpWorldQuery
             {
                 ["available"] = false,
                 ["reasonCode"] = "screen_locked",
+                ["reason"] = GameMcpDecisionReason.ScreenLocked(
+                    KnownEntities.MagicSpellbookLoadout.Uuid),
             };
         }
         else if (slot.Casting || slot.ReadyingCast)
@@ -7715,7 +7781,8 @@ internal static class GameMcpWorldQuery
             world,
             result,
             recipe.Discovery,
-            screenUnlocked: AlchemyDiscoveryScreenUnlocked(world, recipe.CoreTypeId));
+            screenUnlocked: AlchemyDiscoveryScreenUnlocked(world, recipe.CoreTypeId),
+            screenId: AlchemyDiscoveryScreen(recipe.CoreTypeId));
         return result.Freeze();
     }
 
@@ -7730,6 +7797,15 @@ internal static class GameMcpWorldQuery
     /// <c>ConceptDiscoveryTree</c> draws all carry a concept type. The press reads the same fact at
     /// the boundary, so the preview and the press cannot disagree.
     /// </remarks>
+    /// <summary>Which of the two alchemy discovery screens draws this recipe, or none.</summary>
+    private static Guid AlchemyDiscoveryScreen(Guid coreTypeId) =>
+        AlchemyGameplayDomainClassifier.ClassifyTypeUuid(coreTypeId) switch
+        {
+            AlchemyGameplayDomain.OrdinaryAlchemy => KnownEntities.AlchAlchemyDiscover.Uuid,
+            AlchemyGameplayDomain.ScholarConcept => KnownEntities.ScholarConceptDiscover.Uuid,
+            _ => Guid.Empty,
+        };
+
     private static bool? AlchemyDiscoveryScreenUnlocked(GameWorldState world, Guid coreTypeId) =>
         AlchemyGameplayDomainClassifier.ClassifyTypeUuid(coreTypeId) switch
         {
@@ -7901,7 +7977,8 @@ internal static class GameMcpWorldQuery
             world,
             result,
             equipment.Discovery,
-            screenUnlocked: IsScreenUnlocked(world, KnownEntities.WorkshopArtifactCreate.Uuid));
+            screenUnlocked: IsScreenUnlocked(world, KnownEntities.WorkshopArtifactCreate.Uuid),
+            screenId: KnownEntities.WorkshopArtifactCreate.Uuid);
         return result.Freeze();
     }
 
@@ -8250,7 +8327,8 @@ internal static class GameMcpWorldQuery
             glyph.Discovery,
             glyph.Discoverable,
             glyph.Discoverable && !glyph.Discovered && IsCurrentDiscoveryOffer(world, glyph.EntityId),
-            IsScreenUnlocked(world, KnownEntities.MagicGlyphsDiscover.Uuid));
+            IsScreenUnlocked(world, KnownEntities.MagicGlyphsDiscover.Uuid),
+            KnownEntities.MagicGlyphsDiscover.Uuid);
         return result.Freeze();
     }
 
@@ -8359,7 +8437,8 @@ internal static class GameMcpWorldQuery
             world,
             result,
             ritual.Discovery,
-            screenUnlocked: IsScreenUnlocked(world, KnownEntities.RitualsDiscover.Uuid));
+            screenUnlocked: IsScreenUnlocked(world, KnownEntities.RitualsDiscover.Uuid),
+            screenId: KnownEntities.RitualsDiscover.Uuid);
         return result.Freeze();
     }
 
@@ -8616,7 +8695,8 @@ internal static class GameMcpWorldQuery
             world,
             result,
             rune.Discovery,
-            screenUnlocked: IsScreenUnlocked(world, KnownEntities.TimeTimeRuneCreate.Uuid));
+            screenUnlocked: IsScreenUnlocked(world, KnownEntities.TimeTimeRuneCreate.Uuid),
+            screenId: KnownEntities.TimeTimeRuneCreate.Uuid);
         return result.Freeze();
     }
 
@@ -8760,7 +8840,8 @@ internal static class GameMcpWorldQuery
         WorldDiscoverableDecision decision,
         bool nativeDiscoverable = true,
         bool offered = false,
-        bool? screenUnlocked = true)
+        bool? screenUnlocked = true,
+        Guid screenId = default)
     {
         var screenDraws = screenUnlocked == true;
         var available = nativeDiscoverable && screenDraws && decision.Visible &&
@@ -8781,6 +8862,11 @@ internal static class GameMcpWorldQuery
                                 : !decision.CanDiscover
                                     ? "native_discovery_refused"
                                     : "unaffordable";
+            // The block is written for six discoverable kinds and used to be told only whether
+            // some screen was open, so the one answer a caller could not act on was the one about
+            // a screen. The caller's own uuid rides down with the bool it resolved it from.
+            if (!screenDraws && screenUnlocked is not null && screenId != Guid.Empty)
+                discover["reason"] = GameMcpDecisionReason.ScreenLocked(screenId);
         }
         if (nativeDiscoverable && screenDraws && decision.Visible && !decision.Discovered &&
             decision.CanDiscover && decision.Costs.Count > 0)
