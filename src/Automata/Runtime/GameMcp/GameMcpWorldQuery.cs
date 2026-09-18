@@ -6106,8 +6106,11 @@ internal static class GameMcpWorldQuery
                 tree.HasImmediateRequiredDiscovery,
         };
 
+        // Seconds, in the format every other duration on this surface reads in. It shipped as a
+        // bare magnitude and a live round watched it climb 0.22 → 2.72 with nothing saying what
+        // the number counted.
         if (tree.ActionMode == 1)
-            result["actionTime"] = new GameMcpDomainValue(tree.ActionTime);
+            result["actionTime"] = CoarseClock(tree.ActionTime);
         if (tree.SelectedChoiceId != Guid.Empty)
             result["selectedOfferUuid"] = tree.SelectedChoiceId.ToString("D");
 
@@ -6783,10 +6786,9 @@ internal static class GameMcpWorldQuery
                 // carrying the game's own `isLoadoutUnique`, so the gate is pre-readable and naming
                 // it here would tell a caller to wait for an answer it already holds. The verb still
                 // re-reads it live before it stages anything, and refuses in exactly the same words.
-                var verbDecides = new JArray();
-                verbDecides.Add("usage budget");
-                verbDecides.Add("augment requirements");
-                next["verbDecides"] = verbDecides;
+                next["notYetChecked"] =
+                    "Whether the spell these augments make fits the loadout's spell weight, and " +
+                    "whether the augments meet their own requirements, is settled by the press.";
             }
 
             // Published on both sides of the answer. The vocabulary a caller needs in order to plan
@@ -8350,6 +8352,18 @@ internal static class GameMcpWorldQuery
     /// <c>world_search</c> query now, because search matches the words these rows carry.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// What a glyph does, one authored slot per row.
+    /// </summary>
+    /// <remarks>
+    /// <c>GlyphSO.GetQuantityTooltipNodes</c> prints every non-empty slot through
+    /// <c>AttributeSO.CreateNamedNode</c> on the attribute its <c>GlobalVariables.Get…Attr()</c>
+    /// accessor hands back, so the word the player reads beside a magnitude is that entity's own
+    /// name — the entity this row already points at. Four slots are printed against a player
+    /// variable instead and point at that, the same way. The fifteenth is applied straight to a
+    /// <c>ResourceCostList</c>, which is not an entity, so it is the only row that says what it
+    /// moves rather than naming it.
+    /// </remarks>
     private static void AddGlyphFactors(GameWorldState world, JObject result, Guid glyphId)
     {
         if (!WorldGlyphFactorLookup.TryFindRange(world.GlyphEffects, glyphId, out var start,
@@ -8364,7 +8378,6 @@ internal static class GameMcpWorldQuery
             var factor = world.GlyphEffects[start + index];
             var row = new JObject
             {
-                ["property"] = factor.Property,
                 ["statisticId"] = factor.StatisticId.ToString("D"),
 
                 // The four slots the game prints against a player variable instead of a statistic.
@@ -8376,6 +8389,12 @@ internal static class GameMcpWorldQuery
                 ["amount"] = new GameMcpDomainValue(factor.Amount),
                 ["order"] = factor.Order,
             };
+            // No `property`. It was the slot's field name off `GlyphSO` — a row read `spellPower`
+            // while the statistic it points at, and the tooltip that prints it, both read `Power`.
+            // The edge already carries the game's own word, so the field name was a second, worse
+            // spelling of a fact the row states. The one slot with neither edge says what it is.
+            if (factor.StatisticId == Guid.Empty && factor.VariableId == Guid.Empty)
+                row["affects"] = "what the spell costs to create";
             factors.Add(row);
         }
 

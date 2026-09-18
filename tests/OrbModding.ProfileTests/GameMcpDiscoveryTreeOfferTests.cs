@@ -250,6 +250,27 @@ public sealed class GameMcpDiscoveryTreeOfferTests
     }
 
     /// <summary>
+    /// A tree mid-craft counts seconds, so it says them the way every other duration on this
+    /// surface does. It shipped as a bare magnitude and a live round watched it climb 0.22 → 2.72
+    /// with nothing on the line saying what the number counted.
+    /// </summary>
+    [Fact]
+    public void A_crafting_tree_says_its_elapsed_time_as_a_duration()
+    {
+        var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+        var world = Tree(
+            treeId, actionMode: 1, collectedAtUtcTicks: DateTime.UtcNow.Ticks);
+
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 91),
+            "discovery-trees",
+            treeId.ToString("D")))["row"]!;
+
+        Assert.Equal("crafting", (string?)row["mode"]);
+        Assert.Equal("0.00s", (string?)row["actionTime"]);
+    }
+
+    /// <summary>
     /// A spell taken off a tree and a spell taken off a row are the same discovery, and the game
     /// loads either one the same way. The tree route answered with the tree's counts alone, so a
     /// caller that confirmed an offer had to read the loadout again to learn whether its new spell

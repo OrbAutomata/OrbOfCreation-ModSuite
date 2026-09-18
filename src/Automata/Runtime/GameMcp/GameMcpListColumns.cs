@@ -166,10 +166,15 @@ internal static class GameMcpListColumns
     /// used. This is the word that replaces <c>atCapacity: yes</c> on those rows, where the plain
     /// yes read as "stuck at the ceiling" and meant its exact opposite.
     /// </summary>
-    internal const string NothingUsed = "nothing_used";
+    /// <remarks>
+    /// Two words of the player's, not one token of the suite's. <c>nothing_used</c> was a cell a
+    /// reader had to be taught, in a column whose own name already reads the other way round on
+    /// these rows.
+    /// </remarks>
+    internal const string NothingUsed = "none committed";
 
     /// <summary>A <see cref="MeterLeft"/> row with less left than its capacity: some is committed.</summary>
-    internal const string SomeUsed = "some_used";
+    internal const string SomeUsed = "some committed";
 
     /// <summary>
     /// Which screen's upgrade panel groups this row, in the player's own word for that screen.

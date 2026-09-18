@@ -254,6 +254,7 @@ public sealed class GameMcpSpellWorkbenchTests
             "Magic > Spellbook > Loadout is not unlocked yet, so the game draws no row for this.",
             (string?)add["reason"]);
         Assert.Null(add["verbDecides"]);
+        Assert.Null(add["notYetChecked"]);
         // The vocabulary the call needs still rides on the refusal: the page that refuses you is
         // still the page that has to teach the call.
         Assert.Single(add["augmentOptions"]!.Values<JObject>());
@@ -346,13 +347,12 @@ public sealed class GameMcpSpellWorkbenchTests
 
         Assert.True((bool)decision["available"]!);
         Assert.Null(decision["reasonCode"]);
+        // A sentence, not two mechanism words in a list under a key named after the verb.
+        Assert.Null(decision["verbDecides"]);
         Assert.Equal(
-            new[]
-            {
-                "usage budget",
-                "augment requirements",
-            },
-            decision["verbDecides"]!.Values<string>());
+            "Whether the spell these augments make fits the loadout's spell weight, and whether " +
+            "the augments meet their own requirements, is settled by the press.",
+            (string?)decision["notYetChecked"]);
     }
 
     /// <summary>

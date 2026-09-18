@@ -64,14 +64,17 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
         var effects = Effects(Quick);
         Assert.Equal(3, effects.Length);
 
-        Assert.Equal("spellCost", (string?)effects[0]!["property"]);
+        // No `property`. The statistic's own name is the word the tooltip prints, so the slot's
+        // field name off GlyphSO was a second and worse spelling of a fact the row already states.
+        Assert.Null(effects[0]!["property"]);
+        Assert.Null(effects[0]!["affects"]);
         Assert.Equal("bb3cd4", (string?)effects[0]!["statistic"]!["uuid"]);
         Assert.Equal("Cost", (string?)effects[0]!["statistic"]!["name"]);
         Assert.Equal("stacking", (string?)effects[0]!["modifierType"]);
         Assert.Equal("1.15", (string?)effects[0]!["amount"]);
         Assert.Equal(0, (int?)effects[0]!["order"]);
 
-        Assert.Equal("spellCooldown", (string?)effects[1]!["property"]);
+        Assert.Null(effects[1]!["property"]);
         Assert.Equal("c13b62", (string?)effects[1]!["statistic"]!["uuid"]);
         Assert.Equal("Cooldown", (string?)effects[1]!["statistic"]!["name"]);
         Assert.Equal("stacking", (string?)effects[1]!["modifierType"]);
@@ -82,7 +85,8 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
         // cost list, which is not an entity this surface publishes. The row is here and both edges
         // are not, which is the honest shape rather than a silently dropped factor or an invented
         // handle.
-        Assert.Equal("creationCostMod", (string?)effects[2]!["property"]);
+        Assert.Null(effects[2]!["property"]);
+        Assert.Equal("what the spell costs to create", (string?)effects[2]!["affects"]);
         Assert.Equal("stacking", (string?)effects[2]!["modifierType"]);
         Assert.Equal("4", (string?)effects[2]!["amount"]);
         Assert.Null(effects[2]!["statistic"]);
@@ -105,14 +109,15 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
         var effects = Effects(Fortunate);
         Assert.Equal(2, effects.Length);
 
-        Assert.Equal("spellCriticalRating", (string?)effects[0]!["property"]);
+        Assert.Null(effects[0]!["property"]);
+        Assert.Null(effects[0]!["affects"]);
         Assert.Equal("69e869", (string?)effects[0]!["variable"]!["uuid"]);
         Assert.Equal("Spell Crit Rating", (string?)effects[0]!["variable"]!["name"]);
         Assert.Equal("diminishing", (string?)effects[0]!["modifierType"]);
         Assert.Equal("0.17", (string?)effects[0]!["amount"]);
         Assert.Null(effects[0]!["statistic"]);
 
-        Assert.Equal("spellDoubleCastRating", (string?)effects[1]!["property"]);
+        Assert.Null(effects[1]!["property"]);
         Assert.Equal("3cd7a6", (string?)effects[1]!["variable"]!["uuid"]);
         Assert.Equal("Echo Cast Rating", (string?)effects[1]!["variable"]!["name"]);
         Assert.Equal("diminishing", (string?)effects[1]!["modifierType"]);

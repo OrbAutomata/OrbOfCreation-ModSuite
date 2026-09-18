@@ -44,8 +44,8 @@ public sealed class GameMcpCorrectnessCoreTests
     /// </para>
     /// <para>
     /// The used-ness pair rides only a <c>left</c> row, for the same reason: on a meter that fills,
-    /// full means blocked, and <c>nothing_used</c> would say the opposite of it. On a <c>left</c>
-    /// row a whole pool showing really is <c>nothing_used</c>, where a plain <c>yes</c> read as
+    /// full means blocked, and <c>none committed</c> would say the opposite of it. On a <c>left</c>
+    /// row a whole pool showing really is <c>none committed</c>, where a plain <c>yes</c> read as
     /// stuck while meaning the opposite.
     /// </para>
     /// </remarks>
@@ -106,10 +106,10 @@ public sealed class GameMcpCorrectnessCoreTests
             meter: "held", atCapacity: false);
         AssertCoordinates(
             world, 3, glyphUpgradesId, display: "0", spendable: 0, cost: 100,
-            meter: "left", atCapacity: "some_used");
+            meter: "left", atCapacity: "some committed");
 
         // The same shape at the other end: the meter is full and there is nothing left to spend,
-        // which `atCapacity: yes` says and `nothing_used` denied.
+        // which `atCapacity: yes` says and `none committed` denied.
         AssertCoordinates(
             world, 4, stabilityId, display: "10", spendable: 0, cost: 50,
             meter: "held", atCapacity: true);
