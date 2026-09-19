@@ -18919,6 +18919,57 @@
       "place": "action"
     },
     {
+      "id": "ui-expanded-events.type",
+      "assembly": "assembly-csharp",
+      "type": "UIExpandedEvents",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Game MCP performance-debug navigation"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "ui-expanded-events.on-left-mouse-down",
+      "assembly": "assembly-csharp",
+      "type": "UIExpandedEvents",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "onLeftMouseDown",
+      "visibility": "public",
+      "static": false,
+      "valueType": "UnityEngine.Events.UnityEvent",
+      "owners": [
+        "Game MCP performance-debug navigation"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "ui-expanded-events.unity-event-invoke",
+      "assembly": "unity-engine-core-module",
+      "type": "UnityEngine.Events.UnityEvent",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "Invoke",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [],
+      "owners": [
+        "Game MCP performance-debug navigation"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "ui-plot-node-list.on-node-click",
       "assembly": "assembly-csharp",
       "type": "UIPlotNodeList",

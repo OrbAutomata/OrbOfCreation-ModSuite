@@ -3654,6 +3654,18 @@ public class UITooltipContainer : UnityEngine.MonoBehaviour
     public bool IsUsingAltTooltip() => item is not null && item.HasAltTooltips() && showMoreInfo;
 }
 
+/// <summary>
+/// The component the game binds a tile's mouse events through when the tile's own object carries
+/// no <see cref="UnityEngine.UI.Button"/>. Four public UnityEvent fields, as the game declares them.
+/// </summary>
+public class UIExpandedEvents : UnityEngine.MonoBehaviour
+{
+    public UnityEngine.Events.UnityEvent onLeftMouseDown = new UnityEngine.Events.UnityEvent();
+    public UnityEngine.Events.UnityEvent onMiddleMouseDown = new UnityEngine.Events.UnityEvent();
+    public UnityEngine.Events.UnityEvent onRightMouseDown = new UnityEngine.Events.UnityEvent();
+    public UnityEngine.Events.UnityEvent onDoubleClick = new UnityEngine.Events.UnityEvent();
+}
+
 public class HoverTooltip : UnityEngine.MonoBehaviour
 {
     public ITooltipable? tooltipItem;
@@ -4602,6 +4614,20 @@ namespace UnityEngine
 namespace UnityEngine.Events
 {
     public delegate void UnityAction();
+
+    public class UnityEvent
+    {
+        private readonly List<UnityAction> _listeners = new List<UnityAction>();
+
+        public void AddListener(UnityAction listener) => _listeners.Add(listener);
+
+        public void RemoveListener(UnityAction listener) => _listeners.Remove(listener);
+
+        public void Invoke()
+        {
+            foreach (var listener in _listeners.ToArray()) listener();
+        }
+    }
 }
 
 namespace UnityEngine.UI

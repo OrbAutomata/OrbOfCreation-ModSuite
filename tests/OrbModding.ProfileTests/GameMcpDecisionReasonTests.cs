@@ -612,6 +612,7 @@ public sealed class GameMcpDecisionReasonTests
     [InlineData("tooltip_content_unavailable", GameMcpDecisionReason.ClassNotFound)]
     [InlineData("native_plot_not_resolved", GameMcpDecisionReason.ClassNotFound)]
     [InlineData("recipe_book_tile_not_found", GameMcpDecisionReason.ClassNotFound)]
+    [InlineData("recipe_book_tile_not_clickable", GameMcpDecisionReason.ClassNotFound)]
     [InlineData("no_modal_named", GameMcpDecisionReason.ClassNotFound)]
     [InlineData("ambiguous_modal", GameMcpDecisionReason.ClassInput)]
     [InlineData("modal_already_open", GameMcpDecisionReason.ClassState)]

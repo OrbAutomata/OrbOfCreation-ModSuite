@@ -2048,7 +2048,7 @@ public sealed class DiscoveryTreeSO : IdScriptableObject
     }
 }
 
-public sealed class RecipeBookSO : IdScriptableObject
+public sealed class RecipeBookSO : TooltipableObject
 {
     public static List<RecipeBookSO> All = new List<RecipeBookSO>();
     public bool available;

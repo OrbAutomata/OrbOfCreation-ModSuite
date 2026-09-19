@@ -3553,6 +3553,12 @@ public sealed class Plugin : BaseUnityPlugin
         }
         if (command.TargetId != Guid.Empty)
         {
+            // The tile pick used to run one frame after the last subtab click, with the destination
+            // still assembling — the same unsettled read that let a departed screen's strip ride
+            // along, one surface over. The tiles are drawn by that same rebuild, and
+            // `subtab.TrySelect` presses the tab whether or not it was already active, so being on
+            // the page already did not help: every pick read a page mid-rebuild.
+            yield return SettleNavigation(settledScreen);
             var scene = SceneManager.GetActiveScene().name;
             var picksBook = GameMcpGadgetPolicy.IsRecipeBookDestination(
                 command.SourceOperation?.Request?.Tab?.Label ?? string.Empty,
@@ -3770,48 +3776,140 @@ public sealed class Plugin : BaseUnityPlugin
                 "native_recipe_book_unavailable",
                 "This build does not expose recipe books, so a book tile cannot be picked.");
         }
-        var matches = new List<Button>();
-        foreach (var entry in CaptureActiveHoverTooltips())
+        var pick = PickRecipeBookTile(
+            stableUuid,
+            bookType,
+            CaptureActiveHoverTooltips(),
+            nativeAccess.TryReadEntityId);
+        if (pick.Code.Length == 0)
         {
-            var item = entry.Hover.tooltipItem;
-            if (item is null || !bookType.IsInstanceOfType(item)) continue;
-            if (!nativeAccess.TryReadEntityId(item, out var entityId, out var identityFailure))
-                return TooltipsUnreadableBecause(identityFailure);
-            if (entityId != stableUuid) continue;
-            var button = TileButton(entry.Hover);
-            if (button is not null) matches.Add(button);
+            return GadgetCommitted(
+                "navigation_invoked",
+                new GameMcpObjectBuilder
+                {
+                    ["recipeBookUuid"] = stableUuid.ToString("D"),
+                    ["sceneBefore"] = scene,
+                });
         }
-        if (matches.Count != 1)
+        return pick.Code == TooltipContractUnavailable
+            ? TooltipsUnreadableBecause(pick.Reason)
+            : GadgetRejected(pick.Code, pick.Reason);
+    }
+
+    private const string TooltipContractUnavailable = "tooltip_contract_unavailable";
+
+    internal delegate bool TileEntityIdReader(
+        ITooltipable? item,
+        out Guid entityId,
+        out string nativeDetail);
+
+    /// <summary>What the pick did, and the sentence for it when it did not press.</summary>
+    internal readonly struct RecipeBookTilePick
+    {
+        internal RecipeBookTilePick(string code, string reason)
         {
-            return GadgetRejected(
-                "recipe_book_tile_not_found",
-                matches.Count == 0
-                    ? "Magic > Spellbook > Unlock draws no book tile for that book right now; " +
-                        "game_screen_elements lists the tiles it does draw."
-                    : "More than one tile on this page answers to that book, so which one was " +
-                        "meant is unclear.");
+            Code = code;
+            Reason = reason;
         }
-        matches[0].onClick.Invoke();
-        return GadgetCommitted(
-            "navigation_invoked",
-            new GameMcpObjectBuilder
-            {
-                ["recipeBookUuid"] = stableUuid.ToString("D"),
-                ["sceneBefore"] = scene,
-            });
+
+        /// <summary>Empty when the tile was pressed.</summary>
+        internal string Code { get; }
+        internal string Reason { get; }
     }
 
     /// <summary>
-    /// The button a hovered tile is pressed by: its own, or the nearest one above it.
+    /// Finds the one drawn tile for a book and presses it the way the player presses it.
     /// </summary>
-    private static Button? TileButton(Component element)
+    /// <remarks>
+    /// This is the lookup a live round watched refuse <c>ERR_NOT_FOUND</c> for every tile on a page
+    /// whose own catalog and tooltips had just resolved all three of them. It is reachable without
+    /// a plugin instance on purpose: the tile it is handed is the thing that was wrong, so a test
+    /// that hand-builds a committed answer instead of running this proves nothing about it.
+    /// </remarks>
+    internal static RecipeBookTilePick PickRecipeBookTile(
+        Guid stableUuid,
+        Type bookType,
+        IReadOnlyList<TooltipElement> elements,
+        TileEntityIdReader readEntityId)
+    {
+        var drawn = 0;
+        var presses = new List<Action>();
+        for (var index = 0; index < elements.Count; index++)
+        {
+            var item = elements[index].Hover.tooltipItem;
+            if (item is null || !bookType.IsInstanceOfType(item)) continue;
+            if (!readEntityId(item, out var entityId, out var identityFailure))
+                return new RecipeBookTilePick(TooltipContractUnavailable, identityFailure);
+            if (entityId != stableUuid) continue;
+            drawn++;
+            var press = TileClick(elements[index].Hover);
+            if (press is not null) presses.Add(press);
+        }
+        if (drawn == 0)
+        {
+            return new RecipeBookTilePick(
+                "recipe_book_tile_not_found",
+                "Magic > Spellbook > Unlock draws no book tile for that book right now; " +
+                "game_screen_elements lists the tiles it does draw.");
+        }
+        if (presses.Count == 0)
+        {
+            return new RecipeBookTilePick(
+                "recipe_book_tile_not_clickable",
+                "Magic > Spellbook > Unlock draws that book's tile, but nothing on it answers a " +
+                "click: the game presses a tile through a UnityEngine.UI.Button on the tile's own " +
+                "object, or through that object's UIExpandedEvents, and this tile carries neither.");
+        }
+        if (presses.Count > 1)
+        {
+            return new RecipeBookTilePick(
+                "recipe_book_tile_not_found",
+                "More than one tile on this page answers to that book, so which one was meant " +
+                "is unclear.");
+        }
+        presses[0]();
+        return new RecipeBookTilePick(string.Empty, string.Empty);
+    }
+
+    /// <summary>
+    /// The press the player's own click makes on a drawn tile.
+    /// </summary>
+    /// <remarks>
+    /// The game wires a tile's click in <c>UIGenericItem&lt;T&gt;.UIStart()</c>, and it reads the
+    /// tile's OWN object twice: <c>GetButtonController()</c> is
+    /// <c>new ButtonController(GetComponent&lt;Button&gt;())</c>, and when that controller is empty
+    /// the click arrives instead through <c>GetComponent&lt;UIExpandedEvents&gt;().onLeftMouseDown</c>.
+    /// Searching the ancestry for any <c>Button</c> answered neither case: it can press a panel's
+    /// button rather than the tile's, and a tile built the second way carries no <c>Button</c>
+    /// anywhere to find. Both questions are now asked at each level, in the game's own order, so
+    /// the tile's own object answers before anything above it does.
+    /// </remarks>
+    internal static Action? TileClick(Component element)
     {
         for (var node = element.transform; node is not null; node = node.parent)
         {
             var button = node.GetComponent<Button>();
-            if (button is not null) return button;
+            if (button is not null) return button.onClick.Invoke;
+            var press = ExpandedEventsLeftClick(node);
+            if (press is not null) return press;
         }
         return null;
+    }
+
+    private static Action? ExpandedEventsLeftClick(Component node)
+    {
+        var type = AccessTools.TypeByName("UIExpandedEvents");
+        if (type is null) return null;
+        var events = node.GetComponent(type);
+        if (events is null) return null;
+        var field = type.GetField(
+            "onLeftMouseDown",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        var value = field?.GetValue(events);
+        var invoke = value?.GetType().GetMethod("Invoke", Type.EmptyTypes);
+        return value is null || invoke is null
+            ? null
+            : () => invoke.Invoke(value, Array.Empty<object>());
     }
 
     /// <summary>
@@ -4400,7 +4498,7 @@ public sealed class Plugin : BaseUnityPlugin
     }
 
     /// <summary>One live hover element with the hierarchy keys already read off it.</summary>
-    private readonly struct TooltipElement
+    internal readonly struct TooltipElement
     {
         internal TooltipElement(HoverTooltip hover, NativeObjectPath.Placement placement)
         {

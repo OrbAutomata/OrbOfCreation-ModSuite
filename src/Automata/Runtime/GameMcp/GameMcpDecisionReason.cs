@@ -228,7 +228,10 @@ internal static class GameMcpDecisionReason
         // branching on the class was told the game had refused for all fourteen, including the
         // three that are a bad argument, a miss, and a fact this build cannot read.
         "tooltip_match_failed" or "tooltip_content_unavailable" or
-        "native_plot_not_resolved" or "recipe_book_tile_not_found" or "no_modal_named" or
+        "native_plot_not_resolved" or "recipe_book_tile_not_found" or
+        // The page draws the tile and the suite found nothing on it the game clicks it with.
+        // There is still nothing to press, which is what the caller acts on.
+        "recipe_book_tile_not_clickable" or "no_modal_named" or
         // A glyph the game draws no Recipe Book for. It used to answer world_not_published — the
         // suite having read nothing at all — for a healthy read of a published world.
         "no_recipe_book" or
