@@ -466,12 +466,17 @@ you. It is visible behind `TimeResetUnlocked`, so a save that has never reset pu
 variable and the key is simply absent; a zero there would claim a reset that never happened.
 
 **`running.actionQueues` is one row per queue, not a count**, each carrying that queue's `uuid` and
-`name`, its `usedSlots`, and the `capacity` it is measured against. It was one unnamed number,
-`occupiedActionQueueSlots`, printed beside a queue count of two: it covered only the plot-action
-queue — the one whose slots are walked — and silently omitted the attribute and upgrade queue every
-`game_purchase` ceiling comes from, so a live round read `0` from it five times while asking about
-the other queue entirely. A number that answers for one queue and names none is worse than no
-number. The live room at the instant of a press is still a boundary reading, not this one:
+`name`, its `usedSlots`, and the `capacity` it is measured against. The game authors a display name
+for one of the two — `Active Attributes` — and none at all for the other, which printed as its
+internal `ActivePlotNodeActions`; the suite names that one **Plot actions**, the words the screen's
+own tab and this project's player docs already use. A name the game authors always wins, so a build
+that starts labelling the list is spelled the game's way from its first capture, and a test sweeps
+every queue the world publishes to prove none of them prints an internal name. It was one unnamed
+number, `occupiedActionQueueSlots`, printed beside a queue count of two: it covered only the
+plot-action queue — the one whose slots are walked — and silently omitted the attribute and upgrade
+queue every `game_purchase` ceiling comes from, so a live round read `0` from it five times while
+asking about the other queue entirely. A number that answers for one queue and names none is worse
+than no number. The live room at the instant of a press is still a boundary reading, not this one:
 `game_probe probe=action_queue_room` answers that, with `entriesBeyondCapacity` beside it when the
 game's own upgrade button has stacked the queue past its maximum.
 
@@ -1412,21 +1417,33 @@ touches Cooldown" is a `world_search` query — see [what a thing does, as a sea
 term](#what-a-thing-does-as-a-search-term) — and that is one call rather than a paged table joined by
 hand.
 
-`modifierType`, `amount` and `order` are the three fields `modifier-variables` already publishes,
-under the same names, because they are the same arithmetic — the kind selects the operation, the
-amount is its magnitude, and the order decides which modifiers merge before any is applied. **The
-kind is never folded into the number.** Two glyphs on one spell combine by kind, and a
-pre-multiplied magnitude would say the wrong thing about every pairing. `amount` is the modifier's
-`adjustReal`, which is what the screen prints: the game's `ConvertToReal` adds one for the
-multiplicative kinds, so Quick's authored `0.15` and `-0.30` are the `1.15` and `0.7` on the wire and
-the `x1.15 Cost` and `x0.700 Cooldown` on the tooltip. A slot or tuple is skipped exactly when the
-game's own `ValueModifier.IsEmpty()` is true — the same test the tooltip applies before it decides
-whether to print that line at all.
+`amount` and `order` are the two fields `modifier-variables` also publishes, under the same names,
+because they are the same arithmetic — the amount is the magnitude together with the kind that
+qualifies it, and the order decides which modifiers merge before any is applied.
+
+**The kind is written into the number, not beside it.** `amount` is the string the tooltip prints,
+`ValueModifier.ToStringValue()` — `+1`, `+115%`, `x1.15`, `-25%`, `^2` — so the five kinds are five
+ways of spelling a magnitude rather than five tokens (`raw`, `diminishing`, `stacking`, `reduction`,
+`exponent`) a reader had to look up and then combine with the number next to them. The game never
+separates the two, and `modifierType` is gone from every block that carried it. The number rule
+underneath is `Utils.BeautifyNumber(BigDouble, bool, BigDouble)`, held in the suite's audited math as
+a declared `mirrored` contract and pinned branch by branch, which is why `x0.700` keeps its trailing
+zeros and a stored `1.0007` reads `x1.001` rather than losing its thousandth to a two-decimal
+rounding.
+
+**Nothing is folded into the magnitude.** Two glyphs on one spell combine by kind, and a
+pre-multiplied number would say the wrong thing about every pairing; the printed string is one
+modifier's own, exactly as the tooltip prints that one line. The number inside it is the modifier's
+`adjustReal`, which is what the screen shows: the game's `ConvertToReal` adds one for the
+multiplicative kinds, so Quick's authored `0.15` and `-0.30` are the `x1.15 Cost` and `x0.700
+Cooldown` on the tooltip and the same two strings on the wire. A slot or tuple is skipped exactly
+when the game's own `ValueModifier.IsEmpty()` is true — the same test the tooltip applies before it
+decides whether to print that line at all.
 
 #### A glyph's `effects`
 
 One entry per authored modifier slot the game would print: the `statistic` or `variable` it moves it
-on, `modifierType`, `amount`, `order`. A `GlyphSO` carries fifteen inline `ValueModifier` slots and
+on, `amount`, `order`. A `GlyphSO` carries fifteen inline `ValueModifier` slots and
 nearly all are empty on any one glyph, so a glyph that fills none carries no block rather than an
 empty one.
 
@@ -1434,8 +1451,8 @@ empty one.
 non-empty slot through `AttributeSO.CreateNamedNode` on the attribute the `GlobalVariables`
 accessor returns, so the word the tooltip prints *is* the edge's own name — `Cost`, `Cooldown`,
 `Power`. Two slots that resolve to one statistic — `spellCooldown` and `spellBaseCooldown` both
-reach Cooldown — are two lines on that tooltip and two entries here, told apart by their
-`modifierType`, `amount` and `order`, which is how the screen tells them apart too.
+reach Cooldown — are two lines on that tooltip and two entries here, told apart by their `amount`
+and `order`, which is how the screen tells them apart too.
 
 **Every slot the game gives a target names it.** Ten of the fifteen resolve through
 `AttributeSO.globalDefinition` to a `statistics` row, taken from the literals
@@ -1453,7 +1470,7 @@ would hand a reader one the game does not author.
 Six classes author per-level modifier tuples — `UpgradeSO.permanentEffects`,
 `GlyphSO.levelingEffects`, `ResourceTypeSO.levelEffects`, `EquipmentTypeSO.levelEffects`,
 `SpellTypeSO.perLevelEffects` and `TimeRuneSO.onLevelEffects` — and all six publish the block on
-their own row. An entry is `property`, `modifies`, `modifierType`, `amount`, `order`.
+their own row. An entry is `property`, `modifies`, `amount`, `order`.
 
 **One column absorbs three authoring vocabularies.** The game applies these through three record
 classes and each names its target its own way. `UpgradeableObject.UpgradeEffectModifier` carries an
@@ -2326,9 +2343,10 @@ a member's number and multiplying is how one bonus becomes two. `value` is a rec
 of its own, which applies on top of whatever wears the type; all twenty-two `SpellTypeSO` records are
 these, and the twenty this build can read appear nowhere else on the wire. `howToRead` says the rule
 that fits the block it sits on, so a spell type never reads about handed-down totals it has none of.
-`sources` names every modifier currently on that record: who placed it, its amount in the game's own
-notation, which of the five folds it is (`raw`, `diminishing`, `stacking`, `reduction`, `exponent`),
-and its order.
+`sources` names every modifier currently on that record: who placed it, its magnitude spelled the way
+the tooltip spells it, and its order. Which of the five folds it is rides inside that spelling — see
+[what a thing does](#what-a-thing-does-and-what-a-level-of-it-buys) — so there is no separate
+`effect` column to read it out of.
 
 A distributor carrying nothing totals to a flat `100`, which is a reading rather than an absence —
 and it is a reading with one bit in it, so it is not a stanza. Every such record is named on one
@@ -2388,8 +2406,8 @@ worth:
     property: Spell Power
     value: 150
     sources 1
-    [amount | effect | order | source]
-    50 | diminishing | 0 | Deep Insight a0d000
+    [amount | order | source]
+    +50% | 0 | Deep Insight a0d000
 ```
 
 Search rows are untouched by all of this. What a type is worth changes every time anything is
@@ -2486,15 +2504,26 @@ Behind `needs` sits one closed vocabulary of comparisons — `at-least-level`, `
 `any-level`, `visible`, `discovered`, `at-least-quantity`, `available`, `at-least-mastery-level`,
 `at-least-mastery-ready-level`, `at-least-maximum-level`, `at-least-advancement-level`,
 `at-least-reached-level`, `at-least-value`, `at-least-count`, `any-visible`, `any-available`,
-`first-tier-enabled`, `named-tier-enabled` — each with a phrase of its own, and none of them
-published as a word. The game's `reqType` ordinal is not published either, because it is not one
-vocabulary but ten: every condition class declares its own enum, and `2` means "at least this level"
+`first-tier-enabled`, `named-tier-enabled`, `in-resource-list`, `at-least-lifetime-quantity`,
+`at-least-capacity` — each with a phrase of its own, and none of them published as a word. The
+game's `reqType` ordinal is not published either, because it is not one vocabulary but eleven: every condition class declares its own enum, and `2` means "at least this level"
 on an upgrade, "at least this mastery level" on a spell and "any available" on a list. Each map is
 pinned from that class's own `InternalIsValid` switch, an ordinal outside it throws rather than
 reaching a cell, and a comparison with no phrase written for it is a failing test rather than a
 fallback wording. An authored empty composite words itself directly — `nothing — this group is
 empty` for an all-of group, `one of an empty group, which nothing can satisfy` for an any-of one —
 because there the slot a comparison would sit in holds the group's Any/All identity instead.
+
+**A resource condition is three comparisons, and the middle one is not holdings.**
+`ResourceRequirement` asks whether the game lists a resource yet — 284 of this build's 303 authored
+resource leaves — how much of it has ever been gained, or how high its ceiling has been raised,
+which is the other 19. The lifetime total is the trap: a requirement gated on it stays met once the
+resource is spent, so reading what is held would re-lock entities the game leaves unlocked, and a
+save that had never spent any would have agreed with either reading. Both of its thresholds keep
+their decimals, like the numeric comparison and unlike every other one, because both native arms read
+a double rather than a long. While the class was unmodelled every entity holding one of those leaves
+was unplannable, `world_overview` carried a `collection.gap` about it on every call, and three of the
+math check's passes declined those entities rather than comparing them.
 
 The collector also captures the safe parameterized
 `Prerequisites.Container.Check(Requirements.ConditionInfo)` answer at the exact next-purchase level.
@@ -3791,6 +3820,13 @@ to touch one argues for it first. Each line names where the shape is specified.
 22. One price shape wherever a price is said — `cost`, `spendableAmount`, `affordable`, then the
     resource — whichever verb built the row and whichever member the producer read it from —
     *How a response reads*.
+23. A page row stays a row: whatever the suite could not read about an entity, its `world_list` or
+    `world_search` row keeps its own columns and says what is missing in one extra column that
+    sends the reader to `world_get`. A refusal envelope wrapped around a row is a page nobody can
+    read — *Tool surface*.
+24. A token a reader would need a glossary for is a sentence: where a native ordinal, enum member or
+    flag has no word the screen prints, the wire writes what the screen writes instead of
+    publishing the token beside the number it qualifies — *The cell vocabulary*.
 
 Retired shapes are listed below, and a round that reintroduces one is undoing a ruling rather than
 restoring a contract. The first six were entries in the list above; the rest never were, and are
@@ -4260,6 +4296,12 @@ The rules that make it read that way:
   side that was zero. It is orders rather than a percentage because deep cost reduction drives a
   percentage field toward `1e-114`, and dividing by that produced figures like `2.25e118%` that said
   only that the denominator was small.
+- **The two provenance lines name the suite's own tables and the game's own fields on purpose, and
+  the name is the finding.** `Shared identities:` names the tables holding the most detail rows and
+  `widestDrift=` names the record whose memo had drifted furthest; neither is a sentence about an
+  entity, neither has a player word to be written in, and a developer reading this answer can act on
+  nothing else — so this surface's rule that a native class name never rides a row does not reach
+  them, and a round that flags them as class-ish names has found the design rather than a defect.
 
 The per-category entity census, the bind and cold-collect timings, the per-pass millisecond
 breakdown and the per-type drift percentages are not part of the answer and are not printed: each

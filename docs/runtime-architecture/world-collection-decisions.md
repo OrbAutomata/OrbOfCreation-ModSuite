@@ -258,7 +258,7 @@ want the fact: "this upgrade waits on that research reaching six" is what chain 
 boolean throws away. The row carries its owner's registry, because the level a container is checked at
 is a property of the owner.
 
-**Eight of the twenty-six comparisons are refused.** Six reach the latching no-argument `Check()` W36
+**Eight of the twenty-nine comparisons are refused.** Six reach the latching no-argument `Check()` W36
 logged as a write — none occurs in a per-level container on this baseline, but "none today" is what
 needs a guard rather than a habit, and the guard is what carries the refusal into the gating
 containers, where such a comparison publishes its `Unknown` row and leaves that entity's verdict
@@ -266,8 +266,10 @@ unevaluable rather than wrong. `SpellRequirement.MasteryLevelReady` asks for sta
 not publish (W59 adds it). `GenericRequirement.Discovered` targets an arbitrary `UpgradeableObject`
 whose `IsDiscovered()` is virtual across six implementers reading different fields, and a row carries
 an identity rather than a type, so there is no way to pick the right override — the same ground
-`GenericRequirement.Level` is refused on. The remaining eighteen are modelled. **Unknown is a row, not
-an absence:** an unaudited condition class publishes a row of kind `Unknown` and the pass reports
+`GenericRequirement.Level` is refused on. The remaining twenty-one are modelled, the last three of
+them `ResourceRequirement`'s — list membership, lifetime total, ceiling — each a stored field the
+snapshot already carried, which is what took this build's 303 resource leaves out of the unmodelled
+count. **Unknown is a row, not an absence:** an unaudited condition class publishes a row of kind `Unknown` and the pass reports
 itself incomplete, because an entity with no rows reads as unconditional — the wrong answer for one
 gated by something nobody modelled.
 
