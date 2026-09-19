@@ -89,7 +89,7 @@ frame and data-lifetime contract is in
 
 The verb surface is also bounded by what the player can actually click in the pinned build, not by
 what compiles. Verbs the shipped UI does not expose are absent even when a reachable native entry
-point exists: `game_concept` offers only `add` and `remove_owned`, because rotating one assignment
+point exists: `game_concept` offers only `add` and `remove`, because rotating one assignment
 out for another is automation policy rather than a control; `game_targeting` offers no cancel,
 because the visible Close button only dismisses presentation; there is no in-place augment editor
 and no way to select a discovery output by UUID; and `game_spell_mastery` requires
@@ -221,7 +221,7 @@ same idiom and no producer invents its own formatting.
     it says no (`affordable=no`): on its own row it is `spendableAmount >= cost`, and the block
     around the price states its own `affordable:` either way. A live round paid three lines of table
     frame 106 times to deliver 106 prices of one resource each.
-  - **Every other list of one is a line too.** `members: kind=structures, count=2` in place of a
+  - **Every other list of one is a line too.** `members: kind=attributes, count=2` in place of a
     count, a header and one row — every word the header carried is still there as its own key, so a
     reader who has read the table has read this. A row carrying a move says it the way every other
     move is said — `usageBudget: resource=Spell Capacity fdcbb8, headroom=7 -> 9, used=24,
@@ -427,7 +427,7 @@ rather than from the screen it is drawn on.
 | `suite_check_game_math` | Run the differential check of the suite's math against the game and answer with one verdict word, one line per check, and one provenance line |
 | `game_purchase` | Buy an Attribute (`StructureSO`) or Upgrade derived from its UUID |
 | `game_cast` | Fire, release charge, or turn off one equipped toggle spell |
-| `game_concept` | Add or remove one owned concept assignment |
+| `game_concept` | Add or remove concept assignments on one Alchemy recipe |
 | `game_agromancy` | Use the Agromancy screen's plot actions, harvest elements, and processing slots |
 | `game_structure` | Enable or disable one available attribute |
 | `game_spell_mastery` | Press Confirm Mastery for one spell, or the native Level All Spells sweep |
@@ -507,7 +507,7 @@ battle was running or what it cost — so a live round making a lifecycle decisi
 and committed an irreversible action while still guessing. A world with no battle running carries no
 such key.
 
-The two affordable counts have a matching read: `world_list(category="structures", affordable=true)`
+The two affordable counts have a matching read: `world_list(category="attributes", affordable=true)`
 and the same on `upgrades` page only the rows whose price is met right now, so the count and the
 rows agree and the offset, `total`, and `nextOffset` all speak in matching rows. `affordable` is
 refused as `filter_not_supported` on a category whose rows carry no price column rather than quietly
@@ -675,7 +675,7 @@ state, a run or a keyword is a call; a call that names none of them is refused a
 all five.
 
 `state` narrows to one of the three lifecycle words, and it reaches every category that carries the
-column: `upgrades`, `research`, `structures`, `alchemy-recipes`, `augment-glyphs`, `rituals`, `plot-nodes`
+column: `upgrades`, `research`, `attributes`, `alchemy-recipes`, `augment-glyphs`, `rituals`, `plot-nodes`
 and `challenges`. The filter reads the word the row's own list page says and never derives one of its
 own, so its reach is a consequence of which pages carry the column rather than a list maintained
 beside them — extend the column and the filter follows.
@@ -687,13 +687,18 @@ and separate filters. A call that narrows to some other category *and* names a r
 name, because no other category has the column to answer with and an empty page would read as
 "there are none".
 
-`keyword` narrows to the things that wear one type asset, named by that asset's **id** rather than
-by its word. It is the far side of the `members` count a type's `world_get` prints, taken from the
-same reach, so it closes the structure subtype chain that count closes and a query for the type's
-name cannot stand in for it. Its guard is the members block's own: an id whose page counts no
-members is refused naming what that id is instead — `Deep Insight c1a000 is published under upgrades
-and its page counts no members, so it cannot narrow anything`. Handing back an empty page there would
-read as "there are none".
+`keyword` narrows to the things that wear one type asset, named by **the word a row's `keywords`
+cell prints for it** or by that asset's id. It is the far side of the `members` count a type's
+`world_get` prints, taken from the same reach, so it closes the structure subtype chain that count
+closes and a query for the type's name cannot stand in for it. The word is resolved from the same
+index that builds those cells, so what a row shows and what this filter takes are one fact rather
+than two vocabularies that drift: reading `Arcanist` off a row and asking for it is the whole
+gesture, and the filter used to refuse it before the world was consulted at all. A word no row
+prints is refused `keyword_unknown`, and a word two assets answer to is refused `ambiguous_handle`
+naming how many, because picking one of them would be a guess. Its guard is otherwise the members
+block's own: an id whose page counts no members is refused naming what that id is instead — `Deep
+Insight c1a000 is published under upgrades and its page counts no members, so it cannot narrow
+anything`. Handing back an empty page there would read as "there are none".
 
 A category with no lifecycle model still does not match a state filter — nor does one match a
 `discovered` filter — and is still not excluded from an unfiltered search: inventing a word here for rows whose own page never says one would be a
@@ -818,7 +823,7 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `rituals` | `state`, `selected`, `reachedLevel`, `selectedLevel`, `waveTotal`, `affordable` |
 | `research` | `state`, `paused`, `totalLevel`, `queuedLevels`, `requirements`, `canDevelop`, `affordable` |
 | `upgrades` | `level`, `queuedLevels`, `screen`, `state`, `maximum`, `requirements`, `affordable` |
-| `structures` | `level`, `queuedLevels`, `state`, `enabled`, `affordable` |
+| `attributes` | `level`, `queuedLevels`, `state`, `enabled`, `affordable` |
 | `alchemy-recipes` | `state`, `masteryLevel` |
 | `augment-glyphs` | `state`, `slots`, `freeSlots`, `paidLevel`, `bonusLevel`, `totalLevel` |
 | `recipe-books` | `owned` |
@@ -1101,7 +1106,7 @@ Two rules make that a lifecycle rather than a verdict:
 - **The word `purchasable` is banned.** It reads as "you can buy this now" while naming a state
   that says nothing about price, which is the exact confusion the two axes exist to keep apart.
 
-`structures` are one of the two-word categories above: `StructureSO` carries no `maxLevel` field at
+`attributes` are one of the two-word categories above: `StructureSO` carries no `maxLevel` field at
 all, so there is no level at which a structure is finished. Its soft prerequisites are a development
 penalty rather than a gate — a structure with them unmet is bought and simply builds worse — so they
 belong to the can-purchase axis and never to `state`.
@@ -1126,7 +1131,7 @@ source with the `count` of window samples it earned, and one `window` block — 
 for it: the count a caller reads to decide whether to list a category is the number that read will
 answer with, never the raw ring behind it.
 
-A `structures` row publishes `level` as the number the attribute's own badge shows, the game's
+An `attributes` row publishes `level` as the number the attribute's own badge shows, the game's
 persisted `GetBaseLevel()`, and names work still in flight separately as `queuedLevels`, which is
 always present because zero levels in flight is an answer; neither
 number is repeated under a second name. Both are exact counts on the wire: the badge draws
@@ -1148,8 +1153,8 @@ across the whole surface, reads and commits alike:
 
 | Surface | Field | Native source | What the number is |
 | --- | --- | --- | --- |
-| `structures` (Attributes) | `level` | `StructureSO.GetBaseLevel()` | the exact count the badge draws |
-| `structures` | `queuedLevels` | `StructureSO.GetQueuedQuantity()` | bought and still building; the badge shows these as `+N` |
+| `attributes` | `level` | `StructureSO.GetBaseLevel()` | the exact count the badge draws |
+| `attributes` | `queuedLevels` | `StructureSO.GetQueuedQuantity()` | bought and still building; the badge shows these as `+N` |
 | `upgrades` | `level` | `UpgradeSO.GetPurchaseLevel()` | levels bought. The upgrade screen labels the first one `Lv 1`, so its badge reads one above this count |
 | `upgrades` | `queuedLevels` | `UpgradeSO.queuedLevels` | bought and still developing |
 | every `game_level_up` target (augment glyphs, equipment types, resource types, time runes) | `paidLevel` / `bonusLevel` / `totalLevel` | the levelable's total and its granted levels | bought, granted, and their sum. `bonusLevel` is absent where the surface has no bonus concept, exactly as its `bonus` block is |
@@ -1322,7 +1327,7 @@ identity deduplication so the total and the pages agree.
 `statistics` is the game's own glossary: the 211 `AttributeSO` records that supply the word every
 tooltip prints above a number and the sentence it prints under it. It is authored text, so a row
 carries no cost, no level and no live state, and nothing about it moves while the game runs. The
-word a row heads is not the thing a player buys — the purchasable Attributes are `structures`.
+word a row heads is not the thing a player buys — the purchasable Attributes are `attributes`.
 
 The glossary is addressable on its own: `world_search` finds a definition by the word the screen
 prints, and `world_list` reads the sentence beside it. The only other route to a definition is
@@ -1823,7 +1828,7 @@ their facts are joined into these three player-facing surfaces.
 
 ### Structure enable and disable
 
-Every `structures` detail row reports the attribute's current `enabled` state and the one next
+Every `attributes` detail row reports the attribute's current `enabled` state and the one next
 toggle the player can take. An unavailable structure carries only `not_available`; the MCP does
 not expose the native callback until the same availability fact the screen uses is true.
 
@@ -2223,7 +2228,7 @@ payment, receipt, request echo, catalog join, or post-mutation read-back.
 
 `targeting` is the pre-decision surface for `game_targeting`. It is empty while no target request
 is pending, so the row's existence is that fact and there is no column repeating it. The row is two
-columns: the requesting effect, named the way the player sees it, and the eligible structures,
+columns: the requesting effect, named the way the player sees it, and the eligible attributes,
 strongest `effectiveLevel` first because that is the column a caller picks by. **The candidate list
 is what `limit` and `offset` page**, not the rows: one request is one row, so paging the rows could
 only ever hand back the same row or nothing at all while a live round's 180 candidates came back
@@ -2401,12 +2406,13 @@ joined from — and published inside those categories, beside each research type
 and as the family relation the item verbs already pick by. One index unions the three tables, so a
 count and the rows behind it stay one derivation whichever table carried the edge.
 
-**Every count here is walkable**: `world_search` with `keyword` set to the type's id and `category`
-set to the kind the line named returns exactly the things it counted. That filter is the far side of
-this count and reads the same index, so `members / structures | 26` and a 26-row page are one fact.
+**Every count here is walkable**: `world_search` with `keyword` set to the word a row prints for
+that type — or to its id — and `category` set to the kind the line named returns exactly the things
+it counted. That filter is the far side of
+this count and reads the same index, so `members / attributes | 26` and a 26-row page are one fact.
 It closes the subtype chain the count closes, which is why a query cannot stand in for it — a parent
 type's members wear the *child* type's word, so searching `Primal` by name finds none of the
-structures its page counts.
+attributes its page counts.
 
 Every kind on this line has a page behind it. `plot-node-action-types` reach the six
 `HarvestActionSO` of this build as well as the 38 `PlotNodeActionSO`, and both classes are now
@@ -2971,7 +2977,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen by the route a player walks to it — *Rituals > Discover is not unlocked yet, so the game draws no row for this.* One table maps a view to its breadcrumb, so a row and the press it predicts cannot spell one screen two ways; a view that table does not pin keeps the unnamed sentence rather than pointing at the wrong page | `spell-recipes` loadout-add and `discover` decisions, `augment-glyphs` `discover` and `purchase` decisions, `rituals`, `equipment`, `time-runes` and `alchemy-recipes` `discover` decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move`, `game_discover confirm` |
 | `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `discover` decisions on an augment glyph the game never offers, `game_discover` on a uuid no discovery screen draws a row for |
-| `projection_refused` | The suite's own resource-rate policy refuses the assignment; the game did not | `game_concept` |
+| `projection_refused` | The drain this assignment would add could not be read, so the call fails closed; the game refused nothing. Auto Concept's rate reserve and quantity floor never produce it, because they are read on the service's own call and nowhere else | `game_concept` |
 | `owning_screen_unknown` / `owning_screen_unreadable` / `owning_screen_contradictory` / `owning_screen_status_unmodelled` / `owning_screen_availability_unreadable` / `topology_not_captured` | The five distinct ways the purchase-screen admission chain says no, which used to share one number. Only `topology_not_captured` is fixed by waiting for the next lifecycle; its sentence names the epoch the topology is stamped at, the epoch the call asked for, and how many rows it holds. `owning_screen_unknown` has a second producer: an alchemy recipe whose own alchemy type is in neither audited set, so neither alchemy discovery screen claims it | `game_purchase`, `alchemy-recipes` `discover` decisions |
 | `destination_full` | Every slot this upgrade would fill is already occupied | `game_purchase` on a slot-filling upgrade |
 | `single_buy_unavailable` | The suite could not hold the game's multi-buy multiplier at one for the press, so nothing was pressed and nothing was spent. It answered `native_rejected` — the game refusing — for a call the game never saw | the single-buy purchase path |
@@ -3063,10 +3069,23 @@ room delivers the room and says, on the settled answer's own line, how many leve
 why: `queued: 9 of 10 asked; 1 was not taken because the action queue is full (10 of 10 slots
 used).` The shortfall is never silent — turning 1,000 into 1 without saying so is indistinguishable
 from a satisfied `amount=1`, which is the defect that sentence exists to close. Auto Buy's planned
-batches clamp the same way and say nothing, because nobody is waiting on an answer to a plan. No
-AutoBuy setting applies to the manual verb, the queue slots Auto Buy reserves for manual play
-(`AutoBuy/LeaveQueueSlots`) included: reserving slots *for* manual actions and then refusing one is
-the contradiction that reserve exists to avoid.
+batches clamp the same way and say nothing, because nobody is waiting on an answer to a plan.
+
+**No automation setting shapes a manual press, on any verb.** A service's settings are the dials
+that service holds *itself* back with. A press a caller asked for is the player acting, and the
+game's own gates are the only ones it answers to. No AutoBuy setting applies to `game_purchase`,
+the queue slots Auto Buy reserves for manual play (`AutoBuy/LeaveQueueSlots`) included: reserving
+slots *for* manual actions and then refusing one is the contradiction that reserve exists to avoid.
+The same rule reaches every other verb. `game_concept` takes the game's gates — a free Concept
+slot, a discovered recipe, and the drain the assignment costs — and reads neither
+`AutoConcept/RateReservePercent` nor `AutoConcept/MinimumResourcePercent`, which are the
+backpressure Auto Concept's own cycle keeps; a live round had those two refuse an `add` with
+`ERR_LIMIT` while Auto Concept's mode was Disabled. `game_cast` is never held back by
+`AutoCast/ManualPauseSeconds`, the stand-down the service takes *because* the player cast by hand,
+and it charges because `charge=true` asked for it rather than because `AutoCast/FullCharge` is on.
+Automation and the verb reach the game through one action boundary, which is handed a service's
+dials only on the service's own call, and a source sweep in the portable gate fails the build where
+an action path reads a service option on a path a verb reaches.
 
 **The game's own half of a shortfall is explained too, with what the suite watched or can read and
 never with a guess.** An attribute group is driven one level at a time behind the game's own gates,
@@ -3177,7 +3196,7 @@ absence is spelled:
 | --- | --- | --- | --- |
 | `upgrades` | `maximum` | `uncapped` | `remainingLevels`, `available` |
 | `upgrades` | `affordable` | `unpriced` | — |
-| `structures` | `affordable` | `unpriced` | — |
+| `attributes` | `affordable` | `unpriced` | — |
 | `resources` | `capacity`, `atCapacity` | `uncapped` | — |
 | `resources` | `atCapacity` on a `meter: left` row | `none committed` / `some committed` | — |
 | `purchase-costs` | `spendableAmount`, `affordable` | `unevaluated` | — |
@@ -3932,6 +3951,16 @@ collected here so that one page answers what a name on an older transcript meant
   named once by the check that accounts for the suite's coverage; a per-check line names the entity
   as every other sentence does and says what went unchecked — *Checking the suite's math against the
   game*.
+- **The `structures` category.** `StructureSO` is the game's own class name for the things the
+  Develop screen and the Active Attributes queue both call attributes, and no screen draws the word
+  structures. `world_list category=attributes` answered *unknown category* while the screen's word
+  was on the reader's screen. The category is `attributes`; `structures` is refused with a pointer
+  rather than aliased, because an alias would keep two vocabularies alive for one row — *Tool
+  surface*.
+- **`game_concept mode=remove_owned`.** The screen's button says Remove. The `_owned` half was the
+  suite's own bookkeeping — which of the assignments it had put there — worn as part of the
+  player's word for the press. The mode is `remove`, the word every neighbouring verb already
+  spells, and `remove_owned` is refused by an `ERR_INPUT` that names it — *Tool surface*.
 
 ## Screenshots and navigation
 

@@ -28,7 +28,7 @@ The action resolves one exact registry UUID as concrete `StructureSO`, rejects a
 checks the live `IsAvailable()` fact, and refuses an already-satisfied state before capturing its
 mutation permit. The complete action binding set is concrete type, availability method, disabled
 field, and toggle method; one missing member makes the family unavailable. The published
-`structures` row already captures availability and disabled state from the same native members.
+`attributes` row already captures availability and disabled state from the same native members.
 
 ## Later live validation
 

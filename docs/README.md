@@ -16,7 +16,7 @@ goes wrong.
 
 ## What's in the suite
 
-- **Auto Buy**, including optional progression-aware Spell Leveling, manages structures and
+- **Auto Buy**, including optional progression-aware Spell Leveling, manages attributes and
   upgrades while respecting configured spending and queue reserves.
 - **Auto Cast** casts selected spells, with optional full charging.
 - **Auto Concept** trains acquired Scholar Active Concepts.
