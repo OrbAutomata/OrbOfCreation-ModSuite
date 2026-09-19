@@ -74,7 +74,7 @@ internal static class GameMcpEntityCatalogScope
         "UpgradeableObjectVariable",
 
         // Named lists. Where the membership is a real game fact the contents are already a
-        // published category — ConceptRecipes is the concept-recipes page, ActiveActionables is the
+        // published category — ConceptRecipes is the concepts page, ActiveActionables is the
         // action queue, ActiveSpells is spell-slots — so the container's own id names a table the
         // caller can read a better version of. Where it is not, it is a Unity field.
         // AlchemySnapshotListVariable and EquipmentSnapshotListVariable are absent on purpose: the

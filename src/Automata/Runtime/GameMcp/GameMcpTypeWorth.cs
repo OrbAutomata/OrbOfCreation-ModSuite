@@ -244,7 +244,7 @@ internal static class GameMcpTypeWorth
         {
             members.Add(new JObject
             {
-                ["kind"] = Kind(counted[index].Key),
+                ["kind"] = Kind(counted[index].Key, keywordId),
                 ["count"] = counted[index].Value,
             });
         }
@@ -365,10 +365,19 @@ internal static class GameMcpTypeWorth
     /// The class of thing a keyword reaches, in the word the rest of the surface calls that class
     /// by. A kind with no word is a defect for the same reason an unworded fold kind is.
     /// </summary>
-    private static string Kind(WorldKeywordOwnerKind kind) => kind switch
+    /// <remarks>
+    /// The word has to be the page the counted things are really on, because the filter that
+    /// returns them takes it: a count under a category that no longer holds them hands a caller a
+    /// filter pair answering nothing. Only <c>AlchemyRecipeSO</c> spans two pages, and which one a
+    /// keyword's members are on is the keyword's own classification — every recipe's
+    /// <c>alchemyTypes</c> is wholly ordinary or wholly Scholar on the pinned build, and no alchemy
+    /// type authors subtypes for the walk to cross.
+    /// </remarks>
+    private static string Kind(WorldKeywordOwnerKind kind, Guid keywordId) => kind switch
     {
         WorldKeywordOwnerKind.Structure => "attributes",
-        WorldKeywordOwnerKind.AlchemyRecipe => "alchemy-recipes",
+        WorldKeywordOwnerKind.AlchemyRecipe =>
+            GameMcpWorldQuery.AlchemyRecipeCategory(keywordId),
         WorldKeywordOwnerKind.Resource => "resources",
         WorldKeywordOwnerKind.Equipment => "equipment",
         WorldKeywordOwnerKind.PassiveAbility => "passive-abilities",

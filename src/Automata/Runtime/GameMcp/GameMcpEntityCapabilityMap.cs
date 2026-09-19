@@ -127,7 +127,7 @@ internal static class GameMcpEntityCapabilityMap
                     world.EntityIdentities,
                     world.AlchemyRecipes,
                     target,
-                    "alchemy-recipes",
+                    GameMcpWorldQuery.ConceptsCategory,
                     capability,
                     out reason),
             GameMcpCommandKind.Harvest => HarvestTarget(world, target, out reason),
@@ -491,8 +491,14 @@ internal static class GameMcpEntityCapabilityMap
         if (target == Guid.Empty || !world.EntityIdentities.TryGet(target, out var identity))
             return false;
         nativeType = identity.RuntimeType;
-        if (!TryCategoryForNativeType(nativeType, out category) ||
-            !ByCategory.TryGetValue(category, out var descriptor)) return false;
+        if (!TryCategoryForNativeType(nativeType, out category)) return false;
+
+        // Two player categories share `AlchemyRecipeSO`, so the class alone cannot say which of
+        // them a recipe is in — and the two offer different verbs. The recipe's own core alchemy
+        // type says it, which is the same fact the row's category cell is written from.
+        if (WorldLookup.TryFind(world.AlchemyRecipes, target, out var recipe))
+            category = GameMcpWorldQuery.AlchemyRecipeCategory(recipe.CoreTypeId);
+        if (!ByCategory.TryGetValue(category, out var descriptor)) return false;
         var discovered = IsAlreadyDiscovered(world, target, nativeType);
         var names = new List<string>();
         for (var index = 0; index < descriptor.Capabilities.Count; index++)
@@ -663,8 +669,14 @@ internal static class GameMcpEntityCapabilityMap
         D("rune-stones", "RuneStoneSO"),
         D("display-types", "DisplayTypeSO"),
         D("purchase-costs", "StructureSO|UpgradeSO"),
-        D("alchemy-recipes", "AlchemyRecipeSO", GameMcpCommandKind.Concept,
+        // `AlchemyRecipeSO` backs two player concepts, so it carries two descriptors and each holds
+        // only the verbs its own screen offers: the Alchemy screen loads a recipe into a usage
+        // slot, the Scholar screen assigns a Concept to a development slot, and neither screen
+        // draws the other's button. Both are discovered, each on its own tree.
+        D("alchemy-recipes", "AlchemyRecipeSO",
             GameMcpCommandKind.GenericDiscovery, GameMcpCommandKind.AlchemyLoadout),
+        D("concepts", "AlchemyRecipeSO", GameMcpCommandKind.Concept,
+            GameMcpCommandKind.GenericDiscovery),
         D("alchemy-types", "AlchemyTypeSO"),
         D("spell-recipes", "SpellRecipeSO", GameMcpCommandKind.Cast, GameMcpCommandKind.SpellLevel,
             GameMcpCommandKind.GenericDiscovery, GameMcpCommandKind.SpellWorkbench),
@@ -727,7 +739,6 @@ internal static class GameMcpEntityCapabilityMap
         D("spell-costs", "Spell"),
         D("targeting", "TargetingManager+TargetLink", GameMcpCommandKind.Targeting),
         D("mastery-experience", "SpellRecipeSO|AlchemyRecipeSO|EquipmentSO"),
-        D("concept-recipes", "AlchemyRecipeSO"),
         D("alchemy-instances", "AlchemyInstance"),
         D("alchemy-costs", "AlchemyInstance"),
         D("alchemy-loadout", "AlchemyInstance"),

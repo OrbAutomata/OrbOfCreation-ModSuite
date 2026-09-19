@@ -118,7 +118,10 @@ internal static class GameMcpWorldQuery
         {
             ["discoveredSpellRecipes"] = CountDiscoveredSpells(world),
             ["spellRecipesReadyToLevel"] = CountReadySpells(world),
-            ["discoveredAlchemyRecipes"] = CountDiscoveredAlchemy(world),
+            // Two counts, because the split is two categories: a number that added the Scholar
+            // screen's Concepts to the Alchemy screen's recipes agreed with neither page.
+            ["discoveredAlchemyRecipes"] = CountDiscoveredAlchemy(world, concepts: false),
+            ["discoveredConcepts"] = CountDiscoveredAlchemy(world, concepts: true),
             ["availableViews"] = CountAvailableViews(world),
             ["visiblePlots"] = CountVisiblePlots(world),
         };
@@ -1846,7 +1849,8 @@ internal static class GameMcpWorldQuery
         "attributes" => new[] { "entityId", "level", "reading.disabled" },
         "upgrades" => new[] { "entityId", "level" },
         "spell-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
-        "alchemy-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
+        "alchemy-recipes" or ConceptsCategory =>
+            new[] { "entityId", "masteryLevel", "discovered" },
         "equipment" => new[] { "entityId", "equippedLevel" },
         "augment-glyphs" => new[] { "entityId", "level" },
         "consumables" => new[] { "entityId", "quantity" },
@@ -4284,7 +4288,7 @@ internal static class GameMcpWorldQuery
     {
         GameMcpCommandKind.Purchase => command.Mode == "structure" ? "attributes" : "upgrades",
         GameMcpCommandKind.Cast => "spell-recipes",
-        GameMcpCommandKind.Concept => "alchemy-recipes",
+        GameMcpCommandKind.Concept => ConceptsCategory,
         GameMcpCommandKind.Harvest => "plot-nodes",
         GameMcpCommandKind.SpellLevel => "spell-recipes",
         GameMcpCommandKind.DiscoveryTreeOffer => "discovery-trees",
@@ -5436,11 +5440,14 @@ internal static class GameMcpWorldQuery
         return count;
     }
 
-    private static int CountDiscoveredAlchemy(GameWorldState world)
+    private static int CountDiscoveredAlchemy(GameWorldState world, bool concepts)
     {
         var count = 0;
         for (var index = 0; index < world.AlchemyRecipes.Count; index++)
-            if (world.AlchemyRecipes[index].Discovered) count++;
+        {
+            var recipe = world.AlchemyRecipes[index];
+            if (recipe.Discovered && IsScholarConcept(recipe.CoreTypeId) == concepts) count++;
+        }
         return count;
     }
 
@@ -5761,8 +5768,6 @@ internal static class GameMcpWorldQuery
             ? ProjectConsumable(world, in consumable)
             : row is WorldResearch research
             ? ProjectResearch(world, in research)
-            : row is WorldConceptRecipe conceptRecipe
-            ? ProjectConceptRecipe(world, in conceptRecipe)
             : row is WorldCraftingStation station
             ? ProjectCraftingStation(world, in station)
             : row is WorldPlayerLoadout playerLoadout
@@ -6778,25 +6783,6 @@ internal static class GameMcpWorldQuery
         return result.Freeze();
     }
 
-    private static GameMcpValue ProjectConceptRecipe(
-        GameWorldState world,
-        in WorldConceptRecipe recipe)
-    {
-        var amount = WorldAlchemyInstanceLookup.TryFind(
-            world.AlchemyInstances, recipe.RecipeId, out var instance)
-            ? instance.Quantity
-            : 0;
-        return new JObject
-        {
-            ["entityId"] = recipe.RecipeId.ToString("D"),
-            ["category"] = "concept-recipes",
-            ["activeCount"] = amount,
-            ["usedSlots"] = world.AlchemyInstances.Count,
-            ["maximumSlots"] = recipe.SlotCount,
-            ["canAdd"] = ConceptAddDecision(world, in recipe),
-        }.Freeze();
-    }
-
     /// <summary>
     /// Whether the game's Active Concepts list takes this recipe now, and when it does not, why.
     /// </summary>
@@ -7176,7 +7162,11 @@ internal static class GameMcpWorldQuery
         }
         category = nativeType switch
         {
-            "AlchemyRecipeSO" => "alchemy-recipes",
+            // The two alchemy discovery screens are two pages, and the recipe's own core type says
+            // which one draws it — the same fact `AlchemyDiscoveryScreen` presses against.
+            "AlchemyRecipeSO" => WorldLookup.TryFind(world.AlchemyRecipes, uuid, out var recipe)
+                ? AlchemyRecipeCategory(recipe.CoreTypeId)
+                : string.Empty,
             "EquipmentSO" => "equipment",
             "GlyphSO" => "augment-glyphs",
             "RitualSO" => "rituals",
@@ -8029,7 +8019,7 @@ internal static class GameMcpWorldQuery
         var result = new JObject
         {
             ["entityId"] = recipe.EntityId.ToString("D"),
-            ["category"] = "alchemy-recipes",
+            ["category"] = AlchemyRecipeCategory(recipe.CoreTypeId),
 
             // `discovered` was this row's lifecycle under another name — it is what
             // AlchemyRecipeSO.IsAvailable() reads for every recipe the pinned build authors — so it
@@ -8067,6 +8057,32 @@ internal static class GameMcpWorldQuery
     /// <c>ConceptDiscoveryTree</c> draws all carry a concept type. The press reads the same fact at
     /// the boundary, so the preview and the press cannot disagree.
     /// </remarks>
+    /// <summary>
+    /// The page the Scholar screen's Concept list is read as. A Concept is an
+    /// <c>AlchemyRecipeSO</c> and is not an Alchemy recipe in any sense a player meets: it is
+    /// discovered on its own tree, slotted into development slots, and drains while it levels.
+    /// Concepts are the seventh discovery surface, so they are a category beside the other six
+    /// rather than rows inside one of them.
+    /// </summary>
+    internal const string ConceptsCategory = "concepts";
+
+    /// <summary>
+    /// Whether an alchemy recipe is one of the forty-six Concepts, from the recipe's own core
+    /// alchemy type. Same audited mapping the discovery boundary classifies the press with, so the
+    /// category a row prints and the screen that draws it cannot disagree.
+    /// </summary>
+    private static bool IsScholarConcept(Guid coreTypeId) =>
+        AlchemyGameplayDomainClassifier.ClassifyTypeUuid(coreTypeId) ==
+            AlchemyGameplayDomain.ScholarConcept;
+
+    /// <summary>
+    /// Which of the two categories an alchemy recipe files under. A type in neither audited set
+    /// stays on <c>alchemy-recipes</c>, where every recipe the world publishes has always been
+    /// readable, rather than vanishing from both pages.
+    /// </summary>
+    internal static string AlchemyRecipeCategory(Guid coreTypeId) =>
+        IsScholarConcept(coreTypeId) ? ConceptsCategory : "alchemy-recipes";
+
     /// <summary>Which of the two alchemy discovery screens draws this recipe, or none.</summary>
     private static Guid AlchemyDiscoveryScreen(Guid coreTypeId) =>
         AlchemyGameplayDomainClassifier.ClassifyTypeUuid(coreTypeId) switch
@@ -9721,6 +9737,10 @@ internal static class GameMcpWorldQuery
                 "it named two things and is now two categories. 'augment-glyphs' is the " +
                 "twenty-two a caster sockets into a spell, whose level buys slots. " +
                 "'recipe-books' is the thirty-four tiles that widen a discovery pool",
+            ["concept-recipes"] =
+                "the forty-six Concepts are a category of their own now: list 'concepts'. This " +
+                "name republished them beside the seventy-nine Alchemy recipes, and the Scholar " +
+                "screen draws them nowhere near the Alchemy screen",
             ["structures"] =
                 "the screen calls these attributes and so does the wire: list 'attributes'. " +
                 "StructureSO is the game's class name for them, not a word any screen draws",
@@ -9831,7 +9851,22 @@ internal static class GameMcpWorldQuery
             Entity(nameof(GameWorldState.RuneStones), world => world.RuneStones),
             Entity(nameof(GameWorldState.DisplayTypes), world => world.DisplayTypes),
             Composite(nameof(GameWorldState.PurchaseCosts), world => world.PurchaseCosts),
-            Entity(nameof(GameWorldState.AlchemyRecipes), world => world.AlchemyRecipes),
+
+            // One native class, two player concepts, two categories — the ruling `GlyphSO` already
+            // earned. `AlchemyRecipeSO` backs the seventy-nine recipes the Alchemy screen draws and
+            // the forty-six Concepts the Scholar screen draws, and the two are unrelated layers of
+            // the game. The split is the recipe's own core alchemy type, read through the audited
+            // classifier the discovery boundary already reads it through, so no second capture and
+            // no second vocabulary can drift from this one.
+            Entity(
+                nameof(GameWorldState.AlchemyRecipes),
+                world => world.AlchemyRecipes,
+                static (WorldAlchemyRecipe recipe) => !IsScholarConcept(recipe.CoreTypeId)),
+            Entity(
+                ConceptsCategory,
+                nameof(GameWorldState.AlchemyRecipes),
+                world => world.AlchemyRecipes,
+                static (WorldAlchemyRecipe recipe) => IsScholarConcept(recipe.CoreTypeId)),
             Entity(nameof(GameWorldState.AlchemyTypes), world => world.AlchemyTypes),
             Entity(nameof(GameWorldState.SpellRecipes), world => world.SpellRecipes),
             Entity(nameof(GameWorldState.SpellTypes), world => world.SpellTypes),
@@ -9888,7 +9923,6 @@ internal static class GameMcpWorldQuery
             Composite(nameof(GameWorldState.SpellCosts), world => world.SpellCosts),
             Composite(nameof(GameWorldState.Targeting), world => world.Targeting),
             Composite(nameof(GameWorldState.MasteryExperience), world => world.MasteryExperience),
-            Entity(nameof(GameWorldState.ConceptRecipes), world => world.ConceptRecipes),
             Composite(nameof(GameWorldState.AlchemyInstances), world => world.AlchemyInstances),
             Composite(nameof(GameWorldState.AlchemyCosts), world => world.AlchemyCosts),
             Composite(nameof(GameWorldState.AlchemyLoadout), world => world.AlchemyLoadout),
@@ -9906,14 +9940,16 @@ internal static class GameMcpWorldQuery
 
     private static GameMcpWorldCategory Entity<TRow>(
         string propertyName,
-        Func<GameWorldState, PublicationTable<TRow>> table)
+        Func<GameWorldState, PublicationTable<TRow>> table,
+        Func<TRow, bool>? admits = null)
         where TRow : struct, IWorldEntity =>
-        Entity(Normalize(propertyName), propertyName, table);
+        Entity(Normalize(propertyName), propertyName, table, admits);
 
     private static GameMcpWorldCategory Entity<TRow>(
         string publicName,
         string propertyName,
-        Func<GameWorldState, PublicationTable<TRow>> table)
+        Func<GameWorldState, PublicationTable<TRow>> table,
+        Func<TRow, bool>? admits = null)
         where TRow : struct, IWorldEntity =>
         new GameMcpEntityCategory<TRow>(
             publicName,
@@ -9922,7 +9958,8 @@ internal static class GameMcpWorldQuery
             ExpectedNativeType(Normalize(publicName)),
             RequiredReportCategories(Normalize(propertyName)),
             FailureOnlyReportCategories(Normalize(propertyName)),
-            ScanFields(Normalize(propertyName)));
+            ScanFields(Normalize(propertyName)),
+            admits);
 
     private static GameMcpWorldCategory Composite<TRow>(
         string propertyName,
@@ -9976,8 +10013,7 @@ internal static class GameMcpWorldQuery
         "action-queue-slots" => new[] { "action-queues" },
         "spell-costs" => new[] { "spell-slots" },
         "targeting" => new[] { "targeting" },
-        "concept-recipes" or "alchemy-instances" or "alchemy-costs" =>
-            new[] { "concept-instances" },
+        "alchemy-instances" or "alchemy-costs" => new[] { "concept-instances" },
         "alchemy-loadout" or "alchemy-usage-costs" =>
             new[] { "ordinary-alchemy-loadout" },
         "plot-phase-descriptors" => new[] { "plot-authoring" },
@@ -10308,8 +10344,6 @@ internal static class GameMcpWorldQuery
             "sequence", "domain", "sourceId", "sourceMastery", "sourceEligible",
             "amount",
         },
-        "concept-recipes" =>
-            new[] { "recipeId", "coreTypeId", "canAddNow" },
         "alchemy-instances" => new[]
         {
             "recipeId", "quantity", "queuedQuantity", "drainReadable", "drainRatio",
@@ -10436,6 +10470,12 @@ internal static class GameMcpWorldQuery
     {
         private readonly Func<GameWorldState, PublicationTable<TRow>> _table;
 
+        /// <summary>
+        /// Which of the table's rows this category holds, where one native class backs two player
+        /// concepts and each half is a category of its own. Null holds the whole table.
+        /// </summary>
+        private readonly Func<TRow, bool>? _admits;
+
         internal GameMcpEntityCategory(
             string publicName,
             string propertyName,
@@ -10443,7 +10483,8 @@ internal static class GameMcpWorldQuery
             string expectedNativeType,
             string[] reportCategories,
             string[] failureOnlyReportCategories,
-            string[] scanFields)
+            string[] scanFields,
+            Func<TRow, bool>? admits = null)
             : base(
                 publicName,
                 propertyName,
@@ -10455,10 +10496,33 @@ internal static class GameMcpWorldQuery
                 "stable_entity_uuid")
         {
             _table = table ?? throw new ArgumentNullException(nameof(table));
+            _admits = admits;
         }
 
-        internal override int Count(GameWorldState world) => _table(world).Count;
-        internal override object Row(GameWorldState world, int index) => _table(world)[index];
+        internal override int Count(GameWorldState world)
+        {
+            var table = _table(world);
+            if (_admits is null) return table.Count;
+            var held = 0;
+            for (var index = 0; index < table.Count; index++)
+                if (_admits(table[index])) held++;
+            return held;
+        }
+
+        internal override object Row(GameWorldState world, int index)
+        {
+            var table = _table(world);
+            if (_admits is null) return table[index];
+            var held = 0;
+            for (var position = 0; position < table.Count; position++)
+            {
+                if (!_admits(table[position])) continue;
+                if (held == index) return table[position];
+                held++;
+            }
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
         internal override bool TryIdentity(object row, out Guid identity)
         {
             if (row is TRow typed)

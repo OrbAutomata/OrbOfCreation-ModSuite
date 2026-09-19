@@ -411,6 +411,13 @@ internal static class GameMcpListColumns
             "affordable",
         },
         ["alchemy-recipes"] = new[] { "entityId", "state", "masteryLevel" },
+
+        // The Scholar screen's Concept list. The same two columns as the Alchemy screen's recipes,
+        // because a Concept is discovered and mastered the same way; what makes it a page of its
+        // own is that the player meets it on another screen, under another word, for another
+        // purpose. The slot budget and the assignment decision are a world_get block, not columns:
+        // both are facts about the one Active Concepts list rather than about a row.
+        ["concepts"] = new[] { "entityId", "state", "masteryLevel" },
         ["research"] = new[]
         {
             "entityId", "state", "paused", "totalLevel", "queuedLevels", "nextLevelRequirements",

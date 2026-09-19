@@ -1408,7 +1408,12 @@ internal static class GameMcpEntityExplainer
             EntityKind.Upgrade => "upgrades",
             EntityKind.Research => "research",
             EntityKind.SpellRecipe => "spell-recipes",
-            EntityKind.AlchemyRecipe => "alchemy-recipes",
+
+            // One native class, two player categories. Which page publishes a recipe is a fact
+            // about its own core alchemy type, and the row's category cell is written from that
+            // same fact — so a caller who read a category off a row can always send it back.
+            EntityKind.AlchemyRecipe when row is WorldAlchemyRecipe alchemyRecipe =>
+                GameMcpWorldQuery.AlchemyRecipeCategory(alchemyRecipe.CoreTypeId),
             EntityKind.CraftingRecipe => "crafting-recipes",
             EntityKind.Consumable => "consumables",
             EntityKind.Resource => "resources",

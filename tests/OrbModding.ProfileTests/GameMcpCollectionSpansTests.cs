@@ -68,7 +68,7 @@ public sealed class GameMcpCollectionSpansTests
             "collection: 21.000 ms across 8 categories, 544 rows, world publication 1001\n" +
             "  player-loadout-entries+player-loadouts+snapshot-entries+snapshot-loadouts+" +
             "snapshot-slots: 6.000 ms, 18 rows\n" +
-            "  alchemy-costs+alchemy-instances+concept-recipes: 5.000 ms, 46 rows\n" +
+            "  alchemy-costs+alchemy-instances: 5.000 ms, 46 rows\n" +
             "  purchase-costs (structure-costs): 4.000 ms, 342 rows\n" +
             "  purchase-costs (upgrade-costs): 3.000 ms, 120 rows\n" +
             "  agromancy-actions: 2.000 ms, 6 rows\n" +

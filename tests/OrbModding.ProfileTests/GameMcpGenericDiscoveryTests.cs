@@ -443,7 +443,7 @@ public sealed class GameMcpGenericDiscoveryTests
         "Time > Time Runes > Create")]
     [InlineData("alchemy-recipes", "05589125-5a98-4e74-a1ae-2b2146ea68c4",
         "Alchemy > Alchemy > Learn")]
-    [InlineData("alchemy-recipes", "6f7f6b2c-6ad0-4a05-9a35-0f2ab7e0e0d1",
+    [InlineData("concepts", "6f7f6b2c-6ad0-4a05-9a35-0f2ab7e0e0d1",
         "Scholar > Concepts > Discover")]
     public void A_discovery_row_is_gated_on_the_screen_its_tree_is_drawn_under(
         string category, string uuid, string path)
@@ -481,11 +481,11 @@ public sealed class GameMcpGenericDiscoveryTests
         var shutPotion = Json(GameMcpWorldQuery.GetRow(
             conceptsOnly, "alchemy-recipes", AlchemyRecipeId.ToString("D")))["row"]!;
         var openConcept = Json(GameMcpWorldQuery.GetRow(
-            conceptsOnly, "alchemy-recipes", ConceptRecipeId.ToString("D")))["row"]!;
+            conceptsOnly, "concepts", ConceptRecipeId.ToString("D")))["row"]!;
         var openPotion = Json(GameMcpWorldQuery.GetRow(
             learnOnly, "alchemy-recipes", AlchemyRecipeId.ToString("D")))["row"]!;
         var shutConcept = Json(GameMcpWorldQuery.GetRow(
-            learnOnly, "alchemy-recipes", ConceptRecipeId.ToString("D")))["row"]!;
+            learnOnly, "concepts", ConceptRecipeId.ToString("D")))["row"]!;
 
         Assert.False((bool)shutPotion["discover"]!["available"]!);
         Assert.Null(shutPotion["discover"]!["reasonCode"]);
@@ -532,7 +532,7 @@ public sealed class GameMcpGenericDiscoveryTests
         var context = ScreenContext(screensUnlocked: true, treeHoldsOffer: ConceptRecipeId);
 
         var held = Json(GameMcpWorldQuery.GetRow(
-            context, "alchemy-recipes", ConceptRecipeId.ToString("D")))["row"]!["discover"]!;
+            context, "concepts", ConceptRecipeId.ToString("D")))["row"]!["discover"]!;
         var other = Json(GameMcpWorldQuery.GetRow(
             context, "alchemy-recipes", AlchemyRecipeId.ToString("D")))["row"]!["discover"]!;
 

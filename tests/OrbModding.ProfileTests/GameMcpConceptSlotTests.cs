@@ -19,19 +19,25 @@ public sealed class GameMcpConceptSlotTests
 {
     private static readonly Guid AnalyzeBlooming =
         Guid.Parse("9ec75f9b-e074-44fc-b7be-05cf556847ad");
-    private static readonly Guid AnalyzeBuilding =
-        Guid.Parse("b4d22a59-30d6-4de3-8437-f3ea8cbc3c12");
-    private static readonly Guid CoreType =
-        Guid.Parse("c0000000-0000-4000-8000-000000000001");
+
+    /// <summary>An ordinary Alchemy recipe: the Concept registry names it nowhere.</summary>
+    private static readonly Guid BrewManaPotion =
+        Guid.Parse("ef29f6df-4660-4d83-bf62-1230cf1a23de");
+
+    /// <summary>
+    /// The two core alchemy types the game really authors on these recipes. A made-up core type
+    /// would file both rows under one category and hide the split this fixture is about.
+    /// </summary>
+    private static readonly Guid ConceptCoreType = KnownEntities.Reductive.Uuid;
+    private static readonly Guid OrdinaryCoreType = KnownEntities.Brewing.Uuid;
 
     [Fact]
     public void A_refused_assignment_names_its_class_its_sentence_and_the_slots_behind_it()
     {
         var context = GameMcpTestHarness.Context(World(canAdd: false, slots: 2), generation: 3101);
 
-        var row = Assert.IsType<JObject>(GameMcpTestHarness.Json(
-            GameMcpWorldQuery.GetRow(
-                context, "concept-recipes", AnalyzeBlooming.ToString("D")).Freeze())["row"]);
+        var row = Assert.IsType<JObject>(
+            GameMcpTestHarness.Detail(context, AnalyzeBlooming)["concept"]);
 
         Assert.Equal(2, (int)row["usedSlots"]!);
         Assert.Equal(2, (int)row["maximumSlots"]!);
@@ -49,9 +55,8 @@ public sealed class GameMcpConceptSlotTests
     {
         var context = GameMcpTestHarness.Context(World(canAdd: false, slots: 6), generation: 3102);
 
-        var row = Assert.IsType<JObject>(GameMcpTestHarness.Json(
-            GameMcpWorldQuery.GetRow(
-                context, "concept-recipes", AnalyzeBlooming.ToString("D")).Freeze())["row"]);
+        var row = Assert.IsType<JObject>(
+            GameMcpTestHarness.Detail(context, AnalyzeBlooming)["concept"]);
 
         Assert.Equal(2, (int)row["usedSlots"]!);
         Assert.Equal(6, (int)row["maximumSlots"]!);
@@ -65,9 +70,8 @@ public sealed class GameMcpConceptSlotTests
     {
         var context = GameMcpTestHarness.Context(World(canAdd: true, slots: 6), generation: 3103);
 
-        var row = Assert.IsType<JObject>(GameMcpTestHarness.Json(
-            GameMcpWorldQuery.GetRow(
-                context, "concept-recipes", AnalyzeBlooming.ToString("D")).Freeze())["row"]);
+        var row = Assert.IsType<JObject>(
+            GameMcpTestHarness.Detail(context, AnalyzeBlooming)["concept"]);
 
         Assert.True((bool)row["canAdd"]!["available"]!);
         Assert.Null(row["canAdd"]!["reasonCode"]);
@@ -84,9 +88,10 @@ public sealed class GameMcpConceptSlotTests
         var context = GameMcpTestHarness.Context(World(canAdd: false, slots: 2), generation: 3104);
 
         var concept = GameMcpTestHarness.Detail(context, AnalyzeBlooming);
-        var plain = GameMcpTestHarness.Detail(context, AnalyzeBuilding);
+        var plain = GameMcpTestHarness.Detail(context, BrewManaPotion);
 
-        Assert.Equal("alchemy-recipes", (string?)concept["category"]);
+        Assert.Equal("concepts", (string?)concept["category"]);
+        Assert.Equal("alchemy-recipes", (string?)plain["category"]);
         var state = concept["concept"]!;
         Assert.Equal(1, (int)state["assignedCount"]!);
         Assert.Equal(2, (int)state["usedSlots"]!);
@@ -111,18 +116,22 @@ public sealed class GameMcpConceptSlotTests
         CollectedAtEpoch = 41,
         CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(
-            new[] { Recipe(AnalyzeBuilding), Recipe(AnalyzeBlooming) }
+            new[]
+                {
+                    Recipe(AnalyzeBlooming, ConceptCoreType),
+                    Recipe(BrewManaPotion, OrdinaryCoreType),
+                }
                 .OrderBy(recipe => recipe.EntityId)
                 .ToArray()),
         ConceptRecipes = PublicationTable<WorldConceptRecipe>.Create(new[]
         {
-            new WorldConceptRecipe(AnalyzeBlooming, CoreType, canAdd, slots),
+            new WorldConceptRecipe(AnalyzeBlooming, ConceptCoreType, canAdd, slots),
         }),
         AlchemyInstances = PublicationTable<WorldAlchemyInstance>.Create(
             new[]
             {
                 new WorldAlchemyInstance(AnalyzeBlooming, 1, 1, true, BigDouble.One),
-                new WorldAlchemyInstance(AnalyzeBuilding, 4, 4, true, BigDouble.One),
+                new WorldAlchemyInstance(BrewManaPotion, 4, 4, true, BigDouble.One),
             }.OrderBy(instance => instance.RecipeId).ToArray()),
         CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
         {
@@ -133,8 +142,8 @@ public sealed class GameMcpConceptSlotTests
         }),
     };
 
-    private static WorldAlchemyRecipe Recipe(Guid id) => new(
-        id, CoreType, discovered: true, maxLevel: 1, advancementLevel: 0,
+    private static WorldAlchemyRecipe Recipe(Guid id, Guid coreTypeId) => new(
+        id, coreTypeId, discovered: true, maxLevel: 1, advancementLevel: 0,
         discoveryRarityLevel: 0, masteryXp: BigDouble.Zero, masteryLevel: 0,
         recipeTime: BigDouble.One, isRequiredDiscovery: false,
         isCompletionRecipe: false, isAdvancementRecipe: false, completionTime: 0,

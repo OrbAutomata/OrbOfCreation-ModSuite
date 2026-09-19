@@ -318,6 +318,27 @@ public sealed class GameMcpListColumnsTests
         "plot_action_list_full", "prerequisite_unverified", "not_active", "insufficient_bandwidth",
     };
 
+    /// <summary>Brew Mana Potion: an ordinary Alchemy recipe the Scholar screen never draws.</summary>
+    private static readonly Guid OrdinaryRecipe =
+        Guid.Parse("ef29f6df-4660-4d83-bf62-1230cf1a23de");
+
+    /// <summary>Study Mind: one of the forty-six Concepts, on the Scholar screen.</summary>
+    private static readonly Guid ConceptRecipe =
+        Guid.Parse("fa165240-42a6-447d-9d3b-f6fa2865dbf9");
+
+    private static WorldAlchemyRecipe ZeroRecipe(Guid recipeId, Guid coreTypeId) => new(
+        recipeId, coreTypeId, discovered: false, maxLevel: 0, advancementLevel: 0,
+        discoveryRarityLevel: 0, masteryXp: BigDouble.Zero, masteryLevel: 0,
+        recipeTime: BigDouble.Zero, isRequiredDiscovery: false, isCompletionRecipe: false,
+        isAdvancementRecipe: false, completionTime: 0, isDebugAlchemy: false,
+        power: BigDouble.Zero, speed: BigDouble.Zero, drainCostMod: BigDouble.Zero,
+        special: BigDouble.Zero, timeReqMod: BigDouble.Zero, timeScalingMod: BigDouble.Zero,
+        masteryXpRate: BigDouble.Zero, effectLevels: BigDouble.Zero,
+        overdrivePower: BigDouble.Zero, overdriveSpeed: BigDouble.Zero,
+        overdriveDrainCostMod: BigDouble.Zero, overdriveXpRate: BigDouble.Zero,
+        freeUsageSlots: BigDouble.Zero, maxUsageSlots: BigDouble.Zero,
+        cachedCompletionTime: BigDouble.Zero, requiredExperience: BigDouble.Zero);
+
     private static GameWorldState OneRowOfEach()
     {
         // A public category's availability also rests on the helper collections its rows are
@@ -348,7 +369,14 @@ public sealed class GameMcpListColumnsTests
             ResourceTypes = PublicationTable<WorldResourceType>.Create(new WorldResourceType[1]),
             EquipmentTypes = PublicationTable<WorldEquipmentType>.Create(new WorldEquipmentType[1]),
             AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new WorldGlyph[1]),
-            AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new WorldAlchemyRecipe[1]),
+            // `alchemy-recipes` and `concepts` are one native class split by the recipe's own
+            // core alchemy type, so one row of each category is two rows here. Everything but
+            // that type stays at the game's zero values, like every other row in this fixture.
+            AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new[]
+            {
+                ZeroRecipe(OrdinaryRecipe, KnownEntities.Brewing.Uuid),
+                ZeroRecipe(ConceptRecipe, KnownEntities.Reductive.Uuid),
+            }.OrderBy(recipe => recipe.EntityId).ToArray()),
             PlotNodes = PublicationTable<WorldPlotNode>.Create(new WorldPlotNode[1]),
             PurchaseCosts = PublicationTable<WorldPurchaseCost>.Create(new WorldPurchaseCost[1]),
             Challenges = PublicationTable<WorldChallenge>.Create(new WorldChallenge[1]),
