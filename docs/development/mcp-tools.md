@@ -1605,7 +1605,11 @@ spell. `confirm` re-reads every one of those facts live at the action boundary b
 payment, or press, and refuses in the screen's words: a screen the game has not unlocked, a row it
 does not draw yet, a button reading "Has Requirements", a price larger than you hold. Its committed
 answer is the target's post-state row, and a discovered spell also reports whether the game's own
-`PostDiscoverRecipe` loaded it and into which slot.
+`PostDiscoverRecipe` loaded it, into which slot, and which spell instance that slot now holds. A
+recipe can sit on the bar more than once, so the copy this press minted is the occupant the world
+before the press did not carry — not the first slot holding the recipe, which is the older, levelled
+one a caller has been casting. When the bar already held the recipe and no new copy joined it, the
+block says that instead.
 
 **All six kinds refuse a locked screen ahead of the press, and the read says so first.** Each
 `DiscoveryTreeSO` names the view its page is drawn under in an authored `viewLocation`, so five
@@ -1620,6 +1624,15 @@ press rather than naming a screen that would be wrong half the time.
 The `offer_initiate`, `offer_select`, `offer_confirm`, and `offer_reroll` modes address a Discovery
 Tree by `uuid` and take the chosen offer as `offerUuid`, because the transient offer UI really does
 show and select those exact entities.
+
+**A row the tree is already holding for you prints the tree, not a price.** While a Discovery Tree
+carries an entity as its selected offer, that entity's own `discover` block answers
+`tree_holds_this_offer` (`ERR_STATE`), names the tree under `offeredBy`, and carries no `costs` at
+all. Confirming on the tree charges nothing — `DiscoveryTreeSO.DiscoverSelectedItem` only discovers
+— while the row's own price is a second, separate `IDiscoverable.GetDiscoverCost()` purchase, so
+restating that price is telling a caller they owe what the roll already spent. Both producers of a
+`discover` block follow the rule: the shared one behind `alchemy-recipes`, `equipment`,
+`augment-glyphs`, `rituals` and `time-runes`, and the `spell-recipes` row's own.
 
 The `equipment` category is also the artifact-loadout pre-decision surface. Each row names the
 artifact and its primary equipment type, current/maximum stacks, global and type-slot occupancy,
@@ -2110,7 +2123,8 @@ The MCP-only base-recipe sequence is:
 2. For an undiscovered recipe, call `game_discover(mode="preview", uuid=...)` with that row's own
    uuid and check the admission, price, and whether the press would also load the spell, then
    repeat the call with `mode:"confirm"`. The response reports the discovery transition and, when
-   the game loaded the new spell, the `loadout` block naming the bar slot it went into.
+   the game loaded the new spell, the `loadout` block naming the bar slot it went into and the
+   instance uuid of the copy that landed there.
 3. If an equipped instance is wanted, call
    `game_spell_loadout(mode="preview", uuid=..., glyphs=[...])`. This read resolves and prices the
    submitted layout through the same native manager methods used by add, without touching the
@@ -2725,10 +2739,12 @@ returns its terminal result in the same MCP tool call.
 A committed gameplay mutation then goes through one shared settlement rather than a per-tool sleep
 or poll: it waits up to one second for a world captured after the action completed and projects the
 changed fact from exactly that immutable world. A prompt publication returns immediately, and there
-is no routine lag field on the ordinary path. If no such world arrives in time, the mutation stays
-committed and the response carries the single exceptional
-`postStateUnavailable / post_state_timeout` fact instead of an empty success or the pre-mutation
-world. Reaching that path repeatedly in live play means a missing publication trigger to diagnose,
+is no routine lag field on the ordinary path. If the world the press asked for never arrives, the
+mutation stays committed and the response carries one exceptional `postStateUnavailable` fact
+instead of an empty success or the pre-mutation world: `post_state_timeout` where no world landed
+in time at all, and `requested_state_not_reached` where worlds landed and none of them showed the
+outcome the press asked for — a dial still on its old value, a toggle still running, a fired spell
+no slot shows casting or a charge down. Reaching that path repeatedly in live play means a missing publication trigger to diagnose,
 not a timeout to lengthen. One verb skips the wait outright: a purchase answers from the
 queued-level delta its own native verifier observed, so no later world can add to it, and waiting
 for one could only turn a purchase that verifiably committed into a timeout.
@@ -2904,8 +2920,8 @@ most, so an old code's new class can be looked up here:
 | Class | Internal codes that reach it |
 | --- | --- |
 | `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `category_not_listable`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required`, `tooltip_offset_invalid`, `tile_destination_mismatch`, `ambiguous_modal` |
-| `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `components_unavailable`, `no_recipe_book`, `tooltip_match_failed`, `tooltip_content_unavailable`, `native_plot_not_resolved`, `recipe_book_tile_not_found`, `no_modal_named` |
-| `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `modal_already_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning`, `continue_wrong_scene` |
+| `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `components_unavailable`, `no_recipe_book`, `tooltip_match_failed`, `tooltip_content_unavailable`, `native_plot_not_resolved`, `recipe_book_tile_not_found`, `recipe_book_tile_not_clickable`, `no_modal_named` |
+| `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `modal_already_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning`, `tree_holds_this_offer`, `continue_wrong_scene` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached`, `bandwidth_blocked`, `drain_blocked`, `glyph_usages_exceeded` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
 | `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `unlock_conditions_unmet`, `tree_unavailable`, `research_leeway_exhausted`, `native_leeway_exhausted`, `glyph_unavailable`, `not_in_resource_list` |
@@ -3004,7 +3020,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen by the route a player walks to it — *Rituals > Discover is not unlocked yet, so the game draws no row for this.* One table maps a view to its breadcrumb, so a row and the press it predicts cannot spell one screen two ways; a view that table does not pin keeps the unnamed sentence rather than pointing at the wrong page | `spell-recipes` loadout-add and `discover` decisions, `augment-glyphs` `discover` and `purchase` decisions, `rituals`, `equipment`, `time-runes` and `alchemy-recipes` `discover` decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move`, `game_discover confirm` |
 | `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `discover` decisions on an augment glyph the game never offers, `game_discover` on a uuid no discovery screen draws a row for |
-| `projection_refused` | The drain this assignment would add could not be read, so the call fails closed; the game refused nothing. Auto Concept's rate reserve and quantity floor never produce it, because they are read on the service's own call and nowhere else | `game_concept` |
+| `projection_refused` | The drain this assignment would add could not be read, so the call fails closed; the game refused nothing. Auto Concept's rate reserve, quantity floor, and its rule against draining a resource that sits at zero never produce it, because all three are read on the service's own call and nowhere else | `game_concept` |
 | `owning_screen_unknown` / `owning_screen_unreadable` / `owning_screen_contradictory` / `owning_screen_status_unmodelled` / `owning_screen_availability_unreadable` / `topology_not_captured` | The five distinct ways the purchase-screen admission chain says no, which used to share one number. Only `topology_not_captured` is fixed by waiting for the next lifecycle; its sentence names the epoch the topology is stamped at, the epoch the call asked for, and how many rows it holds. `owning_screen_unknown` has a second producer: an alchemy recipe whose own alchemy type is in neither audited set, so neither alchemy discovery screen claims it | `game_purchase`, `alchemy-recipes` `discover` decisions |
 | `destination_full` | Every slot this upgrade would fill is already occupied | `game_purchase` on a slot-filling upgrade |
 | `single_buy_unavailable` | The suite could not hold the game's multi-buy multiplier at one for the press, so nothing was pressed and nothing was spent. It answered `native_rejected` — the game refusing — for a call the game never saw | the single-buy purchase path |
@@ -3012,6 +3028,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `no_recipe_book` | The game draws no Recipe Book for this glyph in this run. It answered `world_not_published` — the suite having read nothing at all — for a healthy read of a published world | glyph recipe-book edges |
 | `tooltip_offset_invalid` / `tooltip_match_failed` / `tooltip_content_unavailable` / `tooltip_contract_unavailable` / `tooltip_read_faulted` / `tooltip_depth_exceeded` | A page marker the live element list never printed and which changes when the screen does; a path matching no active element or several; an element the game draws no tooltip for; the suite unable to attach to the game's tooltips for this run, which only a restart clears; the game erroring while producing the text; and an authored node tree deeper or wider than the suite will walk in one answer, so the walk was abandoned and none of its text is returned. Only the fourth and the last are the suite's own, and the binding layer's account of the fourth goes to the suite log rather than to the caller | `game_screen_elements`, `game_tooltip` |
 | `native_navigation_unavailable` / `native_plot_navigation_unavailable` / `native_plot_list_unavailable` / `native_plot_not_resolved` / `native_recipe_book_unavailable` / `recipe_book_tile_not_found` / `tile_destination_mismatch` | The game is not showing its screen tabs, which it does only while a save is open; this build exposes no plot list to select from; the screen is showing no plot list or more than one, so which plot was meant is unclear; no plot in this run carries that id; this build exposes no recipe books; the Unlock page is drawing no tile for that book, or more than one answers to it; and a tile asked for at a destination that draws none, where the sentence names the two that do | `game_navigate` |
+| `recipe_book_tile_not_clickable` | The Unlock page drew that book's tile and nothing on it answers a click. The game presses a tile through a `UnityEngine.UI.Button` on the tile's own object or on an ancestor, or through that object's `UIExpandedEvents.onLeftMouseDown`; a tile carrying neither is a drawn control the suite will not fake a press on | `game_navigate` |
 | `modal_not_offered` / `no_modal_named` / `ambiguous_modal` / `modal_already_open` | The panel named is not one the suite presses, and the sentence names the ones it does; no chrome control on this screen opens a panel by that name, and the sentence names the ones it does open; two controls answer to one name; and a different panel is already covering the board, so the chrome beneath it takes no presses | `game_modal open` |
 | `native_probe_unavailable` | The named fact exists, but this build exposes no reading of it | `game_probe` |
 | `continue_wrong_scene` / `continue_contract_unavailable` | Continue exists only on the title screen, and being in a run is a state that moves; or this build does not expose the Continue button, so no save can be started from here | `game_continue` |
@@ -3107,7 +3124,11 @@ The same rule reaches every other verb. `game_concept` takes the game's gates �
 slot, a discovered recipe, and the drain the assignment costs — and reads neither
 `AutoConcept/RateReservePercent` nor `AutoConcept/MinimumResourcePercent`, which are the
 backpressure Auto Concept's own cycle keeps; a live round had those two refuse an `add` with
-`ERR_LIMIT` while Auto Concept's mode was Disabled. `game_cast` is never held back by
+`ERR_LIMIT` while Auto Concept's mode was Disabled. Auto Concept's third caution belongs to the
+same set: it holds its own cycle back from a drain that would run a resource at zero, and the game
+does not. `AlchemyInstanceListVariable.EngageAlchemy` gates on an empty spot or an existing
+instance, the recipe's free and maximum usage slots, its usage cost and the multi-buy count, and
+`CanAddInstance` is that slot test alone — the zero state reaches nothing on either path. `game_cast` is never held back by
 `AutoCast/ManualPauseSeconds`, the stand-down the service takes *because* the player cast by hand,
 and it charges because `charge=true` asked for it rather than because `AutoCast/FullCharge` is on.
 Automation and the verb reach the game through one action boundary, which is handed a service's
@@ -3446,12 +3467,22 @@ casting state changing from active to inactive. The settled response is only the
 slot, and settled `active` state; a refusal names the binding setting or live spell
 state. Detailed `spell-slots` rows expose `toggleOff.available` so the setting never has to be
 learned by attempting the action, and carry `casts`, the game's own per-spell manual cast counter.
-A settled `fire` says `casting: yes` — the press started a cast now — and carries no cast counter at
-all. The game writes that counter when a cast *completes*, frames after the press and sometimes
-before the next world is published, so it was the same number whether the press landed or was
-dropped. A press at a spell that is already running is refused rather than committed silently — the
-game's own button answers it with a warning popup or an end-of-cast, never with a new cast — so a
-repeated fire can never look like a firing loop that is doing nothing. `casting` is a `fire`-only
+A settled `fire` waits for a world that shows the cast this press started, in either of the two
+faces that prove it: the slot readying or casting, or a charge spent since the press. The game
+spends the charge at the *end* of a cast — `Spell.Cast()` sets the prep state and only
+`EndCasting`/`ExecuteSpell` consume the charge — so a spell slower than the world cadence is still
+readying when the next world lands while a faster one has already finished and dropped one.
+Requiring both would time out half of all casts; requiring neither answered a world that had not
+yet seen the press. When neither face arrives inside the settlement budget the answer stays
+committed and says so, rather than describing a slot the cast has not reached. It carries no cast
+counter at all. The game writes that counter when a cast *completes*, frames after the press and
+sometimes before the next world is published, so it was the same number whether the press landed or
+was dropped. A press at a spell that is already running is refused rather than committed silently —
+the game's own button answers it with a warning popup or an end-of-cast, never with a new cast — so
+a repeated fire can never look like a firing loop that is doing nothing. A press while a *different*
+spell is still readying is refused the same way and names the spell holding the caster, because
+`SpellManager.CanCastASpell()` is exactly "no active spell is readying": the game casts one spell at
+a time, and which one is in the way is the only thing a caller can wait on. `casting` is a `fire`-only
 key, and deliberately: it is the one mode with a native delta behind it, a release being a native
 call with nothing to verify a cast start against and a toggle-off's own sentinel being a cast
 ending, so neither of those may claim the fact in either direction.
@@ -4120,13 +4151,16 @@ The tool makes those clicks in order, settles between them, and the postconditio
 `uuid` picks a tile the destination page draws. An Agromancy plot on `World/Agromancy` resolves as
 a published `PlotNodeSO` through the one audited active `UIPlotNodeList.OnNodeClick(PlotNodeSO)`;
 it is not a hardcoded Fruit Tree command. A recipe book on `Magic/Unlock` is pressed through the
-tile's own `Button`, the control `UIGenericItem.UIStart` registers the item click on, and the
-answer lists the spells the panel then draws — the suite keeps no copy of the game's selected-book
-list, because which books the page holds is the game's and the panel afterwards is the answer. A
-tile asked for on a page that draws none refuses `tile_destination_mismatch` naming both homes.
-For a compound request, the server selects the top screen, waits up to one second for the active
-screen and complete live strip set to remain stable across frames, and only then resolves and
-selects the requested subtab path or tile. Resolving against the settled hierarchy is what makes the
+tile's own `Button` — the control `UIGenericItem.UIStart` registers the item click on — or, where
+the tile carries none, through its `UIExpandedEvents.onLeftMouseDown`, the other control the game
+binds a tile press to; both are looked for on the tile's object and its ancestors, and a tile
+carrying neither refuses `recipe_book_tile_not_clickable` rather than having a press faked on it.
+The answer lists the spells the panel then draws — the suite keeps no copy of the game's
+selected-book list, because which books the page holds is the game's and the panel afterwards is
+the answer. A tile asked for on a page that draws none refuses `tile_destination_mismatch` naming
+both homes. A tile is always resolved against a settled page: the server selects the top screen and
+any subtab path, waits up to one second for the active screen and complete live strip set to remain
+stable across frames, and only then looks for the tile. Resolving against the settled hierarchy is what makes the
 subtab candidates the matcher searched identical to the ones the catalog advertises for that screen.
 It then waits for settlement again before answering. A timeout stays committed but returns only `postStateUnavailable`; it never labels a
 mid-transition strip set as settled. The whole operation

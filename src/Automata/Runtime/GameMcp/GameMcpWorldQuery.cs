@@ -6977,6 +6977,10 @@ internal static class GameMcpWorldQuery
             var options = ProjectRecipeAugmentOptions(world, in recipe);
             if (options.Count > 0) next["augmentOptions"] = options;
         }
+        else if (TryFindHoldingDiscoveryTree(world, recipe.EntityId, out var holdingTree))
+        {
+            next = HeldOfferDiscovery(world, holdingTree);
+        }
         else
         {
             var unlockScreen = IsScreenUnlocked(world, KnownEntities.MagicSpellbookLearn.Uuid);
@@ -9092,19 +9096,7 @@ internal static class GameMcpWorldQuery
         if (!decision.Discovered && entityId != Guid.Empty &&
             TryFindHoldingDiscoveryTree(world, entityId, out var holdingTree))
         {
-            result["discover"] = new JObject
-            {
-                ["available"] = false,
-                ["reasonCode"] = "tree_holds_this_offer",
-                ["reason"] =
-                    EntityIdentityFormatter.PlayerName(holdingTree, world.EntityIdentities) +
-                    " is holding this as the offer you picked, and confirming it there costs " +
-                    "nothing more — the roll already paid. Use game_discover mode=offer_confirm " +
-                    "on that tree; discovering it from this row would be a second, separate " +
-                    "purchase.",
-                ["offeredBy"] = EntityReference(world, holdingTree),
-                ["offered"] = true,
-            };
+            result["discover"] = HeldOfferDiscovery(world, holdingTree);
             return;
         }
         var screenDraws = screenUnlocked == true;
@@ -9155,6 +9147,22 @@ internal static class GameMcpWorldQuery
         if (offered) discover["offered"] = true;
         result["discover"] = discover;
     }
+
+    /// <summary>
+    /// What a row says about discovering something a tree is already holding for the player.
+    /// </summary>
+    private static JObject HeldOfferDiscovery(GameWorldState world, Guid treeId) => new()
+    {
+        ["available"] = false,
+        ["reasonCode"] = "tree_holds_this_offer",
+        ["reason"] =
+            EntityIdentityFormatter.PlayerName(treeId, world.EntityIdentities) +
+            " is holding this as the offer you picked, and confirming it there costs nothing " +
+            "more — the roll already paid. Use game_discover mode=offer_confirm on that tree; " +
+            "discovering it from this row would be a second, separate purchase.",
+        ["offeredBy"] = EntityReference(world, treeId),
+        ["offered"] = true,
+    };
 
     /// <summary>
     /// The discovery tree holding this entity as the choice the player has selected, if one is.

@@ -3857,8 +3857,9 @@ public sealed class Plugin : BaseUnityPlugin
             return new RecipeBookTilePick(
                 "recipe_book_tile_not_clickable",
                 "Magic > Spellbook > Unlock draws that book's tile, but nothing on it answers a " +
-                "click: the game presses a tile through a UnityEngine.UI.Button on the tile's own " +
-                "object, or through that object's UIExpandedEvents, and this tile carries neither.");
+                "click: the game presses a tile through a UnityEngine.UI.Button or a " +
+                "UIExpandedEvents left-click, on the tile's own object or an ancestor of it, " +
+                "and this tile carries neither.");
         }
         if (presses.Count > 1)
         {

@@ -27,6 +27,9 @@ public sealed class GameMcpGenericDiscoveryTests
         Guid.Parse("f3000000-0000-0000-0000-000000000005");
     private static readonly Guid StructureId =
         Guid.Parse("f3000000-0000-0000-0000-000000000006");
+    /// <summary>The game's own Spell Discoveries tree, named in the shipped identity fixture.</summary>
+    private static readonly Guid SpellTreeId =
+        Guid.Parse("5ba0b305-21bd-4b43-af88-cc763ac04df8");
     private static readonly Guid OlderSpellInstanceId =
         Guid.Parse("4b8a5e2c-0d61-4f3a-9c77-6a1b2c3d4e5f");
     private static readonly Guid MintedSpellInstanceId =
@@ -546,6 +549,21 @@ public sealed class GameMcpGenericDiscoveryTests
             GameMcpTestHarness.Handle(ConceptTreeId), (string?)held["offeredBy"]!["uuid"]);
         Assert.True((bool)other["available"]!);
         Assert.NotNull(other["costs"]);
+
+        // The spell row writes its own `discover` block rather than going through
+        // AddDiscoveryDecision, so the rule has to hold on both producers or it holds on five
+        // surfaces out of six.
+        var spell = Json(GameMcpWorldQuery.ProjectPostState(
+            Context(treeHoldsOffer: SpellRecipeId), "spell-recipes", SpellRecipeId))["discover"]!;
+
+        Assert.False((bool)spell["available"]!);
+        Assert.Equal("ERR_STATE", (string?)spell["reasonCode"]);
+        Assert.Equal(
+            "Spell Discoveries is holding this as the offer you picked, and confirming it there " +
+            "costs nothing more — the roll already paid. Use game_discover mode=offer_confirm " +
+            "on that tree; discovering it from this row would be a second, separate purchase.",
+            (string?)spell["reason"]);
+        Assert.Null(spell["costs"]);
     }
 
     private static readonly Guid AlchemyRecipeId =
@@ -716,7 +734,8 @@ public sealed class GameMcpGenericDiscoveryTests
         bool componentLearned = true,
         bool loadoutHasRoom = true,
         bool screensUnlocked = true,
-        bool spellHidden = false)
+        bool spellHidden = false,
+        Guid treeHoldsOffer = default)
     {
         using var publisher =
             new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
@@ -726,7 +745,8 @@ public sealed class GameMcpGenericDiscoveryTests
                 componentLearned,
                 loadoutHasRoom,
                 screensUnlocked,
-                spellHidden: spellHidden),
+                spellHidden: spellHidden,
+                treeHoldsOffer: treeHoldsOffer),
             new WorldGeneration(2301));
         return GameMcpTestHarness.Context(
             publisher.ReadLatest(), configurationGeneration: 8, lifecycleGeneration: 15);
@@ -740,7 +760,8 @@ public sealed class GameMcpGenericDiscoveryTests
         bool spellDiscovered = false,
         int loadedSlotIndex = -1,
         bool spellHidden = false,
-        bool olderCopyOnBar = false)
+        bool olderCopyOnBar = false,
+        Guid treeHoldsOffer = default)
     {
         var costs = PublicationTable<WorldDiscoverableCost>.Create(new[]
         {
@@ -792,6 +813,16 @@ public sealed class GameMcpGenericDiscoveryTests
                 new WorldRecipeBook(RecipeBookId, available: false),
             }),
             SpellSlots = SpellSlots(loadedSlotIndex, olderCopyOnBar),
+            DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new[]
+            {
+                new WorldDiscoveryTree(
+                    SpellTreeId, true, 2, BigDouble.Zero, 1, false, treeHoldsOffer,
+                    treeHoldsOffer == Guid.Empty
+                        ? Array.Empty<Guid>()
+                        : new[] { treeHoldsOffer },
+                    false, true, Array.Empty<WorldDiscoveryTreeCost>(),
+                    Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, true, true, false),
+            }),
             SpellWorkbench = new WorldSpellWorkbench(
                 equippedCount: loadoutHasRoom ? 0 : 1,
                 maximumEquipped: 1,
