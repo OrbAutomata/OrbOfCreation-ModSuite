@@ -21,7 +21,7 @@ Two strips are always present and belong to no single screen:
 - **The casting bar and the bottom level bar** — spell buttons stay reachable while you browse other
   screens, and the bar along the very bottom of the window is Orb XP.
 - **The top-right icons** — buttons rather than screens. Each puts a panel over whatever page you
-  are on: Statistics is this run's numbers, and the settings and achievement panels sit beside it.
+  are on: Player is this run's numbers, and the settings and achievement panels sit beside it.
   A panel covers the board, and the buttons underneath it take no clicks until you close it.
 
 ## Which page holds what

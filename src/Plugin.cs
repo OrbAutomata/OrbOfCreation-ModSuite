@@ -4321,7 +4321,7 @@ public sealed class Plugin : BaseUnityPlugin
     /// control that puts a panel up.
     /// </summary>
     /// <remarks>
-    /// The chrome controls carry no <c>HoverTooltip</c>, which is the whole reason the Statistics,
+    /// The chrome controls carry no <c>HoverTooltip</c>, which is the whole reason the Player,
     /// settings and achievement icons were absent from a verb whose job is to say what is on the
     /// screen. They are not entities and never carry an id; what they carry is the name of the
     /// panel they open, which is the argument that opens it.

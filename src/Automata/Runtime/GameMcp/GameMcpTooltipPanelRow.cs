@@ -50,7 +50,7 @@ internal static class GameMcpTooltipPanelRow
     /// One chrome control, which is a name and the panel pressing it puts up.
     /// </summary>
     /// <remarks>
-    /// These carry no entity and never will: a control that opens the Statistics panel is not a
+    /// These carry no entity and never will: a control that opens the Player panel is not a
     /// thing in the world, it is a way to see some. The name is the panel's own, so the row is
     /// both the answer to "what is this" and the argument that opens it.
     /// </remarks>

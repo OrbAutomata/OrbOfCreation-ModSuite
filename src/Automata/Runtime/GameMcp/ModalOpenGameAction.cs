@@ -46,7 +46,7 @@ internal readonly struct ModalOpenSubmission
 /// </summary>
 /// <remarks>
 /// <para>
-/// The top-right icons — Statistics, the settings panel, the achievement list — are not screens.
+/// The top-right icons — Player, the settings panel, the achievement list — are not screens.
 /// Each is a <c>UIModalActivator</c> holding a title and a prepared <c>UIModal</c>, and the game
 /// wires its button to <c>ToggleModal</c>. Toggling is state-dependent, so the press the suite
 /// makes is <c>OpenModal</c>: the same modal, the same authored content, and the same answer

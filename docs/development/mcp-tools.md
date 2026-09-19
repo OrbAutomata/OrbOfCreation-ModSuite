@@ -4098,7 +4098,7 @@ every panel the session ever opened stays active in the hierarchy — the catalo
 player can reach rather than what is instantiated.
 A screen's elements hang off a handful of panels, so the catalog is a list of panels.
 
-**A control that opens a panel says which panel.** The top-right chrome — Statistics, the settings
+**A control that opens a panel says which panel.** The top-right chrome — Player, the settings
 panel, the achievement list — is a row of `UIModalActivator` buttons that draw no tooltip of their
 own, so they carry `name`, `path` and `opens: modal` instead of an `id`: they are not things in the
 world, they are ways to see some. The name is the panel's own authored title, which is the argument
