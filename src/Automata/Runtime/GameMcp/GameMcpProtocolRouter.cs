@@ -347,7 +347,7 @@ internal sealed class GameMcpProtocolRouter
                 break;
             case "game_concept":
                 builder.Uuid = RequireUuid(arguments, "uuid");
-                builder.Mode = RequireOneOf(arguments, "mode", "add", "remove_owned");
+                builder.Mode = RequireOneOf(arguments, "mode", "add", "remove");
                 builder.Amount = RequiredInt(arguments, "amount", 1, 1_000_000);
                 break;
             case "game_agromancy":
@@ -775,7 +775,7 @@ internal sealed class GameMcpProtocolRouter
                 ObjectSchema(
                     new JObject
                     {
-                        ["mode"] = EnumSchema("add", "remove_owned"),
+                        ["mode"] = EnumSchema("add", "remove"),
                         ["uuid"] = StringSchema("Alchemy recipe id."),
                         ["amount"] = IntegerSchema(1, 1_000_000),
                     },

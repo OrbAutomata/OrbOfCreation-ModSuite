@@ -1290,7 +1290,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 var kind = command.Mode switch
                 {
                     "add" => AutoConceptActionKind.Add,
-                    "remove_owned" => AutoConceptActionKind.RemoveOwned,
+                    "remove" => AutoConceptActionKind.RemoveOwned,
                     "rotate_out" => AutoConceptActionKind.RotateOut,
                     _ => throw new ArgumentException("unsupported concept mode " + command.Mode),
                 };

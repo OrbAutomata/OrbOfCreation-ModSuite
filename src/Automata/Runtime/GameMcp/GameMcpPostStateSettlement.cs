@@ -109,7 +109,7 @@ internal static class GameMcpPostStateSettlement
         return command.Mode switch
         {
             "add" => after == checked(before + command.Amount),
-            "remove_owned" => after == checked(before - command.Amount),
+            "remove" => after == checked(before - command.Amount),
             "rotate_out" => after == 0,
             _ => false,
         };
