@@ -139,6 +139,34 @@ public sealed class GameMcpTooltipPanelRowTests
     }
 
     /// <summary>
+    /// The top-right chrome reads as part of the screen because it is part of the screen. These
+    /// controls carry no <c>HoverTooltip</c>, which is why Statistics, the settings panel and the
+    /// achievement list were absent from the one verb whose job is to say what is on the screen;
+    /// they carry the name of the panel they open instead of an id, and that name is the argument
+    /// that opens it.
+    /// </summary>
+    [Fact]
+    public void A_chrome_control_says_the_panel_it_opens_and_claims_no_id()
+    {
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "scene: Main",
+                "pathRoot: Canvas[0]/ContentArea[2]",
+                "rows 1/1:",
+                "  pathPrefix: TopBar[0]/ChromeButtons[1]",
+                "  elements 2",
+                "  [name | path | opens]",
+                "  Statistics | StatsButton[0] | modal",
+                "  Settings | SettingsButton[1] | modal",
+            }),
+            Render(Panel(
+                "TopBar[0]/ChromeButtons[1]",
+                GameMcpTooltipPanelRow.Opens("StatsButton[0]", "Statistics"),
+                GameMcpTooltipPanelRow.Opens("SettingsButton[1]", "Settings"))));
+    }
+
+    /// <summary>
     /// An empty slot holds no recipe, so it can never be the answer for one: the game's zero Guid
     /// is not an address, and a row that joined on it would claim the empty position.
     /// </summary>

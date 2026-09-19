@@ -69,6 +69,7 @@ internal sealed class GameMcpOperationRequest
         SerializedValue = source.SerializedValue ?? string.Empty;
         Path = source.Path ?? string.Empty;
         Probe = source.Probe ?? string.Empty;
+        Title = source.Title ?? string.Empty;
         AffordableOnly = source.AffordableOnly;
         DiscoveredFilter = source.DiscoveredFilter;
         StateFilter = source.StateFilter ?? string.Empty;
@@ -107,6 +108,10 @@ internal sealed class GameMcpOperationRequest
     internal string SerializedValue { get; }
     internal string Path { get; }
     internal string Probe { get; }
+
+    /// <summary>The player-facing name of the panel a modal request is about, or nothing.</summary>
+    internal string Title { get; }
+
     internal bool AffordableOnly { get; }
 
     /// <summary>The discovery verdict a page was narrowed to, or nothing.</summary>
@@ -148,6 +153,7 @@ internal sealed class GameMcpOperationRequestBuilder
     internal string SerializedValue { get; set; } = string.Empty;
     internal string Path { get; set; } = string.Empty;
     internal string Probe { get; set; } = string.Empty;
+    internal string Title { get; set; } = string.Empty;
     internal bool AffordableOnly { get; set; }
     internal bool? DiscoveredFilter { get; set; }
     internal string StateFilter { get; set; } = string.Empty;

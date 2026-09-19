@@ -273,7 +273,9 @@ internal sealed class GameMcpProtocolRouter
             case "game_screen_catalog":
                 break;
             case "game_modal":
-                builder.Mode = RequireOneOf(arguments, "mode", "dismiss");
+                builder.Mode = RequireOneOf(arguments, "mode", "dismiss", "open");
+                if (string.Equals(builder.Mode, "open", StringComparison.Ordinal))
+                    builder.Title = RequireString(arguments, "title");
                 break;
             case "suite_configuration":
                 builder.Mode = arguments.ContainsKey("mode")
@@ -1188,11 +1190,14 @@ internal sealed class GameMcpProtocolRouter
                 idempotent: false),
             Tool(
                 "game_modal",
-                "Use the current modal",
-                "Dismiss the one unambiguous open native modal through its visible close control.",
+                "Use the game's panels",
+                "Open one of the panels this screen's chrome puts up — the ones game_screen_elements lists as opens: modal — or dismiss the one unambiguous open native modal through its visible close control.",
                 ObjectSchema(new JObject
                 {
-                    ["mode"] = EnumSchema("dismiss"),
+                    ["mode"] = EnumSchema("dismiss", "open"),
+                    ["title"] = StringSchema(
+                        "The panel to open, named exactly as game_screen_elements prints it. " +
+                        "Required by open, ignored by dismiss."),
                 }, "mode"),
                 readOnly: false,
                 idempotent: false),

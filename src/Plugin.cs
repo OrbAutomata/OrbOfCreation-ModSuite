@@ -55,6 +55,7 @@ public sealed class Plugin : BaseUnityPlugin
         Array.Empty<GameMcpWritableSettingDescriptor>();
     private GameMcpTooltipNativeAccess? _gameMcpTooltipNativeAccess;
     private ModalDismissGameAction? _modalDismissGameAction;
+    private ModalOpenGameAction? _modalOpenGameAction;
     private string _gameMcpTooltipContractFailure =
         "tooltip native layout has not been bound";
 
@@ -312,6 +313,7 @@ public sealed class Plugin : BaseUnityPlugin
         }
         _gameMcpWritableConfiguration = _automataConfig.CreateGameMcpWritableSchema();
         _modalDismissGameAction = new ModalDismissGameAction(() => _lifecycleGeneration);
+        _modalOpenGameAction = new ModalOpenGameAction();
         _gameMcpOperations = new GameMcpFrameInbox();
         _gameMcpServer = GameMcpHttpServer.TryStart(
             _gameMcpOperations,
@@ -1159,6 +1161,8 @@ public sealed class Plugin : BaseUnityPlugin
         _gameMcpTooltipNativeAccess = null;
         _modalDismissGameAction?.Dispose();
         _modalDismissGameAction = null;
+        _modalOpenGameAction?.Dispose();
+        _modalOpenGameAction = null;
         _gameMcpTooltipContractFailure = "tooltip native layout has been released";
 #endif
         _startStatusView?.Dispose();
@@ -1388,6 +1392,7 @@ public sealed class Plugin : BaseUnityPlugin
         _serviceCycleActivation?.InvalidateLifecycle();
 #if SERVICE_CYCLE_PROFILE
         _modalDismissGameAction?.InvalidateLifecycle();
+        _modalOpenGameAction?.InvalidateLifecycle();
         _gameMcpAgentSettingsFailure = string.Empty;
 #endif
         _automataActionFamilyOwnership?.ReleaseLifecycleClaims();
@@ -1578,11 +1583,26 @@ public sealed class Plugin : BaseUnityPlugin
             trace,
             traceRevision,
             writable,
-            _modalDismissGameAction?.BindingsAvailable == true,
-            _modalDismissGameAction?.BindingFailure ??
-                "the modal action boundary was not composed",
+            _modalDismissGameAction?.BindingsAvailable == true &&
+                _modalOpenGameAction?.BindingsAvailable == true,
+            ModalBindingFailure(),
             GameLifecycleMonitor.Shared.Current.State,
             _gameMcpAgentSettingsFailure);
+    }
+
+    /// <summary>
+    /// Why the panel verb is out, naming whichever half of it failed to bind. Opening and
+    /// dismissing are one verb to a caller, so one line answers for both.
+    /// </summary>
+    private string ModalBindingFailure()
+    {
+        if (_modalDismissGameAction is null || _modalOpenGameAction is null)
+            return "the modal action boundary was not composed";
+        if (!_modalDismissGameAction.BindingsAvailable)
+            return _modalDismissGameAction.BindingFailure;
+        return _modalOpenGameAction.BindingsAvailable
+            ? string.Empty
+            : _modalOpenGameAction.BindingFailure;
     }
 
     private bool TryExecuteGameMcpFrameOperation(
@@ -2589,6 +2609,11 @@ public sealed class Plugin : BaseUnityPlugin
         }
         else if (kind == GameMcpCommandKind.ContinueRun)
             mode = "continue";
+        else if (kind == GameMcpCommandKind.Modal)
+        {
+            mode = request.Mode;
+            payloadValue = request.Title;
+        }
 
         command = new GameMcpCommand(
             operation.Sequence,
@@ -2948,6 +2973,11 @@ public sealed class Plugin : BaseUnityPlugin
         }
         if (access == GameMcpGadgetAccess.Modal)
         {
+            if (string.Equals(command.Mode, "open", StringComparison.Ordinal))
+            {
+                result = OpenModalGameMcp(command);
+                return true;
+            }
             if (_modalDismissGameAction is null)
             {
                 result = GadgetRejected("contract_unavailable",
@@ -2978,6 +3008,64 @@ public sealed class Plugin : BaseUnityPlugin
                 "the request-time MCP gadget mapping is incomplete"),
         };
         return true;
+    }
+
+    /// <summary>
+    /// Put one of the chrome's panels on the screen, named the way the panel names itself.
+    /// </summary>
+    /// <remarks>
+    /// The press lands inside the frame: the game's own open sets the panel's open flag before it
+    /// starts the animation that makes it visible, so the sentinel is read straight away and the
+    /// caller is not told a press landed that a later frame could still refuse. A different panel
+    /// already covering the board is the one refusal that has to come first — the chrome beneath a
+    /// modal takes no clicks, so pressing it would answer "opened" over a screen that never moved.
+    /// </remarks>
+    private GameMcpCommandResult OpenModalGameMcp(GameMcpCommand command)
+    {
+        if (_modalOpenGameAction is null)
+            return GadgetRejected("contract_unavailable", ModalOpenGameAction.NoActivator);
+        var requested = command.PayloadValue;
+        if (!TryReadOpenModalTitles(out var openBefore, out var openFailure))
+            return GadgetRejected("contract_unavailable", openFailure);
+        if (openBefore.Length > 0)
+        {
+            if (Array.IndexOf(openBefore, requested) >= 0)
+                return GadgetCommitted("modal_opened", OpenedModal(requested));
+            return GadgetRejected(
+                "modal_already_open",
+                "The " + (openBefore[0].Length == 0 ? "open" : openBefore[0]) +
+                " panel is covering the board, and the chrome beneath it takes no presses; " +
+                "dismiss it first.");
+        }
+        if (!_modalOpenGameAction.TryReadActivators(out var activators, out var readFailure))
+            return GadgetRejected("contract_unavailable", readFailure);
+        var submission = _modalOpenGameAction.Submit(requested, activators);
+        if (!submission.Committed)
+            return GadgetRejected(submission.Code, submission.Reason);
+        if (!TryReadOpenModalTitles(out var openAfter, out var settledFailure))
+            return GadgetFailed("modal_state_unavailable", settledFailure);
+        if (Array.IndexOf(openAfter, submission.Title) >= 0)
+            return GadgetCommitted("modal_opened", OpenedModal(submission.Title));
+        return GadgetFailed(
+            "requested_state_not_reached",
+            "The " + submission.Title + " control was pressed and no panel went up.");
+    }
+
+    /// <summary>The open's own post-state: the name of the panel now covering the board.</summary>
+    private static GameMcpObjectBuilder OpenedModal(string title) =>
+        new() { ["opened"] = title };
+
+    private bool TryReadOpenModalTitles(out string[] titles, out string reason)
+    {
+        titles = Array.Empty<string>();
+        reason = string.Empty;
+        if (_modalDismissGameAction is null)
+        {
+            reason = "The open panels cannot be read on this build, so no panel can be opened " +
+                "without guessing at what it did.";
+            return false;
+        }
+        return _modalDismissGameAction.TryReadOpenModals(out titles, out reason);
     }
 
     private IEnumerator CompleteModalDismissGameMcp(GameMcpCommand command, string title)
@@ -3915,9 +4003,10 @@ public sealed class Plugin : BaseUnityPlugin
         {
             return TooltipsUnreadableBecause(_gameMcpTooltipContractFailure);
         }
-        var entries = CaptureActiveHoverTooltips()
-            .Where(static entry => entry.Hover.tooltipItem is not null)
-            .ToArray();
+        if (!TryCaptureScreenElements(out var entries, out var chromeFailure))
+        {
+            return TooltipsUnreadableBecause(chromeFailure);
+        }
         if (!int.TryParse(
                 command.PayloadValue,
                 System.Globalization.NumberStyles.None,
@@ -3957,22 +4046,29 @@ public sealed class Plugin : BaseUnityPlugin
             for (var member = panel.Start; member < panel.Start + panel.Count; member++)
             {
                 var entry = entries[member];
-                var hover = entry.Hover;
-                var item = hover.tooltipItem!;
-                if (!nativeAccess.TryReadSubTooltips(hover, out var children, out var readFailure))
-                {
-                    return TooltipsUnreadableBecause(readFailure);
-                }
-                if (!nativeAccess.TryReadEntityId(item, out var entityId, out var identityFailure))
-                {
-                    return TooltipsUnreadableBecause(identityFailure);
-                }
                 var segment = GameMcpTooltipPanelRow.ShortestUnique(entry.Path, paths);
-                var tooltip = GameMcpTooltipPanelRow.Project(
-                    segment,
-                    item.GetName(),
-                    entityId,
-                    command.FrameContext?.World?.Snapshot);
+                GameMcpObjectBuilder tooltip;
+                if (entry.Hover is { } hover)
+                {
+                    var item = hover.tooltipItem!;
+                    if (!nativeAccess.TryReadSubTooltips(hover, out _, out var readFailure))
+                    {
+                        return TooltipsUnreadableBecause(readFailure);
+                    }
+                    if (!nativeAccess.TryReadEntityId(item, out var entityId, out var identityFailure))
+                    {
+                        return TooltipsUnreadableBecause(identityFailure);
+                    }
+                    tooltip = GameMcpTooltipPanelRow.Project(
+                        segment,
+                        item.GetName(),
+                        entityId,
+                        command.FrameContext?.World?.Snapshot);
+                }
+                else
+                {
+                    tooltip = GameMcpTooltipPanelRow.Opens(segment, entry.ModalTitle);
+                }
                 elements.Add(tooltip);
                 members.Add(tooltip);
                 segments.Add(segment);
@@ -4015,6 +4111,33 @@ public sealed class Plugin : BaseUnityPlugin
             details);
     }
 
+    /// <summary>
+    /// The panel one chrome control opens, when the path names exactly one chrome control.
+    /// </summary>
+    private bool TryNameChromePanel(string path, out string title, out string failure)
+    {
+        title = string.Empty;
+        failure = string.Empty;
+        if (_modalOpenGameAction is null)
+        {
+            failure = ModalOpenGameAction.NoActivator;
+            return false;
+        }
+        if (!_modalOpenGameAction.TryReadActivators(out var activators, out failure)) return false;
+        foreach (var activator in activators)
+        {
+            var located = NativeObjectPath.Locate(activator.Control).Path;
+            if (!NativeObjectPath.Addresses(located, path)) continue;
+            if (title.Length > 0)
+            {
+                title = string.Empty;
+                return false;
+            }
+            title = activator.Title;
+        }
+        return title.Length > 0;
+    }
+
     private GameMcpCommandResult ReadTooltipGameMcp(GameMcpCommand command)
     {
         var requestedPath = command.PayloadValue;
@@ -4043,6 +4166,23 @@ public sealed class Plugin : BaseUnityPlugin
             var matches = active
                 .Where(entry => NativeObjectPath.Addresses(entry.Path, requestedPath))
                 .ToArray();
+            if (matches.Length == 0)
+            {
+                // The chrome controls are on the screen and in the element list, and none of them
+                // draws a tooltip. "Matched 0 elements" would have read as a stale path for a path
+                // the catalog printed one call ago, so the answer names the panel instead.
+                if (!TryNameChromePanel(requestedPath, out var panel, out var chromeFailure))
+                {
+                    if (chromeFailure.Length > 0) return TooltipsUnreadableBecause(chromeFailure);
+                }
+                else
+                {
+                    return GadgetRejected(
+                        "tooltip_content_unavailable",
+                        "This control opens the " + panel + " panel and draws no tooltip of its " +
+                        "own; put the panel up with game_modal mode open, title " + panel + ".");
+                }
+            }
             if (matches.Length != 1)
             {
                 // Naming the next step is the point. A tail is only as unique as the page it came
@@ -4174,6 +4314,69 @@ public sealed class Plugin : BaseUnityPlugin
         }
         refusal = GadgetRejected(address.Code, address.Reason, details);
         return false;
+    }
+
+    /// <summary>
+    /// One thing the current screen draws that a caller can address: a hover element, or a chrome
+    /// control that puts a panel up.
+    /// </summary>
+    /// <remarks>
+    /// The chrome controls carry no <c>HoverTooltip</c>, which is the whole reason the Statistics,
+    /// settings and achievement icons were absent from a verb whose job is to say what is on the
+    /// screen. They are not entities and never carry an id; what they carry is the name of the
+    /// panel they open, which is the argument that opens it.
+    /// </remarks>
+    private readonly struct ScreenElement
+    {
+        internal ScreenElement(
+            HoverTooltip? hover,
+            string modalTitle,
+            NativeObjectPath.Placement placement)
+        {
+            Hover = hover;
+            ModalTitle = modalTitle ?? string.Empty;
+            Placement = placement;
+        }
+
+        internal HoverTooltip? Hover { get; }
+
+        /// <summary>The panel this control opens, empty on every hover element.</summary>
+        internal string ModalTitle { get; }
+
+        internal NativeObjectPath.Placement Placement { get; }
+        internal string Path => Placement.Path;
+    }
+
+    /// <summary>
+    /// Everything the player can currently point at, in screen order: the hover elements and the
+    /// chrome controls together, because a caller reading what is on the screen is reading one
+    /// screen and not two lists.
+    /// </summary>
+    private bool TryCaptureScreenElements(out ScreenElement[] elements, out string reason)
+    {
+        elements = Array.Empty<ScreenElement>();
+        reason = string.Empty;
+        var merged = new List<ScreenElement>();
+        foreach (var entry in CaptureActiveHoverTooltips())
+        {
+            if (entry.Hover.tooltipItem is null) continue;
+            merged.Add(new ScreenElement(entry.Hover, string.Empty, entry.Placement));
+        }
+        if (_modalOpenGameAction is null)
+        {
+            reason = ModalOpenGameAction.NoActivator;
+            return false;
+        }
+        if (!_modalOpenGameAction.TryReadActivators(out var activators, out reason)) return false;
+        foreach (var activator in activators)
+        {
+            merged.Add(new ScreenElement(
+                null, activator.Title, NativeObjectPath.Locate(activator.Control)));
+        }
+        elements = merged
+            .OrderBy(static entry => entry.Placement.OrderKey, StringComparer.Ordinal)
+            .ToArray();
+        return true;
     }
 
     /// <summary>One live hover element with the hierarchy keys already read off it.</summary>

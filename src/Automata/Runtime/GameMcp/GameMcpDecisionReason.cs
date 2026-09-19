@@ -195,7 +195,7 @@ internal static class GameMcpDecisionReason
         // One entity drawn by several elements at once. The caller's uuid is a fine id and the
         // screen is in a fine state; what is unanswerable is which of the buttons showing that
         // entity they meant, which is the same kind of no an ambiguous handle is.
-        "ambiguous_element" or
+        "ambiguous_element" or "ambiguous_modal" or
         "level_out_of_range" or "slot_out_of_range" or "destination_out_of_range" or
         "name_out_of_range" or
         // A value outside the range its setting accepts is the same kind of no as a dial value
@@ -228,7 +228,7 @@ internal static class GameMcpDecisionReason
         // branching on the class was told the game had refused for all fourteen, including the
         // three that are a bad argument, a miss, and a fact this build cannot read.
         "tooltip_match_failed" or "tooltip_content_unavailable" or
-        "native_plot_not_resolved" or "recipe_book_tile_not_found" or
+        "native_plot_not_resolved" or "recipe_book_tile_not_found" or "no_modal_named" or
         // A glyph the game draws no Recipe Book for. It used to answer world_not_published — the
         // suite having read nothing at all — for a healthy read of a published world.
         "no_recipe_book" or
@@ -242,6 +242,9 @@ internal static class GameMcpDecisionReason
         // The call named no argument at all: what blocks it is that the screen has two modals open
         // right now, which is a state and moves on its own.
         "multiple_modals_open" or
+        // A panel is already covering the board, which is the screen's state and moves the moment
+        // it is dismissed; nothing about the call was wrong.
+        "modal_already_open" or
         "targeting_in_progress" or "transition_in_progress" or "manual_pause" or
         // Continue exists only on the title screen; being in a run is a state, and it moves.
         "continue_wrong_scene" or

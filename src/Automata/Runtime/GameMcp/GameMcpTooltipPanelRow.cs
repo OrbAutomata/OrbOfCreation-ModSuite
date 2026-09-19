@@ -47,6 +47,22 @@ internal static class GameMcpTooltipPanelRow
     }
 
     /// <summary>
+    /// One chrome control, which is a name and the panel pressing it puts up.
+    /// </summary>
+    /// <remarks>
+    /// These carry no entity and never will: a control that opens the Statistics panel is not a
+    /// thing in the world, it is a way to see some. The name is the panel's own, so the row is
+    /// both the answer to "what is this" and the argument that opens it.
+    /// </remarks>
+    internal static GameMcpObjectBuilder Opens(string path, string modalTitle) =>
+        new()
+        {
+            ["name"] = modalTitle,
+            ["path"] = path,
+            ["opens"] = "modal",
+        };
+
+    /// <summary>
     /// The shortest tail of this element's path that no other live element answers to.
     /// </summary>
     /// <remarks>

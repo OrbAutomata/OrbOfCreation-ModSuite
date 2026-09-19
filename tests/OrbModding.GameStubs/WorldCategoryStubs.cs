@@ -1239,6 +1239,7 @@ public sealed class UIModalActivator : UnityEngine.MonoBehaviour
     private readonly UnityEngine.UI.Button button;
     private readonly UIModal createdModal;
     private readonly bool modalCreated;
+    public string modalTitle = string.Empty;
 
     public UIModalActivator(UIModal modal, string label = "Panel button")
     {

@@ -28252,7 +28252,7 @@
     },
     {
       "id": "return-to-menu.modal-activator.type-action", "assembly": "assembly-csharp", "type": "UIModalActivator", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata return-to-menu GameAction"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata return-to-menu GameAction", "Automata modal open GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "return-to-menu.activator-created-modal-action", "assembly": "assembly-csharp", "type": "UIModalActivator", "typeVisibility": "public", "kind": "field", "member": "createdModal",
@@ -28260,15 +28260,19 @@
     },
     {
       "id": "return-to-menu.activator-modal-created-action", "assembly": "assembly-csharp", "type": "UIModalActivator", "typeVisibility": "public", "kind": "field", "member": "modalCreated",
-      "visibility": "private", "static": false, "valueType": "System.Boolean", "owners": ["Automata return-to-menu GameAction"], "usages": ["reflection"], "place": "action"
+      "visibility": "private", "static": false, "valueType": "System.Boolean", "owners": ["Automata return-to-menu GameAction", "Automata modal open GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "return-to-menu.activator-button-component-action", "assembly": "assembly-csharp", "type": "UIModalActivator", "typeVisibility": "public", "kind": "field", "member": "button",
       "visibility": "private", "static": false, "valueType": "UnityEngine.UI.Button", "owners": ["Automata return-to-menu GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
+      "id": "modal-open.activator-title-action", "assembly": "assembly-csharp", "type": "UIModalActivator", "typeVisibility": "public", "kind": "field", "member": "modalTitle",
+      "visibility": "public", "static": false, "valueType": "System.String", "owners": ["Automata modal open GameAction"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "return-to-menu.activator-open-action", "assembly": "assembly-csharp", "type": "UIModalActivator", "typeVisibility": "public", "kind": "method", "member": "OpenModal",
-      "visibility": "public", "static": false, "returnType": "System.Void", "parameters": [], "owners": ["Automata return-to-menu GameAction"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Void", "parameters": [], "owners": ["Automata return-to-menu GameAction", "Automata modal open GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "return-to-menu.component-transform-action", "assembly": "unity-engine-core-module", "type": "UnityEngine.Component", "typeVisibility": "public", "kind": "method", "member": "get_transform",
