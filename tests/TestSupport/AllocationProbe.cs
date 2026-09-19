@@ -24,11 +24,14 @@ namespace OrbModding.TestSupport;
 /// </para>
 /// <para>
 /// The disturbance only ever adds, so a window measuring zero is proof the code allocated nothing,
-/// and it costs one window. Any other number is measured a second time and the two windows have to
-/// agree before either is reported; when they disagree the probe throws
-/// <see cref="AllocationProbeDisturbedWindowException"/>. The second window can only turn a byte
-/// count into a probe failure, never a failure into a pass, which is what separates a confirmation
-/// from measuring again until the answer is liked.
+/// and it costs one window. Any other number has to be measured twice before it is reported: the
+/// probe opens further windows, up to <see cref="MaximumWindows"/>, and reports the first count two
+/// of them agree on. A disturbance lands on one window and not the next, so a second window is
+/// usually the whole story and a third settles the case where the disturbance landed on the first
+/// pair; when no two agree the probe throws
+/// <see cref="AllocationProbeDisturbedWindowException"/> and reports no number at all. Every window
+/// can only turn a byte count into a probe failure or confirm it, never turn a failure into a pass,
+/// which is what separates a confirmation from measuring again until the answer is liked.
 /// </para>
 /// <para>
 /// Every pass goes through the same <see cref="Drive"/> loop and the same delegate, so the unmeasured
@@ -42,6 +45,11 @@ namespace OrbModding.TestSupport;
 /// </remarks>
 internal static class AllocationProbe
 {
+    /// <summary>
+    /// How many windows one measurement may open before the probe gives up on the number.
+    /// </summary>
+    internal const int MaximumWindows = 4;
+
     internal static long MeasureRepeated(int iterations, Action work, Action? prepare = null)
     {
         if (iterations <= 0)
@@ -52,19 +60,22 @@ internal static class AllocationProbe
 
         if (work is null) throw new ArgumentNullException(nameof(work));
 
+        var windows = new long[MaximumWindows];
+
         prepare?.Invoke();
         Drive(iterations, work);
 
-        var measured = MeasureWindow(iterations, work, prepare);
-        if (measured == 0) return 0;
+        windows[0] = MeasureWindow(iterations, work, prepare);
+        if (windows[0] == 0) return 0;
 
-        var confirmation = MeasureWindow(iterations, work, prepare);
-        if (confirmation != measured)
+        for (var index = 1; index < windows.Length; index++)
         {
-            throw new AllocationProbeDisturbedWindowException(measured, confirmation);
+            windows[index] = MeasureWindow(iterations, work, prepare);
+            for (var earlier = 0; earlier < index; earlier++)
+                if (windows[earlier] == windows[index]) return windows[index];
         }
 
-        return measured;
+        throw new AllocationProbeDisturbedWindowException(windows);
     }
 
     private static long MeasureWindow(int iterations, Action work, Action? prepare)
