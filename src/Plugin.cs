@@ -4208,21 +4208,40 @@ public sealed class Plugin : BaseUnityPlugin
         {
             return TooltipsUnreadableBecause(readFailure);
         }
-        var inspected = UITooltipContainer.globalTooltips?
-            .Where(panel => panel is not null && panel.item is not null)
-            .Select(panel => panel.item!)
-            .ToArray() ?? Array.Empty<ITooltipable>();
+
+        // A panel draws one node list, and which one is the live more-info key the player is or is
+        // not holding. The container the screen already has up for this item answers with the
+        // game's own IsUsingAltTooltip(); with no container up the screen is drawing nothing for
+        // this element and the panel's resting state is its main list.
+        var usingAlt = UITooltipContainer.globalTooltips?
+            .Any(panel => panel is not null &&
+                ReferenceEquals(panel.item, hover.tooltipItem) &&
+                panel.IsUsingAltTooltip()) == true;
         if (!nativeAccess.TryReadEntityId(hover.tooltipItem, out var entityId, out var identityFailure))
         {
             return TooltipsUnreadableBecause(identityFailure);
         }
+
+        // A link pointer names the entity it points at, so it needs that entity's id; a tooltipable
+        // about nothing answers empty and its pointer carries the name alone. A bound accessor that
+        // throws is a native fault rather than an absent id, and it refuses the read with the same
+        // account the hovered element's own identity would have given.
+        var linkFailure = string.Empty;
+        Guid Identify(ITooltipable link)
+        {
+            if (nativeAccess.TryReadEntityId(link, out var linkId, out var linkDetail)) return linkId;
+            linkFailure = linkDetail;
+            throw new InvalidOperationException(nameof(Identify));
+        }
+
         GameMcpObjectBuilder details;
         try
         {
             if (!GameMcpTooltipProjector.TryProject(
                     hover.tooltipItem,
                     children,
-                    inspected,
+                    usingAlt,
+                    Identify,
                     out details))
             {
                 return GadgetRejected(
@@ -4234,6 +4253,7 @@ public sealed class Plugin : BaseUnityPlugin
         }
         catch (Exception)
         {
+            if (linkFailure.Length > 0) return TooltipsUnreadableBecause(linkFailure);
             return GadgetRejected(
                 "tooltip_read_faulted",
                 "The game errored while producing this tooltip, so its text cannot be read.");

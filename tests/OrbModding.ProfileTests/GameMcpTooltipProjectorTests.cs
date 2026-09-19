@@ -11,11 +11,14 @@ namespace OrbModding.ProfileTests;
 
 public sealed class GameMcpTooltipProjectorTests
 {
+    /// <summary>
+    /// The whole body is the container the screen drew: the core panel, its node tree walked through
+    /// <c>children</c>, and the sibling sub-panel row beside it.
+    /// </summary>
     [Fact]
-    public void ProseIncludesNestedComputedAndInspectedScreenText()
+    public void The_body_is_the_core_panel_its_children_and_the_sub_panel_row()
     {
         var computations = 0;
-        var linked = new FakeTooltip("Linked", new TooltipNode("linked row"));
         var computed = new TooltipNode(string.Empty)
         {
             nodeType = TooltipNode.NodeType.IconText,
@@ -24,33 +27,151 @@ public sealed class GameMcpTooltipProjectorTests
                 computations++;
                 return "live value 42";
             },
-            tooltipable = linked,
         };
         var root = new TooltipNode("section")
         {
             nodeType = TooltipNode.NodeType.Parent,
             parentType = TooltipNode.ParentType.Boxed,
-            children = new List<TooltipNode>
-            {
-                new("authored child"),
-                computed,
-            },
+            children = new List<TooltipNode> { new("authored child"), computed },
         };
         var primary = new FakeTooltip("Primary", root);
-        var nested = new FakeTooltip("Nested", new TooltipNode("nested row"));
-        var inspected = new FakeTooltip("Inspected", new TooltipNode("panel row"));
+        var sub = new FakeTooltip("Sub", new TooltipNode("sub row"));
 
-        var result = Projected(primary, new[] { nested }, new[] { inspected });
+        var result = Projected(primary, new[] { sub });
 
         Assert.Single(result.Properties());
-        var text = (string?)result["text"];
-        Assert.NotNull(text);
-        Assert.Contains("Primary\nFixture\nPrimary description", text, StringComparison.Ordinal);
-        Assert.Contains("section\nauthored child\nlive value 42", text, StringComparison.Ordinal);
-        Assert.Contains("Linked\nFixture\nLinked description\nlinked row", text, StringComparison.Ordinal);
-        Assert.Contains("Nested\nFixture\nNested description\nnested row", text, StringComparison.Ordinal);
-        Assert.Contains("Inspected\nFixture\nInspected description\npanel row", text, StringComparison.Ordinal);
+        Assert.Equal(
+            "Primary\nFixture\nPrimary description\nsection\nauthored child\nlive value 42\n" +
+            "Sub\nFixture\nSub description\nsub row",
+            (string?)result["text"]);
         Assert.Equal(1, computations);
+    }
+
+    /// <summary>
+    /// A link is the player's next hover, so it is published as the call that reads it and never
+    /// unfurled. Following it was what turned one screen panel into the entity graph behind it.
+    /// </summary>
+    [Fact]
+    public void A_linked_tooltipable_is_a_pointer_rather_than_a_panel()
+    {
+        var linked = new CountingTooltip("Cooldown Speed", new TooltipNode("linked row"));
+        var id = Guid.Parse("2f1c6d0a-7b43-4c19-9f0e-5a2d8c3b6e71");
+        var primary = new FakeTooltip("Primary", new TooltipNode("Cooldown Speed: 147%")
+        {
+            tooltipable = linked,
+        });
+
+        var text = (string?)Projected(primary, identity: Identity(linked, id))["text"];
+
+        Assert.Equal(
+            "Primary\nFixture\nPrimary description\nCooldown Speed: 147%\n" +
+            "→ Cooldown Speed: game_tooltip uuid=2f1c6d0a-7b43-4c19-9f0e-5a2d8c3b6e71",
+            text);
+        Assert.Equal(0, linked.NodeReads);
+        Assert.Equal(0, linked.DescriptionReads);
+    }
+
+    /// <summary>
+    /// A link about no entity has no address anywhere in the suite, so its pointer is its name. A
+    /// screen path would be a guess: the screen is not drawing the thing the link points at.
+    /// </summary>
+    [Fact]
+    public void A_link_the_suite_cannot_address_carries_its_name_alone()
+    {
+        var linked = new CountingTooltip("Enhancement", new TooltipNode("linked row"));
+        var primary = new FakeTooltip("Primary", new TooltipNode("Enhanced")
+        {
+            tooltipable = linked,
+        });
+
+        var text = (string?)Projected(primary)["text"];
+
+        Assert.Equal("Primary\nFixture\nPrimary description\nEnhanced\n→ Enhancement", text);
+        Assert.Equal(0, linked.NodeReads);
+    }
+
+    /// <summary>
+    /// Every statistic row of one panel points at the record that explains it, and several rows
+    /// share a record. The address is the same line, and a line the body already carries says
+    /// nothing by being carried again.
+    /// </summary>
+    [Fact]
+    public void One_definition_linked_from_several_rows_is_pointed_at_once()
+    {
+        var definition = new CountingTooltip("Mana");
+        var primary = new FakeTooltip(
+            "Primary",
+            new TooltipNode("Cost: 12") { tooltipable = definition },
+            new TooltipNode("Upkeep: 3") { tooltipable = definition });
+
+        var text = (string?)Projected(primary)["text"];
+
+        Assert.Equal(
+            "Primary\nFixture\nPrimary description\nCost: 12\n→ Mana\nUpkeep: 3",
+            text);
+    }
+
+    /// <summary>
+    /// The sub-panel row is drawn once and stops, exactly as <c>UITooltip</c> stops: it has no
+    /// <c>subTooltips</c> field and no <c>RenderChildren</c>, so a sub-panel's own links are the
+    /// next hover just like the core panel's.
+    /// </summary>
+    [Fact]
+    public void A_sub_panel_draws_its_own_words_and_points_at_its_links()
+    {
+        var onward = new CountingTooltip("Onward", new TooltipNode("onward row"));
+        var sub = new FakeTooltip("Sub", new TooltipNode("sub row") { tooltipable = onward });
+        var primary = new FakeTooltip("Primary", new TooltipNode("primary row"));
+
+        var text = (string?)Projected(primary, new[] { sub })["text"];
+
+        Assert.Equal(
+            "Primary\nFixture\nPrimary description\nprimary row\n" +
+            "Sub\nFixture\nSub description\nsub row\n→ Onward",
+            text);
+        Assert.Equal(0, onward.NodeReads);
+    }
+
+    /// <summary>
+    /// <c>UITooltip.Render</c> sets <c>renderedAlt</c> and then renders one list or the other. The
+    /// two were appended together here, which put the alt block's values on the page beside the
+    /// same values threaded through the body.
+    /// </summary>
+    [Fact]
+    public void The_alt_list_replaces_the_main_list_rather_than_joining_it()
+    {
+        var tooltip = new FakeTooltip("Glyph Upgrades", new TooltipNode("Quantity: 58/193"))
+        {
+            DisplayType = "Advancement Resource",
+            Description = "Spent on advancements.",
+        };
+        tooltip.AltNodes.Add(new TooltipNode("58/193"));
+        tooltip.AltNodes.Add(new TooltipNode("(+193, x1)"));
+
+        Assert.Equal(
+            "Glyph Upgrades\nAdvancement Resource\nSpent on advancements.\nQuantity: 58/193",
+            (string?)Projected(tooltip)["text"]);
+        Assert.Equal(
+            "Glyph Upgrades\nAdvancement Resource\nSpent on advancements.\n58/193\n(+193, x1)",
+            (string?)Projected(tooltip, usingAlt: true)["text"]);
+    }
+
+    /// <summary>
+    /// <c>IsUsingAltTooltip()</c> is <c>item.HasAltTooltips() &amp;&amp; ShowMoreInfo()</c>, so a
+    /// panel with nothing behind the key draws its main list whatever the key is doing.
+    /// </summary>
+    [Fact]
+    public void A_panel_with_no_alt_list_draws_its_main_list_under_the_more_info_key()
+    {
+        var tooltip = new FakeTooltip("Ward", new TooltipNode("Shield: 4"))
+        {
+            DisplayType = "Effect",
+            Description = "Absorbs damage.",
+        };
+
+        Assert.Equal(
+            "Ward\nEffect\nAbsorbs damage.\nShield: 4",
+            (string?)Projected(tooltip, usingAlt: true)["text"]);
     }
 
     /// <summary>
@@ -102,29 +223,13 @@ public sealed class GameMcpTooltipProjectorTests
     }
 
     [Fact]
-    public void TooltipCyclesStopAfterTheFirstScreenTextCopy()
+    public void UnityRichTextCeremonyIsStripped()
     {
-        var tooltip = new FakeTooltip("Cycle");
-        var node = new TooltipNode("cycle") { tooltipable = tooltip };
-        tooltip.Nodes.Add(node);
-
-        var result = Projected(tooltip);
-
-        Assert.Equal("Cycle\nFixture\nCycle description\ncycle", (string?)result["text"]);
-        Assert.Single(result.Properties());
-    }
-
-    [Fact]
-    public void IdenticalAlternateTreeAndRichTextCeremonyAreRemoved()
-    {
-        var primaryNode = new TooltipNode("<emph>Quantity:</emph>");
-        var altNode = new TooltipNode("<emph>Quantity:</emph>");
-        var tooltip = new FakeTooltip("Resource", primaryNode)
+        var tooltip = new FakeTooltip("Resource", new TooltipNode("<emph>Quantity:</emph>"))
         {
             DisplayType = "<#BBACE2FF>Essence</color> Resource",
             Description = "<deemph>Spendable List<T> supply.</deemph>",
         };
-        tooltip.AltNodes.Add(altNode);
 
         var result = Projected(tooltip);
 
@@ -132,69 +237,6 @@ public sealed class GameMcpTooltipProjectorTests
             "Resource\nEssence Resource\nSpendable List<T> supply.\nQuantity:",
             (string?)result["text"]);
         Assert.True(result.ToString(Newtonsoft.Json.Formatting.None).Length < 500);
-    }
-
-    /// <summary>
-    /// The shape the whole-source rule could not reach. A resource pill threads its values through
-    /// the nested statistic definitions that explain them, and its alt tree paints the same values
-    /// bare. The two sequences differ line for line, so comparing them as sequences kept the alt,
-    /// and the earlier copy was interleaved rather than adjacent, so the repeated-tail pass could
-    /// not see it either — the body ended in the same numbers twice with nothing to tell the copies
-    /// apart. The rule is the same one every other block is judged by: a block whose every line is
-    /// already on the page adds nothing.
-    /// </summary>
-    [Fact]
-    public void An_alternate_tree_that_repeats_values_already_threaded_through_the_body_is_dropped()
-    {
-        var tooltip = new FakeTooltip(
-            "Glyph Upgrades",
-            new TooltipNode("Quantity:"),
-            new TooltipNode("How many you are holding."),
-            new TooltipNode("58/193"),
-            new TooltipNode("Capacity:"),
-            new TooltipNode("The most you can hold."),
-            new TooltipNode("193"),
-            new TooltipNode("(+193, x1)"))
-        {
-            DisplayType = "Advancement Resource",
-            Description = "Spent on advancements.",
-        };
-        tooltip.AltNodes.Add(new TooltipNode("Quantity:"));
-        tooltip.AltNodes.Add(new TooltipNode("58/193"));
-        tooltip.AltNodes.Add(new TooltipNode("Capacity:"));
-        tooltip.AltNodes.Add(new TooltipNode("193"));
-        tooltip.AltNodes.Add(new TooltipNode("(+193, x1)"));
-
-        var result = Projected(tooltip);
-
-        Assert.Equal(
-            "Glyph Upgrades\nAdvancement Resource\nSpent on advancements.\n" +
-            "Quantity:\nHow many you are holding.\n58/193\n" +
-            "Capacity:\nThe most you can hold.\n193\n(+193, x1)",
-            (string?)result["text"]);
-    }
-
-    /// <summary>
-    /// An alt tree that says one new thing is kept whole, including the lines it shares with the
-    /// body — dropping those would leave the new line under a label that is no longer there.
-    /// </summary>
-    [Fact]
-    public void An_alternate_tree_with_one_new_line_is_kept_whole()
-    {
-        var tooltip = new FakeTooltip("Ward", new TooltipNode("Shield:"), new TooltipNode("4"))
-        {
-            DisplayType = "Effect",
-            Description = "Absorbs damage.",
-        };
-        tooltip.AltNodes.Add(new TooltipNode("Shield:"));
-        tooltip.AltNodes.Add(new TooltipNode("4"));
-        tooltip.AltNodes.Add(new TooltipNode("Next tier: 9"));
-
-        var result = Projected(tooltip);
-
-        Assert.Equal(
-            "Ward\nEffect\nAbsorbs damage.\nShield:\n4\nShield:\n4\nNext tier: 9",
-            (string?)result["text"]);
     }
 
     /// <summary>
@@ -290,30 +332,64 @@ public sealed class GameMcpTooltipProjectorTests
     }
 
     /// <summary>
-    /// The shape that took the game's main thread down. Every level hands out a brand-new wrapper
-    /// object, so reference identity recognises none of them, and no level says anything, so the
-    /// line budget is never spent. Nothing about this graph ends: without a bound of its own the
-    /// walk does not come back, and neither does this test.
+    /// The three reads round fifteen could not get an answer out of. Every one of them refused on
+    /// the closure behind its panel — statistic definitions linking statistic definitions, through
+    /// per-call wrappers reference identity cannot recognise — while the panel itself is what the
+    /// player reads off the screen without trouble. Under the container's own shape they read in
+    /// full, and what they used to unfurl is one pointer line each.
     /// </summary>
     [Fact]
-    public void A_graph_that_never_ends_is_answered_as_a_bound_rather_than_a_tooltip()
+    public void The_round_fifteen_refusals_read_in_full_with_pointers()
     {
         var minted = new int[1];
+        var glossary = new CountingTooltip("Cooldown Speed");
+        var primary = new FakeTooltip(
+            "Whirling Sorcery",
+            new TooltipNode("Cooldown Time: 27.5") { tooltipable = glossary },
+            new TooltipNode("Recharge: 18.7") { tooltipable = glossary },
+            new TooltipNode(string.Empty)
+            {
+                nodeType = TooltipNode.NodeType.IconText,
+                textFn = () => "Enhancement: Storm",
+                tooltipable = new EndlessWrapperTooltip(minted),
+            })
+        {
+            DisplayType = "Spell",
+            Description = "Whirls.",
+        };
 
-        Assert.False(GameMcpTooltipProjector.TryProject(
-            new EndlessWrapperTooltip(minted), null, null, out var details));
+        var text = (string?)Projected(primary)["text"];
 
-        Assert.Empty(GameMcpTestHarness.Json(details).Properties());
-        Assert.True(minted[0] < 1_000, "one tooltip read built " + minted[0] + " wrapper objects");
+        Assert.Equal(
+            "Whirling Sorcery\nSpell\nWhirls.\n" +
+            "Cooldown Time: 27.5\n→ Cooldown Speed\nRecharge: 18.7\nEnhancement: Storm",
+            text);
+        Assert.Equal(0, glossary.NodeReads);
+        Assert.Equal(1, minted[0]);
     }
 
     /// <summary>
-    /// The second bound on its own: a graph one hop deep and far wider than the walk will read. The
-    /// visit budget stops it before the last row, which is what this asserts — a graph that says
-    /// nothing cannot buy more walking by being flat instead of deep.
+    /// The shape that took the game's main thread down, now only reachable through an authored
+    /// <c>children</c> tree the game could not draw either: every level hands out a brand-new node,
+    /// and no level says anything, so the line budget is never spent. Nothing about this tree ends —
+    /// without a bound of its own the walk does not come back, and neither does this test.
     /// </summary>
     [Fact]
-    public void A_graph_too_wide_to_walk_stops_before_its_last_row()
+    public void A_children_tree_that_never_ends_is_answered_as_a_bound_rather_than_a_tooltip()
+    {
+        Assert.False(GameMcpTooltipProjector.TryProject(
+            new EndlessChildrenTooltip(), null, false, null, out var details));
+
+        Assert.Empty(GameMcpTestHarness.Json(details).Properties());
+    }
+
+    /// <summary>
+    /// The second bound on its own: one panel far wider than the walk will read. The visit budget
+    /// stops it before the last row, which is what this asserts — a node list that says nothing
+    /// cannot buy more walking by being flat instead of deep.
+    /// </summary>
+    [Fact]
+    public void A_panel_too_wide_to_walk_stops_before_its_last_row()
     {
         var touched = new int[1];
         var root = new FakeTooltip("Wide")
@@ -325,53 +401,58 @@ public sealed class GameMcpTooltipProjectorTests
         {
             root.Nodes.Add(new TooltipNode(string.Empty)
             {
-                tooltipable = new SilentTooltip(touched),
+                textFn = () =>
+                {
+                    touched[0]++;
+                    return string.Empty;
+                },
             });
         }
 
-        Assert.False(GameMcpTooltipProjector.TryProject(root, null, null, out var details));
+        Assert.False(GameMcpTooltipProjector.TryProject(root, null, false, null, out var details));
 
         Assert.Empty(GameMcpTestHarness.Json(details).Properties());
         Assert.True(touched[0] < 4096, "the walk read " + touched[0] + " of 4096 rows");
     }
 
     /// <summary>
-    /// A genuine tooltip is not cut off by the bound. Thirty-one nested tooltip links is far more
-    /// nesting than the game itself draws — it renders one tooltipable's own nodes and hands the
-    /// links to the next hover — and it still reads in full.
+    /// An authored panel nested far past anything the game lays out still reads in full: the guard
+    /// is a guard, not a budget a caller has to meet.
     /// </summary>
     [Fact]
-    public void A_deep_tooltip_inside_the_bound_still_reads_in_full()
+    public void A_deeply_nested_authored_panel_still_reads_in_full()
     {
-        var tooltip = new FakeTooltip("Link 30", new TooltipNode("row 30"));
+        var node = new TooltipNode("row 30");
         for (var level = 29; level >= 0; level--)
-        {
-            var parent = new FakeTooltip("Link " + level, new TooltipNode("row " + level));
-            parent.Nodes[0].tooltipable = tooltip;
-            tooltip = parent;
-        }
+            node = new TooltipNode("row " + level) { children = new List<TooltipNode> { node } };
 
-        var text = (string?)Projected(tooltip)["text"] ?? string.Empty;
+        var text = (string?)Projected(new FakeTooltip("Nested", node))["text"] ?? string.Empty;
 
         for (var level = 0; level <= 30; level++)
-            Assert.Contains("Link " + level, text, StringComparison.Ordinal);
+            Assert.Contains("row " + level, text, StringComparison.Ordinal);
     }
 
     /// <summary>
     /// The projection of a tooltip whose walk finishes. Every fixture below is one, so each of them
-    /// asserts the walk came back on its own rather than leaving that to the two tests that cross
-    /// the bound deliberately.
+    /// asserts the walk came back on its own rather than leaving that to the tests that cross the
+    /// bound deliberately.
     /// </summary>
     private static JObject Projected(
         ITooltipable primary,
-        IEnumerable<ITooltipable>? nested = null,
-        IEnumerable<ITooltipable>? inspected = null)
+        IEnumerable<ITooltipable>? subTooltips = null,
+        bool usingAlt = false,
+        Func<ITooltipable, Guid>? identity = null)
     {
         Assert.True(
-            GameMcpTooltipProjector.TryProject(primary, nested, inspected, out var details),
+            GameMcpTooltipProjector.TryProject(
+                primary, subTooltips, usingAlt, identity, out var details),
             "the walk gave up on a fixture that is inside its bound");
         return GameMcpTestHarness.Json(details);
     }
+
+    /// <summary>The one binding the suite's own identity reader would have taken for this link.</summary>
+    private static Func<ITooltipable, Guid> Identity(ITooltipable link, Guid id) =>
+        candidate => ReferenceEquals(candidate, link) ? id : Guid.Empty;
 
     private sealed class FakeTooltip : ITooltipable
     {
@@ -398,9 +479,50 @@ public sealed class GameMcpTooltipProjectorTests
     }
 
     /// <summary>
-    /// A graph with no end and nothing to say: every level is a fresh object, and every line is
-    /// empty, so neither of the two stop conditions the walk had before could ever fire.
+    /// A link that counts what the walk asked it for. A pointer costs the link its name and nothing
+    /// else; a panel would have cost it its description and its whole node tree.
     /// </summary>
+    private sealed class CountingTooltip : ITooltipable
+    {
+        private readonly List<TooltipNode> _nodes = new();
+
+        internal CountingTooltip(string name, params TooltipNode[] nodes)
+        {
+            Name = name;
+            _nodes.AddRange(nodes);
+        }
+
+        private string Name { get; }
+        internal int NodeReads { get; private set; }
+        internal int DescriptionReads { get; private set; }
+
+        public string GetName() => Name;
+        public string GetDisplayType() => "Fixture";
+        public UnityEngine.Sprite GetIcon() => new();
+        public UnityEngine.Color GetColor() => UnityEngine.Color.white;
+        public bool IsColoredIcon() => false;
+        public bool HasAltTooltips() => false;
+
+        public string GetDescription()
+        {
+            DescriptionReads++;
+            return Name + " description";
+        }
+
+        public List<TooltipNode> GetTooltipNodes()
+        {
+            NodeReads++;
+            return _nodes;
+        }
+
+        public List<TooltipNode> GetAltTooltipNodes()
+        {
+            NodeReads++;
+            return new List<TooltipNode>();
+        }
+    }
+
+    /// <summary>A link that mints a fresh object every time the game builds the row it hangs on.</summary>
     private sealed class EndlessWrapperTooltip : ITooltipable
     {
         private readonly int[] _minted;
@@ -422,33 +544,27 @@ public sealed class GameMcpTooltipProjectorTests
 
         public List<TooltipNode> GetTooltipNodes() => new()
         {
-            new TooltipNode(string.Empty)
-            {
-                tooltipable = new EndlessWrapperTooltip(_minted),
-            },
+            new TooltipNode(string.Empty) { tooltipable = new EndlessWrapperTooltip(_minted) },
         };
     }
 
-    /// <summary>One row that says nothing and counts having been read.</summary>
-    private sealed class SilentTooltip : ITooltipable
+    /// <summary>A node tree with no end and nothing to say.</summary>
+    private sealed class EndlessChildrenTooltip : ITooltipable
     {
-        private readonly int[] _touched;
-
-        internal SilentTooltip(int[] touched) => _touched = touched;
-
-        public string GetName()
-        {
-            _touched[0]++;
-            return string.Empty;
-        }
-
+        public string GetName() => string.Empty;
         public string GetDisplayType() => string.Empty;
         public string GetDescription() => string.Empty;
         public UnityEngine.Sprite GetIcon() => new();
         public UnityEngine.Color GetColor() => UnityEngine.Color.white;
         public bool IsColoredIcon() => false;
         public bool HasAltTooltips() => false;
-        public List<TooltipNode> GetTooltipNodes() => new();
         public List<TooltipNode> GetAltTooltipNodes() => new();
+
+        public List<TooltipNode> GetTooltipNodes()
+        {
+            var node = new TooltipNode(string.Empty);
+            node.children.Add(node);
+            return new List<TooltipNode> { node };
+        }
     }
 }
