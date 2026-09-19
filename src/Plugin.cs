@@ -3360,7 +3360,7 @@ public sealed class Plugin : BaseUnityPlugin
         if (command.TargetId != Guid.Empty &&
             !GameMcpGadgetPolicy.IsTileDestination(
                 request.Tab.Label,
-                request.Subtab?.Label))
+                request.Subtab?.Leaf))
         {
             // One spelling for one destination: the catalog path this tool takes, the same way
             // every screen cell on the surface prints it.
@@ -3424,39 +3424,51 @@ public sealed class Plugin : BaseUnityPlugin
 
         if (subtabSelector is not null)
         {
-            var subtabs = CaptureSubtabs();
-            if (!TryResolveSubtabSelector(
-                    subtabSelector,
-                    subtabs,
-                    out var subtab,
-                    out var subtabReason))
+            var segments = subtabSelector.Labels;
+            for (var step = 0; step < segments.Count; step++)
             {
-                yield return CompleteNavigateGameMcpAfterSettlement(
-                    command,
-                    NavigationRefusal(
-                        "subtab_match_failed",
-                        SubtabRefusalReason(subtabReason, settledScreen[0]),
-                        details,
-                        "subtabCandidates",
-                        subtabs.Select(candidate => candidate.Label)));
-                yield break;
+                // A strip appears only once its parent is active, and the parent's click rebuilds
+                // the content area over the following frames. Settling between the clicks is what
+                // makes the child's strip present to match against — the same reason the screen
+                // settles above, one level down.
+                if (step > 0) yield return SettleNavigation(settledScreen);
+                var subtabs = CaptureSubtabs();
+                if (!TryResolveSubtabSelector(
+                        segments[step],
+                        subtabs,
+                        out var subtab,
+                        out var subtabReason))
+                {
+                    yield return CompleteNavigateGameMcpAfterSettlement(
+                        command,
+                        NavigationRefusal(
+                            "subtab_match_failed",
+                            SubtabRefusalReason(
+                                subtabReason,
+                                settledScreen[0],
+                                segments.Count > 1 ? subtabSelector.Label : null),
+                            details,
+                            "subtabCandidates",
+                            subtabs.Select(candidate => candidate.Label)));
+                    yield break;
+                }
+                if (!subtab.TrySelect(out var selectionReason))
+                {
+                    yield return CompleteNavigateGameMcpAfterSettlement(
+                        command,
+                        GadgetRejected("subtab_selection_failed", selectionReason)
+                            .WithDetails(details.Freeze()));
+                    yield break;
+                }
+                yield return null;
             }
-            if (!subtab.TrySelect(out var selectionReason))
-            {
-                yield return CompleteNavigateGameMcpAfterSettlement(
-                    command,
-                    GadgetRejected("subtab_selection_failed", selectionReason)
-                        .WithDetails(details.Freeze()));
-                yield break;
-            }
-            yield return null;
         }
         if (command.TargetId != Guid.Empty)
         {
             var scene = SceneManager.GetActiveScene().name;
             var picksBook = GameMcpGadgetPolicy.IsRecipeBookDestination(
                 command.SourceOperation?.Request?.Tab?.Label ?? string.Empty,
-                command.SourceOperation?.Request?.Subtab?.Label);
+                command.SourceOperation?.Request?.Subtab?.Leaf);
             var tileResult = picksBook
                 ? SelectExactRecipeBook(command.TargetId, scene)
                 : NavigateExactPlot(command.TargetId, scene);
@@ -3549,7 +3561,7 @@ public sealed class Plugin : BaseUnityPlugin
             {
                 if (GameMcpGadgetPolicy.IsRecipeBookDestination(
                         command.SourceOperation?.Request?.Tab?.Label ?? string.Empty,
-                        command.SourceOperation?.Request?.Subtab?.Label))
+                        command.SourceOperation?.Request?.Subtab?.Leaf))
                 {
                     details["selectedBook"] = command.TargetId.ToString("D");
                     var spells = ProjectPanelSpellRecipes();
@@ -3866,15 +3878,14 @@ public sealed class Plugin : BaseUnityPlugin
     }
 
     private static bool TryResolveSubtabSelector(
-        GameMcpNavigationSelector selector,
+        string requested,
         IReadOnlyList<GameMcpSubtab> entries,
         out GameMcpSubtab selected,
         out string reason)
     {
         var matches = new List<GameMcpSubtab>();
-        if (selector.Label.Length > 0)
+        if (requested.Length > 0)
         {
-            var requested = selector.Label;
             for (var index = 0; index < entries.Count; index++)
                 if (string.Equals(entries[index].Label, requested, StringComparison.Ordinal))
                     matches.Add(entries[index]);
@@ -4312,12 +4323,14 @@ public sealed class Plugin : BaseUnityPlugin
     /// </summary>
     private static string SubtabRefusalReason(
         string subtabReason,
-        bool settled)
+        bool settled,
+        string? path = null)
     {
         var arrived = settled
             ? "The requested screen is now active"
             : "The requested screen was selected but did not settle within one second";
-        return arrived + " and was not left; " + subtabReason + ".";
+        var onTheWay = path is null ? string.Empty : " on the way to " + path;
+        return arrived + " and was not left; " + subtabReason + onTheWay + ".";
     }
 
     private GameMcpCommandResult NavigationRefusal(

@@ -1209,7 +1209,7 @@ internal sealed class GameMcpProtocolRouter
                     new JObject
                     {
                         ["screen"] = StringSchema("Exact player-facing top-level screen name."),
-                        ["subtab"] = StringSchema("Optional exact player-facing subtab name."),
+                        ["subtab"] = StringSchema("Optional exact player-facing subtab name. A nested strip is one path, parent first: Spellbook/Loadout."),
                         ["uuid"] = StringSchema("Optional published tile to pick on the destination page: an Agromancy plot on World/Agromancy, or a recipe book on Magic/Unlock, whose spells the answer then lists."),
                     },
                     "screen"),

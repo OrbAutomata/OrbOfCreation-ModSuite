@@ -175,14 +175,37 @@ internal readonly struct GameMcpUuidCount
     internal int Count { get; }
 }
 
+/// <summary>
+/// One destination as the caller wrote it, and the clicks the player would make to reach it.
+/// </summary>
+/// <remarks>
+/// A strip only exists once its parent is active, so the catalog can only ever advertise the
+/// strips of the page currently open and a nested destination cost two calls with a guess between
+/// them. Written as a path — <c>Spellbook/Loadout</c> — it is the game's own two clicks inside one
+/// action, and the answer's postcondition is the child.
+/// </remarks>
 internal sealed class GameMcpNavigationSelector
 {
     internal GameMcpNavigationSelector(string label)
     {
         Label = label ?? string.Empty;
+        var segments = new List<string>();
+        foreach (var segment in Label.Split('/'))
+        {
+            var trimmed = segment.Trim();
+            if (trimmed.Length > 0) segments.Add(trimmed);
+        }
+        Labels = segments;
     }
 
+    /// <summary>The path exactly as it was asked for, for the sentences that quote it back.</summary>
     internal string Label { get; }
+
+    /// <summary>Its segments, parent first.</summary>
+    internal IReadOnlyList<string> Labels { get; }
+
+    /// <summary>The page the caller actually wants to be on.</summary>
+    internal string Leaf => Labels.Count == 0 ? Label : Labels[Labels.Count - 1];
 }
 
 internal sealed class GameMcpFrameOperation

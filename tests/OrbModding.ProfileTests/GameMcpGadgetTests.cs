@@ -217,6 +217,32 @@ public sealed class GameMcpGadgetTests
     }
 
     /// <summary>
+    /// A nested destination is one path, and the leaf is the page the caller asked to be on.
+    /// </summary>
+    /// <remarks>
+    /// Spellbook > Loadout and Augments > Glyphcraft each cost round fourteen two calls with a
+    /// guess between them, because a strip is only in the catalog while its parent is active:
+    /// asking for Loadout from the Augments strip refused with eight candidates, none of them
+    /// Loadout. Parent first, child second, inside one action.
+    /// </remarks>
+    [Theory]
+    [InlineData("Loadout", new[] { "Loadout" }, "Loadout")]
+    [InlineData("Spellbook/Loadout", new[] { "Spellbook", "Loadout" }, "Loadout")]
+    [InlineData("Augments / Glyphcraft", new[] { "Augments", "Glyphcraft" }, "Glyphcraft")]
+    [InlineData("/Spellbook//Unlock/", new[] { "Spellbook", "Unlock" }, "Unlock")]
+    public void ANestedSubtabIsOnePathOfClicksWithTheLeafAsTheDestination(
+        string asked,
+        string[] expectedSegments,
+        string expectedLeaf)
+    {
+        var selector = new GameMcpNavigationSelector(asked);
+
+        Assert.Equal(asked, selector.Label);
+        Assert.Equal(expectedSegments, selector.Labels.ToArray());
+        Assert.Equal(expectedLeaf, selector.Leaf);
+    }
+
+    /// <summary>
     /// A tile is picked on the page that draws it, and each kind has exactly one such page.
     /// </summary>
     /// <remarks>
