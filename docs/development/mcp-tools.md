@@ -455,7 +455,7 @@ rather than from the screen it is drawn on.
 | `game_screen_catalog` | Read the live screens with the active screen, its subtab strips and each screen's locked state marked |
 | `game_navigate` | Navigate a catalog screen, a subtab path and an optional tile that page draws; answers in words |
 | `game_screen_elements` | Page through the screen's elements by indexed path, minting the paths `game_tooltip` reads and naming the panels the chrome opens |
-| `game_tooltip` | Read one element's tooltip text as compact plain screen text, including nested/computed and inspected content |
+| `game_tooltip` | Read one element's tooltip as the screen drew it: the panel's own words, the sub-panels beside it, and one pointer line per link |
 | `game_probe` | Read one fixed native fact not carried by `WORLD` |
 
 `world_overview` deliberately contains only facts a strategist normally wants before choosing a
@@ -1534,10 +1534,21 @@ where the price is the thing left to decide — each exact cost line as a named 
 `cost`, canonical `spendableAmount`, and `affordable`. A tree the game is not showing, or one with
 nothing left in reach, carries the reason and no price: quoting one for a press that cannot happen
 sent a caller to earn a number it would still not be allowed to spend. In
-Choice mode, `offers` contains named handle/category references in native order.
+Choice mode, `offers` contains named handle/category references in native order, each carrying
+`discovered: true` where the run already owns the thing offered. A tree owing a required component
+offers that one thing whether or not it is owned, and the game draws the same Confirm either way,
+so ownership is a fact about the offer rather than a reason to refuse the press.
 `selectedOffer` — the named reference every `…Uuid` becomes on the wire — appears only after
-selection. The `reroll` decision block appears only in Choice mode. An empty offer set omits
+selection. The `reroll` decision block appears only in Choice mode, and carries a `note` while a
+required component is outstanding: the game's Reroll button is drawn on the reroll budget alone, and
+a reroll here spends a reroll to be offered the same one thing again. An empty offer set omits
 `offers`.
+
+**A Crafting tree says its roll is still running.** `DiscoveryTreeSO.CraftTime` is three seconds of
+game time, the offer list is empty for every one of them, and an empty list reads exactly like a
+press that did nothing. The row therefore carries `rolling` beside `actionTime`, saying that the
+roll is running, that offers appear three seconds after the press, and how long this tree has been
+rolling.
 
 A spent `offer_reroll` answers in the same shape `time_challenge reroll` does: `rerollsLeft` as a
 `{before, after}` pair, an explicit `changed` saying whether the offers actually moved, and the
@@ -2011,18 +2022,22 @@ The MCP-only offer sequence is seven calls when two offers need explanations:
    Choice mode — filling the offer list — three seconds of game time later, so the offers are read
    with the next `world_get` rather than waited for inside the call.
 3. Call `offer_reroll` when `reroll.available` is true; a false one names which of the tree's
-   states — no offers, a discovery to take first, no rerolls left, a reroll already spent — is
-   refusing. Its terminal response is the restarted craft, settled the same way.
+   states — the tree not shown, no offers, no rerolls left, a reroll already spent — is refusing.
+   Its terminal response is the restarted craft, settled the same way.
 4. Call `world_get` for the candidates that require comparison. No catalog name joins are
    needed because every reference already carries its name.
 5. Call `offer_select` with that `offerUuid`; its terminal response is the settled tree naming
    `selectedOffer`. It omits `offers`: a selection changes which offer is held, not what is
    offered, and the caller just picked from that list.
-6. Call `offer_confirm` with the same UUID; its terminal response is the Idle tree plus the next
-   initiate costs, and — when the confirmed offer is a spell recipe the game discovered and loaded —
-   the same `loadout` block a by-row `game_discover confirm` ends with. One discovery has one
-   post-state whichever route reached it. There are no post-mutation `world_get` calls, snapshot
-   tokens, or receipt polls.
+6. Call `offer_confirm` with the same UUID. The press is the game's own Confirm button, which is
+   drawn on choice mode and a selection and nothing else: it costs nothing — the price was paid to
+   roll — and `DiscoveryTreeSO.DiscoverItem` asks no question about the item, so an offer the run
+   already owns is confirmed like any other. The postcondition is the transition the game makes:
+   `ResetMode()` leaves choice mode and drops the selection. Its terminal response is the Idle tree
+   plus the next initiate costs, and — when the confirmed offer is a spell recipe the game
+   discovered and loaded — the same `loadout` block a by-row `game_discover confirm` ends with. One
+   discovery has one post-state whichever route reached it. There are no post-mutation `world_get`
+   calls, snapshot tokens, or receipt polls.
 
 ### Spell discovery and loadout-add loop
 
@@ -2070,7 +2085,6 @@ The `casting` block says what it means rather than what the game stores:
 | Key | What it says |
 | --- | --- |
 | `castType` | `instant`, `channel`, or `aura` |
-| `rechargeSeconds` | the authored recharge period |
 | `rechargeCountsIn` | what the recharge counts down in: `time`, `spell-casts`, or `attributes-developed` |
 | `rechargeUnitMultiplier` | what one counted unit is worth against the recharge. The game's own `Duration.Entry.GetMultiplier()` forces exactly `1` whenever `rechargeCountsIn` is `time` |
 | `maximumChannelSeconds` | present only where the recipe authors one |
@@ -2081,6 +2095,13 @@ class the game constructs rather than the question a reader has, and it shipped 
 `0`. `repeatInstantEffectRate` is a naming trap: `Spell.InitializePersistence` hands it straight to
 `TickTimer(tickTime, …)` as an interval floored at `0.01`, so the field the game calls a rate is a
 period, and the obvious reading of a bare `repeatEffectRate: 1` is the reciprocal of the truth.
+
+**The authored block names what the recharge counts, not how long it is.**
+`SpellRecipeSO.baseRecharge.duration` is a constant with no level, no cooldown penalty and no
+cooldown speed in it, and no screen in the game shows it — a row printing it beside a bar counting
+down from a different number is a wrong number rather than an early one. What the bar counts is
+published on the equipped instance as `recharge`; the three cooldown numbers a spell has are
+[in one place](../game-systems/spells.md#three-numbers-describe-one-cooldown).
 
 The MCP-only base-recipe sequence is:
 
@@ -2136,10 +2157,16 @@ the count it may be used to — and it rides the decision whether that decision 
 ### Spell loadout loop
 
 `spell-slots` is the pre-decision surface for `game_spell_loadout`. Each occupied detail row names
-the recipe the equipped spell was baked from, its slot, active cast/ready/attune state when
-applicable, whether it can be removed right now, `isLoadoutUnique`, and whether that spell can move
-at all. A blocked `remove` says `screen_locked` when Magic > Spellbook > Loadout is not unlocked,
-and otherwise which of the game's own three gates said no. The game answers a blocked removal with
+the recipe the equipped spell was baked from, its slot, its `recharge`, active cast/ready/attune
+state when applicable, whether it can be removed right now, `isLoadoutUnique`, and whether that
+spell can move at all. `recharge` is the number the casting bar counts down — `Spell.GetRecharge()`,
+the instance's own cooldown time divided by its cooldown speed — spelled as a duration through the
+same clock every countdown on this surface uses (`18.7s`). A spell whose recharge counts something
+other than time says the count and its unit (`5 spell-casts`) in the words `rechargeCountsIn`
+publishes; where the recipe's recharge kind is unpublished the row carries no `recharge` at all,
+because a number in the wrong unit is worse than an absent one.
+A blocked `remove` says `screen_locked` when Magic > Spellbook > Loadout is not unlocked, and
+otherwise which of the game's own three gates said no. The game answers a blocked removal with
 one popup for two of them — *Cannot remove a spell that is still recharging.* — so both sentences
 open in its words and then say which: `cast_in_progress` while the spell is casting or readying a
 cast, and `spell_recharging` below full charges, which also carries `charges` in the one spelling
@@ -2878,12 +2905,12 @@ most, so an old code's new class can be looked up here:
 | --- | --- |
 | `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `category_not_listable`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required`, `tooltip_offset_invalid`, `tile_destination_mismatch`, `ambiguous_modal` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `components_unavailable`, `no_recipe_book`, `tooltip_match_failed`, `tooltip_content_unavailable`, `native_plot_not_resolved`, `recipe_book_tile_not_found`, `no_modal_named` |
-| `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `modal_already_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `immediate_required_discovery`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning`, `continue_wrong_scene` |
+| `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `modal_already_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning`, `continue_wrong_scene` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached`, `bandwidth_blocked`, `drain_blocked`, `glyph_usages_exceeded` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
 | `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `unlock_conditions_unmet`, `tree_unavailable`, `research_leeway_exhausted`, `native_leeway_exhausted`, `glyph_unavailable`, `not_in_resource_list` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `configuration_not_available`,
-`stale_configuration_generation`, `configuration_write_unconfirmed`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `unsupported_requirement_value`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable`, `single_buy_unavailable`, `unsupported_control`, `native_navigation_unavailable`, `native_plot_navigation_unavailable`, `native_plot_list_unavailable`, `native_recipe_book_unavailable`, `native_probe_unavailable`, `tooltip_contract_unavailable`, `tooltip_read_faulted`, `tooltip_depth_exceeded`, `continue_contract_unavailable`, `navigation_request_invalid`, `unsupported_probe` |
+`stale_configuration_generation`, `configuration_write_unconfirmed`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `unsupported_requirement_value`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable`, `single_buy_unavailable`, `unsupported_control`, `modal_not_offered`, `native_navigation_unavailable`, `native_plot_navigation_unavailable`, `native_plot_list_unavailable`, `native_recipe_book_unavailable`, `native_probe_unavailable`, `tooltip_contract_unavailable`, `tooltip_read_faulted`, `tooltip_depth_exceeded`, `continue_contract_unavailable`, `navigation_request_invalid`, `unsupported_probe` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused`, `native_tab_rejected`, `subtab_selection_failed` — the game's own gate said no and reported nothing else |
 
 These placements are worth reading twice, because the obvious guess is wrong.
@@ -2983,9 +3010,9 @@ What each internal code means is below; the class is how it reaches the wire.
 | `single_buy_unavailable` | The suite could not hold the game's multi-buy multiplier at one for the press, so nothing was pressed and nothing was spent. It answered `native_rejected` — the game refusing — for a call the game never saw | the single-buy purchase path |
 | `bandwidth_blocked` / `drain_blocked` | The whole-recipe verdict for the two resource axes its per-resource rows already answer one by one: something it consumes has no bandwidth left, or something it drains is at its limit. Both codes used to be built by string concatenation, so no class or sentence table had ever met either | `world_get` recipe blockers |
 | `no_recipe_book` | The game draws no Recipe Book for this glyph in this run. It answered `world_not_published` — the suite having read nothing at all — for a healthy read of a published world | glyph recipe-book edges |
-| `tooltip_offset_invalid` / `tooltip_match_failed` / `tooltip_content_unavailable` / `tooltip_contract_unavailable` / `tooltip_read_faulted` / `tooltip_depth_exceeded` | A page marker the live element list never printed and which changes when the screen does; a path matching no active element or several; an element the game draws no tooltip for; the suite unable to attach to the game's tooltips for this run, which only a restart clears; the game erroring while producing the text; and a tooltip that links on through more of the game than the suite will read in one answer, so the walk was abandoned and none of its text is returned. Only the fourth and the last are the suite's own, and the binding layer's account of the fourth goes to the suite log rather than to the caller | `game_screen_elements`, `game_tooltip` |
+| `tooltip_offset_invalid` / `tooltip_match_failed` / `tooltip_content_unavailable` / `tooltip_contract_unavailable` / `tooltip_read_faulted` / `tooltip_depth_exceeded` | A page marker the live element list never printed and which changes when the screen does; a path matching no active element or several; an element the game draws no tooltip for; the suite unable to attach to the game's tooltips for this run, which only a restart clears; the game erroring while producing the text; and an authored node tree deeper or wider than the suite will walk in one answer, so the walk was abandoned and none of its text is returned. Only the fourth and the last are the suite's own, and the binding layer's account of the fourth goes to the suite log rather than to the caller | `game_screen_elements`, `game_tooltip` |
 | `native_navigation_unavailable` / `native_plot_navigation_unavailable` / `native_plot_list_unavailable` / `native_plot_not_resolved` / `native_recipe_book_unavailable` / `recipe_book_tile_not_found` / `tile_destination_mismatch` | The game is not showing its screen tabs, which it does only while a save is open; this build exposes no plot list to select from; the screen is showing no plot list or more than one, so which plot was meant is unclear; no plot in this run carries that id; this build exposes no recipe books; the Unlock page is drawing no tile for that book, or more than one answers to it; and a tile asked for at a destination that draws none, where the sentence names the two that do | `game_navigate` |
-| `no_modal_named` / `ambiguous_modal` / `modal_already_open` | No chrome control on this screen opens a panel by that name, and the sentence names the ones it does open; two controls answer to one name; and a different panel is already covering the board, so the chrome beneath it takes no presses | `game_modal open` |
+| `modal_not_offered` / `no_modal_named` / `ambiguous_modal` / `modal_already_open` | The panel named is not one the suite presses, and the sentence names the ones it does; no chrome control on this screen opens a panel by that name, and the sentence names the ones it does open; two controls answer to one name; and a different panel is already covering the board, so the chrome beneath it takes no presses | `game_modal open` |
 | `native_probe_unavailable` | The named fact exists, but this build exposes no reading of it | `game_probe` |
 | `continue_wrong_scene` / `continue_contract_unavailable` | Continue exists only on the title screen, and being in a run is a state that moves; or this build does not expose the Continue button, so no save can be started from here | `game_continue` |
 | `runtime_not_available` | The suite has not begun reading the game in this session, so the fact asked for has no source yet. The game is never asked | every gadget and read that needs a live runtime |
@@ -4039,6 +4066,18 @@ that is already up answers with the state it is in. A name no control on this sc
 `no_modal_named` and names the panels it does offer; two controls answering to one name refuse
 `ambiguous_modal`.
 
+**The panels are the player's own chrome and nothing else: Player and Settings.** Two filters
+produce that list, and the verb's list, the `opens: modal` rows in `game_screen_elements` and the
+`no_modal_named` sentence all read the one enumeration, so no two of them can name different panels.
+The first filter is reach: an activator nested inside a closed `UIModal` is not on this screen,
+which matters because closing a panel only drops its canvas group's alpha and raycasts and leaves
+every panel the session ever opened alive in the hierarchy. The second is the named set itself —
+Reset World, Game Complete! and Dev Console are never listed and never pressed, and a title outside
+the set refuses `modal_not_offered` (`ERR_UNAVAILABLE`) before the scene is read at all, so the
+sentence reads the same on every screen: the suite will not serve this press, and the game refused
+nothing. There is no achievements panel to add, because `PlayerStatsAchievements` is a tab inside
+Player rather than a panel of its own.
+
 `mode="dismiss"` drives the visible close control on the one open native `UIModal`.
 It refuses `no_open_modal` when there is no modal, `multiple_modals_open` when more than one makes
 the target ambiguous, and `modal_close_not_ready` while the native grace period still disables
@@ -4127,13 +4166,14 @@ every panel the session ever opened stays active in the hierarchy — the catalo
 player can reach rather than what is instantiated.
 A screen's elements hang off a handful of panels, so the catalog is a list of panels.
 
-**A control that opens a panel says which panel.** The top-right chrome — Player, the settings
-panel, the achievement list — is a row of `UIModalActivator` buttons that draw no tooltip of their
-own, so they carry `name`, `path` and `opens: modal` instead of an `id`: they are not things in the
-world, they are ways to see some. The name is the panel's own authored title, which is the argument
-`game_modal(mode="open")` takes and the title a dismissal reports. They are elements and not
-screens, so `game_screen_catalog` does not list them and `game_navigate` does not reach them; a
-`game_tooltip` by one of their paths answers with the panel it opens and how to put it up.
+**A control that opens a panel says which panel.** The top-right chrome is a row of
+`UIModalActivator` buttons that draw no tooltip of their own, so they carry `name`, `path` and
+`opens: modal` instead of an `id`: they are not things in the world, they are ways to see some. The
+name is the panel's own authored title, which is the argument `game_modal(mode="open")` takes and
+the title a dismissal reports, and the rows are the same two panels `game_modal` offers, from the
+same enumeration. They are elements and not screens, so `game_screen_catalog` does not list them
+and `game_navigate` does not reach them; a `game_tooltip` by one of their paths answers with the
+panel it opens and how to put it up.
 
 **Every path printed here is the shortest tail of that element's path no other live element answers
 to.** It starts at the element's own last segment and lengthens one segment at a time, only where
@@ -4196,17 +4236,16 @@ publish as `id`, and exactly one element may answer:
   nothing anywhere rather than blaming this screen.
 - **An element with no tooltip** — the existing `tooltip_content_unavailable`.
 - **A tooltip the suite will not finish reading** — `tooltip_depth_exceeded` (`ERR_UNAVAILABLE`).
-  The text a tooltip shows is one thing; the graph behind it is another, and that graph is the
-  entity graph: a row links to the spell it is about, which links to the resource it produces,
-  which links on again. The game draws none of that at once — it hands each link to the player's
-  next hover — while this read follows them, so it stops at a depth and a total number of nodes no
-  authored tooltip reaches, and says so instead of answering. Nothing of the text comes back with
-  the refusal on purpose: a walk that gives up inside a repeating subgraph has collected a name and
-  a description that read exactly like a short, complete tooltip. The screen still shows the real
-  one, and there is no parameter to retry under — the graph is the same on the next call. This is
-  not the 200-line notice, which is the opposite case: there the walk finished, the body is the
-  tooltip's own first two hundred lines, and its last line says `Tooltip truncated after 200
-  lines.`
+  The walk is the container's own shape, so what reaches this is an authored `children` tree deeper
+  or wider than the game could lay out either: sixty-four levels, or two thousand nodes in one
+  panel. It is a guard on data the suite does not own rather than a budget a caller meets — the
+  game's own answer to how deep tooltips go is `UITooltipContainer.MaxTooltipDepth`, five stacked
+  panels. Nothing of the text comes back with the refusal on purpose: a walk that gives up inside a
+  repeating subgraph has collected a name and a description that read exactly like a short,
+  complete tooltip. The screen still shows the real one, and there is no parameter to retry under —
+  the panel is the same on the next call. This is not the 200-line notice, which is the opposite
+  case: there the walk finished, the body is the tooltip's own first two hundred lines, and its last
+  line says `Tooltip truncated after 200 lines.`
 
 A uuid read takes the world for that one sentence; a path read reads no world at all and keeps
 taking none, because what the player can hover is a screen fact rather than a save one.
@@ -4236,24 +4275,32 @@ at all: the loadout has positions for spells and none for them, so their panel c
 columns and no fourth. With no world published there is no join, and the catalog still lists what
 the player can hover, because that is a screen fact rather than a save one.
 
-The
-reader walks the native node, linked-tooltip, nested-tooltip, and currently inspected-panel graph
-on Unity's main thread, but its node structure, repeated paint, empty arrays, duplicate authored
-text, and identical alternate tree are wire-internal ceremony and never ship. A body whose closing
-block repeats the block immediately above it says it once: adjacent duplicate lines were already
-dropped one at a time, which never caught a panel that painted its whole last block twice. Nor did
-either catch an inspected panel painting the same entity from its own object, which is not the same
-reference and so was appended in full — every statistic a second time as a bare value block, 40% of
-the response and the half with nothing in it. **A block every line of which the body already says
-is not appended at all.** Block is the level this is judged at: dropping a repeated *line* would
-take the second statistic that happens to read `0` and leave its label with nothing under it. The
-alt tree is one such block rather than a special case — it used to be kept whenever it differed from
-the primary block as a *sequence*, which is exactly what a resource pill does: it threads its values
-through the nested statistic definitions that explain them and its alt paints the same values bare,
-so the two sequences differ line for line while the alt says nothing new. That body ended in the
-same five numbers twice with nothing to tell the copies apart, and the closing-block pass could not
-reach it because the earlier copy was interleaved rather than adjacent. A cycle or hard
-depth/node bound is rendered as one explanatory line rather than recursively expanding forever.
+**The answer is the container the screen drew, and nothing behind it.** One hovered element puts up
+one `UITooltipContainer`, and that container draws three things: the core panel (`UITooltip.Render`
+on its `item`), one row of sibling sub-panels from `subTooltips`, which carry no sub-panels of their
+own, and inside each panel one node list walked through `TooltipNode.children`. The reader renders
+exactly that on Unity's main thread — each panel's name, display type, description and nodes, in the
+order the panel lays them out. A panel draws one node list and not two: `UITooltip.Render` sets
+`renderedAlt = IsUsingAltTooltip()` and then renders `GetAltTooltipNodes()` *instead of*
+`GetTooltipNodes()`, so the alt list is a toggle rather than an appendix and the read follows the
+state the screen is in — the entity having an alt list, and the player holding the more-info key.
+
+**A link is a pointer, never a panel.** `TooltipNode.tooltipable` is not text:
+`UITooltipNode.Setup` hands it to `HoverTooltip.Setup` as the target of the player's *next* hover.
+Following it turned one screen panel into the transitive closure of the entity graph behind it — a
+cantrip that fits one on-screen panel printed ninety lines of glossary, and the three deepest reads
+of a live round refused outright. Each link is published as the one line the screen offers:
+`→ <name>: game_tooltip uuid=<id>`. A link about no entity carries its name alone, because the
+screen is not drawing it and minting an address for it would be a guess; one definition linked from
+many rows is pointed at once, because a line the body already carries says nothing by being carried
+again.
+
+Node structure, repeated paint and empty arrays are wire-internal ceremony and never ship, and a
+body whose closing block repeats the block immediately above it says it once: adjacent duplicate
+lines are dropped one at a time, which never catches a panel that paints its whole last block
+twice. The smallest such repeat wins, because a panel that genuinely ends in two identical blocks is
+indistinguishable from one that painted its last block twice, and taking the largest match let a
+page whose tail repeated at two scales lose half its body where one line would have done.
 Unity rich-text markup is stripped. The list of tags is closed so that prose holding an angle
 bracket survives, which means it has to hold every word the pinned build actually authors: a census
 of `data/game-data.json` finds eight — `emph`, `emph2`, `deemph`, `warn`, `lore`, `negative`,

@@ -661,16 +661,22 @@ choices whose ordinary prerequisite verdict is false, so gating a selection on `
 offers the game means you to be able to take.
 
 `DiscoverItem` increments counts, removes rarity, resets mode, offers and selection, and calls the
-target's `Discover` **last**. An exception part-way therefore leaves a real partial commit — counters
-moved and tree reset, target not discovered — and the tree's own state cannot tell you which side of
-that line you are on. Read the target's `IsDiscovered`.
+target's `Discover` **last**. So the tree leaving choice mode is the press landing, and it says
+nothing about the target: an exception part-way leaves counters moved and the tree reset with the
+target not discovered. The target's own `IsDiscovered` is the only reading of that half. There is
+no already-discovered check and no cost anywhere in the method — the price was paid to roll — and
+`UIDiscoveryTreePage.QuickRenderConfirmButton` enables Confirm on `IsInChoiceMode()` and
+`HasChoiceSelected()`, which is `!selectedChoiceId.IsEmpty()`, and nothing else.
 
 ### Reroll leaves the old selection behind
 
 `RerollChoices` copies the current offers into `nextExcludedIds`, clears the offers, debits a reroll,
 sets the used-reroll flag, and re-enters Crafting. It does **not** clear `selectedChoiceId`, so a
 stale selection survives until new offers appear; drive `SelectItemId(Guid.Empty)` yourself if that
-matters. Reroll is not offered on the immediate-required path.
+matters. The button is drawn on the reroll budget alone: `UIDiscoveryTreePage.OnRerollClick` asks
+`HasRerolls()` and neither it nor `RerollChoices` reads `HasImmediateRequiredDiscover()`, so a
+required component can be rerolled — and it is the one thing the tree has to offer, so it comes
+back.
 
 ### The ledger cannot verify this path
 

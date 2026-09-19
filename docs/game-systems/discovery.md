@@ -48,6 +48,8 @@ How many options a roll offers is a **statistic** (observed at 2 early in a run)
 Discovery Rerolls** (observed at 1), so upgrades and effects can move both.
 
 - Rerolling replaces the options offered. **Rerolling never rerolls the rarity** of the offer.
+- The Reroll button is drawn on the reroll budget alone, so a required component can be rerolled
+  too — and it is the one thing that tree can offer, so it comes back.
 - You **gain a reroll back only by taking a choice without having rerolled**.
 - Rerolls do **not** advance the pricing ladder.
 

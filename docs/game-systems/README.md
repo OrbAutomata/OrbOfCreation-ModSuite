@@ -39,7 +39,7 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 ## Casting
 
 - [spells.md](spells.md) — a spell is a cost, a cooldown and an effect list that other purchases can
-  edit.
+  edit; three numbers describe that cooldown.
 - [spell-types.md](spell-types.md) — fifteen tags; buffs resolve against effective types, not the
   printed name.
 - [effect-grammar.md](effect-grammar.md) — every effect is term + statistic + keyword-target.
