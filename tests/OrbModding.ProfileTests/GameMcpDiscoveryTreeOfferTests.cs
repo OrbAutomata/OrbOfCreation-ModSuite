@@ -1138,7 +1138,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     resource, new BigDouble(7.5d, 6), new BigDouble(2.43d, 25)),
             },
             Guid.Empty, Guid.Empty, 0, 0, false, 5, 4, 8, 5, false, true, false));
-        terminal = terminal.WithDetails(GameMcpWorldQuery.ProjectPostState(
+        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectPostState(
             GameMcpTestHarness.Context(postState, generation: 95),
             "discovery-trees",
             tree));
@@ -1210,7 +1210,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     secondOffer, 0, 0, 1, false, true, false, false, false, false,
                     0, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero),
             });
-        terminal = terminal.WithDetails(GameMcpWorldQuery.ProjectPostState(
+        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectPostState(
             GameMcpTestHarness.Context(postState, generation: 96),
             "discovery-trees",
             tree));

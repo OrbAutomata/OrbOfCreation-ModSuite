@@ -1833,7 +1833,7 @@ public sealed class Plugin : BaseUnityPlugin
         {
             state = GameMcpPostStateSettlement.TimedOut(command, latest);
         }
-        CompleteGameMcpCommand(command, committed.WithDetails(state));
+        CompleteGameMcpCommand(command, committed.WithSettledPostState(state));
     }
 
     private static EntityIdentityCatalogSnapshot EntityIdentities(

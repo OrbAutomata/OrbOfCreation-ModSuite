@@ -497,7 +497,7 @@ public sealed class GameMcpSpellWorkbenchTests
             3,
             submission.Reason,
             GameMcpSpellWorkbenchProjection.Project(in submission));
-        terminal = terminal.WithDetails(GameMcpWorldQuery.ProjectGameplayPostState(
+        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after), command, terminal));
 
         var success = GameMcpTestHarness.Json(terminal.Project(command));

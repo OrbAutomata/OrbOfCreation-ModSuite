@@ -170,7 +170,7 @@ public sealed class GameMcpSpellCompositionTests
             3,
             submission.Reason,
             GameMcpSpellCompositionProjection.Project(in submission, "output"));
-        terminal = terminal.WithDetails(GameMcpWorldQuery.ProjectGameplayPostState(
+        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(World(outputLevel: 5)), command, terminal));
 
         var success = GameMcpTestHarness.Json(terminal.Project(command));

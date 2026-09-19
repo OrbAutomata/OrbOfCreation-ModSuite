@@ -436,6 +436,32 @@ internal sealed class GameMcpCommandResult
             ActionResult,
             InlinePng);
 
+    /// <summary>
+    /// The settled world joins what the press already said instead of replacing it.
+    /// </summary>
+    /// <remarks>
+    /// A <c>×2</c> level buy off a ladder whose first rung is free printed its two levels and
+    /// nothing at all about its cost. The press projection is the only producer that saw every
+    /// rung's price, and settlement handed the wire a document built from the world alone, so that
+    /// answer was constructed and then thrown away — on every settlement-bearing kind, not only
+    /// this one. The settled world is the newer truth for every key it names; everything only the
+    /// press could know stays.
+    /// </remarks>
+    internal GameMcpCommandResult WithSettledPostState(GameMcpValue state)
+    {
+        if (state is not GameMcpObject settled || Details is not GameMcpObject pressed)
+            return WithDetails(state);
+        var merged = new GameMcpObjectBuilder();
+        for (var index = 0; index < settled.Properties.Count; index++)
+            merged.Add(settled.Properties[index].Name, settled.Properties[index].Value);
+        for (var index = 0; index < pressed.Properties.Count; index++)
+        {
+            var property = pressed.Properties[index];
+            if (!merged.Contains(property.Name)) merged.Add(property.Name, property.Value);
+        }
+        return WithDetails(merged.Freeze());
+    }
+
     internal GameMcpValue Project(GameMcpCommand command)
     {
         if (command is null) throw new ArgumentNullException(nameof(command));

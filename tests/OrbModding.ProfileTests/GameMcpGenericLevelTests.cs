@@ -251,6 +251,59 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal("game_discover and game_level_up", glyphTools);
     }
 
+    /// <summary>
+    /// What the press was charged survives the settlement that follows it.
+    /// </summary>
+    /// <remarks>
+    /// Round 15 bought two rungs of Elemental Persist — the first free, the second charged — and
+    /// the wire printed the two levels and not one word about the price. The press projection ran
+    /// and the settlement step replaced its document wholesale with the one built from the settled
+    /// world, so the only producer that saw every rung's price was constructed and discarded. This
+    /// runs the producers the way the press runs them: the prepared command, the committed result
+    /// <c>ExecuteGenericLevel</c> builds, and the merge the post-state completion performs.
+    /// </remarks>
+    [Fact]
+    public void A_settled_level_press_still_says_what_it_was_charged()
+    {
+        var before = World(total: 0, bonus: 0, purchaseAffordable: true);
+        var after = World(total: 2, bonus: 0, purchaseAffordable: true);
+        var operation = GameMcpProtocolRouter.BuildOperation("game_level_up", new JObject
+        {
+            ["mode"] = "purchase",
+            ["uuid"] = TimeRuneId.ToString("D"),
+            ["amount"] = 2,
+        });
+        Assert.True(Plugin.TryPrepareGameMcpCommand(
+            new GameMcpFrameOperation(1, operation),
+            GameMcpTestHarness.Context(before, generation: 906),
+            out var command,
+            out var failure), failure?.Reason);
+
+        var submission = Bought(levels: 1, charges: new[]
+        {
+            new GenericLevelCharge(CostResourceId, new BigDouble(1)),
+        });
+        var committed = GameMcpCommandResult.FromAction(
+            GenericLevelActionResultMapper.Map(in submission),
+            GameMcpCommandKind.GenericLevel, 9, 3, submission.Reason,
+            GameMcpGenericLevelProjection.Project(in submission));
+
+        var wire = Json(
+            committed.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
+                    GameMcpTestHarness.Context(after, generation: 907), command, committed))
+                .Project(command),
+            after);
+
+        Assert.Equal("committed", (string?)wire["status"]);
+        Assert.Equal(0, (int)wire["paidLevel"]!["before"]!);
+        Assert.Equal(2, (int)wire["paidLevel"]!["after"]!);
+        Assert.Equal(2, (int)wire["totalLevel"]!["after"]!);
+        Assert.Equal(1, (int)wire["chargedLevels"]!);
+        var charge = Assert.Single(wire["charged"]!.Values<JObject>())!;
+        Assert.Equal("1", (string?)charge["cost"]);
+        Assert.Equal("Knowledge", (string?)charge["resource"]!["name"]);
+    }
+
     private static GenericLevelSubmission Bought(int levels, GenericLevelCharge[] charges) =>
         new(GenericLevelPreflight.Proceeded,
             GenericLevelNativeStage.Verification,

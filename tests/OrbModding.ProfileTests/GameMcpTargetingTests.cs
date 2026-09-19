@@ -137,7 +137,7 @@ public sealed class GameMcpTargetingTests
         var command = Command("submit", First);
         var terminal = GameMcpCommandResult.FromAction(in mapped, command.Kind, 9, 3,
             submission.Reason, GameMcpTargetingProjection.Project(in submission));
-        terminal = terminal.WithDetails(GameMcpWorldQuery.ProjectTargetingPostState(
+        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectTargetingPostState(
             GameMcpTestHarness.Context(World()),
             GameMcpTargetingProjection.SubmittedTarget(terminal.Details)));
 

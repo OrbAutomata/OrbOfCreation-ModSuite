@@ -698,7 +698,7 @@ public sealed class GameMcpCorrectnessCoreTests
         // other, so a caller correlating by uuid mis-filed half of its calls.
         var commitProjection = GameMcpTestHarness.Json(
             GameMcpCommandResult.Committed("committed", 9, 3)
-                .WithDetails(GameMcpWorldQuery.ProjectGameplayPostState(
+                .WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
                     GameMcpTestHarness.Context(activeWorld), command, committed))
                 .Project(command));
         var refusalProjection = GameMcpTestHarness.Json(

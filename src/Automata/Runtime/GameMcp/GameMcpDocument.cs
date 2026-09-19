@@ -82,6 +82,8 @@ internal sealed class GameMcpObjectBuilder
         Add(name, value);
     }
 
+    internal bool Contains(string name) => _positions.ContainsKey(name);
+
     internal void CopyFrom(GameMcpObjectBuilder source)
     {
         if (source is null) throw new ArgumentNullException(nameof(source));

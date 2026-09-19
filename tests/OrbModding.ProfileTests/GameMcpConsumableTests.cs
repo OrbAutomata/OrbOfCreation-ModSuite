@@ -112,7 +112,7 @@ public sealed class GameMcpConsumableTests
             Guid.Empty, "ConsumableSO", 1, string.Empty, string.Empty, false, frameContext: GameMcpTestHarness.Context(World(quantity: 3)));
         var committed = GameMcpCommandResult.Committed("committed", 9, 3);
         var terminal = committed
-            .WithDetails(GameMcpWorldQuery.ProjectGameplayPostState(
+            .WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
                 GameMcpTestHarness.Context(World(quantity: 2)), command,
                 committed));
         var postState = Json(terminal.Project(command));
@@ -129,7 +129,7 @@ public sealed class GameMcpConsumableTests
             2, GameMcpCommandKind.Consumable, 9, 3, "set_randomization", ConsumableId,
             Guid.Empty, "ConsumableSO", 1, string.Empty, string.Empty, false, frameContext: GameMcpTestHarness.Context(World()));
         var randomization = committed
-            .WithDetails(GameMcpWorldQuery.ProjectGameplayPostState(
+            .WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
                 GameMcpTestHarness.Context(World(randomized: true)),
                 randomizationCommand,
                 committed));
