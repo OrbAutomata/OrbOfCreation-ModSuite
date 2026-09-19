@@ -104,7 +104,14 @@ internal sealed class AutomataDecisionJournalController
         try
         {
             if (_runtime is null) return false;
-            _runtime.DisposeWithPump();
+            if (!_runtime.DisposeWithPump())
+            {
+                _log.LogAutomataError(
+                    "ServiceCycle decision journal did not finish its shutdown drain within " +
+                    BufferedSegmentShutdown.DrainBound.TotalSeconds + "s at " +
+                    AutomataDecisionJournalPathPolicy.FormatRelativeArtifactPath(_artifactName) +
+                    "; its last segments may not have reached disk.");
+            }
             return true;
         }
         finally { _status.Dispose(); }

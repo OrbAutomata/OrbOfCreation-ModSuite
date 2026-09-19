@@ -10,6 +10,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Outcomes;
 using OrbModding.Common.Runtime;
 using OrbModding.Common;
 using OrbModding.Tests.Runtime.ServiceCycle.Observation.Journal;
+using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 using OrbModding.Tests.Runtime.World;
 using Xunit;
 
@@ -221,12 +222,12 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
         {
             runtime.Tick(0);
             return status.Status.State == DecisionJournalStatusState.Recording;
-        }, TimeSpan.FromSeconds(2)));
+        }, ServiceCycleTestDeadline.Value));
         Assert.True(SpinWait.SpinUntil(() =>
         {
             runtime.Tick(0);
             return status.Status.WrittenRecords > 0;
-        }, TimeSpan.FromSeconds(2)));
+        }, ServiceCycleTestDeadline.Value));
 
         Assert.Equal("journal", status.Status.ArtifactName);
         Assert.NotEmpty(storage.ReadRecords());
@@ -256,9 +257,9 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
                     status,
                     new JournalSource(storage),
                     "journal")));
-        Assert.True(storage.ReconcileEntered.Wait(TimeSpan.FromSeconds(2)));
+        Assert.True(storage.ReconcileEntered.Wait(ServiceCycleTestDeadline.Value));
         storage.ReconcileRelease.Set();
-        Assert.True(storage.ReconcileCompleted.Wait(TimeSpan.FromSeconds(2)));
+        Assert.True(storage.ReconcileCompleted.Wait(ServiceCycleTestDeadline.Value));
 
         runtime.Tick(0);
 
@@ -273,7 +274,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
         {
             runtime.Tick(0);
             return status.Status.State == DecisionJournalStatusState.Recording;
-        }, TimeSpan.FromSeconds(2)));
+        }, ServiceCycleTestDeadline.Value));
         runtime.Dispose();
     }
 

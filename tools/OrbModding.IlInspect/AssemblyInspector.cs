@@ -28,7 +28,13 @@ internal sealed class AssemblyInspector : IDisposable
         this.assembly = assembly;
     }
 
-    internal static AssemblyInspector Open(string path)
+    /// <summary>
+    /// Opens one assembly read-only. References resolve from the assembly's own directory first and
+    /// then from <paramref name="managedDirectory"/>, which is what lets an assembly the game ships
+    /// outside Managed — BepInEx, a plugin — still find the engine and game assemblies it was
+    /// compiled against.
+    /// </summary>
+    internal static AssemblyInspector Open(string path, string? managedDirectory = null)
     {
         var resolvedPath = Path.GetFullPath(path);
         string hash;
@@ -37,7 +43,8 @@ internal sealed class AssemblyInspector : IDisposable
             hash = Convert.ToHexString(SHA256.HashData(hashStream)).ToLowerInvariant();
         }
 
-        var resolver = new ReadOnlyAssemblyResolver(Path.GetDirectoryName(resolvedPath)!);
+        var resolver = new ReadOnlyAssemblyResolver(
+            Path.GetDirectoryName(resolvedPath)!, managedDirectory);
         try
         {
             var assembly = resolver.ReadTarget(resolvedPath);
@@ -633,13 +640,18 @@ internal sealed class AssemblyInspector : IDisposable
 
     private sealed class ReadOnlyAssemblyResolver : BaseAssemblyResolver
     {
-        private readonly string managedDirectory;
+        private readonly List<string> searchDirectories = new();
         private readonly Dictionary<string, AssemblyDefinition> assemblies =
             new(StringComparer.OrdinalIgnoreCase);
 
-        internal ReadOnlyAssemblyResolver(string managedDirectory)
+        internal ReadOnlyAssemblyResolver(string assemblyDirectory, string? managedDirectory)
         {
-            this.managedDirectory = managedDirectory;
+            searchDirectories.Add(assemblyDirectory);
+            if (!string.IsNullOrEmpty(managedDirectory) &&
+                !string.Equals(managedDirectory, assemblyDirectory, StringComparison.Ordinal))
+            {
+                searchDirectories.Add(managedDirectory);
+            }
         }
 
         internal AssemblyDefinition ReadTarget(string path)
@@ -656,14 +668,16 @@ internal sealed class AssemblyInspector : IDisposable
                 return assembly;
             }
 
-            var path = Path.Combine(managedDirectory, name.Name + ".dll");
-            if (!File.Exists(path))
+            foreach (var directory in searchDirectories)
             {
-                throw new AssemblyResolutionException(name);
+                var path = Path.Combine(directory, name.Name + ".dll");
+                if (!File.Exists(path)) continue;
+                assembly = Read(path);
+                assemblies[name.Name] = assembly;
+                return assembly;
             }
-            assembly = Read(path);
-            assemblies[name.Name] = assembly;
-            return assembly;
+
+            throw new AssemblyResolutionException(name);
         }
 
         protected override void Dispose(bool disposing)

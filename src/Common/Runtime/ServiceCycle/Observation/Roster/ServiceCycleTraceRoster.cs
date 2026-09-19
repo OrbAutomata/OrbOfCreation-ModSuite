@@ -49,6 +49,12 @@ internal sealed class ServiceCycleTraceRoster
 {
     internal const string ServiceKind = "service";
 
+    /// <summary>
+    /// One world-collection category, identified by its position in the collector's traversal. The
+    /// second kind the roster carries, and the reason it was kinded from the start.
+    /// </summary>
+    internal const string WorldCategoryKind = "world-category";
+
     internal static readonly ServiceCycleTraceRoster Empty = new(Array.Empty<ServiceCycleTraceRosterEntry>());
 
     private readonly ServiceCycleTraceRosterEntry[] _entries;

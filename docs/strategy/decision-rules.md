@@ -19,6 +19,11 @@ curve, so holding one is free and spending one is irreversible. Spend a bonus le
 gate you can actually see, remembering that gates read purchased levels, so a visible bonus does not
 satisfy one.
 
+**A cap-raiser is one purchase, not a line.** The four `Raise <thing> Level` rows re-price
+themselves by roughly ×267 per level, so the level you can afford is normally the only one you can
+afford. Buy it when it comes into reach and re-plan from the new price rather than budgeting a run
+of them.
+
 ## The watermark problem
 
 **Cheapest-first never crosses a price watermark while cheap dribbles exist.** Early on, attributes

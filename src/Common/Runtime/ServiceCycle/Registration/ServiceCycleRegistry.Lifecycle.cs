@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.World;
 using RuntimeLifecycleGeneration = OrbModding.Common.Runtime.LifecycleGeneration;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Registration;
@@ -27,6 +28,12 @@ public sealed partial class ServiceCycleRegistry
             _lifecycle = generation;
         }
 
+        // The world is the one publication that outlives its own subject. Slot states are recreated
+        // per lifecycle and so cannot carry a dead run forward; the world snapshot is a plain
+        // immutable object and would keep answering for a save that no longer exists. Flushing it
+        // here rather than at any caller means every accepted lifecycle replacement — scene change,
+        // save load, reset, NG+ — trashes it, and none of them can forget to.
+        _world.Flush(GameWorldStateDefaults.Empty);
         for (var ordinal = 0; ordinal < _nextOrdinal; ordinal++)
             _slots[ordinal].RequestLifecycle(generation);
         return true;

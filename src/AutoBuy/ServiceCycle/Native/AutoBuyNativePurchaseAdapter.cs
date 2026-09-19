@@ -33,6 +33,50 @@ internal enum AutoBuyPurchasePreflight
     DestinationCapacityFull,
     DestinationCapacityContractUnavailable,
     DestinationCapacityIdentityMismatch,
+
+    /// <summary>
+    /// The live action queue has no free slot at all, so nothing this call asked for can be queued.
+    /// Reached from the action adapter rather than the native adapter: it is decided by the live
+    /// queue reading, before a candidate is resolved and before any mutation is attempted. An ask
+    /// larger than the room is not this — that one fills what fits and says what it withheld.
+    /// </summary>
+    ActionQueueFull,
+
+    /// <summary>The suite never bound the owning-view topology contract on this build.</summary>
+    OwningViewTopologyUnbound,
+
+    /// <summary>
+    /// The topology holds no admission evidence for the lifecycle this purchase was planned under.
+    /// </summary>
+    OwningViewTopologyUncaptured,
+
+    /// <summary>The captured relation carries a status this build does not model.</summary>
+    OwningViewRelationStatusUnmodeled,
+
+    /// <summary>The live owning-screen availability read did not answer.</summary>
+    OwningViewAvailabilityUnreadable,
+}
+
+/// <summary>
+/// Which of the game's own gates the suite watched shut on a group that stopped short of the levels
+/// it was asked for.
+/// </summary>
+/// <remarks>
+/// Only the structure family reaches anything but <see cref="None"/>: the suite drives that one
+/// level at a time and re-runs the game's gates itself between levels, so it sees which one said no.
+/// An upgrade multi-buy breaks inside the game's own loop and the suite sees only the delta, and a
+/// reason invented for it would be the confident face the queued-mutation answer exists to refuse.
+/// </remarks>
+internal enum AutoBuyGroupStop
+{
+    /// <summary>The group ran to its full count, or nothing observed why it did not.</summary>
+    None,
+
+    /// <summary>The next level's price was not met.</summary>
+    NextLevelUnaffordable,
+
+    /// <summary>The game stopped admitting the purchase.</summary>
+    NotAdmitted,
 }
 
 /// <summary>
@@ -50,8 +94,16 @@ internal readonly struct AutoBuyPurchaseSubmission
         int requestedLevels,
         int committedLevels,
         in AutoBuyAdmissionDiagnosis diagnosis,
-        in AutoBuyLiveCostSnapshot liveCosts)
+        in AutoBuyLiveCostSnapshot liveCosts,
+        string reason,
+        int maximumAmount = -1,
+        int withheldBySuite = 0,
+        AutoBuyGroupStop groupStop = AutoBuyGroupStop.None,
+        AutoBuyLiveCostSnapshot nextLevelCosts = default)
     {
+        NextLevelCosts = nextLevelCosts;
+        GroupStop = groupStop;
+        WithheldBySuite = withheldBySuite;
         Preflight = preflight;
         HasEvidence = hasEvidence;
         Outcome = outcome;
@@ -60,9 +112,20 @@ internal readonly struct AutoBuyPurchaseSubmission
         CommittedLevels = committedLevels;
         Diagnosis = diagnosis;
         LiveCosts = liveCosts;
+        Reason = reason;
+        MaximumAmount = maximumAmount;
     }
 
     public AutoBuyPurchasePreflight Preflight { get; }
+
+    /// <summary>
+    /// The one sentence this refusal owes a caller, when the preflight class alone cannot carry it —
+    /// a topology refusal names the epoch it is stamped at, the epoch the plan asked for, and how
+    /// many rows it holds, because those three numbers are the whole difference between the causes.
+    /// Empty everywhere else: a class with a fixed sentence needs no second copy of it here.
+    /// </summary>
+    public string Reason { get; }
+
     public bool HasEvidence { get; }
     public NativeMutationOutcome Outcome { get; }
     public NativeMutationCallOutcome CallOutcome { get; }
@@ -90,12 +153,91 @@ internal readonly struct AutoBuyPurchaseSubmission
     /// </summary>
     public int CommittedLevels { get; }
 
+    /// <summary>
+    /// The ceiling a refusal's own sentence named, or -1 where the refusal names none. A sentence
+    /// that quotes a number carries that same number as a field, read from the same reading the
+    /// sentence was written from, so the two can never disagree.
+    /// </summary>
+    public int MaximumAmount { get; }
+
+    /// <summary>
+    /// How many levels of the ask the suite kept back because the queue had no room for them. Nought
+    /// on every press that delivered the whole ask, and on every press the game itself cut short —
+    /// this is the suite's own half of a shortfall, and the settled answer owes the caller a reason
+    /// for it in the same sentence that reports the delivery.
+    /// </summary>
+    public int WithheldBySuite { get; }
+
+    /// <summary>
+    /// Which of the game's gates the suite watched shut on a group that stopped early, where it
+    /// watched at all.
+    /// </summary>
+    public AutoBuyGroupStop GroupStop { get; }
+
+    /// <summary>
+    /// What the level after this press would cost, read live once the press stopped short of the
+    /// levels it was asked for. It is read only where the suite could not watch the gate — an
+    /// upgrade multi-buy — so the settled answer has a fact to offer in place of a reason it does
+    /// not have. Unread everywhere else.
+    /// </summary>
+    public AutoBuyLiveCostSnapshot NextLevelCosts { get; }
+
+    /// <summary>
+    /// The live action queue holds nothing more, so no level of this ask can be queued. No mutation
+    /// is attempted, and the ceiling it names is nought: this is the one purchase refusal a smaller
+    /// amount does not fix.
+    /// </summary>
+    public static AutoBuyPurchaseSubmission ActionQueueFull() =>
+        new(
+            AutoBuyPurchasePreflight.ActionQueueFull,
+            hasEvidence: false,
+            default,
+            default,
+            0,
+            0,
+            default,
+            AutoBuyLiveCostSnapshot.Unavailable(
+                AutoBuyLiveCostReadStatus.PurchaseCostUnavailable),
+            string.Empty,
+            maximumAmount: 0);
+
+    /// <summary>
+    /// The same submission, carrying how many levels of the caller's ask never reached the game
+    /// because the queue had no room for them.
+    /// </summary>
+    public AutoBuyPurchaseSubmission WithSuiteWithheld(int withheld) =>
+        new(
+            Preflight,
+            HasEvidence,
+            Outcome,
+            CallOutcome,
+            RequestedLevels,
+            CommittedLevels,
+            Diagnosis,
+            LiveCosts,
+            Reason,
+            MaximumAmount,
+            Math.Max(0, withheld),
+            GroupStop,
+            NextLevelCosts);
+
     public static AutoBuyPurchaseSubmission Rejected(AutoBuyPurchasePreflight preflight) =>
-        Rejected(preflight, default);
+        Rejected(preflight, default, string.Empty);
 
     public static AutoBuyPurchaseSubmission Rejected(
         AutoBuyPurchasePreflight preflight,
-        in AutoBuyAdmissionDiagnosis diagnosis)
+        string reason) =>
+        Rejected(preflight, default, reason);
+
+    public static AutoBuyPurchaseSubmission Rejected(
+        AutoBuyPurchasePreflight preflight,
+        in AutoBuyAdmissionDiagnosis diagnosis) =>
+        Rejected(preflight, in diagnosis, string.Empty);
+
+    private static AutoBuyPurchaseSubmission Rejected(
+        AutoBuyPurchasePreflight preflight,
+        in AutoBuyAdmissionDiagnosis diagnosis,
+        string reason)
     {
         if (preflight == AutoBuyPurchasePreflight.Proceeded)
             throw new ArgumentOutOfRangeException(nameof(preflight));
@@ -108,13 +250,16 @@ internal readonly struct AutoBuyPurchaseSubmission
             0,
             0,
             in diagnosis,
-            in liveCosts);
+            in liveCosts,
+            reason);
     }
 
     public static AutoBuyPurchaseSubmission Attempted(
         NativeMutationEvidence<int> evidence,
         int requestedLevels,
-        in AutoBuyLiveCostSnapshot liveCosts)
+        in AutoBuyLiveCostSnapshot liveCosts,
+        AutoBuyGroupStop groupStop = AutoBuyGroupStop.None,
+        AutoBuyLiveCostSnapshot nextLevelCosts = default)
     {
         var committed = evidence.HasBefore && evidence.HasAfter
             ? Math.Max(0, evidence.After - evidence.Before)
@@ -127,7 +272,12 @@ internal readonly struct AutoBuyPurchaseSubmission
             requestedLevels,
             committed,
             default,
-            in liveCosts);
+            in liveCosts,
+            string.Empty,
+            maximumAmount: -1,
+            withheldBySuite: 0,
+            groupStop,
+            nextLevelCosts);
     }
 
     public static AutoBuyPurchaseSubmission Attempted(
@@ -165,8 +315,14 @@ internal interface IAutoBuyNativePurchasePort
 internal interface IAutoBuyPurchaseTopologyPort
 {
     void InvalidateTopology();
+
+    /// <summary>The run the published purchase-screen topology is stamped for, or zero.</summary>
+    long CapturedEpoch { get; }
+
+    /// <summary>How many candidates the published topology admits.</summary>
+    int CapturedCount { get; }
 #if SERVICE_CYCLE_PROFILE
-    bool EmitRouteDiagnostic(long lifecycleEpoch);
+    bool EmitRouteDiagnostic(long lifecycleEpoch, out string? silence);
 #endif
 }
 
@@ -214,12 +370,42 @@ internal sealed class AutoBuyNativePurchaseAdapter :
 
     public void InvalidateTopology() => _viewAdmission?.Invalidate();
 
+    public long CapturedEpoch => _viewAdmission?.CapturedEpoch ?? 0;
+
+    public int CapturedCount => _viewAdmission?.CapturedCount ?? 0;
+
 #if SERVICE_CYCLE_PROFILE
-    public bool EmitRouteDiagnostic(long lifecycleEpoch)
+    /// <summary>
+    /// Writes one route line per admitted candidate, or explains why it has nothing to write.
+    /// </summary>
+    /// <remarks>
+    /// A silence is only worth reporting once the answer cannot change on its own: a topology
+    /// stamped for another run is normal in the first frames of a lifecycle and says nothing, but a
+    /// contract that never bound, or a topology published for this run holding no routes, is why
+    /// every purchase will be refused for the rest of the run.
+    /// </remarks>
+    public bool EmitRouteDiagnostic(long lifecycleEpoch, out string? silence)
     {
-        if (_viewAdmission is null) return false;
+        silence = null;
+        if (_viewAdmission is null)
+        {
+            silence = "Auto Buy cannot describe its purchase routes: the owning-view topology " +
+                "contract never bound, so no purchase will be admitted.";
+            return false;
+        }
+
         var rows = _viewAdmission.DescribeCaptured(lifecycleEpoch);
-        if (rows.Length == 0) return false;
+        if (rows.Length == 0)
+        {
+            if (_viewAdmission.CapturedEpoch == lifecycleEpoch)
+            {
+                silence = $"Auto Buy's purchase-screen topology is published for run {lifecycleEpoch} " +
+                    "and admits nothing, so no purchase will be admitted.";
+            }
+
+            return false;
+        }
+
         for (var index = 0; index < rows.Length; index++)
             Plugin.Log?.LogAutomataInfo("Auto Buy route topology: " + rows[index]);
         return true;
@@ -275,9 +461,9 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         try
         {
 #endif
-        var gate = ReadLiveGate(kind, uuid, lifecycleEpoch, source, accessors);
+        var gate = ReadLiveGate(kind, uuid, lifecycleEpoch, source, accessors, out var gateReason);
         if (gate != AutoBuyPurchasePreflight.Proceeded)
-            return AutoBuyPurchaseSubmission.Rejected(gate);
+            return AutoBuyPurchaseSubmission.Rejected(gate, gateReason);
 
         // The shipped CanPurchase contracts differ materially. StructureSO checks only its
         // per-level requirements and ActionManager.CanLoadAction(); it checks neither IsAvailable()
@@ -365,18 +551,30 @@ internal sealed class AutoBuyNativePurchaseAdapter :
 #endif
     }
 
+    /// <summary>
+    /// The live owning-view gate, with each way of failing it kept apart.
+    /// </summary>
+    /// <remarks>
+    /// Five distinct facts used to leave here as one preflight and one result number: an unbound
+    /// contract, a lifecycle with no captured topology, a candidate whose chain the game refused
+    /// while the topology was being read, a status this build does not model, and a live
+    /// availability read that did not answer. Only one of those is fixed by waiting, only one is a
+    /// build problem, and the outage that motivated this split took a code trace to tell apart.
+    /// </remarks>
     private AutoBuyPurchasePreflight ReadLiveGate(
         AutoBuyCandidateKind kind,
         Guid uuid,
         long lifecycleEpoch,
         object source,
-        PurchaseAccessors accessors)
+        PurchaseAccessors accessors,
+        out string reason)
     {
         var reads = default(NativePurchaseViewAdmissionReadCounts);
+        reason = string.Empty;
         try
         {
             if (_viewAdmission is null)
-                return AutoBuyPurchasePreflight.OwningViewRelationUnreadable;
+                return AutoBuyPurchasePreflight.OwningViewTopologyUnbound;
 
             if (!_viewAdmission.TryGetCaptured(
                 kind == AutoBuyCandidateKind.Structure
@@ -385,7 +583,13 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 uuid,
                 lifecycleEpoch,
                 out var resolution))
-                return AutoBuyPurchasePreflight.OwningViewRelationUnreadable;
+            {
+                reason = AutoBuyPurchaseNarration.TopologyUncaptured(
+                    _viewAdmission.CapturedEpoch,
+                    lifecycleEpoch,
+                    _viewAdmission.CapturedCount);
+                return AutoBuyPurchasePreflight.OwningViewTopologyUncaptured;
+            }
             switch (resolution.Relation.Status)
             {
                 case WorldPurchaseViewRelationStatus.Missing:
@@ -397,14 +601,14 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 case WorldPurchaseViewRelationStatus.Resolved:
                     break;
                 default:
-                    return AutoBuyPurchasePreflight.OwningViewRelationUnreadable;
+                    return AutoBuyPurchasePreflight.OwningViewRelationStatusUnmodeled;
             }
 
             if (!_viewAdmission.TryReadAvailabilityProfiled(
                     in resolution,
                     ref reads,
                     out var viewAvailable))
-                return AutoBuyPurchasePreflight.OwningViewRelationUnreadable;
+                return AutoBuyPurchasePreflight.OwningViewAvailabilityUnreadable;
             if (!viewAvailable)
                 return AutoBuyPurchasePreflight.OwningViewUnavailable;
 
@@ -450,6 +654,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         int count,
         in AutoBuyLiveCostSnapshot liveCosts)
     {
+        var stop = AutoBuyGroupStop.None;
         var evidence = NativeMutationVerifier.Execute(
             "Auto Buy Structure",
             uuid.ToString(),
@@ -462,11 +667,23 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 accessors.InvokePurchase(source);
                 for (var level = 1; level < count; level++)
                 {
-                    if (ReadLiveGate(AutoBuyCandidateKind.Structure, uuid, lifecycleEpoch, source, accessors) !=
-                            AutoBuyPurchasePreflight.Proceeded ||
-                        !accessors.TryReadAdmission(source, out var admitted) || !admitted ||
-                        accessors.Diagnose(source).HasEnough != AutoBuyAdmissionTerm.Passed)
+                    if (ReadLiveGate(
+                            AutoBuyCandidateKind.Structure,
+                            uuid,
+                            lifecycleEpoch,
+                            source,
+                            accessors,
+                            out _) != AutoBuyPurchasePreflight.Proceeded ||
+                        !accessors.TryReadAdmission(source, out var admitted) || !admitted)
+                    {
+                        stop = AutoBuyGroupStop.NotAdmitted;
                         break;
+                    }
+                    if (accessors.Diagnose(source).HasEnough != AutoBuyAdmissionTerm.Passed)
+                    {
+                        stop = AutoBuyGroupStop.NextLevelUnaffordable;
+                        break;
+                    }
                     accessors.InvokePurchase(source);
                 }
             },
@@ -474,7 +691,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 ? after == before + 1
                 : after > before && after <= before + count);
         return AutoBuyPurchaseSubmission.Attempted(
-            evidence, requestedLevels: count, in liveCosts);
+            evidence, requestedLevels: count, in liveCosts, stop);
     }
 
     private static AutoBuyPurchaseSubmission SubmitUpgrade(
@@ -489,21 +706,38 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         // scope restores the operator's value afterwards; if it cannot guarantee that, no mutation
         // is attempted. The call commits between one and `count` levels (the game may afford fewer):
         // any committed level is a success, only zero is a failure.
-        if (!NativeMultiBuyScope.TryEnter(count, out var scope, out _))
-            return AutoBuyPurchaseSubmission.Rejected(AutoBuyPurchasePreflight.SingleBuyUnavailable);
+        if (!NativeMultiBuyScope.TryEnter(count, out var scope, out var scopeReason))
+        {
+            return AutoBuyPurchaseSubmission.Rejected(
+                AutoBuyPurchasePreflight.SingleBuyUnavailable,
+                $"The suite could not set the game's multi-buy multiplier to {count}, so no " +
+                $"purchase was attempted: {scopeReason}.");
+        }
 
+        NativeMutationEvidence<int> evidence;
         using (scope)
         {
-            var evidence = NativeMutationVerifier.Execute(
+            evidence = NativeMutationVerifier.Execute(
                 "Auto Buy Upgrade",
                 uuid.ToString(),
                 $"GetQueuedPurchaseLevel delta in [1, {count}]",
                 () => accessors.ReadQueuedLevel(source),
                 () => accessors.InvokePurchase(source),
                 (before, after) => after > before && after <= before + count);
-            return AutoBuyPurchaseSubmission.Attempted(
-                evidence, requestedLevels: count, in liveCosts);
         }
+
+        // The game's loop breaks inside Purchase() and tells nobody which of its own conditions bit,
+        // so the suite has no reason to give and will not invent one. What it can still read is what
+        // the level after this press now costs — the same list the game's next press will gate on —
+        // and that is the fact the settled answer offers in place of a cause.
+        var stoppedShort = evidence.HasBefore && evidence.HasAfter &&
+            evidence.After - evidence.Before < count;
+        return AutoBuyPurchaseSubmission.Attempted(
+            evidence,
+            requestedLevels: count,
+            in liveCosts,
+            AutoBuyGroupStop.None,
+            stoppedShort ? accessors.ReadLiveCosts(source) : default);
     }
 
     // The native StructureSO.All / UpgradeSO.All membership is constant after game start (only

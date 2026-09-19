@@ -6,8 +6,6 @@ using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using OrbMentor;
 #if SERVICE_CYCLE_PROFILE
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using OrbAutomata.GameMcp;
 #endif
 
@@ -224,36 +222,51 @@ internal sealed class BepInExAutomataConfiguration
         string section,
         string key,
         string serializedValue,
-        out string reason)
+        out string reason,
+        out GameMcpConfigurationBound bound)
     {
+        bound = GameMcpConfigurationBound.None;
         var entries = GameMcpWritableEntries();
         ConfigEntryBase? selected = null;
         for (var index = 0; index < entries.Length; index++)
         {
             var definition = entries[index].Definition;
-            if (!string.Equals(definition.Section, section, StringComparison.Ordinal) ||
-                !string.Equals(definition.Key, key, StringComparison.Ordinal))
+
+            // A write is resolved against the address the schema published, not the one the file
+            // holds, so a name this surface no longer answers to cannot reach an entry by matching
+            // the file behind it.
+            GameMcpConfigurationAddress.OnTheWire(
+                definition.Section,
+                definition.Key,
+                out var entrySection,
+                out var entryKey);
+            if (!string.Equals(entrySection, section, StringComparison.Ordinal) ||
+                !string.Equals(entryKey, key, StringComparison.Ordinal))
                 continue;
             selected = entries[index];
             break;
         }
         if (selected is null)
         {
-            reason =
-                "setting " + section + "/" + key +
-                " is not in the perf-debug MCP allowlist; compatibility acknowledgements, " +
-                "emergency state, and key bindings use dedicated authorities";
+            reason = GameMcpConfigurationAddress.IsRetired(section, key, out var retired)
+                ? retired
+                : "setting " + section + "/" + key +
+                    " is not in the perf-debug MCP allowlist; compatibility acknowledgements, " +
+                    "emergency state, and key bindings use dedicated authorities";
             return false;
         }
         if (!GameMcpConfigurationValuePolicy.TryValidate(
                 selected,
                 serializedValue,
-                out reason))
+                out reason,
+                out bound))
             return false;
 
         try
         {
-            selected.SetSerializedValue(serializedValue ?? string.Empty);
+            selected.SetSerializedValue(
+                GameMcpConfigurationValuePolicy.NativeSerializedValue(
+                    selected.SettingType, serializedValue ?? string.Empty));
             reason = string.Empty;
             return true;
         }
@@ -268,27 +281,38 @@ internal sealed class BepInExAutomataConfiguration
         }
     }
 
-    internal string CaptureGameMcpWritableSettings()
+    internal GameMcpWritableSettingDescriptor[] CreateGameMcpWritableSchema()
     {
-        var result = new JArray();
         var entries = GameMcpWritableEntries();
+        var result = new GameMcpWritableSettingDescriptor[entries.Length];
         for (var index = 0; index < entries.Length; index++)
         {
             var entry = entries[index];
-            result.Add(new JObject
-            {
-                ["section"] = entry.Definition.Section,
-                ["key"] = entry.Definition.Key,
-                ["settingType"] = entry.SettingType.FullName ?? entry.SettingType.Name,
-                ["serializedValue"] = entry.GetSerializedValue(),
-                ["description"] = entry.Description.Description ?? string.Empty,
-                ["constraints"] = GameMcpConfigurationValuePolicy.Describe(entry),
-            });
+            GameMcpConfigurationAddress.OnTheWire(
+                entry.Definition.Section,
+                entry.Definition.Key,
+                out var section,
+                out var key);
+            result[index] = new GameMcpWritableSettingDescriptor(
+                section,
+                key,
+                GameMcpConfigurationValuePolicy.SettingTypeWord(entry.SettingType),
+                entry.Description.Description ?? string.Empty,
+                GameMcpConfigurationValuePolicy.Describe(entry));
         }
-        return result.ToString(Formatting.None);
+        return result;
     }
 
-    private ConfigEntryBase[] GameMcpWritableEntries() =>
+    private ConfigEntryBase[] GameMcpWritableEntries()
+    {
+        var entries = new System.Collections.Generic.List<ConfigEntryBase>(SuiteWritableEntries());
+        // Orb Mentor is one of the same seven on/off buttons and belongs on the same writable
+        // surface; it lives on the attached mentor binding rather than on this one.
+        if (_mentor is not null) entries.Add(_mentor.Mode);
+        return entries.ToArray();
+    }
+
+    private ConfigEntryBase[] SuiteWritableEntries() =>
         new ConfigEntryBase[]
         {
             Enabled,

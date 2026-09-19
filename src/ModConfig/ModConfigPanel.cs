@@ -337,6 +337,8 @@ internal sealed class ModConfigPanel : IDisposable
             .Select(page => page.Label)
             .ToArray();
 
+    internal int SelectedPageIndexForGameMcp => _selectedTopPageIndex;
+
     internal bool TrySelectPageForGameMcp(int index, out string reason)
     {
         var pages = ModConfigTopNavigation.Build(_catalog, _dashboard.AttentionCount);

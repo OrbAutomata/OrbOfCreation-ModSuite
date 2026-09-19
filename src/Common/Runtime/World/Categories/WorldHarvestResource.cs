@@ -44,8 +44,8 @@ internal sealed class WorldHarvestResourceBinder
 /// publish it as something the game treats it as not being.
 /// </para>
 /// <para>
-/// The identity is the resource's own, because identity is claimed once across every category and the
-/// element has already claimed its own. That identity is fresh each session: an instance created at
+/// The identity is the resource's own, because a row stands under the entity it describes and the
+/// element's own row already stands under the element's. That identity is fresh each session: an instance created at
 /// runtime takes the <c>Guid.NewGuid()</c> its field initialiser produces, with no serialized value to
 /// restore. It is therefore a key within one snapshot's lifetime and not a name anything may persist —
 /// <see cref="ElementId"/> is the stable way to refer to one of these.

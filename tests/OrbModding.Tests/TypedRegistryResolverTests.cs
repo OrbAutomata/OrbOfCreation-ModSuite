@@ -208,10 +208,10 @@ public sealed class TypedRegistryResolverTests
         var nearField = typeof(NearMatchRegistryContract).GetField("RuntimeLookup", publicDeclared);
         var hiddenMethod = typeof(HiddenIdentityContract).GetMethod("GetGuid", publicDeclared, null, Type.EmptyTypes, null);
 
-        Assert.True(TypedRegistryResolver.HasExactRuntimeLookupContract(exactField, typeof(IdScriptableObject)));
-        Assert.True(TypedRegistryResolver.HasExactGetGuidContract(exactMethod, typeof(IdScriptableObject)));
-        Assert.False(TypedRegistryResolver.HasExactRuntimeLookupContract(nearField, typeof(NearMatchRegistryContract)));
-        Assert.False(TypedRegistryResolver.HasExactGetGuidContract(hiddenMethod, typeof(IdScriptableObject)));
+        Assert.True(RuntimeIdentityRegistryBinding.HasExactRuntimeLookupContract(exactField, typeof(IdScriptableObject)));
+        Assert.True(RuntimeIdentityRegistryBinding.HasExactGetGuidContract(exactMethod, typeof(IdScriptableObject)));
+        Assert.False(RuntimeIdentityRegistryBinding.HasExactRuntimeLookupContract(nearField, typeof(NearMatchRegistryContract)));
+        Assert.False(RuntimeIdentityRegistryBinding.HasExactGetGuidContract(hiddenMethod, typeof(IdScriptableObject)));
     }
 
     [Fact]

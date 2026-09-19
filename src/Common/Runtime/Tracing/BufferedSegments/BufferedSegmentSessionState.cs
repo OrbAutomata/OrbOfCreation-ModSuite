@@ -99,6 +99,18 @@ internal sealed class BufferedSegmentSessionState<TRecord> where TRecord : struc
             (int)BufferedSegmentStatus.Faulted,
             (int)BufferedSegmentStatus.Faulting);
 
+    /// <summary>
+    /// Ends a producer's own stop as a stop rather than a fault when every accepted record reached
+    /// storage, dropping the fault it latched so status, metrics, and the manifest agree.
+    /// </summary>
+    internal bool TryPublishStoppedWithoutLoss()
+    {
+        if (!StoppedWithoutLoss()) return false;
+        Volatile.Write(ref _fault, null);
+        Interlocked.Exchange(ref _status, (int)BufferedSegmentStatus.Stopped);
+        return true;
+    }
+
     internal void RecordAccepted() => Interlocked.Increment(ref _acceptedRecords);
 
     internal void RecordSealed()
@@ -132,12 +144,41 @@ internal sealed class BufferedSegmentSessionState<TRecord> where TRecord : struc
     internal BufferedSegmentCompletion Completion(bool complete)
     {
         var fault = complete ? null : Volatile.Read(ref _fault);
+        if (fault is not null && LostNothing(fault))
+        {
+            complete = true;
+            fault = null;
+        }
         return new BufferedSegmentCompletion(
             complete,
             fault?.Reason ?? BufferedSegmentFaultReason.None,
             Interlocked.Read(ref _acceptedRecords),
             Interlocked.Read(ref _writtenRecords),
             fault?.FirstIncompleteSequence ?? 0);
+    }
+
+    /// <summary>
+    /// Whether the latched fault is the producer's own stop and nothing was lost to it.
+    /// </summary>
+    /// <remarks>
+    /// A producer that stops because the runtime is going away seals and publishes its partial block
+    /// before latching, so the drain that follows makes every accepted record durable. Reporting that
+    /// session as truncated cost a 43-minute capture its credibility: the manifest read
+    /// <c>Incomplete</c> with a first-missing sequence one past the last record it had actually
+    /// written, which the next reader has to disprove by arithmetic before trusting a single number.
+    /// The reason is checked as well as the counts, because a session that exhausted its buffers or
+    /// its sequence space also ends with everything it accepted on disk — and there the equal counts
+    /// mean the sink started refusing records, which is exactly the truncation this word exists to
+    /// report.
+    /// </remarks>
+    private bool LostNothing(BufferedSegmentFault fault) =>
+        fault.Reason == BufferedSegmentFaultReason.ProducerStopped &&
+        Interlocked.Read(ref _acceptedRecords) == Interlocked.Read(ref _writtenRecords);
+
+    internal bool StoppedWithoutLoss()
+    {
+        var fault = Volatile.Read(ref _fault);
+        return fault is not null && LostNothing(fault);
     }
 
     internal BufferedSegmentMetrics Metrics()

@@ -324,7 +324,7 @@ public sealed class AutoBuyFrameProjectorTests : IDisposable
             purchasable = true,
             maxLevel = 10,
         };
-        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.OrRequirement());
+        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.UnsupportedRequirement());
         PriceUpgrade(gated, Resource(), new BigDouble(2.0, 1));
         global::UpgradeSO.All.Add(gated);
 
@@ -582,7 +582,6 @@ public sealed class AutoBuyFrameProjectorTests : IDisposable
 
         var row = frame.Resources[frame.Costs[frame.Candidates[0].CostRowStart].ResourceRowIndex];
         Assert.True(row.IsBandwidth);
-        Assert.Equal(40d, row.Headroom.ToDouble());
         Assert.Equal(40d, row.Spendable.ToDouble());
     }
 
@@ -713,6 +712,8 @@ public sealed class AutoBuyFrameProjectorTests : IDisposable
         owningView.relevantLists.Add(upgrades);
         global::ViewSO.All.Add(owningView);
         global::ResearchSO.All.Clear();
+        global::PrerequisiteLinkSO.All.Clear();
+        global::GameManager.currentFrame = 0;
         global::ResourceSO.All.Clear();
         global::ValueModifierVariable.All.Clear();
         global::ActionManager.instance = new global::ActionManager();

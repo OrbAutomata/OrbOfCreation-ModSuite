@@ -17,6 +17,7 @@ public sealed partial class ServiceCycleSemanticRecorder
     private readonly ServiceCycleSemanticAdmissionEmitter _admission;
     private readonly ServiceCycleSemanticEvaluationEmitter _evaluation;
     private readonly ServiceCycleSemanticBatchEmitter _batches;
+    private readonly ServiceCycleSemanticWorldEmitter _world;
     private readonly ServiceCycleSemanticFrameCursor _frame = new();
 
     public ServiceCycleSemanticRecorder(
@@ -43,6 +44,7 @@ public sealed partial class ServiceCycleSemanticRecorder
         _admission = new ServiceCycleSemanticAdmissionEmitter(_writer, _frame, enabled);
         _evaluation = new ServiceCycleSemanticEvaluationEmitter(_writer, enabled);
         _batches = new ServiceCycleSemanticBatchEmitter(_writer, _frame, enabled);
+        _world = new ServiceCycleSemanticWorldEmitter(_writer, enabled);
         Enabled = enabled;
     }
 

@@ -116,12 +116,21 @@ internal sealed class BufferedServiceCycleProfileSink : IDisposable
         _sink.Stop();
     }
 
+    /// <summary>
+    /// Stops the session and waits, bounded, for its writer to publish.
+    /// </summary>
+    /// <remarks>
+    /// A profiling session hands its whole payload to the transport during its stop, so disposal is
+    /// where every one of its segments and its manifest is written. Returning the moment the stop was
+    /// signalled left all of it racing the host's exit.
+    /// </remarks>
     public void Dispose()
     {
         if (!_stopRequested && _sink.Metrics().Status is
             BufferedSegmentStatus.Initializing or BufferedSegmentStatus.Running)
             Stop(ServiceCycleProfileTerminalReason.RuntimeShutdown);
         _sink.Dispose();
+        _sink.WaitForWriterExit(BufferedSegmentShutdown.DrainBound);
     }
 
     private static ServiceCycleProfileSinkState State(BufferedSegmentStatus status) => status switch

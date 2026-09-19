@@ -133,5 +133,7 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
         in SuiteRuntimeConfiguration config,
         in ServiceActionContext context) =>
         _actions.TryExecuteGameMcp(in action, in config, in context);
+
+    internal AutoCastSubmission LastGameMcpSubmission => _actions.LastSubmission;
 #endif
 }

@@ -36,17 +36,17 @@ internal sealed partial class AutoHarvestBindingResolver
             var plot = Resolve(
                 specification.Plot.Uuid,
                 _types!.Plot,
-                specification.Plot.DiagnosticName,
+                EntityIdentityFormatter.Format(specification.Plot.Uuid),
                 out var plotResolution);
             var action = Resolve(
                 specification.Action.Uuid,
                 _types.Action,
-                specification.Action.DiagnosticName,
+                EntityIdentityFormatter.Format(specification.Action.Uuid),
                 out var actionResolution);
             var reward = Resolve(
                 specification.RewardPool.Uuid,
                 _types.RewardPool,
-                specification.RewardPool.DiagnosticName,
+                EntityIdentityFormatter.Format(specification.RewardPool.Uuid),
                 out var rewardResolution);
             RequireCurrentGeneration(
                 _shared!.LifecycleGeneration,

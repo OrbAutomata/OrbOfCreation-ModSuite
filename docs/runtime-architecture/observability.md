@@ -14,8 +14,9 @@ document wins wherever this one drifts from it.
    sharing budget with the newest decision-journal segments. It does not arm a recorder or ask the
    player to reproduce the problem.
 2. **Decision log** — always on, high signal, low noise: lifecycle boundaries, strategy changes,
-   configuration saves, emergency stops, service health transitions, and one compact sentinel per
-   attempted action rather than accounting summaries. The
+   configuration saves, emergency stops, service health transitions, the one-line-per-run
+   announcement of the purchase-screen topology every purchase is admitted against, and one compact
+   sentinel per attempted action rather than accounting summaries. The
    mandate is that the suite — BepInEx's own logs included — keeps at most ~100 MB on disk however long
    it runs unattended. The journal has a 64 MiB envelope and routine action success/no-op narration
    is absent; BepInEx still owns `LogOutput.log` retention, so the combined mandate is not a hard
@@ -62,9 +63,10 @@ roughly nine minutes of pending data. Exhausting every empty block is an explici
 (`AcceptedAndBufferExhausted`, faulting at the next sequence, with the accepted record never retried),
 not a reason to block gameplay or grow memory without bound. Backpressure, overwrite, or storage
 failure stops only the affected session, commits explicit incomplete or gap evidence where possible,
-and never changes gameplay. Unity never waits for diagnostics, telemetry, or I/O, and Orb Mod Config
-only invokes each mode's neutral control port and renders status — it never owns a pump, worker,
-exporter, or filesystem path.
+and never changes gameplay. No frame ever waits for diagnostics, telemetry, or I/O; the one place the
+suite waits at all is its own teardown, where each writer gets a single bounded chance to publish what
+it is already holding (see **Artifacts**). Orb Mod Config only invokes each mode's neutral control port
+and renders status — it never owns a pump, worker, exporter, or filesystem path.
 
 ## Mode 1: bug-report bundle
 
@@ -104,6 +106,39 @@ from a host control transition between frames — an emergency stop rejecting li
 frame and says so by carrying none. Frame zero is legal, so absence is the field's absence and never a
 zero value.
 
+### World-collection spans
+
+Collection is the suite's largest main-thread cost and the only capture whose cost is a distribution
+rather than a number: one pass is sixty-odd readers, and the pass total says nothing about which of
+them moved. A recording session therefore appends one `WorldCategoryCollected` record per category
+per pass, carrying the category identity, what that pass spent on it, how many rows it sampled, and
+how many categories the pass reported. The durations are the ones the collector already measures —
+the wire converts them to the hundred-nanosecond ticks every other duration on it uses and adds no
+second measurement, so a reused structural category charges the pass that read it and nothing to the
+passes that reused it. That zero is the fact, not a gap.
+
+The records are an appended kind on the existing wire rather than a second artifact: the segment
+consumer requires contiguous semantic sequences, so anything sharing a session's segments has to come
+from the one ring that allocates them, and every capture written before the kind existed still reads
+without change. The pass width each span carries is the reconciliation denominator — a pass showing
+fewer spans than the categories it reported is named in the reader rather than silently
+under-counted, because a session that ended `Incomplete` truncates its last pass legitimately.
+
+Emission is gated on a recording session exactly like every other record: with no session attached,
+an observed pass returns before it builds anything, so the four-times-a-second path in an ordinary
+build carries a null check and no allocation. The category names come from the collector itself,
+written into the session roster as `world-category` rows, so a category added to the collector is
+named by that alone and no second table can drift from it.
+
+A recording is not the only way to read the distribution's newest point. The per-category cost of the
+pass that produced the published world travels on that publication, and `trace_health` serves it —
+so a session driving the game reads where a pass went without recording a trace, stopping to open a
+dashboard, or being able to reach either. It is one pass: the fold over many is the recording's, and
+this publishes what is already measured rather than growing a second accumulator to duplicate it.
+`trace_health` names each category with the `world_categories` page name, because a reader holding a
+cost line goes to that page next; the recording roster keeps the collector's own names, because a
+record is read against the collector that wrote it.
+
 ### Artifacts
 
 Format v1 publishes `segment-{ordinal}.oscs` files with a 96-byte header, at most 3,640 unchanged
@@ -117,6 +152,27 @@ directory, flushes each file under a temporary name, then publishes it with a no
 Ordinals are dense, sessions are never resumed or pruned automatically, and initialization or
 manifest-publication failure leaves the durable segments unmodified with no manifest — there is no
 recovery path that fabricates terminal evidence.
+
+**A session that ends at process exit is drained, not raced.** The writer thread is a background
+thread, so exit kills it wherever it stands; a teardown that only signalled its stop left the last
+segments and the whole manifest to a race, and a profiling session — which hands its entire payload
+over during that stop — usually lost it. Each teardown therefore waits up to two seconds for its own
+writer, and the writer publishes the same complete or incomplete manifest it would have published at
+any other ending. The wait is bounded and the thread stays a background thread, so a writer wedged in
+a storage call can never hold the game's quit. When the bound expires nothing is written from the
+teardown: a manifest invented there could overwrite the well-formed one the writer is still
+committing, so the session keeps the shape an interrupted capture has always had — segments with no
+manifest — and the suite logs, by name, the session whose drain outlived its bound.
+
+**Completeness is about loss, not about which door the session left by.** A producer that stops
+because the runtime is going away seals and publishes its partial block first, so the drain behind it
+makes every accepted record durable; that session publishes `Complete` with no first-missing sequence
+and reports its terminal reason as the shutdown it was. Equal accepted and durable counts alone do not
+earn the word: a session that exhausted its buffers or its sequence space also ends with everything it
+accepted on disk, and there the equality means the sink began refusing records, which is the
+truncation `Incomplete` exists to report. Faulting a clean shutdown cost one 43-minute capture its
+credibility — it read `Incomplete` at a first-missing sequence one past its own last record, a
+contradiction only the offline tool could see and only arithmetic could dismiss.
 
 **Generation-keyed publication stores.** The semantic stream says which generation a cycle decided
 against, not what that generation held. A recording session writes `configuration-<generation>.oscv`
@@ -132,7 +188,9 @@ store write stops storing and does not stop the recording.
 nothing, so a recording writes `roster.oscr` once, before the manifest seals the session — UTF-8, a
 header line of `OSCR <version> <count>` and `<kind> <identity> <machine-id> = <display name>` rows.
 Rows are kinded rather than assumed to be services, because the same question is coming for the
-configuration and strategy publications. A service with no display name keeps its registered identity
+configuration and strategy publications — world-collection categories already use the second kind,
+and their machine identity is a phrase with spaces in it, so that field takes whatever is left of the
+row before the separator. A service with no display name keeps its registered identity
 rather than being left out, so an unnamed feature reads as `orbautomata.auto-agromancy` — true, and
 visibly missing a name — instead of "Service 4", which would look finished while saying nothing. A
 roster that cannot be written or parsed costs the names and nothing else. The profiling trace and the
@@ -228,12 +286,76 @@ There is deliberately no configuration toggle for the normal journal, and no res
 
 ## Other owned output paths
 
+Suite shutdown says once that it is stopping automation and leaving it stopped. The runtime engages
+the emergency stop as it tears down, deliberately as a non-clearable shutdown episode so that a
+resume cannot revive a disposed runtime, which leaves `EmergencyEntered` as the last event of every
+recording with no `EmergencyCleared` behind it — indistinguishable, to a reader, from a suite that
+died mid-run. The event has always carried its reason on the wire in its code field; the log now
+carries it in words.
+
+Every game lifecycle transition writes one line naming the epoch it produced, the kind of transition,
+the scene, the source that reported it, and the frame. The log is where that reason has to land: the
+suite invalidates every native reference on the epoch number alone, and the number is all the trace
+can carry, since its records are numeric and a scene name and a source are strings. Without it,
+naming the prestige behind one mid-session epoch change took a purchase-topology line, two
+independent clock anchors, and a file timestamp. A field with no fact reads `unnamed` rather than
+empty, so an absent fact cannot be mistaken for a broken line.
+
+A full-trace session names itself in the log at both ends: one line when it starts, carrying the
+session id and the run-relative path it is writing to, and one when it closes, carrying the records it
+had taken. The closing line exists because shutdown is the one boundary no tick follows — the writer
+publishes its manifest on its own thread afterwards and Unity does not wait for it — so a completeness
+line alone left one 43-minute capture without a single word about itself anywhere in the log, and
+pairing it to that log took two independent clock anchors and a file mtime.
+
+Each completed Game MCP operation writes one ledger line naming the verb, the disposition, its own
+duration, and the frame it finished on. The frame is what makes the line correlatable: pump and
+capture records carry the same counter, so a line resolves to an exact trace offset rather than
+needing a wall-clock anchor. The code appears beside the disposition only when it says something the
+disposition does not, and the reason only when there is one; a refusal is written as a sentence and
+the line does not double its full stop.
+
+Every operation, not only the ones that mutate. A read drew an operation number and wrote no
+completion, so the sequence had holes in it and what a read cost was answerable on no surface — one
+session sized a two-hundred-id batch by watching the frame counter against a wall clock. A line for
+an operation the frame answered itself carries two things a mutation's does not: a summary of what
+was asked for — the category, the page, the filters, and the number of ids, never the ids
+themselves — and how much came back, as rows when the answer is a page and bytes when it is text. An
+answer that is one block claims no size rather than inventing one. Commands answered inside their
+claiming frame are written here too and keep the mutation vocabulary; a command that leaves its
+frame is written when it completes, so nothing is written twice.
+
 The suite does not use `LogOutput.log` as an action ledger. Verified successes and ordinary preflight
 no-actions emit no per-action line; the action journal and Runtime outcome projection own those facts.
 A submitted mutation whose postcondition does not hold emits one warning. Lifecycle/startup/shutdown
 messages remain, and an actual adapter failure or native refusal emits one actionable line with stable
 identity and reason. Auto Buy's classified refusal responder owns the `NotAdmissible` line so narration
 cannot duplicate it.
+
+World collection announces what a pass managed when the answer changes, and the sampled population is
+part of that answer: a healthy pass repeats only while its entity count stays within a tenth of the
+last announced one. The band is measured against what was last spoken rather than bucketed against
+fixed boundaries, so ordinary play drifts quietly and a prestige, save load, or vanished category
+speaks immediately. Keying a healthy pass on completeness alone kept this line silent through a
+session that went from 6,683 entities to 4,051.
+
+Each pass is timed per category and the announce says where the time went: the total, the three
+dearest categories by name with their milliseconds, and the remainder as one figure so the named
+three are never read as the whole pass. A category read once per lifecycle epoch is charged to the
+pass that read it and to no pass that skipped it, so a collection's cost is the sum of its
+categories. The per-category figure travels on the published world too, beside the availability
+evidence for the same category, because what a category cost is a fact about the collection that
+produced the world. Cost stays out of the announce key: collection runs four times a second and no
+two passes cost the same, so a key carrying it would announce every pass. The profile artifact still
+times the pass as a single span — attribution within it belongs to the collector, because nothing
+outside the reader loop can say which category the time went on.
+
+The announce and the offline per-category view both stay, and they answer different questions. The
+announce speaks when the population moves and says what that pass cost, which is what a player's log
+can carry without becoming a stream; the dashboard speaks over a whole session and says what a
+category costs across hundreds of passes, which is the only form in which a spike is visible at all.
+Neither derives the other: three named categories in one pass cannot be averaged, and a session
+average cannot say which pass was the expensive one.
 
 Auto Buy affordability drift remains a loud refusal but does not synchronously render or write a
 bundle. Structural contradictions that disable the feature retain a full text bundle under
@@ -304,7 +426,11 @@ reachable from a full-trace session.
   ordering, and the terminal manifest fences, holding at most one bounded segment at a time so memory
   does not limit session duration. A missing manifest is reported as `Interrupted` over the validated
   durable prefix and never promoted to complete. Names come from the session roster when the capture
-  wrote one; a capture without one is reported under its numbers rather than having names inferred.
+  wrote one; a capture without one is reported under its numbers rather than having names inferred. A
+  final view folds the collection spans into one row per category — passes, total, average, median,
+  worst, and the sampled counts that explain a change in cost — sorted by total so the first row read
+  is the one worth attacking. The spans stay out of the event timeline they would otherwise be, since
+  the aggregate is the form they answer in.
 - **`--journal <journal-directory> [report.md]`** selects an explicit third decoder route and never
   sniffs or falls through to the OSCS parser. Persistent ordinals must be contiguous; record sequences
   must be contiguous within a run; every adjacent later run begins at sequence one; and a run identity
@@ -319,7 +445,23 @@ reachable from a full-trace session.
   strict readers, selects the newest retained journal run, clips its decision spans to the full-trace
   window, and calibrates profile raw timestamps onto the Common monotonic clock, writing one JSON
   dataset and an HTML viewer. Correlation stays a presentation concern: the three formats, writers,
-  terminal states, and failure boundaries remain independent runtime products.
+  terminal states, and failure boundaries remain independent runtime products. A cycle is identified
+  by service, lifecycle, and cycle id together, because cycle ids restart at one in every lifecycle
+  and the pair alone let a later lifecycle overwrite an earlier one row for row. Every cycle the
+  trace says started is reconciled against the rows that kept a start, and a shortfall fails the read
+  rather than rendering a table a quarter short. The page carries the same per-category collection
+  view, and it is whole-trace rather than clipped to the window the other panels use: a structural
+  category is charged by a handful of passes in a session, and a window narrow enough to be
+  interesting would show it as free. A pass carrying fewer spans than the categories it reported is
+  named rather than quietly under-counted, in both readers — a session that ended incomplete
+  truncates its last pass legitimately, and more than one short pass is records lost.
+
+Each pump row carries the frame's own wall time beside the suite's cost inside it, differenced from
+the previous pump record. That figure is the denominator of every honest statement about what the
+suite costs — duty cycle, what share of a collection frame is ours, and whether an expensive capture
+landed in a frame that was already slow — and recovering it by hand from consecutive offsets is work
+two separate analyses each did. The first pump of a session has no predecessor and carries no ambient
+time rather than a zero.
 
 The viewer is organised by service rather than by phase: an overview page spends the pump frame as a
 stacked bar per frame — response, capture, action, and whatever the pump measured but did not attribute

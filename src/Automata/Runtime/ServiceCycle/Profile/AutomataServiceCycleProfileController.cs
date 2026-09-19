@@ -7,6 +7,7 @@ using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile.Control;
 using OrbModding.Common.Runtime.Tracing;
+using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 
 namespace OrbAutomata.Runtime.ServiceCycle.Profile;
 
@@ -100,14 +101,43 @@ internal sealed class AutomataServiceCycleProfileController : IDisposable
         _disposed = true;
         try
         {
-            if (_session is not null && !_stopRequested)
+            var session = _session;
+            if (session is not null && !_stopRequested)
                 Stop(ServiceCycleProfileTerminalReason.RuntimeShutdown);
-            _session?.Dispose();
+            session?.Dispose();
+            if (session is not null) ReportShutdown(session);
         }
         finally
         {
             _control.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Says whether the session that ended at shutdown is readable, once its writer has been waited
+    /// for.
+    /// </summary>
+    /// <remarks>
+    /// A profiling session writes everything it has during its stop, and the stop line above promises
+    /// only that the writer started. The manifest is what makes the session readable, so the one word
+    /// worth saying at shutdown is whether it exists.
+    /// </remarks>
+    private void ReportShutdown(ServiceCycleProfileRuntimeSession session)
+    {
+        if (_terminalLogged) return;
+        _terminalLogged = true;
+        if (session.ManifestCommitted)
+        {
+            _log.LogInfo(
+                $"ServiceCycle performance profile {_artifactName} is durable at shutdown " +
+                $"({session.Snapshot.WrittenRecords} records, {session.Snapshot.BytesWritten} bytes); " +
+                "files are under " + AutomataTraceRunRoot.FormatRelativePath("profile") + "/.");
+            return;
+        }
+        _log.LogWarning(
+            $"ServiceCycle performance profile {_artifactName} published no manifest within " +
+            $"{BufferedSegmentShutdown.DrainBound.TotalSeconds}s of shutdown; its session directory " +
+            "must be read as interrupted.");
     }
 
     private void Apply(PerformanceProfileCommand command)

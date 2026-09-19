@@ -17,13 +17,15 @@ internal readonly struct WorldCollectionCategoryStatus
         WorldCategoryOutcome outcome,
         int sampled,
         int skipped,
-        string firstFailure)
+        string firstFailure,
+        long elapsedTicks = 0)
     {
         Category = category;
         Outcome = outcome;
         Sampled = sampled;
         Skipped = skipped;
         FirstFailure = firstFailure;
+        ElapsedTicks = elapsedTicks;
     }
 
     internal string Category { get; }
@@ -31,6 +33,18 @@ internal readonly struct WorldCollectionCategoryStatus
     internal int Sampled { get; }
     internal int Skipped { get; }
     internal string FirstFailure { get; }
+
+    /// <summary>
+    /// Raw <see cref="System.Diagnostics.Stopwatch"/> ticks the pass that published this world spent
+    /// reading this category.
+    /// </summary>
+    /// <remarks>
+    /// What a category cost is a fact about the collection that produced the world, and it travels
+    /// with the world for the same reason its availability does: a reader holding the snapshot can
+    /// say where the pass went without a second artifact and without inferring it from a total.
+    /// </remarks>
+    internal long ElapsedTicks { get; }
+
     internal bool IsClean => Outcome == WorldCategoryOutcome.Collected && Skipped == 0;
 
     internal static PublicationTable<WorldCollectionCategoryStatus> Build(
@@ -48,7 +62,8 @@ internal readonly struct WorldCollectionCategoryStatus
                 category.Outcome,
                 category.Sampled,
                 category.Skipped,
-                category.FirstFailure);
+                category.FirstFailure,
+                category.ElapsedTicks);
         }
         return PublicationTable<WorldCollectionCategoryStatus>.Create(rows, rows.Length);
     }

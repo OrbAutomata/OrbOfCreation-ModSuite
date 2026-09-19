@@ -4,6 +4,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Roster;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Outcomes;
+using OrbModding.Common.Runtime.ServiceCycle.Observation.WorldCollection;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing.Emission;
@@ -63,7 +64,9 @@ internal sealed class AutomataServiceCycleHost : IDisposable
         _serviceCapacity = registry.OrdinalCount;
         // Read before the seal, while every registration is present and nothing can add another: this
         // is the one moment the suite knows its whole roster.
-        _roster = AutomataServiceCycleTraceRoster.Build(registry);
+        _roster = AutomataServiceCycleTraceRoster.Build(
+            registry,
+            WorldCollectionSpanRegistry.Shared.Categories);
         registry.Seal();
         _pump = new SuiteFramePump(
             registry,

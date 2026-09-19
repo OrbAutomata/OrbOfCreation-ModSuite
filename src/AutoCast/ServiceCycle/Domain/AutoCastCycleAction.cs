@@ -2,7 +2,7 @@ using System;
 
 namespace OrbAutomata;
 
-/// <summary>Which of the two things Auto Cast asks the game to do.</summary>
+/// <summary>Which spell-button operation the shared cast boundary asks the game to do.</summary>
 internal enum AutoCastActionKind
 {
     /// <summary>
@@ -14,6 +14,9 @@ internal enum AutoCastActionKind
 
     /// <summary>Let go of a full-charge hold this service is holding.</summary>
     ReleaseCharge = 1,
+
+    /// <summary>Press an active toggle spell's native cast button again to turn it off.</summary>
+    ToggleOff = 2,
 }
 
 /// <summary>
@@ -83,9 +86,11 @@ internal readonly struct AutoCastCycleAction
         int slotIndex,
         Guid spellRecipeId,
         long collectedAtEpoch,
-        AutoCastPlanBelief belief)
+        AutoCastPlanBelief belief,
+        bool chargeHold = false)
     {
-        if (kind is not (AutoCastActionKind.Fire or AutoCastActionKind.ReleaseCharge))
+        if (kind is not (AutoCastActionKind.Fire or AutoCastActionKind.ReleaseCharge or
+            AutoCastActionKind.ToggleOff))
             throw new ArgumentOutOfRangeException(nameof(kind));
         if (slotIndex < 0)
             throw new ArgumentOutOfRangeException(
@@ -95,6 +100,7 @@ internal readonly struct AutoCastCycleAction
         SpellRecipeId = spellRecipeId;
         CollectedAtEpoch = collectedAtEpoch;
         Belief = belief;
+        ChargeHold = chargeHold;
     }
 
     public AutoCastActionKind Kind { get; }
@@ -111,6 +117,16 @@ internal readonly struct AutoCastCycleAction
 
     /// <summary>What the planner believed about the slot when it chose it.</summary>
     public AutoCastPlanBelief Belief { get; }
+
+    /// <summary>
+    /// Whether the caller asked for this fire to be held at charge rather than released at once.
+    /// </summary>
+    /// <remarks>
+    /// The service decides charging from its own configuration and what the snapshot said the spell
+    /// could do. A caller pressing the button through the MCP holds that choice itself, so the ask
+    /// travels with the action instead of being inferred from a setting the caller never set.
+    /// </remarks>
+    public bool ChargeHold { get; }
 
     /// <summary>
     /// The lifecycle epoch the world this cast was planned from was collected under.

@@ -23,8 +23,6 @@ internal sealed class AutoItemsTemporaryItemCatalogBindings
         FieldInfo families,
         MethodInfo itemGuid,
         MethodInfo familyGuid,
-        MethodInfo getName,
-        MethodInfo familyName,
         MethodInfo getIcon)
     {
         ConsumableType = consumableType;
@@ -35,8 +33,6 @@ internal sealed class AutoItemsTemporaryItemCatalogBindings
         Families = families;
         ItemGuid = itemGuid;
         FamilyGuid = familyGuid;
-        GetName = getName;
-        FamilyName = familyName;
         GetIcon = getIcon;
     }
 
@@ -48,8 +44,6 @@ internal sealed class AutoItemsTemporaryItemCatalogBindings
     internal FieldInfo Families { get; }
     internal MethodInfo ItemGuid { get; }
     internal MethodInfo FamilyGuid { get; }
-    internal MethodInfo GetName { get; }
-    internal MethodInfo FamilyName { get; }
     internal MethodInfo GetIcon { get; }
 
     internal static bool TryCreate(
@@ -73,8 +67,6 @@ internal sealed class AutoItemsTemporaryItemCatalogBindings
         var families = consumable.GetField("consumableTypes", AnyInstance);
         var itemGuid = ExactMethod(consumable, "GetGuid", typeof(Guid));
         var familyGuid = ExactMethod(family, "GetGuid", typeof(Guid));
-        var getName = ExactMethod(consumable, "GetName", typeof(string));
-        var familyName = ExactMethod(family, "GetName", typeof(string));
         var getIcon = ExactMethod(consumable, "GetIcon", typeof(Sprite));
 
         if (all?.GetValue(null) is not IEnumerable entries ||
@@ -103,11 +95,6 @@ internal sealed class AutoItemsTemporaryItemCatalogBindings
             reason = "The item or family GetGuid() contract is unavailable.";
             return false;
         }
-        if (getName is null || familyName is null)
-        {
-            reason = "ConsumableSO or ConsumableTypeSO GetName() : String is unavailable.";
-            return false;
-        }
         if (getIcon is null)
         {
             reason = "ConsumableSO.GetIcon() : Sprite is unavailable.";
@@ -123,8 +110,6 @@ internal sealed class AutoItemsTemporaryItemCatalogBindings
             families,
             itemGuid,
             familyGuid,
-            getName,
-            familyName,
             getIcon);
         reason = string.Empty;
         return true;

@@ -32,8 +32,9 @@ internal static class AutoHarvestProfileTestSupport
     /// </summary>
     /// <remarks>
     /// The entities are put into the shared stub registries, collected once, and taken straight back
-    /// out. The snapshot is immutable and outlives them, so no other test class can see the
-    /// registries move — which matters here because these tests do not run alone.
+    /// out. The snapshot is immutable and outlives them, but the window in between is a mutation of
+    /// process-global lists that a whole world is enumerated from, so the class that builds one of
+    /// these belongs to <see cref="NativeRegistryCollection"/>.
     /// </remarks>
     internal sealed class StubbedHarvestWorld
     {

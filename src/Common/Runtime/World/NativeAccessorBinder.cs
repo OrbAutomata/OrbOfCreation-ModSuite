@@ -50,6 +50,24 @@ internal static class NativeAccessorBinder
         return Compile<TValue>(read, source);
     }
 
+    /// <summary>Binds one exact static field read for a frame-wide native fact.</summary>
+    internal static Func<TValue>? StaticField<TValue>(Type? owner, string name)
+    {
+        if (owner is null) return null;
+
+        var field = owner.GetField(name, Static);
+        if (field is null || field.FieldType != typeof(TValue)) return null;
+
+        try
+        {
+            return Expression.Lambda<Func<TValue>>(Expression.Field(null, field)).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Binds a no-argument instance method.</summary>
     internal static Func<object, TValue>? Call<TValue>(Type? owner, string name)
     {
@@ -61,6 +79,263 @@ internal static class NativeAccessorBinder
         var source = Expression.Parameter(typeof(object), "source");
         var call = Expression.Call(Expression.Convert(source, owner), method);
         return Compile<TValue>(call, source);
+    }
+
+    /// <summary>
+    /// Binds a no-argument method whose exact native reference return type is known only at runtime.
+    /// The returned object is consumed inside the collection pass and never enters a publication.
+    /// </summary>
+    internal static Func<object, object?>? CallObject(
+        Type? owner,
+        string name,
+        Type? exactReturnType)
+    {
+        if (owner is null || exactReturnType is null || exactReturnType.IsValueType) return null;
+        var method = owner.GetMethod(name, Instance, null, Type.EmptyTypes, null);
+        if (method is null || method.ReturnType != exactReturnType) return null;
+
+        var source = Expression.Parameter(typeof(object), "source");
+        var call = Expression.Convert(
+            Expression.Call(Expression.Convert(source, owner), method),
+            typeof(object));
+        try
+        {
+            return Expression.Lambda<Func<object, object?>>(call, source).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Binds an exact generic-list-returning method as an <see cref="IList"/>.</summary>
+    internal static Func<object, IList?>? CallList(
+        Type? owner,
+        string name,
+        Type? exactElementType)
+    {
+        if (owner is null || exactElementType is null) return null;
+        var expected = typeof(System.Collections.Generic.List<>).MakeGenericType(exactElementType);
+        var method = owner.GetMethod(name, Instance, null, Type.EmptyTypes, null);
+        if (method is null || method.ReturnType != expected) return null;
+
+        var source = Expression.Parameter(typeof(object), "source");
+        var call = Expression.Convert(
+            Expression.Call(Expression.Convert(source, owner), method),
+            typeof(IList));
+        try
+        {
+            return Expression.Lambda<Func<object, IList?>>(call, source).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Binds a one-argument instance method with exact argument and return types.</summary>
+    internal static Func<object, TArgument, TValue>? Call<TArgument, TValue>(
+        Type? owner,
+        string name)
+    {
+        if (owner is null) return null;
+
+        var method = owner.GetMethod(name, Instance, null, new[] { typeof(TArgument) }, null);
+        if (method is null || method.ReturnType != typeof(TValue)) return null;
+
+        var source = Expression.Parameter(typeof(object), "source");
+        var argument = Expression.Parameter(typeof(TArgument), "argument");
+        var call = Expression.Call(Expression.Convert(source, owner), method, argument);
+        try
+        {
+            return Expression.Lambda<Func<object, TArgument, TValue>>(
+                call,
+                source,
+                argument).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Binds a two-argument instance evaluator with exact managed argument types.</summary>
+    internal static Func<object, TFirst, TSecond, TValue>? Call<TFirst, TSecond, TValue>(
+        Type? owner,
+        string name)
+    {
+        if (owner is null) return null;
+        var method = owner.GetMethod(
+            name,
+            Instance,
+            null,
+            new[] { typeof(TFirst), typeof(TSecond) },
+            null);
+        if (method is null || method.ReturnType != typeof(TValue)) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        var first = Expression.Parameter(typeof(TFirst), "first");
+        var second = Expression.Parameter(typeof(TSecond), "second");
+        var call = Expression.Call(Expression.Convert(source, owner), method, first, second);
+        try
+        {
+            return Expression.Lambda<Func<object, TFirst, TSecond, TValue>>(
+                call, source, first, second).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Binds a one-argument evaluator returning an exact runtime reference type.</summary>
+    internal static Func<object, TArgument, object?>? CallObject<TArgument>(
+        Type? owner,
+        string name,
+        Type? exactReturnType)
+    {
+        if (owner is null || exactReturnType is null || exactReturnType.IsValueType) return null;
+        var method = owner.GetMethod(
+            name,
+            Instance,
+            null,
+            new[] { typeof(TArgument) },
+            null);
+        if (method is null || method.ReturnType != exactReturnType) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        var argument = Expression.Parameter(typeof(TArgument), "argument");
+        var call = Expression.Convert(
+            Expression.Call(Expression.Convert(source, owner), method, argument),
+            typeof(object));
+        try
+        {
+            return Expression.Lambda<Func<object, TArgument, object?>>(
+                call, source, argument).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Binds a two-argument evaluator returning an exact runtime reference type.</summary>
+    internal static Func<object, TFirst, TSecond, object?>? CallObject<TFirst, TSecond>(
+        Type? owner,
+        string name,
+        Type? exactReturnType)
+    {
+        if (owner is null || exactReturnType is null || exactReturnType.IsValueType) return null;
+        var method = owner.GetMethod(
+            name,
+            Instance,
+            null,
+            new[] { typeof(TFirst), typeof(TSecond) },
+            null);
+        if (method is null || method.ReturnType != exactReturnType) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        var first = Expression.Parameter(typeof(TFirst), "first");
+        var second = Expression.Parameter(typeof(TSecond), "second");
+        var call = Expression.Convert(
+            Expression.Call(Expression.Convert(source, owner), method, first, second),
+            typeof(object));
+        try
+        {
+            return Expression.Lambda<Func<object, TFirst, TSecond, object?>>(
+                call, source, first, second).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Binds a method whose exact game-object argument type is known only at runtime.</summary>
+    internal static Func<object, object, TValue>? CallWithObjectArgument<TValue>(
+        Type? owner,
+        string name,
+        Type? argumentType)
+    {
+        if (owner is null || argumentType is null) return null;
+        var method = owner.GetMethod(name, Instance, null, new[] { argumentType }, null);
+        if (method is null || method.ReturnType != typeof(TValue)) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        var argument = Expression.Parameter(typeof(object), "argument");
+        var call = Expression.Call(
+            Expression.Convert(source, owner),
+            method,
+            Expression.Convert(argument, argumentType));
+        try
+        {
+            return Expression.Lambda<Func<object, object, TValue>>(
+                call, source, argument).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Binds a one-argument method whose argument is a native value type constructed from one
+    /// <see cref="long"/>. The native type never crosses the binding boundary: callers supply the
+    /// scalar and the compiled delegate constructs the exact argument inline.
+    /// </summary>
+    /// <remarks>
+    /// This is deliberately narrower than a reflective invocation helper. It exists for
+    /// <c>Prerequisites.Container.Check(Requirements.ConditionInfo)</c>, whose parameterized overload
+    /// is read-only while the same-named parameterless overload latches availability. An ambiguous
+    /// method, wrong return, wrong argument name, or missing exact constructor returns
+    /// <see langword="null"/> before collection can begin.
+    /// </remarks>
+    internal static Func<object, long, TValue>? CallWithConstructedLongArgument<TValue>(
+        Type? owner,
+        string name,
+        string argumentTypeName)
+    {
+        if (owner is null) return null;
+
+        MethodInfo? method = null;
+        foreach (var candidate in owner.GetMethods(Instance))
+        {
+            if (!string.Equals(candidate.Name, name, StringComparison.Ordinal) ||
+                candidate.ReturnType != typeof(TValue))
+            {
+                continue;
+            }
+            var parameters = candidate.GetParameters();
+            if (parameters.Length != 1 ||
+                !string.Equals(
+                    parameters[0].ParameterType.FullName,
+                    argumentTypeName,
+                    StringComparison.Ordinal))
+            {
+                continue;
+            }
+            if (method is not null) return null;
+            method = candidate;
+        }
+        if (method is null) return null;
+
+        var argumentType = method.GetParameters()[0].ParameterType;
+        var constructor = argumentType.GetConstructor(new[] { typeof(long) });
+        if (constructor is null) return null;
+
+        var source = Expression.Parameter(typeof(object), "source");
+        var level = Expression.Parameter(typeof(long), "level");
+        var call = Expression.Call(
+            Expression.Convert(source, owner),
+            method,
+            Expression.New(constructor, level));
+        try
+        {
+            return Expression.Lambda<Func<object, long, TValue>>(
+                call,
+                source,
+                level).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -330,6 +605,31 @@ internal static class NativeAccessorBinder
         }
     }
 
+    /// <summary>Binds an exact reference-typed field as a collection-pass-only object.</summary>
+    internal static Func<object, object?>? Reference(
+        Type? owner,
+        string name,
+        Type? exactFieldType)
+    {
+        if (owner is null || exactFieldType is null || exactFieldType.IsValueType) return null;
+        var field = owner.GetField(name, Instance);
+        if (field is null || field.FieldType != exactFieldType) return null;
+
+        var source = Expression.Parameter(typeof(object), "source");
+        var read = Expression.Convert(
+            Expression.Field(Expression.Convert(source, owner), field),
+            typeof(object));
+
+        try
+        {
+            return Expression.Lambda<Func<object, object?>>(read, source).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Binds a value-typed native field and boxes only at this infrequent structural seam.</summary>
     internal static Func<object, object?>? BoxedField(Type? owner, string name)
     {
@@ -435,6 +735,45 @@ internal static class NativeAccessorBinder
     }
 
     /// <summary>
+    /// Binds an entity-returning method whose declared interface does not itself expose identity,
+    /// while every supported concrete result derives from one audited identity-bearing base type.
+    /// </summary>
+    /// <remarks>
+    /// Brewing-station selector entries are the motivating native shape:
+    /// <c>TypeElement.GetTooltipable()</c> declares <c>ITooltipable</c>, while its resource, glyph,
+    /// and consumable results are <c>TooltipableObject</c> instances. The type test keeps a future
+    /// non-entity tooltip result fail-closed as an empty identity and performs no reflection on the
+    /// collection path.
+    /// </remarks>
+    internal static Func<object, Guid>? CallReferenceGuid(
+        Type? owner,
+        string name,
+        Type? exactReturnType,
+        Type? identityType)
+    {
+        if (owner is null || exactReturnType is null || identityType is null ||
+            exactReturnType.IsValueType || identityType.IsValueType) return null;
+
+        var method = owner.GetMethod(name, Instance, null, Type.EmptyTypes, null);
+        var getGuid = identityType.GetMethod("GetGuid", Instance, null, Type.EmptyTypes, null);
+        if (method is null || method.ReturnType != exactReturnType ||
+            getGuid is null || getGuid.ReturnType != typeof(Guid)) return null;
+
+        var source = Expression.Parameter(typeof(object), "source");
+        var referenced = Expression.Variable(exactReturnType, "referenced");
+        var read = Expression.Block(
+            new[] { referenced },
+            Expression.Assign(referenced, Expression.Call(Expression.Convert(source, owner), method)),
+            Expression.Condition(
+                Expression.AndAlso(
+                    Expression.NotEqual(referenced, Expression.Constant(null, exactReturnType)),
+                    Expression.TypeIs(referenced, identityType)),
+                Expression.Call(Expression.Convert(referenced, identityType), getGuid),
+                Expression.Constant(Guid.Empty)));
+        return Compile<Guid>(read, source);
+    }
+
+    /// <summary>
     /// Reads a public static list member — the per-type <c>All</c> registry every category exposes,
     /// and the same discovery mechanism Auto Buy already uses for candidate enumeration.
     /// </summary>
@@ -445,6 +784,26 @@ internal static class NativeAccessorBinder
         var value = owner.GetField(name, Static)?.GetValue(null) ??
             owner.GetProperty(name, Static)?.GetValue(null, null);
         return value as IList;
+    }
+
+    /// <summary>
+    /// Resolves a static list once and returns only the warm-path value read. This is the lifecycle-
+    /// bound form for readers that must not rediscover the member on every collection.
+    /// </summary>
+    internal static Func<IList?>? StaticListAccessor(Type? owner, string name)
+    {
+        if (owner is null) return null;
+        var field = owner.GetField(name, Static);
+        if (field is null || !typeof(IList).IsAssignableFrom(field.FieldType)) return null;
+        var read = Expression.Convert(Expression.Field(null, field), typeof(IList));
+        try
+        {
+            return Expression.Lambda<Func<IList?>>(read).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -464,6 +823,219 @@ internal static class NativeAccessorBinder
             owner.GetProperty(name, Static)?.GetValue(null, null);
         return value as IDictionary;
     }
+
+    /// <summary>Compiles an already-audited instance field as an unboxed typed read.</summary>
+    /// <remarks>
+    /// <para>
+    /// The binders above discover a member and compile it in one step, which is right when the
+    /// name and the expected type are the whole contract. Some readers audit more than that before
+    /// they will accept a member — a list whose element type has to match, a field declared private
+    /// on a generic base, a method resolved up the hierarchy — and re-spelling those audits as a
+    /// name plus a type would quietly relax them.
+    /// </para>
+    /// <para>
+    /// This family takes the <see cref="MemberInfo"/> such a reader already resolved and compiles
+    /// that, so the discovery stays exactly as strict as it was and only the reading changes. The
+    /// type checks are still made here rather than assumed: a caller that resolved a member for one
+    /// purpose and compiles it for another gets <see langword="null"/> instead of a delegate that
+    /// reinterprets it.
+    /// </para>
+    /// </remarks>
+    internal static Func<object, TValue>? Read<TValue>(FieldInfo? field)
+    {
+        if (field is null || field.IsStatic || field.FieldType != typeof(TValue)) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        return Compile<TValue>(ReadField(field, source), source);
+    }
+
+    /// <summary>Compiles an already-audited instance field as the value it holds, boxed if need be.</summary>
+    internal static Func<object, object?>? ReadValue(FieldInfo? field)
+    {
+        if (field is null || field.IsStatic) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        return Compile<object?>(
+            Expression.Convert(ReadField(field, source), typeof(object)),
+            source);
+    }
+
+    /// <summary>Compiles an already-audited instance collection field as the sequence it holds.</summary>
+    internal static Func<object, IEnumerable?>? ReadSequence(FieldInfo? field)
+    {
+        if (field is null || field.IsStatic ||
+            !typeof(IEnumerable).IsAssignableFrom(field.FieldType)) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        return Compile<IEnumerable?>(
+            Expression.Convert(ReadField(field, source), typeof(IEnumerable)),
+            source);
+    }
+
+    /// <summary>Compiles an already-audited instance collection field as the list it holds.</summary>
+    internal static Func<object, IList?>? ReadList(FieldInfo? field)
+    {
+        if (field is null || field.IsStatic ||
+            !typeof(IList).IsAssignableFrom(field.FieldType)) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        return Compile<IList?>(
+            Expression.Convert(ReadField(field, source), typeof(IList)),
+            source);
+    }
+
+    /// <summary>Compiles an already-audited static collection field as the sequence it holds.</summary>
+    internal static Func<IEnumerable?>? ReadStaticSequence(FieldInfo? field)
+    {
+        if (field is null || !field.IsStatic ||
+            !typeof(IEnumerable).IsAssignableFrom(field.FieldType)) return null;
+        try
+        {
+            return Expression.Lambda<Func<IEnumerable?>>(
+                Expression.Convert(Expression.Field(null, field), typeof(IEnumerable))).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Compiles an already-audited no-argument instance method as an unboxed typed call.</summary>
+    internal static Func<object, TValue>? Call<TValue>(MethodInfo? method)
+    {
+        if (!IsInstanceCall(method, argumentCount: 0) ||
+            method!.ReturnType != typeof(TValue)) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        return Compile<TValue>(CallOn(method, source), source);
+    }
+
+    /// <summary>Compiles an already-audited no-argument instance method as the value it answers.</summary>
+    internal static Func<object, object?>? CallValue(MethodInfo? method)
+    {
+        if (!IsInstanceCall(method, argumentCount: 0)) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        return Compile<object?>(
+            Expression.Convert(CallOn(method!, source), typeof(object)),
+            source);
+    }
+
+    /// <summary>
+    /// Compiles an already-audited one-argument instance method as the sequence it answers. The
+    /// argument crosses as <see cref="object"/> because its type is a game type this assembly
+    /// cannot name, and is converted to the exact parameter type inside the compiled body.
+    /// </summary>
+    internal static Func<object, object, IEnumerable?>? CallSequence(MethodInfo? method)
+    {
+        if (!IsInstanceCall(method, argumentCount: 1) ||
+            !typeof(IEnumerable).IsAssignableFrom(method!.ReturnType)) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        var argument = Expression.Parameter(typeof(object), "argument");
+        var call = Expression.Call(
+            Expression.Convert(source, method.DeclaringType!),
+            method,
+            Expression.Convert(argument, method.GetParameters()[0].ParameterType));
+        try
+        {
+            return Expression.Lambda<Func<object, object, IEnumerable?>>(
+                Expression.Convert(call, typeof(IEnumerable)), source, argument).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Compiles an already-audited one-argument instance method as an unboxed typed answer. The
+    /// argument crosses as <see cref="object"/> because its type is a game type this assembly cannot
+    /// name, and is converted to the exact parameter type inside the compiled body — so neither the
+    /// argument array nor the boxed return that <see cref="MethodInfo.Invoke"/> forces is allocated.
+    /// </summary>
+    internal static Func<object, object, TValue>? CallWithObjectArgument<TValue>(MethodInfo? method)
+    {
+        if (!IsInstanceCall(method, argumentCount: 1) ||
+            method!.ReturnType != typeof(TValue)) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        var argument = Expression.Parameter(typeof(object), "argument");
+        var call = Expression.Call(
+            Expression.Convert(source, method.DeclaringType!),
+            method,
+            Expression.Convert(argument, method.GetParameters()[0].ParameterType));
+        try
+        {
+            return Expression.Lambda<Func<object, object, TValue>>(
+                call, source, argument).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Binds a static reference-typed field as the object it holds, for the manager singletons a
+    /// reader must reach once per pass without rediscovering the field.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Reference(Type?, string)"/>'s shape for statics, and for the same reason it returns
+    /// the object rather than a value read from it: what a caller wants is the entity, so it can
+    /// check the runtime type it got and bind members against it.
+    /// </remarks>
+    internal static Func<object?>? StaticReference(Type? owner, string name)
+    {
+        if (owner is null) return null;
+        var field = owner.GetField(name, Static);
+        if (field is null || field.FieldType.IsValueType) return null;
+        try
+        {
+            return Expression.Lambda<Func<object?>>(
+                Expression.Convert(Expression.Field(null, field), typeof(object))).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Compiles an already-audited no-argument static method as the value it answers.</summary>
+    internal static Func<object?>? CallStaticValue(MethodInfo? method)
+    {
+        if (method is null || !method.IsStatic || method.GetParameters().Length != 0) return null;
+        try
+        {
+            return Expression.Lambda<Func<object?>>(
+                Expression.Convert(Expression.Call(method), typeof(object))).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Compiles an already-audited one-argument static method as the value it answers.</summary>
+    internal static Func<TArgument, object?>? CallStatic<TArgument>(MethodInfo? method)
+    {
+        var parameters = method?.GetParameters();
+        if (method is null || !method.IsStatic || parameters!.Length != 1 ||
+            parameters[0].ParameterType != typeof(TArgument)) return null;
+        var argument = Expression.Parameter(typeof(TArgument), "argument");
+        try
+        {
+            return Expression.Lambda<Func<TArgument, object?>>(
+                Expression.Convert(Expression.Call(method, argument), typeof(object)),
+                argument).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static bool IsInstanceCall(MethodInfo? method, int argumentCount) =>
+        method is { IsStatic: false, DeclaringType: not null } &&
+        method.GetParameters().Length == argumentCount;
+
+    private static Expression ReadField(FieldInfo field, ParameterExpression source) =>
+        Expression.Field(Expression.Convert(source, field.DeclaringType!), field);
+
+    private static Expression CallOn(MethodInfo method, ParameterExpression source) =>
+        Expression.Call(Expression.Convert(source, method.DeclaringType!), method);
 
     private static Func<object, TValue>? Compile<TValue>(Expression body, ParameterExpression source)
     {

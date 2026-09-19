@@ -26,16 +26,20 @@ internal sealed class AutoScribeServiceAdapterComposition
         var gameAction = new AutoScribeOneShotCraftGameAction(
             dependencies.RegistryResolver,
             dependencies.Profile,
+            dependencies.ReadLifecycleEpoch,
             dependencies.TryCaptureMutationPermit,
             dependencies.ReadOwnershipFailure);
         var actionPort = new AutoScribeCycleActionAdapter(
             gameAction,
             dependencies.ReadLifecycleEpoch,
             dependencies.OwnsActionFamily,
-            dependencies.ReadOwnershipFailure,
             health);
         return new AutoScribeServiceAdapterComposition(
-            AutoScribeService.Define(dependencies.Profile, actionPort),
+            AutoScribeService.Define(
+                dependencies.Profile,
+                actionPort,
+                dependencies.OwnsActionFamily,
+                () => gameAction.IsQuarantined),
             gameAction,
             health);
     }

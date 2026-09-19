@@ -101,8 +101,8 @@ capacity, cost, and mutation path. Submission always requests quantity one throu
 `ActivePlotNodeActions.AddInstance`. Auto Harvest requires both the action list's native `HasEmptySpot()`
 predicate and at least one enumerated empty action entry, and may consume the final free entry. The visible
 plot-space meter (for example `30/33`) is unrelated, and this action list is also separate from Auto Buy's
-global action queue. Auto Harvest captures the active list before and after mutation and requires exactly one
-new engaged matching entry with quantity one and the corresponding entry delta. If an attempted mutation
+global action queue. Auto Harvest uses the admitted current list to submit quantity one, then observes only
+that exactly one matching native action is engaged. If an attempted mutation
 cannot be verified, that tree pair remains blocked until a scene, save-load, reset, or NG+ lifecycle transition.
 
 Auto Harvest evaluates after each world or configuration publication. Disabled mode and `EmergencyDisable` perform no Auto Harvest scans or new submissions. Auto Harvest does not plant, replant, replace, enrich, force growth, destroy plots, modify saves, or coexist with another plot-action automation mod. Interactive behavior is covered by the [runtime validation guide](../../docs/testing/runtime-validation.md).
@@ -115,10 +115,11 @@ The neutral host seals an explicitly populated typed registry and admits each re
 
 Auto Buy audits each exact candidate type and native convenience signature once, then binds typed read delegates for live availability, admission, levels, and cost. Stable UUID and exact type name are cached only by native object reference within the current lifecycle and are discarded on lifecycle replacement. Resource quantities, costs, queue room, and every other mutable gameplay fact remain fresh per capture.
 
-The opt-in profiling build also records the action path in separate stages: current-fact revalidation, the
-before snapshot, the native `AddInstance` invocation, the after snapshot, and postcondition evaluation.
-The before snapshot is captured once and supplies both current-policy facts and verifier admission; the
-after snapshot remains a separate native traversal. Ordinary assemblies compile out the profiler types and calls.
+The opt-in profiling build records the action path in separate stages: current-fact revalidation, the
+admission snapshot, the native `AddInstance` invocation, and the single engaged-pair observation.
+The admission snapshot is captured once and supplies current policy and queue admission; the outcome read
+traverses only far enough to identify one matching engaged action. Ordinary assemblies compile out the
+profiler types and calls.
 
 Saved configuration publishes only after a successful Apply and affects the next cycle. Lifecycle replacement clears stale native bindings, emergency disable rejects unattempted work immediately, and action-family ownership is checked both in diagnostics and immediately before mutation. Capture preserves native failure evidence: an exception thrown inside a correctly bound native call is retryable, while reflected shape, access, owner, or return-contract drift latches until restart without invoking the broken path again. A failed shared active-action snapshot is feature-scoped; a failed pair-fact read remains pair-scoped. Process-lifetime contract failures remain closed until restart rather than being converted into ordinary lifecycle retries.
 
@@ -161,7 +162,7 @@ A candidate's price is the published `WorldPurchaseCost` row for its next level,
 
 A value that could not be read is not evidence. A candidate whose every cost row prices at zero has not been shown to be affordable, only to be unpriceable, so it is excluded rather than bought — the failure direction that once planned all 180 structures at once after a cold load. One free row on an otherwise priced candidate is different and is simply skipped, because relative to the rows that did price it really is free. A Structure action requests the largest exactly priced positive count at or below the game's live Bulk Development count that the remaining batch ledger can fund; an Upgrade requests one level. The action boundary clamps every request to queue room above the configured reserve, since the game queues one entry per level.
 
-Every active native mutation now uses a capture, execute, capture, verify boundary. Auto Buy requires an exact queued-level delta, Auto Concept requires the exact queued assignment delta, spell leveling verifies native mastery advancement, Auto Cast verifies the audited `Spell.Fire` hook, and Auto Harvest requires one exact new native plot action. A no-op, partial, unexpectedly large, throwing, or unobservable result records structured before/after evidence and blocks that candidate or feature for the current lifecycle. Recovery is deliberately limited to scene, save-load, reset, or NG+ lifecycle invalidation; ordinary evaluation and configuration polling cannot silently retry an ambiguous mutation.
+Every active native mutation uses stable identity plus one observable outcome sentinel. Auto Buy checks the requested queued level, Auto Concept checks the requested assignment change, spell leveling checks native mastery advancement, Auto Cast checks the audited `Spell.Fire` hook for a new cast and native casting-state deactivation for a player-requested toggle-off, and Auto Harvest checks for exactly one engaged matching plot action. No boundary captures payment deltas or assembles a general before/after receipt. After a throw it rereads the same sentinel: an observable requested outcome commits; an absent or ambiguous transition blocks that candidate or feature for the current lifecycle. Recovery is deliberately limited to scene, save-load, reset, or NG+ lifecycle invalidation; ordinary evaluation and configuration polling cannot silently retry an ambiguous mutation.
 
 When the game refuses a purchase Auto Buy planned, the boundary first asks *which fact moved*. It reads `IsAvailable()`, `IsMaxLevel()`, `IsMaxQueuedLevel()`, the game's verdict on the price, every live cost row and its spendable amount, plus elapsed collection time, world-generation drift, and earlier same-batch purchases touching those resources. A price-only refusal is expected snapshot staleness: that candidate is skipped before any native mutation, Auto Buy stays enabled, a newer world collection is required before it plans again, and no synchronous bundle is written. A structural contradiction, a refusal with every readable term passing, or a native call whose queued-level sentinel does not advance remains an invariant violation; those terminate the batch, write one full bundle within the fixed eight-file/1 MiB diagnostic envelope, and turn Auto Buy's own setting off through the central configuration path. A refusal writes one actionable log line; bundle-capture failure stays in that line. One prior structural mismatch otherwise repeated 1,988 times.
 
@@ -251,15 +252,20 @@ available. The boundary then re-resolves and proves the live role relation, queu
 competing supply, target, affordability, exact cost, and ownership before payment. Payment is the
 last irreversible risk.
 
-After payment, the receipt proves the exact resource charge, expected `maxStartingLevel`
-transition, and exactly one queue or instant-stock outcome. A native exception at payment,
-construction, initiation, or admission records the observed partial commit, faults loudly with
-that stage, and quarantines the Scribe GameAction for the lifecycle. No rollback is attempted.
+After payment, one sentinel proves either the exact queued recipe or an increase in the exact
+instant Scroll stock. Resource charges and `maxStartingLevel` are not recomputed as postconditions.
+A native exception at payment, construction, initiation, or admission rereads that same sentinel:
+the observable requested outcome commits, while an absent transition faults and quarantines the
+Scribe GameAction for the lifecycle. No rollback is attempted.
 Every outcome waits for a new world publication; Auto Scribe has no cadence or retry timer.
 
 ## Auto Cast
 
 Auto Cast follows equipped spell slot order and fires at most one new spell per evaluation. Empty slots are skipped, active auras are treated as already satisfied, channels pause the rotation, and persistent spells are never turned off automatically. The published world carries both the manager-wide `SpellManager.CanCastASpell()` answer and each slot's `Spell.CanCast()` answer, so busy and unready periods are quiet planning backpressure rather than repeated boundary submissions.
+
+The player-driven `game_cast(mode="toggle_off")` command is separate from rotation policy. It
+reproduces the visible spell button's cancel path for one exact active toggle, including the native
+Cancellable Spells setting, and verifies only that the exact slot's casting state became inactive.
 
 The rotation cursor advances when a slot is chosen, not when its cast commits. Whether a spell has anything to aim at is an unbounded reflective walk of the live effect graph with no snapshot form, so the worker cannot see it and the boundary is where a targetless spell is refused; a cursor that waited for a commit would re-pick that same spell every cycle and starve every other slot. A refused cast costs itself its turn and comes round again one rotation later.
 
@@ -308,7 +314,7 @@ Before every add or rotation, Auto Concept reconstructs that exact prospective n
 The prospective multiplier is not a published fact. The native answer for quantity N exists only after constructing a throwaway `AlchemyInstance`, setting its quantity, and calling `GetDrainCostMod()`, and a published recipe's drain-cost scalar is not evidence that it reproduces that instance method. The halving search, reserve test, quantity floor, and subtraction of the live current drain therefore stay together in the action adapter's preflight, immediately before any add or rotation removal.
 
 A live slot or prospective-drain refusal ends Auto Concept's work on the current world reading. The
-engine waits for a strictly newer world before the receipt is reconciled and the candidate re-enters
+engine waits for a strictly newer world before the action result settles and the candidate re-enters
 ordinary timed ordering. There is no candidate deferral, retry deadline, fallback poll, or second wake
 path. If the collected facts still propose a candidate native refuses, that candidate is rejected
 again and may starve the later order; the repeated `BepInEx/LogOutput.log` record is evidence of a

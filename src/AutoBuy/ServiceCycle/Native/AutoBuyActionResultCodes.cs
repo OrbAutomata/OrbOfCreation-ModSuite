@@ -16,6 +16,17 @@ internal static class AutoBuyActionResultCodes
 
     public static ServiceActionResultCode OwningViewUnavailable => new(2049);
     public static ServiceActionResultCode OwningViewRelationMissing => new(2050);
+
+    /// <summary>
+    /// The captured relation for this candidate says the game's own owning-view chain could not be
+    /// read when the topology was captured.
+    /// </summary>
+    /// <remarks>
+    /// This used to be five different facts wearing one number. A caller reading "2051" could not
+    /// tell an unbound suite from an uncaptured lifecycle from a candidate whose chain the game
+    /// refused, and neither could the operator reading the log — the twenty-seven-minute outage cost
+    /// a code trace to diagnose because the one refusal it emitted said nothing more than this.
+    /// </remarks>
     public static ServiceActionResultCode OwningViewRelationUnreadable => new(2051);
     public static ServiceActionResultCode OwningViewRelationContradictory => new(2053);
     public static ServiceActionResultCode StructureUnavailable => new(2054);
@@ -28,4 +39,36 @@ internal static class AutoBuyActionResultCodes
     /// margin. The action is skipped before native submission and the next publication replans it.
     /// </summary>
     public static ServiceActionResultCode BatchSpendDrift => new(2058);
+
+    /// <summary>The suite never bound the owning-view topology contract on this build.</summary>
+    public static ServiceActionResultCode OwningViewTopologyUnbound => new(2059);
+
+    /// <summary>
+    /// The topology is bound but holds nothing this purchase's lifecycle can be admitted against.
+    /// </summary>
+    public static ServiceActionResultCode OwningViewTopologyUncaptured => new(2060);
+
+    /// <summary>The captured relation carries a status this build does not model.</summary>
+    public static ServiceActionResultCode OwningViewRelationStatusUnmodeled => new(2061);
+
+    /// <summary>
+    /// The relation resolved, but the game refused to answer whether the owning screen is available
+    /// on this fresh action-boundary read.
+    /// </summary>
+    public static ServiceActionResultCode OwningViewAvailabilityUnreadable => new(2062);
+
+    /// <summary>
+    /// The live action queue has no free slot, so no level of this ask can be queued. It is the one
+    /// purchase refusal a smaller amount does not fix, and it is a room problem rather than a
+    /// resource one — the sentence names the queue, never the caller's pockets.
+    /// </summary>
+    public static ServiceActionResultCode ActionQueueFull => new(2063);
+
+    /// <summary>
+    /// The suite could not pin the game's global multi-buy multiplier for a single upgrade press, so
+    /// nothing was submitted. It is the suite's own failure and not a native refusal: this answered
+    /// <c>native_rejected</c> for a press the game was never shown, and threw away the sentence
+    /// saying which step of the pin failed.
+    /// </summary>
+    public static ServiceActionResultCode SingleBuyUnavailable => new(2064);
 }

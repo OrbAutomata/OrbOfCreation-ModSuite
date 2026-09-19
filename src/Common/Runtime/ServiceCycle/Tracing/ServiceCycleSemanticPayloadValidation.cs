@@ -7,7 +7,7 @@ internal static partial class ServiceCycleSemanticPayloadValidation
     internal static void EnsureValid(ServiceCycleSemanticEventKind kind, in ServiceCycleSemanticPayload payload)
     {
         if (kind is < ServiceCycleSemanticEventKind.ConfigurationPublished or
-            > ServiceCycleSemanticEventKind.ActionSkipped)
+            > ServiceCycleSemanticEventKind.WorldCategoryCollected)
             throw new ArgumentOutOfRangeException(nameof(kind));
 
         var expected = ExpectedFields(kind);
@@ -98,6 +98,13 @@ internal static partial class ServiceCycleSemanticPayloadValidation
             case ServiceCycleSemanticEventKind.BatchAborted:
             case ServiceCycleSemanticEventKind.BatchOrphaned:
                 ValidateExecution(kind, in payload);
+                break;
+            case ServiceCycleSemanticEventKind.WorldCategoryCollected:
+                // The identity is a position in the pass it was read by, so a span outside its own
+                // pass is an emitter that lost track of which collection it is describing.
+                Require(
+                    payload.WorldCategory > 0 && payload.WorldCategory <= payload.WorldPassCategories,
+                    nameof(payload));
                 break;
         }
     }

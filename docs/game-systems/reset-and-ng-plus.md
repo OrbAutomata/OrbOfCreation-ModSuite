@@ -6,6 +6,10 @@ reading **Challenges, Achievements, Time Advancements**. Take the Challenges ent
 challenges are commonly cleared by a reset and are picked fresh when starting an NG+ run — what
 that line actually preserves is unrecorded (see [challenges.md](challenges.md)).
 
+The reset control is gated on two conditions rather than on any price: the world cycle must be
+complete and challenges must have been fetched. Until both hold, the button is inert with nothing
+on the page explaining it — and what completes the world cycle is unrecorded.
+
 Everything not on that survival list is lost: resources, attributes, upgrades, spells, glyphs,
 concepts, research, and the runes themselves — though the persistent advancement levels runes granted
 keep applying (see [time-runes.md](time-runes.md)).

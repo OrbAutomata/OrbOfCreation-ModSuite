@@ -53,6 +53,8 @@ internal sealed class BufferedDecisionJournalRecordSink : IDecisionJournalRecord
 
     internal void FailProducer() => _sink.FailProducer();
 
+    internal bool WaitForDrain(TimeSpan timeout) => _sink.WaitForWriterExit(timeout);
+
     public void Dispose() => Stop();
 
     private bool CanContinue()

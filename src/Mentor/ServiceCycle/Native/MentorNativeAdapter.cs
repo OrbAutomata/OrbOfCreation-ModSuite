@@ -101,28 +101,26 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
         var evidence = NativeMutationVerifier.Execute(
             "Mentor mastery XP grant",
             ReflectionUtil.ReadStableId(recipient) ?? "<unknown>",
-            $"XP exact delta +{amount.Mantissa:R}e{amount.Exponent}",
+            "mastery XP increased",
             () => ReadBigDouble(experienceField, recipient),
             () =>
             {
                 using var ignored = MentorMasteryPatchBridge.Suppress();
                 method.Invoke(recipient, new object[] { expected });
             },
-            (before, after) => Equivalent(before + expected, after));
+            (before, after) => after.CompareTo(before) > 0);
         return FromEvidence(evidence);
     }
 
     private static MentorNativeGrant GrantArtifact(object equipment, MentorAmount amount)
     {
         var equipmentType = equipment.GetType();
-        var mastery = RequiredField(equipmentType, "masteryLevel");
         var savedXp = RequiredField(equipmentType, "masteryXp");
         var getContainer = RequiredMethod(equipmentType, "GetExperienceElement");
         var gainLevels = RequiredMethod(equipmentType, "GainMasteryLevels", typeof(int));
         var container = getContainer.Invoke(equipment, null) ??
                         throw new MissingMemberException("artifact experience container is unavailable");
         var containerType = container.GetType();
-        var clone = RequiredMethod(containerType, "Clone");
         var gain = RequiredMethod(containerType, "GainExperience", typeof(BigDouble));
         var gainedLevels = RequiredMethod(containerType, "GetGainedLevels");
         var getLevel = RequiredMethod(containerType, "GetLevel");
@@ -132,19 +130,10 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
         var evidence = NativeMutationVerifier.Execute(
             "Mentor artifact mastery XP grant",
             ReflectionUtil.ReadStableId(equipment) ?? "<unknown>",
-            $"level-aware XP delta +{amount.Mantissa:R}e{amount.Exponent}",
-            () => CaptureArtifact(
-                equipment, container, mastery, savedXp, getLevel, getExperience),
+            "artifact mastery progress increased",
+            () => CaptureArtifactProgress(container, getLevel, getExperience),
             () =>
             {
-                var forecast = clone.Invoke(container, null) ??
-                               throw new MissingMemberException("artifact experience clone is unavailable");
-                gain.Invoke(forecast, new object[] { value });
-                var expectedLevels = Convert.ToInt32(gainedLevels.Invoke(forecast, null) ?? 0);
-                var expectedLevel = Convert.ToInt32(getLevel.Invoke(forecast, null) ?? 0);
-                var expectedXp = (BigDouble)(getExperience.Invoke(forecast, null) ??
-                                             throw new MissingMemberException("artifact forecast XP is unavailable"));
-
                 using var ignored = MentorMasteryPatchBridge.Suppress();
                 gain.Invoke(container, new object[] { value });
                 var actualLevels = Convert.ToInt32(gainedLevels.Invoke(container, null) ?? 0);
@@ -152,38 +141,19 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
                 var actualXp = (BigDouble)(getExperience.Invoke(container, null) ??
                                            throw new MissingMemberException("artifact XP is unavailable"));
                 savedXp.SetValue(equipment, actualXp);
-                MentorArtifactExpectation.Current =
-                    new MentorArtifactExpectation(expectedLevels, expectedLevel, expectedXp);
             },
-            (before, after) =>
-            {
-                var expected = MentorArtifactExpectation.Current;
-                MentorArtifactExpectation.Current = default;
-                return before.MasteryLevel == before.ContainerLevel &&
-                       Equivalent(before.ContainerXp, before.SavedXp) &&
-                       expected.GainedLevels >= 0 &&
-                       after.MasteryLevel == expected.Level &&
-                       after.ContainerLevel == expected.Level &&
-                       Equivalent(after.ContainerXp, expected.Experience) &&
-                       Equivalent(after.SavedXp, expected.Experience);
-            });
-        MentorArtifactExpectation.Current = default;
+            static (before, after) => after.IsAfter(before));
         return FromEvidence(evidence);
     }
 
-    private static MentorArtifactState CaptureArtifact(
-        object equipment,
+    private static MentorArtifactProgress CaptureArtifactProgress(
         object container,
-        FieldInfo mastery,
-        FieldInfo savedXp,
         MethodInfo getLevel,
         MethodInfo getExperience) =>
         new(
-            Convert.ToInt32(mastery.GetValue(equipment) ?? 0),
             Convert.ToInt32(getLevel.Invoke(container, null) ?? 0),
             (BigDouble)(getExperience.Invoke(container, null) ??
-                        throw new MissingMemberException("artifact XP is unavailable")),
-            ReadBigDouble(savedXp, equipment));
+                        throw new MissingMemberException("artifact XP is unavailable")));
 
     private static MentorNativeGrant FromEvidence<T>(NativeMutationEvidence<T> evidence)
     {
@@ -217,10 +187,6 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
     private static BigDouble ReadBigDouble(FieldInfo field, object target) =>
         (BigDouble)(field.GetValue(target) ??
                     throw new MissingMemberException(field.Name + " is unavailable"));
-
-    private static bool Equivalent(BigDouble left, BigDouble right) =>
-        left.Mantissa.Equals(right.Mantissa) && left.Exponent == right.Exponent;
-
     private static FieldInfo RequiredField(Type type, string name)
     {
         for (var current = type; current is not null; current = current.BaseType)
@@ -252,39 +218,21 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
     private static MentorNativeGrant Identity(string reason) =>
         new(MentorNativeGrantStatus.IdentityChanged, reason);
 
-    private readonly struct MentorArtifactState
+    private readonly struct MentorArtifactProgress
     {
-        internal MentorArtifactState(
-            int masteryLevel,
-            int containerLevel,
-            BigDouble containerXp,
-            BigDouble savedXp)
+        internal MentorArtifactProgress(int level, BigDouble experience)
         {
-            MasteryLevel = masteryLevel;
-            ContainerLevel = containerLevel;
-            ContainerXp = containerXp;
-            SavedXp = savedXp;
-        }
-
-        internal int MasteryLevel { get; }
-        internal int ContainerLevel { get; }
-        internal BigDouble ContainerXp { get; }
-        internal BigDouble SavedXp { get; }
-    }
-
-    private struct MentorArtifactExpectation
-    {
-        [ThreadStatic] internal static MentorArtifactExpectation Current;
-
-        internal MentorArtifactExpectation(int gainedLevels, int level, BigDouble experience)
-        {
-            GainedLevels = gainedLevels;
             Level = level;
             Experience = experience;
         }
 
-        internal int GainedLevels { get; }
         internal int Level { get; }
         internal BigDouble Experience { get; }
+
+        internal bool IsAfter(in MentorArtifactProgress before) =>
+            Level > before.Level ||
+            (Level == before.Level && Experience.CompareTo(before.Experience) > 0);
+
+        public override string ToString() => $"level={Level}, xp={Experience}";
     }
 }

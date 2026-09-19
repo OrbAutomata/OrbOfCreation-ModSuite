@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
 
 namespace OrbAutomata;
@@ -24,20 +25,20 @@ internal static class AutoConceptPlanBeliefProjection
         {
             reason =
                 "published concept-recipes has no AlchemyRecipeSO row for " +
-                recipeId.ToString("D");
+                EntityIdentityFormatter.Format(recipeId);
             return false;
         }
         if (!WorldLookup.TryFind(world.AlchemyRecipes, recipeId, out var recipe))
         {
             reason =
                 "published alchemy-recipes has no AlchemyRecipeSO row for " +
-                recipeId.ToString("D");
+                EntityIdentityFormatter.Format(recipeId);
             return false;
         }
         if (!recipe.Discovered)
         {
             reason =
-                "published alchemy recipe " + recipeId.ToString("D") +
+                "published alchemy recipe " + EntityIdentityFormatter.Format(recipeId) +
                 " is not discovered";
             return false;
         }

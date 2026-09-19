@@ -46,3 +46,11 @@ Every concept starts at mastery `0/1`; mastery rises with use, slowly at first a
 endgame. Concept mastery does not give the effect directly — it sets **how many stacks of that
 concept fit into a single slot**. More stacks make that concept level faster and also raise its
 drain.
+
+## Reading concepts through the suite
+
+Concepts are their own category on the read surface, because they are their own screen:
+`world_list category=concepts` pages the 46 the Scholar screen draws, and `world_get` on one carries
+the development-slot budget and the assignment decision. They are not `alchemy-recipes` rows — that
+category is the 79 the Alchemy screen draws, and the two layers share a native class and nothing
+else. See [the tool reference](../development/mcp-tools.md).

@@ -50,7 +50,7 @@ public sealed class AutoConceptCycleActionAdapterTests
             "resource would fall below reserve"));
 
         Assert.Equal(ServiceActionDisposition.Skipped, result.Disposition);
-        Assert.Equal(AutoConceptActionResultCodes.ProjectionRefused, result.Code);
+        Assert.Equal(AutoConceptActionResultCodes.AmountUnavailable, result.Code);
         Assert.False(result.HasNativeEvidence);
     }
 
@@ -200,7 +200,7 @@ public sealed class AutoConceptCycleActionAdapterTests
 
         public AutoConceptSubmission Submit(
             in AutoConceptCycleAction action,
-            in AutoConceptConfiguration config)
+            AutoConceptResourceLimits? limits)
         {
             Submissions++;
             return _submission;
@@ -211,7 +211,7 @@ public sealed class AutoConceptCycleActionAdapterTests
     {
         public AutoConceptSubmission Submit(
             in AutoConceptCycleAction action,
-            in AutoConceptConfiguration config) =>
+            AutoConceptResourceLimits? limits) =>
             throw new TargetInvocationException(
                 new InvalidOperationException("CanAddInstance failed"));
     }

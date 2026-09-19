@@ -75,6 +75,19 @@ internal static class AutoScribeCycleEvaluator
                 selection.BlockedReason);
             return WakePolicy.OnPublication;
         }
+        if (selection.Kind == ScrollCraftSelectionKind.QueueBusy)
+        {
+            metrics = new AutoScribeDecisionMetrics(
+                enabled,
+                deficient,
+                external,
+                0,
+                -1,
+                AutoScribeDecisionKind.QueueBusy,
+                -1,
+                AutoScribeEvidenceReason.None);
+            return WakePolicy.OnPublication;
+        }
 
         if (selection.Kind != ScrollCraftSelectionKind.Idle)
             throw new System.InvalidOperationException(

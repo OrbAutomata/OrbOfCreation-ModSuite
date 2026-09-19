@@ -131,6 +131,19 @@ public sealed class AutoHarvestContractTests
         AssertMethod(
             assembly,
             "PlotNodeActionInstance",
+            "GetMaximumInstances",
+            false,
+            "System.Int32");
+        AssertMethod(
+            assembly,
+            "PlotNodeActionInstance",
+            "IsAtMinimumQuantity",
+            false,
+            "System.Boolean");
+        AssertMethod(assembly, "PlotNodeActionInstance", "Cancel", false, "System.Void");
+        AssertMethod(
+            assembly,
+            "PlotNodeActionInstance",
             "GetMinimumInstances",
             false,
             "System.Int32");
@@ -153,6 +166,14 @@ public sealed class AutoHarvestContractTests
             assembly,
             "PlotNodeActionInstanceListVariable",
             "AddInstance",
+            false,
+            "System.Void",
+            "PlotNodeActionInstance",
+            "System.Int32");
+        AssertMethod(
+            assembly,
+            "PlotNodeActionInstanceListVariable",
+            "RemoveInstance",
             false,
             "System.Void",
             "PlotNodeActionInstance",

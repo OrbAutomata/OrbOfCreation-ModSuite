@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.ServiceCycle.Observation.WorldCollection;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime.World;
@@ -20,6 +21,7 @@ internal sealed class AutomataWorldCollectionFeature : IAutomataServiceCycleFeat
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<GameWorldCollector> _createCollector;
     private readonly Action<WorldCollectionReport>? _announce;
+    private readonly WorldCollectionSpanRegistry _spans;
 
     /// <param name="readFrameIdentity">
     /// The same counter the host pumps with, so a snapshot's generation and a consumer's last-action
@@ -33,12 +35,14 @@ internal sealed class AutomataWorldCollectionFeature : IAutomataServiceCycleFeat
         Func<long> readFrameIdentity,
         Func<long> readLifecycleEpoch,
         Action<WorldCollectionReport>? announce = null,
-        Func<GameWorldCollector>? createCollector = null)
+        Func<GameWorldCollector>? createCollector = null,
+        WorldCollectionSpanRegistry? spans = null)
     {
         _readFrameIdentity = readFrameIdentity ?? throw new ArgumentNullException(nameof(readFrameIdentity));
         _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _announce = announce;
-        _createCollector = createCollector ?? (static () => new GameWorldCollector());
+        _createCollector = createCollector ?? (static () => GameWorldCollector.ForSession());
+        _spans = spans ?? WorldCollectionSpanRegistry.Shared;
     }
 
     public IAutomataServiceCycleFeatureRuntime Register(in AutomataServiceCycleFeatureContext context)
@@ -46,9 +50,13 @@ internal sealed class AutomataWorldCollectionFeature : IAutomataServiceCycleFeat
         // Constructed here rather than at plugin startup because binding compiles an accessor per
         // member per category against the loaded game assembly, which is only meaningful once the
         // runtime is being stood up for a playable lifecycle.
+        var collector = _createCollector();
+        // Said before anything records, because the session roster is written when a recording starts
+        // and a span's identity is a number until something says what it was.
+        _spans.PublishCategories(collector.CategoryNames());
         var definition = AutomataWorldCollectionService.Define(
             new AutomataWorldCapturePort(
-                _createCollector(), _readFrameIdentity, _readLifecycleEpoch, _announce),
+                collector, _readFrameIdentity, _readLifecycleEpoch, _announce, _spans),
             context.Registry.WorldPublication);
 
         // No dispatch policy here: registering through the source path is the declaration, and one

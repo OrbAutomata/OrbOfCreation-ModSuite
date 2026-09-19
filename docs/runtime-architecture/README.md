@@ -28,6 +28,8 @@ rather than overriding the game.
    evidence grades, strategy rules, and the non-goals.
 8. [Game boundary doctrine](game-boundary-doctrine.md) — the rules for every touch of the game.
 9. [Deferrals](deferrals.md) — what is deliberately not built, and what each item waits on.
+10. [Game MCP frame operations](game-mcp-frame-operations.md) — the perf-debug transport: one
+    request-scoped inbox, frame ordering, data lifetimes, and the HTTP/Unity boundary.
 
 ## The four boundaries
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using OrbAutomata;
+using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using Xunit;
 using OrbModding.Common.Runtime.World;
@@ -39,7 +40,32 @@ public sealed class WorldIdentityWalkTests
 
         Assert.Equal(
             new[] { mana, stone, hoard }.OrderBy(id => id),
-            WorldIdentityWalk.Enumerate(world).OrderBy(id => id));
+            WorldIdentityWalk.Enumerate(world).Select(sighting => sighting.Id).OrderBy(id => id));
+    }
+
+    /// <summary>
+    /// Every sighting names the table it came from, because the check downstream asserts uniqueness
+    /// inside one table and reports sharing across tables — neither of which a bare identity supports.
+    /// </summary>
+    [Fact]
+    public void EveryIdentityIsReportedUnderTheTableItWasPublishedIn()
+    {
+        var mana = Guid.NewGuid();
+        var hoard = Guid.NewGuid();
+
+        var world = new GameWorldState
+        {
+            IntVariables = WorldTable.Create(
+                new WorldNumberVariable(mana, new BigDouble(1d), isPercent: false)),
+            TreasurePools = WorldTable.Create(
+                new WorldTreasurePool(hoard, 3, new BigDouble(0.5d), false, 1, false)),
+        };
+
+        Assert.Equal(
+            new[] { ("IntVariables", mana), ("TreasurePools", hoard) }.OrderBy(row => row.Item1),
+            WorldIdentityWalk.Enumerate(world)
+                .Select(sighting => (sighting.Table, sighting.Id))
+                .OrderBy(row => row.Table));
     }
 
     /// <summary>
@@ -59,7 +85,7 @@ public sealed class WorldIdentityWalkTests
                 new WorldNumberVariable(shared, new BigDouble(2d), isPercent: false)),
         };
 
-        Assert.Equal(2, WorldIdentityWalk.Enumerate(world).Count(id => id == shared));
+        Assert.Equal(2, WorldIdentityWalk.Enumerate(world).Count(sighting => sighting.Id == shared));
     }
 
     /// <summary>
@@ -74,20 +100,59 @@ public sealed class WorldIdentityWalkTests
     /// is that edge several times over, one row per instance the plot holds. <c>PlotAuthoring</c>,
     /// <c>PlotPhaseDescriptors</c> and <c>EffectBlocks</c> are all second readings of an entity the
     /// plot and action tables already claim, said about the entity rather than as it. So is
-    /// <c>EntityRequirements</c>, whose rows are conditions on an upgrade or a structure the two
-    /// purchasable categories already own. <c>ActionQueueSlots</c> is a position in a list, which is
-    /// no entity at all. <c>MasteryExperience</c> is an ordered input journal keyed by sequence; its
+    /// <c>EntityRequirements</c>, whose rows are conditions on an upgrade, structure, or prerequisite
+    /// link already owned elsewhere. <c>PrerequisiteLinkTiers</c> is the volatile state for each
+    /// `(link, tier)` relation, and its link identity belongs to the authored catalog. <c>ActionQueueSlots</c>
+    /// is a position in a list, which is no entity at all. <c>MasteryExperience</c> is an ordered input journal keyed by sequence; its
     /// source identity points at a recipe or equipment row that already owns that identity.
     /// <c>ConsumableTypes</c>, <c>ConsumableCosts</c>, <c>ConsumableUsages</c>, and
     /// <c>ConsumableCounts</c> are relation rows keyed by a consumable the primary table already
     /// owns. Their secondary identities or levels describe one edge or stock tier rather than a
-    /// second entity namespace. <c>PurchaseViewRoutes</c> likewise holds authored edges between a
+    /// second entity namespace. <c>CraftingDecisions</c>, <c>CraftingDecisionCosts</c>, and
+    /// <c>CraftingQueueEntries</c> are the
+    /// current execution route and price evidence keyed by a recipe the crafting-recipe table
+    /// already owns. <c>PurchaseViewRoutes</c> likewise holds authored edges between a
     /// candidate, list, and view whose identities belong to their primary tables.
-    /// <c>CollectionCategories</c> is availability evidence about one collector pass, not a native
+    /// <c>CraftingStationOptions</c> and <c>CraftingStationDrains</c> describe selectors and costs
+    /// keyed by a runtime station whose own row owns the identity. <c>CollectionCategories</c> is
+    /// <c>PlayerLoadoutEntries</c>, <c>SnapshotSlots</c>, and <c>SnapshotEntries</c> are saved-entry
+    /// and owner/slot relations keyed by the player or snapshot-list rows that own their UUIDs.
+    /// <c>HarvestElementControls</c>, <c>HarvestActionControls</c>, and
+    /// <c>HarvestLifecycleCosts</c> are list-state and cost relations keyed by harvest elements,
+    /// actions, and resources whose identities come from their primary tables or the live catalog.
+    /// <c>CollectionCategories</c> is
+    /// availability evidence about one collector pass, not a native
     /// row and not a second identity namespace. <c>ScribeWork</c>,
     /// <c>StructureEnchantments</c>, <c>ScrollTargets</c>, and
     /// <c>ScrollTargetEvidence</c> are relationship or evidence rows keyed by recipes, structures,
     /// Scrolls, and enchantments whose owning tables already carry those identities.
+    /// <c>Targeting</c> is the one current request and its candidate edges; its candidates are
+    /// structures already owned by the structures table, while the request itself has no UUID.
+    /// <c>RequirementListMembers</c> is one row per position in an authored list variable: the list
+    /// and its members are both entities other tables already claim, and the row itself is the
+    /// membership between them. <c>UpgradeListMemberships</c> is the same shape for the upgrade
+    /// panels: both the upgrade and the authored list it sits on are claimed elsewhere, and the row
+    /// is only the edge between them. <c>RecipeBookGlyphs</c> is the signpost edge: its right end is
+    /// a Recipe Book the recipe-books table owns, and its left end is deliberately an id the world
+    /// publishes no row for — that is the whole reason the edge exists, so demanding a home for it
+    /// would demand back the twenty-five rows this table was built to retire.
+    /// <c>DiscoveryTreeBooks</c> is the authored edge between a Recipe Book and each discovery tree
+    /// it widens the pool of: both ends are entities their own tables claim, and the row is only the
+    /// membership between them.
+    /// <c>EntityKeywords</c> is the same shape again: the entity and
+    /// the type asset whose display name is the keyword are both claimed elsewhere — the entity by its
+    /// own category and the type by the lifecycle identity catalog — and the row is only the authored
+    /// membership between them. <c>GlyphEffects</c> and <c>LevelEffects</c> are the authored modifier
+    /// tuples of an owner some other table already claims — a glyph's inline factors and the six
+    /// per-level holders' blocks — and both ends of each row, the owner and the thing it modifies,
+    /// are entities their own categories own.
+    /// <c>TypeModifierTotals</c>, <c>KeywordModifiers</c> and <c>SpellTypeResonance</c> are derived
+    /// arithmetic rather than entities: the first two are keyed by a type asset the identity catalog
+    /// already claims and by the record name on it, and the third is keyed by a loadout position,
+    /// which is not an identity for the same reason <c>SpellSlots</c> is not.
+    /// <c>AttributeGroupMembers</c> is one row per authored reference on a stat group: both ends are
+    /// entities their own categories claim — the group by <c>attribute-groups</c>, the target by
+    /// whichever category holds it — and the row is only the distribution between them, at a ratio.
     /// <para>
     /// <c>ActionQueues</c> is not among them: a queue is a list variable with a uuid of its own that
     /// no other category collects, so it is walked like any other entity.
@@ -98,6 +163,11 @@ public sealed class WorldIdentityWalkTests
         "CollectionCategories",
         "PurchaseCosts",
         "PurchaseViewRoutes",
+        "UpgradeListMemberships",
+        "RecipeBookGlyphs",
+        "DiscoveryTreeBooks",
+        "GlyphEffects",
+        "LevelEffects",
         "PlotActions",
         "PlotActionInstances",
         "ActionQueueSlots",
@@ -108,19 +178,45 @@ public sealed class WorldIdentityWalkTests
         "ConsumableCosts",
         "ConsumableUsages",
         "ConsumableCounts",
+        "CraftingDecisions",
+        "CraftingDecisionCosts",
+        "CraftingQueueEntries",
         "ConceptRecipes",
         "AlchemyInstances",
         "AlchemyCosts",
+        "AlchemyUsageCosts",
         "ScribeWork",
         "StructureEnchantments",
         "ScrollTargets",
         "ScrollTargetEvidence",
+        "Targeting",
         "PlotAuthoring",
         "PlotPhaseDescriptors",
         "EffectBlocks",
         "EntityRequirements",
+        "RequirementListMembers",
+        "PrerequisiteLinkTiers",
+        "CraftingStationOptions",
+        "CraftingStationDrains",
+        "PlayerLoadoutEntries",
+        "SnapshotSlots",
+        "SnapshotEntries",
+        "HarvestElementControls",
+        "HarvestActionControls",
+        "HarvestLifecycleCosts",
         "SpellAuthoredCosts",
         "SpellRelations",
+        "EntityKeywords",
+        "TypeModifiers",
+        "TypeModifierContributions",
+        "TypeSubtypes",
+        "ChallengeTypes",
+        "ChallengeTypeMemberships",
+        "SpellSlotTypes",
+        "TypeModifierTotals",
+        "KeywordModifiers",
+        "SpellTypeResonance",
+        "AttributeGroupMembers",
     };
 
     /// <summary>
@@ -155,5 +251,90 @@ public sealed class WorldIdentityWalkTests
         Assert.True(
             unreadable.Count == 0,
             $"these tables hold rows without an identity the walk can read: {string.Join(", ", unreadable)}");
+    }
+
+    /// <summary>
+    /// Which walked tables hold several rows per owner, pinned by name and by how many tables the
+    /// walk sees at all.
+    /// </summary>
+    /// <remarks>
+    /// A table whose rows are searched by owner-and-something and is audited on the owner alone
+    /// reports one accusation per row after the first — 579 of them on a real save, all of them the
+    /// schema working. The rot this pins is a new table of that shape landing with nothing declared:
+    /// the count moves, this fails, and somebody decides what the row's key is rather than reading
+    /// the flood as a defect. The direction that is not pinned cannot go quiet — an unannotated
+    /// composite table is audited on the identity and fails loudly.
+    /// </remarks>
+    [Fact]
+    public void TheTablesKeyedOnMoreThanTheIdentityAreNamedAndTheRestAreCounted()
+    {
+        var composite = new List<string>();
+        var walked = 0;
+
+        var properties = typeof(GameWorldState).GetProperties(
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+        foreach (var property in properties)
+        {
+            var type = property.PropertyType;
+            if (!type.IsGenericType) continue;
+            if (type.GetGenericTypeDefinition() != typeof(PublicationTable<>)) continue;
+
+            var row = type.GetGenericArguments()[0];
+            if (!typeof(IWorldEntity).IsAssignableFrom(row)) continue;
+
+            walked++;
+            if (WorldRowKey.Of(row).IsComposite) composite.Add(property.Name);
+        }
+
+        composite.Sort(StringComparer.Ordinal);
+        Assert.Equal(
+            new[] { "MasteryCosts", "ModifierProgramEntries", "ModifierPrograms" },
+            composite);
+        Assert.Equal(72, walked);
+    }
+
+    /// <summary>
+    /// The key is written out in its declared order, because the only place it is read is the
+    /// sentence naming the row that repeated — and "the second entry of the passive set" is
+    /// something a reader can go and look at, while a hash is not.
+    /// </summary>
+    [Fact]
+    public void ARowKeyedOnMoreThanTheIdentityCarriesTheRestOfItsKeyInOrder()
+    {
+        var owner = Guid.NewGuid();
+        var buffer = new WorldModifierProgramEntryBuffer();
+        buffer.Append(new WorldModifierProgramEntry(
+            owner,
+            WorldModifierProgramRole.ConceptDrain,
+            WorldModifierProgramEntrySet.Passive,
+            2,
+            Guid.NewGuid(),
+            GameValueModifierType.Raw,
+            0,
+            BigDouble.Zero));
+
+        var world = new GameWorldState
+        {
+            ModifierProgramEntries = WorldModifierProgramDeriver.Build(buffer),
+        };
+
+        var sighting = Assert.Single(WorldIdentityWalk.Enumerate(world));
+        Assert.Equal("ModifierProgramEntries", sighting.Table);
+        Assert.Equal(owner, sighting.Id);
+        Assert.Equal("Role=ConceptDrain Set=Passive Position=2", sighting.KeyWithinEntity);
+    }
+
+    /// <summary>A catalog row is its identity and nothing else, and says so with an empty key.</summary>
+    [Fact]
+    public void ACatalogRowCarriesNoKeyBeyondItsIdentity()
+    {
+        var world = new GameWorldState
+        {
+            IntVariables = WorldTable.Create(
+                new WorldNumberVariable(Guid.NewGuid(), new BigDouble(1d), isPercent: false)),
+        };
+
+        Assert.Equal(string.Empty, Assert.Single(WorldIdentityWalk.Enumerate(world)).KeyWithinEntity);
     }
 }

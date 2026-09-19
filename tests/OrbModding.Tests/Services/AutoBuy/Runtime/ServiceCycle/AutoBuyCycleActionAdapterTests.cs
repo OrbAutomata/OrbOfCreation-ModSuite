@@ -465,6 +465,40 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Assert.Equal(0, structure.queuedQuantity);
     }
 
+    /// <summary>
+    /// A topology stamped for another run is its own refusal, and it says which run it holds.
+    /// </summary>
+    /// <remarks>
+    /// This used to share one preflight and one number with four other causes, so the twenty-seven
+    /// minutes of refused purchases it produced looked exactly like an unbound contract. All three
+    /// numbers are in the sentence because none can be inferred from the others: stamped-at-zero was
+    /// never published under a lifecycle, stamped-at-another-epoch means the game moved on, and the
+    /// row count separates both from a topology that was captured and simply holds nothing.
+    /// </remarks>
+    [Fact]
+    public void Submit_TopologyStampedForAnotherRun_NamesBothEpochsAndTheRowCount()
+    {
+        var structure = new global::StructureSO
+        {
+            uuid = Guid.NewGuid().ToString(),
+            available = true,
+            purchasable = true,
+        };
+        global::StructureSO.All.Add(structure);
+
+        var submission = NativeAdapter(lifecycleEpoch: 3).Submit(
+            AutoBuyCandidateKind.Structure,
+            Guid.Parse(structure.uuid),
+            count: 1,
+            lifecycleEpoch: 9);
+
+        Assert.Equal(AutoBuyPurchasePreflight.OwningViewTopologyUncaptured, submission.Preflight);
+        Assert.Contains("epoch 3", submission.Reason);
+        Assert.Contains("epoch 9", submission.Reason);
+        Assert.Contains("1 row(s)", submission.Reason);
+        Assert.Equal(0, structure.queuedQuantity);
+    }
+
     [Fact]
     public void Execute_LockedOwningView_RefusesForcedActionWithNamedCode()
     {
@@ -1141,6 +1175,50 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Assert.Equal(3, structure.queuedQuantity);
     }
 
+    /// <summary>
+    /// The game's own upgrade button queues every level it bought without consulting the queue, so a
+    /// player can stack it past its maximum and leave <c>GetRemainingRoom()</c> negative. That is a
+    /// full queue, and the boundary says so; treating it as an unreadable contract made every later
+    /// purchase report a broken suite for a state the game reaches on its own.
+    /// </summary>
+    [Fact]
+    public void Execute_QueueStackedPastItsMaximum_RejectsAsNoRoomWithoutFaulting()
+    {
+        var structure = new global::StructureSO
+        {
+            uuid = Guid.NewGuid().ToString(),
+            available = true,
+            purchasable = true,
+            queuedQuantity = 3,
+        };
+        global::StructureSO.All.Add(structure);
+
+        var result = Execute(
+            AutoBuyCandidateKind.Structure,
+            Guid.Parse(structure.uuid),
+            nativeEpoch: PlannedEpoch,
+            leaveQueueSlots: 0,
+            remainingRoom: -2);
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(AutoBuyActionResultCodes.ActionQueueFull, result.Code);
+        Assert.False(result.HasNativeEvidence);
+        Assert.Equal(3, structure.queuedQuantity);
+    }
+
+    /// <summary>
+    /// The native reading itself is handed over signed. Only a reading that could not be taken at all
+    /// answers <c>false</c>.
+    /// </summary>
+    [Fact]
+    public void ReadRemainingRoom_QueueStackedPastItsMaximum_AnswersTheSignedReading()
+    {
+        global::ActionManager.RemainingRoom = -2;
+
+        Assert.True(new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out var room));
+        Assert.Equal(-2, room);
+    }
+
     /// <param name="nativeEpoch">What the live game says its epoch is when the action is submitted.</param>
     /// <param name="plannedEpoch">
     /// The epoch the world this purchase was planned from was collected under, which the action
@@ -1318,7 +1396,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             Context());
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
-        Assert.Equal(AutoBuyActionResultCodes.OwningViewRelationUnreadable, result.Code);
+        Assert.Equal(AutoBuyActionResultCodes.OwningViewTopologyUncaptured, result.Code);
         Assert.Equal(5, added.queuedQuantity);
     }
 
@@ -1363,7 +1441,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             Context());
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
-        Assert.Equal(AutoBuyActionResultCodes.OwningViewRelationUnreadable, result.Code);
+        Assert.Equal(AutoBuyActionResultCodes.OwningViewTopologyUncaptured, result.Code);
         Assert.Equal(3, replacement.queuedQuantity);
     }
 
@@ -1665,6 +1743,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             lifecycleEpoch,
             new OrbModding.Common.Runtime.World.WorldRelationBuffer<WorldPurchaseViewRelation>(),
             new OrbModding.Common.Runtime.World.WorldRelationBuffer<WorldPurchaseViewRoute>(),
+            new OrbModding.Common.Runtime.World.WorldRelationBuffer<
+                OrbModding.Common.Runtime.World.WorldUpgradeListMembership>(),
+            out _,
             out _,
             out _);
         return new AutoBuyNativePurchaseAdapter(topology);

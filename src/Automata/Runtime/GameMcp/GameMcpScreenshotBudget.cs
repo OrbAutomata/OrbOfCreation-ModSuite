@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using OrbModding.Common;
 
 namespace OrbAutomata;
 
@@ -95,8 +96,8 @@ internal static class GameMcpScreenshotBudget
         {
             return new GameMcpScreenshotBudgetAdmission(
                 GameMcpScreenshotBudgetStatus.StorageUnavailable,
-                "the saved-screenshot budget could not be inspected: " +
-                exception.GetBaseException().Message);
+                "Screenshots cannot be stored right now." +
+                GameActionFaultLog.Record(exception, "screenshot storage"));
         }
     }
 

@@ -402,8 +402,34 @@ internal static class ConfigValueValidator
         }
     }
 
+    /// <summary>
+    /// The panel's copy of the vocabulary the MCP wire speaks, so a player who mistypes a value
+    /// reads one word for one fact wherever they meet it: "Expected int." in the Mods tab and
+    /// "must parse exactly as int" over MCP, never "Expected Int32." in one of them.
+    /// </summary>
+    /// <remarks>
+    /// Mirrored rather than shared, and its twin is
+    /// <c>GameMcpConfigurationValuePolicy.SettingTypeWord</c>: that one is compiled only under
+    /// <c>SERVICE_CYCLE_PROFILE</c> and this panel ships in release builds, so the panel cannot
+    /// call it without either taking the profiler into release or losing the fix there. Keep the
+    /// two lists in step. The fallback is where they part on purpose: the twin throws, because a
+    /// suite setting the wire has no word for is a defect worth catching when the schema is built,
+    /// while this panel edits any loaded plugin's config and a third-party setting of an unmapped
+    /// type must not turn a typo into an exception the player cannot type their way out of.
+    /// </remarks>
+    internal static string SettingTypeWord(Type settingType)
+    {
+        var type = Nullable.GetUnderlyingType(settingType) ?? settingType;
+        if (type.IsEnum) return type.Name;
+        if (type == typeof(bool)) return "bool";
+        if (type == typeof(int)) return "int";
+        if (type == typeof(float)) return "float";
+        if (type == typeof(string)) return "string";
+        return type.Name;
+    }
+
     private static string FriendlyTypeName(Type type)
     {
-        return type.IsEnum ? string.Join(", ", Enum.GetNames(type)) : type.Name;
+        return type.IsEnum ? string.Join(", ", Enum.GetNames(type)) : SettingTypeWord(type);
     }
 }

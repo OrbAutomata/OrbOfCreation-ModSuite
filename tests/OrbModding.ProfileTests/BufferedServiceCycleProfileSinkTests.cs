@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile.Format;
@@ -44,7 +45,7 @@ public sealed class BufferedServiceCycleProfileSinkTests
         WaitUntilReady(sink);
 
         Assert.Equal(ServiceCycleProfileAppendResult.Accepted, sink.Append(Record(stage: 1)));
-        Assert.True(storage.WriteEntered.Wait(TimeSpan.FromSeconds(2)));
+        Assert.True(storage.WriteEntered.Wait(WriterDeadline));
         Assert.Equal(ServiceCycleProfileAppendResult.Accepted, sink.Append(Record(stage: 2)));
         Assert.Equal(
             ServiceCycleProfileAppendResult.AcceptedAndBufferExhausted,
@@ -111,8 +112,8 @@ public sealed class BufferedServiceCycleProfileSinkTests
             Assert.Equal(ServiceCycleProfileAppendResult.Accepted, sink.Append(Record()));
 
             sink.Dispose();
-            WaitUntilTerminal(sink);
 
+            Assert.Equal(ServiceCycleProfileSinkState.Stopped, sink.Snapshot.State);
             var manifest = ServiceCycleProfileManifestCodec.Decode(Assert.IsType<byte[]>(storage.Manifest));
             Assert.Equal(ServiceCycleProfileCompleteness.Complete, manifest.Completeness);
             Assert.Equal(ServiceCycleProfileTerminalReason.RuntimeShutdown, manifest.Reason);
@@ -123,16 +124,46 @@ public sealed class BufferedServiceCycleProfileSinkTests
         }
     }
 
+    /// <summary>
+    /// How long a test waits on the profile sink's writer thread before calling it hung.
+    /// </summary>
+    /// <remarks>
+    /// A hang detector, not a latency budget. Every wait built on this waits for work a deliberately
+    /// <see cref="ThreadPriority.Lowest"/> writer thread performs, so the deadline is not part of
+    /// what the test asserts, and a healthy wait returns the moment its condition holds — the gate
+    /// costs the same either way. Two seconds asserted something no test meant to assert: that this
+    /// machine was not busy at that moment. Generous, but far inside the gate's own per-attempt
+    /// deadline, so a genuinely hung writer reports the named expectation it never reached rather
+    /// than an anonymous gate timeout. Declared here because this project cannot see the equivalent
+    /// constant in <c>OrbModding.Tests</c>, and one number does not justify a project reference.
+    /// </remarks>
+    private static readonly TimeSpan WriterDeadline = TimeSpan.FromSeconds(15);
+
     private static void WaitUntilReady(BufferedServiceCycleProfileSink sink) =>
-        Assert.True(SpinWait.SpinUntil(
-            () => sink.Snapshot.State != ServiceCycleProfileSinkState.Initializing,
-            TimeSpan.FromSeconds(2)));
+        Assert.True(PollUntil(
+            () => sink.Snapshot.State != ServiceCycleProfileSinkState.Initializing));
 
     private static void WaitUntilTerminal(BufferedServiceCycleProfileSink sink) =>
-        Assert.True(SpinWait.SpinUntil(
+        Assert.True(PollUntil(
             () => sink.Snapshot.State is ServiceCycleProfileSinkState.Stopped or
-                ServiceCycleProfileSinkState.Faulted,
-            TimeSpan.FromSeconds(2)));
+                ServiceCycleProfileSinkState.Faulted));
+
+    /// <summary>
+    /// Polls a sink condition to <see cref="WriterDeadline"/>, asleep rather than spinning, because
+    /// the awaited work runs on the sink's lowest-priority writer thread and a hot spinner competes
+    /// with it for the core it needs.
+    /// </summary>
+    private static bool PollUntil(Func<bool> condition)
+    {
+        var elapsed = Stopwatch.StartNew();
+        while (elapsed.Elapsed < WriterDeadline)
+        {
+            if (condition()) return true;
+            Thread.Sleep(1);
+        }
+
+        return condition();
+    }
 
     private sealed class ProfileStorage : ISegmentSessionStorage, IDisposable
     {

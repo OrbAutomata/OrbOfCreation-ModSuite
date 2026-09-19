@@ -574,7 +574,7 @@ public sealed class ModConfigTests
 
         session.Get(settings["Enabled"]).Stage("true");
         session.RevertAll();
-        Assert.Equal("False", session.Get(settings["Enabled"]).StagedSerialized);
+        Assert.Equal("false", session.Get(settings["Enabled"]).StagedSerialized);
         Assert.False(session.IsDirty);
     }
 
@@ -676,6 +676,56 @@ public sealed class ModConfigTests
         session.Get(settings["Count"]).Stage("12");
         Assert.False(session.IsValid);
         Assert.Contains("Range", session.Get(settings["Count"]).Error);
+    }
+
+    /// <summary>
+    /// The panel refuses a mistyped value in the same words the MCP wire uses, so the two surfaces
+    /// in front of one player do not spell one fact two ways. An enum is refused by listing the
+    /// choices it accepts, which is what the panel always did and is already the player's words.
+    /// </summary>
+    [Fact]
+    public void EditSession_RefusesMistypedValuesInThePlayersWordsForTheType()
+    {
+        var config = new ConfigFile();
+        config.Bind("General", "Enabled", true, "Enabled");
+        config.Bind("General", "Count", 4, "Count");
+        config.Bind("General", "Percent", 0.5f, "Percent");
+        config.Bind("General", "Mode", SampleMode.Disabled, "Mode");
+        var catalog = ConfigCatalog.Build(new[]
+        {
+            new ConfigPluginSource("plugin", "Plugin", "1.0.0", config),
+        });
+        var session = new ConfigEditSession(catalog);
+        var settings = catalog.Mods.Single().Sections.Single().Settings
+            .ToDictionary(setting => setting.Key);
+
+        session.Get(settings["Enabled"]).Stage("sometimes");
+        session.Get(settings["Count"]).Stage("one");
+        session.Get(settings["Percent"]).Stage("half");
+        session.Get(settings["Mode"]).Stage("Cheap");
+
+        Assert.Equal("Expected bool.", session.Get(settings["Enabled"]).Error);
+        Assert.Equal("Expected int.", session.Get(settings["Count"]).Error);
+        Assert.Equal("Expected float.", session.Get(settings["Percent"]).Error);
+        Assert.Equal("Expected Disabled, Active.", session.Get(settings["Mode"]).Error);
+    }
+
+    /// <summary>
+    /// The panel's type words are the wire's, including <c>string</c>, which the panel declares for
+    /// the twin's sake even though a string setting is accepted before validation can name its
+    /// type. Where the two part is the fallback: the wire throws on a type it has no word for, and
+    /// the panel — which edits any loaded plugin's config, not only the suite's — keeps naming the
+    /// runtime type rather than turning a third-party mod's typo into an exception.
+    /// </summary>
+    [Fact]
+    public void ConfigValueValidator_SpeaksTheWiresTypeWordsAndFallsBackSoftly()
+    {
+        Assert.Equal("bool", ConfigValueValidator.SettingTypeWord(typeof(bool)));
+        Assert.Equal("int", ConfigValueValidator.SettingTypeWord(typeof(int)));
+        Assert.Equal("float", ConfigValueValidator.SettingTypeWord(typeof(float)));
+        Assert.Equal("string", ConfigValueValidator.SettingTypeWord(typeof(string)));
+        Assert.Equal("SampleMode", ConfigValueValidator.SettingTypeWord(typeof(SampleMode)));
+        Assert.Equal("Double", ConfigValueValidator.SettingTypeWord(typeof(double)));
     }
 
     [Fact]

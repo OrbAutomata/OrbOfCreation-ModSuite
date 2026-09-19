@@ -21,11 +21,18 @@ namespace OrbModding.Common.Runtime.World;
 /// </remarks>
 internal readonly struct WorldNumberVariable : IWorldEntity
 {
-    internal WorldNumberVariable(Guid variableId, BigDouble value, bool isPercent)
+    internal WorldNumberVariable(
+        Guid variableId,
+        BigDouble value,
+        bool isPercent,
+        bool isTime = false,
+        bool isTimeAccurate = false)
     {
         VariableId = variableId;
         Value = value;
         IsPercent = isPercent;
+        IsTime = isTime;
+        IsTimeAccurate = isTimeAccurate;
     }
 
     internal Guid VariableId { get; }
@@ -37,6 +44,21 @@ internal readonly struct WorldNumberVariable : IWorldEntity
 
     /// <summary>Whether the value is in the game's percent representation, where 100 is parity.</summary>
     internal bool IsPercent { get; }
+
+    /// <summary>
+    /// Whether the value is a count of seconds the game draws as a duration, and whether it draws it
+    /// to the second or to two decimals.
+    /// </summary>
+    /// <remarks>
+    /// <c>NumberVariable.GetValueDisplay()</c> tests these two before <c>isPercentVariable</c>:
+    /// <c>isTimeVariable</c> alone is <c>Utils.BeautifyTimeAccurate</c>, both together are
+    /// <c>Utils.BeautifyTimeUltraPrecise</c>. Without them every time-shaped variable but the one
+    /// the suite had hard-coded reached the wire as a bare magnitude, which is the number of seconds
+    /// and not what any screen shows.
+    /// </remarks>
+    internal bool IsTime { get; }
+
+    internal bool IsTimeAccurate { get; }
 }
 
 /// <summary>One global flag as published.</summary>
@@ -78,6 +100,8 @@ internal abstract class WorldNumberVariableBinder : WorldPlainBinder<WorldNumber
     private Func<object, Guid>? _id;
     private Func<object, BigDouble>? _value;
     private Func<object, bool>? _isPercent;
+    private Func<object, bool>? _isTime;
+    private Func<object, bool>? _isTimeAccurate;
 
     internal override string Bind(Type type)
     {
@@ -85,11 +109,18 @@ internal abstract class WorldNumberVariableBinder : WorldPlainBinder<WorldNumber
         _id = bind.Call<Guid>("GetGuid");
         _value = bind.ModifierRecord("value");
         _isPercent = bind.Field<bool>("isPercentVariable");
+        _isTime = bind.Field<bool>("isTimeVariable");
+        _isTimeAccurate = bind.Field<bool>("isTimeAccurateVariable");
         return bind.Failure;
     }
 
     internal override WorldNumberVariable Read(object entity) =>
-        new(_id!(entity), _value!(entity), _isPercent!(entity));
+        new(
+            _id!(entity),
+            _value!(entity),
+            _isPercent!(entity),
+            _isTime!(entity),
+            _isTimeAccurate!(entity));
 }
 
 /// <summary>Global scalars: rates, multipliers, thresholds.</summary>

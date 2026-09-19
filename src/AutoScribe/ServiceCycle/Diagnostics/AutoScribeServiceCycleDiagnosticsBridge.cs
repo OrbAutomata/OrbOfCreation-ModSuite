@@ -103,45 +103,86 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
 
     private AutoScribeFeatureStatus Project()
     {
-        if (_emergencyDisabled)
+        var ownsActionFamily = AutoScribeActionFamilyAccess.Owns(
+            _dependencies.OwnsActionFamily);
+        return ProjectStatus(
+            _dependencies.Profile,
+            _emergencyDisabled,
+            ownsActionFamily,
+            ownsActionFamily ? string.Empty : OwnershipReason(),
+            _gameAction.BindingsAvailable,
+            _gameAction.BindingFailure,
+            _health,
+            _cycleObserved,
+            _decisionKind,
+            _blockedRole,
+            _blockedReason);
+    }
+
+    internal static AutoScribeFeatureStatus ProjectStatus(
+        AutoScribeIdentityProfile profile,
+        bool emergencyDisabled,
+        bool ownsActionFamily,
+        string ownershipReason,
+        bool bindingsAvailable,
+        string bindingFailure,
+        AutoScribeActionHealth health,
+        bool cycleObserved,
+        AutoScribeDecisionKind decisionKind,
+        int blockedRole,
+        AutoScribeEvidenceReason blockedReason)
+    {
+        if (profile is null) throw new ArgumentNullException(nameof(profile));
+        if (health is null) throw new ArgumentNullException(nameof(health));
+        // Player emergency control deliberately shadows retained health: its current stop command
+        // is the status the player must act on first.
+        if (emergencyDisabled)
             return Blocked(
                 FeatureStatusReasonCode.EmergencyDisabled,
                 "Automata Emergency Disable is active.");
-        if (!OwnsActionFamily())
+        // A feature that does not own the action family is inert. Report that conflict before a
+        // retained failure from an earlier ownership period.
+        if (!ownsActionFamily)
             return Blocked(
                 FeatureStatusReasonCode.ActionFamilyConflict,
-                OwnershipReason());
-        if (!_gameAction.BindingsAvailable)
+                ownershipReason);
+        if (!bindingsAvailable)
             return new AutoScribeFeatureStatus(
                 FeatureStatusState.ContractUnavailable,
                 FeatureStatusReasonCode.ContractUnavailable,
-                string.IsNullOrWhiteSpace(_gameAction.BindingFailure)
+                string.IsNullOrWhiteSpace(bindingFailure)
                     ? "The lifecycle-scoped Auto Scribe binding set is unavailable."
-                    : _gameAction.BindingFailure);
-        if (_health.HasFailure && IsQuarantiningFailure(_health.Preflight))
-            return FromActionHealth();
-        if (!_cycleObserved)
+                    : bindingFailure);
+
+        // A genuine unresolved action failure remains operator-visible until a verified action or
+        // lifecycle invalidation clears it. Publication-level evidence backpressure must not hide
+        // that defect; quiet backpressure never enters action health in the first place.
+        if (health.HasFailure)
+            return FromActionHealth(health);
+        if (!cycleObserved)
             return new AutoScribeFeatureStatus(
                 FeatureStatusState.NotReady,
                 FeatureStatusReasonCode.GameplayNotReady,
                 "Auto Scribe is waiting for its first world publication.");
-        if (_decisionKind == AutoScribeDecisionKind.EvidenceBlocked)
+        if (decisionKind == AutoScribeDecisionKind.EvidenceBlocked)
         {
-            if (_dependencies.Profile.TryFindOrdinal(_blockedRole, out var role))
+            if (profile.TryFindOrdinal(blockedRole, out var role))
                 return Blocked(
                     FeatureStatusReasonCode.EvidenceUnavailable,
-                    ScrollCoveragePlanner.DescribeEvidence(in role, _blockedReason));
+                    ScrollCoveragePlanner.DescribeEvidence(in role, blockedReason));
             return Blocked(
                 FeatureStatusReasonCode.EvidenceUnavailable,
-                $"Auto Scribe blocked an unknown role ordinal {_blockedRole} for " +
-                $"evidence reason {_blockedReason}.");
+                $"Auto Scribe blocked an unknown role ordinal {blockedRole} for " +
+                $"evidence reason {blockedReason}.");
         }
-        if (_health.HasFailure)
-            return FromActionHealth();
+        if (decisionKind == AutoScribeDecisionKind.QueueBusy)
+            return Blocked(
+                FeatureStatusReasonCode.QueueFull,
+                "Active Scribe work already fills the native queue; Auto Scribe is waiting for the next world publication.");
         return new AutoScribeFeatureStatus(
             FeatureStatusState.Operational,
             FeatureStatusReasonCode.None,
-            _decisionKind switch
+            decisionKind switch
             {
                 AutoScribeDecisionKind.Planned =>
                     "Auto Scribe planned one audited Scroll from the latest world.",
@@ -151,39 +192,43 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
             });
     }
 
-    private AutoScribeFeatureStatus FromActionHealth()
+    private static AutoScribeFeatureStatus FromActionHealth(AutoScribeActionHealth health)
     {
-        var summary = string.IsNullOrWhiteSpace(_health.Reason)
-            ? $"Auto Scribe failed at {_health.Stage}/{_health.Preflight}."
-            : _health.Reason;
-        return _health.Preflight switch
+        var summary = string.IsNullOrWhiteSpace(health.Reason)
+            ? $"Auto Scribe failed at {health.Stage}/{health.Preflight}."
+            : health.Reason;
+        switch (health.Preflight)
         {
-            AutoScribePreflight.ContractUnavailable =>
-                new AutoScribeFeatureStatus(
+            case AutoScribePreflight.ContractUnavailable:
+                return new AutoScribeFeatureStatus(
                     FeatureStatusState.ContractUnavailable,
                     FeatureStatusReasonCode.ContractUnavailable,
-                    summary),
-            AutoScribePreflight.PostPaymentFault or
-            AutoScribePreflight.VerificationFailed or
-            AutoScribePreflight.Quarantined =>
-                new AutoScribeFeatureStatus(
-                    FeatureStatusState.Faulted,
-                    FeatureStatusReasonCode.MutationQuarantined,
-                    summary),
-            AutoScribePreflight.RelationshipMismatch =>
-                new AutoScribeFeatureStatus(
+                    summary);
+            case AutoScribePreflight.IdentityUnavailable:
+                return new AutoScribeFeatureStatus(
                     FeatureStatusState.ContractUnavailable,
                     FeatureStatusReasonCode.IdentityMismatch,
-                    summary),
-            AutoScribePreflight.IdentityUnavailable =>
-                new AutoScribeFeatureStatus(
-                    FeatureStatusState.NotReady,
-                    FeatureStatusReasonCode.RegistryNotReady,
-                    summary),
-            AutoScribePreflight.MutationPermitUnavailable =>
-                Blocked(FeatureStatusReasonCode.ActionFamilyConflict, summary),
-            _ => Blocked(FeatureStatusReasonCode.TemporarySafetyBlock, summary),
-        };
+                    summary);
+            case AutoScribePreflight.PostPaymentFault:
+            case AutoScribePreflight.VerificationFailed:
+            case AutoScribePreflight.Quarantined:
+                return new AutoScribeFeatureStatus(
+                    FeatureStatusState.Faulted,
+                    FeatureStatusReasonCode.MutationQuarantined,
+                    summary);
+            case AutoScribePreflight.RelationshipMismatch:
+                return new AutoScribeFeatureStatus(
+                    FeatureStatusState.ContractUnavailable,
+                    FeatureStatusReasonCode.IdentityMismatch,
+                    summary);
+            case AutoScribePreflight.WrongThread:
+                return new AutoScribeFeatureStatus(
+                    FeatureStatusState.Faulted,
+                    FeatureStatusReasonCode.ContractUnavailable,
+                    summary);
+        }
+        throw new InvalidOperationException(
+            $"Auto Scribe action health retained non-failure {health.Preflight}.");
     }
 
     private string OwnershipReason()
@@ -200,23 +245,6 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
             return "Auto Scribe ownership evidence failed: " + ex.GetBaseException().Message;
         }
     }
-
-    private bool OwnsActionFamily()
-    {
-        try
-        {
-            return _dependencies.OwnsActionFamily();
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
-        {
-            return false;
-        }
-    }
-
-    private static bool IsQuarantiningFailure(AutoScribePreflight preflight) =>
-        preflight is AutoScribePreflight.PostPaymentFault or
-            AutoScribePreflight.VerificationFailed or
-            AutoScribePreflight.Quarantined;
 
     private bool TryReadProjection(
         SuiteFramePump pump,
@@ -254,7 +282,7 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
         string summary) =>
         new(FeatureStatusState.TemporarilyBlocked, reason, summary);
 
-    private readonly struct AutoScribeFeatureStatus
+    internal readonly struct AutoScribeFeatureStatus
     {
         internal AutoScribeFeatureStatus(
             FeatureStatusState state,

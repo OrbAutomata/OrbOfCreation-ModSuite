@@ -79,7 +79,9 @@ internal static class TraceRosterFormat
         if (line.Length == 0) return false;
         var separator = line.IndexOf(Separator, StringComparison.Ordinal);
         if (separator < 0) return false;
-        var head = line.Substring(0, separator).Split(' ');
+        // Three fields, and the last one takes whatever is left: a machine identity is a name the
+        // runtime chose, and a world-collection category chose one with spaces in it.
+        var head = line.Substring(0, separator).Split(' ', 3);
         if (head.Length != 3) return false;
         if (!ulong.TryParse(head[1], NumberStyles.None, CultureInfo.InvariantCulture, out var identity))
             return false;

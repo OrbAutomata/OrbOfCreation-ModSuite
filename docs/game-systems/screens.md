@@ -1,6 +1,8 @@
 # Screens
 
-Seven screens sit on the top bar, each with its own strip of subtabs directly under the header.
+Seven screens sit on the top bar, each with its own strip of subtabs directly under the header. A
+screen the run has not unlocked is not drawn at all, so a young save shows fewer than seven and they
+appear as the run earns them.
 
 | Screen | Subtabs | What it is for |
 |---|---|---|
@@ -18,6 +20,9 @@ Two strips are always present and belong to no single screen:
   one-shot purchase list; Inventory is your carried items.
 - **The casting bar and the bottom level bar** — spell buttons stay reachable while you browse other
   screens, and the bar along the very bottom of the window is Orb XP.
+- **The top-right icons** — buttons rather than screens. Each puts a panel over whatever page you
+  are on: Player is this run's numbers, and the settings and achievement panels sit beside it.
+  A panel covers the board, and the buttons underneath it take no clicks until you close it.
 
 ## Which page holds what
 

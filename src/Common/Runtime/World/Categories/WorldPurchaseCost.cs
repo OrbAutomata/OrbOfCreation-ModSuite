@@ -34,10 +34,24 @@ internal readonly struct RawPurchaseCost
 /// the worker. The grouped amount is a sum of independently priced and rounded levels, never a
 /// multiplication of the first price.
 /// </remarks>
-internal readonly struct WorldPurchaseCost
+internal readonly struct WorldPurchaseCost : IExactCostRow<Guid>
 {
     internal WorldPurchaseCost(Guid entityId, Guid resourceId, BigDouble amount)
-        : this(entityId, resourceId, amount, exactGroupedLevels: 1, amount)
+        : this(
+            entityId,
+            resourceId,
+            amount,
+            amount,
+            exactGroupedLevels: 1,
+            amount,
+            PublicationTable<WorldPurchaseCostModifierSource>.Empty,
+            affordabilityEvaluated: false,
+            availableAmount: default,
+            combinedEffectiveAmount: amount,
+            resourceAffordable: false,
+            resourceAffordabilityReasonCode: "not_evaluated",
+            affordable: false,
+            affordabilityReasonCode: "not_evaluated")
     {
     }
 
@@ -47,12 +61,55 @@ internal readonly struct WorldPurchaseCost
         BigDouble amount,
         int exactGroupedLevels,
         BigDouble exactGroupedAmount)
+        : this(
+            entityId,
+            resourceId,
+            amount,
+            amount,
+            exactGroupedLevels,
+            exactGroupedAmount,
+            PublicationTable<WorldPurchaseCostModifierSource>.Empty,
+            affordabilityEvaluated: false,
+            availableAmount: default,
+            combinedEffectiveAmount: amount,
+            resourceAffordable: false,
+            resourceAffordabilityReasonCode: "not_evaluated",
+            affordable: false,
+            affordabilityReasonCode: "not_evaluated")
+    {
+    }
+
+    internal WorldPurchaseCost(
+        Guid entityId,
+        Guid resourceId,
+        BigDouble baseExactAmount,
+        BigDouble effectiveExactAmount,
+        int exactGroupedLevels,
+        BigDouble exactGroupedAmount,
+        PublicationTable<WorldPurchaseCostModifierSource> modifierSources,
+        bool affordabilityEvaluated,
+        BigDouble availableAmount,
+        BigDouble combinedEffectiveAmount,
+        bool resourceAffordable,
+        string resourceAffordabilityReasonCode,
+        bool affordable,
+        string affordabilityReasonCode)
     {
         EntityId = entityId;
         ResourceId = resourceId;
-        Amount = amount;
+        BaseExactAmount = baseExactAmount;
+        EffectiveExactAmount = effectiveExactAmount;
         ExactGroupedLevels = exactGroupedLevels;
         ExactGroupedAmount = exactGroupedAmount;
+        ModifierSources = modifierSources ??
+            throw new ArgumentNullException(nameof(modifierSources));
+        AffordabilityEvaluated = affordabilityEvaluated;
+        AvailableAmount = availableAmount;
+        CombinedEffectiveAmount = combinedEffectiveAmount;
+        ResourceAffordable = resourceAffordable;
+        ResourceAffordabilityReasonCode = resourceAffordabilityReasonCode ?? string.Empty;
+        Affordable = affordable;
+        AffordabilityReasonCode = affordabilityReasonCode ?? string.Empty;
     }
 
     /// <summary>The structure or upgrade being priced.</summary>
@@ -61,7 +118,14 @@ internal readonly struct WorldPurchaseCost
     /// <summary>The resource this part of the price is paid in.</summary>
     internal Guid ResourceId { get; }
 
-    internal BigDouble Amount { get; }
+    /// <summary>The authored resource amount before any live cost term is applied.</summary>
+    internal BigDouble BaseExactAmount { get; }
+
+    /// <summary>The next-level amount from the suite's verified port of the native cost chain.</summary>
+    internal BigDouble EffectiveExactAmount { get; }
+
+    /// <summary>Compatibility name for consumers written before the base/effective split.</summary>
+    internal BigDouble Amount => EffectiveExactAmount;
 
     /// <summary>The live native group size priced through the complete rising cost curve.</summary>
     internal int ExactGroupedLevels { get; }
@@ -71,9 +135,161 @@ internal readonly struct WorldPurchaseCost
     /// level's own rounding. For a bounded upgrade this includes only levels remaining below its cap.
     /// </summary>
     internal BigDouble ExactGroupedAmount { get; }
+
+    /// <summary>Every named input which can move this row away from its authored amount.</summary>
+    internal PublicationTable<WorldPurchaseCostModifierSource> ModifierSources { get; }
+
+    /// <summary>
+    /// Whether the publication contained enough same-generation resource evidence to evaluate the
+    /// price. False is explicit rather than silently treating an absent resource as zero holdings.
+    /// </summary>
+    internal bool AffordabilityEvaluated { get; }
+
+    /// <summary>
+    /// Same-generation spendable amount: true holdings for an ordinary resource, headroom for a
+    /// bandwidth resource.
+    /// </summary>
+    internal BigDouble AvailableAmount { get; }
+
+    /// <summary>
+    /// The exact combined next-level cost of every row in this entity which names this resource.
+    /// Authored duplicate-resource entries are deliberately combined before affordability.
+    /// </summary>
+    internal BigDouble CombinedEffectiveAmount { get; }
+
+    internal bool ResourceAffordable { get; }
+
+    internal string ResourceAffordabilityReasonCode { get; }
+
+    /// <summary>Whether every resource in the entity's complete published price is affordable.</summary>
+    internal bool Affordable { get; }
+
+    internal string AffordabilityReasonCode { get; }
+
+    Guid IExactCostRow<Guid>.CostResourceKey => ResourceId;
+    BigDouble IExactCostRow<Guid>.EffectiveExactAmount => EffectiveExactAmount;
+    int IExactCostRow<Guid>.ExactGroupedLevels => ExactGroupedLevels;
+    BigDouble IExactCostRow<Guid>.ExactGroupedAmount => ExactGroupedAmount;
+
+    internal WorldPurchaseCost WithAffordability(
+        bool affordabilityEvaluated,
+        BigDouble availableAmount,
+        BigDouble combinedEffectiveAmount,
+        bool resourceAffordable,
+        string resourceAffordabilityReasonCode,
+        bool affordable,
+        string affordabilityReasonCode) =>
+        new(
+            EntityId,
+            ResourceId,
+            BaseExactAmount,
+            EffectiveExactAmount,
+            ExactGroupedLevels,
+            ExactGroupedAmount,
+            ModifierSources,
+            affordabilityEvaluated,
+            availableAmount,
+            combinedEffectiveAmount,
+            resourceAffordable,
+            resourceAffordabilityReasonCode,
+            affordable,
+            affordabilityReasonCode);
 }
 
-/// <summary>The shared bound and lookup for native purchase-group counts.</summary>
+/// <summary>A named, source-attributed input to one exact purchase-cost calculation.</summary>
+internal readonly struct WorldPurchaseCostModifierSource
+{
+    internal WorldPurchaseCostModifierSource(
+        string name,
+        Guid sourceId,
+        string sourceNativeType,
+        string valueMeaning,
+        BigDouble value,
+        bool hasModifierType = false,
+        int modifierType = 0,
+        int order = 0,
+        bool isExponent = false)
+    {
+        Name = name ?? string.Empty;
+        SourceId = sourceId;
+        SourceNativeType = sourceNativeType ?? string.Empty;
+        ValueMeaning = valueMeaning ?? string.Empty;
+        Value = value;
+        HasModifierType = hasModifierType;
+        ModifierType = modifierType;
+        Order = order;
+        IsExponent = isExponent;
+    }
+
+    internal string Name { get; }
+    internal Guid SourceId { get; }
+    internal string SourceNativeType { get; }
+    internal string ValueMeaning { get; }
+    internal BigDouble Value { get; }
+    internal bool HasModifierType { get; }
+    internal int ModifierType { get; }
+    internal int Order { get; }
+    internal bool IsExponent { get; }
+}
+
+/// <summary>The shared row contract for exact cost aggregation.</summary>
+internal interface IExactCostRow<TKey>
+{
+    TKey CostResourceKey { get; }
+    BigDouble EffectiveExactAmount { get; }
+    int ExactGroupedLevels { get; }
+    BigDouble ExactGroupedAmount { get; }
+}
+
+/// <summary>
+/// The one exact aggregation used by world affordability and Auto Buy. It combines duplicate
+/// resource entries and refuses a grouped request unless every contributing row was priced for that
+/// exact group; no caller may substitute <c>levels * next cost</c>.
+/// </summary>
+internal static class WorldExactCostMath
+{
+    internal static bool TryCombinedExactCost<TRow, TKey>(
+        ReadOnlySpan<TRow> costs,
+        int start,
+        int end,
+        TKey resourceKey,
+        int levels,
+        out BigDouble combined)
+        where TRow : struct, IExactCostRow<TKey>
+        where TKey : IEquatable<TKey>
+    {
+        combined = default;
+        if (levels <= 0 || start < 0 || end < start || end > costs.Length)
+            return false;
+
+        var matched = false;
+        for (var index = start; index < end; index++)
+        {
+            ref readonly var row = ref costs[index];
+            if (!row.CostResourceKey.Equals(resourceKey)) continue;
+
+            matched = true;
+            if (levels == 1)
+            {
+                combined += row.EffectiveExactAmount;
+                continue;
+            }
+
+            if (row.ExactGroupedLevels != levels)
+                return false;
+            combined += row.ExactGroupedAmount;
+        }
+
+        return matched;
+    }
+}
+
+/// <summary>
+/// The shared lookup for the game's own purchase-group count, and the suite's own cap on how many
+/// levels one action asks for. The cap mirrors no native member — it is suite policy, like a schema
+/// ceiling — and it cannot mis-price: a group the game priced for more levels than the cap allows
+/// fails <see cref="WorldExactCostMath.TryCombinedExactCost{TRow,TKey}"/> instead of being repriced.
+/// </summary>
 internal static class WorldPurchaseGrouping
 {
     internal const int MaximumLevels = 100;
@@ -263,14 +479,29 @@ internal sealed class WorldPurchaseCostDeriver
             var length = end - index;
             if (TryComputeEntity(buffer, entityId, index, length, out var groupedLevels))
             {
+                // One immutable source table belongs to the complete entity price and is shared by
+                // each of its resource rows. Resource-specific entries carry that resource's UUID;
+                // the entity-wide entries carry the entity UUID. Building one table per row would
+                // multiply publication allocations on the collector's measured hot path.
+                var modifierSources = BuildModifierSources(entityId, buffer, index, length);
                 for (var offset = 0; offset < length; offset++)
                 {
+                    ref readonly var authored = ref buffer[index + offset];
                     derived[written++] = new WorldPurchaseCost(
                         entityId,
-                        buffer[index + offset].ResourceId,
+                        authored.ResourceId,
+                        authored.BaseValue,
                         _nextAmounts[offset],
                         groupedLevels,
-                        _groupedAmounts[offset]);
+                        _groupedAmounts[offset],
+                        modifierSources,
+                        affordabilityEvaluated: false,
+                        availableAmount: default,
+                        combinedEffectiveAmount: _nextAmounts[offset],
+                        resourceAffordable: false,
+                        resourceAffordabilityReasonCode: "not_evaluated",
+                        affordable: false,
+                        affordabilityReasonCode: "not_evaluated");
                 }
             }
 
@@ -280,8 +511,275 @@ internal sealed class WorldPurchaseCostDeriver
         if (written == 0) return PublicationTable<WorldPurchaseCost>.Empty;
 
         Array.Sort(derived, 0, written, PurchaseCostComparer.ByEntityThenResource);
+        ApplyAffordability(derived, written);
         return PublicationTable<WorldPurchaseCost>.Create(derived, written);
     }
+
+    /// <summary>
+    /// Attach same-generation affordability after sorting, so every duplicate row for one resource
+    /// is combined by <see cref="WorldExactCostMath.TryCombinedExactCost{TRow,TKey}"/> before any
+    /// comparison. The result is native-style affordability without Auto Buy's configurable reserve
+    /// or excess policy; those remain feature policy on top of the published fact.
+    /// </summary>
+    private void ApplyAffordability(WorldPurchaseCost[] rows, int count)
+    {
+        var span = new ReadOnlySpan<WorldPurchaseCost>(rows, 0, count);
+        var entityStart = 0;
+        while (entityStart < count)
+        {
+            var entityId = rows[entityStart].EntityId;
+            var entityEnd = entityStart + 1;
+            while (entityEnd < count && rows[entityEnd].EntityId == entityId) entityEnd++;
+
+            var affordable = true;
+            var affordabilityEvaluated = true;
+            var affordabilityReason = "affordable";
+            var resourceStart = entityStart;
+            while (resourceStart < entityEnd)
+            {
+                var resourceId = rows[resourceStart].ResourceId;
+                var resourceEnd = resourceStart + 1;
+                while (resourceEnd < entityEnd && rows[resourceEnd].ResourceId == resourceId)
+                    resourceEnd++;
+
+                EvaluateResourceAffordability(
+                    span,
+                    entityStart,
+                    entityEnd,
+                    resourceId,
+                    out var evaluated,
+                    out _,
+                    out _,
+                    out var resourceAffordable,
+                    out var resourceReason);
+                if (!evaluated || !resourceAffordable)
+                {
+                    affordable = false;
+                    if (!evaluated) affordabilityEvaluated = false;
+                    if (affordabilityReason == "affordable") affordabilityReason = resourceReason;
+                }
+
+                resourceStart = resourceEnd;
+            }
+
+            for (var index = entityStart; index < entityEnd; index++)
+            {
+                EvaluateResourceAffordability(
+                    span,
+                    entityStart,
+                    entityEnd,
+                    rows[index].ResourceId,
+                    out var evaluated,
+                    out var available,
+                    out var combined,
+                    out var resourceAffordable,
+                    out var resourceReason);
+                rows[index] = rows[index].WithAffordability(
+                    evaluated,
+                    available,
+                    combined,
+                    resourceAffordable,
+                    resourceReason,
+                    affordable,
+                    affordabilityEvaluated ? affordabilityReason : "affordability_unavailable");
+            }
+
+            entityStart = entityEnd;
+        }
+    }
+
+    private void EvaluateResourceAffordability(
+        ReadOnlySpan<WorldPurchaseCost> rows,
+        int start,
+        int end,
+        Guid resourceId,
+        out bool evaluated,
+        out BigDouble available,
+        out BigDouble combined,
+        out bool affordable,
+        out string reason)
+    {
+        evaluated = false;
+        available = default;
+        affordable = false;
+        reason = "exact_cost_unavailable";
+        if (!WorldExactCostMath.TryCombinedExactCost<WorldPurchaseCost, Guid>(
+                rows, start, end, resourceId, levels: 1, out combined))
+        {
+            return;
+        }
+        if (combined.Mantissa < 0d)
+        {
+            reason = "negative_effective_cost";
+            return;
+        }
+        if (!WorldLookup.TryFind(_resources, resourceId, out var resource))
+        {
+            reason = "resource_not_collected";
+            return;
+        }
+
+        available = WorldResourceCoordinate.NativeCostAmount(in resource);
+        if (available.Mantissa < 0d)
+        {
+            reason = "negative_available_amount";
+            return;
+        }
+
+        evaluated = true;
+        affordable = WorldResourceCoordinate.HasAmount(in resource, combined);
+        reason = affordable
+            ? "affordable"
+            : resource.Reading.Traits.BandwidthResource
+                ? "insufficient_bandwidth"
+                : "insufficient_quantity";
+    }
+
+    private PublicationTable<WorldPurchaseCostModifierSource> BuildModifierSources(
+        Guid entityId,
+        WorldPurchaseCostBuffer buffer,
+        int start,
+        int length)
+    {
+        if (WorldLookup.TryFind(_structures, entityId, out var structure))
+            return BuildStructureModifierSources(in structure, buffer, start, length);
+        if (WorldLookup.TryFind(_upgrades, entityId, out var upgrade))
+            return BuildUpgradeModifierSources(in upgrade);
+        return PublicationTable<WorldPurchaseCostModifierSource>.Empty;
+    }
+
+    private PublicationTable<WorldPurchaseCostModifierSource> BuildStructureModifierSources(
+        in WorldStructure structure,
+        WorldPurchaseCostBuffer buffer,
+        int start,
+        int length)
+    {
+        if (!WorldLookup.TryFind(
+                _modifiers,
+                structure.Reading.CostPerQuantityId,
+                out var costPerQuantity))
+        {
+            return PublicationTable<WorldPurchaseCostModifierSource>.Empty;
+        }
+
+        var reading = structure.Reading;
+        var sources = new WorldPurchaseCostModifierSource[(length * 4) + 6];
+        var written = 0;
+        for (var offset = 0; offset < length; offset++)
+        {
+            ref readonly var authored = ref buffer[start + offset];
+            if (!WorldLookup.TryFind(_resources, authored.ResourceId, out var resource))
+                return PublicationTable<WorldPurchaseCostModifierSource>.Empty;
+            sources[written++] = Source(
+                "resource.attribute_cost_modifier",
+                authored.ResourceId,
+                "ResourceSO",
+                "folded percent-scale modifier before quality discount",
+                resource.Reading.Modifiers.AttributeCostMod);
+            sources[written++] = Source(
+                "resource.quality",
+                authored.ResourceId,
+                "ResourceSO",
+                "percent-scale quality used by the attribute discount",
+                resource.Reading.Quality);
+            sources[written++] = Source(
+                "player.attribute_quality_bonus",
+                Guid.Empty,
+                "Player",
+                "quality exponent",
+                _globals.AttributeQualityBonus);
+            sources[written++] = Source(
+                "resource.effective_attribute_cost",
+                authored.ResourceId,
+                "ResourceSO",
+                "exact applied multiplier after quality discount",
+                _attributeMods[offset]);
+        }
+
+        sources[written++] = new WorldPurchaseCostModifierSource(
+                "structure.cost_per_quantity",
+                reading.CostPerQuantityId,
+                "ValueModifierVariable",
+                "modifier scaled by cost scaling and committed quantity",
+                costPerQuantity.Amount,
+                hasModifierType: true,
+                modifierType: costPerQuantity.ModifierType,
+                order: costPerQuantity.Order);
+        sources[written++] = Source(
+                "structure.cost_scaling",
+                structure.EntityId,
+                "StructureSO",
+                "percent-scale modifier on cost-per-quantity growth",
+                reading.Modifiers.CostScalingMod);
+        sources[written++] = Source(
+                "structure.passive_cost",
+                structure.EntityId,
+                "StructureSO",
+                "percent-scale floor in the next-cost multiplier",
+                reading.Modifiers.PassiveCostMod);
+        sources[written++] = Source(
+                "structure.active_cost",
+                structure.EntityId,
+                "StructureSO",
+                "percent-scale active next-cost multiplier",
+                reading.Modifiers.ActiveCostMod);
+        sources[written++] = Source(
+                "player.structure_cost",
+                Guid.Empty,
+                "Player",
+                "exact applied global multiplier",
+                _globals.StructureCostPercent);
+        sources[written++] = Source(
+                "structure.committed_quantity",
+                structure.EntityId,
+                "StructureSO",
+                "owned plus queued quantity priced by the next-level curve",
+                structure.CommittedLevel);
+        return PublicationTable<WorldPurchaseCostModifierSource>.Create(sources, written);
+    }
+
+    private PublicationTable<WorldPurchaseCostModifierSource> BuildUpgradeModifierSources(
+        in WorldUpgrade upgrade)
+    {
+        var count = 1;
+        for (var index = 0; index < _levelModifiers.Count; index++)
+            if (_levelModifiers[index].EntityId == upgrade.EntityId) count++;
+
+        var sources = new WorldPurchaseCostModifierSource[count];
+        sources[0] = Source(
+            "upgrade.priced_level",
+            upgrade.EntityId,
+            "UpgradeSO",
+            "one-based level supplied to the native leveled-cost chain",
+            new BigDouble(PricedUpgradeCommittedLevel(in upgrade) + 1));
+        var written = 1;
+        for (var index = 0; index < _levelModifiers.Count; index++)
+        {
+            ref readonly var modifier = ref _levelModifiers[index];
+            if (modifier.EntityId != upgrade.EntityId) continue;
+            sources[written++] = new WorldPurchaseCostModifierSource(
+                modifier.IsExponent
+                    ? "upgrade.resource_cost_per_level.exponent"
+                    : "upgrade.resource_cost_per_level.modifier",
+                upgrade.EntityId,
+                "UpgradeSO",
+                "modifier multiplied by priced level minus one",
+                modifier.Amount,
+                hasModifierType: true,
+                modifierType: modifier.ModifierType,
+                order: modifier.Order,
+                isExponent: modifier.IsExponent);
+        }
+        return PublicationTable<WorldPurchaseCostModifierSource>.Create(sources, written);
+    }
+
+    private static WorldPurchaseCostModifierSource Source(
+        string name,
+        Guid entityId,
+        string sourceNativeType,
+        string valueMeaning,
+        BigDouble value) =>
+        new(name, entityId, sourceNativeType, valueMeaning, value);
 
     /// <summary>
     /// Prices one entity, whichever kind it is. The two chains share nothing but their inputs' shape,
@@ -362,14 +860,7 @@ internal sealed class WorldPurchaseCostDeriver
         int length,
         int groupedLevels)
     {
-        var committed = upgrade.CommittedLevel;
-
-        // The game caps the level it prices at one below the maximum for a finite upgrade, so a
-        // maxed-out upgrade keeps quoting the last level's price rather than one that cannot be
-        // bought. HasFiniteLevels() is maxLevel > 0.
-        if (upgrade.IsBounded && committed > upgrade.Reading.MaxLevel - 1)
-            committed = upgrade.Reading.MaxLevel - 1;
-        if (committed < 0) committed = 0;
+        var committed = PricedUpgradeCommittedLevel(in upgrade);
 
         var modifiers = FillLevelModifiers(entityId, out var exponents);
         Grow(ref _scaled, modifiers);
@@ -397,6 +888,23 @@ internal sealed class WorldPurchaseCostDeriver
         if (pricedLevels == 0)
             Array.Clear(_groupedAmounts, 0, length);
         return true;
+    }
+
+    /// <summary>
+    /// The committed level the native upgrade chain prices from. Kept in one definition because the
+    /// exact calculation and its exposed source row must identify the same clamped input.
+    /// </summary>
+    private static int PricedUpgradeCommittedLevel(in WorldUpgrade upgrade)
+    {
+        var committed = upgrade.CommittedLevel;
+
+        // The game caps the level it prices at one below the maximum for a finite upgrade, so a
+        // maxed-out upgrade keeps quoting the last level's price rather than one that cannot be
+        // bought. HasFiniteLevels() is maxLevel > 0.
+        if (upgrade.IsBounded && committed > upgrade.Reading.MaxLevel - 1)
+            committed = upgrade.Reading.MaxLevel - 1;
+        if (committed < 0) committed = 0;
+        return committed;
     }
 
     private void ClearGroupedAmounts(int length)
@@ -568,8 +1076,10 @@ internal sealed class WorldPurchaseCostDeriver
 /// </para>
 /// <para>
 /// It shares <c>frame.PurchaseCosts</c> with <see cref="WorldUpgradeCostReader"/> and does not reset
-/// it — the collector does that once, before either runs, because a reader that reset a buffer it
-/// shares would silently discard the other's rows depending on traversal order.
+/// it — the collector does that once per lifecycle, before either structural reader runs, because a
+/// reader that reset a buffer it shares would silently discard the other's rows depending on
+/// traversal order. Worker derivation still recomputes effective cost and affordability from these
+/// retained authored rows and the current dynamic world on every publication.
 /// </para>
 /// </remarks>
 internal sealed class WorldPurchaseCostReader : IWorldCategoryReader

@@ -9,6 +9,13 @@ The worker consumes immutable Scribe relationship facts, levelled Scroll counts,
 Scroll uses, active one-shot work, and player-owned `AutoScribeInstances`. Unknown or contradictory
 evidence for any enabled producible role blocks the complete service for that publication and names
 the first exact role and reason. A healthy role is never produced around an unknown sibling.
+Published `ActiveScribeInstances` occupancy is normal backpressure: a full queue emits no action and
+waits for another world publication. The GameAction still revalidates live room immediately before
+payment so a queue race is an ordinary refusal, not a feature fault. Action-family contention is
+also publication-level backpressure: the service does not start a worker or schedule an action
+until it owns `CraftingQueueSubmission`. A post-payment or verification quarantine is dead for the
+current lifecycle: later publications do not start another worker or grow fault backoff, and
+lifecycle replacement clears the quarantine before planning can resume.
 
 Selection uses stable semantic roles and an audited cost rank as a fair rotating order:
 Advancement, Power, Learning, Excellence, Development, then Echoing. The cursor survives across
@@ -48,10 +55,33 @@ and queue-or-instant admission sequence. Affordability search is bounded, uses o
 `CanBuyAt(BigDouble)` predicate, and the chosen level is revalidated for target, competing supply,
 and exact cost before payment.
 
-The action receipts the exact resource charge, `maxStartingLevel` transition, and exclusive queue
-or instant-stock outcome. A native failure after payment or an ambiguous postcondition records the
-observed partial commit, names the exact stage, and quarantines this GameAction until lifecycle
-replacement. Nothing attempts rollback of game-owned irreversible effects.
+The action verifies one outcome: either the newly constructed exact instance entered the native
+queue or that exact instance reached native completion on the instant path. It does not read
+resource balances, Scroll ledgers, reconstruct payment deltas, or assemble a receipt. After a native
+exception it rereads that same sentinel; an observable outcome commits, while an absent transition
+faults and quarantines this GameAction until lifecycle replacement. Ordinary pre-payment refusals
+and readiness/ownership contention remain quiet. Contract and relationship contradictions,
+wrong-thread execution, post-payment ambiguity, and failed verification enter action health and
+warning logs. A warning is emitted when that failure state is entered or changes; a persistent
+quarantine does not warn again on each publication. Nothing attempts rollback of game-owned
+irreversible effects.
+
+Live identity resolution preserves the registry's retryability verdict. `RegistryNotReady`,
+`NotFound`, and `StaleGeneration` wait quietly for another publication; `WrongType`,
+`AmbiguousEvidence`, and `ContractUnavailable` are persistent contract failures that enter action
+health, warn once per failure state, and remain visible until verified recovery or lifecycle
+replacement.
+
+The same `AutoScribeOneShotCraftGameAction` also owns the manual one-shot player capability exposed
+as `game_craft`. Its player overload leaves the Auto Scribe planner and mutation boundary unchanged, but
+widens exact live revalidation to every concrete `CraftingRecipeSO`: native direct `Execute`, or the
+authored page's stack/new/instant queue route. MCP success returns the named recipe plus the
+smallest observable delta: queue length before and after, or direct completion. Payment accounting
+is not a player-action success gate. Direct execution verifies the recipe's monotonic native
+`craft` publication; stacking verifies a quantity increase; new work verifies exact-instance queue
+membership; and instant work verifies exact-instance completion. The installed mechanism and live
+checklist are documented in
+[native action surfaces](../../docs/reverse-engineering/native-action-surfaces.md).
 
 Configuration is additive:
 

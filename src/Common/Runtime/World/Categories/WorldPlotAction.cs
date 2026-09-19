@@ -503,7 +503,9 @@ internal sealed class WorldPlotActionDeriver
 
     /// <summary>
     /// <c>PlotNodeActionInstance.GetMaximumInstances()</c>, which is the literal constant the game
-    /// returns for every action rather than anything derived.
+    /// returns for every action rather than anything derived. Collection copies the value instead of
+    /// calling the member, so <c>plot-lifecycle.instance-maximum-action</c> carries this owner as a
+    /// mirrored usage beside the action boundary's reflected one.
     /// </summary>
     private const int MaximumInstances = 10000;
 

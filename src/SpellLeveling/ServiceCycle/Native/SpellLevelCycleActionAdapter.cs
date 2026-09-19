@@ -87,7 +87,7 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
             ex is InvalidOperationException || ex is TargetException || ex is MemberAccessException)
         {
             Plugin.Log?.LogAutomataWarning(
-                $"Spell Leveling failed to buy a mastery level for {action.Uuid:D}: adapter fault ({ex.GetBaseException().Message}).");
+                $"Spell Leveling failed to buy a mastery level for {EntityIdentityFormatter.Format(action.Uuid)}: adapter fault ({ex.GetBaseException().Message}).");
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
 
@@ -128,7 +128,7 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
 
         var what = action.Kind == SpellLevelActionKind.All
             ? "every ready spell"
-            : $"spell {action.Uuid:D}";
+            : $"spell {EntityIdentityFormatter.Format(action.Uuid)}";
         var message =
             $"Spell Leveling did not level {what}: {submission.Reason} " +
             $"(planned at mastery {action.Belief.MasteryLevel} with {action.Belief.ReadySpellCount} ready).";

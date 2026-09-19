@@ -549,12 +549,14 @@ public sealed class ModConfigPerformanceTests
     {
         public bool IsActive() => true;
         public void SetActive(bool active) { }
+        public bool IsAvailable() => true;
     }
 
     private sealed class InvalidNativeView
     {
         public int IsActive() => 1;
         public void SetActive(bool active) { }
+        public bool IsAvailable() => true;
     }
 
     private sealed class FakeRailButton : Behaviour

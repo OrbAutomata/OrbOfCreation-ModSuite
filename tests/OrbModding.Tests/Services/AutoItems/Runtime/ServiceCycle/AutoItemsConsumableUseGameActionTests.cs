@@ -16,6 +16,9 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         Inventory.Preparing = false;
         TargetingManager.OpenRequests = 0;
         ConsumableSO.All.Clear();
+        Inventory.ResetLists();
+        EffectResultInfo.SuppressCancel = false;
+        EffectResultInfo.ThrowAfterCancel = false;
         GlobalVariables.MultiBuy = new IntVariable { Value = 1 };
         NativeMultiBuyScope.ResetQuarantineForTests();
     }
@@ -25,6 +28,9 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         Inventory.Preparing = false;
         TargetingManager.OpenRequests = 0;
         ConsumableSO.All.Clear();
+        Inventory.ResetLists();
+        EffectResultInfo.SuppressCancel = false;
+        EffectResultInfo.ThrowAfterCancel = false;
         NativeMultiBuyScope.ResetQuarantineForTests();
     }
 
@@ -302,7 +308,12 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var result = gameAction.Submit(in action);
 
         Assert.Equal(AutoItemsPreflight.CanFireRefused, result.Preflight);
-        Assert.Contains("ConsumableSO.CanFire()", result.Reason);
+
+        // The player is told the game refuses, not which native predicate said so. The code
+        // carries that distinction; the sentence carries what a player can act on.
+        Assert.Equal(
+            "The game refuses to use " + scroll.GetGuid().ToString("D") + " right now.",
+            result.Reason);
         Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
     }
 
@@ -355,9 +366,204 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         Assert.True(retried.Verified, retried.Reason);
     }
 
+    [Fact]
+    public void PlayerUseUsesTheSharedGameActionAndGatesOnlyTheRequestedQueueOutcome()
+    {
+        var item = Item(AutoItemsConsumableFamily.Thread);
+        using var gameAction = GameAction();
+        var action = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Use,
+            item.GetGuid(),
+            lifecycleEpoch: 1);
+
+        var result = gameAction.Submit(in action);
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(0, item.GetQuantity());
+        Assert.Single(item.consumableUsages);
+        Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.CallOutcome);
+    }
+
+    [Fact]
+    public void PlayerCancelProvesTheExactPendingUsageWasCancelledAndRemoved()
+    {
+        var item = Item(AutoItemsConsumableFamily.Thread);
+        using var gameAction = GameAction();
+        var use = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Use,
+            item.GetGuid(),
+            lifecycleEpoch: 1);
+        Assert.True(gameAction.Submit(in use).Verified);
+        var usage = Assert.Single(item.consumableUsages);
+        var cancel = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Cancel,
+            item.GetGuid(),
+            lifecycleEpoch: 1);
+
+        var result = gameAction.Submit(in cancel);
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.True(usage.GetResultInfo().IsCancelled());
+        Assert.Empty(item.consumableUsages);
+    }
+
+    [Fact]
+    public void PlayerDiscardClampsToTheLiveHoldingAndVerifiesTheRequestedRemoval()
+    {
+        var item = Item(AutoItemsConsumableFamily.Relic);
+        using var gameAction = GameAction();
+        var action = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Discard,
+            item.GetGuid(),
+            lifecycleEpoch: 1,
+            amount: 3);
+
+        var result = gameAction.Submit(in action);
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(0, item.GetQuantity());
+    }
+
+    [Fact]
+    public void PlayerRandomizationAndInventoryMoveVerifyExactPostState()
+    {
+        var first = Item(AutoItemsConsumableFamily.Scroll);
+        var second = Item(AutoItemsConsumableFamily.Relic);
+        Inventory.Current.allConsumables.value.Add(first);
+        Inventory.Current.allConsumables.value.Add(second);
+        using var gameAction = GameAction();
+        var randomize = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.SetRandomization,
+            first.GetGuid(),
+            lifecycleEpoch: 1,
+            randomized: true);
+        var move = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Move,
+            first.GetGuid(),
+            lifecycleEpoch: 1,
+            list: ConsumablePlayerListKind.Inventory,
+            destination: 1);
+
+        var randomized = gameAction.Submit(in randomize);
+        var moved = gameAction.Submit(in move);
+
+        Assert.True(randomized.Verified, randomized.Reason);
+        Assert.True(moved.Verified, moved.Reason);
+        Assert.True(first.IsRandomized());
+        Assert.Equal(new[] { second, first }, Inventory.Current.allConsumables.value);
+        Assert.Equal(1, Inventory.Current.allConsumables.UpdateObservableCalls);
+    }
+
+    [Fact]
+    public void PlayerHotbarMoveRunsTheAuditedSetAtTailAndReturnsTheCompleteOrder()
+    {
+        var first = Item(AutoItemsConsumableFamily.Scroll);
+        var second = Item(AutoItemsConsumableFamily.Relic);
+        Inventory.Current.hotBar.value.Add(first);
+        Inventory.Current.hotBar.value.Add(second);
+        using var gameAction = GameAction();
+        var move = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Move,
+            first.GetGuid(),
+            lifecycleEpoch: 1,
+            list: ConsumablePlayerListKind.Hotbar,
+            destination: 1);
+
+        var result = gameAction.Submit(in move);
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(new[] { second, first }, Inventory.Current.hotBar.value);
+        Assert.Equal(1, Inventory.Current.hotBar.SetAtCalls);
+        Assert.Equal(new NativeMutationCallOutcome(3, 1, 1), result.CallOutcome);
+    }
+
+    [Fact]
+    public void PlayerPreflightRefusalsDoNotAttemptNativeMutation()
+    {
+        var item = Item(AutoItemsConsumableFamily.Relic);
+        item.visible = false;
+        using var gameAction = GameAction();
+        var use = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Use,
+            item.GetGuid(),
+            lifecycleEpoch: 1);
+        var cancel = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Cancel,
+            item.GetGuid(),
+            lifecycleEpoch: 1);
+
+        var hidden = gameAction.Submit(in use);
+        var noUsage = gameAction.Submit(in cancel);
+
+        Assert.Equal(ConsumablePlayerPreflight.NotVisible, hidden.Preflight);
+        Assert.Equal(ConsumablePlayerPreflight.NoCancellableUsage, noUsage.Preflight);
+        Assert.Equal(0, hidden.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(0, noUsage.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(1, item.GetQuantity());
+    }
+
+    [Fact]
+    public void MissingOnePlayerBindingFailsTheCompleteFamilyClosed()
+    {
+        var item = Item(AutoItemsConsumableFamily.Relic);
+        var action = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Discard,
+            item.GetGuid(),
+            lifecycleEpoch: 1);
+
+        foreach (var missing in ConsumablePlayerNativeBindings.ContractIds)
+        {
+            using var gameAction = GameAction(
+                includePlayerContract: id => id != missing);
+            var result = gameAction.Submit(in action);
+
+            Assert.False(gameAction.PlayerBindingsAvailable);
+            Assert.Equal(ConsumablePlayerPreflight.ContractUnavailable, result.Preflight);
+
+            // The answer used to name the binding that was absent, which no caller can look up or
+            // act on. Which one it was does not change what a player does next: the whole family is
+            // shut for the rest of the run either way, and the sentence says exactly that.
+            Assert.Equal(
+                "The suite could not attach to Inventory in this run, so it will refuse every " +
+                "press there until the run restarts.",
+                result.Reason);
+        }
+        Assert.Equal(1, item.GetQuantity());
+    }
+
+    [Fact]
+    public void WrongPlayerOutcomeDoesNotBlockTheNextPlayerAction()
+    {
+        var first = Item(AutoItemsConsumableFamily.Scroll);
+        var second = Item(AutoItemsConsumableFamily.Relic);
+        Inventory.Current.allConsumables.value.Add(first);
+        Inventory.Current.allConsumables.value.Add(second);
+        Inventory.Current.allConsumables.SuppressSwap = true;
+        using var gameAction = GameAction();
+        var move = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Move,
+            first.GetGuid(),
+            lifecycleEpoch: 1,
+            list: ConsumablePlayerListKind.Inventory,
+            destination: 1);
+        var discard = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Discard,
+            second.GetGuid(),
+            lifecycleEpoch: 1);
+
+        var faulted = gameAction.Submit(in move);
+        var next = gameAction.Submit(in discard);
+
+        Assert.Equal(ConsumablePlayerPreflight.VerificationFailed, faulted.Preflight);
+        Assert.Equal(new[] { first, second }, Inventory.Current.allConsumables.value);
+        Assert.True(next.Verified, next.Reason);
+    }
+
     private AutoItemsConsumableUseGameAction GameAction(
         Func<bool>? permit = null,
-        Func<string>? failure = null)
+        Func<string>? failure = null,
+        Func<long>? readLifecycleEpoch = null,
+        Func<string, bool>? includePlayerContract = null)
     {
         IDictionary dictionary = _registry;
         var resolver = new TypedRegistryResolver(
@@ -367,7 +573,9 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         return new AutoItemsConsumableUseGameAction(
             resolver,
             permit ?? (static () => true),
-            failure ?? (static () => string.Empty));
+            failure ?? (static () => string.Empty),
+            readLifecycleEpoch,
+            includePlayerContract: includePlayerContract);
     }
 
     private ConsumableSO Item(

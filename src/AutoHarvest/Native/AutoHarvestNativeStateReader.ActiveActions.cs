@@ -9,6 +9,33 @@ internal sealed partial class AutoHarvestNativeStateReader
         in ResolvedAutoHarvestPair resolved) =>
         CaptureActiveActions(resolved).Project(resolved.Target.Pair);
 
+    public bool IsPairEngaged(in ResolvedAutoHarvestPair resolved)
+    {
+        var contract = resolved.Contract;
+        var values = RequireList(
+            GetValue(contract.ActiveValues, resolved.Shared.ActiveActions),
+            "active plot actions");
+        var matches = 0;
+        var engaged = false;
+        foreach (var instance in values)
+        {
+            if (instance is null || instance.GetType() != contract.Types.Instance)
+                return false;
+            if (InvokeBool(contract.InstanceIsEmpty, instance)) continue;
+            var plot = Invoke(contract.InstanceGetElement, instance, Array.Empty<object>());
+            var action = Invoke(contract.InstanceGetAction, instance, Array.Empty<object>());
+            var observed = ClassifyPair(resolved, plot, action);
+            if (observed == AutoHarvestObservedPair.Contradictory) return false;
+            if (observed == AutoHarvestObservedPair.Unrelated ||
+                observed != (resolved.Target.Pair == AutoHarvestPair.FruitTree
+                    ? AutoHarvestObservedPair.FruitTree
+                    : AutoHarvestObservedPair.TreasureTree)) continue;
+            matches++;
+            engaged |= InvokeBool(contract.InstanceIsEngaged, instance);
+        }
+        return matches == 1 && engaged;
+    }
+
     public AutoHarvestActiveActionSnapshot CaptureActiveActions(
         in ResolvedAutoHarvestPair resolved)
     {

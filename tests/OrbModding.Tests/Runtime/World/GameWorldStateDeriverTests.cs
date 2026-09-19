@@ -80,6 +80,38 @@ public sealed class GameWorldStateDeriverTests
         Assert.Equal(150d, over.Reading.Quantity.ToDouble());
     }
 
+    /// <summary>
+    /// An inverted counter displays missing capacity, so "full" is the mirror of an ordinary
+    /// counter's: Potion Toxicity holding its whole tolerance displays zero accrued toxicity and is
+    /// not at capacity, while a depleted Stability pool displays its ceiling and is.
+    /// </summary>
+    [Fact]
+    public void AnInvertedCounterIsFullWhenItsDisplayedNumberReachesTheCeiling()
+    {
+        var inverted = Inverted();
+
+        var untouched = DeriveRow(
+            WorldSamples.Resource(Mana, 100d, 100d, 0d, true, traits: inverted));
+        Assert.False(untouched.IsAtCapacity);
+        Assert.Equal(0d, untouched.Headroom.ToDouble());
+
+        var partway = DeriveRow(
+            WorldSamples.Resource(Mana, 40d, 100d, 0d, true, traits: inverted));
+        Assert.False(partway.IsAtCapacity);
+        Assert.Equal(60d, partway.Headroom.ToDouble());
+
+        var maxed = DeriveRow(WorldSamples.Resource(Mana, 0d, 100d, 0d, true, traits: inverted));
+        Assert.True(maxed.IsAtCapacity);
+        Assert.Equal(100d, maxed.Headroom.ToDouble());
+    }
+
+    private static RawResourceTraits Inverted() => new(
+        0d, 0d, 0d,
+        false, false, false,
+        false, true, false, false,
+        BigDouble.Zero, 0, 0, 0d, false, 0d,
+        BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, false);
+
     [Fact]
     public void AstronomicalMagnitudesStillProduceAUsableFraction()
     {

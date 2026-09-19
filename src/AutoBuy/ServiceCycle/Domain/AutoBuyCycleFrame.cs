@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.World;
 
 namespace OrbAutomata;
 
@@ -189,22 +190,22 @@ internal readonly struct AutoBuyResourceRow
         bool isBandwidth,
         BigDouble storedQuantity,
         BigDouble trueQuantity,
+        BigDouble spendable,
         BigDouble quality,
         BigDouble effectiveAttributeCost,
         bool hasCapacity,
         BigDouble capacity,
-        BigDouble headroom,
         bool isAvailable)
     {
         ResourceId = resourceId;
         IsBandwidth = isBandwidth;
         StoredQuantity = storedQuantity;
         TrueQuantity = trueQuantity;
+        Spendable = spendable;
         Quality = quality;
         EffectiveAttributeCost = effectiveAttributeCost;
         HasCapacity = hasCapacity;
         Capacity = capacity;
-        Headroom = headroom;
         IsAvailable = isAvailable;
     }
 
@@ -217,26 +218,13 @@ internal readonly struct AutoBuyResourceRow
     public bool HasCapacity { get; }
     public BigDouble Capacity { get; }
 
-    /// <summary>
-    /// Room left below the ceiling, never negative, and nought for a resource with no ceiling.
-    /// </summary>
-    /// <remarks>
-    /// This is what a bandwidth cost is paid out of. The game charges bandwidth against the gap
-    /// between holdings and the cap rather than against holdings, so a full bandwidth pool affords
-    /// nothing however large it is, and an empty one affords its whole capacity. An uncapped
-    /// bandwidth resource reads nought here and affords nothing, which is the game's own answer:
-    /// its shortfall term is <c>max(maxQuantity - quantity, 0)</c>, and a resource with no maximum
-    /// leaves that at nought.
-    /// </remarks>
-    public BigDouble Headroom { get; }
-
     public bool IsAvailable { get; }
 
     /// <summary>
-    /// What a purchase drawing on this resource may spend: room below the ceiling for a bandwidth
-    /// resource, holdings for every other.
+    /// What a purchase drawing on this resource may spend in the native-cost coordinate, selected
+    /// once by <c>WorldResourceCoordinate</c> before this feature frame is built.
     /// </summary>
-    public BigDouble Spendable => IsBandwidth ? Headroom : TrueQuantity;
+    public BigDouble Spendable { get; }
 }
 
 /// <summary>
@@ -254,7 +242,7 @@ internal readonly struct AutoBuyResourceRow
 /// the answer that decides affordability — what a bandwidth cost is actually paid out of — lives on
 /// the resource row. Two copies of one fact is one copy too many when only one of them is consulted.
 /// </remarks>
-internal readonly struct AutoBuyCostRow
+internal readonly struct AutoBuyCostRow : IExactCostRow<int>
 {
     public AutoBuyCostRow(int resourceRowIndex, BigDouble cost)
         : this(resourceRowIndex, cost, exactGroupedLevels: 1, cost)
@@ -277,6 +265,11 @@ internal readonly struct AutoBuyCostRow
     public BigDouble Cost { get; }
     public int ExactGroupedLevels { get; }
     public BigDouble ExactGroupedCost { get; }
+
+    int IExactCostRow<int>.CostResourceKey => ResourceRowIndex;
+    BigDouble IExactCostRow<int>.EffectiveExactAmount => Cost;
+    int IExactCostRow<int>.ExactGroupedLevels => ExactGroupedLevels;
+    BigDouble IExactCostRow<int>.ExactGroupedAmount => ExactGroupedCost;
 }
 
 /// <summary>
