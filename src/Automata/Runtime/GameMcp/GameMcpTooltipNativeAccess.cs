@@ -99,6 +99,15 @@ internal sealed class GameMcpTooltipNativeAccess
     /// game's own reference rather than anything reconstructed from the screen.
     /// </para>
     /// <para>
+    /// A panel that builds its tooltip out of several facts hands the screen an
+    /// <c>OverwriteTooltip</c> instead of the entity — the glyph list is the one a round caught,
+    /// where <c>UIGlyphListItem.GetTotalModifierTooltip</c> wraps its own <c>GlyphSO</c> to add the
+    /// equipped quantity. The wrapper forwards <c>GetName</c>, so those rows carried a name and no
+    /// id, and a glyph had to be read by path while every other entity-drawing element answered to
+    /// its uuid. The entity is the wrapper's own field, so unwrapping is the game's own reference
+    /// rather than a lookup by name.
+    /// </para>
+    /// <para>
     /// A tooltipable of any other shape, and a live instance whose reference is null, answer empty:
     /// the row then carries no id rather than an id nothing answers to. A binding that cannot be
     /// taken at all is a contract failure and refuses the whole call, which is why that is
@@ -114,6 +123,7 @@ internal sealed class GameMcpTooltipNativeAccess
             return false;
         }
         nativeDetail = string.Empty;
+        item = Unwrapped(item);
         if (item is null) return true;
         if (item is IdScriptableObject entity)
         {
@@ -134,6 +144,25 @@ internal sealed class GameMcpTooltipNativeAccess
             return false;
         }
         return true;
+    }
+
+    /// <summary>
+    /// The entity behind a decorated tooltip, however many decorators the panel stacked.
+    /// </summary>
+    /// <remarks>
+    /// <c>OverwriteTooltip.Truncate</c> wraps a tooltipable that may itself be wrapped, so this
+    /// follows the chain rather than one hop; the bound is there because a cycle in the game's own
+    /// data would otherwise be a hang instead of a row with no id.
+    /// </remarks>
+    private static ITooltipable? Unwrapped(ITooltipable? item)
+    {
+        for (var hops = 0; hops < 8; hops++)
+        {
+            if (item is not OverwriteTooltip wrapper) return item;
+            if (ReferenceEquals(wrapper.tooltipable, wrapper)) return null;
+            item = wrapper.tooltipable;
+        }
+        return null;
     }
 
     /// <summary>

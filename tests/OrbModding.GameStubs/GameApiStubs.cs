@@ -3547,6 +3547,28 @@ public class TooltipableObject : IdScriptableObject, ITooltipable
 }
 
 /// <summary>
+/// The game's tooltip decorator: a plain wrapper that forwards to the entity it holds and replaces
+/// whichever parts the caller overwrote. The panels that build a tooltip out of several facts hand
+/// the screen one of these rather than the entity itself.
+/// </summary>
+public sealed class OverwriteTooltip : ITooltipable
+{
+    public readonly ITooltipable tooltipable;
+
+    public OverwriteTooltip(ITooltipable tooltipable) => this.tooltipable = tooltipable;
+
+    public string GetName() => tooltipable?.GetName() ?? string.Empty;
+    public string GetDisplayType() => tooltipable?.GetDisplayType() ?? string.Empty;
+    public UnityEngine.Sprite GetIcon() => tooltipable?.GetIcon() ?? new UnityEngine.Sprite();
+    public UnityEngine.Color GetColor() => tooltipable?.GetColor() ?? UnityEngine.Color.white;
+    public bool IsColoredIcon() => tooltipable?.IsColoredIcon() == true;
+    public bool HasAltTooltips() => tooltipable?.HasAltTooltips() == true;
+    public string GetDescription() => tooltipable?.GetDescription() ?? string.Empty;
+    public List<TooltipNode> GetTooltipNodes() => tooltipable?.GetTooltipNodes() ?? new();
+    public List<TooltipNode> GetAltTooltipNodes() => tooltipable?.GetAltTooltipNodes() ?? new();
+}
+
+/// <summary>
 /// The three words every statistic row is tagged with. A reference holds one, and the reference of
 /// the one record that names none holds nothing — which is the shape the glossary binder reads.
 /// </summary>

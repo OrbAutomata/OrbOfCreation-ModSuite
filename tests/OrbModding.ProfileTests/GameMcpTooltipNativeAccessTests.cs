@@ -119,6 +119,43 @@ public sealed class GameMcpTooltipNativeAccessTests
     }
 
     /// <summary>
+    /// A decorated tooltip is still about the thing inside it. The glyph list hands the screen an
+    /// <c>OverwriteTooltip</c> around its own <c>GlyphSO</c>, and because the wrapper forwards
+    /// <c>GetName</c> those rows arrived with a name and no id — so a glyph icon was the one
+    /// entity-drawing element on the loadout page that had to be read by path.
+    /// </summary>
+    [Fact]
+    public void AWrappedTooltipIsStillAboutTheEntityInsideIt()
+    {
+        Assert.True(Bind(typeof(global::HoverTooltip), out var access, out var bindingReason),
+            bindingReason);
+        var glyph = new global::GlyphSO();
+        glyph.SetGuid(Guid.Parse("44444444-0000-4000-8000-000000000001"));
+
+        Assert.True(
+            access.TryReadEntityId(
+                new global::OverwriteTooltip(glyph), out var wrapped, out var wrappedReason),
+            wrappedReason);
+        Assert.Equal(glyph.GetGuid(), wrapped);
+
+        Assert.True(
+            access.TryReadEntityId(
+                new global::OverwriteTooltip(new global::OverwriteTooltip(glyph)),
+                out var twice,
+                out var twiceReason),
+            twiceReason);
+        Assert.Equal(glyph.GetGuid(), twice);
+
+        Assert.True(
+            access.TryReadEntityId(
+                new global::OverwriteTooltip(new FakeTooltip("chrome")),
+                out var chrome,
+                out var chromeReason),
+            chromeReason);
+        Assert.Equal(Guid.Empty, chrome);
+    }
+
+    /// <summary>
     /// A live instance whose reference is gone publishes no id rather than a guessed one: the row
     /// keeps its name and path, which is exactly what it had before an id was reachable at all.
     /// </summary>

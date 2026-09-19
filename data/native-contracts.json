@@ -18806,6 +18806,10 @@
       "place": "action"
     },
     {
+      "id": "game-mcp-tooltip-catalog.overwrite-tooltipable-action", "assembly": "assembly-csharp", "type": "OverwriteTooltip", "typeVisibility": "public", "kind": "field", "member": "tooltipable",
+      "visibility": "public", "static": false, "valueType": "ITooltipable", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
       "id": "game-mcp-tooltip-catalog.modal-open-action",
       "assembly": "assembly-csharp",
       "type": "UIModal",
