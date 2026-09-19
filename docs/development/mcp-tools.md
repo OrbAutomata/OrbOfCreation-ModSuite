@@ -762,15 +762,19 @@ depend on it answer `entity_catalog_unavailable` rather than substituting the bu
 fixtures.
 
 The `world_get` identity block is that snapshot's one projection, and it carries `uuid`,
-`nativeType`, and `name`. It keeps the runtime type unless the category the caller named already
+`nativeType`, and `name`. **It is the only place an asset id prints.** An internal name is a
+diagnostic, and a page row is a player's row: a `world_list` or `world_search` row, and the `row`
+block inside a `world_get` answer, never carry `internalName`. The column printed
+`ActivePlotNodeActions` beside the authored name *Plot actions*, which is the game's own field
+talking over the game's own word. It keeps the runtime type unless the category the caller named already
 declares it for every row it holds, which is the one case where the type says nothing the category
 has not. A category declared over several native types answers for one of them where no single-type
 category claims it and no other multi-type category does either, which is why
 `AlchemySnapshotListVariable` and `EquipmentSnapshotListVariable` are `world_list snapshot-loadouts`
 rows. `name` is present exactly when the game
 authors a player-facing word, so its absence is that fact and needs no flag beside it;
-`internalName` carries the Unity asset id **only where it is not the `name` with its spaces and
-punctuation taken out** — `Specialization: Storm` implies `SpecializationStorm`, so a block does not
+On that block, `internalName` carries the Unity asset id **only where it is not the `name` with
+its spaces and punctuation taken out** — `Specialization: Storm` implies `SpecializationStorm`, so a block does not
 spell it twice, and absence means that reconstruction rather than "unknown". The block prints a
 `category`, so it drops the field
 in one further case: where the asset id is that name followed only by words the category already
@@ -821,11 +825,11 @@ written unconditionally so the header is the same one before and after a lifecyc
 | Category | Scan columns |
 | --- | --- |
 | `rituals` | `state`, `selected`, `reachedLevel`, `selectedLevel`, `waveTotal`, `affordable` |
-| `research` | `state`, `paused`, `totalLevel`, `queuedLevels`, `requirements`, `canDevelop`, `affordable` |
-| `upgrades` | `level`, `queuedLevels`, `screen`, `state`, `maximum`, `requirements`, `affordable` |
+| `research` | `state`, `paused`, `totalLevel`, `queuedLevels`, `nextLevelRequirements`, `canDevelop`, `affordable` |
+| `upgrades` | `level`, `queuedLevels`, `screen`, `state`, `maximum`, `nextLevelRequirements`, `affordable` |
 | `attributes` | `level`, `queuedLevels`, `state`, `enabled`, `affordable` |
 | `alchemy-recipes` | `state`, `masteryLevel` |
-| `augment-glyphs` | `state`, `slots`, `freeSlots`, `paidLevel`, `bonusLevel`, `totalLevel` |
+| `augment-glyphs` | `state`, `slots`, `freeSlots`, `paidLevel`, `bonusLevel`, `totalLevel` (the three level columns only while Upgrade Glyphs is owned) |
 | `recipe-books` | `owned` |
 | `plot-nodes` | `state`, `masteryLevel`, `quantity`, `availableQuantity` |
 | `challenges` | `state`, `run`, `level` |
@@ -838,7 +842,7 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `character-attributes` | `damageTypeId`, `description` |
 | `damage-types` | `damageReductionRate`, `ignoreEntrenched`, `description` |
 | `character-modifiers` | `weightChance`, `description` |
-| `character-actions` | `prepTime`, `actionTime`, `speedMod`, `description` |
+| `character-actions` | `prepTime`, `actTime`, `speedMod`, `description` |
 | `character-types`, `enchantments`, `glyph-types`, `rune-stones`, `display-types`, `attribute-groups` | `description` |
 
 **One word per concept across the type taxonomies.** A level a taxonomy list shows is the number its
@@ -1098,8 +1102,11 @@ and the next cycle — a read of 98 challenges on a save with fourteen at `level
 
 Two rules make that a lifecycle rather than a verdict:
 
-- **The can-purchase question is a separate axis.** `affordable` and `requirements` answer it, and
-  neither ever becomes a fourth state word. A row nobody can pay for is still `available`: next
+- **The can-purchase question is a separate axis.** `affordable` and `nextLevelRequirements`
+  answer it, and neither ever becomes a fourth state word. The column names the level it judges
+  because that is the only level it ever judged: the *next* one. A locked row reading
+  `requirements: met` read as "nothing is holding this shut", when what it said was that the one
+  level beyond the level already owned asks for nothing more. A row nobody can pay for is still `available`: next
   week it is bought and no state moved. Requirements-unmet is the same — it is the branch
   `UIUpgradeButton` takes when it shows a requirements notice in place of a price, a fact about the
   next press. Fully-queued likewise never becomes a state.
@@ -1136,8 +1143,8 @@ persisted `GetBaseLevel()`, and names work still in flight separately as `queued
 always present because zero levels in flight is an answer; neither
 number is repeated under a second name. Both are exact counts on the wire: the badge draws
 `Utils.BeautifyInt`, so routing them through the large-magnitude renderer would round a
-2,136-level attribute to `2.14e3`. An `upgrades` row publishes `state`, `maximum`, `requirements`
-and `affordable` on every row, in every world state. `maximum` is the honest ceiling and reads one
+2,136-level attribute to `2.14e3`. An `upgrades` row publishes `state`, `maximum`,
+`nextLevelRequirements` and `affordable` on every row, in every world state. `maximum` is the honest ceiling and reads one
 of three ways: `1` for the 214 one-and-done upgrades, the finite `N` for the 11 repeat-grind lines,
 and `uncapped` for the four `Raise …` cap-raisers the game marks with a negative native maximum —
 never `0`, which would read as a cap of zero and as nothing left to buy. `screen` says where the
@@ -1158,7 +1165,7 @@ across the whole surface, reads and commits alike:
 | `upgrades` | `level` | `UpgradeSO.GetPurchaseLevel()` | levels bought. The upgrade screen labels the first one `Lv 1`, so its badge reads one above this count |
 | `upgrades` | `queuedLevels` | `UpgradeSO.queuedLevels` | bought and still developing |
 | every `game_level_up` target (augment glyphs, equipment types, resource types, time runes) | `paidLevel` / `bonusLevel` / `totalLevel` | the levelable's total and its granted levels | bought, granted, and their sum. `bonusLevel` is absent where the surface has no bonus concept, exactly as its `bonus` block is |
-| `augment-glyphs` | `slots` / `freeSlots` | `GlyphSO.GetMaxUsages()` / `GetFreeUsages()` | the two numbers the level panel prints as `[N] Slot` and `[M] Free Slot` — what a level buys |
+| `augment-glyphs` | `slots` / `freeSlots` | `GlyphSO.GetMaxUsages()` / `GetFreeUsages()` | the two numbers the level panel prints as `[N] Slot` and `[M] Free Slot` — what a level buys. **`freeSlots` is slots that cost no spell usage, not slots not yet used**: it is what the glyph gives away, and the game publishes no in-use count anywhere for the suite to print beside it |
 | `research` | `purchasedLevel` / `baseLevel` / `bonusLevel` / `totalLevel` | the game's four distinct level accessors | completion is judged on `baseLevel`, never on `totalLevel` |
 | `research` | `queuedLevels` | the develop decision's queue count | levels waiting, including the one in flight |
 | `rituals` | `setLevel.current` | the ritual's selected starting level | where the ritual's own starting-level control stands |
@@ -1189,6 +1196,10 @@ counter's `amount` is always the number the screen shows for it, whatever native
 carry that number. Cost rows use `spendableAmount` for the native admission operand, so independent
 inverted/bandwidth flags never overload one field with two meanings. These fields use the same exact combiner as Auto Buy and do not
 include Auto Buy's configurable reserve or excess policy.
+
+**`meter: held` means `amount` is what you have; `meter: left` means `amount` is what is still
+unspent of an allowance, not what is held** — and on a `left` row `atCapacity` says `none committed`
+or `some committed`, because a pool nothing has been spent from is not a counter that is full.
 
 A `resources` row is deliberately only named identity, `meter`, the counter's on-screen `amount`,
 `netRatePerSecond`, `capacity`, `atCapacity` and `inLedger`. A resource with no storage ceiling reads `uncapped`
@@ -1228,7 +1239,15 @@ used to reach a caller twice — as `predicates.visible` and again as `predicate
 block of its own now: the one evaluated fact about it is this bit, and it rides the row where it can
 carry a sentence that says what the list is. An unledgered resource's detail read answers
 `requirements: unlocksWhen:` with the conditions out of that same container, and nothing else — a
-resource has no per-level program to state a suite verdict about. The game's own name for the bit is
+resource has no per-level program to state a suite verdict about.
+
+**The sentence points at the `unlocksWhen` block only when there is one.** Most unledgered
+resources have an empty unlock container: their real gate is the game gaining the resource at all,
+in `RegisterGain`/`IncrementTick`, which is not a condition anything can be read off. Such a row
+says `inLedger: no — the game counts it the first time you gain any` and points nowhere. A resource
+that does carry conditions says `inLedger: no — the game has not counted it yet; world_get prints
+what would add it under "unlocksWhen"`, and the block is there. An unconditional pointer sent a
+reader to a `world_get` that had nothing to show them. The game's own name for the bit is
 `ResourceSO.IsDiscovered()`, a one-line call to `IsVisible()`; the word is not reused because
 `discovered` everywhere else on this surface means a discovery button was pressed, and no resource
 has one.
@@ -1369,7 +1388,7 @@ the `damage-types` row it is about, and an edge is only followable if both ends 
 | `character-attributes` | `CharacterAttributeSO` | 8 | `damageTypeId` |
 | `damage-types` | `DamageTypeSO` | 7 | `damageReductionRate`, `ignoreEntrenched` |
 | `character-modifiers` | `CharacterModifierSO` | 4 | `weightChance` |
-| `character-actions` | `CharacterActionSO` | 11 | `prepTime`, `actionTime`, `speedMod` |
+| `character-actions` | `CharacterActionSO` | 11 | `prepTime`, `actTime`, `speedMod` |
 | `character-types` | `CharacterTypeSO` | 1 | — |
 | `enchantments` | `EnchantmentSO` | 8 | — |
 | `glyph-types` | `GlyphTypeSO` | 6 | — |
@@ -1522,9 +1541,11 @@ one publishes it rather than silently losing it.
 
 `discovery-trees` is the pre-decision surface for `game_discover`'s `offer_*` modes; attempting an
 action is never the way to learn its cost or choices. Every row names the tree UUID/type, semantic
-mode, rerolls left, discovered count, and whether discoveries remain. A crafting tree also says its
-`actionTime`, and says it as a duration through the same clock every countdown on this surface uses
-(`2.72s`) rather than as a bare number of seconds that a caller has to guess the unit of. Authoring/debug members and
+mode, rerolls left, discovered count, and whether discoveries remain. A crafting tree also says how long it
+has been `craftingFor`, as a duration through the same clock every countdown on this surface uses
+(`2.72s`) rather than as a bare number of seconds that a caller has to guess the unit of. The key
+is the screen's phase, not the field's: `DiscoveryTreeSO.actionTime` is the native name, and a
+reader met it beside a `mode: crafting` that meant the same thing. Authoring/debug members and
 duplicate identity (`treeId`, overrides, debug mode, and bonus-level cost) are intentionally absent.
 The Discovery Tree is a transient in-game event rather than a standing page, which is why its
 lifecycle lives inside the one discovery tool instead of a permanent tool of its own.
@@ -1546,7 +1567,7 @@ a reroll here spends a reroll to be offered the same one thing again. An empty o
 
 **A Crafting tree says its roll is still running.** `DiscoveryTreeSO.CraftTime` is three seconds of
 game time, the offer list is empty for every one of them, and an empty list reads exactly like a
-press that did nothing. The row therefore carries `rolling` beside `actionTime`, saying that the
+press that did nothing. The row therefore carries `rolling` beside `craftingFor`, saying that the
 roll is running, that offers appear three seconds after the press, and how long this tree has been
 rolling.
 
@@ -1747,7 +1768,12 @@ bonus, and total levels and carries a `purchase` decision. Equipment types, augm
 resource types also carry `bonus`; time runes do not implement that native control. An augment glyph
 carries neither while Magic > Augments > Upgrade is locked, because until the Upgrade Glyphs upgrade
 is bought the game draws no level button at all — `GlyphSO.CanLevel()` being the constant `true` is a
-fact about the interface, not about a button. `recipe-books` never carry a level: a `RecipeBookSO` has
+fact about the interface, not about a button. **A glyph's levels go with the button.** While that
+screen is locked no glyph publishes `paidLevel`, `bonusLevel` or `totalLevel`, on the row or in the
+detail block, and the `augment-glyphs` page loses the three columns rather than printing a column of
+zeroes: every one of the twenty-two glyphs is on that one screen, so the columns are absent together
+or present together. A zero under a level nothing can buy reads as a level standing at zero, which
+is a different claim from the game drawing no level at all. `recipe-books` never carry a level: a `RecipeBookSO` has
 one instance field and the game draws it as owned or not. Available decisions include
 the exact named native usage cost and current spendable amount as `costs`; a control the game
 levels for nothing says `free: true` — whether the game names no price at all (`costs: []`, kept
@@ -2489,8 +2515,19 @@ applies to never reads like an entity nobody evaluated. Only applicable predicat
 `visible`, `available`, `canDevelop`, `canPurchase`,
 `canDiscover`, and `canUse`. Presence means applicable. Each slot answers under `available`, the same
 word every other decision on the surface answers under, and a slot that answered no carries the
-stable `reasonCode` saying why; absence means the predicate does not apply or the row beside it
-already answered it, never that it is false. A predicate's value is always a verdict, never a path to
+sentence saying why; absence means the predicate does not apply or the row beside it
+already answered it, never that it is false.
+
+**`available` is one question, and only the entities that hold the game's own bit answer it.**
+Structures, upgrades and research publish `IsAvailable()`, and that is what `available` means
+wherever it appears. A finished upgrade says so — `available: no — This is already at its maximum
+level.` — rather than falling through to the sentence for a lock nobody can name, which is what a
+`UpgradeSO.IsAvailable()` that goes false at the cap produced. Every other kind used to publish a copy of its `visible` verdict under the
+name as well — a spell recipe, a crafting recipe, a consumable, a glyph, an alchemy recipe, a
+ritual, a piece of equipment and a time rune all did — so one word answered "is the game showing
+this" on one row and "will the game let you buy this" on the next, and a live round read
+`available: no` on a discoverable beside its own `discover: yes`. The copies are gone; the question
+`visible` answers is spelled `visible`, once. A predicate's value is always a verdict, never a path to
 another field: `canUse` answers with the slot numbers the spell is equipped in, and where the block
 beside it already publishes the whole decision — `concept.canAdd` on an alchemy recipe — the
 predicate is dropped rather than made to point at it.
@@ -2507,14 +2544,19 @@ because that list appears nowhere else.
 **The block says its repetition once.** A block whose every slot is a bare affirmative verdict is one
 line — `predicates: visible, available — yes` — and inside a block that is not, slots whose verdict,
 class and sentence are the same three facts are named together on one line:
-`available, canPurchase: no (ERR_LOCKED): The game keeps this locked.` No slot name and no reason
+`available, canPurchase: no — The game keeps this locked.` No slot name and no reason
 string is dropped, and a slot carrying a fact of its own — `canUse` and its slot numbers — never
 joins a fold and never stops the others from folding. The fold needs no knowledge of what any slot
 implies, which is what makes it unable to hide a verdict.
 Crafting purchase uses the
 published `CraftingRecipeSO.CanBuyAt(GetStartingQuantity())` verdict, spell use uses the equipped
-`Spell.CanCast()` reading, and structure/upgrade purchase combines published native availability
-with the one exact-cost affordability lineage. No predicate emits implementation provenance or a
+`Spell.CanCast()` reading, and structure/upgrade purchase is the whole AND the game's own button
+takes: published native availability, **then the evaluated requirement verdict**, then the one
+exact-cost affordability lineage. Leaving the middle term out let `canPurchase: yes` stand on a row
+whose own `requirements` block beside it read `suiteVerdict: Unmet` — the read answering yes to the
+press the game was about to refuse. A leaf the suite could not model refuses too, as
+`requirement_unevaluable`: the suite's own blind spot is never reported as a requirement that
+holds. No predicate emits implementation provenance or a
 permanent never-evaluated apology.
 
 A miss is `ERR_NOT_FOUND`, and the sentence and the `readWith` remedy are what separate the kinds of
@@ -2537,6 +2579,28 @@ Per-level structure, upgrade, and Research requirements preserve the implicit co
 explicit native `AND`/`OR` nodes, authored order, and recursively expanded prerequisite-link tiers.
 Every operator node carries its `children` list, so an entity with no requirements reads as an
 empty list rather than as an operator over an unstated set.
+
+**A named-tier gate is an ordinary operator node, and it names the tier the row asks for.** Its
+`needs` reads *the ScholarismUnlocked gate at tier 0* — the threshold on the row itself. It used to
+print the evaluator's `required`, which is hard-coded to one for every prerequisite-link leaf, so
+every named-tier gate in the game read "at tier 1" whichever tier it asked for. A met gate publishes
+nothing further, the rule every other leaf keeps. An unmet one lifts the asked-for tier's own
+conditions onto the leaf as `children` and counts the rest as `otherTiers`, so the shape a reader
+walks is the same leaf shape all the way down:
+
+```
+needs: the ScholarismUnlocked gate at tier 0
+met: no
+otherTiers: 6
+children 1:
+  needs: Advanced Study
+  met: no
+```
+
+The seventy-line `prerequisiteLinkTiers` block it replaces published every rung whether or not it
+was the one being asked for, each with `tierIndex`, `selected`, `activeEnabled`, `passiveEnabled`,
+`evaluatedFrame`, `collectedFrame` and `evaluatedThisFrame` — the game's own bookkeeping, and not
+one line of it a reader could act on.
 
 **A leaf says what it needs and whether it has it, and nothing else.** `needs` is the requirement in
 the screen's own words — `Formation recipe book`, `15 Knowledge (have 5)`, `Expand Magic at level 3
@@ -2663,7 +2727,14 @@ they are what a caller acts on.
 selecting a screen, a subtab path, or a tile commits live UI state. Success returns `activeScreen` and every
 independent `subtabStrips[{active,labels}]` state, read exactly once, from the settled destination.
 A hierarchy still assembling one frame after the click still carries the departed screen's strip, so
-it is never a source. If the navigation shell is gone by the time arrival settles, the response says
+it is never a source.
+
+**A strip belongs to the screen the game is drawing, not to whatever is alive.** The strip capture
+asks `UIRenderGroup.IsActive()` up each radio button's ancestry, the same question
+`game_screen_elements` asks of a hover element, because a departed screen's strip is never
+deactivated and stayed on the wire for every screen after it. Settlement is built from this very
+capture, so the predicate is also what settlement settles on: a stale strip that is persistently
+present is perfectly stable, and waiting longer would have confirmed the wrong one forever. If the navigation shell is gone by the time arrival settles, the response says
 `subtabStripsUnavailable` with that reason rather than publishing a strip nobody read. A screen or subtab match refusal returns the exact
 live label candidates it compared. A subtab refusal reached its screen before it failed, and its
 sentence says so: the screen change is a committed effect the caller can see in `activeScreen`. It carries no static mutation-scope label or counter ceremony. Navigation
@@ -2671,7 +2742,8 @@ never authorizes a gameplay or save mutation.
 
 `suite_health` has no arguments or detail mode. It is exception-shaped compact text. The standing
 lines are the leading `available` verdict, the build and its twelve-hex-character DLL fingerprint,
-scene, lifecycle state and generation, world publication, and emergency STOP. Everything else
+scene, lifecycle state with `lifecycleTransitions` and the save's `worldResets`, world publication,
+and emergency STOP. Everything else
 appears only when it is a problem: `runtime:`, `native contracts:`, `game_craft:` and `game_modal:`
 each cost a line exactly when they read `unavailable`, followed by the reason that names why —
 `game_modal:` answers for both halves of the verb, and its reason names whichever failed to bind —
@@ -2692,16 +2764,32 @@ The ServiceCycle runtime is created once, on the first frame the host admits it,
 when the plugin is destroyed, so the same scene reports `runtime: unavailable` before that frame and
 stays silent about it ever after; the reason names the session, never a scene property. The same
 holds for the `game_craft` and `game_modal` lines, which state whether this build failed to resolve
-those bindings at all. Whether a game exists is the `lifecycle:` line — the same state and generation
+those bindings at all. Whether a game exists is the `lifecycle:` line — the same state and transition count
 `game_probe` reports — and whether a world is published is the `world:` line: the live publication's
 generation, or `not published`.
 
-**The lifecycle generation is an invalidation token, not a counter of loads or games.** Every
+**Three counters share this page and none of them is another's number.** `lifecycleTransitions`
+counts the lifecycle boundaries this process has crossed since the plugin loaded; `world:
+publication N` counts world publications, and a lifecycle boundary flushes it back to `not
+published`; `worldResets` is the save's own — the game's `WorldResets` variable, *How many times
+you've reset the world*, read by id off the published world and printed under the word the
+Statistics screen prints over it. The first of the three was called `generation`, and a live round
+read `lifecycle: Playing, generation 9` after one Continue as the ninth world reset of a save that
+had reset none. `worldResets` is absent while no world is published, because the `world:` line
+directly beneath already says why, and reads `unavailable` if a published world carries no such
+row.
+
+`GlobalVariables.GetGenerationAttr()` is not that number and holds no number at all: it returns the
+`AttributeSO` glossary word *Generation*, which sits beside `GenerationRateTime` and
+`GenerationSplash` and heads the tooltip section for how fast a resource is gained.
+
+**The lifecycle transition count is an invalidation token, not a counter of loads or games.** Every
 accepted lifecycle observation bumps it by one, and there are nine kinds — scene entered, scene
 exited, runtime ready, save-load started, save loaded, reset started, reset completed, NG+ started,
 registry rebuilt. One thing a player does raises several of them: a scene change is two (exited then
 entered), an initialization is two (registry rebuilt then runtime ready), and a menu-to-save load
-fans out to seven, which is why a load moving it 2 → 9 is a correct reading. The step size answers no
+fans out to seven, which is why a load moving it 2 → 9 is a correct reading and is not a
+save on its ninth run. The step size answers no
 question and is not a count of anything a player did. Only comparison is meaningful: two readings
 that agree describe the same run, and two that differ mean every handle, id and world fact held
 across them is void. That is why `time_prestige` reports it as `{before, after}` beside a sentence
@@ -2911,6 +2999,20 @@ unlearned glyph says whether a discovery is what stands in the way.
 | `ERR_UNAVAILABLE` | Retry or repair. The suite or the game could not read or serve the fact — no world published, no save loaded, a contract missing, a post-state that never settled |
 | `ERR_REFUSED` | Read the sentence. The game refused and the published world does not account for it |
 
+**A class belongs to a press or to the preview of one; a fact row prints a verdict word and a
+sentence.** `world_list`, `world_search` and `world_get` are reads, and a cell on a read says what
+is true: `inLedger: no — the game counts it the first time you gain any`, not `inLedger: no
+(ERR_LOCKED)`. A class is a branch instruction for a caller deciding what to press, and a fact about
+an entity is not a refusal of anything anybody asked for. The rule is enforced at the wire
+normalizer, on the shape only a read page has — a top-level `rows`, `results` or `row` — so no
+producer keeps its own list of which cells are allowed a class. Discovery previews and press
+refusals keep theirs: they *are* the answer to an ask.
+
+The one exception is a block carrying a `status`. That is not a fact about an entity; it is the read
+itself saying it could not serve this id, and it names the verb that can — so `world_get`'s
+`{status: unavailable, reasonCode: ERR_UNAVAILABLE}` envelope keeps its class, and a caller branches
+on it exactly as it branches on a press's.
+
 The set is fixed at eight. A private word per refusal is a dialect every caller has to learn before
 it can branch, and the sentence beside it already says more. Producers choose a precise internal
 code — that is what picks the sentence — and `GameMcpDecisionReason.Class` maps it to the class the
@@ -2924,7 +3026,7 @@ most, so an old code's new class can be looked up here:
 | `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `modal_already_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning`, `tree_holds_this_offer`, `continue_wrong_scene` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached`, `bandwidth_blocked`, `drain_blocked`, `glyph_usages_exceeded` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
-| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `unlock_conditions_unmet`, `tree_unavailable`, `research_leeway_exhausted`, `native_leeway_exhausted`, `glyph_unavailable`, `not_in_resource_list` |
+| `ERR_LOCKED` | `not_available`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `unlock_conditions_unmet`, `tree_unavailable`, `research_leeway_exhausted`, `native_leeway_exhausted`, `glyph_unavailable` |
 | `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `configuration_not_available`,
 `stale_configuration_generation`, `configuration_write_unconfirmed`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `unsupported_requirement_value`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable`, `single_buy_unavailable`, `unsupported_control`, `modal_not_offered`, `native_navigation_unavailable`, `native_plot_navigation_unavailable`, `native_plot_list_unavailable`, `native_recipe_book_unavailable`, `native_probe_unavailable`, `tooltip_contract_unavailable`, `tooltip_read_faulted`, `tooltip_depth_exceeded`, `continue_contract_unavailable`, `navigation_request_invalid`, `unsupported_probe` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused`, `native_tab_rejected`, `subtab_selection_failed` — the game's own gate said no and reported nothing else |
@@ -3037,7 +3139,8 @@ What each internal code means is below; the class is how it reaches the wire.
 | `native_unavailable` | The game keeps this shut and publishes no condition that would open it. The read-side counterpart of `native_rejected`, and the answer a bare `available: false` reaches. On an upgrade or a structure it is now reached only while no `unlocksWhen` block stands beside it; where the block exists the verdict is `unlock_conditions_unmet` and points at it | every read that publishes availability, and the glyph and component decisions that act on one |
 | `glyph_unavailable` | `GlyphSO.IsAvailable()` is false, so Magic > Spellbook > Loadout offers no copy of this glyph to socket. It answered `ERR_NOT_FOUND` — a glyph the read could not resolve — for a glyph resolved in full and gated | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `glyph_usages_exceeded` | The layout asks one glyph for more uses than `GlyphSO.GetMaxUsages()` allows. The sentence carries `x of y` | `game_spell_loadout preview`, `game_spell_loadout add` |
-| `not_in_resource_list` | The game does not count this resource in its own resource list yet, so prices naming it print as an unknown resource. It is not a claim about what is drawn: a page owning a bar for the resource draws one either way. What would add it is under `unlocksWhen` | a `resources` row's `inLedger` |
+| `hidden_discovery` / `not_discovered_or_offered` | The game draws this only once it is discovered, or while a discovery tree offers it. Both used to fall through to a humanised spelling of the code itself | a discoverable's `visible` predicate |
+| `tier_not_published` | The gate names a tier the game publishes no row for, so what that tier asks for could not be read. Fail-closed: the suite's own blind spot, never a requirement reported as met | a named-tier `prerequisiteLink` leaf |
 
 `native_rejected` is the last resort, not the default: a refusal the read side can already account
 for answers with that account's own code. A mutation refused by a gate the read side already
@@ -3318,10 +3421,16 @@ catalog's assets — the variables, the list holders, the scaling weights, the t
 authored word at all, and the surface used to stand the Unity asset id in for one: a page of
 `int-variables` read `SummonedLevel`, `QuickConsumableSlots`, `MaxRasterizedThoughts` in the column
 every other page fills with a real name, and nothing on the row said which kind of label it was.
-Now such a row publishes no `name` — `-` in a table, absent in a block — and carries the asset id
-under `internalName`, which is where that fact already lived. Nothing is lost: the row is addressed
-by its id either way. The `nameSource: asset` flag that used to admit the substitution is gone with
-the substitution.
+Now such a row publishes no `name` — `-` in a table, absent in a block — and the asset id is on
+the `world_get` identity block, which is where that fact already lived. The `nameSource: asset`
+flag that used to admit the substitution is gone with the substitution.
+
+The row is addressed by its id either way, and `world_search` still matches the asset name and says
+`matchedOn: internalName` when it did. The cost is real and deliberate: an `int-variables`,
+`double-variables`, `bool-variables` or `modifier-variables` page row now prints its id and `name:
+-` and nothing else, where it briefly printed `internalName: SummonedLevel` beside them. An internal
+name is a diagnostic, and it belongs where a caller goes looking for diagnostics — one `world_get`
+away — rather than in the column a player's word would occupy.
 
 Absence therefore never doubles as a value. Every key that once used it to mean "no" now says so:
 
@@ -3438,11 +3547,15 @@ ordinary collector to publish the Crafting state their press produces; the offer
 the tree's own timed increment three seconds of game time later and is therefore outside any settle
 budget. Select returns the selected state. Confirm permanently spends a discovery choice, so it
 names the discovery it took — the identity the caller passed as `offerUuid` — and moves
-`discoveredCount` and `mode` as pairs, with whether the tree still has discoveries left. The count
+`treeDiscovered` and `mode` as pairs, with whether the tree still has discoveries left. The count
 travels with the `discoverableCount` it is a count out of, on the tree row and on the confirmation
 alike: the two are the game's own cached `totalDiscoveredCount` and the size of the very list
 `CountDiscoveredItems()` counts it from, so `3` and `3 of 40` are not the same answer to how far
-into a tree a caller is.
+into a tree a caller is. **The name says whose count it is.** `totalDiscoveredCount` moves only
+when this tree's own `DiscoverItem` runs, so a thing discovered any other way is not in it and the
+number sits one behind what a caller who just discovered something expects. Named `treeDiscovered`
+it is a fact about the tree, which is what it has always been; named `discoveredCount` it read as
+the count of everything discovered.
 
 **A tree that offers nothing says which of the two reasons it is.** The game folds both into one
 flag: `hasRemainingDiscovery` is false when the whole tree is discovered *and* when the tree still
@@ -3451,7 +3564,7 @@ from the counts it already prints — a finished tree answers `ERR_NOT_FOUND` an
 `Every one of this tree's 65 discoveries is made.`, while a tree waiting on a Recipe Book answers
 `ERR_LOCKED` and `Nothing in this tree can be discovered right now: 12 of its 65 are discovered,
 and none of the other 53 is in reach — …`. The old single sentence, "This tree has nothing left to
-discover.", stood on a row printing `discoveredCount: 12` beside `discoverableCount: 65` and
+discover.", stood on a row printing `treeDiscovered: 12` beside `discoverableCount: 65` and
 contradicted both numbers. It does not
 re-send the next initiate price: the tree answers that when a caller asks to initiate again.
 Failures name only the failed admission or missing transition and the fact that explains it: a
@@ -3912,8 +4025,9 @@ to touch one argues for it first. Each line names where the shape is specified.
     bound comes from*.
 20. `game_navigate` returning the arrived screen's nested strips, inner to outer and byte-identical
     on a repeat — *Screenshots and navigation*.
-21. `game_screen_elements` scope discipline: a dismissed modal leaves the catalog, and `total` is stable
-    across repeated calls on an unchanged screen — *Tooltip explorer*.
+21. `game_screen_elements` scope discipline: a dismissed modal leaves the catalog, a departed
+    screen's elements leave with it, and `total` is stable across repeated calls on an unchanged
+    screen — *Tooltip explorer*.
 22. One price shape wherever a price is said — `cost`, `spendableAmount`, `affordable`, then the
     resource — whichever verb built the row and whichever member the producer read it from —
     *How a response reads*.
@@ -3940,6 +4054,17 @@ to touch one argues for it first. Each line names where the shape is specified.
     | `1000` | `1e3` | `1.00e3` |
     | `1.2e5` | `1.2e5` | `1.20e5` |
     | `9.9999999e5` | `1e6` | `10.00e5` |
+
+26. A fact row prints a verdict word and a sentence; an `ERR_` class belongs to a press or the
+    preview of one. `world_list`, `world_search` and `world_get` are reads, and no cell on a read
+    page carries a class — the one exception being a block with a `status`, which is the read itself
+    saying it could not serve an id — *Refusal vocabulary*.
+27. One word, one question. A predicate is published under the name of the question it answers and
+    never aliased to a second one: `available` is the game's availability bit, `visible` is what the
+    game draws, and neither is spelled as the other because they disagree — *The detail read*.
+28. On the current screen means the screen the game is drawing. This game deactivates nothing it
+    leaves behind, so every "what is here now" capture asks the game's own `UIModal.IsOpen()` and
+    `UIRenderGroup.IsActive()` rather than Unity liveness — *Tooltip explorer*.
 
 Retired shapes are listed below, and a round that reintroduces one is undoing a ruling rather than
 restoring a contract. The first six were entries in the list above; the rest never were, and are
@@ -4015,6 +4140,51 @@ collected here so that one page answers what a name on an older transcript meant
   was on the reader's screen. The category is `attributes`; `structures` is refused with a pointer
   rather than aliased, because an alias would keep two vocabularies alive for one row — *Tool
   surface*.
+- **`internalName` on a page row.** The asset id beside the authored name, on every
+  `world_list` and `world_search` row and in the `row` block of a `world_get` — printing
+  `ActivePlotNodeActions` next to *Plot actions*. An internal name is a diagnostic, and it lives on
+  the `world_get` identity block, which is where a caller goes looking for diagnostics. The cost is
+  that the unworded categories now print `name: -` and their id, and is deliberate — *Presence
+  semantics*.
+- **`actionTime`.** The game's field name on two producers, for two different clocks a player reads
+  under two different words: a discovery tree says how long it has been `craftingFor`, a combat
+  action says `actTime` beside its `prepTime`. The durations themselves were already right; the key
+  was the last thing on the row still speaking C# — *Discovery decision loop*, *The ritual layer's
+  glossaries*.
+- **`requirements` as an upgrade or research column.** The value was right and the label was not: it
+  judges the *next* level, so `requirements: met` stood on locked rows and read as "nothing is
+  holding this shut". It is `nextLevelRequirements` — *Tool surface*.
+- **`available` as a second spelling of `visible`.** Eight kinds published their visibility verdict
+  twice, once under each word, so `available: no` stood beside `discover: yes` on the same row and
+  one word answered two questions across a page. `available` is the game's own availability bit and
+  nothing else; what `visible` answers is spelled `visible` — *The detail read*.
+- **`discoveredCount` on a discovery tree.** The game's `totalDiscoveredCount`, which only that
+  tree's own `DiscoverItem` moves, under a name that claimed every discovery. It is
+  `treeDiscovered`, and it still travels with the `discoverableCount` it is a count out of —
+  *Inline action results*.
+- **`prerequisiteLinkTiers`.** Seventy lines publishing every rung of a gate, each with its
+  `tierIndex`, `selected`, `activeEnabled`, `passiveEnabled`, `evaluatedFrame`, `collectedFrame` and
+  `evaluatedThisFrame`. A named-tier gate is an operator node like any other: the asked-for tier's
+  conditions as `children`, the rest as a count under `otherTiers`, and nothing at all when the gate
+  is met — *The detail read*.
+- **An `ERR_` class inside a fact row.** `inLedger: no (ERR_LOCKED)` on a resource row,
+  `loadoutAdd: no (ERR_LIMIT)` on a spell row. A class is a branch instruction for a caller deciding
+  what to press; a read states facts, and a fact about an entity refuses nothing. Reads print a
+  verdict word and a sentence. Presses, previews, and blocks carrying a `status` keep their classes
+  — *Refusal vocabulary*.
+- **`not_in_resource_list`.** The code behind that `inLedger` class, retired with it. The two
+  sentences that replaced it say which gate is actually shut: a resource with unlock conditions
+  points at its `unlocksWhen` block, and one without says the game counts it the first time you gain
+  any — *Refusal vocabulary*.
+- **`generation` on the `suite_health` lifecycle line.** It counts the lifecycle boundaries this
+  process has crossed, which a live round read as the save's ninth world reset after one Continue.
+  It is `lifecycleTransitions`, and the save's own number stands beside it as `worldResets` —
+  *Trace health and probes*.
+- **`activeInHierarchy` as "on the current screen".** This game deactivates nothing it leaves
+  behind, so the predicate answered with the departed screen's subtab strip and the departed
+  screen's tooltip nodes — and navigation settlement, built from the same capture, found a
+  persistently stale strip perfectly stable. The question is the game's own
+  `UIRenderGroup.IsActive()` — *Tooltip explorer*.
 - **`game_concept mode=remove_owned`.** The screen's button says Remove. The `_owned` half was the
   suite's own bookkeeping — which of the assignments it had put there — worn as part of the
   player's word for the press. The mode is `remove`, the word every neighbouring verb already
@@ -4194,10 +4364,17 @@ an `ITooltipable`, core name/type/description methods, and a private authored `s
 `OpenTooltip` renders the selected element. `game_screen_elements` pages through current-screen elements by
 a native hierarchy path whose sibling indices disambiguate repeated Unity clone rows. Its
 scope is what the player can point at: the screen's own controls, the persistent chrome that
-outlives navigation, and any open modal. Closing a modal only drops its canvas group's alpha and raycasts, so
-every panel the session ever opened stays active in the hierarchy — the catalog reads the game's own
-`UIModal.IsOpen()` up each element's ancestry and lists none of them, so what it counts is what the
-player can reach rather than what is instantiated.
+outlives navigation, and any open modal.
+
+**Nothing this game leaves behind is deactivated, so being alive answers neither scope question.**
+Closing a modal only drops its canvas group's alpha and raycasts, and leaving a screen only marks
+its `ManagedView` invisible — every panel and every screen the session ever opened stays active in
+the hierarchy forever. The catalog therefore walks each element's ancestry once and asks the game
+both questions: `UIModal.IsOpen()` for the panel, and `UIRenderGroup.IsActive()` for the screen.
+The second is the predicate every `UIRenderGroupElement` consults through `IsUIActive()` before it
+draws — not disabled, its `ManagedView` visible, its parent group active — and it answers for its
+whole subtree. Without it, `game_screen_elements` on Magic and on Scholar listed Time-screen
+tooltip nodes, which are elements of a screen the player is not on.
 A screen's elements hang off a handful of panels, so the catalog is a list of panels.
 
 **A control that opens a panel says which panel.** The top-right chrome is a row of
