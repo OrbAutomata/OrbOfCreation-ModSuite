@@ -367,7 +367,7 @@ internal static class GameMcpTypeWorth
     /// </summary>
     private static string Kind(WorldKeywordOwnerKind kind) => kind switch
     {
-        WorldKeywordOwnerKind.Structure => "structures",
+        WorldKeywordOwnerKind.Structure => "attributes",
         WorldKeywordOwnerKind.AlchemyRecipe => "alchemy-recipes",
         WorldKeywordOwnerKind.Resource => "resources",
         WorldKeywordOwnerKind.Equipment => "equipment",

@@ -66,7 +66,7 @@ public sealed class GameMcpTypeReachTests
                 "worth:",
                 "  howToRead: These totals are already inside each member's own numbers: read them " +
                 "to compare types, and never multiply one into a member.",
-                "  members: kind=structures, count=2",
+                "  members: kind=attributes, count=2",
                 "  properties 1:",
                 "    property: Power",
                 "    distributedTotalPercent: 175",
@@ -90,7 +90,7 @@ public sealed class GameMcpTypeReachTests
         var worth = Detail(Primal)["worth"]!;
         var members = Assert.Single(worth["members"]!.Values<JObject>())!;
 
-        Assert.Equal("structures", (string?)members["kind"]);
+        Assert.Equal("attributes", (string?)members["kind"]);
         Assert.Equal(1, (int?)members["count"]);
     }
 
@@ -191,7 +191,7 @@ public sealed class GameMcpTypeReachTests
                 "c1e000 | Technology | research-types | - | internalName",
                 "c4b000 | Create | agromancy-actions | Weave | internalName",
                 "c4c000 | Plant | agromancy-actions | Weave | internalName",
-                "c0f000 | Font | structures | Arcanist | keywords",
+                "c0f000 | Font | attributes | Arcanist | keywords",
                 "c1f000 | Metallurgy | research | Technology | category",
                 "c4a000 | Weave | plot-node-action-types | - | nativeType",
             }),
@@ -217,21 +217,21 @@ public sealed class GameMcpTypeReachTests
             string.Join('\n', new[]
             {
                 "rows 2/2",
-                "these 2 share: category=structures, keywords=Workshop, matchedOn=-",
+                "these 2 share: category=attributes, keywords=Workshop, matchedOn=-",
                 "[id | name]",
                 "c0d000 | Forge",
                 "c0e000 | Anvil",
             }),
-            Render(Walk(Workshop, "structures")));
+            Render(Walk(Workshop, "attributes")));
 
         Assert.Equal(
             string.Join('\n', new[]
             {
                 "rows 1/1",
                 "[id | name | category | keywords | matchedOn]",
-                "c0f000 | Font | structures | Arcanist | -",
+                "c0f000 | Font | attributes | Arcanist | -",
             }),
-            Render(Walk(Primal, "structures")));
+            Render(Walk(Primal, "attributes")));
 
         Assert.Equal(
             string.Join('\n', new[]
@@ -245,7 +245,7 @@ public sealed class GameMcpTypeReachTests
         // The word a parent is spelled with is on none of its children's members, so the query this
         // filter replaces answers nothing at all.
         Assert.Empty(Json(GameMcpWorldQuery.Search(
-            Context(World()), "Primal", 0, 50, "structures", limitFromCaller: false))
+            Context(World()), "Primal", 0, 50, "attributes", limitFromCaller: false))
             ["rows"]!.Values<JObject>());
 
         Assert.Equal(
@@ -424,7 +424,7 @@ public sealed class GameMcpTypeReachTests
     {
         var refused = Json(GameMcpWorldQuery.Search(
             Context(World()), string.Empty, 0, 50, string.Empty, string.Empty, string.Empty,
-            Insight, limitFromCaller: false));
+            Insight.ToString("D"), limitFromCaller: false));
 
         Assert.Equal("ERR_INPUT", (string?)refused["reasonCode"]);
         Assert.Equal(
@@ -433,8 +433,38 @@ public sealed class GameMcpTypeReachTests
             (string?)refused["reason"]);
     }
 
+    /// <summary>
+    /// A row prints its keywords as words, so a word is what the filter takes.
+    /// </summary>
+    /// <remarks>
+    /// The filter read ids only, so a caller who had just read <c>Arcanist</c> off a row and asked
+    /// for it by that word was refused before the world was consulted at all — for a word twelve
+    /// rows of that round were printing. The id still works, because a members line prints one.
+    /// </remarks>
+    [Fact]
+    public void A_keyword_filter_takes_the_word_a_row_prints_for_the_type()
+    {
+        var byId = Render(Walk(Workshop, "attributes"));
+
+        Assert.Equal(byId, Render(Walk("Workshop", "attributes")));
+        Assert.Equal(byId, Render(Walk("workshop", "attributes")));
+
+        var refused = Json(GameMcpWorldQuery.Search(
+            Context(World()), string.Empty, 0, 50, string.Empty, string.Empty, string.Empty,
+            "Workshopp", limitFromCaller: false));
+
+        Assert.Equal("ERR_INPUT", (string?)refused["reasonCode"]);
+        Assert.Equal(
+            "'Workshopp' is neither a published id nor a word any row's keywords cell prints; a " +
+            "row's keywords are the words this filter takes",
+            (string?)refused["reason"]);
+    }
+
     /// <summary>One keyword's far side, in one category, exactly as a caller would ask for it.</summary>
     private static JObject Walk(Guid keyword, string category) =>
+        Walk(keyword.ToString("D"), category);
+
+    private static JObject Walk(string keyword, string category) =>
         Json(GameMcpWorldQuery.Search(
             Context(World()), string.Empty, 0, 200, category, string.Empty, string.Empty,
             keyword, limitFromCaller: false));

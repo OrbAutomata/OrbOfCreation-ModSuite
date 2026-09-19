@@ -40,7 +40,7 @@ public sealed class WorldCategoryEmptyReadingTests
     /// </summary>
     [Theory]
     [InlineData("resources")]
-    [InlineData("structures")]
+    [InlineData("attributes")]
     [InlineData("spell recipes")]
     [InlineData("a category nobody has ruled on")]
     public void Every_other_category_keeps_the_loud_gap(string category)

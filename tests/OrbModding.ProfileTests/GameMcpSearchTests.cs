@@ -64,7 +64,7 @@ public sealed class GameMcpSearchTests
                 "81a000 | Alchemy Insight | upgrades | - | name",
                 "81b000 | Alchemy Mastery | upgrades | - | name",
                 "81c000 | Alchemy Refinement | upgrades | - | name",
-                "82a000 | Alchemy Lab | structures | Building, Alchemical | name",
+                "82a000 | Alchemy Lab | attributes | Building, Alchemical | name",
                 "80a000 | Concept of Fire | alchemy-recipes | Alchemical, Structure Focus | category",
             }),
             Render(Search("alchemy")));
@@ -139,12 +139,12 @@ public sealed class GameMcpSearchTests
         Assert.All(
             new[]
             {
-                "upgrades", "research", "structures", "alchemy-recipes",
+                "upgrades", "research", "attributes", "alchemy-recipes",
                 "augment-glyphs", "rituals", "plot-nodes", "challenges",
             },
             category => Assert.Contains(category, description, StringComparison.Ordinal));
         Assert.DoesNotContain(
-            "only upgrades, research and structures", description, StringComparison.Ordinal);
+            "only upgrades, research and attributes", description, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -160,7 +160,7 @@ public sealed class GameMcpSearchTests
             {
                 "keywordHits: Charm=2, Charm Focus=1",
                 "rows 3/3",
-                "these 3 share: category=structures, matchedOn=keywords",
+                "these 3 share: category=attributes, matchedOn=keywords",
                 "[id | name | keywords]",
                 "82b000 | Warded Hall | Charm, Primary",
                 "82c000 | Quiet Circle | Charm Focus",
@@ -181,7 +181,7 @@ public sealed class GameMcpSearchTests
     {
         Assert.Equal(
             new[] { "82a000" },
-            Rows(Search("alchemy", category: "structures"))
+            Rows(Search("alchemy", category: "attributes"))
                 .Select(row => (string?)row["uuid"])
                 .ToArray());
 

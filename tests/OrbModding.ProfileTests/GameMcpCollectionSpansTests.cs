@@ -25,7 +25,7 @@ public sealed class GameMcpCollectionSpansTests
         Assert.Equal(
             "collection: 13.834 ms across 5 categories, 370 rows, world publication 1001\n" +
             "  resources: 8.204 ms, 80 rows\n" +
-            "  structures: 5.118 ms, 180 rows\n" +
+            "  attributes: 5.118 ms, 180 rows\n" +
             "  type-modifiers: 0.512 ms, 63 rows\n" +
             "  charged nothing this pass: entity-keywords\n" +
             "  unavailable: crafting-stations",
@@ -141,7 +141,7 @@ public sealed class GameMcpCollectionSpansTests
             "revision: 0\n" +
             "collection: 13.834 ms across 5 categories, 370 rows, world publication 1001\n" +
             "  resources: 8.204 ms, 80 rows\n" +
-            "  structures: 5.118 ms, 180 rows\n" +
+            "  attributes: 5.118 ms, 180 rows\n" +
             "  type-modifiers: 0.512 ms, 63 rows\n" +
             "  charged nothing this pass: entity-keywords\n" +
             "  unavailable: crafting-stations",
@@ -156,7 +156,7 @@ public sealed class GameMcpCollectionSpansTests
             "reason: the decision journal writer is not active in this runtime\n" +
             "collection: 13.834 ms across 5 categories, 370 rows, world publication 1001\n" +
             "  resources: 8.204 ms, 80 rows\n" +
-            "  structures: 5.118 ms, 180 rows\n" +
+            "  attributes: 5.118 ms, 180 rows\n" +
             "  type-modifiers: 0.512 ms, 63 rows\n" +
             "  charged nothing this pass: entity-keywords\n" +
             "  unavailable: crafting-stations",
@@ -197,7 +197,7 @@ public sealed class GameMcpCollectionSpansTests
                     skipped: 0,
                     firstFailure: "CraftingStationSO did not resolve on this build"),
                 new WorldCollectionCategoryStatus(
-                    "structures",
+                    "attributes",
                     WorldCategoryOutcome.Collected,
                     sampled: 180,
                     skipped: 0,

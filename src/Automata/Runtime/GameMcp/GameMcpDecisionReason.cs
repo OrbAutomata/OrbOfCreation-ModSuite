@@ -186,7 +186,7 @@ internal static class GameMcpDecisionReason
         // `unknown_category` for it contradicted the world_categories page the name was read from.
         "category_not_listable" or
         "run_filter_out_of_scope" or
-        "discovered_filter_out_of_scope" or "keyword_not_worn" or
+        "discovered_filter_out_of_scope" or "keyword_not_worn" or "keyword_unknown" or
         "unsupported_type" or "composition_unsupported" or
         "wrong_mode" or "wrong_alchemy_surface" or "wrong_level_surface" or
         "wrong_loadout_surface" or "wrong_selection" or "wrong_configuration_surface" or

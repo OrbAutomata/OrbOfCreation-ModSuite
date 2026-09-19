@@ -82,10 +82,10 @@ public sealed class GameMcpLifecycleBoundaryTests
         var readers = new[]
         {
             GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(context)),
-            GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "structures", 0, 10)),
+            GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "attributes", 0, 10)),
             GameMcpTestHarness.Json(GameMcpWorldQuery.Search(context, "orb", 0, 10)),
             GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
-                context, "structures", new[] { Guid.NewGuid().ToString("D") })),
+                context, "attributes", new[] { Guid.NewGuid().ToString("D") })),
         };
 
         foreach (var reader in readers)

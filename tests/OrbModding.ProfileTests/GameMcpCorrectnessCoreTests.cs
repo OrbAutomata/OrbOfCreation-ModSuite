@@ -1091,7 +1091,7 @@ public sealed class GameMcpCorrectnessCoreTests
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus(
-                    "structures", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+                    "attributes", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
             }),
             CollectedAtEpoch = 41,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
@@ -1099,11 +1099,11 @@ public sealed class GameMcpCorrectnessCoreTests
 
         var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, 2101),
-            "structures",
+            "attributes",
             attributeId.ToString("D")));
         var row = response["row"]!;
         var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
-            GameMcpTestHarness.Context(world, 2101), "structures", 0, 10))["rows"]![0]!;
+            GameMcpTestHarness.Context(world, 2101), "attributes", 0, 10))["rows"]![0]!;
 
         Assert.Equal(2136, (int)row["level"]!);
         Assert.Equal(3, (int)row["queuedLevels"]!);
@@ -1126,7 +1126,7 @@ public sealed class GameMcpCorrectnessCoreTests
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus(
-                    "structures", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+                    "attributes", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
             }),
             CollectedAtEpoch = 41,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
@@ -1134,10 +1134,10 @@ public sealed class GameMcpCorrectnessCoreTests
 
         var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, 2102),
-            "structures",
+            "attributes",
             attributeId.ToString("D")))["row"]!;
         var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
-            GameMcpTestHarness.Context(world, 2102), "structures", 0, 10))["rows"]![0]!;
+            GameMcpTestHarness.Context(world, 2102), "attributes", 0, 10))["rows"]![0]!;
 
         Assert.Equal(0, (int)row["queuedLevels"]!);
         Assert.Equal(0, (int)listed["queuedLevels"]!);

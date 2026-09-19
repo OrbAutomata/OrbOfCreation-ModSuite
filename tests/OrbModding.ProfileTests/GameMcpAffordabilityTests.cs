@@ -32,7 +32,7 @@ public sealed class GameMcpAffordabilityTests
     public void The_affordable_filter_pages_only_the_rows_whose_price_is_met()
     {
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(World(), "structures", 0, 50, affordableOnly: true));
+            GameMcpWorldQuery.ListRows(World(), "attributes", 0, 50, affordableOnly: true));
 
         var row = Assert.Single(page["rows"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(Cheap), (string?)row["uuid"]);
@@ -45,7 +45,7 @@ public sealed class GameMcpAffordabilityTests
     public void An_unfiltered_page_still_answers_for_the_whole_category()
     {
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(World(), "structures", 0, 50));
+            GameMcpWorldQuery.ListRows(World(), "attributes", 0, 50));
 
         Assert.Equal(2, page["rows"]!.Values<JObject>().Count());
         Assert.Equal(2, (int)page["total"]!);
@@ -67,7 +67,7 @@ public sealed class GameMcpAffordabilityTests
         Assert.Equal("ERR_INPUT", (string?)refusal["reasonCode"]);
         Assert.Equal(
             "the affordable filter narrows a page by the price column its rows carry, and rows " +
-            "in resources carry none; the categories whose rows carry one are structures, upgrades",
+            "in resources carry none; the categories whose rows carry one are attributes, upgrades",
             (string?)refusal["reason"]);
     }
 
@@ -129,7 +129,7 @@ public sealed class GameMcpAffordabilityTests
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus(
-                    "structures", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+                    "attributes", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
                 new WorldCollectionCategoryStatus(
                     "resources", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
                 new WorldCollectionCategoryStatus(

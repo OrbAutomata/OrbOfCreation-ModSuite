@@ -291,7 +291,7 @@ internal sealed class WorldStructureBinder : WorldRowBinder<RawStructureSample, 
     private Func<object, BigDouble>? _echoBuildRating;
     private Func<object, BigDouble>? _powerBuildRating;
 
-    internal override string Category => "structures";
+    internal override string Category => "attributes";
 
     internal override string TypeName => "StructureSO";
 

@@ -74,7 +74,7 @@ internal sealed class GameMcpOperationRequest
         DiscoveredFilter = source.DiscoveredFilter;
         StateFilter = source.StateFilter ?? string.Empty;
         RunFilter = source.RunFilter ?? string.Empty;
-        KeywordFilter = source.KeywordFilter;
+        KeywordFilter = source.KeywordFilter ?? string.Empty;
         SaveCapture = source.SaveCapture;
         ResourceUri = source.ResourceUri ?? string.Empty;
         Tab = source.Tab;
@@ -123,8 +123,11 @@ internal sealed class GameMcpOperationRequest
     /// <summary>The one challenge run word a search was narrowed to, or nothing.</summary>
     internal string RunFilter { get; }
 
-    /// <summary>The one type asset whose members a search was narrowed to, or nothing.</summary>
-    internal Guid KeywordFilter { get; }
+    /// <summary>
+    /// The one type asset whose members a search was narrowed to — its id, or the word a row
+    /// prints for it — or nothing.
+    /// </summary>
+    internal string KeywordFilter { get; }
     internal bool SaveCapture { get; }
     internal string ResourceUri { get; }
     internal GameMcpNavigationSelector? Tab { get; }
@@ -158,7 +161,7 @@ internal sealed class GameMcpOperationRequestBuilder
     internal bool? DiscoveredFilter { get; set; }
     internal string StateFilter { get; set; } = string.Empty;
     internal string RunFilter { get; set; } = string.Empty;
-    internal Guid KeywordFilter { get; set; }
+    internal string KeywordFilter { get; set; } = string.Empty;
     internal bool SaveCapture { get; set; }
     internal string ResourceUri { get; set; } = string.Empty;
     internal GameMcpNavigationSelector? Tab { get; set; }

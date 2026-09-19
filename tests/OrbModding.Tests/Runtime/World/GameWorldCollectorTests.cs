@@ -2251,7 +2251,7 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         Assert.Equal(1, world.Resources.Count);
         Assert.Equal(0, world.Structures.Count);
-        Assert.Equal(1, report.For("structures").Skipped);
+        Assert.Equal(1, report.For("attributes").Skipped);
     }
 
     [Fact]
@@ -2264,8 +2264,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         var report = collector.Collect();
 
         Assert.Equal(1, collector.Build().Structures.Count);
-        Assert.Equal(1, report.For("structures").Skipped);
-        Assert.Contains("empty identity", report.For("structures").FirstFailure, StringComparison.Ordinal);
+        Assert.Equal(1, report.For("attributes").Skipped);
+        Assert.Contains("empty identity", report.For("attributes").FirstFailure, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -2372,7 +2372,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         var world = collector.Build();
 
         Assert.Equal(200, world.Structures.Count);
-        Assert.Equal(200, report.For("structures").Sampled);
+        Assert.Equal(200, report.For("attributes").Sampled);
 
         // Rows are ordered by identity rather than by registry position, so every reading is checked
         // through the lookup that consumers actually use.

@@ -70,8 +70,15 @@ internal sealed class GameMcpKeywordIndex
     private static readonly string[] NoWords = Array.Empty<string>();
 
     private readonly Dictionary<Guid, string[]> _words;
+    private readonly Dictionary<string, List<Guid>> _byWord;
 
-    private GameMcpKeywordIndex(Dictionary<Guid, string[]> words) => _words = words;
+    private GameMcpKeywordIndex(
+        Dictionary<Guid, string[]> words,
+        Dictionary<string, List<Guid>> byWord)
+    {
+        _words = words;
+        _byWord = byWord;
+    }
 
     /// <summary>How the words of one entity are joined into the cell a page prints.</summary>
     /// <remarks>
@@ -87,6 +94,7 @@ internal sealed class GameMcpKeywordIndex
         if (world is null) throw new ArgumentNullException(nameof(world));
         var catalog = world.EntityIdentities;
         var collected = new Dictionary<Guid, List<string>>();
+        var byWord = new Dictionary<string, List<Guid>>(StringComparer.OrdinalIgnoreCase);
 
         var keywords = world.EntityKeywords;
         var index = 0;
@@ -102,12 +110,12 @@ internal sealed class GameMcpKeywordIndex
             if (primaryLast)
             {
                 for (var row = end - 1; row >= index; row--)
-                    Append(collected, catalog, owner, keywords[row].KeywordId);
+                    Append(collected, byWord, catalog, owner, keywords[row].KeywordId);
             }
             else
             {
                 for (var row = index; row < end; row++)
-                    Append(collected, catalog, owner, keywords[row].KeywordId);
+                    Append(collected, byWord, catalog, owner, keywords[row].KeywordId);
             }
             index = end;
         }
@@ -117,26 +125,49 @@ internal sealed class GameMcpKeywordIndex
         {
             var types = research[row].Decision.ResearchTypes;
             for (var type = 0; type < types.Count; type++)
-                Append(collected, catalog, research[row].EntityId, types[type].ResearchTypeId);
+                Append(
+                    collected, byWord, catalog, research[row].EntityId, types[type].ResearchTypeId);
         }
 
         var consumables = world.ConsumableTypes;
         for (var row = 0; row < consumables.Count; row++)
         {
             Append(
-                collected, catalog, consumables[row].ConsumableId, consumables[row].TypeId);
+                collected, byWord, catalog,
+                consumables[row].ConsumableId, consumables[row].TypeId);
         }
 
         var spells = world.SpellRelations;
         for (var row = 0; row < spells.Count; row++)
         {
             if (spells[row].Kind != WorldSpellRelationKind.SpellType) continue;
-            Append(collected, catalog, spells[row].RecipeId, spells[row].TargetId);
+            Append(collected, byWord, catalog, spells[row].RecipeId, spells[row].TargetId);
         }
 
         var result = new Dictionary<Guid, string[]>(collected.Count);
         foreach (var pair in collected) result.Add(pair.Key, pair.Value.ToArray());
-        return new GameMcpKeywordIndex(result);
+        return new GameMcpKeywordIndex(result, byWord);
+    }
+
+    /// <summary>
+    /// The type asset a printed word names, so the word a row shows is the word a filter takes.
+    /// </summary>
+    /// <remarks>
+    /// The words here are the ones the cells are built from, which is what keeps "a row printed it"
+    /// and "the filter accepts it" one fact rather than two vocabularies that drift. A word two
+    /// assets answer to resolves to neither: <paramref name="matches"/> says how many, so the
+    /// caller is told to name the id instead of being given one of them.
+    /// </remarks>
+    internal bool TryResolveWord(string word, out Guid keywordId, out int matches)
+    {
+        keywordId = Guid.Empty;
+        matches = 0;
+        var trimmed = (word ?? string.Empty).Trim();
+        if (trimmed.Length == 0 || !_byWord.TryGetValue(trimmed, out var ids)) return false;
+        matches = ids.Count;
+        if (matches != 1) return false;
+        keywordId = ids[0];
+        return true;
     }
 
     internal IReadOnlyList<string> Words(Guid ownerId) =>
@@ -148,6 +179,7 @@ internal sealed class GameMcpKeywordIndex
 
     private static void Append(
         Dictionary<Guid, List<string>> collected,
+        Dictionary<string, List<Guid>> byWord,
         EntityIdentityCatalogSnapshot catalog,
         Guid ownerId,
         Guid keywordId)
@@ -161,6 +193,12 @@ internal sealed class GameMcpKeywordIndex
             collected.Add(ownerId, words);
         }
         if (!words.Contains(row.DisplayName)) words.Add(row.DisplayName);
+        if (!byWord.TryGetValue(row.DisplayName, out var owners))
+        {
+            owners = new List<Guid>(1);
+            byWord.Add(row.DisplayName, owners);
+        }
+        if (!owners.Contains(keywordId)) owners.Add(keywordId);
     }
 }
 

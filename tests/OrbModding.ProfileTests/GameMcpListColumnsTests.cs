@@ -731,7 +731,7 @@ public sealed class GameMcpListColumnsTests
         }.Freeze();
 
         var refusal = Assert.Throws<InvalidOperationException>(
-            () => GameMcpListColumns.Verify("structures", partial));
+            () => GameMcpListColumns.Verify("attributes", partial));
 
         Assert.Contains("affordable", refusal.Message, StringComparison.Ordinal);
     }
@@ -993,7 +993,7 @@ public sealed class GameMcpListColumnsTests
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus(
-                    "structures", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
+                    "attributes", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
             }),
             CollectedAtEpoch = 25,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
@@ -1002,7 +1002,7 @@ public sealed class GameMcpListColumnsTests
             new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
         publisher.Publish(world, new WorldGeneration(734));
         return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
-            GameMcpTestHarness.Context(publisher.ReadLatest()), "structures", 0, 50));
+            GameMcpTestHarness.Context(publisher.ReadLatest()), "attributes", 0, 50));
     }
 
     private static WorldStructure Structure(Guid id, bool unlocked, int level = 0)

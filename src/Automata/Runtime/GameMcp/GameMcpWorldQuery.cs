@@ -1386,7 +1386,7 @@ internal static class GameMcpWorldQuery
     }
 
     /// <summary>The categories whose rows publish a price, and therefore an affordability.</summary>
-    private static readonly string[] PricedCategories = { "structures", "upgrades" };
+    private static readonly string[] PricedCategories = { "attributes", "upgrades" };
 
     /// <summary>
     /// The categories whose rows spell discovery in that word. The rest spell it as their
@@ -1797,7 +1797,7 @@ internal static class GameMcpWorldQuery
         "character-types" or "enchantments" or "glyph-types" or "rune-stones" or
             "display-types" or "attribute-groups" => new[] { "entityId", "description" },
 
-        "structures" => new[] { "entityId", "level", "reading.disabled" },
+        "attributes" => new[] { "entityId", "level", "reading.disabled" },
         "upgrades" => new[] { "entityId", "level" },
         "spell-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
         "alchemy-recipes" => new[] { "entityId", "masteryLevel", "discovered" },
@@ -4198,7 +4198,7 @@ internal static class GameMcpWorldQuery
 
     private static string PostStateCategory(GameMcpCommand command) => command.Kind switch
     {
-        GameMcpCommandKind.Purchase => command.Mode == "structure" ? "structures" : "upgrades",
+        GameMcpCommandKind.Purchase => command.Mode == "structure" ? "attributes" : "upgrades",
         GameMcpCommandKind.Cast => "spell-recipes",
         GameMcpCommandKind.Concept => "alchemy-recipes",
         GameMcpCommandKind.Harvest => "plot-nodes",
@@ -4706,7 +4706,7 @@ internal static class GameMcpWorldQuery
         string categoryName = "",
         string stateFilter = "",
         string runFilter = "",
-        Guid keywordFilter = default,
+        string keywordFilter = "",
         bool limitFromCaller = true,
         bool? discoveredFilter = null)
     {
@@ -4764,6 +4764,7 @@ internal static class GameMcpWorldQuery
         }
 
         var wantedRun = (runFilter ?? string.Empty).Trim();
+        var wantedKeyword = (keywordFilter ?? string.Empty).Trim();
         if (wantedRun.Length > 0 && only is not null &&
             !string.Equals(only.Name, "challenges", StringComparison.Ordinal))
         {
@@ -4778,7 +4779,7 @@ internal static class GameMcpWorldQuery
         // the two has to be there, and requiring both made a round invent eight filler queries — a
         // reach nobody could characterise, sitting under a count the whole sweep was judged on.
         if (normalized.Length == 0 && scope.Length == 0 && wanted.Length == 0 &&
-            wantedRun.Length == 0 && keywordFilter == Guid.Empty && discoveredFilter is null)
+            wantedRun.Length == 0 && wantedKeyword.Length == 0 && discoveredFilter is null)
         {
             return NotAvailable(
                 publication,
@@ -4792,20 +4793,40 @@ internal static class GameMcpWorldQuery
         // structures spelled that and misses every Arcanist the parent type reaches, which is the
         // one edge on this surface a query could not walk at all.
         var world = publication.Snapshot;
+        var keywords = GameMcpKeywordIndex.Build(world);
         HashSet<Guid>? worn = null;
-        if (keywordFilter != Guid.Empty)
+        if (wantedKeyword.Length != 0)
         {
+            // A caller reads the word off a row's keywords cell, so that is the word the filter
+            // takes. An id is still accepted, because a members line prints one.
+            if (!Guid.TryParse(wantedKeyword, out var keywordId))
+            {
+                if (!keywords.TryResolveWord(wantedKeyword, out keywordId, out var matches))
+                {
+                    return NotAvailable(
+                        publication,
+                        matches > 1 ? "ambiguous_handle" : "keyword_unknown",
+                        matches > 1
+                            ? "'" + wantedKeyword + "' is the printed word of " + matches +
+                              " different type assets, so it names none of them; use the id a " +
+                              "members line prints"
+                            : "'" + wantedKeyword + "' is neither a published id nor a word any " +
+                              "row's keywords cell prints; a row's keywords are the words this " +
+                              "filter takes");
+                }
+            }
+
             // The guard is the members block's own: this answers for exactly the ids whose page
             // prints a count, so "the filter reaches it" and "the page counted it" are one fact
             // rather than two that could drift apart.
-            if (!WorldKeywordModifierLookup.TryFind(world.KeywordModifiers, keywordFilter, out _, out _))
+            if (!WorldKeywordModifierLookup.TryFind(world.KeywordModifiers, keywordId, out _, out _))
             {
                 return NotAvailable(
                     publication,
                     "keyword_not_worn",
-                    GameMcpEntityHandle.Name(keywordFilter, world.EntityIdentities) + " " +
-                    GameMcpEntityHandle.Format(keywordFilter) + " is " +
-                    KeywordScope(world, keywordFilter) + " and its page counts no members, so it " +
+                    GameMcpEntityHandle.Name(keywordId, world.EntityIdentities) + " " +
+                    GameMcpEntityHandle.Format(keywordId) + " is " +
+                    KeywordScope(world, keywordId) + " and its page counts no members, so it " +
                     "cannot narrow anything; name the type asset a members line counted");
             }
 
@@ -4815,14 +4836,13 @@ internal static class GameMcpWorldQuery
                     world.Research,
                     world.ConsumableTypes,
                     world.TypeSubtypes)
-                .Members(keywordFilter);
+                .Members(keywordId);
         }
 
         // Search is deliberately an entity-catalog surface. Composite diagnostic categories are
         // readable through world_list, where their full identity and localized partiality survive.
         // One entity is one match however many categories publish it: identity is deduplicated
         // before the sort, so a repeat can never eat a slot the caller paid for.
-        var keywords = GameMcpKeywordIndex.Build(world);
         var effects = GameMcpEffectWordIndex.Build(world);
         var hits = new List<GameMcpSearchHit>();
         var keywordHits = new List<KeyValuePair<string, int>>();
@@ -5749,7 +5769,7 @@ internal static class GameMcpWorldQuery
         var result = new JObject
         {
             ["entityId"] = structure.EntityId.ToString("D"),
-            ["category"] = "structures",
+            ["category"] = "attributes",
 
             // The badge UIStructureItem renders is Utils.BeautifyInt(StructureSO.GetBaseLevel()),
             // which is what Reading.Level captures through GetPurchaseLevel; while levels are
@@ -9466,6 +9486,9 @@ internal static class GameMcpWorldQuery
                 "it named two things and is now two categories. 'augment-glyphs' is the " +
                 "twenty-two a caster sockets into a spell, whose level buys slots. " +
                 "'recipe-books' is the thirty-four tiles that widen a discovery pool",
+            ["structures"] =
+                "the screen calls these attributes and so does the wire: list 'attributes'. " +
+                "StructureSO is the game's class name for them, not a word any screen draws",
         };
 
     /// <summary>
@@ -9548,7 +9571,7 @@ internal static class GameMcpWorldQuery
         var result = new GameMcpWorldCategory[]
         {
             Entity(nameof(GameWorldState.Resources), world => world.Resources),
-            Entity(nameof(GameWorldState.Structures), world => world.Structures),
+            Entity("attributes", nameof(GameWorldState.Structures), world => world.Structures),
             Entity(nameof(GameWorldState.Upgrades), world => world.Upgrades),
             Entity(nameof(GameWorldState.Research), world => world.Research),
             Entity(nameof(GameWorldState.DoubleVariables), world => world.DoubleVariables),
@@ -9701,7 +9724,7 @@ internal static class GameMcpWorldQuery
     {
         "purchase-costs" => new[]
         {
-            "structures",
+            "attributes",
             "upgrades",
             "resources",
             "modifier-variables",
@@ -9740,6 +9763,10 @@ internal static class GameMcpWorldQuery
         "harvest-element-controls" or "harvest-action-controls" or
             "harvest-lifecycle-costs" => new[] { "harvest-lifecycle" },
         "consumables" => new[] { "consumables", "consumable-inventory" },
+
+        // The property is Structures because the game's class is StructureSO; the report the
+        // world publishes is the screen's word.
+        "structures" => new[] { "attributes" },
         _ => new[] { category },
     };
 

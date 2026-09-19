@@ -1122,7 +1122,7 @@ public sealed class GameMcpWorldEnvelopeTests
         });
         var reports = new[]
         {
-            Clean("structures"),
+            Clean("attributes"),
             Clean("upgrades"),
             Clean("resources"),
             Clean("modifier-variables"),
@@ -1771,7 +1771,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
                 new[]
                 {
-                    Clean("structures"),
+                    Clean("attributes"),
                     Clean("upgrades"),
                     Clean("resources"),
                     Clean("modifier-variables"),
@@ -1818,7 +1818,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
                 new[]
                 {
-                    Clean("structures"),
+                    Clean("attributes"),
                     Clean("upgrades"),
                     Clean("resources"),
                     new WorldCollectionCategoryStatus(
@@ -1871,7 +1871,7 @@ public sealed class GameMcpWorldEnvelopeTests
                 new[]
                 {
                     Clean("resources"),
-                    Clean("structures"),
+                    Clean("attributes"),
                     Clean("upgrades"),
                     Clean("modifier-variables"),
                     Clean("int-variables"),

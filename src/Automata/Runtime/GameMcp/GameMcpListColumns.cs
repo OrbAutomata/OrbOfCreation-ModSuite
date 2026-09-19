@@ -397,7 +397,7 @@ internal static class GameMcpListColumns
 
     private static Dictionary<string, string[]> Declare() => new(StringComparer.Ordinal)
     {
-        ["structures"] =
+        ["attributes"] =
             new[] { "entityId", "level", "queuedLevels", "state", "enabled", "affordable" },
         ["upgrades"] = new[]
         {

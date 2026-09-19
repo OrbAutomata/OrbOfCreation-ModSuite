@@ -151,8 +151,7 @@ internal static class GameMcpOperationLedger
         Add(text, "query", request.Query);
         Add(text, "state", request.StateFilter);
         Add(text, "run", request.RunFilter);
-        if (request.KeywordFilter != Guid.Empty)
-            Add(text, "keyword", GameMcpEntityHandle.Format(request.KeywordFilter));
+        Add(text, "keyword", request.KeywordFilter);
         if (request.Uuids.Length != 0)
             Add(text, "uuids", request.Uuids.Length.ToString(CultureInfo.InvariantCulture));
         if (request.Offset != 0)

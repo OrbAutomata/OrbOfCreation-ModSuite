@@ -187,7 +187,7 @@ internal static class GameMcpEntityCapabilityMap
                     "agromancy-elements", capability, out reason),
             GameMcpCommandKind.StructureLifecycle =>
                 Entity(world.EntityIdentities, world.Structures, target,
-                    "structures", capability, out reason),
+                    "attributes", capability, out reason),
             _ => Unsupported(out reason),
         };
     }
@@ -545,7 +545,7 @@ internal static class GameMcpEntityCapabilityMap
 
     private static bool PurchaseTarget(GameWorldState world, Guid target, out string reason)
     {
-        if (!Supports("structures", GameMcpCommandKind.Purchase) ||
+        if (!Supports("attributes", GameMcpCommandKind.Purchase) ||
             !Supports("upgrades", GameMcpCommandKind.Purchase))
         {
             reason = "Structures and upgrades are not something these tools can buy.";
@@ -630,7 +630,7 @@ internal static class GameMcpEntityCapabilityMap
     private static GameMcpEntityCapabilityDescriptor[] Create() => new[]
     {
         D("resources", "ResourceSO"),
-        D("structures", "StructureSO", GameMcpCommandKind.Purchase,
+        D("attributes", "StructureSO", GameMcpCommandKind.Purchase,
             GameMcpCommandKind.Targeting, GameMcpCommandKind.StructureLifecycle),
         D("upgrades", "UpgradeSO", GameMcpCommandKind.Purchase),
         D("research", "ResearchSO", GameMcpCommandKind.Research),

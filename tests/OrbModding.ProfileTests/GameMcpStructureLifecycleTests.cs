@@ -59,7 +59,7 @@ public sealed class GameMcpStructureLifecycleTests
         var detail = Row(world);
         var list = Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 902),
-            "structures", 0, 10).Freeze(), world);
+            "attributes", 0, 10).Freeze(), world);
         var listed = Assert.Single((JArray)list["rows"]!);
 
         Assert.Equal((bool)detail["enabled"]!, (bool)listed["enabled"]!);
@@ -92,7 +92,7 @@ public sealed class GameMcpStructureLifecycleTests
     private static JObject Row(GameWorldState world) =>
         Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 901),
-            "structures", StructureId.ToString("D")).Freeze(), world)["row"]
+            "attributes", StructureId.ToString("D")).Freeze(), world)["row"]
             as JObject ?? throw new InvalidOperationException("row was unavailable");
 
     private static GameWorldState World(bool disabled, bool available)
@@ -121,7 +121,7 @@ public sealed class GameMcpStructureLifecycleTests
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus(
-                    "structures", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
+                    "attributes", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
             }),
         };
     }

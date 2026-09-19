@@ -1365,7 +1365,7 @@ internal static class GameMcpEntityExplainer
         }
         category = kind switch
         {
-            EntityKind.Structure => "structures",
+            EntityKind.Structure => "attributes",
             EntityKind.Upgrade => "upgrades",
             EntityKind.Research => "research",
             EntityKind.SpellRecipe => "spell-recipes",
