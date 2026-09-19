@@ -313,6 +313,7 @@ public sealed class GameMcpDecisionReasonTests
     [InlineData("invalid_state")]
     [InlineData("already_ran")]
     [InlineData("multiple_modals_open")]
+    [InlineData("tree_holds_this_offer")]
     public void A_valid_argument_blocked_by_the_state_is_a_state_refusal(string reasonCode) =>
         Assert.Equal(GameMcpDecisionReason.ClassState, GameMcpDecisionReason.Class(reasonCode));
 

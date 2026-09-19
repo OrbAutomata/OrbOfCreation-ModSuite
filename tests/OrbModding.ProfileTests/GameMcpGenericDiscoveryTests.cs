@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using OrbAutomata;
@@ -26,6 +27,10 @@ public sealed class GameMcpGenericDiscoveryTests
         Guid.Parse("f3000000-0000-0000-0000-000000000005");
     private static readonly Guid StructureId =
         Guid.Parse("f3000000-0000-0000-0000-000000000006");
+    private static readonly Guid OlderSpellInstanceId =
+        Guid.Parse("4b8a5e2c-0d61-4f3a-9c77-6a1b2c3d4e5f");
+    private static readonly Guid MintedSpellInstanceId =
+        Guid.Parse("4b8a5e2c-0d61-4f3a-9c77-6a1b2c3d4e60");
     private static readonly Guid RecipeBookId =
         Guid.Parse("f3000000-0000-0000-0000-000000000007");
 
@@ -240,6 +245,37 @@ public sealed class GameMcpGenericDiscoveryTests
         Assert.True((bool)delta["discovered"]!["after"]!);
         Assert.True((bool)delta["loadout"]!["loaded"]!);
         Assert.Equal(5, (int)delta["loadout"]!["slot"]!);
+    }
+
+    /// <summary>
+    /// The slot a confirm names is the copy that press minted, not the first copy on the bar.
+    /// </summary>
+    /// <remarks>
+    /// A recipe can sit on the bar more than once, and the older copy is the levelled one a caller
+    /// has been casting. Naming the first slot holding the recipe pointed a fresh discovery's
+    /// answer at that older copy. The world before the press is what tells them apart: the minted
+    /// copy is the occupant it did not carry.
+    /// </remarks>
+    [Fact]
+    public void A_confirmed_spell_names_the_copy_the_press_minted()
+    {
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.GenericDiscovery, 9, 3, "confirm", SpellRecipeId, Guid.Empty,
+            "SpellRecipeSO", 1, string.Empty, string.Empty, false,
+            frameContext: GameMcpTestHarness.Context(
+                World(olderCopyOnBar: true), generation: 41));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(
+                World(spellDiscovered: true, loadedSlotIndex: 4, olderCopyOnBar: true),
+                generation: 42),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.True((bool)delta["loadout"]!["loaded"]!);
+        Assert.Equal(5, (int)delta["loadout"]!["slot"]!);
+        Assert.Equal(
+            GameMcpTestHarness.Handle(MintedSpellInstanceId), (string?)delta["loadout"]!["uuid"]);
     }
 
     /// <summary>
@@ -476,6 +512,42 @@ public sealed class GameMcpGenericDiscoveryTests
             (string?)row["discover"]!["reason"]);
     }
 
+    /// <summary>
+    /// A row the tree is holding as the offer the player picked prints the tree, not a price.
+    /// </summary>
+    /// <remarks>
+    /// A live round read a concept's row straight after the roll that offered it and was told
+    /// <c>available: no, ERR_UNAFFORDABLE, cost: 100 of 63.0 Psi</c> — the 100 the roll had just
+    /// spent. Taking the offer costs nothing more: <c>UIDiscoveryTreePage.OnConfirmClick</c>
+    /// reaches <c>DiscoveryTreeSO.DiscoverSelectedItem</c>, which charges nothing, while the row's
+    /// own price is a separate <c>IDiscoverable.GetDiscoverCost()</c> purchase. Every other row
+    /// keeps its price, so the suppression is the tree's state and not a blanket.
+    /// </remarks>
+    [Fact]
+    public void A_row_the_tree_holds_as_its_offer_prints_the_tree_and_not_a_second_price()
+    {
+        var context = ScreenContext(screensUnlocked: true, treeHoldsOffer: ConceptRecipeId);
+
+        var held = Json(GameMcpWorldQuery.GetRow(
+            context, "alchemy-recipes", ConceptRecipeId.ToString("D")))["row"]!["discover"]!;
+        var other = Json(GameMcpWorldQuery.GetRow(
+            context, "alchemy-recipes", AlchemyRecipeId.ToString("D")))["row"]!["discover"]!;
+
+        Assert.False((bool)held["available"]!);
+        Assert.Equal("ERR_STATE", (string?)held["reasonCode"]);
+        Assert.Equal(
+            "Concept Discoveries is holding this as the offer you picked, and confirming it " +
+            "there costs nothing more — the roll already paid. Use game_discover " +
+            "mode=offer_confirm on that tree; discovering it from this row would be a second, " +
+            "separate purchase.",
+            (string?)held["reason"]);
+        Assert.Null(held["costs"]);
+        Assert.Equal(
+            GameMcpTestHarness.Handle(ConceptTreeId), (string?)held["offeredBy"]!["uuid"]);
+        Assert.True((bool)other["available"]!);
+        Assert.NotNull(other["costs"]);
+    }
+
     private static readonly Guid AlchemyRecipeId =
         Guid.Parse("05589125-5a98-4e74-a1ae-2b2146ea68c4");
     private static readonly Guid AlchemyTypeId =
@@ -484,6 +556,14 @@ public sealed class GameMcpGenericDiscoveryTests
         Guid.Parse("6f7f6b2c-6ad0-4a05-9a35-0f2ab7e0e0d1");
     private static readonly Guid OrphanRecipeId =
         Guid.Parse("6f7f6b2c-6ad0-4a05-9a35-0f2ab7e0e0d2");
+
+    /// <summary>The game's own Concept Discoveries tree, named in the shipped identity fixture.</summary>
+    private static readonly Guid ConceptTreeId =
+        Guid.Parse("3444dae4-9323-4e4e-8a0a-ae800da15ab8");
+
+    /// <summary>The game's own Psi, the resource the live round's concept row asked 100 of.</summary>
+    private static readonly Guid PsiId =
+        Guid.Parse("471e1ce5-18ab-446d-a3bc-fcaa17bda96e");
 
     /// <summary>An alchemy type in neither audited set, so neither screen claims its recipe.</summary>
     private static readonly Guid OrphanAlchemyTypeId =
@@ -515,7 +595,8 @@ public sealed class GameMcpGenericDiscoveryTests
     private static GameMcpFrameContext ScreenContext(
         bool screensUnlocked,
         bool? alchemyLearnUnlocked = null,
-        bool? conceptDiscoverUnlocked = null)
+        bool? conceptDiscoverUnlocked = null,
+        Guid treeHoldsOffer = default)
     {
         var offered = new WorldDiscoverableDecision(
             visible: true,
@@ -523,7 +604,10 @@ public sealed class GameMcpGenericDiscoveryTests
             discovered: false,
             required: false,
             affordable: true,
-            PublicationTable<WorldDiscoverableCost>.Empty);
+            PublicationTable<WorldDiscoverableCost>.Create(new[]
+            {
+                new WorldDiscoverableCost(PsiId, new BigDouble(100), new BigDouble(63)),
+            }));
         var modifiers = default(RawRitualModifiers);
         var world = new GameWorldState
         {
@@ -613,6 +697,16 @@ public sealed class GameMcpGenericDiscoveryTests
                     offered),
                 AlchemyRecipe(OrphanRecipeId, OrphanAlchemyTypeId, offered),
             }.OrderBy(recipe => recipe.EntityId).ToArray()),
+            DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new[]
+            {
+                new WorldDiscoveryTree(
+                    ConceptTreeId, true, 2, BigDouble.Zero, 1, false, treeHoldsOffer,
+                    treeHoldsOffer == Guid.Empty
+                        ? Array.Empty<Guid>()
+                        : new[] { treeHoldsOffer },
+                    false, true, Array.Empty<WorldDiscoveryTreeCost>(),
+                    Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, true, true, false),
+            }),
         };
         return GameMcpTestHarness.Context(world, generation: 2311);
     }
@@ -645,7 +739,8 @@ public sealed class GameMcpGenericDiscoveryTests
         bool screensUnlocked = true,
         bool spellDiscovered = false,
         int loadedSlotIndex = -1,
-        bool spellHidden = false)
+        bool spellHidden = false,
+        bool olderCopyOnBar = false)
     {
         var costs = PublicationTable<WorldDiscoverableCost>.Create(new[]
         {
@@ -696,17 +791,7 @@ public sealed class GameMcpGenericDiscoveryTests
             {
                 new WorldRecipeBook(RecipeBookId, available: false),
             }),
-            SpellSlots = loadedSlotIndex < 0
-                ? PublicationTable<WorldSpellSlot>.Empty
-                : PublicationTable<WorldSpellSlot>.Create(new[]
-                {
-                    new WorldSpellSlot(
-                        loadedSlotIndex, SpellRecipeId, occupied: true, casting: false,
-                        readyingCast: false, attuning: false, channeled: false, toggled: false,
-                        chargeable: false, castReady: true, chargeAvailable: true,
-                        resourcesCovered: true, currentCharges: 1, maximumCharges: 1,
-                        cooldownRemaining: BigDouble.Zero),
-                }),
+            SpellSlots = SpellSlots(loadedSlotIndex, olderCopyOnBar),
             SpellWorkbench = new WorldSpellWorkbench(
                 equippedCount: loadoutHasRoom ? 0 : 1,
                 maximumEquipped: 1,
@@ -719,6 +804,29 @@ public sealed class GameMcpGenericDiscoveryTests
             }),
         };
     }
+
+    /// <summary>
+    /// The bar as the world publishes it: every occupant carries the instance identity of the copy
+    /// in that slot, which is how the copy a press minted is told from one that was already there.
+    /// </summary>
+    private static PublicationTable<WorldSpellSlot> SpellSlots(
+        int loadedSlotIndex,
+        bool olderCopyOnBar)
+    {
+        var slots = new List<WorldSpellSlot>();
+        if (olderCopyOnBar) slots.Add(Slot(0, OlderSpellInstanceId));
+        if (loadedSlotIndex >= 0) slots.Add(Slot(loadedSlotIndex, MintedSpellInstanceId));
+        return slots.Count == 0
+            ? PublicationTable<WorldSpellSlot>.Empty
+            : PublicationTable<WorldSpellSlot>.Create(slots.ToArray());
+    }
+
+    private static WorldSpellSlot Slot(int slotIndex, Guid instanceId) => new(
+        slotIndex, instanceId, SpellRecipeId, occupied: true, casting: false,
+        readyingCast: false, attuning: false, channeled: false, toggled: false,
+        chargeable: false, castReady: true, chargeAvailable: true,
+        resourcesCovered: true, currentCharges: 1, maximumCharges: 1,
+        cooldownRemaining: BigDouble.Zero);
 
     private static WorldSpellRecipe SpellRecipe(
         WorldDiscoverableDecision decision,

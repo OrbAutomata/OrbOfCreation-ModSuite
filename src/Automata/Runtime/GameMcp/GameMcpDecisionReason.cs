@@ -249,6 +249,9 @@ internal static class GameMcpDecisionReason
         // it is dismissed; nothing about the call was wrong.
         "modal_already_open" or
         "targeting_in_progress" or "transition_in_progress" or "manual_pause" or
+        // A discovery tree is holding this entity as the offer the player picked. The tree's own
+        // confirm press clears it, so it is the tree's state rather than a fact about the row.
+        "tree_holds_this_offer" or
         // Continue exists only on the title screen; being in a run is a state, and it moves.
         "continue_wrong_scene" or
         "ritual_battle_active" or "wrong_active_ritual" or "wrong_scene" or

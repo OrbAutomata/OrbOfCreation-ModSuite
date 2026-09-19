@@ -2410,7 +2410,7 @@ internal static class GameMcpWorldQuery
         // confirmed an offer had to read the loadout again to learn where its new spell was.
         if (WorldLookup.TryFind(world.SpellRecipes, command.SecondaryId, out var recipe) &&
             recipe.Discovered)
-            result["loadout"] = ProjectDiscoveredSpellLoadout(world, command.SecondaryId);
+            result["loadout"] = ProjectDiscoveredSpellLoadout(world, before, command.SecondaryId);
         return result.Freeze();
     }
 
@@ -3705,7 +3705,7 @@ internal static class GameMcpWorldQuery
         };
         if (after && string.Equals(command.DerivedNativeType, "SpellRecipeSO", StringComparison.Ordinal))
             result["loadout"] = ProjectDiscoveredSpellLoadout(
-                state.World.Snapshot, command.TargetId);
+                state.World.Snapshot, oldWorld, command.TargetId);
         return result.Freeze();
     }
 
@@ -3717,34 +3717,68 @@ internal static class GameMcpWorldQuery
     /// loads it when the loadout has a free spot and the new spell's usage cost fits. Both halves
     /// are answered from the world after the fact rather than predicted, and when it did not load
     /// the free spot says which of the two refused.
+    /// <para>
+    /// A recipe can sit on the bar more than once, so the first slot holding it is not necessarily
+    /// the copy this press minted: the one the press produced is the occupant the world before the
+    /// press did not carry. Naming the first match sent a caller to an older, higher-level copy.
+    /// </para>
     /// </remarks>
-    private static JObject ProjectDiscoveredSpellLoadout(GameWorldState world, Guid recipeId)
+    private static GameMcpValue ProjectDiscoveredSpellLoadout(
+        GameWorldState world,
+        GameWorldState? before,
+        Guid recipeId)
     {
+        var copies = 0;
+        var mintedCount = 0;
+        var minted = default(WorldSpellSlot);
         for (var index = 0; index < world.SpellSlots.Count; index++)
         {
             var slot = world.SpellSlots[index];
             if (!slot.Occupied || slot.SpellRecipeId != recipeId) continue;
+            copies++;
+            if (before is not null &&
+                ContainsSpellInstance(before.SpellSlots, slot.SpellInstanceId))
+            {
+                continue;
+            }
+            minted = slot;
+            mintedCount++;
+        }
+        if (mintedCount == 1)
+        {
             var loaded = new JObject
             {
                 ["loaded"] = true,
-                ["slot"] = GameMcpSlotNumbering.Wire(slot.SlotIndex),
+                ["slot"] = GameMcpSlotNumbering.Wire(minted.SlotIndex),
+                ["uuid"] = minted.SpellInstanceId.ToString("D"),
             };
             var budget = ProjectSpellUsageBudget(world);
             if (budget.Count > 0) loaded["usageBudget"] = budget;
-            return loaded;
+            return loaded.Freeze();
+        }
+        if (mintedCount > 1)
+        {
+            return PostStateUnavailable(
+                "loaded_copy_not_identified",
+                "The bar carries " + mintedCount + " copies of this spell that the world before " +
+                "the press did not, so this answer cannot say which one the press loaded. Read " +
+                "the loadout.");
         }
         var missed = new JObject
         {
             ["loaded"] = false,
-            ["reason"] = world.SpellWorkbench.HasEmptySlot
-                ? "A loadout slot was free, so the game tried to load it and its usage cost did " +
-                  "not fit the spell-power headroom. Free some, then load it yourself."
-                : "Every loadout slot already held a spell, so the game left it unloaded. " +
-                  "Remove one, then load it yourself.",
+            ["reason"] = copies > 0
+                ? "The bar already carried this spell before the press, and no new copy joined " +
+                  "it. Load one yourself if you want a second."
+                : world.SpellWorkbench.HasEmptySlot
+                    ? "A loadout slot was free, so the game tried to load it and its usage cost " +
+                      "did not fit the spell-power headroom. Free some, then load it yourself."
+                    : "Every loadout slot already held a spell, so the game left it unloaded. " +
+                      "Remove one, then load it yourself.",
         };
         var freeBudget = ProjectSpellUsageBudget(world);
         if (freeBudget.Count > 0) missed["usageBudget"] = freeBudget;
-        return missed;
+        return missed.Freeze();
     }
 
     private static bool TryReadDiscoveryState(
@@ -7971,7 +8005,8 @@ internal static class GameMcpWorldQuery
             result,
             recipe.Discovery,
             screenUnlocked: AlchemyDiscoveryScreenUnlocked(world, recipe.CoreTypeId),
-            screenId: AlchemyDiscoveryScreen(recipe.CoreTypeId));
+            screenId: AlchemyDiscoveryScreen(recipe.CoreTypeId),
+            entityId: recipe.RecipeId);
         return result.Freeze();
     }
 
@@ -8167,7 +8202,8 @@ internal static class GameMcpWorldQuery
             result,
             equipment.Discovery,
             screenUnlocked: IsScreenUnlocked(world, KnownEntities.WorkshopArtifactCreate.Uuid),
-            screenId: KnownEntities.WorkshopArtifactCreate.Uuid);
+            screenId: KnownEntities.WorkshopArtifactCreate.Uuid,
+            entityId: equipment.EntityId);
         return result.Freeze();
     }
 
@@ -8517,7 +8553,8 @@ internal static class GameMcpWorldQuery
             glyph.Discoverable,
             glyph.Discoverable && !glyph.Discovered && IsCurrentDiscoveryOffer(world, glyph.EntityId),
             IsScreenUnlocked(world, KnownEntities.MagicGlyphsDiscover.Uuid),
-            KnownEntities.MagicGlyphsDiscover.Uuid);
+            KnownEntities.MagicGlyphsDiscover.Uuid,
+            glyph.EntityId);
         return result.Freeze();
     }
 
@@ -8644,7 +8681,8 @@ internal static class GameMcpWorldQuery
             result,
             ritual.Discovery,
             screenUnlocked: IsScreenUnlocked(world, KnownEntities.RitualsDiscover.Uuid),
-            screenId: KnownEntities.RitualsDiscover.Uuid);
+            screenId: KnownEntities.RitualsDiscover.Uuid,
+            entityId: ritual.EntityId);
         return result.Freeze();
     }
 
@@ -8902,7 +8940,8 @@ internal static class GameMcpWorldQuery
             result,
             rune.Discovery,
             screenUnlocked: IsScreenUnlocked(world, KnownEntities.TimeTimeRuneCreate.Uuid),
-            screenId: KnownEntities.TimeTimeRuneCreate.Uuid);
+            screenId: KnownEntities.TimeTimeRuneCreate.Uuid,
+            entityId: rune.EntityId);
         return result.Freeze();
     }
 
@@ -9047,8 +9086,27 @@ internal static class GameMcpWorldQuery
         bool nativeDiscoverable = true,
         bool offered = false,
         bool? screenUnlocked = true,
-        Guid screenId = default)
+        Guid screenId = default,
+        Guid entityId = default)
     {
+        if (!decision.Discovered && entityId != Guid.Empty &&
+            TryFindHoldingDiscoveryTree(world, entityId, out var holdingTree))
+        {
+            result["discover"] = new JObject
+            {
+                ["available"] = false,
+                ["reasonCode"] = "tree_holds_this_offer",
+                ["reason"] =
+                    EntityIdentityFormatter.PlayerName(holdingTree, world.EntityIdentities) +
+                    " is holding this as the offer you picked, and confirming it there costs " +
+                    "nothing more — the roll already paid. Use game_discover mode=offer_confirm " +
+                    "on that tree; discovering it from this row would be a second, separate " +
+                    "purchase.",
+                ["offeredBy"] = EntityReference(world, holdingTree),
+                ["offered"] = true,
+            };
+            return;
+        }
         var screenDraws = screenUnlocked == true;
         var available = nativeDiscoverable && screenDraws && decision.Visible &&
             decision.CanDiscover && !decision.Discovered && decision.Affordable;
@@ -9096,6 +9154,28 @@ internal static class GameMcpWorldQuery
         }
         if (offered) discover["offered"] = true;
         result["discover"] = discover;
+    }
+
+    /// <summary>
+    /// The discovery tree holding this entity as the choice the player has selected, if one is.
+    /// </summary>
+    /// <remarks>
+    /// The roll that offered it has already been paid for — <c>UIDiscoveryTreePage.OnConfirmClick</c>
+    /// reaches <c>DiscoveryTreeSO.DiscoverSelectedItem</c>, which charges nothing — while the row's
+    /// own <c>discover</c> price is a second purchase at <c>IDiscoverable.GetDiscoverCost()</c>.
+    /// The row restated that price as owed, right after the roll had spent it.
+    /// </remarks>
+    private static bool TryFindHoldingDiscoveryTree(GameWorldState world, Guid id, out Guid treeId)
+    {
+        for (var index = 0; index < world.DiscoveryTrees.Count; index++)
+        {
+            var tree = world.DiscoveryTrees[index];
+            if (tree.SelectedChoiceId != id) continue;
+            treeId = tree.TreeId;
+            return true;
+        }
+        treeId = Guid.Empty;
+        return false;
     }
 
     /// <summary>
