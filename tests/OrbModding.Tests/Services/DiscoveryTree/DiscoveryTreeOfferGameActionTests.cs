@@ -211,8 +211,52 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
 
         Assert.True(result.Verified, result.Reason);
         Assert.True(item.discovered);
-        Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Choice, tree.actionMode);
-        Assert.NotEmpty(tree.currentChoiceIds);
+        Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Idle, tree.actionMode);
+    }
+
+    /// <summary>
+    /// The game's Confirm has no already-discovered check: DiscoverItem counts, resets the mode and
+    /// calls Discover() on whatever is selected, and the button it is drawn on is enabled on
+    /// IsInChoiceMode() and HasChoiceSelected() alone. A tree can offer something already owned —
+    /// EnterChoiceMode hands back the one required discovery without filtering it — and refusing
+    /// the press left that tree with no way out of choice mode.
+    /// </summary>
+    [Fact]
+    public void Confirm_takes_an_already_discovered_offer_because_the_game_draws_the_press()
+    {
+        var (tree, item) = ChoiceTree();
+        item.discovered = true;
+        tree.selectedChoiceId = new GuidContainer(item.GetGuid());
+        using var action = Action();
+
+        var result = action.Submit(new DiscoveryTreeOfferAction(
+            DiscoveryTreeOfferActionKind.Confirm, tree.GetGuid(), item.GetGuid(), Epoch));
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(1, tree.confirmCalls);
+        Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Idle, tree.actionMode);
+        Assert.Equal(Guid.Empty, tree.selectedChoiceId.guid);
+    }
+
+    /// <summary>
+    /// A tree owing a required discovery offers that one thing again after a reroll, which is worth
+    /// saying and is not the game refusing: RerollChoices guards on choice mode and rerollsLeft,
+    /// and the page's button on HasRerolls() alone.
+    /// </summary>
+    [Fact]
+    public void Reroll_with_a_required_discovery_outstanding_is_the_press_the_game_offers()
+    {
+        var (tree, _) = ChoiceTree();
+        tree.immediateRequired = true;
+        tree.rerollsLeft = 1;
+        using var action = Action();
+
+        var result = action.Submit(new DiscoveryTreeOfferAction(
+            DiscoveryTreeOfferActionKind.Reroll, tree.GetGuid(), Guid.Empty, Epoch));
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(1, tree.rerollCalls);
+        Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
     }
 
     [Fact]
@@ -396,7 +440,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
     }
 
     [Fact]
-    public void Already_discovered_offer_has_zero_native_mutation_calls()
+    public void Already_discovered_offer_is_selected_like_any_other_offer()
     {
         var (tree, item) = ChoiceTree();
         item.discovered = true;
@@ -405,9 +449,9 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Select, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.AlreadyDiscovered, result.Preflight);
-        Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
-        Assert.Equal(0, tree.selectCalls);
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(1, tree.selectCalls);
+        Assert.Equal(item.GetGuid(), tree.selectedChoiceId.guid);
     }
 
     [Fact]
@@ -476,7 +520,29 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
     }
 
     [Fact]
-    public void Confirm_fault_after_native_reset_does_not_claim_the_target_outcome()
+    public void Confirm_fault_before_the_tree_leaves_choice_mode_claims_nothing()
+    {
+        var (tree, item) = ChoiceTree();
+        tree.selectedChoiceId = new GuidContainer(item.GetGuid());
+        tree.suppressConfirm = true;
+        tree.throwAfterConfirmReset = true;
+        using var action = Action();
+
+        var result = action.Submit(new DiscoveryTreeOfferAction(
+            DiscoveryTreeOfferActionKind.Confirm, tree.GetGuid(), item.GetGuid(), Epoch));
+
+        Assert.Equal(DiscoveryTreeOfferPreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Choice, tree.actionMode);
+        Assert.False(item.discovered);
+    }
+
+    /// <summary>
+    /// DiscoverItem resets the mode before it calls Discover() on the item, so a native failure
+    /// between the two leaves the press landed and the ledger short. The transition is the press;
+    /// the exception is evidence, not a second postcondition.
+    /// </summary>
+    [Fact]
+    public void Confirm_exception_after_the_tree_left_choice_mode_commits()
     {
         var (tree, item) = ChoiceTree();
         tree.selectedChoiceId = new GuidContainer(item.GetGuid());
@@ -486,8 +552,8 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Confirm, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.PostCommitFault, result.Preflight);
-        Assert.False(item.discovered);
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Idle, tree.actionMode);
     }
 
     [Fact]

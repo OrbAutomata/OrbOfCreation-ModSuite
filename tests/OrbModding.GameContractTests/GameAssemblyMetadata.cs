@@ -144,6 +144,31 @@ internal sealed class GameAssemblyMetadata : IDisposable
         throw new InvalidOperationException($"Field {fullName}.{fieldName} was not found.");
     }
 
+    /// <summary>
+    /// The compile-time value of a declared <c>const float</c>. A constant the game inlines into
+    /// every call site is still declared once, and that declaration is what a sentence quoting the
+    /// number can be pinned to.
+    /// </summary>
+    public float GetSingleConstant(string fullName, string fieldName)
+    {
+        var definition = Reader.GetTypeDefinition(RequireType(fullName));
+        foreach (var fieldHandle in definition.GetFields())
+        {
+            var field = Reader.GetFieldDefinition(fieldHandle);
+            if (Reader.GetString(field.Name) != fieldName) continue;
+            var constantHandle = field.GetDefaultValue();
+            if (constantHandle.IsNil)
+                throw new InvalidOperationException($"Field {fullName}.{fieldName} is not a constant.");
+            var constant = Reader.GetConstant(constantHandle);
+            if (constant.TypeCode != ConstantTypeCode.Single)
+                throw new InvalidOperationException(
+                    $"Field {fullName}.{fieldName} is not a System.Single constant.");
+            return Reader.GetBlobReader(constant.Value).ReadSingle();
+        }
+
+        throw new InvalidOperationException($"Field {fullName}.{fieldName} was not found.");
+    }
+
     public IReadOnlyList<MethodContract> GetMethods(string fullName, string methodName)
     {
         var definition = Reader.GetTypeDefinition(RequireType(fullName));

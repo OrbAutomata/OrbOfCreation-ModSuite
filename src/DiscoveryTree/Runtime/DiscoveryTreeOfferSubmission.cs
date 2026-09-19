@@ -14,7 +14,6 @@ internal enum DiscoveryTreeOfferPreflight
     WrongMode = 7,
     NoDiscoveries = 8,
     OfferUnavailable = 9,
-    AlreadyDiscovered = 10,
     RerollUnavailable = 11,
     Unaffordable = 12,
     MutationPermitUnavailable = 13,

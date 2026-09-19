@@ -11,7 +11,6 @@ internal static class DiscoveryTreeOfferActionResultCodes
     internal static ServiceActionResultCode WrongMode => new(4305);
     internal static ServiceActionResultCode NoDiscoveries => new(4306);
     internal static ServiceActionResultCode OfferUnavailable => new(4307);
-    internal static ServiceActionResultCode AlreadyDiscovered => new(4308);
     internal static ServiceActionResultCode RerollUnavailable => new(4309);
     internal static ServiceActionResultCode Unaffordable => new(4310);
     internal static ServiceActionResultCode MutationPermitUnavailable => new(4311);

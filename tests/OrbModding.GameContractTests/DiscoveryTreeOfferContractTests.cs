@@ -101,7 +101,6 @@ public sealed class DiscoveryTreeOfferContractTests
         AssertMethod(assembly, "DiscoveryTreeSO", "DiscoverSelectedItem", false, "System.Void");
         AssertMethod(assembly, "DiscoveryTreeSO", "RerollChoices", false, "System.Void");
         AssertMethod(assembly, "IHasGuid", "GetGuid", false, "System.Guid");
-        AssertMethod(assembly, "IDiscoverable", "IsDiscovered", false, "System.Boolean");
         AssertMethod(assembly, "IDiscoverable", "IsDiscoverRequired", false, "System.Boolean");
         AssertMethod(assembly, "ResourceCostList", "HasEnough", false, "System.Boolean");
         AssertMethod(assembly, "ResourceCostList", "PerformCost", false, "System.Void");
@@ -142,6 +141,125 @@ public sealed class DiscoveryTreeOfferContractTests
             "DiscoveryTreeSO", "IncrementCrafting", "DiscoveryTreeSO", "EnterChoiceMode"));
         Assert.True(assembly.MethodReferencesField(
             "DiscoveryTreeSO", "EnterChoiceMode", "DiscoveryTreeSO", "currentChoiceIds"));
+    }
+
+    /// <summary>
+    /// The game draws Confirm on two facts and presses it with no third one: the tree is in choice
+    /// mode, something is selected. DiscoverItem itself counts, resets the mode and calls
+    /// Discover() — with no already-discovered check and no cost anywhere on the path — so the
+    /// transition the suite verifies is the tree leaving choice mode, and the suite adds no gate
+    /// the button does not have.
+    /// </summary>
+    [GameAssemblyFact]
+    public void ConfirmIsDrawnOnChoiceModeAndASelectionAndCostsNothingToPress()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.True(assembly.MethodReferencesMethod(
+            "UIDiscoveryTreePage", "QuickRenderConfirmButton", "DiscoveryTreeSO", "IsInChoiceMode"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "UIDiscoveryTreePage", "QuickRenderConfirmButton",
+            "DiscoveryTreeSO", "HasChoiceSelected"));
+
+        // The suite reads the selection off the same field the button's rule reads.
+        Assert.True(assembly.MethodReferencesField(
+            "DiscoveryTreeSO", "HasChoiceSelected", "DiscoveryTreeSO", "selectedChoiceId"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "DiscoveryTreeSO", "HasChoiceSelected", "GuidContainer", "IsEmpty"));
+
+        Assert.True(assembly.MethodReferencesMethod(
+            "DiscoveryTreeSO", "DiscoverSelectedItem", "DiscoveryTreeSO", "DiscoverItem"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "DiscoveryTreeSO", "DiscoverItem", "DiscoveryTreeSO", "ResetMode"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "DiscoveryTreeSO", "DiscoverItem", "IDiscoverable", "Discover"));
+        Assert.False(assembly.MethodReferencesMethod(
+            "DiscoveryTreeSO", "DiscoverItem", "IDiscoverable", "IsDiscovered"));
+        Assert.False(assembly.MethodReferencesMethod(
+            "DiscoveryTreeSO", "DiscoverItem", "ResourceCostList", "PerformCost"));
+        Assert.False(assembly.MethodReferencesMethod(
+            "UIDiscoveryTreePage", "OnConfirmClick", "ResourceCostList", "PerformCost"));
+
+        // ResetMode is what a caller gets back: idle, no offers, no selection.
+        Assert.True(assembly.MethodReferencesMethod(
+            "DiscoveryTreeSO", "ResetMode", "DiscoveryTreeSO", "EnterMode"));
+        Assert.True(assembly.MethodReferencesField(
+            "DiscoveryTreeSO", "ResetMode", "DiscoveryTreeSO", "currentChoiceIds"));
+        Assert.True(assembly.MethodReferencesField(
+            "DiscoveryTreeSO", "ResetMode", "DiscoveryTreeSO", "selectedChoiceId"));
+
+        var reset = assembly.MethodReferenceOffset(
+            "DiscoveryTreeSO", "DiscoverItem", "DiscoveryTreeSO", "ResetMode");
+        var discover = assembly.MethodReferenceOffset(
+            "DiscoveryTreeSO", "DiscoverItem", "IDiscoverable", "Discover");
+        Assert.True(reset < discover,
+            "DiscoverItem resets the mode before it discovers, so a failure between the two " +
+            "leaves the press landed and the ledger short.");
+    }
+
+    /// <summary>
+    /// A reroll is drawn on the budget alone. A required discovery makes a reroll a waste, which is
+    /// advice about what the press buys, not a rule about whether the game offers it.
+    /// </summary>
+    [GameAssemblyFact]
+    public void RerollIsDrawnOnTheBudgetAloneAndNotOnARequiredDiscovery()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.True(assembly.MethodReferencesMethod(
+            "UIDiscoveryTreePage", "OnRerollClick", "DiscoveryTreeSO", "HasRerolls"));
+        Assert.False(assembly.MethodReferencesMethod(
+            "UIDiscoveryTreePage", "OnRerollClick",
+            "DiscoveryTreeSO", "HasImmediateRequiredDiscover"));
+        Assert.False(assembly.MethodReferencesMethod(
+            "DiscoveryTreeSO", "RerollChoices", "DiscoveryTreeSO", "HasImmediateRequiredDiscover"));
+        Assert.True(assembly.MethodReferencesField(
+            "DiscoveryTreeSO", "RerollChoices", "DiscoveryTreeSO", "rerollsLeft"));
+    }
+
+    /// <summary>
+    /// The press starts a roll; the offers exist three seconds later. The wire says so rather than
+    /// leaving an empty offer list to read as a press that did nothing.
+    /// </summary>
+    [GameAssemblyFact]
+    public void ARollTakesThreeSecondsBeforeTheGameHasAnyOffers()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.Equal(3f, assembly.GetSingleConstant("DiscoveryTreeSO", "CraftTime"));
+        Assert.True(assembly.MethodReferencesField(
+            "DiscoveryTreeSO", "IncrementCrafting", "DiscoveryTreeSO", "actionTime"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "DiscoveryTreeSO", "IncrementCrafting", "DiscoveryTreeSO", "EnterChoiceMode"));
+    }
+
+    /// <summary>
+    /// What a confirmed spell offer does next: the game mints a level-0 copy of the recipe and loads
+    /// it only when the loadout has a free spot and the new spell's usage cost fits. The post-state
+    /// reports both halves off the settled world rather than predicting either.
+    /// </summary>
+    [GameAssemblyFact]
+    public void DiscoveringASpellMintsALevelZeroCopyAndLoadsItOnlyIntoAFreeSpot()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.True(assembly.MethodReferencesMethod(
+            "SpellRecipeSO", "Discover", "SpellManager", "PostDiscoverRecipe"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "SpellManager", "PostDiscoverRecipe", "SpellRecipeSO", "CreateEmpty"));
+        Assert.True(assembly.MethodReferencesField(
+            "SpellManager", "PostDiscoverRecipe", "SpellManager", "activeSpells"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "SpellManager", "PostDiscoverRecipe", "ResourceCostList", "HasEnough"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "SpellManager", "PostDiscoverRecipe", "SpellManager", "AddSpell"));
+
+        var empty = assembly.MethodReferenceOffset(
+            "SpellManager", "PostDiscoverRecipe", "SpellRecipeSO", "CreateEmpty");
+        var add = assembly.MethodReferenceOffset(
+            "SpellManager", "PostDiscoverRecipe", "SpellManager", "AddSpell");
+        Assert.True(empty >= 0 && empty < add,
+            "The copy is minted before it is loaded, so a loaded spell is always the new one.");
     }
 
     private static void AssertMethod(

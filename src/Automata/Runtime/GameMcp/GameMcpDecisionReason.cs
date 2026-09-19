@@ -259,7 +259,7 @@ internal static class GameMcpDecisionReason
         "modal_already_closing" or "modal_close_not_ready" or "requested_state_not_reached" or
         "randomization_unavailable" or "cancel_unavailable" or "fetch_unavailable" or
         "bonus_unavailable" or "develop_unavailable" or
-        "immediate_required_discovery" or "reroll_already_used" or
+        "reroll_already_used" or
         "switch_blocked" or "cast_in_progress" or "charge_unavailable" or
         "spell_recharging" or
         "batch_spend_drift" or
@@ -482,8 +482,6 @@ internal static class GameMcpDecisionReason
             "The discoveries this tree has left are not in reach yet: a tree's pool is widened by " +
             "its Recipe Books, and an item in the pool is offered only once the game shows it.",
         "no_current_offers" => "This tree is showing no offers to reroll.",
-        "immediate_required_discovery" =>
-            "This tree has a discovery to take first, so its offers cannot be rerolled.",
         "reroll_already_used" =>
             "A reroll was already spent on this discovery, so no further reroll is offered.",
 

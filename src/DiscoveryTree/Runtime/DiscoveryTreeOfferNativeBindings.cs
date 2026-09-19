@@ -44,7 +44,6 @@ internal sealed class DiscoveryTreeOfferNativeBindings
         "discovery-tree-offer-confirm-method",
         "discovery-tree-offer-reroll-method",
         "discovery-tree-offer-item-identity-method",
-        "discovery-tree-offer-item-discovered-method",
         "discovery-tree-offer-cost-enough-method",
         "discovery-tree-offer-cost-perform-method",
     };
@@ -72,7 +71,6 @@ internal sealed class DiscoveryTreeOfferNativeBindings
         Action<object> confirm,
         Action<object> reroll,
         Func<object, Guid> readItemIdentity,
-        Func<object, bool> isItemDiscovered,
         Func<object, bool> hasEnough,
         Action<object> performCost)
     {
@@ -98,7 +96,6 @@ internal sealed class DiscoveryTreeOfferNativeBindings
         Confirm = confirm;
         Reroll = reroll;
         ReadItemIdentity = readItemIdentity;
-        IsItemDiscovered = isItemDiscovered;
         HasEnough = hasEnough;
         PerformCost = performCost;
     }
@@ -125,7 +122,6 @@ internal sealed class DiscoveryTreeOfferNativeBindings
     internal Action<object> Confirm { get; }
     internal Action<object> Reroll { get; }
     internal Func<object, Guid> ReadItemIdentity { get; }
-    internal Func<object, bool> IsItemDiscovered { get; }
     internal Func<object, bool> HasEnough { get; }
     internal Action<object> PerformCost { get; }
 
@@ -199,9 +195,8 @@ internal sealed class DiscoveryTreeOfferNativeBindings
             var confirm = M(ContractIds[21], tree, "DiscoverSelectedItem", typeof(void));
             var reroll = M(ContractIds[22], tree, "RerollChoices", typeof(void));
             var itemIdentity = M(ContractIds[23], hasGuid, "GetGuid", typeof(Guid));
-            var discovered = M(ContractIds[24], item, "IsDiscovered", typeof(bool));
-            var enough = M(ContractIds[25], cost, "HasEnough", typeof(bool));
-            var perform = M(ContractIds[26], cost, "PerformCost", typeof(void));
+            var enough = M(ContractIds[24], cost, "HasEnough", typeof(bool));
+            var perform = M(ContractIds[25], cost, "PerformCost", typeof(void));
 
             bindings = new DiscoveryTreeOfferNativeBindings(
                 tree, item, cost,
@@ -224,7 +219,6 @@ internal sealed class DiscoveryTreeOfferNativeBindings
                 InstanceAction(confirm),
                 InstanceAction(reroll),
                 InstanceFunc<Guid>(itemIdentity),
-                InstanceFunc<bool>(discovered),
                 InstanceFunc<bool>(enough),
                 InstanceAction(perform));
             reason = string.Empty;

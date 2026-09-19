@@ -21916,25 +21916,6 @@
       "place": "action"
     },
     {
-      "id": "discovery-tree-offer.item-is-discovered",
-      "assembly": "assembly-csharp",
-      "type": "IDiscoverable",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "IsDiscovered",
-      "visibility": "public",
-      "static": false,
-      "returnType": "System.Boolean",
-      "parameters": [],
-      "owners": [
-        "Automata Discovery Tree offer GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
       "id": "discovery-tree-offer.tree-all",
       "assembly": "assembly-csharp",
       "type": "DiscoveryTreeSO",

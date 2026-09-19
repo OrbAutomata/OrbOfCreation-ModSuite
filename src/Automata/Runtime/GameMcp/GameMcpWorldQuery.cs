@@ -2325,13 +2325,17 @@ internal static class GameMcpWorldQuery
                 "select",
                 StringComparison.Ordinal) => WithoutOffers(
                     ProjectPostState(state, PostStateCategory(command), command.TargetId)),
+            // The mode reaching this switch is the one the request's `offer_` prefix was stripped
+            // from, the same word the settlement rule waits on. Matching the tool's spelling here
+            // meant every live confirm and reroll fell through to the plain tree row while the
+            // fixtures that spelled it the other way went on passing.
             GameMcpCommandKind.DiscoveryTreeOffer when string.Equals(
                 command.Mode,
-                "offer_confirm",
+                "confirm",
                 StringComparison.Ordinal) => ProjectDiscoveryOfferConfirmDelta(state, command),
             GameMcpCommandKind.DiscoveryTreeOffer when string.Equals(
                 command.Mode,
-                "offer_reroll",
+                "reroll",
                 StringComparison.Ordinal) => ProjectDiscoveryRerollDelta(state, command),
             _ => ProjectPostState(state, PostStateCategory(command), command.TargetId),
         };
@@ -6200,7 +6204,15 @@ internal static class GameMcpWorldQuery
         // bare magnitude and a live round watched it climb 0.22 → 2.72 with nothing saying what
         // the number counted.
         if (tree.ActionMode == 1)
+        {
             result["actionTime"] = CoarseClock(tree.ActionTime);
+
+            // The press starts a roll, it does not produce offers: the game rolls them three
+            // seconds of game time later. A round read the empty list as a press that had failed.
+            result["rolling"] =
+                "This roll is still running. The game rolls its offers three seconds after the " +
+                "press, and this tree has been rolling " + CoarseClock(tree.ActionTime) + ".";
+        }
         if (tree.SelectedChoiceId != Guid.Empty)
             result["selectedOfferUuid"] = tree.SelectedChoiceId.ToString("D");
 
@@ -6282,6 +6294,17 @@ internal static class GameMcpWorldQuery
                     {
                         offer["category"] = category;
                     }
+
+                    // A tree with a required discovery outstanding offers that one thing and
+                    // nothing else, even when it is already owned — so an offer can name something
+                    // the player already has. That is a fact about the offer, not a reason to
+                    // refuse the press the game draws.
+                    if (world.EntityIdentities.TryGet(id, out var identity) &&
+                        TryReadDiscoveryState(world, id, identity.RuntimeType, out var owned) &&
+                        owned)
+                    {
+                        offer["discovered"] = true;
+                    }
                     offers.Add(offer);
                 }
                 result["offers"] = offers;
@@ -6294,7 +6317,6 @@ internal static class GameMcpWorldQuery
             // sentence. A naked `rerollAvailable: false` beside `rerollsLeft: 0` said the same
             // thing to a machine and nothing at all to the caller that had to act on it.
             var rerollAvailable = tree.Visible &&
-                !tree.HasImmediateRequiredDiscovery &&
                 tree.RerollsLeft > 0 && tree.CurrentOfferIds.Count > 0 &&
                 !tree.UsedRerollsLastDiscover;
             var reroll = new JObject { ["available"] = rerollAvailable };
@@ -6302,13 +6324,21 @@ internal static class GameMcpWorldQuery
             {
                 reroll["reasonCode"] = !tree.Visible
                     ? "tree_unavailable"
-                    : tree.HasImmediateRequiredDiscovery
-                        ? "immediate_required_discovery"
-                        : tree.UsedRerollsLastDiscover
-                            ? "reroll_already_used"
-                            : tree.RerollsLeft <= 0
-                                ? "no_rerolls"
-                                : "no_current_offers";
+                    : tree.UsedRerollsLastDiscover
+                        ? "reroll_already_used"
+                        : tree.RerollsLeft <= 0
+                            ? "no_rerolls"
+                            : "no_current_offers";
+            }
+
+            // The game's reroll button asks only whether a reroll is left. A required discovery
+            // makes a reroll a waste — the tree rolls the same one thing again — which is advice
+            // about what the press buys, not a rule about whether it is drawn.
+            if (tree.HasImmediateRequiredDiscovery)
+            {
+                reroll["note"] =
+                    "This tree owes a required discovery, so it is offering that one thing: a " +
+                    "reroll spends a reroll and offers it again.";
             }
             result["reroll"] = reroll;
         }

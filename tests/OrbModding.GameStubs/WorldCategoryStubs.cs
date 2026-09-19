@@ -2007,12 +2007,12 @@ public sealed class DiscoveryTreeSO : IdScriptableObject
         if (throwAfterConfirmReset)
             throw new InvalidOperationException("injected failure after confirm reset");
         item.Discover();
+        // Every axis a confirm touches except the one the press is: the tree leaving choice mode
+        // is what DiscoverItem's ResetMode does, and what the suite verifies.
         if (driftConfirmEvidence)
         {
-            actionMode = DiscoveryTreeModes.Choice;
             actionTime = new BigDouble(9, 0);
-            currentChoiceIds.Add(new GuidContainer(selected));
-            selectedChoiceId = new GuidContainer(selected);
+            nextExcludedIds.Add(new GuidContainer(selected));
             totalDiscoveredCount += 4;
             poolDiscoveredCount += 3;
             rerollsLeft += 2;

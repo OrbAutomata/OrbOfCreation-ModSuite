@@ -34,7 +34,6 @@ internal static class DiscoveryTreeOfferActionResultMapper
         DiscoveryTreeOfferPreflight.WrongMode => DiscoveryTreeOfferActionResultCodes.WrongMode,
         DiscoveryTreeOfferPreflight.NoDiscoveries => DiscoveryTreeOfferActionResultCodes.NoDiscoveries,
         DiscoveryTreeOfferPreflight.OfferUnavailable => DiscoveryTreeOfferActionResultCodes.OfferUnavailable,
-        DiscoveryTreeOfferPreflight.AlreadyDiscovered => DiscoveryTreeOfferActionResultCodes.AlreadyDiscovered,
         DiscoveryTreeOfferPreflight.RerollUnavailable => DiscoveryTreeOfferActionResultCodes.RerollUnavailable,
         DiscoveryTreeOfferPreflight.Unaffordable => DiscoveryTreeOfferActionResultCodes.Unaffordable,
         DiscoveryTreeOfferPreflight.MutationPermitUnavailable => DiscoveryTreeOfferActionResultCodes.MutationPermitUnavailable,

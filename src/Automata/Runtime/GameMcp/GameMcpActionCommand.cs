@@ -773,7 +773,6 @@ internal static class GameMcpActionResultCodeNames
             if (code == DiscoveryTreeOfferActionResultCodes.WrongMode) return "wrong_mode";
             if (code == DiscoveryTreeOfferActionResultCodes.NoDiscoveries) return "no_discoveries";
             if (code == DiscoveryTreeOfferActionResultCodes.OfferUnavailable) return "offer_unavailable";
-            if (code == DiscoveryTreeOfferActionResultCodes.AlreadyDiscovered) return "already_discovered";
             if (code == DiscoveryTreeOfferActionResultCodes.RerollUnavailable) return "reroll_unavailable";
             if (code == DiscoveryTreeOfferActionResultCodes.Unaffordable) return "unaffordable";
             if (code == DiscoveryTreeOfferActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";

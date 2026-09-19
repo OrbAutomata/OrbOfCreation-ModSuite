@@ -227,7 +227,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
         var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
         var command = new GameMcpCommand(
-            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_confirm", treeId, offerId,
+            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "confirm", treeId, offerId,
             "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2), generation: 41));
@@ -282,7 +282,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
         var spellId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
         var command = new GameMcpCommand(
-            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_confirm", treeId, spellId,
+            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "confirm", treeId, spellId,
             "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2), generation: 41));
@@ -305,6 +305,43 @@ public sealed class GameMcpDiscoveryTreeOfferTests
     }
 
     /// <summary>
+    /// The mode the tool is called with and the mode the projection switches on are the same word
+    /// after the request's `offer_` prefix is stripped — so the press a caller makes is the press
+    /// the confirm delta answers. Fixtures that spelled the mode the tool's way kept every delta
+    /// test green while the live press fell through to the plain tree row.
+    /// </summary>
+    [Fact]
+    public void The_prepared_confirm_command_is_the_one_the_confirm_delta_answers()
+    {
+        var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+        var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
+        var operation = GameMcpProtocolRouter.BuildOperation(
+            "game_discover",
+            new JObject
+            {
+                ["mode"] = "offer_confirm",
+                ["uuid"] = treeId.ToString("D"),
+                ["offerUuid"] = offerId.ToString("D"),
+            });
+
+        Assert.True(Plugin.TryPrepareGameMcpCommand(
+            new GameMcpFrameOperation(1, operation),
+            GameMcpTestHarness.Context(Tree(treeId, actionMode: 2), generation: 41),
+            out var command,
+            out var failure), failure?.Reason);
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 0, discoveredCount: 1), generation: 42),
+            command,
+            GameMcpCommandResult.Committed("committed", 9, 3)));
+
+        Assert.Equal(GameMcpTestHarness.Handle(offerId), (string?)delta["discovered"]!["uuid"]);
+        Assert.Equal(1, (int)delta["discoveredCount"]!["after"]!);
+        Assert.Equal("idle", (string?)delta["mode"]!["after"]);
+    }
+
+    /// <summary>
     /// Nothing but a spell has a loadout, so nothing but a spell answers with one.
     /// </summary>
     [Fact]
@@ -313,7 +350,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
         var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
         var command = new GameMcpCommand(
-            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_confirm", treeId, offerId,
+            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "confirm", treeId, offerId,
             "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2), generation: 41));
@@ -339,7 +376,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var first = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
         var second = Guid.Parse("b1d6b0b6-98c1-4b74-90a4-7d0f7dbd3a1f");
         var command = new GameMcpCommand(
-            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_reroll", treeId, Guid.Empty,
+            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "reroll", treeId, Guid.Empty,
             "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2, rerollsLeft: 2, offers: new[] { first }),
@@ -370,7 +407,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
         var offer = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
         var command = new GameMcpCommand(
-            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "offer_reroll", treeId, Guid.Empty,
+            1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "reroll", treeId, Guid.Empty,
             "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2, rerollsLeft: 1, offers: new[] { offer }),
@@ -698,8 +735,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
     [Theory]
     [InlineData(false, 2, false, 1, "ERR_LOCKED", "The game is not showing this discovery tree.")]
     [InlineData(true, 0, false, 1, null, null)]
-    [InlineData(true, 2, true, 1, "ERR_STATE",
-        "This tree has a discovery to take first, so its offers cannot be rerolled.")]
     [InlineData(true, 2, false, 0, "ERR_NOT_FOUND", "This tree is showing no offers to reroll.")]
     [InlineData(true, 2, false, -1, "ERR_STATE",
         "A reroll was already spent on this discovery, so no further reroll is offered.")]
@@ -747,6 +782,78 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             Assert.Null(response["row"]!["reroll"]);
         }
         if (offers.Length == 0) Assert.Null(response["row"]!["offers"]);
+    }
+
+    /// <summary>
+    /// The game's reroll button asks HasRerolls() and nothing else, and RerollChoices guards choice
+    /// mode and the budget. A tree owing a required discovery re-offers that one thing, which is
+    /// worth saying beside a live press — it was published as a refusal, and with Confirm refused on
+    /// the same tree the suite left no way out of choice mode at all.
+    /// </summary>
+    [Fact]
+    public void A_required_discovery_is_advice_on_the_reroll_rather_than_a_refusal()
+    {
+        var treeId = Guid.NewGuid();
+        var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
+        var tree = new WorldDiscoveryTree(
+            treeId, true, 2, BigDouble.Zero, 1, false, Guid.Empty,
+            new[] { offerId }, true, false, Array.Empty<WorldDiscoveryTreeCost>(),
+            Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, true, true, false);
+        var world = DiscoveryWorld(
+            tree,
+            timeRunes: new[]
+            {
+                new WorldTimeRune(
+                    offerId, true, 0, 1, BigDouble.Zero, 0, true, true,
+                    BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero),
+            },
+            identities: new[]
+            {
+                new EntityIdentityName(offerId, "TimeRuneSO", "Slow Time", "slowTime"),
+            });
+
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 85),
+            "discovery-trees",
+            treeId.ToString("D")))["row"]!;
+
+        Assert.True((bool)row["reroll"]!["available"]!);
+        Assert.Null(row["reroll"]!["reasonCode"]);
+        Assert.Equal(
+            "This tree owes a required discovery, so it is offering that one thing: a reroll " +
+            "spends a reroll and offers it again.",
+            (string?)row["reroll"]!["note"]);
+
+        // The rigged offer names something already owned: EnterChoiceMode hands back the required
+        // discovery without the IsDiscovered filter the pool branch applies.
+        var offer = Assert.Single(row["offers"]!.Values<JObject>())!;
+        Assert.True((bool)offer["discovered"]!);
+    }
+
+    /// <summary>
+    /// A press starts a roll; the game rolls the offers three seconds later. The empty offer list in
+    /// between read as a press that had done nothing.
+    /// </summary>
+    [Fact]
+    public void A_rolling_tree_says_the_roll_is_running_and_when_its_offers_appear()
+    {
+        var treeId = Guid.NewGuid();
+        var tree = new WorldDiscoveryTree(
+            treeId, true, 1, new BigDouble(0.1d), 1, false, Guid.Empty,
+            Array.Empty<Guid>(), false, false, Array.Empty<WorldDiscoveryTreeCost>(),
+            Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, false, true, false);
+
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(DiscoveryWorld(tree), generation: 85),
+            "discovery-trees",
+            treeId.ToString("D")))["row"]!;
+
+        Assert.Equal("crafting", (string?)row["mode"]);
+        Assert.Null(row["offers"]);
+        Assert.Equal(
+            "This roll is still running. The game rolls its offers three seconds after the " +
+            "press, and this tree has been rolling 0.10s.",
+            (string?)row["rolling"]);
     }
 
     [Fact]
@@ -1394,10 +1501,14 @@ public sealed class GameMcpDiscoveryTreeOfferTests
     private static GameWorldState DiscoveryWorld(
         WorldDiscoveryTree tree,
         WorldTimeRune[]? timeRunes = null,
-        WorldGlyph[]? glyphs = null) =>
+        WorldGlyph[]? glyphs = null,
+        EntityIdentityName[]? identities = null) =>
         new()
         {
             DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new[] { tree }),
+            EntityIdentities = identities is null
+                ? EntityIdentityCatalogSnapshot.Unbound(1)
+                : EntityIdentityCatalogSnapshot.Bound(1, identities),
             TimeRunes = timeRunes is null
                 ? PublicationTable<WorldTimeRune>.Empty
                 : PublicationTable<WorldTimeRune>.Create(timeRunes),

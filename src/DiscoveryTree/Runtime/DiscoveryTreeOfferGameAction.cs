@@ -160,7 +160,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
     {
         if (!native.IsChoice(tree))
             return WrongMode("This tree is not showing any offers to choose from right now.");
-        if (!TryResolveOfferedItem(native, tree, action.OfferId, out _, out var reason, out var rejection))
+        if (!TryResolveOfferedItem(native, tree, action.OfferId, out var reason, out var rejection))
             return DiscoveryTreeOfferSubmission.Reject(rejection, reason);
         if (!TryCapturePermit(out reason))
             return DiscoveryTreeOfferSubmission.Reject(
@@ -180,7 +180,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
     {
         if (!native.IsChoice(tree))
             return WrongMode("This tree is not showing any offers to choose from right now.");
-        if (!TryResolveOfferedItem(native, tree, action.OfferId, out var item, out var reason, out var rejection))
+        if (!TryResolveOfferedItem(native, tree, action.OfferId, out var reason, out var rejection))
             return DiscoveryTreeOfferSubmission.Reject(rejection, reason);
         var selected = ReadGuid(native, native.ReadSelected(tree));
         if (selected != action.OfferId)
@@ -198,10 +198,14 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.MutationPermitUnavailable, reason);
 
+        // The game's own Confirm ends in ResetMode: the tree leaves choice mode and drops its
+        // selection. That is the transition this press owns. The discovered flag is a ledger bit
+        // the press shares with the by-row route, and on an offer that already carried it the
+        // sentinel read true before the press, so it could not witness anything.
         return ExecuteSingle(in action, DiscoveryTreeOfferNativeStage.Confirm,
             () => native.Confirm(tree),
-            () => native.IsItemDiscovered(item),
-            "The requested offered UUID is discovered.");
+            () => !native.IsChoice(tree),
+            "The tree took the offer and left choice mode.");
     }
 
     private DiscoveryTreeOfferSubmission SubmitReroll(
@@ -211,10 +215,6 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
     {
         if (!native.IsChoice(tree))
             return WrongMode("This tree is not showing any offers to choose from right now.");
-        if (native.HasImmediateRequired(tree))
-            return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.RerollUnavailable,
-                "A required discovery cannot be rerolled.");
         var offers = native.ReadCurrentChoices(tree);
         var rerolls = native.ReadRerolls(tree);
         if (rerolls <= 0)
@@ -340,15 +340,19 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// Whether the offer named by the request is one this tree is showing, and resolves to exactly
+    /// one thing. Whether that thing is already discovered is not asked: the game's own Confirm
+    /// carries no such check, so refusing on it invented a rule that left a tree the game would
+    /// happily clear with no way out of choice mode.
+    /// </summary>
     private static bool TryResolveOfferedItem(
         DiscoveryTreeOfferNativeBindings native,
         object tree,
         Guid offerId,
-        out object item,
         out string reason,
         out DiscoveryTreeOfferPreflight rejection)
     {
-        item = null!;
         if (!Contains(native, native.ReadCurrentChoices(tree), offerId))
         {
             reason = $"{EntityIdentityFormatter.PlayerName(offerId)} is not one of the offers this tree is showing.";
@@ -363,13 +367,6 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             rejection = DiscoveryTreeOfferPreflight.IdentityUnavailable;
             return false;
         }
-        if (native.IsItemDiscovered(resolved))
-        {
-            reason = $"Current offer {EntityIdentityFormatter.PlayerName(offerId)} is already discovered.";
-            rejection = DiscoveryTreeOfferPreflight.AlreadyDiscovered;
-            return false;
-        }
-        item = resolved;
         reason = string.Empty;
         rejection = DiscoveryTreeOfferPreflight.Proceeded;
         return true;
