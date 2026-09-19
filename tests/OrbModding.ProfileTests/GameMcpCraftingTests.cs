@@ -98,8 +98,8 @@ public sealed class GameMcpCraftingTests
         Assert.Equal("available", (string?)result["status"]);
         Assert.Null(result["worldGeneration"]);
         var row = result["row"]!;
-        Assert.Equal("Craft Sigils", (string?)row["name"]);
-        Assert.Equal(GameMcpTestHarness.Handle(RecipeId), (string?)row["uuid"]);
+        Assert.Equal("Craft Sigils", (string?)result["name"]);
+        Assert.Equal(GameMcpTestHarness.Handle(RecipeId), (string?)result["uuid"]);
         Assert.Equal("queue_stack", (string?)row["execution"]);
         Assert.Equal(2, (int)row["purchaseAmount"]!);
         Assert.Equal(4, (int)row["queuedAmount"]!);

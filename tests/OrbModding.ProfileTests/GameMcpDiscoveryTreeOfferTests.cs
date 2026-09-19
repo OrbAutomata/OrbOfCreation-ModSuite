@@ -590,7 +590,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.Equal("available", (string?)read["status"]);
         Assert.Null(read["expectedNativeType"]);
         Assert.Equal("idle", (string?)read["row"]!["mode"]);
-        Assert.Equal("Glyph Discoveries", (string?)read["row"]!["name"]);
+        Assert.Equal("Glyph Discoveries", (string?)read["name"]);
         Assert.Null(read["row"]!["treeId"]);
         Assert.Null(read["row"]!["debugMode"]);
         Assert.Null(read["row"]!["overrideChoicesId"]);
@@ -639,8 +639,8 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             treeId.ToString("D")));
         var row = (JObject)response["row"]!;
 
-        Assert.Equal("Glyph Discoveries", (string?)row["name"]);
-        Assert.Equal(GameMcpTestHarness.Handle(treeId), (string?)row["uuid"]);
+        Assert.Equal("Glyph Discoveries", (string?)response["name"]);
+        Assert.Equal(GameMcpTestHarness.Handle(treeId), (string?)response["uuid"]);
         Assert.Equal("idle", (string?)row["mode"]);
         Assert.True((bool)row["initiate"]!["available"]!);
         Assert.Null(row["initiate"]!["affordable"]);
@@ -964,8 +964,8 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 "discovery-trees", tree.GetGuid().ToString("D")));
             calls++;
             Assert.True((bool)idleRead["row"]!["initiate"]!["available"]!);
-            Assert.NotNull(idleRead["row"]!["name"]);
-            var readTreeId = GameMcpTestHarness.ResolveHandle((string)idleRead["row"]!["uuid"]!);
+            Assert.NotNull(idleRead["name"]);
+            var readTreeId = GameMcpTestHarness.ResolveHandle((string)idleRead["uuid"]!);
 
             var initiated = action.Submit(new DiscoveryTreeOfferAction(
                 DiscoveryTreeOfferActionKind.Initiate,

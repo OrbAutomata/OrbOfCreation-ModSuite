@@ -415,7 +415,7 @@ public sealed class GameMcpWorldQueryTests
             "spell-recipes",
             GameMcpAcceptanceFixture.SpellId.ToString("D")));
         Assert.Null(exact["row"]!["spellPowerMod"]);
-        Assert.Equal("spell-recipes", (string?)exact["row"]!["category"]);
+        Assert.Equal("spell-recipes", (string?)exact["category"]);
         Assert.NotNull(exact["row"]!["loadoutAdd"]);
     }
 }

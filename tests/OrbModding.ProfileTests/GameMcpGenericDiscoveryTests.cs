@@ -165,8 +165,8 @@ public sealed class GameMcpGenericDiscoveryTests
         Assert.Equal("available", (string?)row["status"]);
         Assert.Null(row["worldGeneration"]);
         var glyph = row["row"]!;
-        Assert.Equal(GameMcpTestHarness.Handle(GlyphId), (string?)glyph["uuid"]);
-        Assert.Equal("Amplify", (string?)glyph["name"]);
+        Assert.Equal(GameMcpTestHarness.Handle(GlyphId), (string?)row["uuid"]);
+        Assert.Equal("Amplify", (string?)row["name"]);
         Assert.True((bool)glyph["discover"]!["available"]!);
 
         // `IsDiscoverRequired()` is captured and not published: a bare flag no verdict here turns

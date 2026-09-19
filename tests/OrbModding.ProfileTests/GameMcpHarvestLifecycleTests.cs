@@ -91,7 +91,7 @@ public sealed class GameMcpHarvestLifecycleTests
             "agromancy-elements", ElementId.ToString("D")).Freeze(), world);
 
         var row = response["row"]!;
-        Assert.Equal("Fire", (string?)row["name"]);
+        Assert.Equal("Fire", (string?)response["name"]);
         Assert.Equal(2, (int)row["active"]!);
         Assert.True((bool)row["addElement"]!["available"]!);
         var usage = Assert.Single(row["addElement"]!["costs"]!.Values<JObject>());

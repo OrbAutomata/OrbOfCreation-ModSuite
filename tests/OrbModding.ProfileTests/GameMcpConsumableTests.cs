@@ -80,8 +80,9 @@ public sealed class GameMcpConsumableTests
         Assert.True(response["row"] is not null, response.ToString());
         var row = response["row"]!;
 
-        Assert.Equal("Swift Thread", (string?)row["name"]);
-        Assert.Equal(GameMcpTestHarness.Handle(ConsumableId), (string?)row["uuid"]);
+        Assert.Equal("Swift Thread", (string?)response["name"]);
+        Assert.Equal(
+            GameMcpTestHarness.Handle(ConsumableId), (string?)response["uuid"]);
         Assert.Equal("3", (string?)row["amount"]);
         Assert.Equal(1, (int)row["queued"]!);
         Assert.True((bool)row["use"]!["available"]!);

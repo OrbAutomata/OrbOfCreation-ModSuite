@@ -43,7 +43,7 @@ public sealed class GameMcpStructureLifecycleTests
         var enabled = Row(enabledWorld);
         var unavailable = Row(unavailableWorld);
 
-        Assert.Equal("Focus", (string?)enabled["name"]);
+        Assert.Equal("Focus", (string?)Block(enabledWorld)["name"]);
         Assert.True((bool)enabled["enabled"]!);
         Assert.True((bool)enabled["toggle"]!["available"]!);
         Assert.Equal("disable", (string?)enabled["toggle"]!["next"]);
@@ -89,11 +89,14 @@ public sealed class GameMcpStructureLifecycleTests
             GameMcpTestHarness.Context(before, generation: 92), 91, 0, command));
     }
 
-    private static JObject Row(GameWorldState world) =>
+    private static JObject Block(GameWorldState world) =>
         Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 901),
-            "attributes", StructureId.ToString("D")).Freeze(), world)["row"]
-            as JObject ?? throw new InvalidOperationException("row was unavailable");
+            "attributes", StructureId.ToString("D")).Freeze(), world);
+
+    private static JObject Row(GameWorldState world) =>
+        Block(world)["row"] as JObject
+            ?? throw new InvalidOperationException("row was unavailable");
 
     private static GameWorldState World(bool disabled, bool available)
     {

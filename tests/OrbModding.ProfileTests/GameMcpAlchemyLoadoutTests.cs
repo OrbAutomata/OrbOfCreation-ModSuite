@@ -95,7 +95,7 @@ public sealed class GameMcpAlchemyLoadoutTests
             "alchemy-recipes", RecipeId.ToString("D")).Freeze());
 
         var row = response["row"]!;
-        Assert.Equal("Catalyze", (string?)row["name"]);
+        Assert.Equal("Catalyze", (string?)response["name"]);
         Assert.Equal(2, (int)row["activeCount"]!);
         var loadout = Assert.IsType<JObject>(row["alchemyLoadout"]);
         Assert.Equal(2, (int)loadout["activeCount"]!);

@@ -1514,8 +1514,13 @@ public sealed class GameMcpWorldEnvelopeTests
             state,
             "upgrades",
             unaffectedId.ToString("D")));
-        Assert.Equal("available", (string?)unaffectedGet["status"]);
+        // The singular read is the live read, so it says exactly what the batch block below says:
+        // the row is there and nothing is implicated, and the one miss it reports is its own —
+        // this world is assembled by hand, so the game has no prerequisite verdict to compare the
+        // suite's against.
+        Assert.Equal("unavailable", (string?)unaffectedGet["status"]);
         Assert.NotNull(unaffectedGet["row"]);
+        Assert.Null(unaffectedGet["implicatedSkippedRows"]);
 
         var affectedGet = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             state,
@@ -2035,9 +2040,20 @@ public sealed class GameMcpWorldEnvelopeTests
 
         var responseBytes = System.Text.Encoding.UTF8.GetByteCount(
             result.ToString(Newtonsoft.Json.Formatting.None));
-        Assert.True(responseBytes < 1_461, "research projection was " + responseBytes + " bytes");
+        // The budget is on the answer a caller really receives. It used to be measured against a
+        // singular read that carried the row and nothing else, while every caller of world_get was
+        // also sent the block's identity, its predicates, its requirement tree with the game's own
+        // parity verdict, its research thresholds and its blockers. Those are 1,764 bytes here, and
+        // the number a guard watches has to be the one that was always being paid.
+        Assert.True(
+            responseBytes < 1_765, "research world_get was " + responseBytes + " bytes");
 
-        Assert.Equal("available", (string?)result["status"]);
+        // The row is here and complete; the block's own miss is the game's prerequisite verdict,
+        // which a hand-assembled world carries no research to answer for.
+        Assert.Equal("unavailable", (string?)result["status"]);
+        Assert.Equal(
+            "ERR_UNAVAILABLE",
+            (string?)result["requirements"]!["nativeParity"]!["reasonCode"]);
         var row = (JObject)result["row"]!;
         Assert.Equal(10, (int)row["baseRequirementLevel"]!);
         Assert.Equal(5, (int)row["effectiveRequirementLevel"]!);
@@ -2137,7 +2153,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal("available", (string?)result["status"]);
         Assert.Null(result["worldGeneration"]);
         var row = (JObject)result["row"]!;
-        Assert.Equal(GameMcpTestHarness.Handle(recipeId), (string?)row["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(recipeId), (string?)result["uuid"]);
         Assert.False((bool)row["visible"]!);
         Assert.False((bool)row["canStart"]!);
         Assert.Equal(

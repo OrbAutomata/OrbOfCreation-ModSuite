@@ -83,7 +83,7 @@ public sealed class GameMcpEquipmentLoadoutTests
             context, "equipment", EquipmentId.ToString("D")));
 
         var row = response["row"]!;
-        Assert.Equal("Prismatic Lens", (string?)row["name"]);
+        Assert.Equal("Prismatic Lens", (string?)response["name"]);
         Assert.Equal(GameMcpTestHarness.Handle(TypeId), (string?)row["equipmentType"]!["uuid"]);
         Assert.Equal("Focus", (string?)row["equipmentType"]!["name"]);
         Assert.Equal(1, (int)row["equippedCount"]!);

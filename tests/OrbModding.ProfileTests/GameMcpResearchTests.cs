@@ -92,7 +92,7 @@ public sealed class GameMcpResearchTests
             "research", ResearchId.ToString("D")).Freeze(), world);
         var row = response["row"]!;
 
-        Assert.Equal("Improved Casting", (string?)row["name"]);
+        Assert.Equal("Improved Casting", (string?)response["name"]);
         Assert.Equal("available", (string?)row["state"]);
         Assert.Equal("active", (string?)row["development"]);
         Assert.Equal(3, (int)row["queuedLevels"]!);

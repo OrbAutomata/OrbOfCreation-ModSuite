@@ -1962,78 +1962,37 @@ internal static class GameMcpWorldQuery
         }
     }
 
+    /// <summary>
+    /// One id's answer in the singular shape, which is the live <c>world_get</c> read with one id
+    /// in it: the same category resolution, the same block, the same words.
+    /// </summary>
+    /// <remarks>
+    /// This read had its own copy of all of that — its own category check, its own row walk, its
+    /// own refusal sentences — and nothing in <c>src</c> called it; only tests did, so the surface
+    /// they were holding to account was a second implementation of the one callers reach. A
+    /// refusal that fails the whole call, such as no world or an unknown category, is that call's
+    /// own answer and comes back whole. A block that answers omits <c>status</c>, because on the
+    /// wire silence is the yes; the singular shape says the word, so it is filled in here rather
+    /// than left to every caller to know.
+    /// </remarks>
     internal static JObject GetRow(
         GameMcpFrameContext state,
         string categoryName,
         string uuidText)
     {
-        if (!TryWorld(state, out var publication, out var unavailable))
-            return unavailable;
-        if (!TryCategory(categoryName, out var category, out var reason))
-            return NoSuchCategory(publication, categoryName, reason);
-        if (!Guid.TryParseExact(uuidText ?? string.Empty, "D", out var uuid))
-            return NotAvailable(publication, "invalid_uuid", "That is not a valid id.");
-        if (!string.Equals(
-                category.IdentityMode,
-                "stable_entity_uuid",
-                StringComparison.Ordinal))
+        if (!TryDetailRead(state, categoryName, 1, out var publication, out var requested,
+                out var refusal))
         {
-            return NotAvailable(
-                publication,
-                "composite_identity_required",
-                "Rows in " + category.Name + " are not addressed by one id; " +
-                "read them with world_list.");
+            return refusal;
         }
 
-        var availability = Availability(publication.Snapshot, category);
-        if (!availability.Available)
-        {
-            return NotAvailable(
-                publication,
-                "category_not_collected",
-                availability.Reason.Length == 0
-                    ? "the category was not collected"
-                    : availability.Reason);
-        }
-
-        var count = category.Count(publication.Snapshot);
-        for (var index = 0; index < count; index++)
-        {
-            var row = category.Row(publication.Snapshot, index);
-            if (!category.TryIdentity(row, out var rowIdentity) || rowIdentity != uuid) continue;
-            var result = new JObject();
-            result["status"] = "available";
-            var implicated = LocalizedRequirementImplications(
-                publication.Snapshot,
-                new HashSet<Guid> { uuid });
-            var implicatedOffers = LocalizedDiscoveryOfferImplications(
-                publication.Snapshot,
-                new HashSet<Guid> { uuid });
-            if (implicated.Count == 0 && implicatedOffers.Count == 0)
-            {
-                result["row"] = ProjectRow(publication.Snapshot, category, row);
-            }
-            else
-            {
-                result["status"] = "not_available";
-                result["code"] = implicated.Count > 0
-                    ? "entity_data_incomplete"
-                    : "discovery_offer_read_incomplete";
-                result["reason"] =
-                    implicated.Count > 0
-                        ? "The game did not report everything this entry requires."
-                        : "This tree is offering something the game did not report anywhere else.";
-                result["partialRow"] = ProjectRow(publication.Snapshot, category, row);
-                if (implicated.Count > 0) result["implicatedSkippedRows"] = implicated;
-                if (implicatedOffers.Count > 0) result["implicatedOffers"] = implicatedOffers;
-            }
-            return result;
-        }
-
-        return NotAvailable(
-            publication,
-            "unknown_uuid",
-            "There is no " + category.Name + " entry with that id.");
+        var block = GetOne(
+            publication.Snapshot,
+            requested,
+            uuidText ?? string.Empty,
+            GameMcpKeywordIndex.Build(publication.Snapshot));
+        if (block["status"] is null) block["status"] = "available";
+        return block;
     }
 
     /// <summary>
@@ -2063,57 +2022,79 @@ internal static class GameMcpWorldQuery
         string categoryName,
         IReadOnlyList<string> uuidTexts)
     {
-        if (!TryWorld(state, out var publication, out var unavailable))
-            return unavailable;
-        if (uuidTexts is null || uuidTexts.Count == 0 || uuidTexts.Count > MaximumBatchSize)
+        var ids = uuidTexts ?? Array.Empty<string>();
+        if (!TryDetailRead(state, categoryName, ids.Count,
+                out var publication, out var requested, out var refusal))
         {
-            return NotAvailable(
-                publication,
-                "invalid_batch_size",
-                "uuids must contain between 1 and " +
-                MaximumBatchSize.ToString(CultureInfo.InvariantCulture) + " entries");
-        }
-
-        GameMcpWorldCategory? requested = null;
-        if (!string.IsNullOrEmpty(categoryName))
-        {
-            if (!TryCategory(categoryName, out var named, out var reason))
-                return NoSuchCategory(publication, categoryName, reason);
-            if (!string.Equals(
-                    named.IdentityMode,
-                    "stable_entity_uuid",
-                    StringComparison.Ordinal))
-            {
-                return NotAvailable(
-                    publication,
-                    "composite_identity_required",
-                    "Rows in " + named.Name + " are not addressed by one id; " +
-                    "read them with world_list.");
-            }
-            var namedAvailability = Availability(publication.Snapshot, named);
-            if (!namedAvailability.Available)
-            {
-                return NotAvailable(
-                    publication,
-                    "category_not_collected",
-                    namedAvailability.Reason.Length == 0
-                        ? "the category was not collected"
-                        : namedAvailability.Reason);
-            }
-            requested = named;
+            return refusal;
         }
 
         // Built once for the whole call. It is an index over the world's whole keyword table, and a
         // 200-id batch that rebuilt it per block would pay for that table two hundred times.
         var keywordIndex = GameMcpKeywordIndex.Build(publication.Snapshot);
         var results = new JArray();
-        for (var inputIndex = 0; inputIndex < uuidTexts.Count; inputIndex++)
-            results.Add(GetOne(
-                publication.Snapshot, requested, uuidTexts[inputIndex], keywordIndex));
+        for (var inputIndex = 0; inputIndex < ids.Count; inputIndex++)
+            results.Add(GetOne(publication.Snapshot, requested, ids[inputIndex], keywordIndex));
 
         var result = new JObject();
         result["results"] = results;
         return result;
+    }
+
+    /// <summary>
+    /// Everything a detail read settles before it looks at an id: that there is a world, that the
+    /// batch is a batch, and which table the caller named, if any. One id and two hundred answer to
+    /// the same checks in the same words, so they are asked in one place.
+    /// </summary>
+    private static bool TryDetailRead(
+        GameMcpFrameContext state,
+        string categoryName,
+        int requestedCount,
+        out WorldPublication<GameWorldState> publication,
+        out GameMcpWorldCategory? requested,
+        out JObject refusal)
+    {
+        requested = null;
+        if (!TryWorld(state, out publication, out refusal)) return false;
+        if (requestedCount <= 0 || requestedCount > MaximumBatchSize)
+        {
+            refusal = NotAvailable(
+                publication,
+                "invalid_batch_size",
+                "uuids must contain between 1 and " +
+                MaximumBatchSize.ToString(CultureInfo.InvariantCulture) + " entries");
+            return false;
+        }
+        if (string.IsNullOrEmpty(categoryName)) return true;
+
+        if (!TryCategory(categoryName, out var named, out var reason))
+        {
+            refusal = NoSuchCategory(publication, categoryName, reason);
+            return false;
+        }
+        if (!string.Equals(named.IdentityMode, "stable_entity_uuid", StringComparison.Ordinal))
+        {
+            refusal = NotAvailable(
+                publication,
+                "composite_identity_required",
+                "Rows in " + named.Name + " are not addressed by one id; " +
+                "read them with world_list.");
+            return false;
+        }
+        var namedAvailability = Availability(publication.Snapshot, named);
+        if (!namedAvailability.Available)
+        {
+            refusal = NotAvailable(
+                publication,
+                "category_not_collected",
+                namedAvailability.Reason.Length == 0
+                    ? "the category was not collected"
+                    : namedAvailability.Reason);
+            return false;
+        }
+
+        requested = named;
+        return true;
     }
 
     /// <summary>One id's block of the detail read, refusing on its own without failing the batch.</summary>

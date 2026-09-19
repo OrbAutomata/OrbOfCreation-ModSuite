@@ -122,7 +122,7 @@ public sealed class GameMcpRitualLifecycleTests
             "rituals", RitualId.ToString("D")).Freeze(), world);
 
         var row = response["row"]!;
-        Assert.Equal("Moon Rite", (string?)row["name"]);
+        Assert.Equal("Moon Rite", (string?)response["name"]);
         Assert.True((bool)row["selected"]!);
         Assert.True((bool)row["setLevel"]!["available"]!);
         Assert.Equal(8, (int)row["setLevel"]!["maximum"]!);
