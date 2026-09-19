@@ -1187,6 +1187,45 @@ public sealed class BattleManager
     }
 }
 
+/// <summary>
+/// The game's own "is this drawn right now" node. A screen the player left is not deactivated —
+/// its objects stay alive in the hierarchy — so the group its managed view hangs on is what says
+/// whether anything under it is on screen.
+/// </summary>
+public sealed class ManagedView : UnityEngine.MonoBehaviour
+{
+    private bool isVisible;
+
+    public bool IsVisible() => isVisible;
+
+    public void SetVisibleForTest(bool value) => isVisible = value;
+}
+
+/// <summary>
+/// Mirrors <c>UIRenderGroup.IsActive()</c>: not disabled, its managed view visible, and its own
+/// parent group active.
+/// </summary>
+public sealed class UIRenderGroup : UnityEngine.MonoBehaviour
+{
+    private bool disabled;
+    private ManagedView? managedView;
+    private UIRenderGroup? renderGroup;
+
+    public bool IsActive() => !disabled && IsManagedViewActive() && IsParentGroupActive();
+
+    public bool IsManagedViewActive() => managedView is null || managedView.IsVisible();
+
+    public bool IsParentGroupActive() => renderGroup is null || renderGroup.IsActive();
+
+    public void SetEnabled(bool value) => disabled = !value;
+
+    public void BindForTest(ManagedView? view, UIRenderGroup? parent)
+    {
+        managedView = view;
+        renderGroup = parent;
+    }
+}
+
 public sealed class UIModal : UnityEngine.MonoBehaviour
 {
     private bool isOpen;

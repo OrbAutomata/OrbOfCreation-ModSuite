@@ -222,6 +222,126 @@ public sealed class GameMcpTooltipNativeAccessTests
             icon.AddComponent<global::HoverTooltip>()));
     }
 
+    /// <summary>
+    /// Round 15 read Time's subtab strip on Magic, Magic's on Time, and Time-screen tooltip nodes
+    /// on Scholar. Leaving a screen does not deactivate it — its objects stay alive in the
+    /// hierarchy — so "alive" was answering a question it cannot answer. The game's own group says
+    /// which screen is being drawn, and both captures ask it.
+    /// </summary>
+    [Fact]
+    public void TheScreenThePlayerLeftIsStillAliveAndIsNoLongerOnScreen()
+    {
+        var scene = TwoScreens();
+
+        Assert.True(scene.OnTime.gameObject.activeInHierarchy);
+        Assert.True(scene.OnMagic.gameObject.activeInHierarchy);
+        Assert.True(GameMcpTooltipNativeAccess.OnScreen(scene.OnMagic));
+        Assert.False(GameMcpTooltipNativeAccess.OnScreen(scene.OnTime));
+
+        scene.Magic.SetVisibleForTest(false);
+        scene.Time.SetVisibleForTest(true);
+
+        Assert.False(GameMcpTooltipNativeAccess.OnScreen(scene.OnMagic));
+        Assert.True(GameMcpTooltipNativeAccess.OnScreen(scene.OnTime));
+    }
+
+    /// <summary>
+    /// A group answers for its whole subtree, however deep, and a panel switched off inside the
+    /// screen the player is on is off screen with it.
+    /// </summary>
+    [Fact]
+    public void AGroupSwitchedOffInsideTheCurrentScreenTakesItsSubtreeWithIt()
+    {
+        var scene = TwoScreens();
+        var panel = new UnityEngine.GameObject("CollapsedPanel");
+        panel.transform.SetParent(scene.OnMagic.transform, false);
+        var panelGroup = panel.AddComponent<global::UIRenderGroup>();
+        panelGroup.BindForTest(null, scene.MagicGroup);
+        var inside = new UnityEngine.GameObject("PanelButton");
+        inside.transform.SetParent(panel.transform, false);
+        var hover = inside.AddComponent<global::HoverTooltip>();
+
+        Assert.True(GameMcpTooltipNativeAccess.OnScreen(hover));
+
+        panelGroup.SetEnabled(false);
+
+        Assert.False(GameMcpTooltipNativeAccess.OnScreen(hover));
+        Assert.True(GameMcpTooltipNativeAccess.OnScreen(scene.OnMagic));
+    }
+
+    /// <summary>
+    /// The screen's group is the outer gate: a panel whose own group is perfectly fine is still
+    /// off screen once the screen around it is gone.
+    /// </summary>
+    [Fact]
+    public void AHealthyPanelOnADepartedScreenIsOffScreenWithIt()
+    {
+        var scene = TwoScreens();
+        var panel = new UnityEngine.GameObject("TimePanel");
+        panel.transform.SetParent(scene.OnTime.transform, false);
+        var panelGroup = panel.AddComponent<global::UIRenderGroup>();
+        panelGroup.BindForTest(null, scene.TimeGroup);
+        var inside = new UnityEngine.GameObject("TimeButton");
+        inside.transform.SetParent(panel.transform, false);
+
+        Assert.True(panelGroup.IsManagedViewActive());
+        Assert.False(GameMcpTooltipNativeAccess.OnScreen(
+            inside.AddComponent<global::HoverTooltip>()));
+    }
+
+    private readonly struct StubScene
+    {
+        internal StubScene(
+            global::ManagedView magic,
+            global::ManagedView time,
+            global::UIRenderGroup magicGroup,
+            global::UIRenderGroup timeGroup,
+            global::HoverTooltip onMagic,
+            global::HoverTooltip onTime)
+        {
+            Magic = magic;
+            Time = time;
+            MagicGroup = magicGroup;
+            TimeGroup = timeGroup;
+            OnMagic = onMagic;
+            OnTime = onTime;
+        }
+
+        internal global::ManagedView Magic { get; }
+        internal global::ManagedView Time { get; }
+        internal global::UIRenderGroup MagicGroup { get; }
+        internal global::UIRenderGroup TimeGroup { get; }
+        internal global::HoverTooltip OnMagic { get; }
+        internal global::HoverTooltip OnTime { get; }
+    }
+
+    /// <summary>
+    /// Two screens under one canvas, both alive, one drawn — the shape the game actually leaves
+    /// behind when the player moves from Magic to Time and back.
+    /// </summary>
+    private static StubScene TwoScreens()
+    {
+        var canvas = new UnityEngine.GameObject("Canvas");
+        var magic = Screen(canvas, "ScreenMagic", visible: true);
+        var time = Screen(canvas, "ScreenTime", visible: false);
+        return new StubScene(
+            magic.View, time.View, magic.Group, time.Group, magic.Strip, time.Strip);
+    }
+
+    private static (global::ManagedView View, global::UIRenderGroup Group, global::HoverTooltip Strip)
+        Screen(UnityEngine.GameObject canvas, string name, bool visible)
+    {
+        var root = new UnityEngine.GameObject(name);
+        root.transform.SetParent(canvas.transform, false);
+        var view = root.AddComponent<global::ManagedView>();
+        view.SetVisibleForTest(visible);
+        var group = root.AddComponent<global::UIRenderGroup>();
+        group.BindForTest(view, null);
+        var strip = new UnityEngine.GameObject(name + "/SubviewRadio");
+        strip.transform.SetParent(root.transform, false);
+        return (view, group, strip.AddComponent<global::HoverTooltip>());
+    }
+
     private static bool Bind(
         Type hoverTooltipType,
         out GameMcpTooltipNativeAccess access,

@@ -3992,6 +3992,12 @@ public sealed class Plugin : BaseUnityPlugin
             .OfType<Component>()
             .Where(component =>
                 component.gameObject.activeInHierarchy &&
+                // Liveness is not membership. This game leaves a departed screen's strip alive in
+                // the hierarchy, so the same predicate the tooltip catalog uses asks the game
+                // whether the group this button hangs on is the one being drawn — otherwise Time's
+                // strip publishes itself on Magic, and settlement, which is built from this very
+                // capture, finds a stale strip perfectly stable and declares arrival on it.
+                GameMcpTooltipNativeAccess.OnScreen(component) &&
                 !_uiShell.IsNativeTabForGameMcp(component))
             .Select(component => new
             {

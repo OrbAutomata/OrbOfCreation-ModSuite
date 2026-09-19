@@ -18919,6 +18919,25 @@
       "place": "action"
     },
     {
+      "id": "game-mcp-tooltip-catalog.render-group-active-action",
+      "assembly": "assembly-csharp",
+      "type": "UIRenderGroup",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "IsActive",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Game MCP tooltip explorer"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "action"
+    },
+    {
       "id": "ui-expanded-events.type",
       "assembly": "assembly-csharp",
       "type": "UIExpandedEvents",

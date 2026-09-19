@@ -166,14 +166,24 @@ internal sealed class GameMcpTooltipNativeAccess
     }
 
     /// <summary>
-    /// Whether the player can actually hover this element.
+    /// Whether the player can actually see and point at this element on the screen they are on.
     /// </summary>
     /// <remarks>
-    /// Closing a modal never deactivates anything: <c>UIModal.SetElementVisibility(false)</c> drops
-    /// the canvas group's alpha, interactivity, and raycasts, and that is the whole of it. Every
-    /// modal the session has ever opened therefore stays active in the hierarchy forever, so a
-    /// catalog filtered on Unity liveness alone answers with panels the player closed an hour ago.
-    /// The game's own <c>IsOpen</c> is what separates the panel on screen from the ones behind it.
+    /// <para>
+    /// Nothing this game leaves behind is deactivated. Closing a modal only drops the canvas
+    /// group's alpha, interactivity and raycasts — <c>UIModal.SetElementVisibility(false)</c> is
+    /// the whole of it — and leaving a screen only marks its <c>ManagedView</c> invisible. Every
+    /// modal and every screen the session has ever opened therefore stays alive in the hierarchy
+    /// forever, so a catalog filtered on Unity liveness alone answers with panels the player closed
+    /// an hour ago and with the strip and tiles of the screen they left.
+    /// </para>
+    /// <para>
+    /// Both facts are the game's own. <c>UIModal.IsOpen()</c> separates the panel on screen from
+    /// the ones behind it, and <c>UIRenderGroup.IsActive()</c> — the one predicate every
+    /// <c>UIRenderGroupElement</c> asks through <c>IsUIActive()</c> before it draws — separates the
+    /// current screen from the departed ones. The group answers for its whole subtree, and it
+    /// already folds in its own parent group, so one ancestor walk settles both questions.
+    /// </para>
     /// </remarks>
     internal static bool OnScreen(Component element)
     {
@@ -181,6 +191,7 @@ internal sealed class GameMcpTooltipNativeAccess
         for (var node = element.transform; node is not null; node = node.parent)
         {
             if (node.GetComponent<UIModal>() is { } modal && !modal.IsOpen()) return false;
+            if (node.GetComponent<UIRenderGroup>() is { } group && !group.IsActive()) return false;
         }
         return true;
     }
