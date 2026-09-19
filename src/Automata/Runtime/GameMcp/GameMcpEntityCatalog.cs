@@ -93,7 +93,12 @@ internal static class GameMcpEntityCatalog
                 ? "id"
                 : string.Empty;
         }
-        if (row.DisplayName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0) return "name";
+        // The first test is the word the row's `name` cell really prints, which is the authored
+        // one where the game authors it and the asset's own name where it does not. Saying
+        // `internalName` for a hit on a row whose `name` is that very string names a column the row
+        // does not have, and sends a reader looking for a second cell that was never there.
+        var printed = row.DisplayName.Length > 0 ? row.DisplayName : row.AssetName;
+        if (printed.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0) return "name";
         if (row.AssetName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0)
             return "internalName";
         return row.EntityId.ToString("D").IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
@@ -152,12 +157,13 @@ internal static class GameMcpEntityCatalog
         };
         if (!string.Equals(row.RuntimeType, impliedNativeType, StringComparison.Ordinal))
             result["nativeType"] = row.RuntimeType;
-        // A row whose only label is the Unity asset id has no player-facing name, so it publishes
-        // none: `name` is the word the game shows or it is absent, on this surface and on every
-        // other. `nameSource: asset` was the flag that admitted the substitution one surface made
-        // and the entity rows made silently; with the substitution gone there is nothing to flag.
-        var named = identity.HasName &&
-            identity.Source != EntityIdentityNameSource.LiveAssetName;
+        // A row whose only label is the Unity asset id still has a name cell, and that id is what
+        // it holds: it is the only word there is for the thing, and this block and the page row for
+        // the same entity say the one word between them. `nameSource: asset` was a flag on a
+        // substitution; the name is not a substitution for anything, so there is nothing to flag.
+        // The `internalName` rule below then drops the id for free, because a name identical to it
+        // says nothing new — which is the whole point of one column.
+        var named = identity.HasName;
         if (named) result["name"] = identity.Name;
         // The block prints no `category` cell of its own; the word is read here because the
         // `world_get` block this projection sits inside prints one, and an asset id that is the name

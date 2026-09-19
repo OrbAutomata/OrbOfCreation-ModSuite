@@ -580,30 +580,30 @@ public sealed class GameMcpStreamableHttpProtocolTests
     }
 
     /// <summary>
-    /// An asset the game authors no word for has no name to publish. It used to borrow the Unity
-    /// asset id for the <c>name</c> cell and flag the borrowing with <c>nameSource: asset</c>, so
-    /// <c>name</c> was the player's word on most rows and an internal identifier on others, and
-    /// only that flag told them apart — a flag the entity rows never carried at all. The asset id
-    /// goes where it belongs, and <c>name</c> says what absence says.
+    /// An asset the game authors no word for is named by its asset name, in the one <c>name</c>
+    /// cell, and the <c>internalName</c> line beside it goes: it would repeat that string
+    /// character for character, which is the derivability rule the block already applies to every
+    /// other id. <c>nameSource: asset</c> was a flag on a substitution; a name that is the only
+    /// word there is substitutes for nothing, so there is nothing left to flag.
     /// </summary>
     /// <remarks>
     /// The fixture is the build's own nameless asset: the legacy Brewing Station, a
     /// <c>TooltipableObject</c> whose <c>displayName</c> and <c>description</c> are both authored
-    /// empty. Its identity still answers — the id resolves, and the asset id is still what every
-    /// reference prints for it — which is the whole of what is left to read about it.
+    /// empty. Every reference to it already printed the asset name, so this block was the surface
+    /// that disagreed.
     /// </remarks>
     [Fact]
-    public void LiveCatalogNamesNothingWhereTheGameAuthorsNoWord()
+    public void LiveCatalogNamesAnUnwordedAssetByItsAssetName()
     {
         var station = Guid.Parse("d76565b1-8e2b-44fe-9cf3-995d6f666305");
 
         var block = GameMcpTestHarness.Json(GameMcpEntityCatalog.Lookup(
             GameMcpTestHarness.EntityCatalog, station).Freeze());
 
-        Assert.Null(block["name"]);
+        Assert.Equal("BrewingStation", (string?)block["name"]);
         Assert.Null(block["nameSource"]);
         Assert.Null(block["hasDisplayName"]);
-        Assert.Equal("BrewingStation", (string?)block["internalName"]);
+        Assert.Null(block["internalName"]);
         Assert.Equal("CraftingStructureSO", (string?)block["nativeType"]);
         Assert.Equal(
             "BrewingStation",
@@ -2252,15 +2252,13 @@ public sealed class GameMcpWorldEnvelopeTests
     }
 
     /// <summary>
-    /// The variable categories were the loudest case: a page of them read `SummonedLevel`,
-    /// `QuickConsumableSlots`, `MaxRasterizedThoughts` in the `name` column, and a reader who had
-    /// not memorised which categories the game authors words for could not tell those from the real
-    /// names every other page prints there. `name` is a player-facing word or it is absent, and the
-    /// Unity asset id it stood in for is a diagnostic that rides no row at all: it is a
-    /// catalog-browsing fact, and `world_get` is where a reader asks for one.
+    /// A variable the game authors no word for is named by the only word there is: its own asset
+    /// name. The page row briefly printed `name: -` and a bare id, which named nothing at all —
+    /// and a reference to the same id one row over printed `SummonedLevel` all along, so the two
+    /// surfaces disagreed about the name of one thing. One column, and it is never empty.
     /// </summary>
     [Fact]
-    public void A_variable_the_game_authors_no_word_for_names_nothing_in_its_name_column()
+    public void A_variable_the_game_authors_no_word_for_is_named_by_its_asset_name()
     {
         var unworded = Guid.Parse("18c498f5-e4a7-4549-b093-117e206cc043");
         var worded = Guid.Parse("37a84399-98b5-463c-b858-c1ecf2f9bf34");
@@ -2287,9 +2285,10 @@ public sealed class GameMcpWorldEnvelopeTests
             .Values<JObject>()
             .ToArray();
 
-        Assert.Null(rows[0]!["name"]);
+        Assert.Equal("SummonedLevel", (string?)rows[0]!["name"]);
         Assert.Null(rows[0]!["internalName"]);
         Assert.Equal("MultiBuy", (string?)rows[1]!["name"]);
+        Assert.Null(rows[1]!["internalName"]);
     }
 
     /// <summary>

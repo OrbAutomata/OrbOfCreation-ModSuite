@@ -426,10 +426,10 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var unknownResult = GameMcpTestHarness.Detail(context, unknown);
 
         Assert.Equal("ERR_NOT_FOUND", (string?)knownResult["reasonCode"]);
-        // The catalog knows this id and the game authors no word for it, so the block identifies it
-        // by the only label there is and does not dress that label up as a name.
-        Assert.Null(knownResult["name"]);
-        Assert.Equal("InventoryUnlocked", (string?)knownResult["internalName"]);
+        // The catalog knows this id and the game authors no word for it, so the block names it by
+        // the only label there is — in the `name` cell, once, with no second line repeating it.
+        Assert.Equal("InventoryUnlocked", (string?)knownResult["name"]);
+        Assert.Null(knownResult["internalName"]);
         // A prerequisite link is this build's own machinery, and the block points nowhere: a remedy
         // names a verb that will answer, there is none for an id no published row covers, and the
         // identity such a remedy could promise is on this block already.
@@ -472,7 +472,8 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             GameMcpTestHarness.Context(world, generation: 913), station);
 
         Assert.Equal("ERR_NOT_FOUND", (string?)result["reasonCode"]);
-        Assert.Equal("BrewingStation", (string?)result["internalName"]);
+        Assert.Equal("BrewingStation", (string?)result["name"]);
+        Assert.Null(result["internalName"]);
         Assert.Null(result["readWith"]);
         Assert.Contains("internal machinery", (string?)result["reason"]);
     }

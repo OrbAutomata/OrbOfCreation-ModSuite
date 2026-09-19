@@ -528,19 +528,21 @@ internal static class GameMcpEntityWireNormalizer
     {
         var identity = EntityIdentityFormatter.Describe(uuid, catalog);
 
-        // `name` is the word the game shows a player, or it is nothing. Five hundred of the
-        // catalog's assets — the variables, list holders, scaling weights, tutorials — carry no
-        // authored word at all, and this pass used to staple the Unity asset id onto every one of
-        // them. That id is a diagnostic, not a word a screen prints, and it landed as a second
-        // column beside names the producers had authored: the queue the collector calls
-        // `Plot actions` printed `ActivePlotNodeActions` next to it. The one block that keeps it is
-        // the `world_get` answer for an id no published row covers, where the asset id is the whole
-        // of what is left to say; every page row and every reference is silent, and the identity
-        // block a resolved `world_get` prints publishes the fact under its own rules.
+        // `name` is the word the game shows a player, and where the game authors none the asset's
+        // own name is the only word there is — so that is what the column prints. About five
+        // hundred of the catalog's assets carry no authored word: the variables, the list holders,
+        // the scaling weights. A page of them printing `name: -` beside a bare id named nothing at
+        // all, and no caller could tell one `int-variables` row from the next without spending a
+        // `world_get` on every one of them.
+        //
+        // One column, always. What may never come back is the asset id as a second field standing
+        // beside a word the game or the producer already authored — that is what printed
+        // `ActivePlotNodeActions` next to the queue's own name `Plot actions`, the game's field
+        // talking over the game's word.
         if (identity.Source == EntityIdentityNameSource.LiveAssetName)
         {
-            if (AnswersNoRow(target) && target["internalName"] is null)
-                target["internalName"] = identity.AssetName;
+            if (HasOwnName(target)) return;
+            target["name"] = identity.AssetName;
             return;
         }
         if (identity.HasName)
@@ -552,14 +554,18 @@ internal static class GameMcpEntityWireNormalizer
         // The catalog holds assets. A loadout the player titled and a runtime spell instance are
         // neither, so a producer that read one off the live object keeps its name here — and an id
         // nobody can name says so rather than passing for a row whose name is a hex string.
-        if (target["name"] is JValue { Type: JTokenType.String } own &&
-            ((string?)own ?? string.Empty).Length > 0)
-        {
-            return;
-        }
+        if (HasOwnName(target)) return;
         if (!inventUnnamed) return;
         target["name"] = GameMcpEntityHandle.Unnamed(uuid);
     }
+
+    /// <summary>
+    /// Whether the producer already wrote this row's own word, which outranks the asset id the
+    /// catalog would otherwise supply.
+    /// </summary>
+    private static bool HasOwnName(JObject target) =>
+        target["name"] is JValue { Type: JTokenType.String } own &&
+        ((string?)own ?? string.Empty).Length > 0;
 
     /// <summary>
     /// The two flags a detail block stops spelling out when they read the way they almost always
