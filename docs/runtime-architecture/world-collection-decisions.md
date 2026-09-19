@@ -258,16 +258,31 @@ want the fact: "this upgrade waits on that research reaching six" is what chain 
 boolean throws away. The row carries its owner's registry, because the level a container is checked at
 is a property of the owner.
 
-**Eight of the twenty-nine comparisons are refused.** Six reach the latching no-argument `Check()` W36
-logged as a write — none occurs in a per-level container on this baseline, but "none today" is what
-needs a guard rather than a habit, and the guard is what carries the refusal into the gating
-containers, where such a comparison publishes its `Unknown` row and leaves that entity's verdict
-unevaluable rather than wrong. `SpellRequirement.MasteryLevelReady` asks for state the snapshot did
-not publish (W59 adds it). `GenericRequirement.Discovered` targets an arbitrary `UpgradeableObject`
-whose `IsDiscovered()` is virtual across six implementers reading different fields, and a row carries
-an identity rather than a type, so there is no way to pick the right override — the same ground
-`GenericRequirement.Level` is refused on. The remaining twenty-one are modelled, the last three of
-them `ResourceRequirement`'s — list membership, lifetime total, ceiling — each a stored field the
+**Seven of the thirty comparisons are refused.** The thirty are the members of the ten discriminant
+enums the condition classes carry, each counted once: `ResearchRequirement` declares none of its own
+and compares through `UpgradeRequirementType`, so a research row's `Visible` is the same refusal as
+an upgrade row's. `WorldRequirementRefusalTests` recomputes all three numbers from the evaluator's
+own discriminant constants against those enums, so the count here and the code cannot part company
+quietly.
+
+Five of the seven reach the latching no-argument `Check()` W36 logged as a write —
+`UpgradeRequirementType.Visible`, `StructureRequirementType.Available`,
+`SpellRequirementType.Visible`, `AlchemyRecipeType.Visible`, `GenericRequirementType.Visible`. None
+occurs in a per-level container on this baseline, but "none today" is what needs a guard rather than
+a habit, and the guard is what carries the refusal into the gating containers, where such a
+comparison publishes its `Unknown` row and leaves that entity's verdict unevaluable rather than
+wrong. `SpellRequirementType.MasteryLevelReady` asks for state the snapshot does not publish (W59
+adds it for the spell's own row, not for this comparison). `ListRequirementType.Count` is a count
+against the threshold that no authored content in this baseline exercises, and it reads as
+unevaluable rather than as a comparison nobody has checked.
+
+The remaining twenty-three are modelled. `GenericRequirement.Discovered` is one of them: its target
+is an arbitrary `UpgradeableObject` whose `IsDiscovered()` is virtual across six implementers
+reading different fields, and a row carries an identity rather than a type — so the answer comes
+from whichever of the six categories published that identity, and a target in none of them refuses.
+`GenericRequirement.Level` is modelled on the same ground, against the two number registries whose
+override is `value.AsInt()`, and refuses every other target. The last three are
+`ResourceRequirement`'s — list membership, lifetime total, ceiling — each a stored field the
 snapshot already carried, which is what took this build's 303 resource leaves out of the unmodelled
 count. **Unknown is a row, not an absence:** an unaudited condition class publishes a row of kind `Unknown` and the pass reports
 itself incomplete, because an entity with no rows reads as unconditional — the wrong answer for one
