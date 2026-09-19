@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -857,7 +859,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.NotNull(queues);
         Assert.Equal(2, queues!.Count);
         Assert.Equal(GameMcpTestHarness.Handle(plotQueue), (string?)queues[0]["uuid"]);
-        Assert.Equal("ActivePlotNodeActions", (string?)queues[0]["name"]);
+        Assert.Equal("Plot actions", (string?)queues[0]["name"]);
         Assert.Equal(1, (int?)queues[0]["usedSlots"]);
         Assert.Equal(2, (int?)queues[0]["capacity"]);
         Assert.Equal(
@@ -867,6 +869,60 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal(4, (int?)queues[1]["usedSlots"]);
         Assert.Equal(10, (int?)queues[1]["capacity"]);
         Assert.Equal(0, (int?)overview["running"]?["activeConceptAssignments"]);
+    }
+
+    /// <summary>
+    /// Every queue the world publishes prints a word a player would recognise, not the internal
+    /// spelling of the list variable behind it.
+    /// </summary>
+    /// <remarks>
+    /// The Agromancy queue's row read <c>ActivePlotNodeActions</c>, because the game authors no
+    /// display name for that list and the identity ladder's next rung is the asset name. The sweep
+    /// starts from the collector rather than from a list of two, so a third queue collected
+    /// tomorrow is held to the same rule instead of quietly inheriting the old fallback.
+    /// </remarks>
+    [Fact]
+    public void NoQueueTheWorldPublishesPrintsItsInternalName()
+    {
+        var collector = File.ReadAllText(Path.Combine(
+            RepositoryRoot(),
+            "src", "Common", "Runtime", "World", "Categories", "WorldActionQueue.cs"));
+        var published = Regex
+            .Matches(collector, @"registry\[KnownEntities\.([A-Za-z0-9_]+)\.Uuid\]")
+            .Select(match => match.Groups[1].Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.NotEmpty(published);
+        foreach (var member in published)
+        {
+            var field = typeof(KnownEntities).GetField(
+                member, BindingFlags.Public | BindingFlags.Static);
+            Assert.NotNull(field);
+            var entity = field!.GetValue(null)!;
+            var uuid = (Guid)entity.GetType().GetProperty("Uuid")!.GetValue(entity)!;
+            var internalName = (string)entity.GetType()
+                .GetProperty("DiagnosticName")!.GetValue(entity)!;
+
+            var printed = GameMcpWorldQuery.QueueName(uuid, GameMcpTestHarness.EntityCatalog);
+
+            Assert.NotEqual(string.Empty, printed);
+            Assert.NotEqual(internalName, printed);
+            Assert.NotEqual(uuid.ToString("D"), printed);
+        }
+    }
+
+    private static string RepositoryRoot()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "src", "OrbModSuite.csproj")))
+                return directory.FullName;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate the repository source directory.");
     }
 
     /// <summary>

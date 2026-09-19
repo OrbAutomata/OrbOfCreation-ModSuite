@@ -194,8 +194,7 @@ internal static class GameMcpWorldQuery
             var row = new JObject
             {
                 ["uuid"] = queue.QueueId.ToString("D"),
-                ["name"] = EntityIdentityFormatter.PlayerName(
-                    queue.QueueId, world.EntityIdentities),
+                ["name"] = QueueName(queue.QueueId, world.EntityIdentities),
                 ["usedSlots"] = queue.UsedSlots,
             };
             if (queue.MaxQueuedItemsId != Guid.Empty &&
@@ -206,6 +205,37 @@ internal static class GameMcpWorldQuery
             rows.Add(row);
         }
         return rows;
+    }
+
+    /// <summary>
+    /// The one queue the game leaves nameless, in the suite's own words.
+    /// </summary>
+    /// <remarks>
+    /// The identity ladder is the game's display name, then the asset name, and
+    /// <c>ActivePlotNodeActions</c> has no display name at all — so the Agromancy queue's row
+    /// printed its internal spelling on a surface a player reads. No read can recover a label the
+    /// game never authored, so the suite authors it, in the word its own Agromancy tool already
+    /// speaks. The attribute queue needs no entry: the game names it <c>Active Attributes</c>.
+    /// </remarks>
+    internal static readonly (Guid Queue, string Name)[] AuthoredQueueNames =
+    {
+        (KnownEntities.ActivePlotNodeActions.Uuid, "Plot actions"),
+    };
+
+    /// <summary>
+    /// The word a queue row prints. A name the game authors always wins — the suite fills a hole,
+    /// it does not overrule the game — so a build that starts labelling this list is spelled the
+    /// game's way from the first capture.
+    /// </summary>
+    internal static string QueueName(Guid queueId, EntityIdentityCatalogSnapshot? identities)
+    {
+        var description = EntityIdentityFormatter.Describe(queueId, identities);
+        if (description.Source == EntityIdentityNameSource.LiveDisplayName) return description.Name;
+        for (var index = 0; index < AuthoredQueueNames.Length; index++)
+        {
+            if (AuthoredQueueNames[index].Queue == queueId) return AuthoredQueueNames[index].Name;
+        }
+        return EntityIdentityFormatter.PlayerName(queueId, identities);
     }
 
     private static int CountEquippedSpellSlots(GameWorldState world)
