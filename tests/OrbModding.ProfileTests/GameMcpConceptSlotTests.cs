@@ -36,7 +36,7 @@ public sealed class GameMcpConceptSlotTests
         Assert.Equal(2, (int)row["usedSlots"]!);
         Assert.Equal(2, (int)row["maximumSlots"]!);
         Assert.False((bool)row["canAdd"]!["available"]!);
-        Assert.Equal("ERR_LIMIT", (string?)row["canAdd"]!["reasonCode"]);
+        Assert.Null(row["canAdd"]!["reasonCode"]);
         Assert.Equal("Every Concept slot is in use.", (string?)row["canAdd"]!["reason"]);
     }
 
@@ -92,7 +92,7 @@ public sealed class GameMcpConceptSlotTests
         Assert.Equal(2, (int)state["usedSlots"]!);
         Assert.Equal(2, (int)state["maximumSlots"]!);
         Assert.False((bool)state["canAdd"]!["available"]!);
-        Assert.Equal("ERR_LIMIT", (string?)state["canAdd"]!["reasonCode"]);
+        Assert.Null(state["canAdd"]!["reasonCode"]);
         Assert.Equal(
             "Every Concept slot is in use.", (string?)state["canAdd"]!["reason"]);
 

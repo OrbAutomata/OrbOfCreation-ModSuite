@@ -726,6 +726,13 @@ internal static class GameMcpEntityExplainer
     /// a short list.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Whether this entity has an unlock container the read would actually print, asked by running
+    /// the same producer the block is built from rather than a second rule about containers.
+    /// </summary>
+    internal static bool HasUnlockConditions(GameWorldState world, Guid ownerId) =>
+        ProjectUnlockConditions(world, ownerId) is not null;
+
     private static JObject? ProjectUnlockConditions(GameWorldState world, Guid ownerId)
     {
         if (!WorldEntityRequirementLookup.TryFindContainerRange(

@@ -249,7 +249,7 @@ public sealed class GameMcpSpellWorkbenchTests
 
         Assert.False((bool)add["available"]!);
         Assert.True((bool)add["acceptsAugments"]!);
-        Assert.Equal("ERR_LOCKED", (string?)add["reasonCode"]);
+        Assert.Null(add["reasonCode"]);
         Assert.Equal(
             "Magic > Spellbook > Loadout is not unlocked yet, so the game draws no row for this.",
             (string?)add["reason"]);
@@ -305,8 +305,8 @@ public sealed class GameMcpSpellWorkbenchTests
         var decision = response["row"]!["loadoutAdd"]!;
 
         Assert.False((bool)decision["available"]!);
-        Assert.Equal("ERR_LIMIT", (string?)decision["reasonCode"]);
-        Assert.Equal("Every slot in this loadout is in use.", (string?)decision["reason"]);
+        Assert.Null(decision["reasonCode"]);
+        Assert.Equal("the bar is full (3 of 3)", (string?)decision["reason"]);
         Assert.Null(decision["affordable"]);
         Assert.Null(decision["costs"]);
         Assert.Null(decision["verbDecides"]);
@@ -465,7 +465,7 @@ public sealed class GameMcpSpellWorkbenchTests
         var row = response["row"]!;
 
         Assert.False((bool)row["discover"]!["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)row["discover"]!["reasonCode"]);
+        Assert.Null(row["discover"]!["reasonCode"]);
         Assert.Null(row["selected"]);
         Assert.Null(row["select"]);
     }
@@ -769,7 +769,10 @@ public sealed class GameMcpSpellWorkbenchTests
                 })
                 : PublicationTable<WorldMasteryCost>.Empty,
             SpellWorkbench = new WorldSpellWorkbench(
-                equipped ? 1 : 0,
+                // The game holds no bar that is out of room and has slots to spare, so neither
+                // does the fixture: a full bar is full, and the refusal that quotes both sides of
+                // it would otherwise quote a pair the game never publishes.
+                hasEmptySlot ? (equipped ? 1 : 0) : 3,
                 3,
                 hasEmptySlot,
                 usageBudgetResourceIds: usageBudget

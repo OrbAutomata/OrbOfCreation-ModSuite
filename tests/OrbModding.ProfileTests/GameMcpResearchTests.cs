@@ -123,7 +123,7 @@ public sealed class GameMcpResearchTests
 
         Assert.Equal("1", (string?)cost["spendableAmount"]);
         Assert.False((bool)develop["affordable"]!);
-        Assert.Equal("ERR_UNAFFORDABLE", (string?)develop["reasonCode"]);
+        Assert.Null(develop["reasonCode"]);
         Assert.Null(cost["lifetimeAmount"]);
     }
 
@@ -179,7 +179,7 @@ public sealed class GameMcpResearchTests
             "research", ResearchId.ToString("D")).Freeze(), world);
         var develop = response["row"]!["develop"]!;
 
-        Assert.Equal("ERR_UNAFFORDABLE", (string?)develop["reasonCode"]);
+        Assert.Null(develop["reasonCode"]);
         Assert.Equal("Needs 20 Arcana (have 1).", (string?)develop["reason"]);
         var cost = Assert.Single(develop["costs"]!).Value<JObject>()!;
         Assert.Equal("Arcana", (string?)cost["resource"]!["name"]);
@@ -211,7 +211,7 @@ public sealed class GameMcpResearchTests
         var develop = entity["row"]!["develop"]!;
 
         Assert.False((bool)develop["available"]!);
-        Assert.Equal("ERR_UNAFFORDABLE", (string?)develop["reasonCode"]);
+        Assert.Null(develop["reasonCode"]);
         Assert.Equal("Needs 20 Arcana (have 1).", (string?)develop["reason"]);
         Assert.Null(entity["predicates"]!["canDevelop"]);
 
@@ -244,7 +244,7 @@ public sealed class GameMcpResearchTests
             "research", ResearchId.ToString("D")).Freeze(), world);
         var develop = response["row"]!["develop"]!;
 
-        Assert.Equal("ERR_STATE", (string?)develop["reasonCode"]);
+        Assert.Null(develop["reasonCode"]);
         Assert.Null(develop["affordable"]);
     }
 

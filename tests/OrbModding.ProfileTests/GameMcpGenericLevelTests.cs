@@ -324,9 +324,9 @@ public sealed class GameMcpGenericLevelTests
 
         Assert.Equal("locked", (string?)glyph["state"]);
         Assert.False((bool)glyph["purchase"]!["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)glyph["purchase"]!["reasonCode"]);
+        Assert.Null(glyph["purchase"]!["reasonCode"]);
         Assert.False((bool)resourceType["purchase"]!["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)resourceType["purchase"]!["reasonCode"]);
+        Assert.Null(resourceType["purchase"]!["reasonCode"]);
     }
 
     /// <summary>
@@ -345,7 +345,7 @@ public sealed class GameMcpGenericLevelTests
             GlyphId);
 
         Assert.Equal("locked", (string?)glyph["state"]);
-        Assert.Equal("ERR_LOCKED", (string?)glyph["reasonCode"]);
+        Assert.Null(glyph["reasonCode"]);
         Assert.Equal("This has not been discovered yet.", (string?)glyph["reason"]);
     }
 
@@ -386,7 +386,7 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal(5, (int)row["totalLevel"]!);
         Assert.False((bool)row["purchase"]!["available"]!);
         Assert.False((bool)row["purchase"]!["affordable"]!);
-        Assert.Equal("ERR_UNAFFORDABLE", (string?)row["purchase"]!["reasonCode"]);
+        Assert.Null(row["purchase"]!["reasonCode"]);
         if (supportsBonus)
         {
             Assert.Equal(2, (int)row["bonusLevel"]!);

@@ -681,7 +681,7 @@ public sealed class GameMcpTextPageTests
             "refused (ERR_STATE): This is already running.",
             Render(@"{'status':'refused','reasonCode':'ERR_STATE','reason':'This is already running.'}"));
         Assert.Equal(
-            new[] { "equip: no: Nothing says why.", "unequip: no: Nothing says why." },
+            new[] { "equip: no — Nothing says why.", "unequip: no — Nothing says why." },
             Render(@"{
                 'equip':{'available':false,'reason':'Nothing says why.'},
                 'unequip':{'available':false,'reason':'Nothing says why.'}}").Split('\n'));

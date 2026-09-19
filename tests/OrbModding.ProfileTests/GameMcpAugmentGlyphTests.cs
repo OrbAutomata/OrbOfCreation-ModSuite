@@ -253,7 +253,7 @@ public sealed class GameMcpAugmentGlyphTests
 
         var row = GameMcpTestHarness.Detail(context, AugmentId)["row"]!;
 
-        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
+        Assert.Null(row["reasonCode"]);
         Assert.Equal("This has not been discovered yet.", (string?)row["reason"]);
         Assert.Null(row["blockedBy"]);
     }
@@ -274,7 +274,7 @@ public sealed class GameMcpAugmentGlyphTests
         var purchase = GameMcpTestHarness.Detail(context, AugmentId)["row"]!["purchase"]!;
 
         Assert.False((bool)purchase["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)purchase["reasonCode"]);
+        Assert.Null(purchase["reasonCode"]);
         Assert.Equal(
             "Magic > Augments > Upgrade is not unlocked yet, so the game draws no level button " +
             "for an augment glyph. Buy the Upgrade Glyphs upgrade first.",

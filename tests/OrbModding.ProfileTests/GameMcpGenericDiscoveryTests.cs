@@ -457,7 +457,7 @@ public sealed class GameMcpGenericDiscoveryTests
 
         Assert.True((bool)open["discover"]!["available"]!);
         Assert.False((bool)shut["discover"]!["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)shut["discover"]!["reasonCode"]);
+        Assert.Null(shut["discover"]!["reasonCode"]);
         // The door is named. "The screen this action lives on" is true and unusable: a live round
         // met it on a ritual and on an artifact and had to work out which page it meant.
         Assert.Equal(
@@ -488,11 +488,11 @@ public sealed class GameMcpGenericDiscoveryTests
             learnOnly, "alchemy-recipes", ConceptRecipeId.ToString("D")))["row"]!;
 
         Assert.False((bool)shutPotion["discover"]!["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)shutPotion["discover"]!["reasonCode"]);
+        Assert.Null(shutPotion["discover"]!["reasonCode"]);
         Assert.True((bool)openConcept["discover"]!["available"]!);
         Assert.True((bool)openPotion["discover"]!["available"]!);
         Assert.False((bool)shutConcept["discover"]!["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)shutConcept["discover"]!["reasonCode"]);
+        Assert.Null(shutConcept["discover"]!["reasonCode"]);
     }
 
     /// <summary>
@@ -508,7 +508,7 @@ public sealed class GameMcpGenericDiscoveryTests
             OrphanRecipeId.ToString("D")))["row"]!;
 
         Assert.False((bool)row["discover"]!["available"]!);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)row["discover"]!["reasonCode"]);
+        Assert.Null(row["discover"]!["reasonCode"]);
         Assert.Equal(
             "Which screen the game draws this on could not be told, so whether that screen is " +
             "unlocked is unknown.",
@@ -537,7 +537,7 @@ public sealed class GameMcpGenericDiscoveryTests
             context, "alchemy-recipes", AlchemyRecipeId.ToString("D")))["row"]!["discover"]!;
 
         Assert.False((bool)held["available"]!);
-        Assert.Equal("ERR_STATE", (string?)held["reasonCode"]);
+        Assert.Null(held["reasonCode"]);
         Assert.Equal(
             "Concept Discoveries is holding this as the offer you picked, and confirming it " +
             "there costs nothing more — the roll already paid. Use game_discover " +

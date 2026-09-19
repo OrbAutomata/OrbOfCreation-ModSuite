@@ -132,7 +132,7 @@ public sealed class GameMcpLoadoutTests
         var row = Assert.IsType<JObject>(response["row"]);
 
         Assert.False((bool)row["canSelect"]!);
-        Assert.Equal("ERR_STATE", (string?)row["reasonCode"]);
+        Assert.Null(row["reasonCode"]);
     }
 
     [Fact]

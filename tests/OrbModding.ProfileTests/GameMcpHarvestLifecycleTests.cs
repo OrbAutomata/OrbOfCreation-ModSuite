@@ -113,11 +113,11 @@ public sealed class GameMcpHarvestLifecycleTests
             blockedWorld)["row"]!;
         Assert.False((bool)blocked["addElement"]!["available"]!);
         Assert.Null(blocked["addElement"]!["costs"]);
-        Assert.Equal("ERR_UNAFFORDABLE", (string?)blocked["addElement"]!["reasonCode"]);
+        Assert.Null(blocked["addElement"]!["reasonCode"]);
         var blockedAdd = blocked["actions"]![0]!["add"]!;
         Assert.Null(blockedAdd["nextDrain"]);
         Assert.False((bool)blockedAdd["available"]!);
-        Assert.Equal("ERR_LIMIT", (string?)blockedAdd["reasonCode"]);
+        Assert.Null(blockedAdd["reasonCode"]);
         Assert.Equal("The element's capacity is already full.", (string?)blockedAdd["reason"]);
     }
 

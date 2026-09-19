@@ -135,17 +135,21 @@ internal static class GameMcpTextPage
     /// The sentence a verdict ends in, or nothing where this response has already said it here.
     /// </summary>
     /// <remarks>
-    /// Only a verdict carrying a class may drop its sentence, because the class is then what still
-    /// says which kind of no this is; a bare no with the sentence removed would say nothing at all.
+    /// Said once per place per response, whether or not a class rides with it. A class used to be
+    /// what let a repeat be dropped; a read's cells carry none, and forty rows of one page each
+    /// restating the same two hundred characters is the cost this exists to stop — the column name
+    /// is what still says which question the bare <c>no</c> under it answered.
     /// <paramref name="said"/> is null wherever a line is being measured rather than written — the
     /// budget tests that decide whether a block fits a cell must weigh the sentence they would
     /// print, and a measurement that recorded it would silence the first real occurrence.
+    /// An unclassified verdict is separated by a dash rather than a colon, because the cell it sits
+    /// in was introduced by one: <c>inLedger: no: …</c> reads as a stutter.
     /// </remarks>
     private static string Sentence(Said? said, bool classified, string? reason)
     {
         if (reason is null || reason.Length == 0) return string.Empty;
-        if (classified && said is not null && !said.Add(reason)) return string.Empty;
-        return ": " + reason;
+        if (said is not null && !said.Add(reason)) return string.Empty;
+        return (classified ? ": " : " — ") + reason;
     }
 
     private static void WriteObject(

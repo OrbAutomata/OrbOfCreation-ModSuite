@@ -176,7 +176,7 @@ public sealed class GameMcpDecisionReasonTests
 
         // The same bare no outside the table keeps the axis the backstop exists to supply, and the
         // axis is a lock: the game is holding this shut and has published no condition for it.
-        Assert.Equal("ERR_LOCKED", (string?)encoded["decision"]!["reasonCode"]);
+        Assert.Null(encoded["decision"]!["reasonCode"]);
         Assert.Equal(
             "The game keeps this locked, and says nothing about what would unlock it.",
             (string?)encoded["decision"]!["reason"]);
@@ -216,7 +216,7 @@ public sealed class GameMcpDecisionReasonTests
         Assert.Null(row["reason"]);
 
         var predicate = (JObject)encoded["predicates"]!["available"]!;
-        Assert.Equal("ERR_LOCKED", (string?)predicate["reasonCode"]);
+        Assert.Null(predicate["reasonCode"]);
         Assert.Equal(
             "The game keeps this locked, and says nothing about what would unlock it.",
             (string?)predicate["reason"]);

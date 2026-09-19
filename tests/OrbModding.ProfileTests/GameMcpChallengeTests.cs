@@ -375,7 +375,7 @@ public sealed class GameMcpChallengeTests
             "challenges", First.ToString("D")).Freeze(), world)["row"]!;
 
         Assert.False((bool)row["queue"]!["available"]!);
-        Assert.Equal("ERR_STATE", (string?)row["queue"]!["reasonCode"]);
+        Assert.Null(row["queue"]!["reasonCode"]);
         Assert.Equal(
             "A challenge that has already run cannot be queued again until the next reset.",
             (string?)row["queue"]!["reason"]);

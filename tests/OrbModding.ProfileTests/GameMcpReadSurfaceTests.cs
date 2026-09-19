@@ -1593,10 +1593,16 @@ public sealed class GameMcpWorldEnvelopeTests
             "model, so its graph is incomplete. world_get on this uuid names the requirement.",
             (string?)requirementRow["incomplete"]);
 
-        // The pin the whole item exists for: a page's rows carry no ERR_ token anywhere in them.
+        // The pin the whole item exists for, widened past the envelope case it was written for:
+        // no ERR_ token rides a list row, and none rides a world_get fact block either. The eight
+        // classes are a press vocabulary. The one exception on a read page is a block carrying a
+        // `status`, which is not a fact block: it is the read saying it could not serve this id,
+        // and it names the verb that can.
         foreach (var rendered in new[] { page, requirements, affectedSearch })
             foreach (var row in rendered["rows"]!.Values<JObject>())
                 Assert.DoesNotContain("ERR_", row!.ToString(), StringComparison.Ordinal);
+        foreach (var block in batch["results"]!.Values<JObject>())
+            AssertNoClassOutsideAStatus(block!);
 
         // Which conditions this build authors that the suite cannot model does not change between
         // calls, and the overview is read far more often than the rows are. It says how many, of
@@ -1612,6 +1618,32 @@ public sealed class GameMcpWorldEnvelopeTests
             gap);
         Assert.DoesNotContain(GameMcpTestHarness.Handle(affectedId), gap);
         Assert.Null(overview["collection"]!["skippedEntities"]);
+    }
+
+    /// <summary>
+    /// Every <c>ERR_</c> class inside a <c>world_get</c> block sits in a block that also carries a
+    /// <c>status</c>, and nothing else does — neither a key of its own nor a sentence spelling one.
+    /// </summary>
+    private static void AssertNoClassOutsideAStatus(JObject block)
+    {
+        if (block["status"] is not null) return;
+        Assert.Null(block["reasonCode"]);
+        foreach (var property in block.Properties())
+        {
+            if (property.Value is JObject nested)
+            {
+                AssertNoClassOutsideAStatus(nested);
+            }
+            else if (property.Value is JArray array)
+            {
+                foreach (var item in array.OfType<JObject>()) AssertNoClassOutsideAStatus(item);
+            }
+            else if (property.Value is JValue { Type: JTokenType.String } text)
+            {
+                Assert.DoesNotContain(
+                    "ERR_", (string?)text ?? string.Empty, StringComparison.Ordinal);
+            }
+        }
     }
 
     [Fact]
@@ -2128,7 +2160,7 @@ public sealed class GameMcpWorldEnvelopeTests
         var output = Assert.Single(row["consumableOutputs"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(consumableId), (string?)output["uuid"]);
         var drain = Assert.Single(row["drainBlockers"]!.Values<JObject>())!;
-        Assert.Equal("ERR_LIMIT", (string?)drain["reasonCode"]);
+        Assert.Null(drain["reasonCode"]);
         Assert.Equal("0.750", (string?)drain["availableRatio"]);
 
         var incompleteWorld = new GameWorldState

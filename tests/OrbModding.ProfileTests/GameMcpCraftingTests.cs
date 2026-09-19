@@ -145,7 +145,7 @@ public sealed class GameMcpCraftingTests
             RecipeId.ToString("D")))["row"]!["automation"]!;
 
         Assert.False((bool)row["available"]!);
-        Assert.Equal("ERR_LIMIT", (string?)row["reasonCode"]);
+        Assert.Null(row["reasonCode"]);
         Assert.Equal("Every automation slot on this queue is in use.", (string?)row["reason"]);
         Assert.Equal(1, (int)row["used"]!);
         Assert.Equal(3, (int)row["maximum"]!);
@@ -160,7 +160,7 @@ public sealed class GameMcpCraftingTests
             RecipeId.ToString("D")))["row"]!["automation"]!;
 
         Assert.False((bool)row["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)row["reasonCode"]);
+        Assert.Null(row["reasonCode"]);
         Assert.Equal("This recipe is not discovered yet.", (string?)row["reason"]);
     }
 
@@ -214,7 +214,7 @@ public sealed class GameMcpCraftingTests
 
         Assert.Null(automation["amount"]);
         Assert.Equal(3, (int)automation["repetitions"]!);
-        Assert.Equal("ERR_NOT_FOUND", (string?)automation["amountUnavailable"]!["reasonCode"]);
+        Assert.Null(automation["amountUnavailable"]!["reasonCode"]);
     }
 
     [Fact]

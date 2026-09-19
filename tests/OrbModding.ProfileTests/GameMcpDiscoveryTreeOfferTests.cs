@@ -672,7 +672,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             "discovery-trees",
             treeId.ToString("D")));
         Assert.False((bool)unaffordable["row"]!["initiate"]!["available"]!);
-        Assert.Equal("ERR_UNAFFORDABLE", (string?)unaffordable["row"]!["initiate"]!["reasonCode"]);
+        Assert.Null(unaffordable["row"]!["initiate"]!["reasonCode"]);
         Assert.Equal("1.10e24",
             (string?)unaffordable["row"]!["initiate"]!["costs"]![0]!["cost"]);
         Assert.Equal("100",
@@ -714,7 +714,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
 
         Assert.False((bool)row["initiate"]!["available"]!);
         // A tree whose screen is shut is locked, not missing: the row is right here.
-        Assert.Equal("ERR_LOCKED", (string?)row["initiate"]!["reasonCode"]);
+        Assert.Null(row["initiate"]!["reasonCode"]);
         Assert.Equal(
             "The game is not showing this discovery tree.",
             (string?)row["initiate"]!["reason"]);
@@ -799,18 +799,17 @@ public sealed class GameMcpDiscoveryTreeOfferTests
     }
 
     [Theory]
-    [InlineData(false, 2, false, 1, "ERR_LOCKED", "The game is not showing this discovery tree.")]
-    [InlineData(true, 0, false, 1, null, null)]
-    [InlineData(true, 2, false, 0, "ERR_NOT_FOUND", "This tree is showing no offers to reroll.")]
-    [InlineData(true, 2, false, -1, "ERR_STATE",
+    [InlineData(false, 2, false, 1, "The game is not showing this discovery tree.")]
+    [InlineData(true, 0, false, 1, null)]
+    [InlineData(true, 2, false, 0, "This tree is showing no offers to reroll.")]
+    [InlineData(true, 2, false, -1,
         "A reroll was already spent on this discovery, so no further reroll is offered.")]
-    [InlineData(true, 2, false, -2, "ERR_LIMIT", "No rerolls are left this cycle.")]
+    [InlineData(true, 2, false, -2, "No rerolls are left this cycle.")]
     public void RerollReadNamesEveryUnavailableState(
         bool visible,
         int mode,
         bool immediateRequired,
         int offerState,
-        string? reasonCode,
         string? reason)
     {
         var treeId = Guid.NewGuid();
@@ -840,7 +839,9 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         {
             var reroll = response["row"]!["reroll"]!;
             Assert.False((bool)reroll["available"]!);
-            Assert.Equal(reasonCode, (string?)reroll["reasonCode"]);
+            // Four different kinds of no, four different sentences, and no class on any of them:
+            // this is a read of the tree, not the reroll press refusing.
+            Assert.Null(reroll["reasonCode"]);
             Assert.Equal(reason, (string?)reroll["reason"]);
         }
         else
@@ -1048,7 +1049,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     readOffer == secondId,
                     !(bool)explanation["predicates"]!["available"]!["available"]!);
                 if (readOffer == secondId)
-                    Assert.Equal("ERR_LOCKED", (string?)explanation["predicates"]!["available"]!["reasonCode"]);
+                    Assert.Null(explanation["predicates"]!["available"]!["reasonCode"]);
             }
 
             var selected = action.Submit(new DiscoveryTreeOfferAction(
@@ -1538,7 +1539,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
 
         var blocked = Initiate(treeId, discovered: 12, discoverable: 65);
-        Assert.Equal("ERR_LOCKED", (string?)blocked["reasonCode"]);
+        Assert.Null(blocked["reasonCode"]);
         Assert.Equal(
             "Nothing in this tree can be discovered right now: 12 of its 65 are discovered, and " +
             "none of the other 53 is in reach — a tree's pool is widened by its Recipe Books, and " +
@@ -1546,7 +1547,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             (string?)blocked["reason"]);
 
         var finished = Initiate(treeId, discovered: 65, discoverable: 65);
-        Assert.Equal("ERR_NOT_FOUND", (string?)finished["reasonCode"]);
+        Assert.Null(finished["reasonCode"]);
         Assert.Equal(
             "Every one of this tree's 65 discoveries is made.", (string?)finished["reason"]);
     }

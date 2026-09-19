@@ -6953,7 +6953,12 @@ internal static class GameMcpWorldQuery
             }
             else if (!available)
             {
-                next["reasonCode"] = "loadout_full";
+                // Both sides of the ceiling, so the retry needs no second read.
+                next["reason"] = "the bar is full (" +
+                    world.SpellWorkbench.EquippedCount.ToString(CultureInfo.InvariantCulture) +
+                    " of " +
+                    world.SpellWorkbench.MaximumEquipped.ToString(CultureInfo.InvariantCulture) +
+                    ")";
             }
             else
             {
@@ -7815,7 +7820,7 @@ internal static class GameMcpWorldQuery
                 : (object)GameMcpListColumns.Uncapped,
             ["netRatePerSecond"] = new GameMcpDomainValue(resource.TrueRate),
             ["atCapacity"] = AtCapacityCell(in resource, left),
-            ["inLedger"] = LedgerCell(in resource),
+            ["inLedger"] = LedgerCell(world, in resource),
         };
         return result.Freeze();
     }
@@ -7842,14 +7847,25 @@ internal static class GameMcpWorldQuery
     /// <c>GetVisibleResources</c> are tooltip builders.
     /// </para>
     /// </remarks>
-    private static object LedgerCell(in WorldResource resource) =>
-        resource.Reading.Visible
-            ? new JObject { ["available"] = true }.Freeze()
-            : new JObject
-            {
-                ["available"] = false,
-                ["reasonCode"] = "not_in_resource_list",
-            }.Freeze();
+    private static object LedgerCell(GameWorldState world, in WorldResource resource)
+    {
+        if (resource.Reading.Visible) return new JObject { ["available"] = true }.Freeze();
+
+        // The sentence used to point at `unlocksWhen` on every unledgered resource, and for most of
+        // them there is no such block to read: `ResourceSO.CheckVisibility()` consults
+        // `visiblePrerequisites` only where `startVisible` is authored, and `MakeVisible()`'s other
+        // two callers are `RegisterGain` and `IncrementTick`. So a resource with no captured
+        // container says what actually adds it, and points nowhere. The one that does have
+        // conditions names the read that prints them, because a list row renders no such block.
+        return new JObject
+        {
+            ["available"] = false,
+            ["reason"] = GameMcpEntityExplainer.HasUnlockConditions(world, resource.EntityId)
+                ? "the game has not counted it yet; world_get prints what would add it under " +
+                    "\"unlocksWhen\""
+                : "the game counts it the first time you gain any",
+        }.Freeze();
+    }
 
     /// <summary>
     /// Full, in the words the row's own meter reads in. The used-ness pair belongs to a

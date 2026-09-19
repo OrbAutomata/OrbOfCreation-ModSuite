@@ -68,7 +68,7 @@ public sealed class GameMcpTypeWorthTests
                 "  maximumSlots: 2",
                 "  paidLevel: 0",
                 "  totalLevel: 0",
-                "  purchase: no (ERR_REFUSED): The game refuses to level this right now.",
+                "  purchase: no — The game refuses to level this right now.",
                 "worth:",
                 "  howToRead: A distributedTotalPercent is already inside each member's own " +
                 "numbers and must never be multiplied into one again; a value is this type's own " +
@@ -308,8 +308,10 @@ public sealed class GameMcpTypeWorthTests
     /// has no reason to carry.
     /// </summary>
     /// <remarks>
-    /// The one key that left since is <c>canDiscover: yes</c>, which stood beside this row's
-    /// <c>discover: no (ERR_LOCKED)</c> — two answers to one question, and the coarser one.
+    /// Two things left since. <c>canDiscover: yes</c> stood beside this row's
+    /// <c>discover: no</c> — two answers to one question, and the coarser one. And the classes
+    /// went: a read page prints a verdict word and a sentence, so every <c>reasonCode</c> this
+    /// payload used to carry is gone and every sentence it carried is still here.
     /// </remarks>
     [Fact]
     public void An_entity_that_is_no_type_is_answered_byte_for_byte_as_it_was()
@@ -318,19 +320,19 @@ public sealed class GameMcpTypeWorthTests
 
         Assert.Null(detail["worth"]);
         Assert.Equal(
-            "{\"uuid\":\"a1c000\",\"name\":\"Focus Ward\",\"internalName\":\"focusWard\"," +
-            "\"category\":\"augment-glyphs\",\"row\":{" +
-            "\"state\":\"locked\",\"slots\":0,\"freeSlots\":0,\"reasonCode\":\"ERR_LOCKED\"," +
-            "\"reason\":\"This has not been discovered yet.\"," +
-            "\"paidLevel\":0,\"totalLevel\":0,\"purchase\":{\"available\":false," +
-            "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"Magic > Augments > Upgrade is not " +
-            "unlocked yet, so the game draws no level button for an augment glyph. Buy the " +
-            "Upgrade Glyphs upgrade first.\"}," +
-            "\"discover\":{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
-            "\"reason\":\"The game is not showing this yet.\"}},\"predicates\":{" +
-            "\"visible\":{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
-            "\"reason\":\"This has not been discovered yet.\"},\"available\":{\"available\":false," +
-            "\"reasonCode\":\"ERR_LOCKED\",\"reason\":\"This has not been discovered yet.\"}}}",
+            "{\"uuid\":\"a1c000\",\"name\":\"Focus Ward\"," +
+            "\"internalName\":\"focusWard\",\"category\":\"augment-glyphs\"," +
+            "\"row\":{\"state\":\"locked\",\"slots\":0,\"freeSlots\":0,\"paidLevel\":0," +
+            "\"totalLevel\":0,\"purchase\":{\"available\":false," +
+            "\"reason\":\"Magic > Augments > Upgrade is not unlocked yet, so the game " +
+            "draws no level button for an augment glyph. Buy the Upgrade Glyphs upgrade " +
+            "first.\"},\"discover\":{\"available\":false," +
+            "\"reason\":\"The game is not showing this yet.\"}," +
+            "\"reason\":\"This has not been discovered yet.\"}," +
+            "\"predicates\":{\"visible\":{\"available\":false," +
+            "\"reason\":\"This has not been discovered yet.\"}," +
+            "\"available\":{\"available\":false," +
+            "\"reason\":\"This has not been discovered yet.\"}}}",
             detail.ToString(Formatting.None));
     }
 

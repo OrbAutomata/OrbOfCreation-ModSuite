@@ -22,19 +22,27 @@ internal static class GameMcpEntityWireNormalizer
     {
         if (source is null) throw new ArgumentNullException(nameof(source));
         if (catalog is null) throw new ArgumentNullException(nameof(catalog));
-        NormalizeToken(source, catalog, inRow: false);
+
+        // Which verb is answering, read off the keys only a read page has: `rows` is a table's
+        // rows, `results` is `world_get`'s blocks, and `row` is one entity's. Nothing else on the
+        // surface answers with any of the three. A press, a configuration write and the two
+        // previews carry none of them, which is why the classes keep crossing the wire there.
+        var readPage = source is JObject page &&
+            (page["rows"] is JArray || page["results"] is JArray || page["row"] is JObject);
+        NormalizeToken(source, catalog, readPage, inRow: false);
         return source;
     }
 
     private static void NormalizeToken(
         JToken token,
         EntityIdentityCatalogSnapshot catalog,
+        bool readPage,
         bool inRow,
         bool inTable = false)
     {
         if (token is JObject item)
         {
-            NormalizeObject(item, catalog, inRow, inTable);
+            NormalizeObject(item, catalog, readPage, inRow, inTable);
             return;
         }
         if (token is not JArray array) return;
@@ -52,13 +60,15 @@ internal static class GameMcpEntityWireNormalizer
             // Anything in a list may be rendered as a row, and a row answers to a header: a column
             // the header promises is said on every row of the page, so a default may not be dropped
             // from one of them. Only a block of its own may leave a default out.
-            if (value is not null) NormalizeToken(value, catalog, inRow, inTable: true);
+            if (value is not null)
+                NormalizeToken(value, catalog, readPage, inRow, inTable: true);
         }
     }
 
     private static void NormalizeObject(
         JObject item,
         EntityIdentityCatalogSnapshot catalog,
+        bool readPage,
         bool inRow,
         bool inTable = false)
     {
@@ -135,6 +145,10 @@ internal static class GameMcpEntityWireNormalizer
         // a reader nothing the `no` in the column did not. Cells carry words; the sentence lives
         // in get and in refusals, which are exactly the shapes this backstop still guards.
         //
+        // A no that already carries its own sentence is not bare. Producers that hold the numbers
+        // write the better sentence and skip the code entirely, and inventing one over the top of
+        // theirs filed a stated limit as a lock the game had published no condition for.
+        //
         // What it supplies is a lock, not a refusal. `available: false` with no axis beside it is
         // the game holding something shut and publishing no condition for it — which is what
         // ERR_LOCKED means. Filing it as ERR_REFUSED invented a refusal of an action nobody had
@@ -168,7 +182,21 @@ internal static class GameMcpEntityWireNormalizer
                 // sentence. Producers that hold the numbers write the better sentence themselves
                 // and keep it; every other code is answered here, so none ships a bare one.
                 if (item["reason"] is null) item["reason"] = GameMcpDecisionReason.For(code);
-                item["reasonCode"] = GameMcpDecisionReason.Class(code);
+
+                // A fact row prints a verdict word and a sentence. The eight classes are a press
+                // vocabulary — the axis a caller branches on when a press refuses, and the thing a
+                // preview promises that press will answer — and on a page of facts they read as
+                // refusals of actions nobody asked for: `inLedger: no (ERR_LOCKED)` on a resource
+                // the game simply has not counted yet, `loadoutAdd: no (ERR_LIMIT)` on a row that
+                // was only ever describing the bar. The sentence carries the whole of the no here,
+                // and the key it sits under says which question it answered.
+                //
+                // A block carrying a `status` is the exception on a read page, and it is not a fact
+                // block: it is the read itself answering that it could not serve this id. That is a
+                // refusal like any other, it names the verb that can answer, and a caller branches
+                // on its class exactly as it branches on a press's.
+                if (readPage && item["status"] is null) item.Remove("reasonCode");
+                else item["reasonCode"] = GameMcpDecisionReason.Class(code);
                 KeepReasonBesideItsCode(item);
             }
         }
@@ -230,6 +258,7 @@ internal static class GameMcpEntityWireNormalizer
             NormalizeToken(
                 property.Value,
                 catalog,
+                readPage,
                 inRow || string.Equals(property.Name, "rows", StringComparison.Ordinal));
         }
 

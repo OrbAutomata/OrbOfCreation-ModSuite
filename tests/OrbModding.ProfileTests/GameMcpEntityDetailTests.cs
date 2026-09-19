@@ -121,7 +121,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.False(Predicate(readySpell, "canDiscover"));
         Assert.Null(waitingSpell["predicates"]!["canDiscover"]);
         Assert.False((bool)waitingSpell["row"]!["discover"]!["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)waitingSpell["row"]!["discover"]!["reasonCode"]);
+        Assert.Null(waitingSpell["row"]!["discover"]!["reasonCode"]);
         Assert.Null(blockedResearch["predicates"]!["canDevelop"]);
         Assert.False((bool)blockedResearch["row"]!["develop"]!["available"]!);
         Assert.Null(blockedCrafting["row"]!["purchase"]);
@@ -141,8 +141,13 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             foreach (var predicate in predicateObject.Properties())
             {
                 var value = Assert.IsType<JObject>(predicate.Value);
+                // A read's predicates carry no class — the sentence is the whole of the no — so
+                // what may never be blank is the sentence.
                 if (!(bool)value["available"]!)
-                    Assert.False(string.IsNullOrWhiteSpace((string?)value["reasonCode"]));
+                {
+                    Assert.Null(value["reasonCode"]);
+                    Assert.False(string.IsNullOrWhiteSpace((string?)value["reason"]));
+                }
             }
         }
     }
@@ -254,7 +259,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             Explain(world, ReadyResearchId, generation: 944)["blockers"]!["leeway"]);
 
         Assert.True((bool)leeway["blocked"]!);
-        Assert.Equal("ERR_LOCKED", (string?)leeway["reasonCode"]);
+        Assert.Null(leeway["reasonCode"]);
         Assert.NotNull(leeway["reason"]);
         Assert.Equal(20, (int)leeway["currentTotalLevel"]!);
         Assert.Equal(0, (int)leeway["leeway"]!);
@@ -284,7 +289,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             Explain(world, ReadySpellId, generation: 942)["predicates"]!["canUse"]);
 
         Assert.False((bool)canUse["available"]!);
-        Assert.Equal("ERR_NOT_FOUND", (string?)canUse["reasonCode"]);
+        Assert.Null(canUse["reasonCode"]);
         Assert.Equal("This spell is not in any spell slot.", (string?)canUse["reason"]);
     }
 
@@ -540,7 +545,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // column beside a `verdict` word, which told a reader neither what was wanted nor where to
         // look for it.
         Assert.False((bool)orChildren[1]["met"]!);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)orChildren[1]["reasonCode"]);
+        Assert.Null(orChildren[1]["reasonCode"]);
         Assert.StartsWith(
             "This requirement is one the suite cannot read yet; open ",
             (string?)orChildren[1]["reason"]);
@@ -635,7 +640,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         var predicates = result["predicates"]!;
         Assert.False((bool)predicates["available"]!["available"]!);
-        Assert.Equal("ERR_STATE", (string?)predicates["available"]!["reasonCode"]);
+        Assert.Null(predicates["available"]!["reasonCode"]);
 
         // `canDevelop` and the row's own `develop` said the identical verdict, code and sentence,
         // so the page says it once — on the action a caller can actually take. The predicate goes
@@ -643,12 +648,13 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Null(predicates["canDevelop"]);
         var develop = result["row"]!["develop"]!;
         Assert.False((bool)develop["available"]!);
-        Assert.Equal("ERR_STATE", (string?)develop["reasonCode"]);
+        Assert.Null(develop["reasonCode"]);
         Assert.NotNull(develop["reason"]);
 
         var cap = result["blockers"]!["cap"]!;
         Assert.True((bool)cap["blocked"]!);
-        Assert.Equal("ERR_STATE", (string?)cap["reasonCode"]);
+        Assert.Null(cap["reasonCode"]);
+        Assert.False(string.IsNullOrWhiteSpace((string?)cap["reason"]));
         Assert.Equal(1, (int)cap["purchasedLevel"]!);
         Assert.Equal(1, (int)cap["baseLevelExcludingBonus"]!);
         Assert.Equal(0, (int)cap["bonusLevel"]!);
@@ -708,7 +714,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // where the coarser predicate survived precisely where it contradicted the row.
         Assert.Null(predicates["canDiscover"]);
         Assert.False((bool)result["row"]!["discover"]!["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)result["row"]!["discover"]!["reasonCode"]);
+        Assert.Null(result["row"]!["discover"]!["reasonCode"]);
     }
 
     [Fact]
@@ -787,7 +793,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Null(result["row"]!["complete"]);
         Assert.Null(result["predicates"]!["canDevelop"]);
         Assert.False((bool)result["row"]!["develop"]!["available"]!);
-        Assert.Equal("ERR_LIMIT", (string?)result["row"]!["develop"]!["reasonCode"]);
+        Assert.Null(result["row"]!["develop"]!["reasonCode"]);
         var cap = result["blockers"]!["cap"]!;
         Assert.Equal(1, (int)cap["artificialCap"]!);
         Assert.Null(cap["effectiveCap"]);
@@ -854,10 +860,10 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var result = Explain(world, id, 948);
 
         Assert.False((bool)result["predicates"]!["available"]!["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)result["predicates"]!["available"]!["reasonCode"]);
+        Assert.Null(result["predicates"]!["available"]!["reasonCode"]);
         var requirements = result["requirements"]!;
         Assert.Equal("Unmet", (string?)requirements["suiteVerdict"]);
-        Assert.Equal("ERR_LOCKED", (string?)requirements["reasonCode"]);
+        Assert.Null(requirements["reasonCode"]);
 
         // The sentence has to add what `predicates.available` does not already say, or it is the
         // restating paragraph coming back under a new name: which of the two authored lists answers
@@ -902,7 +908,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             Assert.IsType<JObject>(requirements["root"])["children"]!.OfType<JObject>());
         Assert.True((bool)leaf["met"]!);
         Assert.Equal("Unmet", (string?)requirements["suiteVerdict"]);
-        Assert.Equal("ERR_LOCKED", (string?)requirements["reasonCode"]);
+        Assert.Null(requirements["reasonCode"]);
 
         // Nothing is unmet among the rows, so the array that answers "what is stopping this" is
         // still absent — the sentence is what points at the lock.
@@ -938,7 +944,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         var available = detail["predicates"]!["available"]!;
         Assert.False((bool)available["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)available["reasonCode"]);
+        Assert.Null(available["reasonCode"]);
         Assert.Contains("unlocksWhen", (string?)available["reason"]);
         Assert.NotNull(detail["requirements"]!["unlocksWhen"]);
     }
@@ -956,7 +962,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         var available = detail["predicates"]!["available"]!;
         Assert.False((bool)available["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)available["reasonCode"]);
+        Assert.Null(available["reasonCode"]);
         Assert.Contains("says nothing about what would unlock it", (string?)available["reason"]);
         Assert.Null(detail["requirements"]?["unlocksWhen"]);
     }
@@ -984,7 +990,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var requirements = Explain(Collect(), owner.GetGuid(), 949)["requirements"]!;
 
         Assert.Equal("Unmet", (string?)requirements["suiteVerdict"]);
-        Assert.Equal("ERR_LOCKED", (string?)requirements["reasonCode"]);
+        Assert.Null(requirements["reasonCode"]);
 
         var lockNode = Assert.IsType<JObject>(requirements["unlocksWhen"]);
         Assert.Equal("AND", (string?)lockNode["operator"]);
@@ -1034,7 +1040,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         var requirements = Explain(Collect(), owner.GetGuid(), 949)["requirements"]!;
 
-        Assert.Equal("ERR_LOCKED", (string?)requirements["reasonCode"]);
+        Assert.Null(requirements["reasonCode"]);
         var leaf = Assert.Single(
             Assert.IsType<JObject>(requirements["unlocksWhen"])["children"]!.OfType<JObject>());
         Assert.False((bool)leaf["met"]!);
@@ -1102,8 +1108,11 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         var ledger = detail["row"]!["inLedger"]!;
         Assert.False((bool)ledger["available"]!);
-        Assert.Equal("ERR_LOCKED", (string?)ledger["reasonCode"]);
-        Assert.Contains("resource list", (string?)ledger["reason"]);
+        Assert.Null(ledger["reasonCode"]);
+        Assert.Equal(
+            "the game has not counted it yet; world_get prints what would add it under " +
+            "\"unlocksWhen\"",
+            (string?)ledger["reason"]);
 
         var unlocks = Assert.IsType<JObject>(detail["requirements"]!["unlocksWhen"]);
         Assert.Equal("AND", (string?)unlocks["operator"]);
@@ -1267,7 +1276,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // no answer to compare against. The parity block says which, rather than going missing.
         Assert.Equal("ERR_UNAVAILABLE", (string?)upgradeResult["requirements"]!["nativeParity"]!["reasonCode"]);
         Assert.False((bool)upgradeResult["predicates"]!["canPurchase"]!["available"]!);
-        Assert.Equal("ERR_STATE", (string?)upgradeResult["predicates"]!["canPurchase"]!["reasonCode"]);
+        Assert.Null(upgradeResult["predicates"]!["canPurchase"]!["reasonCode"]);
         Assert.Null(upgradeResult["purchase"]);
         Assert.True((bool)upgradeResult["blockers"]!["queue"]!["blocked"]!);
         Assert.Null(upgradeResult["blockers"]!["queue"]!["evidence"]);
@@ -1344,7 +1353,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.True((bool)rows[0]!["affordable"]!);
         Assert.Null(rows[0]!["reasonCode"]);
         Assert.False((bool)rows[1]!["affordable"]!);
-        Assert.Equal("ERR_REFUSED", (string?)rows[1]!["reasonCode"]);
+        Assert.Null(rows[1]!["reasonCode"]);
     }
 
     [Fact]
