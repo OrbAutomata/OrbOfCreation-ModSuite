@@ -48,10 +48,12 @@ public sealed class GameMcpSearchTests
     /// coincidence in a string they never see.
     /// </summary>
     /// <remarks>
-    /// The recipe answers under <c>alchemy-recipes</c> rather than <c>concept-recipes</c>: one
-    /// entity is one hit however many categories republish it, and the first category holding it
-    /// wins. This row used to read <c>concept-recipes</c> only because the fixture published the
-    /// concept republication without the alchemy row the real world always carries beside it.
+    /// The recipe answers under <c>alchemy-recipes</c> because that is the page the world publishes
+    /// it on. <c>AlchemyRecipeSO</c> backs two categories, split on the recipe's own core alchemy
+    /// type, and a row whose type is not one of the three Scholar ones is on the Alchemy screen's
+    /// page; this fixture's row carries no audited core type at all, which is the same side of the
+    /// split. The <c>concept-recipes</c> republication of all 125 rows this note used to explain
+    /// away is retired.
     /// </remarks>
     [Fact]
     public void A_search_across_categories_says_the_same_five_things_about_every_hit()
