@@ -17,12 +17,9 @@ internal static class GameMcpNumberFormatter
         if (value is null) throw new ArgumentNullException(nameof(value));
         if (value is not BigDouble number)
             throw new ArgumentException("Only BigDouble values use the MCP large-number formatter.", nameof(value));
-        return Format(number.Mantissa, number.Exponent);
+        return GameScientificNumber.Beautify(number);
     }
 
-    internal static string Format(double mantissa, long exponent) =>
-        GameScientificNumber.Format(mantissa, exponent);
-
-    internal static string Format(double value) => GameScientificNumber.Format(value);
+    internal static string Format(double value) => GameScientificNumber.Beautify(value);
 }
 #endif

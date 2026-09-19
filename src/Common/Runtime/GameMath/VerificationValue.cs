@@ -23,7 +23,7 @@ namespace OrbModding.Common.Runtime.GameMath;
 internal static class VerificationValue
 {
     /// <summary>One value in the notation the game's screen uses.</summary>
-    internal static string Format(BigDouble value) => GameScientificNumber.Format(value);
+    internal static string Format(BigDouble value) => GameScientificNumber.Beautify(value);
 
     /// <summary>
     /// One value of whatever type a comparison happened to hold — magnitudes follow the screen,
@@ -32,8 +32,8 @@ internal static class VerificationValue
     internal static string Format(object? value) => value switch
     {
         null => "none",
-        BigDouble number => GameScientificNumber.Format(number),
-        double number => GameScientificNumber.Format(number),
+        BigDouble number => GameScientificNumber.Beautify(number),
+        double number => GameScientificNumber.Beautify(number),
         _ => value.ToString() ?? string.Empty,
     };
 

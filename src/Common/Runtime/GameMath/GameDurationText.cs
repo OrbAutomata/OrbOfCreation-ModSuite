@@ -33,7 +33,7 @@ internal static class GameDurationText
         if (seconds < new BigDouble(60000)) return Fixed(seconds / new BigDouble(60), 0) + "m";
         if (seconds < new BigDouble(3600000)) return Fixed(seconds / new BigDouble(3600), 0) + "h";
         if (seconds < new BigDouble(86400000)) return Fixed(seconds / new BigDouble(86400), 0) + "d";
-        return Scientific(seconds / Year) + "y";
+        return Beautified(seconds / Year) + "y";
     }
 
     /// <summary>
@@ -45,8 +45,8 @@ internal static class GameDurationText
     internal static string UltraPrecise(BigDouble seconds)
     {
         if (seconds < BigDouble.Zero) return "-" + UltraPrecise(BigDouble.Abs(seconds));
-        if (seconds < Minute) return Scientific(seconds) + "s";
-        if (seconds > Year) return Scientific(seconds / Year) + "y";
+        if (seconds < Minute) return Beautified(seconds) + "s";
+        if (seconds > Year) return Beautified(seconds / Year) + "y";
 
         var total = (long)seconds.ToDouble();
         var units = new[] { total / 3600L, total / 60L % 60L, total % 60L };
@@ -60,8 +60,8 @@ internal static class GameDurationText
         return text.ToString();
     }
 
-    private static string Scientific(BigDouble value) =>
-        GameScientificNumber.Format(value.Mantissa, value.Exponent);
+    private static string Beautified(BigDouble value) =>
+        GameScientificNumber.Beautify(value);
 
     private static string Fixed(BigDouble value, int decimals) =>
         value.ToDouble().ToString(

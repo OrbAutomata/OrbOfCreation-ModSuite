@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.GameMath;
 
 namespace OrbAutomata;
 
@@ -38,8 +39,12 @@ internal static class AgentSettingsNormalization
         "run-transition.string-set-action",
     };
 
-    /// <summary>The notation the whole numeric surface — read, refusal, and delta — is written in.</summary>
-    internal const string NumberNotation = "Scientific";
+    /// <summary>
+    /// The notation the whole numeric surface — read, refusal, and delta — is written in, taken
+    /// from the renderer that mirrors it so the arm the suite writes and the arm the suite spells
+    /// are one constant.
+    /// </summary>
+    internal const string NumberNotation = GameScientificNumber.Notation;
 
     internal static bool TryNormalize(
         out string reason,

@@ -4,13 +4,13 @@ using Xunit;
 namespace OrbModding.GameContractTests;
 
 /// <summary>
-/// The rule behind a modifier's printed magnitude, pinned member by member against the audited
-/// copy so the suite's mirror of it cannot silently fall out of step with the tooltip.
+/// The rule behind every printed magnitude, pinned member by member against the audited copy so
+/// the suite's mirror of it cannot silently fall out of step with the screen.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The suite mirrors <c>ValueModifier.ToStringValue</c> and the
-/// <c>Utils.BeautifyNumber(BigDouble, bool, BigDouble)</c> chain under it rather than calling them:
+/// <c>Utils.BeautifyNumber</c> chain under it rather than calling them:
 /// the chain ends in <c>SettingsManager.GetNumberDisplayOption</c>, which asks
 /// <c>UnityEngine.Application.isPlaying</c>, so there is no process outside the game in which the
 /// game's own answer can be obtained and compared. What can be proved from here is the rule, and
@@ -19,11 +19,12 @@ namespace OrbModding.GameContractTests;
 /// </para>
 /// <para>
 /// The per-branch output the mirror produces from that rule is pinned in the portable gate by
-/// <c>GameModifierSpellingTests</c>. Together they are the two halves: this says the game still
-/// computes it this way, that says the suite still spells it that way.
+/// <c>GameNumberSpellingTests</c> and <c>GameModifierSpellingTests</c>. Together they are the two
+/// halves: this says the game still computes it this way, those say the suite still spells it that
+/// way.
 /// </para>
 /// </remarks>
-public sealed class ModifierSpellingContractTests
+public sealed class NumberSpellingContractTests
 {
     /// <summary>
     /// The three-argument overload is the one with a decimal threshold, and it spends that
@@ -134,5 +135,82 @@ public sealed class ModifierSpellingContractTests
                     "Utils", "BeautifyNumber", "BigDouble", "System.Boolean", "BigDouble"),
             }.OrderBy(token => token).ToArray(),
             tokens.OrderBy(token => token).ToArray());
+    }
+
+    /// <summary>
+    /// The overload every ordinary magnitude on the screen goes through carries no threshold of
+    /// its own: it hands the three-argument rule a zero, so a plain number is the notation branch
+    /// and nothing else. The suite's renderer is that overload, and the duration text the same
+    /// screens draw reaches it too.
+    /// </summary>
+    [GameAssemblyFact]
+    public void TheOverloadAPlainMagnitudeTakesCarriesNoThresholdOfItsOwn()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        var magnitude = Assert.Single(
+            assembly.GetMethods("Utils", "BeautifyNumber"),
+            method => method.ParameterTypes.SequenceEqual(new[] { "BigDouble" }));
+        Assert.Equal("System.String", magnitude.ReturnType);
+        Assert.True(magnitude.IsStatic);
+
+        Assert.Equal(
+            new[]
+            {
+                assembly.GetMethodToken(
+                    "Utils", "BeautifyNumber", "BigDouble", "System.Boolean", "BigDouble"),
+            },
+            assembly.GetMethodBodyDefinitionReferences("Utils", "BeautifyNumber", "BigDouble")
+                .Where(reference => reference.DeclaringType == "Utils")
+                .Select(reference => reference.Token)
+                .ToArray());
+
+        Assert.Contains(
+            assembly.GetMethodToken("Utils", "BeautifyNumber", "BigDouble"),
+            assembly.GetMethodBodyDefinitionReferences("Utils", "BeautifyTimeUltraPrecise")
+                .Select(reference => reference.Token));
+    }
+
+    /// <summary>
+    /// The notation the screen draws is a setting the game owns, and the getter behind it is
+    /// unreadable anywhere but the player loop — which is why the suite writes the option rather
+    /// than capturing it, and why the mirror implements one of the switch's five arms.
+    /// </summary>
+    /// <remarks>
+    /// <c>GetNumberDisplayOption</c> opens on <c>UnityEngine.Application.isPlaying</c> and reaches
+    /// the setting through <c>SettingsManager.instance</c>, a Unity object, so a pass that asked it
+    /// off the player loop would be told <c>Named</c> whatever the player had chosen. The five arms
+    /// are pinned as a set: a sixth notation, or a renamed arm, is a screen the mirror no longer
+    /// spells and nothing else would say so.
+    /// </remarks>
+    [GameAssemblyFact]
+    public void TheNotationIsASettingOnlyThePlayerLoopCanRead()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.True(assembly.MethodReferencesField(
+            "SettingsManager", "GetNumberDisplayOption", "SettingsManager", "instance"));
+        Assert.True(assembly.MethodReferencesField(
+            "SettingsManager", "GetNumberDisplayOption", "SettingsManager", "numDisplay"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "SettingsManager", "GetNumberDisplayOption", "StringVariable", "GetValue"));
+        Assert.Contains(
+            "get_isPlaying",
+            assembly.GetMethodBodyMemberReferences("SettingsManager", "GetNumberDisplayOption")
+                .Select(reference => reference.MemberName));
+
+        Assert.Equal(
+            new[]
+            {
+                "Utils.BeautifyNumberNamed",
+                "Utils.BeautifyNumberCompact",
+                "Utils.BeautifyNumberCompactNumerical",
+                "Utils.BeautifyNumberScientific",
+                "Utils.BeautifyNumberEngineering",
+            },
+            assembly.GetMethodBodyDefinitionReferences("Utils", "BeautifyNumberSwitch")
+                .Where(reference => reference.DeclaringType == "Utils")
+                .Select(reference => reference.DeclaringType + "." + reference.MemberName)
+                .ToArray());
     }
 }
