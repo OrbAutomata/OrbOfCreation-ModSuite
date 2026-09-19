@@ -65,6 +65,11 @@ internal static class GameMcpPostStateSettlement
                 slot.Toggled &&
                 !slot.Casting;
         }
+        if (command.Kind == GameMcpCommandKind.Cast &&
+            string.Equals(command.Mode, "fire", System.StringComparison.Ordinal))
+        {
+            return FireStarted(state, command);
+        }
         if (command.Kind == GameMcpCommandKind.StructureLifecycle)
         {
             return WorldLookup.TryFind(
@@ -86,6 +91,40 @@ internal static class GameMcpPostStateSettlement
             "set_reserve_level" => workbench.ReserveLevel == command.Amount,
             _ => false,
         };
+    }
+
+    /// <summary>
+    /// The cast this press started, seen in the settled world.
+    /// </summary>
+    /// <remarks>
+    /// A fire had no sentinel at all, so the first world one generation newer than the press was
+    /// accepted — and a live round's committed fire answered <c>active: no  castReady: yes</c> with
+    /// no recharge block, describing a world that had not yet seen the cast.
+    /// <para>
+    /// The game spends the charge at the END of the cast, not at the press:
+    /// <c>Spell.Cast()</c> loads a cooldown and sets the prep state, and only
+    /// <c>Spell.EndCasting</c>/<c>Spell.ExecuteSpell</c> call <c>Spell.ConsumeCharge()</c>. So a
+    /// spell slower than the world cadence is still readying when the next world lands and its
+    /// charge has not moved, while a spell faster than it has already finished and dropped one.
+    /// Those are the two faces of one fact — this press started a cast — and either proves it.
+    /// Waiting for both would time out half of all casts; waiting for neither is what shipped.
+    /// </para>
+    /// </remarks>
+    private static bool FireStarted(GameMcpFrameContext state, GameMcpCommand command)
+    {
+        if (!WorldSpellSlotLookup.TryFind(
+                state.World!.Snapshot.SpellSlots, command.Amount - 1, out var after) ||
+            !after.Occupied ||
+            after.SpellRecipeId != command.TargetId)
+        {
+            return false;
+        }
+        if (after.ReadyingCast || after.Casting) return true;
+        var before = command.FrameContext?.World?.Snapshot;
+        return before is not null &&
+            WorldSpellSlotLookup.TryFind(before.SpellSlots, command.Amount - 1, out var previous) &&
+            previous.Occupied &&
+            after.CurrentCharges < previous.CurrentCharges;
     }
 
     /// <summary>
@@ -150,6 +189,14 @@ internal static class GameMcpPostStateSettlement
             return GameMcpWorldQuery.PostStateUnavailable(
                 "requested_state_not_reached",
                 "the settled spell slot did not show the requested toggle as off");
+        }
+        if (command.Kind == GameMcpCommandKind.Cast &&
+            string.Equals(command.Mode, "fire", System.StringComparison.Ordinal))
+        {
+            return GameMcpWorldQuery.PostStateUnavailable(
+                "requested_state_not_reached",
+                "The press went through, but no redrawn world showed this spell casting or a " +
+                "charge spent, so this answer cannot say what the cast did. Read the slot again.");
         }
         if (command.Kind == GameMcpCommandKind.StructureLifecycle)
         {

@@ -238,7 +238,8 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             if (IsCasterBusy())
             {
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.CasterBusy, "the native spell system is busy");
+                    AutoCastPreflight.CasterBusy,
+                    "another spell is still casting, and the game casts one spell at a time");
             }
 
             if (!TryResolveSlot(

@@ -16,6 +16,10 @@ public sealed class GameMcpCastTests
         Guid.Parse("d8c42ced-12de-4bc7-bf3a-f11a13318e42");
     private static readonly Guid InstanceId =
         Guid.Parse("f9ec2758-ce33-4fcb-883a-5283035254a6");
+    private static readonly Guid SecondRecipeId =
+        Guid.Parse("b2f18a44-6d0c-4a7e-9f5b-0c1d2e3f4a5b");
+    private static readonly Guid SecondInstanceId =
+        Guid.Parse("c3a29b55-7e1d-4b8f-8a6c-1d2e3f4a5b6c");
 
     [Fact]
     public void ToolOffersTheNativeFireReleaseAndToggleOffButtonPaths()
@@ -470,6 +474,254 @@ public sealed class GameMcpCastTests
             World(casting: false, cancellationEnabled: true), 0, RecipeId));
     }
 
+    /// <summary>
+    /// A cast the game refuses on readiness answers with the world's sentence, not the boundary's.
+    /// </summary>
+    /// <remarks>
+    /// The boundary's own string was taken unconditionally, so the charges-and-countdown sentence
+    /// the world had already composed was thrown away: a live round read the lowercase,
+    /// period-less "the game refused the cast on its own readiness terms" twenty-five times while
+    /// the next <c>world_get</c> on the same slot printed "0 of 1 charges, next in 5.66s". This
+    /// runs the one producer the live press runs, with the boundary's own live string.
+    /// </remarks>
+    [Fact]
+    public void A_refused_cast_keeps_the_worlds_sentence_over_the_boundarys()
+    {
+        const string boundary = "the game refused the cast on its own readiness terms";
+        var unready = ServiceActionResult.Skipped(AutoCastActionResultCodes.SpellNotReady);
+        var command = Fire(World(casting: false, cancellationEnabled: true));
+
+        Assert.Equal(
+            RecipeId.ToString("D") + " is still recharging: it holds 0 of 3 charges, " +
+            "next in 41.0s.",
+            AutomataServiceCycleRuntime.CastRefusalReason(
+                command,
+                World(
+                    casting: false, cancellationEnabled: true, charges: 0, maximumCharges: 3,
+                    cooldownRemaining: new BigDouble(41d)),
+                in unready,
+                boundaryVerified: false,
+                boundary));
+
+        // At full charges the world holds no fact its sentence could carry, so the boundary's own
+        // account stands rather than the refusal going out wordless.
+        Assert.Equal(
+            boundary,
+            AutomataServiceCycleRuntime.CastRefusalReason(
+                command,
+                World(casting: false, cancellationEnabled: true),
+                in unready,
+                boundaryVerified: false,
+                boundary));
+    }
+
+    /// <summary>
+    /// A cast the game refuses because another is running names the spell that is running.
+    /// </summary>
+    /// <remarks>
+    /// <c>SpellManager.CanCastASpell()</c> is <c>activeSpells.Any(spell =&gt; spell.IsReadyingCast())</c>,
+    /// so one spell mid-cast refuses every cast in the game. A round firing three spells in one
+    /// batch read "the native spell system is busy" for two of them and could not tell which of its
+    /// own presses had taken the caster and which were waiting on it.
+    /// </remarks>
+    [Fact]
+    public void A_busy_caster_names_the_spell_that_is_holding_it()
+    {
+        var busy = ServiceActionResult.Skipped(AutoCastActionResultCodes.NativeCasterBusy);
+        var world = TwoSlots(holderIsReadying: true);
+
+        Assert.Equal(
+            "Whirling Sorcery is still casting; Firebolt waits for it. " +
+            "The game casts one spell at a time.",
+            AutomataServiceCycleRuntime.CastRefusalReason(
+                Fire(world, slot: 2, recipeId: SecondRecipeId),
+                world,
+                in busy,
+                boundaryVerified: false,
+                "another spell is still casting, and the game casts one spell at a time"));
+
+        // Nothing is readying by the time the world was published: the boundary's own account is
+        // all there is, and it says the same thing without the name.
+        Assert.Equal(
+            "another spell is still casting, and the game casts one spell at a time",
+            AutomataServiceCycleRuntime.CastRefusalReason(
+                Fire(TwoSlots(holderIsReadying: false), slot: 2, recipeId: SecondRecipeId),
+                TwoSlots(holderIsReadying: false),
+                in busy,
+                boundaryVerified: false,
+                "another spell is still casting, and the game casts one spell at a time"));
+    }
+
+    /// <summary>
+    /// A fired cast settles on the cast it started, not on the first world after the press.
+    /// </summary>
+    /// <remarks>
+    /// <c>fire</c> had no settlement sentinel at all, so a committed fire answered
+    /// <c>active: no  castReady: yes</c> with no recharge block — the world it described had not
+    /// yet seen the cast. The game spends the charge at the END of a cast
+    /// (<c>Spell.EndCasting</c>/<c>Spell.ExecuteSpell</c> call <c>Spell.ConsumeCharge</c>), so a
+    /// slow spell is still readying when the next world lands and a fast one has already finished
+    /// and dropped a charge. Either proves the press started a cast.
+    /// </remarks>
+    [Fact]
+    public void A_fired_cast_settles_on_the_cast_it_started()
+    {
+        var completedAt = DateTime.UtcNow.Ticks;
+        var before = World(
+            casting: false, cancellationEnabled: true, collectedAtUtcTicks: completedAt - 1,
+            charges: 3, maximumCharges: 3);
+        var command = Fire(GameMcpTestHarness.Context(before, generation: 41));
+
+        // The world the round-15 press was answered from: one generation newer, and the game has
+        // not touched the spell yet.
+        Assert.False(GameMcpPostStateSettlement.IsReady(
+            GameMcpTestHarness.Context(
+                World(
+                    casting: false, cancellationEnabled: true,
+                    collectedAtUtcTicks: completedAt + 1, charges: 3, maximumCharges: 3),
+                generation: 42),
+            mutationWorld: 41,
+            actionCompletedAtUtcTicks: completedAt,
+            command));
+
+        // Spell.Cast() sets the prep state on the frame it runs, and the prep state is what
+        // Spell.IsReadyingCast() reports.
+        Assert.True(GameMcpPostStateSettlement.IsReady(
+            GameMcpTestHarness.Context(
+                World(
+                    casting: false, cancellationEnabled: true,
+                    collectedAtUtcTicks: completedAt + 1, charges: 3, maximumCharges: 3,
+                    readyingCast: true),
+                generation: 42),
+            mutationWorld: 41,
+            actionCompletedAtUtcTicks: completedAt,
+            command));
+
+        // A cast shorter than the world cadence is over before the next publication, and the
+        // charge it spent is the only trace left.
+        var spent = GameMcpTestHarness.Context(
+            World(
+                casting: false, cancellationEnabled: true,
+                collectedAtUtcTicks: completedAt + 1, charges: 2, maximumCharges: 3,
+                cooldownRemaining: new BigDouble(41d)),
+            generation: 42);
+        Assert.True(GameMcpPostStateSettlement.IsReady(
+            spent, mutationWorld: 41, actionCompletedAtUtcTicks: completedAt, command));
+
+        // And the recharge block the projector could never reach is on the answer.
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            spent, command, GameMcpCommandResult.Committed("committed", 9, 3)));
+        Assert.Equal("2 of 3", (string?)delta["charges"]);
+        Assert.Equal("41.0s", (string?)delta["nextChargeIn"]);
+    }
+
+    /// <summary>
+    /// The spell row prints how far off full it is.
+    /// </summary>
+    /// <remarks>
+    /// These two numbers reached the wire from one place only — the refusal nested inside this
+    /// row's own <c>remove:</c> block — so learning a spell's charge state meant pressing a removal
+    /// nobody wanted.
+    /// </remarks>
+    [Fact]
+    public void An_equipped_spell_row_prints_its_charges_and_its_countdown()
+    {
+        var recharging = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
+            World(
+                casting: false, cancellationEnabled: true, charges: 0, maximumCharges: 1,
+                cooldownRemaining: new BigDouble(5.66d)),
+            "spell-slots",
+            World(
+                casting: false, cancellationEnabled: true, charges: 0, maximumCharges: 1,
+                cooldownRemaining: new BigDouble(5.66d)).SpellSlots[0]));
+
+        Assert.Equal("0 of 1", (string?)recharging["charges"]);
+        Assert.Equal("5.66s", (string?)recharging["nextChargeIn"]);
+
+        // At full charges there is nothing to say, and the row says nothing.
+        var full = World(casting: false, cancellationEnabled: true);
+        var ready = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
+            full, "spell-slots", full.SpellSlots[0]));
+        Assert.Null(ready["charges"]);
+        Assert.Null(ready["nextChargeIn"]);
+    }
+
+    private static GameMcpCommand Fire(GameWorldState before) =>
+        Fire(GameMcpTestHarness.Context(before, generation: 41));
+
+    private static GameMcpCommand Fire(
+        GameMcpFrameContext before,
+        int slot = 1,
+        Guid? recipeId = null) => new(
+        1,
+        GameMcpCommandKind.Cast,
+        9,
+        3,
+        "fire",
+        recipeId ?? RecipeId,
+        Guid.Empty,
+        "SpellRecipeSO",
+        slot,
+        string.Empty,
+        string.Empty,
+        false,
+        frameContext: before);
+
+    private static GameMcpCommand Fire(
+        GameWorldState before,
+        int slot,
+        Guid recipeId) =>
+        Fire(GameMcpTestHarness.Context(before, generation: 41), slot, recipeId);
+
+    private static GameWorldState TwoSlots(bool holderIsReadying) => new()
+    {
+        CollectedAtEpoch = 9,
+        CollectedAtUtcTicks = 0,
+        EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, new[]
+        {
+            new EntityIdentityName(RecipeId, "SpellRecipeSO", "Whirling Sorcery", "whirling"),
+            new EntityIdentityName(SecondRecipeId, "SpellRecipeSO", "Firebolt", "firebolt"),
+        }.OrderBy(row => row.EntityId).ToArray()),
+        SpellSlots = PublicationTable<WorldSpellSlot>.Create(new[]
+        {
+            Slot(0, InstanceId, RecipeId, holderIsReadying),
+            Slot(1, SecondInstanceId, SecondRecipeId, readyingCast: false),
+        }),
+    };
+
+    private static WorldSpellSlot Slot(
+        int index,
+        Guid instanceId,
+        Guid recipeId,
+        bool readyingCast) =>
+        new(
+            index,
+            instanceId,
+            recipeId,
+            occupied: true,
+            casting: false,
+            readyingCast,
+            attuning: false,
+            channeled: false,
+            toggled: false,
+            chargeable: false,
+            castReady: true,
+            chargeAvailable: true,
+            canRemove: true,
+            resourcesCovered: true,
+            currentCharges: 1,
+            maximumCharges: 1,
+            cooldownRemaining: default,
+            outputLevel: 1,
+            effectiveLevel: 1,
+            requiredMasteryLevel: 0,
+            recipeMasteryLevel: 1,
+            durationSpell: true,
+            usageRequirementsMet: true,
+            augmentGlyphs: PublicationTable<WorldSpellSlotGlyph>.Empty,
+            cancellationEnabled: true,
+            castCount: 0);
+
     private static GameWorldState World(
         bool casting,
         bool cancellationEnabled,
@@ -481,7 +733,8 @@ public sealed class GameMcpCastTests
         int castCount = 0,
         bool chargeable = false,
         int maximumCharges = 1,
-        BigDouble cooldownRemaining = default) => new()
+        BigDouble cooldownRemaining = default,
+        bool readyingCast = false) => new()
     {
         CollectedAtEpoch = 9,
         CollectedAtUtcTicks = collectedAtUtcTicks,
@@ -493,7 +746,7 @@ public sealed class GameMcpCastTests
                 RecipeId,
                 occupied: true,
                 casting,
-                readyingCast: false,
+                readyingCast,
                 attuning: false,
                 channeled: false,
                 toggled,

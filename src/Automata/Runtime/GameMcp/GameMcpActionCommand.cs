@@ -647,7 +647,8 @@ internal static class GameMcpActionResultCodeNames
         if (commandKind == GameMcpCommandKind.Cast)
         {
             if (code == AutoCastActionResultCodes.NativeCasterBusy)
-                return "The game's spell system is busy right now.";
+                return "Another spell is still casting, and the game casts one spell at a "
+                    + "time. This press started nothing; try it again once that cast ends.";
             if (code == AutoCastActionResultCodes.SlotIdentityChanged)
                 return "The spell slot no longer holds the spell this call named.";
             if (code == AutoCastActionResultCodes.SpellNotReady)

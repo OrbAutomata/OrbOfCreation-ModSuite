@@ -334,6 +334,32 @@ internal static class GameMcpWorldQuery
             " is still recharging: " + RechargeClause(in slot) + ".";
     }
 
+    /// <summary>
+    /// Which spell is holding the caster, when the game refuses a cast because one already has it.
+    /// </summary>
+    /// <remarks>
+    /// <c>SpellManager.CanCastASpell()</c> is <c>activeSpells.Any(spell =&gt; spell.IsReadyingCast())</c>:
+    /// one spell mid-cast refuses every cast in the game. That is a real game gate, not the suite
+    /// serialising anything, and the refusal said only "the native spell system is busy" — a round
+    /// firing three spells in one batch could not tell which of its own presses had taken the
+    /// caster, or which two were still waiting. The world publishes the same predicate for every
+    /// equipped slot, so the sentence names the holder.
+    /// </remarks>
+    internal static string CasterBusyReason(GameWorldState world, Guid recipeId)
+    {
+        for (var index = 0; index < world.SpellSlots.Count; index++)
+        {
+            var slot = world.SpellSlots[index];
+            if (!slot.Occupied || !slot.ReadyingCast) continue;
+            return EntityIdentityFormatter.PlayerName(
+                    slot.SpellRecipeId, world.EntityIdentities) +
+                " is still casting; " +
+                EntityIdentityFormatter.PlayerName(recipeId, world.EntityIdentities) +
+                " waits for it. The game casts one spell at a time.";
+        }
+        return string.Empty;
+    }
+
     private static string RunClock(BigDouble seconds) => GameDurationText.UltraPrecise(seconds);
 
     internal static JObject ListCategories(GameMcpFrameContext state)
@@ -7490,6 +7516,11 @@ internal static class GameMcpWorldQuery
         // published nowhere a player reads. Seconds or a count is the recipe's own recharge kind,
         // so with that unpublished the row says nothing rather than guessing a unit.
         if (TryRechargeText(world, in slot, out var recharge)) result["recharge"] = recharge;
+        // How far off full this spell is, on the row that is the spell. These two numbers reached
+        // the wire from one place only — the refusal nested inside this row's own `remove:` block —
+        // so a caller asking what a spell's state was had to press a removal it did not want, and a
+        // round read a cast refusal with no numbers beside a row that could have printed them.
+        AddRechargeFacts(result, in slot);
         if (slot.Casting) result["casting"] = true;
         if (slot.ReadyingCast) result["readyingCast"] = true;
         if (slot.Attuning) result["attuning"] = true;

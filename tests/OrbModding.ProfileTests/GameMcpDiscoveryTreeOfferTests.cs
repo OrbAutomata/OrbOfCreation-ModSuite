@@ -424,6 +424,69 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.False((bool)delta["changed"]!);
     }
 
+    /// <summary>
+    /// The press that starts a roll settles on the mode change it makes, and says the roll is
+    /// still running.
+    /// </summary>
+    /// <remarks>
+    /// A round read <c>mode: crafting</c> on the initiate press and <c>mode: choice</c> on its next
+    /// read and took the word for a flip. The press settles on exactly what the press produces —
+    /// the tree leaving idle for crafting — and no further: the game rolls the offers three seconds
+    /// of game time later, which no frame-scale settlement budget can outwait, and waiting for the
+    /// offers reported a timeout on every initiate that had plainly landed. So the press says what
+    /// it is instead: the roll is running, and for how long.
+    /// </remarks>
+    [Fact]
+    public void An_initiated_roll_settles_on_crafting_and_says_the_roll_is_running()
+    {
+        var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+        var completedAt = DateTime.UtcNow.Ticks;
+        var operation = GameMcpProtocolRouter.BuildOperation(
+            "game_discover",
+            new JObject
+            {
+                ["mode"] = "offer_initiate",
+                ["uuid"] = treeId.ToString("D"),
+            });
+
+        Assert.True(Plugin.TryPrepareGameMcpCommand(
+            new GameMcpFrameOperation(1, operation),
+            GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 0, collectedAtUtcTicks: completedAt - 1),
+                generation: 41),
+            out var command,
+            out var failure), failure?.Reason);
+
+        // Still idle a world later: the press has not landed, and the answer must not describe it.
+        Assert.False(GameMcpPostStateSettlement.IsReady(
+            GameMcpTestHarness.Context(
+                Tree(treeId, actionMode: 0, collectedAtUtcTicks: completedAt + 1),
+                generation: 42),
+            mutationWorld: 41,
+            actionCompletedAtUtcTicks: completedAt,
+            command));
+
+        var rolling = GameMcpTestHarness.Context(
+            Tree(
+                treeId, actionMode: 1, collectedAtUtcTicks: completedAt + 1,
+                actionTime: new BigDouble(0.1d)),
+            generation: 42);
+        Assert.True(GameMcpPostStateSettlement.IsReady(
+            rolling,
+            mutationWorld: 41,
+            actionCompletedAtUtcTicks: completedAt,
+            command));
+
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            rolling, command, GameMcpCommandResult.Committed("committed", 9, 3)));
+        Assert.Equal("crafting", (string?)delta["mode"]);
+        Assert.Equal("0.10s", (string?)delta["actionTime"]);
+        Assert.Equal(
+            "This roll is still running. The game rolls its offers three seconds after the " +
+            "press, and this tree has been rolling 0.10s.",
+            (string?)delta["rolling"]);
+    }
+
     private static GameWorldState Tree(
         Guid treeId,
         int actionMode,
@@ -432,7 +495,8 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         int rerollsLeft = 2,
         Guid[]? offers = null,
         Guid discoveredSpellId = default,
-        int loadedSlotIndex = -1) => new()
+        int loadedSlotIndex = -1,
+        BigDouble actionTime = default) => new()
         {
             CollectedAtEpoch = 7,
             CollectedAtUtcTicks = collectedAtUtcTicks,
@@ -459,7 +523,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new[]
             {
                 new WorldDiscoveryTree(
-                    treeId, true, actionMode, BigDouble.Zero, rerollsLeft, false, Guid.Empty,
+                    treeId, true, actionMode, actionTime, rerollsLeft, false, Guid.Empty,
                     offers ?? Array.Empty<Guid>(), false, true,
                     Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty, Guid.Empty,
                     0, 0, false, discoveredCount, 3, discoveredCount + 3, 4, true, true, false),
