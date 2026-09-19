@@ -372,6 +372,7 @@ internal static class GameMcpDecisionReason
         "operation_dispatch_fault" or "adapter_fault" or "pair_faulted" or "post_commit_fault" or
         "verification_failed" or "prerequisite_unverified" or
         "requirement_cycle" or "requirement_depth_exceeded" or "requirement_unevaluable" or
+        "tier_not_published" or
         "threshold_scaling_unavailable" or "category_not_collected" or
         "owning_screen_unknown" or "owning_screen_unreadable" or
         "owning_screen_contradictory" or "topology_not_captured" or
@@ -627,6 +628,8 @@ internal static class GameMcpDecisionReason
         // out — "Requirement unevaluable." — on the read whose whole job is explaining why a
         // verb is shut, which is the loop this table exists to end. The unmet leaf writes its own sentence
         // from the numbers already beside it and never reaches here.
+        "tier_not_published" =>
+            "The game publishes no such tier on this gate, so what it asks for could not be read.",
         "requirement_unevaluable" =>
             "The game's own answer for this requirement could not be read, so whether it is " +
             "met is unknown.",

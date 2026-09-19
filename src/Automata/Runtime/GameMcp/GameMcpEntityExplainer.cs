@@ -1,6 +1,7 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
 using JObject = OrbAutomata.GameMcp.GameMcpObjectBuilder;
@@ -962,16 +963,42 @@ internal static class GameMcpEntityExplainer
             }
         }
         if (row.Kind == WorldRequirementConditionKind.PrerequisiteLink)
-        {
-            var tiers = ProjectLinkTiers(
-                world, in row, checkLevel, evaluated, trail, depth + 1, unmet);
-            if (tiers.Count > 0) leaf["prerequisiteLinkTiers"] = tiers;
-        }
+            AddLinkTier(world, leaf, in row, checkLevel, evaluated, trail, depth + 1, unmet);
         return leaf;
     }
 
-    private static JArray ProjectLinkTiers(
+    /// <summary>
+    /// Which tier of a gate this row asks about: its own threshold, or the base tier for a row
+    /// that names none.
+    /// </summary>
+    private static long SelectedTier(
+        in WorldEntityRequirement row,
+        in WorldRequirementLeafEvaluation evaluation) =>
+        row.ReqType == 0 ? 0L : BigDouble.Round(evaluation.ScaledThreshold).ToLong();
+
+    /// <summary>
+    /// What the one tier this row asks about needs, on the rows that are not met.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This used to publish every tier of the link: seven blocks of frame counters, enabled flags
+    /// and a whole requirement container each — about seventy lines — for a row that asks about
+    /// exactly one of them. <c>evaluatedFrame</c>, <c>collectedFrame</c> and
+    /// <c>evaluatedThisFrame</c> are the game's own bookkeeping and answer nothing a reader can
+    /// act on; <c>selected</c> and <c>activeEnabled</c>/<c>passiveEnabled</c> restated the
+    /// <c>met</c> the leaf already carries.
+    /// </para>
+    /// <para>
+    /// A met row is fully answered by <c>needs</c> and <c>met</c>, the same rule every other leaf
+    /// keeps. An unmet one becomes an ordinary operator node: the tier's own conditions are its
+    /// <c>children</c>, in the same leaf shape as every other requirement — which is where the
+    /// upgrade that opens the gate is finally named — and <c>otherTiers</c> counts the link's
+    /// later rungs, so the reader knows they exist without being handed all of them.
+    /// </para>
+    /// </remarks>
+    private static void AddLinkTier(
         GameWorldState world,
+        JObject leaf,
         in WorldEntityRequirement row,
         long checkLevel,
         in WorldRequirementLeafEvaluation evaluation,
@@ -979,34 +1006,27 @@ internal static class GameMcpEntityExplainer
         int depth,
         JArray unmet)
     {
-        var selectedTier = row.ReqType == 0
-            ? 0L
-            : BigDouble.Round(evaluation.ScaledThreshold).ToLong();
-        var tiers = new JArray();
+        var selectedTier = SelectedTier(in row, in evaluation);
+        var tierCount = 0;
+        var published = false;
         for (var index = 0; index < world.PrerequisiteLinkTiers.Count; index++)
         {
             var tier = world.PrerequisiteLinkTiers[index];
             if (tier.LinkId != row.TargetId) continue;
-            tiers.Add(new JObject
-            {
-                ["tierIndex"] = tier.TierIndex,
-                ["selected"] = selectedTier == tier.TierIndex,
-                ["activeEnabled"] = tier.ActiveEnabled,
-                ["passiveEnabled"] = tier.PassiveEnabled,
-                ["evaluatedFrame"] = tier.EvaluatedFrame,
-                ["collectedFrame"] = tier.CollectedFrame,
-                ["evaluatedThisFrame"] = tier.EvaluatedThisFrame,
-                ["requirements"] = ProjectRequirementContainer(
-                    world,
-                    row.TargetId,
-                    tier.TierIndex,
-                    checkLevel,
-                    trail,
-                    depth,
-                    unmet),
-            });
+            tierCount++;
+            published |= tier.TierIndex == selectedTier;
         }
-        return tiers;
+        if (tierCount == 0 || evaluation.Met) return;
+        if (tierCount > 1) leaf["otherTiers"] = tierCount - 1;
+        if (!published)
+        {
+            leaf["reasonCode"] = "tier_not_published";
+            return;
+        }
+        var container = ProjectRequirementContainer(
+            world, row.TargetId, (int)selectedTier, checkLevel, trail, depth, unmet);
+        if (container["children"] is JArray children && children.Count > 0)
+            leaf["children"] = children;
     }
 
     private static JObject? ResearchThresholds(GameWorldState world, Guid id, EntityKind kind)
@@ -1565,6 +1585,10 @@ internal static class GameMcpEntityExplainer
         in WorldEntityRequirement row,
         in WorldRequirementLeafEvaluation evaluated)
     {
+        // `Required` is the met/not-met pair's right-hand side — the leaf evaluator hard-codes it
+        // to one for every PrerequisiteLink — so a named-tier gate read "at tier 1" whatever tier
+        // it asked for. The tier is the row's own threshold, which is the number the evaluator
+        // looks the tier up by.
         // An authored empty composite compares nothing at all: its identity value is the whole of
         // what it says, and Enumerable.All of nothing is true where Enumerable.Any of nothing is
         // false. There is no target to name and no threshold to print.
@@ -1603,7 +1627,8 @@ internal static class GameMcpEntityExplainer
             "any-visible" => "something from " + name,
             "any-available" => "something available from " + name,
             "first-tier-enabled" => "the " + name + " gate",
-            "named-tier-enabled" => "the " + name + " gate at tier " + required,
+            "named-tier-enabled" => "the " + name + " gate at tier " +
+                SelectedTier(in row, in evaluated).ToString(CultureInfo.InvariantCulture),
             _ => throw new InvalidOperationException(
                 "a requirement row reached the wire checking '" + check + "' with no player " +
                 "phrase for it; a comparison the game ships is a phrase to write, not a suite word " +

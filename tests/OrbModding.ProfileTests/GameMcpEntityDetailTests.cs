@@ -524,12 +524,17 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         global::PrerequisiteLinkSO.All.Add(link);
         link.linkTiers.Add(Tier(Require(research, 1)));
         link.linkTiers.Add(Tier(Require(research, 2)));
+        // A third rung, and the row asks for the last of them. Round 15's two gates
+        // (Conceptualization and Innovation, both on the same named-tier link) asked for tier 0
+        // and read "at tier 1"; a fixture asking for tier 1 would have read right by accident,
+        // because the number printed was the met pair's hard-coded one.
+        link.linkTiers.Add(Tier(Require(research, 3)));
         owner.prerequisitesPerLevel.prerequisites.Add(
             new Requirements.PrerequisiteLinkRequirement
             {
                 item = link,
                 reqType = Requirements.PrerequisiteLinkType.Tier,
-                value = new Requirements.LeveledValue { baseValue = 1d },
+                value = new Requirements.LeveledValue { baseValue = 2d },
             });
 
         var result = Explain(Collect(), owner.GetGuid(), 920);
@@ -569,15 +574,29 @@ public sealed class GameMcpEntityDetailTests : IDisposable
                 .Select(property => property.Name)
                 .ToArray());
 
-        var tiers = top[1]["prerequisiteLinkTiers"]!.OfType<JObject>().ToArray();
-        Assert.Equal(new[] { 0, 1 }, tiers.Select(tier => (int)tier["tierIndex"]!).ToArray());
-        Assert.False((bool)tiers[0]["selected"]!);
-        Assert.True((bool)tiers[1]["selected"]!);
-        Assert.All(tiers, tier =>
-        {
-            var tierRequirements = Assert.IsType<JObject>(tier["requirements"]);
-            Assert.Equal("AND", (string?)tierRequirements["operator"]);
-        });
+        // The gate names the tier it asks about, and only that tier. `Required` is the met pair's
+        // right-hand side, hard-coded to one for every PrerequisiteLink leaf, so this phrase read
+        // "at tier 1" for every named-tier gate in the game whatever tier it wanted; this link
+        // asks for tier 1 and the row beside it in the fixture asks for none.
+        var gate = top[1];
+        Assert.EndsWith(" gate at tier 2", (string?)gate["needs"]);
+        Assert.False((bool)gate["met"]!);
+        Assert.Null(gate["prerequisiteLinkTiers"]);
+
+        // The wall is gone. What is left is the one tier's own conditions, in the same leaf shape
+        // every other requirement uses, and a count of the rungs above it.
+        Assert.Equal(2, (int)gate["otherTiers"]!);
+        var tierGroup = Assert.Single(gate["children"]!.OfType<JObject>())!;
+        Assert.Equal("AND", (string?)tierGroup["operator"]);
+        var tierLeaf = Assert.Single(tierGroup["children"]!.OfType<JObject>())!;
+        Assert.EndsWith(" at level 3 (at 0)", (string?)tierLeaf["needs"]);
+        Assert.False((bool)tierLeaf["met"]!);
+
+        // Tier 0 is the rung this row does not ask about, and none of its conditions, frame
+        // counters or enabled flags ride along.
+        Assert.DoesNotContain("at level 1", gate.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("at level 2", gate.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("evaluatedFrame", gate.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
