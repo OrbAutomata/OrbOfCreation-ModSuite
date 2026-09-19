@@ -123,12 +123,12 @@ public sealed class GameMcpSpellCompositionTests
 
         var cast = Assert.Single(equipped["castCosts"]!.Values<JObject>())!;
         Assert.Equal("Knowledge", (string?)cast["resource"]!["name"]);
-        Assert.Equal("4.4e3", (string?)cast["cost"]);
-        Assert.Equal("9e6", (string?)cast["spendableAmount"]);
+        Assert.Equal("4.40e3", (string?)cast["cost"]);
+        Assert.Equal("9.00e6", (string?)cast["spendableAmount"]);
         Assert.True((bool)cast["affordable"]!);
         var drain = Assert.Single(equipped["drainCostsPerSecond"]!.Values<JObject>())!;
         Assert.Equal("250", (string?)drain["cost"]);
-        Assert.Equal("9e6", (string?)drain["spendableAmount"]);
+        Assert.Equal("9.00e6", (string?)drain["spendableAmount"]);
     }
 
     [Theory]
@@ -314,7 +314,7 @@ public sealed class GameMcpSpellCompositionTests
         var cast = Assert.Single(row["authoredCosts"]!["cast"]!.Values<JObject>())!;
         Assert.Null(cast["name"]);
         Assert.Equal("Knowledge", (string?)cast["resource"]!["name"]);
-        Assert.Equal("4.4e3", (string?)cast["cost"]);
+        Assert.Equal("4.40e3", (string?)cast["cost"]);
         var hold = Assert.Single(row["authoredCosts"]!["hold"]!.Values<JObject>())!;
         Assert.Equal("250", (string?)hold["cost"]);
         Assert.Null(row["authoredCosts"]!["upkeep"]);

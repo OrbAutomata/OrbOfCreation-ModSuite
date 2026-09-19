@@ -910,7 +910,7 @@ public sealed class GameMcpCorrectnessCoreTests
                 }))));
 
         Assert.Equal(
-            "2 of 5 asked; the game took no more this press: the next level costs 1.2e3 Mana and " +
+            "2 of 5 asked; the game took no more this press: the next level costs 1.20e3 Mana and " +
             "300 Insight.",
             (string?)delta["queued"]);
 

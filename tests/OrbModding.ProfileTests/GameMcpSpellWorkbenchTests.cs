@@ -110,8 +110,8 @@ public sealed class GameMcpSpellWorkbenchTests
             books.Select(book => (bool)book!["owned"]!));
         var cost = Assert.Single(exact["discover"]!["costs"]!.Values<JObject>())!;
         Assert.Equal("Knowledge", (string?)cost["resource"]!["name"]);
-        Assert.Equal("4.4e3", (string?)cost["cost"]);
-        Assert.Equal("9e6", (string?)cost["spendableAmount"]);
+        Assert.Equal("4.40e3", (string?)cost["cost"]);
+        Assert.Equal("9.00e6", (string?)cost["spendableAmount"]);
     }
 
     /// <summary>
@@ -382,7 +382,7 @@ public sealed class GameMcpSpellWorkbenchTests
             new[] { "amount", "resource" },
             row.Properties().Select(property => property.Name));
         Assert.Equal("Knowledge", (string?)row["resource"]!["name"]);
-        Assert.Equal("4.4e3", (string?)row["amount"]);
+        Assert.Equal("4.40e3", (string?)row["amount"]);
     }
 
     /// <summary>An admitted load with no allocation says so by carrying no allocation block.</summary>

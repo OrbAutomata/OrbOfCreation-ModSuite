@@ -26,7 +26,7 @@ public sealed class VerificationValueTests
     public void Two_values_that_agree_are_written_once()
     {
         Assert.Equal(
-            "ours=theirs=4.4e3",
+            "ours=theirs=4.40e3",
             VerificationValue.Sides(new BigDouble(4.4d, 3), new BigDouble(4.4d, 3)));
     }
 
@@ -34,7 +34,7 @@ public sealed class VerificationValueTests
     public void Two_values_that_differ_differ_in_the_digits_that_are_printed()
     {
         Assert.Equal(
-            "ours=1.1e24 theirs=5.63e24",
+            "ours=1.10e24 theirs=5.63e24",
             VerificationValue.Sides(new BigDouble(1.1d, 24), new BigDouble(5.634d, 24)));
     }
 

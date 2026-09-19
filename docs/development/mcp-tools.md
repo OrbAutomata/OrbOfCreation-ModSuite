@@ -97,13 +97,32 @@ and no way to select a discovery output by UUID; and `game_spell_mastery` requir
 takes no target.
 
 Every game-domain `BigDouble` is one JSON string produced by the shared number formatter, never
-a JSON number or a text/mantissa/exponent object. Zero is `"0"`. The formatter follows the screen:
-ordinary player-scale values are plain with at most two decimals (`"26"`, `"2.2"`), while large or
-small magnitudes use a normalized mantissa and lowercase `e` exponent without a plus sign
-(`"1.66e8"`, `"1.23e-3"`). There is one formatter and no precision or verbosity option, and it is
-not the wire's alone: the differential check prints magnitudes from the Runtime page in builds this
-whole surface is compiled out of, and a second formatter for those builds would be a second
-notation.
+a JSON number or a text/mantissa/exponent object. **The formatter is the game's own renderer**,
+`Utils.BeautifyNumber`, mirrored branch for branch and held in the suite's audited math as a
+declared `mirrored` contract: the wire writes the characters the screen writes, so a caller
+comparing a number here against the number in front of the player is comparing two identical
+strings rather than two roundings of one value. Zero is `"0"`.
+
+From a tenth up to a thousand the number is plain, and its decimals narrow as it grows — three
+below one, two below ten, one below a hundred, none at or above it, and none at all for a whole
+number: `"0.700"`, `"1.15"`, `"12.3"`, `"123"`, `"26"`. Outside that window it is a mantissa of
+exactly two decimals against a lowercase `e` exponent with no plus sign (`"1.20e5"`, `"1.23e-3"`),
+and the mantissa is rounded where it stands rather than renormalized, so a hair under a million
+reads `"10.00e5"` on the screen and `"10.00e5"` here.
+
+Which of the game's five notations that is, is a setting the game owns — and the suite writes it.
+`SettingsManager.GetNumberDisplayOption` opens on `Application.isPlaying` and reaches the setting
+through a Unity object, so nothing away from the player loop can read it honestly; instead, the
+load that asked for the game writes `Scientific` into the game's own `numDisplay`, reads it back,
+and fails the load if it did not settle. The arm the mirror spells and the arm the load writes are
+one constant in the suite, so the wire cannot be spelling a notation the screen is not drawing.
+A player who changes the notation from the settings menu mid-run moves the screen without moving
+the wire, in the same way that turning Research Queue Mode off mid-run moves the game out from
+under the documented verbs: normalization is per load.
+
+There is one formatter and no precision or verbosity option, and it is not the wire's alone: the
+differential check prints magnitudes from the Runtime page in builds this whole surface is compiled
+out of, and a second formatter for those builds would be a second notation.
 
 The game aggressively caches some derived values until their screen has been viewed. That upstream
 behavior is not silently worked around here. If a stale cache prevents a native action, the
@@ -833,7 +852,7 @@ spent 22% of its whole wire re-fetching two hundred blocks to learn it per row.
 **A duration is printed as one, wherever it appears.** `isPercent` is one of three number kinds the
 game decides in `NumberVariable.GetValueDisplay()`, and the other two are the time flags:
 `isTimeVariable` with `isTimeAccurateVariable` is drawn through `Utils.BeautifyTimeUltraPrecise`
-(`45s`, `02:07:41`, `1.5y`), `isTimeVariable` alone through `Utils.BeautifyTimeAccurate` (`4.57s`,
+(`45s`, `02:07:41`, `1.50y`), `isTimeVariable` alone through `Utils.BeautifyTimeAccurate` (`4.57s`,
 `45.7s`, `461s`, `128m` — the game compares a seconds value against millisecond-scale bounds, and
 the wire reproduces its arithmetic rather than correcting it). Both flags are captured, so a flagged
 variable's `value` crosses as the string the screen shows instead of its raw seconds count. Nine
@@ -1426,10 +1445,11 @@ qualifies it, and the order decides which modifiers merge before any is applied.
 ways of spelling a magnitude rather than five tokens (`raw`, `diminishing`, `stacking`, `reduction`,
 `exponent`) a reader had to look up and then combine with the number next to them. The game never
 separates the two, and `modifierType` is gone from every block that carried it. The number rule
-underneath is `Utils.BeautifyNumber(BigDouble, bool, BigDouble)`, held in the suite's audited math as
-a declared `mirrored` contract and pinned branch by branch, which is why `x0.700` keeps its trailing
-zeros and a stored `1.0007` reads `x1.001` rather than losing its thousandth to a two-decimal
-rounding.
+underneath is `Utils.BeautifyNumber(BigDouble, bool, BigDouble)` — the same rule every other
+magnitude on the wire takes, with a threshold of nought instead of one — held in the suite's audited
+math as a declared `mirrored` contract and pinned branch by branch, which is why `x0.700` keeps its
+trailing zeros and a stored `1.0007` reads `x1.001` rather than losing its thousandth to a
+two-decimal rounding.
 
 **Nothing is folded into the magnitude.** Two glyphs on one spell combine by kind, and a
 pre-multiplied number would say the wrong thing about every pairing; the printed string is one
@@ -3827,11 +3847,33 @@ to touch one argues for it first. Each line names where the shape is specified.
 24. A token a reader would need a glossary for is a sentence: where a native ordinal, enum member or
     flag has no word the screen prints, the wire writes what the screen writes instead of
     publishing the token beside the number it qualifies — *The cell vocabulary*.
+25. A magnitude is spelled the way the screen spells it, character for character, because the
+    formatter *is* the game's renderer rather than a rounding of its own. A rule that looks tidier
+    on the wire is a rule that makes a reader convert before they can tell two numbers apart —
+    *Architecture and safety*. The worked cases, against a formatter the suite authored itself:
+
+    | value | a formatter of the suite's own | the screen, and the wire |
+    |---|---|---|
+    | `0.001` | `1e-3` | `1.00e-3` |
+    | `0.7` | `0.7` | `0.700` |
+    | `0.999` | `1` | `0.999` |
+    | `1.15` | `1.15` | `1.15` |
+    | `12.34` | `12.34` | `12.3` |
+    | `123.456` | `123.46` | `123` |
+    | `1000` | `1e3` | `1.00e3` |
+    | `1.2e5` | `1.2e5` | `1.20e5` |
+    | `9.9999999e5` | `1e6` | `10.00e5` |
 
 Retired shapes are listed below, and a round that reintroduces one is undoing a ruling rather than
 restoring a contract. The first six were entries in the list above; the rest never were, and are
 collected here so that one page answers what a name on an older transcript meant:
 
+- **Always-scientific magnitudes.** Every number on the wire written as a mantissa and a lowercase
+  exponent, with ordinary player-scale values rounded to at most two decimals and their trailing
+  zeros trimmed — a notation of the suite's own that agreed with the screen on `1.15` and disagreed
+  on `0.700`, `12.3`, `123` and `1.20e5`. One notation was the right instinct; authoring it here
+  rather than mirroring `Utils.BeautifyNumber` was the defect, because the screen is the notation —
+  *Architecture and safety*.
 - **The cast-counter echo.** A cast press answered with a counter that had not moved yet, because
   the game writes it when a cast finishes rather than when one is pressed — so the pair reported no
   change on every landed press. Demoting the pair to a bare total kept the same defect: a landed
@@ -4282,7 +4324,7 @@ The rules that make it read that way:
   byte-identical numbers behind two full UUIDs.
 - **Numbers are the game's own Scientific notation**, both sides of a comparison in the same form,
   so a difference shows in the digits that differ. Two values that agree are written once
-  (`ours=theirs=4.4e3`). Two that differ only below the three digits the screen keeps say so
+  (`ours=theirs=4.40e3`). Two that differ only below the three digits the screen keeps say so
   (`both read 7.46e290, differing below what the screen shows`) rather than printing the same string
   twice under a heading that claims they disagree.
 - **One `window:` line, last, the same shape every call.** Everything that moves between two calls

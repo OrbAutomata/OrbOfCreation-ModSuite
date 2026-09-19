@@ -88,7 +88,7 @@ public sealed class GameMcpConsumableTests
         var cost = Assert.Single(row["useCosts"]!).Value<JObject>()!;
         Assert.Equal("Toxicity", (string?)cost["resource"]!["name"]);
         Assert.Equal("250", (string?)cost["cost"]);
-        Assert.Equal("9e6", (string?)cost["spendableAmount"]);
+        Assert.Equal("9.00e6", (string?)cost["spendableAmount"]);
 
         // One price shape wherever a price is said: what it asks, what you hold, then the resource
         // it is about. A producer that published the price under `amount` had it renamed on the

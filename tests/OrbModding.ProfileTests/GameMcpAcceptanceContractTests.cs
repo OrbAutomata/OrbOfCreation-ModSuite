@@ -152,9 +152,9 @@ public sealed class GameMcpWorldQueryTests
         Assert.Equal("Knowledge", (string?)block["name"]);
         Assert.Equal("resources", (string?)block["category"]);
         Assert.Equal("held", (string?)row["meter"]);
-        Assert.Equal("5e24", (string?)row["amount"]);
-        Assert.Equal("8e26", (string?)row["capacity"]);
-        Assert.Equal("1.4e21", (string?)row["netRatePerSecond"]);
+        Assert.Equal("5.00e24", (string?)row["amount"]);
+        Assert.Equal("8.00e26", (string?)row["capacity"]);
+        Assert.Equal("1.40e21", (string?)row["netRatePerSecond"]);
         Assert.False((bool)row["atCapacity"]!);
         Assert.Null(row["reading"]);
         Assert.Null(row["quantity"]);
@@ -165,7 +165,7 @@ public sealed class GameMcpWorldQueryTests
         // The detail read costs what the detail costs: identity said once, on top of the row a list
         // page would have shown. The retired `predicates` block spent its bytes on a copy of the
         // ledger bit under two names; `inLedger` spends fewer on the bit itself, said once.
-        Assert.Equal(207, System.Text.Encoding.UTF8.GetByteCount(
+        Assert.Equal(214, System.Text.Encoding.UTF8.GetByteCount(
             response.ToString(Newtonsoft.Json.Formatting.None)));
 
         var list = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
@@ -175,7 +175,7 @@ public sealed class GameMcpWorldQueryTests
             10));
         var listed = Assert.Single(list["rows"]!.Values<JObject>())!;
         Assert.Equal((string?)row["amount"], (string?)listed["amount"]);
-        Assert.Equal("5e24", (string?)listed["amount"]);
+        Assert.Equal("5.00e24", (string?)listed["amount"]);
     }
 
     [Fact]
@@ -232,7 +232,7 @@ public sealed class GameMcpWorldQueryTests
             new[] { resourceId.ToString("D") }));
         var row = Assert.Single(response["results"]!.Values<JObject>())!["row"]!;
 
-        Assert.Equal("5e24", (string?)row["amount"]);
+        Assert.Equal("5.00e24", (string?)row["amount"]);
         Assert.Equal("0", (string?)row["netRatePerSecond"]);
 
         // The native ceiling here is -9.48e9. Neither that number nor a plain `atCapacity: no`
@@ -281,7 +281,7 @@ public sealed class GameMcpWorldQueryTests
         Assert.Equal(GameMcpTestHarness.Handle(uuid), (string?)encoded["uuid"]);
         Assert.Equal("Knowledge", (string?)encoded["name"]);
         Assert.Equal("resources", (string?)encoded["category"]);
-        Assert.Equal("2.5e3", (string?)encoded["amount"]);
+        Assert.Equal("2.50e3", (string?)encoded["amount"]);
         Assert.True((bool)encoded["available"]!);
         Assert.Equal("postcondition_failed", (string?)encoded["outcome"]);
         Assert.Equal("one_shot_queue", (string?)encoded["execution"]);

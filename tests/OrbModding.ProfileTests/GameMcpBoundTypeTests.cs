@@ -99,7 +99,7 @@ public sealed class GameMcpBoundTypeTests
     {
         var row = Json(new GameMcpObjectBuilder { ["cost"] = 1400000d });
 
-        Assert.Equal("1.4e6", (string?)row["cost"]);
+        Assert.Equal("1.40e6", (string?)row["cost"]);
     }
 
     /// <summary>

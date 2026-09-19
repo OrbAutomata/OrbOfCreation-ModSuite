@@ -944,7 +944,7 @@ public sealed class GameMcpWorldEnvelopeTests
     [InlineData(461d, "07:41")]
     [InlineData(7661d, "02:07:41")]
     [InlineData(359999d, "99:59:59")]
-    [InlineData(31557601d, "1y")]
+    [InlineData(31557601d, "1.00y")]
     public void The_overview_prints_the_runs_own_clock_the_way_the_game_does(
         double seconds, string expected)
     {
@@ -2110,7 +2110,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal(GameMcpTestHarness.Handle(consumableId), (string?)output["uuid"]);
         var drain = Assert.Single(row["drainBlockers"]!.Values<JObject>())!;
         Assert.Equal("ERR_LIMIT", (string?)drain["reasonCode"]);
-        Assert.Equal("0.75", (string?)drain["availableRatio"]);
+        Assert.Equal("0.750", (string?)drain["availableRatio"]);
 
         var incompleteWorld = new GameWorldState
         {

@@ -544,7 +544,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var cost = Assert.Single(row["initiate"]!["costs"]!).Value<JObject>()!;
         Assert.Equal(GameMcpTestHarness.Handle(currencyId), (string?)cost["resource"]!["uuid"]);
         Assert.NotNull(cost["resource"]!["name"]);
-        Assert.Equal("1.1e24", (string?)cost["cost"]);
+        Assert.Equal("1.10e24", (string?)cost["cost"]);
         Assert.Equal("5.63e24", (string?)cost["spendableAmount"]);
         Assert.Null(row["reroll"]);
         Assert.DoesNotContain("debugMode", response.ToString(), StringComparison.Ordinal);
@@ -570,7 +570,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             treeId.ToString("D")));
         Assert.False((bool)unaffordable["row"]!["initiate"]!["available"]!);
         Assert.Equal("ERR_UNAFFORDABLE", (string?)unaffordable["row"]!["initiate"]!["reasonCode"]);
-        Assert.Equal("1.1e24",
+        Assert.Equal("1.10e24",
             (string?)unaffordable["row"]!["initiate"]!["costs"]![0]!["cost"]);
         Assert.Equal("100",
             (string?)unaffordable["row"]!["initiate"]!["costs"]![0]!["spendableAmount"]);
@@ -579,7 +579,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         // affordable=no` off 4.6 Knowledge and went looking for a suite bug. The sentence carries
         // the same two numbers game_purchase's refusal does, so a near miss reads as a near miss
         // rather than as "The named resources fall short of the price."
-        Assert.Equal("Needs 1.1e24 Knowledge (have 100).",
+        Assert.Equal("Needs 1.10e24 Knowledge (have 100).",
             (string?)unaffordable["row"]!["initiate"]!["reason"]);
     }
 
@@ -942,8 +942,8 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             Assert.True((bool)confirmResponse["initiate"]!["available"]!);
             var nextCost = Assert.Single(confirmResponse["initiate"]!["costs"]!.Values<JObject>())!;
             Assert.Equal("Knowledge", (string?)nextCost["resource"]!["name"]);
-            Assert.Equal("1.4e4", (string?)nextCost["cost"]);
-            Assert.Equal("2e25", (string?)nextCost["spendableAmount"]);
+            Assert.Equal("1.40e4", (string?)nextCost["cost"]);
+            Assert.Equal("2.00e25", (string?)nextCost["spendableAmount"]);
             Assert.True((bool)nextCost["affordable"]!);
 
             static int CommittedBytes(JObject postState)
@@ -954,7 +954,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     response.ToString(Newtonsoft.Json.Formatting.None));
             }
             Assert.Equal(
-                new[] { 434, 493, 345 },
+                new[] { 434, 493, 349 },
                 new[]
                 {
                     CommittedBytes(rerollResponse),
@@ -1054,7 +1054,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.True((bool)projected["initiate"]!["available"]!);
         var cost = Assert.Single(projected["initiate"]!["costs"]!.Values<JObject>())!;
         Assert.Equal("Knowledge", (string?)cost["resource"]!["name"]);
-        Assert.Equal("7.5e6", (string?)cost["cost"]);
+        Assert.Equal("7.50e6", (string?)cost["cost"]);
         Assert.Equal("2.43e25", (string?)cost["spendableAmount"]);
         Assert.Null(projected["discovered"]);
         Assert.Null(projected["totalDiscovered"]);

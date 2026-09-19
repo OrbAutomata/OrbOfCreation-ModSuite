@@ -102,7 +102,7 @@ public sealed class GameMcpHarvestLifecycleTests
         Assert.Equal("Grow", (string?)action["name"]);
         Assert.Equal(1, (int)action["active"]!);
         Assert.True((bool)action["add"]!["available"]!);
-        Assert.Equal("4.5", (string?)action["add"]!["nextDrain"]![0]!["cost"]);
+        Assert.Equal("4.50", (string?)action["add"]!["nextDrain"]![0]!["cost"]);
         Assert.True((bool)action["remove"]!["available"]!);
 
         var blockedWorld = World(elementActive: 2, actionActive: 4,
