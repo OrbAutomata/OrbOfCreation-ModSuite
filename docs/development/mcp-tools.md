@@ -675,8 +675,8 @@ state, a run or a keyword is a call; a call that names none of them is refused a
 all five.
 
 `state` narrows to one of the three lifecycle words, and it reaches every category that carries the
-column: `upgrades`, `research`, `attributes`, `alchemy-recipes`, `augment-glyphs`, `rituals`, `plot-nodes`
-and `challenges`. The filter reads the word the row's own list page says and never derives one of its
+column: `upgrades`, `research`, `attributes`, `alchemy-recipes`, `concepts`, `augment-glyphs`,
+`rituals`, `plot-nodes` and `challenges`. The filter reads the word the row's own list page says and never derives one of its
 own, so its reach is a consequence of which pages carry the column rather than a list maintained
 beside them — extend the column and the filter follows.
 
@@ -706,9 +706,10 @@ second grammar for the same fact. `challenges` is read now because it now has a 
 its `state` column used to hold the five run words, which moved to `run`. `category` narrows to one
 searchable category; naming a composite one is refused by name rather than answering an empty page.
 
-One entity is one hit however many categories publish it, and the first category holding it wins. An
-alchemy recipe therefore answers under `alchemy-recipes` rather than under the `concept-recipes`
-republication of the same 125 rows.
+One entity is one hit however many categories publish it, and the first category holding it wins.
+No category republishes another's rows since `concept-recipes` retired: `AlchemyRecipeSO` backs two
+categories and each holds its own half, so an alchemy recipe answers under `alchemy-recipes` and a
+Concept under `concepts`.
 
 `keywordHits` appears when the query hit more than one distinct keyword, and says how the whole
 result set splits between them: `keywordHits: Charm=2, Charm Focus=1`. It counts only the keywords
@@ -762,19 +763,20 @@ depend on it answer `entity_catalog_unavailable` rather than substituting the bu
 fixtures.
 
 The `world_get` identity block is that snapshot's one projection, and it carries `uuid`,
-`nativeType`, and `name`. **It is the only place an asset id prints.** An internal name is a
-diagnostic, and a page row is a player's row: a `world_list` or `world_search` row, and the `row`
-block inside a `world_get` answer, never carry `internalName`. The column printed
+`nativeType`, and `name`. **It is the only place an asset id prints as a field of its own.** An
+internal name is a diagnostic, and a page row is a player's row: a `world_list` or `world_search`
+row, and the `row` block inside a `world_get` answer, never carry `internalName`. The column printed
 `ActivePlotNodeActions` beside the authored name *Plot actions*, which is the game's own field
 talking over the game's own word. It keeps the runtime type unless the category the caller named already
 declares it for every row it holds, which is the one case where the type says nothing the category
 has not. A category declared over several native types answers for one of them where no single-type
 category claims it and no other multi-type category does either, which is why
 `AlchemySnapshotListVariable` and `EquipmentSnapshotListVariable` are `world_list snapshot-loadouts`
-rows. `name` is present exactly when the game
-authors a player-facing word, so its absence is that fact and needs no flag beside it;
+rows. `name` is the word the game authors, or — where it authors none — the asset's own name, which is
+then the only word there is for the thing, so the cell is never empty and needs no flag beside it;
 On that block, `internalName` carries the Unity asset id **only where it is not the `name` with
-its spaces and punctuation taken out** — `Specialization: Storm` implies `SpecializationStorm`, so a block does not
+its spaces and punctuation taken out**, which also drops it for every id whose name *is* that asset
+id — `Specialization: Storm` implies `SpecializationStorm`, so a block does not
 spell it twice, and absence means that reconstruction rather than "unknown". The block prints a
 `category`, so it drops the field
 in one further case: where the asset id is that name followed only by words the category already
@@ -829,6 +831,7 @@ written unconditionally so the header is the same one before and after a lifecyc
 | `upgrades` | `level`, `queuedLevels`, `screen`, `state`, `maximum`, `nextLevelRequirements`, `affordable` |
 | `attributes` | `level`, `queuedLevels`, `state`, `enabled`, `affordable` |
 | `alchemy-recipes` | `state`, `masteryLevel` |
+| `concepts` | `state`, `masteryLevel` |
 | `augment-glyphs` | `state`, `slots`, `freeSlots`, `paidLevel`, `bonusLevel`, `totalLevel` (the three level columns only while Upgrade Glyphs is owned) |
 | `recipe-books` | `owned` |
 | `plot-nodes` | `state`, `masteryLevel`, `quantity`, `availableQuantity` |
@@ -1061,6 +1064,21 @@ has since been retired) mistook those three for core glyphs.
 The 34 books outnumber the 25 unlocker glyphs because `RecipeBookSO` is its own authored registry:
 nine books were authored without a glyph behind them. Calling the old category by name is refused
 with both new homes named, never with a bare unknown-category list.
+
+**The same ruling, one class over.** `AlchemyRecipeSO` backs 125 objects and the player meets them on
+two screens under two names, so the wire has two categories and the `concept-recipes` diagnostic that
+republished all 125 beside the recipes is retired. `alchemy-recipes` is the 79 the Alchemy screen
+draws — brewed, dismantled, enchanted, refined, transmuted, and loaded into a usage slot.
+`concepts` is the 46 the Scholar screen draws, discovered on their own tree and assigned to a
+development slot; Concepts are the seventh discovery surface and a category of their own. The split
+is the recipe's own core alchemy type, read through the audited classifier the discovery boundary
+already reads it through: Alchemy, Brewing, Dismantle, Enchantment, Refinement and Transmutation are
+ordinary, Reductive, Reflective and Conceptualization are Scholar. A recipe whose core type is in
+neither audited set stays on `alchemy-recipes` rather than falling off both pages. Each category's
+capability row holds only the verbs its own screen offers, so a Concept carries `game_concept` and a
+recipe carries the alchemy loadout, and neither carries the other's. `world_overview` counts the two
+apart under `discoveredAlchemyRecipes` and `discoveredConcepts`, because one number over both agreed
+with neither page.
 
 **An augment glyph's `visible` predicate is its `available` predicate.** `GlyphSO.IsVisible()` is a
 call to `GlyphSO.IsAvailable()`, and the picker tile's own `IsVisible()` calls `IsAvailable()` too, so
@@ -1684,20 +1702,21 @@ sits in — so there is no verb that reorders it, no `destination` argument on t
 
 ### Concept slots
 
-A `concept-recipes` row is the pre-decision surface for `game_concept`. It carries `activeCount`,
-the slot budget as `usedSlots` and `maximumSlots`, and `canAdd` as a decision rather than a bare
-boolean: a refusal names its class and says whether every slot is taken or the game simply will not
-take this recipe with room left, which is the difference between freeing a slot and picking another
-recipe. The sentence says which of the two situations it is and leaves the counting to the pair
-beside it, so the budget is stated once. The budget is published because assignments are only the
-filled slots — counting `alchemy-instances` rows can never reveal the capacity behind them.
+The `world_get` `concept` block is the pre-decision surface for `game_concept`. It carries
+`assignedCount`, the slot budget as `usedSlots` and `maximumSlots`, and `canAdd` as a decision rather
+than a bare boolean: a refusal names its class and says whether every slot is taken or the game
+simply will not take this recipe with room left, which is the difference between freeing a slot and
+picking another recipe. The sentence says which of the two situations it is and leaves the counting
+to the pair beside it, so the budget is stated once. The budget is published because assignments are
+only the filled slots — counting `alchemy-instances` rows can never reveal the capacity behind them.
 
-A Concept recipe is also an alchemy recipe, so `world_get` on one answers
-`category: alchemy-recipes` and carries a `concept` block with `assignedCount`, the same slot pair,
-and the `canAdd` decision. Answering the id under the one category and dropping the other half
-answered a question the caller did not ask. There is no `predicates.canAdd` beside it: the `concept`
-block is where that decision is published, its presence is the answer to "is this assignable at
-all", and one decision is published once.
+`world_list category=concepts` is the Scholar screen's Concept list, and it carries the two columns
+that screen draws: `state` and `masteryLevel`. The slot budget and the assignment decision are not
+columns, because both are facts about the one Active Concepts list rather than about a row, and a
+page would say them 46 times over. `world_get` on a Concept answers `category: concepts`, which is
+the word `world_list` takes for it. There is no `predicates.canAdd` beside the `concept` block: that
+block is where the decision is published, its presence is the answer to "is this assignable at all",
+and one decision is published once.
 
 ### Ritual lifecycle
 
@@ -3416,21 +3435,21 @@ lines apart with three decision blocks wedged between them, so the trailing sent
 it belonged to the `discover: yes` above it, and a round spent an extra read on two other rows to
 learn which shape was the real one. The pair is one pair, and it is never a bare code.
 
-**`name` is the word the game shows a player, or it is not there.** About five hundred of the
-catalog's assets — the variables, the list holders, the scaling weights, the tutorials — carry no
-authored word at all, and the surface used to stand the Unity asset id in for one: a page of
-`int-variables` read `SummonedLevel`, `QuickConsumableSlots`, `MaxRasterizedThoughts` in the column
-every other page fills with a real name, and nothing on the row said which kind of label it was.
-Now such a row publishes no `name` — `-` in a table, absent in a block — and the asset id is on
-the `world_get` identity block, which is where that fact already lived. The `nameSource: asset`
-flag that used to admit the substitution is gone with the substitution.
+**Every row has its name, and it is one column.** About five hundred of the catalog's assets — the
+variables, the list holders, the scaling weights, the tutorials — carry no authored word at all.
+Where the game authors none, the asset's own name is the only word there is for the thing, so that
+is what `name` holds: an `int-variables` row reads `SummonedLevel`, and `World Resets` one row down
+reads the word the game does author for it. A *reference* to either id printed exactly this all
+along, so the page a reader goes to for a name is no longer the one surface that had none.
 
-The row is addressed by its id either way, and `world_search` still matches the asset name and says
-`matchedOn: internalName` when it did. The cost is real and deliberate: an `int-variables`,
-`double-variables`, `bool-variables` or `modifier-variables` page row now prints its id and `name:
--` and nothing else, where it briefly printed `internalName: SummonedLevel` beside them. An internal
-name is a diagnostic, and it belongs where a caller goes looking for diagnostics — one `world_get`
-away — rather than in the column a player's word would occupy.
+What is never published is the asset id as a *second* cell beside a word the game or a producer
+already authored — `ActivePlotNodeActions` next to the queue's own *Plot actions*. The
+`nameSource: asset` flag is gone with it: the flag admitted a substitution, and a name that is the
+only word there is substitutes for nothing. The `world_get` identity block follows the same rule and
+drops its `internalName` line for such an id, because that line would repeat the name character for
+character. `world_search` answers `matchedOn: name` for a hit on one of these rows, since that is
+the cell the query matched; `matchedOn: internalName` stays the answer for a hit on an asset id that
+really does differ from the printed word, like `WorldResets` against *World Resets*.
 
 Absence therefore never doubles as a value. Every key that once used it to mean "no" now says so:
 
@@ -4142,10 +4161,14 @@ collected here so that one page answers what a name on an older transcript meant
   surface*.
 - **`internalName` on a page row.** The asset id beside the authored name, on every
   `world_list` and `world_search` row and in the `row` block of a `world_get` — printing
-  `ActivePlotNodeActions` next to *Plot actions*. An internal name is a diagnostic, and it lives on
-  the `world_get` identity block, which is where a caller goes looking for diagnostics. The cost is
-  that the unworded categories now print `name: -` and their id, and is deliberate — *Presence
-  semantics*.
+  `ActivePlotNodeActions` next to *Plot actions*. The name is one column: where the game authors a
+  word the row prints that word, where it authors none the row prints the asset's own name, and the
+  id never stands as a second cell beside either — *Presence semantics*.
+- **The `concept-recipes` category.** It republished all 125 `AlchemyRecipeSO` rows beside the 79 the
+  Alchemy screen draws, under a name no screen says, and was kept out of `world_search` for exactly
+  that reason. The 46 the Scholar screen draws are `concepts` now, a category in full;
+  `concept-recipes` is refused with a pointer rather than aliased, because an alias would keep two
+  vocabularies alive for one row — *Tool surface*.
 - **`actionTime`.** The game's field name on two producers, for two different clocks a player reads
   under two different words: a discovery tree says how long it has been `craftingFor`, a combat
   action says `actTime` beside its `prepTime`. The durations themselves were already right; the key
