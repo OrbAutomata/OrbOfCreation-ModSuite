@@ -1559,7 +1559,7 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         Assert.True(WorldLookup.TryFind(world.CharacterActions, strike, out var action));
         Assert.Equal(2d, action.PrepTime);
-        Assert.Equal(0.5d, action.ActionTime);
+        Assert.Equal(0.5d, action.ActTime);
         Assert.Equal(1.25d, action.SpeedMod);
     }
 

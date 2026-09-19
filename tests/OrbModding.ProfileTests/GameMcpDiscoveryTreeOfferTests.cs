@@ -267,7 +267,8 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             treeId.ToString("D")))["row"]!;
 
         Assert.Equal("crafting", (string?)row["mode"]);
-        Assert.Equal("0.00s", (string?)row["actionTime"]);
+        Assert.Equal("0.00s", (string?)row["craftingFor"]);
+        Assert.Null(row["actionTime"]);
     }
 
     /// <summary>
@@ -480,7 +481,8 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             rolling, command, GameMcpCommandResult.Committed("committed", 9, 3)));
         Assert.Equal("crafting", (string?)delta["mode"]);
-        Assert.Equal("0.10s", (string?)delta["actionTime"]);
+        Assert.Equal("0.10s", (string?)delta["craftingFor"]);
+        Assert.Null(delta["actionTime"]);
         Assert.Equal(
             "This roll is still running. The game rolls its offers three seconds after the " +
             "press, and this tree has been rolling 0.10s.",

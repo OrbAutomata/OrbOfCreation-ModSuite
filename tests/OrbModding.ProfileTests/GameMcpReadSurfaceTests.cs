@@ -860,6 +860,9 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal(2, queues!.Count);
         Assert.Equal(GameMcpTestHarness.Handle(plotQueue), (string?)queues[0]["uuid"]);
         Assert.Equal("Plot actions", (string?)queues[0]["name"]);
+        // The asset id the normalizer used to staple beside that authored word, on the one row in
+        // the suite that had to author one.
+        Assert.Null(queues[0]["internalName"]);
         Assert.Equal(1, (int?)queues[0]["usedSlots"]);
         Assert.Equal(2, (int?)queues[0]["capacity"]);
         Assert.Equal(
@@ -876,10 +879,13 @@ public sealed class GameMcpWorldEnvelopeTests
     /// spelling of the list variable behind it.
     /// </summary>
     /// <remarks>
-    /// The Agromancy queue's row read <c>ActivePlotNodeActions</c>, because the game authors no
-    /// display name for that list and the identity ladder's next rung is the asset name. The sweep
-    /// starts from the collector rather than from a list of two, so a third queue collected
-    /// tomorrow is held to the same rule instead of quietly inheriting the old fallback.
+    /// The Agromancy queue's row read <c>ActivePlotNodeActions</c> in a column of its own, beside
+    /// the word the collector had authored: the producer wrote only <c>name</c>, and the wire
+    /// normalizer stapled the Unity asset id on afterwards because the game authors no display name
+    /// for that list. So the sweep runs the normalizer over the row, which is the pass that added
+    /// the column, rather than the producer that never wrote it. It starts from the collector
+    /// rather than from a list of two, so a third queue collected tomorrow is held to the same rule
+    /// instead of quietly inheriting the old fallback.
     /// </remarks>
     [Fact]
     public void NoQueueTheWorldPublishesPrintsItsInternalName()
@@ -909,6 +915,19 @@ public sealed class GameMcpWorldEnvelopeTests
             Assert.NotEqual(string.Empty, printed);
             Assert.NotEqual(internalName, printed);
             Assert.NotEqual(uuid.ToString("D"), printed);
+
+            var row = (JObject)GameMcpEntityWireNormalizer.Normalize(
+                new JObject
+                {
+                    ["uuid"] = uuid.ToString("D"),
+                    ["name"] = printed,
+                    ["usedSlots"] = 0,
+                    ["capacity"] = 1,
+                },
+                GameMcpTestHarness.EntityCatalog);
+
+            Assert.Equal(printed, (string?)row["name"]);
+            Assert.Null(row["internalName"]);
         }
     }
 
@@ -2205,7 +2224,8 @@ public sealed class GameMcpWorldEnvelopeTests
     /// `QuickConsumableSlots`, `MaxRasterizedThoughts` in the `name` column, and a reader who had
     /// not memorised which categories the game authors words for could not tell those from the real
     /// names every other page prints there. `name` is a player-facing word or it is absent, and the
-    /// asset id it stood in for keeps its own column.
+    /// Unity asset id it stood in for is a diagnostic that rides no row at all: it is a
+    /// catalog-browsing fact, and `world_get` is where a reader asks for one.
     /// </summary>
     [Fact]
     public void A_variable_the_game_authors_no_word_for_names_nothing_in_its_name_column()
@@ -2236,7 +2256,7 @@ public sealed class GameMcpWorldEnvelopeTests
             .ToArray();
 
         Assert.Null(rows[0]!["name"]);
-        Assert.Equal("SummonedLevel", (string?)rows[0]!["internalName"]);
+        Assert.Null(rows[0]!["internalName"]);
         Assert.Equal("MultiBuy", (string?)rows[1]!["name"]);
     }
 
@@ -2286,7 +2306,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.True((bool)rows[0]!["isPercent"]!);
         Assert.False((bool)rows[1]!["isPercent"]!);
         Assert.Equal(
-            "[id | internalName | value | isPercent | name]",
+            "[id | name | value | isPercent]",
             GameMcpTextPage.Render(page).Split('\n')[1]);
 
         var blocks = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(

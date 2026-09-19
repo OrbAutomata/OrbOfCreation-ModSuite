@@ -1818,7 +1818,7 @@ internal static class GameMcpWorldQuery
         "character-modifiers" => new[] { "entityId", "weightChance", "description" },
         "character-actions" => new[]
         {
-            "entityId", "prepTime", "actionTime", "speedMod", "description",
+            "entityId", "prepTime", "actTime", "speedMod", "description",
         },
         "character-types" or "enchantments" or "glyph-types" or "rune-stones" or
             "display-types" or "attribute-groups" => new[] { "entityId", "description" },
@@ -6262,10 +6262,12 @@ internal static class GameMcpWorldQuery
 
         // Seconds, in the format every other duration on this surface reads in. It shipped as a
         // bare magnitude and a live round watched it climb 0.22 → 2.72 with nothing saying what
-        // the number counted.
+        // the number counted, then kept `actionTime` — `DiscoveryTreeSO`'s own field name, which
+        // says neither which clock nor which direction. The key is the mode the row is already in
+        // and the direction the number runs: this tree has been crafting for that long.
         if (tree.ActionMode == 1)
         {
-            result["actionTime"] = CoarseClock(tree.ActionTime);
+            result["craftingFor"] = CoarseClock(tree.ActionTime);
 
             // The press starts a roll, it does not produce offers: the game rolls them three
             // seconds of game time later. A round read the empty list as a press that had failed.
@@ -10021,7 +10023,7 @@ internal static class GameMcpWorldQuery
         "character-attributes" => new[] { "entityId", "damageTypeId" },
         "damage-types" => new[] { "entityId", "damageReductionRate", "ignoreEntrenched" },
         "character-modifiers" => new[] { "entityId", "weightChance" },
-        "character-actions" => new[] { "entityId", "prepTime", "actionTime", "speedMod" },
+        "character-actions" => new[] { "entityId", "prepTime", "actTime", "speedMod" },
         "character-types" or "enchantments" or "glyph-types" or "rune-stones" or
             "display-types" or "attribute-groups" => new[] { "entityId" },
         "purchase-costs" => new[]

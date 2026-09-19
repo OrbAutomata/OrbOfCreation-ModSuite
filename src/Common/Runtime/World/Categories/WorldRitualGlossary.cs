@@ -301,7 +301,7 @@ internal sealed class WorldCharacterModifierBinder : WorldPlainBinder<WorldChara
 /// </summary>
 /// <remarks>
 /// A turn is a wind-up and then the act: <see cref="PrepTime"/> is the wind-up the screen colours
-/// while it runs, <see cref="ActionTime"/> is the act, and <see cref="SpeedMod"/> is what the
+/// while it runs, <see cref="ActTime"/> is the act, and <see cref="SpeedMod"/> is what the
 /// combatant's own Speed is multiplied by for this action. The effect blocks the action fires are
 /// not on the row: they are the same <c>InstantEffectBlock</c> shape the world already publishes
 /// under <c>effect-blocks</c> for the owners that lane covered, and widening that reader is a
@@ -312,13 +312,13 @@ internal readonly struct WorldCharacterAction : IWorldEntity
     internal WorldCharacterAction(
         Guid characterActionId,
         double prepTime,
-        double actionTime,
+        double actTime,
         double speedMod,
         string description)
     {
         CharacterActionId = characterActionId;
         PrepTime = prepTime;
-        ActionTime = actionTime;
+        ActTime = actTime;
         SpeedMod = speedMod;
         Description = description ?? string.Empty;
     }
@@ -330,8 +330,11 @@ internal readonly struct WorldCharacterAction : IWorldEntity
     /// <summary>Seconds of wind-up before the action fires.</summary>
     internal double PrepTime { get; }
 
-    /// <summary>Seconds the action itself takes.</summary>
-    internal double ActionTime { get; }
+    /// <summary>
+    /// Seconds the act itself takes. The native field is <c>actionTime</c>; the row spells it the
+    /// way the pair reads — prep, then act — because a field name is not a word the game shows.
+    /// </summary>
+    internal double ActTime { get; }
 
     /// <summary>What this action multiplies the actor's own speed by.</summary>
     internal double SpeedMod { get; }

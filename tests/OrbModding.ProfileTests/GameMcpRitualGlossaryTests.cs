@@ -158,6 +158,29 @@ public sealed class GameMcpRitualGlossaryTests
     }
 
     /// <summary>
+    /// A turn is a wind-up and then the act, and the column says the act. It used to say
+    /// <c>actionTime</c> — <c>CharacterActionSO</c>'s own field name — which is the game's spelling
+    /// of the fact rather than a word beside <c>prepTime</c>.
+    /// </summary>
+    [Fact]
+    public void A_combat_actions_two_clocks_read_as_the_pair_they_are()
+    {
+        var page = Json(GameMcpWorldQuery.ListRows(
+            Context(World()), "character-actions", 0, 20));
+
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "rows 1/1",
+                "[id | name | prepTime | actTime | speedMod | description]",
+                "f8a932 | Summon Reinforcements | 0.67 | 12 | 1 | Summons two more combatants.",
+            }),
+            Render(page));
+        var row = Assert.Single(page["rows"]!.Values<JObject>())!;
+        Assert.Null(row["actionTime"]);
+    }
+
+    /// <summary>
     /// The eleven vocabularies are eleven categories rather than one glossary table, because the
     /// game names each of them separately and their columns are different facts.
     /// </summary>

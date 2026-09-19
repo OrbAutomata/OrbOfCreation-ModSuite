@@ -476,11 +476,19 @@ internal static class GameMcpEntityWireNormalizer
     /// identity rules that turn a published id into a handle plus a name do not apply.
     /// </summary>
     private static bool IsUnresolvedIdentity(JObject item) =>
-        item["readWith"] is JObject &&
+        item["readWith"] is JObject && AnswersNoRow(item);
+
+    /// <summary>
+    /// A block whose whole answer is that no published row is addressed by this id — whether or not
+    /// it can name a verb that would answer instead.
+    /// </summary>
+    /// <remarks>
+    /// The producers write <c>not_available</c>; the status rewrite above has already turned it
+    /// into the wire's <c>unavailable</c> by the time the identity pass runs. Both spellings answer
+    /// here so the rule does not depend on which side of that rewrite it is read from.
+    /// </remarks>
+    private static bool AnswersNoRow(JObject item) =>
         item["status"] is JValue { Type: JTokenType.String } status &&
-        // The producers write `not_available`; the status rewrite above has already turned it into
-        // the wire's `unavailable` by the time the identity pass runs. Both spellings answer here
-        // so the rule does not depend on which side of that rewrite it is read from.
         (string?)status is "unavailable" or "not_available";
 
     private static void AddIdentityFields(
@@ -493,13 +501,17 @@ internal static class GameMcpEntityWireNormalizer
 
         // `name` is the word the game shows a player, or it is nothing. Five hundred of the
         // catalog's assets — the variables, list holders, scaling weights, tutorials — carry no
-        // authored word at all, and standing the Unity asset id in for one published
-        // `SummonedLevel` and `ScalingBase` under the field every other row spells a real name in.
-        // Nothing is lost: the asset id is a different fact and says so under its own key, beside
-        // the id the row is addressed by.
+        // authored word at all, and this pass used to staple the Unity asset id onto every one of
+        // them. That id is a diagnostic, not a word a screen prints, and it landed as a second
+        // column beside names the producers had authored: the queue the collector calls
+        // `Plot actions` printed `ActivePlotNodeActions` next to it. The one block that keeps it is
+        // the `world_get` answer for an id no published row covers, where the asset id is the whole
+        // of what is left to say; every page row and every reference is silent, and the identity
+        // block a resolved `world_get` prints publishes the fact under its own rules.
         if (identity.Source == EntityIdentityNameSource.LiveAssetName)
         {
-            if (target["internalName"] is null) target["internalName"] = identity.AssetName;
+            if (AnswersNoRow(target) && target["internalName"] is null)
+                target["internalName"] = identity.AssetName;
             return;
         }
         if (identity.HasName)
