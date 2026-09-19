@@ -151,12 +151,18 @@ internal sealed class ModConfigNativeNavigationHost : IDisposable
         {
             var label = component.GetComponentInChildren<TextMeshProUGUI>(includeInactive: true);
             var view = NativeViewAdapter.ReadView(component);
+            var alive = NativeViewAdapter.IsAlive(view);
             result.Add(new GameMcpNativeTab(
                 result.Count,
                 label?.text?.Trim() ?? string.Empty,
                 NativeObjectPath.BuildIndexed(component),
                 component,
-                NativeViewAdapter.IsAlive(view) && NativeViewAdapter.IsActive(view!)));
+                alive && NativeViewAdapter.IsActive(view!),
+                // A rail button exists for every screen from the first frame; whether the game is
+                // drawing it is the view's own availability, which is also what the world
+                // publication reads. A view the shell can no longer read is reported locked rather
+                // than open: a catalog that guesses open is one that hands out a dead destination.
+                !alive || !NativeViewAdapter.IsAvailable(view!)));
         }
         result.Add(new GameMcpNativeTab(
             result.Count,
@@ -164,7 +170,9 @@ internal sealed class ModConfigNativeNavigationHost : IDisposable
                 "Mods",
             NativeObjectPath.BuildIndexed(_button),
             _button,
-            _modsActive));
+            _modsActive,
+            // Mods is the suite's own screen. It has no ViewSO and no progression behind it.
+            locked: false));
         return result;
     }
 
@@ -331,13 +339,15 @@ internal readonly struct GameMcpNativeTab
         string label,
         string path,
         Component component,
-        bool active)
+        bool active,
+        bool locked)
     {
         Index = index;
         Label = label ?? string.Empty;
         Path = path ?? string.Empty;
         Component = component ?? throw new ArgumentNullException(nameof(component));
         Active = active;
+        Locked = locked;
     }
 
     internal int Index { get; }
@@ -345,5 +355,6 @@ internal readonly struct GameMcpNativeTab
     internal string Path { get; }
     internal Component Component { get; }
     internal bool Active { get; }
+    internal bool Locked { get; }
 }
 #endif

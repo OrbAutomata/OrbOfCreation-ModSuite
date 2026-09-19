@@ -3223,21 +3223,31 @@ public sealed class Plugin : BaseUnityPlugin
             return ProjectGameMcpScreenCatalog(
                 scene,
                 navigationAvailable: false,
-                Array.Empty<(string Label, bool Active)>(),
+                Array.Empty<(string Label, bool Active, bool Locked)>(),
                 Array.Empty<(string Strip, string Label, bool Active)>());
         var tabs = _uiShell.CaptureNativeTabsForGameMcp();
         var subtabs = CaptureSubtabs();
         return ProjectGameMcpScreenCatalog(
             scene,
             navigationAvailable: true,
-            tabs.Select(tab => (tab.Label, tab.Active)).ToArray(),
+            tabs.Select(tab => (tab.Label, tab.Active, tab.Locked)).ToArray(),
             subtabs.Select(subtab => (subtab.StripKey, subtab.Label, subtab.Active)).ToArray());
     }
 
+    /// <summary>
+    /// The live screen rail, each screen saying whether the game has unlocked it.
+    /// </summary>
+    /// <remarks>
+    /// A rail button exists for every screen from the first frame, so a catalog that reported only
+    /// label and active told a young run it had eight screens while the game drew three — and
+    /// <c>game_navigate</c> then offered the five it does not draw as candidates. <c>locked</c> is
+    /// <c>ViewSO.IsAvailable()</c> negated: the same member the world publication reads for every
+    /// view's <c>available</c>, so the catalog and the discovery previews cannot disagree.
+    /// </remarks>
     internal static GameMcpValue ProjectGameMcpScreenCatalog(
         string scene,
         bool navigationAvailable,
-        IReadOnlyList<(string Label, bool Active)> tabs,
+        IReadOnlyList<(string Label, bool Active, bool Locked)> tabs,
         IReadOnlyList<(string Strip, string Label, bool Active)> subtabs)
     {
         var result = new GameMcpObjectBuilder
@@ -3262,6 +3272,7 @@ public sealed class Plugin : BaseUnityPlugin
             {
                 ["label"] = tab.Label,
                 ["active"] = tab.Active,
+                ["locked"] = tab.Locked,
             };
             if (!tab.Active || subtabs.Count == 0)
             {
@@ -3366,12 +3377,21 @@ public sealed class Plugin : BaseUnityPlugin
         var tabs = _uiShell.CaptureNativeTabsForGameMcp();
         if (!TryResolveTabSelector(request.Tab, tabs, out var tab, out var tabReason))
         {
+            // A locked screen is not a candidate. Offering the five a young run does not draw is
+            // how a caller spends a call arriving somewhere the game will not show it.
             failure = NavigationRefusal(
                 "screen_match_failed",
                 tabReason,
                 null,
                 "screenCandidates",
-                tabs.Select(candidate => candidate.Label));
+                tabs.Where(candidate => !candidate.Locked).Select(candidate => candidate.Label));
+            return false;
+        }
+        if (tab.Locked)
+        {
+            failure = GadgetRejected(
+                "screen_locked",
+                tab.Label + " is not unlocked yet, so the game draws no such screen.");
             return false;
         }
         if (!_uiShell.TrySelectNativeTabForGameMcp(tab.Index, out var selectReason))

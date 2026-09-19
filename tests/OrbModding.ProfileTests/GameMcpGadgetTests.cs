@@ -378,7 +378,12 @@ public sealed class GameMcpGadgetTests
         var projected = Plugin.ProjectGameMcpScreenCatalog(
             "Main",
             navigationAvailable: true,
-            new[] { ("Magic", false), ("Scholar", true), ("Mods", false) },
+            new[]
+            {
+                ("Magic", false, false),
+                ("Scholar", true, false),
+                ("Mods", false, false),
+            },
             new[]
             {
                 ("primary", "Loadout", false),
@@ -403,6 +408,39 @@ public sealed class GameMcpGadgetTests
         var encoded = json.ToString(Newtonsoft.Json.Formatting.None);
         Assert.DoesNotContain("index", encoded, System.StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Canvas", encoded, System.StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Every screen row says whether the game has unlocked it, open rows included.
+    /// </summary>
+    /// <remarks>
+    /// A young run's rail holds a button for all eight screens while the game draws three, so a
+    /// catalog of labels alone reported five destinations the game will not show — and round
+    /// fourteen's <c>game_navigate</c> repeated all eight back as candidates. The column is on
+    /// every row rather than only the locked ones: a header that promised it owes it to each row,
+    /// and a missing marker would otherwise read as "unknown".
+    /// </remarks>
+    [Fact]
+    public void EveryScreenRowSaysWhetherTheGameHasUnlockedIt()
+    {
+        var projected = Plugin.ProjectGameMcpScreenCatalog(
+            "Main",
+            navigationAvailable: true,
+            new[]
+            {
+                ("Magic", true, false),
+                ("Rituals", false, true),
+                ("Mods", false, false),
+            },
+            System.Array.Empty<(string, string, bool)>());
+
+        var json = GameMcpTestHarness.Json(projected);
+        var tabs = json["screens"]!.Values<JObject>().ToArray();
+        Assert.Equal(new[] { "Magic", "Rituals", "Mods" },
+            tabs.Select(tab => (string)tab["label"]!).ToArray());
+        Assert.All(tabs, tab => Assert.NotNull(tab["locked"]));
+        Assert.Equal(new[] { false, true, false },
+            tabs.Select(tab => (bool)tab["locked"]!).ToArray());
     }
 
     [Fact]
