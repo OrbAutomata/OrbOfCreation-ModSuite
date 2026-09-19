@@ -322,16 +322,14 @@ public sealed class GameMcpTypeWorthTests
         Assert.Equal(
             "{\"uuid\":\"a1c000\",\"name\":\"Focus Ward\"," +
             "\"internalName\":\"focusWard\",\"category\":\"augment-glyphs\"," +
-            "\"row\":{\"state\":\"locked\",\"slots\":0,\"freeSlots\":0,\"paidLevel\":0," +
-            "\"totalLevel\":0,\"purchase\":{\"available\":false," +
+            "\"row\":{\"state\":\"locked\",\"slots\":0,\"freeSlots\":0," +
+            "\"purchase\":{\"available\":false," +
             "\"reason\":\"Magic > Augments > Upgrade is not unlocked yet, so the game " +
             "draws no level button for an augment glyph. Buy the Upgrade Glyphs upgrade " +
             "first.\"},\"discover\":{\"available\":false," +
             "\"reason\":\"The game is not showing this yet.\"}," +
             "\"reason\":\"This has not been discovered yet.\"}," +
             "\"predicates\":{\"visible\":{\"available\":false," +
-            "\"reason\":\"This has not been discovered yet.\"}," +
-            "\"available\":{\"available\":false," +
             "\"reason\":\"This has not been discovered yet.\"}}}",
             detail.ToString(Formatting.None));
     }

@@ -270,18 +270,30 @@ internal static class GameMcpEntityExplainer
                     structure.Reading.Unlocked,
                     lockedReason);
                 result["canPurchase"] = PurchaseVerdict(
-                    world, id, structure.Reading.Unlocked, lockedReason);
+                    world, id, structure.Reading.Unlocked, lockedReason,
+                    WorldRequirementEvaluator.Evaluate(
+                        world,
+                        id,
+                        WorldRequirementEvaluator.StructureCheckLevel(in structure)));
                 break;
             }
             case EntityKind.Upgrade:
             {
                 WorldLookup.TryFind(world.Upgrades, id, out var upgrade);
+                // The game's UpgradeSO.IsAvailable() goes false the moment an upgrade is maxed, so
+                // a finished upgrade fell to the locked sentence — "the game keeps this locked, and
+                // says nothing about what would unlock it" — for a thing that is done rather than
+                // shut. `canPurchase` already knew the difference; both words read it now.
                 result["available"] = Verdict(
                     upgrade.Reading.Available,
-                    lockedReason);
+                    upgrade.IsExhausted ? "already_maxed" : lockedReason);
                 result["canPurchase"] = PurchaseVerdict(
                     world, id, upgrade.Reading.Available && !upgrade.IsExhausted,
-                    upgrade.IsExhausted ? "already_maxed" : lockedReason);
+                    upgrade.IsExhausted ? "already_maxed" : lockedReason,
+                    WorldRequirementEvaluator.Evaluate(
+                        world,
+                        id,
+                        WorldRequirementEvaluator.UpgradeCheckLevel(in upgrade)));
                 break;
             }
             case EntityKind.Research:
@@ -349,8 +361,12 @@ internal static class GameMcpEntityExplainer
                     : Verdict(
                         spell.Discovered || !spell.HiddenDiscovery || offered,
                         "hidden_discovery");
+                // One word per question. `visible` is whether the game draws this at all; it was
+                // published a second time as `available`, where the row's own `discover` cell
+                // already answers whether the Discover press is live. One entity then read
+                // `discover: yes` beside `available: no` — two true answers to two questions
+                // wearing one word, which is a flat contradiction to anyone reading it.
                 result["visible"] = visible;
-                result["available"] = visible;
                 var discoverable = !spell.Discovered && (!spell.HiddenDiscovery || offered);
                 var discoverCode = spell.Discovered ? "already_discovered" : "hidden_discovery";
                 result["canDiscover"] = !spell.Discovered && hidden.Length > 0
@@ -377,7 +393,6 @@ internal static class GameMcpEntityExplainer
                     recipe.Reading.Visible,
                     recipe.Reading.VisibilityReasonCode);
                 result["visible"] = visible;
-                result["available"] = visible;
                 result["canPurchase"] = Verdict(
                     recipe.Reading.CanBuyAtStartingQuantity,
                     recipe.Reading.NativePurchaseReasonCode);
@@ -390,7 +405,6 @@ internal static class GameMcpEntityExplainer
                     consumable.Visible,
                     "not_visible");
                 result["visible"] = visible;
-                result["available"] = visible;
                 result["canUse"] = Verdict(
                     consumable.CanFire,
                     consumable.Quantity <= 0 ? "none_owned" : "native_can_fire_refused");
@@ -425,7 +439,6 @@ internal static class GameMcpEntityExplainer
                     glyph.Learned,
                     glyph.Discoverable ? "not_discovered" : "prerequisites_unmet");
                 result["visible"] = picker;
-                result["available"] = picker;
                 result["canDiscover"] = Verdict(
                     !glyph.Discovered && glyph.Discoverable,
                     glyph.Discovered
@@ -463,7 +476,6 @@ internal static class GameMcpEntityExplainer
         result["visible"] = Verdict(
             visible,
             "not_discovered_or_offered");
-        result["available"] = result["visible"]!;
         result["canDiscover"] = Verdict(
             !discovered && nativeDiscoverable,
             discovered
@@ -1482,13 +1494,29 @@ internal static class GameMcpEntityExplainer
         return verdict;
     }
 
+    /// <remarks>
+    /// The purchase verdict is the AND the game's own button is enabled on, and the requirement
+    /// leg was missing from it: a row whose screen says "Has Requirements" answered
+    /// <c>canPurchase: yes</c> while the requirement verdict two lines below it in the same block
+    /// said Unmet. An unevaluable requirement refuses too — never treat this suite's own gap as a
+    /// requirement that holds.
+    /// </remarks>
     private static JObject PurchaseVerdict(
         GameWorldState world,
         Guid id,
         bool available,
-        string unavailableReason)
+        string unavailableReason,
+        WorldRequirementVerdict requirements)
     {
         if (!available) return Verdict(false, unavailableReason);
+        if (requirements != WorldRequirementVerdict.Met)
+        {
+            return Verdict(
+                false,
+                requirements == WorldRequirementVerdict.Unmet
+                    ? "requirements_unmet"
+                    : "requirement_unevaluable");
+        }
         if (!WorldPurchaseCostLookup.TryFindRange(
                 world.PurchaseCosts, id, out var start, out var count) || count == 0)
             return Verdict(false, "price_unavailable");

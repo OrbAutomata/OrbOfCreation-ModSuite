@@ -443,6 +443,12 @@ internal static class GameMcpDecisionReason
             "The game does not count this in its resource list yet, so prices that name it print " +
             "as an unknown resource; a page that owns a bar for it still draws one. What would " +
             "add it is under \"unlocksWhen\".",
+        // Both of these used to fall through to the humanised code — "Hidden discovery." and
+        // "Not discovered or offered." — which named a mechanism and told a reader nothing about
+        // what would change it. One sentence, because they are one fact: the game draws this once
+        // it is discovered, and a discovery tree holding it as its current offer draws it early.
+        "hidden_discovery" or "not_discovered_or_offered" =>
+            "The game draws this once it is discovered, or while a discovery tree offers it.",
         "already_discovered" => "This is already discovered.",
         "already_maxed" => "This is already at its maximum level.",
         "hidden_or_undiscovered" =>

@@ -79,8 +79,9 @@ public sealed class GameMcpAugmentGlyphTests
     [Fact]
     public void Every_row_carries_the_slots_a_level_buys_and_nothing_the_retired_partition_left()
     {
-        var context = GameMcpTestHarness.Context(World(
-            Glyph(AugmentId, learned: true, augmentsSpells: true, slots: 2, freeSlots: 1)));
+        var context = GameMcpTestHarness.Context(WithAugmentTable(
+            World(Glyph(AugmentId, learned: true, augmentsSpells: true, slots: 2, freeSlots: 1)),
+            unlocked: true));
 
         var row = GameMcpTestHarness
             .Json(GameMcpWorldQuery.ListRows(context, "augment-glyphs", 0, 50))["rows"]!
@@ -96,6 +97,47 @@ public sealed class GameMcpAugmentGlyphTests
             row.Properties().Select(property => property.Name).ToArray());
         Assert.Equal(2, (int)row["slots"]!);
         Assert.Equal(1, (int)row["freeSlots"]!);
+    }
+
+    /// <summary>
+    /// A level is a number the screen draws, and Magic &gt; Augments &gt; Upgrade draws none until
+    /// the Upgrade Glyphs upgrade is bought — the game instantiates no level panel there at all.
+    /// The list row printed <c>paidLevel 0 / totalLevel 0</c> anyway, which reads as a level of
+    /// zero rather than as no level; the detail block printed the same pair beside its own
+    /// <c>purchase</c> refusal naming that very screen.
+    /// </summary>
+    [Fact]
+    public void No_level_prints_while_the_screen_that_draws_one_is_locked()
+    {
+        var world = World(
+            Glyph(AugmentId, learned: true, augmentsSpells: true, slots: 2, freeSlots: 1, level: 3));
+        var shut = GameMcpTestHarness.Context(WithAugmentTable(world, unlocked: false));
+
+        var row = GameMcpTestHarness
+            .Json(GameMcpWorldQuery.ListRows(shut, "augment-glyphs", 0, 50))["rows"]!
+            .Values<JObject>()
+            .Single()!;
+        Assert.Equal(
+            new[] { "uuid", "name", "state", "slots", "freeSlots" },
+            row.Properties().Select(property => property.Name).ToArray());
+
+        // Every glyph is on the same screen, so the page loses the three columns together rather
+        // than printing a column of zeroes nobody can act on.
+        var page = GameMcpTextPage.Render(GameMcpTestHarness.Json(
+            GameMcpWorldQuery.ListRows(shut, "augment-glyphs", 0, 50)));
+        Assert.Contains("[id | name | state | slots | freeSlots]", page, StringComparison.Ordinal);
+
+        var detail = GameMcpTestHarness.Detail(shut, AugmentId)["row"]!;
+        Assert.Null(detail["paidLevel"]);
+        Assert.Null(detail["bonusLevel"]);
+        Assert.Null(detail["totalLevel"]);
+        Assert.False((bool)detail["purchase"]!["available"]!);
+
+        // With the screen bought, the same glyph prints the level it holds.
+        var open = GameMcpTestHarness.Context(WithAugmentTable(world, unlocked: true));
+        var drawn = GameMcpTestHarness.Detail(open, AugmentId)["row"]!;
+        Assert.NotNull(drawn["paidLevel"]);
+        Assert.NotNull(drawn["totalLevel"]);
     }
 
     /// <summary>
@@ -121,10 +163,12 @@ public sealed class GameMcpAugmentGlyphTests
 
     /// <summary>
     /// <c>GlyphSO.IsVisible()</c> is a call to <c>IsAvailable()</c>, so the two verdicts are one
-    /// fact and a glyph can never be shown as available-but-invisible.
+    /// fact and a glyph can never be shown as available-but-invisible. One fact is published under
+    /// one word: it was published twice, under <c>visible</c> and again under <c>available</c>,
+    /// and <c>available</c> is the word three other kinds use for the game's own availability bit.
     /// </summary>
     [Fact]
-    public void Visible_and_available_are_the_one_fact_the_game_holds()
+    public void Visible_is_the_one_word_for_the_one_fact_the_game_holds()
     {
         var held = GameMcpTestHarness.Context(World(
             Glyph(AugmentId, learned: true, augmentsSpells: true)));
@@ -133,14 +177,12 @@ public sealed class GameMcpAugmentGlyphTests
 
         var open = GameMcpTestHarness.Detail(held, AugmentId)["predicates"]!;
         Assert.True((bool)open["visible"]!["available"]!);
-        Assert.True((bool)open["available"]!["available"]!);
+        Assert.Null(open["available"]);
 
         var shut = GameMcpTestHarness.Detail(blocked, AugmentId)["predicates"]!;
         Assert.False((bool)shut["visible"]!["available"]!);
-        Assert.False((bool)shut["available"]!["available"]!);
-        Assert.Equal(
-            (string?)shut["available"]!["reason"],
-            (string?)shut["visible"]!["reason"]);
+        Assert.Null(shut["available"]);
+        Assert.False(string.IsNullOrWhiteSpace((string?)shut["visible"]!["reason"]));
     }
 
     /// <summary>

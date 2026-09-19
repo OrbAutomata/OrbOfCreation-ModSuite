@@ -97,7 +97,7 @@ public sealed class GameMcpListColumnsTests
 
         Assert.Contains(
             "these 6 share: level=3, queuedLevels=0, screen=Magic, state=available, " +
-            "maximum=uncapped, requirements=met, affordable=unpriced",
+            "maximum=uncapped, nextLevelRequirements=met, affordable=unpriced",
             page,
             StringComparison.Ordinal);
 
@@ -430,7 +430,7 @@ public sealed class GameMcpListColumnsTests
         // The two axes this test is about both vary here, so both are columns. The four that do not
         // vary are named once above the rows, and between the two lines the declared set is whole.
         Assert.Contains(
-            "these 3 share: queuedLevels=0, screen=Magic, requirements=met, affordable=unpriced",
+            "these 3 share: queuedLevels=0, screen=Magic, nextLevelRequirements=met, affordable=unpriced",
             page,
             StringComparison.Ordinal);
         Assert.Equal("[id | name | level | state | maximum]", Bracket(page));
@@ -483,7 +483,7 @@ public sealed class GameMcpListColumnsTests
         // rather than settled above it — the share line takes constants and nothing else.
         var page = GameMcpTextPage.Render(Page(memberships, upgrades));
         Assert.Contains(
-            "these 5 share: queuedLevels=0, requirements=met, affordable=unpriced",
+            "these 5 share: queuedLevels=0, nextLevelRequirements=met, affordable=unpriced",
             page,
             StringComparison.Ordinal);
         Assert.Equal("[id | name | level | screen | state | maximum]", Bracket(page));
@@ -1242,6 +1242,86 @@ public sealed class GameMcpListColumnsTests
     private static string Bracket(string page) => page
         .Split('\n')
         .Single(line => line.StartsWith("[", StringComparison.Ordinal));
+
+    /// <summary>
+    /// A finished upgrade is finished, not shut. <c>UpgradeSO.IsAvailable()</c> is the game's own
+    /// <c>!IsMaxLevel() &amp;&amp; prerequisites.Check()</c>, so it goes false the moment an upgrade
+    /// maxes — and <c>available</c> answered that with the locked sentence, "the game keeps this
+    /// locked, and says nothing about what would unlock it", for an upgrade the player had just
+    /// completed. <c>canPurchase</c> beside it already knew the difference.
+    /// </summary>
+    [Fact]
+    public void A_finished_upgrade_says_it_is_finished_rather_than_locked()
+    {
+        var context = GameMcpTestHarness.Context(UpgradesWorld(
+            Upgrade(Capped, bounded: true),
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Exhausted, bounded: true, exhausted: true)));
+
+        var done = GameMcpTestHarness.Detail(context, Exhausted)["predicates"]!;
+        Assert.False((bool)done["available"]!["available"]!);
+        Assert.Equal(
+            "This is already at its maximum level.",
+            (string?)done["available"]!["reason"]);
+        Assert.Equal(
+            (string?)done["canPurchase"]!["reason"],
+            (string?)done["available"]!["reason"]);
+
+        // A locked upgrade still says it is locked, so the two states stay told apart.
+        var shut = GameMcpTestHarness.Detail(context, Capped)["predicates"]!;
+        Assert.True((bool)shut["available"]!["available"]!);
+    }
+
+    /// <summary>
+    /// The purchase verdict is the AND the game's own button is enabled on, and it never read the
+    /// requirement verdict printed two lines below it in the same block: a row whose screen said
+    /// "Has Requirements" answered <c>canPurchase: yes</c> while its own requirements were unmet.
+    /// </summary>
+    [Fact]
+    public void The_purchase_verdict_reads_the_requirement_verdict_beside_it()
+    {
+        var noScaling = default(WorldRequirementScaling);
+        var world = UpgradesWorld(
+            Upgrade(Capped, bounded: true),
+            Upgrade(Uncapped, bounded: false),
+            Upgrade(Exhausted, bounded: true, exhausted: true)) with
+        {
+            EntityRequirements = PublicationTable<WorldEntityRequirement>.Create(new[]
+            {
+                // Capped needs Uncapped at level 9 or better, and Uncapped holds 3.
+                new WorldEntityRequirement(
+                    Capped,
+                    WorldRequirementOwnerKind.Upgrade,
+                    ordinal: 0,
+                    WorldRequirementConditionKind.Upgrade,
+                    "UpgradeRequirement",
+                    Uncapped,
+                    reqType: 2,
+                    baseValue: 9d,
+                    in noScaling,
+                    in noScaling),
+            }),
+        };
+
+        var context = GameMcpTestHarness.Context(world);
+        var blocked = GameMcpTestHarness.Detail(context, Capped);
+
+        Assert.Equal("Unmet", (string?)blocked["requirements"]!["suiteVerdict"]);
+        Assert.False((bool)blocked["predicates"]!["canPurchase"]!["available"]!);
+        Assert.Equal(
+            "This does not meet its level requirements yet.",
+            (string?)blocked["predicates"]!["canPurchase"]!["reason"]);
+
+        // The page says which list it evaluated, so `state=available` beside a requirement verdict
+        // is two different authored lists rather than a contradiction.
+        var row = GameMcpTestHarness
+            .Json(GameMcpWorldQuery.ListRows(context, "upgrades", 0, 50))["rows"]!
+            .Values<JObject>()
+            .Single(candidate =>
+                (string?)candidate!["uuid"] == GameMcpTestHarness.Handle(Capped))!;
+        Assert.Equal("available", (string?)row["state"]);
+        Assert.Equal("unmet", (string?)row["nextLevelRequirements"]);
+    }
 
     private static WorldUpgrade Upgrade(
         Guid id,

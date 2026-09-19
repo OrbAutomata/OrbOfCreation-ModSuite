@@ -401,8 +401,8 @@ internal static class GameMcpListColumns
             new[] { "entityId", "level", "queuedLevels", "state", "enabled", "affordable" },
         ["upgrades"] = new[]
         {
-            "entityId", "level", "queuedLevels", "screen", "state", "maximum", "requirements",
-            "affordable",
+            "entityId", "level", "queuedLevels", "screen", "state", "maximum",
+            "nextLevelRequirements", "affordable",
         },
         ["equipment"] = new[] { "entityId", "created", "equippedCount" },
         ["rituals"] = new[]
@@ -413,7 +413,7 @@ internal static class GameMcpListColumns
         ["alchemy-recipes"] = new[] { "entityId", "state", "masteryLevel" },
         ["research"] = new[]
         {
-            "entityId", "state", "paused", "totalLevel", "queuedLevels", "requirements",
+            "entityId", "state", "paused", "totalLevel", "queuedLevels", "nextLevelRequirements",
             "canDevelop", "affordable",
         },
         ["equipment-types"] = new[] { "entityId", "totalLevel" },

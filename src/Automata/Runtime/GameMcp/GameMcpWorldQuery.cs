@@ -994,7 +994,11 @@ internal static class GameMcpWorldQuery
                 ["screen"] = UpgradeScreen(world, upgrade.EntityId),
                 ["state"] = UpgradeState(in upgrade),
                 ["maximum"] = UpgradeCeiling(in upgrade),
-                ["requirements"] = RequirementWord(
+                // Which list this verdict is about. `state` reads the entity's unlock gate and
+                // this reads the next level's own container — two authored lists, and a page of
+                // mostly-locked rows read "state=locked, requirements=met" seven times over
+                // because nothing on the row said they were different lists.
+                ["nextLevelRequirements"] = RequirementWord(
                     WorldRequirementEvaluator.Evaluate(
                         world,
                         upgrade.EntityId,
@@ -1067,7 +1071,7 @@ internal static class GameMcpWorldQuery
                 ["paused"] = !listedResearch.IsActive,
                 ["totalLevel"] = listedResearch.TotalLevel,
                 ["queuedLevels"] = ResearchQueuedLevels(in listedResearch),
-                ["requirements"] = listedResearch.MeetsLevelRequirements
+                ["nextLevelRequirements"] = listedResearch.MeetsLevelRequirements
                     ? GameMcpListColumns.Met
                     : GameMcpListColumns.Unmet,
                 ["canDevelop"] = listedResearch.Decision.Available &&
@@ -1102,16 +1106,32 @@ internal static class GameMcpWorldQuery
         // `[N] Slot` and `[M] Free Slot` — so a page of levels a caller is planning shows what each
         // one bought without a detail read per row.
         if (row is WorldGlyph glyph)
-            return new JObject
+        {
+            var projectedGlyph = new JObject
             {
                 ["entityId"] = glyph.EntityId.ToString("D"),
                 ["state"] = GlyphState(in glyph),
                 ["slots"] = glyph.MaximumUsages,
                 ["freeSlots"] = glyph.MaximumFreeUsages,
-                ["paidLevel"] = glyph.LevelDecision.TotalLevel - glyph.LevelDecision.BonusLevels,
-                ["bonusLevel"] = glyph.LevelDecision.BonusLevels,
-                ["totalLevel"] = glyph.LevelDecision.TotalLevel,
-            }.Freeze();
+            };
+            // A level is a number the screen draws. Magic > Augments > Upgrade is gated on the
+            // GlyphUpgradesUnlocked link, and while that screen is locked the game instantiates no
+            // level panel at all — so a page of glyph rows printed `paidLevel 0 / totalLevel 0`
+            // for a level nobody could see or buy, beside the detail row's own `purchase` refusal
+            // naming that very screen. The columns stay, because the shape a page promises is not
+            // a runtime variable; they say the fact does not apply.
+            var drawsLevel = IsScreenUnlocked(world, KnownEntities.MagicGlyphsUpgrade.Uuid);
+            projectedGlyph["paidLevel"] = drawsLevel
+                ? glyph.LevelDecision.TotalLevel - glyph.LevelDecision.BonusLevels
+                : (int?)null;
+            projectedGlyph["bonusLevel"] = drawsLevel
+                ? glyph.LevelDecision.BonusLevels
+                : (int?)null;
+            projectedGlyph["totalLevel"] = drawsLevel
+                ? glyph.LevelDecision.TotalLevel
+                : (int?)null;
+            return projectedGlyph.Freeze();
+        }
         // How many of this node exist and how many are uncommitted are the two counts a plan is made
         // from. How many sit in the Idle phase is not one of them: it is the game's `GetQuantity()`,
         // a phase timer's count, and it moves while nobody plays. A caller who needs the phase reads
@@ -2389,7 +2409,7 @@ internal static class GameMcpWorldQuery
         {
             ["uuid"] = command.TargetId.ToString("D"),
             ["discovered"] = command.SecondaryId.ToString("D"),
-            ["discoveredCount"] = new JObject
+            ["treeDiscovered"] = new JObject
             {
                 ["before"] = hadBefore ? previous.TotalDiscoveredCount : (int?)null,
                 ["after"] = after.TotalDiscoveredCount,
@@ -6252,7 +6272,11 @@ internal static class GameMcpWorldQuery
             ["category"] = "discovery-trees",
             ["mode"] = DiscoveryMode(tree.ActionMode),
             ["rerollsLeft"] = tree.RerollsLeft,
-            ["discoveredCount"] = tree.TotalDiscoveredCount,
+            // The game's own cached counter, and the tree's own route is the only thing that
+            // moves it: DiscoveryTreeSO.DiscoverItem is the sole writer, so a discovery made from
+            // an entity's own row never reaches it. The name now says whose count it is — how many
+            // this tree handed you, not how many of its things you have.
+            ["treeDiscovered"] = tree.TotalDiscoveredCount,
             // The count the game caches is a count of the tree's own discoverable list, and without
             // that list's size no caller could tell an early tree from a nearly finished one.
             ["discoverableCount"] = tree.TotalDiscoverableCount,
@@ -8567,7 +8591,8 @@ internal static class GameMcpWorldQuery
             upgradeScreen
                 ? string.Empty
                 : "Magic > Augments > Upgrade is not unlocked yet, so the game draws no level " +
-                  "button for an augment glyph. Buy the Upgrade Glyphs upgrade first.");
+                  "button for an augment glyph. Buy the Upgrade Glyphs upgrade first.",
+            upgradeScreen);
         AddDiscoveryDecision(
             world,
             result,
@@ -8973,11 +8998,18 @@ internal static class GameMcpWorldQuery
         WorldLevelableDecision decision,
         bool targetAvailable = true,
         string targetReasonCode = "not_available",
-        string targetReason = "")
+        string targetReason = "",
+        bool drawsLevel = true)
     {
-        result["paidLevel"] = decision.TotalLevel - decision.BonusLevels;
-        if (decision.SupportsBonus) result["bonusLevel"] = decision.BonusLevels;
-        result["totalLevel"] = decision.TotalLevel;
+        // A detail block is not a table, so a level the game draws nowhere says nothing at all
+        // rather than printing a zero. `purchase` still prints and still names the screen that
+        // would buy one, which is the whole of what a caller can act on.
+        if (drawsLevel)
+        {
+            result["paidLevel"] = decision.TotalLevel - decision.BonusLevels;
+            if (decision.SupportsBonus) result["bonusLevel"] = decision.BonusLevels;
+            result["totalLevel"] = decision.TotalLevel;
+        }
 
         var purchase = new JObject
         {

@@ -103,14 +103,17 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // A predicate that holds is published holding. Dropping the passing ones made absence mean
         // "true" on one key and "this entity has no such predicate" on the next.
         Assert.True(Predicate(readySpell, "visible"));
-        Assert.True(Predicate(readySpell, "available"));
         Assert.True(Predicate(readySpell, "canUse"));
         Assert.False(Predicate(waitingSpell, "canUse"));
+        // `available` is one question — the game's own availability bit — and only the kinds that
+        // hold one answer it. On a discoverable it was an alias of `visible`, which is a different
+        // question with a different answer, and the two crossed the wire side by side.
+        Assert.Null(readySpell["predicates"]!["available"]);
         Assert.True(Predicate(readyResearch, "available"));
         Assert.False(Predicate(blockedResearch, "available"));
         Assert.True(Predicate(readyCrafting, "visible"));
         Assert.False(Predicate(blockedCrafting, "visible"));
-        Assert.False(Predicate(blockedCrafting, "available"));
+        Assert.Null(blockedCrafting["predicates"]!["available"]);
 
         // A predicate whose question the row already answers is gone, holding or not: the row's
         // block is the screen's truth and it is where both answers are read. Where the row

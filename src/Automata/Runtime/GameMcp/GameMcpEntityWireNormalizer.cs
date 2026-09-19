@@ -661,7 +661,7 @@ internal static class GameMcpEntityWireNormalizer
     private static void DeduplicateRowVerdict(JObject item)
     {
         if (item["predicates"] is not JObject predicates ||
-            predicates["available"] is not JObject ||
+            (predicates["available"] is not JObject && predicates["visible"] is not JObject) ||
             item["row"] is not JObject row ||
             row["available"] is null)
         {

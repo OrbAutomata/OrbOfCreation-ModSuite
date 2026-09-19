@@ -517,7 +517,7 @@ public sealed class GameMcpResearchTests
         Assert.False((bool)row["paused"]!);
         Assert.Equal(1, (int)row["totalLevel"]!);
         Assert.Equal(3, (int)row["queuedLevels"]!);
-        Assert.Equal("met", (string?)row["requirements"]);
+        Assert.Equal("met", (string?)row["nextLevelRequirements"]);
         Assert.False((bool)row["canDevelop"]!);
         Assert.False((bool)row["affordable"]!);
         Assert.Null(row["complete"]);

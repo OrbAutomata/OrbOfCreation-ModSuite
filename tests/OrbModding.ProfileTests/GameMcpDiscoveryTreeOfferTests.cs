@@ -239,8 +239,8 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
         Assert.Equal(GameMcpTestHarness.Handle(offerId), (string?)delta["discovered"]!["uuid"]);
-        Assert.Equal(0, (int)delta["discoveredCount"]!["before"]!);
-        Assert.Equal(1, (int)delta["discoveredCount"]!["after"]!);
+        Assert.Equal(0, (int)delta["treeDiscovered"]!["before"]!);
+        Assert.Equal(1, (int)delta["treeDiscovered"]!["after"]!);
         // A count that moved says nothing about how much of the tree is left, which is the question
         // a caller confirmed an offer to make progress on.
         Assert.Equal(4, (int)delta["discoverableCount"]!);
@@ -338,7 +338,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             GameMcpCommandResult.Committed("committed", 9, 3)));
 
         Assert.Equal(GameMcpTestHarness.Handle(offerId), (string?)delta["discovered"]!["uuid"]);
-        Assert.Equal(1, (int)delta["discoveredCount"]!["after"]!);
+        Assert.Equal(1, (int)delta["treeDiscovered"]!["after"]!);
         Assert.Equal("idle", (string?)delta["mode"]!["after"]);
     }
 
@@ -1047,9 +1047,9 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 Assert.NotNull(explanation["name"]);
                 Assert.Equal(
                     readOffer == secondId,
-                    !(bool)explanation["predicates"]!["available"]!["available"]!);
+                    !(bool)explanation["predicates"]!["visible"]!["available"]!);
                 if (readOffer == secondId)
-                    Assert.Null(explanation["predicates"]!["available"]!["reasonCode"]);
+                    Assert.Null(explanation["predicates"]!["visible"]!["reasonCode"]);
             }
 
             var selected = action.Submit(new DiscoveryTreeOfferAction(
@@ -1128,7 +1128,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     response.ToString(Newtonsoft.Json.Formatting.None));
             }
             Assert.Equal(
-                new[] { 434, 493, 349 },
+                new[] { 433, 492, 348 },
                 new[]
                 {
                     CommittedBytes(rerollResponse),
@@ -1218,13 +1218,13 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.Equal(new[]
             {
                 "status", "uuid", "name", "category",
-                "mode", "rerollsLeft", "discoveredCount", "discoverableCount",
+                "mode", "rerollsLeft", "treeDiscovered", "discoverableCount",
                 "hasRemainingDiscoveries", "initiate",
             },
             projected.Properties().Select(property => property.Name));
         Assert.Null(projected["code"]);
         Assert.Equal("idle", (string?)projected["mode"]);
-        Assert.Equal(5, (int)projected["discoveredCount"]!);
+        Assert.Equal(5, (int)projected["treeDiscovered"]!);
         Assert.True((bool)projected["initiate"]!["available"]!);
         var cost = Assert.Single(projected["initiate"]!["costs"]!.Values<JObject>())!;
         Assert.Equal("Knowledge", (string?)cost["resource"]!["name"]);
@@ -1291,7 +1291,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         Assert.Equal(new[]
             {
                 "status", "uuid", "name", "category",
-                "mode", "rerollsLeft", "discoveredCount", "discoverableCount",
+                "mode", "rerollsLeft", "treeDiscovered", "discoverableCount",
                 "hasRemainingDiscoveries", "offers", "reroll",
             },
             projected.Properties().Select(property => property.Name));
