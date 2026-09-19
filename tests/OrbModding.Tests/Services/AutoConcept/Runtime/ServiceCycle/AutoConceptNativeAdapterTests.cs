@@ -125,7 +125,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
             drainCost = new ConceptCostVector(
                 new ConceptCostEntry(resource, new BigDouble(1.0, 0))),
         };
-        InstallNativeLists(recipe);
+        var active = InstallNativeLists(recipe);
         using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
         var belief = new AutoConceptPlanBelief(0, 0, 4, Guid.Empty, 0);
         var action = new AutoConceptCycleAction(
@@ -135,6 +135,45 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         Assert.Equal(AutoConceptPreflight.ResourceBackpressure, submission.Preflight);
         Assert.Contains("at zero", submission.Reason);
+        Assert.Empty(active.value);
+    }
+
+    /// <summary>
+    /// A resource sitting at zero is the worker's caution, and the player's press takes the slot.
+    /// </summary>
+    /// <remarks>
+    /// The game does not refuse this press. <c>AlchemyInstanceListVariable.EngageAlchemy</c> gates
+    /// on an empty spot or an existing instance, the recipe's free and maximum usage slots, its
+    /// usage cost and the multi-buy count; <c>CanAddInstance</c> is that slot test alone. Nothing
+    /// on either path reads the drain's zero state — the one caller of
+    /// <c>ResourceDrain.AnyResourceAtZero</c> in the assembly is <c>StatusEffect.CheckIfExpired</c>,
+    /// which expires a running effect. So refusing the press was the suite's own rule, wearing a
+    /// sentence that sounded like the game's.
+    /// </remarks>
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void APressIsNotRefusedByAResourceTheGameLetsRunAtZero()
+    {
+        var resource = new ConceptResource { AtZero = true };
+        var recipe = new AlchemyRecipeSO(
+            RecipeId.ToString("D"),
+            "Zero resource concept",
+            new[] { new AlchemyTypeSO(AlchemyGameplayDomainClassifier.ReflectiveConceptTypeUuid.ToString()) })
+        {
+            maxUsageSlots = new ValueModifierRecord(new BigDouble(4.0, 0)),
+            drainCost = new ConceptCostVector(
+                new ConceptCostEntry(resource, new BigDouble(1.0, 0))),
+        };
+        var active = InstallNativeLists(recipe);
+        using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
+        var belief = new AutoConceptPlanBelief(0, 0, 4, Guid.Empty, 0);
+        var action = new AutoConceptCycleAction(
+            AutoConceptActionKind.Add, RecipeId, 4, Guid.Empty, 1, in belief);
+
+        var press = runtime.Submit(in action, limits: null);
+
+        Assert.True(press.Verified, press.Reason);
+        Assert.Equal(4, Assert.Single(active.value).queuedQuantity);
     }
 
     /// <summary>

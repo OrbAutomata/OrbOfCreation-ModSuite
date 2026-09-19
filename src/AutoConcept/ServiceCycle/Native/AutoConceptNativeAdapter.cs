@@ -610,6 +610,13 @@ internal sealed class AutoConceptNativeAdapter :
             foreach (var entry in entries)
             {
                 if (entry.Amount.IsZero || entry.Amount.IsNegative) continue;
+                // Every check below this line is the worker's own caution, so a press the player
+                // asked for skips all of them. The game does not refuse an assignment because a
+                // drained resource sits at zero: AlchemyInstanceListVariable.EngageAlchemy gates
+                // on a free slot, the usage cost and the multi-buy count, CanAddInstance on a slot
+                // alone, and the only reader of ResourceDrain.AnyResourceAtZero in the whole
+                // assembly is StatusEffect.CheckIfExpired.
+                if (limits is not { } applied) continue;
                 var zeroState = ReflectionUtil.InvokeNoArgs(entry.Resource, "IsAtZero");
                 if (!AutoConceptResourcePolicy.TryAcceptPositiveDrain(zeroState, out var zeroReason))
                 {
@@ -618,7 +625,6 @@ internal sealed class AutoConceptNativeAdapter :
                         : AutoConceptProjectionRefusal.Contract;
                     return FailProjection($"{ResourceName(entry.Resource)} {zeroReason}", out reason);
                 }
-                if (limits is not { } applied) continue;
                 var trueIncrement = InvokeCompatible(entry.Resource, "GetTrueSpend", entry.NativeAmount);
                 if (!BigAmount.TryRead(trueIncrement, out var adjustedIncrement) || adjustedIncrement.IsNegative)
                     return FailProjection("resource quality conversion failed", out reason);
