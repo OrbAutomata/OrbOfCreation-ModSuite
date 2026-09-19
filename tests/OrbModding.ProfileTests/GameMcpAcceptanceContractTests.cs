@@ -760,9 +760,19 @@ public sealed class GameMcpProtocolSurfaceTests
         // when the world readers do, so the fixture has to be a world they would serve.
         var withWorld = Plugin.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(
-                new GameWorldState { CollectedAtUtcTicks = DateTime.UtcNow.Ticks },
+                new GameWorldState
+                {
+                    CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+                    IntVariables = WorldTable.Create(new WorldNumberVariable(
+                        KnownEntities.WorldResets.Uuid, new BigDouble(14d), isPercent: false)),
+                },
                 generation: 1207));
-        Assert.Contains("lifecycle: Playing, generation 9", withWorld, StringComparison.Ordinal);
+        // Two counters, two names: the suite's transitions since the plugin loaded, and the save's
+        // own reset count under the word the game prints over it.
+        Assert.Contains(
+            "lifecycle: Playing, lifecycleTransitions 9, worldResets 14",
+            withWorld,
+            StringComparison.Ordinal);
         Assert.Contains("world: publication 1207", withWorld, StringComparison.Ordinal);
         Assert.DoesNotContain("world: generation", withWorld, StringComparison.Ordinal);
 

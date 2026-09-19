@@ -17,7 +17,9 @@ namespace OrbModding.ProfileTests;
 /// </summary>
 public sealed class GameMcpLifecycleBoundaryTests
 {
-    private static WorldPublication<GameWorldState> LiveWorld(ulong generation = 72814)
+    private static WorldPublication<GameWorldState> LiveWorld(
+        ulong generation = 72814,
+        bool publishWorldResets = true)
     {
         var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
         publisher.Publish(
@@ -25,6 +27,10 @@ public sealed class GameMcpLifecycleBoundaryTests
             {
                 CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
                 EntityIdentities = GameMcpTestHarness.EntityCatalog,
+                IntVariables = publishWorldResets
+                    ? WorldTable.Create(new WorldNumberVariable(
+                        KnownEntities.WorldResets.Uuid, new BigDouble(14d), isPercent: false))
+                    : GameWorldStateDefaults.Empty.IntVariables,
             },
             new WorldGeneration(generation));
         return publisher.ReadLatest();
@@ -116,7 +122,8 @@ public sealed class GameMcpLifecycleBoundaryTests
                 lifecycleState: GameLifecycleState.NoGame,
                 sceneName: "Start"));
 
-        Assert.Contains("lifecycle: NoGame, generation 11", beforeAnyRun, StringComparison.Ordinal);
+        Assert.Contains(
+            "lifecycle: NoGame, lifecycleTransitions 11", beforeAnyRun, StringComparison.Ordinal);
         Assert.Contains("world: not published", beforeAnyRun, StringComparison.Ordinal);
         Assert.Equal(beforeAnyRun, afterTheRun);
     }
@@ -127,9 +134,44 @@ public sealed class GameMcpLifecycleBoundaryTests
         var text = OrbModding.Plugin.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(LiveWorld(), lifecycleGeneration: 9));
 
-        Assert.Contains("lifecycle: Playing, generation 9", text, StringComparison.Ordinal);
+        Assert.Contains(
+            "lifecycle: Playing, lifecycleTransitions 9, worldResets 14",
+            text,
+            StringComparison.Ordinal);
         Assert.Contains("world: publication 72814", text, StringComparison.Ordinal);
         Assert.DoesNotContain("world: generation", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Round 15 read <c>generation 9</c> after one <c>game_continue</c> and took it for the save's
+    /// ninth world reset. It counted this process's lifecycle transitions. The two numbers now
+    /// stand side by side, each under the name of the thing it counts — the suite's under what it
+    /// counts, the game's under the word the Statistics screen prints over it.
+    /// </summary>
+    [Fact]
+    public void TheSuitesTransitionCountAndTheSavesResetCountNeverShareAWord()
+    {
+        var text = OrbModding.Plugin.ProjectGameMcpHealthText(
+            GameMcpTestHarness.Context(LiveWorld(), lifecycleGeneration: 9));
+
+        Assert.Contains("lifecycleTransitions 9", text, StringComparison.Ordinal);
+        Assert.Contains("worldResets 14", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("generation", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The game's number is read by id, never inferred. A world that publishes no such variable
+    /// says so on the line rather than printing a zero no screen would show.
+    /// </summary>
+    [Fact]
+    public void AWorldWithoutTheGamesResetCounterSaysSoRatherThanPrintingZero()
+    {
+        var text = OrbModding.Plugin.ProjectGameMcpHealthText(
+            GameMcpTestHarness.Context(
+                LiveWorld(publishWorldResets: false), lifecycleGeneration: 9));
+
+        Assert.Contains("worldResets unavailable", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("worldResets 0", text, StringComparison.Ordinal);
     }
 
     /// <summary>

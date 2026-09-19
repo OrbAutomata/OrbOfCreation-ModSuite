@@ -81,3 +81,4 @@ UpgradesWorldScreen	d9cbbc6b-b8c6-4fa6-9bea-3551a2107eae	WorldScreenUpgrades	Upg
 WorkshopArtifact	668a2a7a-468f-4e0e-b182-979b12a4b0ad	WorkshopArtifact	ViewSO
 WorkshopArtifactCreate	05e1f545-5daa-4bd0-9cbb-8770f4cf6a13	WorkshopArtifactCreate	ViewSO
 WorldAspectSlots	4b1bb2de-723a-4360-827c-8e4483f3ff8d	WorldAspectSlots	IntVariable
+WorldResets	56039067-0092-49c0-a7bd-3c43eb119d37	WorldResets	IntVariable

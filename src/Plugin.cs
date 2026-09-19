@@ -1932,6 +1932,28 @@ public sealed class Plugin : BaseUnityPlugin
         return GameMcpToolExecution.Text(string.Join("\n", lines));
     }
 
+    /// <summary>
+    /// The save's own reset count, read by id off the game's <c>WorldResets</c> variable — "How
+    /// many times you've reset the world", under the word the Statistics screen prints over it.
+    /// Empty while no world is published, because the page's next line already says that.
+    /// </summary>
+    /// <remarks>
+    /// <c>GlobalVariables.GetGenerationAttr()</c> is not this number and holds no number at all: it
+    /// returns the <c>AttributeSO</c> glossary word "Generation", which sits beside
+    /// <c>GenerationRateTime</c> and <c>GenerationSplash</c> and heads the tooltip section for how
+    /// fast a resource is gained.
+    /// </remarks>
+    private static string GameMcpWorldResetsText(GameMcpFrameContext context)
+    {
+        if (!GameMcpWorldQuery.IsWorldPublished(context)) return string.Empty;
+        return WorldLookup.TryFind(
+            context.World!.Snapshot.IntVariables,
+            KnownEntities.WorldResets.Uuid,
+            out var resets)
+            ? ", worldResets " + resets.Value.ToLong().ToString(CultureInfo.InvariantCulture)
+            : ", worldResets unavailable";
+    }
+
     internal static string ProjectGameMcpHealthText(GameMcpFrameContext context)
     {
         var stopped = context.Runtime?.EmergencyStopEngaged ??
@@ -1944,15 +1966,19 @@ public sealed class Plugin : BaseUnityPlugin
             // The same lifecycle fact game_probe reports and the world reads refuse on, so the three
             // cannot hold three beliefs about whether a game exists.
             .Append("lifecycle: ").Append(context.LifecycleState.ToString())
-            .Append(", generation ")
-            .AppendLine(context.LifecycleGeneration.ToString(CultureInfo.InvariantCulture))
+            // Named for what it counts: the lifecycle boundaries this process has crossed, from the
+            // plugin's load. It was called "generation", which a reader took for the save's NG+
+            // number — so that number is now printed beside it, under the game's own word for it,
+            // and neither counter borrows the other's name.
+            .Append(", lifecycleTransitions ")
+            .Append(context.LifecycleGeneration.ToString(CultureInfo.InvariantCulture))
+            .AppendLine(GameMcpWorldResetsText(context))
             // The scene name alone cannot tell a caller which run a verdict describes: the runtime
             // outlives every scene change, so the same scene answered both ways across one session.
             // The publication counter is what actually moves, so it is published — and a lifecycle
             // boundary flushes the publication, so this reads "not published" again once the run
-            // it described is gone. It counts publications and says so: the line above already
-            // spends the word "generation" on the lifecycle, and one word for two counters that
-            // move independently is what sent a reader comparing them.
+            // it described is gone. It counts publications and says so, because three counters
+            // share this page and none of them is another's number.
             .Append("world: ").AppendLine(GameMcpWorldQuery.IsWorldPublished(context)
                 ? "publication " +
                     context.World!.Generation.Value.ToString(CultureInfo.InvariantCulture)

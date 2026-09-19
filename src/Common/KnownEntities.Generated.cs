@@ -129,4 +129,5 @@ internal static class KnownEntities
     public static readonly KnownEntity<ViewSOContract> WorkshopArtifact = new(new Guid("668a2a7a-468f-4e0e-b182-979b12a4b0ad"), "ViewSO", "WorkshopArtifact");
     public static readonly KnownEntity<ViewSOContract> WorkshopArtifactCreate = new(new Guid("05e1f545-5daa-4bd0-9cbb-8770f4cf6a13"), "ViewSO", "WorkshopArtifactCreate");
     public static readonly KnownEntity<IntVariableContract> WorldAspectSlots = new(new Guid("4b1bb2de-723a-4360-827c-8e4483f3ff8d"), "IntVariable", "WorldAspectSlots");
+    public static readonly KnownEntity<IntVariableContract> WorldResets = new(new Guid("56039067-0092-49c0-a7bd-3c43eb119d37"), "IntVariable", "WorldResets");
 }
