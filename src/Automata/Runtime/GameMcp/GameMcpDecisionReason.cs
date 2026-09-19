@@ -353,6 +353,11 @@ internal static class GameMcpDecisionReason
         // simply not one this suite will serve, which is what this class says. The same spelling as
         // `requirement_depth_exceeded`, which is the same concept one graph over.
         "tooltip_depth_exceeded" or
+        // A panel the suite will not press. Nothing about the call was wrong and the game refused
+        // nothing: opening it would run scene-wired handlers no read of the build can follow, and
+        // the three the game draws beside the player's own chrome are a world reset, an ending
+        // screen and a developer console.
+        "modal_not_offered" or
         "navigation_request_invalid" or "unsupported_probe" or
         "continue_contract_unavailable" or
         "cost_unavailable" or "exact_cost_unavailable" or "usage_cost_unavailable" or

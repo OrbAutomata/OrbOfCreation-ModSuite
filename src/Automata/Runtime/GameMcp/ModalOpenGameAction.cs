@@ -104,6 +104,29 @@ internal sealed class ModalOpenGameAction : IDisposable
         "be opened.";
 
     /// <summary>
+    /// The panels the suite presses, by the title each one wears.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Closing a Unity modal never deactivates it — <c>UIModal.SetElementVisibility(false)</c> drops
+    /// alpha, interactivity and raycasts and leaves the GameObject active — so every activator
+    /// nested inside a panel the player closed an hour ago is still active, still prepared and still
+    /// titled. The enumeration was scene-wide while the answer claimed to be about this screen, and
+    /// it offered Game Complete!, Reset World, Dev Console, Loadouts, Jukebox, Key Binds and
+    /// Construct Aspect on every screen in the game.
+    /// </para>
+    /// <para>
+    /// <see cref="GameMcpTooltipNativeAccess.OnScreen"/> drops the ones inside closed panels. What
+    /// no filter can answer is what an open <em>does</em>: <c>UIModal.PerformOpen</c> invokes two
+    /// scene-wired <c>UnityEvent</c>s that no read of the build can follow. Reset World is the front
+    /// door of a one-way door, Game Complete! an ending surface, and Dev Console fronts
+    /// <c>DevConsoleEngine.RunCommand</c>. So the set the suite is willing to press is named here
+    /// rather than inferred, and a panel that is not on it is never listed and never opened.
+    /// </para>
+    /// </remarks>
+    internal static readonly string[] Offerable = { "Player", "Settings" };
+
+    /// <summary>
     /// Every chrome control the player can currently press, with the panel each one opens.
     /// </summary>
     internal bool TryReadActivators(out IReadOnlyList<ModalActivator> activators, out string reason)
@@ -134,6 +157,8 @@ internal sealed class ModalOpenGameAction : IDisposable
                 }
                 var title = native.Title(control);
                 if (string.IsNullOrWhiteSpace(title)) continue;
+                if (!GameMcpTooltipNativeAccess.OnScreen(control)) continue;
+                if (!IsOfferable(title)) continue;
                 live.Add(new ModalActivator(control, title));
             }
             activators = live;
@@ -159,6 +184,13 @@ internal sealed class ModalOpenGameAction : IDisposable
             return new ModalOpenSubmission(false, "wrong_thread", GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return new ModalOpenSubmission(false, "contract_unavailable", NoActivator);
+
+        if (!IsOfferable(title))
+        {
+            return new ModalOpenSubmission(false, "modal_not_offered",
+                "The suite does not open the '" + title + "' panel; it opens only the player's " +
+                "own chrome: " + string.Join(", ", Offerable) + ".");
+        }
 
         var matches = new List<ModalActivator>();
         foreach (var candidate in activators)
@@ -189,6 +221,9 @@ internal sealed class ModalOpenGameAction : IDisposable
                 GameActionFaultLog.Record(exception, "the chrome panel controls"));
         }
     }
+
+    private static bool IsOfferable(string title) =>
+        Array.IndexOf(Offerable, title) >= 0;
 
     /// <summary>The panels this screen does offer, because a refused name is a name to correct.</summary>
     private static string Offered(IReadOnlyList<ModalActivator> activators)

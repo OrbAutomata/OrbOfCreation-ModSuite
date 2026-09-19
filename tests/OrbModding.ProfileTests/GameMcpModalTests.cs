@@ -55,17 +55,17 @@ public sealed class GameMcpModalTests : IDisposable
     [Fact]
     public void Opening_presses_the_one_control_that_puts_up_the_named_panel()
     {
-        var statistics = new UIModal();
-        var chrome = Activator(statistics, "StatsButton", "Statistics");
+        var player = new UIModal();
+        var chrome = Activator(player, "PlayerStatsButton", "Player");
         using var action = new ModalOpenGameAction();
 
         Assert.True(action.TryReadActivators(out var activators, out var reason), reason);
-        var submission = action.Submit("Statistics", activators);
+        var submission = action.Submit("Player", activators);
 
         Assert.True(submission.Committed, submission.Reason);
-        Assert.Equal("Statistics", submission.Title);
-        Assert.True(statistics.IsOpen());
-        Assert.Equal("Statistics", Assert.Single(activators).Title);
+        Assert.Equal("Player", submission.Title);
+        Assert.True(player.IsOpen());
+        Assert.Equal("Player", Assert.Single(activators).Title);
         Assert.Same(chrome, Assert.Single(activators).Control);
     }
 
@@ -76,28 +76,27 @@ public sealed class GameMcpModalTests : IDisposable
     [Fact]
     public void A_panel_no_control_opens_is_refused_naming_the_ones_this_screen_has()
     {
-        Activator(new UIModal(), "StatsButton", "Statistics");
         Activator(new UIModal(), "SettingsButton", "Settings");
         using var action = new ModalOpenGameAction();
 
         Assert.True(action.TryReadActivators(out var activators, out var reason), reason);
-        var submission = action.Submit("Achievements", activators);
+        var submission = action.Submit("Player", activators);
 
         Assert.False(submission.Committed);
         Assert.Equal("no_modal_named", submission.Code);
-        Assert.Contains("Statistics, Settings", submission.Reason, StringComparison.Ordinal);
+        Assert.Contains("this screen offers Settings", submission.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Two_controls_for_one_panel_name_are_refused_rather_than_guessed_between()
     {
-        Activator(new UIModal(), "StatsButton", "Statistics");
-        Activator(new UIModal(), "StatsShortcut", "Statistics");
+        Activator(new UIModal(), "PlayerStatsButton", "Player");
+        Activator(new UIModal(), "PlayerShortcut", "Player");
         using var action = new ModalOpenGameAction();
 
         Assert.True(action.TryReadActivators(out var activators, out var reason), reason);
 
-        Assert.Equal("ambiguous_modal", action.Submit("Statistics", activators).Code);
+        Assert.Equal("ambiguous_modal", action.Submit("Player", activators).Code);
     }
 
     /// <summary>
@@ -107,16 +106,71 @@ public sealed class GameMcpModalTests : IDisposable
     [Fact]
     public void Only_live_prepared_and_titled_controls_reach_the_element_list()
     {
-        var hidden = Activator(new UIModal(), "HiddenButton", "Hidden");
+        var hidden = Activator(new UIModal(), "HiddenButton", "Player");
         hidden.SetLiveForTest(false);
-        Activator(null, "UnpreparedButton", "Unprepared");
+        Activator(null, "UnpreparedButton", "Player");
         Activator(new UIModal(), "NamelessButton", string.Empty);
-        Activator(new UIModal(), "StatsButton", "Statistics");
+        var live = Activator(new UIModal(), "PlayerStatsButton", "Player");
         using var action = new ModalOpenGameAction();
 
         Assert.True(action.TryReadActivators(out var activators, out var reason), reason);
 
-        Assert.Equal("Statistics", Assert.Single(activators).Title);
+        Assert.Same(live, Assert.Single(activators).Control);
+    }
+
+    /// <summary>
+    /// A closed panel is alpha-0, not inactive, so the control inside it stays active in the
+    /// hierarchy forever. The catalog said "this screen" while enumerating the whole scene.
+    /// </summary>
+    [Fact]
+    public void A_control_inside_a_closed_panel_is_not_on_this_screen()
+    {
+        var closed = new UnityEngine.GameObject("PlayerModal(Clone)");
+        var modal = closed.AddComponent<UIModal>();
+        var chrome = Activator(new UIModal(), "PlayerStatsButton", "Player");
+        chrome.transform.SetParent(closed.transform, false);
+        using var action = new ModalOpenGameAction();
+
+        Assert.True(chrome.gameObject.activeInHierarchy);
+        Assert.True(action.TryReadActivators(out var hidden, out var reason), reason);
+        Assert.Empty(hidden);
+
+        modal.OpenForTest();
+
+        Assert.True(action.TryReadActivators(out var shown, out reason), reason);
+        Assert.Equal("Player", Assert.Single(shown).Title);
+    }
+
+    /// <summary>
+    /// What an open does is scene-wired: <c>UIModal.PerformOpen</c> invokes two UnityEvents no read
+    /// of the build can follow. So the suite presses a named set and nothing else — and the three
+    /// the game draws beside the player's own chrome are a world reset, an ending screen and a
+    /// developer console.
+    /// </summary>
+    [Fact]
+    public void The_chrome_the_suite_presses_is_the_players_own_and_nothing_else()
+    {
+        Activator(new UIModal(), "ResetWorldButton", "Reset World");
+        Activator(new UIModal(), "GameCompleteButton", "Game Complete!");
+        Activator(new UIModal(), "DevConsoleButton", "Dev Console");
+        Activator(new UIModal(), "JukeboxButton", "Jukebox");
+        Activator(new UIModal(), "SettingsButton", "Settings");
+        using var action = new ModalOpenGameAction();
+
+        Assert.True(action.TryReadActivators(out var activators, out var reason), reason);
+        Assert.Equal("Settings", Assert.Single(activators).Title);
+
+        var refusal = action.Submit("Reset World", activators);
+
+        Assert.False(refusal.Committed);
+        Assert.Equal("modal_not_offered", refusal.Code);
+        Assert.Equal(
+            "The suite does not open the 'Reset World' panel; it opens only the player's own " +
+            "chrome: Player, Settings.",
+            refusal.Reason);
+        Assert.Equal(
+            GameMcpDecisionReason.ClassUnavailable,
+            GameMcpDecisionReason.Class("modal_not_offered"));
     }
 
     [Fact]

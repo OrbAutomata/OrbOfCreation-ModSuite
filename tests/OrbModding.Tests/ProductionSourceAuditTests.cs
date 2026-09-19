@@ -548,6 +548,53 @@ public sealed class ProductionSourceAuditTests
             string.Join(", ", offenders));
     }
 
+    /// <summary>
+    /// One list of chrome panel controls reaches every surface that names one.
+    /// </summary>
+    /// <remarks>
+    /// <c>game_modal</c>'s list, the <c>opens: modal</c> rows in <c>game_screen_elements</c> and the
+    /// refusal that quotes "this screen offers …" are three readings of the same question, and they
+    /// agree only while they come from one enumeration. That enumeration is the one place the
+    /// on-screen test and the named set of pressable chrome are applied; a second one would put a
+    /// closed panel's control back on the board through whichever surface skipped them.
+    /// </remarks>
+    [Fact]
+    public void ChromePanelControlsAreEnumeratedInExactlyOnePlace()
+    {
+        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        const string owner = "Automata/Runtime/GameMcp/ModalOpenGameAction.cs";
+        var offenders = new List<string>();
+        var owned = 0;
+        foreach (var path in Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
+            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
+                relativePath.StartsWith("obj", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var lines = File.ReadAllLines(path);
+            for (var index = 0; index < lines.Length; index++)
+            {
+                if (!lines[index].Contains("new ModalActivator(", StringComparison.Ordinal))
+                    continue;
+                if (string.Equals(relativePath, owner, StringComparison.Ordinal))
+                {
+                    owned++;
+                    continue;
+                }
+                offenders.Add(relativePath + ":" + (index + 1));
+            }
+        }
+
+        Assert.True(owned > 0, "the chrome panel control enumeration moved out of " + owner + ".");
+        Assert.True(
+            offenders.Count == 0,
+            "a second enumeration of chrome panel controls answers a different screen: " +
+            string.Join(", ", offenders));
+    }
+
     private static bool Names(string line, string[] flags) =>
         Array.Exists(flags, flag => line.Contains(flag, StringComparison.Ordinal));
 
