@@ -488,6 +488,91 @@ public sealed class ProductionSourceAuditTests
         }
     }
 
+    /// <summary>
+    /// A press the player asked for is never shaped by an automation dial.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A feature's action boundary serves two callers: the service's own worker and the player's
+    /// verb. It tells them apart with one flag, and every suite-configuration read it makes belongs
+    /// in the statement that names that flag. A read outside one is an automation option applied to
+    /// a press, which is how <c>game_concept add</c> came back "below the configured quantity
+    /// floor" with Auto Concept disabled and how <c>game_purchase</c> came back short of the queue
+    /// reserve with Auto Buy switched off.
+    /// </para>
+    /// <para>
+    /// The sweep sees the files that carry the flag, which is exactly the set of boundaries both
+    /// callers share. A boundary the flag never reaches is served by one caller only, and a
+    /// boundary that hands the dials on to another file hands them as values rather than as
+    /// configuration — the port takes the limits, and the manual press is handed none.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void AnActionBoundaryReadsAutomationOptionsOnlyWhereItNamesTheAutomationFlag()
+    {
+        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var flags = new[] { "requireAutomationPolicy", "applyAutomationLimits" };
+        var reads = new[] { "config.", "configuration.", "ConfigurationPolicy." };
+        var offenders = new List<string>();
+        var swept = 0;
+        foreach (var path in Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
+            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
+                relativePath.StartsWith("obj", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var lines = File.ReadAllLines(path);
+            if (!Array.Exists(lines, line => Names(line, flags))) continue;
+            swept++;
+            for (var index = 0; index < lines.Length; index++)
+            {
+                var line = lines[index];
+                if (line.TrimStart().StartsWith("//", StringComparison.Ordinal)) continue;
+                if (!Array.Exists(reads, read => line.Contains(read, StringComparison.Ordinal)))
+                    continue;
+                if (StatementNames(lines, index, flags)) continue;
+                offenders.Add(relativePath + ":" + (index + 1));
+            }
+        }
+
+        Assert.True(
+            swept >= 5,
+            "the action boundaries stopped naming the automation flag; the sweep has nothing left " +
+            "to read.");
+        Assert.True(
+            offenders.Count == 0,
+            "an automation option read outside the automation guard shapes the player's own press: " +
+            string.Join(", ", offenders));
+    }
+
+    private static bool Names(string line, string[] flags) =>
+        Array.Exists(flags, flag => line.Contains(flag, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Whether the statement the line belongs to names the automation flag, reading backwards to
+    /// the end of the statement before it.
+    /// </summary>
+    private static bool StatementNames(string[] lines, int index, string[] flags)
+    {
+        for (var cursor = index; cursor >= 0; cursor--)
+        {
+            if (Names(lines[cursor], flags)) return true;
+            if (cursor == index) continue;
+            var trimmed = lines[cursor].TrimEnd();
+            if (trimmed.EndsWith(";", StringComparison.Ordinal) ||
+                trimmed.EndsWith("{", StringComparison.Ordinal) ||
+                trimmed.EndsWith("}", StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     private static string FindRepositoryRoot()
     {
         foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })

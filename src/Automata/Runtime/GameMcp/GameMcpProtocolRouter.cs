@@ -755,7 +755,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_cast",
                 "Cast an equipped spell",
-                "Live-revalidate an equipped slot and fire it, release a charge hold, or press an active toggle spell's native cast button again to turn it off. A fire on a spell that is already running is refused rather than pressed: the game answers that press with a warning or by ending the cast, never by starting one. A committed fire means the press started a cast now. charge=true holds the cast button down the way the player does, so the spell charges instead of firing at once; release it with mode=release, and the longer it was held the more power the cast lands with. Charging needs the Charged Spells research on a spell type that scales with it, and a spell the game will not charge is refused rather than fired uncharged.",
+                "Live-revalidate an equipped slot and fire it, release a charge hold, or press an active toggle spell's native cast button again to turn it off. A fire on a spell that is already running is refused rather than pressed: the game answers that press with a warning or by ending the cast, never by starting one. A committed fire means the press started a cast now. charge=true holds the cast button down the way the player does, so the spell charges instead of firing at once; release it with mode=release, and the longer it was held the more power the cast lands with. Charging needs the Charged Spells research on a spell type that scales with it, and a spell the game will not charge is refused rather than fired uncharged. Auto Cast's own settings do not apply to this call: the stand-down it takes after a manual cast never holds this press back, and the cast charges because charge=true asked for it rather than because the service prefers full charges.",
                 ModeSchema(ObjectSchema(
                     new JObject
                     {
@@ -771,7 +771,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_concept",
                 "Assign or remove a concept",
-                "Apply one exact concept assignment change and return its terminal native result inline.",
+                "Apply one exact concept assignment change and return its terminal native result inline. The game's own gates decide it: a free Concept slot, a discovered recipe, and the drain the assignment costs. Auto Concept's own settings, the rate reserve and the quantity floor it holds its own assignments back for included, do not apply to this call.",
                 ObjectSchema(
                     new JObject
                     {

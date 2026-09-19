@@ -60,7 +60,9 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
         AutoConceptSubmission submission;
         try
         {
-            submission = _native.Submit(in action, config.AutoConcept);
+            submission = _native.Submit(
+                in action,
+                requireAutomationPolicy ? AutoConceptResourceLimits.From(config.AutoConcept) : null);
             LastSubmission = submission;
         }
         catch (Exception ex) when (

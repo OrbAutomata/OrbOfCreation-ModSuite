@@ -87,11 +87,15 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         if (!NativeEpochMatches(action.CollectedAtEpoch))
             return ServiceActionResult.Rejected(CommonActionResultCodes.LifecycleReplaced);
 
-        _manualPause.Refresh(context.AttemptedAt, config);
+        // The pause is the service standing down after the player cast by hand. A press the
+        // player asked for through the verb is that manual cast, not something held back by one.
+        if (requireAutomationPolicy) _manualPause.Refresh(context.AttemptedAt, config);
 
         // A release or toggle-off is never held back by the pause. The player casting by hand is a
         // reason to stop starting casts, not a reason to retain a held input or active toggle.
-        if (action.Kind == AutoCastActionKind.Fire && _manualPause.IsPaused(context.AttemptedAt))
+        if (requireAutomationPolicy &&
+            action.Kind == AutoCastActionKind.Fire &&
+            _manualPause.IsPaused(context.AttemptedAt))
             return ServiceActionResult.Rejected(AutoCastActionResultCodes.ManualPause);
 
         AutoCastSubmission submission;
@@ -107,7 +111,8 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
                     action.SlotIndex,
                     action.SpellRecipeId,
                     action.ChargeHold ||
-                        (AutoCastConfigurationPolicy.HoldsFullCharge(config) &&
+                        (requireAutomationPolicy &&
+                            AutoCastConfigurationPolicy.HoldsFullCharge(config) &&
                             action.Belief.Chargeable)),
             };
         }

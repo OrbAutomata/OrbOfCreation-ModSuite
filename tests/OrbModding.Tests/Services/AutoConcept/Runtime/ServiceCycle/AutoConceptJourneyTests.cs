@@ -15,6 +15,9 @@ namespace OrbModding.Tests.Services.AutoConcept.Runtime.ServiceCycle;
 [Trait("Category", "AutoConceptReliability")]
 public sealed class AutoConceptNativeJourneyIntegrationTests : IDisposable
 {
+    private static readonly AutoConceptResourceLimits DefaultLimits =
+        AutoConceptResourceLimits.From(new AutoConceptConfiguration());
+
     private static readonly Guid ActiveId =
         Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid ReplacementId =
@@ -38,7 +41,6 @@ public sealed class AutoConceptNativeJourneyIntegrationTests : IDisposable
         active.TypelessSlots = 1;
         active.value.Add(new AlchemyInstance(activeRecipe) { quantity = 1, queuedQuantity = 1 });
         using var native = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
-        var config = new AutoConceptConfiguration();
 
         var removeBelief = new AutoConceptPlanBelief(1, 1, 1, Guid.Empty, 0);
         var remove = new AutoConceptCycleAction(
@@ -48,7 +50,7 @@ public sealed class AutoConceptNativeJourneyIntegrationTests : IDisposable
             ReplacementId,
             1,
             in removeBelief);
-        var removed = native.Submit(in remove, in config);
+        var removed = native.Submit(in remove, DefaultLimits);
 
         Assert.True(removed.Verified, removed.Reason);
         Assert.DoesNotContain(active.value, value => value.reference == activeRecipe);
@@ -61,7 +63,7 @@ public sealed class AutoConceptNativeJourneyIntegrationTests : IDisposable
             Guid.Empty,
             1,
             in assignBelief);
-        var assigned = native.Submit(in assign, in config);
+        var assigned = native.Submit(in assign, DefaultLimits);
 
         Assert.True(assigned.Verified, assigned.Reason);
         var replacement = Assert.Single(active.value, value => value.reference == replacementRecipe);
@@ -76,7 +78,7 @@ public sealed class AutoConceptNativeJourneyIntegrationTests : IDisposable
             Guid.Empty,
             1,
             in depthBelief);
-        var deepened = native.Submit(in depth, in config);
+        var deepened = native.Submit(in depth, DefaultLimits);
 
         Assert.True(deepened.Verified, deepened.Reason);
         Assert.Equal(2, deepened.AppliedDelta);
@@ -590,7 +592,7 @@ public sealed class AutoConceptHeadlessJourneyTests
 
         public AutoConceptSubmission Submit(
             in AutoConceptCycleAction action,
-            in AutoConceptConfiguration config)
+            AutoConceptResourceLimits? limits)
         {
             var candidate = Find(action.RecipeId);
             if (action.Kind == AutoConceptActionKind.RotateOut)

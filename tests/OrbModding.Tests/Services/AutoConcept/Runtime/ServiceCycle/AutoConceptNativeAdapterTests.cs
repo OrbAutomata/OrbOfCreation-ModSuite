@@ -9,6 +9,9 @@ namespace OrbModding.Tests.Services.AutoConcept.Runtime.ServiceCycle;
 
 public sealed class AutoConceptNativeAdapterTests : IDisposable
 {
+    private static readonly AutoConceptResourceLimits DefaultLimits =
+        AutoConceptResourceLimits.From(new AutoConceptConfiguration());
+
     private static readonly Guid RecipeId =
         Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid ReplacementId =
@@ -61,7 +64,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var action = new AutoConceptCycleAction(
             AutoConceptActionKind.Add, RecipeId, 20, Guid.Empty, 1, in belief);
 
-        var submission = runtime.Submit(in action, new AutoConceptConfiguration());
+        var submission = runtime.Submit(in action, DefaultLimits);
 
         Assert.Equal(AutoConceptPreflight.ResourceBackpressure, submission.Preflight);
         Assert.Contains("at most 2 more", submission.Reason, StringComparison.Ordinal);
@@ -87,23 +90,22 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var belief = new AutoConceptPlanBelief(0, 0, 2, Guid.Empty, 0);
         var action = new AutoConceptCycleAction(
             AutoConceptActionKind.Add, RecipeId, 1, Guid.Empty, 1, in belief);
-        var config = new AutoConceptConfiguration();
 
-        var failed = runtime.Submit(in action, in config);
+        var failed = runtime.Submit(in action, DefaultLimits);
 
         Assert.False(failed.Verified);
         Assert.Contains("PostconditionFailed", failed.Reason);
         Assert.Equal(1, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
         Assert.Equal(0, runtime.LastNativeMutationOutcome.MutationsCommitted);
         Assert.NotNull(runtime.BlockedReason);
-        var blocked = runtime.Submit(in action, in config);
+        var blocked = runtime.Submit(in action, DefaultLimits);
         Assert.Equal(AutoConceptPreflight.ContractUnavailable, blocked.Preflight);
         Assert.Contains("blocked until the next lifecycle", blocked.Reason);
         Assert.Equal(0, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
 
         active.SuppressAddMutation = false;
         runtime.InvalidateLifecycle();
-        var recovered = runtime.Submit(in action, in config);
+        var recovered = runtime.Submit(in action, DefaultLimits);
 
         Assert.True(recovered.Verified, recovered.Reason);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
@@ -129,10 +131,56 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var action = new AutoConceptCycleAction(
             AutoConceptActionKind.Add, RecipeId, 4, Guid.Empty, 1, in belief);
 
-        var submission = runtime.Submit(in action, new AutoConceptConfiguration());
+        var submission = runtime.Submit(in action, DefaultLimits);
 
         Assert.Equal(AutoConceptPreflight.ResourceBackpressure, submission.Preflight);
         Assert.Contains("at zero", submission.Reason);
+    }
+
+    /// <summary>
+    /// One drain vector, one resource, two submissions: Auto Concept's own cycle holds the
+    /// assignment back, the player's press takes it.
+    /// </summary>
+    /// <remarks>
+    /// The rate reserve and the quantity floor are dials on the worker. The game asks a player
+    /// pressing Add for a free slot, a discovered concept and its own price, and nothing else.
+    /// </remarks>
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void DialsThatRefuseTheWorkerDoNotRefuseAPress()
+    {
+        var resource = new ConceptResource
+        {
+            TrueRate = new BigDouble(100.0, 0),
+            Quantity = new BigDouble(10.0, 0),
+            SoftCap = new BigDouble(100.0, 0),
+        };
+        var recipe = new AlchemyRecipeSO(
+            RecipeId.ToString("D"),
+            "Dialled concept",
+            new[] { new AlchemyTypeSO(AlchemyGameplayDomainClassifier.ReflectiveConceptTypeUuid.ToString()) })
+        {
+            maxUsageSlots = new ValueModifierRecord(new BigDouble(4.0, 0)),
+            drainCost = new ConceptCostVector(
+                new ConceptCostEntry(resource, new BigDouble(50.0, 0))),
+        };
+        var active = InstallNativeLists(recipe);
+        using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
+        var belief = new AutoConceptPlanBelief(0, 0, 4, Guid.Empty, 0);
+        var action = new AutoConceptCycleAction(
+            AutoConceptActionKind.Add, RecipeId, 1, Guid.Empty, 1, in belief);
+
+        var worker = runtime.Submit(
+            in action, new AutoConceptResourceLimits(90.0f, 80.0f));
+
+        Assert.Equal(AutoConceptPreflight.ResourceBackpressure, worker.Preflight);
+        Assert.Contains("rate reserve", worker.Reason, StringComparison.Ordinal);
+        Assert.Empty(active.value);
+
+        var press = runtime.Submit(in action, limits: null);
+
+        Assert.True(press.Verified, press.Reason);
+        Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 
     [Fact]
@@ -151,9 +199,8 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var belief = new AutoConceptPlanBelief(0, 0, 2, Guid.Empty, 0);
         var action = new AutoConceptCycleAction(
             AutoConceptActionKind.Add, RecipeId, 1, Guid.Empty, 1, in belief);
-        var config = new AutoConceptConfiguration();
 
-        var submission = runtime.Submit(in action, in config);
+        var submission = runtime.Submit(in action, DefaultLimits);
 
         Assert.True(submission.Verified, submission.Reason);
         Assert.Equal(1, submission.AppliedDelta);
@@ -177,9 +224,8 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var belief = new AutoConceptPlanBelief(0, 0, 2, Guid.Empty, 0);
         var action = new AutoConceptCycleAction(
             AutoConceptActionKind.Add, RecipeId, 2, Guid.Empty, 1, in belief);
-        var config = new AutoConceptConfiguration();
 
-        var submission = runtime.Submit(in action, in config);
+        var submission = runtime.Submit(in action, DefaultLimits);
 
         Assert.Equal(AutoConceptPreflight.OwnershipChanged, submission.Preflight);
         Assert.Equal(0, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
@@ -209,7 +255,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
             1,
             in belief);
 
-        var submission = runtime.Submit(in action, new AutoConceptConfiguration());
+        var submission = runtime.Submit(in action, DefaultLimits);
 
         Assert.True(submission.Verified, submission.Reason);
         Assert.Equal(-1, submission.AppliedDelta);
@@ -240,7 +286,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
             1,
             in belief);
 
-        var submission = runtime.Submit(in action, new AutoConceptConfiguration());
+        var submission = runtime.Submit(in action, DefaultLimits);
 
         Assert.Equal(AutoConceptPreflight.SlotUnavailable, submission.Preflight);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
@@ -271,7 +317,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
             in belief);
 
         var exception = Assert.Throws<TargetInvocationException>(
-            () => runtime.Submit(in action, new AutoConceptConfiguration()));
+            () => runtime.Submit(in action, DefaultLimits));
 
         Assert.Contains("CanAddInstance failed", exception.GetBaseException().Message);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
@@ -299,7 +345,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
             1,
             in belief);
 
-        var submission = runtime.Submit(in action, new AutoConceptConfiguration());
+        var submission = runtime.Submit(in action, DefaultLimits);
 
         Assert.Equal(AutoConceptPreflight.SlotUnavailable, submission.Preflight);
         Assert.Contains("unlock", submission.Reason, StringComparison.OrdinalIgnoreCase);

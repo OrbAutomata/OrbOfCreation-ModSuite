@@ -241,22 +241,10 @@ internal sealed class AutoConceptNativeAdapter :
         IsCurrentRecipe(candidate) &&
         InvokeBoolean(_canAddInstance!, _activeConcepts!, candidate.Recipe);
 
-    public bool TryFindSafeTarget(
-        NativeConceptCandidate candidate,
-        int desiredTarget,
-        float rateReservePercent,
-        float minimumResourcePercent,
-        out int safeTarget,
-        out string reason)
-        => TryFindSafeTarget(
-            candidate, desiredTarget, rateReservePercent, minimumResourcePercent,
-            out safeTarget, out reason, out _);
-
     private bool TryFindSafeTarget(
         NativeConceptCandidate candidate,
         int desiredTarget,
-        float rateReservePercent,
-        float minimumResourcePercent,
+        AutoConceptResourceLimits? limits,
         out int safeTarget,
         out string reason,
         out AutoConceptProjectionRefusal refusal)
@@ -274,9 +262,7 @@ internal sealed class AutoConceptNativeAdapter :
         while (delta > 0)
         {
             var target = candidate.Quantity + delta;
-            if (TryValidateProjectedDrain(
-                    candidate, target, rateReservePercent, minimumResourcePercent,
-                    out reason, out refusal))
+            if (TryValidateProjectedDrain(candidate, target, limits, out reason, out refusal))
             {
                 safeTarget = target;
                 return true;
@@ -289,7 +275,7 @@ internal sealed class AutoConceptNativeAdapter :
 
     public AutoConceptSubmission Submit(
         in AutoConceptCycleAction action,
-        in AutoConceptConfiguration config)
+        AutoConceptResourceLimits? limits)
     {
         _lastMutationEvidence = null;
         _lastNativeMutationOutcome = default;
@@ -311,7 +297,7 @@ internal sealed class AutoConceptNativeAdapter :
                 "the live quantity no longer matches the worker's ownership belief");
 
         if (action.Kind == AutoConceptActionKind.Add)
-            return SubmitAdd(candidate, action.TargetOrDelta, in config);
+            return SubmitAdd(candidate, action.TargetOrDelta, limits);
 
         if (action.Kind == AutoConceptActionKind.RotateOut)
         {
@@ -319,7 +305,7 @@ internal sealed class AutoConceptNativeAdapter :
                 return AutoConceptSubmission.Rejected(
                     AutoConceptPreflight.OwnershipChanged,
                     "the rotation no longer owns the exact live assignment");
-            if (!TryValidateReplacement(action.ReplacementId, candidate, in config, out reason))
+            if (!TryValidateReplacement(action.ReplacementId, candidate, limits, out reason))
                 return AutoConceptSubmission.Rejected(AutoConceptPreflight.SlotUnavailable, reason);
             return SubmitRemove(candidate, action.TargetOrDelta, exact: true);
         }
@@ -334,7 +320,7 @@ internal sealed class AutoConceptNativeAdapter :
     private AutoConceptSubmission SubmitAdd(
         NativeConceptCandidate candidate,
         int desiredTarget,
-        in AutoConceptConfiguration config)
+        AutoConceptResourceLimits? limits)
     {
         if (candidate.MaximumQuantity != ReadInt(candidate.Recipe, "GetMaxUsageSlots", "maxUsageSlots"))
             return AutoConceptSubmission.Rejected(
@@ -347,8 +333,7 @@ internal sealed class AutoConceptNativeAdapter :
         if (!TryFindSafeTarget(
                 candidate,
                 desiredTarget,
-                config.RateReservePercent,
-                config.MinimumResourcePercent,
+                limits,
                 out var safeTarget,
                 out var reason,
                 out var refusal))
@@ -398,7 +383,7 @@ internal sealed class AutoConceptNativeAdapter :
     private bool TryValidateReplacement(
         Guid replacementId,
         NativeConceptCandidate active,
-        in AutoConceptConfiguration config,
+        AutoConceptResourceLimits? limits,
         out string reason)
     {
         if (replacementId == Guid.Empty)
@@ -414,13 +399,7 @@ internal sealed class AutoConceptNativeAdapter :
             reason = "the replacement identity, prospective slot, unlock, or quantity changed";
             return false;
         }
-        return TryFindSafeTarget(
-            replacement,
-            1,
-            config.RateReservePercent,
-            config.MinimumResourcePercent,
-            out _,
-            out reason);
+        return TryFindSafeTarget(replacement, 1, limits, out _, out reason, out _);
     }
 
     private bool CanReplaceAfterRemoval(
@@ -588,8 +567,7 @@ internal sealed class AutoConceptNativeAdapter :
     private bool TryValidateProjectedDrain(
         NativeConceptCandidate candidate,
         int targetQuantity,
-        float rateReservePercent,
-        float minimumResourcePercent,
+        AutoConceptResourceLimits? limits,
         out string reason,
         out AutoConceptProjectionRefusal refusal)
     {
@@ -640,6 +618,7 @@ internal sealed class AutoConceptNativeAdapter :
                         : AutoConceptProjectionRefusal.Contract;
                     return FailProjection($"{ResourceName(entry.Resource)} {zeroReason}", out reason);
                 }
+                if (limits is not { } applied) continue;
                 var trueIncrement = InvokeCompatible(entry.Resource, "GetTrueSpend", entry.NativeAmount);
                 if (!BigAmount.TryRead(trueIncrement, out var adjustedIncrement) || adjustedIncrement.IsNegative)
                     return FailProjection("resource quality conversion failed", out reason);
@@ -650,7 +629,8 @@ internal sealed class AutoConceptNativeAdapter :
                 var grossRate = currentRate.Add(currentDrain);
                 var reserve = grossRate.IsNegative
                     ? default
-                    : grossRate.Multiply(Math.Clamp(rateReservePercent, 0.0f, 100.0f) / 100.0);
+                    : grossRate.Multiply(
+                        Math.Clamp(applied.RateReservePercent, 0.0f, 100.0f) / 100.0);
                 if (currentRate.Subtract(adjustedIncrement).CompareTo(reserve) < 0)
                 {
                     refusal = AutoConceptProjectionRefusal.Backpressure;
@@ -660,7 +640,8 @@ internal sealed class AutoConceptNativeAdapter :
                 if (ReflectionUtil.InvokeNoArgs(entry.Resource, "HasMaxQuantity") is true &&
                     BigAmount.TryRead(ReflectionUtil.InvokeNoArgs(entry.Resource, "GetQuantity"), out var quantity) &&
                     BigAmount.TryRead(ReflectionUtil.InvokeNoArgs(entry.Resource, "GetTrueSoftCap"), out var capacity) &&
-                    !capacity.IsZero && quantity.DivideApprox(capacity) * 100.0 < minimumResourcePercent)
+                    !capacity.IsZero &&
+                    quantity.DivideApprox(capacity) * 100.0 < applied.MinimumResourcePercent)
                 {
                     refusal = AutoConceptProjectionRefusal.Backpressure;
                     return FailProjection($"{ResourceName(entry.Resource)} is below the configured quantity floor", out reason);

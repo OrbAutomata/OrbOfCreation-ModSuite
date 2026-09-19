@@ -200,7 +200,7 @@ public sealed class AutoConceptCycleActionAdapterTests
 
         public AutoConceptSubmission Submit(
             in AutoConceptCycleAction action,
-            in AutoConceptConfiguration config)
+            AutoConceptResourceLimits? limits)
         {
             Submissions++;
             return _submission;
@@ -211,7 +211,7 @@ public sealed class AutoConceptCycleActionAdapterTests
     {
         public AutoConceptSubmission Submit(
             in AutoConceptCycleAction action,
-            in AutoConceptConfiguration config) =>
+            AutoConceptResourceLimits? limits) =>
             throw new TargetInvocationException(
                 new InvalidOperationException("CanAddInstance failed"));
     }
