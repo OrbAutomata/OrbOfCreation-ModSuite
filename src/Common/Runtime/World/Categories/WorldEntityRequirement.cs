@@ -103,6 +103,12 @@ internal enum WorldRequirementConditionKind
 
     /// <summary>A comparison against a whole list variable rather than against one entity.</summary>
     List = 11,
+
+    /// <summary>
+    /// A comparison about one resource: whether the game lists it yet, how much has ever been
+    /// gained, or how high its ceiling has been raised.
+    /// </summary>
+    Resource = 12,
 }
 
 internal enum WorldRequirementNodeKind
@@ -2020,6 +2026,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             "GenericRequirement" => WorldRequirementConditionKind.Generic,
             "PrerequisiteLinkRequirement" => WorldRequirementConditionKind.PrerequisiteLink,
             "ListRequirement" => WorldRequirementConditionKind.List,
+            "ResourceRequirement" => WorldRequirementConditionKind.Resource,
             _ => WorldRequirementConditionKind.Unknown,
         };
     }

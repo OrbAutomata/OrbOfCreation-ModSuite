@@ -10221,6 +10221,60 @@
       "place": "mirrored"
     },
     {
+      "id": "requirement-type.resource.visible",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.ResourceRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Visible",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.ResourceRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "requirement-type.resource.quantity",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.ResourceRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "Quantity",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.ResourceRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "requirement-type.resource.max-quantity",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.ResourceRequirementType",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "MaxQuantity",
+      "visibility": "public",
+      "static": true,
+      "valueType": "Requirements.ResourceRequirementType",
+      "owners": [
+        "Common world requirement evaluation"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
       "id": "requirement-condition-info.type",
       "assembly": "assembly-csharp",
       "type": "Requirements.ConditionInfo",
@@ -10264,6 +10318,22 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "requirement-condition.resource.type",
+      "assembly": "assembly-csharp",
+      "type": "Requirements.ResourceRequirement",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Common world collection",
+        "Automata Auto Buy admission"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
     },
     {
       "id": "requirement-condition.list.membership",

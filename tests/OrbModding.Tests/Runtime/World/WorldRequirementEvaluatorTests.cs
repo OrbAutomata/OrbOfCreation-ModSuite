@@ -960,6 +960,106 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
                 WorldRequirementProgramKind.Unlock));
     }
 
+    /// <summary>
+    /// A resource quantity condition reads everything ever gained, not what is held. Reading
+    /// holdings would re-lock an entity the moment the resource was spent, and a save that had
+    /// never spent any would have agreed with either reading.
+    /// </summary>
+    [Fact]
+    public void AResourceQuantityConditionReadsTheLifetimeTotalNotTheHoldings()
+    {
+        var gated = Upgrade();
+        var mana = Resource(lifetimeQuantity: 500d, quantity: 0d);
+        RequireResource(gated, mana, Requirements.ResourceRequirementType.Quantity, 500d);
+
+        Assert.Equal(
+            WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+
+        mana.lifetimeQuantity = new BigDouble(499d);
+        mana.quantity = new BigDouble(10000d);
+        Assert.Equal(
+            WorldRequirementVerdict.Unmet,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
+    /// <summary>
+    /// The ceiling condition — the only one this build's content actually authors with a threshold —
+    /// reads the resource's cap rather than anything in it.
+    /// </summary>
+    [Fact]
+    public void AResourceCeilingConditionReadsTheCapNotWhatIsInIt()
+    {
+        var gated = Upgrade();
+        var mana = Resource(lifetimeQuantity: 0d, quantity: 0d, ceiling: 1000d);
+        RequireResource(gated, mana, Requirements.ResourceRequirementType.MaxQuantity, 1000d);
+
+        Assert.Equal(
+            WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+
+        mana.maxQuantity = new ValueModifierRecord(new BigDouble(999d));
+        mana.quantity = new BigDouble(5000d);
+        mana.lifetimeQuantity = new BigDouble(5000d);
+        Assert.Equal(
+            WorldRequirementVerdict.Unmet,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
+    /// <summary>
+    /// An uncapped resource carries a negative ceiling, which the game compares as the number it is.
+    /// Treating the sentinel as unlimited would answer met for a cap the game says is not there.
+    /// </summary>
+    [Fact]
+    public void AnUncappedResourceDoesNotSatisfyACeilingCondition()
+    {
+        var gated = Upgrade();
+        var mana = Resource(ceiling: -1d);
+        RequireResource(gated, mana, Requirements.ResourceRequirementType.MaxQuantity, 1d);
+
+        Assert.Equal(
+            WorldRequirementVerdict.Unmet,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
+    /// <summary>
+    /// The visibility condition is the stored field, with no threshold in it at all: 284 of this
+    /// build's 303 authored resource conditions are this one, every one with a base value of nought.
+    /// </summary>
+    [Fact]
+    public void AResourceVisibilityConditionIsTheStoredFieldAndNoThreshold()
+    {
+        var gated = Upgrade();
+        var magebloom = Resource(visible: false);
+        RequireResource(gated, magebloom, Requirements.ResourceRequirementType.Visible);
+
+        Assert.Equal(
+            WorldRequirementVerdict.Unmet,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+
+        magebloom.visible = true;
+        Assert.Equal(
+            WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
+    /// <summary>
+    /// Both resource thresholds keep their decimals, like the numeric comparison and unlike every
+    /// other one here: the native switch reaches <c>GetDouble()</c> rather than <c>GetLong()</c>.
+    /// </summary>
+    [Fact]
+    public void AResourceThresholdIsNotRoundedToAWholeNumber()
+    {
+        var gated = Upgrade();
+        var mana = Resource(lifetimeQuantity: 2.6d);
+        RequireResource(gated, mana, Requirements.ResourceRequirementType.Quantity, 2.6d);
+
+        // Rounded to a whole number the threshold would be three, and this would read unmet.
+        Assert.Equal(
+            WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
+    }
+
     private static global::UpgradeSO Upgrade()
     {
         var upgrade = new global::UpgradeSO { maxLevel = -1 };
@@ -1024,6 +1124,35 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
             item = target,
             reqType = Requirements.GenericRequirementType.Discovered,
             value = new Requirements.LeveledValue(),
+        });
+
+    private static global::ResourceSO Resource(
+        bool visible = true,
+        double lifetimeQuantity = 0d,
+        double quantity = 0d,
+        double ceiling = 1000d)
+    {
+        var resource = new global::ResourceSO
+        {
+            visible = visible,
+            lifetimeQuantity = new BigDouble(lifetimeQuantity),
+            quantity = new BigDouble(quantity),
+            maxQuantity = new ValueModifierRecord(new BigDouble(ceiling)),
+        };
+        global::ResourceSO.All.Add(resource);
+        return resource;
+    }
+
+    private static void RequireResource(
+        global::UpgradeSO owner,
+        global::ResourceSO target,
+        Requirements.ResourceRequirementType reqType,
+        double threshold = 0d) =>
+        owner.prerequisitesPerLevel.prerequisites.Add(new Requirements.ResourceRequirement
+        {
+            item = target,
+            reqType = reqType,
+            value = new Requirements.LeveledValue { baseValue = threshold },
         });
 
     private static global::ResearchSO Research()
@@ -1094,6 +1223,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
         global::StructureSO.All.Clear();
         global::ResearchSO.All.Clear();
         global::ConsumableSO.All.Clear();
+        global::ResourceSO.All.Clear();
         global::SpellRecipeSO.All.Clear();
         global::AlchemyRecipeSO.All.Clear();
         global::RitualSO.All.Clear();

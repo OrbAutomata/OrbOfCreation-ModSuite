@@ -596,6 +596,40 @@ public sealed class WorldEntityRequirementTests : IDisposable
         return upgrade;
     }
 
+    /// <summary>
+    /// A resource condition is collected as the comparison it is, not counted as a shortfall. This
+    /// build authors 303 of them, and while the class was unclassified every entity holding one was
+    /// unplannable and the pass reported itself incomplete on every cycle.
+    /// </summary>
+    [Fact]
+    public void AResourceConditionIsCollectedRatherThanCountedAsAShortfall()
+    {
+        var gated = Author(new global::UpgradeSO { maxLevel = 1 });
+        var mana = new global::ResourceSO();
+        global::ResourceSO.All.Add(mana);
+        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.ResourceRequirement
+        {
+            item = mana,
+            reqType = Requirements.ResourceRequirementType.MaxQuantity,
+            value = new Requirements.LeveledValue { baseValue = 1000d },
+        });
+        var collector = new GameWorldCollector();
+
+        var report = collector.Collect(new GameWorldCycleFrame { CollectedAtEpoch = 1 });
+        var category = report.For("entity requirements");
+
+        Assert.Equal(1, category.Sampled);
+        Assert.Equal(0, category.Skipped);
+        Assert.DoesNotContain("ResourceRequirement", category.FirstFailure, StringComparison.Ordinal);
+
+        var row = Single(Collect());
+        Assert.Equal(WorldRequirementConditionKind.Resource, row.Kind);
+        Assert.Equal("ResourceRequirement", row.ConditionTypeName);
+        Assert.Equal(mana.GetGuid(), row.TargetId);
+        Assert.Equal((int)Requirements.ResourceRequirementType.MaxQuantity, row.ReqType);
+        Assert.Equal(1000d, row.BaseValue);
+    }
+
     private static GameWorldState Collect()
     {
         var collector = new GameWorldCollector();
@@ -616,6 +650,7 @@ public sealed class WorldEntityRequirementTests : IDisposable
         global::StructureSO.All.Clear();
         global::ResearchSO.All.Clear();
         global::ConsumableSO.All.Clear();
+        global::ResourceSO.All.Clear();
         global::AlchemyRecipeSO.All.Clear();
         global::IntVariable.All.Clear();
         global::PrerequisiteLinkSO.All.Clear();

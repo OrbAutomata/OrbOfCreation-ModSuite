@@ -120,6 +120,18 @@ public enum ListRequirementType
     AnyAvailable,
 }
 
+/// <summary>
+/// Declared in the game's own ordinal order, which is not its alphabetical one: the jump table in
+/// <c>ResourceRequirement.InternalIsValid</c> answers visibility first, everything ever gained
+/// second and the ceiling third.
+/// </summary>
+public enum ResourceRequirementType
+{
+    Visible,
+    Quantity,
+    MaxQuantity,
+}
+
 public sealed class UpgradeRequirement : BaseCondition<UpgradeSO, UpgradeRequirementType>
 {
 }
@@ -169,6 +181,10 @@ public sealed class PrerequisiteLinkRequirement :
 /// through the concrete class the author picked.
 /// </summary>
 public sealed class ListRequirement : BaseCondition<global::AbstractListVariable, ListRequirementType>
+{
+}
+
+public sealed class ResourceRequirement : BaseCondition<ResourceSO, ResourceRequirementType>
 {
 }
 

@@ -513,6 +513,8 @@ public sealed class GameMcpDecisionReasonTests
             (WorldRequirementConditionKind.PrerequisiteLink,
                 Ordinals<Requirements.PrerequisiteLinkType>()),
             (WorldRequirementConditionKind.List, Ordinals<Requirements.ListRequirementType>()),
+            (WorldRequirementConditionKind.Resource,
+                Ordinals<Requirements.ResourceRequirementType>()),
         };
 
     private static int[] Ordinals<TEnum>() where TEnum : struct, Enum =>

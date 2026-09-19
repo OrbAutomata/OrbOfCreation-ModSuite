@@ -193,4 +193,56 @@ public sealed class RequirementEvaluatorContractTests
             "StructureSO",
             "selfBonusLevels"));
     }
+
+    /// <summary>
+    /// A resource condition compares three stored fields and calls nothing, and the order its jump
+    /// table visits them in is the order the mirrored ordinals assign them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The trap this pins is the middle one: the quantity comparison reads
+    /// <c>lifetimeQuantity</c> — everything ever gained — and not <c>quantity</c>. Had it read
+    /// holdings, a requirement would un-meet itself the moment the resource was spent, and a save
+    /// that had never spent any would have agreed with either reading.
+    /// </para>
+    /// <para>
+    /// The fields are asserted as a sequence because the sequence is the mapping. The jump table has
+    /// no offset, so the first body reference belongs to ordinal nought, and
+    /// <c>RequirementEnumContractTests</c> pins which member that is.
+    /// </para>
+    /// </remarks>
+    [GameAssemblyFact]
+    public void AResourceRequirementComparesStoredFieldsInTheOrderItsOrdinalsAssign()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        var evaluator = Assert.Single(
+            assembly.GetMethods("Requirements.ResourceRequirement", "InternalIsValid"));
+        Assert.Equal("System.Boolean", evaluator.ReturnType);
+        Assert.Equal(
+            new[] { "Requirements.ConditionValueInstance" },
+            evaluator.ParameterTypes.ToArray());
+
+        Assert.Equal(
+            new[]
+            {
+                "ResourceSO.visible",
+                "ResourceSO.lifetimeQuantity",
+                "ResourceSO.maxQuantity",
+            },
+            assembly.GetMethodBodyDefinitionReferences(
+                    "Requirements.ResourceRequirement", "InternalIsValid")
+                .Where(reference => reference.DeclaringType == "ResourceSO")
+                .Select(reference => reference.DeclaringType + "." + reference.MemberName)
+                .ToArray());
+
+        Assert.False(assembly.MethodReferencesField(
+            "Requirements.ResourceRequirement", "InternalIsValid", "ResourceSO", "quantity"));
+
+        // The ceiling is a modifier record, and the comparison the suite mirrors is the one that
+        // reaches its value: `Reading.Capacity` is captured from that same record.
+        Assert.Equal("ValueModifierRecord", assembly.GetFieldType("ResourceSO", "maxQuantity"));
+        Assert.Equal("BigDouble", assembly.GetFieldType("ResourceSO", "lifetimeQuantity"));
+        Assert.Equal("System.Boolean", assembly.GetFieldType("ResourceSO", "visible"));
+    }
 }

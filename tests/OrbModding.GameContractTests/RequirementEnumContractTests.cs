@@ -50,6 +50,12 @@ public sealed class RequirementEnumContractTests
     // ListAnyVisible / ListAnyAvailable
     [InlineData("Requirements.ListRequirementType", "AnyVisible", 1)]
     [InlineData("Requirements.ListRequirementType", "AnyAvailable", 2)]
+    // ResourceVisible / ResourceQuantity / ResourceMaxQuantity. Declaration order is not ordinal
+    // order here, and the two value-carrying members read different fields, so a swap between them
+    // would compare a ceiling against a lifetime total and still answer.
+    [InlineData("Requirements.ResourceRequirementType", "Visible", 0)]
+    [InlineData("Requirements.ResourceRequirementType", "Quantity", 1)]
+    [InlineData("Requirements.ResourceRequirementType", "MaxQuantity", 2)]
     [GameAssemblyTheory]
     public void EveryMirroredRequirementDiscriminantStillHoldsItsNumber(
         string enumType,

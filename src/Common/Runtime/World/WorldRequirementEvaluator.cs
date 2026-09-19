@@ -69,11 +69,12 @@ internal readonly struct WorldRequirementLeafEvaluation
 /// <para>
 /// <b>It fails closed, comparison by comparison.</b> A <c>Visible</c> or <c>Available</c> comparison
 /// is modelled only where the target's own gate is a stored field the snapshot already carries —
-/// <c>ConsumableSO</c> answers both from <c>visible</c>. Where it is the whole-entity gate that
-/// reaches the <c>Check()</c> which writes, it is not modelled and never will be from here. Several
-/// other comparisons are simply not exercised by any authored content in this baseline. Both read as
-/// <see cref="WorldRequirementVerdict.Unevaluable"/>, and a consumer that treats that as anything but
-/// "do not plan this" has broken the contract this type exists to keep.
+/// <c>ConsumableSO</c> answers both from <c>visible</c>, and <c>ResourceRequirement</c> compares that
+/// same stored field on <c>ResourceSO</c> rather than calling anything. Where it is the whole-entity
+/// gate that reaches the <c>Check()</c> which writes, it is not modelled and never will be from
+/// here. Several other comparisons are simply not exercised by any authored content in this
+/// baseline. Both read as <see cref="WorldRequirementVerdict.Unevaluable"/>, and a consumer that
+/// treats that as anything but "do not plan this" has broken the contract this type exists to keep.
 /// </para>
 /// <para>
 /// Every modelled comparison is one <c>&gt;=</c> against a published number, transcribed from the
@@ -108,6 +109,9 @@ internal static class WorldRequirementEvaluator
     private const int PrerequisiteLinkTier = 1;
     private const int ListAnyVisible = 1;
     private const int ListAnyAvailable = 2;
+    private const int ResourceVisible = 0;
+    private const int ResourceQuantity = 1;
+    private const int ResourceMaxQuantity = 2;
     private const int MaximumExpansionDepth = 32;
 
     /// <summary>
@@ -405,6 +409,24 @@ internal static class WorldRequirementEvaluator
                 required = effective = BigDouble.One;
                 supported = row.ReqType is ListAnyVisible or ListAnyAvailable;
                 break;
+            case WorldRequirementConditionKind.Resource
+                when WorldLookup.TryFind(world.Resources, row.TargetId, out var resource):
+                if (row.ReqType == ResourceVisible)
+                {
+                    selected = "in_resource_list";
+                    current = resource.Reading.Visible ? BigDouble.One : BigDouble.Zero;
+                    required = effective = BigDouble.One;
+                }
+                else
+                {
+                    selected = row.ReqType == ResourceMaxQuantity ? "capacity" : "lifetime_quantity";
+                    current = row.ReqType == ResourceMaxQuantity
+                        ? resource.Reading.Capacity
+                        : resource.Reading.LifetimeQuantity;
+                    required = effective = scaledThreshold;
+                    supported = row.ReqType is ResourceQuantity or ResourceMaxQuantity;
+                }
+                break;
             default:
                 selected = "unsupported";
                 current = default;
@@ -547,6 +569,7 @@ internal static class WorldRequirementEvaluator
             WorldRequirementConditionKind.PrerequisiteLink => PrerequisiteLink(
                 world, in row, whole, trail, trailDepth),
             WorldRequirementConditionKind.List => List(world, in row),
+            WorldRequirementConditionKind.Resource => Resource(world, in row, threshold),
             _ => WorldRequirementVerdict.Unevaluable,
         };
     }
@@ -847,6 +870,45 @@ internal static class WorldRequirementEvaluator
         return row.ReqType == NumberValue
             ? Verdict(variable.Value >= threshold)
             : WorldRequirementVerdict.Unevaluable;
+    }
+
+    /// <summary>
+    /// Ported from <c>ResourceRequirement.InternalIsValid</c>: three comparisons about one resource,
+    /// each against a stored field the snapshot already carries.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The quantity comparison does not read holdings. It reads <c>lifetimeQuantity</c> — everything
+    /// ever gained since the last reset — so a requirement it gates stays met after the resource is
+    /// spent back to nothing. Comparing the stored quantity would have re-locked entities the game
+    /// leaves unlocked, and would have looked right on a save that had never spent any.
+    /// </para>
+    /// <para>
+    /// The ceiling comparison reads the same live modifier record <c>Reading.Capacity</c> is
+    /// captured from, and compares it raw. An uncapped resource carries a negative ceiling, which
+    /// therefore reads unmet rather than unlimited — the game's own arithmetic, since its
+    /// <c>maxQuantity &gt;= value</c> makes no exception for the sentinel either.
+    /// </para>
+    /// <para>
+    /// Both are unrounded, like the numeric comparison and unlike every other one here: the native
+    /// switch reaches <c>ConditionValueInstance.GetDouble()</c> for each.
+    /// </para>
+    /// </remarks>
+    private static WorldRequirementVerdict Resource(
+        GameWorldState world,
+        in WorldEntityRequirement row,
+        BigDouble threshold)
+    {
+        if (!WorldLookup.TryFind(world.Resources, row.TargetId, out var resource))
+            return WorldRequirementVerdict.Unevaluable;
+
+        return row.ReqType switch
+        {
+            ResourceVisible => Verdict(resource.Reading.Visible),
+            ResourceQuantity => Verdict(resource.Reading.LifetimeQuantity >= threshold),
+            ResourceMaxQuantity => Verdict(resource.Reading.Capacity >= threshold),
+            _ => WorldRequirementVerdict.Unevaluable,
+        };
     }
 
     /// <summary>

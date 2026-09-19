@@ -171,6 +171,18 @@ internal static class GameMcpNativeVocabulary
                 _ => throw new InvalidOperationException(
                     Unmapped("Requirements.ListRequirementType", reqType)),
             },
+            WorldRequirementConditionKind.Resource => reqType switch
+            {
+                // Not `visible`: on this surface a resource the game has not shown yet is one that
+                // is not in your resource list, and `discovered` is reserved for the rows with a
+                // discovery button. The middle comparison reads everything ever gained, not
+                // holdings, so it cannot borrow `at-least-quantity` either.
+                0 => "in-resource-list",
+                1 => "at-least-lifetime-quantity",
+                2 => "at-least-capacity",
+                _ => throw new InvalidOperationException(
+                    Unmapped("Requirements.ResourceRequirementType", reqType)),
+            },
             _ => throw new InvalidOperationException(
                 "a requirement condition kind reached the wire as " + kind +
                 " with no reqType vocabulary for it; a new condition class is a game change to " +
