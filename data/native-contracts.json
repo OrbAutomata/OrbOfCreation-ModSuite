@@ -19377,6 +19377,179 @@
       "place": "mirrored"
     },
     {
+      "id": "utils.beautify-number",
+      "assembly": "assembly-csharp",
+      "type": "Utils",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "BeautifyNumber",
+      "visibility": "public",
+      "static": true,
+      "returnType": "System.String",
+      "parameters": [
+        "BigDouble",
+        "System.Boolean",
+        "BigDouble"
+      ],
+      "owners": [
+        "Common modifier magnitude rendering"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "utils.beautify-number-switch",
+      "assembly": "assembly-csharp",
+      "type": "Utils",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "BeautifyNumberSwitch",
+      "visibility": "private",
+      "static": true,
+      "returnType": "System.String",
+      "parameters": [
+        "BigDouble",
+        "System.Boolean"
+      ],
+      "owners": [
+        "Common modifier magnitude rendering"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "utils.beautify-number-scientific",
+      "assembly": "assembly-csharp",
+      "type": "Utils",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "BeautifyNumberScientific",
+      "visibility": "private",
+      "static": true,
+      "returnType": "System.String",
+      "parameters": [
+        "BigDouble",
+        "System.Boolean"
+      ],
+      "owners": [
+        "Common modifier magnitude rendering"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "utils.beautify-number-simplify",
+      "assembly": "assembly-csharp",
+      "type": "Utils",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "BeautifyNumberSimplify",
+      "visibility": "private",
+      "static": true,
+      "returnType": "System.String",
+      "parameters": [
+        "BigDouble"
+      ],
+      "owners": [
+        "Common modifier magnitude rendering"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "utils.has-decimals",
+      "assembly": "assembly-csharp",
+      "type": "Utils",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "HasDecimals",
+      "visibility": "public",
+      "static": true,
+      "returnType": "System.Boolean",
+      "parameters": [
+        "System.Double"
+      ],
+      "owners": [
+        "Common modifier magnitude rendering"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "utils.has-decimals-old",
+      "assembly": "assembly-csharp",
+      "type": "Utils",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "HasDecimalsOld",
+      "visibility": "public",
+      "static": true,
+      "returnType": "System.Boolean",
+      "parameters": [
+        "System.Double"
+      ],
+      "owners": [
+        "Common modifier magnitude rendering"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "utils.to-decimal-place",
+      "assembly": "assembly-csharp",
+      "type": "Utils",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "ToDecimalPlace",
+      "visibility": "public",
+      "static": true,
+      "returnType": "System.String",
+      "parameters": [
+        "System.Double",
+        "System.Int32"
+      ],
+      "owners": [
+        "Common modifier magnitude rendering"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "value-modifier.to-string-value",
+      "assembly": "assembly-csharp",
+      "type": "ValueModifier",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "ToStringValue",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.String",
+      "parameters": [
+        "System.Boolean"
+      ],
+      "owners": [
+        "Common modifier magnitude rendering"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
       "id": "consumable.select-and-fire",
       "assembly": "assembly-csharp",
       "type": "ConsumableSO",

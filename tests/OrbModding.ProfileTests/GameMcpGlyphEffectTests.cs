@@ -70,15 +70,13 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
         Assert.Null(effects[0]!["affects"]);
         Assert.Equal("bb3cd4", (string?)effects[0]!["statistic"]!["uuid"]);
         Assert.Equal("Cost", (string?)effects[0]!["statistic"]!["name"]);
-        Assert.Equal("stacking", (string?)effects[0]!["modifierType"]);
-        Assert.Equal("1.15", (string?)effects[0]!["amount"]);
+        Assert.Equal("x1.15", (string?)effects[0]!["amount"]);
         Assert.Equal(0, (int?)effects[0]!["order"]);
 
         Assert.Null(effects[1]!["property"]);
         Assert.Equal("c13b62", (string?)effects[1]!["statistic"]!["uuid"]);
         Assert.Equal("Cooldown", (string?)effects[1]!["statistic"]!["name"]);
-        Assert.Equal("stacking", (string?)effects[1]!["modifierType"]);
-        Assert.Equal("0.7", (string?)effects[1]!["amount"]);
+        Assert.Equal("x0.700", (string?)effects[1]!["amount"]);
         Assert.Equal(0, (int?)effects[1]!["order"]);
 
         // The one slot the game points at neither a statistic nor a player variable: it discounts a
@@ -87,8 +85,7 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
         // handle.
         Assert.Null(effects[2]!["property"]);
         Assert.Equal("what the spell costs to create", (string?)effects[2]!["affects"]);
-        Assert.Equal("stacking", (string?)effects[2]!["modifierType"]);
-        Assert.Equal("4", (string?)effects[2]!["amount"]);
+        Assert.Equal("x4", (string?)effects[2]!["amount"]);
         Assert.Null(effects[2]!["statistic"]);
         Assert.Null(effects[2]!["variable"]);
     }
@@ -113,15 +110,13 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
         Assert.Null(effects[0]!["affects"]);
         Assert.Equal("69e869", (string?)effects[0]!["variable"]!["uuid"]);
         Assert.Equal("Spell Crit Rating", (string?)effects[0]!["variable"]!["name"]);
-        Assert.Equal("diminishing", (string?)effects[0]!["modifierType"]);
-        Assert.Equal("0.17", (string?)effects[0]!["amount"]);
+        Assert.Equal("+17%", (string?)effects[0]!["amount"]);
         Assert.Null(effects[0]!["statistic"]);
 
         Assert.Null(effects[1]!["property"]);
         Assert.Equal("3cd7a6", (string?)effects[1]!["variable"]!["uuid"]);
         Assert.Equal("Echo Cast Rating", (string?)effects[1]!["variable"]!["name"]);
-        Assert.Equal("diminishing", (string?)effects[1]!["modifierType"]);
-        Assert.Equal("0.17", (string?)effects[1]!["amount"]);
+        Assert.Equal("+17%", (string?)effects[1]!["amount"]);
         Assert.Null(effects[1]!["statistic"]);
     }
 

@@ -54,21 +54,18 @@ internal static class GameMcpNativeVocabulary
     };
 
     /// <summary>
-    /// <c>ValueModifier.ValueModifierType</c> — what a modifier does to the number it adjusts, in
-    /// the vocabulary <c>docs/game-systems/modifiers.md</c> names the five kinds by. Pinned from
-    /// <c>ValueModifier.ToStringValue</c>, whose five-way switch renders 0 as a signed addend, 1 as
-    /// a signed percentage, 2 as <c>x</c>, 3 as an inverted-sign percentage, and 4 as <c>^</c>.
+    /// One modifier's magnitude, written the way <c>ValueModifier.ToStringValue</c> writes it on
+    /// screen.
     /// </summary>
-    internal static string ModifierEffect(int modifierType) => modifierType switch
-    {
-        (int)GameValueModifierType.Raw => "raw",
-        (int)GameValueModifierType.MultiDiminishing => "diminishing",
-        (int)GameValueModifierType.MultiStacking => "stacking",
-        (int)GameValueModifierType.Reduction => "reduction",
-        (int)GameValueModifierType.Exponent => "exponent",
-        _ => throw new InvalidOperationException(
-            Unmapped("ValueModifier.ValueModifierType", modifierType)),
-    };
+    /// <remarks>
+    /// The kind used to ride beside the number as <c>raw</c> / <c>diminishing</c> / <c>stacking</c>
+    /// / <c>reduction</c> / <c>exponent</c>: five tokens a reader had to look up before the number
+    /// beside them meant anything, and then had to combine for themselves. The game never separates
+    /// the two — the kind decides how the number is written — so <c>+1</c>, <c>+115%</c>,
+    /// <c>x1.02</c> and <c>^2</c> each carry both facts in the one string the tooltip prints.
+    /// </remarks>
+    internal static string ModifierMagnitude(int modifierType, BigDouble amount) =>
+        new GameValueModifier((GameValueModifierType)modifierType, amount).ToStringValue();
 
     /// <summary>
     /// What one authored requirement row actually compares, in words.

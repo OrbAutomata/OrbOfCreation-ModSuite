@@ -71,9 +71,9 @@ public sealed class GameMcpTypeReachTests
                 "    property: Power",
                 "    distributedTotalPercent: 175",
                 "    sources 2",
-                "    [amount | effect | order | source]",
-                "    40 | raw | 0 | Deep Insight c1a000",
-                "    0.25 | diminishing | 0 | Focused Study c1b000",
+                "    [amount | order | source]",
+                "    +40 | 0 | Deep Insight c1a000",
+                "    +25% | 0 | Focused Study c1b000",
                 "  unmodified: Develop Speed",
             }),
             Render(Detail(Workshop)));
@@ -320,7 +320,7 @@ public sealed class GameMcpTypeReachTests
                 "  properties 1:",
                 "    property: Requirements",
                 "    distributedTotalPercent: 130",
-                "    sources: amount=30, effect=raw, order=0, source=Deep Insight c1a000",
+                "    sources: amount=+30, order=0, source=Deep Insight c1a000",
             }),
             Render(Detail(Technology)));
     }
@@ -348,7 +348,7 @@ public sealed class GameMcpTypeReachTests
                 "  properties 1:",
                 "    property: Agromancy Power",
                 "    distributedTotalPercent: 125",
-                "    sources: amount=25, effect=raw, order=0, source=Deep Insight c1a000",
+                "    sources: amount=+25, order=0, source=Deep Insight c1a000",
             }),
             Render(Detail(Weave)));
     }
@@ -409,7 +409,7 @@ public sealed class GameMcpTypeReachTests
                 "  properties 1:",
                 "    property: Power",
                 "    distributedTotalPercent: 120",
-                "    sources: amount=20, effect=raw, order=0, source=Deep Insight c1a000",
+                "    sources: amount=+20, order=0, source=Deep Insight c1a000",
             }),
             Render(Detail(Elixirs)));
     }

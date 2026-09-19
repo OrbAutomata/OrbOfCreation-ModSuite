@@ -194,8 +194,8 @@ internal static class GameMcpTypeWorth
             sources.Add(new JObject
             {
                 ["sourceUuid"] = contribution.SourceId.ToString("D"),
-                ["amount"] = new GameMcpDomainValue(contribution.Amount),
-                ["effect"] = Effect(contribution.ModifierType),
+                ["amount"] = GameMcpNativeVocabulary.ModifierMagnitude(
+                    contribution.ModifierType, contribution.Amount),
                 ["order"] = contribution.Order,
             });
         }
@@ -360,16 +360,6 @@ internal static class GameMcpTypeWorth
             default: value = BigDouble.Zero; return false;
         }
     }
-
-    /// <summary>
-    /// What the modifier does to the number, in the vocabulary
-    /// <c>docs/game-systems/modifiers.md</c> names the five kinds by. One map for the whole surface
-    /// now lives in <see cref="GameMcpNativeVocabulary"/>: the same ordinal was reaching research
-    /// adjustments and the modifier-variables rows as a bare number while this block was already
-    /// saying the word.
-    /// </summary>
-    private static string Effect(int modifierType) =>
-        GameMcpNativeVocabulary.ModifierEffect(modifierType);
 
     /// <summary>
     /// The class of thing a keyword reaches, in the word the rest of the surface calls that class

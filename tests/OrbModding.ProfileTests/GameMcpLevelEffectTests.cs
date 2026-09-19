@@ -67,8 +67,9 @@ public sealed class GameMcpLevelEffectTests : IDisposable
     /// <remarks>
     /// The magnitude is the modifier's <c>adjustReal</c> and never a pre-multiplied product: the
     /// authored 0.02 and 0.75 are multiplicative, so <c>ConvertToReal</c> makes them the 1.02 and
-    /// 1.75 the screen prints, while the additive 1 stays 1. The kind rides beside the number
-    /// instead of being folded into it, because two modifiers on one property combine by kind.
+    /// 1.75 the screen prints, while the additive 1 stays 1. The kind is spelled into the number
+    /// rather than printed beside it, exactly as <c>ValueModifier.ToStringValue</c> does: the
+    /// <c>x</c> and the <c>+</c> are what say which of the three combine with each other.
     /// </remarks>
     [Fact]
     public void What_a_level_buys_rides_the_owners_own_answer()
@@ -81,22 +82,19 @@ public sealed class GameMcpLevelEffectTests : IDisposable
         Assert.Null(effects[0]["property"]);
         Assert.Equal("a2c950", (string?)effects[0]["modifies"]!["uuid"]);
         Assert.Equal("Max Druidry Lv", (string?)effects[0]["modifies"]!["name"]);
-        Assert.Equal("raw", (string?)effects[0]["modifierType"]);
-        Assert.Equal("1", (string?)effects[0]["amount"]);
+        Assert.Equal("+1", (string?)effects[0]["amount"]);
         Assert.Equal(0, (int?)effects[0]["order"]);
 
         Assert.Equal("Yield", (string?)effects[1]["property"]);
         Assert.Equal("33d4f5", (string?)effects[1]["modifies"]!["uuid"]);
         Assert.Equal("All Plot", (string?)effects[1]["modifies"]!["name"]);
-        Assert.Equal("stacking", (string?)effects[1]["modifierType"]);
-        Assert.Equal("1.02", (string?)effects[1]["amount"]);
+        Assert.Equal("x1.02", (string?)effects[1]["amount"]);
         Assert.Equal(0, (int?)effects[1]["order"]);
 
         Assert.Equal("RecoverySizeMod", (string?)effects[2]["property"]);
         Assert.Equal("33d4f5", (string?)effects[2]["modifies"]!["uuid"]);
         Assert.Equal("All Plot", (string?)effects[2]["modifies"]!["name"]);
-        Assert.Equal("stacking", (string?)effects[2]["modifierType"]);
-        Assert.Equal("1.75", (string?)effects[2]["amount"]);
+        Assert.Equal("x1.75", (string?)effects[2]["amount"]);
         Assert.Equal(0, (int?)effects[2]["order"]);
     }
 
@@ -116,27 +114,23 @@ public sealed class GameMcpLevelEffectTests : IDisposable
     {
         var glyph = Assert.Single(Effects("augment-glyphs", BloomingGlyph));
         Assert.Equal("Value", (string?)glyph["property"]);
-        Assert.Equal("diminishing", (string?)glyph["modifierType"]);
-        Assert.Equal("1.15", (string?)glyph["amount"]);
+        Assert.Equal("+115%", (string?)glyph["amount"]);
 
         var resourceType = Assert.Single(Effects("resource-types", BloomingType));
         Assert.Equal("MaxQuantity", (string?)resourceType["property"]);
         Assert.Equal("46eea2", (string?)resourceType["modifies"]!["uuid"]);
         Assert.Equal("Plot Capacity", (string?)resourceType["modifies"]!["name"]);
-        Assert.Equal("raw", (string?)resourceType["modifierType"]);
-        Assert.Equal("5", (string?)resourceType["amount"]);
+        Assert.Equal("+5", (string?)resourceType["amount"]);
 
         var equipmentType = Assert.Single(Effects("equipment-types", Amulet));
         Assert.Equal("EffectLevel", (string?)equipmentType["property"]);
         Assert.Equal("efcd91", (string?)equipmentType["modifies"]!["uuid"]);
-        Assert.Equal("raw", (string?)equipmentType["modifierType"]);
-        Assert.Equal("5", (string?)equipmentType["amount"]);
+        Assert.Equal("+5", (string?)equipmentType["amount"]);
 
         var spellType = Assert.Single(Effects("spell-types", Arcane));
         Assert.Equal("EffectLevel", (string?)spellType["property"]);
         Assert.Equal("e88665", (string?)spellType["modifies"]!["uuid"]);
-        Assert.Equal("raw", (string?)spellType["modifierType"]);
-        Assert.Equal("2", (string?)spellType["amount"]);
+        Assert.Equal("+2", (string?)spellType["amount"]);
 
         // The sixth holder is walked and authors no modifier on this build: every
         // TimeRuneSO.onLevelEffects block carries advancement grants rather than tuples, so the

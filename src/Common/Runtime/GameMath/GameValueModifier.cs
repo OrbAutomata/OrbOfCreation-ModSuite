@@ -56,6 +56,46 @@ internal readonly struct GameValueModifier
     internal bool IsEmpty() => Amount == IdentityFor(Type);
 
     /// <summary>
+    /// Ported from <c>ValueModifier.ToStringValue(bool)</c>: what the tooltip prints for this
+    /// modifier — a signed addend, a signed percentage, <c>x1.02</c>, an inverted-sign percentage,
+    /// or <c>^2</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The kind is not a word beside the number; it <em>is</em> how the number is written, which is
+    /// why the original renders both together and why none of the five spellings needs a glossary.
+    /// The two multiplicative kinds pass a threshold of one into
+    /// <see cref="GameScientificNumber.Beautify"/>, so a multiplier a hair above one keeps the
+    /// decimals that say so.
+    /// </para>
+    /// <para>
+    /// The original's suffix flag is dropped: it reaches only the notation branch, and the notation
+    /// the suite pins ignores it. Its default arm — the raw <c>BigDouble</c> for an ordinal outside
+    /// the five — is dropped too: a kind the suite cannot spell is a broken contract, not a number
+    /// to print anyway.
+    /// </para>
+    /// </remarks>
+    internal string ToStringValue() => Type switch
+    {
+        GameValueModifierType.Raw =>
+            Sign(Amount) + GameScientificNumber.Beautify(BigDouble.Abs(Amount), BigDouble.Zero),
+        GameValueModifierType.MultiDiminishing =>
+            Sign(Amount) +
+            GameScientificNumber.Beautify(BigDouble.Abs(Amount * 100), BigDouble.Zero) + "%",
+        GameValueModifierType.MultiStacking =>
+            "x" + GameScientificNumber.Beautify(BigDouble.Abs(Amount), BigDouble.One),
+        GameValueModifierType.Reduction =>
+            (Amount >= BigDouble.Zero ? "-" : "+") +
+            GameScientificNumber.Beautify(BigDouble.Abs(100 * Amount), BigDouble.Zero) + "%",
+        GameValueModifierType.Exponent =>
+            "^" + GameScientificNumber.Beautify(BigDouble.Abs(Amount), BigDouble.One),
+        _ => throw new InvalidOperationException(
+            "ValueModifier.ValueModifierType ordinal " + (int)Type + " has no spelling."),
+    };
+
+    private static string Sign(BigDouble amount) => amount >= BigDouble.Zero ? "+" : "-";
+
+    /// <summary>
     /// Ported verbatim from <c>ValueModifier.Adjust(BigDouble)</c>.
     /// </summary>
     /// <remarks>

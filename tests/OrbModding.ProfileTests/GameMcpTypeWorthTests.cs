@@ -81,9 +81,9 @@ public sealed class GameMcpTypeWorthTests
                 "    property: Artifact Power",
                 "    distributedTotalPercent: 180",
                 "    sources 2",
-                "    [amount | effect | order | source]",
-                "    20 | raw | 0 | Deep Insight a0d000",
-                "    0.5 | diminishing | 0 | Focused Study a0e000",
+                "    [amount | order | source]",
+                "    +20 | 0 | Deep Insight a0d000",
+                "    +50% | 0 | Focused Study a0e000",
                 "  unmodified: experienceRateMod",
             }),
             Render(Detail(Focus)));
@@ -128,7 +128,7 @@ public sealed class GameMcpTypeWorthTests
                 "",
                 "    property: Spell Power",
                 "    value: 150",
-                "    sources: amount=50, effect=diminishing, order=0, source=Deep Insight a0d000",
+                "    sources: amount=+5.00e3%, order=0, source=Deep Insight a0d000",
             }),
             Render(Detail(Ember)));
 

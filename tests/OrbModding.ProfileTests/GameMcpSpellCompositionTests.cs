@@ -399,9 +399,12 @@ public sealed class GameMcpSpellCompositionTests
         Assert.Throws<InvalidOperationException>(
             () => GameMcpNativeVocabulary.RechargeProcessorType(3));
 
-        Assert.Equal("raw", GameMcpNativeVocabulary.ModifierEffect(0));
-        Assert.Equal("exponent", GameMcpNativeVocabulary.ModifierEffect(4));
-        Assert.Throws<InvalidOperationException>(() => GameMcpNativeVocabulary.ModifierEffect(5));
+        // A modifier's kind is spelled into its magnitude rather than printed beside it, so the
+        // closed vocabulary here is the five renderings.
+        Assert.Equal("+1", GameMcpNativeVocabulary.ModifierMagnitude(0, new BigDouble(1d)));
+        Assert.Equal("^2", GameMcpNativeVocabulary.ModifierMagnitude(4, new BigDouble(2d)));
+        Assert.Throws<InvalidOperationException>(
+            () => GameMcpNativeVocabulary.ModifierMagnitude(5, new BigDouble(1d)));
 
         // One ordinal, three meanings, chosen by the condition class it rode in on.
         Assert.Equal(

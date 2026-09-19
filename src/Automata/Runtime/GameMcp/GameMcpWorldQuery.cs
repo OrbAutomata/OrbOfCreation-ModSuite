@@ -1237,7 +1237,35 @@ internal static class GameMcpWorldQuery
                 variable.EntityId,
                 Clock(variable.Value, variable.IsTimeAccurate),
                 variable.IsPercent)
+            : row is WorldModifierVariable modifier
+            ? new ModifierVariableRow(
+                modifier.EntityId,
+                GameMcpNativeVocabulary.ModifierMagnitude(
+                    modifier.ModifierType, modifier.Amount),
+                modifier.Order)
             : row;
+
+    /// <summary>
+    /// A registry modifier as the screen writes it: the kind and the magnitude are one string,
+    /// because the kind is what decides how the magnitude is written.
+    /// </summary>
+    /// <remarks>
+    /// Substituted rather than hand-projected, for the reason the time variable above is: the
+    /// declared column list stays the row's whole story, and only the type behind it changes.
+    /// </remarks>
+    private readonly struct ModifierVariableRow
+    {
+        internal ModifierVariableRow(Guid entityId, string amount, int order)
+        {
+            EntityId = entityId;
+            Amount = amount;
+            Order = order;
+        }
+
+        internal Guid EntityId { get; }
+        internal string Amount { get; }
+        internal int Order { get; }
+    }
 
     /// <summary>
     /// A number variable whose value the game draws as a duration, in the exact member names the
@@ -5568,8 +5596,8 @@ internal static class GameMcpWorldQuery
             // tuple has none, because the variable it names is the whole of what moves.
             if (effect.Property.Length > 0) entry["property"] = effect.Property;
             entry["modifiesId"] = effect.TargetId.ToString("D");
-            entry["modifierType"] = effect.ModifierType;
-            entry["amount"] = new GameMcpDomainValue(effect.Amount);
+            entry["amount"] = GameMcpNativeVocabulary.ModifierMagnitude(
+                effect.ModifierType, effect.Amount);
             entry["order"] = effect.Order;
             effects.Add(entry);
         }
@@ -6305,8 +6333,8 @@ internal static class GameMcpWorldQuery
                 {
                     ["modifierId"] = value.ModifierId.ToString("D"),
                     ["sourceId"] = value.SourceId.ToString("D"),
-                    ["modifierType"] = value.ModifierType,
-                    ["amount"] = new GameMcpDomainValue(value.Amount),
+                    ["amount"] = GameMcpNativeVocabulary.ModifierMagnitude(
+                        value.ModifierType, value.Amount),
                     ["order"] = value.Order,
                 };
                 if (value.Passive) adjustment["passive"] = true;
@@ -8427,8 +8455,8 @@ internal static class GameMcpWorldQuery
                 // moved something the game would not name — and the game does name it, through the
                 // accessor its own tooltip calls.
                 ["variableId"] = factor.VariableId.ToString("D"),
-                ["modifierType"] = factor.ModifierType,
-                ["amount"] = new GameMcpDomainValue(factor.Amount),
+                ["amount"] = GameMcpNativeVocabulary.ModifierMagnitude(
+                    factor.ModifierType, factor.Amount),
                 ["order"] = factor.Order,
             };
             // No `property`. It was the slot's field name off `GlyphSO` — a row read `spellPower`
@@ -9760,7 +9788,7 @@ internal static class GameMcpWorldQuery
         "bool-variables" =>
             new[] { "entityId", "value", "initialValue", "isSaved" },
         "modifier-variables" =>
-            new[] { "entityId", "modifierType", "amount", "order" },
+            new[] { "entityId", "amount", "order" },
 
         // The glossary sentence is deliberately absent here and present on the list page below.
         // A detail read already prints the game's own words for the thing it describes, read
