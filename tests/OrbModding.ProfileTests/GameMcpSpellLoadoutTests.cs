@@ -300,6 +300,7 @@ public sealed class GameMcpSpellLoadoutTests
                 "usageRequirementsMet",
                 "isLoadoutUnique",
                 "casts",
+                "recharge",
                 "remove",
                 "move",
                 "glyphs",
@@ -307,6 +308,35 @@ public sealed class GameMcpSpellLoadoutTests
                 "spellRecipe",
             },
             unique.Children<JProperty>().Select(property => property.Name));
+    }
+
+    /// <summary>
+    /// One spell has three recharge numbers and the wire published the one no screen shows.
+    /// </summary>
+    /// <remarks>
+    /// <c>rechargeSeconds</c> was <c>SpellRecipeSO.baseRecharge.duration</c> — a recipe-asset
+    /// constant with no level modifier, no cooldown penalty and no cooldown speed in it. The bar
+    /// counts <c>Spell.GetRecharge()</c>, which is <c>GetCooldownTime()</c> over the instance's
+    /// cooldown speed, and the recipe tooltip heads with the same number; <c>GetCooldownTime()</c>
+    /// itself is the pre-speed figure the tooltip prints further down. So the row carries the bar's
+    /// number, spelled the way <c>Duration.StylizeAccurateText</c> spells it for this recipe's own
+    /// recharge kind — seconds when it counts time, the count when it counts casts.
+    /// </remarks>
+    [Fact]
+    public void An_equipped_spell_publishes_the_recharge_the_casting_bar_counts_down()
+    {
+        var world = World();
+
+        var timed = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
+            world, "spell-slots", world.SpellSlots[0]));
+        var counted = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
+            world, "spell-slots", world.SpellSlots[1]));
+        var empty = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
+            world, "spell-slots", world.SpellSlots[2]));
+
+        Assert.Equal("18.7s", (string?)timed["recharge"]);
+        Assert.Equal("5 spell-casts", (string?)counted["recharge"]);
+        Assert.Null(empty["recharge"]);
     }
 
     /// <summary>
@@ -643,13 +673,15 @@ public sealed class GameMcpSpellLoadoutTests
             FirstRecipeId,
             canRemove: true,
             casting: false,
-            loadoutUnique: uniqueFirst);
+            loadoutUnique: uniqueFirst,
+            recharge: new BigDouble(18.7d));
         var second = Slot(
             moved ? 0 : 1,
             SecondInstanceId,
             SecondRecipeId,
             canRemove: false,
-            casting: true);
+            casting: true,
+            recharge: new BigDouble(5d));
         var empty = new WorldSpellSlot(
             2, Guid.Empty, Guid.Empty, false, false, false, false, false,
             false, false, false, false, false, 0, 0, BigDouble.Zero);
@@ -665,6 +697,12 @@ public sealed class GameMcpSpellLoadoutTests
                     "spell workbench", WorldCategoryOutcome.Collected, 1, 0, string.Empty),
             }),
             Views = UnlockedLoadoutScreen,
+            SpellRecipeAuthoring = PublicationTable<WorldSpellRecipeAuthoring>.Create(
+                new[]
+                {
+                    new WorldSpellRecipeAuthoring(FirstRecipeId, 0, 22d, 1d, 0, 0d, 0d),
+                    new WorldSpellRecipeAuthoring(SecondRecipeId, 0, 0d, 1.5d, 1, 0d, 0d),
+                }.OrderBy(row => row.RecipeId).ToArray()),
             Resources = PublicationTable<WorldResource>.Create(new[]
             {
                 SpellWeightResource(removed ? 2 : 5),
@@ -736,7 +774,8 @@ public sealed class GameMcpSpellLoadoutTests
         bool loadoutUnique = false,
         int currentCharges = 1,
         int maximumCharges = 1,
-        BigDouble cooldownRemaining = default) => new(
+        BigDouble cooldownRemaining = default,
+        BigDouble recharge = default) => new(
             slot,
             instance,
             recipe,
@@ -761,5 +800,6 @@ public sealed class GameMcpSpellLoadoutTests
             false,
             true,
             PublicationTable<WorldSpellSlotGlyph>.Empty,
-            isLoadoutUnique: loadoutUnique);
+            isLoadoutUnique: loadoutUnique,
+            recharge: recharge);
 }

@@ -213,8 +213,10 @@ internal readonly struct WorldSpellSlot
         bool cancellationEnabled = false,
         bool casterAvailable = true,
         int castCount = 0,
-        bool isLoadoutUnique = false)
+        bool isLoadoutUnique = false,
+        BigDouble recharge = default)
     {
+        Recharge = recharge;
         IsLoadoutUnique = isLoadoutUnique;
         CastCount = castCount;
         SlotIndex = slotIndex;
@@ -322,6 +324,18 @@ internal readonly struct WorldSpellSlot
 
     /// <summary>Seconds left before the next charge returns, on the game's own clock.</summary>
     internal BigDouble CooldownRemaining { get; }
+
+    /// <summary>
+    /// A full recharge for this instance, which is the number the bar counts down from.
+    /// </summary>
+    /// <remarks>
+    /// <c>Spell.GetRecharge()</c> — <c>GetCooldownTime()</c> divided by the instance's cooldown
+    /// speed. It is what <c>UISpellButton.RenderContent</c> counts with (<c>GetRechargeRemaining()</c>
+    /// applies the same two transforms to the remaining amount) and what the recipe tooltip prints
+    /// as its headline line. The recipe asset's own <c>baseRecharge.duration</c> is a third number
+    /// again and no screen shows it.
+    /// </remarks>
+    internal BigDouble Recharge { get; }
 
     internal int OutputLevel { get; }
     internal int EffectiveLevel { get; }
@@ -564,6 +578,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
     private readonly Func<object, int>? _castCount;
     private readonly Func<object, int>? _maximumCharges;
     private readonly Func<object, BigDouble>? _cooldown;
+    private readonly Func<object, BigDouble>? _recharge;
     private readonly Func<object, Guid>? _recipeId;
     private readonly Func<object, Guid>? _spellInstanceId;
     private readonly Func<object, int>? _outputLevel;
@@ -630,6 +645,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         _castCount = spell.Field<int>("numCasts");
         _maximumCharges = spell.Call<int>("GetMaxSpellCharges");
         _cooldown = spell.Call<BigDouble>("GetCooldownTimeRemaining");
+        _recharge = spell.Call<BigDouble>("GetRecharge");
         _recipeId = spell.CallReferenceGuid("get_reference");
         _spellInstanceId = spell.ReferenceGuid("guidContainer");
         _outputLevel = spell.Call<int>("GetOutputLevel");
@@ -834,7 +850,8 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             cancellationEnabled,
             casterAvailable,
             _castCount!(spell),
-            _isLoadoutUnique!(spell)));
+            _isLoadoutUnique!(spell),
+            _recharge!(spell)));
 
         var resonant = _augmentedSpellTypes!(spell);
         for (var ordinal = 0; ordinal < (resonant?.Count ?? 0); ordinal++)
@@ -880,7 +897,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         _costEntries is not null && _entryResource is not null && _entryValue is not null;
 
     private bool IsCompositionBound() =>
-        _castCount is not null &&
+        _castCount is not null && _recharge is not null &&
         _outputLevel is not null && _effectiveLevel is not null &&
         _requiredMasteryLevel is not null && _recipeMasteryLevel is not null &&
         _durationSpell is not null && _usageRequirementsMet is not null &&

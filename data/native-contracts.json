@@ -15971,6 +15971,26 @@
       "place": "patch"
     },
     {
+      "id": "spell.get-recharge",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetRecharge",
+      "visibility": "public",
+      "static": false,
+      "returnType": "BigDouble",
+      "parameters": [],
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning BigDouble; classified from its signature, no IL body audit"}
+    },
+    {
       "id": "spell.get-cooldown",
       "assembly": "assembly-csharp",
       "type": "Spell",

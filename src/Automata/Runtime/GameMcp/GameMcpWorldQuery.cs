@@ -6948,7 +6948,6 @@ internal static class GameMcpWorldQuery
             var casting = new JObject
             {
                 ["castType"] = GameMcpNativeVocabulary.CastType(authoring.CastType),
-                ["rechargeSeconds"] = authoring.RechargeDuration,
                 // What one counted unit is worth against the recharge. `1` means one cast (or one
                 // attribute developed) advances it by one, and the game's own
                 // `Duration.Entry.GetMultiplier()` forces exactly 1 whenever the recharge counts in
@@ -7396,6 +7395,37 @@ internal static class GameMcpWorldQuery
     internal static bool IsScreenUnlocked(GameWorldState world, Guid viewId) =>
         WorldLookup.TryFind(world.Views, viewId, out var view) && view.Available;
 
+    /// <summary>
+    /// A full recharge, in the screen's own words for this spell.
+    /// </summary>
+    /// <remarks>
+    /// <c>Duration.StylizeAccurateText</c> picks the spelling from the recharge processor's core
+    /// type: a time recharge prints through <c>Utils.BeautifyTimeAccurate</c>, and a counted one
+    /// prints the count. The core type is the recipe's authored <c>baseRecharge.type</c> — the one
+    /// module <c>Duration.Entry.CreateProcessor</c> seeds the processor with, and the one
+    /// <c>Duration.Processor.GetCoreType()</c> answers with — so the published authoring says which
+    /// of the two this is. What the screen wraps a count in is parentheses; what makes it readable
+    /// on the wire is the unit, spelled the way <c>rechargeCountsIn</c> already spells it.
+    /// </remarks>
+    private static bool TryRechargeText(
+        GameWorldState world,
+        in WorldSpellSlot slot,
+        out string text)
+    {
+        text = string.Empty;
+        if (!WorldSpellGraphLookup.TryFindAuthoring(
+                world.SpellRecipeAuthoring, slot.SpellRecipeId, out var authoring))
+        {
+            return false;
+        }
+        var countsIn = GameMcpNativeVocabulary.RechargeProcessorType(
+            authoring.RechargeProcessorType);
+        text = countsIn == "time"
+            ? CoarseClock(slot.Recharge)
+            : GameMcpNumberFormatter.Format(slot.Recharge) + " " + countsIn;
+        return true;
+    }
+
     private static JObject ProjectEquippedSpell(
         GameWorldState world,
         in WorldSpellSlot slot)
@@ -7424,6 +7454,12 @@ internal static class GameMcpWorldQuery
             // anything fired, so it is present whether or not it has ever moved.
             ["casts"] = slot.CastCount,
         };
+        // A full recharge, spelled the way the screen spells it. This is the number the bar counts
+        // down from and the one the recipe tooltip heads with; the recipe asset's authored
+        // baseRecharge.duration is a third quantity that no surface of the game shows, so it is
+        // published nowhere a player reads. Seconds or a count is the recipe's own recharge kind,
+        // so with that unpublished the row says nothing rather than guessing a unit.
+        if (TryRechargeText(world, in slot, out var recharge)) result["recharge"] = recharge;
         if (slot.Casting) result["casting"] = true;
         if (slot.ReadyingCast) result["readyingCast"] = true;
         if (slot.Attuning) result["attuning"] = true;

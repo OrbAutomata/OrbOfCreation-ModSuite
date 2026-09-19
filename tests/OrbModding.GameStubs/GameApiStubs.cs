@@ -1444,6 +1444,7 @@ public class Spell : ITooltipable
     public int CurrentCharges { get; set; }
     public int MaximumCharges { get; set; }
     public BigDouble CooldownRemaining { get; set; }
+    public BigDouble Recharge { get; set; }
 
     /// <summary>
     /// What the refused branch of <c>SpellManager.RemoveSpell</c> leaves behind, so a test can see
@@ -1540,6 +1541,12 @@ public class Spell : ITooltipable
     public int GetCurrSpellCharges() => CurrentCharges;
     public int GetMaxSpellCharges() => MaximumCharges;
     public BigDouble GetCooldownTimeRemaining() => CooldownRemaining;
+
+    /// <summary>
+    /// A full recharge after cooldown speed — the number the casting bar counts down from,
+    /// and the one the recipe tooltip heads with.
+    /// </summary>
+    public BigDouble GetRecharge() => Recharge;
     public ResourceCostList GetCost() => Cost;
     public ResourceCostList GetDrainCost() => new ResourceCostList();
     public int GetOutputLevel() => Player.GetSpellOutputLevel().AsInt();

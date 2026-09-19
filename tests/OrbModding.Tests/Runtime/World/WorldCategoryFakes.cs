@@ -1497,6 +1497,7 @@ internal sealed class FakeSpell
     public int currentCharges;
     public int maximumCharges;
     public BigDouble cooldownRemaining;
+    public BigDouble recharge;
     public FakeSpellCostList cost = new();
     public FakeSpellCostList drainCost = new();
     public int outputLevel = 1;
@@ -1532,6 +1533,7 @@ internal sealed class FakeSpell
     public int GetCurrSpellCharges() => currentCharges;
     public int GetMaxSpellCharges() => maximumCharges;
     public BigDouble GetCooldownTimeRemaining() => cooldownRemaining;
+    public BigDouble GetRecharge() => recharge;
     public FakeSpellCostList GetCost() => cost;
     public FakeSpellCostList GetDrainCost() => drainCost;
     public int GetOutputLevel() => outputLevel;

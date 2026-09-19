@@ -302,7 +302,11 @@ public sealed class GameMcpSpellCompositionTests
         Assert.Equal("aura", (string?)row["casting"]!["castType"]);
         Assert.Equal("spell-casts", (string?)row["casting"]!["rechargeCountsIn"]);
         Assert.Null(row["casting"]!["rechargeProcessorType"]);
-        Assert.Equal(12d, (double)row["casting"]!["rechargeSeconds"]!);
+        // The recipe asset's own baseRecharge.duration used to ride here as `rechargeSeconds`. It
+        // is not the recharge any screen shows: the bar counts Spell.GetRecharge() and the tooltip
+        // heads with it, both of which are instance numbers, so the recharge a player reads is
+        // published on the equipped spell's row and this authored constant is published nowhere.
+        Assert.Null(row["casting"]!["rechargeSeconds"]);
         Assert.Equal(1.5d, (double)row["casting"]!["rechargeUnitMultiplier"]!);
         Assert.Null(row["casting"]!["rechargeMultiplier"]);
         Assert.Equal(30d, (double)row["casting"]!["maximumChannelSeconds"]!);
