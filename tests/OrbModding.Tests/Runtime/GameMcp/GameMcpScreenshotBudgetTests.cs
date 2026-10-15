@@ -11,6 +11,7 @@ using Xunit;
 
 namespace OrbModding.Tests.Runtime.GameMcp;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class GameMcpScreenshotBudgetTests : IDisposable
 {
     private readonly string _directory = Path.Combine(

@@ -9,6 +9,7 @@ using Xunit;
 
 namespace OrbModding.ProfileTests;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class GameMcpTooltipProjectorTests
 {
     /// <summary>

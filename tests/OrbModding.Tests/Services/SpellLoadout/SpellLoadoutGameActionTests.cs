@@ -9,6 +9,7 @@ using Xunit;
 
 namespace OrbModding.Tests.Services.SpellLoadout;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class SpellLoadoutGameActionTests : IDisposable
 {
     private const long Epoch = 91;
