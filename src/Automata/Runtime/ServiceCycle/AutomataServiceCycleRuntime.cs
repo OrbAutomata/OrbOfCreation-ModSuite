@@ -31,7 +31,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
     private readonly SpellCompositionGameAction? _spellComposition;
     private readonly SpellLoadoutGameAction? _spellLoadout;
     private readonly TargetingGameAction? _targeting;
-    private readonly GenericDiscoveryGameAction? _genericDiscovery;
     private readonly EquipmentLoadoutGameAction? _equipmentLoadout;
     private readonly AlchemyLoadoutGameAction? _alchemyLoadout;
     private readonly RitualLifecycleGameAction? _ritualLifecycle;
@@ -62,7 +61,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         SpellCompositionGameAction? spellComposition = null,
         SpellLoadoutGameAction? spellLoadout = null,
         TargetingGameAction? targeting = null,
-        GenericDiscoveryGameAction? genericDiscovery = null,
         EquipmentLoadoutGameAction? equipmentLoadout = null,
         AlchemyLoadoutGameAction? alchemyLoadout = null,
         RitualLifecycleGameAction? ritualLifecycle = null,
@@ -89,7 +87,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         _spellComposition = spellComposition;
         _spellLoadout = spellLoadout;
         _targeting = targeting;
-        _genericDiscovery = genericDiscovery;
         _equipmentLoadout = equipmentLoadout;
         _alchemyLoadout = alchemyLoadout;
         _ritualLifecycle = ritualLifecycle;
@@ -166,7 +163,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         _spellComposition?.InvalidateLifecycle();
         _spellLoadout?.InvalidateLifecycle();
         _targeting?.InvalidateLifecycle();
-        _genericDiscovery?.InvalidateLifecycle();
         _equipmentLoadout?.InvalidateLifecycle();
         _alchemyLoadout?.InvalidateLifecycle();
         _ritualLifecycle?.InvalidateLifecycle();
@@ -255,11 +251,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 return ExecuteConsumable(command, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.Crafting)
                 return ExecuteCrafting(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.GenericDiscovery)
-                return ExecuteGenericDiscovery(
-                    command,
-                    lifecycle,
-                    configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.EquipmentLoadout)
                 return ExecuteEquipmentLoadout(command, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.AlchemyLoadout)
@@ -648,33 +639,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             configurationGeneration,
             submission.Reason,
             GameMcpCraftingProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecuteGenericDiscovery(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        if (_genericDiscovery is null)
-            return GameMcpCommandResult.Rejected(
-                "contract_unavailable",
-                "the shared generic discovery GameAction was not composed",
-                lifecycle,
-                configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, command.DerivedNativeType);
-        var action = new GenericDiscoveryAction(
-            command.TargetId,
-            command.DerivedNativeType,
-            command.ExpectedLifecycleGeneration);
-        var submission = _genericDiscovery.Submit(in action);
-        var result = GenericDiscoveryActionResultMapper.Map(in submission);
-        return GameMcpCommandResult.FromAction(
-            in result,
-            command.Kind,
-            lifecycle,
-            configurationGeneration,
-            submission.Reason,
-            GameMcpGenericDiscoveryProjection.Project(in submission));
     }
 
     private GameMcpCommandResult ExecuteEquipmentLoadout(
@@ -1463,7 +1427,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             _spellComposition?.Dispose();
             _spellLoadout?.Dispose();
             _targeting?.Dispose();
-            _genericDiscovery?.Dispose();
             _equipmentLoadout?.Dispose();
             _alchemyLoadout?.Dispose();
             _ritualLifecycle?.Dispose();

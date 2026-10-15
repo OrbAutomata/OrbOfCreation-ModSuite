@@ -41,8 +41,6 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         { AutomationActionFamily.SpellLoadout };
     private static readonly AutomationActionFamily[] TargetingFamilies =
         { AutomationActionFamily.Targeting };
-    private static readonly AutomationActionFamily[] GenericDiscoveryFamilies =
-        { AutomationActionFamily.GenericDiscovery };
     private static readonly AutomationActionFamily[] EquipmentLoadoutFamilies =
         { AutomationActionFamily.EquipmentLoadout };
     private static readonly AutomationActionFamily[] ChallengeFamilies =
@@ -167,8 +165,6 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         TryCaptureGameMcpOperationPermit(AutomationActionFamily.SpellLoadout);
     public bool TryCaptureTargetingMutationPermit() =>
         TryCaptureGameMcpOperationPermit(AutomationActionFamily.Targeting);
-    public bool TryCaptureGenericDiscoveryMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.GenericDiscovery);
     public bool TryCaptureEquipmentLoadoutMutationPermit() =>
         TryCaptureGameMcpOperationPermit(AutomationActionFamily.EquipmentLoadout);
     public bool TryCaptureChallengeMutationPermit() =>
@@ -211,8 +207,6 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         "The current MCP operation does not hold SpellLoadout.";
     public string TargetingOwnershipFailure =>
         "The current MCP operation does not hold Targeting.";
-    public string GenericDiscoveryOwnershipFailure =>
-        "The current MCP operation does not hold GenericDiscovery.";
     public string EquipmentLoadoutOwnershipFailure =>
         "The current MCP operation does not hold EquipmentLoadout.";
     public string ChallengeOwnershipFailure =>
@@ -525,7 +519,6 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         GameMcpCommandKind.Targeting => TargetingFamilies,
         GameMcpCommandKind.Consumable => ConsumableFamilies,
         GameMcpCommandKind.Crafting => ScribeFamilies,
-        GameMcpCommandKind.GenericDiscovery => GenericDiscoveryFamilies,
         GameMcpCommandKind.EquipmentLoadout => EquipmentLoadoutFamilies,
         GameMcpCommandKind.Challenge => ChallengeFamilies,
         GameMcpCommandKind.Prestige => PrestigeFamilies,
@@ -575,7 +568,6 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         AutomationActionFamily.SpellComposition => false,
         AutomationActionFamily.SpellLoadout => false,
         AutomationActionFamily.Targeting => false,
-        AutomationActionFamily.GenericDiscovery => false,
         AutomationActionFamily.EquipmentLoadout => false,
         AutomationActionFamily.ChallengeLifecycle => false,
         AutomationActionFamily.PrestigeLifecycle => false,

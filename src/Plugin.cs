@@ -581,14 +581,6 @@ public sealed class Plugin : BaseUnityPlugin
                         readOwnershipFailure: () =>
                             _automataActionFamilyOwnership!
                                 .TargetingOwnershipFailure)
-                    , createGenericDiscovery: () => new GenericDiscoveryGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureGenericDiscoveryMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .GenericDiscoveryOwnershipFailure)
                     , createEquipmentLoadout: () => new EquipmentLoadoutGameAction(
                         readAutoHarvestLifecycleEpoch,
                         tryCaptureMutationPermit: () =>
@@ -1676,10 +1668,6 @@ public sealed class Plugin : BaseUnityPlugin
             case "trace_health":
                 execution = GameMcpToolExecution.Text(ProjectGameMcpTraceHealthText(context));
                 return true;
-            case "game_discover" when request.Mode == "preview":
-                execution = GameMcpToolExecution.Read(
-                    GameMcpWorldQuery.ProjectDiscoveryPreview(context, request.Uuid));
-                return true;
             case "game_spell_loadout" when request.Mode == "preview":
                 var glyphs = new SpellWorkbenchGlyphStack[request.UuidCounts.Length];
                 for (var index = 0; index < glyphs.Length; index++)
@@ -2497,23 +2485,6 @@ public sealed class Plugin : BaseUnityPlugin
         }
         else if (kind == GameMcpCommandKind.Crafting)
             nativeType = "CraftingRecipeSO";
-        else if (kind == GameMcpCommandKind.GenericDiscovery)
-        {
-            if (context.World is null)
-                preparationFailure = GameMcpCommandResult.Rejected(
-                    "world_not_published",
-                    context.RuntimeNotAvailableReason);
-            else if (!GameMcpWorldQuery.TryResolveDiscoveryTarget(
-                         context.World.Snapshot,
-                         request.Uuid,
-                         out nativeType,
-                         out _,
-                         out var resolutionCode,
-                         out var resolutionReason))
-                preparationFailure = GameMcpCommandResult.Rejected(
-                    resolutionCode,
-                    resolutionReason);
-        }
         else if (kind == GameMcpCommandKind.EquipmentLoadout)
             nativeType = "EquipmentSO";
         else if (kind == GameMcpCommandKind.AlchemyLoadout)

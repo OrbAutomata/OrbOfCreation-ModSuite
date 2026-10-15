@@ -243,12 +243,11 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal("TimeRuneSO", nativeType);
         Assert.Equal("game_level_up", tool);
 
-        // A glyph the world has not discovered still has both verbs, and the pointer names both
-        // rather than choosing for the caller.
+        // An undiscovered glyph is levelled on its own row; discovering it is a tree roll.
         var undiscovered = World(5, 0, purchaseAffordable: true, glyphLearned: false);
         Assert.True(GameMcpEntityCapabilityMap.TryOwningTool(
             undiscovered, GlyphId, out _, out _, out var glyphTools));
-        Assert.Equal("game_discover and game_level_up", glyphTools);
+        Assert.Equal("game_level_up", glyphTools);
     }
 
     /// <summary>

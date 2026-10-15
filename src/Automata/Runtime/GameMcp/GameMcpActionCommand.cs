@@ -31,7 +31,6 @@ internal enum GameMcpCommandKind
     Targeting = 19,
     Consumable = 20,
     Crafting = 21,
-    GenericDiscovery = 22,
     EquipmentLoadout = 23,
     Challenge = 24,
     Prestige = 25,
@@ -55,7 +54,7 @@ internal static class GameMcpCommandKinds
             GameMcpCommandKind.DiscoveryTreeOffer or GameMcpCommandKind.SpellWorkbench or
             GameMcpCommandKind.SpellComposition or GameMcpCommandKind.SpellLoadout or
             GameMcpCommandKind.Targeting or GameMcpCommandKind.Consumable or
-            GameMcpCommandKind.Crafting or GameMcpCommandKind.GenericDiscovery or
+            GameMcpCommandKind.Crafting or
             GameMcpCommandKind.EquipmentLoadout or GameMcpCommandKind.Challenge or
             GameMcpCommandKind.Prestige or GameMcpCommandKind.Research or
             GameMcpCommandKind.AlchemyLoadout or GameMcpCommandKind.RitualLifecycle or
@@ -94,7 +93,7 @@ internal static class GameMcpCommandKinds
         "game_targeting" => GameMcpCommandKind.Targeting,
         "game_consumable" => GameMcpCommandKind.Consumable,
         "game_craft" => GameMcpCommandKind.Crafting,
-        "game_discover" => GameMcpCommandKind.GenericDiscovery,
+        "game_discover" => GameMcpCommandKind.DiscoveryTreeOffer,
         "game_equipment" => GameMcpCommandKind.EquipmentLoadout,
         "time_challenge" => GameMcpCommandKind.Challenge,
         "time_prestige" => GameMcpCommandKind.Prestige,
@@ -127,9 +126,6 @@ internal static class GameMcpCommandKinds
         string surface)
     {
         var kind = FromToolName(toolName);
-        if (toolName == "game_discover" &&
-            mode.StartsWith("offer_", StringComparison.Ordinal))
-            return GameMcpCommandKind.DiscoveryTreeOffer;
         if (toolName == "game_spell_loadout" && mode == "add")
             return GameMcpCommandKind.SpellWorkbench;
         if (toolName == "game_agromancy" &&
@@ -152,7 +148,6 @@ internal static class GameMcpCommandKinds
         GameMcpCommandKind.Targeting => "game_targeting",
         GameMcpCommandKind.Consumable => "game_consumable",
         GameMcpCommandKind.Crafting => "game_craft",
-        GameMcpCommandKind.GenericDiscovery => "game_discover",
         GameMcpCommandKind.EquipmentLoadout => "game_equipment",
         GameMcpCommandKind.Challenge => "time_challenge",
         GameMcpCommandKind.Prestige => "time_prestige",
@@ -928,22 +923,6 @@ internal static class GameMcpActionResultCodeNames
             if (code == CraftingPlayerActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";
             if (code == CraftingPlayerActionResultCodes.PostCommitFault) return "post_commit_fault";
             if (code == CraftingPlayerActionResultCodes.VerificationFailed) return "verification_failed";
-        }
-        if (commandKind == GameMcpCommandKind.GenericDiscovery)
-        {
-            if (code == GenericDiscoveryActionResultCodes.ContractUnavailable) return "contract_unavailable";
-            if (code == GenericDiscoveryActionResultCodes.WrongThread) return "wrong_thread";
-            if (code == GenericDiscoveryActionResultCodes.IdentityUnavailable) return "identity_unavailable";
-            if (code == GenericDiscoveryActionResultCodes.UnsupportedType) return "unsupported_type";
-            if (code == GenericDiscoveryActionResultCodes.NotVisible) return "not_visible";
-            if (code == GenericDiscoveryActionResultCodes.AlreadyDiscovered) return "already_discovered";
-            if (code == GenericDiscoveryActionResultCodes.DiscoveryUnavailable) return "discovery_unavailable";
-            if (code == GenericDiscoveryActionResultCodes.Unaffordable) return "unaffordable";
-            if (code == GenericDiscoveryActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";
-            if (code == GenericDiscoveryActionResultCodes.PostCommitFault) return "post_commit_fault";
-            if (code == GenericDiscoveryActionResultCodes.VerificationFailed) return "verification_failed";
-            if (code == GenericDiscoveryActionResultCodes.GlyphRecipeEmpty) return "components_unavailable";
-            if (code == GenericDiscoveryActionResultCodes.ScreenLocked) return "screen_locked";
         }
         if (commandKind == GameMcpCommandKind.EquipmentLoadout)
         {

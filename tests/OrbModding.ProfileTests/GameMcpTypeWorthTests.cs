@@ -346,7 +346,8 @@ public sealed class GameMcpTypeWorthTests
             "\"reason\":\"Magic > Augments > Upgrade is not unlocked yet, so the game " +
             "draws no level button for an augment glyph. Buy the Upgrade Glyphs upgrade " +
             "first.\"},\"discover\":{\"available\":false," +
-            "\"reason\":\"The game is not showing this yet.\"}," +
+            "\"reason\":\"Only the roll on Magic > Augments > Glyphcraft gives this, and it " +
+            "is not in that roll's pool yet.\"}," +
             "\"reason\":\"This has not been discovered yet.\"}," +
             "\"predicates\":{\"visible\":{\"available\":false," +
             "\"reason\":\"This has not been discovered yet.\"}}}",

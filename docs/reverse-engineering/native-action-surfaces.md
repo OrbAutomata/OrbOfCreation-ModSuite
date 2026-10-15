@@ -605,12 +605,13 @@ The interface owns the whole read side of the decision: `Discover` (`0x06001C97`
 `GetDiscoverCost` (`0x06001C92`), `IsDiscoverVisible` (`0x06001C93`), `CanDiscover` (`0x06001C94`),
 `IsDiscovered` (`0x06001C95`) and `IsDiscoverRequired` (`0x06001C96`).
 
-`UIDiscoverablePage.HandleClick` (`0x0600231C`) hands the selected object to a `UICostButton` whose
-terminal callback is that object's own `Discover`, so payment precedes discovery on this path.
+`Discover` has two IL callers: `DiscoveryTreeSO.DiscoverItem` (`0x06000AAD`), the tree roll's
+confirm below, and `UIDiscoverablePage.HandleClick` (`0x0600231C`), a per-row Discover button no
+screen the player reaches draws. Every discovery in play is therefore a tree's roll.
 
 Two implementers are not plain. `EquipmentSO.Discover` immediately calls `EquipmentSO.Create`
 (`0x06000B11`) and equips nothing. `SpellRecipeSO` is driven through the spell manager's state
-machine below, whose payment ordering is the reverse of this one.
+machine below.
 
 ---
 
@@ -700,7 +701,7 @@ is evidence about the ledger, never proof about the action — see
 | Recipe registry | `SpellRecipeSO.All` (`0x04000A32`) |
 | Authored cores | `SpellRecipeSO.GetGlyphRecipe()` (`0x06001447`) |
 | Selection resolution | `SpellManager.GetSpellFromRecipe(List<GlyphSO>)` (`0x06000747`) |
-| Discover button | `UIDiscoverablePage.HandleClick()` (`0x0600231C`) → `IDiscoverable.Discover()` (`0x06001C97`), which for a recipe is `SpellRecipeSO.Discover()` (`0x06001432`) |
+| Discover | `DiscoveryTreeSO.DiscoverItem` (`0x06000AAD`) → `IDiscoverable.Discover()` (`0x06001C97`), which for a recipe is `SpellRecipeSO.Discover()` (`0x06001432`) |
 | Dead discover path | `SpellManager.DiscoverSpell()` (`0x06000741`) has no callers in the build |
 | Create | `SpellManager.CreateSpell()` (`0x0600073F`) → `CreateRecipe` → `SpellRecipeSO.CreateWith(...)` |
 | Costs | Discovery: `SpellRecipeSO.GetDiscoverCost()` (`0x06001442`); screen-priced creation: `SpellManager.GetSpellCreateCost(List<GlyphSO>)` (`0x0600074A`); lower-level modifier fold: `GlyphSO.GetCreationCostOfList(ResourceCostList, IEnumerable<GlyphSO>)` |
@@ -712,38 +713,22 @@ is evidence about the ledger, never proof about the action — see
 
 No native member represents the selection gesture. The UI drives list operations, and so must
 anything else that needs the selection at all — which is creation, not discovery: `CreateRecipe`
-reads `selectedAugmentGlyphs`, while the Discover button reads nothing back off the page.
+reads `selectedAugmentGlyphs`, while discovery reads no selection at all.
 
 `GetSpellFromRecipe` is the only proof that a selection means what you think it means; a list of the
 right length is not.
 
-### The Discover button is one press on the row it is showing
+### Spell discovery is the Unlock tree's roll
 
-Spell discovery is not `SpellManager.DiscoverSpell()`. That method has no callers in the build; the
-screen the player presses is a `UIDiscoverablePage`, the same page every other discovery surface
-uses:
-
-```text
-UIDiscoverablePage.OnDiscoverableClick(row)  → selectedGlyphs   = row.GetGlyphRecipe()
-                                             → selectedResources = row.GetResourceRecipe()
-UIDiscoverablePage.Render()                  → currentRecipe = GetDiscoverableFromRecipe(...)
-                                             → totalCost = currentRecipe.GetDiscoverCost()
-                                             → discoverButton.SetCost(totalCost)
-UICostButton.OnClick()                       → costList.HasEnough() → PerformCost() → callback
-UIDiscoverablePage.HandleClick()             → IsGlyphSelectionValid() → currentRecipe.Discover()
-```
-
-The page's selection lists are a view mirror of the clicked row's own authored recipe, and the
-discover path never reads them back for anything but re-deriving that same row. `HandleClick` is
-guarded by `IsGlyphSelectionValid()`, which is `selectedGlyphs.Count > 0 && totalCost != null &&
-totalCost.HasEnough() && currentRecipe != null && currentRecipe.CanDiscover() &&
-!currentRecipe.IsDiscovered()`. Payment happens in the button, before the callback, so this surface
-does keep the cost-button order.
+Spell discovery is not `SpellManager.DiscoverSpell()`; that method has no callers in the build. A
+recipe is discovered when the Magic > Spellbook > Unlock tree's roll confirms it, and the roll only
+offers what is in its pool: `!IsDiscovered() && IsDiscoverVisible()`, where
+`SpellRecipeSO.IsDiscoverVisible` requires every book in the recipe's `recipeBookList` to be owned.
 
 `SpellRecipeSO.Discover()` is `discovered = true` plus `SpellManager.PostDiscoverRecipe(this)`, which
 loads the new spell when the loadout has a free spot and the spell's usage cost fits — so a discovery
 can change the loadout without being asked to. `SpellManager.DiscoverRecipe(recipe)` is not the
-button's path: it calls `Discover()` and then runs `PostDiscoverRecipe` a second time.
+roll's path: it calls `Discover()` and then runs `PostDiscoverRecipe` a second time.
 
 ### Creation is instance work
 

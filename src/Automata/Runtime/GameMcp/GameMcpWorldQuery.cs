@@ -2350,7 +2350,6 @@ internal static class GameMcpWorldQuery
             GameMcpCommandKind.HarvestLifecycle => ProjectHarvestLifecycleDelta(state, command),
             GameMcpCommandKind.StructureLifecycle => ProjectStructureLifecycleDelta(state, command),
             GameMcpCommandKind.Research => ProjectResearchDelta(state, command),
-            GameMcpCommandKind.GenericDiscovery => ProjectDiscoveryDelta(state, command),
             GameMcpCommandKind.DiscoveryTreeOffer when string.Equals(
                 command.Mode,
                 "select",
@@ -3228,63 +3227,36 @@ internal static class GameMcpWorldQuery
     }
 
     /// <summary>
-    /// The Recipe Books a spell recipe is assembled from, in the authored slot order.
+    /// Which Recipe Book keeps a spell out of its tree's pool, in the words its rows use.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// The game authors a recipe's core as <c>List&lt;GlyphSO&gt;</c>, but each of those twenty-five
-    /// assets is the internal half of a Recipe Book — the tile the player owns, the row the world
-    /// publishes — so the edge names the book. A caller assembling a recipe wants to know which
-    /// books go into it and whether they are owned; the id underneath is machinery.
-    /// </para>
-    /// <para>
-    /// This is not <c>belongsTo.recipeBooks</c>, which is <c>SpellRecipeSO.recipeBookList</c> — the
-    /// books that must be owned before the recipe is shown at all. The two disagree on 24 of the 65
-    /// authored recipes, so they are two facts and wear two words.
-    /// </para>
-    /// <para>
-    /// Slot order is kept and repeats are kept with it. Two recipes repeat a core entry —
-    /// <c>DistortedFusion</c> is Flow, Flow, Arcane and <c>EmblemOfFormation</c> is Insight,
-    /// Formation, Formation — and the repeat costs nothing extra: the gate is the deduplicated
-    /// <c>recipeBookList</c>, answered by <c>recipeBooks.All(IsAvailable)</c>, which no repeat can
-    /// move. Deduplicating here would hide a slot the discovery row draws.
-    /// </para>
-    /// <para>
-    /// A slot the link table cannot answer for keeps its raw id and says so rather than being
-    /// dropped: a recipe silently one book short is a recipe a caller would plan against.
-    /// </para>
-    /// </remarks>
-    /// <summary>
-    /// Which Recipe Book a hidden spell is waiting on, in the same words the press refuses in.
-    /// </summary>
-    /// <remarks>
-    /// The verb has named the book since the discovery boundary landed, and the row the caller
-    /// reads first never did: a live round met two hidden spells whose whole answer was "The game
-    /// is not showing this yet" and had to go and work out which book each was behind. The walk is
-    /// the verb's own — the recipe names its core glyphs, each core glyph names the book it is the
-    /// internal half of, and the first unowned one is the answer — done here over the published
-    /// edges the row already prints under <c>composedOf</c>.
-    /// <para>
-    /// A book the world publishes no row for is not named. Ownership is the fact the sentence turns
-    /// on, and a book whose row is missing has no ownership to read; naming it anyway would tell a
-    /// caller to go and buy something the suite never checked.
-    /// </para>
+    /// The pool is <c>!IsDiscovered() &amp;&amp; IsDiscoverVisible()</c>, and
+    /// <c>SpellRecipeSO.IsDiscoverVisible</c> asks every book of <c>recipeBookList</c> to be owned —
+    /// the edge the row prints as <c>belongsTo.recipeBooks</c>. A book the world publishes no row
+    /// for is not named: ownership is the fact the sentence turns on.
     /// </remarks>
     internal static string MissingRecipeBookReason(GameWorldState world, in WorldSpellRecipe recipe)
     {
-        for (var index = 0; index < recipe.CoreGlyphs.Count; index++)
+        var book = MissingRecipeBook(world, recipe.EntityId);
+        return book.Length == 0
+            ? string.Empty
+            : GameMcpDecisionReason.For("not_visible") + " It needs the " + book +
+              " recipe book, which is not owned.";
+    }
+
+    private static string MissingRecipeBook(GameWorldState world, Guid recipeId)
+    {
+        if (!WorldSpellGraphLookup.TryFindRelations(
+                world.SpellRelations, recipeId, out var start, out var count))
+            return string.Empty;
+        for (var index = start; index < start + count; index++)
         {
-            var glyphId = recipe.CoreGlyphs[index].GlyphId;
-            if (!WorldRecipeBookGlyphLookup.TryFindBook(
-                    world.RecipeBookGlyphs, glyphId, out var bookId))
-            {
+            var relation = world.SpellRelations[index];
+            if (relation.Kind != WorldSpellRelationKind.RecipeBook) continue;
+            if (!WorldLookup.TryFind(world.RecipeBooks, relation.TargetId, out var book) ||
+                book.Available)
                 continue;
-            }
-            if (!WorldLookup.TryFind(world.RecipeBooks, bookId, out var book) || book.Available)
-                continue;
-            return GameMcpDecisionReason.For("not_visible") + " It needs the " +
-                EntityIdentityFormatter.PlayerName(bookId, world.EntityIdentities) +
-                " recipe book, which is not owned.";
+            return EntityIdentityFormatter.PlayerName(relation.TargetId, world.EntityIdentities);
         }
         return string.Empty;
     }
@@ -3295,32 +3267,6 @@ internal static class GameMcpWorldQuery
         for (var index = 0; index < world.RecipeBookGlyphs.Count; index++)
             if (world.RecipeBookGlyphs[index].RecipeBookId == bookId) return true;
         return false;
-    }
-
-    private static JArray RecipeBookEdges(GameWorldState world, in WorldSpellRecipe recipe)
-    {
-        var books = new JArray();
-        for (var index = 0; index < recipe.CoreGlyphs.Count; index++)
-        {
-            var glyphId = recipe.CoreGlyphs[index].GlyphId;
-            if (!WorldRecipeBookGlyphLookup.TryFindBook(world.RecipeBookGlyphs, glyphId, out var book))
-            {
-                // The world is published; this glyph simply has no book row in it. Saying
-                // `world_not_published` classed a perfectly healthy read as the suite having read
-                // nothing at all, and `IsSuiteDefect` would have called it the suite's own failure.
-                books.Add(new JObject
-                {
-                    ["uuid"] = glyphId.ToString("D"),
-                    ["reasonCode"] = "no_recipe_book",
-                });
-                continue;
-            }
-
-            var edge = new JObject { ["book"] = EntityReference(world, book) };
-            if (WorldLookup.TryFind(world.RecipeBooks, book, out var row)) edge["owned"] = row.Available;
-            books.Add(edge);
-        }
-        return books;
     }
 
     /// <summary>
@@ -3682,37 +3628,6 @@ internal static class GameMcpWorldQuery
     private static string ResearchDevelopment(in WorldResearch research) =>
         !research.IsDeveloping ? "idle" :
         research.IsActive ? "active" : "paused";
-
-    private static GameMcpValue ProjectDiscoveryDelta(
-        GameMcpFrameContext state,
-        GameMcpCommand command)
-    {
-        if (state.World is null)
-            return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
-        if (!TryReadDiscoveryState(
-                state.World.Snapshot,
-                command.TargetId,
-                command.DerivedNativeType,
-                out var after))
-            return PostStateNotPublished("this discovery");
-        bool? before = null;
-        var oldWorld = Before(command);
-        if (oldWorld is not null && TryReadDiscoveryState(
-                oldWorld,
-                command.TargetId,
-                command.DerivedNativeType,
-                out var previous))
-            before = previous;
-        var result = new JObject
-        {
-            ["uuid"] = command.TargetId.ToString("D"),
-            ["discovered"] = new JObject { ["before"] = before, ["after"] = after },
-        };
-        if (after && string.Equals(command.DerivedNativeType, "SpellRecipeSO", StringComparison.Ordinal))
-            result["loadout"] = ProjectDiscoveredSpellLoadout(
-                state.World.Snapshot, oldWorld, command.TargetId);
-        return result.Freeze();
-    }
 
     /// <summary>
     /// Where a freshly discovered spell ended up, read off the settled loadout.
@@ -4275,16 +4190,6 @@ internal static class GameMcpWorldQuery
         GameMcpCommandKind.DiscoveryTreeOffer => "discovery-trees",
         GameMcpCommandKind.SpellWorkbench => "spell-recipes",
         GameMcpCommandKind.Crafting => "crafting-recipes",
-        GameMcpCommandKind.GenericDiscovery => command.DerivedNativeType switch
-        {
-            "AlchemyRecipeSO" => "alchemy-recipes",
-            "EquipmentSO" => "equipment",
-            "GlyphSO" => "augment-glyphs",
-            "RitualSO" => "rituals",
-            "SpellRecipeSO" => "spell-recipes",
-            "TimeRuneSO" => "time-runes",
-            _ => throw new ArgumentOutOfRangeException(nameof(command.DerivedNativeType)),
-        },
         GameMcpCommandKind.EquipmentLoadout => "equipment",
         GameMcpCommandKind.AlchemyLoadout => "alchemy-recipes",
         GameMcpCommandKind.RitualLifecycle => "rituals",
@@ -6910,7 +6815,6 @@ internal static class GameMcpWorldQuery
             ["discovered"] = recipe.Discovered,
             ["masteryLevel"] = recipe.MasteryLevel,
         };
-        if (recipe.CoreGlyphs.Count > 0) result["composedOf"] = RecipeBookEdges(world, in recipe);
 
         var holdings = new JArray();
         for (var index = 0; index < world.SpellSlots.Count; index++)
@@ -6988,34 +6892,12 @@ internal static class GameMcpWorldQuery
         }
         else
         {
-            var unlockScreen = IsScreenUnlocked(world, KnownEntities.MagicSpellbookLearn.Uuid);
-            var structurallyAvailable = unlockScreen && recipe.CoreGlyphs.Count > 0 &&
-                recipe.Discovery.Visible && recipe.Discovery.CanDiscover;
-            if (structurallyAvailable)
-            {
-                var costs = ProjectSpellCosts(world, recipe.DiscoveryCosts);
-                if (costs.Count > 0) next["costs"] = costs;
-                next["affordable"] = recipe.DiscoveryAffordable;
-            }
-            next["available"] = structurallyAvailable && recipe.DiscoveryAffordable;
-            if (!unlockScreen)
-            {
-                next["reasonCode"] = "screen_locked";
-                next["reason"] = GameMcpDecisionReason.ScreenLocked(
-                    KnownEntities.MagicSpellbookLearn.Uuid);
-            }
-            else if (recipe.CoreGlyphs.Count == 0)
-                next["reasonCode"] = "components_unavailable";
-            else if (!recipe.Discovery.Visible)
-            {
-                next["reasonCode"] = "not_visible";
-                var book = MissingRecipeBookReason(world, in recipe);
-                if (book.Length > 0) next["reason"] = book;
-            }
-            else if (!recipe.Discovery.CanDiscover)
-                next["reasonCode"] = "discovery_unavailable";
-            else if (!recipe.DiscoveryAffordable)
-                next["reasonCode"] = "unaffordable";
+            next = RollOnlyDiscovery(
+                world,
+                KnownEntities.MagicSpellbookLearn.Uuid,
+                recipe.Discovery.Visible,
+                MissingRecipeBook(world, recipe.EntityId),
+                IsCurrentDiscoveryOffer(world, recipe.EntityId));
         }
         result[recipe.Discovered ? "loadoutAdd" : "discover"] = next;
         AddAuthoredSpellGraph(world, recipe.EntityId, result);
@@ -7197,122 +7079,28 @@ internal static class GameMcpWorldQuery
             {
                 var relation = world.SpellRelations[index];
 
-                // The core-glyph relation named one of the twenty-five ids the world publishes no
-                // row for, and said the same thing the row's own `composedOf` says in books. One
-                // fact, one place: the relation is read for the two edges that name published rows.
+                // The core glyphs are the data's old composition shape and name ids the world
+                // publishes no row for; no roll reads them. The recipe books are the pool gate, so
+                // each says whether it is owned.
                 if (relation.Kind == WorldSpellRelationKind.CoreGlyph) continue;
-                var key = relation.Kind switch
-                {
-                    WorldSpellRelationKind.SpellType => "spellTypes",
-                    _ => "recipeBooks",
-                };
+                var key = relation.Kind == WorldSpellRelationKind.RecipeBook
+                    ? "recipeBooks"
+                    : "spellTypes";
                 if (belongsTo[key] is not JArray rows) belongsTo[key] = rows = new JArray();
-                rows.Add(new JObject
+                var edge = new JObject
                 {
                     ["uuid"] = relation.TargetId.ToString("D"),
                     ["name"] = EntityIdentityFormatter.PlayerName(
                         relation.TargetId, world.EntityIdentities),
-                });
+                };
+                if (relation.Kind == WorldSpellRelationKind.RecipeBook &&
+                    WorldLookup.TryFind(world.RecipeBooks, relation.TargetId, out var book))
+                    edge["owned"] = book.Available;
+                rows.Add(edge);
             }
             if (belongsTo.Count > 0) result["belongsTo"] = belongsTo;
         }
     }
-
-    /// <summary>
-    /// The discovery screens the game draws, in the order a uuid is matched against them. One
-    /// published row per screen answers the whole verb: the category names the screen, and the
-    /// row's own <c>discover</c> block is the button's admission.
-    /// </summary>
-    internal static bool TryResolveDiscoveryTarget(
-        GameWorldState world,
-        Guid uuid,
-        out string nativeType,
-        out string category,
-        out string reasonCode,
-        out string reason)
-    {
-        category = string.Empty;
-        reasonCode = string.Empty;
-        if (!GameMcpEntityCapabilityMap.TryResolveGenericDiscoveryType(
-                world, uuid, out nativeType, out reason))
-        {
-            reasonCode = "native_not_discoverable";
-            return false;
-        }
-        category = nativeType switch
-        {
-            // The two alchemy discovery screens are two pages, and the recipe's own core type says
-            // which one draws it — the same fact `AlchemyDiscoveryScreen` presses against.
-            "AlchemyRecipeSO" => WorldLookup.TryFind(world.AlchemyRecipes, uuid, out var recipe)
-                ? AlchemyRecipeCategory(recipe.CoreTypeId)
-                : string.Empty,
-            "EquipmentSO" => "equipment",
-            "GlyphSO" => "augment-glyphs",
-            "RitualSO" => "rituals",
-            "SpellRecipeSO" => "spell-recipes",
-            "TimeRuneSO" => "time-runes",
-            _ => string.Empty,
-        };
-        if (category.Length > 0) return true;
-        reasonCode = "native_not_discoverable";
-        reason = EntityIdentityFormatter.PlayerName(uuid, world.EntityIdentities) +
-            " resolved to " + nativeType + ", which no discovery screen draws a row for.";
-        return false;
-    }
-
-    /// <summary>
-    /// What pressing this row's Discover button would take and give, without pressing it.
-    /// </summary>
-    internal static GameMcpValue ProjectDiscoveryPreview(
-        GameMcpFrameContext state,
-        Guid uuid)
-    {
-        if (state.World is null)
-            return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
-        var world = state.World.Snapshot;
-        if (!TryResolveDiscoveryTarget(world, uuid, out _, out var category,
-                out var reasonCode, out var reason))
-            return new JObject
-            {
-                ["status"] = "unavailable",
-                ["reasonCode"] = reasonCode,
-                ["reason"] = reason,
-            }.Freeze();
-        var result = new JObject
-        {
-            ["status"] = "available",
-            ["output"] = ProjectPostState(state, category, uuid),
-        };
-        if (string.Equals(category, "spell-recipes", StringComparison.Ordinal))
-            result["autoLoad"] = ProjectSpellAutoLoadForecast(world);
-        return result.Freeze();
-    }
-
-    /// <summary>
-    /// Whether discovering a spell would also put it in the loadout, which the game decides inside
-    /// the same press.
-    /// </summary>
-    /// <remarks>
-    /// <c>SpellManager.PostDiscoverRecipe</c> loads the freshly discovered spell when the loadout
-    /// has a free spot and the new spell's usage cost fits. The free spot is a published fact; the
-    /// usage cost of a spell that does not exist yet is not, so the second half is answered by the
-    /// settled world after the press rather than guessed here.
-    /// </remarks>
-    private static JObject ProjectSpellAutoLoadForecast(GameWorldState world) =>
-        world.SpellWorkbench.HasEmptySlot
-            ? new JObject
-            {
-                ["willLoad"] = "unverified",
-                ["reason"] = "A loadout slot is free, so the game loads the spell straight away " +
-                    "if its usage cost fits the spell-power headroom. That fit is only settled " +
-                    "once the spell exists.",
-            }
-            : new JObject
-            {
-                ["willLoad"] = "no",
-                ["reason"] = "Every loadout slot holds a spell, so a discovered spell stays " +
-                    "unloaded until you free one.",
-            };
 
     /// <summary>
     /// Both budgets an equipped spell is weighed against: the slots it occupies, and the spell
@@ -7850,28 +7638,6 @@ internal static class GameMcpWorldQuery
         return result;
     }
 
-    private static JArray ProjectSpellCosts(
-        GameWorldState world,
-        PublicationTable<WorldDiscoverableCost> values)
-    {
-        var result = new JArray();
-        for (var index = 0; index < values.Count; index++)
-        {
-            var value = values[index];
-            var playerCost = PlayerFacingCost(world, value.ResourceId, value.Cost);
-            var spendable = SpendableAmount(world, value.ResourceId, value.AvailableAmount);
-            result.Add(new JObject
-            {
-                ["resourceId"] = value.ResourceId.ToString("D"),
-                ["cost"] = new GameMcpDomainValue(playerCost),
-                ["amount"] = new GameMcpDomainValue(spendable),
-                ["affordable"] = CanAfford(
-                    world, value.ResourceId, value.Cost, value.AvailableAmount),
-            });
-        }
-        return result;
-    }
-
     /// <summary>
     /// One resource row: which way its counter runs, and then the numbers the screen shows.
     /// </summary>
@@ -8119,9 +7885,8 @@ internal static class GameMcpWorldQuery
             world,
             result,
             recipe.Discovery,
-            screenUnlocked: AlchemyDiscoveryScreenUnlocked(world, recipe.CoreTypeId),
-            screenId: AlchemyDiscoveryScreen(recipe.CoreTypeId),
-            entityId: recipe.RecipeId);
+            AlchemyDiscoveryScreen(recipe.CoreTypeId),
+            recipe.RecipeId);
         return result.Freeze();
     }
 
@@ -8169,16 +7934,6 @@ internal static class GameMcpWorldQuery
             AlchemyGameplayDomain.OrdinaryAlchemy => KnownEntities.AlchAlchemyDiscover.Uuid,
             AlchemyGameplayDomain.ScholarConcept => KnownEntities.ScholarConceptDiscover.Uuid,
             _ => Guid.Empty,
-        };
-
-    private static bool? AlchemyDiscoveryScreenUnlocked(GameWorldState world, Guid coreTypeId) =>
-        AlchemyGameplayDomainClassifier.ClassifyTypeUuid(coreTypeId) switch
-        {
-            AlchemyGameplayDomain.OrdinaryAlchemy =>
-                IsScreenUnlocked(world, KnownEntities.AlchAlchemyDiscover.Uuid),
-            AlchemyGameplayDomain.ScholarConcept =>
-                IsScreenUnlocked(world, KnownEntities.ScholarConceptDiscover.Uuid),
-            _ => null,
         };
 
     private static void AddAlchemyLoadoutDecision(
@@ -8342,9 +8097,8 @@ internal static class GameMcpWorldQuery
             world,
             result,
             equipment.Discovery,
-            screenUnlocked: IsScreenUnlocked(world, KnownEntities.WorkshopArtifactCreate.Uuid),
-            screenId: KnownEntities.WorkshopArtifactCreate.Uuid,
-            entityId: equipment.EntityId);
+            KnownEntities.WorkshopArtifactCreate.Uuid,
+            equipment.EntityId);
         return result.Freeze();
     }
 
@@ -8692,11 +8446,9 @@ internal static class GameMcpWorldQuery
             world,
             result,
             glyph.Discovery,
-            glyph.Discoverable,
-            glyph.Discoverable && !glyph.Discovered && IsCurrentDiscoveryOffer(world, glyph.EntityId),
-            IsScreenUnlocked(world, KnownEntities.MagicGlyphsDiscover.Uuid),
             KnownEntities.MagicGlyphsDiscover.Uuid,
-            glyph.EntityId);
+            glyph.EntityId,
+            glyph.Discoverable);
         return result.Freeze();
     }
 
@@ -8822,9 +8574,8 @@ internal static class GameMcpWorldQuery
             world,
             result,
             ritual.Discovery,
-            screenUnlocked: IsScreenUnlocked(world, KnownEntities.RitualsDiscover.Uuid),
-            screenId: KnownEntities.RitualsDiscover.Uuid,
-            entityId: ritual.EntityId);
+            KnownEntities.RitualsDiscover.Uuid,
+            ritual.EntityId);
         return result.Freeze();
     }
 
@@ -9081,9 +8832,8 @@ internal static class GameMcpWorldQuery
             world,
             result,
             rune.Discovery,
-            screenUnlocked: IsScreenUnlocked(world, KnownEntities.TimeTimeRuneCreate.Uuid),
-            screenId: KnownEntities.TimeTimeRuneCreate.Uuid,
-            entityId: rune.EntityId);
+            KnownEntities.TimeTimeRuneCreate.Uuid,
+            rune.EntityId);
         return result.Freeze();
     }
 
@@ -9208,89 +8958,66 @@ internal static class GameMcpWorldQuery
     }
 
     /// <summary>
-    /// The discovery verdict, present wherever the concept applies to the row's kind. An entity the
-    /// game never routes through discovery still answers the verb — silence there read as
-    /// "not discovered yet", which is the opposite of the truth for a glyph learned by prerequisite.
+    /// The discovery verdict, present wherever the concept applies to the row's kind.
     /// </summary>
     /// <remarks>
-    /// <paramref name="screenUnlocked"/> defaults to true for the kinds no discovery screen draws.
-    /// Every discovery tree names the view it is drawn under in its authored <c>viewLocation</c>,
-    /// and five of the six kinds resolve to one view each; <c>alchemy-recipes</c> spans two,
-    /// because concepts are alchemy recipes drawn on Scholar &gt; Concepts &gt; Discover rather
-    /// than Alchemy &gt; Alchemy &gt; Learn, so that page reads its screen off the recipe's own
-    /// alchemy type. Null is the third answer: which of the two draws this row could not be told,
-    /// and naming either would be a guess.
     /// <para>
-    /// <c>IDiscoverable.IsDiscoverRequired()</c> is captured and is not published here. It printed
-    /// as a bare <c>required: true</c> that nothing on this block turns on — not the verdict, not
-    /// one reason code — so it read as a fact about the entity while being a fact about the tree
-    /// holding it: the tree's own row says <c>reroll: no (ERR_STATE)</c> with the sentence that
-    /// names it, and that is where a caller acts on it.
+    /// No screen discovers one thing: the only callers of <c>IDiscoverable.Discover()</c> are
+    /// <c>DiscoveryTreeSO.DiscoverItem</c> (the roll), the developer console and
+    /// <c>UIDiscoverablePage</c>, a page the game no longer draws. So an undiscovered row is never
+    /// a press. It says which screen's roll gives it and whether it is in that roll's pool — the
+    /// game's <c>!IsDiscovered() &amp;&amp; IsDiscoverVisible()</c>. The row once read
+    /// <c>discover: yes</c> with a price, and the press behind it either refused or discovered a
+    /// spell without any button.
+    /// </para>
+    /// <para>
+    /// <c>alchemy-recipes</c> spans two screens: concepts are drawn on Scholar &gt; Concepts &gt;
+    /// Discover rather than Alchemy &gt; Alchemy &gt; Learn, so that page passes the screen it read
+    /// off the recipe's own alchemy type, and an empty id names no screen.
     /// </para>
     /// </remarks>
     private static void AddDiscoveryDecision(
         GameWorldState world,
         JObject result,
         WorldDiscoverableDecision decision,
-        bool nativeDiscoverable = true,
-        bool offered = false,
-        bool? screenUnlocked = true,
-        Guid screenId = default,
-        Guid entityId = default)
+        Guid screenId,
+        Guid entityId,
+        bool nativeDiscoverable = true)
     {
-        if (!decision.Discovered && entityId != Guid.Empty &&
-            TryFindHoldingDiscoveryTree(world, entityId, out var holdingTree))
+        if (decision.Discovered)
         {
-            result["discover"] = HeldOfferDiscovery(world, holdingTree);
+            result["discover"] = new JObject
+            {
+                ["available"] = false,
+                ["reasonCode"] = "already_discovered",
+            };
             return;
         }
-        var screenDraws = screenUnlocked == true;
-        var available = nativeDiscoverable && screenDraws && decision.Visible &&
-            decision.CanDiscover && !decision.Discovered && decision.Affordable;
-        var discover = new JObject { ["available"] = available };
-        if (!available)
+        result["discover"] = TryFindHoldingDiscoveryTree(world, entityId, out var holdingTree)
+            ? HeldOfferDiscovery(world, holdingTree)
+            : RollOnlyDiscovery(
+                world,
+                screenId,
+                nativeDiscoverable && decision.Visible,
+                string.Empty,
+                IsCurrentDiscoveryOffer(world, entityId));
+    }
+
+    private static JObject RollOnlyDiscovery(
+        GameWorldState world,
+        Guid screenId,
+        bool inPool,
+        string missingBook,
+        bool offered)
+    {
+        var discover = new JObject
         {
-            discover["reasonCode"] = decision.Discovered
-                ? "already_discovered"
-                : !nativeDiscoverable
-                    ? "native_not_discoverable"
-                    : screenUnlocked is null
-                        ? "owning_screen_unknown"
-                        : !screenDraws
-                            ? "screen_locked"
-                            : !decision.Visible
-                                ? "not_visible"
-                                : !decision.CanDiscover
-                                    ? "native_discovery_refused"
-                                    : "unaffordable";
-            // The block is written for six discoverable kinds and used to be told only whether
-            // some screen was open, so the one answer a caller could not act on was the one about
-            // a screen. The caller's own uuid rides down with the bool it resolved it from.
-            if (!screenDraws && screenUnlocked is not null && screenId != Guid.Empty)
-                discover["reason"] = GameMcpDecisionReason.ScreenLocked(screenId);
-        }
-        if (nativeDiscoverable && screenDraws && decision.Visible && !decision.Discovered &&
-            decision.CanDiscover && decision.Costs.Count > 0)
-        {
-            var costs = new JArray();
-            for (var index = 0; index < decision.Costs.Count; index++)
-            {
-                var cost = decision.Costs[index];
-                costs.Add(new JObject
-                {
-                    ["resourceId"] = cost.ResourceId.ToString("D"),
-                    ["cost"] = new GameMcpDomainValue(
-                        PlayerFacingCost(world, cost.ResourceId, cost.Cost)),
-                    ["amount"] = new GameMcpDomainValue(
-                        SpendableAmount(world, cost.ResourceId, cost.Amount)),
-                    ["affordable"] = CanAfford(
-                        world, cost.ResourceId, cost.Cost, cost.Amount),
-                });
-            }
-            discover["costs"] = costs;
-        }
+            ["available"] = false,
+            ["reasonCode"] = "discovered_by_roll_only",
+            ["reason"] = GameMcpDecisionReason.RollOnly(screenId, inPool, missingBook, offered),
+        };
         if (offered) discover["offered"] = true;
-        result["discover"] = discover;
+        return discover;
     }
 
     /// <summary>
@@ -9303,8 +9030,7 @@ internal static class GameMcpWorldQuery
         ["reason"] =
             EntityIdentityFormatter.PlayerName(treeId, world.EntityIdentities) +
             " is holding this as the offer you picked, and confirming it there costs nothing " +
-            "more — the roll already paid. Use game_discover mode=offer_confirm on that tree; " +
-            "discovering it from this row would be a second, separate purchase.",
+            "more — the roll already paid. Use game_discover mode=offer_confirm on that tree.",
         ["offeredBy"] = EntityReference(world, treeId),
         ["offered"] = true,
     };
@@ -9314,9 +9040,7 @@ internal static class GameMcpWorldQuery
     /// </summary>
     /// <remarks>
     /// The roll that offered it has already been paid for — <c>UIDiscoveryTreePage.OnConfirmClick</c>
-    /// reaches <c>DiscoveryTreeSO.DiscoverSelectedItem</c>, which charges nothing — while the row's
-    /// own <c>discover</c> price is a second purchase at <c>IDiscoverable.GetDiscoverCost()</c>.
-    /// The row restated that price as owed, right after the roll had spent it.
+    /// reaches <c>DiscoveryTreeSO.DiscoverSelectedItem</c>, which charges nothing.
     /// </remarks>
     private static bool TryFindHoldingDiscoveryTree(GameWorldState world, Guid id, out Guid treeId)
     {

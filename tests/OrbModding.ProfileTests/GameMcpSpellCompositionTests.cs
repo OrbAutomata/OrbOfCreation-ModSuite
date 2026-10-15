@@ -327,60 +327,10 @@ public sealed class GameMcpSpellCompositionTests
             new[] { GameMcpTestHarness.Handle(SpellTypeId) },
             row["belongsTo"]!["spellTypes"]!.Values<JObject>()
                 .Select(entry => (string?)entry!["uuid"]));
-        // The core entries are the internal half of a Recipe Book, so what a reader can act on is
-        // the book: `composedOf` names it in slot order and says whether it is owned. The old
-        // `belongsTo.coreGlyphs` said the same thing in ids nothing else in the world answers to.
+        // The core entries are the data's old composition shape, ids nothing else in the world
+        // answers to, and no roll reads them; the pool gate is the recipe-book list.
         Assert.Null(row["belongsTo"]!["coreGlyphs"]);
-        Assert.Null(row["belongsTo"]!["recipeBooks"]);
-        Assert.Equal(
-            new[]
-            {
-                GameMcpTestHarness.Handle(FirstCoreBookId),
-                GameMcpTestHarness.Handle(SecondCoreBookId),
-            },
-            row["composedOf"]!.Values<JObject>()
-                .Select(entry => (string?)entry!["book"]!["uuid"]));
-        Assert.Equal(
-            new[] { true, false },
-            row["composedOf"]!.Values<JObject>().Select(entry => (bool)entry!["owned"]!));
-    }
-
-    /// <summary>
-    /// Two shipped recipes repeat a core entry — <c>DistortedFusion</c> is Flow, Flow, Arcane and
-    /// <c>EmblemOfFormation</c> is Insight, Formation, Formation — and the repeat is a drawn slot,
-    /// never a second demand.
-    /// </summary>
-    /// <remarks>
-    /// The game keeps the two facts in two authored fields. <c>coreRecipe</c> is what the discovery
-    /// row draws, repeats and all; ownership is gated by <c>SpellRecipeSO.recipeBookList</c>, which
-    /// both recipes author deduplicated (Flow, Arcane and Insight, Formation) and which
-    /// <c>IsDiscoverVisible()</c> answers with <c>recipeBooks.All(IsAvailable)</c> — a predicate no
-    /// repeat can change. The one place the two were ever conflated is
-    /// <c>GlyphSO.PortToRecipeBooks</c>, a <c>Select</c> with no <c>Distinct</c> that has no callers
-    /// on the audited build. So the slot list is published in slot order, and each slot answers with
-    /// the one yes/no its book has.
-    /// </remarks>
-    [Fact]
-    public void A_repeated_core_entry_is_a_drawn_slot_not_a_second_book()
-    {
-        var context = GameMcpTestHarness.Context(
-            World(coreRecipe: new[] { FirstCoreGlyphId, FirstCoreGlyphId, SecondCoreGlyphId }));
-
-        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
-            context, "spell-recipes", RecipeId.ToString("D")))["row"]!;
-
-        Assert.Equal(
-            new[]
-            {
-                GameMcpTestHarness.Handle(FirstCoreBookId),
-                GameMcpTestHarness.Handle(FirstCoreBookId),
-                GameMcpTestHarness.Handle(SecondCoreBookId),
-            },
-            row["composedOf"]!.Values<JObject>()
-                .Select(entry => (string?)entry!["book"]!["uuid"]));
-        Assert.Equal(
-            new[] { true, true, false },
-            row["composedOf"]!.Values<JObject>().Select(entry => (bool)entry!["owned"]!));
+        Assert.Null(row["composedOf"]);
     }
 
     /// <summary>
@@ -432,9 +382,9 @@ public sealed class GameMcpSpellCompositionTests
                 WorldRequirementConditionKind.Ritual, 2));
     }
 
-    private static GameWorldState World(int outputLevel = 4, Guid[]? coreRecipe = null)
+    private static GameWorldState World(int outputLevel = 4)
     {
-        var core = coreRecipe ?? new[] { FirstCoreGlyphId, SecondCoreGlyphId };
+        var core = new[] { FirstCoreGlyphId, SecondCoreGlyphId };
         var recipeGlyphs = PublicationTable<WorldSpellRecipeGlyph>.Create(
             core.Select((glyph, slot) => new WorldSpellRecipeGlyph(slot, glyph)).ToArray());
         var applied = PublicationTable<WorldSpellSlotGlyph>.Create(new[]

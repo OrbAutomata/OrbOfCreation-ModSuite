@@ -26,7 +26,6 @@ internal static class AutomataServiceCycleComposition
         Func<SpellCompositionGameAction>? createSpellComposition = null,
         Func<SpellLoadoutGameAction>? createSpellLoadout = null,
         Func<TargetingGameAction>? createTargeting = null,
-        Func<GenericDiscoveryGameAction>? createGenericDiscovery = null,
         Func<EquipmentLoadoutGameAction>? createEquipmentLoadout = null,
         Func<AlchemyLoadoutGameAction>? createAlchemyLoadout = null,
         Func<RitualLifecycleGameAction>? createRitualLifecycle = null,
@@ -56,7 +55,6 @@ internal static class AutomataServiceCycleComposition
                 createSpellComposition,
                 createSpellLoadout,
                 createTargeting,
-                createGenericDiscovery,
                 createEquipmentLoadout,
                 createAlchemyLoadout,
                 createRitualLifecycle,
@@ -99,7 +97,6 @@ internal static class AutomataServiceCycleComposition
         Func<SpellCompositionGameAction>? createSpellComposition = null,
         Func<SpellLoadoutGameAction>? createSpellLoadout = null,
         Func<TargetingGameAction>? createTargeting = null,
-        Func<GenericDiscoveryGameAction>? createGenericDiscovery = null,
         Func<EquipmentLoadoutGameAction>? createEquipmentLoadout = null,
         Func<AlchemyLoadoutGameAction>? createAlchemyLoadout = null,
         Func<RitualLifecycleGameAction>? createRitualLifecycle = null,
@@ -132,7 +129,6 @@ internal static class AutomataServiceCycleComposition
         SpellCompositionGameAction? spellComposition = null;
         SpellLoadoutGameAction? spellLoadout = null;
         TargetingGameAction? targeting = null;
-        GenericDiscoveryGameAction? genericDiscovery = null;
         EquipmentLoadoutGameAction? equipmentLoadout = null;
         AlchemyLoadoutGameAction? alchemyLoadout = null;
         RitualLifecycleGameAction? ritualLifecycle = null;
@@ -203,7 +199,6 @@ internal static class AutomataServiceCycleComposition
             spellComposition = createSpellComposition?.Invoke();
             spellLoadout = createSpellLoadout?.Invoke();
             targeting = createTargeting?.Invoke();
-            genericDiscovery = createGenericDiscovery?.Invoke();
             equipmentLoadout = createEquipmentLoadout?.Invoke();
             alchemyLoadout = createAlchemyLoadout?.Invoke();
             ritualLifecycle = createRitualLifecycle?.Invoke();
@@ -235,7 +230,6 @@ internal static class AutomataServiceCycleComposition
                 spellComposition,
                 spellLoadout,
                 targeting,
-                genericDiscovery,
                 equipmentLoadout,
                 alchemyLoadout,
                 ritualLifecycle,
@@ -258,7 +252,6 @@ internal static class AutomataServiceCycleComposition
             spellComposition?.Dispose();
             spellLoadout?.Dispose();
             targeting?.Dispose();
-            genericDiscovery?.Dispose();
             equipmentLoadout?.Dispose();
             alchemyLoadout?.Dispose();
             ritualLifecycle?.Dispose();

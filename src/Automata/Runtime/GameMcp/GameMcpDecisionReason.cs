@@ -221,7 +221,7 @@ internal static class GameMcpDecisionReason
         "not_on_screen" or
         "not_offered" or "offer_unavailable" or "item_unavailable" or "instance_unavailable" or
         "target_unavailable" or "recipe_unavailable" or "element_unavailable" or
-        "source_unavailable" or "components_unavailable" or
+        "source_unavailable" or
         "no_current_offers" or
         "active_section_empty" or "control_unavailable" or "list_unavailable" or
         // The UI gadgets. Every one of their codes used to fall to the default class, so a caller
@@ -301,6 +301,9 @@ internal static class GameMcpDecisionReason
         "requirements_unmet" or "usage_requirements_unmet" or
         "native_prerequisites_currently_unmet" or "develop_range_refused" or
         "native_not_discoverable" or "discovery_unavailable" or
+        // No screen discovers one thing; the tree's roll is the only way in, and its own row is
+        // where a caller acts.
+        "discovered_by_roll_only" or
         "selection_restricted" or
         "selection_hidden" or "cannot_level" or "resources_hidden" or
         "recipe_not_discovered" or "prerequisites_unmet" or "not_discovered_or_offered" or
@@ -406,6 +409,25 @@ internal static class GameMcpDecisionReason
     /// than a guessed route, because a reader sent to the wrong page cannot tell which half was
     /// wrong.
     /// </remarks>
+    /// <summary>
+    /// Where an undiscovered thing comes from: the roll on its tree's screen, and whether that roll
+    /// can give it yet.
+    /// </summary>
+    internal static string RollOnly(Guid screenId, bool inPool, string missingBook, bool offered)
+    {
+        var path = screenId == Guid.Empty ? string.Empty : GameScreenPath.For(screenId);
+        var roll = path.Length == 0 ? "a discovery tree's roll" : "the roll on " + path;
+        var pool = offered
+            ? "it is on offer there now; pick it with game_discover mode=offer_select on that tree"
+            : inPool
+                ? "it is in that roll's pool"
+                : missingBook.Length > 0
+                    ? "it is not in that roll's pool until you own the " + missingBook +
+                      " recipe book"
+                    : "it is not in that roll's pool yet";
+        return "Only " + roll + " gives this, and " + pool + ".";
+    }
+
     internal static string ScreenLocked(Guid viewId)
     {
         var path = GameScreenPath.For(viewId);
@@ -450,6 +472,8 @@ internal static class GameMcpDecisionReason
         // it is discovered, and a discovery tree holding it as its current offer draws it early.
         "hidden_discovery" or "not_discovered_or_offered" =>
             "The game draws this once it is discovered, or while a discovery tree offers it.",
+        "discovered_by_roll_only" =>
+            "Only a discovery tree's roll gives this; no screen discovers it directly.",
         "already_discovered" => "This is already discovered.",
         "already_maxed" => "This is already at its maximum level.",
         "hidden_or_undiscovered" =>
@@ -602,7 +626,6 @@ internal static class GameMcpDecisionReason
             "The plot has no room or not enough of what this action consumes.",
         "element_unavailable" => "The game is not offering this element.",
         "tree_unavailable" => "The game is not showing this discovery tree.",
-        "components_unavailable" => "The game builds this from glyphs, and this one names none.",
         "discovery_unavailable" => "The game does not offer a discovery for this recipe.",
         "native_not_discoverable" => "The game never offers a discovery action for this.",
         "native_discovery_refused" => "The game refuses to discover this right now.",

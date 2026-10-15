@@ -45,7 +45,7 @@ public sealed class GameMcpSpellWorkbenchTests
             new[] { "mode", "uuid" },
             schema["required"]!.Values<string>().ToArray());
         Assert.Equal(
-            new[] { "preview", "confirm", "offer_initiate", "offer_select", "offer_confirm", "offer_reroll" },
+            new[] { "offer_initiate", "offer_select", "offer_confirm", "offer_reroll" },
             schema["properties"]!["mode"]!["enum"]!.Values<string>().ToArray());
         Assert.Null(schema["properties"]!["expectedNativeType"]);
         Assert.Null(schema["properties"]!["worldGeneration"]);
@@ -95,23 +95,16 @@ public sealed class GameMcpSpellWorkbenchTests
         // A page is one category, so the header names it once instead of every row repeating it.
         Assert.Null(listed["category"]);
         Assert.Null(listed["discover"]);
-        Assert.True((bool)exact["discover"]!["available"]!);
-        Assert.True((bool)exact["discover"]!["affordable"]!);
-        // The button carries no composition, so neither does the row that describes it.
-        Assert.Null(exact["discover"]!["surface"]);
-        Assert.Null(exact["discover"]!["components"]);
-        // The authored core is a list of retired unlocker ids, and each is the internal half of a
-        // Recipe Book. The row names the books, which are the tiles a player owns, in slot order.
+        // No screen discovers one spell: the row names the Spellcraft roll and carries no price.
+        Assert.False((bool)exact["discover"]!["available"]!);
+        Assert.StartsWith(
+            "Only the roll on Magic > Spellbook > Unlock gives this",
+            (string?)exact["discover"]!["reason"]);
+        Assert.Null(exact["discover"]!["costs"]);
+        // The authored core is the data's old composition shape, a list of retired unlocker ids;
+        // no roll reads it, so neither does the row.
         Assert.Null(exact["coreGlyphs"]);
-        var books = exact["composedOf"]!.Values<JObject>().ToArray();
-        Assert.Equal(new[] { "Brew", "Insight" },
-            books.Select(book => (string?)book!["book"]!["name"]));
-        Assert.Equal(new[] { true, true },
-            books.Select(book => (bool)book!["owned"]!));
-        var cost = Assert.Single(exact["discover"]!["costs"]!.Values<JObject>())!;
-        Assert.Equal("Knowledge", (string?)cost["resource"]!["name"]);
-        Assert.Equal("4.40e3", (string?)cost["cost"]);
-        Assert.Equal("9.00e6", (string?)cost["spendableAmount"]);
+        Assert.Null(exact["composedOf"]);
     }
 
     /// <summary>

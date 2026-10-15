@@ -158,8 +158,6 @@ internal static class GameMcpEntityCapabilityMap
                     "crafting-recipes",
                     capability,
                     out reason),
-            GameMcpCommandKind.GenericDiscovery =>
-                TryResolveGenericDiscoveryType(world, target, out _, out reason),
             GameMcpCommandKind.EquipmentLoadout =>
                 Entity(world.EntityIdentities, world.Equipment, target, "equipment", capability, out reason),
             GameMcpCommandKind.Challenge when target == Guid.Empty =>
@@ -314,66 +312,6 @@ internal static class GameMcpEntityCapabilityMap
         return false;
     }
 
-    internal static bool TryResolveGenericDiscoveryType(
-        GameWorldState world,
-        Guid target,
-        out string nativeType,
-        out string reason)
-    {
-        if (world is null) throw new ArgumentNullException(nameof(world));
-        nativeType = string.Empty;
-        var matches = 0;
-        if (Supports("alchemy-recipes", GameMcpCommandKind.GenericDiscovery) &&
-            WorldLookup.TryFind(world.AlchemyRecipes, target, out _))
-        {
-            matches++;
-            nativeType = "AlchemyRecipeSO";
-        }
-        if (Supports("equipment", GameMcpCommandKind.GenericDiscovery) &&
-            WorldLookup.TryFind(world.Equipment, target, out _))
-        {
-            matches++;
-            nativeType = "EquipmentSO";
-        }
-        if (Supports("augment-glyphs", GameMcpCommandKind.GenericDiscovery) &&
-            WorldLookup.TryFind(world.AugmentGlyphs, target, out _))
-        {
-            matches++;
-            nativeType = "GlyphSO";
-        }
-        if (Supports("rituals", GameMcpCommandKind.GenericDiscovery) &&
-            WorldLookup.TryFind(world.Rituals, target, out _))
-        {
-            matches++;
-            nativeType = "RitualSO";
-        }
-        if (Supports("spell-recipes", GameMcpCommandKind.GenericDiscovery) &&
-            WorldLookup.TryFind(world.SpellRecipes, target, out _))
-        {
-            matches++;
-            nativeType = "SpellRecipeSO";
-        }
-        if (Supports("time-runes", GameMcpCommandKind.GenericDiscovery) &&
-            WorldLookup.TryFind(world.TimeRunes, target, out _))
-        {
-            matches++;
-            nativeType = "TimeRuneSO";
-        }
-        if (matches == 1)
-        {
-            reason = string.Empty;
-            return true;
-        }
-        reason = matches == 0
-            ? EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " is not something the game lets you discover."
-            : EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-              " matches " + matches + " different discoverable things, so this cannot tell " +
-              "which one you mean.";
-        nativeType = string.Empty;
-        return false;
-    }
-
     /// <summary>
     /// Whether the game has one target selection waiting for input. Nothing pending is a fact
     /// about the screen, not about the submitted target, so it earns its own refusal code.
@@ -471,12 +409,7 @@ internal static class GameMcpEntityCapabilityMap
     /// The verbs this entity's own screen offers it, named the way a caller would call them.
     /// </summary>
     /// <remarks>
-    /// This used to answer with whichever capability its category declared first. A round asked
-    /// game_purchase for a level of the already-discovered Studious Persist rune and was sent to
-    /// <c>game_discover</c>, because <c>time-runes</c> declares discovery before levelling — the
-    /// one verb that could not apply, since the rune was discovered. Equipment already answered
-    /// from the entity's own state (<c>IsCreated</c>); every discoverable kind now does, and where
-    /// more than one verb still stands the answer names them all rather than picking.
+    /// Where more than one verb stands the answer names them all rather than picking.
     /// </remarks>
     internal static bool TryOwningTool(
         GameWorldState world,
@@ -499,12 +432,10 @@ internal static class GameMcpEntityCapabilityMap
         if (WorldLookup.TryFind(world.AlchemyRecipes, target, out var recipe))
             category = GameMcpWorldQuery.AlchemyRecipeCategory(recipe.CoreTypeId);
         if (!ByCategory.TryGetValue(category, out var descriptor)) return false;
-        var discovered = IsAlreadyDiscovered(world, target, nativeType);
         var names = new List<string>();
         for (var index = 0; index < descriptor.Capabilities.Count; index++)
         {
             var capability = descriptor.Capabilities[index];
-            if (discovered && capability == GameMcpCommandKind.GenericDiscovery) continue;
             var candidate = GameMcpCommandKinds.ToolName(capability);
             if (candidate.Length == 0 || names.Contains(candidate)) continue;
             names.Add(candidate);
@@ -517,25 +448,6 @@ internal static class GameMcpEntityCapabilityMap
         };
         return true;
     }
-
-    /// <summary>Whether the game already counts this entity as discovered.</summary>
-    private static bool IsAlreadyDiscovered(GameWorldState world, Guid target, string nativeType) =>
-        nativeType switch
-        {
-            "EquipmentSO" => WorldLookup.TryFind(world.Equipment, target, out var equipment) &&
-                equipment.IsCreated,
-            "GlyphSO" => WorldLookup.TryFind(world.AugmentGlyphs, target, out var glyph) &&
-                glyph.Discovered,
-            "TimeRuneSO" => WorldLookup.TryFind(world.TimeRunes, target, out var rune) &&
-                rune.Discovered,
-            "RitualSO" => WorldLookup.TryFind(world.Rituals, target, out var ritual) &&
-                ritual.Discovered,
-            "SpellRecipeSO" => WorldLookup.TryFind(world.SpellRecipes, target, out var recipe) &&
-                recipe.Discovered,
-            "AlchemyRecipeSO" => WorldLookup.TryFind(world.AlchemyRecipes, target, out var alchemy) &&
-                alchemy.Discovered,
-            _ => false,
-        };
 
     /// <summary>Several verbs, in one phrase a caller reads as a list rather than a choice.</summary>
     private static string Join(List<string> names)
@@ -673,16 +585,13 @@ internal static class GameMcpEntityCapabilityMap
         // only the verbs its own screen offers: the Alchemy screen loads a recipe into a usage
         // slot, the Scholar screen assigns a Concept to a development slot, and neither screen
         // draws the other's button. Both are discovered, each on its own tree.
-        D("alchemy-recipes", "AlchemyRecipeSO",
-            GameMcpCommandKind.GenericDiscovery, GameMcpCommandKind.AlchemyLoadout),
-        D("concepts", "AlchemyRecipeSO", GameMcpCommandKind.Concept,
-            GameMcpCommandKind.GenericDiscovery),
+        D("alchemy-recipes", "AlchemyRecipeSO", GameMcpCommandKind.AlchemyLoadout),
+        D("concepts", "AlchemyRecipeSO", GameMcpCommandKind.Concept),
         D("alchemy-types", "AlchemyTypeSO"),
         D("spell-recipes", "SpellRecipeSO", GameMcpCommandKind.Cast, GameMcpCommandKind.SpellLevel,
-            GameMcpCommandKind.GenericDiscovery, GameMcpCommandKind.SpellWorkbench),
+            GameMcpCommandKind.SpellWorkbench),
         D("spell-types", "SpellTypeSO"),
-        D("equipment", "EquipmentSO", GameMcpCommandKind.GenericDiscovery,
-            GameMcpCommandKind.EquipmentLoadout),
+        D("equipment", "EquipmentSO", GameMcpCommandKind.EquipmentLoadout),
         D("equipment-types", "EquipmentTypeSO", GameMcpCommandKind.GenericLevel),
         D("resource-types", "ResourceTypeSO", GameMcpCommandKind.GenericLevel),
         D("crafting-recipe-types", "CraftingRecipeTypeSO"),
@@ -712,13 +621,10 @@ internal static class GameMcpEntityCapabilityMap
         // The base verb itself carries no capability: game_agromancy acts on an element/action
         // pair, so the element owns the lifecycle and this roster is read-only.
         D("agromancy-actions", "HarvestActionSO"),
-        D("time-runes", "TimeRuneSO", GameMcpCommandKind.GenericDiscovery,
-            GameMcpCommandKind.GenericLevel),
-        D("augment-glyphs", "GlyphSO", GameMcpCommandKind.GenericDiscovery,
-            GameMcpCommandKind.GenericLevel),
+        D("time-runes", "TimeRuneSO", GameMcpCommandKind.GenericLevel),
+        D("augment-glyphs", "GlyphSO", GameMcpCommandKind.GenericLevel),
         D("consumables", "ConsumableSO", GameMcpCommandKind.Consumable),
-        D("rituals", "RitualSO", GameMcpCommandKind.GenericDiscovery,
-            GameMcpCommandKind.RitualLifecycle),
+        D("rituals", "RitualSO", GameMcpCommandKind.RitualLifecycle),
         D("achievements", "AchievementSO"),
         D("advancements", "AdvancementSO"),
         D("challenges", "ChallengeSO", GameMcpCommandKind.Challenge,

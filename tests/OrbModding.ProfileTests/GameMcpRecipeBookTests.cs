@@ -200,7 +200,7 @@ public sealed class GameMcpRecipeBookTests
 
     /// <summary>
     /// Six books share a display name with a spell type, and a single spell-recipe response prints
-    /// both — its books under <c>composedOf</c> and its types under <c>belongsTo</c>. The row names
+    /// both — under <c>belongsTo.recipeBooks</c> and <c>belongsTo.spellTypes</c>. The row names
     /// the twin so a caller reading "Expansion" twice knows they are two entities.
     /// </summary>
     /// <summary>

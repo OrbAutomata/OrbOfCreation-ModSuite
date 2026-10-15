@@ -35,7 +35,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             new[] { "mode", "uuid" },
             schema["required"]!.Values<string>().ToArray());
         Assert.Equal(
-            new[] { "preview", "confirm", "offer_initiate", "offer_select", "offer_confirm", "offer_reroll" },
+            new[] { "offer_initiate", "offer_select", "offer_confirm", "offer_reroll" },
             schema["properties"]!["mode"]!["enum"]!.Values<string>().ToArray());
         Assert.NotNull(schema["properties"]!["offerUuid"]);
         Assert.Null(schema["properties"]!["worldGeneration"]);

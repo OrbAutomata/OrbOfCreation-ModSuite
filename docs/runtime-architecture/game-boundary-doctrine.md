@@ -315,19 +315,13 @@ cost, invokes native creation, and commits only when a new spell with the reques
 and exact baked glyph multiset is observable. The player's staged Spellcraft selection is restored
 to what it was before the action, on every outcome including success. Duplicate request rows count
 cumulatively against each glyph's native usable maximum. Spell discovery is not part of this verb:
-it is a discovery screen's button, and it presses the one discovery boundary every other screen
-does.
+it is the Magic > Spellbook > Unlock tree's roll.
 
-Discovery is one boundary because the game gives it one button. `UIDiscoverablePage` prices the row
-it is showing from that row's own `IDiscoverable.GetDiscoverCost()`, `UICostButton.OnClick` pays
-that list, and `HandleClick` calls `IDiscoverable.Discover()` on the same row after re-asking
-`IsGlyphSelectionValid()`. The page's selection lists are a scene-local mirror of the clicked row's
-authored recipe that the discover path never reads back, so the row's identity is the whole intent
-and the boundary is addressed by it. On the Unity main thread, before its mutation permit or
-payment, the action re-resolves that exact registered target and re-asks the button's ladder — the
-owning screen where one is pinned, a non-empty glyph recipe, already-discovered, native visibility,
-`CanDiscover()`, the exact cost list, and affordability — then keeps the button's
-`PerformCost`-before-`Discover` order. It stages nothing, because the button stages nothing.
+Discovery is one boundary because the game discovers through one mechanism: a Discovery Tree's
+roll. `DiscoveryTreeSO.DiscoverItem` is the only `IDiscoverable.Discover()` caller on a screen the
+player reaches; the other, `UIDiscoverablePage.HandleClick`, belongs to a page no reachable screen
+draws. So the suite has no per-row discover action, and a row says which tree's roll gives it rather
+than offering a press.
 
 Every MCP gameplay action still uses its capability's canonical GameAction and live Unity-main-thread
 revalidation. A failed player-driven attempt returns its exact failure and leaves no MCP-owned

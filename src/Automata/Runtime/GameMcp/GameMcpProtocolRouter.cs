@@ -426,11 +426,10 @@ internal sealed class GameMcpProtocolRouter
                 builder.Uuid = RequireUuid(arguments, "uuid");
                 break;
             case "game_discover":
-                builder.Mode = RequireOneOf(arguments, "mode", "preview", "confirm",
+                builder.Mode = RequireOneOf(arguments, "mode",
                     "offer_initiate", "offer_select", "offer_confirm", "offer_reroll");
                 builder.Uuid = RequireUuid(arguments, "uuid");
-                if (builder.Mode.StartsWith("offer_", StringComparison.Ordinal))
-                    builder.SecondaryUuid = OptionalUuid(arguments, "offerUuid");
+                builder.SecondaryUuid = OptionalUuid(arguments, "offerUuid");
                 break;
             case "game_equipment":
                 builder.Mode = RequireOneOf(arguments, "mode", "equip", "unequip");
@@ -582,7 +581,6 @@ internal sealed class GameMcpProtocolRouter
             "game_consumable" or "game_craft" or "game_discover" or "game_equipment" or
             "time_challenge" or "time_prestige" or "game_research" or "game_alchemy" or
             "game_ritual" or "game_level_up" or "game_loadout" when
-                !(name == "game_discover" && request.Mode == "preview") &&
                 !(name == "time_challenge" && request.Mode == "state") &&
                 !(name == "game_spell_loadout" && request.Mode is "preview" or "staged") =>
                 GameMcpOperationClass.Gameplay,
@@ -942,18 +940,16 @@ internal sealed class GameMcpProtocolRouter
                 idempotent: false),
             Tool(
                 "game_discover",
-                "Preview or confirm discovery",
-                "Press a discovery screen's Discover button for one thing, or drive a transient Discovery Tree offer. Name what you want discovered and the screen follows from it.",
+                "Drive a discovery tree roll",
+                "Drive a Discovery Tree's roll: pay for it, pick one of the offers it rolls, confirm the pick, or reroll. Every discoverable thing comes from its tree's roll; no screen discovers one thing directly.",
                 ModeSchema(ObjectSchema(
                     new JObject
                     {
-                        ["mode"] = EnumSchema("preview", "confirm", "offer_initiate", "offer_select", "offer_confirm", "offer_reroll"),
-                        ["uuid"] = StringSchema("What to discover for preview and confirm; the published discovery tree for offer modes."),
+                        ["mode"] = EnumSchema("offer_initiate", "offer_select", "offer_confirm", "offer_reroll"),
+                        ["uuid"] = StringSchema("The published discovery tree."),
                         ["offerUuid"] = StringSchema("Required for offer_select and offer_confirm."),
                     },
                     "mode", "uuid"),
-                    ModeRule("preview", new[] { "uuid" }, new[] { "offerUuid" }),
-                    ModeRule("confirm", new[] { "uuid" }, new[] { "offerUuid" }),
                     ModeRule("offer_initiate", new[] { "uuid" }, new[] { "offerUuid" }),
                     ModeRule("offer_reroll", new[] { "uuid" }, new[] { "offerUuid" }),
                     ModeRule("offer_select", new[] { "uuid", "offerUuid" }),
@@ -991,7 +987,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_ritual",
                 "Select, level, activate, or cancel a ritual reward",
-                "Drive the Ritual list controls. Discovering a ritual stays on game_discover, named by the ritual; cancel_duration ends a completed run's duration reward, not an active battle.",
+                "Drive the Ritual list controls. Discovering a ritual is the Devote tree roll on game_discover; cancel_duration ends a completed run's duration reward, not an active battle.",
                 ModeSchema(ObjectSchema(
                     new JObject
                     {
@@ -1377,20 +1373,12 @@ internal sealed class GameMcpProtocolRouter
         {
             var mode = (string?)arguments["mode"];
             var hasOffer = arguments.ContainsKey("offerUuid");
-            if (mode is "preview" or "confirm")
-            {
-                if (hasOffer) errors.Add(ValidationError("unexpected_for_mode", "offerUuid",
-                    "field 'offerUuid' is accepted only for offer_select or offer_confirm"));
-            }
-            else
-            {
-                if (mode is "offer_select" or "offer_confirm" && !hasOffer)
-                    errors.Add(ValidationError("missing_required", "offerUuid",
-                        "required field 'offerUuid' is missing for mode '" + mode + "'"));
-                if (mode is "offer_initiate" or "offer_reroll" && hasOffer)
-                    errors.Add(ValidationError("unexpected_for_mode", "offerUuid",
-                        "field 'offerUuid' is not accepted for mode '" + mode + "'"));
-            }
+            if (mode is "offer_select" or "offer_confirm" && !hasOffer)
+                errors.Add(ValidationError("missing_required", "offerUuid",
+                    "required field 'offerUuid' is missing for mode '" + mode + "'"));
+            if (mode is "offer_initiate" or "offer_reroll" && hasOffer)
+                errors.Add(ValidationError("unexpected_for_mode", "offerUuid",
+                    "field 'offerUuid' is not accepted for mode '" + mode + "'"));
         }
 
         if (string.Equals(name, "time_challenge", StringComparison.Ordinal) &&

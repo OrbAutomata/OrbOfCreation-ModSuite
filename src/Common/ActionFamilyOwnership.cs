@@ -20,7 +20,6 @@ public enum AutomationActionFamily
     SpellComposition = 504,
     SpellLoadout = 505,
     Targeting = 506,
-    GenericDiscovery = 507,
     EquipmentLoadout = 508,
     ChallengeLifecycle = 509,
     PrestigeLifecycle = 510,

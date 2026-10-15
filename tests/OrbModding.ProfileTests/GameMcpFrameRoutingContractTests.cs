@@ -229,7 +229,7 @@ public sealed class GameMcpFrameRoutingContractTests
         },
         "game_discover" => new JObject
         {
-            ["mode"] = "preview",
+            ["mode"] = "offer_initiate",
             ["uuid"] = Guid.NewGuid().ToString("D"),
         },
         "game_equipment" => new JObject
