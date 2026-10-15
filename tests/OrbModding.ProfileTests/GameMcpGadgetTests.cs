@@ -4,130 +4,12 @@ using System.Linq;
 using Newtonsoft.Json.Linq;
 using OrbAutomata.GameMcp;
 using OrbModding;
-using UnityEngine;
-using UnityEngine.UI;
 using Xunit;
 
 namespace OrbModding.ProfileTests;
 
 public sealed class GameMcpGadgetTests
 {
-    private static readonly Guid BookId =
-        Guid.Parse("3280ce00-0000-4000-8000-000000000001");
-
-    /// <summary>
-    /// The pick presses a tile the way the game presses one, including a tile with no
-    /// <c>UnityEngine.UI.Button</c> anywhere.
-    /// </summary>
-    /// <remarks>
-    /// A live round watched <c>game_navigate uuid=&lt;book&gt;</c> refuse ERR_NOT_FOUND for all
-    /// three tiles the same page's <c>game_screen_elements</c> had just listed and whose tooltips
-    /// answered. The pin for it hand-built a committed result and never ran the lookup at all.
-    /// <para>
-    /// <c>UIGenericItem&lt;T&gt;.UIStart()</c> takes
-    /// <c>new ButtonController(GetComponent&lt;Button&gt;())</c> and, when that controller is
-    /// empty, binds <c>GetComponent&lt;UIExpandedEvents&gt;().onLeftMouseDown</c> instead — both
-    /// read the tile's OWN object. The old ancestry search for any <c>Button</c> found nothing at
-    /// all on the second kind of tile, and could press a panel's button on the first.
-    /// </para>
-    /// </remarks>
-    [Fact]
-    public void A_book_tile_with_no_button_is_pressed_through_the_events_the_game_binds()
-    {
-        var panelPressed = 0;
-        var tilePressed = 0;
-        var panel = new GameObject("BookPanel");
-        panel.AddComponent<Button>().onClick.AddListener(() => panelPressed++);
-        var tile = new GameObject("RecipeItem(Clone)");
-        tile.transform.SetParent(panel.transform, false);
-        tile.AddComponent<UIExpandedEvents>().onLeftMouseDown.AddListener(() => tilePressed++);
-
-        var pick = Plugin.PickRecipeBookTile(
-            BookId, typeof(RecipeBookSO), new[] { Element(tile) }, ReadsBookId);
-
-        Assert.Equal(string.Empty, pick.Code);
-        Assert.Equal(1, tilePressed);
-        // The panel above it keeps its own button. The ancestry walk used to press this one.
-        Assert.Equal(0, panelPressed);
-    }
-
-    /// <summary>
-    /// A tile whose own object carries the button is pressed through that button.
-    /// </summary>
-    [Fact]
-    public void A_book_tile_that_carries_a_button_is_pressed_through_it()
-    {
-        var pressed = 0;
-        var tile = new GameObject("RecipeItem(Clone)");
-        tile.AddComponent<Button>().onClick.AddListener(() => pressed++);
-
-        var pick = Plugin.PickRecipeBookTile(
-            BookId, typeof(RecipeBookSO), new[] { Element(tile) }, ReadsBookId);
-
-        Assert.Equal(string.Empty, pick.Code);
-        Assert.Equal(1, pressed);
-    }
-
-    /// <summary>
-    /// A tile the page draws but nothing clicks says so, and names what was looked for.
-    /// </summary>
-    /// <remarks>
-    /// "Draws no tile for that book" and "draws it but nothing on it answers a click" send a
-    /// caller to two different places, and one sentence stood for both.
-    /// </remarks>
-    [Fact]
-    public void A_drawn_tile_with_no_click_control_says_what_was_looked_for()
-    {
-        var tile = new GameObject("RecipeItem(Clone)");
-
-        var pick = Plugin.PickRecipeBookTile(
-            BookId, typeof(RecipeBookSO), new[] { Element(tile) }, ReadsBookId);
-
-        Assert.Equal("recipe_book_tile_not_clickable", pick.Code);
-        Assert.Equal(
-            "Magic > Spellbook > Unlock draws that book's tile, but nothing on it answers a " +
-            "click: the game presses a tile through a UnityEngine.UI.Button or a " +
-            "UIExpandedEvents left-click, on the tile's own object or an ancestor of it, " +
-            "and this tile carries neither.",
-            pick.Reason);
-    }
-
-    /// <summary>
-    /// A page drawing no tile for that book keeps its own sentence.
-    /// </summary>
-    [Fact]
-    public void A_page_drawing_no_tile_for_that_book_says_so()
-    {
-        var tile = new GameObject("RecipeItem(Clone)");
-        tile.AddComponent<UIExpandedEvents>();
-
-        var pick = Plugin.PickRecipeBookTile(
-            Guid.Parse("98b5b300-0000-4000-8000-000000000002"),
-            typeof(RecipeBookSO),
-            new[] { Element(tile) },
-            ReadsBookId);
-
-        Assert.Equal("recipe_book_tile_not_found", pick.Code);
-        Assert.Equal(
-            "Magic > Spellbook > Unlock draws no book tile for that book right now; " +
-            "game_screen_elements lists the tiles it does draw.",
-            pick.Reason);
-    }
-
-    private static Plugin.TooltipElement Element(GameObject tile)
-    {
-        var hover = tile.AddComponent<HoverTooltip>();
-        hover.tooltipItem = new RecipeBookSO();
-        return new Plugin.TooltipElement(hover, default);
-    }
-
-    private static bool ReadsBookId(ITooltipable? item, out Guid entityId, out string detail)
-    {
-        entityId = item is null ? Guid.Empty : BookId;
-        detail = string.Empty;
-        return true;
-    }
-
     [Fact]
     public void Array_read_success_has_no_aggregate_status_or_code()
     {
@@ -327,6 +209,7 @@ public sealed class GameMcpGadgetTests
     [InlineData("World", "Aspects", false)]
     [InlineData("Magic", "Agromancy", false)]
     [InlineData("World", null, false)]
+    [InlineData("Magic", "Unlock", false)]
     public void PlotSelectionIsAdmittedOnlyOnItsOwningScreen(
         string screen,
         string? subtab,
@@ -361,88 +244,6 @@ public sealed class GameMcpGadgetTests
         Assert.Equal(asked, selector.Label);
         Assert.Equal(expectedSegments, selector.Labels.ToArray());
         Assert.Equal(expectedLeaf, selector.Leaf);
-    }
-
-    /// <summary>
-    /// A tile is picked on the page that draws it, and each kind has exactly one such page.
-    /// </summary>
-    /// <remarks>
-    /// Round fourteen could not check a spell's book membership because the Unlock page's
-    /// undiscovered panel stays empty until a book tile is picked and no verb picked one. A book
-    /// tile is a tile in a list on a page — the same shape as the Agromancy plot this verb has
-    /// always picked — so it is the same argument on the same verb rather than a second meaning
-    /// for <c>game_discover</c>'s <c>select</c>, which chooses among the offers a paid roll drew.
-    /// </remarks>
-    [Theory]
-    [InlineData("Magic", "Unlock", true)]
-    [InlineData("Magic", "Spellbook", false)]
-    [InlineData("Magic", "Loadout", false)]
-    [InlineData("Scholar", "Unlock", false)]
-    [InlineData("Magic", null, false)]
-    public void RecipeBookSelectionIsAdmittedOnlyOnTheUnlockPage(
-        string screen,
-        string? subtab,
-        bool expected)
-    {
-        Assert.Equal(
-            expected,
-            GameMcpGadgetPolicy.IsRecipeBookDestination(screen, subtab));
-        Assert.Equal(
-            expected || GameMcpGadgetPolicy.IsPlotDestination(screen, subtab),
-            GameMcpGadgetPolicy.IsTileDestination(screen, subtab));
-    }
-
-    /// <summary>
-    /// A picked book answers with the spells its page now lists, not with a selection ledger.
-    /// </summary>
-    /// <remarks>
-    /// The press is the action; which spells the panel draws afterwards is the one observable that
-    /// proves it landed and the one thing the caller came for. The suite reads no selection list
-    /// of the game's and keeps no copy of one.
-    /// </remarks>
-    [Fact]
-    public void APickedRecipeBookAnswersWithTheSpellsThePanelNowLists()
-    {
-        var command = new GameMcpCommand(
-            1,
-            GameMcpCommandKind.Navigation,
-            0,
-            0,
-            "navigate",
-            System.Guid.Parse("a9a4dd00-0000-4000-8000-000000000001"),
-            System.Guid.Empty,
-            string.Empty, 1,
-            string.Empty,
-            string.Empty,
-            saveCapture: false);
-        var terminal = GameMcpCommandResult.Committed(
-            "navigation_arrived",
-            observedLifecycleGeneration: 1,
-            observedConfigurationGeneration: 1,
-            details: new GameMcpObjectBuilder
-            {
-                ["activeScreen"] = "Magic",
-                ["selectedBook"] = "a9a4dd00-0000-4000-8000-000000000001",
-                ["spells"] = new GameMcpArrayBuilder(
-                    new GameMcpObjectBuilder
-                    {
-                        ["name"] = "Profusion",
-                        ["uuid"] = "b0000000-0000-4000-8000-000000000002",
-                    },
-                    new GameMcpObjectBuilder { ["name"] = "Radiance" }),
-            }.Freeze());
-
-        var projected = GameMcpTestHarness.Json(terminal.Project(command));
-
-        Assert.Equal("committed", (string?)projected["status"]);
-        Assert.Equal("Magic", (string?)projected["activeScreen"]);
-        Assert.Null(projected["selectedPlot"]);
-        Assert.Equal("a9a4dd", (string?)projected["selectedBook"]!["uuid"]);
-        var spells = projected["spells"]!.OfType<JObject>().ToArray();
-        Assert.Equal(new[] { "Profusion", "Radiance" },
-            spells.Select(spell => (string?)spell["name"]).ToArray());
-        Assert.Equal("b00000", (string?)spells[0]["uuid"]);
-        Assert.Null(spells[1]["uuid"]);
     }
 
     [Fact]

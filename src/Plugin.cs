@@ -3472,7 +3472,7 @@ public sealed class Plugin : BaseUnityPlugin
             return false;
         }
         if (command.TargetId != Guid.Empty &&
-            !GameMcpGadgetPolicy.IsTileDestination(
+            !GameMcpGadgetPolicy.IsPlotDestination(
                 request.Tab.Label,
                 request.Subtab?.Leaf))
         {
@@ -3585,13 +3585,8 @@ public sealed class Plugin : BaseUnityPlugin
             // `subtab.TrySelect` presses the tab whether or not it was already active, so being on
             // the page already did not help: every pick read a page mid-rebuild.
             yield return SettleNavigation(settledScreen);
-            var scene = SceneManager.GetActiveScene().name;
-            var picksBook = GameMcpGadgetPolicy.IsRecipeBookDestination(
-                command.SourceOperation?.Request?.Tab?.Label ?? string.Empty,
-                command.SourceOperation?.Request?.Subtab?.Leaf);
-            var tileResult = picksBook
-                ? SelectExactRecipeBook(command.TargetId, scene)
-                : NavigateExactPlot(command.TargetId, scene);
+            var tileResult = NavigateExactPlot(
+                command.TargetId, SceneManager.GetActiveScene().name);
             if (!string.Equals(tileResult.Status, "committed", StringComparison.Ordinal))
             {
                 yield return CompleteNavigateGameMcpAfterSettlement(
@@ -3599,7 +3594,7 @@ public sealed class Plugin : BaseUnityPlugin
                     tileResult.WithDetails(details.Freeze()));
                 yield break;
             }
-            if (!picksBook) details["plotNodeUuid"] = command.TargetId.ToString("D");
+            details["plotNodeUuid"] = command.TargetId.ToString("D");
         }
         // The strips are read once, after arrival settles, in one place. Reading them here — a
         // single frame after the subtab click, with the destination still assembling — is what let
@@ -3678,20 +3673,7 @@ public sealed class Plugin : BaseUnityPlugin
             if (!string.IsNullOrWhiteSpace(activeTab.Label))
                 details["activeScreen"] = activeTab.Label;
             if (command.TargetId != Guid.Empty)
-            {
-                if (GameMcpGadgetPolicy.IsRecipeBookDestination(
-                        command.SourceOperation?.Request?.Tab?.Label ?? string.Empty,
-                        command.SourceOperation?.Request?.Subtab?.Leaf))
-                {
-                    details["selectedBook"] = command.TargetId.ToString("D");
-                    var spells = ProjectPanelSpellRecipes();
-                    if (spells is not null) details["spells"] = spells;
-                }
-                else
-                {
-                    details["selectedPlot"] = command.TargetId.ToString("D");
-                }
-            }
+                details["selectedPlot"] = command.TargetId.ToString("D");
             AppendOpenModals(details);
             result = GadgetCommitted("navigation_arrived", details);
         }
@@ -3773,194 +3755,6 @@ public sealed class Plugin : BaseUnityPlugin
                 ["nativeMethod"] = "UIPlotNodeList.OnNodeClick",
                 ["sceneBefore"] = scene,
             });
-    }
-
-    /// <summary>
-    /// Presses the recipe-book tile the Unlock page draws for one book.
-    /// </summary>
-    /// <remarks>
-    /// The tile is the element the screen catalog already publishes with that book's id, and the
-    /// press is the player's own: <c>UIGenericItem.UIStart</c> registers the item click on the
-    /// tile's own <c>Button</c>, so invoking that button is the click whatever else the prefab
-    /// wired to it. Nothing here reads or writes the game's selection list — which books the page
-    /// ends up holding is the game's business, and the panel's spells afterwards is the answer.
-    /// </remarks>
-    private GameMcpCommandResult SelectExactRecipeBook(Guid stableUuid, string scene)
-    {
-        if (scene != "Main")
-        {
-            return GadgetRejected(
-                "wrong_scene",
-                "Recipe books can only be picked while a save is open.");
-        }
-        var nativeAccess = _gameMcpTooltipNativeAccess;
-        if (nativeAccess is null) return TooltipsUnreadableBecause(_gameMcpTooltipContractFailure);
-        var bookType = AccessTools.TypeByName("RecipeBookSO");
-        if (bookType is null)
-        {
-            return GadgetRejected(
-                "native_recipe_book_unavailable",
-                "This build does not expose recipe books, so a book tile cannot be picked.");
-        }
-        var pick = PickRecipeBookTile(
-            stableUuid,
-            bookType,
-            CaptureActiveHoverTooltips(),
-            nativeAccess.TryReadEntityId);
-        if (pick.Code.Length == 0)
-        {
-            return GadgetCommitted(
-                "navigation_invoked",
-                new GameMcpObjectBuilder
-                {
-                    ["recipeBookUuid"] = stableUuid.ToString("D"),
-                    ["sceneBefore"] = scene,
-                });
-        }
-        return pick.Code == TooltipContractUnavailable
-            ? TooltipsUnreadableBecause(pick.Reason)
-            : GadgetRejected(pick.Code, pick.Reason);
-    }
-
-    private const string TooltipContractUnavailable = "tooltip_contract_unavailable";
-
-    internal delegate bool TileEntityIdReader(
-        ITooltipable? item,
-        out Guid entityId,
-        out string nativeDetail);
-
-    /// <summary>What the pick did, and the sentence for it when it did not press.</summary>
-    internal readonly struct RecipeBookTilePick
-    {
-        internal RecipeBookTilePick(string code, string reason)
-        {
-            Code = code;
-            Reason = reason;
-        }
-
-        /// <summary>Empty when the tile was pressed.</summary>
-        internal string Code { get; }
-        internal string Reason { get; }
-    }
-
-    /// <summary>
-    /// Finds the one drawn tile for a book and presses it the way the player presses it.
-    /// </summary>
-    /// <remarks>
-    /// This is the lookup a live round watched refuse <c>ERR_NOT_FOUND</c> for every tile on a page
-    /// whose own catalog and tooltips had just resolved all three of them. It is reachable without
-    /// a plugin instance on purpose: the tile it is handed is the thing that was wrong, so a test
-    /// that hand-builds a committed answer instead of running this proves nothing about it.
-    /// </remarks>
-    internal static RecipeBookTilePick PickRecipeBookTile(
-        Guid stableUuid,
-        Type bookType,
-        IReadOnlyList<TooltipElement> elements,
-        TileEntityIdReader readEntityId)
-    {
-        var drawn = 0;
-        var presses = new List<Action>();
-        for (var index = 0; index < elements.Count; index++)
-        {
-            var item = elements[index].Hover.tooltipItem;
-            if (item is null || !bookType.IsInstanceOfType(item)) continue;
-            if (!readEntityId(item, out var entityId, out var identityFailure))
-                return new RecipeBookTilePick(TooltipContractUnavailable, identityFailure);
-            if (entityId != stableUuid) continue;
-            drawn++;
-            var press = TileClick(elements[index].Hover);
-            if (press is not null) presses.Add(press);
-        }
-        if (drawn == 0)
-        {
-            return new RecipeBookTilePick(
-                "recipe_book_tile_not_found",
-                "Magic > Spellbook > Unlock draws no book tile for that book right now; " +
-                "game_screen_elements lists the tiles it does draw.");
-        }
-        if (presses.Count == 0)
-        {
-            return new RecipeBookTilePick(
-                "recipe_book_tile_not_clickable",
-                "Magic > Spellbook > Unlock draws that book's tile, but nothing on it answers a " +
-                "click: the game presses a tile through a UnityEngine.UI.Button or a " +
-                "UIExpandedEvents left-click, on the tile's own object or an ancestor of it, " +
-                "and this tile carries neither.");
-        }
-        if (presses.Count > 1)
-        {
-            return new RecipeBookTilePick(
-                "recipe_book_tile_not_found",
-                "More than one tile on this page answers to that book, so which one was meant " +
-                "is unclear.");
-        }
-        presses[0]();
-        return new RecipeBookTilePick(string.Empty, string.Empty);
-    }
-
-    /// <summary>
-    /// The press the player's own click makes on a drawn tile.
-    /// </summary>
-    /// <remarks>
-    /// The game wires a tile's click in <c>UIGenericItem&lt;T&gt;.UIStart()</c>, and it reads the
-    /// tile's OWN object twice: <c>GetButtonController()</c> is
-    /// <c>new ButtonController(GetComponent&lt;Button&gt;())</c>, and when that controller is empty
-    /// the click arrives instead through <c>GetComponent&lt;UIExpandedEvents&gt;().onLeftMouseDown</c>.
-    /// Searching the ancestry for any <c>Button</c> answered neither case: it can press a panel's
-    /// button rather than the tile's, and a tile built the second way carries no <c>Button</c>
-    /// anywhere to find. Both questions are now asked at each level, in the game's own order, so
-    /// the tile's own object answers before anything above it does.
-    /// </remarks>
-    internal static Action? TileClick(Component element)
-    {
-        for (var node = element.transform; node is not null; node = node.parent)
-        {
-            var button = node.GetComponent<Button>();
-            if (button is not null) return button.onClick.Invoke;
-            var press = ExpandedEventsLeftClick(node);
-            if (press is not null) return press;
-        }
-        return null;
-    }
-
-    private static Action? ExpandedEventsLeftClick(Component node)
-    {
-        var type = AccessTools.TypeByName("UIExpandedEvents");
-        if (type is null) return null;
-        var events = node.GetComponent(type);
-        if (events is null) return null;
-        var field = type.GetField(
-            "onLeftMouseDown",
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        var value = field?.GetValue(events);
-        var invoke = value?.GetType().GetMethod("Invoke", Type.EmptyTypes);
-        return value is null || invoke is null
-            ? null
-            : () => invoke.Invoke(value, Array.Empty<object>());
-    }
-
-    /// <summary>
-    /// The spell rows the current page draws, which on the Unlock page is what the book tiles
-    /// decide. Absent rather than empty when the page draws none.
-    /// </summary>
-    private GameMcpValue? ProjectPanelSpellRecipes()
-    {
-        var nativeAccess = _gameMcpTooltipNativeAccess;
-        var recipeType = AccessTools.TypeByName("SpellRecipeSO");
-        if (nativeAccess is null || recipeType is null) return null;
-        var rows = new GameMcpArrayBuilder();
-        var drawn = 0;
-        foreach (var entry in CaptureActiveHoverTooltips())
-        {
-            var item = entry.Hover.tooltipItem;
-            if (item is null || !recipeType.IsInstanceOfType(item)) continue;
-            if (!nativeAccess.TryReadEntityId(item, out var entityId, out _)) continue;
-            drawn++;
-            var row = new GameMcpObjectBuilder { ["name"] = item.GetName() };
-            if (entityId != Guid.Empty) row["uuid"] = entityId.ToString("D");
-            rows.Add(row);
-        }
-        return drawn == 0 ? null : rows.Freeze();
     }
 
     private IReadOnlyList<GameMcpSubtab> CaptureSubtabs()

@@ -3154,8 +3154,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `bandwidth_blocked` / `drain_blocked` | The whole-recipe verdict for the two resource axes its per-resource rows already answer one by one: something it consumes has no bandwidth left, or something it drains is at its limit. Both codes used to be built by string concatenation, so no class or sentence table had ever met either | `world_get` recipe blockers |
 | `no_recipe_book` | The game draws no Recipe Book for this glyph in this run. It answered `world_not_published` — the suite having read nothing at all — for a healthy read of a published world | glyph recipe-book edges |
 | `tooltip_offset_invalid` / `tooltip_match_failed` / `tooltip_content_unavailable` / `tooltip_contract_unavailable` / `tooltip_read_faulted` / `tooltip_depth_exceeded` | A page marker the live element list never printed and which changes when the screen does; a path matching no active element or several; an element the game draws no tooltip for; the suite unable to attach to the game's tooltips for this run, which only a restart clears; the game erroring while producing the text; and an authored node tree deeper or wider than the suite will walk in one answer, so the walk was abandoned and none of its text is returned. Only the fourth and the last are the suite's own, and the binding layer's account of the fourth goes to the suite log rather than to the caller | `game_screen_elements`, `game_tooltip` |
-| `native_navigation_unavailable` / `native_plot_navigation_unavailable` / `native_plot_list_unavailable` / `native_plot_not_resolved` / `native_recipe_book_unavailable` / `recipe_book_tile_not_found` / `tile_destination_mismatch` | The game is not showing its screen tabs, which it does only while a save is open; this build exposes no plot list to select from; the screen is showing no plot list or more than one, so which plot was meant is unclear; no plot in this run carries that id; this build exposes no recipe books; the Unlock page is drawing no tile for that book, or more than one answers to it; and a tile asked for at a destination that draws none, where the sentence names the two that do | `game_navigate` |
-| `recipe_book_tile_not_clickable` | The Unlock page drew that book's tile and nothing on it answers a click. The game presses a tile through a `UnityEngine.UI.Button` on the tile's own object or on an ancestor, or through that object's `UIExpandedEvents.onLeftMouseDown`; a tile carrying neither is a drawn control the suite will not fake a press on | `game_navigate` |
+| `native_navigation_unavailable` / `native_plot_navigation_unavailable` / `native_plot_list_unavailable` / `native_plot_not_resolved` / `tile_destination_mismatch` | The game is not showing its screen tabs, which it does only while a save is open; this build exposes no plot list to select from; the screen is showing no plot list or more than one, so which plot was meant is unclear; no plot in this run carries that id; and a tile asked for anywhere but the plot page, which the sentence names | `game_navigate` |
 | `modal_not_offered` / `no_modal_named` / `ambiguous_modal` / `modal_already_open` | The panel named is not one the suite presses, and the sentence names the ones it does; no chrome control on this screen opens a panel by that name, and the sentence names the ones it does open; two controls answer to one name; and a different panel is already covering the board, so the chrome beneath it takes no presses | `game_modal open` |
 | `native_probe_unavailable` | The named fact exists, but this build exposes no reading of it | `game_probe` |
 | `continue_wrong_scene` / `continue_contract_unavailable` | Continue exists only on the title screen, and being in a run is a state that moves; or this build does not expose the Continue button, so no save can be started from here | `game_continue` |
@@ -4347,17 +4346,11 @@ screen the game has not unlocked is neither a candidate nor a destination — it
 only once its parent is active, so a nested page has no address until the hop before it has landed.
 The tool makes those clicks in order, settles between them, and the postcondition is the leaf.
 
-`uuid` picks a tile the destination page draws. An Agromancy plot on `World/Agromancy` resolves as
-a published `PlotNodeSO` through the one audited active `UIPlotNodeList.OnNodeClick(PlotNodeSO)`;
-it is not a hardcoded Fruit Tree command. A recipe book on `Magic/Unlock` is pressed through the
-tile's own `Button` — the control `UIGenericItem.UIStart` registers the item click on — or, where
-the tile carries none, through its `UIExpandedEvents.onLeftMouseDown`, the other control the game
-binds a tile press to; both are looked for on the tile's object and its ancestors, and a tile
-carrying neither refuses `recipe_book_tile_not_clickable` rather than having a press faked on it.
-The answer lists the spells the panel then draws — the suite keeps no copy of the game's
-selected-book list, because which books the page holds is the game's and the panel afterwards is
-the answer. A tile asked for on a page that draws none refuses `tile_destination_mismatch` naming
-both homes. A tile is always resolved against a settled page: the server selects the top screen and
+`uuid` picks an Agromancy plot on `World/Agromancy`: it resolves as a published `PlotNodeSO`
+through the one audited active `UIPlotNodeList.OnNodeClick(PlotNodeSO)`; it is not a hardcoded
+Fruit Tree command. The book tiles on `Magic/Unlock` are a display of what fills the Spellcraft
+roll's pool, and no control on them answers a click, so they are not an argument. A tile asked for
+anywhere else refuses `tile_destination_mismatch` naming the plot page. A tile is always resolved against a settled page: the server selects the top screen and
 any subtab path, waits up to one second for the active screen and complete live strip set to remain
 stable across frames, and only then looks for the tile. Resolving against the settled hierarchy is what makes the
 subtab candidates the matcher searched identical to the ones the catalog advertises for that screen.
