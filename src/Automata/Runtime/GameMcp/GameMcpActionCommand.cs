@@ -495,7 +495,12 @@ internal sealed class GameMcpCommandResult
         {
             projected["reasonCode"] = stableCode;
             projected["reason"] = Reason;
-            if (command.TargetId != Guid.Empty)
+
+            // A loaded spell is a runtime instance no catalog names, so its id echoed as
+            // "(unnamed 96a6b7)". The caller addressed it by slot, and the sentence names the spell.
+            if (command.Kind == GameMcpCommandKind.SpellLoadout && command.SourceOperation is { } press)
+                projected["slot"] = press.Request.Amount;
+            else if (command.TargetId != Guid.Empty)
                 projected["uuid"] = command.TargetId.ToString("D");
 
             // The pair's second half is a field on the refusal too. It used to appear only inside

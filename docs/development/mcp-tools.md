@@ -2282,7 +2282,9 @@ The MCP-only loadout sequence is:
    back is another add.
 
 `staged` accepts no other field. The `uuid` means a recipe and belongs to `preview`/`add` only;
-`slot` addresses the loadout bar for `remove`/`move`, and `destination` belongs to `move` only.
+`slot` addresses the loadout bar for `remove`/`move`, and `destination` belongs to `move` only. A
+refused `remove` or `move` echoes that `slot`, never the spell instance behind it, which no catalog
+names; its sentence names the spell.
 Anything else is a named `unexpected_for_mode` validation failure rather than a silently ignored
 field.
 

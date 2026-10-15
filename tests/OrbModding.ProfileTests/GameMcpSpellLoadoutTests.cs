@@ -626,6 +626,33 @@ public sealed class GameMcpSpellLoadoutTests
     }
 
     /// <summary>
+    /// A refused removal names the slot pressed, not the runtime instance behind it.
+    /// </summary>
+    /// <remarks>
+    /// A live round's two remove refusals on Psychic Blast echoed
+    /// <c>uuid: 96a6b7 / name: (unnamed 96a6b7)</c>: the spell instance's id, which no catalog
+    /// names, in place of what the caller pressed.
+    /// </remarks>
+    [Fact]
+    public void A_refused_removal_names_the_slot_pressed_rather_than_the_spell_instance()
+    {
+        var operation = GameMcpProtocolRouter.BuildOperation(
+            "game_spell_loadout", new JObject { ["mode"] = "remove", ["slot"] = 2 });
+        Assert.True(Plugin.TryPrepareGameMcpCommand(
+            new GameMcpFrameOperation(1, operation),
+            GameMcpTestHarness.Context(World(), generation: 41),
+            out var command,
+            out var failure), failure?.Reason);
+
+        var refusal = GameMcpTestHarness.Json(GameMcpCommandResult.Rejected(
+                "spell_recharging", "Psychic Blast is still recharging.", 9, 3)
+            .Project(command));
+
+        Assert.Equal(2, (int)refusal["slot"]!);
+        Assert.Null(refusal["uuid"]);
+    }
+
+    /// <summary>
     /// A price row addresses the slot it prices the way every spell verb does. It carried the raw
     /// array index, so the caller who read a price and then cast that number cast the slot before.
     /// </summary>
