@@ -4166,6 +4166,7 @@ public sealed class Plugin : BaseUnityPlugin
                     hover.tooltipItem,
                     children,
                     usingAlt,
+                    GameMcpTooltipLayout.Read(),
                     Identify,
                     out details))
             {

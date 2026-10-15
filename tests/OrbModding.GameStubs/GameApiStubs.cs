@@ -85,6 +85,7 @@ public static class GlobalVariables
     private static readonly AttributeSO CastingSpeedAttribute = new AttributeSO();
     private static readonly AttributeSO HarvestSpeedAttribute = new AttributeSO();
     private static readonly AttributeSO MasteryExperienceAttribute = new AttributeSO();
+    private static readonly AttributeSO MasteryLevelAttribute = new AttributeSO { displayName = "Mastery" };
 
     // Registered in IntVariable.All under the uuid the game ships, because world collection finds
     // these by identity in the registry rather than through the accessor beside them.
@@ -99,6 +100,9 @@ public static class GlobalVariables
     public static AttributeSO GetCastingSpeedAttr() => CastingSpeedAttribute;
     public static AttributeSO GetHarvestSpeedAttr() => HarvestSpeedAttribute;
     public static AttributeSO GetMasteryExpAttr() => MasteryExperienceAttribute;
+    public static AttributeSO GetMasteryLevelAttr() => MasteryLevelAttribute;
+    public static UITooltipContainer? TooltipPrefab { get; set; }
+    public static UITooltipContainer? GetTooltipPrefab() => TooltipPrefab;
     public static List<UnityEngine.Sprite> CustomSprites { get; } = new List<UnityEngine.Sprite>
     {
         new UnityEngine.Sprite(),
@@ -2042,6 +2046,8 @@ public class ResourceSO : UpgradeableObject
     public BigDouble GetTrueQuantity() =>
         quantity * BigDouble.Normalize(quality.GetValue().Mantissa, quality.GetValue().Exponent - 2);
     public BigDouble GetAttributeCostMod() => attributeCostMod.GetValue();
+    public BigDouble GetTrueSpend(BigDouble amount) =>
+        amount / BigDouble.Normalize(quality.GetValue().Mantissa, quality.GetValue().Exponent - 2);
     public BigDouble GetTrueRate() => trueRate;
     public bool IsAvailable() => available;
     public bool IsVisible() => visible;
@@ -3577,11 +3583,31 @@ public class TooltipableObject : IdScriptableObject, ITooltipable
 /// whichever parts the caller overwrote. The panels that build a tooltip out of several facts hand
 /// the screen one of these rather than the entity itself.
 /// </summary>
-public sealed class OverwriteTooltip : ITooltipable
+public sealed class OverwriteTooltip :
+    ITooltipable, IHasRequirements, IHasResourceCost, IHasUsageCost, IHasExperienceElement
 {
     public readonly ITooltipable tooltipable;
+    public Func<List<TooltipNode>>? overwriteRequirements;
 
     public OverwriteTooltip(ITooltipable tooltipable) => this.tooltipable = tooltipable;
+
+    public OverwriteTooltip SetRequirements(Func<List<TooltipNode>> requirements)
+    {
+        overwriteRequirements = requirements;
+        return this;
+    }
+
+    public List<TooltipNode> GetRequirements() =>
+        overwriteRequirements?.Invoke() ??
+        (tooltipable as IHasRequirements)?.GetRequirements() ??
+        new List<TooltipNode>();
+    public ResourceCostList GetResourceCost() =>
+        (tooltipable as IHasResourceCost)?.GetResourceCost() ?? new ResourceCostList();
+    public ResourceCostList GetUsageCost() =>
+        (tooltipable as IHasUsageCost)?.GetUsageCost() ?? new ResourceCostList();
+    public IExperienceElement? GetExperienceElement() =>
+        (tooltipable as IHasExperienceElement)?.GetExperienceElement() ??
+        tooltipable as IExperienceElement;
 
     public string GetName() => tooltipable?.GetName() ?? string.Empty;
     public string GetDisplayType() => tooltipable?.GetDisplayType() ?? string.Empty;
@@ -3651,8 +3677,63 @@ public class TooltipNode
     public ITooltipable? tooltipable;
 }
 
+public interface IHasRequirements
+{
+    List<TooltipNode> GetRequirements();
+}
+
+public interface IHasResourceCost
+{
+    ResourceCostList GetResourceCost();
+}
+
+public interface IHasResourceCostPrefix
+{
+    string GetResourceCostPrefix();
+}
+
+public interface IHasUsageCost
+{
+    ResourceCostList GetUsageCost();
+}
+
+public interface IExperienceElement
+{
+    int GetExperienceLevel();
+    bool IsForceVisible();
+}
+
+public interface IHasExperienceElement
+{
+    IExperienceElement? GetExperienceElement();
+}
+
+public class UITooltipNodeList : UnityEngine.MonoBehaviour
+{
+}
+
+public class UIResourceCostList : UnityEngine.MonoBehaviour
+{
+}
+
+/// <summary>
+/// One panel of a tooltip container. Which of its optional sections a prefab carries is a serialized
+/// reference the game leaves empty on a panel that never draws that section.
+/// </summary>
+public class UITooltip : UnityEngine.MonoBehaviour
+{
+    public UIResourceCostList? resourceCostElement;
+    public UIResourceCostList? usageCostElement;
+    public UnityEngine.RectTransform? masteryElement;
+    public ViewSO? masteryEnabledView;
+    public UITooltipNodeList? requirementNodesElement;
+}
+
 public class UITooltipContainer : UnityEngine.MonoBehaviour
 {
+    public UITooltip? parentTooltip;
+    public UITooltip? childTooltipPrefab;
+
     /// <summary>
     /// The game's own answer to how deep stacked tooltips go: past five panels
     /// <c>PauseTooltip</c> simply refuses to open another.

@@ -378,7 +378,7 @@ public sealed class GameMcpTooltipProjectorTests
     public void A_children_tree_that_never_ends_is_answered_as_a_bound_rather_than_a_tooltip()
     {
         Assert.False(GameMcpTooltipProjector.TryProject(
-            new EndlessChildrenTooltip(), null, false, null, out var details));
+            new EndlessChildrenTooltip(), null, false, GameMcpTooltipLayout.Read(), null, out var details));
 
         Assert.Empty(GameMcpTestHarness.Json(details).Properties());
     }
@@ -409,7 +409,7 @@ public sealed class GameMcpTooltipProjectorTests
             });
         }
 
-        Assert.False(GameMcpTooltipProjector.TryProject(root, null, false, null, out var details));
+        Assert.False(GameMcpTooltipProjector.TryProject(root, null, false, GameMcpTooltipLayout.Read(), null, out var details));
 
         Assert.Empty(GameMcpTestHarness.Json(details).Properties());
         Assert.True(touched[0] < 4096, "the walk read " + touched[0] + " of 4096 rows");
@@ -437,6 +437,65 @@ public sealed class GameMcpTooltipProjectorTests
     /// asserts the walk came back on its own rather than leaving that to the tests that cross the
     /// bound deliberately.
     /// </summary>
+    /// <summary>
+    /// A spell on Loadout is the button's <c>OverwriteTooltip</c> around the live spell, and
+    /// <c>UITooltip.Render</c> paints its cast cost, its weight, its mastery line and the
+    /// requirement list between the description and the node list. Sanctify read on a full
+    /// allocation printed only its cooldown, so the weight it charged and the line saying it would
+    /// not fit were missing from the one read meant to show them.
+    /// </summary>
+    [Fact]
+    public void A_spell_on_loadout_reads_its_costs_mastery_and_requirements_as_the_panel_paints_them()
+    {
+        var mana = new ResourceSO { name = "Mana" };
+        var capacity = new ResourceSO { name = "Spell Capacity" };
+        var spell = new LoadoutSpell(
+            new ResourceCostList { costs = { new ResourceTuple(mana, new BigDouble(25.0)) } },
+            new ResourceCostList { costs = { new ResourceTuple(capacity, new BigDouble(12.0)) } },
+            new Mastery(3),
+            new TooltipNode("Cooldown: 4s"));
+        var requirements = new List<TooltipNode>
+        {
+            new("Not enough Spell Capacity"),
+            new("Req. Expert Storm lv 17/21"),
+        };
+        var button = new OverwriteTooltip(spell).SetRequirements(() => requirements);
+        var shown = new ViewSO { available = true };
+        GlobalVariables.TooltipPrefab = new UITooltipContainer
+        {
+            parentTooltip = Panel(shown),
+            childTooltipPrefab = new UITooltip(),
+        };
+        try
+        {
+            Assert.Equal(
+                "Sanctify\nFixture\nSanctify description\n25 Mana\n12 Spell Capacity\nMastery 3\n" +
+                "Not enough Spell Capacity\nReq. Expert Storm lv 17/21\nCooldown: 4s",
+                (string?)Projected(button)["text"]);
+
+            shown.available = false;
+            Assert.DoesNotContain("Mastery", (string?)Projected(button)["text"]);
+
+            Assert.Equal(
+                "Primary\nFixture\nPrimary description\nSanctify\nFixture\nSanctify description\n" +
+                "Cooldown: 4s",
+                (string?)Projected(new FakeTooltip("Primary"), new ITooltipable[] { button })["text"]);
+        }
+        finally
+        {
+            GlobalVariables.TooltipPrefab = null;
+        }
+
+        static UITooltip Panel(ViewSO mastery) => new()
+        {
+            resourceCostElement = new UIResourceCostList(),
+            usageCostElement = new UIResourceCostList(),
+            masteryElement = new UnityEngine.RectTransform(),
+            masteryEnabledView = mastery,
+            requirementNodesElement = new UITooltipNodeList(),
+        };
+    }
+
     private static JObject Projected(
         ITooltipable primary,
         IEnumerable<ITooltipable>? subTooltips = null,
@@ -445,7 +504,7 @@ public sealed class GameMcpTooltipProjectorTests
     {
         Assert.True(
             GameMcpTooltipProjector.TryProject(
-                primary, subTooltips, usingAlt, identity, out var details),
+                primary, subTooltips, usingAlt, GameMcpTooltipLayout.Read(), identity, out var details),
             "the walk gave up on a fixture that is inside its bound");
         return GameMcpTestHarness.Json(details);
     }
@@ -453,6 +512,46 @@ public sealed class GameMcpTooltipProjectorTests
     /// <summary>The one binding the suite's own identity reader would have taken for this link.</summary>
     private static Func<ITooltipable, Guid> Identity(ITooltipable link, Guid id) =>
         candidate => ReferenceEquals(candidate, link) ? id : Guid.Empty;
+
+    private sealed class LoadoutSpell :
+        ITooltipable, IHasResourceCost, IHasUsageCost, IHasExperienceElement, IHasRequirements
+    {
+        private readonly ResourceCostList _cast;
+        private readonly ResourceCostList _weight;
+        private readonly IExperienceElement _mastery;
+        private readonly List<TooltipNode> _nodes;
+
+        internal LoadoutSpell(
+            ResourceCostList cast, ResourceCostList weight, IExperienceElement mastery, params TooltipNode[] nodes)
+        {
+            _cast = cast;
+            _weight = weight;
+            _mastery = mastery;
+            _nodes = nodes.ToList();
+        }
+
+        public string GetName() => "Sanctify";
+        public string GetDisplayType() => "Fixture";
+        public UnityEngine.Sprite GetIcon() => new();
+        public UnityEngine.Color GetColor() => UnityEngine.Color.white;
+        public bool IsColoredIcon() => false;
+        public bool HasAltTooltips() => false;
+        public string GetDescription() => "Sanctify description";
+        public List<TooltipNode> GetTooltipNodes() => _nodes;
+        public List<TooltipNode> GetAltTooltipNodes() => new();
+        public ResourceCostList GetResourceCost() => _cast;
+        public ResourceCostList GetUsageCost() => _weight;
+        public IExperienceElement GetExperienceElement() => _mastery;
+        public List<TooltipNode> GetRequirements() => new() { new("the spell's own list, which the button replaces") };
+    }
+
+    private sealed class Mastery : IExperienceElement
+    {
+        private readonly int _level;
+        internal Mastery(int level) => _level = level;
+        public int GetExperienceLevel() => _level;
+        public bool IsForceVisible() => false;
+    }
 
     private sealed class FakeTooltip : ITooltipable
     {

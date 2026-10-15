@@ -4517,8 +4517,15 @@ the player can hover, because that is a screen fact rather than a save one.
 one `UITooltipContainer`, and that container draws three things: the core panel (`UITooltip.Render`
 on its `item`), one row of sibling sub-panels from `subTooltips`, which carry no sub-panels of their
 own, and inside each panel one node list walked through `TooltipNode.children`. The reader renders
-exactly that on Unity's main thread — each panel's name, display type, description and nodes, in the
-order the panel lays them out. A panel draws one node list and not two: `UITooltip.Render` sets
+exactly that on Unity's main thread — each panel's name, display type, description, then the cost,
+usage cost, mastery line and requirement list `Render` paints from the item's own interfaces, then
+the nodes. Each of those four is drawn only where the panel prefab
+(`GlobalVariables.GetTooltipPrefab()`: its `parentTooltip` for the core panel, `childTooltipPrefab`
+for the row beside it) carries the element, and the mastery line only once its view is unlocked or
+the item forces it. A cost row is the number the badge prints and the resource its icon shows —
+`25 Mana`, `12 Spell Capacity` — without the held amount the badge adds in brackets. So a spell on
+Loadout reads its cast cost, its weight, its mastery and lines such as `Not enough Spell Capacity`
+and `Req. Expert Storm lv 17/21`, not only its cooldown. A panel draws one node list and not two: `UITooltip.Render` sets
 `renderedAlt = IsUsingAltTooltip()` and then renders `GetAltTooltipNodes()` *instead of*
 `GetTooltipNodes()`, so the alt list is a toggle rather than an appendix and the read follows the
 state the screen is in — the entity having an alt list, and the player holding the more-info key.

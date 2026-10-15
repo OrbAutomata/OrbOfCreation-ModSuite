@@ -18920,6 +18920,98 @@
       "visibility": "public", "static": false, "valueType": "ITooltipable", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
     },
     {
+      "id": "game-mcp-tooltip-panel.tooltip-prefab-action", "assembly": "assembly-csharp", "type": "GlobalVariables", "typeVisibility": "public", "kind": "method", "member": "GetTooltipPrefab",
+      "visibility": "public", "static": true, "returnType": "UITooltipContainer", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.mastery-level-attr-action", "assembly": "assembly-csharp", "type": "GlobalVariables", "typeVisibility": "public", "kind": "method", "member": "GetMasteryLevelAttr",
+      "visibility": "public", "static": true, "returnType": "AttributeSO", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.parent-tooltip-action", "assembly": "assembly-csharp", "type": "UITooltipContainer", "typeVisibility": "public", "kind": "field", "member": "parentTooltip",
+      "visibility": "public", "static": false, "valueType": "UITooltip", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.child-tooltip-prefab-action", "assembly": "assembly-csharp", "type": "UITooltipContainer", "typeVisibility": "public", "kind": "field", "member": "childTooltipPrefab",
+      "visibility": "public", "static": false, "valueType": "UITooltip", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.resource-cost-element-action", "assembly": "assembly-csharp", "type": "UITooltip", "typeVisibility": "public", "kind": "field", "member": "resourceCostElement",
+      "visibility": "public", "static": false, "valueType": "UIResourceCostList", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.usage-cost-element-action", "assembly": "assembly-csharp", "type": "UITooltip", "typeVisibility": "public", "kind": "field", "member": "usageCostElement",
+      "visibility": "public", "static": false, "valueType": "UIResourceCostList", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.mastery-element-action", "assembly": "assembly-csharp", "type": "UITooltip", "typeVisibility": "public", "kind": "field", "member": "masteryElement",
+      "visibility": "public", "static": false, "valueType": "UnityEngine.RectTransform", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.mastery-enabled-view-action", "assembly": "assembly-csharp", "type": "UITooltip", "typeVisibility": "public", "kind": "field", "member": "masteryEnabledView",
+      "visibility": "public", "static": false, "valueType": "ViewSO", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.requirement-nodes-element-action", "assembly": "assembly-csharp", "type": "UITooltip", "typeVisibility": "public", "kind": "field", "member": "requirementNodesElement",
+      "visibility": "public", "static": false, "valueType": "UITooltipNodeList", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.view-available-action", "assembly": "assembly-csharp", "type": "ViewSO", "typeVisibility": "public", "kind": "method", "member": "IsAvailable",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.resource-cost-action", "assembly": "assembly-csharp", "type": "IHasResourceCost", "typeVisibility": "public", "kind": "method", "member": "GetResourceCost",
+      "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.resource-cost-prefix-action", "assembly": "assembly-csharp", "type": "IHasResourceCostPrefix", "typeVisibility": "public", "kind": "method", "member": "GetResourceCostPrefix",
+      "visibility": "public", "static": false, "returnType": "System.String", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.usage-cost-action", "assembly": "assembly-csharp", "type": "IHasUsageCost", "typeVisibility": "public", "kind": "method", "member": "GetUsageCost",
+      "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.experience-element-action", "assembly": "assembly-csharp", "type": "IHasExperienceElement", "typeVisibility": "public", "kind": "method", "member": "GetExperienceElement",
+      "visibility": "public", "static": false, "returnType": "IExperienceElement", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.experience-level-action", "assembly": "assembly-csharp", "type": "IExperienceElement", "typeVisibility": "public", "kind": "method", "member": "GetExperienceLevel",
+      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.experience-force-visible-action", "assembly": "assembly-csharp", "type": "IExperienceElement", "typeVisibility": "public", "kind": "method", "member": "IsForceVisible",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.requirements-action", "assembly": "assembly-csharp", "type": "IHasRequirements", "typeVisibility": "public", "kind": "method", "member": "GetRequirements",
+      "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<TooltipNode>", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.cost-empty-action", "assembly": "assembly-csharp", "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "IsEmpty",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.costs-action", "assembly": "assembly-csharp", "type": "ResourceCostList", "typeVisibility": "public", "kind": "field", "member": "costs",
+      "visibility": "public", "static": false, "valueType": "System.Collections.Generic.List`1<ResourceTuple>", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.cost-resource-action", "assembly": "assembly-csharp", "type": "ResourceTuple", "typeVisibility": "public", "kind": "field", "member": "resource",
+      "visibility": "public", "static": false, "valueType": "ResourceSO", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.cost-value-action", "assembly": "assembly-csharp", "type": "ResourceTuple", "typeVisibility": "public", "kind": "method", "member": "GetValue",
+      "visibility": "public", "static": false, "returnType": "BigDouble", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.true-spend-action", "assembly": "assembly-csharp", "type": "ResourceSO", "typeVisibility": "public", "kind": "method", "member": "GetTrueSpend",
+      "visibility": "public", "static": false, "returnType": "BigDouble", "parameters": ["BigDouble"], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.tooltipable-name-action", "assembly": "assembly-csharp", "type": "TooltipableObject", "typeVisibility": "public", "kind": "method", "member": "GetName",
+      "visibility": "public", "static": false, "returnType": "System.String", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
       "id": "game-mcp-tooltip-catalog.modal-open-action",
       "assembly": "assembly-csharp",
       "type": "UIModal",

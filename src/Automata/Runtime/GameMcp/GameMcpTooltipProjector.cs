@@ -1,7 +1,9 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.GameMath;
 using JObject = OrbAutomata.GameMcp.GameMcpObjectBuilder;
 
 namespace OrbAutomata.GameMcp;
@@ -70,6 +72,7 @@ internal static class GameMcpTooltipProjector
     /// <em>instead of</em> <c>GetTooltipNodes()</c>, so the two lists are a toggle and a panel draws
     /// exactly one of them.
     /// </param>
+    /// <param name="layout">Which optional sections the core and sub-panel prefabs carry.</param>
     /// <param name="identify">
     /// The stable id of a linked tooltipable, or <see cref="Guid.Empty"/> when the link is about no
     /// entity. A link with an id publishes the call that reads it; one without publishes its name,
@@ -88,16 +91,17 @@ internal static class GameMcpTooltipProjector
         ITooltipable primary,
         IEnumerable<ITooltipable>? subTooltips,
         bool usingAlt,
+        GameMcpTooltipLayout layout,
         Func<ITooltipable, Guid>? identify,
         out JObject details)
     {
         if (primary is null) throw new ArgumentNullException(nameof(primary));
         var body = new Body(identify);
-        AppendPanel(primary, usingAlt, body);
+        AppendPanel(primary, usingAlt, layout.Core, layout, body);
         if (subTooltips is not null)
         {
             foreach (var panel in subTooltips)
-                if (panel is not null) AppendPanel(panel, usingAlt, body);
+                if (panel is not null) AppendPanel(panel, usingAlt, layout.Sub, layout, body);
         }
         details = new JObject();
         if (body.Bounds.Exceeded) return false;
@@ -108,7 +112,19 @@ internal static class GameMcpTooltipProjector
     }
 
     /// <summary>One panel, exactly as <c>UITooltip.Render</c> paints it.</summary>
-    private static void AppendPanel(ITooltipable panel, bool usingAlt, Body body)
+    /// <remarks>
+    /// Between the description and the node list <c>Render</c> paints the cast cost, the usage cost
+    /// a spell's weight badge is, the mastery line and the requirement list, each from an interface
+    /// the item implements and each only where the panel prefab carries the element. A spell on
+    /// Loadout is the panel that showed why: those four are what a player acts on, and a read that
+    /// skipped them printed a cooldown where the screen printed "Not enough Spell Capacity".
+    /// </remarks>
+    private static void AppendPanel(
+        ITooltipable panel,
+        bool usingAlt,
+        GameMcpTooltipLayout.Panel sections,
+        GameMcpTooltipLayout layout,
+        Body body)
     {
         if (!body.Bounds.Spend()) return;
         if (!body.Bounds.Remember(panel)) return;
@@ -116,12 +132,41 @@ internal static class GameMcpTooltipProjector
         body.Add(panel.GetName());
         body.Add(panel.GetDisplayType());
         body.Add(panel.GetDescription());
+        if (sections.ResourceCost && panel is IHasResourceCost cost)
+            AppendCosts(cost.GetResourceCost(), (panel as IHasResourceCostPrefix)?.GetResourceCostPrefix(), body);
+        if (sections.UsageCost && panel is IHasUsageCost usage)
+            AppendCosts(usage.GetUsageCost(), null, body);
+        if (sections.Mastery &&
+            panel is IHasExperienceElement experienced &&
+            experienced.GetExperienceElement() is { } mastery &&
+            (sections.MasteryUnlocked || mastery.IsForceVisible()))
+        {
+            body.Add(layout.MasteryLabel + " " + mastery.GetExperienceLevel().ToString(CultureInfo.InvariantCulture));
+        }
+        if (sections.Requirements && panel is IHasRequirements gated)
+            AppendNodes(gated.GetRequirements(), body);
         AppendNodes(
             usingAlt && panel.HasAltTooltips()
                 ? panel.GetAltTooltipNodes()
                 : panel.GetTooltipNodes(),
             body);
         body.Bounds.Ascend();
+    }
+
+    /// <summary>
+    /// One cost row per entry, as <c>UIResourceCost.GetText</c> prints its number beside the
+    /// resource's icon; the icon is the resource, so the row names it.
+    /// </summary>
+    private static void AppendCosts(ResourceCostList? costs, string? prefix, Body body)
+    {
+        if (costs is null || costs.IsEmpty()) return;
+        foreach (var entry in costs.costs)
+        {
+            if (entry.resource is null) continue;
+            body.Add(
+                prefix + GameScientificNumber.Beautify(entry.resource.GetTrueSpend(entry.GetValue())) +
+                " " + entry.resource.GetName());
+        }
     }
 
     private static void AppendNodes(IReadOnlyList<TooltipNode>? nodes, Body body)
