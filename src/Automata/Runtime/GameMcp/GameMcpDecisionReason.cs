@@ -224,17 +224,9 @@ internal static class GameMcpDecisionReason
         "source_unavailable" or
         "no_current_offers" or
         "active_section_empty" or "control_unavailable" or "list_unavailable" or
-        // The UI gadgets. Every one of their codes used to fall to the default class, so a caller
-        // branching on the class was told the game had refused for all fourteen, including the
-        // three that are a bad argument, a miss, and a fact this build cannot read.
+        // The UI gadgets.
         "tooltip_match_failed" or "tooltip_content_unavailable" or
-        "native_plot_not_resolved" or "recipe_book_tile_not_found" or
-        // The page draws the tile and the suite found nothing on it the game clicks it with.
-        // There is still nothing to press, which is what the caller acts on.
-        "recipe_book_tile_not_clickable" or "no_modal_named" or
-        // A glyph the game draws no Recipe Book for. It used to answer world_not_published — the
-        // suite having read nothing at all — for a healthy read of a published world.
-        "no_recipe_book" or
+        "native_plot_not_resolved" or "no_modal_named" or
         "selection_unavailable" => ClassNotFound,
 
         // The target exists and is in the wrong state for this verb.
@@ -353,7 +345,7 @@ internal static class GameMcpDecisionReason
         // The UI gadgets again: a shell that is not drawing tabs, a build that exposes no plot
         // list or no queue-room reading, and the two guards the router already makes unreachable.
         "native_navigation_unavailable" or "native_plot_navigation_unavailable" or
-        "native_plot_list_unavailable" or "native_recipe_book_unavailable" or
+        "native_plot_list_unavailable" or
         "native_probe_unavailable" or
         "tooltip_contract_unavailable" or "tooltip_read_faulted" or
         // The tooltip's graph goes further than the projector walks, so the read was abandoned
@@ -685,7 +677,6 @@ internal static class GameMcpDecisionReason
 
         // A glyph the game draws no Recipe Book for. It answered `world_not_published` — the suite
         // having read nothing at all — for a perfectly healthy read of a published world.
-        "no_recipe_book" => "No recipe book for this glyph is in this run.",
         "offer_not_in_explainable_world" =>
             "This offer is on the screen but the world published no row for it, so nothing " +
             "further can be said about it.",
