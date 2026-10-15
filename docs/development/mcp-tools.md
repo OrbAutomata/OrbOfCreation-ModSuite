@@ -2608,21 +2608,18 @@ explicit native `AND`/`OR` nodes, authored order, and recursively expanded prere
 Every operator node carries its `children` list, so an entity with no requirements reads as an
 empty list rather than as an operator over an unstated set.
 
-**A named-tier gate is an ordinary operator node, and it names the tier the row asks for.** Its
-`needs` reads *the ScholarismUnlocked gate at tier 0* — the threshold on the row itself. It used to
-print the evaluator's `required`, which is hard-coded to one for every prerequisite-link leaf, so
-every named-tier gate in the game read "at tier 1" whichever tier it asked for. A met gate publishes
-nothing further, the rule every other leaf keeps. An unmet one lifts the asked-for tier's own
-conditions onto the leaf as `children` and counts the rest as `otherTiers`, so the shape a reader
-walks is the same leaf shape all the way down:
+**A gate reads as what its tier needs.** A prerequisite link is machinery no screen draws, so a
+gate row words its `needs` from the conditions of the one tier it asks about — the tier its own
+threshold names, or the base tier — and keeps the gate's own `met`, which is the game's
+`LinkDefinition.IsEnabled()`. A tier of one condition points at that condition's target; a tier of
+several joins them with *and*/*or* and, while the gate is shut, lists them as `children` in the
+ordinary leaf shape. An unmet gate counts the link's other rungs as `otherTiers`:
 
 ```
-needs: the ScholarismUnlocked gate at tier 0
+needs: Advanced Study at level 3 (at 1)
 met: no
+requirement: Advanced Study 5c1f2a
 otherTiers: 6
-children 1:
-  needs: Advanced Study
-  met: no
 ```
 
 The seventy-line `prerequisiteLinkTiers` block it replaces published every rung whether or not it
@@ -4197,9 +4194,8 @@ collected here so that one page answers what a name on an older transcript meant
   *Inline action results*.
 - **`prerequisiteLinkTiers`.** Seventy lines publishing every rung of a gate, each with its
   `tierIndex`, `selected`, `activeEnabled`, `passiveEnabled`, `evaluatedFrame`, `collectedFrame` and
-  `evaluatedThisFrame`. A named-tier gate is an operator node like any other: the asked-for tier's
-  conditions as `children`, the rest as a count under `otherTiers`, and nothing at all when the gate
-  is met — *The detail read*.
+  `evaluatedThisFrame`. A gate row reads as its asked-for tier's conditions, the rest a count under
+  `otherTiers` — *The detail read*.
 - **An `ERR_` class inside a fact row.** `inLedger: no (ERR_LOCKED)` on a resource row,
   `loadoutAdd: no (ERR_LIMIT)` on a spell row. A class is a branch instruction for a caller deciding
   what to press; a read states facts, and a fact about an entity refuses nothing. Reads print a

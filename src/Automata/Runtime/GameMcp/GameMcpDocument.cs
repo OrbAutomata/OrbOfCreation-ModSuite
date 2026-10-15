@@ -131,6 +131,7 @@ internal sealed class GameMcpArrayBuilder
     }
 
     internal int Count => _items.Count;
+    internal IReadOnlyList<GameMcpValue> Items => _items;
     internal void Add(object? value) => _items.Add(GameMcpValue.From(value));
     internal GameMcpArray Freeze() => new(_items);
 }
@@ -171,6 +172,19 @@ internal sealed class GameMcpObject : GameMcpValue
     }
 
     internal IReadOnlyList<GameMcpProperty> Properties => _properties;
+
+    internal GameMcpValue? this[string name]
+    {
+        get
+        {
+            for (var index = 0; index < _properties.Length; index++)
+            {
+                if (string.Equals(_properties[index].Name, name, StringComparison.Ordinal))
+                    return _properties[index].Value;
+            }
+            return null;
+        }
+    }
 }
 
 internal sealed class GameMcpArray : GameMcpValue

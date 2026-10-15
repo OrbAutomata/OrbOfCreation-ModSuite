@@ -575,29 +575,54 @@ public sealed class GameMcpEntityDetailTests : IDisposable
                 .Select(property => property.Name)
                 .ToArray());
 
-        // The gate names the tier it asks about, and only that tier. `Required` is the met pair's
-        // right-hand side, hard-coded to one for every PrerequisiteLink leaf, so this phrase read
-        // "at tier 1" for every named-tier gate in the game whatever tier it wanted; this link
-        // asks for tier 1 and the row beside it in the fixture asks for none.
+        // The gate reads as what the one tier it asks about needs, in the same words every other
+        // leaf uses. Named after its asset it read "the InnovationTiers gate", a name no screen
+        // draws, beside an id whose read was a dead end; a tier of one condition now points at
+        // that condition's own target, and the gate keeps its own `met`.
         var gate = top[1];
-        Assert.EndsWith(" gate at tier 2", (string?)gate["needs"]);
+        Assert.EndsWith(" at level 3 (at 0)", (string?)gate["needs"]);
+        Assert.DoesNotContain("gate", (string?)gate["needs"], StringComparison.Ordinal);
         Assert.False((bool)gate["met"]!);
+        Assert.Equal(GameMcpTestHarness.Handle(research.GetGuid()),
+            (string?)gate["requirement"]!["uuid"]);
         Assert.Null(gate["prerequisiteLinkTiers"]);
-
-        // The wall is gone. What is left is the one tier's own conditions, in the same leaf shape
-        // every other requirement uses, and a count of the rungs above it.
         Assert.Equal(2, (int)gate["otherTiers"]!);
-        var tierGroup = Assert.Single(gate["children"]!.OfType<JObject>())!;
-        Assert.Equal("AND", (string?)tierGroup["operator"]);
-        var tierLeaf = Assert.Single(tierGroup["children"]!.OfType<JObject>())!;
-        Assert.EndsWith(" at level 3 (at 0)", (string?)tierLeaf["needs"]);
-        Assert.False((bool)tierLeaf["met"]!);
+        Assert.Null(gate["children"]);
 
         // Tier 0 is the rung this row does not ask about, and none of its conditions, frame
         // counters or enabled flags ride along.
         Assert.DoesNotContain("at level 1", gate.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("at level 2", gate.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("evaluatedFrame", gate.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_met_gate_reads_as_what_its_tier_needs_and_points_at_it()
+    {
+        var owner = Upgrade();
+        var innovation = ResearchStub(level: 1);
+        var link = new global::PrerequisiteLinkSO();
+        global::PrerequisiteLinkSO.All.Add(link);
+        var tier = Tier(Require(innovation, 1));
+        tier.isPassiveEnabled = true;
+        link.linkTiers.Add(tier);
+        owner.prerequisitesPerLevel.prerequisites.Add(
+            new Requirements.PrerequisiteLinkRequirement
+            {
+                item = link,
+                reqType = Requirements.PrerequisiteLinkType.Base,
+            });
+
+        var result = Explain(Collect(), owner.GetGuid(), 921);
+
+        var root = Assert.IsType<JObject>(result["requirements"]!["root"]);
+        var gate = Assert.Single(root["children"]!.OfType<JObject>())!;
+        Assert.EndsWith(" at level 1", (string?)gate["needs"]);
+        Assert.DoesNotContain("gate", (string?)gate["needs"], StringComparison.Ordinal);
+        Assert.True((bool)gate["met"]!);
+        Assert.Equal(GameMcpTestHarness.Handle(innovation.GetGuid()),
+            (string?)gate["requirement"]!["uuid"]);
+        Assert.Null(gate["children"]);
     }
 
     [Fact]

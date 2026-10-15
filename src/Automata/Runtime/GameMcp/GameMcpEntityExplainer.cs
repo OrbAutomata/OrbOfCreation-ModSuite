@@ -933,7 +933,19 @@ internal static class GameMcpEntityExplainer
         // position, the native class, the selected value's internal name, and three thresholds of
         // which only one is ever displayed — was the suite explaining itself: a live round met the
         // one usable line in column ten of twenty and wrote down that it was buried.
-        var needs = RequirementNeeds(world, in row, in evaluated);
+        var tierUnmet = new JArray();
+        var tier = row.Kind == WorldRequirementConditionKind.PrerequisiteLink
+            ? LinkTierConditions(world, in row, in evaluated, checkLevel, trail, depth + 1, tierUnmet)
+            : null;
+        var sole = tier is { Count: 1 } ? SoleLeaf(tier.Items[0]) : null;
+        var needs = tier is null
+            ? RequirementNeeds(world, in row, in evaluated)
+            : TierNeeds(tier.Items, " and ");
+        var target = tier is null
+            ? row.TargetId
+            : Guid.TryParse(Text(sole?["requirementUuid"]), out var soleTarget)
+                ? soleTarget
+                : Guid.Empty;
         var leaf = new JObject
         {
             ["needs"] = needs,
@@ -950,20 +962,26 @@ internal static class GameMcpEntityExplainer
         if (evaluated.Verdict == WorldRequirementVerdict.Unevaluable)
             leaf["reasonCode"] = evaluated.ReasonCode;
 
-        if (row.TargetId != Guid.Empty)
+        if (target != Guid.Empty) leaf["requirementUuid"] = target.ToString("D");
+        if (!evaluated.Met && tierUnmet.Count > 0)
         {
-            leaf["requirementUuid"] = row.TargetId.ToString("D");
-            if (!evaluated.Met)
-            {
-                unmet.Add(new JObject
-                {
-                    ["requirementUuid"] = row.TargetId.ToString("D"),
-                    ["needs"] = needs,
-                });
-            }
+            foreach (var condition in tierUnmet.Items) unmet.Add(condition);
         }
-        if (row.Kind == WorldRequirementConditionKind.PrerequisiteLink)
-            AddLinkTier(world, leaf, in row, checkLevel, evaluated, trail, depth + 1, unmet);
+        else if (!evaluated.Met && target != Guid.Empty)
+        {
+            unmet.Add(new JObject
+            {
+                ["requirementUuid"] = target.ToString("D"),
+                ["needs"] = needs,
+            });
+        }
+        if (row.Kind == WorldRequirementConditionKind.PrerequisiteLink && !evaluated.Met)
+        {
+            if (TierCount(world, row.TargetId) is var tiers and > 1) leaf["otherTiers"] = tiers - 1;
+            if (tier is null && TierPublished(world, in row, in evaluated) is false)
+                leaf["reasonCode"] = "tier_not_published";
+            if (tier is not null && sole is null) leaf["children"] = tier;
+        }
         return leaf;
     }
 
@@ -977,57 +995,102 @@ internal static class GameMcpEntityExplainer
         row.ReqType == 0 ? 0L : BigDouble.Round(evaluation.ScaledThreshold).ToLong();
 
     /// <summary>
-    /// What the one tier this row asks about needs, on the rows that are not met.
+    /// The conditions of the one tier this gate row asks about, or <see langword="null"/> when the
+    /// world publishes none for it.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This used to publish every tier of the link: seven blocks of frame counters, enabled flags
-    /// and a whole requirement container each — about seventy lines — for a row that asks about
-    /// exactly one of them. <c>evaluatedFrame</c>, <c>collectedFrame</c> and
-    /// <c>evaluatedThisFrame</c> are the game's own bookkeeping and answer nothing a reader can
-    /// act on; <c>selected</c> and <c>activeEnabled</c>/<c>passiveEnabled</c> restated the
-    /// <c>met</c> the leaf already carries.
+    /// A gate is a <c>PrerequisiteLinkSO</c>, and the player never sees one: its tooltip node is
+    /// hidden and its id answers to no screen. What the game checks through it is
+    /// <c>LinkDefinition.IsEnabled()</c> — the tier's own container, and the gate's binding — so the
+    /// row keeps the gate's <c>met</c> and words its <c>needs</c> from the tier's conditions. Named
+    /// after the asset it read "the InnovationTiers gate", a name no screen draws, beside an id
+    /// whose read was a dead end.
     /// </para>
     /// <para>
-    /// A met row is fully answered by <c>needs</c> and <c>met</c>, the same rule every other leaf
-    /// keeps. An unmet one becomes an ordinary operator node: the tier's own conditions are its
-    /// <c>children</c>, in the same leaf shape as every other requirement — which is where the
-    /// upgrade that opens the gate is finally named — and <c>otherTiers</c> counts the link's
-    /// later rungs, so the reader knows they exist without being handed all of them.
+    /// A tier of one condition is that condition, so the row points at its target and carries no
+    /// children. A tier of several lists them as <c>children</c> while the gate is shut, in the
+    /// same leaf shape as every other requirement, and <c>otherTiers</c> counts the link's other
+    /// rungs. Frame counters and enabled flags are the game's bookkeeping and stay off the wire.
     /// </para>
     /// </remarks>
-    private static void AddLinkTier(
+    private static JArray? LinkTierConditions(
         GameWorldState world,
-        JObject leaf,
         in WorldEntityRequirement row,
-        long checkLevel,
         in WorldRequirementLeafEvaluation evaluation,
+        long checkLevel,
         HashSet<RequirementKey> trail,
         int depth,
         JArray unmet)
     {
+        if (TierPublished(world, in row, in evaluation) is not true) return null;
+        var container = ProjectRequirementContainer(
+            world, row.TargetId, (int)SelectedTier(in row, in evaluation), checkLevel, trail, depth,
+            unmet);
+        return container["children"] is JArray { Count: > 0 } children ? children : null;
+    }
+
+    private static int TierCount(GameWorldState world, Guid linkId)
+    {
+        var count = 0;
+        for (var index = 0; index < world.PrerequisiteLinkTiers.Count; index++)
+        {
+            if (world.PrerequisiteLinkTiers[index].LinkId == linkId) count++;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Whether the world publishes the tier this row asks about; <see langword="null"/> for a link
+    /// it publishes no tier of at all.
+    /// </summary>
+    private static bool? TierPublished(
+        GameWorldState world,
+        in WorldEntityRequirement row,
+        in WorldRequirementLeafEvaluation evaluation)
+    {
         var selectedTier = SelectedTier(in row, in evaluation);
-        var tierCount = 0;
-        var published = false;
+        bool? published = null;
         for (var index = 0; index < world.PrerequisiteLinkTiers.Count; index++)
         {
             var tier = world.PrerequisiteLinkTiers[index];
             if (tier.LinkId != row.TargetId) continue;
-            tierCount++;
-            published |= tier.TierIndex == selectedTier;
+            published = published is true || tier.TierIndex == selectedTier;
         }
-        if (tierCount == 0 || evaluation.Met) return;
-        if (tierCount > 1) leaf["otherTiers"] = tierCount - 1;
-        if (!published)
-        {
-            leaf["reasonCode"] = "tier_not_published";
-            return;
-        }
-        var container = ProjectRequirementContainer(
-            world, row.TargetId, (int)selectedTier, checkLevel, trail, depth, unmet);
-        if (container["children"] is JArray children && children.Count > 0)
-            leaf["children"] = children;
+        return published;
     }
+
+    private static GameMcpObject? SoleLeaf(GameMcpValue node)
+    {
+        while (node is GameMcpObject { } group && group["operator"] is not null)
+        {
+            if (group["children"] is not GameMcpArray { Items.Count: 1 } children) return null;
+            node = children.Items[0];
+        }
+        return node is GameMcpObject leaf && leaf["needs"] is not null ? leaf : null;
+    }
+
+    private static string TierNeeds(IReadOnlyList<GameMcpValue> children, string separator)
+    {
+        var parts = new List<string>(children.Count);
+        foreach (var child in children)
+        {
+            if (child is not GameMcpObject node) continue;
+            if (node["children"] is GameMcpArray arms)
+            {
+                var joined = TierNeeds(arms.Items, Text(node["operator"]) == "OR" ? " or " : " and ");
+                parts.Add(arms.Items.Count > 1 && children.Count > 1 ? "(" + joined + ")" : joined);
+            }
+            else
+            {
+                parts.Add(Text(node["needs"]) ?? "a condition the suite cannot read");
+            }
+        }
+        return string.Join(separator, parts);
+    }
+
+    private static string? Text(GameMcpValue? value) =>
+        value is GameMcpScalar { Value: string text } ? text : null;
 
     private static JObject? ResearchThresholds(GameWorldState world, Guid id, EntityKind kind)
     {
