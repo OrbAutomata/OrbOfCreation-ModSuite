@@ -844,6 +844,32 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(readyRow.MasteryLevel, bankingRow.MasteryLevel);
     }
 
+    /// <summary>
+    /// Whether a recipe's "use effectively" requirements hold is the game's answer, and it decides
+    /// whether <c>penaltyUsageCost</c> is part of the spell's weight.
+    /// </summary>
+    [Fact]
+    public void ASpellRecipePublishesWhetherItsUsageRequirementsHold()
+    {
+        var unmet = Guid.NewGuid();
+        var met = Guid.NewGuid();
+        FakeSpellRecipe.All.Add(new FakeSpellRecipe
+        {
+            Identity = unmet, penaltyUsageCost = 6, usageRequirementsMet = false,
+        });
+        FakeSpellRecipe.All.Add(new FakeSpellRecipe { Identity = met, penaltyUsageCost = 6 });
+
+        var collector = Collector();
+        collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(WorldLookup.TryFind(world.SpellRecipes, unmet, out var unmetRow));
+        Assert.False(unmetRow.UsageRequirementsMet);
+        Assert.Equal(6, unmetRow.PenaltyUsageCost);
+        Assert.True(WorldLookup.TryFind(world.SpellRecipes, met, out var metRow));
+        Assert.True(metRow.UsageRequirementsMet);
+    }
+
     [Fact]
     public void SpellDiscoveryAndLoadoutCapacityArePublishedFromTheirOwningNativeSurfaces()
     {

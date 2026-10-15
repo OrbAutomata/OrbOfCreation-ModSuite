@@ -10,6 +10,9 @@ there is double-blocked, needing both a free spot and three free weight.
 
 **Spots are parallel cooldown lanes** (throughput); **weight is capacity** (what you may carry).
 
+A spell's weight is its authored upkeep while its "use effectively" requirements are met, and its
+upkeep plus an authored penalty until they are; spell types can take weight off.
+
 Spot count is authored: base **3**, the **Bandwidth** upgrade adds one, and the **Casting Mastery**
 research adds one, for a maximum of **five** in the authored data. The weight budget is raised by
 `Improved Spell Weight`. The same budget appears under three different names; see

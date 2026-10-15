@@ -257,7 +257,26 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
     public List<GlyphSO> GetGlyphRecipe() => new List<GlyphSO>(coreRecipe);
     public List<ResourceSO> GetResourceRecipe() => new List<ResourceSO>();
     public ResourceCostList GetDiscoverCost() => baseDiscoveryCost;
-    public ResourceCostList GetUsageCost() => baseUsageCost;
+
+    /// <summary>
+    /// The game's own: <c>baseUsageCost</c>, plus <c>penaltyUsageCost</c> on every row while the
+    /// "use effectively" requirements are unmet.
+    /// </summary>
+    public ResourceCostList GetUsageCost()
+    {
+        if (HasMetUsageRequirements()) return baseUsageCost;
+        var penalized = new ResourceCostList
+        {
+            WithinCapacity = baseUsageCost.WithinCapacity,
+            affordable = baseUsageCost.affordable,
+            AffordableLevels = baseUsageCost.AffordableLevels,
+        };
+        foreach (var row in baseUsageCost.costs)
+            penalized.costs.Add(new ResourceTuple(
+                row.resource, row.GetValue() + new BigDouble(penaltyUsageCost)));
+        return penalized;
+    }
+
     public Spell CreateEmpty(int _) => new Spell(this)
     {
         NativeUnique = NativeUniqueSpell,

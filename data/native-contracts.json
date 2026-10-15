@@ -15048,6 +15048,26 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
+      "id": "spell-recipe.has-met-usage-requirements",
+      "assembly": "assembly-csharp",
+      "type": "SpellRecipeSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "HasMetUsageRequirements",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": ["latches Prerequisites.Container.available through usagePrerequisites.Check()"], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "IL: SpellRecipeSO.HasMetUsageRequirements() -> usagePrerequisites.Check()"}
+    },
+    {
       "id": "spell-recipe.purchase-level",
       "assembly": "assembly-csharp",
       "type": "SpellRecipeSO",
@@ -22411,6 +22431,25 @@
       "parameters": [
         "BigDouble"
       ],
+      "owners": [
+        "Automata spell workbench GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-workbench.resource-get-missing-action",
+      "assembly": "assembly-csharp",
+      "type": "ResourceSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetMissing",
+      "visibility": "public",
+      "static": false,
+      "returnType": "BigDouble",
+      "parameters": [],
       "owners": [
         "Automata spell workbench GameAction"
       ],

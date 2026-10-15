@@ -1626,8 +1626,9 @@ internal sealed class FakeSpellRecipe : FakeIdRegistry, global::IDiscoverable
     public List<global::ResourceSO> genericDiscoveryResources = new();
     public bool NativeDiscoverVisible = true;
     public bool NativeCanDiscover = true;
+    public bool usageRequirementsMet = true;
 
-
+    public bool HasMetUsageRequirements() => usageRequirementsMet;
     public bool IsReadyToLevelMastery() => readyToLevel;
     public List<FakeGlyph> GetGlyphRecipe() => new(coreRecipe);
     List<global::GlyphSO> global::IDiscoverable.GetGlyphRecipe()

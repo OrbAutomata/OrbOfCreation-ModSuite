@@ -6921,6 +6921,8 @@ internal static class GameMcpWorldQuery
         if (holdings.Count > 0) result["equipped"] = holdings;
 
         result["loadBudget"] = ProjectSpellLoadBudget(world);
+        var weight = SpellWeight(world, in recipe);
+        if (weight.Count > 0) result["weight"] = SpellWeightText(world, in recipe, weight);
 
         var next = new JObject();
         if (recipe.Discovered)
@@ -6933,7 +6935,9 @@ internal static class GameMcpWorldQuery
             // not unlocked draws no row at all, so the loadout being empty says nothing about
             // whether the press exists.
             var unlocked = IsScreenUnlocked(world, KnownEntities.MagicSpellbookLoadout.Uuid);
-            var available = unlocked && world.SpellWorkbench.HasEmptySlot;
+            var weightShortfall = SpellWeightShortfall(world, weight);
+            var available = unlocked && world.SpellWorkbench.HasEmptySlot &&
+                weightShortfall.Length == 0;
             next["available"] = available;
             next["acceptsAugments"] = true;
             if (!unlocked)
@@ -6942,7 +6946,7 @@ internal static class GameMcpWorldQuery
                 next["reason"] = GameMcpDecisionReason.ScreenLocked(
                     KnownEntities.MagicSpellbookLoadout.Uuid);
             }
-            else if (!available)
+            else if (!world.SpellWorkbench.HasEmptySlot)
             {
                 // Both sides of the ceiling, so the retry needs no second read.
                 next["reason"] = "the bar is full (" +
@@ -6951,13 +6955,16 @@ internal static class GameMcpWorldQuery
                     world.SpellWorkbench.MaximumEquipped.ToString(CultureInfo.InvariantCulture) +
                     ")";
             }
+            else if (!available)
+            {
+                next["reason"] = weightShortfall;
+            }
             else
             {
-                // What is left for the verb to decide reads facts no recipe row carries: whether
-                // the loadout's spell weight covers the candidate spell the chosen augments make,
-                // and whether those augments meet their own duration/toggle requirements and fit
-                // the augment selection's slots. Naming them keeps `available: yes` to what it can
-                // prove — that nothing readable here refuses.
+                // The bare spell's weight is answered above. What is left for the verb reads facts
+                // no recipe row carries: the weight the chosen augments add, and whether those
+                // augments meet their own duration/toggle requirements and fit the augment
+                // selection's slots.
                 //
                 // The unique-spell rule was a fourth until the world published the fact it reads:
                 // every equipped instance of this recipe is on this same row under `equipped`, each
@@ -6965,8 +6972,7 @@ internal static class GameMcpWorldQuery
                 // it here would tell a caller to wait for an answer it already holds. The verb still
                 // re-reads it live before it stages anything, and refuses in exactly the same words.
                 next["notYetChecked"] =
-                    "Whether the spell these augments make fits the loadout's spell weight, and " +
-                    "whether the augments meet their own requirements, is settled by the press.";
+                    "Augments add their own weight and requirements, which the press settles.";
             }
 
             // Published on both sides of the answer. The vocabulary a caller needs in order to plan
@@ -7013,6 +7019,97 @@ internal static class GameMcpWorldQuery
         result[recipe.Discovered ? "loadoutAdd" : "discover"] = next;
         AddAuthoredSpellGraph(world, recipe.EntityId, result);
         return result.Freeze();
+    }
+
+    /// <summary>
+    /// The spell weight the game charges to load this recipe with no augment staged, per resource.
+    /// </summary>
+    /// <remarks>
+    /// <c>Spell.GetUsageCost()</c>: the recipe's <c>baseUsageCost</c>, plus
+    /// <c>penaltyUsageCost</c> on every row while <c>HasMetUsageRequirements()</c> is false, minus
+    /// the <c>usageCostReduction</c> of each type in <c>GetAllSpellTypes()</c> (the recipe's
+    /// <c>notSpellTypes</c> when nothing is augmented), floored at zero. The Loadout tile prints
+    /// this number, and <c>GetUsageCostOfSpell</c> is what the add gate weighs.
+    /// </remarks>
+    private static List<(Guid ResourceId, BigDouble Weight)> SpellWeight(
+        GameWorldState world,
+        in WorldSpellRecipe recipe)
+    {
+        var rows = new List<(Guid, BigDouble)>();
+        if (!WorldSpellGraphLookup.TryFindCosts(
+                world.SpellAuthoredCosts, recipe.EntityId, out var start, out var count))
+            return rows;
+        var penalty = recipe.UsageRequirementsMet
+            ? BigDouble.Zero
+            : new BigDouble(recipe.PenaltyUsageCost);
+        var reduction = SpellTypeWeightReduction(world, recipe.EntityId);
+        for (var index = start; index < start + count; index++)
+        {
+            var cost = world.SpellAuthoredCosts[index];
+            if (cost.Kind != WorldSpellAuthoredCostKind.Usage) continue;
+            rows.Add((cost.ResourceId,
+                BigDouble.Max(cost.Amount + penalty - reduction, BigDouble.Zero)));
+        }
+        return rows;
+    }
+
+    private static BigDouble SpellTypeWeightReduction(GameWorldState world, Guid recipeId)
+    {
+        var reduction = BigDouble.Zero;
+        if (!WorldSpellGraphLookup.TryFindRelations(
+                world.SpellRelations, recipeId, out var start, out var count))
+            return reduction;
+        for (var index = start; index < start + count; index++)
+        {
+            var relation = world.SpellRelations[index];
+            if (relation.Kind == WorldSpellRelationKind.NotSpellType &&
+                WorldLookup.TryFind(world.SpellTypes, relation.TargetId, out var type))
+                reduction += type.UsageCostReduction;
+        }
+        return reduction;
+    }
+
+    /// <summary>The weight a player reads under the Loadout tile, and why it is not the authored one.</summary>
+    private static string SpellWeightText(
+        GameWorldState world,
+        in WorldSpellRecipe recipe,
+        List<(Guid ResourceId, BigDouble Weight)> weight)
+    {
+        var text = new System.Text.StringBuilder();
+        for (var index = 0; index < weight.Count; index++)
+        {
+            if (index > 0) text.Append(", ");
+            text.Append(GameMcpNumberFormatter.Format(weight[index].Weight)).Append(' ')
+                .Append(EntityIdentityFormatter.PlayerName(
+                    weight[index].ResourceId, world.EntityIdentities));
+        }
+        if (!recipe.UsageRequirementsMet && recipe.PenaltyUsageCost != 0)
+            text.Append(", including ")
+                .Append(recipe.PenaltyUsageCost.ToString(CultureInfo.InvariantCulture))
+                .Append(" more until its \"use effectively\" requirements are met");
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// Why the bare spell does not fit the weight the bar has free, with both numbers and the gap,
+    /// or empty when it fits. The comparison is <c>ResourceSO.HasAmount</c>'s.
+    /// </summary>
+    private static string SpellWeightShortfall(
+        GameWorldState world,
+        List<(Guid ResourceId, BigDouble Weight)> weight)
+    {
+        for (var index = 0; index < weight.Count; index++)
+        {
+            var (resourceId, amount) = weight[index];
+            if (!WorldLookup.TryFind(world.Resources, resourceId, out var resource) ||
+                WorldResourceCoordinate.HasAmount(in resource, amount)) continue;
+            var free = WorldResourceCoordinate.SpendableAmount(in resource);
+            return SpellWorkbenchGameAction.WeightShortfall(
+                EntityIdentityFormatter.PlayerName(resourceId, world.EntityIdentities),
+                amount,
+                free);
+        }
+        return string.Empty;
     }
 
     /// <summary>

@@ -193,6 +193,41 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     }
 
     /// <summary>
+    /// A load that does not fit names the weight the game charges, the room left, and the gap.
+    /// </summary>
+    /// <remarks>
+    /// Sanctify is authored at 6 and the game charged 12 with its "use effectively" requirements
+    /// unmet; the refusal said only that the load "would push Spell Capacity past its allocation",
+    /// so a player freeing room had to guess how much.
+    /// </remarks>
+    [Fact]
+    public void LoadoutAddNamesTheWeightTheGameChargesAndTheRoomLeft()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var capacity = new ResourceSO
+        {
+            bandwidthResource = true,
+            quantity = new BigDouble(24),
+            maxQuantity = new ValueModifierRecord(new BigDouble(31)),
+        };
+        recipe.baseUsageCost.costs.Add(new ResourceTuple(capacity, new BigDouble(6)));
+        recipe.penaltyUsageCost = 6;
+        recipe.NativeUsageRequirementsMet = false;
+        using var action = Action();
+
+        var refused = action.Submit(new SpellWorkbenchAction(
+            recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
+
+        Assert.Equal(SpellWorkbenchPreflight.UsageUnaffordable, refused.Preflight);
+        Assert.Equal(
+            "Loading " + Name(recipe) + " would push " + Name(capacity) + " past its allocation. " +
+            "It weighs 12 " + Name(capacity) + " and 7 is free. Remove loaded spells weighing 5 " +
+            "more, or raise that allocation.",
+            refused.Reason);
+        Assert.Empty(SpellManager.instance!.activeSpells.value);
+    }
+
+    /// <summary>
     /// The game's augment selection holds a fixed number of different augments, and a stack write
     /// is not gated the way the player's clicks are.
     /// </summary>

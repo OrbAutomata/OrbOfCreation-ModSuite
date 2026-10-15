@@ -30,6 +30,7 @@ internal sealed class SpellWorkbenchNativeBindings
         "resource-tuple.get-value",
         "resource-tuple.resource-concept",
         "spell-workbench.resource-has-amount-action",
+        "spell-workbench.resource-get-missing-action",
         "spell-workbench.glyph-is-available",
         "spell-workbench.glyph-is-augment",
         "spell-composition.glyph-maximum-uses-action",
@@ -63,6 +64,7 @@ internal sealed class SpellWorkbenchNativeBindings
         Func<object, bool> hasEnough,
         Func<object, IList> costEntries, Func<object, BigDouble> costValue,
         Func<object, object?> costResource, Func<object, BigDouble, bool> resourceHasAmount,
+        Func<object, BigDouble> resourceMissing,
         Func<IList> createGlyphList, Func<object, bool> glyphAvailable,
         Func<object, bool> glyphAugment, Func<object, int> glyphMaximumUsages,
         Action<object, object> setListStack, Func<object, object?> readListStack,
@@ -98,6 +100,7 @@ internal sealed class SpellWorkbenchNativeBindings
         ReadCostValue = costValue;
         ReadCostResource = costResource;
         HasResourceAmount = resourceHasAmount;
+        ReadResourceMissing = resourceMissing;
         CreateGlyphList = createGlyphList;
         IsGlyphAvailable = glyphAvailable;
         IsGlyphAugment = glyphAugment;
@@ -154,6 +157,9 @@ internal sealed class SpellWorkbenchNativeBindings
     internal Func<object, BigDouble> ReadCostValue { get; }
     internal Func<object, object?> ReadCostResource { get; }
     internal Func<object, BigDouble, bool> HasResourceAmount { get; }
+
+    /// <summary><c>ResourceSO.GetMissing()</c>: the room a bandwidth allocation has left.</summary>
+    internal Func<object, BigDouble> ReadResourceMissing { get; }
     internal Func<IList> CreateGlyphList { get; }
     internal Func<object, bool> IsGlyphAvailable { get; }
     internal Func<object, bool> IsGlyphAugment { get; }
@@ -255,6 +261,7 @@ internal sealed class SpellWorkbenchNativeBindings
             var costValue = Method(costTupleType, "GetValue", bigDoubleType);
             var costResource = Field(costTupleType, "resource", resourceType, false);
             var hasResourceAmount = Method(resourceType, "HasAmount", typeof(bool), bigDoubleType);
+            var resourceMissing = Method(resourceType, "GetMissing", bigDoubleType);
             var glyphAvailable = Method(glyphType, "IsAvailable", typeof(bool));
             var glyphAugment = Method(glyphType, "IsSpellAugment", typeof(bool));
             var glyphMaximumUsages = Method(glyphType, "GetMaxUsages", typeof(int));
@@ -290,6 +297,7 @@ internal sealed class SpellWorkbenchNativeBindings
                 InstanceFunc<bool>(enough),
                 InstanceList(costEntries), InstanceFunc<BigDouble>(costValue),
                 ObjectNullableField(costResource), InstanceValueFunc<BigDouble, bool>(hasResourceAmount),
+                InstanceFunc<BigDouble>(resourceMissing),
                 NewList(glyphList),
                 InstanceFunc<bool>(glyphAvailable),
                 InstanceFunc<bool>(glyphAugment),

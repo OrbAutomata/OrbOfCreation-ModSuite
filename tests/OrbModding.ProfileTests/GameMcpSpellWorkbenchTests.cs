@@ -292,6 +292,44 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal("8", (string?)usage["maximum"]);
     }
 
+    /// <summary>
+    /// The Sanctify moment: a spell weighs what the game charges, not what it is authored at.
+    /// </summary>
+    /// <remarks>
+    /// <c>Spell.GetUsageCost()</c> adds <c>penaltyUsageCost</c> while the recipe's "use
+    /// effectively" requirements are unmet. A round read authored upkeep 6, headroom 7 and
+    /// <c>loadoutAdd: available: yes</c>, got a refusal with no number in it, and had to ask for a
+    /// screenshot to learn the tile printed a red 12.
+    /// </remarks>
+    [Fact]
+    public void A_recipe_reads_the_weight_the_game_charges_and_the_room_it_needs()
+    {
+        var unmet = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(World(
+                discovered: true, discoveryAffordable: true, hasEmptySlot: true,
+                usageBudget: true, held: 24, spendable: 7, authoredWeight: 6, penaltyWeight: 6,
+                usageRequirementsMet: false)),
+            "spell-recipes", RecipeId.ToString("D")))["row"]!;
+
+        Assert.Equal(
+            "12 Knowledge, including 6 more until its \"use effectively\" requirements are met",
+            (string?)unmet["weight"]);
+        Assert.False((bool)unmet["loadoutAdd"]!["available"]!);
+        Assert.Equal(
+            "It weighs 12 Knowledge and 7 is free. Remove loaded spells weighing 5 more, or " +
+            "raise that allocation.",
+            (string?)unmet["loadoutAdd"]!["reason"]);
+
+        var met = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(World(
+                discovered: true, discoveryAffordable: true, hasEmptySlot: true,
+                usageBudget: true, held: 24, spendable: 7, authoredWeight: 6, penaltyWeight: 6)),
+            "spell-recipes", RecipeId.ToString("D")))["row"]!;
+
+        Assert.Equal("6 Knowledge", (string?)met["weight"]);
+        Assert.True((bool)met["loadoutAdd"]!["available"]!);
+    }
+
     [Fact]
     public void StructurallyUnavailableLoadoutAddWithholdsPriceClaimsButNotTheVocabulary()
     {
@@ -350,8 +388,7 @@ public sealed class GameMcpSpellWorkbenchTests
         // A sentence, not two mechanism words in a list under a key named after the verb.
         Assert.Null(decision["verbDecides"]);
         Assert.Equal(
-            "Whether the spell these augments make fits the loadout's spell weight, and whether " +
-            "the augments meet their own requirements, is settled by the press.",
+            "Augments add their own weight and requirements, which the press settles.",
             (string?)decision["notYetChecked"]);
     }
 
@@ -677,7 +714,10 @@ public sealed class GameMcpSpellWorkbenchTests
         bool loadoutScreenUnlocked = true,
         bool masteryReady = false,
         int held = 5,
-        int spendable = 3)
+        int spendable = 3,
+        int authoredWeight = 0,
+        int penaltyWeight = 0,
+        bool usageRequirementsMet = true)
     {
         var glyphs = PublicationTable<WorldSpellRecipeGlyph>.Create(new[]
         {
@@ -720,7 +760,7 @@ public sealed class GameMcpSpellWorkbenchTests
                     masteryReady,
                     false,
                     false,
-                    0,
+                    penaltyWeight,
                     1d,
                     1,
                     false,
@@ -740,8 +780,17 @@ public sealed class GameMcpSpellWorkbenchTests
                         discovered,
                         required: false,
                         affordable: discoveryAffordable,
-                        costs: discoveryCosts)),
+                        costs: discoveryCosts),
+                    usageRequirementsMet: usageRequirementsMet),
             }),
+            SpellAuthoredCosts = authoredWeight > 0
+                ? PublicationTable<WorldSpellAuthoredCost>.Create(new[]
+                {
+                    new WorldSpellAuthoredCost(
+                        RecipeId, WorldSpellAuthoredCostKind.Usage, 0, ResourceId,
+                        new BigDouble(authoredWeight)),
+                })
+                : PublicationTable<WorldSpellAuthoredCost>.Empty,
             // Only the augment is a row. The recipe's two core entries are retired unlocker ids the
             // world publishes no glyph for, which is why a core glyph's level cannot reach this page.
             AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]

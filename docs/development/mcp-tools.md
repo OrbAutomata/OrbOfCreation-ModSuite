@@ -2116,9 +2116,15 @@ own screen has: `screen_locked` when Magic > Spellbook > Unlock is not unlocked,
 `components_unavailable` when the game builds the recipe from glyphs and it names none,
 `not_visible`, `discovery_unavailable`, or `unaffordable`.
 
+A discovered recipe's `weight` is what loading the bare spell charges, in the game's own math:
+authored upkeep, plus the penalty while the spell's "use effectively" requirements are unmet (`12
+Knowledge, including 6 more until its "use effectively" requirements are met`), less what its spell
+types take off. `loadoutAdd` weighs that against the allocation's free room, so a spell that does
+not fit reads `available: no` with the sentence the press refuses with: `It weighs 12 Knowledge and
+7 is free. Remove loaded spells weighing 5 more, or raise that allocation.`
+
 Where the page says `available: yes` it also says under `notYetChecked`, in one sentence, what only
-the press settles: whether the spell these augments make fits the loadout's spell weight, and
-whether the augments meet their own requirements. It is a sentence and not a list of tokens,
+the press settles: the weight and requirements augments add. It is a sentence and not a list of tokens,
 because a list of two words a reader has never seen sends them looking for a vocabulary page that
 does not exist. The page predicts what it can read and promises nothing about the rest; it never
 states a rule the game's add path does not have. The unique-spell rule was a fourth entry until the

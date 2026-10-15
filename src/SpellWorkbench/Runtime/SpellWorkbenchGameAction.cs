@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.GameMath;
 
 namespace OrbAutomata;
 
@@ -551,15 +553,17 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         var usageCost = native.GetUsageCost(candidate);
         if (!native.HasEnough(usageCost))
         {
-            var shortResourceId = ReadShortUsageResourceId(native, usageCost);
             return Refuse(
                 SpellWorkbenchPreflight.UsageUnaffordable,
-                shortResourceId == Guid.Empty
-                    ? "Loading " + recipeName +
-                        " would push the loadout past its usage allocation."
-                    : "Loading " + recipeName + " would push " +
+                TryReadShortUsage(native, usageCost, out var shortResourceId, out var needed,
+                        out var free)
+                    ? "Loading " + recipeName + " would push " +
                         EntityIdentityFormatter.PlayerName(shortResourceId) +
-                        " past its allocation. Remove a loaded spell, or raise that allocation.",
+                        " past its allocation. " +
+                        WeightShortfall(EntityIdentityFormatter.PlayerName(shortResourceId),
+                            needed, free)
+                    : "Loading " + recipeName +
+                        " would push the loadout past its usage allocation.",
                 out refusal, out reason);
         }
         var activeList = native.ReadActive(manager);
@@ -774,18 +778,45 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         return result;
     }
 
-    private static Guid ReadShortUsageResourceId(
+    private static bool TryReadShortUsage(
         SpellWorkbenchNativeBindings native,
-        object usageCost)
+        object usageCost,
+        out Guid resourceId,
+        out BigDouble needed,
+        out BigDouble free)
     {
         var totals = ReadUsageTotals(native, usageCost);
         for (var index = 0; index < totals.Count; index++)
         {
             var value = totals[index];
-            if (!native.HasResourceAmount(value.Resource, value.Cost))
-                return value.Id;
+            if (native.HasResourceAmount(value.Resource, value.Cost)) continue;
+            resourceId = value.Id;
+            needed = value.Cost;
+            free = native.ReadResourceMissing(value.Resource);
+            return true;
         }
-        return Guid.Empty;
+        resourceId = Guid.Empty;
+        needed = BigDouble.Zero;
+        free = BigDouble.Zero;
+        return false;
+    }
+
+    /// <summary>
+    /// A spell that does not fit the weight left on the bar, in the numbers the Loadout tile and the
+    /// allocation's own counter print, and the gap a removal has to close.
+    /// </summary>
+    /// <remarks>
+    /// <c>ResourceSO.HasUsageMissing</c> snaps both sides to whole numbers before comparing, so the
+    /// numbers here are snapped the same way.
+    /// </remarks>
+    internal static string WeightShortfall(string resourceName, BigDouble needed, BigDouble free)
+    {
+        var weight = OrbGameMath.SnapFloorToInt(needed);
+        var left = OrbGameMath.SnapFloorToInt(free);
+        return "It weighs " + weight.ToString(CultureInfo.InvariantCulture) + " " + resourceName +
+            " and " + left.ToString(CultureInfo.InvariantCulture) + " is free. Remove loaded " +
+            "spells weighing " + (weight - left).ToString(CultureInfo.InvariantCulture) +
+            " more, or raise that allocation.";
     }
 
     private static List<(Guid Id, object Resource, BigDouble Cost)> ReadUsageTotals(
