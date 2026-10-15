@@ -3615,7 +3615,8 @@ yet seen the press. When neither face arrives inside the settlement budget the a
 committed and says so, rather than describing a slot the cast has not reached. It carries no cast
 counter at all. The game writes that counter when a cast *completes*, frames after the press and
 sometimes before the next world is published, so it was the same number whether the press landed or
-was dropped. A press at a spell that is already running is refused rather than committed silently —
+was dropped. A press at a spell that is already running, or still starting its own cast, is refused
+rather than committed silently —
 the game's own button answers it with a warning popup or an end-of-cast, never with a new cast — so
 a repeated fire can never look like a firing loop that is doing nothing. A press while a *different*
 spell is still readying is refused the same way and names the spell holding the caster, because

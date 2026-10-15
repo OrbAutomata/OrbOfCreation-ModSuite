@@ -210,6 +210,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     private MethodInfo? _isEmpty;
     private MethodInfo? _canFire;
     private MethodInfo? _isCasting;
+    private MethodInfo? _isReadyingCast;
     private MethodInfo? _isToggled;
     private MethodInfo? _canCancelSpells;
     private MethodInfo? _getReference;
@@ -235,19 +236,29 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                     AutoCastPreflight.TargetingInProgress, "a target request was already active");
             }
 
-            if (IsCasterBusy())
-            {
-                return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.CasterBusy,
-                    "another spell is still casting, and the game casts one spell at a time");
-            }
-
             if (!TryResolveSlot(
                     slotIndex, spellRecipeId, out var spell, out var identityReason,
                     out var occupant))
             {
                 return AutoCastSubmission.Rejected(
                     AutoCastPreflight.SlotIdentityChanged, identityReason, occupant);
+            }
+
+            // SpellManager.CanCastASpell() is false while any loaded spell is readying a cast, this
+            // one included, so the press's own spell is asked first and "another spell" is only
+            // said when it is true.
+            if (_isReadyingCast!.Invoke(spell, Array.Empty<object>()) is true)
+            {
+                return AutoCastSubmission.Rejected(
+                    AutoCastPreflight.AlreadyCasting,
+                    "the spell is still starting its cast, so the press would start no cast");
+            }
+
+            if (IsCasterBusy())
+            {
+                return AutoCastSubmission.Rejected(
+                    AutoCastPreflight.CasterBusy,
+                    "another spell is still casting, and the game casts one spell at a time");
             }
 
             if (_blockedSpells.TryGetValue(spellRecipeId, out var blocked))
@@ -457,6 +468,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         _canCast = null;
         _canFire = null;
         _isCasting = null;
+        _isReadyingCast = null;
         _isToggled = null;
         _canCancelSpells = null;
         _getReference = null;
@@ -812,6 +824,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             _isEmpty = FindMethod(_spellType, "IsEmpty");
             _canFire = FindMethod(_spellType, "CanFire");
             _isCasting = FindMethod(_spellType, "IsCasting");
+            _isReadyingCast = FindMethod(_spellType, "IsReadyingCast");
             _isToggled = FindMethod(_spellType, "IsToggledSpell");
             _canCancelSpells = _settingsType.GetMethod(
                 "CanCancelSpells", StaticFlags, null, Type.EmptyTypes, null);
@@ -827,7 +840,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             if (_activeSpellsValue is null || _fireSpellIndex is null || _canCastASpell is null ||
                 _isTargeting is null || _getTargetingLink is null || _submitTarget is null ||
                 _canCast is null || _canCharge is null || _isEmpty is null ||
-                _canFire is null || _isCasting is null ||
+                _canFire is null || _isCasting is null || _isReadyingCast is null ||
                 _isToggled is null || _canCancelSpells is null || _setChargeInput is null)
             {
                 return Block("native cast accessors are unavailable", out reason);
