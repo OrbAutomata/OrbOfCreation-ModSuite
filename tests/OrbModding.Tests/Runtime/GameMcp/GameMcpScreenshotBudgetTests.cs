@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text.RegularExpressions;
 using OrbAutomata;
 using OrbModding.Common;
@@ -71,7 +73,7 @@ public sealed class GameMcpScreenshotBudgetTests : IDisposable
         var logged = new List<string>();
         GameActionFaultLog.ConfigureLog(logged.Add);
         Directory.CreateDirectory(_directory);
-        File.SetUnixFileMode(_directory, UnixFileMode.None);
+        DenyListing(_directory);
         try
         {
             var admission = GameMcpScreenshotBudget.BeforeCapture(_directory);
@@ -91,10 +93,47 @@ public sealed class GameMcpScreenshotBudgetTests : IDisposable
         }
         finally
         {
-            File.SetUnixFileMode(
-                _directory,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            AllowListing(_directory);
             GameActionFaultLog.ConfigureLog(null);
         }
     }
+
+    private static void DenyListing(string directory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var info = new DirectoryInfo(directory);
+            var security = info.GetAccessControl();
+            security.AddAccessRule(DenyListingRule());
+            info.SetAccessControl(security);
+        }
+        else
+        {
+            File.SetUnixFileMode(directory, UnixFileMode.None);
+        }
+    }
+
+    private static void AllowListing(string directory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var info = new DirectoryInfo(directory);
+            var security = info.GetAccessControl();
+            security.RemoveAccessRule(DenyListingRule());
+            info.SetAccessControl(security);
+        }
+        else
+        {
+            File.SetUnixFileMode(
+                directory,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static FileSystemAccessRule DenyListingRule() =>
+        new(
+            new SecurityIdentifier(WellKnownSidType.WorldSid, null),
+            FileSystemRights.ListDirectory,
+            AccessControlType.Deny);
 }
