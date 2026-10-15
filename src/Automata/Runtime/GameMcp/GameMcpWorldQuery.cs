@@ -4888,7 +4888,16 @@ internal static class GameMcpWorldQuery
             // The guard is the members block's own: this answers for exactly the ids whose page
             // prints a count, so "the filter reaches it" and "the page counted it" are one fact
             // rather than two that could drift apart.
-            if (!WorldKeywordModifierLookup.TryFind(world.KeywordModifiers, keywordId, out _, out _))
+            worn = WorldKeywordModifierLookup.TryFind(world.KeywordModifiers, keywordId, out _, out _)
+                ? WorldKeywordMembership
+                    .Build(
+                        world.EntityKeywords,
+                        world.Research,
+                        world.ConsumableTypes,
+                        world.TypeSubtypes)
+                    .Members(keywordId)
+                : GameMcpKeywordIndex.SpellsOfType(world, keywordId);
+            if (worn.Count == 0)
             {
                 return NotAvailable(
                     publication,
@@ -4898,14 +4907,6 @@ internal static class GameMcpWorldQuery
                     KeywordScope(world, keywordId) + " and its page counts no members, so it " +
                     "cannot narrow anything; name the type asset a members line counted");
             }
-
-            worn = WorldKeywordMembership
-                .Build(
-                    world.EntityKeywords,
-                    world.Research,
-                    world.ConsumableTypes,
-                    world.TypeSubtypes)
-                .Members(keywordId);
         }
 
         // Search is deliberately an entity-catalog surface. Composite diagnostic categories are

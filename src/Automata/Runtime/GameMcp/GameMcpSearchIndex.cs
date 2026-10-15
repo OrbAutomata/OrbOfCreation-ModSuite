@@ -170,6 +170,26 @@ internal sealed class GameMcpKeywordIndex
         return true;
     }
 
+    /// <summary>
+    /// The spell recipes wearing a spell type, read off the same relation a recipe's keywords cell
+    /// is joined from. Spell types distribute nothing, so the keyword table indexes none of them and
+    /// this is where their members are counted.
+    /// </summary>
+    internal static HashSet<Guid> SpellsOfType(GameWorldState world, Guid typeId)
+    {
+        var spells = new HashSet<Guid>();
+        var relations = world.SpellRelations;
+        for (var row = 0; row < relations.Count; row++)
+        {
+            if (relations[row].Kind == WorldSpellRelationKind.SpellType &&
+                relations[row].TargetId == typeId)
+            {
+                spells.Add(relations[row].RecipeId);
+            }
+        }
+        return spells;
+    }
+
     internal IReadOnlyList<string> Words(Guid ownerId) =>
         _words.TryGetValue(ownerId, out var words) ? words : NoWords;
 
@@ -254,6 +274,26 @@ internal sealed class GameMcpEffectWordIndex
         var result = new Dictionary<Guid, string[]>(collected.Count);
         foreach (var pair in collected) result.Add(pair.Key, pair.Value.ToArray());
         return new GameMcpEffectWordIndex(result);
+    }
+
+    /// <summary>
+    /// The spell recipes wearing a spell type, read off the same relation a recipe's keywords cell
+    /// is joined from. Spell types distribute nothing, so the keyword table indexes none of them and
+    /// this is where their members are counted.
+    /// </summary>
+    internal static HashSet<Guid> SpellsOfType(GameWorldState world, Guid typeId)
+    {
+        var spells = new HashSet<Guid>();
+        var relations = world.SpellRelations;
+        for (var row = 0; row < relations.Count; row++)
+        {
+            if (relations[row].Kind == WorldSpellRelationKind.SpellType &&
+                relations[row].TargetId == typeId)
+            {
+                spells.Add(relations[row].RecipeId);
+            }
+        }
+        return spells;
     }
 
     internal IReadOnlyList<string> Words(Guid ownerId) =>

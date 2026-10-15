@@ -205,9 +205,9 @@ internal static class GameMcpTypeWorth
 
     /// <summary>
     /// How many things this keyword reaches, per class of thing, with the structure subtype chain
-    /// already closed over. Absent for a type no derived total indexes, which is every spell type:
-    /// all twenty-two <c>SpellTypeSO</c> records hold values rather than distributing, so there is
-    /// no total to key a row off.
+    /// already closed over. A spell type is the one no derived total indexes — all twenty-two
+    /// <c>SpellTypeSO</c> records hold values rather than distributing — so its spell recipes are
+    /// counted off the relation their keywords cell is joined from.
     /// </summary>
     /// <remarks>
     /// Research types and consumable families read this like their sibling taxonomies, off the same
@@ -221,7 +221,11 @@ internal static class GameMcpTypeWorth
         if (!WorldKeywordModifierLookup.TryFind(
                 world.KeywordModifiers, keywordId, out var start, out var count))
         {
-            return null;
+            var spells = GameMcpKeywordIndex.SpellsOfType(world, keywordId).Count;
+            if (spells == 0) return null;
+            var worn = new JArray();
+            worn.Add(new JObject { ["kind"] = "spell-recipes", ["count"] = spells });
+            return worn;
         }
 
         // The index carries one row per record per kind and the count is a property of the kind, so

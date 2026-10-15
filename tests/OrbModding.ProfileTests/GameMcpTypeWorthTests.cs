@@ -36,6 +36,9 @@ public sealed class GameMcpTypeWorthTests
     private static readonly Guid Tonic = Guid.Parse("a1a00000-0000-4000-8000-000000000001");
     private static readonly Guid Bench = Guid.Parse("a1b00000-0000-4000-8000-000000000001");
     private static readonly Guid Ward = Guid.Parse("a1c00000-0000-4000-8000-000000000001");
+    private static readonly Guid Kindle = Guid.Parse("a1d00000-0000-4000-8000-000000000001");
+    private static readonly Guid Scorch = Guid.Parse("a1e00000-0000-4000-8000-000000000001");
+    private static readonly Guid Hush = Guid.Parse("a1f00000-0000-4000-8000-000000000001");
 
     /// <summary>
     /// The whole block on a type whose records hand their bonuses down: one line per record, the
@@ -116,6 +119,7 @@ public sealed class GameMcpTypeWorthTests
                 "worth:",
                 "  howToRead: These are this type's own numbers, and they apply on top of " +
                 "whatever wears the type.",
+                "  members: kind=spell_recipes, count=2",
                 "  properties 4:",
                 "    property: Cooldown Speed",
                 "    value: 100",
@@ -142,10 +146,25 @@ public sealed class GameMcpTypeWorthTests
             row => Assert.Null(row!["distributedTotalPercent"]));
         Assert.DoesNotContain(
             "distributedTotalPercent", (string?)worth["howToRead"]!, StringComparison.Ordinal);
+    }
 
-        // Membership is a keyword edge, and a spell's types are published as spell-graph relations
-        // instead. Saying "0 things" would be a count of a table that does not describe it.
-        Assert.Null(worth["members"]);
+    /// <summary>
+    /// A spell's keywords cell prints its spell types, so the word it prints is a word the filter
+    /// takes. Round 16 was refused for Cantrip and Charm because the guard asked the keyword table,
+    /// which indexes no spell type; the count on the type's page and the walk are now both the
+    /// spell-type relation the cell is joined from.
+    /// </summary>
+    [Fact]
+    public void A_spell_type_word_walks_to_the_spells_its_page_counts()
+    {
+        var page = Render(Json(GameMcpWorldQuery.Search(
+            Context(World()), string.Empty, 0, 50, "spell-recipes", string.Empty, string.Empty,
+            "Ember", limitFromCaller: false)));
+
+        Assert.StartsWith("rows 2/2\n", page, StringComparison.Ordinal);
+        Assert.Contains("a1d000 | Kindle", page, StringComparison.Ordinal);
+        Assert.Contains("a1e000 | Scorch", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("Hush", page, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -396,6 +415,9 @@ public sealed class GameMcpTypeWorthTests
             new EntityIdentityName(Tonic, "AlchemyTypeSO", "Tonic", "tonicType"),
             new EntityIdentityName(Bench, "CraftingRecipeTypeSO", "Bench", "benchType"),
             new EntityIdentityName(Ward, "GlyphSO", "Focus Ward", "focusWard"),
+            new EntityIdentityName(Kindle, "SpellRecipeSO", "Kindle", "kindle"),
+            new EntityIdentityName(Scorch, "SpellRecipeSO", "Scorch", "scorch"),
+            new EntityIdentityName(Hush, "SpellRecipeSO", "Hush", "hush"),
         });
 
     private static GameMcpFrameContext Context(GameWorldState world)
@@ -478,6 +500,15 @@ public sealed class GameMcpTypeWorthTests
             SpellTypes = PublicationTable<WorldSpellType>.Create(new[]
             {
                 SpellType(Ember),
+            }),
+            SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[]
+            {
+                SpellRecipe(Kindle), SpellRecipe(Scorch), SpellRecipe(Hush),
+            }),
+            SpellRelations = PublicationTable<WorldSpellRelation>.Create(new[]
+            {
+                new WorldSpellRelation(Kindle, WorldSpellRelationKind.SpellType, 0, Ember),
+                new WorldSpellRelation(Scorch, WorldSpellRelationKind.SpellType, 0, Ember),
             }),
             AlchemyTypes = PublicationTable<WorldAlchemyType>.Create(new[]
             {
@@ -578,6 +609,12 @@ public sealed class GameMcpTypeWorthTests
             default, default, new BigDouble(200), default, default, default, default, default,
             default, default, default, default, default, default, default,
             new BigDouble(35), new BigDouble(240));
+
+    private static WorldSpellRecipe SpellRecipe(Guid id) =>
+        new(
+            id, true, 1, BigDouble.Zero, 0, false, false, false, 0, 1d, 1, false,
+            BigDouble.One, BigDouble.One, BigDouble.One, BigDouble.One, BigDouble.One, BigDouble.One,
+            false);
 
     private static WorldCollectionCategoryStatus[] CleanReports() =>
         GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]

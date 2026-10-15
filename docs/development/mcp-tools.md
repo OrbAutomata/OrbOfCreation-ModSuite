@@ -2491,10 +2491,10 @@ stays priced. See [the type model](../reverse-engineering/type-model.md) for the
 evidence.
 
 `members` says how many things the keyword reaches, per class of thing, with the structure subtype
-chain already closed over — a bonus on a parent type reaches every child's members too. It is absent
-for a type no total indexes, which includes every spell type: all twenty-two `SpellTypeSO` records
-hold values rather than distributing, so there is no total to index, and "0 things" would be a count
-of the wrong table. Research types and consumable families read the line like their siblings even
+chain already closed over — a bonus on a parent type reaches every child's members too. A spell
+type is the one no total indexes — all twenty-two `SpellTypeSO` records hold values rather than
+distributing — so its line, `members: kind=spell_recipes, count=…`, counts the spell-type relation
+a recipe's keywords cell is joined from, and the keyword filter walks that same relation. Research types and consumable families read the line like their siblings even
 though the keyword table emits neither class: their membership is authored on
 `ResearchSO.researchTypes` and `ConsumableSO.consumableTypes` — the same lists the word line is
 joined from — and published inside those categories, beside each research type's investment levels
