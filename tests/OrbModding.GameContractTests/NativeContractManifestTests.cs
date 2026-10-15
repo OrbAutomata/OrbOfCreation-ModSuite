@@ -909,11 +909,12 @@ public sealed class NativeContractManifestTests
     /// wants is this list being empty.
     /// </para>
     /// <para>
-    /// Ten are one family. <c>Prerequisites.Container.Check()</c> latches <c>available</c>, and every
+    /// Eleven are one family. <c>Prerequisites.Container.Check()</c> latches <c>available</c>, and every
     /// whole-entity availability or visibility predicate reaches it: <c>StructureSO</c>,
     /// <c>UpgradeSO</c>, <c>ViewSO</c>, <c>RecipeBookSO</c>, <c>CraftingRecipeSO</c>, and
     /// <c>GlyphSO</c> call it directly, <c>ResearchSO</c> through two visibility containers,
-    /// <c>RitualSO.HasMetUsageRequirements()</c> through its own <c>usageRequirements</c>, and
+    /// <c>RitualSO.HasMetUsageRequirements()</c> and <c>SpellRecipeSO.HasMetUsageRequirements()</c>
+    /// through their own usage containers, and
     /// <c>DiscoveryTreeSO.IsVisible()</c> through <c>viewLocation.All(view =&gt; view.IsAvailable())</c>.
     /// They leave together, when the whole-entity container is published and the evaluator answers
     /// for it. The ritual row was the one that had been classified from its signature alone and read
@@ -953,6 +954,7 @@ public sealed class NativeContractManifestTests
         "ritual-lifecycle.ritual-usage-requirements-capture",
         "scribe-relations.target-structure.get-random-list",
         "spell-composition.glyph-is-available-capture",
+        "spell-recipe.has-met-usage-requirements",
         "spell.has-enough-resources",
         "structure.is-available",
         "upgrade.is-available",
