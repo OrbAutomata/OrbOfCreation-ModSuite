@@ -1959,10 +1959,10 @@ public sealed class Plugin : BaseUnityPlugin
         var stopped = context.Runtime?.EmergencyStopEngaged ??
             context.Configuration.Snapshot.Safety.EmergencyDisable;
         var result = new StringBuilder()
-            .AppendLine("available")
+            .Append("available").Append('\n')
             .Append("build: ").Append(PluginIds.Version).Append(" dll sha256 ")
-            .AppendLine(GameMcpDllSha256)
-            .Append("scene: ").AppendLine(GameMcpTextFormatter.Plain(context.SceneName))
+            .Append(GameMcpDllSha256).Append('\n')
+            .Append("scene: ").Append(GameMcpTextFormatter.Plain(context.SceneName)).Append('\n')
             // The same lifecycle fact game_probe reports and the world reads refuse on, so the three
             // cannot hold three beliefs about whether a game exists.
             .Append("lifecycle: ").Append(context.LifecycleState.ToString())
@@ -1972,30 +1972,30 @@ public sealed class Plugin : BaseUnityPlugin
             // and neither counter borrows the other's name.
             .Append(", lifecycleTransitions ")
             .Append(context.LifecycleGeneration.ToString(CultureInfo.InvariantCulture))
-            .AppendLine(GameMcpWorldResetsText(context))
+            .Append(GameMcpWorldResetsText(context)).Append('\n')
             // The scene name alone cannot tell a caller which run a verdict describes: the runtime
             // outlives every scene change, so the same scene answered both ways across one session.
             // The publication counter is what actually moves, so it is published — and a lifecycle
             // boundary flushes the publication, so this reads "not published" again once the run
             // it described is gone. It counts publications and says so, because three counters
             // share this page and none of them is another's number.
-            .Append("world: ").AppendLine(GameMcpWorldQuery.IsWorldPublished(context)
+            .Append("world: ").Append(GameMcpWorldQuery.IsWorldPublished(context)
                 ? "publication " +
                     context.World!.Generation.Value.ToString(CultureInfo.InvariantCulture)
-                : "not published")
-            .Append("emergency stop: ").AppendLine(stopped ? "engaged" : "clear");
+                : "not published").Append('\n')
+            .Append("emergency stop: ").Append(stopped ? "engaged" : "clear").Append('\n');
         // Health is exception-shaped, the way it already is for features and services: a capability
         // that works says nothing, so every line on the page is a thing the caller has to act on.
         // The page leads with "available", which is the standing answer for everything unlisted.
-        if (!context.RuntimeAvailable) result.AppendLine("runtime: unavailable");
-        if (!context.NativeContractsAvailable) result.AppendLine("native contracts: unavailable");
+        if (!context.RuntimeAvailable) result.Append("runtime: unavailable").Append('\n');
+        if (!context.NativeContractsAvailable) result.Append("native contracts: unavailable").Append('\n');
         if (context.Runtime is not
             { PlayerCraftingAvailable: true, CraftingInstancesAvailable: true })
-            result.AppendLine("game_craft: unavailable");
-        if (!context.ModalDismissAvailable) result.AppendLine("game_modal: unavailable");
+            result.Append("game_craft: unavailable").Append('\n');
+        if (!context.ModalDismissAvailable) result.Append("game_modal: unavailable").Append('\n');
         if (!context.RuntimeAvailable && context.RuntimeNotAvailableReason.Length > 0)
-            result.Append("runtime reason: ").AppendLine(
-                GameMcpTextFormatter.Plain(context.RuntimeNotAvailableReason));
+            result.Append("runtime reason: ").Append(
+                GameMcpTextFormatter.Plain(context.RuntimeNotAvailableReason)).Append('\n');
         else if (context.Runtime is { } runtime)
         {
             var craftingReason = !runtime.PlayerCraftingAvailable
@@ -2004,18 +2004,18 @@ public sealed class Plugin : BaseUnityPlugin
                     ? runtime.CraftingInstancesUnavailableReason
                     : string.Empty;
             if (craftingReason.Length > 0)
-                result.Append("game_craft reason: ").AppendLine(
-                    GameMcpTextFormatter.Plain(craftingReason));
+                result.Append("game_craft reason: ").Append(
+                    GameMcpTextFormatter.Plain(craftingReason)).Append('\n');
         }
         if (!context.ModalDismissAvailable && context.ModalDismissUnavailableReason.Length > 0)
-            result.Append("game_modal reason: ").AppendLine(
-                GameMcpTextFormatter.Plain(context.ModalDismissUnavailableReason));
+            result.Append("game_modal reason: ").Append(
+                GameMcpTextFormatter.Plain(context.ModalDismissUnavailableReason)).Append('\n');
         // The load normalizes three settings the documented verbs assume, and a caller never asked
         // for them — so when one did not land, the develop queue and the spell cancel it silently
         // costs are refusals nothing else on the wire can explain.
         if (context.AgentSettingsFailure.Length > 0)
-            result.Append("agent settings: ").AppendLine(
-                GameMcpTextFormatter.Plain(context.AgentSettingsFailure));
+            result.Append("agent settings: ").Append(
+                GameMcpTextFormatter.Plain(context.AgentSettingsFailure)).Append('\n');
 
         // One roster, one line. The state groups are the facts; the word "features" in front of
         // every one of them was the same nine characters repeated, on a roster that moved twice in
@@ -2038,7 +2038,7 @@ public sealed class Plugin : BaseUnityPlugin
             })
             .ToArray();
         if (featureGroups.Length > 0)
-            result.Append("features ").AppendLine(string.Join("; ", featureGroups));
+            result.Append("features ").Append(string.Join("; ", featureGroups)).Append('\n');
 
         var runtimeServices = context.Runtime?.Services ?? Array.Empty<AutomataServiceFrameFacts>();
         var serviceGroups = runtimeServices
@@ -2053,7 +2053,7 @@ public sealed class Plugin : BaseUnityPlugin
                         CanonicalGameMcpFeatureName(service.DisplayName)))))
             .ToArray();
         if (serviceGroups.Length > 0)
-            result.Append("services ").AppendLine(string.Join("; ", serviceGroups));
+            result.Append("services ").Append(string.Join("; ", serviceGroups)).Append('\n');
         return result.ToString().TrimEnd();
     }
 
@@ -2352,40 +2352,40 @@ public sealed class Plugin : BaseUnityPlugin
                 GameMcpCollectionSpans.Describe(context);
         }
         var result = new StringBuilder()
-            .AppendLine("available")
-            .Append("trace writer: ").AppendLine(
-                GameMcpEntityWireNormalizer.Snake(status.State.ToString()));
+            .Append("available").Append('\n')
+            .Append("trace writer: ").Append(
+                GameMcpEntityWireNormalizer.Snake(status.State.ToString())).Append('\n');
         var outcome = GameMcpEntityWireNormalizer.Snake(status.Result.ToString());
         if (outcome.Length > 0 && outcome != "none")
-            result.Append("result: ").AppendLine(outcome);
+            result.Append("result: ").Append(outcome).Append('\n');
         result.Append("records: accepted ").Append(
                 status.AcceptedRecords.ToString(CultureInfo.InvariantCulture))
             .Append(", written ").Append(
                 status.WrittenRecords.ToString(CultureInfo.InvariantCulture))
-            .Append(", discarded ").AppendLine(
-                status.DiscardedRecords.ToString(CultureInfo.InvariantCulture))
-            .Append("bytes written: ").AppendLine(
-                status.BytesWritten.ToString(CultureInfo.InvariantCulture))
+            .Append(", discarded ").Append(
+                status.DiscardedRecords.ToString(CultureInfo.InvariantCulture)).Append('\n')
+            .Append("bytes written: ").Append(
+                status.BytesWritten.ToString(CultureInfo.InvariantCulture)).Append('\n')
             .Append("segments: written ").Append(
                 status.WrittenSegments.ToString(CultureInfo.InvariantCulture))
-            .Append(", retained ").AppendLine(
-                status.RetainedSegments.ToString(CultureInfo.InvariantCulture))
+            .Append(", retained ").Append(
+                status.RetainedSegments.ToString(CultureInfo.InvariantCulture)).Append('\n')
             .Append("pending blocks: ").Append(
                 status.PendingBlocks.ToString(CultureInfo.InvariantCulture))
             .Append(" (peak ").Append(
                 status.PeakPendingBlocks.ToString(CultureInfo.InvariantCulture))
-            .AppendLine(")");
+            .Append(")").Append('\n');
         if (status.ArtifactName.Length > 0)
-            result.Append("artifact: ").AppendLine(
-                GameMcpTextFormatter.Plain(status.ArtifactName));
+            result.Append("artifact: ").Append(
+                GameMcpTextFormatter.Plain(status.ArtifactName)).Append('\n');
         if (status.FaultSite.Length > 0)
-            result.Append("fault site: ").AppendLine(
-                GameMcpTextFormatter.Plain(status.FaultSite));
+            result.Append("fault site: ").Append(
+                GameMcpTextFormatter.Plain(status.FaultSite)).Append('\n');
         if (status.FaultMessage.Length > 0)
-            result.Append("fault: ").AppendLine(
-                GameMcpTextFormatter.Plain(status.FaultMessage));
-        result.Append("revision: ").AppendLine(
-            context.TraceWriterRevision.ToString(CultureInfo.InvariantCulture));
+            result.Append("fault: ").Append(
+                GameMcpTextFormatter.Plain(status.FaultMessage)).Append('\n');
+        result.Append("revision: ").Append(
+            context.TraceWriterRevision.ToString(CultureInfo.InvariantCulture)).Append('\n');
         result.Append(GameMcpCollectionSpans.Describe(context));
         return result.ToString();
     }

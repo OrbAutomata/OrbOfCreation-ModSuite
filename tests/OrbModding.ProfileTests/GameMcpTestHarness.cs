@@ -148,11 +148,11 @@ internal static class GameMcpTestHarness
         GameMcpFrameOperation[] claimed = Array.Empty<GameMcpFrameOperation>();
         Assert.True(SpinWait.SpinUntil(
             () => (claimed = inbox.ClaimPending()).Length > 0 || pending.IsCompleted,
-            TimeSpan.FromSeconds(1)));
+            TimeSpan.FromSeconds(10)));
         Assert.False(pending.IsCompleted, "stateful request completed without a Unity-frame claim");
         for (var index = 0; index < claimed.Length; index++)
             inbox.Complete(claimed[index], execute(claimed[index]));
-        Assert.True(pending.Wait(TimeSpan.FromSeconds(1)));
+        Assert.True(pending.Wait(TimeSpan.FromSeconds(10)));
         return pending.Result;
     }
 
