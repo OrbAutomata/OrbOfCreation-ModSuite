@@ -998,6 +998,28 @@ public sealed class GameMcpEntityDetailTests : IDisposable
     }
 
     /// <summary>
+    /// Research answers the same way: Ascend Scholar printed "says nothing about what would unlock
+    /// it" directly above its own <c>unlocksWhen</c> table, because the research verdict was still
+    /// the hardcoded one the upgrade verdict had already given up.
+    /// </summary>
+    [Fact]
+    public void A_locked_research_verdict_names_its_unlock_block_when_there_is_one()
+    {
+        var gate = ResearchStub(level: 1);
+        var locked = ResearchStub(level: 0);
+        locked.available = false;
+        locked.visibilityPrerequisites.prerequisites.Add(Require(gate, 4));
+
+        var detail = Explain(Collect(), locked.GetGuid(), 953);
+
+        var available = detail["predicates"]!["available"]!;
+        Assert.False((bool)available["available"]!);
+        Assert.Contains("unlocksWhen", (string?)available["reason"]);
+        Assert.DoesNotContain("says nothing", (string?)available["reason"]);
+        Assert.NotNull(detail["requirements"]!["unlocksWhen"]);
+    }
+
+    /// <summary>
     /// The old sentence is still the right one where the game really names no condition.
     /// </summary>
     [Fact]

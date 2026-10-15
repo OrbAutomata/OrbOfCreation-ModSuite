@@ -305,7 +305,7 @@ internal static class GameMcpEntityExplainer
                     "native_hidden");
                 result["available"] = Verdict(
                     research.Available,
-                    research.Complete ? "already_maxed" : "native_unavailable");
+                    research.Complete ? "already_maxed" : lockedReason);
                 // ResearchSO.IsWithinDevelopRange's own gates, in its own order, under the same
                 // words and the same codes the research row uses for them. Cost is asked before
                 // level requirements because the native method asks it there, and asking it at all
