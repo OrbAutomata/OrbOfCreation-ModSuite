@@ -14392,6 +14392,28 @@
       "place": "action"
     },
     {
+      "id": "spell-manager.get-usage-cost-of-spell",
+      "assembly": "assembly-csharp",
+      "type": "SpellManager",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetUsageCostOfSpell",
+      "visibility": "public",
+      "static": true,
+      "returnType": "ResourceCostList",
+      "parameters": [
+        "Spell"
+      ],
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The loadout's own weight for a loaded spell, augments and free uses applied, is only answered by the usage calculator; the reader walks the list it hands back.", "evidence": "IL: SpellManager.GetUsageCostOfSpell(Spell) returns spellUsageCalculator.GetSpellUsage(spell), the cached SpellUsageCalcData.GetUsageCost() for a loaded spell; UISpellButton.SetupUsageCostList draws the slot's weight from this call"}
+    },
+    {
       "id": "spell-manager.instance",
       "assembly": "assembly-csharp",
       "type": "SpellManager",

@@ -2085,6 +2085,9 @@ Knowledge, including 6 more until its "use effectively" requirements are met`), 
 types take off. `loadoutAdd` weighs that against the allocation's free room, so a spell that does
 not fit reads `available: no` with the sentence the press refuses with: `It weighs 12 Knowledge and
 7 is free. Remove loaded spells weighing 5 more, or raise that allocation.`
+Each loaded spell, as a `spell-slots` row and under `equipped`, carries its own `weight`: the number
+its slot's badge shows, augments and loadout free uses counted as the game counts them, which is what
+removing it frees.
 
 Where the page says `available: yes` it also says under `notYetChecked`, in one sentence, what only
 the press settles: the weight and requirements augments add. It is a sentence and not a list of tokens,

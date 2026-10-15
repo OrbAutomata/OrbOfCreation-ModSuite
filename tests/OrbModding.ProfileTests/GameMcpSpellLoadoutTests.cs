@@ -29,6 +29,8 @@ public sealed class GameMcpSpellLoadoutTests
         Guid.Parse("f3000000-0000-0000-0000-000000000002");
     private static readonly Guid SpellWeightResourceId =
         Guid.Parse("c1a20f2f-2a0b-4f0e-9f1a-2c7d51b6a4e3");
+    private static readonly Guid KnowledgeId =
+        Guid.Parse("eda26ca0-afcc-4fc3-9d8a-eb279123353d");
 
     [Fact]
     public void ToolUsesOneStagedPreviewAddRemoveMoveShapeAndBakesGlyphsOnlyOnAdd()
@@ -232,7 +234,8 @@ public sealed class GameMcpSpellLoadoutTests
     /// A slot's row says what is in it, and never what it is doing this instant. Whether a spell is
     /// mid-cast turns over on its own between two reads — a live round caught the column on one page
     /// of a scan and gone from the next with nothing about the request changed — so a page of it
-    /// plans nothing and is not a page. The whole row is two columns, asserted here in full.
+    /// plans nothing and is not a page. The whole row is the slot, its spell and that spell's
+    /// weight, asserted here in full.
     /// </summary>
     [Fact]
     public void A_spell_slot_row_says_what_the_slot_holds_and_not_what_it_is_doing()
@@ -246,7 +249,7 @@ public sealed class GameMcpSpellLoadoutTests
         var rows = response["rows"]!.Values<JObject>().ToArray();
 
         Assert.All(rows, row => Assert.Equal(
-            new[] { "slot", "spellRecipe" },
+            new[] { "slot", "weight", "spellRecipe" },
             row.Children<JProperty>().Select(property => property.Name)));
 
         // The fact itself is not deleted, only the column: the slot's own detail row still answers
@@ -304,10 +307,40 @@ public sealed class GameMcpSpellLoadoutTests
                 "remove",
                 "move",
                 "glyphs",
+                "weight",
                 "occupied",
                 "spellRecipe",
             },
             unique.Children<JProperty>().Select(property => property.Name));
+    }
+
+    /// <summary>
+    /// A loaded spell reads the weight the loadout charges for it, so a refusal's "remove loaded
+    /// spells weighing N more" is answered by reading the bar rather than by removing and retrying.
+    /// </summary>
+    /// <remarks>
+    /// The number is the slot's own weight-cost row — <c>SpellManager.GetUsageCostOfSpell</c>, what
+    /// the slot's badge draws — and not the recipe's authored upkeep, which leaves out augments and
+    /// the loadout's free uses. The bar's list carries it as a column and the slot's detail as a
+    /// line; an empty slot weighs nothing and its column says so.
+    /// </remarks>
+    [Fact]
+    public void A_loaded_spell_reads_the_weight_its_slot_charges()
+    {
+        var world = World();
+
+        var rows = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+                GameMcpTestHarness.Context(world), "spell-slots", 0, 10))
+            ["rows"]!.Values<JObject>().ToArray();
+        Assert.Equal("4 Knowledge", (string?)rows[0]!["weight"]);
+        Assert.Equal("1.50 Knowledge", (string?)rows[1]!["weight"]);
+        Assert.Equal("-", (string?)rows[2]!["weight"]);
+
+        var detail = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
+            world with { EntityIdentities = GameMcpTestHarness.EntityCatalog },
+            "spell-slots",
+            world.SpellSlots[0]));
+        Assert.Equal("4 Knowledge", (string?)detail["weight"]);
     }
 
     /// <summary>
@@ -734,6 +767,11 @@ public sealed class GameMcpSpellLoadoutTests
             {
                 SpellWeightResource(removed ? 2 : 5),
             }),
+            SpellCosts = PublicationTable<WorldSpellCost>.Create(
+                (removed
+                    ? new[] { Weight(1, 1.5d) }
+                    : new[] { Weight(moved ? 1 : 0, 4d), Weight(moved ? 0 : 1, 1.5d) })
+                .OrderBy(row => row.SlotIndex).ToArray()),
             SpellWorkbench = new WorldSpellWorkbench(
                 removed ? 1 : 2,
                 3,
@@ -785,6 +823,9 @@ public sealed class GameMcpSpellLoadoutTests
             in reading, true, new BigDouble(8 - used), 1d, false, new BigDouble(used),
             BigDouble.Zero);
     }
+
+    private static WorldSpellCost Weight(int slot, double amount) =>
+        new(slot, WorldSpellCostKind.Weight, KnowledgeId, new BigDouble(amount));
 
     private static PublicationTable<WorldView> UnlockedLoadoutScreen =>
         PublicationTable<WorldView>.Create(new[]

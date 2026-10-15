@@ -5038,6 +5038,7 @@ public sealed class GameWorldCollectorTests : IDisposable
             usageRequirementsMet = false,
             cost = new FakeSpellCostList().With(water, 50d),
             drainCost = new FakeSpellCostList().With(mana, 7d),
+            weight = new FakeSpellCostList().With(mana, 3d),
         };
         equipped.augmentGlyphs.Add(echo);
         equipped.augmentGlyphs.Add(echo);
@@ -5082,7 +5083,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.False(third.Occupied);
         Assert.Equal(Guid.Empty, third.SpellRecipeId);
 
-        // Both prices are published against the same position, and they do not run together.
+        // Both prices and the weight are published against the same position, and they do not run
+        // together.
         Assert.True(WorldSpellCostLookup.TryFindRange(
             world.SpellCosts, 0, WorldSpellCostKind.Immediate, out var start, out var count));
         Assert.Equal(1, count);
@@ -5094,6 +5096,12 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(1, drainCount);
         Assert.Equal(mana, world.SpellCosts[drainStart].ResourceId);
         Assert.Equal(7d, world.SpellCosts[drainStart].Amount.ToDouble());
+
+        Assert.True(WorldSpellCostLookup.TryFindRange(
+            world.SpellCosts, 0, WorldSpellCostKind.Weight, out var weightStart, out var weightCount));
+        Assert.Equal(1, weightCount);
+        Assert.Equal(mana, world.SpellCosts[weightStart].ResourceId);
+        Assert.Equal(3d, world.SpellCosts[weightStart].Amount.ToDouble());
 
         // An empty position is priced at nothing rather than at whatever the last one cost.
         Assert.False(WorldSpellCostLookup.TryFindRange(

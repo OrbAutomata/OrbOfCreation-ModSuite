@@ -482,8 +482,10 @@ internal static class WorldSpellSlotDeriver
 /// </para>
 /// <para>
 /// One reader fills two tables. The costs come from <c>GetCost()</c> and <c>GetDrainCost()</c> on the
-/// same <c>Spell</c> the slot row was read from, and splitting them into a second traversal would walk
-/// the loadout twice to answer two halves of one question. This is the shape the upgrade and structure
+/// same <c>Spell</c> the slot row was read from, and its weight from
+/// <c>SpellManager.GetUsageCostOfSpell</c> — the loadout's own number for that spell, the one the slot's
+/// weight badge draws. Splitting them into a second traversal would walk the loadout twice to answer
+/// parts of one question. This is the shape the upgrade and structure
 /// cost readers already share.
 /// </para>
 /// <para>
@@ -595,6 +597,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
 
     private readonly Func<object, object?>? _getCost;
     private readonly Func<object, object?>? _getDrainCost;
+    private readonly Func<object, object?>? _getWeight;
     private readonly Func<object?>? _canCastASpell;
     private readonly Func<object, IList?>? _costEntries;
     private readonly Func<object, Guid>? _entryResource;
@@ -690,6 +693,9 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         var getDrainCost = _spellType?.GetMethod("GetDrainCost", Instance, null, Type.EmptyTypes, null);
         var canCastASpell = _managerType?.GetMethod(
             "CanCastASpell", Static, null, Type.EmptyTypes, null);
+        var getWeight = _spellType is null
+            ? null
+            : _managerType?.GetMethod("GetUsageCostOfSpell", Static, null, new[] { _spellType }, null);
 
         // Every member the audits above accepted is compiled into an accessor. A member that resolves
         // but will not compile leaves its accessor null, which is the same unavailability an absent
@@ -706,6 +712,9 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         _getDrainCost = NativeAccessorBinder.CallValue(getDrainCost);
 
         var costListType = getCost?.ReturnType;
+        _getWeight = getWeight is not null && getWeight.ReturnType == costListType
+            ? NativeAccessorBinder.CallStaticWithObjectArgument(getWeight)
+            : null;
         var entryType = NativeAccessorBinder.CollectionElementType(costListType, "costs");
         _costEntries = NativeAccessorBinder.CollectionField(costListType, "costs");
         _entryResource = NativeAccessorBinder.ReferenceGuid(entryType, "resource");
@@ -720,7 +729,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         _unavailable = IsCostBound() && IsCompositionBound() &&
             _canCancelSpells is not null && _canCastASpell is not null
             ? string.Empty
-            : "Spell did not expose its complete cast, level, augment, cancellation, or manager readiness state on this build";
+            : "Spell did not expose its complete cast, weight, level, augment, cancellation, or manager readiness state on this build";
     }
 
     public string Category => "spell slots";
@@ -865,6 +874,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
 
         Append(spell, index, WorldSpellCostKind.Immediate, _getCost!, costs);
         Append(spell, index, WorldSpellCostKind.Drain, _getDrainCost!, costs);
+        Append(spell, index, WorldSpellCostKind.Weight, _getWeight!, costs);
     }
 
     private void Append(
@@ -893,7 +903,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
     }
 
     private bool IsCostBound() =>
-        _getCost is not null && _getDrainCost is not null &&
+        _getCost is not null && _getDrainCost is not null && _getWeight is not null &&
         _costEntries is not null && _entryResource is not null && _entryValue is not null;
 
     private bool IsCompositionBound() =>

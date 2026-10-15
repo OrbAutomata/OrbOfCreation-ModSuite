@@ -1500,6 +1500,7 @@ internal sealed class FakeSpell
     public BigDouble recharge;
     public FakeSpellCostList cost = new();
     public FakeSpellCostList drainCost = new();
+    public FakeSpellCostList weight = new();
     public int outputLevel = 1;
     public int effectiveLevel = 1;
     public int requiredMasteryLevel;
@@ -1677,6 +1678,7 @@ internal sealed class FakeSpellManager
     /// <summary>The resources a loadout's usage cost is weighed against.</summary>
     public FakeSpellWeightList spellWeightVariables = new();
     public static bool CanCastASpell() => NativeCanCast;
+    public static FakeSpellCostList GetUsageCostOfSpell(FakeSpell spell) => spell.weight;
 }
 
 internal sealed class FakeSpellWeightList

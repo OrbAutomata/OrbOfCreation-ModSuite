@@ -120,10 +120,12 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
         Assert.Empty(third.AugmentGlyphs.AsSpan().ToArray());
 
         // Prices come out per slot, in the order the native cost list holds them, and the upkeep
-        // this build charges nothing for contributes no rows at all rather than a zero row.
-        Assert.Equal(2, frame.SpellCosts.Count);
+        // this build charges nothing for contributes no rows at all rather than a zero row. The
+        // weight is the loadout's own number for the slot, read beside the prices.
+        Assert.Equal(3, frame.SpellCosts.Count);
         AssertCost(frame.SpellCosts[0], 0, WorldSpellCostKind.Immediate, FirstResourceId, 50d);
         AssertCost(frame.SpellCosts[1], 0, WorldSpellCostKind.Immediate, SecondResourceId, 7d);
+        AssertCost(frame.SpellCosts[2], 0, WorldSpellCostKind.Weight, FirstResourceId, 3d);
     }
 
     /// <summary>
@@ -212,7 +214,7 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
 
         Assert.False(reader.IsAvailable);
         Assert.Equal(
-            "Spell did not expose its complete cast, level, augment, cancellation, or manager " +
+            "Spell did not expose its complete cast, weight, level, augment, cancellation, or manager " +
             "readiness state on this build",
             reader.Collect(new HashSet<Guid>(), new GameWorldCycleFrame()).FirstFailure);
     }
@@ -268,6 +270,8 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
     private static void Seed()
     {
         var recipe = new global::SpellRecipeSO { uuid = RecipeId.ToString(), masteryLevel = 5 };
+        recipe.baseUsageCost.costs.Add(
+            new global::ResourceTuple(Resource(FirstResourceId), new BigDouble(3d, 0)));
         var firstGlyph = Glyph(FirstGlyphId, masteryRequirement: 3);
         var secondGlyph = Glyph(SecondGlyphId, masteryRequirement: 7);
 

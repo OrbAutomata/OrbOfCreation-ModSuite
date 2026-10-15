@@ -1247,7 +1247,7 @@ internal static class GameMcpWorldQuery
         // indexed from zero — so a row printed its internal index while the verb addressed by that
         // number acted on the row above it. These five say slot, one-based, like the screen.
         if (row is WorldSpellSlot listedSpellSlot)
-            return ProjectSpellSlotSummary(in listedSpellSlot);
+            return ProjectSpellSlotSummary(world, in listedSpellSlot);
         if (row is WorldSpellCost spellCost)
             return ProjectSpellCostRow(in spellCost);
         if (row is WorldSnapshotSlot snapshotSlot)
@@ -1347,8 +1347,9 @@ internal static class GameMcpWorldQuery
     /// <c>world_get</c> detail, and the <c>game_cast</c> response, which is the one a caller
     /// deciding its next press should be reading anyway.
     /// </remarks>
-    private static GameMcpValue ProjectSpellSlotSummary(in WorldSpellSlot slot)
+    private static GameMcpValue ProjectSpellSlotSummary(GameWorldState world, in WorldSpellSlot slot)
     {
+        var weight = slot.Occupied ? LoadedSpellWeightText(world, slot.SlotIndex) : string.Empty;
         // An empty slot names itself under the column that would name its spell, so `occupied` is
         // not a second column for the same bit — and the id of an empty slot is the game's zero
         // Guid, which the wire drops rather than handing back an address nothing answers to.
@@ -1358,6 +1359,7 @@ internal static class GameMcpWorldQuery
             ["spellRecipeId"] = slot.Occupied
                 ? slot.SpellRecipeId
                 : (object)GameMcpListColumns.Empty,
+            ["weight"] = weight.Length > 0 ? weight : GameMcpListColumns.Absent,
         };
         return result.Freeze();
     }
@@ -7531,7 +7533,29 @@ internal static class GameMcpWorldQuery
         var drain = ProjectEquippedSpellCosts(world, slot.SlotIndex, WorldSpellCostKind.Drain);
         if (immediate.Count > 0) result["castCosts"] = immediate;
         if (drain.Count > 0) result["drainCostsPerSecond"] = drain;
+        var weight = LoadedSpellWeightText(world, slot.SlotIndex);
+        if (weight.Length > 0) result["weight"] = weight;
         return result;
+    }
+
+    /// <summary>
+    /// What a loaded spell holds against spell capacity, the number its slot's weight badge shows,
+    /// so a shortfall's "remove spells weighing N more" is answered by reading the loadout.
+    /// </summary>
+    private static string LoadedSpellWeightText(GameWorldState world, int slotIndex)
+    {
+        if (!WorldSpellCostLookup.TryFindRange(
+                world.SpellCosts, slotIndex, WorldSpellCostKind.Weight, out var start, out var count))
+            return string.Empty;
+        var text = new StringBuilder();
+        for (var index = start; index < start + count; index++)
+        {
+            var row = world.SpellCosts[index];
+            if (index > start) text.Append(", ");
+            text.Append(GameMcpNumberFormatter.Format(row.Amount)).Append(' ')
+                .Append(EntityIdentityFormatter.PlayerName(row.ResourceId, world.EntityIdentities));
+        }
+        return text.ToString();
     }
 
     /// <summary>

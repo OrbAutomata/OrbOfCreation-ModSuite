@@ -1027,6 +1027,30 @@ internal static class NativeAccessorBinder
         }
     }
 
+    /// <summary>
+    /// <see cref="CallStatic{TArgument}"/> for an argument whose type is a game type this assembly
+    /// cannot name: it crosses as <see cref="object"/> and is converted to the exact parameter type
+    /// inside the compiled body.
+    /// </summary>
+    internal static Func<object, object?>? CallStaticWithObjectArgument(MethodInfo? method)
+    {
+        var parameters = method?.GetParameters();
+        if (method is null || !method.IsStatic || parameters!.Length != 1) return null;
+        var argument = Expression.Parameter(typeof(object), "argument");
+        try
+        {
+            return Expression.Lambda<Func<object, object?>>(
+                Expression.Convert(
+                    Expression.Call(method, Expression.Convert(argument, parameters[0].ParameterType)),
+                    typeof(object)),
+                argument).Compile();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     private static bool IsInstanceCall(MethodInfo? method, int argumentCount) =>
         method is { IsStatic: false, DeclaringType: not null } &&
         method.GetParameters().Length == argumentCount;

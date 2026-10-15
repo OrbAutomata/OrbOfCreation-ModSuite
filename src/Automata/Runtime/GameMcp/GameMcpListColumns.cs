@@ -454,7 +454,7 @@ internal static class GameMcpListColumns
         ["snapshot-entries"] = new[] { "ownerId", "slot", "entryId", "quantity" },
         ["crafting-queue-entries"] =
             new[] { "queueId", "slot", "recipeId", "amount", "repetitions" },
-        ["spell-slots"] = new[] { "slot", "spellRecipeId" },
+        ["spell-slots"] = new[] { "slot", "spellRecipeId", "weight" },
         ["spell-costs"] = new[] { "slot", "kind", "resourceId", "amount" },
         ["alchemy-instances"] =
             new[] { "recipe", "activeCount", "queuedCount", "drainRatio" },
