@@ -616,6 +616,34 @@ public sealed class GameMcpCastTests
     }
 
     /// <summary>
+    /// An instant cast that finished and recharged between two worlds settles on its cast count.
+    /// </summary>
+    /// <remarks>
+    /// A live round's Beam Burst fire answered "no redrawn world showed this spell casting or a
+    /// charge spent" although the beam went off: the instant cantrip had cast, recharged in
+    /// 0.00s and was idle at full charges by the next world.
+    /// </remarks>
+    [Fact]
+    public void An_instant_cast_that_already_recharged_settles_on_its_cast_count()
+    {
+        var completedAt = DateTime.UtcNow.Ticks;
+        var before = World(
+            casting: false, cancellationEnabled: true, collectedAtUtcTicks: completedAt - 1,
+            castCount: 16);
+        var command = Fire(GameMcpTestHarness.Context(before, generation: 41));
+
+        Assert.True(GameMcpPostStateSettlement.IsReady(
+            GameMcpTestHarness.Context(
+                World(
+                    casting: false, cancellationEnabled: true,
+                    collectedAtUtcTicks: completedAt + 1, castCount: 17),
+                generation: 42),
+            mutationWorld: 41,
+            actionCompletedAtUtcTicks: completedAt,
+            command));
+    }
+
+    /// <summary>
     /// The spell row prints how far off full it is.
     /// </summary>
     /// <remarks>

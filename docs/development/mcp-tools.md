@@ -3608,8 +3608,9 @@ A settled `fire` waits for a world that shows the cast this press started, in ei
 faces that prove it: the slot readying or casting, or a charge spent since the press. The game
 spends the charge at the *end* of a cast — `Spell.Cast()` sets the prep state and only
 `EndCasting`/`ExecuteSpell` consume the charge — so a spell slower than the world cadence is still
-readying when the next world lands while a faster one has already finished and dropped one.
-Requiring both would time out half of all casts; requiring neither answered a world that had not
+readying when the next world lands while a faster one has already finished and dropped one. An
+instant spell with no recharge to wait out is finished and full again before the next world, so
+for it the slot's `casts` count rising since the press is the proof. Requiring both would time out half of all casts; requiring neither answered a world that had not
 yet seen the press. When neither face arrives inside the settlement budget the answer stays
 committed and says so, rather than describing a slot the cast has not reached. It carries no cast
 counter at all. The game writes that counter when a cast *completes*, frames after the press and

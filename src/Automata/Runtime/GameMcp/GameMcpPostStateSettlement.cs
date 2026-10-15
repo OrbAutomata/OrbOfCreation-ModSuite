@@ -109,6 +109,11 @@ internal static class GameMcpPostStateSettlement
     /// Those are the two faces of one fact — this press started a cast — and either proves it.
     /// Waiting for both would time out half of all casts; waiting for neither is what shipped.
     /// </para>
+    /// <para>
+    /// An instant spell with no recharge to wait out shows neither: it is over and its charge is
+    /// back before the next world. <c>Spell.ExecuteSpell()</c> counts the manual cast in
+    /// <c>numCasts</c>, so a risen count is the trace that cast leaves.
+    /// </para>
     /// </remarks>
     private static bool FireStarted(GameMcpFrameContext state, GameMcpCommand command)
     {
@@ -124,7 +129,8 @@ internal static class GameMcpPostStateSettlement
         return before is not null &&
             WorldSpellSlotLookup.TryFind(before.SpellSlots, command.Amount - 1, out var previous) &&
             previous.Occupied &&
-            after.CurrentCharges < previous.CurrentCharges;
+            (after.CurrentCharges < previous.CurrentCharges ||
+             after.CastCount > previous.CastCount);
     }
 
     /// <summary>
