@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using OrbAutomata.GameMcp;
 using Xunit;
@@ -604,42 +605,49 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// A canned refusal sentence is said once per decision, so a list repeating one refusal down
-    /// its rows says it on the first. The class rides every occurrence, because that is what a
-    /// caller branches on; the sentence explains the class, and a reader who met it four lines up
-    /// learns nothing from meeting it again. A live round paid for nine distinct sentences
-    /// fifty-nine times.
+    /// Every block of a batch carries its own cause, and one every block shares is said once above.
     /// </summary>
+    /// <remarks>
+    /// A live round's five-rune <c>world_get</c> printed "This is already discovered." under the
+    /// first block and a bare <c>discover: no</c> under the other four, and a two-rune batch left
+    /// Workshop Weight's <c>purchase: no</c> without its cause, while a single-id read of the same
+    /// rune printed it. A bare verdict in a fact block reads as a no with nothing behind it.
+    /// </remarks>
     [Fact]
-    public void A_canned_refusal_sentence_is_said_once_down_a_list_of_rows()
+    public void Every_block_of_a_batch_says_its_own_cause()
     {
         const string Locked = "The game keeps this locked, and says nothing about what would " +
             "unlock it.";
-        var page = Render(@"{'results':[
+        var shared = Render(@"{'results':[
             {'uuid':'01273b','name':'Fortunate',
              'purchase':{'available':false,'reasonCode':'ERR_LOCKED','reason':'" + Locked + @"'}},
             {'uuid':'02e0cd','name':'Formation',
-             'purchase':{'available':false,'reasonCode':'ERR_LOCKED','reason':'" + Locked + @"'}},
-            {'uuid':'03f1de','name':'Psionic',
              'purchase':{'available':false,'reasonCode':'ERR_LOCKED','reason':'" + Locked + @"'}}]}");
 
         Assert.Equal(
             new[]
             {
-                "results 3:",
+                "results 2:",
+                "  these 2 share:",
+                "    purchase: no (ERR_LOCKED): " + Locked,
+                string.Empty,
                 "  uuid: 01273b",
                 "  name: Fortunate",
-                "  purchase: no (ERR_LOCKED): " + Locked,
                 string.Empty,
                 "  uuid: 02e0cd",
                 "  name: Formation",
-                "  purchase: no (ERR_LOCKED)",
-                string.Empty,
-                "  uuid: 03f1de",
-                "  name: Psionic",
-                "  purchase: no (ERR_LOCKED)",
             },
-            page.Split('\n'));
+            shared.Split('\n'));
+
+        var mixed = Render(@"{'results':[
+            {'uuid':'01273b','name':'Fortunate',
+             'purchase':{'available':false,'reasonCode':'ERR_LOCKED','reason':'" + Locked + @"'}},
+            {'uuid':'02e0cd','name':'Formation',
+             'purchase':{'available':false,'reasonCode':'ERR_LOCKED','reason':'" + Locked + @"'}},
+            {'uuid':'03f1de','name':'Psionic','purchase':{'available':true}}]}");
+
+        Assert.Equal(2, mixed.Split('\n').Count(line =>
+            line == "  purchase: no (ERR_LOCKED): " + Locked));
     }
 
     /// <summary>

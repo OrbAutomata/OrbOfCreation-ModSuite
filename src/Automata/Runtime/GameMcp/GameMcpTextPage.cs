@@ -645,8 +645,13 @@ internal static class GameMcpTextPage
         for (var index = 0; index < array.Count; index++)
         {
             var block = new List<string>();
+
+            // Each block is its own answer, so it says its own causes; a sentence two blocks share
+            // is lifted above them by the hoist rather than left off the second.
+            var outer = said.Enter(index.ToString(CultureInfo.InvariantCulture));
             if (array[index] is JObject item) WriteObject(item, indent + Indent, block, said);
             else block.Add(indent + Indent + Scalar(array[index]));
+            said.Leave(outer);
             blocks.Add(block);
         }
         Hoist(blocks, indent + Indent, lines);

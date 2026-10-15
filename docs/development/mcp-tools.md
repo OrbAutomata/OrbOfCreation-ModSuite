@@ -306,9 +306,10 @@ than printing itself into a cell.
   `equip: no (ERR_LIMIT) maximumAmount=0: Every slot in this loadout is in use.`
 - **A canned sentence is said once per decision.** The first line under a given key carrying a given
   `ERR_` sentence carries the whole of it; every later line under that same key that would repeat
-  that exact sentence carries the class alone. A response with one refusal in it is therefore
-  byte-identical to what it was, and a batch of two hundred blocked rows — all of them under one
-  key — stops paying for the same paragraph two hundred times. Two differently named decisions that
+  that exact sentence carries the class alone. A table of two hundred blocked rows — all of them
+  under one column — stops paying for the same paragraph two hundred times. A batch of detail blocks
+  is not a table: each block is its own answer and keeps its own causes, and a line every block
+  shares is said once above them by the hoist. Two differently named decisions that
   happen to share a reason code each keep their sentence: a saving that leaves the second no as a
   bare class reads as a second, unexplained wall. Sentences a producer wrote for the occasion — the
   ones holding this row's own numbers — are not canned and are never deduplicated.
