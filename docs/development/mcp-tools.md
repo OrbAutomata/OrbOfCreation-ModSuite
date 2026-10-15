@@ -4401,7 +4401,10 @@ both questions: `UIModal.IsOpen()` for the panel, and `UIRenderGroup.IsActive()`
 The second is the predicate every `UIRenderGroupElement` consults through `IsUIActive()` before it
 draws — not disabled, its `ManagedView` visible, its parent group active — and it answers for its
 whole subtree. Without it, `game_screen_elements` on Magic and on Scholar listed Time-screen
-tooltip nodes, which are elements of a screen the player is not on.
+tooltip nodes, which are elements of a screen the player is not on. A closed tooltip is the third
+leftover: the game pools its `UITooltipContainer`s, and closing one clears its item and hides it but
+keeps the `TooltipNode` rows it last drew, so the walk also asks the container's own `IsEmpty()`
+and lists a tooltip's rows only while it is drawn.
 A screen's elements hang off a handful of panels, so the catalog is a list of panels.
 
 **A control that opens a panel says which panel.** The top-right chrome is a row of

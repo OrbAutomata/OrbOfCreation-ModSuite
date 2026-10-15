@@ -19012,6 +19012,10 @@
       "visibility": "public", "static": false, "returnType": "System.String", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
     },
     {
+      "id": "game-mcp-tooltip-catalog.tooltip-container-empty-action", "assembly": "assembly-csharp", "type": "UITooltipContainer", "typeVisibility": "public", "kind": "method", "member": "IsEmpty",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
       "id": "game-mcp-tooltip-catalog.modal-open-action",
       "assembly": "assembly-csharp",
       "type": "UIModal",

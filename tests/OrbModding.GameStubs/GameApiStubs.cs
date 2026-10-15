@@ -3752,6 +3752,7 @@ public class UITooltipContainer : UnityEngine.MonoBehaviour
     public List<ITooltipable> subTooltips = new();
 
     public bool IsUsingAltTooltip() => item is not null && item.HasAltTooltips() && showMoreInfo;
+    public bool IsEmpty() => item is null && (subTooltips is null || subTooltips.Count == 0);
 }
 
 public class HoverTooltip : UnityEngine.MonoBehaviour

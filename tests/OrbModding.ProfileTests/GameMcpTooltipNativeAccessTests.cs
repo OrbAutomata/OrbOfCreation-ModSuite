@@ -211,6 +211,27 @@ public sealed class GameMcpTooltipNativeAccessTests
         Assert.True(GameMcpTooltipNativeAccess.OnScreen(hover));
     }
 
+    /// <summary>
+    /// Round 16 listed TooltipNode and TooltipNodeSub rows on Time and Scholar with no tooltip on
+    /// screen, and different ones from call to call: the rows a pooled container drew last stay
+    /// alive after it closes. A container with nothing in it draws nothing.
+    /// </summary>
+    [Fact]
+    public void AClosedTooltipKeepsTheRowsItDrewAndTheyAreNotOnScreen()
+    {
+        var popup = new UnityEngine.GameObject("TooltipContainer(Clone)");
+        var container = popup.AddComponent<global::UITooltipContainer>();
+        var row = new UnityEngine.GameObject("TooltipNodeSub(Clone)");
+        row.transform.SetParent(popup.transform, false);
+        var hover = row.AddComponent<global::HoverTooltip>();
+
+        Assert.True(row.activeInHierarchy);
+        Assert.False(GameMcpTooltipNativeAccess.OnScreen(hover));
+
+        container.item = new global::TooltipableObject();
+        Assert.True(GameMcpTooltipNativeAccess.OnScreen(hover));
+    }
+
     [Fact]
     public void PersistentChromeOutsideAnyModalIsOnScreen()
     {

@@ -184,6 +184,12 @@ internal sealed class GameMcpTooltipNativeAccess
     /// current screen from the departed ones. The group answers for its whole subtree, and it
     /// already folds in its own parent group, so one ancestor walk settles both questions.
     /// </para>
+    /// <para>
+    /// A tooltip is the third leftover. The game pools its <c>UITooltipContainer</c>s, and closing
+    /// one (<c>DestroyTooltip</c>) clears its item and hides its canvas but keeps the node rows it
+    /// last drew, each with a live <c>HoverTooltip</c>. <c>IsEmpty()</c> is the game's own word
+    /// for a container that is drawing nothing.
+    /// </para>
     /// </remarks>
     internal static bool OnScreen(Component element)
     {
@@ -192,6 +198,7 @@ internal sealed class GameMcpTooltipNativeAccess
         {
             if (node.GetComponent<UIModal>() is { } modal && !modal.IsOpen()) return false;
             if (node.GetComponent<UIRenderGroup>() is { } group && !group.IsActive()) return false;
+            if (node.GetComponent<UITooltipContainer>() is { } tooltip && tooltip.IsEmpty()) return false;
         }
         return true;
     }
