@@ -110,6 +110,8 @@ public sealed class Plugin : BaseUnityPlugin
     };
 
     private Harmony? _harmony;
+    private bool _observeGameTickFaults;
+    private StuckGameMonitor? _stuckGame;
 
     private BepInExAutomataConfiguration? _automataConfig;
     private AutomataConfigurationStore? _configurationStore;
@@ -227,6 +229,7 @@ public sealed class Plugin : BaseUnityPlugin
         _automataConfig = suite.Automata;
         _mentorConfig = suite.Mentor;
         _modConfigSettings = suite.ModConfig;
+        _observeGameTickFaults = suite.ObserveGameTickFaults.Value;
         _auditedBuild = loadDecision.ShouldLoad;
         _auditedBaselineId = loadDecision.BaselineId;
         _observedBuildFingerprint = loadDecision.ObservedBuildFingerprint;
@@ -385,8 +388,31 @@ public sealed class Plugin : BaseUnityPlugin
             () => GameLifecycleMonitor.Shared.Current.Generation);
         foreach (var patchType in HarmonyPatchTypes)
             _harmony.CreateClassProcessor(patchType).Patch();
+        ComposeGameTickFaultObservation();
         ComposeAutomata();
         _runtimeComposed = true;
+    }
+
+    private void ComposeGameTickFaultObservation()
+    {
+        if (!_observeGameTickFaults)
+        {
+            Log.LogAutomataInfo("Game tick fault observation is off (Diagnostics.ObserveGameTickFaults).");
+            return;
+        }
+        foreach (var failure in GameTickFaultHooks.Install(_harmony!))
+            Log.LogAutomataWarning("Game tick fault observation is unavailable for " + failure);
+        _stuckGame = new StuckGameMonitor(
+            GameTickFaultSubject.Describe,
+            message => Log.LogAutomataInfo(message),
+            message => Log.LogAutomataError(message),
+            (faults, written, failed) =>
+            {
+                if (_diagnosticsBundleController is null)
+                    failed("bug reports are unavailable in this run");
+                else
+                    _diagnosticsBundleController.RequestAutomatic(faults, written, failed);
+            });
     }
 
     private void ComposeAutomata()
@@ -859,6 +885,7 @@ public sealed class Plugin : BaseUnityPlugin
         }
 
         UpdateAutomata();
+        _stuckGame?.Update();
         _diagnosticsBundleController?.Tick();
 #if SERVICE_CYCLE_PROFILE
         DrainGameMcpOperations();
@@ -867,6 +894,7 @@ public sealed class Plugin : BaseUnityPlugin
         UpdateUiStartupReadiness(Time.unscaledDeltaTime);
         UpdateQuickControls(Time.unscaledDeltaTime);
         UpdateModConfig();
+        _uiShell?.ShowStuckGameNotice(_stuckGame?.Notice);
     }
 
     private void UpdateBuildCompatibilityOverride()
@@ -1380,6 +1408,7 @@ public sealed class Plugin : BaseUnityPlugin
         if (transition.Current.Generation == _lifecycleGeneration) return;
         Logger.LogAutomataInfo(transition.Describe());
         _lifecycleGeneration = transition.Current.Generation;
+        _stuckGame?.ResetLifecycle();
         EntityIdentityCatalog.Shared.Reset(_lifecycleGeneration);
         _serviceCycleActivation?.InvalidateLifecycle();
 #if SERVICE_CYCLE_PROFILE

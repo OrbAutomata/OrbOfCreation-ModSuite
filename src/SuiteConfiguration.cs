@@ -22,11 +22,13 @@ internal sealed class SuiteConfiguration
     private SuiteConfiguration(
         BepInExAutomataConfiguration automata,
         MentorConfig mentor,
-        ModConfigSettings modConfig)
+        ModConfigSettings modConfig,
+        ConfigEntry<bool> observeGameTickFaults)
     {
         Automata = automata;
         Mentor = mentor;
         ModConfig = modConfig;
+        ObserveGameTickFaults = observeGameTickFaults;
     }
 
     internal BepInExAutomataConfiguration Automata { get; }
@@ -34,6 +36,12 @@ internal sealed class SuiteConfiguration
     internal MentorConfig Mentor { get; }
 
     internal ModConfigSettings ModConfig { get; }
+
+    /// <summary>
+    /// Kill switch for the diagnostic hook that names the game element throwing from the game's own
+    /// tick. Read once when the runtime composes, so a change takes effect on the next game start.
+    /// </summary>
+    internal ConfigEntry<bool> ObserveGameTickFaults { get; }
 
     internal static ConfigurationSchemaBindResult<SuiteConfiguration> TryBind(
         ConfigFile file,
@@ -55,7 +63,15 @@ internal sealed class SuiteConfiguration
         var configuration = new SuiteConfiguration(
             automata,
             mentor,
-            ModConfigSettings.BindCurrent(file));
+            ModConfigSettings.BindCurrent(file),
+            file.Bind(
+                "Diagnostics",
+                "ObserveGameTickFaults",
+                true,
+                new ConfigDescription(
+                    "Name the game element that throws from the game's own tick, and tell the player when the game stops advancing. Observes only; takes effect on the next game start.",
+                    null,
+                    new ModConfigMetadata(50, 20, hidden: true))));
         return configuration;
     }
 }

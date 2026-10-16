@@ -89,7 +89,7 @@ public static class NativeMutationVerifier
                 default!,
                 false,
                 default!,
-                ex.GetBaseException().Message);
+                ExceptionDetail.Describe(ex));
         }
 
         return ExecuteAfterCapture(
@@ -136,7 +136,7 @@ public static class NativeMutationVerifier
                     before,
                     true,
                     afterException,
-                    executionException.GetBaseException().Message);
+                    ExceptionDetail.Describe(executionException));
             }
             catch (Exception captureException)
             {
@@ -149,7 +149,7 @@ public static class NativeMutationVerifier
                     before,
                     false,
                     default!,
-                    $"{executionException.GetBaseException().Message}; after capture failed: {captureException.GetBaseException().Message}");
+                    $"{ExceptionDetail.Describe(executionException)}; after capture failed: {ExceptionDetail.Describe(captureException)}");
             }
         }
 
@@ -169,7 +169,7 @@ public static class NativeMutationVerifier
                 before,
                 false,
                 default!,
-                ex.GetBaseException().Message);
+                ExceptionDetail.Describe(ex));
         }
 
         bool verified;
@@ -188,7 +188,7 @@ public static class NativeMutationVerifier
                 before,
                 true,
                 after,
-                $"postcondition evaluation failed: {ex.GetBaseException().Message}");
+                $"postcondition evaluation failed: {ExceptionDetail.Describe(ex)}");
         }
 
         return Evidence<TState>(

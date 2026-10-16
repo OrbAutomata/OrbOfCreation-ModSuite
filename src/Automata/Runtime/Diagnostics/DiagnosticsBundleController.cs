@@ -121,6 +121,8 @@ internal sealed class DiagnosticsBundleController : IDisposable
     private readonly ManualLogSource _log;
     private PendingBundle? _pending;
     private Task<DiagnosticsBundleBuildResult>? _build;
+    private AutomaticBundleRequest? _automatic;
+    private AutomaticBundleRequest? _building;
     private bool _disposed;
 
     private DiagnosticsBundleController(
@@ -169,11 +171,17 @@ internal sealed class DiagnosticsBundleController : IDisposable
             }
             catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
             {
-                Fail(exception);
+                Fail(exception, _pending?.Automatic);
             }
             return;
         }
-        if (!_control.TryTakeRequest()) return;
+        AutomaticBundleRequest? automatic = null;
+        if (_automatic is { } waiting)
+        {
+            automatic = waiting;
+            _automatic = null;
+        }
+        else if (!_control.TryTakeRequest()) return;
         try
         {
             _options.FlushLogs();
@@ -182,13 +190,31 @@ internal sealed class DiagnosticsBundleController : IDisposable
                 _options.Features(),
                 _options.Health(),
                 _options.CaptureRuntime(),
-                Stopwatch.GetTimestamp());
+                Stopwatch.GetTimestamp(),
+                automatic);
             ContinueAfterJournalFlush();
         }
         catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
         {
-            Fail(exception);
+            Fail(exception, automatic);
         }
+    }
+
+    /// <summary>
+    /// Queues one bundle the suite writes on its own, without the save files and with the stuck
+    /// game's tick faults. It runs before a pending player request and never opens a file manager.
+    /// </summary>
+    internal void RequestAutomatic(
+        string gameTickFaults,
+        Action<string> written,
+        Action<string> failed)
+    {
+        if (string.IsNullOrWhiteSpace(gameTickFaults))
+            throw new ArgumentException("An automatic bundle carries the tick faults that caused it.", nameof(gameTickFaults));
+        _automatic = new AutomaticBundleRequest(
+            gameTickFaults,
+            written ?? throw new ArgumentNullException(nameof(written)),
+            failed ?? throw new ArgumentNullException(nameof(failed)));
     }
 
     public void Dispose()
@@ -222,18 +248,29 @@ internal sealed class DiagnosticsBundleController : IDisposable
             pending.Features,
             pending.Health,
             pending.RuntimeEvidence.WithJournal(journal),
-            _options.Redactor);
+            _options.Redactor,
+            gameTickFaults: pending.Automatic?.GameTickFaults ?? string.Empty);
         _pending = null;
+        _building = pending.Automatic;
         _build = Task.Run(() => DiagnosticsBundleBuilder.Build(request));
     }
 
     private void CompleteBuild()
     {
         var build = _build ?? throw new InvalidOperationException("No diagnostics build is running.");
+        var automatic = _building;
         _build = null;
+        _building = null;
         try
         {
             var result = build.GetAwaiter().GetResult();
+            if (automatic is not null)
+            {
+                _log.LogAutomataInfo(
+                    "Automatic bug report created: " + result.Path + " (" + result.BytesWritten + " bytes).");
+                automatic.Written(result.Path);
+                return;
+            }
             var revealed = TryReveal(result.Path);
             _control.Publish(new DiagnosticsBundleStatus(
                 revealed ? DiagnosticsBundleState.Written : DiagnosticsBundleState.WrittenRevealUnavailable,
@@ -245,17 +282,24 @@ internal sealed class DiagnosticsBundleController : IDisposable
         }
         catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
         {
-            Fail(exception);
+            Fail(exception, automatic);
         }
     }
 
-    private void Fail(Exception exception)
+    private void Fail(Exception exception, AutomaticBundleRequest? automatic)
     {
         _pending = null;
         _build = null;
+        _building = null;
         var reason = exception.GetBaseException().Message?.Trim();
         if (string.IsNullOrWhiteSpace(reason)) reason = exception.GetType().Name;
         reason = _options.Redactor.Redact(reason);
+        if (automatic is not null)
+        {
+            _log.LogAutomataError("Automatic bug report could not be created: " + reason);
+            automatic.Failed(reason);
+            return;
+        }
         _control.Publish(new DiagnosticsBundleStatus(
             DiagnosticsBundleState.Failed,
             string.Empty,
@@ -281,13 +325,15 @@ internal sealed class DiagnosticsBundleController : IDisposable
             IReadOnlyList<FeatureStatusSnapshot> features,
             IReadOnlyList<RuntimeServiceDiagnosticsSnapshot> health,
             AutomataDiagnosticsRuntimeEvidence runtimeEvidence,
-            long flushStarted)
+            long flushStarted,
+            AutomaticBundleRequest? automatic)
         {
             UtcNow = utcNow;
             Features = features;
             Health = health;
             RuntimeEvidence = runtimeEvidence;
             FlushStarted = flushStarted;
+            Automatic = automatic;
         }
 
         internal DateTime UtcNow { get; }
@@ -295,5 +341,20 @@ internal sealed class DiagnosticsBundleController : IDisposable
         internal IReadOnlyList<RuntimeServiceDiagnosticsSnapshot> Health { get; }
         internal AutomataDiagnosticsRuntimeEvidence RuntimeEvidence { get; }
         internal long FlushStarted { get; }
+        internal AutomaticBundleRequest? Automatic { get; }
+    }
+
+    private sealed class AutomaticBundleRequest
+    {
+        internal AutomaticBundleRequest(string gameTickFaults, Action<string> written, Action<string> failed)
+        {
+            GameTickFaults = gameTickFaults;
+            Written = written;
+            Failed = failed;
+        }
+
+        internal string GameTickFaults { get; }
+        internal Action<string> Written { get; }
+        internal Action<string> Failed { get; }
     }
 }

@@ -36,6 +36,27 @@ authored graphs are build-time or lifecycle-structural; genuinely parameterized 
 only for the request that names them. See
 [Game MCP frame operations](game-mcp-frame-operations.md).
 
+### Diagnostic observe-and-rethrow exception
+
+The game's tick has no exception handling: an element that throws from
+`GameElementIterator.Increment` ends that tick for every element after it, every tick, and the game
+stops advancing without a word. Naming that element is the one reason the suite patches the game's
+tick (`GameTickFaultObserver`, on that method and on `ViewManager.CheckViews`). Such a patch:
+
+- observes only: an exception filter that answers false records the element and the exception, so
+  the same exception unwinds with the thrower's stack — never caught, wrapped, or swallowed;
+- records inside the filter, which runs during the first unwinding pass, before any of the game's
+  finally blocks have run: the record calls no Unity or game API and never throws;
+- requires that no game-side catch sits between the patched call site and `FixedUpdate` or
+  `ViewManager.Update`, so every recorded exception is one the game does not handle; the audited
+  build pin guards this, because a game update that adds a handler is an unaudited build;
+- costs one static call and no allocation on the no-throw path, proved by the allocation probe;
+- names, logs, and reacts on the suite's own update, never inside the tick, logging each element and
+  exception type once per lifecycle and counting repeats;
+- rewrites only the call sites a contract pins by count and opcode in the audited IL, and leaves a
+  body that differs unpatched;
+- has a kill switch read at composition (`Diagnostics.ObserveGameTickFaults`).
+
 ## Reads and owned math
 
 - Compute what we can; collect what we cannot. Collection cost is a real budget: every native
