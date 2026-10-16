@@ -1,17 +1,26 @@
 # The run opening
 
-## Spend the carry first
+## Spend the carry early
 
-**Apply carried time bonuses before the first purchase.** They multiply everything downstream, and
-the opening minute's rates set the cadence for the whole early game. A run started before the carry
-is applied is measurably behind for no reason. The reset screen publishes the shape of the carry
-before you commit to anything.
+**Apply carried time bonuses as early as the game allows.** They multiply everything downstream, and
+the opening minute's rates set the cadence for the whole early game. The reset screen publishes the
+shape of the carry before you commit to anything.
+
+You cannot literally spend it first, though. **After a reset every time rune is undiscovered, so
+the Time Advancements have nowhere to go** — the bar reads full because none of it is allocated,
+not because it is waiting for you. The first rune costs `100` mana, so mana buys the *right* to
+allocate the carry. Take step 1 far enough to afford Runecraft, then spend.
 
 ## The early chain, as a reference walk
 
 The critical path is deterministic: required rolls are rigged to a single option, so the spine is the
 same every run and only optional pool picks are genuinely open. **Treat this as a route, not a
 script** — prices move with the carried bonuses.
+
+The first minutes are narrower still: straight after a reset the upgrade list offers exactly one
+buyable entry (Infuse Orb, observed), everything else being re-gated rather than merely zeroed (see
+[reset-and-ng-plus.md](../game-systems/reset-and-ng-plus.md)). There is no shopping decision at the
+opening — do not spend time surveying the list, go to step 1.
 
 1. **Mana only.** Infuse the orb repeatedly. The cost doubles against a fixed capacity until it
    cannot be paid — that is the game forcing the next step, not a wall to beat.
@@ -28,6 +37,15 @@ script** — prices move with the carried bonuses.
 9. **Second produced resource** → the augment table and augments → the global output level dial →
    more spell spots.
 10. **Scholarism** → the third resource, on a trickle-rate economy → research, via Innovation.
+    Scholarism itself wants exactly two things: **mastery level 2 on your first spell** and
+    **Output Lv 2**. The second is the slow half — Output Lv is capped by Max Output Lv, which
+    starts at 1 and is raised only after the `Spell Output Level` upgrade is bought, and that
+    upgrade is priced in **Thaumaturgy**, the resource step 9's second producer makes. So the
+    Scholarism clock is really a race to a second production spell, not to a pile of Knowledge.
+    Once bought, Scholarism opens the Scholar screen, and the trickle economy is one short chain:
+    **Novice Study** (a timed Scholar upgrade) → **Focus Aura** levels for Psi → **Learn Psionic**
+    at a handful of Psi widens the spell pool to Psychic Blast, the Mental-income charm →
+    **Mentality** for Knowledge and Psi capacity, which the next spell roll's price already exceeds.
 11. **Storm and the first channelled spell** → orb research → **Concepts**.
 
 Each step's currency is the next step's price. Skipping ahead means saving in a currency you cannot

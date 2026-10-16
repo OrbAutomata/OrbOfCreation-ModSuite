@@ -13,6 +13,13 @@ Costs are built in stages, and the stages are not interchangeable. A spell's cos
 There is no shortcut that merges modifiers from two stages into one bag. A +10 % at stage 4 and a
 +10 % at stage 5 neither add nor commute.
 
+## A ladder can start at zero, and those levels are free
+
+Where a price ladder starts at zero, the levels it covers cost nothing at all: taking one spends no
+resource and moves no counter, including the advancement counter the paid levels of that same thing
+draw from. Two shapes on screen mean the same thing — a level that names no price, and a level whose
+price row reads `0` of a currency. Anything with levels can be authored this way.
+
 ## Quality divides at payment
 
 At the moment you pay, **actual spend = displayed cost ÷ the paying resource's Quality**. Quality

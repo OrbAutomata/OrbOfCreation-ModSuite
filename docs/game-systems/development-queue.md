@@ -1,7 +1,9 @@
 # The development queue
 
 Buying an attribute or an upgrade does not give it to you. It **queues** it, and it develops over
-time.
+time. The game names this queue **Active Attributes**, and it is the only queue this page is about;
+plot actions run in a separate one of their own (see [agromancy.md](agromancy.md)), so a slot count
+read off that one says nothing about what a purchase can do.
 
 - **Attributes develop slowly; upgrades develop more slowly still**, and they share the **same**
   queue, so a slow upgrade occupies a slot an attribute could have used.
@@ -11,6 +13,8 @@ time.
 - Capacity and development *speed* are separate, separately upgradeable knobs.
 - Early on the queue, not the resource, is what binds: even when a resource is abundant, the order in
   which you spend it matters.
+- **A full queue is not a refusal you can argue with.** With no free slot the purchase simply takes
+  nothing more, and only time clears it — asking for fewer levels does not fit them in.
 
 ## Occupancy counts stack units
 

@@ -11,9 +11,10 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 - [per-level-scaling.md](per-level-scaling.md) — whether an effect's levels add or multiply is a
   property of that effect.
 - [numbers-and-rounding.md](numbers-and-rounding.md) — how the screen spells a number,
-  mantissa/exponent storage, two-significant-digit prices, spend-to-zero.
+  mantissa/exponent storage, two-significant-digit prices, spend-to-zero, and the three duration
+  bands.
 - [cost-pipeline.md](cost-pipeline.md) — six stages build a price; Quality divides it again at
-  payment.
+  payment; a ladder starting at zero owes nothing.
 - [lazy-evaluation.md](lazy-evaluation.md) — a value is worked out when something reads it, so
   displays lag.
 
@@ -32,8 +33,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
   does not conserve.
 - [resource-types.md](resource-types.md) — every resource carries type keywords, and effects target
   keywords, not resources.
-- [allocations.md](allocations.md) — advancement points, spell capacity and the like: quantity/cap
-  reads unspent/earned.
+- [allocations.md](allocations.md) — advancement points are spent for the run; other quantity/cap
+  budgets come back, and the counter shows only what is still free.
 - [emblems.md](emblems.md) — passive token effects; Momentum is the one worked out.
 
 ## Casting
@@ -58,8 +59,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 
 ## Augments
 
-- [pool-unlockers.md](pool-unlockers.md) — glyphs, a.k.a. recipe books, expand what future rolls can
-  contain.
+- [pool-unlockers.md](pool-unlockers.md) — recipe books and the glyphs behind them expand what future
+  rolls can contain; nine books have no glyph.
 - [augments.md](augments.md) — per-spell-slot sockets and usable copies, weight per copy, and
   global per-level passives.
 
@@ -74,8 +75,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 
 - [attributes-and-upgrades.md](attributes-and-upgrades.md) — the two purchase families, their
   asymmetries, and category migration.
-- [development-queue.md](development-queue.md) — buying queues; the queue, not the resource, is the
-  early binder.
+- [development-queue.md](development-queue.md) — buying queues into Active Attributes; that queue,
+  not the resource, is the early binder.
 - [cost-scaling.md](cost-scaling.md) — ≈×1.25 per level, two-currency prices, and retroactive cost
   scaling.
 - [auto-buy.md](auto-buy.md) — the native sweeper fires only on empty queue, 5 s idle, and <0.1 % of
@@ -95,13 +96,18 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 
 - [concepts.md](concepts.md) — passive scalers; only a concept in a development slot levels or
   drains.
-- [agromancy.md](agromancy.md) — plots, nodes and growth phases; growth runs with the screen closed.
+- [agromancy.md](agromancy.md) — plots, nodes and growth phases in their own action queue; growth
+  runs with the screen closed.
 - [aspects.md](aspects.md) — three pedestals through which Workshop, Alchemy and Rituals arrive.
 - [disciplines.md](disciplines.md) — four disciplines change name between purchase page and
   advancement tab; several are unplayed.
 - [crafting.md](crafting.md) — Workshop recipe rows; crafts pay at submission.
 - [scribing.md](scribing.md) — the Scribe drop slot and its Starting Level dial; largely unmapped.
 - [artifacts.md](artifacts.md) — an equipment loadout bound by weight and slots at once.
+- [alchemy.md](alchemy.md) — a Learn/Loadout split; equipping a recipe is a standing capacity
+  usage, and Brewing is a type.
+- [rituals.md](rituals.md) — wave combat entered with Zeal; the completion cost is a drain, and
+  the reward is a cancellable duration.
 - [consumables.md](consumables.md) — family tags (partly unmapped), preparation times, replenish
   research, and scroll targeting.
 - [carry-limits.md](carry-limits.md) — per-item capacity; a weaker arrival is paid for and silently
@@ -119,17 +125,18 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
   Advancement per point.
 - [challenges.md](challenges.md) — picked at NG+ start, cleared by resets; they modify
   requirements, not only numbers.
-- [reset-and-ng-plus.md](reset-and-ng-plus.md) — achievements and TA survive, challenges get
-  cleared; only NG+ resets cost curves.
+- [reset-and-ng-plus.md](reset-and-ng-plus.md) — achievements, TA and the save slot's clock survive,
+  challenges get cleared; only NG+ resets cost curves.
 
 ## Interface
 
-- [screens.md](screens.md) — seven screens, their subtabs, and which page holds what.
+- [screens.md](screens.md) — seven screens, what unlocks each, their subtabs, and which page holds
+  what.
 - [ui-behaviours.md](ui-behaviours.md) — wheel ownership, nested tooltips, red vs grey.
 - [vocabulary.md](vocabulary.md) — attribute/statistic, glyph/recipe book/augment, concepts/alchemy.
 
 ## Gaps
 
 - [open-questions.md](open-questions.md) — known-unknown mechanics, each with what would settle it.
-- [unmapped-systems.md](unmapped-systems.md) — Rituals, Alchemy, Zeal, Dimensional and the other
-  unplayed features.
+- [unmapped-systems.md](unmapped-systems.md) — Dimensional, the unplayed disciplines and the other
+  features with confirmed presence and no play behind them.

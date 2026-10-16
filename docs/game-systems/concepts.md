@@ -8,10 +8,24 @@ screen; see [vocabulary.md](vocabulary.md).
 The game uses **advance** for one concept level: a tooltip reading `25 s advance` means the concept
 gains one level every 25 seconds while slotted.
 
+## The two Concepts pages
+
+**Scholar > Concepts** carries a **Loadout | Discover** split.
+
+**Loadout** puts the development slots along the top — each filled slot shows the concept's art and
+its stack count — and lists every discovered concept below under a row of **recipe-type counters**
+(observed: Reflective, Reductive, Concept). Each row prints the concept's advance count as
+`Adv <n>` beside the time its next advance will take.
+
+**Discover** is the concept discovery tree's offer surface: a **Contemplate** button, a type-filter
+row, and a panel dealing **three face-up concept cards** with a rerolls counter and a Confirm
+button. Confirming is the commitment; see [discovery.md](discovery.md).
+
 ## Discovering a concept
 
 Concepts are discovered, not bought outright, and each discovery costs Psi at an escalating price —
-e.g., 20 Psi for the first and 100 for the second, climbing from there. Concepts have their own
+observed 20 Psi for the first, 100 for the second and 260 for the third. A price can sit above
+your Psi capacity, so a roll can be capacity-gated. Concepts have their own
 discovery tree, so their ladder does not interact with spell or glyph rolls. The game contains `46`
 authored concept recipes.
 

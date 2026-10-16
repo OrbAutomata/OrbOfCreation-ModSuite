@@ -4,15 +4,21 @@ Augments are the socketable modifiers attached to a spell. They are crafted at *
 of the discovery surfaces (see [discovery.md](discovery.md)), and the **Augment Table** upgrade
 raises your maximum number of augment slots by one each time it is bought.
 
+Levelling an augment is itself gated: **Magic > Augments > Upgrade** exists only once the **Upgrade
+Glyphs** upgrade is bought. Before that purchase no augment carries a level button of any kind, so an
+early run has augments it can socket but none it can raise: a freshly discovered augment reads `1/1`
+in the Loadout page's Augment Glyphs panel, one copy per spell and none free.
+
 The augment catalogue is **22 glyphs** — every glyph whose type line carries a keyword beginning
 `Spell ` (`Spell Augment` or `Spell Elemental`); see [vocabulary.md](vocabulary.md) for the test
 that separates these from the pool unlockers sharing the word "glyph". They are Accursed, Blooming,
 Bright, Dilated, Distinct, Efficient, Extended, Fortunate, Heavy, Important, Magnified, Precise,
 Quick, Repeating, Resourceful, Scholar, Small, Strong, Surged, Weak, Weighted and Wrath.
 
-Only the ones already unlocked appear on the **Magic > Upgrade** grid — observed at 9 of the 22 on
-one endgame save, with the other 13 still locked. A glyph that is unlocked but missing from that
-grid is an unlocker, not an augment.
+Only the ones already unlocked appear on the **Magic > Augments > Upgrade** grid — observed at 9 of
+the 22 on one endgame save, with the other 13 still locked. Where that grid exists, a glyph that is
+unlocked but absent from it is an unlocker rather than an augment; the type line decides the same
+question on any run, including before the grid is unlocked at all.
 
 Augments are deliberately double-edged. Two worked examples; the remaining effects are unrecorded
 (see [open-questions.md](open-questions.md)):
@@ -43,6 +49,22 @@ modifiers.
   non-free copy costs **one Spell Weight**, and copies are never merged into a single weight
   charge.
 
+## Two level currencies, and some augments cost neither
+
+An augment's level is bought on **Magic > Augments > Upgrade**, and two separate counters sit above
+that grid: **Glyph Upgrades** for ordinary paid levels and **Free Glyph Upgrades** for bonus levels.
+They are not interchangeable — a bonus level always costs 1 from the free counter regardless of what
+the paid level would have cost. An augment's displayed level is the two added together, so an
+augment reading `Lv 10` can be nine paid levels plus one bonus level.
+
+Some augments' paid levels are **free outright** — the general rule is in
+[cost-pipeline.md](cost-pipeline.md). Observed on Psionic, whose level rose 2 to 3 with both counters
+unchanged. Take those first: they are pure gain and they compete for nothing.
+
+Note the same augment shows two different numbers on two screens, and both are correct: the Upgrade
+grid shows its **level**, while the Augment Glyphs panel shows **usable copies** (see above), which
+is level plus the starting Max Usage. Quick at `Lv 10` reads `11/11` in the panel.
+
 ### The two panels print different numbers
 
 Magic > Augments and Magic > Spellbook > Loadout both draw a glyph as `N/M` with a level beside it,
@@ -54,8 +76,8 @@ and the pairs are not the same fact.
 
 A fresh augment the game already offers therefore sits at purchased level **0** while its Loadout row
 reads "Lv 1". Nothing is owned at that point and nothing needs to be: what decides whether a glyph
-can be socketed is `GlyphSO.IsAvailable()`, and how many copies fit is `GetMaxUsages()`. A level is
-neither question's answer.
+can be socketed is whether the game offers a copy of it, and how many copies fit is its Max Usage. A
+level is neither question's answer.
 
 ## The layout is chosen before the spell is added
 

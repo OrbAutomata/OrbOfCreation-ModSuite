@@ -45,6 +45,7 @@ nav:
       - game-systems/achievement-strength.md
       - game-systems/advancement-currencies.md
       - game-systems/agromancy.md
+      - game-systems/alchemy.md
       - game-systems/allocations.md
       - game-systems/artifacts.md
       - game-systems/aspects.md
@@ -82,6 +83,7 @@ nav:
       - game-systems/reset-and-ng-plus.md
       - game-systems/resource-behaviours.md
       - game-systems/resource-types.md
+      - game-systems/rituals.md
       - game-systems/screens.md
       - game-systems/scribing.md
       - game-systems/spell-levels.md
@@ -102,6 +104,7 @@ nav:
       - strategy/decision-rules.md
       - strategy/reservations.md
       - strategy/resource-lifecycle.md
+      - strategy/rituals.md
       - strategy/run-capital.md
       - strategy/run-opening.md
       - strategy/scoring.md

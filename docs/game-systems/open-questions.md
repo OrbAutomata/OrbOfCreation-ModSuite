@@ -23,6 +23,9 @@ carried cross-run bonuses (authored constants do not).
 - **The Decay Ratio mapping** — how the displayed ratio maps onto the overcap loss formula.
 - **The Attribute Cost term** — when it changes and whether it is ever a decision. Settle with a
   nested tooltip on a resource where it is nonzero.
+- **What shrinks Zeal capacity** — the cap's tooltip carries a multiplier below 1 (e.g. `x0.652`),
+  and the cap falls as winning rituals' duration rewards stack. The tooltip names no source. Settle
+  by cancelling one duration reward and re-reading the multiplier.
 - **Overcap outside advancement resources** — the loss constants were measured on advancement
   resources, and whether ordinary resources share them is unestablished. So is whether a purely
   rate-fed resource can overcap at all: none has been observed doing so, but no rule forbidding it
@@ -49,6 +52,13 @@ carried cross-run bonuses (authored constants do not).
   running both for a measured window and comparing output.
 - **Spell levelling prerequisites** — spell recipes carry levelling prerequisites that the levelling
   button does not consult. Whether they are enforced anywhere a player can hit is unknown.
+- **Whether a running toggle spell holds augment copies** — with one toggle spell active, an
+  augment's usable-copy reading fell from 9/9 to 3/9 and stayed there. Whether that is the running
+  spell reserving copies, or an unrelated drain, is unestablished. Settle by reading the count
+  before a toggle, during it, and after it lapses.
+- **What an included Equipment or Alchemy loadout section does** — a switch with a section included
+  has never been tried. Settle by including a section and switching loadouts with a
+  distinguishable setup on each side.
 
 ## Discovery
 
@@ -78,12 +88,9 @@ carried cross-run bonuses (authored constants do not).
   arrive from a non-Scribe source or the registry reading is incomplete.
 - **Agromancy remaining-instance counts** — the count is computed against idle nodes and is allowed
   to go negative; the player-visible consequence is unrecorded.
-- **The six Alchemy pools** — what they represent, what an alchemy effect does, and how the Alchemy
-  Level dial interacts with either. The dial's authored shape is written up in
-  [attributes-and-upgrades.md](attributes-and-upgrades.md); what a level is worth is not.
-- **Whether a bought ceiling drags its dial up** — `Raise Alchemy Level` adds only to
-  `MaxAlchemyLevel`, and no authored effect moves `AlchemyOutputLevel`. Play has only ever seen the
-  dial sitting at its ceiling, which both an auto-follow and a diligent player would produce.
+- **The six Alchemy pools** — one is Alchemical Capacity and is spent by equipping recipes (see
+  [alchemy.md](alchemy.md)); what the other five allocate, what an equipped recipe produces, and how
+  Alchemy Level interacts with either is unknown.
 
 ## Interface
 
@@ -91,7 +98,6 @@ carried cross-run bonuses (authored constants do not).
   [vocabulary.md](vocabulary.md) is derived from the game's serialized data, so a label composed at
   runtime rather than stored with the screen would be absent from it entirely. Settle by opening the
   Statistics panel and one attribute purchase list side by side.
-- **Pages nobody has opened** — Spellbook > Spell Types, Concepts' Discover and Loadout, both
-  Automate pages, Alchemy's Learn and Manage, Artifact Create, the Time Rune Archive, World >
-  Dimensional, and the Statistics, Achievements and Tips panels. The cheapest item here, and it
-  blocks several others.
+- **Pages nobody has opened** — both Automate pages, Alchemy's Manage,
+  Artifact Create, the Time Rune Archive, and the Statistics, Achievements and Tips panels. The
+  cheapest item here, and it blocks several others.

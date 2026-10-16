@@ -9,6 +9,17 @@ authored taxonomy is fifteen entries:
 **Divination is displayed as "Divining".** The tag is `Divination` in the data; every player-facing
 surface says Divining. They are the same type.
 
+## Types carry a level, and casting is what raises it
+
+**Magic > Spellbook > Spell Types** lists your types with a level and an XP bar each — e.g. `Expansion Lv 0`
+over `240/300`. That level is **not for sale and not directly raisable**: it rises as a consequence
+of mastery-levelling the spells carrying the type, so the way to raise a type is to cast the spells
+that wear it (see [spell-mastery.md](spell-mastery.md)). A type's level then applies on top of
+whatever wears it, so it lifts every spell of that type at once.
+
+This is the only level in the glyph/Recipe Book/type family. Recipe Books have no level at all;
+augments do, and theirs is bought on a grid of its own (see [augments.md](augments.md)).
+
 ## Effective types, not printed names
 
 A spell starts from its authored tags, and glyph setup can add or replace elemental tags before the

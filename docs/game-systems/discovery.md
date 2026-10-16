@@ -13,6 +13,19 @@ one mechanism on **seven trees**:
 | Devote | Rituals > Discover | rituals |
 | Runecraft | Time > Time Runes > Create | time runes |
 
+Three of those pages wait on their screen rather than on anything about discovery: Rituals >
+Discover, Workshop > Artifacts > Create and Time > Time Runes > Create do not exist until the
+Rituals, Workshop and Time screens are unlocked (see [screens.md](screens.md)). Rituals > Discover
+then waits further on the **Principle Stone** upgrade.
+
+Alchemy and Concepts produce one kind of thing between them: a concept is an alchemy recipe by
+another name, which is why the Concepts list groups its entries under alchemy recipe types. The two
+trees stay separate — separate pools, separate ladders, separate uses; see
+[concepts.md](concepts.md).
+
+**Code shape:** both trees are typed `AlchemyRecipeSO`. What separates a concept from an alchemy
+recipe is which tree drew it, not the type.
+
 ## One button, not a workbench
 
 A discovery page presents a **single purchase: the next thing**. You do not compose anything and you

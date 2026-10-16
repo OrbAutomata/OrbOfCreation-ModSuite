@@ -45,3 +45,12 @@ Prices round to two significant digits, and the game uses two different rounding
 
 Discovery pool prices and spell level costs also snap to two significant digits, which is why ladders
 read as clean numbers like 90 / 900 / 9,000.
+
+## Durations
+
+A run clock is not drawn as `h:mm:ss`. It has three bands:
+
+- under a minute — the seconds with an `s`, e.g. `47s`;
+- from a minute up to a year — hours, minutes and seconds joined by `:`, each unit padded to two
+  digits, with leading empty units dropped, so seven minutes reads `07:41` and two hours `02:07:41`;
+- past a year — years, e.g. `1.23y`. The year here is the Julian one, 31,557,600 seconds.

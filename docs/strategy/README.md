@@ -16,3 +16,5 @@ How to play Orb of Creation well: policies, trade-offs, run planning. Mechanics 
 - [run-opening.md](run-opening.md) — the deterministic early chain, as a route rather than a script.
 - [run-capital.md](run-capital.md) — spread Time Advancements, pick the challenge posture, and prefer
   moves that also bank cross-run capital.
+- [rituals.md](rituals.md) — enter at the highest winnable level, quit only stalls, and press a
+  multi-target spell rather than waiting on the auto-attack.

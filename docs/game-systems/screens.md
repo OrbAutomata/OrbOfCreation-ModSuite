@@ -14,6 +14,38 @@ appear as the run earns them.
 | Rituals | Rituals · Discover · Mysticism | Ritual activation and discovery |
 | Time | Reset · Challenges · Time Runes | The run-spanning layer: prestige, challenges, runes |
 
+Only Magic is on the bar from the start. Each of the other six arrives with a purchase from the
+Upgrades list, and a screen that has not arrived takes every page under it with it — those pages do
+not exist yet rather than existing and refusing.
+
+| Screen | Arrives with |
+|---|---|
+| Magic | present from the start |
+| Scholar | Scholarism |
+| World | The World |
+| Workshop | Aspect: Workshop |
+| Alchemy | Aspect: Alchemy Lab |
+| Rituals | Aspect: Rituals |
+| Time | the reset unlock |
+
+## A subtab is not always the last level
+
+Several pages carry a second strip of their own, drawn above the screen's strip, so the chrome can
+be three strips deep. The inner strip belongs to the page: leaving the page takes it away, and a
+sibling page that has none simply shows one strip fewer. Observed inner strips:
+
+| Page | Its own strip |
+|---|---|
+| Magic > Spellbook | Unlock · Loadout · Spells · Spell Types |
+| Magic > Augments | Glyphcraft · Upgrade |
+| Scholar > Research | the school tabs — Expert · Technology · Innovation |
+| Workshop > Crafting | Manual · Automate |
+| Alchemy > Alchemy | Learn · Loadout |
+| Time > Time Runes | Create · Upgrade · Archive |
+
+An inner page is only reachable once its owning page is active — from Magic with Augments showing,
+Loadout is not on screen at all until you pick Spellbook first.
+
 Two strips are always present and belong to no single screen:
 
 - **Upgrades | Inventory** — a persistent right-hand panel visible on every screen. Upgrades is the
@@ -23,6 +55,10 @@ Two strips are always present and belong to no single screen:
 - **The top-right icons** — buttons rather than screens. Each puts a panel over whatever page you
   are on: Player is this run's numbers, and the settings and achievement panels sit beside it.
   A panel covers the board, and the buttons underneath it take no clicks until you close it.
+
+The gear in the top-left corner is not a screen but a modal Settings panel (Main · Game · Graphics),
+and it is the only place that holds **Manual Save**, **Export Save** and **Back to Main Menu** —
+leaving a run means going through it. Returning to the menu fires the manual save on the way out.
 
 ## Which page holds what
 
@@ -40,7 +76,8 @@ Two strips are always present and belong to no single screen:
 | World > Agromancy | [agromancy.md](agromancy.md) |
 | Workshop > Artifacts | [artifacts.md](artifacts.md) |
 | Workshop > Crafting | [crafting.md](crafting.md) |
-| Alchemy, Rituals | [unmapped-systems.md](unmapped-systems.md) |
+| Alchemy > Alchemy | [alchemy.md](alchemy.md) |
+| Rituals > Rituals | [rituals.md](rituals.md) |
 | Rituals > Mysticism | [disciplines.md](disciplines.md) |
 | Time > Reset | [reset-and-ng-plus.md](reset-and-ng-plus.md) |
 | Time > Challenges | [challenges.md](challenges.md) |

@@ -4,9 +4,9 @@ A progression tab level **grants advancement points** — one in each of the two
 feeds. Points are never wasted by arriving while you are "full", so there is no urgency to spend one
 before the next tab level lands.
 
-**Code shape:** the level actually adds `+1` to the currency's **maximum quantity**, so a currency
-reading `2/2` becomes `2/3`; quantity/cap reads as unspent/earned. See
-[allocations.md](allocations.md).
+**Code shape:** the level adds `+1` to the currency's **maximum quantity** and commits nothing, so a
+currency reading `2/2` becomes `3/3`. The number on the counter is the free remainder — earned minus
+committed — and the committed total is never drawn. See [allocations.md](allocations.md).
 
 | Progression tab | Advancement points it grants, per level |
 |---|---|

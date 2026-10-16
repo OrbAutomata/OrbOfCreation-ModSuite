@@ -1,7 +1,7 @@
 # Output and Reserve levels
 
 The Casting page carries two global dials. Both are free to move in either direction at any time; the
-purchase beside each raises only its maximum.
+purchase beside each raises their maximum.
 
 ## Output Level
 
@@ -10,8 +10,10 @@ level raises all spell power at a greater spell cost and a longer cooldown, so a
 **more per cast and worse per mana**. E.g., across one step from Output 1 to Output 2 a spell's cost
 went ×2.80 against a yield of ×2.28 and a cooldown of ×1.25.
 
-The ceiling is raised by `Raise Output Lv`. The per-level curve has not been extracted, and the dial
-runs past 50; see [open-questions.md](open-questions.md).
+The ceiling is raised by `Raise Output Lv`, and buying it moves the dial up to the new ceiling by
+itself (observed once: the ceiling going 1 to 2 left the dial reading 2/2 with no press). The
+per-level curve has not been extracted, and the dial runs past 50; see
+[open-questions.md](open-questions.md).
 
 ## Reserve Level
 

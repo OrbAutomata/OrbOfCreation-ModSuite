@@ -17,14 +17,28 @@ Two edges are easy to get wrong:
   pay contributes nothing however large it looks. When a target sits 67 orders of magnitude away,
   saving is not a strategy — spend it on anything that gains any benefit at all.
 
-## Allocations are not stocks
+## Which budgets come back, and which do not
 
-Advancement points, spell capacity and spots, plot capacity, the development queue, Time Advancements
-— these are refunded, redistributable, or capped in place. They are **portfolio problems** (how do I
-split what I hold), not spend-timing problems (when do I pay). Applying a stock policy to an
-allocation produces nonsense: there is nothing to save for and nothing to run out of, only a split to
-get right.
+Advancement points, spell capacity and spots, plot quantity, the development queue and Time
+Advancements all draw as a quantity/cap counter rather than a stock. A shared counter is not shared
+behaviour, and the difference decides whether a decision can be taken back.
 
-Two consequences: nothing is wasted at cap, so deferring an allocation is always free; and the
-development queue serializes everything, so ordering matters even in abundance and headroom must be
-left rather than filled to the brim.
+**Most of them come back.** Spell capacity and spots free up when you evict a spell, alchemy and
+artifact loadout capacity returns in full when you unequip, plot quantity regrows on its own, a
+development slot clears when its purchase lands, and cancelling a running development releases the
+cancelled level's points. Time Advancements are refunded by every world reset, so within a run they
+are a question of where they sit and never of whether to consume them. These are **portfolio
+problems** (how do I split what I hold), not spend-timing problems: nothing is wasted at cap,
+deferring is free, and a bad split is re-split rather than paid for twice.
+
+**Advancement points do not.** Glyph, Artifact, Materials and the five school points are committed
+for the rest of the run the moment a level lands — no refund, no respec, no moving a point from one
+node to another ([allocations.md](../game-systems/allocations.md)). The supply is run-finite:
+attributes go unaffordable, the tabs stop levelling, and the points stop arriving
+([advancement-currencies.md](../game-systems/advancement-currencies.md)). So these are spend
+decisions after all — you *will* run out, and every level you take is one some other node never
+gets. Only half the portfolio reading survives: an uncommitted point is never wasted, so waiting
+until you know the best node is free. Committing it is not.
+
+The development queue serializes everything, so ordering matters even in abundance and headroom must
+be left rather than filled to the brim.
