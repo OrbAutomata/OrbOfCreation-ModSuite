@@ -629,7 +629,7 @@ internal sealed class WorldResearchBinder : WorldPlainBinder<WorldResearch>
         {
             aggregate ??= _developmentCost!(entity) ??
                 throw new InvalidOperationException("ResearchSO.GetDevelopmentCost returned null");
-            return (aggregate, 0, false);
+            return (aggregate, 0, _costAffordable!(aggregate));
         }
 
         // QueueDevelopment mutates its cumulative list before checking affordability, so the list

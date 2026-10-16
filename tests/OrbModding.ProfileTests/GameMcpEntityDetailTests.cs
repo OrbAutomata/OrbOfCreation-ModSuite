@@ -1025,6 +1025,28 @@ public sealed class GameMcpEntityDetailTests : IDisposable
     /// queued it. Both reads now refuse it the way the press does, naming what it unlocks with.
     /// </summary>
     [Fact]
+    public void A_queued_research_whose_price_is_met_blames_the_level_it_waits_on()
+    {
+        var gate = ResearchStub(level: 7);
+        var super = ResearchStub(level: 0);
+        super.levelPrerequisites.prerequisites.Add(Require(gate, 8));
+        Assert.True(super.GetDevelopmentCost().HasEnough());
+        Assert.False(super.MeetsLevelRequirements());
+        global::SettingsManager.ResearchQueueMode = true;
+        try
+        {
+            var develop = Explain(Collect(), super.GetGuid(), 955)["row"]!["develop"]!;
+            Assert.False((bool)develop["available"]!);
+            Assert.Null(develop["affordable"]);
+            Assert.Equal("This does not meet its level requirements yet.", (string?)develop["reason"]);
+        }
+        finally
+        {
+            global::SettingsManager.ResearchQueueMode = false;
+        }
+    }
+
+    [Fact]
     public void A_research_the_grid_does_not_show_cannot_be_developed_and_says_what_unlocks_it()
     {
         var gate = ResearchStub(level: 1);
