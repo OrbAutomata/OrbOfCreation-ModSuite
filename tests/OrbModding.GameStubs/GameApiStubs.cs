@@ -4254,8 +4254,32 @@ namespace HarmonyLib
         public List<MethodInfo> Patch() => new();
     }
 
+    public sealed class CodeInstruction
+    {
+        public CodeInstruction(System.Reflection.Emit.OpCode opcode, object? operand = null)
+        {
+            this.opcode = opcode;
+            this.operand = operand;
+        }
+
+        public System.Reflection.Emit.OpCode opcode;
+        public object? operand;
+    }
+
     public static class AccessTools
     {
+        public static MethodInfo? Method(string typeColonMethod, Type[] parameters)
+        {
+            var separator = typeColonMethod.IndexOf(':');
+            if (separator <= 0 || separator == typeColonMethod.Length - 1) return null;
+            return TypeByName(typeColonMethod.Substring(0, separator))?.GetMethod(
+                typeColonMethod.Substring(separator + 1),
+                BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                parameters,
+                null);
+        }
+
         public static MethodInfo? Method(string typeColonMethod)
         {
             var separator = typeColonMethod.IndexOf(':');

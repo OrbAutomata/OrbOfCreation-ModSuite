@@ -217,7 +217,8 @@ the game cannot verify anything. The five lifecycle hooks wait on the experiment
 mastery hooks registered from `ComposeMentor` are exact-XP **inputs**, not a signal the world already
 carries: a native rollover consumes saved XP and Mentor's own grant writes the same value, so no
 snapshot delta recovers what was earned. They publish value-only rows with the world and retire only
-with Mentor itself.
+with Mentor itself. The tick-fault transpilers carry no signal at all; they are the doctrine's
+[diagnostic observe-and-rethrow exception](game-boundary-doctrine.md#diagnostic-observe-and-rethrow-exception).
 
 ## W57 — Lifecycle observation installs with Automata, not with Mentor
 

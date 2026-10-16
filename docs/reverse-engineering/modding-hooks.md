@@ -17,6 +17,7 @@ Harmony — never bundle your own copy.
 | `GameManager.ResetGameState()` prefix | a reset started | Low–medium |
 | `StructureSO.QueueBuild(int)` / `UpgradeSO.Purchase()` postfix | observe queue mutations, including ones you did not cause | Medium |
 | `StructureSO.CompleteAction()` / `UpgradeSO.CompleteAction()` postfix | observe completion | Medium |
+| `GameManager+GameElementIterator.Increment(float)` / `ViewManager.CheckViews()` | the per-element tick and per-view check; neither catches, so one throwing element stops every element after it each tick | High; runs for every element every tick |
 | `ResourceSO.Gain` prefix/postfix | global or selective gain multipliers | Medium; called very frequently |
 | `InputManager.Update` | the existing input path | usually unnecessary — a plugin `Update` is simpler |
 

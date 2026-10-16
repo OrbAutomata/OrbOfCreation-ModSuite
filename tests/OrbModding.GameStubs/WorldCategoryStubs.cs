@@ -1195,8 +1195,12 @@ public sealed class BattleManager
 public sealed class ManagedView : UnityEngine.MonoBehaviour
 {
     private bool isVisible;
+    public ViewSO? viewReference;
+    public Action? CheckViewVisibilityForTest;
 
     public bool IsVisible() => isVisible;
+
+    public void CheckViewVisibility() => CheckViewVisibilityForTest?.Invoke();
 
     public void SetVisibleForTest(bool value) => isVisible = value;
 }
@@ -1852,6 +1856,12 @@ public sealed class CharacterSO : IdScriptableObject
     /// <summary>A double in the game too: the count runs past what an int holds.</summary>
     public double numberSlain;
     public bool floats;
+}
+
+/// <summary>One element the game's fixed tick advances: <c>GameElementIterator.Increment</c> calls it per element.</summary>
+public interface IIncrement
+{
+    void Increment(float deltaTime);
 }
 
 public interface IHasGuid

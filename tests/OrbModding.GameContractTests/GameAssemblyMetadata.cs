@@ -270,6 +270,27 @@ internal sealed class GameAssemblyMetadata : IDisposable
             (method.Attributes & MethodAttributes.NewSlot) != 0);
     }
 
+    /// <summary>The one-byte opcode before every occurrence of the target's definition token.</summary>
+    public IReadOnlyList<byte> GetMethodReferenceOpcodes(
+        string sourceType,
+        string sourceMethod,
+        string[] sourceParameterTypes,
+        string targetType,
+        string targetMethod,
+        params string[] targetParameterTypes)
+    {
+        var source = Reader.GetMethodDefinition(RequireMethod(sourceType, sourceMethod, sourceParameterTypes));
+        var token = MetadataTokens.GetToken(RequireMethod(targetType, targetMethod, targetParameterTypes));
+        var il = _peReader.GetMethodBody(source.RelativeVirtualAddress).GetILBytes()!;
+        var opcodes = new List<byte>();
+        for (var offset = 1; offset + 4 <= il.Length; offset++)
+        {
+            var operand = il[offset] | (il[offset + 1] << 8) | (il[offset + 2] << 16) | (il[offset + 3] << 24);
+            if (operand == token) opcodes.Add(il[offset - 1]);
+        }
+        return opcodes;
+    }
+
     /// <summary>The one-byte IL opcode immediately preceding an exact definition-token operand.</summary>
     public byte GetMethodReferenceOpcode(
         string sourceType,

@@ -5335,6 +5335,104 @@
       "place": "action"
     },
     {
+      "id": "game-tick-fault.element-iterator-increment",
+      "assembly": "assembly-csharp",
+      "type": "GameManager+GameElementIterator",
+      "typeVisibility": "private",
+      "kind": "method",
+      "member": "Increment",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [
+        "System.Single"
+      ],
+      "owners": [
+        "Common game tick fault observation"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-tick-fault.view-manager-check-views",
+      "assembly": "assembly-csharp",
+      "type": "ViewManager",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "CheckViews",
+      "visibility": "private",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [],
+      "owners": [
+        "Common game tick fault observation"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-tick-fault.increment",
+      "assembly": "assembly-csharp",
+      "type": "IIncrement",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "Increment",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [
+        "System.Single"
+      ],
+      "owners": [
+        "Common game tick fault observation"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-tick-fault.check-view-visibility",
+      "assembly": "assembly-csharp",
+      "type": "ManagedView",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "CheckViewVisibility",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [],
+      "owners": [
+        "Common game tick fault observation"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-tick-fault.view-reference",
+      "assembly": "assembly-csharp",
+      "type": "ManagedView",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "viewReference",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ViewSO",
+      "owners": [
+        "Common game tick fault observation"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
       "id": "game-manager.init-game",
       "assembly": "assembly-csharp",
       "type": "GameManager",
