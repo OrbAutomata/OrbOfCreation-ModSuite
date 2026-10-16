@@ -10,10 +10,7 @@ internal sealed class GameAssemblyFactAttribute : FactAttribute
 {
     public GameAssemblyFactAttribute()
     {
-        if (!GameAssemblyPaths.TryResolve(out _, out var reason))
-        {
-            Skip = reason;
-        }
+        Skip = GameAssemblyPaths.SkipReason;
     }
 }
 
@@ -23,10 +20,7 @@ internal sealed class GameAssemblyTheoryAttribute : TheoryAttribute
 {
     public GameAssemblyTheoryAttribute()
     {
-        if (!GameAssemblyPaths.TryResolve(out _, out var reason))
-        {
-            Skip = reason;
-        }
+        Skip = GameAssemblyPaths.SkipReason;
     }
 }
 
@@ -56,7 +50,16 @@ internal sealed class GameAssemblyPaths
 
     public string UnityCore { get; }
 
-    public static bool TryResolve(out GameAssemblyPaths paths, out string reason)
+    /// <summary>
+    /// Contracts skip only when no game copy was named. A named copy that does not resolve runs every
+    /// contract, and each one fails in <see cref="Require"/> instead of the run exiting green.
+    /// </summary>
+    public static string? SkipReason =>
+        string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OOC_GAME_DIR"))
+            ? "Set OOC_GAME_DIR to run installed-game contract tests."
+            : null;
+
+    private static bool TryResolve(out GameAssemblyPaths paths, out string reason)
     {
         var gameRoot = Environment.GetEnvironmentVariable("OOC_GAME_DIR");
         if (string.IsNullOrWhiteSpace(gameRoot))
