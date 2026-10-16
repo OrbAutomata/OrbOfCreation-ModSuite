@@ -1598,7 +1598,8 @@ internal sealed class FakeSpellRecipe : FakeIdRegistry, global::IDiscoverable
     public bool readyToLevel;
     public FakeExperienceContainer masteryXpContainer = new();
     public FakeSpellLevelCost levelCost = new();
-    public FakeSpellCostList baseLevelingCost = new();
+    public static readonly Guid AuthoredLevelingResource = new("5c0f7e2a-91d4-4b8e-a3f6-0d2c7b19e4a8");
+    public FakeSpellCostList baseLevelingCost = new FakeSpellCostList().With(AuthoredLevelingResource, 9);
     public FakeSpellCostList baseResourceCost = new();
     public FakeSpellCostList baseUsageCost = new();
     public FakeSpellCostList holdDrain = new();

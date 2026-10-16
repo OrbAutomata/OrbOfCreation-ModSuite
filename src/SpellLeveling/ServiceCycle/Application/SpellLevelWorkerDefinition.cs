@@ -26,10 +26,9 @@ internal sealed class SpellLevelWorkerDefinition :
     /// candidates against a cost table; Spell Leveling reads three published fields off each spell row
     /// and one upgrade, so the world is already the frame.
     /// <para>
-    /// The bulletin is taken and not read. Spell leveling spends resources, so it is a reserve
-    /// consumer in principle — but it reads Auto Buy's configured reserve through the same
-    /// configuration Auto Buy does, and what a stance would mean here is a strategist question with no
-    /// strategist to answer it.
+    /// The bulletin is taken and not read. Spell leveling spends resources but holds back no reserve:
+    /// it buys any ready level the game can afford, and what a stance would mean here is a strategist
+    /// question with no strategist to answer it.
     /// </para>
     /// </remarks>
     public WakePolicy Evaluate(

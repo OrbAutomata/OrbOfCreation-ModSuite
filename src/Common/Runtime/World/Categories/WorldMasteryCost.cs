@@ -98,13 +98,22 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
                 }
                 var id = frame.SpellRecipes[index].EntityId;
                 var costs = _costs!(_baseCost!(spell)!);
-                if (id == Guid.Empty || costs is null) { skipped++; continue; }
-                for (var position = 0; position < costs.Count; position++)
+                if (id == Guid.Empty) { skipped++; continue; }
+                var rows = 0;
+                for (var position = 0; costs is not null && position < costs.Count; position++)
                 {
                     var cost = costs[position];
                     if (cost is null) continue;
                     frame.MasteryCosts.Append(new RawMasteryCost(
                         id, position, _resourceId!(cost), _amount!(cost)));
+                    rows++;
+                }
+                if (rows == 0)
+                {
+                    skipped++;
+                    if (firstFailure.Length == 0)
+                        firstFailure = $"{EntityIdentityFormatter.Format(id)} has no authored level cost";
+                    continue;
                 }
                 sampled++;
             }

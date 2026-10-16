@@ -805,7 +805,7 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     [Fact]
-    public void ASpellsMasteryReadinessIsDerivedFromItsPublishedThresholdWhileAnEmptyAuthoredCostIsAffordable()
+    public void ASpellsMasteryReadinessIsDerivedFromItsPublishedThreshold()
     {
         // Readiness is cheap accessor math over the published experience and its container's cached
         // threshold. Capture must not ask the native predicate for the answer.
@@ -835,13 +835,37 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         Assert.True(WorldLookup.TryFind(world.SpellRecipes, ready, out var readyRow));
         Assert.True(readyRow.MasteryLevelReady);
-        Assert.True(readyRow.MasteryLevelAffordable);
         Assert.True(WorldLookup.TryFind(world.SpellRecipes, banking, out var bankingRow));
         Assert.False(bankingRow.MasteryLevelReady);
-        Assert.True(bankingRow.MasteryLevelAffordable);
 
         // Same mastery level on both: readiness is its own fact, not one the level implies.
         Assert.Equal(readyRow.MasteryLevel, bankingRow.MasteryLevel);
+    }
+
+    [Fact]
+    public void ASpellWithoutAnAuthoredLevelCostIsUnaffordableAndNamedInTheReport()
+    {
+        var spell = new FakeSpellRecipe
+        {
+            Identity = Guid.NewGuid(),
+            discovered = true,
+            masteryLevel = 4,
+            masteryExperience = new BigDouble(8d),
+            masteryXpContainer = new FakeExperienceContainer { cachedRequiredXp = new BigDouble(8d) },
+            baseLevelingCost = new FakeSpellCostList(),
+        };
+        FakeSpellRecipe.All.Add(spell);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.False(report.IsComplete);
+        Assert.Contains("has no authored level cost", report.Describe());
+        Assert.True(WorldLookup.TryFind(world.SpellRecipes, spell.Identity, out var row));
+        Assert.True(row.MasteryLevelReady);
+        Assert.False(row.MasteryLevelAffordable);
+        Assert.Equal(0, row.MasteryLevelCostCount);
     }
 
     /// <summary>
