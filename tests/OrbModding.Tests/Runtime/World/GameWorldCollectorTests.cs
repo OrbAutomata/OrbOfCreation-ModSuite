@@ -3299,6 +3299,45 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     /// <summary>
+    /// A ritual that forces its level is fought and priced at that level, whatever its stored
+    /// selection says: <c>RitualSO.GetCurrentLevel()</c> answers <c>forceLevelValue</c> there.
+    /// Restoration stores 55 and runs at 70.
+    /// </summary>
+    [Fact]
+    public void A_forced_ritual_is_priced_at_the_level_it_runs_at()
+    {
+        var knowledge = new FakeResource { Quantity = new BigDouble(80) };
+        FakeResource.All.Add(knowledge);
+        var restoration = new FakeRitual
+        {
+            Identity = Guid.NewGuid(),
+            discovered = true,
+            selectedLevel = 55,
+            forceLevel = true,
+            forceLevelValue = 70,
+            maximumSelectedLevel = 71,
+            activationCost = new FakeCraftingResourceCostList()
+                .With(knowledge, new BigDouble(5)),
+            completionCost = new FakeCraftingResourceCostList()
+                .With(knowledge, new BigDouble(2)),
+            completionCostMod = new ValueModifierRecord(new BigDouble(100d)).Dirty(),
+        };
+        restoration.completionCostPerLevel.variable!.value.modifiers.Add(
+            new FakeValueModifier(FakeModifierKind.Raw, 1d, order: 0));
+        FakeRitual.All.Add(restoration);
+        FakeRitualManager.instance.selectedRitual.value = restoration;
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLookup.TryFind(world.Rituals, restoration.Identity, out var ritual));
+        Assert.Equal(70, ritual.CurrentLevel);
+        Assert.Equal(new BigDouble(72), ritual.Decision.CompletionCosts[0].Cost);
+    }
+
+    /// <summary>
     /// A ritual's two senses of "active" are different questions and the row must answer both:
     /// <c>inBattle</c> is a run under way, while <c>ritualInstances.Count &gt; 0</c> — the game's own
     /// <c>HasActiveInstances()</c> and <c>IsDurationActive()</c> — is a finished run whose reward is

@@ -145,6 +145,34 @@ public sealed class GameMcpRitualLifecycleTests
     /// the verb presses the screen's own selection toggle itself, so the decision no longer waits
     /// on a step the caller had to make in the right order.
     /// </remarks>
+    /// <summary>
+    /// Restoration stores 55 and runs at 70, and every read and refusal names the 70: the run's
+    /// enemies, waves and price all read <c>RitualSO.GetCurrentLevel()</c>, and the Ritual panel
+    /// draws that number on a disabled selector.
+    /// </summary>
+    [Fact]
+    public void A_forced_ritual_names_the_level_its_run_is_fought_at()
+    {
+        var world = World(selected: true, level: 55, activeInstances: 0, forcedLevel: 70);
+
+        var row = Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 807),
+            "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
+        Assert.Equal(70, (int)row["selectedLevel"]!);
+        var setLevel = row["setLevel"]!;
+        Assert.False((bool)setLevel["available"]!);
+        Assert.Equal(70, (int)setLevel["current"]!);
+        Assert.Equal(
+            "The game fixes this ritual's starting level at 70, so it cannot be set.",
+            (string?)setLevel["reason"]);
+        Assert.Null(setLevel["maximum"]);
+
+        var listed = Assert.IsType<JArray>(Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 808), "rituals", 0, 50).Freeze(),
+            world)["rows"]).Values<JObject>().Single()!;
+        Assert.Equal(70, (int)listed["selectedLevel"]!);
+    }
+
     [Fact]
     public void The_starting_level_decision_does_not_wait_for_a_selection()
     {
@@ -452,7 +480,8 @@ public sealed class GameMcpRitualLifecycleTests
         int activeInstances,
         bool inBattle = false,
         int wavesCompleted = 0,
-        WorldRitualSpoil[]? spoils = null)
+        WorldRitualSpoil[]? spoils = null,
+        int? forcedLevel = null)
     {
         // The verdict is never an independent fixture input: RitualSO.IsFailedRun() is
         // wavesCompleted < 5, so a world that sets the two separately can assert a result the wave
@@ -478,7 +507,8 @@ public sealed class GameMcpRitualLifecycleTests
         var requiredWaves = Math.Min(baseWaves + (wavesPerLevel * level), maxWaves);
         var ritual = new WorldRitual(RitualId, true, inBattle, activeInstances,
             6, 5, level, wavesCompleted, 0, 0, 0, 0, 1, BigDouble.Zero, in modifiers,
-            false, false, false, 0, baseWaves, maxWaves, requiredWaves, 1d, 0, failedRun, spoils,
+            false, false, forcedLevel.HasValue, forcedLevel ?? 0, baseWaves, maxWaves, requiredWaves,
+            1d, 0, failedRun, spoils,
             decision: decision);
         var rateInputs = default(RawResourceRateInputs);
         var traits = default(RawResourceTraits);

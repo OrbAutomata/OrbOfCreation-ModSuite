@@ -1709,7 +1709,11 @@ decision. `setLevel` has one presence rule for its bounds: every ritual whose st
 caller's to choose publishes `minimum` and `maximum`, selected or not, because the ceiling is a fact
 of the ritual and the player rather than of the selection — and it is available on an unselected
 ritual too, because the verb performs the selection. Only a `level_locked` ritual — one the
-game runs at an authored level — publishes no bounds, because there is no range to choose from.
+game runs at an authored level — publishes no bounds, because there is no range to choose from. Its
+`selectedLevel`, `setLevel.current`, completion price and refusal all name that authored level,
+because `RitualSO.GetCurrentLevel()` answers it and the run's enemies, waves and price read
+`GetCurrentLevel()`. The Ritual panel draws the same number on a disabled selector; the battle
+header alone prints the stored selection (Restoration: header 55, run at 70).
 
 `game_ritual(mode="select"|"deselect"|"activate"|"end"|"cancel_duration", uuid=...)` reproduces the
 corresponding visible Ritual control. `mode="set_level"` also requires the `level` the Ritual

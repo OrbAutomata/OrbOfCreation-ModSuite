@@ -108,6 +108,14 @@ internal readonly struct WorldRitual : IWorldEntity
     internal int SelectedLevel { get; }
 
     /// <summary>
+    /// The level a run is fought, waved and priced at: <c>RitualSO.GetCurrentLevel()</c>, which is
+    /// <see cref="ForceLevelValue"/> on a ritual that forces its level and <see cref="SelectedLevel"/>
+    /// otherwise. The battle header prints the raw <c>selectedLevel</c>, so on a forced ritual it
+    /// names a level the run is not at.
+    /// </summary>
+    internal int CurrentLevel => ForceLevel ? ForceLevelValue : SelectedLevel;
+
+    /// <summary>
     /// Waves cleared by the run in progress, or — once <see cref="InBattle"/> is false — by the run
     /// that last finished. <c>Initiate()</c> is the only thing that clears it, so the finished run's
     /// count stands until the next activation.
@@ -323,10 +331,10 @@ internal static class WorldRitualDeriver
 
         var modifiers = new GameValueModifier[formula.Modifiers.Count];
         for (var index = 0; index < modifiers.Length; index++)
-            modifiers[index] = formula.Modifiers[index].MultiplyScalar(new BigDouble(ritual.SelectedLevel));
+            modifiers[index] = formula.Modifiers[index].MultiplyScalar(new BigDouble(ritual.CurrentLevel));
         var exponents = new GameValueModifier[formula.Exponents.Count];
         for (var index = 0; index < exponents.Length; index++)
-            exponents[index] = formula.Exponents[index].MultiplyScalar(new BigDouble(ritual.SelectedLevel));
+            exponents[index] = formula.Exponents[index].MultiplyScalar(new BigDouble(ritual.CurrentLevel));
         var scratch = new GameValueModifier[modifiers.Length];
         var completionMod = OrbGameMath.AsPercent(ritual.Modifiers.CompletionCostMod);
         var rows = new WorldRitualCost[baseCosts.Count];

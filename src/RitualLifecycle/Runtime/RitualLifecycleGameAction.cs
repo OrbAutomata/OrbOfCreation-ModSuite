@@ -126,8 +126,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
                 case RitualLifecycleActionKind.SetLevel:
                     if (native.ForceLevel(ritual))
                         return Reject(RitualLifecyclePreflight.LevelLocked,
-                            "This ritual fixes its starting level at " +
-                            native.ForceLevelValue(ritual) + ".");
+                            LevelLockedReason(native.ForceLevelValue(ritual)));
                     var minimum = WorldRitualDecision.NativeMinimumStartingLevel;
                     var maximum = Math.Max(native.MaximumSelectedLevel(ritual), minimum);
                     if (action.Level < minimum || action.Level > maximum)
@@ -317,6 +316,14 @@ internal sealed class RitualLifecycleGameAction : IDisposable
         return Reject(RitualLifecyclePreflight.ContractUnavailable,
             "The game refused this ritual price without identifying a short resource.");
     }
+
+    /// <summary>
+    /// The one sentence for a ritual that forces its level, naming the level its run is fought at:
+    /// <c>RitualSO.GetCurrentLevel()</c> answers <c>forceLevelValue</c> there, and the Ritual panel
+    /// draws that number on a disabled selector.
+    /// </summary>
+    internal static string LevelLockedReason(int level) =>
+        "The game fixes this ritual's starting level at " + level + ", so it cannot be set.";
 
     private static RitualLifecycleSubmission Reject(
         RitualLifecyclePreflight preflight,

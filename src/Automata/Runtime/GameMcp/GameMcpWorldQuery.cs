@@ -1049,7 +1049,7 @@ internal static class GameMcpWorldQuery
                 ["state"] = RitualState(in listedRitual),
                 ["selected"] = listedRitual.Decision.Selected,
                 ["reachedLevel"] = listedRitual.ReachedLevel,
-                ["selectedLevel"] = listedRitual.SelectedLevel,
+                ["selectedLevel"] = listedRitual.CurrentLevel,
                 ["waveTotal"] = listedRitual.RequiredWaves,
                 ["affordable"] = listedRitual.Decision.ActivationAffordable,
             }.Freeze();
@@ -2688,7 +2688,7 @@ internal static class GameMcpWorldQuery
             };
             if (current.InBattle)
             {
-                postState["selectedLevel"] = current.SelectedLevel;
+                postState["selectedLevel"] = current.CurrentLevel;
                 var drain = ProjectRitualCosts(world, current.Decision.CompletionCosts);
                 if (drain.Count > 0) postState["completionCosts"] = drain;
 
@@ -2736,8 +2736,8 @@ internal static class GameMcpWorldQuery
         else
             result["startingLevel"] = new JObject
             {
-                ["before"] = hadBefore ? previous.SelectedLevel : (int?)null,
-                ["after"] = current.SelectedLevel,
+                ["before"] = hadBefore ? previous.CurrentLevel : (int?)null,
+                ["after"] = current.CurrentLevel,
             };
         return result.Freeze();
     }
@@ -8597,7 +8597,7 @@ internal static class GameMcpWorldQuery
             ["inBattle"] = ritual.InBattle,
             ["activeInstances"] = ritual.ActiveInstances,
             ["reachedLevel"] = ritual.ReachedLevel,
-            ["selectedLevel"] = ritual.SelectedLevel,
+            ["selectedLevel"] = ritual.CurrentLevel,
             ["waveTotal"] = ritual.RequiredWaves,
         };
         AddRitualRun(result, in ritual);
@@ -8745,10 +8745,13 @@ internal static class GameMcpWorldQuery
         var level = new JObject
         {
             ["available"] = !ritual.ForceLevel && !anyBattleActive,
-            ["current"] = ritual.SelectedLevel,
+            ["current"] = ritual.CurrentLevel,
         };
         if (ritual.ForceLevel)
+        {
             level["reasonCode"] = "level_locked";
+            level["reason"] = RitualLifecycleGameAction.LevelLockedReason(ritual.ForceLevelValue);
+        }
         else
         {
             // Both bounds, from the same native control: the jump-start selector is clamped to
