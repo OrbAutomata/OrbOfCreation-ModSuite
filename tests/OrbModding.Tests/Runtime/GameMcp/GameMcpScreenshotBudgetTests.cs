@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.AccessControl;
-using System.Security.Principal;
 using System.Text.RegularExpressions;
 using OrbAutomata;
 using OrbModding.Common;
@@ -21,6 +19,7 @@ public sealed class GameMcpScreenshotBudgetTests : IDisposable
     public void Dispose()
     {
         if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
+        File.Delete(_directory);
     }
 
     [Fact]
@@ -63,18 +62,17 @@ public sealed class GameMcpScreenshotBudgetTests : IDisposable
     /// file-system exception is filed under the reference that answer names.
     /// </summary>
     /// <remarks>
-    /// A run folder the operator's own machine will not open is the shape of every reason this arm
-    /// exists for. What the caller must not be handed is the machine's words for it — a path, a
-    /// permission, a .NET type — because those are what whoever fixes it needs, and they go to the
-    /// log under the reference the answer names instead.
+    /// A file standing where the run folder belongs is storage no user, root included, can list.
+    /// What the caller must not be handed is the machine's words for it — a path, a .NET type —
+    /// because those are what whoever fixes it needs, and they go to the log under the reference
+    /// the answer names instead.
     /// </remarks>
     [Fact]
     public void StorageThatWillNotBeInspectedAnswersInTheSuitesWordsUnderALogReference()
     {
         var logged = new List<string>();
         GameActionFaultLog.ConfigureLog(logged.Add);
-        Directory.CreateDirectory(_directory);
-        DenyListing(_directory);
+        File.WriteAllBytes(_directory, new byte[] { 1 });
         try
         {
             var admission = GameMcpScreenshotBudget.BeforeCapture(_directory);
@@ -94,47 +92,7 @@ public sealed class GameMcpScreenshotBudgetTests : IDisposable
         }
         finally
         {
-            AllowListing(_directory);
             GameActionFaultLog.ConfigureLog(null);
         }
     }
-
-    private static void DenyListing(string directory)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            var info = new DirectoryInfo(directory);
-            var security = info.GetAccessControl();
-            security.AddAccessRule(DenyListingRule());
-            info.SetAccessControl(security);
-        }
-        else
-        {
-            File.SetUnixFileMode(directory, UnixFileMode.None);
-        }
-    }
-
-    private static void AllowListing(string directory)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            var info = new DirectoryInfo(directory);
-            var security = info.GetAccessControl();
-            security.RemoveAccessRule(DenyListingRule());
-            info.SetAccessControl(security);
-        }
-        else
-        {
-            File.SetUnixFileMode(
-                directory,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        }
-    }
-
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-    private static FileSystemAccessRule DenyListingRule() =>
-        new(
-            new SecurityIdentifier(WellKnownSidType.WorldSid, null),
-            FileSystemRights.ListDirectory,
-            AccessControlType.Deny);
 }
