@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Threading;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Configuration;
@@ -65,15 +64,14 @@ public sealed class SuiteFramePumpLifecycleTests
         var captured = pump.PumpFrame(1);
         Assert.Equal(1, captured.CyclesStarted);
         Assert.Equal(ServiceHandoffPhase.Empty, oldRunner.HandoffPhaseHint);
-        var stopwatch = Stopwatch.StartNew();
-        pump.RequestLifecycleReplacement(new LifecycleGeneration(2));
-        stopwatch.Stop();
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(100));
+        HeldGate.AssertReturnsWhileHeld(
+            () => pump.RequestLifecycleReplacement(new LifecycleGeneration(2)),
+            contention.Release);
         Assert.False(registration.LifecycleSnapshot.LatestTerminal.HasPublishedCycle);
         contention.Release();
         Assert.True(SpinWait.SpinUntil(
             () => oldRunner.HandoffPhaseHint == ServiceHandoffPhase.Stopped,
-            TimeSpan.FromSeconds(2)));
+            ServiceCycleTestDeadline.Value));
         Assert.Equal(0, definition.EvaluationCount(1));
     }
 
@@ -101,7 +99,7 @@ public sealed class SuiteFramePumpLifecycleTests
         starter.StartDeferred();
         Assert.True(SpinWait.SpinUntil(
             () => oldRunner.HandoffPhaseHint == ServiceHandoffPhase.Stopped,
-            TimeSpan.FromSeconds(2)));
+            ServiceCycleTestDeadline.Value));
         Assert.Equal(0, definition.EvaluationCount(1));
     }
 
@@ -255,7 +253,7 @@ public sealed class SuiteFramePumpLifecycleTests
         firstGate.Release.Set();
         Assert.True(SpinWait.SpinUntil(
             () => firstRunner.HandoffPhaseHint == ServiceHandoffPhase.Stopped,
-            TimeSpan.FromSeconds(2)));
+            ServiceCycleTestDeadline.Value));
         pump.PumpFrame(frame++);
         Assert.Equal((ulong)5, registration.Runner.Lifecycle.Value);
         Assert.Equal(3, definition.WorkerDefinitionCreateCount);
@@ -265,12 +263,12 @@ public sealed class SuiteFramePumpLifecycleTests
         secondGate.Release.Set();
         Assert.True(SpinWait.SpinUntil(
             () => secondRunner.HandoffPhaseHint == ServiceHandoffPhase.Stopped,
-            TimeSpan.FromSeconds(2)));
+            ServiceCycleTestDeadline.Value));
     }
 
     [Fact]
     [Trait("Category", "PerformanceSimulation")]
-    public void HundredThousandActionLifecycleOrphanTerminatesSuffixOnOwnerInConstantWork()
+    public void HundredThousandActionLifecycleOrphanTerminatesSuffixOnOwnerWithoutExecutingAnAction()
     {
         var clock = new ThreadSafeTestClock(100);
         using var registry = new ServiceCycleRegistry(1, clock);
@@ -283,15 +281,13 @@ public sealed class SuiteFramePumpLifecycleTests
         var frame = 1L;
         PrepareBatch(pump, registration, ref frame);
 
-        var stopwatch = Stopwatch.StartNew();
         pump.RequestLifecycleReplacement(new LifecycleGeneration(2));
-        stopwatch.Stop();
         var receipt = registration.LifecycleSnapshot.LatestTerminal.Receipt;
         Assert.Equal(BatchTerminalDisposition.Orphaned, receipt.Disposition);
         Assert.Equal(100_000, receipt.ActionCount);
         Assert.Equal(100_000, receipt.UntouchedSuffixCount);
         Assert.Equal(0, receipt.NativeCallOutcome.NativeCallsAttempted);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(250));
+        Assert.Equal(0, definition.ActionExecutionCount);
     }
 
     [Fact]
@@ -330,7 +326,7 @@ public sealed class SuiteFramePumpLifecycleTests
         Assert.True(SpinWait.SpinUntil(
             () => first.HandoffPhaseHint == ServiceHandoffPhase.Stopped &&
                   second.HandoffPhaseHint == ServiceHandoffPhase.Stopped,
-            TimeSpan.FromSeconds(2)));
+            ServiceCycleTestDeadline.Value));
         pump.PumpFrame(6);
         Assert.Equal(3, starter.AttemptCount);
         Assert.Equal((ulong)3, registration.Runner.Lifecycle.Value);

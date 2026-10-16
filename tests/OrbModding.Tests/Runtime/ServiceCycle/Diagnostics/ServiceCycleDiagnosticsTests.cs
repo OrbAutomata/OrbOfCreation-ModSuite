@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -96,7 +95,7 @@ public sealed class ServiceCycleDiagnosticsTests
         try
         {
             Assert.True(registration.Runner.TryStartCycle(clock.Now).Queued);
-            Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+            Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
             registry.Configuration.Publish(TestSuiteConfiguration.WithSetting(2));
 
             var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
@@ -146,11 +145,10 @@ public sealed class ServiceCycleDiagnosticsTests
         registry.StrategyPublication.Publish(TestSuiteStrategy.WithSetting(2));
         using var contention = new HandoffGateContention(registration.Runner);
         contention.Acquire();
-        var stopwatch = Stopwatch.StartNew();
-        var contended = ServiceCycleDiagnostics.CopyServices(pump, buffer);
-        stopwatch.Stop();
+        var contended = HeldGate.AssertReturnsWhileHeld(
+            () => ServiceCycleDiagnostics.CopyServices(pump, buffer),
+            contention.Release);
 
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(250));
         Assert.Equal(1, contended.UnavailableCount);
         Assert.Equal(ServiceCycleDiagnosticsAvailability.HandoffContended, buffer[0].Availability);
         Assert.Equal(ServiceCycleOperationalPhase.Unavailable, buffer[0].Phase);

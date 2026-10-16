@@ -8,6 +8,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Tracing;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing.Emission;
 using OrbModding.TestSupport;
 using Xunit;
+using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 
 namespace OrbModding.Tests.Runtime.ServiceCycle.Tracing.Emission;
 
@@ -373,7 +374,7 @@ public sealed class ServiceCycleSemanticRecorderTests
         });
         thread.Start();
         Assert.True(
-            thread.Join(TimeSpan.FromSeconds(2)),
+            thread.Join(ServiceCycleTestDeadline.Value),
             "The foreign-thread recorder probe did not complete.");
 
         Assert.IsType<InvalidOperationException>(appendFailure);

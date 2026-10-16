@@ -63,7 +63,7 @@ public sealed class SuiteFramePumpControlSafetyTests
         var frame = 1L;
         ServiceCyclePumpTestWait.UntilStart(pump, ref frame);
         ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frame);
-        Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+        Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
 
         pump.SetEmergencyStop(true);
         pump.SetEmergencyStop(false);

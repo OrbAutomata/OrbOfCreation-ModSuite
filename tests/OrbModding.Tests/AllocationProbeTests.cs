@@ -45,12 +45,12 @@ public sealed class AllocationProbeTests
 
     /// <summary>
     /// One disturbed window is what the runtime hands out under load, and it is not a reason to
-    /// fail a gate: the probe opens another window and reports the count two of them agree on.
+    /// fail a gate: the probe opens another window, and a zero there settles it.
     /// </summary>
     /// <remarks>
     /// The work here allocates on exactly one pass, which is the shape of the disturbance the probe
     /// exists for — the first window carries bytes the code did not allocate on any other pass, and
-    /// the two after it agree.
+    /// the one after it measures zero.
     /// </remarks>
     [Fact]
     public void OneDisturbedWindowIsMeasuredAgainRatherThanFailed()
@@ -67,7 +67,7 @@ public sealed class AllocationProbeTests
             prepare: () => passes++);
 
         Assert.Equal(0, allocated);
-        Assert.Equal(4, passes);
+        Assert.Equal(3, passes);
         Assert.Equal(512, sink.Length);
     }
 

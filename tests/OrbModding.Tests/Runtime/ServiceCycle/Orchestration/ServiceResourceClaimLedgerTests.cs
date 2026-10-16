@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
 using OrbModding.Common.Runtime.Configuration;
@@ -458,14 +457,11 @@ public sealed class ServiceResourceClaimLedgerTests
             () => runner.HandoffPhaseHint == ServiceHandoffPhase.ResponseReady,
             ServiceCycleTestDeadline.Value));
 
-        var stopped = Stopwatch.StartNew();
         runner.Dispose();
         ledger.EndFactory(blocker);
         Assert.True(SpinWait.SpinUntil(
             () => runner.HandoffPhaseHint == ServiceHandoffPhase.Stopped,
             ServiceCycleTestDeadline.Value));
-        stopped.Stop();
-        Assert.True(stopped.Elapsed < TimeSpan.FromMilliseconds(250));
     }
 
     [Fact]

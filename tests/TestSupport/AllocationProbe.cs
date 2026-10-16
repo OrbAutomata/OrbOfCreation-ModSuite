@@ -23,8 +23,8 @@ namespace OrbModding.TestSupport;
 /// The JIT allocates from native arenas and never reaches this counter.
 /// </para>
 /// <para>
-/// The disturbance only ever adds, so a window measuring zero is proof the code allocated nothing,
-/// and it costs one window. Any other number has to be measured twice before it is reported: the
+/// The disturbance only ever adds, so any window measuring zero is proof the code allocated nothing
+/// and ends the measurement. Any other number has to be measured twice before it is reported: the
 /// probe opens further windows, up to <see cref="MaximumWindows"/>, and reports the first count two
 /// of them agree on. A disturbance lands on one window and not the next, so a second window is
 /// usually the whole story and a third settles the case where the disturbance landed on the first
@@ -65,12 +65,10 @@ internal static class AllocationProbe
         prepare?.Invoke();
         Drive(iterations, work);
 
-        windows[0] = MeasureWindow(iterations, work, prepare);
-        if (windows[0] == 0) return 0;
-
-        for (var index = 1; index < windows.Length; index++)
+        for (var index = 0; index < windows.Length; index++)
         {
             windows[index] = MeasureWindow(iterations, work, prepare);
+            if (windows[index] == 0) return 0;
             for (var earlier = 0; earlier < index; earlier++)
                 if (windows[earlier] == windows[index]) return windows[index];
         }

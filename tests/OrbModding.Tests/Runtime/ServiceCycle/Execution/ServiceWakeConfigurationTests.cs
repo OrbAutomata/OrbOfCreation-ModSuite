@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Threading;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
@@ -176,10 +175,7 @@ public sealed class ServiceWakeConfigurationTests
         Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
         Assert.Equal(ServiceHandoffPhase.Evaluating, runner.ProbeHandoff().Phase);
 
-        var stopwatch = Stopwatch.StartNew();
-        Assert.False(runner.TryAcquireResponse());
-        stopwatch.Stop();
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(100));
+        Assert.False(HeldGate.AssertReturnsWhileHeld(runner.TryAcquireResponse, release.Set));
         registry.Configuration.Publish(TestSuiteConfiguration.WithSetting(2));
         release.Set();
 

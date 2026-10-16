@@ -36,7 +36,7 @@ public sealed class SuiteFramePumpLifecycleConcurrencyTests
         Assert.Equal((ulong)2, registration.LifecycleSnapshot.DesiredLifecycle.Value);
         Assert.Equal(3, registry.LifecyclePositionTransitionCount);
         Assert.Equal(2, replacementFrame.LifecyclePositionTransitions);
-        Assert.True(retiringWorker.Join(TimeSpan.FromSeconds(2)));
+        Assert.True(retiringWorker.Join(ServiceCycleTestDeadline.Value));
         var releaseFrame = pump.PumpFrame(2);
         Assert.Equal(1, releaseFrame.LifecyclePositionTransitions);
     }
@@ -124,17 +124,13 @@ public sealed class SuiteFramePumpLifecycleConcurrencyTests
             clock,
             registry);
 
-        var control = Stopwatch.StartNew();
-        pump.RequestLifecycleReplacement(new LifecycleGeneration(3));
-        control.Stop();
-        Assert.True(control.Elapsed < TimeSpan.FromMilliseconds(250));
+        HeldGate.AssertReturnsWhileHeld(
+            () => pump.RequestLifecycleReplacement(new LifecycleGeneration(3)),
+            exit.Release.Set);
         Assert.True(exit.WaitForCount(2));
         Assert.Equal(2, stuck.LifecycleSnapshot.LivePositionCount);
 
-        var oneFrame = Stopwatch.StartNew();
-        pump.PumpFrame(frame++);
-        oneFrame.Stop();
-        Assert.True(oneFrame.Elapsed < TimeSpan.FromMilliseconds(250));
+        HeldGate.AssertReturnsWhileHeld(() => pump.PumpFrame(frame++), exit.Release.Set);
         PumpUntil(pump, ref frame, () => siblingDefinition.ExecutionCount(3) != 0, clock, registry);
         Assert.Equal(2, stuck.LifecycleSnapshot.LivePositionCount);
         exit.Release.Set();
@@ -194,11 +190,17 @@ public sealed class SuiteFramePumpLifecycleConcurrencyTests
 
         Assert.Equal(0, AllocationProbe.MeasureRepeated(100, () => pump.PumpFrame(frame++)));
 
-        var stopwatch = Stopwatch.StartNew();
-        registration.Dispose();
-        registry.Dispose();
-        stopwatch.Stop();
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(100));
+        HeldGate.AssertReturnsWhileHeld(
+            () =>
+            {
+                registration.Dispose();
+                registry.Dispose();
+            },
+            () =>
+            {
+                firstGate.Release.Set();
+                secondGate.Release.Set();
+            });
         firstGate.Release.Set();
         secondGate.Release.Set();
         pump.Dispose();
@@ -212,7 +214,7 @@ public sealed class SuiteFramePumpLifecycleConcurrencyTests
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
-            if (deadline.Elapsed > TimeSpan.FromSeconds(3)) return false;
+            if (deadline.Elapsed > ServiceCycleTestDeadline.Value) return false;
             Thread.Yield();
         }
         return true;

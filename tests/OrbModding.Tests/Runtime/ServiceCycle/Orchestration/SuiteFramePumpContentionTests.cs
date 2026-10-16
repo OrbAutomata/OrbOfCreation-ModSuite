@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
@@ -23,11 +22,8 @@ public sealed class SuiteFramePumpContentionTests
         using var contention = new HandoffGateContention(runner);
         contention.Acquire();
 
-        var timer = Stopwatch.StartNew();
-        registration.Dispose();
-        timer.Stop();
+        HeldGate.AssertReturnsWhileHeld(() => registration.Dispose(), contention.Release);
 
-        AssertPrompt(timer.Elapsed);
         contention.Release();
         Assert.True(System.Threading.SpinWait.SpinUntil(
             () => runner.HandoffPhaseHint == ServiceHandoffPhase.Stopped,
@@ -58,13 +54,10 @@ public sealed class SuiteFramePumpContentionTests
         using var contention = new HandoffGateContention(registration.Runner);
         contention.Acquire();
 
-        var timer = Stopwatch.StartNew();
-        var contended = pump.PumpFrame(1);
-        timer.Stop();
+        var contended = HeldGate.AssertReturnsWhileHeld(() => pump.PumpFrame(1), contention.Release);
 
         Assert.Equal(0, contended.CyclesStarted);
         Assert.Equal(0, definition.StartCount);
-        AssertPrompt(timer.Elapsed);
         contention.Release();
         ServiceRunnerTestWait.ForHandoff(
             registration.Runner,
@@ -89,13 +82,10 @@ public sealed class SuiteFramePumpContentionTests
         using var contention = new HandoffGateContention(registration.Runner);
         definition.ShouldStartCallback = contention.Acquire;
 
-        var timer = Stopwatch.StartNew();
-        var capture = pump.PumpFrame(1);
-        timer.Stop();
+        var capture = HeldGate.AssertReturnsWhileHeld(() => pump.PumpFrame(1), contention.Release);
 
         Assert.Equal(1, capture.CyclesStarted);
         Assert.Equal(ServiceHandoffPhase.Empty, registration.Runner.HandoffPhaseHint);
-        AssertPrompt(timer.Elapsed);
         contention.Release();
         definition.ShouldStartCallback = null;
 
@@ -116,14 +106,11 @@ public sealed class SuiteFramePumpContentionTests
         using var contention = new HandoffGateContention(registration.Runner);
         fixture.Definition.ActionCallback = contention.Acquire;
 
-        var timer = Stopwatch.StartNew();
-        var action = pump.PumpFrame(fixture.NextFrame++);
-        timer.Stop();
+        var action = HeldGate.AssertReturnsWhileHeld(() => pump.PumpFrame(fixture.NextFrame++), contention.Release);
 
         Assert.Equal(1, action.ActionsAttempted);
         Assert.Equal(1, fixture.Definition.ActionExecutionCount);
         Assert.Equal(ServiceHandoffPhase.MainOwnedBatch, registration.Runner.HandoffPhaseHint);
-        AssertPrompt(timer.Elapsed);
         contention.Release();
         fixture.Definition.ActionCallback = null;
 
@@ -144,13 +131,10 @@ public sealed class SuiteFramePumpContentionTests
         using var contention = new HandoffGateContention(registration.Runner);
         fixture.Definition.ActionCallback = contention.Acquire;
 
-        var timer = Stopwatch.StartNew();
-        var action = pump.PumpFrame(fixture.NextFrame++);
-        timer.Stop();
+        var action = HeldGate.AssertReturnsWhileHeld(() => pump.PumpFrame(fixture.NextFrame++), contention.Release);
 
         Assert.Equal(1, action.ActionsAttempted);
         Assert.Equal(1, fixture.Definition.ActionExecutionCount);
-        AssertPrompt(timer.Elapsed);
         contention.Release();
         fixture.Definition.ActionCallback = null;
         Assert.Equal(3, registration.Runner.Snapshot.PreviousReceipt.UntouchedSuffixCount);
@@ -172,11 +156,8 @@ public sealed class SuiteFramePumpContentionTests
         using var contention = new HandoffGateContention(registration.Runner);
         contention.Acquire();
 
-        var timer = Stopwatch.StartNew();
-        pump.SetEmergencyStop(true);
-        timer.Stop();
+        HeldGate.AssertReturnsWhileHeld(() => pump.SetEmergencyStop(true), contention.Release);
 
-        AssertPrompt(timer.Elapsed);
         Assert.Equal(0, fixture.Definition.ActionExecutionCount);
         contention.Release();
         Assert.Equal(CommonActionResultCodes.EmergencyStop, registration.Runner.Snapshot.PreviousReceipt.ResultCode);
@@ -213,11 +194,8 @@ public sealed class SuiteFramePumpContentionTests
         using var contention = new HandoffGateContention(registration.Runner);
         contention.Acquire();
 
-        var timer = Stopwatch.StartNew();
-        var deferred = pump.PumpFrame(frame++);
-        timer.Stop();
+        var deferred = HeldGate.AssertReturnsWhileHeld(() => pump.PumpFrame(frame++), contention.Release);
 
-        AssertPrompt(timer.Elapsed);
         Assert.Equal(0, deferred.CyclesStarted);
         Assert.Equal(1, definition.EvaluationCount);
         Assert.Equal(ServiceHandoffPhase.MainOwnedBatch, registration.Runner.HandoffPhaseHint);
@@ -253,9 +231,6 @@ public sealed class SuiteFramePumpContentionTests
         ServiceCyclePumpTestWait.UntilResponse(pump, ref frame);
         return new BatchFixture(registry, registration, pump, definition, frame);
     }
-
-    private static void AssertPrompt(TimeSpan elapsed) =>
-        Assert.True(elapsed < TimeSpan.FromSeconds(1), $"Pump-side handoff blocked for {elapsed}.");
 
     private sealed class BatchFixture
     {

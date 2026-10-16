@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Status;
 using Xunit;
+using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 
 namespace OrbModding.Tests.Runtime.ServiceCycle.Observation.Journal;
 
@@ -112,7 +113,7 @@ public sealed class DecisionJournalStatusRegistryTests
         });
 
         thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(2)));
+        Assert.True(thread.Join(ServiceCycleTestDeadline.Value));
 
         Assert.IsType<InvalidOperationException>(failure);
     }

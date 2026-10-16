@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using OrbModding.Common.Runtime.Configuration;
@@ -33,10 +32,7 @@ public sealed class ServiceLifetimeShutdownTests
         Assert.True(runner.TryStartCycle(clock.Now).Queued);
         Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
 
-        var stopwatch = Stopwatch.StartNew();
-        registration.Dispose();
-        stopwatch.Stop();
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(100));
+        HeldGate.AssertReturnsWhileHeld(registration.Dispose, release.Set);
         Assert.True(runner.Snapshot.Handoff.StopRequested);
         Assert.NotEqual(ServiceHandoffPhase.Stopped, runner.Snapshot.Handoff.Phase);
 

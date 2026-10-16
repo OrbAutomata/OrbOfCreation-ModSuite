@@ -497,7 +497,7 @@ public sealed class SuiteFramePumpSemanticTracingTests
         var frame = 1L;
         ServiceCyclePumpTestWait.UntilStart(pump, ref frame);
         ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frame);
-        Assert.True(evaluationEntered.Wait(TimeSpan.FromSeconds(2)));
+        Assert.True(evaluationEntered.Wait(ServiceCycleTestDeadline.Value));
         clock.AdvanceTo(new MonotonicTimestamp(200));
         registry.Configuration.Publish(TestSuiteConfiguration.WithSetting(2));
         registry.StrategyPublication.Publish(TestSuiteStrategy.WithSetting(2));
