@@ -8,6 +8,27 @@ to choose evidence, not by restating test classes or enumerating their cases.
 When prose and a test disagree, inspect the product contract and fix the wrong
 one; do not preserve both stories.
 
+## The gate
+
+Run these one after the other, never in parallel:
+
+```bash
+./script/test
+OOC_GAME_DIR=/path/to/audited/game dotnet test \
+  tests/OrbModding.GameContractTests/OrbModding.GameContractTests.csproj \
+  --configuration Release
+```
+
+`./script/test` is the complete portable gate: the ordinary suite, the IL inspector tests, the
+compile-time profile suite, and the profiled trace-tool build. It runs once under a 600-second
+deadline that only catches a hung suite, and a red run is a real failure; `ORB_TEST_TIMEOUT_SECONDS`
+overrides the deadline. Native-boundary changes also run the installed-game contracts, which read
+PE metadata from the audited game copy without launching Unity. Without `OOC_GAME_DIR` they skip;
+with an `OOC_GAME_DIR` that holds no game copy, every one fails. Compiler warnings are counted by
+`tools/build-release-assets.sh`, which builds `src` against the committed references with warnings
+as errors, as CI does. Reconcile every test, contract, manifest, entity, and warning count; an
+unexplained delta stops the change.
+
 ## Evidence has boundaries
 
 | Evidence | What it can prove | What it cannot prove |

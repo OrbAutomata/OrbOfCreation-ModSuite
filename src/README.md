@@ -1,8 +1,8 @@
 # Source layout
 
-Build the suite with `OOC_GAME_DIR` set to the Orb Of Creation install root.
-
-Expected build-reference layout (use a gitignored staged tree on non-Windows platforms):
+Builds reference the committed audited assemblies under `lib/game-refs` by default. Set `OOC_GAME_DIR`
+to an Orb Of Creation install root to build against that copy instead; it must have this layout (use a
+gitignored staged tree on non-Windows platforms):
 
 ```text
 $OOC_GAME_DIR/
@@ -13,12 +13,47 @@ $OOC_GAME_DIR/
   Orb Of Creation_Data/Managed/UnityEngine.CoreModule.dll
 ```
 
-The suite ships as one BepInEx 5 DLL built by the single project `OrbModSuite.csproj` at this directory's root, which compiles every feature folder below it. `Common` owns gameplay-neutral safety and runtime-orchestration contracts shared by the features. It must not own domain policy, retain native game objects, or become a gameplay feature merely because several services use its scheduler.
+The suite ships as one BepInEx 5 DLL built by the single project `OrbModSuite.csproj` at this directory's root, which compiles every folder below it. `Plugin.cs` and `SuiteConfiguration.cs` at this root are the one `BaseUnityPlugin` and the one configuration transaction that bind them together.
 
-The feature folders are `AutoBuy`, `AutoCast`, `AutoConcept`, `AutoHarvest`, `AutoItems`,
-`AutoScribe`, `Automata`, `Common`, `Mentor`, `ModConfig`, and `SpellLeveling`; `Plugin.cs` and
-`SuiteConfiguration.cs` at this root are the one `BaseUnityPlugin` and the one configuration
-transaction that bind them together.
+`Common` holds what every feature stands on. `Common/Runtime/World` is the shared game model: the one collected picture of the game that features and the MCP surface read. The rest of `Common` is gameplay-neutral safety and runtime orchestration. It must not own a feature's policy or retain native game objects, and it does not become a gameplay feature because several services use its scheduler.
+
+A capability folder owns exactly one GameAction for one native capability: its action, submission, native bindings, and result mapping. Features, tooling, and tests mutate the game through that GameAction.
+
+Shared and feature folders:
+
+- `AutoBuy` — buys Structures and Upgrades by cost ratio within the reserve and spending-margin rules.
+- `AutoCast` — casts equipped spells.
+- `AutoConcept` — assigns acquired Concepts to compatible Active Concept slots, then deepens quantity up to mastery limits.
+- `AutoHarvest` — submits harvest actions on fruit and treasure trees.
+- `AutoItems` — uses Relics, Scrolls, and allowlisted temporary items through the game's consumable queue.
+- `AutoScribe` — queues Scroll Scribe recipes that cover Structure enchantment deficits.
+- `Automata` — the automation host: ServiceCycle composition and frame pump, emergency STOP and quick controls, and `Runtime/GameMcp`, the MCP server.
+- `Common` — the shared game model in `Runtime/World`, plus the ServiceCycle scheduler, configuration, diagnostics, tracing, identity resolution, and game math.
+- `Mentor` — shares a configurable share of earned mastery XP from spells, artifacts, and recipes to lower-mastery ones.
+- `ModConfig` — the in-game Mods tab: staged settings and runtime diagnostics.
+- `SpellLeveling` — buys spell levels as an Auto Buy sub-feature.
+
+Capabilities:
+
+- `AlchemyLoadout` — adds and removes alchemy recipes in the active loadout's alchemy slots.
+- `Challenge` — selects, queues, abandons, and rerolls challenges.
+- `CraftingLifecycle` — automates a crafting recipe or cancels a craft of it.
+- `CraftingStation` — sets a Brewing Station's ingredient, output, and level, and starts or stops brewing.
+- `DiscoveryTree` — opens a Discovery Tree offer, then selects, confirms, or rerolls the offered discoveries.
+- `EquipmentLoadout` — equips and unequips equipment in the active loadout.
+- `GenericLevel` — buys levels for a native level target.
+- `HarvestLifecycle` — adds and removes harvest elements and their harvest actions.
+- `Loadout` — selects, renames, and restyles loadouts, and saves, loads, and clears their snapshots.
+- `PlotLifecycle` — adds and removes actions on a plot.
+- `Prestige` — performs the native prestige.
+- `Research` — develops, pauses, resumes, cancels, and bonuses research projects.
+- `RitualLifecycle` — selects, levels, activates, and cancels rituals, and ends battle.
+- `RunTransition` — returns from a run to the main menu.
+- `SpellComposition` — sets the Output and Reserve casting dials.
+- `SpellLoadout` — removes equipped spells or moves them to another slot.
+- `SpellWorkbench` — crafts a spell from a recipe and augment glyphs.
+- `StructureLifecycle` — enables and disables individual structures.
+- `Targeting` — answers pending target requests with a chosen or random target, or cancels them.
 
 ## Automatic save backup
 
@@ -55,7 +90,7 @@ Migration code must use explicit known-key maps and closed safe failure codes. I
 
 ## Deterministic runtime foundation
 
-`OrbModding.Common.Runtime` holds monotonic time, catalogs, configuration and strategy publications, the shared world collection, diagnostics, and tracing. The contracts contain no Unity objects or gameplay policy, and the configuration UI consumes their typed projections. The earlier R0 scheduler it once carried was deleted at the Auto Harvest cutover.
+`OrbModding.Common.Runtime` holds monotonic time, catalogs, configuration and strategy publications, the shared world collection, diagnostics, and tracing. The contracts contain no Unity objects or gameplay policy, and the configuration UI consumes their typed projections.
 
 `OrbModding.Common.Runtime.ServiceCycle` is the accepted foundation and is production-composed: it
 drives world collection, Auto Items, Auto Scribe, Auto Harvest, Auto Buy, Spell Leveling, Auto Cast,
@@ -118,10 +153,4 @@ Common's suite-internal `KnownEntities` is a checked-in generated declaration se
 
 ## Test build
 
-Run the game-independent suite with:
-
-```bash
-dotnet test tests/OrbModding.Tests/OrbModding.Tests.csproj -p:UseGameStubs=true
-```
-
-The test property replaces external game references with `tests/OrbModding.GameStubs`. It is not used for production builds or runtime validation.
+[The gate](../docs/testing/README.md#the-gate) builds against `tests/OrbModding.GameStubs` in place of the game references. Stub builds are never used for production builds or runtime validation.

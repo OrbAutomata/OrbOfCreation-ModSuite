@@ -19,16 +19,7 @@ failure.
 
 ## V0 — repository and installed contract gate
 
-Run serially:
-
-```bash
-ORB_TEST_ATTEMPTS=1 ./script/test
-OOC_GAME_DIR=/path/to/audited/game dotnet test \
-  tests/OrbModding.GameContractTests/OrbModding.GameContractTests.csproj \
-  --configuration Release
-```
-
-Reconcile every test, manifest, entity, exemption, and warning count. Then build
+Run [the gate](README.md#the-gate) against the audited game copy. Then build
 the supported Release project against the same references and inspect the
 package allowlist. Stop on any unexplained delta.
 
