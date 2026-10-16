@@ -183,7 +183,8 @@ internal readonly struct AutoCastDecisionMetrics
         int plannedActions,
         bool holdingCharge,
         bool channelBlocked,
-        in AutoCastExclusionHistogram exclusions)
+        in AutoCastExclusionHistogram exclusions,
+        bool loadoutOpen = false)
     {
         if (capturedSlots < 0) throw new ArgumentOutOfRangeException(nameof(capturedSlots));
         if (eligibleSlots < 0) throw new ArgumentOutOfRangeException(nameof(eligibleSlots));
@@ -194,6 +195,7 @@ internal readonly struct AutoCastDecisionMetrics
         HoldingCharge = holdingCharge;
         ChannelBlocked = channelBlocked;
         Exclusions = exclusions;
+        LoadoutOpen = loadoutOpen;
     }
 
     public int CapturedSlots { get; }
@@ -205,6 +207,9 @@ internal readonly struct AutoCastDecisionMetrics
 
     /// <summary>Whether a channel in progress paused the whole rotation.</summary>
     public bool ChannelBlocked { get; }
+
+    /// <summary>Whether the player had the spell loadout on screen, so the rotation stood aside.</summary>
+    public bool LoadoutOpen { get; }
 
     /// <summary>Why the equipped slots that did not reach the plan did not reach it.</summary>
     public AutoCastExclusionHistogram Exclusions { get; }

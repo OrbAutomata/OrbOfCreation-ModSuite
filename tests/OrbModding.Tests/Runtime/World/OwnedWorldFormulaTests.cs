@@ -71,13 +71,13 @@ public sealed class OwnedWorldFormulaTests
     }
 
     [Fact]
-    public void EmptyMasteryCostListIsAffordableAndHasNoBindingResource()
+    public void AMissingMasteryCostListFailsClosed()
     {
         var rows = MasteryWorld(masteryLevel: 0);
         var raw = SpellSample(0);
         var published = new WorldSpellRecipeDeriver(rows).Derive(in raw);
 
-        Assert.True(published.MasteryLevelAffordable);
+        Assert.False(published.MasteryLevelAffordable);
         Assert.Equal(0, published.MasteryLevelCostCount);
         Assert.Equal(Guid.Empty, published.MasteryLevelBindingResourceId);
     }

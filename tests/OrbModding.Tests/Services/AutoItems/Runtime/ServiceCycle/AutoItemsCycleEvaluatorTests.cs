@@ -64,6 +64,92 @@ public sealed class AutoItemsCycleEvaluatorTests
     }
 
     [Fact]
+    public void AScrollRanksAboveAnApprovedTemporaryItem()
+    {
+        var scrollId = Guid.Parse("00000000-0000-0000-0000-000000000040");
+        var threadId = Guid.Parse("00000000-0000-0000-0000-000000000041");
+        var world = World(
+            Consumable(scrollId, randomizable: true),
+            Consumable(threadId, randomizable: false, duration: 60),
+            new[]
+            {
+                new WorldConsumableType(scrollId, KnownEntities.ConsumableScrollType.Uuid),
+                new WorldConsumableType(threadId, KnownEntities.ConsumableThreadType.Uuid),
+            },
+            new[]
+            {
+                new WorldConsumableCount(scrollId, 2, 1, 0),
+            });
+
+        var action = Assert.Single(Plan(world, Configuration(allowlist: threadId.ToString("D")), out _));
+
+        Assert.Equal(scrollId, action.ItemId);
+    }
+
+    [Fact]
+    public void AnActiveTemporaryEffectStillLetsARelicFireButHoldsAnotherTemporary()
+    {
+        var relicId = Guid.Parse("00000000-0000-0000-0000-000000000050");
+        var threadId = Guid.Parse("00000000-0000-0000-0000-000000000051");
+        var types = new[]
+        {
+            new WorldConsumableType(relicId, KnownEntities.ConsumableRelicType.Uuid),
+            new WorldConsumableType(threadId, KnownEntities.ConsumableThreadType.Uuid),
+        };
+        var buffed = World(
+            Consumable(relicId, randomizable: false),
+            Consumable(threadId, randomizable: false, duration: 60),
+            types,
+            Array.Empty<WorldConsumableCount>(),
+            Usage(threadId, engaged: true));
+        var relicSpent = World(
+            Consumable(relicId, randomizable: false, quantity: 0),
+            Consumable(threadId, randomizable: false, duration: 60),
+            types,
+            Array.Empty<WorldConsumableCount>(),
+            Usage(threadId, engaged: true));
+        var configuration = Configuration(allowlist: threadId.ToString("D"));
+
+        var relic = Assert.Single(Plan(buffed, configuration, out _));
+        var nothing = Plan(relicSpent, configuration, out _);
+
+        Assert.Equal(relicId, relic.ItemId);
+        Assert.Empty(nothing);
+    }
+
+    [Fact]
+    public void AScrollThatFoundNoTargetStopsBlockingTheScrollsAfterIt()
+    {
+        var firstId = Guid.Parse("00000000-0000-0000-0000-000000000060");
+        var secondId = Guid.Parse("00000000-0000-0000-0000-000000000061");
+        var world = World(
+            Consumable(firstId, randomizable: true),
+            Consumable(secondId, randomizable: true),
+            new[]
+            {
+                new WorldConsumableType(firstId, KnownEntities.ConsumableScrollType.Uuid),
+                new WorldConsumableType(secondId, KnownEntities.ConsumableScrollType.Uuid),
+            },
+            new[]
+            {
+                new WorldConsumableCount(firstId, 1, 1, 0),
+                new WorldConsumableCount(secondId, 1, 1, 0),
+            });
+        var configuration = Configuration();
+        var state = AutoItemsCycleState.Create(new LifecycleGeneration(1));
+        state.ObserveConfiguration(new ConfigGeneration(1), configuration.AutoItems);
+        var targetless = Refused(AutoItemsActionResultCodes.TargetUnavailable);
+
+        var first = Assert.Single(Evaluate(world, configuration, ref state, default));
+        var second = Assert.Single(Evaluate(world, configuration, ref state, targetless));
+        var retried = Assert.Single(Evaluate(world, configuration, ref state, targetless));
+
+        Assert.Equal(firstId, first.ItemId);
+        Assert.Equal(secondId, second.ItemId);
+        Assert.Equal(firstId, retried.ItemId);
+    }
+
+    [Fact]
     public void DisabledAndIdlePathsWaitForPublicationWithoutTimers()
     {
         var disabled = Configuration(AutoItemsOperationMode.Disabled);
@@ -83,22 +169,32 @@ public sealed class AutoItemsCycleEvaluatorTests
         SuiteRuntimeConfiguration configuration,
         out WakePolicy wake)
     {
+        var state = AutoItemsCycleState.Create(Identity().Lifecycle);
+        state.ObserveConfiguration(Identity().Config, configuration.AutoItems);
+        return Evaluate(world, configuration, ref state, default, out wake);
+    }
+
+    private static IReadOnlyList<AutoItemsCycleAction> Evaluate(
+        GameWorldState world,
+        SuiteRuntimeConfiguration configuration,
+        ref AutoItemsCycleState state,
+        BatchReceipt previousReceipt) =>
+        Evaluate(world, configuration, ref state, previousReceipt, out _);
+
+    private static IReadOnlyList<AutoItemsCycleAction> Evaluate(
+        GameWorldState world,
+        SuiteRuntimeConfiguration configuration,
+        ref AutoItemsCycleState state,
+        BatchReceipt previousReceipt,
+        out WakePolicy wake)
+    {
         var store = new ReusableActionStore<AutoItemsCycleAction>();
         store.BeginWrite();
         var writer = new ServiceActionWriter<AutoItemsCycleAction>(store);
-        var identity = new ServiceCycleIdentity(
-            AutoItemsServicePolicies.ServiceId,
-            new LifecycleGeneration(1),
-            new ConfigGeneration(1),
-            StrategyGeneration.Initial,
-            new WorldGeneration(1),
-            new CycleId(1));
         var context = new ServiceCycleContext(
-            identity,
-            default,
+            Identity(),
+            previousReceipt,
             new MonotonicTimestamp(1));
-        var state = AutoItemsCycleState.Create(identity.Lifecycle);
-        state.ObserveConfiguration(identity.Config, configuration.AutoItems);
         wake = AutoItemsCycleEvaluator.Evaluate(
             world,
             in configuration,
@@ -115,11 +211,35 @@ public sealed class AutoItemsCycleEvaluatorTests
         return actions;
     }
 
+    private static ServiceCycleIdentity Identity() =>
+        new(
+            AutoItemsServicePolicies.ServiceId,
+            new LifecycleGeneration(1),
+            new ConfigGeneration(1),
+            StrategyGeneration.Initial,
+            new WorldGeneration(1),
+            new CycleId(1));
+
+    private static BatchReceipt Refused(ServiceActionResultCode code) =>
+        BatchReceipt.Terminated(
+            Identity(),
+            new BatchId(1),
+            actionCount: 1,
+            committedCount: 0,
+            terminalIndex: 0,
+            ServiceActionResult.Rejected(code),
+            default,
+            new MonotonicTimestamp(2));
+
+    private static WorldConsumableUsage Usage(Guid itemId, bool engaged) =>
+        new(itemId, Guid.NewGuid(), 1, engaged, new BigDouble(30), new BigDouble(60));
+
     private static GameWorldState World(
         WorldConsumable first,
         WorldConsumable? second,
         WorldConsumableType[] types,
-        WorldConsumableCount[] counts)
+        WorldConsumableCount[] counts,
+        params WorldConsumableUsage[] usages)
     {
         var consumables = second.HasValue
             ? new[] { first, second.Value }
@@ -139,19 +259,24 @@ public sealed class AutoItemsCycleEvaluatorTests
             ConsumableTypes = PublicationTable<WorldConsumableType>.Create(types),
             ConsumableCounts = PublicationTable<WorldConsumableCount>.Create(counts),
             ConsumableCosts = PublicationTable<WorldConsumableCost>.Create(costs),
+            ConsumableUsages = PublicationTable<WorldConsumableUsage>.Create(usages),
             Resources = WorldTable.Create(Toxicity()),
             CollectedAtEpoch = 9,
         };
     }
 
-    private static WorldConsumable Consumable(Guid id, bool randomizable)
+    private static WorldConsumable Consumable(
+        Guid id,
+        bool randomizable,
+        double duration = 0,
+        int quantity = 1)
     {
         var modifiers = default(RawConsumableModifiers);
         return new WorldConsumable(
             id,
             visible: true,
             randomized: false,
-            quantity: 1,
+            quantity,
             queuedQuantity: 0,
             maximumCarryLoad: 10,
             gainedSince: 0,
@@ -162,8 +287,8 @@ public sealed class AutoItemsCycleEvaluatorTests
             in modifiers,
             preparationTime: 1,
             canBeRandomized: randomizable,
-            hasDuration: false,
-            durationBase: 0,
+            hasDuration: duration > 0,
+            durationBase: duration,
             queueOnStart: false);
     }
 
@@ -206,7 +331,8 @@ public sealed class AutoItemsCycleEvaluatorTests
     }
 
     private static SuiteRuntimeConfiguration Configuration(
-        AutoItemsOperationMode mode = AutoItemsOperationMode.Active) =>
+        AutoItemsOperationMode mode = AutoItemsOperationMode.Active,
+        string allowlist = "") =>
         new()
         {
             General = new SuiteGeneralConfiguration { Enabled = true },
@@ -215,6 +341,7 @@ public sealed class AutoItemsCycleEvaluatorTests
                 Mode = mode,
                 UseRelics = true,
                 UseScrolls = true,
+                TemporaryItemAllowlist = allowlist,
             },
         };
 }

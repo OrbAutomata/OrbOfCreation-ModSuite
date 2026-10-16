@@ -99,6 +99,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<AlchemyTypeSOContract> Reflective = new(new Guid("8f258dcc-c39a-4d64-b915-4239e746c49d"), "AlchemyTypeSO", "Reflective");
     public static readonly KnownEntity<ViewSOContract> RitualsDiscover = new(new Guid("443bc384-3df6-49ac-aa52-28abe080595c"), "ViewSO", "RitualsDiscover");
     public static readonly KnownEntity<ViewSOContract> ScholarConceptDiscover = new(new Guid("f0e4b59a-b510-4de3-ae3e-dfca0fd76239"), "ViewSO", "ScholarConceptDiscover");
+    public static readonly KnownEntity<ViewSOContract> ScreenMagic = new(new Guid("9746b42e-1b57-4f98-8ba4-f64b4c34d8c1"), "ViewSO", "ScreenMagic");
     public static readonly KnownEntity<CraftingRecipeTypeSOContract> ScribeCrafting = new(new Guid("ee001474-8209-4238-9566-84899a877226"), "CraftingRecipeTypeSO", "ScribeCrafting");
     public static readonly KnownEntity<CraftingRecipeListVariableContract> ScribeCraftingRecipes = new(new Guid("2917516f-34a5-47b7-85b2-0b2f9ab3a29f"), "CraftingRecipeListVariable", "ScribeCraftingRecipes");
     public static readonly KnownEntity<ConsumableSOContract> ScrollAdvancement = new(new Guid("5f6aa08d-7da6-4c7a-89c9-aabcfe48e886"), "ConsumableSO", "ScrollAdvancement");

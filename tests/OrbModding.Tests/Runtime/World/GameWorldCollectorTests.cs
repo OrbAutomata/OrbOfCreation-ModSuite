@@ -805,7 +805,7 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     [Fact]
-    public void ASpellsMasteryReadinessIsDerivedFromItsPublishedThresholdWhileAnEmptyAuthoredCostIsAffordable()
+    public void ASpellsMasteryReadinessIsDerivedFromItsPublishedThreshold()
     {
         // Readiness is cheap accessor math over the published experience and its container's cached
         // threshold. Capture must not ask the native predicate for the answer.
@@ -835,13 +835,37 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         Assert.True(WorldLookup.TryFind(world.SpellRecipes, ready, out var readyRow));
         Assert.True(readyRow.MasteryLevelReady);
-        Assert.True(readyRow.MasteryLevelAffordable);
         Assert.True(WorldLookup.TryFind(world.SpellRecipes, banking, out var bankingRow));
         Assert.False(bankingRow.MasteryLevelReady);
-        Assert.True(bankingRow.MasteryLevelAffordable);
 
         // Same mastery level on both: readiness is its own fact, not one the level implies.
         Assert.Equal(readyRow.MasteryLevel, bankingRow.MasteryLevel);
+    }
+
+    [Fact]
+    public void ASpellWithoutAnAuthoredLevelCostIsUnaffordableAndNamedInTheReport()
+    {
+        var spell = new FakeSpellRecipe
+        {
+            Identity = Guid.NewGuid(),
+            discovered = true,
+            masteryLevel = 4,
+            masteryExperience = new BigDouble(8d),
+            masteryXpContainer = new FakeExperienceContainer { cachedRequiredXp = new BigDouble(8d) },
+            baseLevelingCost = new FakeSpellCostList(),
+        };
+        FakeSpellRecipe.All.Add(spell);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.False(report.IsComplete);
+        Assert.Contains("has no authored level cost", report.Describe());
+        Assert.True(WorldLookup.TryFind(world.SpellRecipes, spell.Identity, out var row));
+        Assert.True(row.MasteryLevelReady);
+        Assert.False(row.MasteryLevelAffordable);
+        Assert.Equal(0, row.MasteryLevelCostCount);
     }
 
     /// <summary>
@@ -2168,6 +2192,32 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     [Fact]
+    public void AnUpgradeWhoseRewardHasNoFreePedestalPublishesItsDestinationAsFull()
+    {
+        var pedestals = new FakeViewList { room = false };
+        var aspect = new FakeUpgrade { Identity = Guid.NewGuid() };
+        aspect.viewListAdditions.Add(new FakeViewListTuple { list = pedestals });
+        var space = new FakeUpgrade { Identity = Guid.NewGuid() };
+        FakeUpgrade.All.Add(aspect);
+        FakeUpgrade.All.Add(space);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var full = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLookup.TryFind(full.Upgrades, aspect.Identity, out var aspectRow));
+        Assert.True(aspectRow.Reading.RewardDestinationFull);
+        Assert.True(WorldLookup.TryFind(full.Upgrades, space.Identity, out var spaceRow));
+        Assert.False(spaceRow.Reading.RewardDestinationFull);
+
+        pedestals.room = true;
+        collector.Collect();
+        Assert.True(WorldLookup.TryFind(collector.Build().Upgrades, aspect.Identity, out aspectRow));
+        Assert.False(aspectRow.Reading.RewardDestinationFull);
+    }
+
+    [Fact]
     public void AMissingCategoryDegradesOnlyItself()
     {
         FakeResource.All.Add(new FakeResource { Identity = Guid.NewGuid() });
@@ -2621,9 +2671,24 @@ public sealed class GameWorldCollectorTests : IDisposable
         /// <summary>What one level of this upgrade permanently applies.</summary>
         public FakePermanentEffects permanentEffects = new();
 
+        /// <summary>Where a purchase places what it grants: the World > Aspects pedestals.</summary>
+        public List<FakeViewListTuple> viewListAdditions = new();
+
         public int GetPurchaseLevel() => Level;
 
         public bool IsAvailable() => Available;
+    }
+
+    private sealed class FakeViewListTuple
+    {
+        public FakeViewList list = new();
+    }
+
+    private sealed class FakeViewList
+    {
+        public bool room = true;
+
+        public bool HasEmptySpot() => room;
     }
 
     private sealed class FakePrerequisiteLink

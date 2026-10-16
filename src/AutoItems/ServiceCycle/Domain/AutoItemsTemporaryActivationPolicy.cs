@@ -51,6 +51,12 @@ internal static class AutoItemsTemporaryActivationPolicy
         if (!state.HasPendingReceipt || !receipt.IsPresent) return;
         var planned = state.PendingReceiptAction;
         state.ClearPendingReceipt();
+        if (planned.Family == AutoItemsConsumableFamily.Scroll &&
+            receipt.ResultCode == AutoItemsActionResultCodes.TargetUnavailable)
+        {
+            state.RememberTargetlessScroll(planned.ItemId);
+            return;
+        }
         if (receipt.ActionCount == 1 &&
             receipt.CommittedCount == 1 &&
             AutoItemsConsumableFamilies.IsTemporary(planned.Family))

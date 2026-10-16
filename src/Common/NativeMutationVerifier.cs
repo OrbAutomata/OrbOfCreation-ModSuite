@@ -127,6 +127,21 @@ public static class NativeMutationVerifier
             try
             {
                 var afterException = captureAfter();
+                if (Holds(verify, before, afterException))
+                {
+                    return Evidence<TState>(
+                        feature,
+                        identity,
+                        expectedChange,
+                        NativeMutationOutcome.Verified,
+                        true,
+                        before,
+                        true,
+                        afterException,
+                        "postcondition verified after the game threw " +
+                        ExceptionDetail.Describe(executionException) + "." +
+                        GameActionFaultLog.Record(executionException, feature + " for " + identity));
+                }
                 return Evidence<TState>(
                     feature,
                     identity,
@@ -201,6 +216,18 @@ public static class NativeMutationVerifier
             true,
             after,
             verified ? "postcondition verified" : "captured state did not match the expected change");
+    }
+
+    private static bool Holds<TState>(Func<TState, TState, bool> verify, TState before, TState after)
+    {
+        try
+        {
+            return verify(before, after);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     private static NativeMutationEvidence<TState> Evidence<TState>(

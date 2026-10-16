@@ -1,12 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using OrbModding.Common;
 using Xunit;
 
 namespace OrbModding.Tests;
 
-public sealed class NativeMutationVerifierTests
+[Collection(GameActionFaultLogCollection.Name)]
+public sealed class NativeMutationVerifierTests : IDisposable
 {
+    public void Dispose() => GameActionFaultLog.ConfigureLog(null);
+
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
@@ -31,8 +35,10 @@ public sealed class NativeMutationVerifierTests
     }
 
     [Fact]
-    public void PreservesAfterStateWhenExecutionThrowsAfterChangingState()
+    public void CommitsAnOutcomeTheGameAppliedBeforeItThrewAndLogsTheThrow()
     {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
         var state = 10;
 
         var evidence = NativeMutationVerifier.Execute(
@@ -47,9 +53,34 @@ public sealed class NativeMutationVerifierTests
             },
             (before, after) => after == before + 2);
 
+        Assert.Equal(NativeMutationOutcome.Verified, evidence.Outcome);
+        Assert.Equal(12, evidence.After);
+        Assert.Contains("native failure", evidence.Detail);
+        var line = Assert.Single(logged);
+        Assert.Contains("candidate-2", line);
+        Assert.Contains("native failure", line);
+    }
+
+    [Fact]
+    public void FailsClosedWhenTheGameThrewWithoutApplyingTheOutcome()
+    {
+        var state = 10;
+
+        var evidence = NativeMutationVerifier.Execute(
+            "test queue",
+            "candidate-7",
+            "exact delta +2",
+            () => state,
+            () =>
+            {
+                state += 1;
+                throw new InvalidOperationException("native failure");
+            },
+            (before, after) => after == before + 2);
+
         Assert.Equal(NativeMutationOutcome.ExecutionThrew, evidence.Outcome);
         Assert.True(evidence.HasAfter);
-        Assert.Equal(12, evidence.After);
+        Assert.Equal(11, evidence.After);
         Assert.Contains("native failure", evidence.Detail);
     }
 

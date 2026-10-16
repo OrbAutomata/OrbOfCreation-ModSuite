@@ -146,7 +146,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
     }
 
     [Fact]
-    public void TemporaryUsageBlocksScrollAndAnotherTemporaryItem()
+    public void AnActiveTemporaryEffectBlocksOnlyAnotherTemporaryItem()
     {
         var active = Item(AutoItemsConsumableFamily.Fruit);
         active.consumableUsages.Add(new ConsumableUsage
@@ -161,14 +161,31 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var scrollAction = Action(scroll, AutoItemsConsumableFamily.Scroll);
         var temporaryAction = Action(anotherTemporary, AutoItemsConsumableFamily.Thread);
 
-        var blockedScroll = gameAction.Submit(in scrollAction);
         var blockedTemporary = gameAction.Submit(in temporaryAction);
+        var firedScroll = gameAction.Submit(in scrollAction);
 
-        Assert.Equal(AutoItemsPreflight.TemporaryEffectPresent, blockedScroll.Preflight);
-        Assert.Contains("pending or active", blockedScroll.Reason);
         Assert.Equal(AutoItemsPreflight.TemporaryEffectPresent, blockedTemporary.Preflight);
-        Assert.Equal(1, scroll.GetQuantity());
+        Assert.Contains("pending or active", blockedTemporary.Reason);
         Assert.Equal(1, anotherTemporary.GetQuantity());
+        Assert.True(firedScroll.Verified, firedScroll.Reason);
+        Assert.Equal(1, scroll.GetQueued());
+    }
+
+    [Fact]
+    public void ATemporaryItemStillPreparingHoldsARelicAtTheGamesOwnGate()
+    {
+        var temporary = Item(AutoItemsConsumableFamily.Thread);
+        var relic = Item(AutoItemsConsumableFamily.Relic);
+        using var gameAction = GameAction();
+        var temporaryAction = Action(temporary, AutoItemsConsumableFamily.Thread);
+        var relicAction = Action(relic, AutoItemsConsumableFamily.Relic);
+
+        var submitted = gameAction.Submit(in temporaryAction);
+        var held = gameAction.Submit(in relicAction);
+
+        Assert.True(submitted.Verified, submitted.Reason);
+        Assert.Equal(AutoItemsPreflight.NativeBusy, held.Preflight);
+        Assert.Equal(1, relic.GetQuantity());
     }
 
     [Fact]

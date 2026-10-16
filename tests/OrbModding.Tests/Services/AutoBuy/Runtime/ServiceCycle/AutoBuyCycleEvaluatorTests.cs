@@ -102,7 +102,7 @@ public sealed class AutoBuyCycleEvaluatorTests
         AutoBuyServiceProjection.Write(in state, output);
 
         var projection = output.CaptureSnapshot();
-        Assert.Equal(14, projection.Count);
+        Assert.Equal(15, projection.Count);
         Assert.Collection(
             Enumerable.Range(0, projection.Count).Select(projection.GetEntry),
             entry => AssertProjection(entry, AutoBuyServiceProjection.CapturedCandidatesKey, 3),
@@ -118,7 +118,8 @@ public sealed class AutoBuyCycleEvaluatorTests
             entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedOwningViewUnavailableKey, 0),
             entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedOwningViewRelationMissingKey, 0),
             entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedOwningViewRelationUnreadableKey, 0),
-            entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedOwningViewRelationContradictoryKey, 0));
+            entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedOwningViewRelationContradictoryKey, 0),
+            entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedDestinationFullKey, 0));
         Assert.DoesNotContain(
             Enumerable.Range(0, projection.Count).Select(projection.GetEntry),
             entry => entry.Key.Value == AutoBuyServiceProjection.RetiredOwningViewRelationAmbiguousKey);
@@ -890,6 +891,22 @@ public sealed class AutoBuyCycleEvaluatorTests
         }
     }
 
+    [Fact]
+    public void AnAspectWithNoFreePedestalIsLeftOutSoThePurchaseThatFreesOneStillPlans()
+    {
+        var gatherSpace = Guid.Parse("55555555-5555-5555-5555-555555555555");
+        var builder = new FrameBuilder();
+        var resource = builder.Resource(1_000);
+        builder.Upgrade(UpgradeA, new[] { (resource, 1.0) }, rewardDestinationFull: true);
+        builder.Upgrade(gatherSpace, new[] { (resource, 10.0) });
+
+        var actions = Plan(builder.Build(), Config(), out _, out var metrics);
+
+        Assert.Equal(gatherSpace, Assert.Single(actions).Uuid);
+        Assert.Equal(1, metrics.Exclusions.DestinationFull);
+        Assert.Equal(1, metrics.Exclusions.Total);
+    }
+
     /// <summary>
     /// A candidate that trips several terms is reported under the first one tested rather than under
     /// all of them, so the counters stay a partition and the reported reason is the one an operator
@@ -1197,11 +1214,13 @@ public sealed class AutoBuyCycleEvaluatorTests
             bool isMaxQueuedLevel = false,
             int queuedLevels = 0,
             bool meetsNextLevelRequirements = true,
-            AutoBuyOwningViewStatus owningView = AutoBuyOwningViewStatus.Available) =>
+            AutoBuyOwningViewStatus owningView = AutoBuyOwningViewStatus.Available,
+            bool rewardDestinationFull = false) =>
             Candidate(
                 AutoBuyCandidateKind.Upgrade, uuid, costs, available,
                 hasFiniteLevels, isMaxLevel, isMaxQueuedLevel, queuedLevels,
-                meetsNextLevelRequirements, owningView: owningView);
+                meetsNextLevelRequirements, owningView: owningView,
+                rewardDestinationFull: rewardDestinationFull);
 
         public FrameBuilder GroupedStructure(
             Guid uuid,
@@ -1234,7 +1253,8 @@ public sealed class AutoBuyCycleEvaluatorTests
             bool meetsNextLevelRequirements,
             double[]? exactGroupedCosts = null,
             int? publishedGroupedLevels = null,
-            AutoBuyOwningViewStatus owningView = AutoBuyOwningViewStatus.Available)
+            AutoBuyOwningViewStatus owningView = AutoBuyOwningViewStatus.Available,
+            bool rewardDestinationFull = false)
         {
             var start = _costs.Count;
             var groupedLevels = publishedGroupedLevels ?? Math.Max(
@@ -1261,7 +1281,8 @@ public sealed class AutoBuyCycleEvaluatorTests
                 isMaxQueuedLevel,
                 meetsNextLevelRequirements,
                 start,
-                costs.Length));
+                costs.Length,
+                rewardDestinationFull: rewardDestinationFull));
             return this;
         }
 

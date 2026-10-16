@@ -166,7 +166,8 @@ internal static class AutoBuyFrameProjector
                 costStart,
                 costRowCount,
                 owningListId,
-                owningViewId));
+                owningViewId,
+                levels.RewardDestinationFull));
         candidateCount++;
     }
 
@@ -456,7 +457,8 @@ internal static class AutoBuyFrameProjector
             bool hasFiniteLevels,
             bool isMaxLevel,
             bool isMaxQueuedLevel,
-            bool meetsNextLevelRequirements)
+            bool meetsNextLevelRequirements,
+            bool rewardDestinationFull = false)
         {
             IsAvailable = isAvailable;
             CurrentLevel = currentLevel;
@@ -465,6 +467,7 @@ internal static class AutoBuyFrameProjector
             IsMaxLevel = isMaxLevel;
             IsMaxQueuedLevel = isMaxQueuedLevel;
             MeetsNextLevelRequirements = meetsNextLevelRequirements;
+            RewardDestinationFull = rewardDestinationFull;
         }
 
         internal bool IsAvailable { get; }
@@ -474,6 +477,7 @@ internal static class AutoBuyFrameProjector
         internal bool IsMaxLevel { get; }
         internal bool IsMaxQueuedLevel { get; }
         internal bool MeetsNextLevelRequirements { get; }
+        internal bool RewardDestinationFull { get; }
     }
 
     private static AutoBuyCandidateLevels Levels(GameWorldState world, in WorldStructure structure) =>
@@ -496,7 +500,8 @@ internal static class AutoBuyFrameProjector
             upgrade.IsExhausted,
             upgrade.IsBounded && upgrade.CommittedLevel >= upgrade.Reading.MaxLevel,
             MeetsRequirements(
-                world, upgrade.EntityId, WorldRequirementEvaluator.UpgradeCheckLevel(in upgrade)));
+                world, upgrade.EntityId, WorldRequirementEvaluator.UpgradeCheckLevel(in upgrade)),
+            upgrade.Reading.RewardDestinationFull);
 
     /// <summary>
     /// Whether the published conditions gating this entity's next level all hold.

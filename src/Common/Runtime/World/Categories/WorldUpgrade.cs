@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 
 namespace OrbModding.Common.Runtime.World;
 
@@ -13,7 +14,8 @@ internal readonly struct RawUpgradeSample : IWorldEntity
         int queuedLevels,
         BigDouble buildTime,
         double developmentTime,
-        int cachedCostLevel)
+        int cachedCostLevel,
+        bool rewardDestinationFull = false)
     {
         UpgradeId = upgradeId;
         Level = level;
@@ -23,6 +25,7 @@ internal readonly struct RawUpgradeSample : IWorldEntity
         BuildTime = buildTime;
         DevelopmentTime = developmentTime;
         CachedCostLevel = cachedCostLevel;
+        RewardDestinationFull = rewardDestinationFull;
     }
 
     internal Guid UpgradeId { get; }
@@ -51,6 +54,13 @@ internal readonly struct RawUpgradeSample : IWorldEntity
     /// read while this disagrees with <see cref="Level"/> is a cost for a different level.
     /// </summary>
     internal int CachedCostLevel { get; }
+
+    /// <summary>
+    /// Whether a list this upgrade's reward is added to answers <c>HasEmptySpot()</c> false — the
+    /// World > Aspects pedestals when all three hold an aspect. The game charges such a purchase
+    /// and has nowhere to put what it bought.
+    /// </summary>
+    internal bool RewardDestinationFull { get; }
 }
 
 /// <summary>One upgrade as published.</summary>
@@ -108,6 +118,8 @@ internal sealed class WorldUpgradeBinder : WorldRowBinder<RawUpgradeSample, Worl
     private Func<object, BigDouble>? _buildTime;
     private Func<object, double>? _developmentTime;
     private Func<object, int>? _cachedCostLevel;
+    private Func<object, IList?>? _rewardDestinations;
+    private Func<object, bool>? _destinationHasRoom;
 
     internal override string Category => "upgrades";
 
@@ -131,6 +143,11 @@ internal sealed class WorldUpgradeBinder : WorldRowBinder<RawUpgradeSample, Worl
         _buildTime = bind.Field<BigDouble>("buildTime");
         _developmentTime = bind.Field<double>("developmentTime");
         _cachedCostLevel = bind.Field<int>("cachedCostLevel");
+        _rewardDestinations = bind.CollectionField("viewListAdditions");
+        _destinationHasRoom = bind
+            .Elements(bind.CollectionElementType("viewListAdditions"), "viewListAdditions")
+            .Through("list")
+            .Call<bool>("HasEmptySpot");
         return bind.Failure;
     }
 
@@ -143,5 +160,18 @@ internal sealed class WorldUpgradeBinder : WorldRowBinder<RawUpgradeSample, Worl
             _queuedLevels!(entity),
             _buildTime!(entity),
             _developmentTime!(entity),
-            _cachedCostLevel!(entity));
+            _cachedCostLevel!(entity),
+            RewardDestinationFull(entity));
+
+    private bool RewardDestinationFull(object entity)
+    {
+        var additions = _rewardDestinations!(entity);
+        if (additions is null) return false;
+        for (var index = 0; index < additions.Count; index++)
+        {
+            var addition = additions[index];
+            if (addition is not null && !_destinationHasRoom!(addition)) return true;
+        }
+        return false;
+    }
 }

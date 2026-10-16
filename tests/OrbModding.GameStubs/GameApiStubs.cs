@@ -214,6 +214,7 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
     public bool readyToLevel;
     public bool SuppressMasteryGain { get; set; }
     public bool SuppressLevelMutation { get; set; }
+    public bool ThrowAfterLevelMutation { get; set; }
     public int MasteryGrantCalls { get; private set; }
     public List<BigDouble> GrantedMasteryExperience { get; } = new List<BigDouble>();
     public Prerequisites.Container levelingPrerequisites = new Prerequisites.Container();
@@ -306,6 +307,8 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
         if (!readyToLevel || SuppressLevelMutation) return;
         masteryLevel++;
         readyToLevel = false;
+        if (ThrowAfterLevelMutation)
+            throw new NullReferenceException("injected failure after the level landed");
     }
     public string GetName() => "Spell";
 

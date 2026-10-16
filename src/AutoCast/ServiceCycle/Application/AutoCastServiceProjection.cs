@@ -24,6 +24,7 @@ internal static class AutoCastServiceProjection
     internal const int ExcludedReserveFloorKey = 18;
     internal const int ExcludedBelowStartThresholdKey = 19;
     internal const int ExcludedOutrankedKey = 20;
+    internal const int LoadoutOpenKey = 21;
 
     public static void Write(
         in AutoCastCycleState state,
@@ -43,6 +44,7 @@ internal static class AutoCastServiceProjection
         output.Add(Key(ExcludedReserveFloorKey), Integer(exclusions.ReserveFloor));
         output.Add(Key(ExcludedBelowStartThresholdKey), Integer(exclusions.BelowStartThreshold));
         output.Add(Key(ExcludedOutrankedKey), Integer(exclusions.Outranked));
+        output.Add(Key(LoadoutOpenKey), Integer(decision.LoadoutOpen ? 1 : 0));
     }
 
     private static ServiceProjectionKey Key(int value) => new(value);

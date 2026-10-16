@@ -475,10 +475,11 @@ internal sealed class WorldSpellRecipeDeriver : WorldRowDeriver<RawSpellRecipeSa
 
     internal override WorldSpellRecipe Derive(in RawSpellRecipeSample sample)
     {
-        var affordable = true;
         var binding = Guid.Empty;
         var count = 0;
-        if (OwnedMasteryCostMath.TryFindRange(_costs, sample.SpellRecipeId, out var start, out count))
+        var affordable = OwnedMasteryCostMath.TryFindRange(_costs, sample.SpellRecipeId, out var start, out count) &&
+            count > 0;
+        if (affordable)
         {
             for (var index = 0; index < count; index++)
             {
