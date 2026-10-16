@@ -1,17 +1,16 @@
 # Challenges
 
-Challenges live at **Time > Challenges**. The system is largely unplayed; this page records the
-shape and deliberately not the numbers — treat specifics as unknown rather than assumed.
+Challenges live at **Time > Challenges**. The system is partly played; numbers on this page are
+observations, not extracted constants.
 
-- Challenges are **picked when starting an NG+ run, before performing the reset**. They do not
-  carry across resets — a reset commonly clears them.
-- New offers are fetched with the **New Challenges** button; they arrive Inactive and are activated
-  per row. Multiple challenges run at once, and a fourth challenge slot exists; the exact slot
-  count and how slots unlock are unrecorded.
-- **Fetching is free once, then costs a reroll.** The first fetch of a run is free; every later one
-  spends one of a limited number of challenge rerolls, and a fetch replaces the whole offer list.
-  It is one button that renames itself: **New Challenges** until the first fetch, **Reroll
-  Challenges** after.
+- Challenges are **picked before performing the reset**, and the reset is what puts your pick into
+  play: every challenge queued when you press the reset starts the new run **active**, and the one
+  you had **selected** carries as well. Several run at once (five observed); how slots unlock is
+  unrecorded.
+- The page has two views, **Active** and **All**. Active lists the current offers; All shows the
+  whole grid plus a **Challenges Complete** count and the challenge you currently hold selected.
+- Offers are fetched by one button that renames itself: **New Challenges** until the first fetch,
+  **Reroll Challenges** after. They arrive Inactive and are queued per row; see below.
 - **There are two offer lists.** The Time > Challenges screen and the reset modal each fetch their
   own, so what the reset modal offers is not the Time screen's list refreshed.
 - Any active challenge can be **abandoned**, and a completed one shows a **Passed** state.
@@ -25,6 +24,50 @@ Challenges do more than scale numbers: they can **modify requirements**, applyin
 modifiers on the requirement graph — one observed challenge applied `-5` to a research node's
 requirements, showing in-game as `leeway 5`. An active challenge can therefore put content within
 reach that would otherwise be gated: the requirement itself moved, not just its cost.
+
+## The offer list and its reroll budget
+
+The Active view shows a handful of offers at once (five observed) under the fetch button. A fetch
+replaces the whole list — you cannot reroll one row.
+
+- The first fetch of a world cycle is **free**; every press after that **spends a challenge
+  reroll**.
+- The fetch is also the **gate on the reset**: the reset is refused until the cycle's offers have
+  been fetched, and fetching arms the **entire fetched list** for the reset — including
+  challenges that already ran this cycle. A challenge you had queued or selected survives the
+  redraw.
+- The budget observed was **3**, and it is **not printed on the page**. The only place the number
+  appears is inside the Reroll Challenges button's own tooltip, which reads
+  `Challenge Rerolls Left`. If you want to know what a press costs you, hover the button.
+- This budget is **separate from the per-tree reroll** each of the seven discovery trees carries;
+  they are different systems that happen to share the word (see [discovery.md](discovery.md)).
+- Straight after a reset the budget reads **0 of 3 and cannot be spent** — rerolling is refused
+  because the world cycle is not complete yet. The budget comes back with the cycle, not with the
+  run, so a fresh run is not a fresh set of rerolls.
+- A reroll does **not** guarantee a fresh list: an offer can survive into the new draw (one of
+  five did, twice).
+
+## Selecting is separate from queueing
+
+Two different states sit on the same page and are easy to conflate.
+
+- Each offer row carries a state button — **Inactive**, **Queued**, or **Passed**. Pressing it
+  toggles a not-yet-run challenge in and out of the queue; there is no separate "activate" press.
+  A **Passed** row's toggle does nothing: a challenge that already ran this cycle cannot be
+  queued again until a reset (though a fresh fetch can still arm it, see above).
+- Separately, one challenge can be held as your **selection** for the next run, and the selection
+  slot count observed was **1**. That is not the same number as how many challenges can *run* at
+  once: five challenges have been seen running together, but how run slots scale is still
+  unrecorded.
+- The selection **outlives the offer list**. Rerolling away the challenge you had selected leaves
+  it selected while it no longer appears among the offers — the All view still shows it, the
+  Active view does not.
+- With the slot full, **picking another offered challenge swaps it**: one press gives up the held
+  one and takes the new one. That is also the only way out of a stale selection, since the
+  rerolled-away pick has no row left to press. What you cannot do is empty the slot — there is no
+  "select nothing", and a selection that was never activated cannot be abandoned.
+- The selection you are holding when you press the reset **carries into the new run** as that run's
+  challenge; the offer list does not.
 
 What challenges exist, what passing one grants, and the difficulty economy are unrecorded; see
 [open-questions.md](open-questions.md).

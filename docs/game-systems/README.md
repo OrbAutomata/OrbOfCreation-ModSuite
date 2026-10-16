@@ -11,7 +11,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 - [per-level-scaling.md](per-level-scaling.md) — whether an effect's levels add or multiply is a
   property of that effect.
 - [numbers-and-rounding.md](numbers-and-rounding.md) — how the screen spells a number,
-  mantissa/exponent storage, two-significant-digit prices, spend-to-zero.
+  mantissa/exponent storage, two-significant-digit prices, spend-to-zero, and the three duration
+  bands.
 - [cost-pipeline.md](cost-pipeline.md) — six stages build a price; Quality divides it again at
   payment; a ladder starting at zero owes nothing.
 - [lazy-evaluation.md](lazy-evaluation.md) — a value is worked out when something reads it, so
@@ -123,8 +124,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
   Advancement per point.
 - [challenges.md](challenges.md) — picked at NG+ start, cleared by resets; they modify
   requirements, not only numbers.
-- [reset-and-ng-plus.md](reset-and-ng-plus.md) — achievements and TA survive, challenges get
-  cleared; only NG+ resets cost curves.
+- [reset-and-ng-plus.md](reset-and-ng-plus.md) — achievements, TA and the save slot's clock survive,
+  challenges get cleared; only NG+ resets cost curves.
 
 ## Interface
 
