@@ -2071,10 +2071,9 @@ The MCP-only offer sequence is seven calls when two offers need explanations:
 ### Spell discovery and loadout-add loop
 
 `spell-recipes` is the pre-decision surface for both Spellcraft discovery and loadout add. Each
-named row contains the authored ordered `coreGlyphs` with current owned and bonus levels, every
-equipped runtime instance of that recipe, and the shared `loadBudget` of used/maximum slots plus
-`fitsAnotherSpell`, and the `usageBudget` rows the add gate weighs a candidate against — each
-spell-weight resource with its `headroom`, `used`, and `maximum`. An undiscovered recipe exposes
+named row contains every equipped runtime instance of that recipe, and the shared `loadBudget` of
+used/maximum slots plus `fitsAnotherSpell`, and the `usageBudget` rows the add gate weighs a
+candidate against — each spell-weight resource with its `headroom`, `used`, and `maximum`. An undiscovered recipe exposes
 `discover`, which names the Magic > Spellbook > Unlock roll that gives it and the recipe book its
 pool is waiting on; a discovered recipe exposes `loadoutAdd`. Loadout add truthfully reports only structural admission plus
 `acceptsAugments:true`: the same call takes an augment layout, and no layout changes what the row
@@ -2142,23 +2141,20 @@ published on the equipped instance as `recharge`; the three cooldown numbers a s
 
 The MCP-only base-recipe sequence is:
 
-1. Page or search `spell-recipes`; compare names, core-glyph holdings, and recipe books.
+1. Page or search `spell-recipes`; compare names and recipe books.
 2. An undiscovered recipe comes from the Magic > Spellbook > Unlock roll: drive that tree with
    `game_discover`'s `offer_*` modes. Confirming a spell offer reports, when the game loaded the new
    spell, the `loadout` block naming the bar slot it went into and the instance uuid of the copy
    that landed there.
 3. If an equipped instance is wanted, call
-   `game_spell_loadout(mode="preview", uuid=..., glyphs=[...])`. This read resolves and prices the
-   submitted layout through the same native manager methods used by add, without touching the
-   player's staged UI selection. It names `resolvesTo` — the spell this layout actually resolves to
-   — and returns named per-resource costs, overall affordability, and the named short resource when
-   unaffordable. A layout with no price has no `affordable` claim beside it: an empty layout costs
-   an empty cost list, and "this is free" read as "this will work" for a whole round. It runs every
-   admission `add` runs before `add` stages anything — craftability, glyph duration/toggle
-   requirements, usage requirements and budget, a free loadout slot, and loadout uniqueness — so a
-   preview that comes back priced is a layout `add` will not refuse on the same arguments. Price
-   stays an answer rather than a refusal: an unaffordable layout is priced with `affordable: false`
-   and the short resource named.
+   `game_spell_loadout(mode="preview", uuid=..., glyphs=[...])`. This read runs every admission
+   `add` runs before `add` stages anything — the screen being unlocked, the glyph ceilings, glyph
+   duration/toggle requirements, usage requirements, the weight fitting, a free loadout slot, and
+   loadout uniqueness — without touching the player's staged UI selection, so an available preview
+   is a layout `add` will not refuse on the same arguments. Loading has no price, so the answer
+   carries no cost or `affordable`: it is `status: available` with the `usageAllocation` the loaded
+   spell would hold and the `loaded` pointer to `spell-slots`, or `status: refused` with the
+   refusal's code and sentence.
 4. Call `game_spell_loadout(mode="add", uuid=..., glyphs=[...])` with that same layout. Adding is
    the only mutation where the layout is chosen; it is baked into the created runtime spell.
 
@@ -3459,8 +3455,8 @@ where the two differ it is not drift: `spendableAmount` is spendable amount, whi
 resource reports as the headroom left rather than the stock held, while a row's `amount` is the
 displayed quantity, which an **inverted** resource reports counting down from its cap. The two
 traits are independent, so either key can be the larger one depending on which traits the resource
-carries. When the settled world publishes no row for that resource the key is absent and
-`spendableAmountUnavailable` names the reason, because zero is a balance and "not collected" is not.
+carries. When the settled world publishes no row for that resource the key is absent, because zero
+is a balance and "not collected" is not.
 
 There is no delta field: the difference between two worlds also contains every income stream and
 every other spender in that window, so it is not a price and is not computed.
