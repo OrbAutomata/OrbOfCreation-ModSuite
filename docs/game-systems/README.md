@@ -102,6 +102,10 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 - [crafting.md](crafting.md) — Workshop recipe rows; crafts pay at submission.
 - [scribing.md](scribing.md) — the Scribe drop slot and its Starting Level dial; largely unmapped.
 - [artifacts.md](artifacts.md) — an equipment loadout bound by weight and slots at once.
+- [alchemy.md](alchemy.md) — a Learn/Loadout split; equipping a recipe is a standing capacity
+  usage, and Brewing is a type.
+- [rituals.md](rituals.md) — wave combat entered with Zeal; the completion cost is a drain, and
+  the reward is a cancellable duration.
 - [consumables.md](consumables.md) — family tags (partly unmapped), preparation times, replenish
   research, and scroll targeting.
 - [carry-limits.md](carry-limits.md) — per-item capacity; a weaker arrival is paid for and silently
@@ -131,5 +135,5 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 ## Gaps
 
 - [open-questions.md](open-questions.md) — known-unknown mechanics, each with what would settle it.
-- [unmapped-systems.md](unmapped-systems.md) — Rituals, Alchemy, Zeal, Dimensional and the other
-  unplayed features.
+- [unmapped-systems.md](unmapped-systems.md) — Dimensional, the unplayed disciplines and the other
+  features with confirmed presence and no play behind them.

@@ -23,6 +23,9 @@ carried cross-run bonuses (authored constants do not).
 - **The Decay Ratio mapping** — how the displayed ratio maps onto the overcap loss formula.
 - **The Attribute Cost term** — when it changes and whether it is ever a decision. Settle with a
   nested tooltip on a resource where it is nonzero.
+- **What shrinks Zeal capacity** — the cap's tooltip carries a multiplier below 1 (e.g. `x0.652`),
+  and the cap falls as winning rituals' duration rewards stack. The tooltip names no source. Settle
+  by cancelling one duration reward and re-reading the multiplier.
 - **Overcap outside advancement resources** — the loss constants were measured on advancement
   resources, and whether ordinary resources share them is unestablished. So is whether a purely
   rate-fed resource can overcap at all: none has been observed doing so, but no rule forbidding it
@@ -78,12 +81,9 @@ carried cross-run bonuses (authored constants do not).
   arrive from a non-Scribe source or the registry reading is incomplete.
 - **Agromancy remaining-instance counts** — the count is computed against idle nodes and is allowed
   to go negative; the player-visible consequence is unrecorded.
-- **The six Alchemy pools** — what they represent, what an alchemy effect does, and how the Alchemy
-  Level dial interacts with either. The dial's authored shape is written up in
-  [attributes-and-upgrades.md](attributes-and-upgrades.md); what a level is worth is not.
-- **Whether a bought ceiling drags its dial up** — `Raise Alchemy Level` adds only to
-  `MaxAlchemyLevel`, and no authored effect moves `AlchemyOutputLevel`. Play has only ever seen the
-  dial sitting at its ceiling, which both an auto-follow and a diligent player would produce.
+- **The six Alchemy pools** — one is Alchemical Capacity and is spent by equipping recipes (see
+  [alchemy.md](alchemy.md)); what the other five allocate, what an equipped recipe produces, and how
+  Alchemy Level interacts with either is unknown.
 
 ## Interface
 

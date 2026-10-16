@@ -20,11 +20,13 @@ its own fit check before you try. This is the same two-binder shape as
 A third limit sits behind those two: a new artifact also needs a free slot **for its type**, so a
 loadout with room on both budgets can still refuse an artifact whose type is full.
 
-Equipping the same artifact again **stacks** it, up to that artifact's maximum, and the multi-buy
-selector decides how many stacks one click adds. The game clamps that request to what is left of the
-maximum and to what you can pay for, so a click can add fewer stacks than asked for without saying
-so. **Code shape:** each equipped stack reserves the artifact's usage cost again — a standing
-reservation that returns when the stack goes, not a purchase.
+Equipping the same artifact again **stacks** it, up to that artifact's maximum (observed: a pair of
+gloves capped at two — the same shape as an alchemy recipe's active count, see
+[alchemy.md](alchemy.md)), and the multi-buy selector decides how many stacks one click adds. The
+game clamps that request to what is left of the maximum and to what you can pay for, so a click
+can add fewer stacks than asked for without saying so. **Code shape:** each equipped stack reserves
+the artifact's usage cost again — a standing reservation that returns when the stack goes, not a
+purchase.
 
 ## Create and Upgrade
 
