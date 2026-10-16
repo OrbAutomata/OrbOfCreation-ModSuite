@@ -42,16 +42,17 @@ WINEDLLOVERRIDES="winhttp=n,b" %command%
 
 ## 3. Install the current release
 
-Install the release marked **Latest** on the
-[Releases page](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases). Pre-releases are
-test builds; use one only if a maintainer asks.
+Install the
+[latest release](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases/latest).
+Pre-releases are test builds; use one only if a maintainer asks.
 
 1. Under **Assets**, download `OrbModSuite-release.dll`. Do not use `OrbModSuite-perf-debug.dll`;
-   it is a developer build.
+   it is a developer build. If your browser warns about the file, choose **Keep**.
 2. In `BepInEx/plugins`, create a folder named `OrbModSuite`.
-3. Move the downloaded file into that folder and rename it to `OrbModSuite.dll`. BepInEx loads any
-   file name, but one fixed name means the next update replaces the file instead of adding a
-   second copy.
+3. Move the downloaded file into that folder and rename it to `OrbModSuite.dll`. Turn on
+   [file name extensions](troubleshooting.md#bepinexlogoutputlog-does-not-exist) first so the name
+   does not become `OrbModSuite.dll.dll`. BepInEx loads any file name, but one fixed name means
+   the next update replaces the file instead of adding a second copy.
 4. Confirm the following layout:
 
 ```text

@@ -63,7 +63,7 @@ given game action.
 
 The **Runtime** page shows feature health, current waits and blockers, completed automation activity,
 and the recent decision journal. It also provides two immediate actions
-(0.6.0 and later, beta builds today):
+(beta builds; not in the 0.5.3 release):
 
 - **Create bug report** packages recent activity, settings, the BepInEx log, and identifiable save
   files into one zip. It captures evidence already held by the suite; it does not start recording.
@@ -71,15 +71,15 @@ and the recent decision journal. It also provides two immediate actions
   pauses while this check runs.
 
 Use **Create bug report** immediately after a problem, then follow
-[reporting a problem](troubleshooting.md#reporting-a-problem) before sharing the file. On 0.5.3,
-send `BepInEx/LogOutput.log` instead.
+[reporting a problem](troubleshooting.md#reporting-a-problem) before sharing the file. On the 0.5.3
+release, send `BepInEx/LogOutput.log` instead.
 
 ## Game updates and compatibility quarantine
 
 An unknown but complete game assembly pair opens the Mods control plane in compatibility quarantine.
-Gameplay patches and services remain stopped, but **Check game math**
-(0.6.0 and later, beta builds today), or **Run verifier** on 0.5.3, is available. Waiting for an
-audited ModSuite release is the safe choice.
+Gameplay patches and services remain stopped, but **Check game math** (beta builds; not in the 0.5.3
+release), or **Run verifier** on the 0.5.3 release, is available. Waiting for an audited ModSuite
+release is the safe choice.
 
 If you choose to proceed at your own risk, **Resume all** or the top-left STOP button acknowledges
 only the exact installed assembly pair and resumes in the same action. **Advanced > Allow this

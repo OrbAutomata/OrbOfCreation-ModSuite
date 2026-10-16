@@ -5,8 +5,8 @@
 
 When the suite loads, `BepInEx/LogOutput.log` records **Orb Of Creation ModSuite** once. Start with
 that file for installation problems. For problems after startup, use **Mods > Runtime > Create bug
-report** (0.6.0 and later, beta builds today) immediately after the issue so the report includes
-the most useful recent evidence. On 0.5.3, send `BepInEx/LogOutput.log` instead.
+report** (beta builds; not in the 0.5.3 release) immediately after the issue so the report includes
+the most useful recent evidence. On the 0.5.3 release, send `BepInEx/LogOutput.log` instead.
 
 ## The suite entered compatibility quarantine after a game update
 
@@ -20,9 +20,9 @@ remain stopped.
 Gameplay runtime quarantined: the installed game build does not match an audited baseline.
 ```
 
-Run **Mods > Runtime > Check game math** (0.6.0 and later, beta builds today), or **Run verifier**
-on 0.5.3, and include its result in your report. Waiting for an audited ModSuite release is the
-safe choice. If you choose to proceed at your own risk, the
+Run **Mods > Runtime > Check game math** (beta builds; not in the 0.5.3 release), or
+**Run verifier** on the 0.5.3 release, and include its result in your report. Waiting for an
+audited ModSuite release is the safe choice. If you choose to proceed at your own risk, the
 [configuration guide](configuration.md#game-updates-and-compatibility-quarantine) explains the two
 exact-build acknowledgement controls.
 
@@ -53,11 +53,10 @@ close the game once more:
    the `BepInEx` folder must be in the same folder as the game's `.exe`. Windows **Extract All**
    often adds an extra folder named after the zip; if you see one, move its contents up one level.
 2. **File extensions are visible.** In File Explorer, turn on **View > Show > File name
-   extensions** so that `winhttp.dll` and `doorstop_config.ini` are not hidden or renamed by
-   mistake.
+   extensions** so you can tell `winhttp.dll` and `doorstop_config.ini` apart from other files.
 3. **Antivirus left `winhttp.dll` in place.** If the file is missing after extraction, check
-   **Windows Security > Virus & threat protection > Protection history** for a quarantine and restore
-   it.
+   **Windows Security > Virus & threat protection > Protection history** for a quarantine and
+   restore it.
 4. **On Proton**, the `winhttp` launch option from the
    [installation guide](installation.md#2-install-bepinex-5) is set.
 
@@ -81,14 +80,15 @@ current file aside so the suite can create defaults; do not lower the schema mar
 ## Steam Deck UI problems or severe frame-rate loss
 
 Press **STOP ALL** first. If the problem clears, resume and enable features one at a time to identify
-the trigger. Create a bug report after reproducing the problem, then include whether the native
-autoqueue and NG+ tabs were unlocked and which features were active.
+the trigger. Create a bug report after reproducing the problem (or send `BepInEx/LogOutput.log` on
+the 0.5.3 release), then include whether the native autoqueue and NG+ tabs were unlocked and which
+features were active.
 
 ## A red banner says the game stopped advancing or its menus stopped switching
 
-The banner and its automatic bug report (0.6.0 and later, beta builds today) do not appear on
-0.5.3, where a frozen game shows no message. Return to the main menu, reload your save, and send
-`BepInEx/LogOutput.log`.
+The banner and its automatic bug report (beta builds; not in the 0.5.3 release) need a beta build.
+On the 0.5.3 release a frozen game shows no message: return to the main menu, reload your save, and
+send `BepInEx/LogOutput.log`.
 
 The same game element threw an error on fifty ticks in a row (one second), so development and
 managers that depend on the game's tick are frozen. The suite only observes this; the error comes
@@ -106,13 +106,14 @@ could not be saved, send `BepInEx/LogOutput.log` instead.
 
 ## Auto Concept repeatedly changes the same concept
 
-Press **STOP ALL**, then create a bug report immediately. Include the affected concept and resource
-names with your reproduction steps. The report preserves the suite's recent decisions and the live
-refusal reason without requiring you to copy individual log lines.
+Press **STOP ALL**, then create a bug report immediately (or send `BepInEx/LogOutput.log` on the
+0.5.3 release). Include the affected concept and resource names with your reproduction steps. The
+report preserves the suite's recent decisions and the live refusal reason without requiring you to
+copy individual log lines.
 
 ## Checking the suite against the live game
 
-**Mods > Runtime > Check game math** (0.6.0 and later, beta builds today) compares the suite's
+**Mods > Runtime > Check game math** (beta builds; not in the 0.5.3 release) compares the suite's
 economy and purchase decisions with the loaded game without changing the game. Load a save first.
 The check runs in one frame, so the game will visibly pause while it completes; its result is
 written to `BepInEx/LogOutput.log`.
@@ -126,9 +127,9 @@ compared at all, which is not a pass. Include anything but `AGREE` in a problem 
 
 ## Reporting a problem
 
-On 0.5.3, open an [issue](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/issues) with your
-reproduction steps and attach `BepInEx/LogOutput.log`. The steps below need **Create bug report**
-(0.6.0 and later, beta builds today).
+On the 0.5.3 release, open an [issue](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/issues)
+with your reproduction steps and attach `BepInEx/LogOutput.log`. The steps below need **Create bug
+report** (beta builds; not in the 0.5.3 release).
 
 1. Reproduce the problem, if it is safe to do so.
 2. Open **Mods > Runtime** and press **Create bug report** immediately.
