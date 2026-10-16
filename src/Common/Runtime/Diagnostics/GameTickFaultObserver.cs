@@ -68,6 +68,12 @@ internal static class GameTickFaultObserver
     /// </summary>
     internal const int RepeatThreshold = 50;
 
+    /// <summary>
+    /// How many consecutive completed runs clear the stuck element: five seconds of clean ticks at
+    /// 50 Hz, or 250 clean frames for a view.
+    /// </summary>
+    internal const int RecoveryThreshold = 250;
+
     private static readonly object Sync = new();
     private static readonly Dictionary<FaultKey, Fault> Faults = new(FaultKeyComparer.Instance);
     private static readonly Dictionary<object, List<Fault>> FaultsBySubject = new(ReferenceComparer.Instance);
@@ -103,7 +109,10 @@ internal static class GameTickFaultObserver
         if (_armed) Completed(view);
     }
 
-    /// <summary>The fault that first repeated past <see cref="RepeatThreshold"/>, if any.</summary>
+    /// <summary>
+    /// The fault that repeated past <see cref="RepeatThreshold"/> and has not since completed
+    /// <see cref="RecoveryThreshold"/> clean runs, if any.
+    /// </summary>
     internal static GameTickFaultReport? Repeating
     {
         get
@@ -205,7 +214,11 @@ internal static class GameTickFaultObserver
         lock (Sync)
         {
             if (!FaultsBySubject.TryGetValue(subject, out var faults)) return;
-            foreach (var fault in faults) fault.Completed();
+            foreach (var fault in faults)
+            {
+                fault.Completed();
+                if (ReferenceEquals(fault, _repeating) && fault.CleanRuns >= RecoveryThreshold) _repeating = null;
+            }
         }
     }
 
@@ -230,14 +243,20 @@ internal static class GameTickFaultObserver
 
         internal object Subject { get; }
         internal int BurstCount { get; private set; }
+        internal int CleanRuns { get; private set; }
 
         internal void Repeat()
         {
             _count++;
             BurstCount++;
+            CleanRuns = 0;
         }
 
-        internal void Completed() => BurstCount = 0;
+        internal void Completed()
+        {
+            BurstCount = 0;
+            CleanRuns++;
+        }
 
         internal void Describe(string subject) => _subjectDescription = subject;
 

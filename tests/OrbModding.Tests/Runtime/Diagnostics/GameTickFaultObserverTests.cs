@@ -96,6 +96,22 @@ public sealed class GameTickFaultObserverTests : IDisposable
     }
 
     [Fact]
+    public void TheStuckElementClearsOnlyAfterTheFullRecoveryStretch()
+    {
+        var element = new ThrowingElement();
+        Throw(element, GameTickFaultObserver.RepeatThreshold);
+
+        for (var index = 0; index < GameTickFaultObserver.RecoveryThreshold - 1; index++) Complete(element);
+        Assert.NotNull(GameTickFaultObserver.Repeating);
+        Throw(element, 1);
+        for (var index = 0; index < GameTickFaultObserver.RecoveryThreshold - 1; index++) Complete(element);
+        Assert.NotNull(GameTickFaultObserver.Repeating);
+        Complete(element);
+
+        Assert.Null(GameTickFaultObserver.Repeating);
+    }
+
+    [Fact]
     public void AnotherElementCompletingDoesNotResetTheFaultingOne()
     {
         var element = new ThrowingElement();

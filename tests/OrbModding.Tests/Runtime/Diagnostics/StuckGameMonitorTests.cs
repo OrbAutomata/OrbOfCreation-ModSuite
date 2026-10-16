@@ -10,6 +10,7 @@ namespace OrbModding.Tests.Runtime.Diagnostics;
 public sealed class StuckGameMonitorTests : IDisposable
 {
     private readonly List<string> _errors = new();
+    private readonly List<string> _infos = new();
     private readonly List<string> _bundles = new();
     private Action<string>? _written;
     private Action<string>? _failed;
@@ -104,17 +105,59 @@ public sealed class StuckGameMonitorTests : IDisposable
         Assert.NotNull(monitor.Notice);
     }
 
-    private StuckGameMonitor Stuck()
+    [Fact]
+    public void TheNoticeClearsOnceTheElementRunsCleanForTheRecoveryStretch()
+    {
+        var element = new ThrowingElement();
+        var monitor = Stuck(element);
+
+        Complete(element, GameTickFaultObserver.RecoveryThreshold - 1);
+        monitor.Update();
+        Assert.NotNull(monitor.Notice);
+        Complete(element, 1);
+        monitor.Update();
+
+        Assert.Null(monitor.Notice);
+        Assert.StartsWith("The game is advancing again", Assert.Single(_infos));
+    }
+
+    [Fact]
+    public void StickingAgainInTheSameLifecycleNamesTheSameReport()
+    {
+        var element = new ThrowingElement();
+        var monitor = Stuck(element);
+        _written!("report.zip");
+        Complete(element, GameTickFaultObserver.RecoveryThreshold);
+        monitor.Update();
+
+        Throw(element, GameTickFaultObserver.RepeatThreshold);
+        monitor.Update();
+
+        Assert.Single(_bundles);
+        Assert.Equal(
+            StuckGameMonitor.StuckSentence + " A bug report was saved to report.zip; send it to the mod authors.",
+            monitor.Notice);
+    }
+
+    private StuckGameMonitor Stuck(ThrowingElement? element = null)
     {
         var monitor = Monitor();
-        Throw(new ThrowingElement(), GameTickFaultObserver.RepeatThreshold);
+        Throw(element ?? new ThrowingElement(), GameTickFaultObserver.RepeatThreshold);
         monitor.Update();
         return monitor;
+    }
+
+    private static void Complete(ThrowingElement element, int times)
+    {
+        element.Throws = false;
+        for (var index = 0; index < times; index++) GameTickFaultObserver.IncrementElement(element, 0.02f);
+        element.Throws = true;
     }
 
     private StuckGameMonitor Monitor() =>
         new(
             _ => "Faulting element",
+            _infos.Add,
             _errors.Add,
             (faults, written, failed) =>
             {
@@ -131,6 +174,11 @@ public sealed class StuckGameMonitorTests : IDisposable
 
     private sealed class ThrowingElement : IIncrement
     {
-        public void Increment(float deltaTime) => throw new NullReferenceException("native");
+        internal bool Throws { get; set; } = true;
+
+        public void Increment(float deltaTime)
+        {
+            if (Throws) throw new NullReferenceException("native");
+        }
     }
 }
