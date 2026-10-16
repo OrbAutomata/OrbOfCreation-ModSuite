@@ -65,8 +65,8 @@ autoqueue and NG+ tabs were unlocked and which features were active.
 
 ## A red banner says the game stopped advancing
 
-The game itself threw an error on every tick, so development, managers, and menus that depend on its
-tick are frozen. The suite only observes this; the error comes from the game. Return to the main menu
+The same game element threw an error on fifty ticks in a row (one second), so development and
+managers that depend on the game's tick are frozen. The suite only observes this; the error comes from the game. Return to the main menu
 and reload your save, which usually clears it.
 
 The suite saves a bug report automatically when this happens, and the banner names its path under

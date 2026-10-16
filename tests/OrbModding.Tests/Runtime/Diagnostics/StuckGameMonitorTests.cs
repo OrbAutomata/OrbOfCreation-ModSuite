@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using OrbAutomata;
 using OrbModding.Common.Runtime;
 using Xunit;
@@ -15,17 +14,9 @@ public sealed class StuckGameMonitorTests : IDisposable
     private Action<string>? _written;
     private Action<string>? _failed;
 
-    public StuckGameMonitorTests()
-    {
-        GameTickFaultObserver.Reset();
-        GameTickFaultObserver.UseClockForTests(() => 0);
-    }
+    public StuckGameMonitorTests() => GameTickFaultObserver.Reset();
 
-    public void Dispose()
-    {
-        GameTickFaultObserver.Reset();
-        GameTickFaultObserver.UseClockForTests(Stopwatch.GetTimestamp);
-    }
+    public void Dispose() => GameTickFaultObserver.Reset();
 
     [Fact]
     public void AnOccasionalFaultIsLoggedOnceAndLeavesThePlayerAlone()

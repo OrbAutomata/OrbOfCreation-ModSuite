@@ -19,19 +19,9 @@ public sealed class GameTickFaultObserverCollection
 [Collection(GameTickFaultObserverCollection.Name)]
 public sealed class GameTickFaultObserverTests : IDisposable
 {
-    private long _now;
+    public GameTickFaultObserverTests() => GameTickFaultObserver.Reset();
 
-    public GameTickFaultObserverTests()
-    {
-        GameTickFaultObserver.Reset();
-        GameTickFaultObserver.UseClockForTests(() => _now);
-    }
-
-    public void Dispose()
-    {
-        GameTickFaultObserver.Reset();
-        GameTickFaultObserver.UseClockForTests(Stopwatch.GetTimestamp);
-    }
+    public void Dispose() => GameTickFaultObserver.Reset();
 
     [Fact]
     public void AThrowingElementPropagatesTheSameExceptionWithTheThrowersFrameOnTop()
@@ -91,17 +81,33 @@ public sealed class GameTickFaultObserverTests : IDisposable
     }
 
     [Fact]
-    public void ThrowsSeparatedByMoreThanASecondNeverAddUpToRepeating()
+    public void AnElementThatCompletesBetweenThrowsNeverBecomesRepeating()
     {
         var element = new ThrowingElement();
 
-        for (var index = 0; index < GameTickFaultObserver.RepeatThreshold * 2; index++)
+        for (var index = 0; index < GameTickFaultObserver.RepeatThreshold * 4; index++)
         {
-            _now += Stopwatch.Frequency + 1;
-            Throw(element, 1);
+            if (index % 20 == 19) Complete(element);
+            else Throw(element, 1);
         }
 
         Assert.Null(GameTickFaultObserver.Repeating);
+        Assert.True(Assert.Single(GameTickFaultObserver.Snapshot()).Count > GameTickFaultObserver.RepeatThreshold);
+    }
+
+    [Fact]
+    public void AnotherElementCompletingDoesNotResetTheFaultingOne()
+    {
+        var element = new ThrowingElement();
+        var healthy = new CountingElement();
+
+        for (var index = 0; index < GameTickFaultObserver.RepeatThreshold; index++)
+        {
+            GameTickFaultObserver.IncrementElement(healthy, 0.02f);
+            Throw(element, 1);
+        }
+
+        Assert.NotNull(GameTickFaultObserver.Repeating);
     }
 
     [Fact]
@@ -244,6 +250,13 @@ public sealed class GameTickFaultObserverTests : IDisposable
             GameTickFaultSubject.Describe(new CountingElement(), binding));
     }
 
+    private static void Complete(ThrowingElement element)
+    {
+        element.Throws = false;
+        GameTickFaultObserver.IncrementElement(element, 0.02f);
+        element.Throws = true;
+    }
+
     private static void Throw(ThrowingElement element, int times) =>
         Throw<NullReferenceException>(element, times);
 
@@ -260,8 +273,11 @@ public sealed class GameTickFaultObserverTests : IDisposable
 
         internal Exception? Thrown { get; private set; }
 
+        internal bool Throws { get; set; } = true;
+
         public void Increment(float deltaTime)
         {
+            if (!Throws) return;
             Thrown = Next();
             throw Thrown;
         }
