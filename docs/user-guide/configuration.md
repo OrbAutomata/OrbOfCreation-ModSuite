@@ -62,7 +62,8 @@ given game action.
 ## Runtime and problem reports
 
 The **Runtime** page shows feature health, current waits and blockers, completed automation activity,
-and the recent decision journal. It also provides two immediate actions:
+and the recent decision journal. It also provides two immediate actions
+(0.6.0 and later, beta builds today):
 
 - **Create bug report** packages recent activity, settings, the BepInEx log, and identifiable save
   files into one zip. It captures evidence already held by the suite; it does not start recording.
@@ -70,12 +71,14 @@ and the recent decision journal. It also provides two immediate actions:
   pauses while this check runs.
 
 Use **Create bug report** immediately after a problem, then follow
-[reporting a problem](troubleshooting.md#reporting-a-problem) before sharing the file.
+[reporting a problem](troubleshooting.md#reporting-a-problem) before sharing the file. On 0.5.3,
+send `BepInEx/LogOutput.log` instead.
 
 ## Game updates and compatibility quarantine
 
 An unknown but complete game assembly pair opens the Mods control plane in compatibility quarantine.
-Gameplay patches and services remain stopped, but **Check game math** is available. Waiting for an
+Gameplay patches and services remain stopped, but **Check game math**
+(0.6.0 and later, beta builds today), or **Run verifier** on 0.5.3, is available. Waiting for an
 audited ModSuite release is the safe choice.
 
 If you choose to proceed at your own risk, **Resume all** or the top-left STOP button acknowledges

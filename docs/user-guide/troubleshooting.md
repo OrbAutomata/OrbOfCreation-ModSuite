@@ -5,7 +5,8 @@
 
 When the suite loads, `BepInEx/LogOutput.log` records **Orb Of Creation ModSuite** once. Start with
 that file for installation problems. For problems after startup, use **Mods > Runtime > Create bug
-report** immediately after the issue so the report includes the most useful recent evidence.
+report** (0.6.0 and later, beta builds today) immediately after the issue so the report includes
+the most useful recent evidence. On 0.5.3, send `BepInEx/LogOutput.log` instead.
 
 ## The suite entered compatibility quarantine after a game update
 
@@ -19,8 +20,9 @@ remain stopped.
 Gameplay runtime quarantined: the installed game build does not match an audited baseline.
 ```
 
-Run **Mods > Runtime > Check game math** and include its result in your report. Waiting for an
-audited ModSuite release is the safe choice. If you choose to proceed at your own risk, the
+Run **Mods > Runtime > Check game math** (0.6.0 and later, beta builds today), or **Run verifier**
+on 0.5.3, and include its result in your report. Waiting for an audited ModSuite release is the
+safe choice. If you choose to proceed at your own risk, the
 [configuration guide](configuration.md#game-updates-and-compatibility-quarantine) explains the two
 exact-build acknowledgement controls.
 
@@ -83,6 +85,10 @@ autoqueue and NG+ tabs were unlocked and which features were active.
 
 ## A red banner says the game stopped advancing or its menus stopped switching
 
+The banner and its automatic bug report (0.6.0 and later, beta builds today) do not appear on
+0.5.3, where a frozen game shows no message. Return to the main menu, reload your save, and send
+`BepInEx/LogOutput.log`.
+
 The same game element threw an error on fifty ticks in a row (one second), so development and
 managers that depend on the game's tick are frozen. The suite only observes this; the error comes
 from the game. Return to the main menu and reload your save, which usually clears it. If the element
@@ -105,9 +111,10 @@ refusal reason without requiring you to copy individual log lines.
 
 ## Checking the suite against the live game
 
-**Mods > Runtime > Check game math** compares the suite's economy and purchase decisions with the
-loaded game without changing the game. Load a save first. The check runs in one frame, so the game
-will visibly pause while it completes; its result is written to `BepInEx/LogOutput.log`.
+**Mods > Runtime > Check game math** (0.6.0 and later, beta builds today) compares the suite's
+economy and purchase decisions with the loaded game without changing the game. Load a save first.
+The check runs in one frame, so the game will visibly pause while it completes; its result is
+written to `BepInEx/LogOutput.log`.
 
 The first word of the first line is the answer. `AGREE` means the suite and the game reached the
 same number everywhere they were compared, and nothing follows it but the count and one `window:`
@@ -117,6 +124,10 @@ suite does not model and therefore refuses to automate. `INCONCLUSIVE` means not
 compared at all, which is not a pass. Include anything but `AGREE` in a problem report.
 
 ## Reporting a problem
+
+On 0.5.3, open an [issue](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/issues) with your
+reproduction steps and attach `BepInEx/LogOutput.log`. The steps below need **Create bug report**
+(0.6.0 and later, beta builds today).
 
 1. Reproduce the problem, if it is safe to do so.
 2. Open **Mods > Runtime** and press **Create bug report** immediately.

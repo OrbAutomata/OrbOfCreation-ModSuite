@@ -2,8 +2,8 @@
 
 OrbOfCreation ModSuite is an unofficial collection of automation and quality-of-life tools for
 Orb of Creation. It installs as one BepInEx plugin and adds a native-styled **Mods** tab where you
-can configure features, see their current status, and create a diagnostic bundle when something
-goes wrong.
+can configure features, see their current status, and create a bug report
+(0.6.0 and later, beta builds today) when something goes wrong.
 
 ## Start here
 
@@ -26,7 +26,7 @@ goes wrong.
 - **Mentor** shares a configured portion of earned mastery XP with eligible spells, artifacts, and
   ordinary alchemy recipes.
 - The **Mods** UI provides configuration, immediate safety controls, runtime status, activity
-  history, and a one-click bug-report bundle.
+  history, and a one-click bug-report bundle (0.6.0 and later, beta builds today).
 
 All automation remains subject to the game's live rules and the suite's safety checks. Start with
 the defaults, enable one feature at a time, and keep only one mod responsible for each automated
