@@ -13,7 +13,7 @@ the feature overview, installation guide, configuration help, and troubleshootin
 
 ## Get started
 
-Players should download the current release from the
+Players should download the release marked Latest on the
 [Releases page](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases), then follow the
 [installation guide](https://orbautomata.github.io/OrbOfCreation-ModSuite/user-guide/installation/).
 Back up your save before enabling automation.

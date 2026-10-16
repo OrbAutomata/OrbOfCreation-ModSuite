@@ -41,10 +41,17 @@ WINEDLLOVERRIDES="winhttp=n,b" %command%
 
 ## 3. Install the current release
 
-1. Download the recommended archive from the project's
-   [Releases page](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases).
-2. Extract it into the game directory and merge the included `BepInEx` folder.
-3. Confirm the following layout:
+Install the release marked **Latest** on the
+[Releases page](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases). Pre-releases are
+test builds; use one only if a maintainer asks.
+
+1. Under **Assets**, download `OrbModSuite-release.dll`. Do not use `OrbModSuite-perf-debug.dll`;
+   it is a developer build.
+2. In `BepInEx/plugins`, create a folder named `OrbModSuite`.
+3. Move the downloaded file into that folder and rename it to `OrbModSuite.dll`. BepInEx loads any
+   file name, but one fixed name means the next update replaces the file instead of adding a
+   second copy.
+4. Confirm the following layout:
 
 ```text
 Orb of Creation/
@@ -56,10 +63,12 @@ Orb of Creation/
             `-- OrbModSuite.dll
 ```
 
-Keep exactly one copy of `OrbModSuite.dll` anywhere under `BepInEx/plugins`. Remove separate
+Keep exactly one suite DLL anywhere under `BepInEx/plugins`. Remove separate
 `OrbAutomata.dll`, `OrbMentor.dll`, `OrbModConfig.dll`, and `OrbModding.Common.dll` files; they are
-not part of the one-plugin installation. On startup, `BepInEx/LogOutput.log` should list
-**Orb Of Creation ModSuite** once without dependency errors.
+not part of the one-plugin installation.
+
+To check that it worked, start the game: `BepInEx/LogOutput.log` should list
+**Orb Of Creation ModSuite** once without dependency errors, and the game shows a **Mods** tab.
 
 The suite reads settings from
 `BepInEx/config/dev.vojow.orbofcreation.modsuite.cfg`. Other per-plugin configuration files are not
