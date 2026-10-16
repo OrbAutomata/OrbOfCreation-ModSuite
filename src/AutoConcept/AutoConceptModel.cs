@@ -138,50 +138,6 @@ internal static class AutoConceptResourcePolicy
     }
 }
 
-internal sealed class ConceptOwnershipLedger
-{
-    private readonly Dictionary<string, ConceptOwnership> _entries = new(StringComparer.Ordinal);
-
-    public IEnumerable<KeyValuePair<string, ConceptOwnership>> Entries => _entries;
-
-    public ConceptOwnership ObserveBaseline(string uuid, int quantity)
-    {
-        var ownership = new ConceptOwnership(Math.Max(0, quantity), 0);
-        _entries[uuid] = ownership;
-        return ownership;
-    }
-
-    public ConceptOwnership GetOrObserve(string uuid, int quantity)
-    {
-        if (_entries.TryGetValue(uuid, out var ownership)) return ownership;
-        return ObserveBaseline(uuid, quantity);
-    }
-
-    public bool TryGet(string uuid, out ConceptOwnership ownership) => _entries.TryGetValue(uuid, out ownership);
-
-    public void RecordAutomatedDelta(string uuid, int currentQuantity, int delta)
-    {
-        var ownership = GetOrObserve(uuid, currentQuantity - Math.Max(0, delta));
-        _entries[uuid] = new ConceptOwnership(
-            ownership.ManualBaseline,
-            Math.Max(0, ownership.AutomatedDelta + delta));
-    }
-
-    public bool RebaselineIfUnexpected(string uuid, int actualQuantity)
-    {
-        if (!_entries.TryGetValue(uuid, out var ownership))
-        {
-            ObserveBaseline(uuid, actualQuantity);
-            return false;
-        }
-        if (actualQuantity == ownership.ExpectedQuantity) return false;
-        ObserveBaseline(uuid, actualQuantity);
-        return true;
-    }
-
-    public void Clear() => _entries.Clear();
-}
-
 internal readonly struct ConceptOwnership
 {
     public ConceptOwnership(int manualBaseline, int automatedDelta)

@@ -46,7 +46,6 @@ Do not commit the referenced BepInEx, Unity, Harmony, or game DLLs.
 - Auto Buy, Auto Cast, Auto Concept, Auto Harvest, Auto Items, Auto Scribe, and Mentor expose only `Disabled` and `Active`.
 - One native queue slot is reserved for manual actions.
 - Each ranked Structure prefers one live Bulk Development-sized group, reduced to the largest exactly priced positive count the remaining batch ledger can fund; each Upgrade receives one level. Every submitted level is independently revalidated.
-- Queue admission uses the shared fail-closed `QueueCapacitySnapshot`: authoritative native total capacity and remaining room determine occupancy, then the Auto Buy usage limit and manual reservation are applied once to derive usable room.
 - Candidates rank by cost ratio and stable UUID; there is no UUID-list filter or structure-effect priority tier.
 - Absolute and relative reserves default to zero; affordability modes provide the default spending margin.
 - Startup, warning, and error records remain enabled; explicit Runtime actions own deeper trace and journal evidence.

@@ -310,19 +310,6 @@ public sealed class FeatureStatusTests
         Assert.IsType<InvalidOperationException>(observed);
     }
 
-    [Fact]
-    public void RelatedIdentity_IsPartOfConditionButDisplayNameIsNot()
-    {
-        var registry = new FeatureStatusRegistry();
-        var first = new AutomationEntityIdentity("upgrade", "9787dbd5-58b8-4da1-ae89-f9435aa80b20", "UpgradeSO", "First name");
-        var renamed = new AutomationEntityIdentity("upgrade", "9787dbd5-58b8-4da1-ae89-f9435aa80b20", "UpgradeSO", "Renamed");
-        var different = new AutomationEntityIdentity("upgrade", "b5efd19a-9655-4359-ad27-f391bb86c2e4", "UpgradeSO", "Different");
-        using var registration = registry.Register(Blocked("blocked", 0, first));
-
-        Assert.False(registration.Update(Blocked("renamed", 0, renamed)));
-        Assert.True(registration.Update(Blocked("different", 0, different)));
-    }
-
     private static FeatureStatusSnapshot Operational(long generation) => new(
         Key,
         "Feature",
@@ -332,12 +319,11 @@ public sealed class FeatureStatusTests
 
     private static FeatureStatusSnapshot Blocked(
         string summary,
-        long generation,
-        AutomationEntityIdentity relatedEntity = default) => new(
+        long generation) => new(
         Key,
         "Feature",
         true,
         FeatureStatusState.TemporarilyBlocked,
-        new FeatureStatusReason(FeatureStatusReasonCode.NativeBusy, summary, relatedEntity),
+        new FeatureStatusReason(FeatureStatusReasonCode.NativeBusy, summary),
         generation);
 }

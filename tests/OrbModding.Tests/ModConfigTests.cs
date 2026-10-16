@@ -507,7 +507,7 @@ public sealed class ModConfigTests
         config.SeedSerialized("AutoBuy", "ActivePurchaseLimitPerSession", "1");
         config.SeedSerialized("AutoCast", "RuntimeProbeConfirmed", "true");
         config.SeedSerialized("Safety", "AllowUnvalidatedActiveMode", "false");
-        config.SeedSerialized("Research", "Mode", LegacyResearchAutomationMode.DryRun.ToString());
+        config.SeedSerialized("Research", "Mode", "DryRun");
         config.SeedSerialized("AutoConcept", "AutoLevelSpells", "false");
 
         BepInExAutomataConfiguration.Bind(config);
