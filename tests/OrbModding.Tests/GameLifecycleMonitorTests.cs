@@ -176,6 +176,54 @@ public sealed class GameLifecycleMonitorTests
         Assert.Equal(40, monitor.Diagnostics[31].Generation);
     }
 
+    /// <summary>
+    /// Every reference the suite holds invalidates on the epoch number alone, and that number is all
+    /// the numeric trace can carry, so the reason behind an epoch reaches the log or it reaches
+    /// nobody. Naming the prestige behind one mid-session epoch change took a topology line, two
+    /// clock anchors, and a file timestamp.
+    /// </summary>
+    [Fact]
+    public void ATransitionSaysWhichEpochItIsAndWhyItHappened()
+    {
+        var monitor = new GameLifecycleMonitor(() => 1);
+        Assert.True(monitor.TryObserve(
+            new GameLifecycleObservation(GameLifecycleTransitionKind.SceneEntered, 1, "Main", "Automata"),
+            out _,
+            out _));
+
+        Assert.True(monitor.TryObserve(
+            new GameLifecycleObservation(
+                GameLifecycleTransitionKind.ResetCompleted,
+                48815,
+                "Main",
+                "Prestige"),
+            out var transition,
+            out _));
+
+        Assert.Equal(
+            "Game lifecycle 1 -> 2: ResetCompleted | state=Playing | scene=Main | source=Prestige " +
+            "| frame=48815.",
+            transition.Describe());
+    }
+
+    [Fact]
+    public void AnUnattributedTransitionSaysSoRatherThanLeavingItsFieldsBlank()
+    {
+        var monitor = new GameLifecycleMonitor(() => 1);
+
+        Assert.True(monitor.TryObserve(
+            new GameLifecycleObservation(
+                GameLifecycleTransitionKind.RuntimeReady,
+                4,
+                string.Empty,
+                string.Empty),
+            out var transition,
+            out _));
+
+        Assert.Contains("scene=unnamed", transition.Describe());
+        Assert.Contains("source=unnamed", transition.Describe());
+    }
+
     private static bool Observe(
         GameLifecycleMonitor monitor,
         GameLifecycleTransitionKind kind,

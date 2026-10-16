@@ -101,6 +101,32 @@ public sealed class InstalledGameContractTests
     }
 
     [GameAssemblyFact]
+    public void PlayerFacingAttributes_AreStructurePurchaseRows()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.Equal(0x06002763, assembly.GetMethodToken(
+            "UIStructureList", "PurchaseStructure", "StructureSO"));
+        Assert.Equal(
+            0x06001783,
+            assembly.GetMethodToken("StructureSO", "Purchase", Array.Empty<string>()));
+        AssertMethod(
+            assembly,
+            "UIStructureList",
+            "PurchaseStructure",
+            false,
+            "System.Void",
+            "StructureSO");
+        AssertMethod(assembly, "StructureSO", "Purchase", false, "System.Void");
+        Assert.Contains(
+            assembly.GetMethodBodyDefinitionReferences(
+                "UIStructureList", "PurchaseStructure", "StructureSO"),
+            reference => reference.DeclaringType == "StructureSO" &&
+                reference.MemberName == "Purchase");
+        Assert.Empty(assembly.GetMethods("AttributeSO", "Purchase"));
+    }
+
+    [GameAssemblyFact]
     public void AutoBuyAuthoredRouteAdmission_MatchesCompleteNativeBindingSet()
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
@@ -140,6 +166,44 @@ public sealed class InstalledGameContractTests
         Assert.Equal("IntVariable", assembly.GetFieldType("AbstractListVariable`1", "maxSizeVariable"));
         AssertMethod(assembly, "GenericListVariable`1", "HasEmptySpot", false, "System.Boolean");
         AssertMethod(assembly, "IdScriptableObject", "GetGuid", false, "System.Guid");
+    }
+
+    /// <summary>
+    /// Reaching an authored upgrade panel that no view names, and reading who is on it.
+    /// </summary>
+    /// <remarks>
+    /// Three of the game's nine <c>UpgradeListVariable</c> assets are named only by prefab swapper
+    /// data, so the identity registry is the one door to them: the pinned uuid goes in, an
+    /// <c>UpgradeListVariable</c> has to come out, and its <c>value</c> has to be the upgrades it
+    /// holds. Every member of that path is asserted here against the audited copy, because a screen
+    /// word derived through a path the build no longer has would be a confident lie rather than a
+    /// missing cell.
+    /// </remarks>
+    [GameAssemblyFact]
+    public void UpgradeScreenMembership_MatchesPinnedListResolutionContracts()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.Equal(
+            "System.Collections.Generic.Dictionary`2<System.Guid,IdScriptableObject>",
+            assembly.GetFieldType("IdScriptableObject", "RuntimeLookup"));
+        AssertMethod(assembly, "IdScriptableObject", "GetGuid", false, "System.Guid");
+        Assert.True(assembly.HasType("UpgradeListVariable"));
+        Assert.Equal(
+            "GenericListVariable`1<UpgradeSO>",
+            assembly.GetBaseType("UpgradeListVariable"));
+        Assert.Equal(
+            "System.Collections.Generic.List`1<!0>",
+            assembly.GetFieldType("AbstractListVariable`1", "value"));
+
+        // The panel the lists are swapped into, and the swap that makes membership a screen fact.
+        // Nothing reads these — the map they walk is prefab data — but a build that stopped
+        // grouping upgrades this way would make the pinned words describe a UI that is gone.
+        Assert.Equal(
+            "ListViewSwapper`1<UpgradeListVariable>",
+            assembly.GetFieldType("UIUpgradeList", "listViews"));
+        AssertMethod(
+            assembly, "ListViewSwapper`1", "GetActiveList", false, "!0");
     }
 
     [GameAssemblyFact]
@@ -566,6 +630,42 @@ public sealed class InstalledGameContractTests
             "GetLevel",
             false,
             "System.Int32");
+    }
+
+    [GameAssemblyFact]
+    public void CraftingRecipeWorldCapture_MatchesConcreteRecipeContracts()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.Equal(
+            "System.Collections.Generic.List`1<CraftingRecipeSO>",
+            assembly.GetFieldType("CraftingRecipeSO", "All"));
+        Assert.Equal("ResourceCostList", assembly.GetFieldType("CraftingRecipeSO", "recipeCost"));
+        Assert.Equal(
+            "ResourceCostList",
+            assembly.GetFieldType("CraftingRecipeSO", "generatedResources"));
+        Assert.Equal(
+            "System.Collections.Generic.List`1<PersistentEffectBlock>",
+            assembly.GetFieldType("CraftingRecipeSO", "engagementEffects"));
+        Assert.Equal("System.Double", assembly.GetFieldType("CraftingRecipeSO", "timeToComplete"));
+        AssertMethod(
+            assembly,
+            "CraftingRecipeSO",
+            "GetStartingQuantity",
+            false,
+            "BigDouble");
+        AssertMethod(
+            assembly,
+            "ResourceCostList",
+            "IsWithinCapacity",
+            false,
+            "System.Boolean");
+        AssertMethod(
+            assembly,
+            "EffectBlock",
+            "GetEffectNecessaryDrainRatio",
+            false,
+            "BigDouble");
     }
 
     [GameAssemblyFact]

@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Collections.Generic;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Runtime.ServiceCycle.Tracing;
@@ -245,14 +246,15 @@ public sealed class ServiceCycleEventRingTests
         ring.Append(ServiceCycleSemanticEventKind.CycleStarted, in payload);
         ring.Append(ServiceCycleSemanticEventKind.CycleStarted, in payload);
         capture.Pull(ring, 1);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 100; i++)
+
+        var allocated = AllocationProbe.MeasureRepeated(100, () =>
         {
             ring.Append(ServiceCycleSemanticEventKind.CycleStarted, in payload);
             ring.Append(ServiceCycleSemanticEventKind.CycleStarted, in payload);
             capture.Pull(ring, 1);
-        }
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        });
+
+        Assert.Equal(0, allocated);
     }
 
     [Fact]
@@ -269,14 +271,12 @@ public sealed class ServiceCycleEventRingTests
         }
 
         var cursor = ring.Cursor;
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 1_000; i++)
+
+        var allocated = AllocationProbe.MeasureRepeated(1_000, () =>
         {
             ring.Append(ServiceCycleSemanticEventKind.CycleStarted, in payload);
-            var drain = ring.DrainSince(cursor, output);
-            cursor = drain.Cursor;
-        }
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            cursor = ring.DrainSince(cursor, output).Cursor;
+        });
 
         Assert.Equal(0, allocated);
     }

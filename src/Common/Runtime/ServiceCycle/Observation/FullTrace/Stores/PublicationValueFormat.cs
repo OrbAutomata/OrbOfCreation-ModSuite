@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Observation.FullTrace.Stores;
@@ -130,7 +131,7 @@ internal static class PublicationValueFormat
         {
             case bool typed: text = typed ? "true" : "false"; return true;
             case string typed: text = typed; return true;
-            case Guid typed: text = typed.ToString("D", CultureInfo.InvariantCulture); return true;
+            case Guid typed: text = EntityIdentityFormatter.Format(typed); return true;
             case float typed: text = typed.ToString("R", CultureInfo.InvariantCulture); return true;
             case double typed: text = typed.ToString("R", CultureInfo.InvariantCulture); return true;
             case IFormattable typed when type.IsPrimitive:

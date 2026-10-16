@@ -83,6 +83,10 @@ internal sealed class AutoItemsFeatureRuntime : IAutomataServiceCycleFeatureRunt
         _diagnostics?.ObserveLifecycle(nativeLifecycle, configurationGeneration);
     }
 
+    internal ConsumablePlayerSubmission TryExecuteGameMcp(
+        in ConsumablePlayerAction action) =>
+        _gameAction.Submit(in action);
+
     public void DisposeDiagnostics() => _diagnostics = null;
 
     public void DisposeRegistration()

@@ -17,7 +17,9 @@ internal readonly struct WorldTimeRune : IWorldEntity
         BigDouble freeUsages,
         BigDouble power,
         BigDouble powerScalingMod,
-        BigDouble masteryXpMod)
+        BigDouble masteryXpMod,
+        WorldDiscoverableDecision discovery = default,
+        WorldLevelableDecision levelDecision = default)
     {
         TimeRuneId = timeRuneId;
         Discovered = discovered;
@@ -31,6 +33,8 @@ internal readonly struct WorldTimeRune : IWorldEntity
         Power = power;
         PowerScalingMod = powerScalingMod;
         MasteryXpMod = masteryXpMod;
+        Discovery = discovery;
+        LevelDecision = levelDecision;
     }
 
     internal Guid TimeRuneId { get; }
@@ -58,10 +62,15 @@ internal readonly struct WorldTimeRune : IWorldEntity
     internal BigDouble PowerScalingMod { get; }
 
     internal BigDouble MasteryXpMod { get; }
+
+    internal WorldDiscoverableDecision Discovery { get; }
+
+    internal WorldLevelableDecision LevelDecision { get; }
 }
 
 internal sealed class WorldTimeRuneBinder : WorldPlainBinder<WorldTimeRune>
 {
+    private readonly Func<string, Type?> _resolveType;
     private Func<object, Guid>? _id;
     private Func<object, bool>? _discovered;
     private Func<object, int>? _level;
@@ -74,6 +83,11 @@ internal sealed class WorldTimeRuneBinder : WorldPlainBinder<WorldTimeRune>
     private Func<object, BigDouble>? _power;
     private Func<object, BigDouble>? _powerScalingMod;
     private Func<object, BigDouble>? _masteryXpMod;
+    private WorldDiscoverableBinding? _discovery;
+    private WorldLevelableDecisionBinding? _levelDecision;
+
+    internal WorldTimeRuneBinder(Func<string, Type?> resolveType) =>
+        _resolveType = resolveType ?? throw new ArgumentNullException(nameof(resolveType));
 
     internal override string Category => "time runes";
 
@@ -94,7 +108,9 @@ internal sealed class WorldTimeRuneBinder : WorldPlainBinder<WorldTimeRune>
         _power = bind.ModifierRecord("power");
         _powerScalingMod = bind.ModifierRecord("powerScalingMod");
         _masteryXpMod = bind.ModifierRecord("masteryXpMod");
-        return bind.Failure;
+        _discovery = new WorldDiscoverableBinding(type, TypeName);
+        _levelDecision = new WorldLevelableDecisionBinding(type, false, _resolveType);
+        return Join(bind.Failure, _discovery.Failure, _levelDecision.Failure);
     }
 
     internal override WorldTimeRune Read(object entity) =>
@@ -110,5 +126,15 @@ internal sealed class WorldTimeRuneBinder : WorldPlainBinder<WorldTimeRune>
             _freeUsages!(entity),
             _power!(entity),
             _powerScalingMod!(entity),
-            _masteryXpMod!(entity));
+            _masteryXpMod!(entity),
+            _discovery!.Read(entity),
+            _levelDecision!.Read(entity));
+
+    private static string Join(params string[] values)
+    {
+        var result = string.Empty;
+        foreach (var value in values)
+            if (value.Length > 0) result = result.Length == 0 ? value : result + "; " + value;
+        return result;
+    }
 }

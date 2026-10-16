@@ -54,7 +54,7 @@ public sealed class AutomataFullTraceControllerTests
         controller.AfterPump();
         controller.Dispose();
 
-        Assert.True(storage.ManifestCommitted.Wait(Deadline));
+        Assert.True(storage.ManifestCommitted.IsSet);
         var manifest = FullTraceManifestCodec.Decode(Assert.IsType<byte[]>(storage.Manifest));
         Assert.Equal(FullTraceTerminalReason.RuntimeShutdown, manifest.Reason);
         Assert.True(manifest.WrittenRecords > 0);
@@ -79,10 +79,87 @@ public sealed class AutomataFullTraceControllerTests
         controller.AfterPump();
         controller.Dispose();
 
-        Assert.True(storage.ManifestCommitted.Wait(Deadline));
+        Assert.True(storage.ManifestCommitted.IsSet);
         var segment = FullTraceSegmentCodec.Decode(Assert.Single(storage.Segments));
         Assert.Contains(segment.Events, item =>
             item.Kind == ServiceCycleSemanticEventKind.EmergencyEntered);
+    }
+
+    /// <summary>
+    /// A 43-minute capture said nothing about itself anywhere in the log: no start, no stop, and the
+    /// completeness line is reported from a tick that shutdown has none of. Correlating that trace to
+    /// the log it belongs beside took two independent clock anchors and an mtime. The closing line is
+    /// the same terminal line every other ending gets, because the session now waits for its writer
+    /// instead of announcing a manifest it only hoped would follow.
+    /// </summary>
+    [Fact]
+    public void TheSessionNamesItselfWhenItStartsAndWhenItCloses()
+    {
+        var clock = new VirtualMonotonicClock(new MonotonicTimestamp(100));
+        using var registry = Registry(clock);
+        using var pump = new SuiteFramePump(registry);
+        using var storage = new MemoryStorage();
+        var log = new ManualLogSource();
+        var options = new AutomataFullTraceOptions(new SessionSource(storage));
+        var controller = AutomataFullTraceController.Create(pump, 1, TestRoster, in options, log);
+
+        controller.StartAutomatically();
+        AdvanceTo(controller, FullTraceRuntimeSessionState.Recording);
+        pump.PumpFrame(1);
+        controller.AfterPump();
+        controller.Dispose();
+
+        var lines = new List<string>();
+        foreach (var entry in log.Entries) lines.Add(entry?.ToString() ?? string.Empty);
+        Assert.Contains(
+            lines,
+            line => line.Contains("Profiling full trace session-0000000000000065 started", StringComparison.Ordinal));
+        Assert.Contains(
+            lines,
+            line => line.Contains(
+                "Profiling full trace ended complete: session-0000000000000065 | reason=RuntimeShutdown",
+                StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A drain that outlives its bound is said out loud, and nothing is written to cover for it.
+    /// </summary>
+    /// <remarks>
+    /// The bound keeps a wedged writer from holding the host's quit, so the ending it cannot reach
+    /// has to be reported rather than assumed. The session directory is left without a manifest,
+    /// which is what an interrupted capture has always looked like — the line below is what stops a
+    /// reader having to notice the absence on their own.
+    /// </remarks>
+    [Fact]
+    public void ADrainThatOutlivesItsBoundIsReportedAndPublishesNoManifest()
+    {
+        var clock = new VirtualMonotonicClock(new MonotonicTimestamp(100));
+        using var registry = Registry(clock);
+        using var pump = new SuiteFramePump(registry);
+        using var storage = new MemoryStorage(blockSegments: true);
+        var log = new ManualLogSource();
+        var options = new AutomataFullTraceOptions(new SessionSource(storage));
+        var controller = AutomataFullTraceController.Create(pump, 1, TestRoster, in options, log);
+
+        controller.StartAutomatically();
+        AdvanceTo(controller, FullTraceRuntimeSessionState.Recording);
+        pump.PumpFrame(1);
+        controller.AfterPump();
+        controller.Dispose();
+
+        Assert.Null(storage.Manifest);
+        var lines = new List<string>();
+        foreach (var entry in log.Entries) lines.Add(entry?.ToString() ?? string.Empty);
+        Assert.Contains(
+            lines,
+            line => line.Contains(
+                "Profiling full trace did not finish its shutdown drain: session-0000000000000065",
+                StringComparison.Ordinal));
+        Assert.Contains(
+            lines,
+            line => line.Contains(
+                "read it as interrupted unless its manifest is present",
+                StringComparison.Ordinal));
     }
 
     [Fact]
@@ -174,7 +251,12 @@ public sealed class AutomataFullTraceControllerTests
 
     private sealed class MemoryStorage : ISegmentSessionStorage, ISessionSideArtifactSink, IDisposable
     {
+        private readonly bool _blockSegments;
+
+        internal MemoryStorage(bool blockSegments = false) => _blockSegments = blockSegments;
+
         internal ManualResetEventSlim ManifestCommitted { get; } = new();
+        internal ManualResetEventSlim ReleaseSegments { get; } = new();
         internal List<byte[]> Segments { get; } = new();
         internal byte[]? Manifest { get; private set; }
         internal Dictionary<string, byte[]> SideArtifacts { get; } = new(StringComparer.Ordinal);
@@ -186,6 +268,7 @@ public sealed class AutomataFullTraceControllerTests
 
         public void CommitSegment(long ordinal, ReadOnlySpan<byte> bytes)
         {
+            if (_blockSegments) ReleaseSegments.Wait();
             Assert.Equal(Segments.Count, ordinal);
             Segments.Add(bytes.ToArray());
         }
@@ -196,6 +279,10 @@ public sealed class AutomataFullTraceControllerTests
             ManifestCommitted.Set();
         }
 
-        public void Dispose() => ManifestCommitted.Dispose();
+        public void Dispose()
+        {
+            ReleaseSegments.Set();
+            ManifestCommitted.Dispose();
+        }
     }
 }

@@ -40,17 +40,36 @@ public sealed class AutoBuyPurchaseNarrationTests
     public void DescribeWarning_SuccessAndOrdinaryRefusalsAreSilent()
     {
         var verified = Attempted(before: 4, delta: 3, requested: 3);
-        var unavailable = AutoBuyPurchaseSubmission.Rejected(
-            AutoBuyPurchasePreflight.SingleBuyUnavailable);
         var refusalOwnedByResponder = AutoBuyPurchaseSubmission.Rejected(
             AutoBuyPurchasePreflight.NotAdmissible);
 
         Assert.Null(AutoBuyPurchaseNarration.DescribeWarning(
             AutoBuyCandidateKind.Upgrade, CandidateId, in verified));
         Assert.Null(AutoBuyPurchaseNarration.DescribeWarning(
-            AutoBuyCandidateKind.Upgrade, CandidateId, in unavailable));
-        Assert.Null(AutoBuyPurchaseNarration.DescribeWarning(
             AutoBuyCandidateKind.Upgrade, CandidateId, in refusalOwnedByResponder));
+    }
+
+    /// <summary>
+    /// The multiplier pin composes the only sentence that says which of its steps refused. It used
+    /// to be dropped from the trace as an ordinary no-op, while the wire dropped it too, so the one
+    /// fact about the failure existed nowhere.
+    /// </summary>
+    [Fact]
+    public void DescribeWarning_SingleBuyUnavailable_CarriesThePinsOwnReason()
+    {
+        var submission = AutoBuyPurchaseSubmission.Rejected(
+            AutoBuyPurchasePreflight.SingleBuyUnavailable,
+            "The suite could not set the game's multi-buy multiplier to 5, so no purchase was " +
+            "attempted: global multi-buy mutation is quarantined: restore failed.");
+
+        var warning = AutoBuyPurchaseNarration.DescribeWarning(
+            AutoBuyCandidateKind.Upgrade, CandidateId, in submission);
+
+        Assert.Equal(
+            $"Auto Buy failed to purchase Upgrade {CandidateId:D}: The suite could not set the " +
+            "game's multi-buy multiplier to 5, so no purchase was attempted: global multi-buy " +
+            "mutation is quarantined: restore failed.",
+            warning);
     }
 
     [Fact]
@@ -75,6 +94,22 @@ public sealed class AutoBuyPurchaseNarrationTests
         Assert.Equal(
             $"Auto Buy failed to purchase Structure {CandidateId:D}: queue room unavailable.",
             warning);
+    }
+
+    /// <summary>
+    /// The publication line names the run it belongs to and how much it admits.
+    /// </summary>
+    /// <remarks>
+    /// Both numbers are the point. A topology stamped under the wrong run and one stamped correctly
+    /// that admits nothing refuse every purchase identically, and the log has to tell an operator
+    /// which of the two happened without a source reading.
+    /// </remarks>
+    [Fact]
+    public void TopologyPublished_NamesTheRunAndWhatItAdmits()
+    {
+        Assert.Equal(
+            "Auto Buy purchase-screen topology published for run 7: 42 candidate(s) admitted.",
+            AutoBuyPurchaseNarration.TopologyPublished(7, 42));
     }
 
     private static AutoBuyPurchaseSubmission Attempted(int before, int delta, int requested)

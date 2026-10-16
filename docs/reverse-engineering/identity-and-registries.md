@@ -25,6 +25,29 @@ the asset, and it is the same UUID that appears in saves.
 persistent UUID → GuidContainer → IdScriptableObject → RegisterObject() → RuntimeLookup
 ```
 
+### `GetGuid()` is a field read — `StaticallyVerified`
+
+The collector calls `GetGuid()` on roughly every entity in every registry, every pass, so what the
+body costs decides whether identity has to be hoisted into a lifecycle-scoped index. It does not:
+the whole chain is three non-virtual calls onto one field, with one null guard and no allocation,
+no parse, and no write.
+
+```text
+IdScriptableObject.GetGuid() : Guid
+  return GuidContainer.op_Implicit(this.guidContainer);
+
+GuidContainer.op_Implicit(GuidContainer) : Guid
+  return GuidContainer.GetGuid(that);
+
+static GuidContainer.GetGuid(GuidContainer c) : Guid
+  return c == null ? Guid.Empty : c._guid;
+```
+
+The string form is never touched on this path. `GuidContainer.sg` is parsed into `_guid` once, in
+`OnAfterDeserialize()`, which Unity runs at load; a container deserialised from an empty string gets
+a fresh `Guid.NewGuid()` there rather than on any later read. So a per-pass `GetGuid()` costs a
+field load, and hoisting identity out of the capture loop would buy nothing.
+
 ## Why the registry, not the scene
 
 The registry is stable across UI layouts, does not depend on Unity object names, uses the same

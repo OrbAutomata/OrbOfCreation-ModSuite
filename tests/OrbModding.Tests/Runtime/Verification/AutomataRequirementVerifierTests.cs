@@ -31,7 +31,8 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
     [Fact]
     public void AnUnresolvableContractMakesTheVerifierUnavailableRatherThanPassing()
     {
-        Assert.False(new AutomataRequirementVerifier(typeof(object), isUpgrade: true).IsAvailable);
+        Assert.False(new AutomataRequirementVerifier(
+            typeof(object), RequirementOwnerShape.UpgradeQueuedLevel).IsAvailable);
     }
 
     /// <summary>
@@ -41,21 +42,23 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
     [Fact]
     public void AShapeWithOnlyTheLatchingOverloadIsRefused()
     {
-        Assert.False(new AutomataRequirementVerifier(typeof(LatchingOnlyOwner), isUpgrade: true).IsAvailable);
+        Assert.False(new AutomataRequirementVerifier(
+            typeof(LatchingOnlyOwner), RequirementOwnerShape.UpgradeQueuedLevel).IsAvailable);
     }
 
     [Fact]
     public void AnUnavailableVerifierRefusesToVerifyAndSaysWhy()
     {
-        var verifier = new AutomataRequirementVerifier(typeof(object), isUpgrade: true);
+        var verifier = new AutomataRequirementVerifier(
+            typeof(object), RequirementOwnerShape.UpgradeQueuedLevel);
         var run = new DifferentialRun();
 
-        var verified = verifier.TryVerify(new object(), TestWorlds.Empty, run, out var failure);
+        var verified = verifier.TryVerify(new object(), TestWorlds.Empty, run, Session(), out var failure);
 
         Assert.False(verified);
         Assert.NotEmpty(failure);
         Assert.Equal(0, run.Compared);
-        Assert.DoesNotContain("PASSED", run.Summarize(), StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Inconclusive, run.Finding().Verdict);
     }
 
     /// <summary>
@@ -69,11 +72,12 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         var upgrade = new global::UpgradeSO { maxLevel = -1, level = 2, queuedLevels = 1 };
         global::UpgradeSO.All.Add(upgrade);
 
-        var verifier = new AutomataRequirementVerifier(typeof(global::UpgradeSO), isUpgrade: true);
+        var verifier = new AutomataRequirementVerifier(
+            typeof(global::UpgradeSO), RequirementOwnerShape.UpgradeQueuedLevel);
         Assert.True(verifier.IsAvailable);
 
         var run = new DifferentialRun("Upgrade requirement");
-        Assert.True(verifier.TryVerify(upgrade, Collect(), run, out var failure));
+        Assert.True(verifier.TryVerify(upgrade, Collect(), run, Session(), out var failure));
 
         Assert.Empty(failure);
         Assert.Equal(1, run.Compared);
@@ -81,24 +85,130 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
     }
 
     /// <summary>
-    /// A condition the suite cannot evaluate makes the entity unverifiable and names the class. It is
-    /// deliberately not a mismatch: the verdict already refuses the purchase, so what needs reporting
-    /// is which class nobody has modelled.
+    /// A condition the suite cannot evaluate makes the entity unverifiable and says what therefore
+    /// went unchecked. It is deliberately not a mismatch: the verdict already refuses the purchase.
     /// </summary>
+    /// <remarks>
+    /// The sentence used to be <c>the OpaqueRequirement condition on {guid} is not modelled</c> — a
+    /// C# class name and a raw id, in prose, naming neither the entity the way every other sentence
+    /// names one nor the decision that went unanswered. Which class the suite does not model is
+    /// reported once, by the collection check that owns that fact.
+    /// </remarks>
     [Fact]
-    public void AnUnmodelledConditionIsUnverifiableAndNamesItsClass()
+    public void AnUnmodelledConditionIsUnverifiableAndSaysWhatWentUnchecked()
     {
         var upgrade = new global::UpgradeSO { maxLevel = -1 };
         global::UpgradeSO.All.Add(upgrade);
         upgrade.prerequisitesPerLevel.prerequisites.Add(new Requirements.OpaqueRequirement());
 
-        var verifier = new AutomataRequirementVerifier(typeof(global::UpgradeSO), isUpgrade: true);
+        var verifier = new AutomataRequirementVerifier(
+            typeof(global::UpgradeSO), RequirementOwnerShape.UpgradeQueuedLevel);
         var run = new DifferentialRun("Upgrade requirement");
 
-        Assert.False(verifier.TryVerify(upgrade, Collect(), run, out var failure));
+        Assert.False(verifier.TryVerify(upgrade, Collect(), run, Session(), out var failure));
 
-        Assert.Contains("OpaqueRequirement", failure, StringComparison.Ordinal);
+        var identity = upgrade.GetGuid().ToString("D");
+        Assert.DoesNotContain("OpaqueRequirement", failure, StringComparison.Ordinal);
+        Assert.DoesNotContain(identity, failure, StringComparison.Ordinal);
+        Assert.Contains(identity.Substring(0, 6), failure, StringComparison.Ordinal);
+        Assert.Equal(
+            "a condition this suite does not model holds them, first on (unnamed " +
+            identity.Substring(0, 6) + "), so whether the game would sell you their next upgrade " +
+            "level is unchecked.",
+            failure);
         Assert.Equal(0, run.Compared);
+    }
+
+    /// <summary>
+    /// A research whose requirement level is negative is skipped rather than compared.
+    /// </summary>
+    /// <remarks>
+    /// <c>MeetsLevelRequirements()</c> answers true outright below zero and never reaches its
+    /// container, so there is no answer of the game's own to disagree with. Comparing anyway would
+    /// pad the pass with a tautology and hide how much of the registry it really covered.
+    /// </remarks>
+    [Fact]
+    public void AResearchTheGameNeverAsksAboutIsSkippedRatherThanComparedAgainstItself()
+    {
+        var research = new global::ResearchSO { maxLevel = -1, level = -4 };
+        global::ResearchSO.All.Add(research);
+
+        var verifier = new AutomataRequirementVerifier(
+            typeof(global::ResearchSO), RequirementOwnerShape.ResearchRequirementLevel);
+        Assert.True(verifier.IsAvailable);
+
+        var session = Session();
+        var run = session.Run;
+        Assert.True(verifier.TryVerify(research, Collect(), run, session, out var failure));
+        session.RecordVerified();
+
+        Assert.Empty(failure);
+        Assert.Equal(0, run.Compared);
+        Assert.Equal(1, session.ExpectedSkips);
+        Assert.Equal(0, session.EntitiesVerified);
+    }
+
+    /// <summary>
+    /// A tiered link is compared once per tier, at level zero, against that tier's own container.
+    /// </summary>
+    /// <remarks>
+    /// One verdict for the whole link would fold tiers the game keeps apart, and would leave the
+    /// tier the planner actually consulted unnamed when the two sides disagreed.
+    /// </remarks>
+    [Fact]
+    public void ATieredLinkIsComparedOncePerTier()
+    {
+        var link = new global::PrerequisiteLinkSO();
+        link.linkTiers.Add(new global::PrerequisiteLinkSO.LinkDefinition());
+        link.linkTiers.Add(new global::PrerequisiteLinkSO.LinkDefinition());
+        global::PrerequisiteLinkSO.All.Add(link);
+
+        var verifier = new AutomataRequirementVerifier(
+            typeof(global::PrerequisiteLinkSO), RequirementOwnerShape.PrerequisiteLinkTier);
+        Assert.True(verifier.IsAvailable);
+
+        var session = Session();
+        var run = session.Run;
+        Assert.True(verifier.TryVerify(link, Collect(), run, session, out var failure));
+
+        Assert.Empty(failure);
+        Assert.Equal(2, run.Compared);
+        Assert.True(run.Passed);
+    }
+
+    /// <summary>
+    /// A tier whose condition points at nothing is an unfilled authored reference, not a class the
+    /// suite cannot read. Neither side has a verdict there — the game's own comparison would read a
+    /// field off the missing reference — so the tier is an expected skip and the tier beside it is
+    /// still compared.
+    /// </summary>
+    [Fact]
+    public void ATierWhoseConditionNamesNothingIsSkippedRatherThanCalledUnreadable()
+    {
+        var link = new global::PrerequisiteLinkSO();
+        link.linkTiers.Add(new global::PrerequisiteLinkSO.LinkDefinition());
+        var broken = new global::PrerequisiteLinkSO.LinkDefinition();
+        broken.prerequisites.prerequisites.Add(new Requirements.UpgradeRequirement
+        {
+            item = null!,
+            reqType = Requirements.UpgradeRequirementType.OneLevel,
+            value = new Requirements.LeveledValue(),
+        });
+        link.linkTiers.Add(broken);
+        global::PrerequisiteLinkSO.All.Add(link);
+
+        var verifier = new AutomataRequirementVerifier(
+            typeof(global::PrerequisiteLinkSO), RequirementOwnerShape.PrerequisiteLinkTier);
+        var session = Session();
+
+        Assert.True(verifier.TryVerify(link, Collect(), session.Run, session, out var failure));
+
+        Assert.Empty(failure);
+        Assert.Equal(1, session.Run.Compared);
+        Assert.True(session.Run.Passed);
+        Assert.Equal(1, session.ExpectedSkips);
+        Assert.Equal(0, broken.prerequisites.ParameterizedCheckCalls);
+        Assert.Equal(0, broken.prerequisites.CheckCalls);
     }
 
     [Fact]
@@ -119,6 +229,33 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         Assert.Equal(1, recipe.usagePrerequisites.CheckCalls);
     }
 
+    /// <summary>
+    /// The usage oracle says the same kind of sentence as the per-level and unlock passes: the
+    /// entity as a handle, and the decision it therefore has no answer for.
+    /// </summary>
+    [Fact]
+    public void AnUnmodelledUsageConditionSaysWhatWentUnchecked()
+    {
+        var recipe = new global::AlchemyRecipeSO();
+        recipe.usagePrerequisites.prerequisites.Add(new Requirements.OpaqueRequirement());
+        global::AlchemyRecipeSO.All.Add(recipe);
+
+        var verifier = new AutomataUsagePrerequisiteVerifier(typeof(global::AlchemyRecipeSO));
+        var run = new DifferentialRun("Concept usage prerequisite");
+
+        Assert.False(verifier.TryVerify(recipe, Collect(), run, out var failure));
+
+        var identity = recipe.GetGuid().ToString("D");
+        Assert.DoesNotContain("OpaqueRequirement", failure, StringComparison.Ordinal);
+        Assert.DoesNotContain(identity, failure, StringComparison.Ordinal);
+        Assert.Equal(
+            "a condition this suite does not model holds them, first on (unnamed " +
+            identity.Substring(0, 6) + "), so whether the game lets you use those concepts is " +
+            "unchecked.",
+            failure);
+        Assert.Equal(0, run.Compared);
+    }
+
     [Fact]
     public void AUsageOracleDisagreementIsNamedAsADivergence()
     {
@@ -131,7 +268,9 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
 
         Assert.Empty(failure);
         Assert.False(run.Passed);
-        Assert.Contains("usage-prerequisites", run.Summarize(), StringComparison.Ordinal);
+        Assert.Contains(
+            run.Finding().Detail,
+            row => row.Contains("usage-prerequisites", StringComparison.Ordinal));
     }
 
     private static GameWorldState Collect()
@@ -141,10 +280,21 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         return collector.Build();
     }
 
+    private static DifferentialVerificationSession Session()
+    {
+        var session = new DifferentialVerificationSession(
+            "Requirement", tickBudget: 1, entityBudget: int.MaxValue);
+        session.Start();
+        return session;
+    }
+
     private static void ClearRegistries()
     {
         global::UpgradeSO.All.Clear();
         global::StructureSO.All.Clear();
+        global::ResearchSO.All.Clear();
+        global::PrerequisiteLinkSO.All.Clear();
+        global::GameManager.currentFrame = 0;
         global::AlchemyRecipeSO.All.Clear();
     }
 

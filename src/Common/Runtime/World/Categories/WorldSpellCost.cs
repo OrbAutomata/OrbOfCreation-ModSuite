@@ -4,7 +4,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
 
-/// <summary>Which of a spell's two prices a cost row states.</summary>
+/// <summary>Which of a loaded spell's three charges a cost row states.</summary>
 internal enum WorldSpellCostKind
 {
     /// <summary>What the cast subtracts once, the moment it fires.</summary>
@@ -12,6 +12,12 @@ internal enum WorldSpellCostKind
 
     /// <summary>What the spell keeps costing per second while it is up.</summary>
     Drain = 1,
+
+    /// <summary>
+    /// What keeping the spell loaded holds against spell capacity, augments and free uses as the
+    /// game counts them for this slot.
+    /// </summary>
+    Weight = 2,
 }
 
 /// <summary>

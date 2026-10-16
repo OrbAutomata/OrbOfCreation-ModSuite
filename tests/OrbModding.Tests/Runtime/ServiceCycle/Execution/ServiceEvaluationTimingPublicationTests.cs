@@ -1,6 +1,6 @@
-using System;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Runtime.ServiceCycle.Execution;
@@ -96,12 +96,8 @@ public sealed class ServiceEvaluationTimingPublicationTests
         var publication = new ServiceEvaluationTimingPublication();
         publication.Begin(1, new MonotonicTimestamp(100));
         publication.Complete(new MonotonicTimestamp(150));
-        _ = publication.TryRead(out _);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var iteration = 0; iteration < 1000; iteration++)
-            _ = publication.TryRead(out _);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = AllocationProbe.MeasureRepeated(1_000, () => publication.TryRead(out _));
 
         Assert.Equal(0, allocated);
     }

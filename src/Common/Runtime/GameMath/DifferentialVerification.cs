@@ -54,7 +54,7 @@ internal readonly struct DifferentialSample
     internal DifferentialOutcome Outcome { get; }
 
     internal string Describe() =>
-        $"{Outcome}: entity {EntityId} [{Aspect}] ours={Ours} theirs={Theirs}";
+        $"{Outcome}: entity {EntityId} [{Aspect}] {VerificationValue.Sides(Ours, Theirs)}";
 }
 
 /// <summary>
@@ -123,7 +123,11 @@ internal sealed class DifferentialRun
                 break;
         }
 
-        if (outcome != DifferentialOutcome.Exact && _failures.Count < _sampleLimit)
+        // Only real disagreements are kept. A merely-close comparison agrees, and its row said so in
+        // two byte-identical numbers behind two full UUIDs — twenty such rows a call, carrying
+        // nothing a reader could act on. Its count survives on the finding.
+        if (outcome is DifferentialOutcome.Mismatch or DifferentialOutcome.NotComparable &&
+            _failures.Count < _sampleLimit)
         {
             _failures.Add(new DifferentialSample(entityId, aspect, ours, theirs, outcome));
         }
@@ -173,31 +177,20 @@ internal sealed class DifferentialRun
     /// </summary>
     private const double RelativeTolerance = 1e-12;
 
-    /// <summary>One line suitable for surfacing to the player, plus the first few disagreements.</summary>
-    internal string Summarize()
+    /// <summary>This run's verdict, and the disagreements behind it.</summary>
+    internal VerificationFinding Finding()
     {
-        if (Compared == 0) return $"{Subject} verification: nothing compared.";
+        if (Compared == 0) return VerificationFinding.Inconclusive(Subject, "nothing was compared.");
+        if (Passed) return VerificationFinding.Agree(Subject, Compared, CloseCount);
 
-        var headline = Passed
-            ? $"{Subject} verification PASSED: {Compared} compared, {ExactCount} exact, {CloseCount} within tolerance."
-            : $"{Subject} verification FAILED: {MismatchCount} of {Compared} disagreed ({ExactCount} exact, {CloseCount} close).";
+        var detail = new List<string>(_failures.Count + 1);
+        foreach (var failure in _failures) detail.Add(failure.Describe());
 
-        if (_failures.Count == 0) return headline;
-
-        var detail = new System.Text.StringBuilder(headline);
-        foreach (var failure in _failures)
+        if (MismatchCount > _failures.Count)
         {
-            detail.Append(Environment.NewLine).Append("  ").Append(failure.Describe());
+            detail.Add($"… {MismatchCount - _failures.Count} further disagreements not recorded.");
         }
 
-        if (MismatchCount + CloseCount > _failures.Count)
-        {
-            detail.Append(Environment.NewLine)
-                .Append("  … ")
-                .Append(MismatchCount + CloseCount - _failures.Count)
-                .Append(" further disagreements not recorded.");
-        }
-
-        return detail.ToString();
+        return VerificationFinding.Disagree(Subject, Compared, MismatchCount, detail, CloseCount);
     }
 }

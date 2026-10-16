@@ -3,6 +3,17 @@ using System;
 namespace OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 /// <summary>
+/// Debug-projection view over a publication table. Rows are returned as boxed value copies, never as
+/// the backing array or a mutable collection, so projection cannot mutate an already-pinned world.
+/// </summary>
+internal interface IPublicationTableProjection
+{
+    int ProjectionCount { get; }
+
+    object ProjectionRow(int index);
+}
+
+/// <summary>
 /// The one audited bounded container permitted inside an immutable service-cycle publication
 /// (configuration, strategy, or action). Publications are otherwise forbidden from carrying arrays
 /// or collections because a shared mutable backing store would let one consumer alter a value
@@ -23,7 +34,7 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Contracts;
 /// </para>
 /// </remarks>
 [ServiceCyclePublicationValue]
-public sealed class PublicationTable<T>
+public sealed class PublicationTable<T> : IPublicationTableProjection
     where T : struct
 {
     private static readonly T[] NoRows = new T[0];
@@ -74,4 +85,8 @@ public sealed class PublicationTable<T>
     /// stored in a field, and cannot outlive the synchronous read.
     /// </summary>
     public ReadOnlySpan<T> AsSpan() => new(_rows);
+
+    int IPublicationTableProjection.ProjectionCount => Count;
+
+    object IPublicationTableProjection.ProjectionRow(int index) => this[index];
 }

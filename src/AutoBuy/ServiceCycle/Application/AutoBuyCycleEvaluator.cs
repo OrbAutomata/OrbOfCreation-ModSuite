@@ -319,22 +319,6 @@ internal static class AutoBuyCycleEvaluator
         return true;
     }
 
-    private static BigDouble CombinedCost(
-        ReadOnlySpan<AutoBuyCostRow> costs,
-        int start,
-        int end,
-        int resourceIndex)
-    {
-        var cost = default(BigDouble);
-        for (var i = start; i < end; i++)
-        {
-            if (costs[i].ResourceRowIndex == resourceIndex)
-                cost += costs[i].Cost;
-        }
-
-        return cost;
-    }
-
     /// <summary>How much of a resource a purchase of this cost must leave behind untouched.</summary>
     private static BigDouble RequiredFloor(
         in BigDouble cost,
@@ -386,7 +370,8 @@ internal static class AutoBuyCycleEvaluator
 
             costResourceCount++;
             var resourceIndex = costs[i].ResourceRowIndex;
-            if (!TryCombinedExactCost(costs, start, end, resourceIndex, levels, out var cost))
+            if (!WorldExactCostMath.TryCombinedExactCost<AutoBuyCostRow, int>(
+                    costs, start, end, resourceIndex, levels, out var cost))
                 return false;
             if (IsNegative(cost))
                 return false;
@@ -427,7 +412,8 @@ internal static class AutoBuyCycleEvaluator
                 continue;
 
             var resourceIndex = costs[i].ResourceRowIndex;
-            if (!TryCombinedExactCost(costs, start, end, resourceIndex, levels, out var cost))
+            if (!WorldExactCostMath.TryCombinedExactCost<AutoBuyCostRow, int>(
+                    costs, start, end, resourceIndex, levels, out var cost))
                 return false;
             if (IsZero(cost))
                 continue;
@@ -456,35 +442,6 @@ internal static class AutoBuyCycleEvaluator
             bindingAvailable,
             bindingFloor);
         plannedSpend = PublicationTable<AutoBuyPlannedSpend>.Create(terms, termIndex);
-        return true;
-    }
-
-    private static bool TryCombinedExactCost(
-        ReadOnlySpan<AutoBuyCostRow> costs,
-        int start,
-        int end,
-        int resourceIndex,
-        int levels,
-        out BigDouble combined)
-    {
-        combined = default;
-        for (var index = start; index < end; index++)
-        {
-            ref readonly var row = ref costs[index];
-            if (row.ResourceRowIndex != resourceIndex)
-                continue;
-
-            if (levels == 1)
-            {
-                combined += row.Cost;
-                continue;
-            }
-
-            if (row.ExactGroupedLevels != levels)
-                return false;
-            combined += row.ExactGroupedCost;
-        }
-
         return true;
     }
 
@@ -521,7 +478,12 @@ internal static class AutoBuyCycleEvaluator
 
             costResourceCount++;
             var resourceIndex = costs[i].ResourceRowIndex;
-            var cost = CombinedCost(costs, start, end, resourceIndex);
+            if (!WorldExactCostMath.TryCombinedExactCost<AutoBuyCostRow, int>(
+                    costs, start, end, resourceIndex, levels: 1, out var cost))
+            {
+                refusal = AutoBuyExclusion.Unpriceable;
+                return false;
+            }
 
             if (IsNegative(cost))
             {

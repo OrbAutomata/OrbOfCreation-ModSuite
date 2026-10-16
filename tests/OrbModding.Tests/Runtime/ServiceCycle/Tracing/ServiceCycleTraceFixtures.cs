@@ -132,6 +132,10 @@ internal static class ServiceCycleTraceFixtures
         ServiceCycleSemanticEventKind.StartReady =>
             ServiceCycleSemanticPayload.StartReady(
                 Service, 2, 3, CommonServiceDecisionCodes.Ready.Value, 100, 10),
+        ServiceCycleSemanticEventKind.WorldCategoryCollected =>
+            ServiceCycleSemanticPayload.WorldCategoryFact(
+                category: 5, sampled: 2_628, passCategories: 61, lifecycle: 2, frameIdentity: Frame,
+                timestampTicks: 100, durationTicks: 10),
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 

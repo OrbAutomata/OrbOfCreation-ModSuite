@@ -51,6 +51,11 @@ internal names: 152 labels cover 363 rows. Display name plus managed type still 
 groups—12 `ViewSO`, 5 `AttributeSO`, and 1 `PlotNodeActionSO`—so lookup tools report ambiguity
 instead of picking a row.
 
+Add entities to the production subset deliberately; the full catalog is never part of the production
+runtime API. The shipped plugin embeds neither table: the MCP server reads the live lifecycle
+identity snapshot, and these files stay offline research and fixture-builder inputs;
+`entity-mappings.tsv` remains the canonical row set, so display-only drift never invents an identity.
+
 The model is authored static state. Live quantities, current visibility, runtime registry
 membership, applied modifiers, queues, and save progress require a running-game observation.
 

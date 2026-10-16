@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Text;
+using OrbModding.Common;
 using OrbModding.Common.Runtime;
 
 namespace OrbAutomata;
@@ -141,7 +142,7 @@ internal readonly struct AutoBuyRefusalReport
         _earlierPurchases ?? Array.Empty<AutoBuyEarlierPurchase>();
 
     /// <summary>The candidate as it appears in a log line: "Structure 99a0da45-...".</summary>
-    public string Candidate => Kind + " " + Uuid.ToString("D", CultureInfo.InvariantCulture);
+    public string Candidate => Kind + " " + EntityIdentityFormatter.Format(Uuid);
 }
 
 /// <summary>
@@ -198,7 +199,7 @@ internal static class AutoBuyRefusalBundle
             {
                 ref readonly var row = ref rows[index];
                 text.Append("  [").Append(Number(index + 1)).Append("] Resource: ")
-                    .Append(row.ResourceId.ToString("D", CultureInfo.InvariantCulture)).AppendLine();
+                    .Append(EntityIdentityFormatter.Format(row.ResourceId)).AppendLine();
                 text.Append("      IsBandwidth: ").Append(Flag(row.IsBandwidth)).AppendLine();
                 text.Append("      Cost: ").Append(Magnitude(row.Cost)).AppendLine();
                 text.Append("      Available: ").Append(Magnitude(row.Available))
@@ -221,7 +222,7 @@ internal static class AutoBuyRefusalBundle
                 ref readonly var purchase = ref earlier[index];
                 text.Append("  Action ").Append(Number(purchase.ActionIndex))
                     .Append(": ").Append(purchase.Kind).Append(' ')
-                    .Append(purchase.Uuid.ToString("D", CultureInfo.InvariantCulture))
+                    .Append(EntityIdentityFormatter.Format(purchase.Uuid))
                     .Append(", committed ").Append(Number(purchase.CommittedLevels))
                     .Append(" level(s)");
                 if (!purchase.HasCompleteCosts)
@@ -236,7 +237,7 @@ internal static class AutoBuyRefusalBundle
                 for (var rowIndex = 0; rowIndex < costs.Length; rowIndex++)
                 {
                     if (rowIndex > 0) text.Append(", ");
-                    text.Append(costs[rowIndex].ResourceId.ToString("D", CultureInfo.InvariantCulture));
+                    text.Append(EntityIdentityFormatter.Format(costs[rowIndex].ResourceId));
                 }
                 text.AppendLine();
             }
@@ -266,7 +267,7 @@ internal static class AutoBuyRefusalBundle
         else
         {
             text.Append("  Resource: ")
-                .Append(belief.BindingResourceId.ToString("D", CultureInfo.InvariantCulture)).AppendLine();
+                .Append(EntityIdentityFormatter.Format(belief.BindingResourceId)).AppendLine();
             text.Append("  IsBandwidth: ").Append(Flag(belief.BindingIsBandwidth)).AppendLine();
             text.Append("  Cost: ").Append(Magnitude(belief.BindingCost)).AppendLine();
             text.Append("  Available: ").Append(Magnitude(belief.BindingAvailable))

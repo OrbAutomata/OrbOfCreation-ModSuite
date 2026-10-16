@@ -112,6 +112,21 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
         ConceptualizationTypeUuid,
     };
 
+    /// <summary>
+    /// Which of the two alchemy screens a type belongs to, from its stable UUID alone.
+    /// </summary>
+    /// <remarks>
+    /// The action boundary holds one native <c>AlchemyTypeSO</c> and no registry snapshot, so it
+    /// cannot run the full recipe classification; what it needs is the same audited mapping the
+    /// snapshot is built from, which is why the sets live here and are read rather than copied.
+    /// </remarks>
+    public static AlchemyGameplayDomain ClassifyTypeUuid(Guid alchemyTypeUuid) =>
+        ConceptTypeUuids.Contains(alchemyTypeUuid)
+            ? AlchemyGameplayDomain.ScholarConcept
+            : OrdinaryTypeUuids.Contains(alchemyTypeUuid)
+                ? AlchemyGameplayDomain.OrdinaryAlchemy
+                : AlchemyGameplayDomain.Unknown;
+
     private readonly TypedRegistryResolver _registryResolver;
     private readonly Dictionary<Guid, CachedRecipe> _recipes = new Dictionary<Guid, CachedRecipe>();
     private Type? _recipeType;
@@ -166,7 +181,10 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
 
             var registryResolution = _registryResolver.Resolve(ConceptRecipesUuid, recipeListType);
             if (!registryResolution.IsResolved)
-                return HandleRegistryFailure(KnownEntities.ConceptRecipes.DiagnosticName, registryResolution, out reason);
+                return HandleRegistryFailure(
+                    EntityIdentityFormatter.Format(ConceptRecipesUuid),
+                    registryResolution,
+                    out reason);
             _registryResolution = registryResolution;
             var registry = registryResolution.Value!;
             if (valuesField.GetValue(registry) is not IEnumerable recipes)

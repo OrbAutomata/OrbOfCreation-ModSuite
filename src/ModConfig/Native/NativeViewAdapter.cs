@@ -276,6 +276,22 @@ internal static class NativeViewAdapter
         catch { }
     }
 
+    /// <summary>
+    /// Whether the game has unlocked this view, read from <c>ViewSO.IsAvailable()</c> — the same
+    /// member the world publication reads for every view's <c>available</c>.
+    /// </summary>
+    public static bool IsAvailable(object view)
+    {
+        try
+        {
+            return GetViewContract(view.GetType()).IsAvailable.Invoke(view, null) as bool? == true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static Sprite? ReadSprite(Component component, string fieldName)
     {
         var contract = GetButtonContract(component.GetType());
@@ -552,14 +568,19 @@ internal static class NativeViewAdapter
 
     private sealed class NativeViewContract
     {
-        private NativeViewContract(MethodInfo isActive, MethodInfo setActive)
+        private NativeViewContract(
+            MethodInfo isActive,
+            MethodInfo setActive,
+            MethodInfo isAvailable)
         {
             IsActive = isActive;
             SetActive = setActive;
+            IsAvailable = isAvailable;
         }
 
         public MethodInfo IsActive { get; }
         public MethodInfo SetActive { get; }
+        public MethodInfo IsAvailable { get; }
 
         public static NativeViewContract Create(Type type)
         {
@@ -570,7 +591,10 @@ internal static class NativeViewAdapter
             var setActive = type.GetMethod("SetActive", flags, null, new[] { typeof(bool) }, null);
             if (setActive is null || setActive.ReturnType != typeof(void))
                 throw new MissingMethodException(type.FullName, "void SetActive(bool)");
-            return new NativeViewContract(isActive, setActive);
+            var isAvailable = type.GetMethod("IsAvailable", flags, null, Type.EmptyTypes, null);
+            if (isAvailable is null || isAvailable.ReturnType != typeof(bool))
+                throw new MissingMethodException(type.FullName, "bool IsAvailable()");
+            return new NativeViewContract(isActive, setActive, isAvailable);
         }
     }
 

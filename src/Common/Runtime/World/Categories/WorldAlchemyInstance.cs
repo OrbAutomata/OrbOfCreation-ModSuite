@@ -2,28 +2,43 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
 
 /// <summary>One recipe named by the native ConceptRecipes registry.</summary>
-internal readonly struct WorldConceptRecipe
+internal readonly struct WorldConceptRecipe : IWorldEntity
 {
-    internal WorldConceptRecipe(Guid recipeId, Guid coreTypeId, bool canAddNow = true)
+    internal WorldConceptRecipe(
+        Guid recipeId,
+        Guid coreTypeId,
+        bool canAddNow = true,
+        int slotCount = 0)
     {
         RecipeId = recipeId;
         CoreTypeId = coreTypeId;
         CanAddNow = canAddNow;
+        SlotCount = slotCount;
     }
 
     internal Guid RecipeId { get; }
+
+    public Guid EntityId => RecipeId;
 
     /// <summary>The native slot family that prevents two incompatible concepts sharing one slot.</summary>
     internal Guid CoreTypeId { get; }
 
     /// <summary>Whether the authoritative Active Concepts list can admit this recipe now.</summary>
     internal bool CanAddNow { get; }
+
+    /// <summary>
+    /// How many slots the Active Concepts list holds, filled or not. A refusal to add is a fact
+    /// about a full list, and a caller cannot read fullness out of the assignments alone — those
+    /// are only the occupied ones.
+    /// </summary>
+    internal int SlotCount { get; }
 }
 
 /// <summary>One active Concept assignment as it stood when the world was collected.</summary>
@@ -332,6 +347,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private readonly Type? _registryType;
+    private readonly RuntimeIdentityRegistryBinding _registryBinding;
     private readonly Type? _activeListType;
     private readonly Type? _recipeListType;
     private readonly Type? _recipeType;
@@ -340,9 +356,9 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
 
     private readonly Func<object, IList?>? _activeValues;
     private readonly Func<object, IList?>? _recipeValues;
-    private readonly MethodInfo? _canAddInstance;
+    private readonly Func<object, object, bool>? _canAddInstance;
     private readonly Func<object, Guid>? _recipeId;
-    private readonly MethodInfo? _coreType;
+    private readonly Func<object, object?>? _coreType;
     private readonly Func<object, Guid>? _coreTypeId;
     private readonly Func<object, object?>? _recipeDrain;
     private readonly Func<object, object?>? _bandwidthCost;
@@ -377,7 +393,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
     private readonly Func<object, bool>? _isDrainApplied;
     private readonly Func<object, BigDouble>? _currentRatio;
     private readonly Func<object, BigDouble>? _usageRatio;
-    private readonly MethodInfo? _currentDrain;
+    private readonly Func<object, object?>? _currentDrain;
     private readonly Func<object, IList?>? _costEntries;
     private readonly Func<object, Guid>? _entryResourceId;
     private readonly Func<object, BigDouble>? _entryAmount;
@@ -390,6 +406,8 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
     {
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
         _registryType = registryType;
+        _registryBinding = new RuntimeIdentityRegistryBinding(
+            () => registryType, requireStableIdentityContract: false);
         _activeListType = activeListType;
         _recipeListType = recipeListType;
         _recipeType = resolveType("AlchemyRecipeSO");
@@ -402,12 +420,12 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
 
         _activeValues = NativeAccessorBinder.CollectionField(activeListType, "value");
         _recipeValues = NativeAccessorBinder.CollectionField(recipeListType, "value");
-        _canAddInstance = activeListType.GetMethod(
-            "CanAddInstance", Instance, null, new[] { _recipeType! }, null);
-        if (_canAddInstance?.ReturnType != typeof(bool)) _canAddInstance = null;
+        _canAddInstance = NativeAccessorBinder.CallWithObjectArgument<bool>(
+            activeListType.GetMethod("CanAddInstance", Instance, null, new[] { _recipeType! }, null));
         _instanceType = NativeAccessorBinder.CollectionElementType(activeListType, "value");
         _recipeId = NativeAccessorBinder.Call<Guid>(_recipeType, "GetGuid");
-        _coreType = _recipeType.GetMethod("GetCoreType", Instance, null, Type.EmptyTypes, null);
+        _coreType = NativeAccessorBinder.CallValue(
+            _recipeType.GetMethod("GetCoreType", Instance, null, Type.EmptyTypes, null));
         var alchemyType = resolveType("AlchemyTypeSO");
         _coreTypeId = NativeAccessorBinder.Call<Guid>(alchemyType, "GetGuid");
         _recipeDrain = NativeAccessorBinder.Reference(_recipeType, "drainCost");
@@ -423,8 +441,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         _rarityBlacklist = NativeAccessorBinder.CollectionField(scalingType, "rarityAttributeBlacklist");
         _scalingConversion = NativeAccessorBinder.Reference(scalingType, "instanceScaling");
         var conversionType = scalingType?.GetField("instanceScaling", Instance)?.FieldType;
-        var scalingValuesField = FindInstanceField(conversionType, "values");
-        _scalingValues = scalingValuesField is null ? null : scalingValuesField.GetValue;
+        _scalingValues = NativeAccessorBinder.ReadValue(FindInstanceField(conversionType, "values"));
 
         var listRefType = resolveType("ModifierListRef");
         var listVariableType = resolveType("ModifierListVariable");
@@ -457,7 +474,8 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         _isDrainApplied = NativeAccessorBinder.Field<bool>(drainType, "isDrainApplied");
         _currentRatio = NativeAccessorBinder.Field<BigDouble>(drainType, "currentRatio");
         _usageRatio = NativeAccessorBinder.Field<BigDouble>(drainType, "usageRatio");
-        _currentDrain = drainType?.GetMethod("GetCurrentDrain", Instance, null, Type.EmptyTypes, null);
+        _currentDrain = NativeAccessorBinder.CallValue(
+            drainType?.GetMethod("GetCurrentDrain", Instance, null, Type.EmptyTypes, null));
 
         var costListType = _recipeType.GetField("drainCost", Instance)?.FieldType;
         var entryType = NativeAccessorBinder.CollectionElementType(costListType, "costs");
@@ -481,9 +499,10 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         frame.ConceptDrainBasis.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var registry = NativeAccessorBinder.StaticDictionary(_registryType, "RuntimeLookup");
-        if (registry is null)
-            return WorldCategoryReport.Missing(Category, "the identity registry was unreadable");
+        var source = _registryBinding.Read();
+        if (!source.IsReady || source.Registry is null)
+            return WorldCategoryReport.Missing(Category, source.Reason);
+        var registry = source.Registry;
 
         var recipeList = registry[KnownEntities.ConceptRecipes.Uuid];
         var activeList = registry[KnownEntities.ActiveConcepts.Uuid];
@@ -512,7 +531,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
                 }
 
                 var id = _recipeId!(recipe);
-                var coreObject = _coreType!.Invoke(recipe, null);
+                var coreObject = _coreType!(recipe);
                 var core = coreObject is null ? Guid.Empty : _coreTypeId!(coreObject);
                 if (id == Guid.Empty || core == Guid.Empty || !conceptIds.Add(id))
                 {
@@ -520,11 +539,9 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
                     continue;
                 }
 
-                var canAddValue = _canAddInstance!.Invoke(activeList, new[] { recipe });
-                if (canAddValue is not bool canAddNow)
-                    throw new InvalidOperationException(
-                        "AlchemyInstanceListVariable.CanAddInstance returned no Boolean value");
-                frame.ConceptRecipes.Append(new WorldConceptRecipe(id, core, canAddNow));
+                var canAddNow = _canAddInstance!(activeList, recipe);
+                frame.ConceptRecipes.Append(
+                    new WorldConceptRecipe(id, core, canAddNow, active?.Count ?? 0));
                 AppendCosts(id, WorldAlchemyCostKind.RecipeDrain, _recipeDrain!(recipe), frame.AlchemyCosts);
                 AppendCosts(id, WorldAlchemyCostKind.Bandwidth, _bandwidthCost!(recipe), frame.AlchemyCosts);
                 CaptureFormulaBasis(id, recipe, coreObject!, core, capturedScalings, frame);
@@ -550,7 +567,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
                 }
 
                 var drain = _resourceDrain!(instance);
-                var current = drain is null ? null : _currentDrain!.Invoke(drain, null);
+                var current = drain is null ? null : _currentDrain!(drain);
                 var readable = drain is not null && current is not null;
                 if (readable)
                     AppendCosts(id, WorldAlchemyCostKind.CurrentDrain, current, frame.AlchemyCosts);
@@ -567,9 +584,12 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
             return new WorldCategoryReport(
                 Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException || ex is ArgumentException ||
-            ex is InvalidOperationException || ex is FormatException || ex is OverflowException)
+        // Every native fault degrades this one category rather than the pass. The allowlist this
+        // replaces led with TargetInvocationException, which is the wrapper MethodInfo.Invoke put
+        // around every fault the game raised; a compiled accessor hands the fault back unwrapped, so
+        // naming exception types here would let a native NullReferenceException past a collector that
+        // does not wrap reader calls. Same fail-closed answer, same granularity, still loud.
+        catch (Exception ex)
         {
             return WorldCategoryReport.Missing(
                 Category, $"reading Concept instances threw: {ex.GetBaseException().Message}");

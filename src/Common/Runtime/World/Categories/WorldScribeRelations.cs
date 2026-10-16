@@ -248,7 +248,12 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
                 skipped: 0,
                 firstFailure: string.Empty);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        // A compiled accessor hands a native fault straight back, where MethodInfo.Invoke used to
+        // deliver every one of them wrapped as TargetInvocationException. Degrading the category on
+        // any of them keeps the fail-closed answer the reflective path gave — and keeps it at the
+        // category, which is where the shared reader already puts it, rather than letting one
+        // transient native throw out into the pass.
+        catch (Exception ex)
         {
             return WorldCategoryReport.Missing(
                 Category,
@@ -263,15 +268,15 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
             KnownEntities.ScribeCraftingRecipes.Uuid,
             native.RecipeListType);
         var recipes = RequireList(
-            native.RecipeListValue.GetValue(registry),
+            native.RecipeListValue(registry),
             "ScribeCraftingRecipes.value");
         var sampled = 0;
         foreach (var value in recipes)
         {
             var recipe = RequireExact(value, native.RecipeType, "Scribe recipe");
-            var recipeId = Invoke<Guid>(native.RecipeIdentity, recipe);
+            var recipeId = native.RecipeIdentity(recipe);
             var types = RequireEnumerable(
-                native.RecipeTypes.GetValue(recipe),
+                native.RecipeTypes(recipe),
                 "CraftingRecipeSO.craftingTypes");
             var typeCount = 0;
             var typeId = Guid.Empty;
@@ -279,44 +284,43 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
             {
                 var exactType = RequireExact(valueType, native.RecipeTypeType, "recipe type");
                 typeCount++;
-                typeId = Invoke<Guid>(native.RecipeTypeIdentity, exactType);
+                typeId = native.RecipeTypeIdentity(exactType);
             }
 
             var outputCount = 0;
             var outputId = Guid.Empty;
             foreach (var blockValue in RequireEnumerable(
-                         native.CompleteEffects.GetValue(recipe),
+                         native.CompleteEffects(recipe),
                          "CraftingRecipeSO.completeEffects"))
             {
                 var block = RequireExact(blockValue, native.InstantBlockType, "complete effect block");
                 foreach (var scriptValue in RequireEnumerable(
-                             native.EffectScripts.GetValue(block),
+                             native.EffectScripts(block),
                              "InstantEffectBlock.effectScripts"))
                 {
                     if (scriptValue is null || !native.InstantScriptType.IsInstanceOfType(scriptValue))
                         throw new InvalidOperationException(
-                            $"Scribe recipe {recipeId:D} contained a non-IInstantEffectScript output.");
+                            $"Scribe recipe {EntityIdentityFormatter.Format(recipeId)} contained a non-IInstantEffectScript output.");
                     if (scriptValue.GetType() != native.ConsumableGainType) continue;
                     var output = RequireExact(
-                        native.GainConsumable.GetValue(scriptValue),
+                        native.GainConsumable(scriptValue),
                         native.ConsumableType,
                         "ConsumableGainEffect.consumable");
                     outputCount++;
-                    outputId = Invoke<Guid>(native.ConsumableIdentity, output);
+                    outputId = native.ConsumableIdentity(output);
                 }
             }
             if (typeCount != 1 || outputCount != 1)
                 throw new InvalidOperationException(
-                    $"Scribe recipe {recipeId:D} had {typeCount} recipe types and " +
+                    $"Scribe recipe {EntityIdentityFormatter.Format(recipeId)} had {typeCount} recipe types and " +
                     $"{outputCount} ConsumableGainEffect outputs; exactly one of each is required.");
 
             frame.ScribeRecipes.Append(new WorldScribeRecipe(
                 recipeId,
                 typeId,
                 outputId,
-                Invoke<bool>(native.RecipeVisible, recipe),
-                Require<bool>(native.UseQuantityAsLevel.GetValue(recipe),
-                    "CraftingRecipeSO.useQuantityAsLevel")));
+                native.RecipeVisible(recipe),
+                native.UseQuantityAsLevel(recipe)));
             sampled++;
         }
         return sampled;
@@ -333,25 +337,32 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         {
             var queue = Resolve(native, queueId, native.InstanceListType);
             var values = RequireList(
-                native.InstanceListValue.GetValue(queue),
+                native.InstanceListValue(queue),
                 "CraftingInstance list value");
+            var isAutomatic = native.AutoList(queue);
+            if (isAutomatic != (queueId == KnownEntities.AutoScribeInstances.Uuid))
+                throw new InvalidOperationException(
+                    $"Scribe queue {EntityIdentityFormatter.Format(queueId)} contradicted its native automation role.");
             frame.ScribeQueues.Append(new WorldScribeQueue(
                 queueId,
-                Require<bool>(native.AutoList.GetValue(queue),
-                    "CraftingInstanceListVariable.isAutoList"),
+                isAutomatic,
                 CountNonNull(values),
-                Invoke<int>(native.ListMaximum, queue)));
+                native.ListMaximum(queue)));
             sampled++;
             foreach (var value in values)
             {
                 if (value is null) continue;
                 var instance = RequireExact(value, native.InstanceType, "CraftingInstance");
+                var instanceAutomatic = native.InstanceAutomatic(instance);
+                if (instanceAutomatic != isAutomatic)
+                    throw new InvalidOperationException(
+                        $"CraftingInstance.IsAuto() contradicted containing Scribe queue {EntityIdentityFormatter.Format(queueId)}.");
                 frame.ScribeWork.Append(new WorldScribeWork(
                     queueId,
-                    Invoke<Guid>(native.InstanceRecipe, instance),
-                    Level(InvokeObject(native.InstanceQuantity, instance)),
-                    Invoke<bool>(native.InstanceAutomatic, instance),
-                    Invoke<bool>(native.InstanceExpired, instance)));
+                    native.InstanceRecipe(instance),
+                    Level(native.InstanceQuantity(instance)),
+                    instanceAutomatic,
+                    native.InstanceExpired(instance)));
                 sampled++;
             }
         }
@@ -362,17 +373,17 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
     {
         var sampled = 0;
         foreach (var value in RequireEnumerable(
-                     native.StructureAll.GetValue(null),
+                     native.StructureAll(),
                      "StructureSO.All"))
         {
             var structure = RequireExact(value, native.StructureType, "StructureSO");
-            var structureId = Invoke<Guid>(native.StructureIdentity, structure);
+            var structureId = native.StructureIdentity(structure);
             var table = RequireExact(
-                native.EnchantTable.GetValue(structure),
+                native.EnchantTable(structure),
                 native.EnchantTableType,
                 "EnchantmentSO.EnchantTable");
             foreach (var entryValue in RequireEnumerable(
-                         native.Enchantments.GetValue(table),
+                         native.Enchantments(table),
                          "EnchantmentSO.EnchantTable.enchantments"))
             {
                 var entry = RequireExact(
@@ -381,8 +392,8 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
                     "EnchantmentInstance");
                 frame.StructureEnchantments.Append(new WorldStructureEnchantment(
                     structureId,
-                    Invoke<Guid>(native.EnchantmentInstanceIdentity, entry),
-                    Invoke<int>(native.EnchantmentLevel, entry)));
+                    native.EnchantmentInstanceIdentity(entry),
+                    native.EnchantmentLevel(entry)));
                 sampled++;
             }
         }
@@ -401,19 +412,14 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
                 native,
                 KnownEntities.ScribeCrafting.Uuid,
                 native.RecipeTypeType);
-            var level = Math.Max(
-                1,
-                Require<int>(
-                    native.MaximumStartingLevel.GetValue(recipeType),
-                    "CraftingRecipeTypeSO.maxStartingLevel"));
-            var scaling = InvokeObject(
-                native.ScalingBasic,
-                target: null,
-                new BigDouble(level, 0));
+            var level = Math.Max(1, native.MaximumStartingLevel(recipeType));
+            var scaling = Require(
+                native.ScalingBasic(new BigDouble(level, 0)),
+                "ScalingInfo.Basic");
             if (scaling.GetType() != native.ScalingType)
                 throw new InvalidOperationException("ScalingInfo.Basic(BigDouble) changed return type.");
             var candidates = RequireEnumerable(
-                native.GetRandomList.Invoke(targeting, new[] { scaling }),
+                native.GetRandomList(targeting, scaling),
                 "Targeting.TargetStructure.GetRandomList");
             var count = 0;
             foreach (var candidateValue in candidates)
@@ -422,7 +428,7 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
                 frame.ScrollTargets.Append(new WorldScrollTarget(
                     role.ScrollId,
                     role.EnchantmentId,
-                    Invoke<Guid>(native.StructureIdentity, candidate)));
+                    native.StructureIdentity(candidate)));
                 count++;
                 sampled++;
             }
@@ -445,12 +451,12 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         var enchantCount = 0;
         var enchantment = Guid.Empty;
         foreach (var blockValue in RequireEnumerable(
-                     native.OnUseEffects.GetValue(consumable),
+                     native.OnUseEffects(consumable),
                      "ConsumableSO.onUseEffects"))
         {
             var block = RequireExact(blockValue, native.InstantBlockType, "on-use effect block");
             foreach (var scriptValue in RequireEnumerable(
-                         native.EffectScripts.GetValue(block),
+                         native.EffectScripts(block),
                          "InstantEffectBlock.effectScripts"))
             {
                 if (scriptValue is null || !native.InstantScriptType.IsInstanceOfType(scriptValue))
@@ -459,36 +465,36 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
                 if (scriptValue.GetType() == native.RequestType)
                 {
                     requestCount++;
-                    options = native.TargetOptions.GetValue(scriptValue);
+                    options = native.TargetOptions(scriptValue);
                 }
                 else if (scriptValue.GetType() == native.EnchantScriptType)
                 {
                     enchantCount++;
                     var enchant = RequireExact(
-                        native.EnchantScriptEnchantment.GetValue(scriptValue),
+                        native.EnchantScriptEnchantment(scriptValue),
                         native.EnchantmentType,
                         "EnchantItemScript.enchantment");
-                    enchantment = Invoke<Guid>(native.EnchantmentIdentity, enchant);
+                    enchantment = native.EnchantmentIdentity(enchant);
                 }
             }
         }
         if (requestCount != 1 || enchantCount != 1 || enchantment != expectedEnchantment)
             throw new InvalidOperationException(
-                $"Scroll {Invoke<Guid>(native.ConsumableIdentity, consumable):D} had {requestCount} target " +
-                $"requests, {enchantCount} enchant effects, and enchantment {enchantment:D}; " +
-                $"expected exactly one of each and {expectedEnchantment:D}.");
+                $"Scroll {EntityIdentityFormatter.Format(native.ConsumableIdentity(consumable))} had {requestCount} target " +
+                $"requests, {enchantCount} enchant effects, and enchantment {EntityIdentityFormatter.Format(enchantment)}; " +
+                $"expected exactly one of each and {EntityIdentityFormatter.Format(expectedEnchantment)}.");
         var exactOptions = RequireExact(options, native.OptionsType, "TargetSelectOptions");
-        var targeting = InvokeObject(native.GetTargeting, exactOptions);
+        var targeting = native.GetTargeting(exactOptions);
         return RequireExact(targeting, native.TargetStructureType, "TargetStructure");
     }
 
     private static object Resolve(BindingSet native, Guid id, Type exactType)
     {
-        if (native.Registry.GetValue(null) is not IDictionary registry ||
-            !registry.Contains(id))
+        var source = native.Registry.Read();
+        if (!source.IsReady || source.Registry is null || !source.Registry.Contains(id))
             throw new InvalidOperationException(
-                $"The identity registry did not contain {exactType.Name} {id:D}.");
-        return RequireExact(registry[id], exactType, exactType.Name);
+                $"The identity registry did not contain {exactType.Name} {EntityIdentityFormatter.Format(id)}.");
+        return RequireExact(source.Registry[id], exactType, exactType.Name);
     }
 
     private static int CountNonNull(IList values)
@@ -499,22 +505,16 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         return count;
     }
 
-    private static int Level(object value)
+    private static int Level(BigDouble value)
     {
-        if (value is int integer) return integer;
-        if (value is BigDouble number)
-        {
-            var scalar = number.ToDouble();
-            if (double.IsFinite(scalar) && scalar >= 0 && scalar <= int.MaxValue)
-                return (int)Math.Floor(scalar);
-        }
+        var scalar = value.ToDouble();
+        if (double.IsFinite(scalar) && scalar >= 0 && scalar <= int.MaxValue)
+            return (int)Math.Floor(scalar);
         throw new InvalidOperationException("A Scribe level was not a finite non-negative integer.");
     }
 
-    private static T Require<T>(object? value, string contract) =>
-        value is T typed
-            ? typed
-            : throw new InvalidOperationException(contract + " changed type.");
+    private static object Require(object? value, string contract) =>
+        value ?? throw new InvalidOperationException(contract + " returned null.");
 
     private static object RequireExact(object? value, Type type, string contract) =>
         value is not null && value.GetType() == type
@@ -528,28 +528,6 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
     private static IList RequireList(object? value, string contract) =>
         value as IList ??
         throw new InvalidOperationException(contract + " was not a list.");
-
-    private static object InvokeObject(MethodInfo method, object? target, params object[] arguments) =>
-        method.Invoke(target, arguments) ??
-        throw new InvalidOperationException(
-            $"{method.DeclaringType?.Name}.{method.Name} returned null.");
-
-    private static T Invoke<T>(MethodInfo method, object? target, params object[] arguments) =>
-        method.Invoke(target, arguments) is T value
-            ? value
-            : throw new InvalidOperationException(
-                $"{method.DeclaringType?.Name}.{method.Name} changed return type.");
-
-    private static bool IsExpected(Exception exception) => exception is
-        TargetInvocationException or
-        ArgumentException or
-        InvalidOperationException or
-        InvalidCastException or
-        OverflowException or
-        TargetException or
-        TargetParameterCountException or
-        MemberAccessException or
-        TypeLoadException;
 
     private readonly record struct TargetRole(Guid ScrollId, Guid EnchantmentId);
 
@@ -591,38 +569,38 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
             Type optionsType,
             Type targetStructureType,
             Type enchantScriptType,
-            FieldInfo registry,
-            FieldInfo recipeListValue,
-            FieldInfo instanceListValue,
-            FieldInfo recipeTypes,
-            FieldInfo completeEffects,
-            FieldInfo useQuantityAsLevel,
-            FieldInfo effectScripts,
-            FieldInfo gainConsumable,
-            FieldInfo autoList,
-            FieldInfo structureAll,
-            FieldInfo enchantTable,
-            FieldInfo enchantments,
-            FieldInfo maximumStartingLevel,
-            FieldInfo onUseEffects,
-            FieldInfo targetOptions,
-            FieldInfo enchantScriptEnchantment,
-            MethodInfo recipeIdentity,
-            MethodInfo recipeTypeIdentity,
-            MethodInfo consumableIdentity,
-            MethodInfo structureIdentity,
-            MethodInfo recipeVisible,
-            MethodInfo listMaximum,
-            MethodInfo instanceRecipe,
-            MethodInfo instanceQuantity,
-            MethodInfo instanceAutomatic,
-            MethodInfo instanceExpired,
-            MethodInfo enchantmentInstanceIdentity,
-            MethodInfo enchantmentIdentity,
-            MethodInfo enchantmentLevel,
-            MethodInfo scalingBasic,
-            MethodInfo getTargeting,
-            MethodInfo getRandomList)
+            RuntimeIdentityRegistryBinding registry,
+            Func<object, IList?> recipeListValue,
+            Func<object, IList?> instanceListValue,
+            Func<object, IEnumerable?> recipeTypes,
+            Func<object, IEnumerable?> completeEffects,
+            Func<object, bool> useQuantityAsLevel,
+            Func<object, IEnumerable?> effectScripts,
+            Func<object, object?> gainConsumable,
+            Func<object, bool> autoList,
+            Func<IEnumerable?> structureAll,
+            Func<object, object?> enchantTable,
+            Func<object, IEnumerable?> enchantments,
+            Func<object, int> maximumStartingLevel,
+            Func<object, IEnumerable?> onUseEffects,
+            Func<object, object?> targetOptions,
+            Func<object, object?> enchantScriptEnchantment,
+            Func<object, Guid> recipeIdentity,
+            Func<object, Guid> recipeTypeIdentity,
+            Func<object, Guid> consumableIdentity,
+            Func<object, Guid> structureIdentity,
+            Func<object, bool> recipeVisible,
+            Func<object, int> listMaximum,
+            Func<object, Guid> instanceRecipe,
+            Func<object, BigDouble> instanceQuantity,
+            Func<object, bool> instanceAutomatic,
+            Func<object, bool> instanceExpired,
+            Func<object, Guid> enchantmentInstanceIdentity,
+            Func<object, Guid> enchantmentIdentity,
+            Func<object, int> enchantmentLevel,
+            Func<BigDouble, object?> scalingBasic,
+            Func<object, object?> getTargeting,
+            Func<object, object, IEnumerable?> getRandomList)
         {
             RecipeType = recipeType;
             RecipeListType = recipeListType;
@@ -694,38 +672,38 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         internal Type OptionsType { get; }
         internal Type TargetStructureType { get; }
         internal Type EnchantScriptType { get; }
-        internal FieldInfo Registry { get; }
-        internal FieldInfo RecipeListValue { get; }
-        internal FieldInfo InstanceListValue { get; }
-        internal FieldInfo RecipeTypes { get; }
-        internal FieldInfo CompleteEffects { get; }
-        internal FieldInfo UseQuantityAsLevel { get; }
-        internal FieldInfo EffectScripts { get; }
-        internal FieldInfo GainConsumable { get; }
-        internal FieldInfo AutoList { get; }
-        internal FieldInfo StructureAll { get; }
-        internal FieldInfo EnchantTable { get; }
-        internal FieldInfo Enchantments { get; }
-        internal FieldInfo MaximumStartingLevel { get; }
-        internal FieldInfo OnUseEffects { get; }
-        internal FieldInfo TargetOptions { get; }
-        internal FieldInfo EnchantScriptEnchantment { get; }
-        internal MethodInfo RecipeIdentity { get; }
-        internal MethodInfo RecipeTypeIdentity { get; }
-        internal MethodInfo ConsumableIdentity { get; }
-        internal MethodInfo StructureIdentity { get; }
-        internal MethodInfo RecipeVisible { get; }
-        internal MethodInfo ListMaximum { get; }
-        internal MethodInfo InstanceRecipe { get; }
-        internal MethodInfo InstanceQuantity { get; }
-        internal MethodInfo InstanceAutomatic { get; }
-        internal MethodInfo InstanceExpired { get; }
-        internal MethodInfo EnchantmentInstanceIdentity { get; }
-        internal MethodInfo EnchantmentIdentity { get; }
-        internal MethodInfo EnchantmentLevel { get; }
-        internal MethodInfo ScalingBasic { get; }
-        internal MethodInfo GetTargeting { get; }
-        internal MethodInfo GetRandomList { get; }
+        internal RuntimeIdentityRegistryBinding Registry { get; }
+        internal Func<object, IList?> RecipeListValue { get; }
+        internal Func<object, IList?> InstanceListValue { get; }
+        internal Func<object, IEnumerable?> RecipeTypes { get; }
+        internal Func<object, IEnumerable?> CompleteEffects { get; }
+        internal Func<object, bool> UseQuantityAsLevel { get; }
+        internal Func<object, IEnumerable?> EffectScripts { get; }
+        internal Func<object, object?> GainConsumable { get; }
+        internal Func<object, bool> AutoList { get; }
+        internal Func<IEnumerable?> StructureAll { get; }
+        internal Func<object, object?> EnchantTable { get; }
+        internal Func<object, IEnumerable?> Enchantments { get; }
+        internal Func<object, int> MaximumStartingLevel { get; }
+        internal Func<object, IEnumerable?> OnUseEffects { get; }
+        internal Func<object, object?> TargetOptions { get; }
+        internal Func<object, object?> EnchantScriptEnchantment { get; }
+        internal Func<object, Guid> RecipeIdentity { get; }
+        internal Func<object, Guid> RecipeTypeIdentity { get; }
+        internal Func<object, Guid> ConsumableIdentity { get; }
+        internal Func<object, Guid> StructureIdentity { get; }
+        internal Func<object, bool> RecipeVisible { get; }
+        internal Func<object, int> ListMaximum { get; }
+        internal Func<object, Guid> InstanceRecipe { get; }
+        internal Func<object, BigDouble> InstanceQuantity { get; }
+        internal Func<object, bool> InstanceAutomatic { get; }
+        internal Func<object, bool> InstanceExpired { get; }
+        internal Func<object, Guid> EnchantmentInstanceIdentity { get; }
+        internal Func<object, Guid> EnchantmentIdentity { get; }
+        internal Func<object, int> EnchantmentLevel { get; }
+        internal Func<BigDouble, object?> ScalingBasic { get; }
+        internal Func<object, object?> GetTargeting { get; }
+        internal Func<object, object, IEnumerable?> GetRandomList { get; }
 
         internal static bool TryCreate(
             Func<string, Type?> resolve,
@@ -777,42 +755,42 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
                     options,
                     target,
                     enchantScript,
-                    Field(id, "RuntimeLookup", Static, typeof(Dictionary<Guid, object>), allowDictionary: true),
-                    GenericListValue(recipeList, recipe),
-                    GenericListValue(instanceList, instance),
-                    CollectionField(recipe, "craftingTypes", recipeType),
-                    CollectionField(recipe, "completeEffects", block),
-                    Field(recipe, "useQuantityAsLevel", Instance, typeof(bool)),
-                    CollectionField(block, "effectScripts", script),
-                    Field(gain, "consumable", Instance, consumable),
-                    Field(instanceList, "isAutoList", Instance, typeof(bool)),
-                    CollectionField(structure, "All", structure, Static),
-                    Field(structure, "enchantTable", Instance, enchantTable),
-                    CollectionField(enchantTable, "enchantments", enchantInstance),
-                    Field(recipeType, "maxStartingLevel", Instance, typeof(int)),
-                    CollectionField(consumable, "onUseEffects", block),
-                    Field(request, "targetOptions", Instance, options),
-                    Field(enchantScript, "enchantment", Instance, enchantment),
-                    MethodFromHierarchy(recipe, "GetGuid", typeof(Guid)),
-                    MethodFromHierarchy(recipeType, "GetGuid", typeof(Guid)),
-                    MethodFromHierarchy(consumable, "GetGuid", typeof(Guid)),
-                    MethodFromHierarchy(structure, "GetGuid", typeof(Guid)),
-                    Method(recipe, "IsVisible", typeof(bool), Instance),
-                    MethodFromHierarchy(instanceList, "GetMax", typeof(int)),
-                    MethodFromHierarchy(instance, "GetGuidReference", typeof(Guid)),
-                    Method(instance, "GetQuantity", bigDouble, Instance),
-                    Method(instance, "IsAuto", typeof(bool), Instance),
-                    Method(instance, "IsExpired", typeof(bool), Instance),
-                    MethodFromHierarchy(enchantInstance, "GetGuidReference", typeof(Guid)),
-                    MethodFromHierarchy(enchantment, "GetGuid", typeof(Guid)),
-                    Method(enchantInstance, "GetLevel", typeof(int), Instance),
-                    Method(scaling, "Basic", scaling, Static, bigDouble),
-                    Method(options, "GetTargeting", selection, Instance),
-                    Method(
+                    new RuntimeIdentityRegistryBinding(
+                        () => id, requireStableIdentityContract: false),
+                    ListValue(recipeList, recipe),
+                    ListValue(instanceList, instance),
+                    FieldSequence(recipe, "craftingTypes", recipeType),
+                    FieldSequence(recipe, "completeEffects", block),
+                    FieldValue<bool>(recipe, "useQuantityAsLevel"),
+                    FieldSequence(block, "effectScripts", script),
+                    FieldObject(gain, "consumable", consumable),
+                    FieldValue<bool>(instanceList, "isAutoList"),
+                    StaticFieldSequence(structure, "All", structure),
+                    FieldObject(structure, "enchantTable", enchantTable),
+                    FieldSequence(enchantTable, "enchantments", enchantInstance),
+                    FieldValue<int>(recipeType, "maxStartingLevel"),
+                    FieldSequence(consumable, "onUseEffects", block),
+                    FieldObject(request, "targetOptions", options),
+                    FieldObject(enchantScript, "enchantment", enchantment),
+                    InheritedCall<Guid>(recipe, "GetGuid"),
+                    InheritedCall<Guid>(recipeType, "GetGuid"),
+                    InheritedCall<Guid>(consumable, "GetGuid"),
+                    InheritedCall<Guid>(structure, "GetGuid"),
+                    DeclaredCall<bool>(recipe, "IsVisible"),
+                    InheritedCall<int>(instanceList, "GetMax"),
+                    InheritedCall<Guid>(instance, "GetGuidReference"),
+                    DeclaredCall<BigDouble>(instance, "GetQuantity", bigDouble),
+                    DeclaredCall<bool>(instance, "IsAuto"),
+                    DeclaredCall<bool>(instance, "IsExpired"),
+                    InheritedCall<Guid>(enchantInstance, "GetGuidReference"),
+                    InheritedCall<Guid>(enchantment, "GetGuid"),
+                    DeclaredCall<int>(enchantInstance, "GetLevel"),
+                    StaticCall<BigDouble>(scaling, "Basic", scaling, bigDouble),
+                    DeclaredCallObject(options, "GetTargeting", selection),
+                    DeclaredCallSequence(
                         target,
                         "GetRandomList",
                         typeof(List<>).MakeGenericType(targetable),
-                        Instance,
                         scaling));
                 reason = string.Empty;
                 return true;
@@ -826,6 +804,103 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
 
         private static Type Type(Func<string, Type?> resolve, string name) =>
             resolve(name) ?? throw new InvalidOperationException(name + " was unavailable.");
+
+        // Discovery and compilation are paired rather than merged: the audits below are stricter
+        // than a name and a type — an exact element type, a private field on a generic base, a
+        // method resolved up the hierarchy — and each accessor is compiled from the member that
+        // audit accepted. A member that resolves but cannot be compiled is as unavailable as one
+        // that never resolved, and says so in the same sentence.
+        private static Func<object, IList?> ListValue(Type listType, Type elementType) =>
+            Compiled(
+                NativeAccessorBinder.ReadList(GenericListValue(listType, elementType)),
+                listType,
+                "value");
+
+        private static Func<object, TValue> FieldValue<TValue>(Type type, string name) =>
+            Compiled(
+                NativeAccessorBinder.Read<TValue>(Field(type, name, Instance, typeof(TValue))),
+                type,
+                name);
+
+        private static Func<object, object?> FieldObject(Type type, string name, Type expected) =>
+            Compiled(
+                NativeAccessorBinder.ReadValue(Field(type, name, Instance, expected)),
+                type,
+                name);
+
+        private static Func<object, IEnumerable?> FieldSequence(
+            Type type,
+            string name,
+            Type element) =>
+            Compiled(
+                NativeAccessorBinder.ReadSequence(CollectionField(type, name, element)),
+                type,
+                name);
+
+        private static Func<IEnumerable?> StaticFieldSequence(
+            Type type,
+            string name,
+            Type element) =>
+            Compiled(
+                NativeAccessorBinder.ReadStaticSequence(
+                    CollectionField(type, name, element, Static)),
+                type,
+                name);
+
+        private static Func<object, TValue> InheritedCall<TValue>(Type type, string name) =>
+            Compiled(
+                NativeAccessorBinder.Call<TValue>(
+                    MethodFromHierarchy(type, name, typeof(TValue))),
+                type,
+                name);
+
+        private static Func<object, TValue> DeclaredCall<TValue>(Type type, string name) =>
+            DeclaredCall<TValue>(type, name, typeof(TValue));
+
+        private static Func<object, TValue> DeclaredCall<TValue>(
+            Type type,
+            string name,
+            Type returnType) =>
+            Compiled(
+                NativeAccessorBinder.Call<TValue>(Method(type, name, returnType, Instance)),
+                type,
+                name);
+
+        private static Func<object, object?> DeclaredCallObject(
+            Type type,
+            string name,
+            Type returnType) =>
+            Compiled(
+                NativeAccessorBinder.CallValue(Method(type, name, returnType, Instance)),
+                type,
+                name);
+
+        private static Func<object, object, IEnumerable?> DeclaredCallSequence(
+            Type type,
+            string name,
+            Type returnType,
+            Type argument) =>
+            Compiled(
+                NativeAccessorBinder.CallSequence(
+                    Method(type, name, returnType, Instance, argument)),
+                type,
+                name);
+
+        private static Func<TArgument, object?> StaticCall<TArgument>(
+            Type type,
+            string name,
+            Type returnType,
+            Type argument) =>
+            Compiled(
+                NativeAccessorBinder.CallStatic<TArgument>(
+                    Method(type, name, returnType, Static, argument)),
+                type,
+                name);
+
+        private static T Compiled<T>(T? accessor, Type type, string name)
+            where T : Delegate =>
+            accessor ?? throw new InvalidOperationException(
+                $"{type.Name}.{name} could not be compiled into an accessor.");
 
         private static FieldInfo GenericListValue(Type listType, Type elementType)
         {

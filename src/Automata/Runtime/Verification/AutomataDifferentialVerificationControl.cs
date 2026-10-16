@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.Verification;
@@ -38,16 +40,29 @@ namespace OrbAutomata;
 internal sealed class AutomataDifferentialVerificationControl : IDifferentialVerificationControl
 {
     private readonly Action<string> _report;
-    private readonly Action? _runOverride;
+    private readonly Action<Action<string>>? _runOverride;
+    private readonly Func<GameLifecycleState> _lifecycle;
+    private readonly Func<long> _generation;
+    private readonly Func<int> _frame;
+    private VerificationReport _pending = new();
+    private List<string>? _capture;
     private bool _runRequested;
     private long _revision;
+    private long _ourTicks;
+    private long _theirTicks;
 
     internal AutomataDifferentialVerificationControl(
         Action<string> report,
-        Action? runOverride = null)
+        Action<Action<string>>? runOverride = null,
+        Func<GameLifecycleState>? lifecycle = null,
+        Func<long>? generation = null,
+        Func<int>? frame = null)
     {
         _report = report ?? throw new ArgumentNullException(nameof(report));
         _runOverride = runOverride;
+        _lifecycle = lifecycle ?? (() => GameLifecycleMonitor.Shared.Current.State);
+        _generation = generation ?? (() => GameLifecycleMonitor.Shared.Current.Generation);
+        _frame = frame ?? (() => UnityEngine.Time.frameCount);
     }
 
     public bool RunRequested => _runRequested;
@@ -68,17 +83,107 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         if (!_runRequested) return;
         _runRequested = false;
         _revision = checked(_revision + 1);
+        if (!TryBegin(out _, out var reason))
+        {
+            Report(reason);
+            return;
+        }
+        Run();
+    }
+
+    /// <summary>
+    /// Runs the same check the Runtime action runs, and hands back the verdict lines rather than
+    /// leaving them in the log. The caller is on the Unity main thread inside the frame it asked
+    /// from, so the whole stall is charged to that one call — the acknowledgement a player gets
+    /// from watching the game hitch, a reader gets from waiting for the answer.
+    /// </summary>
+    /// <remarks>
+    /// A press queued from the Runtime page is the one thing this refuses: that press runs later in
+    /// the same frame, and running twice would report a second verdict measured against caches the
+    /// first run had just warmed.
+    /// </remarks>
+    internal bool TryRunNow(out string[] lines, out string code, out string reason)
+    {
+        if (!TryBegin(out code, out reason))
+        {
+            lines = Array.Empty<string>();
+            return false;
+        }
+        var captured = new List<string>();
+        _capture = captured;
+        try
+        {
+            Run();
+        }
+        finally
+        {
+            _capture = null;
+        }
+        lines = captured.ToArray();
+        return true;
+    }
+
+    /// <summary>
+    /// Whether the game this check compares itself against exists to be read.
+    /// </summary>
+    /// <remarks>
+    /// Every pass below resolves its type from the loaded assembly and reads that type's static
+    /// registry, both of which answer in the Start menu — the assets are loaded when the process is,
+    /// long before any save is. So "the registry is empty" was never the question it was asked as,
+    /// and with no run behind it the first pass to build a comparison world dereferenced a game
+    /// object that does not exist yet. The check reads the live game, so the live game's lifecycle
+    /// is its precondition, asked once here for both the Runtime-page press and the tool call.
+    /// </remarks>
+    private bool TryBegin(out string code, out string reason)
+    {
+        if (_runRequested)
+        {
+            code = "already_active";
+            reason = "A game math check is already queued from the Runtime page and runs this frame.";
+            return false;
+        }
+        if (GameLifecycleUnavailability.TryDescribe(_lifecycle(), out code, out var lifecycleReason))
+        {
+            reason = "The game math check compares the suite against a running game, and " +
+                lifecycleReason;
+            return false;
+        }
+        code = string.Empty;
+        reason = string.Empty;
+        return true;
+    }
+
+    private void Run()
+    {
         if (_runOverride is not null)
         {
-            _runOverride();
+            _runOverride(Report);
             return;
         }
         RunEverything();
     }
 
+    /// <summary>Reports one line, and keeps it when a caller asked for the lines themselves.</summary>
+    private void Report(string line)
+    {
+        _capture?.Add(line);
+        _report(line);
+    }
+
+    /// <summary>
+    /// Runs every check, then answers once: the verdict word, what disagreed, and one line saying
+    /// what was compared against what and when.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is reported as it happens any more. A response cannot lead with its verdict while its
+    /// checks are writing prose into the middle of it, and the reader who has to count verdict words
+    /// down ninety lines to learn the answer is the reader this check was failing.
+    /// </remarks>
     private void RunEverything()
     {
-        _report("Verification started. Everything runs in this frame, so the game will hitch.");
+        _pending = new VerificationReport();
+        _ourTicks = 0;
+        _theirTicks = 0;
 
         var whole = Stopwatch.StartNew();
 
@@ -87,26 +192,74 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         // same inputs — which leaves every record they touched freshly recalculated. Running the
         // check afterwards would have it survey a cache the verifier had just warmed, and report a
         // staleness figure that says more about the verifier than about the game.
-        RunWorldCollectionCheck();
+        var collection = RunWorldCollectionCheck();
+        foreach (var finding in collection.Findings) _pending.Add(finding);
+
         RunPass(new ConceptDrainPass());
         RunPass(new SpellLevelPass(compareAffordability: false));
         RunPass(new SpellLevelPass(compareAffordability: true));
+        RunPass(new SpellTypeLayerPass());
         RunPass(new CostPass());
+        RunPass(new UpgradeCostPass());
         RunPass(new RatePass());
-        RunPass(new RequirementPass("Upgrade requirement", "UpgradeSO", isUpgrade: true));
-        RunPass(new RequirementPass("Structure requirement", "StructureSO", isUpgrade: false));
+        RunPass(new PlotQuantityPass());
+        RunPass(new RequirementPass(
+            "Upgrade requirement", "UpgradeSO", RequirementOwnerShape.UpgradeQueuedLevel));
+        RunPass(new RequirementPass(
+            "Structure requirement", "StructureSO", RequirementOwnerShape.StructureQuantity));
+        RunPass(new RequirementPass(
+            "Research requirement", "ResearchSO", RequirementOwnerShape.ResearchRequirementLevel));
+        RunPass(new RequirementPass(
+            "Prerequisite link tier",
+            "PrerequisiteLinkSO",
+            RequirementOwnerShape.PrerequisiteLinkTier));
+        RunPass(new RequirementPass(
+            "Upgrade unlock", "UpgradeSO", RequirementOwnerShape.UpgradeUnlock));
+        RunPass(new RequirementPass(
+            "Structure unlock", "StructureSO", RequirementOwnerShape.StructureUnlock));
+        RunPass(new RequirementPass(
+            "Research visibility", "ResearchSO", RequirementOwnerShape.ResearchVisibility));
         RunPass(new UsagePrerequisitePass());
 
         whole.Stop();
-        _report($"Verification finished in {whole.Elapsed.TotalMilliseconds:0.###} ms.");
+        foreach (var line in _pending.Render(Window(collection, whole.Elapsed.TotalMilliseconds)))
+        {
+            Report(line);
+        }
     }
+
+    /// <summary>
+    /// One line, the same shape every call, carrying everything that moves between two calls over an
+    /// unchanged world: when the numbers were read, how much was read, what the game's own caches
+    /// looked like while they were, and what it all cost.
+    /// </summary>
+    private string Window(in WorldCollectionCheckResult collection, double elapsedMilliseconds)
+    {
+        var drift = collection.Drift;
+        var window =
+            $"generation={_generation()} frame={_frame()} " +
+            // `categories` was the world collector's own reader count, and `world_categories`
+            // publishes a different, smaller set under that exact word — so two reads a minute
+            // apart said 61 and 57 of "categories" with nothing to tell a reader they were
+            // counting different things. This one counts collectors, and says so.
+            $"entities={collection.Entities} collectors={collection.Categories} " +
+            $"collect={collection.CollectMilliseconds:0.###}ms " +
+            $"ported={Milliseconds(_ourTicks)}ms native={Milliseconds(_theirTicks)}ms " +
+            $"elapsed={elapsedMilliseconds:0.###}ms " +
+            $"memos={drift.Surveyed} drifted={drift.Drifted} dirty={drift.Dirty} " +
+            $"uncalculated={drift.NeverCalculated}";
+        return drift.Widest.Length == 0 ? window : window + " widestDrift=" + drift.Widest;
+    }
+
+    private static string Milliseconds(long ticks) =>
+        (ticks * 1000.0 / Stopwatch.Frequency).ToString("0.###");
 
     /// <summary>Runs one ported-math pass over every entity it can reach, then reports its verdict.</summary>
     private void RunPass(IVerificationPass pass)
     {
         if (!pass.TryBegin(out var entities, out var failure))
         {
-            _report($"{pass.Subject} verification unavailable: {failure}");
+            _pending.Add(VerificationFinding.Inconclusive(pass.Subject, failure));
             return;
         }
 
@@ -136,26 +289,43 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         }
 
         session.EndTick();
-        _report(session.Complete());
+        _ourTicks += session.OurElapsedTicks;
+        _theirTicks += session.TheirElapsedTicks;
+        _pending.Add(session.Complete());
     }
 
     /// <summary>
     /// Checks world collection itself — binding, traversal, identity, edges, accessor parity, and
-    /// cache warmth — against the live game. Reports several lines rather than one verdict, because
-    /// the answers are measurements as much as they are pass or fail.
+    /// cache warmth — against the live game. Reports several findings rather than one, because those
+    /// checks fail independently and a combined verdict would hide which of them did.
     /// </summary>
-    private void RunWorldCollectionCheck()
+    private WorldCollectionCheckResult RunWorldCollectionCheck()
     {
         try
         {
-            foreach (var line in new AutomataWorldCollectionCheck().Run()) _report(line);
+            return new AutomataWorldCollectionCheck().Run();
         }
         catch (Exception ex)
         {
             // A throw here is itself the finding — the collector reached something on a live object
             // that no stub reproduces — so it is reported rather than allowed to take down the frame
-            // the player is standing in.
-            _report($"World collection check threw: {ex.GetBaseException().Message}");
+            // the player is standing in. What it must not report is the runtime's own exception text
+            // on its own: read alone, "Object reference not set to an instance of an object" is a
+            // sentence about the suite's plumbing that a reader mistook for a verdict about the
+            // game. The verdict word is the finding's own; the exception type stays in the sentence,
+            // where whoever is debugging the suite still has the clue.
+            return new WorldCollectionCheckResult(
+                new[]
+                {
+                    VerificationFinding.Inconclusive(
+                        "World collection",
+                        "it faulted before it could compare anything, so nothing here is a verdict " +
+                        $"about the game ({ex.GetBaseException().GetType().Name})."),
+                },
+                entities: 0,
+                categories: 0,
+                collectMilliseconds: 0d,
+                drift: default);
         }
     }
 
@@ -222,6 +392,119 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
             }
 
             return _verifier.TryVerify(entity, run, session, out failure);
+        }
+    }
+
+    /// <summary>
+    /// The upgrade half of the purchase curve, sampled at levels the upgrade is not standing on.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="CostPass"/> because the two populations do not share a chain:
+    /// structures grow by a single per-quantity modifier, upgrades by a modifier list with exponents.
+    /// Folding them into one verdict would leave "cost failed" ambiguous between two ports.
+    /// </remarks>
+    private sealed class UpgradeCostPass : IVerificationPass
+    {
+        private AutomataUpgradeCostVerifier? _verifier;
+
+        public string Subject => "Upgrade cost curve";
+
+        public bool TryBegin(out IList entities, out string failure)
+        {
+            entities = Array.Empty<object>();
+
+            var upgradeType = FindType("UpgradeSO");
+            if (upgradeType is null)
+            {
+                failure = "the UpgradeSO type could not be resolved.";
+                return false;
+            }
+
+            _verifier = new AutomataUpgradeCostVerifier(upgradeType);
+            if (!_verifier.IsAvailable)
+            {
+                failure = "this build does not expose the expected upgrade cost contract.";
+                return false;
+            }
+
+            var all = ReadStaticList(upgradeType, "All");
+            if (all is null || all.Count == 0)
+            {
+                failure = "no upgrades were available. Load a save first.";
+                return false;
+            }
+
+            entities = all;
+            failure = string.Empty;
+            return true;
+        }
+
+        public bool TryVerify(
+            object entity,
+            DifferentialRun run,
+            DifferentialVerificationSession session,
+            out string failure)
+        {
+            if (_verifier is null)
+            {
+                failure = "the upgrade cost verifier was not started.";
+                return false;
+            }
+
+            return _verifier.TryVerify(entity, run, session, out failure);
+        }
+    }
+
+    /// <summary>Checks the two plot-node quantity ports against the game's own answers.</summary>
+    private sealed class PlotQuantityPass : IVerificationPass
+    {
+        private AutomataPlotQuantityVerifier? _verifier;
+
+        public string Subject => "Plot node quantity";
+
+        public bool TryBegin(out IList entities, out string failure)
+        {
+            entities = Array.Empty<object>();
+
+            var plotNodeType = FindType("PlotNodeSO");
+            if (plotNodeType is null)
+            {
+                failure = "the PlotNodeSO type could not be resolved.";
+                return false;
+            }
+
+            _verifier = new AutomataPlotQuantityVerifier(plotNodeType);
+            if (!_verifier.IsAvailable)
+            {
+                failure = "this build does not expose the expected plot quantity contract.";
+                return false;
+            }
+
+            var all = ReadStaticList(plotNodeType, "All");
+            if (all is null || all.Count == 0)
+            {
+                failure = "no plot nodes were available. Load a save first.";
+                return false;
+            }
+
+            entities = all;
+            failure = string.Empty;
+            return true;
+        }
+
+        public bool TryVerify(
+            object entity,
+            DifferentialRun run,
+            DifferentialVerificationSession session,
+            out string failure) =>
+            _verifier is not null
+                ? _verifier.TryVerify(entity, run, out failure)
+                : Unavailable(out failure);
+
+        private static bool Unavailable(out string failure)
+        {
+            failure = "the plot quantity verifier was not started.";
+            return false;
         }
     }
 
@@ -306,7 +589,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 failure = "no Concept recipes were available. Load a save first.";
                 return false;
             }
-            var collector = new GameWorldCollector();
+            var collector = VerificationCollector();
             collector.Collect();
             _world = collector.Build();
             entities = all;
@@ -364,7 +647,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 failure = "no spell recipes were available. Load a save first.";
                 return false;
             }
-            var collector = new GameWorldCollector();
+            var collector = VerificationCollector();
             collector.Collect();
             _world = collector.Build();
             entities = all;
@@ -390,13 +673,124 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
     }
 
     /// <summary>
+    /// Checks the derived spell type layer against the game's own factor, one loadout position at a
+    /// time.
+    /// </summary>
+    /// <remarks>
+    /// The only pass whose entities are positions rather than registry entries, because a loadout
+    /// position has no identity of its own and two of them may hold the same spell. It reads the
+    /// loadout the collector reads — the list the identity registry answers for <c>ActiveSpells</c> —
+    /// so a position here and a published row there are the same position by construction, rather
+    /// than by an assumption about which list a manager field happens to point at.
+    /// </remarks>
+    private sealed class SpellTypeLayerPass : IVerificationPass
+    {
+        private AutomataSpellTypeLayerVerifier? _verifier;
+        private GameWorldState? _world;
+
+        public string Subject => "Spell type layer";
+
+        public bool TryBegin(out IList entities, out string failure)
+        {
+            entities = Array.Empty<object>();
+
+            var source = RuntimeIdentityRegistryBinding.Shared.Read();
+            if (!source.IsReady || source.Registry is null)
+            {
+                failure = source.Reason;
+                return false;
+            }
+
+            var loadout = source.Registry[KnownEntities.ActiveSpells.Uuid];
+            if (loadout is null)
+            {
+                failure = "the equipped spell loadout is not registered yet. Load a save first.";
+                return false;
+            }
+
+            var loadoutType = loadout.GetType();
+            var spellType = NativeAccessorBinder.CollectionElementType(loadoutType, "value");
+            var readPositions = NativeAccessorBinder.CollectionField(loadoutType, "value");
+            if (spellType is null || readPositions is null)
+            {
+                failure = "this build does not expose the equipped loadout's positions.";
+                return false;
+            }
+
+            _verifier = new AutomataSpellTypeLayerVerifier(spellType);
+            if (!_verifier.IsAvailable)
+            {
+                failure = "this build does not expose the expected spell type layer oracle.";
+                return false;
+            }
+
+            // The same two entries the collector passes over, skipped for the same two reasons, so
+            // that every position reaching the comparison has a published row to compare against.
+            var positions = readPositions(loadout);
+            var count = positions?.Count ?? 0;
+            var occupants = new List<object>(count);
+            for (var index = 0; index < count; index++)
+            {
+                var occupant = positions![index];
+                if (occupant is null || occupant.GetType() != spellType) continue;
+                occupants.Add(new LoadoutPosition(index, occupant));
+            }
+
+            if (occupants.Count == 0)
+            {
+                failure = "no spell loadout positions were available. Load a save first.";
+                return false;
+            }
+
+            var collector = VerificationCollector();
+            collector.Collect();
+            _world = collector.Build();
+
+            entities = occupants;
+            failure = string.Empty;
+            return true;
+        }
+
+        public bool TryVerify(
+            object entity,
+            DifferentialRun run,
+            DifferentialVerificationSession session,
+            out string failure)
+        {
+            if (_verifier is null || _world is null)
+            {
+                failure = "the spell type layer verifier was not started.";
+                return false;
+            }
+
+            var position = (LoadoutPosition)entity;
+            return _verifier.TryVerify(
+                position.Spell, position.SlotIndex, _world, run, session, out failure);
+        }
+
+        /// <summary>One loadout position and what stands in it.</summary>
+        private sealed class LoadoutPosition
+        {
+            internal LoadoutPosition(int slotIndex, object spell)
+            {
+                SlotIndex = slotIndex;
+                Spell = spell;
+            }
+
+            internal int SlotIndex { get; }
+
+            internal object Spell { get; }
+        }
+    }
+
+    /// <summary>
     /// Checks the suite's own answer to "may this be bought at its next level" against the game's, for
     /// one kind of owner.
     /// </summary>
     /// <remarks>
-    /// Two passes rather than one because the two owner kinds are checked at different levels and a
-    /// combined verdict would hide which of the two disagreed — and because the level expressions are
-    /// the likeliest thing to be wrong.
+    /// One pass per owner kind rather than one combined, because each kind is checked at a level of
+    /// its own and a combined verdict would hide which of them disagreed — and because the level
+    /// expressions are the likeliest thing to be wrong.
     /// <para>
     /// Its own collector, deliberately. The requirement rows are read once per lifecycle epoch, so a
     /// collector that has already run would skip the read this pass exists to check; a fresh one reads
@@ -406,15 +800,15 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
     private sealed class RequirementPass : IVerificationPass
     {
         private readonly string _typeName;
-        private readonly bool _isUpgrade;
+        private readonly RequirementOwnerShape _shape;
         private AutomataRequirementVerifier? _verifier;
         private GameWorldState? _world;
 
-        internal RequirementPass(string subject, string typeName, bool isUpgrade)
+        internal RequirementPass(string subject, string typeName, RequirementOwnerShape shape)
         {
             Subject = subject;
             _typeName = typeName;
-            _isUpgrade = isUpgrade;
+            _shape = shape;
         }
 
         public string Subject { get; }
@@ -430,10 +824,10 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            _verifier = new AutomataRequirementVerifier(ownerType, _isUpgrade);
+            _verifier = new AutomataRequirementVerifier(ownerType, _shape);
             if (!_verifier.IsAvailable)
             {
-                failure = "this build does not expose the expected per-level prerequisite contract.";
+                failure = "this build does not expose the expected prerequisite contract.";
                 return false;
             }
 
@@ -444,7 +838,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            var collector = new GameWorldCollector();
+            var collector = VerificationCollector();
             collector.Collect();
             _world = collector.Build();
 
@@ -465,7 +859,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            return _verifier.TryVerify(entity, _world, run, out failure);
+            return _verifier.TryVerify(entity, _world, run, session, out failure);
         }
     }
 
@@ -501,7 +895,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            var collector = new GameWorldCollector();
+            var collector = VerificationCollector();
             collector.Collect();
             _world = collector.Build();
             entities = all;
@@ -524,6 +918,17 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
             return _verifier.TryVerify(entity, _world, run, out failure);
         }
     }
+
+    /// <summary>The throwaway collector a pass reads its comparison world from.</summary>
+    /// <remarks>
+    /// Deliberately not <see cref="GameWorldCollector.ForSession()"/>. That factory is the named
+    /// opt-in into the production purchase-view topology — a process-wide singleton the running
+    /// suite's action boundary reads its owning-view admissions from — and a diagnostic collector
+    /// that took it would restamp the singleton with its own epoch, leaving every purchase
+    /// afterwards refusing on a snapshot this check wrote. A verification pass compares math; it has
+    /// no business owning the live topology.
+    /// </remarks>
+    private static GameWorldCollector VerificationCollector() => new(WorldNativeTypes.Resolve);
 
     private static Type? FindType(string name)
     {

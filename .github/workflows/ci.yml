@@ -49,10 +49,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Set up .NET 10
+      - name: Set up pinned .NET SDK
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
 
       - name: Restore locked portable dependencies
         run: dotnet restore tests/OrbModding.Tests/OrbModding.Tests.csproj --locked-mode -p:UseGameStubs=true
@@ -107,10 +107,10 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
-      - name: Set up .NET 10
+      - name: Set up pinned .NET SDK
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
 
       - name: Restore locked dependencies
         run: dotnet restore tests/OrbModding.Tests/OrbModding.Tests.csproj --locked-mode -p:UseGameStubs=true
@@ -137,10 +137,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Set up .NET 10
+      - name: Set up pinned .NET SDK
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
 
       - name: Restore locked dependencies
         run: dotnet restore tests/OrbModding.Tests/OrbModding.Tests.csproj --locked-mode -p:UseGameStubs=true

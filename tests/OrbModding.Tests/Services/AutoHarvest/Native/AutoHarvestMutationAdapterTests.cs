@@ -68,16 +68,10 @@ public sealed class AutoHarvestMutationAdapterTests
         Assert.Equal(0, state.CaptureCount);
         Assert.Equal(0, state.PrototypeCount);
         Assert.False(result.MutationAttempted);
-        Assert.True(result.PrerequisiteValidation.HasBeforeLatch);
-        Assert.False(result.PrerequisiteValidation.BeforeLatch);
-        Assert.True(result.PrerequisiteValidation.HasCheckResult);
-        Assert.False(result.PrerequisiteValidation.CheckResult);
-        Assert.True(result.PrerequisiteValidation.HasAfterLatch);
-        Assert.False(result.PrerequisiteValidation.AfterLatch);
     }
 
     [Fact]
-    public void SuccessfulColdValidationIsCalledOnceAndItsThreeObservationsSurviveRejection()
+    public void SuccessfulColdValidationIsCalledOnceBeforePolicyRejection()
     {
         var state = new RecordingStatePort();
         var action = new PlotNodeActionSO();
@@ -93,9 +87,6 @@ public sealed class AutoHarvestMutationAdapterTests
 
         Assert.Equal(AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected, result.FailureCode);
         Assert.Equal(1, action.prerequisites.CheckCalls);
-        Assert.False(result.PrerequisiteValidation.BeforeLatch);
-        Assert.True(result.PrerequisiteValidation.CheckResult);
-        Assert.True(result.PrerequisiteValidation.AfterLatch);
         Assert.False(result.MutationAttempted);
     }
 
@@ -113,7 +104,6 @@ public sealed class AutoHarvestMutationAdapterTests
             result.FailureCode);
         Assert.False(result.HasNativeMutationOutcome);
         Assert.Equal(0, state.CaptureCount);
-        Assert.False(result.PrerequisiteValidation.HasBeforeLatch);
         Assert.False(result.MutationAttempted);
     }
 
@@ -253,86 +243,6 @@ public sealed class AutoHarvestMutationAdapterTests
         Assert.False(result.MutationAttempted);
     }
 
-    [Fact]
-    public void ExactSingleSubmissionTransitionIsVerified()
-    {
-        var before = State(used: 2, empty: 1, nativeHasEmptyEntry: true, supported: 0, matches: 0, quantity: 0, engaged: false);
-        var after = State(used: 3, empty: 0, nativeHasEmptyEntry: false, supported: 1, matches: 1, quantity: 1, engaged: true);
-
-        Assert.True(AutoHarvestMutationAdapter.VerifyTransition(before, after));
-    }
-
-    [Theory]
-    [InlineData(2, 1, 1, true)]
-    [InlineData(1, 2, 1, true)]
-    [InlineData(1, 1, 2, true)]
-    [InlineData(1, 1, 1, false)]
-    public void AmbiguousOrOverSubmittedTransitionIsRejected(
-        int supported,
-        int matches,
-        int quantity,
-        bool engaged)
-    {
-        var before = State(used: 2, empty: 1, nativeHasEmptyEntry: true, supported: 0, matches: 0, quantity: 0, engaged: false);
-        var after = State(used: 3, empty: 0, nativeHasEmptyEntry: false, supported, matches, quantity, engaged);
-
-        Assert.False(AutoHarvestMutationAdapter.VerifyTransition(before, after));
-    }
-
-    [Theory]
-    [InlineData(0, true)]
-    [InlineData(1, false)]
-    public void SubmissionRequiresBothEnumeratedAndNativeEmptyEntryEvidence(
-        int emptyEntries,
-        bool nativeHasEmptyEntry)
-    {
-        var before = State(
-            used: 2,
-            empty: emptyEntries,
-            nativeHasEmptyEntry,
-            supported: 0,
-            matches: 0,
-            quantity: 0,
-            engaged: false);
-        var after = State(
-            used: 3,
-            empty: 0,
-            nativeHasEmptyEntry: false,
-            supported: 1,
-            matches: 1,
-            quantity: 1,
-            engaged: true);
-
-        Assert.False(AutoHarvestMutationAdapter.VerifyTransition(before, after));
-    }
-
-    [Theory]
-    [InlineData(0, true)]
-    [InlineData(1, false)]
-    public void SubmissionRejectsContradictoryPostMutationEmptyEntryEvidence(
-        int emptyEntries,
-        bool nativeHasEmptyEntry)
-    {
-        var before = State(
-            used: emptyEntries == 0 ? 2 : 1,
-            empty: emptyEntries + 1,
-            nativeHasEmptyEntry: true,
-            supported: 0,
-            matches: 0,
-            quantity: 0,
-            engaged: false);
-        var after = State(
-            used: emptyEntries == 0 ? 3 : 2,
-            empty: emptyEntries,
-            nativeHasEmptyEntry,
-            supported: 1,
-            matches: 1,
-            quantity: 1,
-            engaged: true);
-
-        Assert.False(AutoHarvestMutationAdapter.VerifyTransition(before, after));
-    }
-
     [Theory]
     [InlineData(false, 1, true, 0, 0, (int)AutoHarvestSubmissionFailureCode.RuntimeReadFailed)]
     [InlineData(true, 0, false, 0, 0, (int)AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected)]
@@ -363,7 +273,7 @@ public sealed class AutoHarvestMutationAdapterTests
             () =>
             {
                 afterCaptured = true;
-                return before;
+                return true;
             },
             () => executed = true);
 
@@ -479,6 +389,9 @@ public sealed class AutoHarvestMutationAdapterTests
         public AutoHarvestSubmissionState CaptureSubmissionState(in ResolvedAutoHarvestPair resolved) =>
             throw new InvalidOperationException("capture failed");
 
+        public bool IsPairEngaged(in ResolvedAutoHarvestPair resolved) =>
+            throw new InvalidOperationException("capture failed");
+
         public object? ReadPrototype(in ResolvedAutoHarvestPair resolved) =>
             throw new NotSupportedException();
 
@@ -543,6 +456,9 @@ public sealed class AutoHarvestMutationAdapterTests
                     engaged: true)
                 : Captured;
         }
+
+        public bool IsPairEngaged(in ResolvedAutoHarvestPair resolved) =>
+            _activeActions?.AddCalls > 0;
 
         public object? ReadPrototype(in ResolvedAutoHarvestPair resolved)
         {

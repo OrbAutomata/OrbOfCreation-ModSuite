@@ -129,6 +129,8 @@ internal sealed class ModConfigUiShell : IDisposable
     internal IReadOnlyList<string> CapturePagesForGameMcp() =>
         _panel.CapturePagesForGameMcp();
 
+    internal int SelectedPageIndexForGameMcp => _panel.SelectedPageIndexForGameMcp;
+
     internal bool IsNativeTabForGameMcp(Component component) =>
         _navigation.IsNativeTabForGameMcp(component);
 

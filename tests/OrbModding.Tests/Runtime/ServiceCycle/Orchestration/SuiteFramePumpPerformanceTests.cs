@@ -5,6 +5,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime;
+using OrbModding.TestSupport;
 using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 using Xunit;
 
@@ -21,11 +22,9 @@ public sealed class SuiteFramePumpPerformanceTests
         registry.Seal();
         using var pump = new SuiteFramePump(registry);
         pump.PumpFrame(1);
+        var frame = 2L;
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var frame = 2; frame <= 10_001; frame++)
-            pump.PumpFrame(frame);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = AllocationProbe.MeasureRepeated(10_000, () => pump.PumpFrame(frame++));
 
         Assert.Equal(0, allocated);
     }
@@ -47,15 +46,14 @@ public sealed class SuiteFramePumpPerformanceTests
         ServiceCyclePumpTestWait.UntilResponse(pump, ref frameIdentity);
         pump.PumpFrame(frameIdentity++);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
         var actionFrames = 0;
-        for (var index = 0; index < 100; index++)
-            actionFrames += pump.PumpFrame(frameIdentity++).ActionsAttempted;
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = AllocationProbe.MeasureRepeated(
+            100,
+            () => actionFrames += pump.PumpFrame(frameIdentity++).ActionsAttempted);
 
         Assert.Equal(0, allocated);
-        Assert.Equal(100, actionFrames);
-        Assert.Equal(101, definition.ActionExecutionCount);
+        Assert.Equal(200, actionFrames);
+        Assert.Equal(201, definition.ActionExecutionCount);
     }
 
     [Fact]
@@ -75,11 +73,9 @@ public sealed class SuiteFramePumpPerformanceTests
         TestWorldCollector.CollectedAtActivation(registry);
         pump.PumpFrame(1);
         pump.PumpFrame(2);
+        var frame = 3L;
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var frame = 3; frame <= 10_002; frame++)
-            pump.PumpFrame(frame);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = AllocationProbe.MeasureRepeated(10_000, () => pump.PumpFrame(frame++));
 
         Assert.Equal(0, allocated);
         // Asked once, on the frame that set the wake; the ten thousand scans after it cost nothing

@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common.Runtime.GameMath;
 
 namespace OrbModding.Common.Runtime.World;
 
@@ -481,7 +482,13 @@ internal readonly struct WorldResource : IWorldEntity
     /// </summary>
     internal double FillFraction { get; }
 
-    /// <summary>Whether holdings have reached or passed the ceiling.</summary>
+    /// <summary>
+    /// Whether the counter's displayed number has reached or passed the ceiling. Ordinary counters
+    /// display stored quantity; inverted ones display missing capacity, so they are at capacity when
+    /// nothing is stored. Reading this against <see cref="WorldResourceCoordinate.SpendableAmount"/>
+    /// mixes coordinates — it belongs beside
+    /// <see cref="WorldResourceCoordinate.DisplayAmount"/>.
+    /// </summary>
     internal bool IsAtCapacity { get; }
 
     /// <summary>
@@ -506,6 +513,84 @@ internal readonly struct WorldResource : IWorldEntity
     /// computation per resource per cycle, off the Unity thread, and no write at all.
     /// </remarks>
     internal BigDouble TrueRate { get; }
+}
+
+/// <summary>
+/// The two native coordinates a resource exposes: what its counter displays and what
+/// <c>ResourceSO.HasAmount</c> can spend. The native predicates are deliberately independent.
+/// </summary>
+internal static class WorldResourceCoordinate
+{
+    /// <summary>
+    /// Mirrors <c>ResourceSO.GetDisplayQuantity()</c>: inverted counters display missing capacity;
+    /// every other counter displays stored quantity.
+    /// </summary>
+    internal static BigDouble DisplayAmount(in WorldResource resource) =>
+        resource.Reading.Traits.InvertedResource
+            ? resource.Headroom
+            : resource.Reading.Quantity;
+
+    /// <summary>
+    /// Whether the number this resource displays is what is <em>left</em> of its ceiling: the very
+    /// pool the game spends from, falling as it is spent and rising only as the total grows.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both flags decide this, and reading one of them decided it wrongly. The display coordinate is
+    /// <c>invertedResource</c> — <c>ResourceSO.GetDisplayQuantity()</c> returns <c>GetMissing()</c>
+    /// when it is set — and the spending coordinate is <c>bandwidthResource</c>, because
+    /// <c>ResourceSO.HasAmount</c> tests missing capacity for bandwidth and stored quantity for
+    /// everything else. The two agree on the twelve advancement currencies, which carry both flags:
+    /// there the displayed number *is* the budget, so "left" is what it is.
+    /// </para>
+    /// <para>
+    /// Toxicity is the one resource in this build that is inverted and is not bandwidth. The game
+    /// spends its stored quantity while displaying the missing half, so its number climbs toward the
+    /// ceiling as potions are drunk, blocks the next one when it is full, and falls again as the
+    /// stock recovers — a meter that fills, which is the opposite of what "left" tells a reader.
+    /// Both flags were already captured; only the derivation read one of them.
+    /// </para>
+    /// </remarks>
+    internal static bool DisplaysWhatIsLeft(in WorldResource resource) =>
+        resource.Reading.Traits.InvertedResource && resource.Reading.Traits.BandwidthResource;
+
+    /// <summary>
+    /// The pool shown beside a player-facing cost: bandwidth spends missing capacity; ordinary
+    /// resources spend stored quantity after the cost is converted through quality.
+    /// </summary>
+    internal static BigDouble SpendableAmount(in WorldResource resource) =>
+        resource.Reading.Traits.BandwidthResource
+            ? resource.Headroom
+            : resource.Reading.Quantity;
+
+    /// <summary>
+    /// The amount comparable directly with an unconverted native cost. This is headroom for
+    /// bandwidth and quality-scaled holdings for ordinary resources.
+    /// </summary>
+    internal static BigDouble NativeCostAmount(in WorldResource resource) =>
+        resource.Reading.Traits.BandwidthResource
+            ? resource.Headroom
+            : resource.TrueQuantity;
+
+    /// <summary>Mirrors <c>ResourceSO.GetTrueSpend</c> for ordinary resources.</summary>
+    internal static BigDouble PlayerFacingCost(in WorldResource resource, BigDouble nominalCost)
+    {
+        if (resource.Reading.Traits.BandwidthResource) return nominalCost;
+        var quality = OrbGameMath.AsPercent(resource.Reading.Quality);
+        return quality == BigDouble.Zero ? nominalCost : nominalCost / quality;
+    }
+
+    /// <summary>Mirrors <c>ResourceSO.HasAmount</c>, including bandwidth integer snapping.</summary>
+    internal static bool HasAmount(in WorldResource resource, BigDouble nominalCost)
+    {
+        if (resource.Reading.Traits.BandwidthResource)
+        {
+            return OrbGameMath.SnapFloorToInt(resource.Headroom) >=
+                OrbGameMath.SnapFloorToInt(nominalCost);
+        }
+
+        return resource.Reading.Quantity.CompareTo(PlayerFacingCost(in resource, nominalCost)) >= 0;
+    }
 }
 
 /// <summary>

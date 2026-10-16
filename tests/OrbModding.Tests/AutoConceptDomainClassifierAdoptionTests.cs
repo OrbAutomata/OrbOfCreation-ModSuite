@@ -38,9 +38,14 @@ public sealed class AutoConceptDomainClassifierAdoptionTests : IDisposable
 
         Assert.Equal(AlchemyDomainClassifierStatus.Retryable, classifier.Status);
         Assert.Contains(
-            "Auto Concept domain classifier is not ready: ConceptRecipes resolution failed.",
+            "Auto Concept domain classifier is not ready:",
             reason,
             StringComparison.Ordinal);
+        Assert.Contains(
+            AlchemyGameplayDomainClassifier.ConceptRecipesUuid.ToString("D"),
+            reason,
+            StringComparison.Ordinal);
+        Assert.Contains("resolution failed.", reason, StringComparison.Ordinal);
         Assert.Contains("Status=NotFound", reason, StringComparison.Ordinal);
 
         var generation = classifier.ClassifierGeneration;

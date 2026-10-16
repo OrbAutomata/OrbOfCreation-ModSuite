@@ -26,7 +26,7 @@ internal sealed partial class AutoHarvestBindingResolver
             var activeActions = Resolve(
                 KnownEntities.ActivePlotNodeActions.Uuid,
                 _types.ActiveActions,
-                KnownEntities.ActivePlotNodeActions.DiagnosticName,
+                EntityIdentityFormatter.Format(KnownEntities.ActivePlotNodeActions.Uuid),
                 out var activeResolution);
             // The scaling weight is resolved for its identity's sake, not for the object: the pair's
             // completion effect is audited from the snapshot now, and what this proves is that the
@@ -34,7 +34,7 @@ internal sealed partial class AutoHarvestBindingResolver
             Resolve(
                 KnownEntities.CompletionScalingWeight.Uuid,
                 _types.ScalingWeight,
-                KnownEntities.CompletionScalingWeight.DiagnosticName,
+                EntityIdentityFormatter.Format(KnownEntities.CompletionScalingWeight.Uuid),
                 out var scalingResolution);
             RequireCurrentGeneration(
                 activeResolution.LifecycleGeneration,

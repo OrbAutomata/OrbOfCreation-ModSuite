@@ -10,6 +10,7 @@ internal enum AutoScribeDecisionKind
     Planned = 2,
     EvidenceBlocked = 3,
     ExternallyProducing = 4,
+    QueueBusy = 5,
 }
 
 internal readonly struct AutoScribeDecisionMetrics

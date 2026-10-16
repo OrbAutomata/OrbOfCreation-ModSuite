@@ -240,6 +240,17 @@ all and latches into the published `available` field, while `prerequisitesPerLev
 being bought — `Check(level + queuedLevels + 1)` for an upgrade, `Check(quantity)` for a structure — so
 there is no field to read and no parameterless call to make.
 
+**The gating container is rows too, under its own program.** A published `available: false` says a
+row is locked and nothing more, and "what would unlock it" is the question a player actually asks, so
+`UpgradeSO.prerequisites`, `StructureSO.prerequisites` and both of `ResearchSO`'s visibility
+containers are read as a third program kind, `Unlock`. Reading them is fields only — the no-argument
+`Check()` that answers them is the write W36 refused, and it stays refused: the program is evaluated
+at level nought because that is the level that overload's own `ConditionInfo` carries, and the
+container's `adjustValue`, which only that overload reads, rides on each row and is added to the
+leveled threshold the way `ConditionValueInstance` adds it. A Research's two containers are ANDed by
+the game, so the second one's group ordinals continue after the first's and the existing all-of fold
+across group positions *is* that AND — no new node kind, no operator row.
+
 **What is published is the conditions, not the verdict.** Every value a condition compares against is
 already a row in the same snapshot, so the verdict is arithmetic a worker can do, and doing it there
 keeps the snapshot free of an answer only true at one level. It also leaves the rows for consumers that
@@ -247,14 +258,33 @@ want the fact: "this upgrade waits on that research reaching six" is what chain 
 boolean throws away. The row carries its owner's registry, because the level a container is checked at
 is a property of the owner.
 
-**Eight of the twenty-six comparisons are refused.** Six reach the latching no-argument `Check()` W36
-logged as a write — none occurs in a per-level container on this baseline, but "none today" is what
-needs a guard rather than a habit. `SpellRequirement.MasteryLevelReady` asks for state the snapshot did
-not publish (W59 adds it). `GenericRequirement.Discovered` targets an arbitrary `UpgradeableObject`
-whose `IsDiscovered()` is virtual across six implementers reading different fields, and a row carries
-an identity rather than a type, so there is no way to pick the right override — the same ground
-`GenericRequirement.Level` is refused on. The remaining eighteen are modelled. **Unknown is a row, not
-an absence:** an unaudited condition class publishes a row of kind `Unknown` and the pass reports
+**Seven of the thirty comparisons are refused.** The thirty are the members of the ten discriminant
+enums the condition classes carry, each counted once: `ResearchRequirement` declares none of its own
+and compares through `UpgradeRequirementType`, so a research row's `Visible` is the same refusal as
+an upgrade row's. `WorldRequirementRefusalTests` recomputes all three numbers from the evaluator's
+own discriminant constants against those enums, so the count here and the code cannot part company
+quietly.
+
+Five of the seven reach the latching no-argument `Check()` W36 logged as a write —
+`UpgradeRequirementType.Visible`, `StructureRequirementType.Available`,
+`SpellRequirementType.Visible`, `AlchemyRecipeType.Visible`, `GenericRequirementType.Visible`. None
+occurs in a per-level container on this baseline, but "none today" is what needs a guard rather than
+a habit, and the guard is what carries the refusal into the gating containers, where such a
+comparison publishes its `Unknown` row and leaves that entity's verdict unevaluable rather than
+wrong. `SpellRequirementType.MasteryLevelReady` asks for state the snapshot does not publish (W59
+adds it for the spell's own row, not for this comparison). `ListRequirementType.Count` is a count
+against the threshold that no authored content in this baseline exercises, and it reads as
+unevaluable rather than as a comparison nobody has checked.
+
+The remaining twenty-three are modelled. `GenericRequirement.Discovered` is one of them: its target
+is an arbitrary `UpgradeableObject` whose `IsDiscovered()` is virtual across six implementers
+reading different fields, and a row carries an identity rather than a type — so the answer comes
+from whichever of the six categories published that identity, and a target in none of them refuses.
+`GenericRequirement.Level` is modelled on the same ground, against the two number registries whose
+override is `value.AsInt()`, and refuses every other target. The last three are
+`ResourceRequirement`'s — list membership, lifetime total, ceiling — each a stored field the
+snapshot already carried, which is what took this build's 303 resource leaves out of the unmodelled
+count. **Unknown is a row, not an absence:** an unaudited condition class publishes a row of kind `Unknown` and the pass reports
 itself incomplete, because an entity with no rows reads as unconditional — the wrong answer for one
 gated by something nobody modelled.
 

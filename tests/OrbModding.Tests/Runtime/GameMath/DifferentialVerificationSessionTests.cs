@@ -55,7 +55,7 @@ public sealed class DifferentialVerificationSessionTests
     }
 
     [Fact]
-    public void AgreementAcrossEveryEntityReportsAPass()
+    public void AgreementAcrossEveryEntityReportsAnAgreement()
     {
         var session = new DifferentialVerificationSession();
         session.Start();
@@ -65,12 +65,14 @@ public sealed class DifferentialVerificationSessionTests
 
         var verdict = session.Complete();
 
-        Assert.Contains("PASSED", verdict, StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Agree, verdict.Verdict);
+        Assert.Equal("Game math AGREE: 1 compared.", verdict.Headline());
+        Assert.Empty(verdict.Detail);
         Assert.False(session.IsRunning);
     }
 
     [Fact]
-    public void ADisagreementReportsAFailure()
+    public void ADisagreementReportsADisagreement()
     {
         var session = new DifferentialVerificationSession();
         session.Start();
@@ -78,7 +80,14 @@ public sealed class DifferentialVerificationSessionTests
         session.RecordVerified();
         session.EndTick();
 
-        Assert.Contains("FAILED", session.Complete(), StringComparison.Ordinal);
+        var verdict = session.Complete();
+
+        Assert.Equal(VerificationVerdict.Disagree, verdict.Verdict);
+        Assert.Equal(
+            "Game math DISAGREE: 1 compared, 0 agree, 1 differ.", verdict.Headline());
+        Assert.Equal(
+            $"Mismatch: entity {Entity} [{Resource}] ours=100 theirs=150",
+            Assert.Single(verdict.Detail));
     }
 
     [Fact]
@@ -92,8 +101,12 @@ public sealed class DifferentialVerificationSessionTests
 
         var verdict = session.Complete();
 
-        Assert.Contains("INCONCLUSIVE", verdict, StringComparison.Ordinal);
-        Assert.DoesNotContain("PASSED", verdict, StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Inconclusive, verdict.Verdict);
+        Assert.Equal(
+            "Game math INCONCLUSIVE: nothing could be verified — no entities were available to " +
+            "check.",
+            verdict.Headline());
+        Assert.Equal(0, verdict.Compared);
     }
 
     [Fact]
@@ -110,14 +123,18 @@ public sealed class DifferentialVerificationSessionTests
 
         var verdict = session.Complete();
 
-        Assert.Contains("INCOMPLETE", verdict, StringComparison.Ordinal);
-        Assert.Contains("the cost contract was unavailable", verdict, StringComparison.Ordinal);
-        Assert.DoesNotContain("PASSED", verdict, StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Incomplete, verdict.Verdict);
+        Assert.Equal(
+            "Game math INCOMPLETE: 1 compared, all agree — 1 of 2 entities could not be read — " +
+            "the cost contract was unavailable",
+            verdict.Headline());
     }
 
     [Fact]
-    public void ExpectedUninstantiatedSkipsStayVisibleWithoutDowngradingAPass()
+    public void AnExpectedSkipIsNotAGapInCoverageAndDoesNotDowngradeAnAgreement()
     {
+        // A skip the pass declared expected is not an entity that could not be read, so it neither
+        // downgrades the verdict nor earns a line: an agreement renders as a count, not as rows.
         var session = new DifferentialVerificationSession("Concept drain");
         session.Start();
         session.Run.Compare(Entity, Resource.ToString(), new BigDouble(10d), new BigDouble(10d));
@@ -128,9 +145,9 @@ public sealed class DifferentialVerificationSessionTests
 
         var verdict = session.Complete();
 
-        Assert.Contains("PASSED", verdict, StringComparison.Ordinal);
-        Assert.Contains("[1 entities, 1 uninstantiated]", verdict, StringComparison.Ordinal);
-        Assert.DoesNotContain("INCOMPLETE", verdict, StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Agree, verdict.Verdict);
+        Assert.Equal("Concept drain AGREE: 1 compared.", verdict.Headline());
+        Assert.Equal(1, session.ExpectedSkips);
     }
 
     [Fact]
@@ -145,7 +162,7 @@ public sealed class DifferentialVerificationSessionTests
         session.RecordUnverifiable("unreadable");
         session.EndTick();
 
-        Assert.Contains("FAILED", session.Complete(), StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Disagree, session.Complete().Verdict);
     }
 
     [Fact]

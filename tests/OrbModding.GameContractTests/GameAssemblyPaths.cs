@@ -17,6 +17,19 @@ internal sealed class GameAssemblyFactAttribute : FactAttribute
     }
 }
 
+/// <summary>The <see cref="GameAssemblyFactAttribute"/> skip rule, for a cased contract.</summary>
+[AttributeUsage(AttributeTargets.Method)]
+internal sealed class GameAssemblyTheoryAttribute : TheoryAttribute
+{
+    public GameAssemblyTheoryAttribute()
+    {
+        if (!GameAssemblyPaths.TryResolve(out _, out var reason))
+        {
+            Skip = reason;
+        }
+    }
+}
+
 internal sealed class GameAssemblyPaths
 {
     private GameAssemblyPaths(

@@ -46,7 +46,8 @@ Mentor is an ordinary ServiceCycle service. It never reads BepInEx
    grant actions.
 4. The Unity-thread action boundary resolves the recipient again, revalidates
    lifecycle, UUID/type, ownership, eligibility, and mastery ceiling, invokes
-   the native mastery path, and verifies the exact postcondition.
+   the native mastery path, and verifies one progress sentinel: spell/alchemy
+   XP increased, or artifact level/XP advanced.
 
 The spell and alchemy postfixes retain the exact native XP argument.
 `EquipmentSO.IncrementActive` prefix/finalizer plus the

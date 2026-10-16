@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.World;
 using UnityEngine;
 using Xunit;
 
@@ -47,7 +48,7 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
             stock: 1,
             new Sprite());
 
-        var snapshot = AutoItemsTemporaryItemCatalog.Capture();
+        var snapshot = AutoItemsTemporaryItemCatalog.Capture(Catalog());
 
         Assert.True(snapshot.IsAvailable, snapshot.FailureReason);
         Assert.Collection(
@@ -181,7 +182,7 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
         secondFamily.SetGuid(KnownEntities.ConsumableRelicType.Uuid);
         coconut.consumableTypes.Add(secondFamily);
 
-        var snapshot = AutoItemsTemporaryItemCatalog.Capture();
+        var snapshot = AutoItemsTemporaryItemCatalog.Capture(Catalog());
 
         Assert.True(snapshot.IsAvailable, snapshot.FailureReason);
         Assert.Empty(snapshot.Options);
@@ -201,7 +202,7 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
         modification.SetGuid(Guid.Parse("b4f61a61-0e0b-4e3d-9fc6-f17a81024cf0"));
         potion.consumableTypes.Insert(0, modification);
 
-        var snapshot = AutoItemsTemporaryItemCatalog.Capture();
+        var snapshot = AutoItemsTemporaryItemCatalog.Capture(Catalog());
 
         Assert.True(snapshot.IsAvailable, snapshot.FailureReason);
         var option = Assert.Single(snapshot.Options);
@@ -244,7 +245,7 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
             stock: 2,
             new Sprite());
 
-        var snapshot = AutoItemsTemporaryItemCatalog.Capture();
+        var snapshot = AutoItemsTemporaryItemCatalog.Capture(Catalog());
         var presentation = AutoItemsTemporaryItemPickerModel.Compose(
             snapshot,
             $"{coconut.GetGuid():D},{fruit.GetGuid():D}");
@@ -270,7 +271,7 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
             new Sprite());
         duplicate.consumableTypes.Add(duplicate.consumableTypes[0]);
 
-        var duplicateSnapshot = AutoItemsTemporaryItemCatalog.Capture();
+        var duplicateSnapshot = AutoItemsTemporaryItemCatalog.Capture(Catalog());
 
         Assert.False(duplicateSnapshot.IsAvailable);
         Assert.Contains("duplicate family UUID", duplicateSnapshot.FailureReason);
@@ -287,7 +288,7 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
         potion.SetGuid(KnownEntities.ConsumablePotionType.Uuid);
         crossOperation.consumableTypes.Add(potion);
 
-        var crossOperationSnapshot = AutoItemsTemporaryItemCatalog.Capture();
+        var crossOperationSnapshot = AutoItemsTemporaryItemCatalog.Capture(Catalog());
 
         Assert.False(crossOperationSnapshot.IsAvailable);
         Assert.Contains("incoherent supported family memberships", crossOperationSnapshot.FailureReason);
@@ -301,7 +302,7 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
             stock: 1,
             null!);
 
-        var missingIcon = AutoItemsTemporaryItemCatalog.Capture();
+        var missingIcon = AutoItemsTemporaryItemCatalog.Capture(Catalog());
 
         Assert.False(missingIcon.IsAvailable);
         Assert.Contains("returned no audited native icon", missingIcon.FailureReason);
@@ -353,5 +354,28 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
         if (familyId == KnownEntities.ConsumableScrollType.Uuid) return "Scroll";
         if (familyId == KnownEntities.ConsumableThreadType.Uuid) return "Thread";
         return "Unknown family";
+    }
+
+    private static EntityIdentityCatalogSnapshot Catalog()
+    {
+        var rows = new System.Collections.Generic.Dictionary<Guid, EntityIdentityName>();
+        foreach (var item in ConsumableSO.All)
+        {
+            rows[item.GetGuid()] = new EntityIdentityName(
+                item.GetGuid(),
+                nameof(ConsumableSO),
+                item.GetName(),
+                item.name);
+            foreach (var family in item.consumableTypes)
+            {
+                rows[family.GetGuid()] = new EntityIdentityName(
+                    family.GetGuid(),
+                    nameof(ConsumableTypeSO),
+                    family.GetName(),
+                    family.name);
+            }
+        }
+        var ordered = rows.Values.OrderBy(row => row.EntityId).ToArray();
+        return EntityIdentityCatalogSnapshot.Bound(1, ordered);
     }
 }

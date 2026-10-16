@@ -25,6 +25,8 @@ internal interface IAutoHarvestSubmissionStatePort
 
     AutoHarvestSubmissionState CaptureSubmissionState(in ResolvedAutoHarvestPair resolved);
 
+    bool IsPairEngaged(in ResolvedAutoHarvestPair resolved);
+
     /// <summary>
     /// The plot's one instance of the pair's action, or <c>null</c> when the plot holds no such
     /// instance, holds more than one, or holds something this contract cannot identify.

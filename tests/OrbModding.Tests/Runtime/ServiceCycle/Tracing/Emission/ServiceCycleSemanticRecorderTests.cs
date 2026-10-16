@@ -6,6 +6,7 @@ using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing.Emission;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Runtime.ServiceCycle.Tracing.Emission;
@@ -395,14 +396,16 @@ public sealed class ServiceCycleSemanticRecorderTests
             cursor = recorder.DrainSince(cursor, output).Cursor;
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var index = 0; index < 1_000; index++)
+        var generation = 100L;
+        var allocated = AllocationProbe.MeasureRepeated(1_000, () =>
         {
-            recorder.ConfigurationPublished(new ConfigGeneration((ulong)index + 100), new MonotonicTimestamp(index));
+            recorder.ConfigurationPublished(
+                new ConfigGeneration((ulong)generation), new MonotonicTimestamp(generation));
             cursor = recorder.DrainSince(cursor, output).Cursor;
-        }
+            generation++;
+        });
 
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, allocated);
     }
 
     private static ServiceCycleSemanticRecorder NewRecorder(int capacity, int services)

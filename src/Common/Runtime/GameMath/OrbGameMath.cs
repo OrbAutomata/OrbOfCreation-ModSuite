@@ -123,6 +123,18 @@ internal static class OrbGameMath
         IsWithinError(left, right, 0.001);
 
     /// <summary>
+    /// Ported from <c>Utils.Approx(BigDouble, BigDouble)</c>: an <em>absolute</em> difference below
+    /// one part in a hundred thousand.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="ApproxError"/>, which is relative, and the two are not interchangeable here.
+    /// This is the test <c>Spell.GetResonantPercent</c> applies to a resonance whose untouched value
+    /// is exactly one, and it selects between two products that differ.
+    /// </remarks>
+    internal static bool Approx(BigDouble left, BigDouble right) =>
+        BigDouble.Abs(left - right) < (BigDouble)1E-05;
+
+    /// <summary>
     /// Ported from <c>Utils.SumGeometricSequence(BigDouble a, BigDouble r, BigDouble n)</c>: the sum
     /// of <c>n + 1</c> terms of a geometric series with first term <paramref name="a"/> and ratio
     /// <paramref name="ratio"/>.

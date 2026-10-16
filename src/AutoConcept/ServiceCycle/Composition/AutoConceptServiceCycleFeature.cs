@@ -108,5 +108,7 @@ internal sealed class AutoConceptFeatureRuntime : IAutomataServiceCycleFeatureRu
         in SuiteRuntimeConfiguration config,
         in ServiceActionContext context) =>
         _actions.TryExecuteGameMcp(in action, in config, in context);
+
+    internal AutoConceptSubmission LastGameMcpSubmission => _actions.LastSubmission;
 #endif
 }

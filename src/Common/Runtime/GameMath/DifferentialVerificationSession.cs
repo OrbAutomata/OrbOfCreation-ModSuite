@@ -69,9 +69,6 @@ internal sealed class DifferentialVerificationSession
         TheirElapsedTicks += theirTicks;
     }
 
-    private static string FormatMilliseconds(long ticks) =>
-        (ticks * 1000.0 / System.Diagnostics.Stopwatch.Frequency).ToString("0.###");
-
     internal void Start()
     {
         IsRunning = true;
@@ -122,10 +119,16 @@ internal sealed class DifferentialVerificationSession
     internal void EndTick() => TicksElapsed++;
 
     /// <summary>
-    /// Stops the session and produces the one line a player should see, plus recorded
-    /// disagreements. Never reports success for a run that verified nothing.
+    /// Stops the session and states what it found. Never reports agreement for a run that verified
+    /// nothing.
     /// </summary>
-    internal string Complete()
+    /// <remarks>
+    /// The per-entity timings this session records are not part of the answer and are deliberately
+    /// absent here: they change between two identical calls, and a measurement that moves inside a
+    /// comparison body reads as a finding that moved. They are summed onto the response's one
+    /// provenance line instead.
+    /// </remarks>
+    internal VerificationFinding Complete()
     {
         IsRunning = false;
 
@@ -133,41 +136,24 @@ internal sealed class DifferentialVerificationSession
         {
             var reason = FirstUnverifiableReason.Length == 0
                 ? ExpectedSkips > 0
-                    ? $"{ExpectedSkips} entities were uninstantiated."
+                    ? $"{ExpectedSkips} entities were expected skips."
                     : "no entities were available to check."
                 : FirstUnverifiableReason;
-            return $"{Subject} verification INCONCLUSIVE: nothing could be verified — {reason}";
-        }
-
-        var summary = Run.Summarize();
-        var detail = $" [{EntitiesVerified} entities";
-        if (Unverifiable > 0) detail += $", {Unverifiable} unreadable";
-        if (ExpectedSkips > 0) detail += $", {ExpectedSkips} uninstantiated";
-
-        // Stated only when the run actually spanned frames. A single-frame run always spent exactly
-        // one tick, so reporting it says nothing and invites the reader to ask what the others were.
-        if (TicksElapsed > 1) detail += $", {TicksElapsed} ticks";
-        detail += "]";
-
-        if (OurElapsedTicks > 0 || TheirElapsedTicks > 0)
-        {
-            // Reported as a ratio as well as absolutes, because the absolute numbers include the
-            // verifier's own reflection overhead on our side and so understate the real margin.
-            var ratio = OurElapsedTicks > 0
-                ? (TheirElapsedTicks / (double)OurElapsedTicks).ToString("0.##") + "x"
-                : "n/a";
-            detail += $" ours={FormatMilliseconds(OurElapsedTicks)}ms " +
-                $"theirs={FormatMilliseconds(TheirElapsedTicks)}ms ({ratio})";
+            return VerificationFinding.Inconclusive(Subject, $"nothing could be verified — {reason}");
         }
 
         if (Unverifiable > 0 && Run.Passed)
         {
             // Everything readable agreed, but some entities could not be read at all. That is not a
-            // clean pass, and saying so plainly avoids a false sense of coverage.
-            return $"{Subject} verification INCOMPLETE: {Run.Compared} comparisons agreed, " +
-                $"but {Unverifiable} entities could not be read — {FirstUnverifiableReason}{detail}";
+            // clean agreement, and saying so plainly avoids a false sense of coverage.
+            return VerificationFinding.Incomplete(
+                Subject,
+                Run.Compared,
+                $"{Unverifiable} of {EntitiesVerified + Unverifiable} entities could not be read — " +
+                    FirstUnverifiableReason,
+                withinTolerance: Run.CloseCount);
         }
 
-        return summary + detail;
+        return Run.Finding();
     }
 }

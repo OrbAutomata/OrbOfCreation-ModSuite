@@ -47,8 +47,18 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
     private readonly Dictionary<Guid, BigDouble> _batchSpendVariance = new();
     private readonly HashSet<Guid> _batchUnpricedResources = new();
     private ulong _journalBatch;
+
+    /// <summary>
+    /// The submission this adapter last produced, so a caller that wants the refusal's own sentence
+    /// can have it. A <see cref="ServiceActionResult"/> carries a class and no prose by design.
+    /// </summary>
+    internal AutoBuyPurchaseSubmission LastSubmission { get; private set; }
+
+    private long _announcedTopologyEpoch;
+
 #if SERVICE_CYCLE_PROFILE
     private long _diagnosedTopologyEpoch;
+    private long _silencedTopologyEpoch;
     private readonly AutomataProfileOperations _profileOperations;
     private readonly Func<AutoBuyCandidateKind, bool> _gameMcpOwnership;
 #endif
@@ -83,10 +93,30 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
 
     internal void InvalidateTopology()
     {
+        _announcedTopologyEpoch = 0;
 #if SERVICE_CYCLE_PROFILE
         _diagnosedTopologyEpoch = 0;
+        _silencedTopologyEpoch = 0;
 #endif
         if (_purchases is IAutoBuyPurchaseTopologyPort topology) topology.InvalidateTopology();
+    }
+
+    /// <summary>
+    /// Says once per run that the purchase-screen topology was published, and for which run.
+    /// </summary>
+    /// <remarks>
+    /// The publication is the single fact every purchase is admitted against, and it used to leave no
+    /// trace at all: an outage where it was stamped under the wrong run took a source reading to
+    /// diagnose, because the log could not even say whether it had happened.
+    /// </remarks>
+    internal void AnnounceTopologyPublication()
+    {
+        if (_purchases is not IAutoBuyPurchaseTopologyPort topology) return;
+        var epoch = topology.CapturedEpoch;
+        if (epoch <= 0 || epoch == _announcedTopologyEpoch) return;
+        _announcedTopologyEpoch = epoch;
+        Plugin.Log?.LogAutomataInfo(
+            AutoBuyPurchaseNarration.TopologyPublished(epoch, topology.CapturedCount));
     }
 
 #if SERVICE_CYCLE_PROFILE
@@ -95,8 +125,15 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         if (lifecycleEpoch <= 0 || _diagnosedTopologyEpoch == lifecycleEpoch ||
             _purchases is not IAutoBuyPurchaseTopologyPort topology)
             return;
-        if (topology.EmitRouteDiagnostic(lifecycleEpoch))
+        if (topology.EmitRouteDiagnostic(lifecycleEpoch, out var silence))
+        {
             _diagnosedTopologyEpoch = lifecycleEpoch;
+            return;
+        }
+
+        if (silence is null || _silencedTopologyEpoch == lifecycleEpoch) return;
+        _silencedTopologyEpoch = lifecycleEpoch;
+        Plugin.Log?.LogAutomataWarning(silence);
     }
 #endif
 
@@ -109,14 +146,17 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             in config,
             in context,
             requireAutomationPolicy: true,
-            manualOwnershipProven: false);
+            manualOwnershipProven: false,
+            exactAmountRequested: false);
 
 #if SERVICE_CYCLE_PROFILE
     /// <summary>
     /// Executes one explicit strategist request through the same live native boundary as Auto Buy.
-    /// The request is not an automation decision, so only the worker's enable/selection policy is
-    /// omitted; ownership, lifecycle, queue reserve, identity, affordability, and mutation proof
-    /// remain mandatory below.
+    /// The request is not an automation decision, so no automation policy applies to it: neither the
+    /// worker's enable/selection dials nor the queue reserve it keeps for manual actions — this is
+    /// the manual action that reserve exists for. What remains mandatory is what the game itself
+    /// imposes: ownership, lifecycle, queue capacity, identity, affordability, and mutation proof.
+    /// Its count is honoured as far as the queue holds it; only a queue with no free slot refuses.
     /// </summary>
     internal ServiceActionResult TryExecuteGameMcp(
         in AutoBuyCycleAction action,
@@ -131,7 +171,8 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             in config,
             in context,
             requireAutomationPolicy: false,
-            manualOwnershipProven: true);
+            manualOwnershipProven: true,
+            exactAmountRequested: true);
     }
 #endif
 
@@ -140,9 +181,11 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         in SuiteRuntimeConfiguration config,
         in ServiceActionContext context,
         bool requireAutomationPolicy,
-        bool manualOwnershipProven)
+        bool manualOwnershipProven,
+        bool exactAmountRequested)
     {
         BeginBatch(context.Batch.Value);
+        LastSubmission = default;
 
         if (requireAutomationPolicy &&
             (!AutoBuyConfigurationPolicy.IsOperational(config) ||
@@ -170,7 +213,12 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         // reserve rejects (penalty-free) and, being the first non-commit, cascade-terminates the
         // rest of the batch — correct, since nothing more fits. An unreadable room cannot prove the
         // reserve is honoured.
-        var reservedSlots = Math.Max(0, config.AutoBuy.LeaveQueueSlots);
+        // LeaveQueueSlots is Auto Buy's courtesy to the player: slots the automation keeps free FOR
+        // manual actions. Charging it to the manual verb refused the very action it exists to
+        // protect, so it is an automation policy and only the automated cycle honours it.
+        var reservedSlots = requireAutomationPolicy
+            ? Math.Max(0, config.AutoBuy.LeaveQueueSlots)
+            : 0;
         bool queueRoomReadable;
         int remainingRoom;
 #if SERVICE_CYCLE_PROFILE
@@ -193,17 +241,37 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
 
-        if (remainingRoom <= reservedSlots)
+        // A reading below zero is a queue the game's own upgrade button stacked past its maximum,
+        // which is a full queue rather than a broken contract; nought free slots is the answer.
+        var freeSlots = Math.Max(0, remainingRoom);
+
+        // A queue with no free slot is the one purchase refusal a smaller ask does not fix, and it
+        // is a room problem: it carries its own code and its own ceiling of nought so nothing
+        // downstream can retell it as a resource shortfall.
+        if (freeSlots == 0)
+        {
+            LastSubmission = AutoBuyPurchaseSubmission.ActionQueueFull();
+            return ServiceActionResult.Rejected(AutoBuyActionResultCodes.ActionQueueFull);
+        }
+
+        if (freeSlots <= reservedSlots)
         {
             return ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected);
         }
 
         // One action can take several slots: an upgrade multi-buy queues one stack per level, and the
         // game's own Purchase() loop never consults the queue room. So "there is at least one slot
-        // above the reserve" does not mean this submission fits above it. Clamp the request to the
-        // room that is actually free above the reserve; the loop stops early on its own if fewer
-        // levels are affordable.
-        var levels = Math.Min(action.Count, remainingRoom - reservedSlots);
+        // above the reserve" does not mean this submission fits above it.
+        var room = freeSlots - reservedSlots;
+
+        // Clamp to the room that is actually free above the reserve; the loop stops early on its own
+        // if fewer levels are affordable. The game's own buttons never refuse an over-ask either —
+        // they deliver what fits — and a refusal that delivered nothing was a worse answer than a
+        // partial one. What quietly turning a thousand into one cost the caller was the difference:
+        // an answer indistinguishable from a satisfied amount=1. So the difference is counted here
+        // and the settled answer says it on its own line.
+        var levels = Math.Min(action.Count, room);
+        var withheldBySuite = exactAmountRequested ? action.Count - levels : 0;
 
         AutoBuyPurchaseSubmission submission;
         try
@@ -223,10 +291,13 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             ex is InvalidOperationException || ex is TargetException || ex is MemberAccessException)
         {
             Plugin.Log?.LogAutomataWarning(
-                $"Auto Buy failed to purchase {action.Kind} {action.Uuid:D}: adapter fault ({ex.GetBaseException().Message}).");
+                $"Auto Buy failed to purchase {action.Kind} {EntityIdentityFormatter.Format(action.Uuid)}: adapter fault ({ex.GetBaseException().Message}).");
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
 
+        LastSubmission = withheldBySuite > 0
+            ? submission.WithSuiteWithheld(withheldBySuite)
+            : submission;
         if (!submission.Verified)
             Narrate(action.Kind, action.Uuid, submission);
         if (submission.Preflight == AutoBuyPurchasePreflight.NotAdmissible)
@@ -471,13 +542,27 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
                     ? ServiceActionResult.Skipped(CommonActionResultCodes.Skipped)
                     : ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected);
             case AutoBuyPurchasePreflight.SingleBuyUnavailable:
-                return ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected);
+                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.SingleBuyUnavailable);
+            case AutoBuyPurchasePreflight.ActionQueueFull:
+                return ServiceActionResult.Rejected(
+                    AutoBuyActionResultCodes.ActionQueueFull);
             case AutoBuyPurchasePreflight.OwningViewUnavailable:
                 return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewUnavailable);
             case AutoBuyPurchasePreflight.OwningViewRelationMissing:
                 return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewRelationMissing);
             case AutoBuyPurchasePreflight.OwningViewRelationUnreadable:
                 return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewRelationUnreadable);
+            case AutoBuyPurchasePreflight.OwningViewTopologyUnbound:
+                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewTopologyUnbound);
+            case AutoBuyPurchasePreflight.OwningViewTopologyUncaptured:
+                return ServiceActionResult.Rejected(
+                    AutoBuyActionResultCodes.OwningViewTopologyUncaptured);
+            case AutoBuyPurchasePreflight.OwningViewRelationStatusUnmodeled:
+                return ServiceActionResult.Rejected(
+                    AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled);
+            case AutoBuyPurchasePreflight.OwningViewAvailabilityUnreadable:
+                return ServiceActionResult.Rejected(
+                    AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable);
             case AutoBuyPurchasePreflight.OwningViewRelationContradictory:
                 return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewRelationContradictory);
             case AutoBuyPurchasePreflight.StructureUnavailable:

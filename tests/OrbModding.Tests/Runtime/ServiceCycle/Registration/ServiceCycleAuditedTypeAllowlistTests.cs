@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
+using OrbModding.Common.Runtime.World;
 using Xunit;
 
 namespace OrbModding.Tests.Runtime.ServiceCycle.Registration;
@@ -31,11 +32,17 @@ public sealed class ServiceCycleAuditedTypeAllowlistTests
     private static readonly Assembly[] SuiteAssemblies = { RuntimeAssembly };
 
     [Fact]
-    public void PublicationTableIsTheOnlyAuditedPublicationValue()
+    public void AuditedPublicationValuesAreAnExactReviewedSet()
     {
         var bearers = BearersOf(typeof(ServiceCyclePublicationValueAttribute));
 
-        Assert.Equal(new[] { typeof(PublicationTable<>).FullName }, bearers);
+        Assert.Equal(
+            new[]
+            {
+                typeof(PublicationTable<>).FullName,
+                typeof(EntityIdentityCatalogSnapshot).FullName,
+            },
+            bearers);
     }
 
     private static string?[] BearersOf(Type attribute) =>

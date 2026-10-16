@@ -1,9 +1,9 @@
-using System;
 using System.Threading;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
+using OrbModding.TestSupport;
 using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 using Xunit;
 
@@ -24,27 +24,34 @@ public sealed class ServiceAllocationEvidenceTests
         var runner = registration.Runner;
 
         ServiceRunnerTestWait.RunAndDrain(runner, clock, 512);
-        var measuredBefore = runner.Snapshot.MeasuredWorkerCycleCount;
         definition.MeasureAppendAllocations = true;
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(SpinWait.SpinUntil(
-            () => runner.Snapshot.MeasuredWorkerCycleCount > measuredBefore,
-            ServiceCycleTestDeadline.Value));
-        Assert.True(runner.TryAcquireResponse());
+
+        // A drained batch is spent, so each pass takes a freshly published one; arming happens
+        // outside the measured window and never counts against the drain.
+        void ArmFullBatch()
+        {
+            var measuredBefore = runner.Snapshot.MeasuredWorkerCycleCount;
+            Assert.True(runner.TryStartCycle(clock.Now).Queued);
+            ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
+            Assert.True(SpinWait.SpinUntil(
+                () => runner.Snapshot.MeasuredWorkerCycleCount > measuredBefore,
+                ServiceCycleTestDeadline.Value));
+            Assert.True(runner.TryAcquireResponse());
+        }
+
+        var drainAllocated = AllocationProbe.MeasureRepeated(
+            512,
+            () => runner.TryExecuteOne(clock.Now),
+            prepare: ArmFullBatch);
+
+        Assert.Equal(0, drainAllocated);
         Assert.Equal(0, definition.LastAppendAllocatedBytes);
         Assert.Equal(0, runner.Snapshot.WorkerCycleAllocatedBytes);
 
-        var beforeDrain = GC.GetAllocatedBytesForCurrentThread();
-        for (var index = 0; index < 512; index++)
-            runner.TryExecuteOne(clock.Now);
-        var drainAllocated = GC.GetAllocatedBytesForCurrentThread() - beforeDrain;
-        Assert.Equal(0, drainAllocated);
+        var idleAllocated = AllocationProbe.MeasureRepeated(
+            10_000,
+            () => runner.TryAcquireResponse());
 
-        var beforeIdle = GC.GetAllocatedBytesForCurrentThread();
-        for (var index = 0; index < 10_000; index++)
-            runner.TryAcquireResponse();
-        var idleAllocated = GC.GetAllocatedBytesForCurrentThread() - beforeIdle;
         Assert.Equal(0, idleAllocated);
     }
 }

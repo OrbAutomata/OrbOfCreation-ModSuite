@@ -12,6 +12,7 @@ using static OrbModding.ProfileTests.AutoHarvestProfileTestSupport;
 
 namespace OrbModding.ProfileTests;
 
+[Collection(NativeRegistryCollection.Name)]
 public sealed class AutoBuyProfileTests : IDisposable
 {
     private const long PlannedEpoch = 7;
@@ -127,6 +128,53 @@ public sealed class AutoBuyProfileTests : IDisposable
             Assert.Single(topology.DescribeCaptured(PlannedEpoch)));
     }
 
+    /// <summary>
+    /// A collector nobody composed for the session cannot take the live purchase topology away from
+    /// the one that was.
+    /// </summary>
+    /// <remarks>
+    /// This is the shape that cost a live save twenty-seven minutes of refused purchases: a
+    /// verification pass allocated throwaway collectors, each took the process-wide owning-view
+    /// resolver, and each restamped it at the epoch its own frame carried — zero. The adapter is
+    /// built through its production constructor on purpose. Handing it a resolver is what made the
+    /// defect invisible: an injected resolver is not the singleton the running suite reads from, so
+    /// a test that injects one cannot see the singleton being clobbered.
+    /// </remarks>
+    [Fact]
+    public void ThrowawayCollectorDoesNotUnreadTheSessionPurchaseTopology()
+    {
+        var operations = new AutomataProfileOperations(new ServiceCycleProfileProbe());
+        global::ActionManager.RemainingRoom = 64;
+        var structure = new global::StructureSO
+        {
+            uuid = Guid.NewGuid().ToString(),
+            available = true,
+            purchasable = true,
+            queuedQuantity = 3,
+        };
+        global::StructureSO.All.Add(structure);
+
+        GameWorldCollector.ForSession().Collect(
+            new GameWorldCycleFrame { CollectedAtEpoch = PlannedEpoch });
+        new GameWorldCollector().Collect();
+
+        var adapter = new AutoBuyCycleActionAdapter(
+            new AutoBuyNativePurchaseAdapter(operations),
+            new AutoBuyNativeQueueRoomAdapter(),
+            () => PlannedEpoch,
+            () => AutoBuyCandidateKinds.All,
+            operations,
+            IgnoreRefusals.Instance);
+        var result = adapter.TryExecute(
+            new AutoBuyCycleAction(
+                AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), PlannedEpoch),
+            Configuration(),
+            ActionContext());
+
+        Assert.Equal(ServiceActionDisposition.Committed, result.Disposition);
+        Assert.Equal(4, structure.queuedQuantity);
+    }
+
     private static ServiceActionResult Execute(
         AutomataProfileOperations operations,
         AutoBuyCandidateKind kind,
@@ -164,8 +212,10 @@ public sealed class AutoBuyProfileTests : IDisposable
             PlannedEpoch,
             relations,
             routes,
+            new WorldRelationBuffer<WorldUpgradeListMembership>(),
             out var unresolved,
-            out var skipped);
+            out var skipped,
+            out _);
         Assert.Equal(0, unresolved);
         Assert.Equal(0, skipped);
         return topology;
@@ -200,6 +250,163 @@ public sealed class AutoBuyProfileTests : IDisposable
             IncludeUpgrades = true,
         },
     };
+
+    /// <summary>
+    /// The game's own buy buttons never refuse an over-ask: they deliver what fits. So does this.
+    /// Round 13 asked for ten levels against nine of room and was told to ask again — a refusal the
+    /// suite invented, which delivered nothing and cost a second press. What round 9's silent clamp
+    /// actually cost was the difference: an <c>amount=1000</c> that delivered one level read
+    /// byte-identical to a satisfied <c>amount=1</c>. So the press fills, and the levels the suite
+    /// kept back ride on the submission for the settled answer's own line to explain.
+    /// </summary>
+    [Fact]
+    public void AnExplicitOverAskFillsTheRoomAndCarriesWhatItWithheld()
+    {
+        var probe = new ServiceCycleProfileProbe();
+        probe.Attach(new CapturingMeasurementPort());
+        var operations = new AutomataProfileOperations(probe);
+        global::ActionManager.RemainingRoom = 3;
+
+        var purchases = new RecordingCountPort();
+        var adapter = new AutoBuyCycleActionAdapter(
+            purchases,
+            new AutoBuyNativeQueueRoomAdapter(),
+            () => PlannedEpoch,
+            () => AutoBuyCandidateKinds.All,
+            operations,
+            IgnoreRefusals.Instance,
+            null,
+            _ => true);
+
+        var result = adapter.TryExecuteGameMcp(
+            new AutoBuyCycleAction(
+                AutoBuyCandidateKind.Upgrade, Guid.NewGuid(), PlannedEpoch, count: 1000),
+            Configuration(),
+            ActionContext());
+
+        Assert.True(purchases.Submitted);
+        Assert.Equal(3, purchases.LastCount);
+        Assert.Equal(997, adapter.LastSubmission.WithheldBySuite);
+        Assert.Equal(-1, adapter.LastSubmission.MaximumAmount);
+    }
+
+    /// <summary>
+    /// The reserve is Auto Buy's courtesy to the player — slots kept free FOR manual actions — so
+    /// charging it to the manual verb refused the very action it exists to protect. A live round hit
+    /// exactly that: Auto Buy was off, the queue was empty, and a ten-level ask was turned away by a
+    /// setting nobody had asked to apply to it.
+    /// </summary>
+    [Fact]
+    public void TheManualVerbIgnoresTheQueueReserveTheAutomatedCycleKeeps()
+    {
+        var probe = new ServiceCycleProfileProbe();
+        probe.Attach(new CapturingMeasurementPort());
+        var operations = new AutomataProfileOperations(probe);
+        global::ActionManager.RemainingRoom = 3;
+
+        var configuration = new SuiteRuntimeConfiguration
+        {
+            General = new SuiteGeneralConfiguration { Enabled = true },
+            AutoBuy = new AutoBuyConfiguration
+            {
+                Mode = AutoBuyOperationMode.Active,
+                IncludeStructures = true,
+                IncludeUpgrades = true,
+                LeaveQueueSlots = 2,
+            },
+        };
+
+        var manualPurchases = new RecordingCountPort();
+        var manual = new AutoBuyCycleActionAdapter(
+            manualPurchases,
+            new AutoBuyNativeQueueRoomAdapter(),
+            () => PlannedEpoch,
+            () => AutoBuyCandidateKinds.All,
+            operations,
+            IgnoreRefusals.Instance,
+            null,
+            _ => true);
+
+        manual.TryExecuteGameMcp(
+            new AutoBuyCycleAction(
+                AutoBuyCandidateKind.Upgrade, Guid.NewGuid(), PlannedEpoch, count: 3),
+            configuration,
+            ActionContext());
+
+        Assert.True(manualPurchases.Submitted);
+        Assert.Equal(3, manualPurchases.LastCount);
+        Assert.Equal(0, manual.LastSubmission.WithheldBySuite);
+
+        var automatedPurchases = new RecordingCountPort();
+        var automated = new AutoBuyCycleActionAdapter(
+            automatedPurchases,
+            new AutoBuyNativeQueueRoomAdapter(),
+            () => PlannedEpoch,
+            () => AutoBuyCandidateKinds.All,
+            operations,
+            IgnoreRefusals.Instance);
+
+        automated.TryExecute(
+            new AutoBuyCycleAction(
+                AutoBuyCandidateKind.Upgrade, Guid.NewGuid(), PlannedEpoch, count: 3),
+            configuration,
+            ActionContext());
+
+        Assert.True(automatedPurchases.Submitted);
+        Assert.Equal(1, automatedPurchases.LastCount);
+    }
+
+    /// <summary>
+    /// The planner's count is clamped too, and silently: a plan that asks for what it hoped for and
+    /// takes what fits is the plan working, and nobody is waiting on an answer to it. Both counts
+    /// now fill the room — what still separates them is who is owed an explanation for the
+    /// difference, and which of them the queue reserve applies to.
+    /// </summary>
+    [Fact]
+    public void APlannedBatchStillTakesWhateverRoomIsLeft()
+    {
+        var probe = new ServiceCycleProfileProbe();
+        probe.Attach(new CapturingMeasurementPort());
+        var operations = new AutomataProfileOperations(probe);
+        global::ActionManager.RemainingRoom = 3;
+
+        var purchases = new RecordingCountPort();
+        var adapter = new AutoBuyCycleActionAdapter(
+            purchases,
+            new AutoBuyNativeQueueRoomAdapter(),
+            () => PlannedEpoch,
+            () => AutoBuyCandidateKinds.All,
+            operations,
+            IgnoreRefusals.Instance);
+
+        adapter.TryExecute(
+            new AutoBuyCycleAction(
+                AutoBuyCandidateKind.Upgrade, Guid.NewGuid(), PlannedEpoch, count: 1000),
+            Configuration(),
+            ActionContext());
+
+        Assert.True(purchases.Submitted);
+        Assert.Equal(3, purchases.LastCount);
+    }
+
+    private sealed class RecordingCountPort : IAutoBuyNativePurchasePort
+    {
+        internal bool Submitted { get; private set; }
+        internal int LastCount { get; private set; }
+
+        public AutoBuyPurchaseSubmission Submit(
+            AutoBuyCandidateKind kind,
+            Guid uuid,
+            int count,
+            long lifecycleEpoch,
+            in ServiceActionContext context)
+        {
+            Submitted = true;
+            LastCount = count;
+            return AutoBuyPurchaseSubmission.Rejected(
+                AutoBuyPurchasePreflight.CandidateUnavailable);
+        }
+    }
 
     private sealed class IgnoreRefusals : IAutoBuyRefusalResponsePort
     {
@@ -254,5 +461,6 @@ public sealed class AutoBuyProfileTests : IDisposable
         owningView.relevantLists.Add(upgradeList);
         global::ViewSO.All.Add(owningView);
         NativeMultiBuyScope.ResetQuarantineForTests();
+        NativePurchaseViewAdmissionResolver.ResetProductionForTests();
     }
 }

@@ -30,7 +30,7 @@ internal sealed class AutoScribeServiceCycleFeature : IAutomataServiceCycleFeatu
             context.ConfigurationGeneration);
     }
 
-    private sealed class Runtime : IAutomataServiceCycleFeatureRuntime
+    internal sealed class Runtime : IAutomataServiceCycleFeatureRuntime
     {
         private readonly AutoScribeFeatureDependencies _dependencies;
         private readonly AutoScribeOneShotCraftGameAction _gameAction;
@@ -80,6 +80,15 @@ internal sealed class AutoScribeServiceCycleFeature : IAutomataServiceCycleFeatu
         }
 
         public void DisposeDiagnostics() => _diagnostics = null;
+
+        internal CraftingPlayerSubmission TryExecuteGameMcp(in CraftingPlayerAction action) =>
+            _gameAction.Submit(in action);
+
+        internal bool PlayerCraftingBindingsAvailable =>
+            _gameAction.PlayerCraftingBindingsAvailable;
+
+        internal string PlayerCraftingBindingFailure =>
+            _gameAction.PlayerCraftingBindingFailure;
 
         public void DisposeRegistration()
         {

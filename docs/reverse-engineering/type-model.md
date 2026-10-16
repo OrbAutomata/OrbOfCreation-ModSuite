@@ -21,12 +21,16 @@ Four consequences carry all the weight:
 
 - A concrete asset holds references to **one or more** type assets, and each type asset holds a
   registered-member collection pointing back. Membership is a set, not a hierarchy.
-- Type assets are not global. They affect exactly the instances registered with them. A "type-wide"
-  bonus is bounded by that registration list.
+- Type assets are not global. They affect the instances registered with them — plus, for structures,
+  the members of every subtype. `StructureTypeSO.subTypes` is a real type-to-type edge:
+  `Initialize()` calls `RegisterSubType` per entry, which wires the parent's thirteen records into
+  the child's thirteen. The covered set is the transitive closure over that edge, and on the audited
+  build there is exactly one chain (`PrimalStructures` → Arcanist, Flameweaver, Stormshaper).
 - List variables are **index surfaces**, not UI lists. They are where you find live instances,
   filtered views, and registries that the type assets do not expose.
 - The same statistic can be reached through concrete → type → group → player-global layers, so a
-  broad bonus can double-apply.
+  broad bonus can double-apply — and the exact place it does is now known. See
+  [where a type bonus actually lands](#where-a-type-bonus-actually-lands).
 
 ## Base-class families and what each affords
 
@@ -99,6 +103,80 @@ augmented type lists. Spell calculations then request Power, CooldownSpeed, Cost
 **every** applicable `SpellTypeSO` via `SpellTypeSO.GetValueModifierRecord`. So a tag-targeted buff
 applies according to the spell's *effective* type set, glyph changes included — never according to
 its name or its authored tags alone.
+
+## Where a type bonus actually lands
+
+"All Cantrips +10%" is not a number stored on the Cantrip asset. A type SO carries a *record*, and
+there are three kinds:
+
+| Class | What it is | Has a value of its own? |
+|---|---|---|
+| `ValueModifierRecord` | a value: `baseValue` plus a folded memo | yes — `GetValue()` |
+| `MergingModifierRecord` | a distributor with per-entry ratio/exponent/condition/order transforms | no; its total is `Adjust(100)` |
+| `OrderedMultiplierRecord` | a distributor that first collapses itself to one multiplier per order | no; its total is `Adjust(100)` |
+
+`MergingModifierRecord.Add` keeps its own copy and then pushes a transformed copy into every member
+record registered by `AddRecord`; `OrderedMultiplierRecord` does the same after collapsing itself to
+one `StackingRaw` modifier per order. Thirteen `Register*` methods wire those pairs —
+`StructureTypeSO.RegisterStructure` alone wires thirteen of them, and the member records the suite
+already collects are the identical set.
+
+**So for a distributor, the type's contribution is already inside the member value.** A type total and
+a member value are the same bonus counted twice, not two factors to multiply. The one class where
+this does not hold is `SpellTypeSO`, which has no distributor field at all: `Spell.GetPower()`
+multiplies `Spell.GetSpellTypePowerPercent()` in as an independent layer, aggregating
+`GetPower().AsPercent()` over the spell's effective type set.
+
+The distributor's *own* total — the `Adjust(100)` its tooltip prints — is absent from the member side
+and from any serialized dump, because it is arithmetic over two dictionaries that are pure runtime
+state. The suite folds it on the worker from the captured entries and publishes it as
+`TypeModifierTotals`, under names (`DistributedTotal…`) that cannot be mistaken for a member value;
+see [world collection](../runtime-architecture/world-collection.md).
+
+A fourth record class is easy to miss: `ResearchTypeSO.levelRequirementAdjust` is a plain
+`ModifierRecord`. It holds no value of its own like a distributor, but `RegisterResearch` wires only
+`power` and `maxLevelCap` into members, so it distributes to nothing — and its total is therefore the
+one that genuinely is *not* already inside a member value.
+
+One boundary inside this stays `Unresolved`: `MergeEntry`'s `mod`, `expMod`, `condition` and
+`orderAdjust` are `Func<>` delegates created at `AddRecord` time. IL proves *that* a transform is
+applied and *where*; it cannot yield the ratio without invoking it. A claim of the form "this type
+gives its members +X%" that assumes a ratio of 1 is a guessed magnitude, not a read one.
+
+`UpgradeableObject.ModifierPropertyRecord` — the `PropertyRefs` member — is a property-*name* schema
+rather than authored magnitudes: `propertyNames`, `modifierPropertyNames`, `effectPropertyNames` and
+a display/tooltip descriptor per key, built in each class's static constructor. The string keys are
+real (`SpellTypeSO.GetValueModifierRecord` is a 20-arm switch mapping `"Power"` → `power`), and they
+are how an authored effect names its target property — which is why an authored magnitude lives on
+the effect and not on the type asset.
+
+## Four records the build carries and cannot read
+
+A record is **live** when some path exists for the game to reach it: an accessor arm resolving an
+authored ref name onto it, a reachable getter or pull site loading it, or a `Register*` site loading
+it to push its modifiers into member records. That is capability, not current usage — a record an
+authored upgrade *could* name through a router arm is live even when nothing names it today.
+
+Four of the 145 records have no path at all on 1.0.5. Every place their fields are touched is a
+store in the constructor, a load handed straight to `ModifierRecord.Clear()` by `ResetData`, or a
+load inside a method the assembly dispatches to from nowhere:
+
+| Record | Why nothing can read it |
+|---|---|
+| `SpellTypeSO.bonusFlashRate` | 22 refs, 20 router arms; `"Flash Rating"` falls to `ldnull`. `GetBonusFlashRate()` has no callers, and `Spell.GetSpellTypeBonusFlashRate` reads `GetBonusCritRate()` instead |
+| `SpellTypeSO.flashEffectMod` | the same router gap for `"Flash Effect"`; `GetFlashEffectMod()` has no callers |
+| `EquipmentTypeSO.masteryLevel` | the class's whole router is `"Power"` and `"TypeSlots"`; no getter, no registration, no load anywhere in the assembly |
+| `PlotNodeTypeSO.totalLevel` | its only reader is `AddToLevel`, non-virtual with no callers; `PlotNodeTypeSO.GetLevel()` returns a constant `1` |
+
+The router gap is what makes the flash pair unreachable rather than merely unused:
+`UpgradeableObject.UpgradeEffectModifier.Execute` asks the router by name, so a name it will not
+resolve is a property no authored effect can target, and `GetFilteredPropertyNames` drops those same
+names from the tooltip because their accessor reports `HasNoInfo()`. The game shows neither and can
+move neither.
+
+The default runs the other way. IL proves a path exists; it cannot prove one absent through a
+reflective or data-driven route it never sees. A record whose liveness is undecidable is therefore
+live, and only a record with no path at all is dead.
 
 ## What IL cannot prove
 

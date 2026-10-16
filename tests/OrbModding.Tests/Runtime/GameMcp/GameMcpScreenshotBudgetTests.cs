@@ -1,10 +1,17 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using System.Text.RegularExpressions;
 using OrbAutomata;
+using OrbModding.Common;
 using Xunit;
 
 namespace OrbModding.Tests.Runtime.GameMcp;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class GameMcpScreenshotBudgetTests : IDisposable
 {
     private readonly string _directory = Path.Combine(
@@ -50,4 +57,84 @@ public sealed class GameMcpScreenshotBudgetTests : IDisposable
     {
         Assert.True(GameMcpScreenshotBudget.BeforeCapture(_directory).IsAvailable);
     }
+
+    /// <summary>
+    /// Storage the suite cannot inspect answers the operator in the suite's own words; the
+    /// file-system exception is filed under the reference that answer names.
+    /// </summary>
+    /// <remarks>
+    /// A run folder the operator's own machine will not open is the shape of every reason this arm
+    /// exists for. What the caller must not be handed is the machine's words for it — a path, a
+    /// permission, a .NET type — because those are what whoever fixes it needs, and they go to the
+    /// log under the reference the answer names instead.
+    /// </remarks>
+    [Fact]
+    public void StorageThatWillNotBeInspectedAnswersInTheSuitesWordsUnderALogReference()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        Directory.CreateDirectory(_directory);
+        DenyListing(_directory);
+        try
+        {
+            var admission = GameMcpScreenshotBudget.BeforeCapture(_directory);
+
+            Assert.Equal(GameMcpScreenshotBudgetStatus.StorageUnavailable, admission.Status);
+            Assert.StartsWith(
+                "Screenshots cannot be stored right now.",
+                admission.Reason,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(_directory, admission.Reason);
+
+            var reference = Assert.Single(
+                Regex.Matches(admission.Reason, "MCP-[0-9A-F]{8}").Select(match => match.Value));
+            var line = Assert.Single(
+                logged, entry => entry.Contains(reference, StringComparison.Ordinal));
+            Assert.Contains("screenshot storage", line);
+        }
+        finally
+        {
+            AllowListing(_directory);
+            GameActionFaultLog.ConfigureLog(null);
+        }
+    }
+
+    private static void DenyListing(string directory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var info = new DirectoryInfo(directory);
+            var security = info.GetAccessControl();
+            security.AddAccessRule(DenyListingRule());
+            info.SetAccessControl(security);
+        }
+        else
+        {
+            File.SetUnixFileMode(directory, UnixFileMode.None);
+        }
+    }
+
+    private static void AllowListing(string directory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var info = new DirectoryInfo(directory);
+            var security = info.GetAccessControl();
+            security.RemoveAccessRule(DenyListingRule());
+            info.SetAccessControl(security);
+        }
+        else
+        {
+            File.SetUnixFileMode(
+                directory,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static FileSystemAccessRule DenyListingRule() =>
+        new(
+            new SecurityIdentifier(WellKnownSidType.WorldSid, null),
+            FileSystemRights.ListDirectory,
+            AccessControlType.Deny);
 }

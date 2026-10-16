@@ -161,6 +161,25 @@ internal sealed class BufferedSegmentSink<TRecord> : IDisposable where TRecord :
 
     public void Dispose() => Stop();
 
+    /// <summary>
+    /// Waits, bounded, for the writer to finish a drain that has already been asked for, and answers
+    /// whether it finished.
+    /// </summary>
+    /// <remarks>
+    /// A sink still admitting records has no drain to finish, and a teardown that blocked on one
+    /// would stall for the whole bound over a stop its caller never issued; that answers false
+    /// immediately instead, and every caller reports a false. Nothing here writes: whatever the
+    /// writer publishes it publishes on its own thread, so a wait that expires leaves exactly what an
+    /// interrupted session leaves and never a manifest this thread invented.
+    /// </remarks>
+    internal bool WaitForWriterExit(TimeSpan timeout)
+    {
+        EnsureOwner();
+        if (_state.Status is BufferedSegmentStatus.Initializing or BufferedSegmentStatus.Running)
+            return false;
+        return _writer.WaitForExit(timeout);
+    }
+
     private static BufferedSegmentAppendResult ResultFor(BufferedSegmentStatus status) => status switch
     {
         BufferedSegmentStatus.Initializing => BufferedSegmentAppendResult.Initializing,

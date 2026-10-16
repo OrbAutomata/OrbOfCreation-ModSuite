@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.World;
 
@@ -41,9 +42,14 @@ internal sealed class AutomataUsagePrerequisiteVerifier
         try
         {
             var entityId = (Guid)_getGuid!.Invoke(entity, null)!;
-            if (!TryNameUnevaluable(world, entityId, out var condition))
+            if (!CanEvaluateUsage(world, entityId))
             {
-                failure = $"the {condition} usage condition on {entityId} is not modelled.";
+                // The class the suite does not model is named once, on the collection line that
+                // owns that fact. Here the entity is named the way every other sentence names one,
+                // and what went unchecked is said in the words of the screen it is read on.
+                failure = "a condition this suite does not model holds them, first on " +
+                    EntityIdentityFormatter.PlayerHandle(entityId) +
+                    ", so whether the game lets you use those concepts is unchecked.";
                 return false;
             }
 
@@ -66,9 +72,8 @@ internal sealed class AutomataUsagePrerequisiteVerifier
         }
     }
 
-    private static bool TryNameUnevaluable(GameWorldState world, Guid ownerId, out string typeName)
+    private static bool CanEvaluateUsage(GameWorldState world, Guid ownerId)
     {
-        typeName = string.Empty;
         if (!WorldEntityRequirementLookup.TryFindRange(
                 world.EntityRequirements, ownerId, out var start, out var count)) return true;
         if (WorldRequirementEvaluator.Evaluate(
@@ -82,7 +87,6 @@ internal sealed class AutomataUsagePrerequisiteVerifier
             if (row.Program != WorldRequirementProgramKind.Usage) continue;
             if (WorldRequirementEvaluator.Evaluate(world, in row, 0) !=
                 WorldRequirementVerdict.Unevaluable) continue;
-            typeName = row.ConditionTypeName.Length == 0 ? "unnamed" : row.ConditionTypeName;
             return false;
         }
 

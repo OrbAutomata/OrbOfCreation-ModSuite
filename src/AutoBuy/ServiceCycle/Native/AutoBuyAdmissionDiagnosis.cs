@@ -22,6 +22,20 @@ internal enum AutoBuyRefusalClassification
     /// </summary>
     AffordabilityChanged = 0,
 
+    /// <summary>
+    /// Only the candidate's own availability moved after the snapshot. Also expected staleness:
+    /// skip this candidate and re-plan.
+    /// </summary>
+    /// <remarks>
+    /// The world reads the same <c>IsAvailable()</c> the boundary re-asks, several times a second,
+    /// and the doctrine treats availability as a mutable native fact for exactly that reason — the
+    /// boundary revalidates it because it moves. A lifecycle reset moves a great many of them at
+    /// once: after a prestige an entity the player has not re-earned is legitimately shut again,
+    /// and a plan made a frame earlier is simply out of date. Filing that as a contradiction stood
+    /// the whole service down over one candidate the game was right about.
+    /// </remarks>
+    AvailabilityChanged,
+
     /// <summary>A live structural boolean contradicts the snapshot the planner admitted.</summary>
     StructuralMismatch,
 
@@ -198,19 +212,25 @@ internal readonly struct AutoBuyAdmissionDiagnosis
 
     /// <summary>
     /// The policy boundary for this refusal. Structural contradictions take precedence when several
-    /// native terms refuse at once; affordability is expected staleness only when it is the sole
+    /// native terms refuse at once; the two facts the boundary exists to revalidate — the price and
+    /// the candidate's own availability — are expected staleness only when one of them is the sole
     /// readable contradiction.
     /// </summary>
     public AutoBuyRefusalClassification Classification
     {
         get
         {
-            if (IsAvailable == AutoBuyAdmissionTerm.Refused ||
-                IsMaxLevel == AutoBuyAdmissionTerm.Refused ||
+            if (IsMaxLevel == AutoBuyAdmissionTerm.Refused ||
                 IsMaxQueuedLevel == AutoBuyAdmissionTerm.Refused)
             {
                 return AutoBuyRefusalClassification.StructuralMismatch;
             }
+
+            // Availability alone. The level terms above are the candidate's own progress, which
+            // only the suite moves and so cannot disagree behind its back; availability is a gate
+            // the game opens and shuts on its own, most of all across a lifecycle reset.
+            if (IsAvailable == AutoBuyAdmissionTerm.Refused)
+                return AutoBuyRefusalClassification.AvailabilityChanged;
 
             return HasEnough == AutoBuyAdmissionTerm.Refused
                 ? AutoBuyRefusalClassification.AffordabilityChanged

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using System.Text;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -93,12 +94,15 @@ internal sealed class AutomataWorldCollectionCheck
     };
 
     private readonly Func<string, Type?> _resolveType;
-    private readonly List<string> _lines = new();
+    private readonly List<VerificationFinding> _findings = new();
+    private readonly List<string> _detail = new();
     private readonly List<string> _missingOracles = new();
 
     private int _agreements;
     private int _disagreements;
     private string _firstDisagreement = string.Empty;
+    private int _invertedCounters;
+    private int _invertedCapacityDivergences;
 
     internal AutomataWorldCollectionCheck()
         : this(WorldNativeTypes.Resolve)
@@ -108,45 +112,37 @@ internal sealed class AutomataWorldCollectionCheck
     internal AutomataWorldCollectionCheck(Func<string, Type?> resolveType) =>
         _resolveType = resolveType ?? throw new ArgumentNullException(nameof(resolveType));
 
-    /// <summary>Runs every check and returns the lines to report.</summary>
-    internal IReadOnlyList<string> Run()
+    /// <summary>Runs every check and reports what each of them found.</summary>
+    internal WorldCollectionCheckResult Run()
     {
-        _lines.Clear();
+        _findings.Clear();
+        _detail.Clear();
         _missingOracles.Clear();
         _agreements = 0;
         _disagreements = 0;
         _firstDisagreement = string.Empty;
+        _invertedCounters = 0;
+        _invertedCapacityDivergences = 0;
 
-        // Taken before anything else runs, and reported last. Collection reads GetTrueRate(), which
-        // resolves the rate chain and so recalculates whatever it found dirty — measuring the cache
-        // after that would be measuring this check's own footprint rather than the game's.
+        // Taken before anything else runs, and reported last. Collection folds modifier records and
+        // calls IsAvailable(), both of which recalculate whatever they found dirty — measuring the
+        // cache after that would be measuring this check's own footprint rather than the game's.
         var staleness = SurveyCacheStaleness();
 
-        // Binding compiles an accessor per member per category, once. It is a startup cost rather
-        // than a per-cycle one, but it is paid on the Unity thread during load and is worth naming.
-        var binding = Stopwatch.StartNew();
         var collector = new GameWorldCollector(_resolveType, ReadFixedDeltaTime);
-        binding.Stop();
 
         // Two passes. The first grows every category's buffer to fit; the second is the steady-state
-        // cost every cycle will actually pay, and is the number the plan owes. The warm pass is also
-        // where the structural categories drop out, since they are read once per lifecycle epoch and
-        // this is the same collector reading the same frame — which is exactly what a cycle does.
-        var cold = Stopwatch.StartNew();
+        // cost every cycle will actually pay, and is the number the plan owes — the only one of the
+        // two a reader of this response can do anything with. The warm pass is also where the
+        // structural categories drop out, since they are read once per lifecycle epoch and this is
+        // the same collector reading the same frame — which is exactly what a cycle does.
         collector.Collect();
-        cold.Stop();
 
         var warm = Stopwatch.StartNew();
         var report = collector.Collect();
         warm.Stop();
 
         var world = collector.Build();
-
-        _lines.Add(
-            $"World collection: {report.TotalSampled} entities, {report.Categories.Length} categories. " +
-            $"Bind {binding.Elapsed.TotalMilliseconds:0.###} ms once; " +
-            $"collect {cold.Elapsed.TotalMilliseconds:0.###} ms cold, " +
-            $"{warm.Elapsed.TotalMilliseconds:0.###} ms warm.");
 
         ReportCategories(report);
         CheckIdentities(world);
@@ -157,9 +153,24 @@ internal sealed class AutomataWorldCollectionCheck
         CheckCostPerQuantity(world);
         CheckPublishedPurchaseCosts(world);
         ReportAccessorParity();
-        _lines.Add(staleness);
+        Add(staleness.Fold);
 
-        return _lines;
+        return new WorldCollectionCheckResult(
+            _findings.ToArray(),
+            report.TotalSampled,
+            report.Categories.Length,
+            warm.Elapsed.TotalMilliseconds,
+            staleness.Drift);
+    }
+
+    private void Add(in VerificationFinding finding) => _findings.Add(finding);
+
+    /// <summary>Takes the disagreement rows a check wrote as it walked, and clears the buffer.</summary>
+    private string[] TakeDetail()
+    {
+        var detail = _detail.ToArray();
+        _detail.Clear();
+        return detail;
     }
 
     private static double ReadFixedDeltaTime() => UnityEngine.Time.fixedDeltaTime;
@@ -172,80 +183,82 @@ internal sealed class AutomataWorldCollectionCheck
     private void ReportCategories(WorldCollectionReport report)
     {
         var unavailable = new List<string>();
-        var lossy = new List<string>();
-        var empty = new List<string>();
-        var counts = new List<string>();
+        var gaps = new List<string>();
+        var quiet = new List<string>();
+        var bound = 0;
 
         foreach (var category in report.Categories)
         {
             if (category.Outcome != WorldCategoryOutcome.Collected)
             {
-                unavailable.Add($"{category.Category} ({category.FirstFailure})");
+                unavailable.Add($"{category.Category} did not bind — {category.FirstFailure}");
                 continue;
             }
 
+            bound++;
             if (category.Skipped > 0)
             {
-                lossy.Add($"{category.Category} lost {category.Skipped} — {category.FirstFailure}");
+                gaps.Add($"{category.Category} lost {category.Skipped} — {category.FirstFailure}");
             }
 
-            if (category.Sampled == 0) empty.Add(category.Category);
-            else counts.Add($"{category.Category} {category.Sampled}");
+            if (category.Sampled != 0) continue;
+            var expected = EmptySampleIsExpected(category.Category);
+            if (expected.Length == 0) gaps.Add($"{category.Category} bound and found nothing");
+            else quiet.Add($"{category.Category} {expected}");
         }
 
-        _lines.Add(
-            unavailable.Count == 0
-                ? "  Binding: every category bound against this build."
-                : $"  UNAVAILABLE ({unavailable.Count}): {string.Join("; ", unavailable)}");
+        // Per-category counts are a census rather than a verdict, and the totals ride on the
+        // provenance line. What a reader can act on is the category that came up short, which is
+        // exactly what the gap rows name.
+        Add(unavailable.Count == 0
+            ? VerificationFinding.Agree("Category binding", report.Categories.Length)
+            : VerificationFinding.Incomplete(
+                "Category binding",
+                report.Categories.Length,
+                $"{unavailable.Count} categories did not bind against this build",
+                unavailable));
 
-        if (lossy.Count > 0) _lines.Add($"  ENTITIES LOST: {string.Join("; ", lossy)}");
-
-        _lines.Add(
-            empty.Count == 0
-                ? "  Traversal: every bound category found entities."
-                : $"  EMPTY (bound, found nothing): {string.Join(", ", empty)}");
-
-        _lines.Add($"  Counts: {string.Join(", ", counts)}");
+        var traversal = gaps.Count == 0
+            ? VerificationFinding.Agree("Category traversal", bound)
+            : VerificationFinding.Incomplete(
+                "Category traversal",
+                bound,
+                $"{gaps.Count} bound categories came up short",
+                gaps);
+        Add(quiet.Count == 0 ? traversal : traversal.WithNote("Empty on purpose: " + string.Join("; ", quiet) + "."));
     }
 
     /// <summary>
-    /// Identity is claimed once across every category, so a collision silently costs one of the two
-    /// entities. The collector already refuses an empty or repeated identity; this states whether
-    /// either happened against the game's own identities, which is where it would.
+    /// Why a category can read nothing without anything being wrong, in the reader's words, or the
+    /// empty string when zero really is a shortfall.
     /// </summary>
     /// <remarks>
-    /// The walk reflects over the snapshot's tables rather than naming them, so a category added
-    /// later is covered without anyone remembering to add it here. Missing a table would make this
-    /// check quietly weaker rather than fail, which is the failure mode worth designing out.
+    /// <para>
+    /// Most collectors count entities in the world, and zero of those is the one failure a bound
+    /// collector can still have: every member resolved, nothing degraded, and the registry simply was
+    /// not where it looked. Two of them count something else, and reporting them as shortfalls cost
+    /// two rounds of investigation each to re-derive the same answer.
+    /// </para>
+    /// <para>
+    /// This is deliberately a closed list rather than a rule read off the collector: a category that
+    /// nobody has ruled on keeps the loud gap, so the way to be wrong here is to explain too little
+    /// rather than to excuse too much.
+    /// </para>
     /// </remarks>
-    private void CheckIdentities(GameWorldState world)
+    internal static string EmptySampleIsExpected(string category) => category switch
     {
-        var seen = new HashSet<Guid>();
-        var duplicates = 0;
-        var empties = 0;
-        var total = 0;
-        var firstDuplicate = Guid.Empty;
+        // Sampled counts open requests, not targets: the reader returns zero the moment
+        // TargetingManager.IsTargeting() is false, which is nearly every frame there is.
+        "targeting" => "samples only while a native targeting request is open, and none was",
 
-        foreach (var id in WorldIdentityWalk.Enumerate(world))
-        {
-            total++;
-            if (id == Guid.Empty)
-            {
-                empties++;
-            }
-            else if (!seen.Add(id))
-            {
-                duplicates++;
-                if (firstDuplicate == Guid.Empty) firstDuplicate = id;
-            }
-        }
+        // Sampled counts station instances. Nothing on the pinned build ever creates one:
+        // CraftingStructureSO.CreateInstance has one caller, AddInstance.Create, which has no
+        // callers of its own and appears in no dumped asset.
+        "crafting stations" => "counts stations in play, and this build authors none it can reach",
+        _ => string.Empty,
+    };
 
-        _lines.Add(
-            empties == 0 && duplicates == 0
-                ? $"  Identities: {total} published, all distinct and non-empty."
-                : $"  IDENTITIES: {total} published, {empties} empty, {duplicates} duplicated " +
-                  $"(first {firstDuplicate}).");
-    }
+    private void CheckIdentities(GameWorldState world) => Add(WorldIdentityAudit.Audit(world));
 
     /// <summary>
     /// The parity check proper. Every comparison here reads a field on one side and calls the game's
@@ -275,12 +288,22 @@ internal sealed class AutomataWorldCollectionCheck
         });
 
         // Stock is the member reading the save record hid. GetQuantity() is what the inventory shows.
+        //
+        // CanFire is the composite that left capture: the deriver composes it from cooldown, both
+        // affordability verdicts and stock, and this is the oracle that proves the composition. The
+        // native call writes while it answers, which is exactly why it belongs here rather than in
+        // the pass. CompareCostScaling proves the other deleted reading — the cost readers scale
+        // each entry as they walk it now, and these lists are where that arithmetic can be put
+        // beside the game's own ResourceCostList.Multiply over live data.
         CompareEach(world.Consumables, "ConsumableSO", (row, entity, type) =>
         {
             CompareInt("ConsumableSO.GetQuantity", entity, type, "GetQuantity", row.Quantity);
             CompareInt("ConsumableSO.GetQueued", entity, type, "GetQueued", row.QueuedQuantity);
             CompareInt("ConsumableSO.GetGainedSince", entity, type, "GetGainedSince", row.GainedSince);
             CompareBool("ConsumableSO.IsVisible", entity, type, "IsVisible", row.Visible);
+            CompareBool("ConsumableSO.CanFire", entity, type, "CanFire", row.CanFire);
+            CompareCostScaling(entity, type, "consumeCost");
+            CompareCostScaling(entity, type, "usageCost");
         });
 
         CompareEach(world.Resources, "ResourceSO", (row, entity, type) =>
@@ -301,7 +324,88 @@ internal sealed class AutomataWorldCollectionCheck
                 entity, type, "rateLifetimePercent", reading.RateInputs.RateLifetimePercentModifiers);
 
             CompareTrueQuantity(entity, type, row.TrueQuantity);
+            CompareDisplayedCapacity(entity, type, row);
         });
+    }
+
+    /// <summary>
+    /// The published display coordinate against <c>GetDisplayQuantity()</c>, and the capacity verdict
+    /// that reads it against the game's own ceiling.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The display mirror had no oracle at all: <c>WorldResourceCoordinate.DisplayAmount</c> decides
+    /// which of two numbers a player-facing surface shows, and picking the wrong one is invisible to
+    /// every other check here because both numbers are collected correctly.
+    /// </para>
+    /// <para>
+    /// The capacity verdict is the deliberate disagreement. <c>IsAtMax()</c> compares the
+    /// <em>stored</em> quantity with the ceiling and has no callers of its own; the published
+    /// <c>isAtCapacity</c> compares the <em>displayed</em> quantity, so an inverted counter reads
+    /// full when the thing it counts is maxed rather than when its tolerance is untouched. For every
+    /// other resource the two questions coincide and are compared. For an inverted one the
+    /// divergence is the design, so it is counted and reported rather than recorded as a failure —
+    /// and the verdict is pinned instead against the game's own displayed number and ceiling, which
+    /// is the comparison that would catch the branch being dropped.
+    /// </para>
+    /// <para>
+    /// Both native calls reach <c>maxQuantity</c> through the record's conversion, which settles it
+    /// when dirty. Compared only while it is already clean, on the same bargain
+    /// <see cref="CompareTrueQuantity"/> strikes.
+    /// </para>
+    /// </remarks>
+    private void CompareDisplayedCapacity(object entity, Type type, WorldResource row)
+    {
+        if (!IsClean(entity, type, "maxQuantity")) return;
+
+        var display = NativeAccessorBinder.Call<BigDouble>(type, "GetDisplayQuantity");
+        var atMax = NativeAccessorBinder.Call<bool>(type, "IsAtMax");
+        if (display is null || atMax is null)
+        {
+            NoteMissingOracle(display is null ? "ResourceSO.GetDisplayQuantity" : "ResourceSO.IsAtMax");
+            return;
+        }
+
+        var ourDisplay = WorldResourceCoordinate.DisplayAmount(in row);
+        var theirDisplay = display(entity);
+        Record("ResourceSO.GetDisplayQuantity", ourDisplay, theirDisplay, ourDisplay == theirDisplay);
+
+        var theirAtMax = atMax(entity);
+        if (!row.Reading.Traits.InvertedResource)
+        {
+            Record("ResourceSO.IsAtMax", row.IsAtCapacity, theirAtMax, row.IsAtCapacity == theirAtMax);
+            return;
+        }
+
+        _invertedCounters++;
+        if (row.IsAtCapacity != theirAtMax) _invertedCapacityDivergences++;
+
+        var ceiling = ReadRecordValue(entity, type, "maxQuantity");
+        if (ceiling is not { } theirCeiling)
+        {
+            NoteMissingOracle("ResourceSO.maxQuantity");
+            return;
+        }
+
+        var displayedIsFull = row.IsCapped && theirDisplay.CompareTo(theirCeiling) >= 0;
+        Record(
+            "ResourceSO.GetDisplayQuantity at ceiling",
+            row.IsAtCapacity,
+            displayedIsFull,
+            row.IsAtCapacity == displayedIsFull);
+    }
+
+    /// <summary>
+    /// A modifier record's own value, read the way the game reads it. Only sound on a clean record,
+    /// which every caller here has already established.
+    /// </summary>
+    private static BigDouble? ReadRecordValue(object entity, Type type, string fieldName)
+    {
+        var record = type.GetField(fieldName, Instance)?.GetValue(entity);
+        var getValue = record?.GetType().GetMethod("GetValue", Instance, null, Type.EmptyTypes, null);
+        if (getValue is null || getValue.ReturnType != typeof(BigDouble)) return null;
+
+        return (BigDouble)getValue.Invoke(record, null)!;
     }
 
     /// <summary>
@@ -318,15 +422,33 @@ internal sealed class AutomataWorldCollectionCheck
     /// </remarks>
     private void CheckGlobalSingletons(GameWorldState world)
     {
-        CheckSingleton(world, "GlobalVariables", "GetMultiBuy", KnownEntities.MultiBuy.Uuid);
-        CheckSingleton(world, "Player", "GetBulkDevelopment", KnownEntities.BulkDevelopment.Uuid);
+        var compared = 0;
+        var differed = 0;
+
+        CheckSingleton(world, "GlobalVariables", "GetMultiBuy", KnownEntities.MultiBuy.Uuid,
+            ref compared, ref differed);
+        CheckSingleton(world, "Player", "GetBulkDevelopment", KnownEntities.BulkDevelopment.Uuid,
+            ref compared, ref differed);
+
+        if (compared == 0)
+        {
+            Add(VerificationFinding.Inconclusive(
+                "Global singletons", "neither singleton accessor could be reached."));
+            return;
+        }
+
+        Add(differed == 0
+            ? VerificationFinding.Agree("Global singletons", compared)
+            : VerificationFinding.Disagree("Global singletons", compared, differed, TakeDetail()));
     }
 
     private void CheckSingleton(
         GameWorldState world,
         string typeName,
         string accessor,
-        Guid expected)
+        Guid expected,
+        ref int compared,
+        ref int differed)
     {
         var label = $"{typeName}.{accessor}";
         var type = ReflectionUtil.FindLoadedType(typeName);
@@ -345,21 +467,27 @@ internal sealed class AutomataWorldCollectionCheck
         }
         catch (TargetInvocationException)
         {
-            _lines.Add($"  {label} threw; identity unproven.");
+            compared++;
+            differed++;
+            _detail.Add($"{label} threw; identity unproven.");
             return;
         }
 
         if (variable is null)
         {
-            _lines.Add($"  {label} returned nothing; identity unproven.");
+            compared++;
+            differed++;
+            _detail.Add($"{label} returned nothing; identity unproven.");
             return;
         }
 
+        compared++;
         var actual = Guid.TryParse(ReflectionUtil.ReadStableId(variable), out var id) ? id : Guid.Empty;
         var published = WorldLookup.TryFind(world.IntVariables, expected, out _);
-        _lines.Add(actual == expected && published
-            ? $"  {label} is the pinned identity and is published."
-            : $"  {label} MISMATCH: pinned {expected}, singleton {actual}, published {published}.");
+        if (actual == expected && published) return;
+
+        differed++;
+        _detail.Add($"{label}: pinned {expected}, singleton {actual}, published {published}.");
     }
 
     /// <summary>
@@ -389,6 +517,7 @@ internal sealed class AutomataWorldCollectionCheck
     {
         var compared = 0;
         var wrong = 0;
+        var unread = 0;
         var first = string.Empty;
 
         foreach (var accessorName in FrameGlobalAccessors)
@@ -398,7 +527,8 @@ internal sealed class AutomataWorldCollectionCheck
             if (record is null)
             {
                 NoteMissingOracle(label);
-                _lines.Add($"  {label} {failure}; its reading is unproven.");
+                unread++;
+                _detail.Add($"{label} {failure}; its reading is unproven.");
                 continue;
             }
 
@@ -418,21 +548,34 @@ internal sealed class AutomataWorldCollectionCheck
             if (first.Length == 0)
             {
                 first =
-                    $"{label} ours={ours} theirs={theirs} " +
-                    $"(recompute {truth}, memo {cached}, {(isDirty ? "dirty" : "clean")})";
+                    $"{label} {VerificationValue.Sides(ours, theirs)} " +
+                    $"(recompute {VerificationValue.Format(truth)}, " +
+                    $"memo {VerificationValue.Format(cached)}, {(isDirty ? "dirty" : "clean")})";
             }
         }
 
         if (compared == 0)
         {
-            _lines.Add("  Frame global verification unavailable: no player global exposed a modifier record.");
+            Add(VerificationFinding.Inconclusive(
+                "Frame global reading", "no player global exposed a modifier record."));
             return;
         }
 
-        _lines.Add(
-            wrong == 0
-                ? $"  Frame global reading verification PASSED: {compared} compared, {compared} exact."
-                : $"  FRAME GLOBAL READING FAILED: {wrong} of {compared} disagree — first {first}.");
+        if (wrong > 0)
+        {
+            _detail.Add($"first {first}");
+            Add(VerificationFinding.Disagree(
+                "Frame global reading", compared, wrong, TakeDetail()));
+            return;
+        }
+
+        Add(unread == 0
+            ? VerificationFinding.Agree("Frame global reading", compared)
+            : VerificationFinding.Incomplete(
+                "Frame global reading",
+                compared,
+                $"{unread} globals could not be read",
+                TakeDetail()));
     }
 
     /// <summary>
@@ -524,9 +667,9 @@ internal sealed class AutomataWorldCollectionCheck
         if (registry is null || getGuid is null || reference is null || getModifier is null)
         {
             NoteMissingOracle("StructureSO.costPerQuantity");
-            _lines.Add(
-                "  Cost-per-quantity verification unavailable: this build does not expose the " +
-                "structure's per-quantity modifier reference.");
+            Add(VerificationFinding.Inconclusive(
+                "Cost per quantity",
+                "this build does not expose the structure's per-quantity modifier reference."));
             return;
         }
 
@@ -567,20 +710,34 @@ internal sealed class AutomataWorldCollectionCheck
             if (first.Length == 0)
             {
                 first =
-                    $"{Describe(entity, entityId)}: " +
-                    $"ours=[type {published.ModifierType} amount {published.Amount} order {published.Order}] " +
-                    $"theirs=[type {theirType} amount {theirAmount} order {theirOrder}]";
+                    $"{Describe(entityId)}: " +
+                    $"ours=[type {published.ModifierType} " +
+                    $"amount {VerificationValue.Format(published.Amount)} order {published.Order}] " +
+                    $"theirs=[type {theirType} " +
+                    $"amount {VerificationValue.Format(theirAmount)} order {theirOrder}]";
             }
         }
 
-        _lines.Add(
-            compared == 0
-                ? "  Cost-per-quantity verification: nothing was comparable. Load a save first."
-                : compared == exact
-                    ? $"  Cost-per-quantity verification PASSED: {compared} compared, {exact} exact. " +
-                      $"[{unresolved} unresolved]"
-                    : $"  COST PER QUANTITY FAILED: {compared - exact} of {compared} disagree — " +
-                      $"first {first}. [{unresolved} unresolved]");
+        if (compared == 0)
+        {
+            Add(VerificationFinding.Inconclusive(
+                "Cost per quantity", "nothing was comparable. Load a save first."));
+            return;
+        }
+
+        if (compared != exact)
+        {
+            Add(VerificationFinding.Disagree(
+                "Cost per quantity", compared, compared - exact, $"first {first}"));
+            return;
+        }
+
+        Add(unresolved == 0
+            ? VerificationFinding.Agree("Cost per quantity", compared)
+            : VerificationFinding.Incomplete(
+                "Cost per quantity",
+                compared,
+                $"{unresolved} structures did not resolve a modifier on either side"));
     }
 
     /// <summary>
@@ -709,10 +866,10 @@ internal sealed class AutomataWorldCollectionCheck
             Check("ResourceSO.levelVariable", world.Resources[index].Reading.LevelVariableId);
         }
 
-        _lines.Add(
-            dangling == 0
-                ? $"  Reference edges: {checkedEdges} non-empty, all resolve into IntVariables."
-                : $"  DANGLING EDGES: {dangling} of {checkedEdges} — first {firstDangling}");
+        Add(dangling == 0
+            ? VerificationFinding.Agree("Reference edges", checkedEdges)
+            : VerificationFinding.Disagree(
+                "Reference edges", checkedEdges, dangling, $"first {firstDangling}"));
     }
 
     /// <summary>
@@ -754,7 +911,10 @@ internal sealed class AutomataWorldCollectionCheck
         if (costs is null)
         {
             NoteMissingOracle("GetPurchaseCost");
-            _lines.Add("  Published cost verification unavailable: this build does not expose GetPurchaseCost.");
+            Add(VerificationFinding.Inconclusive(
+                "Published cost", "this build does not expose GetPurchaseCost."));
+            Add(VerificationFinding.Inconclusive(
+                "Affordability parity", "no published cost could be priced to compare against."));
             return;
         }
 
@@ -818,7 +978,7 @@ internal sealed class AutomataWorldCollectionCheck
                     {
                         falseExclusions++;
                         if (namedFalseExclusions.Count < 3)
-                            namedFalseExclusions.Add($"{Describe(entity, entityId)} [{bucket}]");
+                            namedFalseExclusions.Add($"{Describe(entityId)} [{bucket}]");
                     }
                 }
 
@@ -841,7 +1001,7 @@ internal sealed class AutomataWorldCollectionCheck
                     if (worstOffender.Length == 0)
                     {
                         worstOffender =
-                            $"{Describe(entity, entityId)} priced {ours.Count} resources, " +
+                            $"{Describe(entityId)} priced {ours.Count} resources, " +
                             $"the game prices {theirs.Count}";
                     }
 
@@ -856,7 +1016,7 @@ internal sealed class AutomataWorldCollectionCheck
                         if (worstOffender.Length == 0)
                         {
                             worstOffender =
-                                $"{Describe(entity, entityId)} prices {entry.Key}, the game does not";
+                                $"{Describe(entityId)} prices {entry.Key}, the game does not";
                         }
 
                         continue;
@@ -874,8 +1034,8 @@ internal sealed class AutomataWorldCollectionCheck
 
                     worstError = error;
                     worstOffender =
-                        $"{Describe(entity, entityId)} {entry.Key}: " +
-                        $"ours={entry.Value} theirs={theirAmount}";
+                        $"{Describe(entityId)} {entry.Key}: " +
+                        VerificationValue.Sides(entry.Value, theirAmount);
                     worstEntity = entity;
                     worstEntityId = entityId;
                     worstResource = entry.Key;
@@ -890,38 +1050,63 @@ internal sealed class AutomataWorldCollectionCheck
                 else if (firstEligibilityGap.Length == 0)
                 {
                     firstEligibilityGap =
-                        $"{Describe(entity, entityId)}: ours={ourEnough} theirs={theirEnough}";
+                        $"{Describe(entityId)}: {VerificationValue.Sides(ourEnough, theirEnough)}";
                 }
             }
         }
 
         var mismatches = compared - exact + countMismatches;
-        _lines.Add(
-            mismatches == 0
-                ? $"  Published cost verification PASSED: {compared} compared, {exact} exact. " +
-                  $"[{eligibilityCompared} entities, {missingEntities} unpriced]"
-                : $"  PUBLISHED COST FAILED: {mismatches} of {compared + countMismatches} disagree — " +
-                  $"worst {worstOffender}. [{missingEntities} unpriced]");
+        if (mismatches > 0)
+        {
+            _detail.Add($"worst {worstOffender}");
 
-        if (mismatches > 0 && worstEntity is not null)
-            ReportStructureTerms(world, worstEntity, worstEntityId, worstResource);
+            // Every term of the worst price, agreeing terms included. This is one disagreement's
+            // breakdown rather than a row per compared fact, and an omitted term that agreed is what
+            // a past diagnosis read as proof the arithmetic was at fault.
+            if (worstEntity is not null)
+                ReportStructureTerms(world, worstEntity, worstEntityId, worstResource);
 
-        _lines.Add(
-            eligibilityCompared == 0
-                ? "  Affordability parity: nothing was comparable. Load a save first."
-                : eligibilityAgreed == eligibilityCompared
-                    ? $"  Affordability parity: {eligibilityCompared} compared, all agree with HasEnough()."
-                    : $"  AFFORDABILITY PARITY FAILED: {eligibilityCompared - eligibilityAgreed} of " +
-                      $"{eligibilityCompared} disagree — first {firstEligibilityGap}");
+            Add(VerificationFinding.Disagree(
+                "Published cost", compared + countMismatches, mismatches, TakeDetail()));
+        }
+        else
+        {
+            Add(missingEntities == 0
+                ? VerificationFinding.Agree("Published cost", compared)
+                : VerificationFinding.Incomplete(
+                    "Published cost", compared, $"{missingEntities} entities were unpriced"));
+        }
 
-        _lines.Add(
-            exclusionCompared == 0
-                ? "  Exclusion parity: no entity exposed both of the game's gates."
-                : falseExclusions == 0
-                    ? $"  Exclusion parity: {exclusionCompared} candidates checked, " +
-                      "none excluded that the game would sell."
-                    : $"  {falseExclusions} candidates excluded that the game would sell, of " +
-                      $"{exclusionCompared} — first {string.Join(", ", namedFalseExclusions)}");
+        if (eligibilityCompared == 0)
+        {
+            Add(VerificationFinding.Inconclusive(
+                "Affordability parity", "nothing was comparable. Load a save first."));
+        }
+        else
+        {
+            Add(eligibilityAgreed == eligibilityCompared
+                ? VerificationFinding.Agree("Affordability parity", eligibilityCompared)
+                : VerificationFinding.Disagree(
+                    "Affordability parity",
+                    eligibilityCompared,
+                    eligibilityCompared - eligibilityAgreed,
+                    $"first {firstEligibilityGap}"));
+        }
+
+        if (exclusionCompared == 0)
+        {
+            Add(VerificationFinding.Inconclusive(
+                "Exclusion parity", "no entity exposed both of the game's gates."));
+            return;
+        }
+
+        Add(falseExclusions == 0
+            ? VerificationFinding.Agree("Exclusion parity", exclusionCompared)
+            : VerificationFinding.Disagree(
+                "Exclusion parity",
+                exclusionCompared,
+                falseExclusions,
+                $"the game would sell {string.Join(", ", namedFalseExclusions)}"));
     }
 
     /// <summary>
@@ -1024,7 +1209,9 @@ internal sealed class AutomataWorldCollectionCheck
         if (!WorldLookup.TryFind(world.Structures, entityId, out var structure)) return;
 
         var reading = structure.Reading;
-        _lines.Add($"  Worst offender term by term — {Describe(entity, entityId)}, resource {resourceId}:");
+        _detail.Add(
+            $"worst offender term by term — {Describe(entityId)}, " +
+            $"resource {EntityIdentityFormatter.Format(resourceId)}:");
 
         ReportAuthoredBase(entity, structureType, resourceId);
         ReportAttributeCostMod(world, entity, structureType, resourceId);
@@ -1042,14 +1229,16 @@ internal sealed class AutomataWorldCollectionCheck
             TryReadCache(globalRecord, out var globalMemo, out var globalDirty, out var globalTruth))
         {
             var theirGlobal = GameReads(globalMemo, globalDirty, globalTruth);
-            _lines.Add(
-                $"    {"structure cost %",-20} ours={OrbGameMath.AsPercent(ourGlobal)} " +
-                $"theirs={OrbGameMath.AsPercent(theirGlobal)} recompute={OrbGameMath.AsPercent(globalTruth)}" +
+            _detail.Add(
+                $"  {"structure cost %",-20} " +
+                VerificationValue.Sides(
+                    OrbGameMath.AsPercent(ourGlobal), OrbGameMath.AsPercent(theirGlobal)) +
+                $" recompute={VerificationValue.Format(OrbGameMath.AsPercent(globalTruth))}" +
                 Verdict(ourGlobal == theirGlobal));
         }
         else
         {
-            _lines.Add($"    {"structure cost %",-20} Player.GetStructureCost {globalFailure}");
+            _detail.Add($"  {"structure cost %",-20} Player.GetStructureCost {globalFailure}");
         }
 
         var reference = structureType.GetField("costPerQuantity", Instance);
@@ -1060,13 +1249,15 @@ internal sealed class AutomataWorldCollectionCheck
         var readTheirs = reference is not null && getModifier is not null &&
             TryReadGameModifier(entity, reference, getModifier, out theirType, out theirAmount, out theirOrder);
         var readOurs = WorldLookup.TryFind(world.ModifierVariables, reading.CostPerQuantityId, out var ours);
-        _lines.Add(
-            $"    {"costPerQuantity",-20} " +
+        _detail.Add(
+            $"  {"costPerQuantity",-20} " +
             (readOurs
-                ? $"ours=[type {ours.ModifierType} amount {ours.Amount} order {ours.Order}] "
+                ? $"ours=[type {ours.ModifierType} " +
+                  $"amount {VerificationValue.Format(ours.Amount)} order {ours.Order}] "
                 : "ours=[unresolved] ") +
             (readTheirs
-                ? $"theirs=[type {theirType} amount {theirAmount} order {theirOrder}]"
+                ? $"theirs=[type {theirType} " +
+                  $"amount {VerificationValue.Format(theirAmount)} order {theirOrder}]"
                 : "theirs=[unreadable]"));
 
         var ourCommitted = reading.Level + reading.QueuedLevels;
@@ -1075,11 +1266,12 @@ internal sealed class AutomataWorldCollectionCheck
         var theirCommitted = quantity is null || queued is null
             ? (BigDouble?)null
             : new BigDouble(Convert.ToInt64(quantity) + Convert.ToInt64(queued));
-        _lines.Add(
-            $"    {"committed quantity",-20} ours={ourCommitted} " +
+        _detail.Add(
+            $"  {"committed quantity",-20} " +
             (theirCommitted is { } committed
-                ? $"theirs={committed}" + Verdict(ourCommitted == committed)
-                : "theirs=[unreadable]"));
+                ? VerificationValue.Sides(ourCommitted, committed) +
+                  Verdict(ourCommitted == committed)
+                : $"ours={VerificationValue.Format(ourCommitted)} theirs=[unreadable]"));
 
         BigDouble? ourNextCostMod = null;
         if (readOurs && Enum.IsDefined(typeof(GameValueModifierType), ours.ModifierType))
@@ -1107,13 +1299,16 @@ internal sealed class AutomataWorldCollectionCheck
             // which is the whole report.
         }
 
-        _lines.Add(
-            $"    {"next cost mod",-20} " +
-            (ourNextCostMod is { } ourMod ? $"ours={ourMod} " : "ours=[not computable] ") +
-            (theirNextCostMod is { } theirMod ? $"theirs={theirMod}" : "theirs=[unreadable]") +
+        _detail.Add(
+            $"  {"next cost mod",-20} " +
             (ourNextCostMod is { } left && theirNextCostMod is { } right
-                ? Verdict(left == right)
-                : string.Empty));
+                ? VerificationValue.Sides(left, right) + Verdict(left == right)
+                : (ourNextCostMod is { } ourMod
+                      ? $"ours={VerificationValue.Format(ourMod)} "
+                      : "ours=[not computable] ") +
+                  (theirNextCostMod is { } theirMod
+                      ? $"theirs={VerificationValue.Format(theirMod)}"
+                      : "theirs=[unreadable]")));
     }
 
     /// <summary>One record term: what we published, what the game reads, what a recompute would say.</summary>
@@ -1122,14 +1317,17 @@ internal sealed class AutomataWorldCollectionCheck
         var record = type.GetField(fieldName, Instance)?.GetValue(entity);
         if (record is null || !TryReadCache(record, out var memo, out var isDirty, out var recomputed))
         {
-            _lines.Add($"    {label,-20} ours={ours} (the game's record was unreadable)");
+            _detail.Add(
+                $"  {label,-20} ours={VerificationValue.Format(ours)} " +
+                "(the game's record was unreadable)");
             return;
         }
 
         var theirs = GameReads(memo, isDirty, recomputed);
-        _lines.Add(
-            $"    {label,-20} ours={ours} theirs={theirs} recompute={recomputed} " +
-            $"memo={memo} {(isDirty ? "dirty" : "clean")}" +
+        _detail.Add(
+            $"  {label,-20} {VerificationValue.Sides(ours, theirs)} " +
+            $"recompute={VerificationValue.Format(recomputed)} " +
+            $"memo={VerificationValue.Format(memo)} {(isDirty ? "dirty" : "clean")}" +
             Verdict(ours == theirs));
     }
 
@@ -1154,7 +1352,7 @@ internal sealed class AutomataWorldCollectionCheck
             : costList.GetType().GetField("costs", Instance)?.GetValue(costList) as IList;
         if (entries is null)
         {
-            _lines.Add($"    {"authored base",-20} the structure's cost list was unreadable");
+            _detail.Add($"  {"authored base",-20} the structure's cost list was unreadable");
             return;
         }
 
@@ -1173,14 +1371,17 @@ internal sealed class AutomataWorldCollectionCheck
             var serialized = entryType.GetField("value", Instance)?.GetValue(entry);
             var accessor = FindNoArg(entryType, "GetValue");
             var read = accessor?.Invoke(entry, null) as BigDouble?;
-            _lines.Add(
-                $"    {"authored base",-20} valueBig={big} serialized={serialized} " +
-                (read is { } theirs ? $"GetValue={theirs}" : "GetValue=[unreadable]") +
+            _detail.Add(
+                $"  {"authored base",-20} valueBig={VerificationValue.Format(big)} " +
+                $"serialized={VerificationValue.Format(serialized)} " +
+                (read is { } theirs
+                    ? $"GetValue={VerificationValue.Format(theirs)}"
+                    : "GetValue=[unreadable]") +
                 (read is { } right && big is BigDouble ours ? Verdict(ours == right) : string.Empty));
             return;
         }
 
-        _lines.Add($"    {"authored base",-20} the game's cost list does not name {resourceId}");
+        _detail.Add($"  {"authored base",-20} the game's cost list does not name {resourceId}");
     }
 
     /// <summary>
@@ -1214,7 +1415,7 @@ internal sealed class AutomataWorldCollectionCheck
 
         if (!WorldLookup.TryFind(world.Resources, resourceId, out var resource))
         {
-            _lines.Add($"    {label,-20} the snapshot does not carry resource {resourceId}");
+            _detail.Add($"  {label,-20} the snapshot does not carry resource {resourceId}");
             return;
         }
 
@@ -1222,7 +1423,7 @@ internal sealed class AutomataWorldCollectionCheck
         var bonusAccess = bonusRecord is null ? null : NativeModifierRecordAccess.For(bonusRecord.GetType());
         if (bonusAccess is null)
         {
-            _lines.Add($"    {label,-20} Player.GetAttributeQualityBonus {bonusFailure}");
+            _detail.Add($"  {label,-20} Player.GetAttributeQualityBonus {bonusFailure}");
             return;
         }
 
@@ -1244,10 +1445,14 @@ internal sealed class AutomataWorldCollectionCheck
             // Reported as unreadable. The rest of the breakdown is worth more than this one line.
         }
 
-        _lines.Add(
-            $"    {label,-20} ours={ours} " +
-            (theirs is { } mod ? $"theirs={mod} " : "theirs=[unreadable] ") +
-            $"(record {numerator} / Pow(quality {quality} as percent, bonus {bonus}) = {divisor})" +
+        _detail.Add(
+            $"  {label,-20} " +
+            (theirs is { } mod
+                ? VerificationValue.Sides(ours, mod) + " "
+                : $"ours={VerificationValue.Format(ours)} theirs=[unreadable] ") +
+            $"(record {VerificationValue.Format(numerator)} / " +
+            $"Pow(quality {VerificationValue.Format(quality)} as percent, " +
+            $"bonus {VerificationValue.Format(bonus)}) = {VerificationValue.Format(divisor)})" +
             (theirs is { } right ? Verdict(ours == right) : string.Empty));
     }
 
@@ -1311,10 +1516,11 @@ internal sealed class AutomataWorldCollectionCheck
             if (combined == BigDouble.Zero) continue;
             if (!TryFindResource(world, resourceId, out var resource)) return false;
 
-            var spendable = resource.Reading.Traits.BandwidthResource
-                ? resource.Headroom
-                : resource.TrueQuantity;
-            if (spendable.CompareTo(combined) < 0) return false;
+            // This side of the differential deliberately mirrors AutoBuyCycleEvaluator's current
+            // exact comparison. The native side applies bandwidth snapping; a difference between
+            // them must remain visible here until the evaluator policy is ruled separately.
+            if (WorldResourceCoordinate.NativeCostAmount(in resource).CompareTo(combined) < 0)
+                return false;
         }
 
         return true;
@@ -1339,11 +1545,8 @@ internal sealed class AutomataWorldCollectionCheck
     }
 
     /// <summary>An entity named the way an operator reads it, falling back to the identity.</summary>
-    private static string Describe(object entity, Guid entityId)
-    {
-        var name = ReflectionUtil.ReadDisplayName(entity);
-        return string.IsNullOrWhiteSpace(name) ? entityId.ToString() : $"{name} ({entityId})";
-    }
+    private static string Describe(Guid entityId) =>
+        EntityIdentityFormatter.Format(entityId);
 
     /// <summary>
     /// The members needed to ask the game what an entity costs and whether the player can pay.
@@ -1522,22 +1725,50 @@ internal sealed class AutomataWorldCollectionCheck
     {
         if (_agreements + _disagreements == 0)
         {
-            _lines.Add("  Accessor parity: nothing was comparable. Load a save first.");
+            Add(VerificationFinding.Inconclusive(
+                "Accessor parity", "nothing was comparable. Load a save first."));
         }
         else
         {
-            _lines.Add(
-                _disagreements == 0
-                    ? $"  Accessor parity: {_agreements} comparisons, all agree."
-                    : $"  ACCESSOR PARITY FAILED: {_disagreements} of " +
-                      $"{_agreements + _disagreements} disagree — first {_firstDisagreement}");
+            Add(_disagreements == 0
+                ? VerificationFinding.Agree("Accessor parity", _agreements)
+                : VerificationFinding.Disagree(
+                    "Accessor parity",
+                    _agreements + _disagreements,
+                    _disagreements,
+                    $"first {_firstDisagreement}"));
+        }
+
+        // The one place the suite answers a question differently from a member of the game it can
+        // name, and by design. What is worth saying is not that the divergence happened — it is
+        // meant to — but that it was never exercised, because then nothing here proves the branch
+        // is still taken. Both ways of not exercising it get the same honest verdict.
+        if (_invertedCounters == 0)
+        {
+            Add(VerificationFinding.Inconclusive(
+                "Inverted counters",
+                "no inverted-counter resource was loaded, so the by-design divergence from " +
+                "IsAtMax() was never exercised."));
+        }
+        else if (_invertedCapacityDivergences == 0)
+        {
+            Add(VerificationFinding.Inconclusive(
+                "Inverted counters",
+                $"{_invertedCounters} were checked and none answered isAtCapacity differently " +
+                "from IsAtMax(), so the by-design divergence was never exercised."));
+        }
+        else
+        {
+            Add(VerificationFinding.Agree("Inverted counters", _invertedCounters));
         }
 
         // An oracle that did not resolve makes this check weaker without making it fail, so the gap
         // is stated rather than left to be inferred from a comparison count nobody has a baseline for.
         if (_missingOracles.Count > 0)
         {
-            _lines.Add($"  ORACLES ABSENT on this build: {string.Join(", ", _missingOracles)}");
+            Add(VerificationFinding.Inconclusive(
+                "Absent oracles",
+                $"this build does not expose {string.Join(", ", _missingOracles)}."));
         }
     }
 
@@ -1571,14 +1802,16 @@ internal sealed class AutomataWorldCollectionCheck
     /// </para>
     /// <para>
     /// Runs before anything else in this check, because several things downstream resolve records as
-    /// a side effect — collection itself calls <c>GetTrueRate()</c> — and a survey taken after them
-    /// would report their work rather than the game's.
+    /// a side effect — collection itself folds modifier records and calls <c>IsAvailable()</c> — and a
+    /// survey taken after them would report their work rather than the game's.
     /// </para>
     /// </remarks>
-    private string SurveyCacheStaleness()
+    private CacheStalenessSurvey SurveyCacheStaleness()
     {
         var worst = 0d;
         var worstLabel = string.Empty;
+        var worstMemo = BigDouble.Zero;
+        var worstRecompute = BigDouble.Zero;
         var surveyed = 0;
         var dirty = 0;
         var wrong = 0;
@@ -1586,7 +1819,6 @@ internal sealed class AutomataWorldCollectionCheck
         var foldCompared = 0;
         var foldWrong = 0;
         var foldFirst = string.Empty;
-        var offenders = new List<string>();
 
         foreach (var typeName in StalenessSurveyTypes)
         {
@@ -1598,9 +1830,6 @@ internal sealed class AutomataWorldCollectionCheck
 
             var records = ValueModifierRecordFields(type);
             if (records.Count == 0) continue;
-
-            var typeWrong = 0;
-            var typeSeen = 0;
 
             foreach (var entity in registry)
             {
@@ -1628,20 +1857,19 @@ internal sealed class AutomataWorldCollectionCheck
                             if (foldFirst.Length == 0)
                             {
                                 foldFirst =
-                                    $"{typeName}.{field.Name} ours={ours} theirs={theirs} " +
-                                    $"(recompute {truth}, memo {cached}, " +
+                                    $"{typeName}.{field.Name} {VerificationValue.Sides(ours, theirs)} " +
+                                    $"(recompute {VerificationValue.Format(truth)}, " +
+                                    $"memo {VerificationValue.Format(cached)}, " +
                                     $"{(isDirty ? "dirty" : "clean")})";
                             }
                         }
                     }
 
                     surveyed++;
-                    typeSeen++;
                     if (isDirty) dirty++;
                     if (cached == truth) continue;
 
                     wrong++;
-                    typeWrong++;
 
                     if (cached == BigDouble.Zero)
                     {
@@ -1649,46 +1877,45 @@ internal sealed class AutomataWorldCollectionCheck
                         continue;
                     }
 
-                    var error = RelativeError(cached, truth);
-                    if (error <= worst) continue;
+                    var apart = DriftOrders(cached, truth);
+                    if (apart <= worst) continue;
 
-                    worst = error;
+                    worst = apart;
                     worstLabel = $"{typeName}.{field.Name}";
+                    worstMemo = cached;
+                    worstRecompute = truth;
                 }
             }
-
-            if (typeSeen > 0 && typeWrong > 0)
-            {
-                offenders.Add($"{typeName} {typeWrong * 100 / typeSeen}%");
-            }
         }
 
-        if (surveyed == 0) return "  Cache accuracy: no modifier records were readable.";
+        if (surveyed == 0)
+        {
+            return new CacheStalenessSurvey(
+                VerificationFinding.Inconclusive(
+                    "Modifier reading", "no modifier record was readable."),
+                default);
+        }
 
         var fold = foldWrong == 0
-            ? $"  Modifier reading verification PASSED: {foldCompared} compared, {foldCompared} exact."
-            : $"  MODIFIER READING FAILED: {foldWrong} of {foldCompared} disagree — first {foldFirst}.";
+            ? VerificationFinding.Agree("Modifier reading", foldCompared)
+            : VerificationFinding.Disagree(
+                "Modifier reading", foldCompared, foldWrong, $"first {foldFirst}");
 
-        if (wrong == 0)
-        {
-            return fold + Environment.NewLine +
-                $"  Game memo drift: all {surveyed} memos equal a fresh recompute " +
-                $"({dirty} carried a dirty flag and were right anyway).";
-        }
-
-        var detail = neverCalculated > 0
-            ? $"{neverCalculated} never calculated at all (memo still zero)"
-            : "none uncalculated";
-        var margin = worstLabel.Length == 0
+        // Drift in the game, not error in the snapshot: a memo the game has not refreshed is still
+        // the number the game acts on, so the fold above compares against it rather than against a
+        // recompute. That makes the drift a condition of the run rather than a verdict about it —
+        // and it moves by thousands between two calls over an unchanged world, which is exactly the
+        // kind of number that invites a false diff when it sits in a comparison body. It rides on
+        // the provenance line, both sides in the screen's own notation.
+        var widest = worstLabel.Length == 0
             ? string.Empty
-            : $"; widest drift {worst * 100:0.##}% on {worstLabel}";
+            : $"{worstLabel} memo={VerificationValue.Format(worstMemo)} " +
+              $"recompute={VerificationValue.Format(worstRecompute)} " +
+              $"orders={Orders(worst, worstMemo, worstRecompute)}";
 
-        // Drift in the game, not error in the snapshot. A memo the game has not refreshed is still the
-        // number the game acts on, so the rung above compares against it rather than against this.
-        return fold + Environment.NewLine +
-            $"  Game memo drift (the game's own memo against a fresh recompute, not an error in us): " +
-            $"{wrong} of {surveyed} memos differ ({dirty} dirty) — {detail}{margin}. " +
-            $"By type: {string.Join(", ", offenders)}.";
+        return new CacheStalenessSurvey(
+            fold,
+            new CacheDrift(surveyed, wrong, dirty, neverCalculated, widest));
     }
 
     /// <summary>
@@ -1717,6 +1944,45 @@ internal sealed class AutomataWorldCollectionCheck
         isDirty = (bool)dirtyField.GetValue(record)!;
         truth = (BigDouble)adjust.Invoke(record, new object[] { new BigDouble((double)baseField.GetValue(record)!) })!;
         return true;
+    }
+
+    /// <summary>How far apart a memo and its recompute are, in orders of magnitude.</summary>
+    /// <remarks>
+    /// <para>
+    /// A share of the truth cannot rank endgame numbers: this game's deep cost reduction drives a
+    /// percentage field toward <c>1e-114</c>, and dividing by that made a stale hundred read as
+    /// <c>2.25e118%</c> — a figure that says only that the denominator was small, in a notation with
+    /// no ceiling. Orders of magnitude are the same comparison with the exponent taken out, so the
+    /// widest record stays a number a reader can hold, and the two sides beside it say the rest.
+    /// </para>
+    /// <para>
+    /// A recompute of exactly zero is unbounded orders away from any memo, and that is the honest
+    /// reading rather than an edge to suppress: the game is acting on a number its own recalculation
+    /// says is nothing. Values that are not finite cannot be ranked at all and never win.
+    /// </para>
+    /// </remarks>
+    internal static double DriftOrders(BigDouble memo, BigDouble recompute)
+    {
+        if (recompute == BigDouble.Zero) return memo == BigDouble.Zero ? 0d : double.PositiveInfinity;
+        if (memo == BigDouble.Zero) return double.PositiveInfinity;
+
+        var apart = Math.Abs(BigDouble.AbsLog10(memo) - BigDouble.AbsLog10(recompute));
+        return double.IsNaN(apart) || double.IsInfinity(apart) ? 0d : apart;
+    }
+
+    /// <summary>The drift magnitude as the window line prints it.</summary>
+    /// <remarks>
+    /// The no-ratio case says it is not a magnitude. <c>unbounded</c> is a magnitude-sounding word
+    /// for "there is no ratio here at all", and a live round spent a paragraph deriving that it did
+    /// not mean the drift was unbounded before it would trust the verdict. <c>n/a</c> says the
+    /// division did not happen, and the side that was zero is named in the same breath — the two
+    /// zero cases are different facts, and both sides are printed immediately to the left, so the
+    /// qualifier points at the number already on the line rather than restating it.
+    /// </remarks>
+    internal static string Orders(double apart, BigDouble memo, BigDouble recompute)
+    {
+        if (!double.IsPositiveInfinity(apart)) return apart.ToString("0.#");
+        return recompute == BigDouble.Zero ? "n/a (recompute=0)" : "n/a (memo=0)";
     }
 
     /// <summary>
@@ -1817,6 +2083,73 @@ internal sealed class AutomataWorldCollectionCheck
     }
 
     /// <summary>
+    /// Scaling a cost list, against the method it replaced. Every cost reader used to call
+    /// <c>ResourceCostList.Multiply(BigDouble)</c> — which allocates a whole second list to hold one
+    /// scalar product per entry — and now multiplies each entry as it walks it. This puts both
+    /// answers side by side over a live authored list, entry for entry.
+    /// </summary>
+    /// <remarks>
+    /// The factor is the shape a drain modifier takes, a percentage that is neither one nor zero, so
+    /// an implementation that dropped the multiply or applied it once for the whole list disagrees
+    /// rather than coincidentally matching. Both sides are pure: <c>Multiply</c> is
+    /// <c>new ResourceCostList(costs.Select(c =&gt; c.NewValue(c.GetValue() * value)).ToList())</c>
+    /// and <c>ResourceTuple.GetValue()</c> is <c>return valueBig;</c>.
+    /// </remarks>
+    private void CompareCostScaling(object entity, Type type, string field)
+    {
+        var label = $"ResourceCostList.Multiply({type.Name}.{field})";
+        var list = type.GetField(field, Instance)?.GetValue(entity);
+        var entries = ReadCostEntries(list);
+        if (list is null || entries is null)
+        {
+            NoteMissingOracle(label);
+            return;
+        }
+        if (entries.Count == 0) return;
+
+        var multiply = list.GetType().GetMethod(
+            "Multiply", Instance, null, new[] { typeof(BigDouble) }, null);
+        if (multiply is null || multiply.ReturnType != list.GetType())
+        {
+            NoteMissingOracle(label);
+            return;
+        }
+
+        var factor = new BigDouble(0.9);
+        var theirEntries = ReadCostEntries(multiply.Invoke(list, new object[] { factor }));
+        if (theirEntries is null || theirEntries.Count != entries.Count)
+        {
+            Disagree($"{label}: ours={entries.Count} entries theirs={theirEntries?.Count.ToString() ?? "[unreadable]"}");
+            return;
+        }
+
+        for (var index = 0; index < entries.Count; index++)
+        {
+            if (!TryReadCostValue(entries[index], out var authored) ||
+                !TryReadCostValue(theirEntries[index], out var theirs))
+            {
+                NoteMissingOracle(label);
+                return;
+            }
+            var ours = authored * factor;
+            Record(label, ours, theirs, ours == theirs);
+        }
+    }
+
+    private static IList? ReadCostEntries(object? list) =>
+        list?.GetType().GetField("costs", Instance)?.GetValue(list) as IList;
+
+    private static bool TryReadCostValue(object? entry, out BigDouble value)
+    {
+        value = default;
+        if (entry is null) return false;
+        var read = FindNoArg(entry.GetType(), "GetValue")?.Invoke(entry, null);
+        if (read is not BigDouble amount) return false;
+        value = amount;
+        return true;
+    }
+
+    /// <summary>
     /// The count substitution for <c>ModifierRecord.HasActiveElements()</c>, against the method it
     /// stands in for. Both sides are pure: the method is <c>activeModifiers.Count &gt; 0</c>.
     /// </summary>
@@ -1862,7 +2195,7 @@ internal sealed class AutomataWorldCollectionCheck
     private void Record(string label, object ours, object theirs, bool agreed)
     {
         if (agreed) _agreements++;
-        else Disagree($"{label}: ours={ours} theirs={theirs}");
+        else Disagree($"{label}: {VerificationValue.Sides(ours, theirs)}");
     }
 
     private void Disagree(string detail)
@@ -1872,8 +2205,89 @@ internal sealed class AutomataWorldCollectionCheck
     }
 }
 
+/// <summary>One identity, and the published table it was read from.</summary>
+/// <remarks>
+/// The table travels with the identity because the two questions worth asking about a snapshot's
+/// identities are answered at different scopes. "Can a lookup return the wrong row" is a question
+/// about one table, and "how many rows are extra detail about something already listed" is a
+/// question about the schema; an identity with no table attached can answer neither.
+/// </remarks>
+internal readonly struct WorldIdentitySighting
+{
+    internal WorldIdentitySighting(string table, Guid id, string keyWithinEntity = "")
+    {
+        Table = table;
+        Id = id;
+        KeyWithinEntity = keyWithinEntity ?? string.Empty;
+    }
+
+    /// <summary>The snapshot property the row was published under.</summary>
+    internal string Table { get; }
+
+    internal Guid Id { get; }
+
+    /// <summary>
+    /// The rest of this row's key, written out, and empty when the identity is the whole of it.
+    /// </summary>
+    /// <remarks>
+    /// Read from the row's own <see cref="WorldRowKeyPartAttribute"/> members, so a table that keys
+    /// several rows to one owner is scored on what its readers actually search by. Written rather
+    /// than packed because the only place it is ever read is a sentence naming the row that
+    /// repeated, and a reader cannot act on a hash.
+    /// </remarks>
+    internal string KeyWithinEntity { get; }
+}
+
+/// <summary>The members beyond the identity that one row type keys on, in their declared order.</summary>
+internal sealed class WorldRowKey
+{
+    private static readonly PropertyInfo[] None = Array.Empty<PropertyInfo>();
+
+    private readonly PropertyInfo[] _parts;
+
+    private WorldRowKey(PropertyInfo[] parts) => _parts = parts;
+
+    /// <summary>Whether this row is filed under more than its identity.</summary>
+    internal bool IsComposite => _parts.Length > 0;
+
+    internal static WorldRowKey Of(Type row)
+    {
+        if (row is null) throw new ArgumentNullException(nameof(row));
+
+        var parts = new List<KeyValuePair<int, PropertyInfo>>();
+        foreach (var property in row.GetProperties(
+                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            var part = property.GetCustomAttribute<WorldRowKeyPartAttribute>();
+            if (part is not null) parts.Add(new KeyValuePair<int, PropertyInfo>(part.Order, property));
+        }
+
+        if (parts.Count == 0) return new WorldRowKey(None);
+        parts.Sort(static (left, right) => left.Key.CompareTo(right.Key));
+        var ordered = new PropertyInfo[parts.Count];
+        for (var index = 0; index < ordered.Length; index++) ordered[index] = parts[index].Value;
+        return new WorldRowKey(ordered);
+    }
+
+    /// <summary>This row's key beyond its identity, or the empty string when it has none.</summary>
+    internal string Read(object row)
+    {
+        if (_parts.Length == 0) return string.Empty;
+
+        var text = new StringBuilder();
+        for (var index = 0; index < _parts.Length; index++)
+        {
+            if (index > 0) text.Append(' ');
+            text.Append(_parts[index].Name).Append('=').Append(_parts[index].GetValue(row));
+        }
+
+        return text.ToString();
+    }
+}
+
 /// <summary>
-/// Every identity in a snapshot, whichever tables it happens to have.
+/// Every identity in a snapshot, whichever tables it happens to have, each under the table it came
+/// from and in table order.
 /// </summary>
 /// <remarks>
 /// Reflection rather than a written-out list of tables, because the check this feeds is a
@@ -1891,7 +2305,7 @@ internal static class WorldIdentityWalk
     private static readonly MethodInfo ReadTable = typeof(WorldIdentityWalk)
         .GetMethod(nameof(Identities), BindingFlags.Static | BindingFlags.NonPublic)!;
 
-    internal static IEnumerable<Guid> Enumerate(GameWorldState world)
+    internal static IEnumerable<WorldIdentitySighting> Enumerate(GameWorldState world)
     {
         if (world is null) throw new ArgumentNullException(nameof(world));
 
@@ -1910,17 +2324,165 @@ internal static class WorldIdentityWalk
             var table = property.GetValue(world);
             if (table is null) continue;
 
-            var identities = (IEnumerable<Guid>)ReadTable
+            var sightings = (IEnumerable<WorldIdentitySighting>)ReadTable
                 .MakeGenericMethod(row)
-                .Invoke(null, new[] { table })!;
+                .Invoke(null, new[] { table, property.Name })!;
 
-            foreach (var id in identities) yield return id;
+            foreach (var sighting in sightings) yield return sighting;
         }
     }
 
-    private static IEnumerable<Guid> Identities<TRow>(PublicationTable<TRow> table)
+    private static IEnumerable<WorldIdentitySighting> Identities<TRow>(
+        PublicationTable<TRow> table,
+        string name)
         where TRow : struct, IWorldEntity
     {
-        for (var index = 0; index < table.Count; index++) yield return table[index].EntityId;
+        var key = WorldRowKey.Of(typeof(TRow));
+        for (var index = 0; index < table.Count; index++)
+        {
+            var row = table[index];
+            yield return new WorldIdentitySighting(name, row.EntityId, key.Read(row));
+        }
+    }
+}
+
+/// <summary>
+/// Whether any lookup in a snapshot is ambiguous, and how much of the snapshot is detail about
+/// something it already published.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A key is claimed once <em>within</em> a table, because that is the invariant a lookup rests on:
+/// two rows under one key in one table make the search for it return an arbitrary member of the
+/// pair. That, and a row that went out unidentified, are what this scores.
+/// </para>
+/// <para>
+/// The key is the identity plus whatever the row declares with
+/// <see cref="WorldRowKeyPartAttribute"/>. Most tables declare nothing and are keyed by identity
+/// alone, which is what <see cref="WorldLookup.TryFind"/> searches them by. Three of them —
+/// modifier programs by role, their entries by role, set and position, mastery costs by position —
+/// hold several rows per owner by design and are read by composite and range searches, never by
+/// identity; scored on the identity alone they reported one line per row after the first, 579 of
+/// them, and took a whole run's verdict down for describing the schema correctly.
+/// </para>
+/// <para>
+/// One identity reaching more than one table is the design rather than a defect: a dozen per-owner
+/// detail tables key their rows by the owning entity on purpose — spell-recipe authoring by its
+/// recipe, purchase-view relations by their candidate, harvest resources by their resource. Scored as
+/// collisions they read as "1389 things are broken" when they mean "1389 rows are extra detail about
+/// something already listed", and they took the whole run's verdict down with them while every read
+/// surface built on the same identities was correct. So the sharing is published as a named,
+/// non-scoring line, with the tables that account for most of it named — an aggregate nobody can
+/// attribute is exactly what made the old number cost an investigation.
+/// </para>
+/// <para>
+/// The narrow claim that remains is worth having and is live. Relation tables reach publication
+/// through <c>WorldRelationTableDeriver.Build</c>, which calls <c>PublicationTable.Create</c>
+/// directly and so bypasses the sort-and-reject guard in <see cref="WorldTable.Create"/> that every
+/// catalog table passes through. A within-table repeat or an unidentified row there would reach a
+/// consumer, and nothing else in the suite would notice.
+/// </para>
+/// </remarks>
+internal static class WorldIdentityAudit
+{
+    internal static VerificationFinding Audit(GameWorldState world)
+    {
+        var withinTable = new HashSet<(Guid Id, string Key)>();
+        var everywhere = new HashSet<Guid>();
+        var sharing = new List<TableIdentityCount>();
+        var detail = new List<string>();
+        var table = string.Empty;
+        var sharedHere = 0;
+        var compositeHere = false;
+        var total = 0;
+        var empties = 0;
+        var repeated = 0;
+        var shared = 0;
+        var composite = 0;
+
+        foreach (var sighting in WorldIdentityWalk.Enumerate(world))
+        {
+            if (!string.Equals(sighting.Table, table, StringComparison.Ordinal))
+            {
+                if (sharedHere > 0) sharing.Add(new TableIdentityCount(table, sharedHere));
+                if (compositeHere) composite++;
+                table = sighting.Table;
+                sharedHere = 0;
+                compositeHere = false;
+                withinTable.Clear();
+            }
+
+            total++;
+            if (sighting.KeyWithinEntity.Length > 0) compositeHere = true;
+            if (sighting.Id == Guid.Empty)
+            {
+                empties++;
+                detail.Add($"{table} published a row with no identity.");
+                continue;
+            }
+
+            if (!withinTable.Add((sighting.Id, sighting.KeyWithinEntity)))
+            {
+                repeated++;
+                detail.Add(sighting.KeyWithinEntity.Length == 0
+                    ? $"{table} published {sighting.Id} twice, so a lookup for it is ambiguous."
+                    : $"{table} published {sighting.Id} {sighting.KeyWithinEntity} twice, " +
+                      "so a lookup for it is ambiguous.");
+                continue;
+            }
+
+            if (everywhere.Add(sighting.Id)) continue;
+            shared++;
+            sharedHere++;
+        }
+
+        if (sharedHere > 0) sharing.Add(new TableIdentityCount(table, sharedHere));
+        if (compositeHere) composite++;
+
+        return (empties == 0 && repeated == 0
+                ? VerificationFinding.Agree(
+                    "Identities",
+                    total,
+                    counts: $"{total} compared, {empties} empty, {repeated} repeated within a table, " +
+                        $"{composite} {(composite == 1 ? "table" : "tables")} keyed on more than " +
+                        "the identity.")
+                : VerificationFinding.Disagree("Identities", total, empties + repeated, detail))
+            .WithNote(SharedLine(everywhere.Count, shared, sharing));
+    }
+
+    /// <summary>
+    /// How much of the snapshot is detail about something it already published, and which tables that
+    /// is. Not a verdict: it is the publication schema's shape, and it reads the same on a run that
+    /// agreed.
+    /// </summary>
+    private static string SharedLine(int entities, int shared, List<TableIdentityCount> sharing)
+    {
+        var line = $"Shared identities: {entities} {(entities == 1 ? "entity" : "entities")}, " +
+            $"{shared} detail {(shared == 1 ? "row" : "rows")} filed under one of them";
+        if (shared == 0) return line + ".";
+
+        sharing.Sort(static (left, right) => right.Rows.CompareTo(left.Rows));
+        var largest = new StringBuilder();
+        for (var index = 0; index < sharing.Count && index < 3; index++)
+        {
+            if (index > 0) largest.Append(", ");
+            largest.Append(sharing[index].Table).Append(' ').Append(sharing[index].Rows);
+        }
+
+        return line + " (largest: " + largest + ").";
+    }
+
+    /// <summary>One table, and how many of its rows were filed under an identity already published.</summary>
+    private readonly struct TableIdentityCount
+    {
+        internal TableIdentityCount(string table, int rows)
+        {
+            Table = table;
+            Rows = rows;
+        }
+
+        internal string Table { get; }
+
+        internal int Rows { get; }
     }
 }

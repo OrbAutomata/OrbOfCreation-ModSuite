@@ -310,6 +310,8 @@ internal readonly struct WorldMasteryCost : IWorldEntity
     }
     internal Guid RecipeId { get; }
     public Guid EntityId => RecipeId;
+
+    [WorldRowKeyPart(0)]
     internal int Position { get; }
     internal Guid ResourceId { get; }
     internal BigDouble Amount { get; }
@@ -333,16 +335,7 @@ internal sealed class RawMasteryCostBuffer
 internal static class OwnedMasteryCostMath
 {
     internal static bool HasAmount(in WorldResource resource, BigDouble amount)
-    {
-        if (resource.Reading.Traits.BandwidthResource)
-        {
-            var missing = resource.IsCapped ? resource.Headroom : BigDouble.Zero;
-            return OrbGameMath.SnapFloorToInt(missing) >= OrbGameMath.SnapFloorToInt(amount);
-        }
-
-        var quality = OrbGameMath.AsPercent(resource.Reading.Quality);
-        return resource.Reading.Quantity.CompareTo(amount / quality) >= 0;
-    }
+        => WorldResourceCoordinate.HasAmount(in resource, amount);
 
     internal static PublicationTable<WorldMasteryCost> Build(
         RawMasteryCostBuffer buffer,

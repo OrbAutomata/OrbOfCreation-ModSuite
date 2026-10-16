@@ -24,8 +24,12 @@ Three names, two systems:
 | **Recipe Book** | The same thing | Item tooltips |
 | **Spell Augment** / **Augment Glyph** | The socketable modifier you attach to a spell | Magic > Augments, the Augment Glyphs panel |
 
-The reliable test is what it does: unlockers expand what you can later roll, augments change a spell
-you already own. See [pool-unlockers.md](pool-unlockers.md) and [augments.md](augments.md).
+The reliable test is the **keyword on the glyph's own type line**: a keyword beginning `Spell `
+(`Spell Augment`, `Spell Elemental`) marks a socketable augment; `Elemental`, `Forging`,
+`Alchemical` and `Manifestation` mark a pool unlocker. Behaviour agrees — unlockers expand what you
+can later roll, augments change a spell you already own — but the keyword decides it at a glance.
+Observed split on one endgame save: 47 glyphs, 22 augments and 25 unlockers. See
+[pool-unlockers.md](pool-unlockers.md) and [augments.md](augments.md).
 
 ## Concepts versus Alchemy
 

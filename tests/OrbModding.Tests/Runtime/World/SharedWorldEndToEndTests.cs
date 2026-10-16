@@ -277,6 +277,8 @@ public sealed class SharedWorldEndToEndTests : IDisposable
         global::ResourceSO.All.Clear();
         global::StructureSO.All.Clear();
         global::UpgradeSO.All.Clear();
+        global::PrerequisiteLinkSO.All.Clear();
+        global::GameManager.currentFrame = 0;
         global::ValueModifierVariable.All.Clear();
     }
 

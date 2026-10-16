@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
 
@@ -83,7 +84,10 @@ internal readonly struct WorldConsumable : IWorldEntity
         bool canBeRandomized,
         bool hasDuration,
         double durationBase,
-        bool queueOnStart)
+        bool queueOnStart,
+        bool canFire = false,
+        bool immediateCostsAffordable = false,
+        bool usageCostsAffordable = false)
     {
         ConsumableId = consumableId;
         Visible = visible;
@@ -102,6 +106,9 @@ internal readonly struct WorldConsumable : IWorldEntity
         HasDuration = hasDuration;
         DurationBase = durationBase;
         QueueOnStart = queueOnStart;
+        CanFire = canFire;
+        ImmediateCostsAffordable = immediateCostsAffordable;
+        UsageCostsAffordable = usageCostsAffordable;
     }
 
     internal Guid ConsumableId { get; }
@@ -153,6 +160,13 @@ internal readonly struct WorldConsumable : IWorldEntity
     internal double DurationBase { get; }
 
     internal bool QueueOnStart { get; }
+
+    /// <summary>The game's complete immediate-use verdict at capture time.</summary>
+    internal bool CanFire { get; }
+
+    internal bool ImmediateCostsAffordable { get; }
+
+    internal bool UsageCostsAffordable { get; }
 }
 
 /// <summary>A consumable's cached modifier records — what using one is currently worth.</summary>
@@ -266,12 +280,60 @@ internal sealed class WorldConsumableBinder : WorldRowBinder<RawConsumableSample
 internal sealed class WorldConsumableDeriver : WorldRowDeriver<RawConsumableSample, WorldConsumable>
 {
     private readonly int _maximumCarryLoad;
+    private readonly PublicationTable<WorldConsumableCost> _costs;
+    private readonly PublicationTable<WorldResource> _resources;
 
-    internal WorldConsumableDeriver(int maximumCarryLoad) => _maximumCarryLoad = maximumCarryLoad;
+    internal WorldConsumableDeriver(
+        int maximumCarryLoad,
+        PublicationTable<WorldConsumableCost> costs,
+        PublicationTable<WorldResource> resources)
+    {
+        _maximumCarryLoad = maximumCarryLoad;
+        _costs = costs;
+        _resources = resources;
+    }
+
+    /// <summary>
+    /// Composes <c>ConsumableSO.CanFire()</c> from the terms the world already publishes rather
+    /// than asking the game for the verdict.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The original is a four-term conjunction and every term is a fact this snapshot holds:
+    /// </para>
+    /// <code>
+    /// CanFire() =&gt; !IsOnCooldown() &amp;&amp; HasEnoughUsage() &amp;&amp; HasEnoughCost() &amp;&amp; quantity &gt; 0
+    ///   IsOnCooldown()   =&gt; currentCooldown &gt; 0
+    ///   HasEnoughUsage() =&gt; usageCost.HasEnough()
+    ///   HasEnoughCost()  =&gt; consumeCost.HasEnough()
+    /// </code>
+    /// <para>
+    /// Calling it during capture cost more than the composition: <c>ResourceCostList.HasEnough()</c>
+    /// reaches <c>ResourceSO.HasAmount</c>, which for every non-bandwidth resource divides the cost
+    /// by <c>quality.AsPercent()</c> — and that is <c>ValueModifierRecord.GetValue()</c>, the
+    /// accessor that writes four fields on read and that
+    /// <see cref="NativeModifierRecordAccess"/> exists to avoid. Twice per consumable per pass.
+    /// </para>
+    /// <para>
+    /// The two affordability terms are the suite's own answer over the published cost rows, and
+    /// that math is what the differential verifier's spell-level affordability pass compares
+    /// against native <c>HasEnough()</c> for every spell recipe on a live save.
+    /// </para>
+    /// </remarks>
+    private static bool CanFire(
+        in RawConsumableSample sample,
+        bool usageAffordable,
+        bool consumeAffordable) =>
+        sample.CurrentCooldown <= BigDouble.Zero &&
+        usageAffordable &&
+        consumeAffordable &&
+        sample.Quantity > 0;
 
     internal override WorldConsumable Derive(in RawConsumableSample sample)
     {
         var modifiers = sample.Modifiers;
+        var consumeAffordable = Affordable(sample.ConsumableId, WorldConsumableCostKind.Consume);
+        var usageAffordable = Affordable(sample.ConsumableId, WorldConsumableCostKind.Usage);
         return new WorldConsumable(
             sample.ConsumableId,
             sample.Visible,
@@ -289,6 +351,22 @@ internal sealed class WorldConsumableDeriver : WorldRowDeriver<RawConsumableSamp
             sample.CanBeRandomized,
             sample.HasDuration,
             sample.DurationBase,
-            sample.QueueOnStart);
+            sample.QueueOnStart,
+            CanFire(in sample, usageAffordable, consumeAffordable),
+            consumeAffordable,
+            usageAffordable);
+    }
+
+    private bool Affordable(Guid consumableId, WorldConsumableCostKind kind)
+    {
+        if (!WorldConsumableCostLookup.TryFindRange(
+                _costs, consumableId, kind, out var start, out var count)) return true;
+        for (var index = start; index < start + count; index++)
+        {
+            var cost = _costs[index];
+            if (!WorldLookup.TryFind(_resources, cost.ResourceId, out var resource) ||
+                !OwnedMasteryCostMath.HasAmount(in resource, cost.Amount)) return false;
+        }
+        return true;
     }
 }

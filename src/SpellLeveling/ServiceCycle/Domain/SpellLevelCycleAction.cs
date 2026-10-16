@@ -80,9 +80,9 @@ internal readonly struct SpellLevelCycleAction
     {
         if (kind is not (SpellLevelActionKind.Single or SpellLevelActionKind.All))
             throw new ArgumentOutOfRangeException(nameof(kind));
-        if (uuid == Guid.Empty)
+        if (kind == SpellLevelActionKind.Single && uuid == Guid.Empty)
             throw new ArgumentException(
-                "A spell-level action requires a non-empty spell UUID.", nameof(uuid));
+                "A single-spell action requires a non-empty spell UUID.", nameof(uuid));
         Kind = kind;
         Uuid = uuid;
         CollectedAtEpoch = collectedAtEpoch;

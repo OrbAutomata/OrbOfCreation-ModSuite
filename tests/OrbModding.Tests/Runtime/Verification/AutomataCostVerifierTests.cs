@@ -39,7 +39,7 @@ public sealed class AutomataCostVerifierTests
 
         // Nothing was compared, so nothing may be reported as agreement.
         Assert.Equal(0, run.Compared);
-        Assert.DoesNotContain("PASSED", run.Summarize(), StringComparison.Ordinal);
+        Assert.Equal(VerificationVerdict.Inconclusive, run.Finding().Verdict);
     }
 
     [Fact]

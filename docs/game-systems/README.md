@@ -10,8 +10,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 - [modifiers.md](modifiers.md) — five kinds of modifier, folded in a fixed non-commutative order.
 - [per-level-scaling.md](per-level-scaling.md) — whether an effect's levels add or multiply is a
   property of that effect.
-- [numbers-and-rounding.md](numbers-and-rounding.md) — mantissa/exponent storage, two-significant-digit
-  prices, spend-to-zero.
+- [numbers-and-rounding.md](numbers-and-rounding.md) — how the screen spells a number,
+  mantissa/exponent storage, two-significant-digit prices, spend-to-zero.
 - [cost-pipeline.md](cost-pipeline.md) — six stages build a price; Quality divides it again at
   payment.
 - [lazy-evaluation.md](lazy-evaluation.md) — a value is worked out when something reads it, so
@@ -39,7 +39,7 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 ## Casting
 
 - [spells.md](spells.md) — a spell is a cost, a cooldown and an effect list that other purchases can
-  edit.
+  edit; three numbers describe that cooldown.
 - [spell-types.md](spell-types.md) — fifteen tags; buffs resolve against effective types, not the
   printed name.
 - [effect-grammar.md](effect-grammar.md) — every effect is term + statistic + keyword-target.

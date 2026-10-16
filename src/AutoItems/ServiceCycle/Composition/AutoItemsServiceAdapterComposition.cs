@@ -27,7 +27,8 @@ internal sealed class AutoItemsServiceAdapterComposition
         var gameAction = new AutoItemsConsumableUseGameAction(
             dependencies.RegistryResolver,
             dependencies.TryCaptureMutationPermit,
-            dependencies.ReadOwnershipFailure);
+            dependencies.ReadOwnershipFailure,
+            dependencies.ReadLifecycleEpoch);
         var actions = new AutoItemsCycleActionAdapter(
             gameAction,
             dependencies.ReadLifecycleEpoch,

@@ -51,6 +51,55 @@ public sealed class TraceRosterTests
         Assert.Equal(string.Empty, decoded[0].DisplayName);
     }
 
+    /// <summary>
+    /// A world-collection category registered its own name and that name has spaces in it, so the
+    /// machine identity field has to be able to hold one. It is the last field before the separator
+    /// and takes whatever is left of the head.
+    /// </summary>
+    [Fact]
+    public void ACategoryWhoseNameHasSpacesSurvivesTheTripToTextAndBack()
+    {
+        var roster = new ServiceCycleTraceRoster(new[]
+        {
+            new ServiceCycleTraceRosterEntry(
+                ServiceCycleTraceRoster.WorldCategoryKind, 31, "scribe relations", string.Empty),
+        });
+
+        var decoded = TraceRosterFormat.Decode(Encoding.UTF8.GetString(TraceRosterFormat.Encode(roster)));
+
+        Assert.Equal(1, decoded.Count);
+        Assert.Equal(ServiceCycleTraceRoster.WorldCategoryKind, decoded[0].Kind);
+        Assert.Equal(31UL, decoded[0].Identity);
+        Assert.Equal("scribe relations", decoded[0].MachineId);
+    }
+
+    /// <summary>
+    /// Service identities and category identities are both small ordinals, so the kind is what keeps
+    /// them apart. A reader that ignored it would name category 2 after Auto Harvest.
+    /// </summary>
+    [Fact]
+    public void CategoriesAndServicesShareIdentityNumbersAndAreKeptApartByKind()
+    {
+        var clock = new ThreadSafeTestClock(100);
+        using var registry = new ServiceCycleRegistry(1, new LifecycleGeneration(1), clock);
+        using var first = registry.Register(
+            new ExecutionServiceDefinition("orbautomata.auto-harvest"),
+            new LifecycleGeneration(1));
+
+        var roster = AutomataServiceCycleTraceRoster.Build(
+            registry,
+            new[] { "resources", "scribe relations" });
+
+        Assert.Equal(3, roster.Count);
+        Assert.Equal(ServiceCycleTraceRoster.ServiceKind, roster[0].Kind);
+        Assert.Equal(1UL, roster[0].Identity);
+        Assert.Equal(ServiceCycleTraceRoster.WorldCategoryKind, roster[1].Kind);
+        Assert.Equal(1UL, roster[1].Identity);
+        Assert.Equal("resources", roster[1].MachineId);
+        Assert.Equal(2UL, roster[2].Identity);
+        Assert.Equal("scribe relations", roster[2].MachineId);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("not a roster at all")]

@@ -140,6 +140,28 @@ public sealed class ServiceWorldPublisher<TWorld> :
         }
     }
 
+    /// <summary>
+    /// Returns the publication to the state it was constructed in: generation 1, carrying the empty
+    /// world. Called when the run the snapshot describes stops existing.
+    /// </summary>
+    /// <remarks>
+    /// A lifecycle boundary destroys the objects a snapshot was read from, so the snapshot stops
+    /// being a reading of anything. The generation deliberately goes backwards to the reserved
+    /// generation 1: it is the one value that already means "nothing has been collected", so every
+    /// consumer that distinguishes a real publication from the initial one answers "no world" without
+    /// learning a second rule. Collection restamps from the frame counter, which is far past 1, so
+    /// the next real publication is still strictly newer than this one.
+    /// </remarks>
+    public void Flush(TWorld emptySnapshot)
+    {
+        if (emptySnapshot is null) throw new ArgumentNullException(nameof(emptySnapshot));
+        lock (_sync)
+        {
+            ThrowIfDisposed();
+            Swap(new WorldPublication<TWorld>(new RuntimeWorldGeneration(1), emptySnapshot));
+        }
+    }
+
     private RuntimeWorldGeneration Swap(WorldPublication<TWorld> publication)
     {
         Volatile.Write(ref _latest, publication);

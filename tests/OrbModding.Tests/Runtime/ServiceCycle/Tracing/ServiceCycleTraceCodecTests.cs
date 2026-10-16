@@ -6,6 +6,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing;
 using OrbModding.Common.Runtime.Tracing;
 using OrbModding.Common;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Runtime.ServiceCycle.Tracing;
@@ -72,6 +73,69 @@ public sealed class ServiceCycleTraceCodecTests
         Assert.Equal(9, pump.CyclesStarted);
         Assert.Equal(13, pump.WorldGateDeferrals);
         Assert.Equal(0UL, pump.World);
+    }
+
+    /// <summary>
+    /// A collection span rides slots the record already reserves, so what has to survive the trip is
+    /// the reading rather than the bytes: a span decoded as an action count and an occurrence count
+    /// would be numerically intact and completely misread.
+    /// </summary>
+    [Fact]
+    public void ACollectionSpanReadsBackAsItsCategorySampledCountAndPassWidth()
+    {
+        var decoded = ServiceCycleTraceCodec.Decode(Encode(ServiceCycleTraceFixtures.EveryEventKind()));
+
+        var span = FirstOfKind(decoded, ServiceCycleSemanticEventKind.WorldCategoryCollected).Payload;
+        Assert.Equal(5, span.WorldCategory);
+        Assert.Equal(2_628, span.WorldCategorySampled);
+        Assert.Equal(61, span.WorldPassCategories);
+        Assert.Equal(10, span.DurationTicks);
+        Assert.Equal(2UL, span.Lifecycle);
+        Assert.Equal(ServiceCycleTraceFixtures.Frame, span.FrameIdentity);
+        // Not a service fact and not a cycle fact: a reader that folded spans into the collection
+        // service's cycle rows would report one pass as sixty-odd cycles.
+        Assert.Equal(0UL, span.Service);
+        Assert.Equal(0UL, span.Cycle);
+    }
+
+    /// <summary>
+    /// A category that cost this pass nothing is recorded at nothing. Structural categories are read
+    /// once per lifecycle epoch and reused after, and re-charging them would render the cheapest
+    /// categories of a pass as its dearest.
+    /// </summary>
+    [Fact]
+    public void ASpanForAReusedCategoryCarriesNoDurationAndNoEpochWhenThereIsNone()
+    {
+        var payload = ServiceCycleSemanticPayload.WorldCategoryFact(
+            category: 1, sampled: 0, passCategories: 3, lifecycle: 0, frameIdentity: -1,
+            timestampTicks: 100, durationTicks: 0);
+        var item = new ServiceCycleSemanticEvent(
+            new ServiceCycleTraceEventId(ServiceCycleTraceFixtures.Session, 1), default,
+            ServiceCycleSemanticEventKind.WorldCategoryCollected, in payload);
+
+        var decoded = ServiceCycleTraceCodec.Decode(Encode(new[] { item }));
+
+        Assert.Equal(item, decoded[0]);
+        Assert.Equal(0, decoded[0].Payload.DurationTicks);
+        Assert.Equal(0, decoded[0].Payload.WorldCategorySampled);
+        Assert.True((decoded[0].Payload.Fields & ServiceCycleSemanticFields.Lifecycle) == 0);
+        Assert.True((decoded[0].Payload.Fields & ServiceCycleSemanticFields.FrameIdentity) == 0);
+    }
+
+    /// <summary>
+    /// The identity a span carries is a position in the pass that read it, so a span outside its own
+    /// pass is an emitter that lost track of which collection it is describing.
+    /// </summary>
+    [Fact]
+    public void ASpanOutsideItsOwnPassIsRefused()
+    {
+        var payload = ServiceCycleSemanticPayload.WorldCategoryFact(
+            category: 4, sampled: 0, passCategories: 3, lifecycle: 1, frameIdentity: 1,
+            timestampTicks: 100, durationTicks: 0);
+
+        Assert.Throws<ArgumentException>(() => new ServiceCycleSemanticEvent(
+            new ServiceCycleTraceEventId(ServiceCycleTraceFixtures.Session, 1), default,
+            ServiceCycleSemanticEventKind.WorldCategoryCollected, in payload));
     }
 
     [Fact]
@@ -317,12 +381,10 @@ public sealed class ServiceCycleTraceCodecTests
     {
         var events = ServiceCycleTraceFixtures.EveryEventKind();
         var bytes = new byte[ServiceCycleTraceCodec.GetEncodedLength(events.Length)];
-        ServiceCycleTraceCodec.Encode(ServiceCycleTraceFixtures.Session, default, events, bytes);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 100; i++)
-            ServiceCycleTraceCodec.Encode(ServiceCycleTraceFixtures.Session, default, events, bytes);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = AllocationProbe.MeasureRepeated(
+            100,
+            () => ServiceCycleTraceCodec.Encode(ServiceCycleTraceFixtures.Session, default, events, bytes));
 
         Assert.Equal(0, allocated);
     }
