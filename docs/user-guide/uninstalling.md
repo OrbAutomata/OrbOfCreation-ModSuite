@@ -4,8 +4,9 @@
 [Troubleshooting](troubleshooting.md)
 
 1. Close the game.
-2. Remove `BepInEx/plugins/OrbModSuite/OrbModSuite.dll`.
-3. Search `BepInEx/plugins` for other copies of `OrbModSuite.dll` and remove them.
+2. Remove the `BepInEx/plugins/OrbModSuite` folder.
+3. Search `BepInEx/plugins` for any other `OrbModSuite.dll`, `OrbModSuite-release.dll`, or
+   `OrbModSuite-perf-debug.dll` and remove it.
 4. Remove separate `OrbAutomata.dll`, `OrbMentor.dll`, `OrbModConfig.dll`, and
    `OrbModding.Common.dll` files if they are still present.
 5. Keep or delete `BepInEx/config/dev.vojow.orbofcreation.modsuite.cfg`, depending on whether you

@@ -1,7 +1,7 @@
 # OrbOfCreation ModSuite
 
 [![CI](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/actions/workflows/ci.yml/badge.svg)](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/OrbAutomata/OrbOfCreation-ModSuite?include_prereleases)](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases)
+[![Latest release](https://img.shields.io/github/v/release/OrbAutomata/OrbOfCreation-ModSuite)](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 OrbOfCreation ModSuite is an unofficial, single-plugin collection of automation, mastery-sharing,
