@@ -14,8 +14,9 @@ Each rune carries **three separate level numbers**, and they mean different thin
 | **Persist level** | Persist XP, across runs | Escalating thresholds: `100`, `250`, `400`, … | Where the permanent effects actually live |
 | **Mastery level** | Mastery XP, roughly `1` per rune level bought | Escalating | Each mastery level grants `+1` starting Time Advancement next run |
 
-A rune level costs nothing while your free usages exceed the rune's level; past that the curve is
-evaluated at `level + 1 − free usages`, which is what produces the `0, 1, 2, 3, 4` sequence.
+A rune level costs nothing while your free usages exceed the rune's level — the zero-start rule of
+[cost-pipeline.md](cost-pipeline.md), reached here by free usages. Past that the curve is evaluated
+at `level + 1 − free usages`, which is what produces the `0, 1, 2, 3, 4` sequence.
 
 - A rune left at **level 0 is inert** — it grants no persist XP at all. The free first level is what
   switches a rune on.

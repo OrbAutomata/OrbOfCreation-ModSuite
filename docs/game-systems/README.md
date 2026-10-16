@@ -13,7 +13,7 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 - [numbers-and-rounding.md](numbers-and-rounding.md) — how the screen spells a number,
   mantissa/exponent storage, two-significant-digit prices, spend-to-zero.
 - [cost-pipeline.md](cost-pipeline.md) — six stages build a price; Quality divides it again at
-  payment.
+  payment; a ladder starting at zero owes nothing.
 - [lazy-evaluation.md](lazy-evaluation.md) — a value is worked out when something reads it, so
   displays lag.
 
@@ -32,8 +32,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
   does not conserve.
 - [resource-types.md](resource-types.md) — every resource carries type keywords, and effects target
   keywords, not resources.
-- [allocations.md](allocations.md) — advancement points, spell capacity and the like: quantity/cap
-  reads unspent/earned.
+- [allocations.md](allocations.md) — advancement points are spent for the run; other quantity/cap
+  budgets come back, and the counter shows only what is still free.
 - [emblems.md](emblems.md) — passive token effects; Momentum is the one worked out.
 
 ## Casting
