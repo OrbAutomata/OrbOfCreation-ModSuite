@@ -63,12 +63,14 @@ Press **STOP ALL** first. If the problem clears, resume and enable features one 
 the trigger. Create a bug report after reproducing the problem, then include whether the native
 autoqueue and NG+ tabs were unlocked and which features were active.
 
-## A red banner says the game stopped advancing
+## A red banner says the game stopped advancing or its menus stopped switching
 
 The same game element threw an error on fifty ticks in a row (one second), so development and
 managers that depend on the game's tick are frozen. The suite only observes this; the error comes
 from the game. Return to the main menu and reload your save, which usually clears it. If the element
-recovers on its own and runs cleanly for five seconds, the banner disappears.
+recovers on its own and runs cleanly for five seconds, the banner disappears. When the banner says the
+game's menus stopped switching instead, the failing element is a screen: the game still advances, but
+screens after it no longer open or close, and the same steps apply.
 
 The suite saves a bug report automatically when this happens, and the banner names its path under
 `BepInEx/config/OrbOfCreation-ModSuite/diagnostics/`. That report names the game element that failed

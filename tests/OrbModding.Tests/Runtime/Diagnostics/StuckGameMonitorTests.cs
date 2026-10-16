@@ -46,7 +46,7 @@ public sealed class StuckGameMonitorTests : IDisposable
         Throw(element, GameTickFaultObserver.RepeatThreshold);
         monitor.Update();
 
-        Assert.Equal(StuckGameMonitor.StuckSentence + " A bug report is being saved.", monitor.Notice);
+        Assert.Equal(StuckGameMonitor.AdvanceSentence + " A bug report is being saved.", monitor.Notice);
         var faults = Assert.Single(_bundles);
         Assert.Contains("(50x this lifecycle)", faults);
         Assert.Contains(nameof(ThrowingElement.Increment), faults);
@@ -75,7 +75,7 @@ public sealed class StuckGameMonitorTests : IDisposable
         _failed!("disk full");
 
         Assert.Equal(
-            StuckGameMonitor.StuckSentence +
+            StuckGameMonitor.AdvanceSentence +
             " The bug report could not be saved (disk full); send BepInEx/LogOutput.log to the mod authors.",
             monitor.Notice);
     }
@@ -135,8 +135,23 @@ public sealed class StuckGameMonitorTests : IDisposable
 
         Assert.Single(_bundles);
         Assert.Equal(
-            StuckGameMonitor.StuckSentence + " A bug report was saved to report.zip; send it to the mod authors.",
+            StuckGameMonitor.AdvanceSentence + " A bug report was saved to report.zip; send it to the mod authors.",
             monitor.Notice);
+    }
+
+    [Fact]
+    public void AStuckViewSaysTheMenusStoppedSwitchingNotThatTheGameStopped()
+    {
+        var monitor = Monitor();
+        var view = new ManagedView { CheckViewVisibilityForTest = () => throw new NullReferenceException("view") };
+        for (var index = 0; index < GameTickFaultObserver.RepeatThreshold; index++)
+            Assert.Throws<NullReferenceException>(() => GameTickFaultObserver.CheckView(view));
+
+        monitor.Update();
+
+        Assert.Equal(StuckGameMonitor.MenuSentence + StuckGameMonitor.ReportPending, monitor.Notice);
+        Assert.Contains(_errors, error => error.StartsWith("The game's menus have stopped switching:", StringComparison.Ordinal));
+        Assert.DoesNotContain(_errors, error => error.Contains("stopped advancing", StringComparison.Ordinal));
     }
 
     private StuckGameMonitor Stuck(ThrowingElement? element = null)

@@ -7,13 +7,16 @@ namespace OrbAutomata;
 
 /// <summary>
 /// Turns the tick-fault observer's records into what a player and a bug report need: one log
-/// entry per faulting element, a stuck-game notice while one element fails every tick, and one
+/// entry per faulting element, a stuck-game notice while one element or view fails every run, and one
 /// automatic bug report per lifecycle. Runs on the suite's own update, never in the tick.
 /// </summary>
 internal sealed class StuckGameMonitor
 {
-    internal const string StuckSentence =
+    internal const string AdvanceSentence =
         "The game itself hit an error and stopped advancing. Return to the main menu and reload your save.";
+
+    internal const string MenuSentence =
+        "The game itself hit an error and its menus stopped switching. Return to the main menu and reload your save.";
 
     internal const string ReportPending = " A bug report is being saved.";
 
@@ -22,7 +25,7 @@ internal sealed class StuckGameMonitor
     private readonly Action<string> _logError;
     private readonly Action<string, Action<string>, Action<string>> _requestBundle;
     private long _occurrence;
-    private bool _stuck;
+    private GameTickFaultSite? _stuck;
     private string? _report;
 
     internal StuckGameMonitor(
@@ -51,28 +54,30 @@ internal sealed class StuckGameMonitor
         var repeating = GameTickFaultObserver.Repeating;
         if (repeating is null)
         {
-            if (!_stuck) return;
-            _stuck = false;
+            if (_stuck is not { } recovered) return;
+            _stuck = null;
             Notice = null;
             _logInfo(
-                "The game is advancing again: the failing element completed " +
-                GameTickFaultObserver.RecoveryThreshold + " runs in a row.");
+                (recovered == GameTickFaultSite.Element ? "The game is advancing again" : "The game's menus are switching again") +
+                ": the failing element completed " + GameTickFaultObserver.RecoveryThreshold + " runs in a row.");
             return;
         }
-        if (_stuck) return;
+        if (_stuck is not null) return;
 
-        _stuck = true;
-        _logError(
-            "The game has stopped advancing: " + repeating.Headline +
-            " Every tick fails at the same element, so development, managers, and menus that follow it are frozen until the save is reloaded.");
+        _stuck = repeating.Site;
+        _logError(repeating.Site == GameTickFaultSite.Element
+            ? "The game has stopped advancing: " + repeating.Headline +
+              " Every tick fails at the same element, so development and managers that follow it are frozen until the save is reloaded."
+            : "The game's menus have stopped switching: " + repeating.Headline +
+              " Every frame fails at the same view, so views after it no longer show or hide until the save is reloaded; the game's tick still advances.");
         if (_report is not null)
         {
-            Notice = StuckSentence + _report;
+            Notice = Sentence(repeating.Site) + _report;
             return;
         }
         var occurrence = _occurrence;
         _report = ReportPending;
-        Notice = StuckSentence + _report;
+        Notice = Sentence(repeating.Site) + _report;
         _requestBundle(
             DescribeFaults(GameTickFaultObserver.Snapshot()),
             path => Settle(occurrence, " A bug report was saved to " + path + "; send it to the mod authors."),
@@ -84,10 +89,13 @@ internal sealed class StuckGameMonitor
     {
         GameTickFaultObserver.Reset();
         _occurrence++;
-        _stuck = false;
+        _stuck = null;
         _report = null;
         Notice = null;
     }
+
+    internal static string Sentence(GameTickFaultSite site) =>
+        site == GameTickFaultSite.Element ? AdvanceSentence : MenuSentence;
 
     internal static string DescribeFaults(IReadOnlyList<GameTickFaultReport> faults)
     {
@@ -108,6 +116,6 @@ internal sealed class StuckGameMonitor
     {
         if (occurrence != _occurrence) return;
         _report = report;
-        if (_stuck) Notice = StuckSentence + report;
+        if (_stuck is { } site) Notice = Sentence(site) + report;
     }
 }
