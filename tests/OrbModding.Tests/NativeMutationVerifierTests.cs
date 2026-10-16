@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using OrbModding.Common;
 using Xunit;
 
@@ -51,6 +52,44 @@ public sealed class NativeMutationVerifierTests
         Assert.Equal(12, evidence.After);
         Assert.Contains("native failure", evidence.Detail);
     }
+
+    [Fact]
+    public void ExecutionThrewNamesTheThrowersTypeAndFrameOnOneBoundedLine()
+    {
+        var thrower = typeof(NativeMutationVerifierTests).GetMethod(
+            nameof(ThrowFromNativeCode),
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var evidence = NativeMutationVerifier.Execute(
+            "test queue",
+            "candidate-reflected",
+            "exact delta +1",
+            () => 0,
+            () => thrower.Invoke(null, null),
+            (before, after) => after == before + 1);
+
+        Assert.Equal(NativeMutationOutcome.ExecutionThrew, evidence.Outcome);
+        Assert.Contains(typeof(NullReferenceException).FullName!, evidence.Detail);
+        Assert.Contains(nameof(ThrowFromNativeCode), evidence.Detail);
+        Assert.DoesNotContain(nameof(TargetInvocationException), evidence.Detail);
+        Assert.DoesNotContain("\n", evidence.Detail);
+        Assert.True(evidence.Detail.Length <= ExceptionDetail.MaxLength);
+    }
+
+    [Fact]
+    public void ExceptionDetailStaysBoundedForAHugeMultiLineMessage()
+    {
+        var message = string.Join("\n", new string('x', 5000), new string('y', 5000));
+
+        var detail = ExceptionDetail.Describe(new InvalidOperationException(message));
+
+        Assert.True(detail.Length <= ExceptionDetail.MaxLength);
+        Assert.DoesNotContain("\n", detail);
+        Assert.StartsWith(typeof(InvalidOperationException).FullName!, detail);
+    }
+
+    private static void ThrowFromNativeCode() =>
+        throw new NullReferenceException("Object reference not set to an instance of an object");
 
     [Fact]
     public void AcceptsOnlyTheExpectedChange()
