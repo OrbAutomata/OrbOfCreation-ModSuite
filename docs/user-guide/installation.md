@@ -31,7 +31,8 @@ Do not run the suite alongside another mod that automates the same game actions.
 2. In Steam, open **Orb of Creation > Manage > Browse local files**.
 3. Extract the archive beside `Orb Of Creation.exe`, not inside `Orb Of Creation_Data`.
 4. Start and close the game once. Confirm that `BepInEx/config` and
-   `BepInEx/LogOutput.log` exist.
+   `BepInEx/LogOutput.log` exist. If they do not, work through the
+   [missing-log checklist](troubleshooting.md#bepinexlogoutputlog-does-not-exist).
 
 On Proton, add this Steam launch option:
 

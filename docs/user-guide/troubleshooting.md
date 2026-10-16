@@ -31,16 +31,34 @@ and attach `BepInEx/LogOutput.log` on the
 
 ## The suite does not load
 
-1. Confirm that BepInEx files are beside `Orb Of Creation.exe`. On Proton, recheck the `winhttp`
-   override in the [installation guide](installation.md#2-install-bepinex-5).
+1. Confirm that `BepInEx/LogOutput.log` exists. If it does not, follow
+   [the missing-log checklist](#bepinexlogoutputlog-does-not-exist).
 2. Confirm that exactly one `OrbModSuite.dll` exists anywhere under `BepInEx/plugins`.
 3. Remove separate `OrbAutomata.dll`, `OrbMentor.dll`, `OrbModConfig.dll`, and
    `OrbModding.Common.dll` files; they are not part of the one-plugin installation.
 4. Search `BepInEx/LogOutput.log` for missing dependencies, duplicate plugin identities, assembly
    errors, or the compatibility refusal described above.
 
-If `BepInEx/LogOutput.log` does not exist, BepInEx itself did not start. Repeat the BepInEx section
-of the installation guide before troubleshooting the ModSuite.
+If `BepInEx/LogOutput.log` does not exist, BepInEx itself did not start; see the next section.
+
+## BepInEx/LogOutput.log does not exist
+
+BepInEx did not start, so the suite never had a chance to load. Check each of these, then start and
+close the game once more:
+
+1. **Files sit directly beside `Orb Of Creation.exe`.** `winhttp.dll`, `doorstop_config.ini`, and
+   the `BepInEx` folder must be in the same folder as the game's `.exe`. Windows **Extract All**
+   often adds an extra folder named after the zip; if you see one, move its contents up one level.
+2. **File extensions are visible.** In File Explorer, turn on **View > Show > File name
+   extensions** so that `winhttp.dll` and `doorstop_config.ini` are not hidden or renamed by
+   mistake.
+3. **Antivirus left `winhttp.dll` in place.** If the file is missing after extraction, check
+   **Windows Security > Virus & threat protection > Protection history** for a quarantine and restore
+   it.
+4. **On Proton**, the `winhttp` launch option from the
+   [installation guide](installation.md#2-install-bepinex-5) is set.
+
+`LogOutput.log` appears only after the game has been started once with BepInEx in place.
 
 ## The Mods tab shows only the configuration plugin
 
