@@ -13,11 +13,11 @@ the feature overview, installation guide, configuration help, and troubleshootin
 
 ## Get started
 
-Players should download the
-[latest release](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases/latest), then
-follow the
-[installation guide](https://orbautomata.github.io/OrbOfCreation-ModSuite/user-guide/installation/).
-Back up your save before enabling automation.
+Players install BepInEx 5, download `OrbOfCreation-ModSuite-<version>.zip` from the
+[latest release](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases/latest), and
+extract it into the game folder, the one with `Orb Of Creation.exe`. The
+[installation guide](https://orbautomata.github.io/OrbOfCreation-ModSuite/user-guide/installation/)
+walks through each step. Back up your save before enabling automation.
 
 The supported baseline is Windows 64-bit Mono, Unity `6000.0.70`, BepInEx `5.4.23.x`, and .NET
 `netstandard2.1`. Steam Deck is targeted through the Windows game under Proton and requires separate

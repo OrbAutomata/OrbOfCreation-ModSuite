@@ -33,8 +33,10 @@ and attach `BepInEx/LogOutput.log` on the
 
 1. Confirm that `BepInEx/LogOutput.log` exists. If it does not, follow
    [the missing-log checklist](#bepinexlogoutputlog-does-not-exist).
-2. Confirm that exactly one suite DLL (`OrbModSuite.dll`, `OrbModSuite-release.dll`, or
-   `OrbModSuite-perf-debug.dll`) exists anywhere under `BepInEx/plugins`.
+2. Confirm that `BepInEx/plugins/OrbModSuite/OrbModSuite.dll` exists and is the only suite DLL
+   under `BepInEx/plugins`; remove any stray `OrbModSuite-release.dll` or
+   `OrbModSuite-perf-debug.dll`. If extracting created an extra `OrbOfCreation-ModSuite-<version>`
+   folder, move its `BepInEx` folder into the game folder.
 3. Remove separate `OrbAutomata.dll`, `OrbMentor.dll`, `OrbModConfig.dll`, and
    `OrbModding.Common.dll` files; they are not part of the one-plugin installation.
 4. Search `BepInEx/LogOutput.log` for missing dependencies, duplicate plugin identities, assembly

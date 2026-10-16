@@ -19,5 +19,6 @@ directory at `backups/auto-modsuite-backup-<timestamp>` are ordinary copied file
 when the plugin is deleted. Keep at least one backup until the unmodified game loads normally; after
 that, retain or delete those copies as you prefer.
 
-To reinstall, return to the [installation guide](installation.md) and download the current build
-from the [Releases page](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases).
+To reinstall, follow the [installation guide](installation.md) and extract the zip from the
+[latest release](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases/latest) into the
+game folder again.
