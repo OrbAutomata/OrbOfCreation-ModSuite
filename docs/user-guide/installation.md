@@ -31,7 +31,8 @@ Do not run the suite alongside another mod that automates the same game actions.
 2. In Steam, open **Orb of Creation > Manage > Browse local files**.
 3. Extract the archive beside `Orb Of Creation.exe`, not inside `Orb Of Creation_Data`.
 4. Start and close the game once. Confirm that `BepInEx/config` and
-   `BepInEx/LogOutput.log` exist.
+   `BepInEx/LogOutput.log` exist. If they do not, work through the
+   [missing-log checklist](troubleshooting.md#bepinexlogoutputlog-does-not-exist).
 
 On Proton, add this Steam launch option:
 
@@ -41,10 +42,18 @@ WINEDLLOVERRIDES="winhttp=n,b" %command%
 
 ## 3. Install the current release
 
-1. Download the recommended archive from the project's
-   [Releases page](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases).
-2. Extract it into the game directory and merge the included `BepInEx` folder.
-3. Confirm the following layout:
+Install the
+[latest release](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases/latest).
+Pre-releases are test builds; use one only if a maintainer asks.
+
+1. Under **Assets**, download `OrbModSuite-release.dll`. Do not use `OrbModSuite-perf-debug.dll`;
+   it is a developer build. If your browser warns about the file, choose **Keep**.
+2. In `BepInEx/plugins`, create a folder named `OrbModSuite`.
+3. Move the downloaded file into that folder and rename it to `OrbModSuite.dll`. Turn on
+   [file name extensions](troubleshooting.md#bepinexlogoutputlog-does-not-exist) first so the name
+   does not become `OrbModSuite.dll.dll`. BepInEx loads any file name, but one fixed name means
+   the next update replaces the file instead of adding a second copy.
+4. Confirm the following layout:
 
 ```text
 Orb of Creation/
@@ -56,10 +65,12 @@ Orb of Creation/
             `-- OrbModSuite.dll
 ```
 
-Keep exactly one copy of `OrbModSuite.dll` anywhere under `BepInEx/plugins`. Remove separate
+Keep exactly one suite DLL anywhere under `BepInEx/plugins`. Remove separate
 `OrbAutomata.dll`, `OrbMentor.dll`, `OrbModConfig.dll`, and `OrbModding.Common.dll` files; they are
-not part of the one-plugin installation. On startup, `BepInEx/LogOutput.log` should list
-**Orb Of Creation ModSuite** once without dependency errors.
+not part of the one-plugin installation.
+
+To check that it worked, start the game: `BepInEx/LogOutput.log` lists
+**Orb Of Creation ModSuite** once without dependency errors, and the game shows a **Mods** tab.
 
 The suite reads settings from
 `BepInEx/config/dev.vojow.orbofcreation.modsuite.cfg`. Other per-plugin configuration files are not

@@ -1,7 +1,7 @@
 # OrbOfCreation ModSuite
 
 [![CI](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/actions/workflows/ci.yml/badge.svg)](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/OrbAutomata/OrbOfCreation-ModSuite?include_prereleases)](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases)
+[![Latest release](https://img.shields.io/github/v/release/OrbAutomata/OrbOfCreation-ModSuite)](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 OrbOfCreation ModSuite is an unofficial, single-plugin collection of automation, mastery-sharing,
@@ -13,8 +13,9 @@ the feature overview, installation guide, configuration help, and troubleshootin
 
 ## Get started
 
-Players should download the current release from the
-[Releases page](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases), then follow the
+Players should download the
+[latest release](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases/latest), then
+follow the
 [installation guide](https://orbautomata.github.io/OrbOfCreation-ModSuite/user-guide/installation/).
 Back up your save before enabling automation.
 
