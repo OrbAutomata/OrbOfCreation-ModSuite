@@ -1077,7 +1077,7 @@ internal static class GameMcpWorldQuery
                 ["nextLevelRequirements"] = listedResearch.MeetsLevelRequirements
                     ? GameMcpListColumns.Met
                     : GameMcpListColumns.Unmet,
-                ["canDevelop"] = listedResearch.Decision.Available &&
+                ["canDevelop"] = listedResearch.Visible && listedResearch.Decision.Available &&
                     listedResearch.Decision.LevelsAvailable > 0,
                 ["affordable"] = listedResearch.Decision.DevelopmentCostAffordable,
             }.Freeze();
@@ -6447,7 +6447,7 @@ internal static class GameMcpWorldQuery
         var queueRoom = research.MaxLevel <= 0
             ? int.MaxValue
             : Math.Max(research.MaxLevel - research.Level - queued, 0);
-        var developAvailable = decision.LevelsAvailable > 0;
+        var developAvailable = research.Visible && decision.LevelsAvailable > 0;
         var develop = new JObject
         {
             ["available"] = developAvailable,
@@ -6455,7 +6455,7 @@ internal static class GameMcpWorldQuery
         };
         if (decision.QueueMode)
             develop["maximumBatch"] = Number(Math.Min(decision.MultiBuy, queueRoom));
-        develop["levels"] = Number(decision.LevelsAvailable);
+        develop["levels"] = Number(research.Visible ? decision.LevelsAvailable : 0);
         if (developAvailable) develop["affordable"] = decision.DevelopmentCostAffordable;
         var blockedOnPrice = false;
         if (!developAvailable)
@@ -6467,7 +6467,9 @@ internal static class GameMcpWorldQuery
             // on being below both caps, so an exhausted leeway beside an open cap blocks nothing.
             var leewayBlocked = !research.StillHasLeeway &&
                 !(research.BelowArtificialMaxLevel && research.BelowMaxInvestmentLevel);
-            var reasonCode = research.Complete
+            var reasonCode = !research.Visible
+                ? "research_locked"
+                : research.Complete
                 ? "already_maxed"
                 : decision.QueueMode && decision.MultiBuy <= 0
                     ? "multi_buy_unavailable"
@@ -6486,6 +6488,9 @@ internal static class GameMcpWorldQuery
                                             : "native_develop_refused";
             develop["reasonCode"] = reasonCode;
             blockedOnPrice = reasonCode == "unaffordable";
+            if (reasonCode == "research_locked")
+                develop["reason"] = GameMcpEntityExplainer.LockedResearchReason(
+                    world, research.EntityId);
 
             // The cost verdict is published exactly when the cost is what decides. A row refused
             // for being maxed, queued out, or short of requirements has no next price to afford.
@@ -6538,7 +6543,7 @@ internal static class GameMcpWorldQuery
                 result[research.IsActive ? "pause" : "resume"] =
                     new JObject { ["available"] = true };
         }
-        else if (decision.CanApplyBonusLevel && decision.FreeBonusLevels > 0)
+        else if (research.Visible && decision.CanApplyBonusLevel && decision.FreeBonusLevels > 0)
             result["bonus"] = new JObject
             {
                 ["available"] = true,

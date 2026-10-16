@@ -38,6 +38,7 @@ internal static class ResearchActionResultMapper
         ResearchPreflight.RequirementsUnmet => ResearchActionResultCodes.RequirementsUnmet,
         ResearchPreflight.LeewayExhausted => ResearchActionResultCodes.LeewayExhausted,
         ResearchPreflight.AlreadyDeveloping => ResearchActionResultCodes.AlreadyDeveloping,
+        ResearchPreflight.Locked => ResearchActionResultCodes.Locked,
         _ => ResearchActionResultCodes.ContractUnavailable,
     };
 }

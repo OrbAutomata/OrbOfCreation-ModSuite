@@ -26197,6 +26197,25 @@
       "place": "action"
     },
     {
+      "id": "research-action.is-visible-action",
+      "assembly": "assembly-csharp",
+      "type": "ResearchSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "IsVisible",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata research GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "research-action.meets-requirements-action",
       "assembly": "assembly-csharp",
       "type": "ResearchSO",

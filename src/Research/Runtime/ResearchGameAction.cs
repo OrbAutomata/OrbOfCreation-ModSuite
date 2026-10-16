@@ -152,6 +152,11 @@ internal sealed class ResearchGameAction : IDisposable
         in ResearchAdmissionState state, out string reason)
     {
         reason = string.Empty;
+        if ((kind is ResearchActionKind.Develop or ResearchActionKind.Bonus) && !state.Visible)
+        {
+            reason = "This research is locked, so the Research grid draws no tile for it.";
+            return ResearchPreflight.Locked;
+        }
         switch (kind)
         {
             case ResearchActionKind.Develop:
@@ -253,7 +258,7 @@ internal sealed class ResearchGameAction : IDisposable
             native.HasEnough(cost), native.MaxLevel(target), QueueableLevels(native, target, amount),
             native.Complete(target), native.MeetsLevelRequirements(target),
             native.StillHasLeeway(target), native.BelowArtificialMaxLevel(target),
-            native.BelowMaxInvestmentLevel(target));
+            native.BelowMaxInvestmentLevel(target), native.IsVisible(target));
     }
 
     private static int QueueableLevels(ResearchNativeBindings native, object target, int amount)

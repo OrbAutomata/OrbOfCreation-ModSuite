@@ -1020,6 +1020,32 @@ public sealed class GameMcpEntityDetailTests : IDisposable
     }
 
     /// <summary>
+    /// A research the game would develop but does not show is one the Research grid has no tile
+    /// for: Greater Stocked Casts read <c>develop: yes</c> beside <c>state: locked</c>, and the press
+    /// queued it. Both reads now refuse it the way the press does, naming what it unlocks with.
+    /// </summary>
+    [Fact]
+    public void A_research_the_grid_does_not_show_cannot_be_developed_and_says_what_unlocks_it()
+    {
+        var gate = ResearchStub(level: 1);
+        var locked = ResearchStub(level: 0);
+        locked.available = false;
+        locked.visibilityPrerequisites.prerequisites.Add(Require(gate, 4));
+        Assert.True(locked.CanDevelop());
+
+        var detail = Explain(Collect(), locked.GetGuid(), 954);
+
+        var develop = detail["row"]!["develop"]!;
+        Assert.False((bool)develop["available"]!);
+        Assert.Equal(0, (int)develop["levels"]!);
+        Assert.StartsWith(
+            "This research is locked, so the Research grid draws no tile for it. It unlocks with ",
+            (string?)develop["reason"]);
+        Assert.Contains("at level 4 (at 1)", (string?)develop["reason"]);
+        Assert.Null(detail["predicates"]!["canDevelop"]);
+    }
+
+    /// <summary>
     /// The old sentence is still the right one where the game really names no condition.
     /// </summary>
     [Fact]

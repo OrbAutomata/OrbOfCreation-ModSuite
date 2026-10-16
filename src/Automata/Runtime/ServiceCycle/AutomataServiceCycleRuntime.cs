@@ -994,10 +994,15 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         // The read block and this refusal answer the same gate, so they say the same sentence.
         // The GameAction sees an affordability verdict and no cost rows; the published world holds
         // the rows, so the sentence naming them is composed here, where both surfaces reach it.
-        var reason = submission.Preflight == ResearchPreflight.Unaffordable &&
-            WorldLookup.TryFind(world.Research, command.TargetId, out var research)
-                ? GameMcpWorldQuery.ShortfallReason(world, research.Decision.DevelopmentCosts)
-                : submission.Reason;
+        var reason = submission.Preflight switch
+        {
+            ResearchPreflight.Unaffordable when
+                WorldLookup.TryFind(world.Research, command.TargetId, out var research) =>
+                GameMcpWorldQuery.ShortfallReason(world, research.Decision.DevelopmentCosts),
+            ResearchPreflight.Locked =>
+                GameMcpEntityExplainer.LockedResearchReason(world, command.TargetId),
+            _ => submission.Reason,
+        };
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
             configurationGeneration, reason,
             GameMcpResearchProjection.Project(in submission));

@@ -309,7 +309,7 @@ internal static class GameMcpDecisionReason
         // `identity_unavailable` when the tree genuinely is not there. A tree whose screen is shut
         // is locked, and the sentence has always said so.
         "tree_unavailable" or
-        "screen_locked" or "unlock_conditions_unmet" or
+        "screen_locked" or "unlock_conditions_unmet" or "research_locked" or
         // GlyphSO.IsAvailable() is false: undiscovered, or its prerequisites are not met. The glyph
         // list draws no copy to socket, which is a gate rather than a missing entity — the suite
         // resolved the glyph before it asked.
@@ -545,6 +545,8 @@ internal static class GameMcpDecisionReason
         "not_a_duration_ritual" => "This ritual grants no duration reward to cancel.",
         "usage_requirements_unmet" => "This does not meet its usage requirements yet.",
         "requirements_unmet" => "This does not meet its level requirements yet.",
+        "research_locked" =>
+            "This research is locked, so the Research grid draws no tile for it.",
         "research_leeway_exhausted" =>
             "This research has no leeway left and is at one of its caps.",
         "develop_range_refused" =>

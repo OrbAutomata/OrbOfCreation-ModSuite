@@ -26,7 +26,7 @@ internal sealed class ResearchNativeBindings
         "research-action.within-range-at-action", "research-action.cost-add-action",
         "research-action.is-complete-action", "research-action.meets-requirements-action",
         "research-action.still-has-leeway-action", "research-action.below-artificial-max-action",
-        "research-action.below-investment-max-action",
+        "research-action.below-investment-max-action", "research-action.is-visible-action",
     };
 
     private ResearchNativeBindings(Type researchType,
@@ -42,8 +42,9 @@ internal sealed class ResearchNativeBindings
         Func<object, int, bool> withinRangeAt, Func<object, object, object?> addCost,
         Func<object, bool> complete, Func<object, bool> meetsLevelRequirements,
         Func<object, bool> stillHasLeeway, Func<object, bool> belowArtificialMaxLevel,
-        Func<object, bool> belowMaxInvestmentLevel)
+        Func<object, bool> belowMaxInvestmentLevel, Func<object, bool> isVisible)
     {
+        IsVisible = isVisible;
         Complete = complete; MeetsLevelRequirements = meetsLevelRequirements;
         StillHasLeeway = stillHasLeeway; BelowArtificialMaxLevel = belowArtificialMaxLevel;
         BelowMaxInvestmentLevel = belowMaxInvestmentLevel;
@@ -90,6 +91,12 @@ internal sealed class ResearchNativeBindings
     internal Func<object, bool> BelowArtificialMaxLevel { get; }
     internal Func<object, bool> BelowMaxInvestmentLevel { get; }
 
+    /// <summary>
+    /// <c>ResearchSO.IsVisible()</c>, which is what <c>UIResearchItem.IsVisible()</c> draws the
+    /// tile on: a research it answers false for has no button on the Research grid to press.
+    /// </summary>
+    internal Func<object, bool> IsVisible { get; }
+
     internal static bool TryCreate(out ResearchNativeBindings? bindings, out string reason,
         Func<string, Type?>? resolveType = null, Func<string, bool>? includeContract = null)
     {
@@ -134,7 +141,8 @@ internal sealed class ResearchNativeBindings
                 Func<bool>(Method(25, research, "MeetsLevelRequirements", typeof(bool), includeContract)),
                 Func<bool>(Method(26, research, "StillHasLeeway", typeof(bool), includeContract)),
                 Func<bool>(Method(27, research, "IsBelowArtificialMaxLevel", typeof(bool), includeContract)),
-                Func<bool>(Method(28, research, "IsBelowMaxInvestmentLevel", typeof(bool), includeContract)));
+                Func<bool>(Method(28, research, "IsBelowMaxInvestmentLevel", typeof(bool), includeContract)),
+                Func<bool>(Method(29, research, "IsVisible", typeof(bool), includeContract)));
             reason = string.Empty;
             return true;
         }

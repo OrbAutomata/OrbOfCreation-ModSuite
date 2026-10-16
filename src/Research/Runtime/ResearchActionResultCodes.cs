@@ -25,4 +25,5 @@ internal static class ResearchActionResultCodes
     internal static ServiceActionResultCode RequirementsUnmet => new(5416);
     internal static ServiceActionResultCode LeewayExhausted => new(5417);
     internal static ServiceActionResultCode AlreadyDeveloping => new(5418);
+    internal static ServiceActionResultCode Locked => new(5419);
 }

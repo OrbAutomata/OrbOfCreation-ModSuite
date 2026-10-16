@@ -318,7 +318,9 @@ internal static class GameMcpEntityExplainer
                 // is not what refused. CanDevelop() adds !IsDeveloping() on top of the whole
                 // expression, so a running development is asked last.
                 var decision = research.Decision;
-                var reason = research.Complete
+                var reason = !research.Visible
+                    ? "research_locked"
+                    : research.Complete
                     ? "already_maxed"
                     : decision.Available && !decision.DevelopmentCostAffordable
                         ? "unaffordable"
@@ -338,12 +340,17 @@ internal static class GameMcpEntityExplainer
                 // The shortfall sentence is the row's own, written from the same costs, so the two
                 // are byte-identical and the per-field collapse folds the predicate away instead of
                 // printing one refusal twice.
-                result["canDevelop"] = string.Equals(reason, "unaffordable", StringComparison.Ordinal)
-                    ? Verdict(
-                        research.CanDevelop,
+                var canDevelop = research.Visible && research.CanDevelop;
+                result["canDevelop"] = reason switch
+                {
+                    "unaffordable" => Verdict(
+                        canDevelop,
                         reason,
-                        GameMcpWorldQuery.ShortfallReason(world, decision.DevelopmentCosts))
-                    : Verdict(research.CanDevelop, reason);
+                        GameMcpWorldQuery.ShortfallReason(world, decision.DevelopmentCosts)),
+                    "research_locked" => Verdict(
+                        canDevelop, reason, LockedResearchReason(world, id)),
+                    _ => Verdict(canDevelop, reason),
+                };
                 break;
             }
             case EntityKind.SpellRecipe:
@@ -772,6 +779,58 @@ internal static class GameMcpEntityExplainer
         return children.Count == 0
             ? null
             : new JObject { ["operator"] = "AND", ["children"] = children };
+    }
+
+    /// <summary>
+    /// Why the Research grid has no tile to press: <c>ResearchSO.IsVisible()</c> is false, and the
+    /// unlock conditions still unmet are what it is waiting for. The press and both reads answer
+    /// with this one sentence.
+    /// </summary>
+    internal static string LockedResearchReason(GameWorldState world, Guid researchId)
+    {
+        var conditions = ProjectUnlockConditions(world, researchId)?.Freeze();
+        var needs = conditions?["children"] is GameMcpArray children
+            ? UnmetNeeds(children.Items, " and ")
+            : string.Empty;
+        return needs.Length == 0
+            ? "This research is locked, so the Research grid draws no tile for it, and the game " +
+                "says nothing about what would unlock it."
+            : "This research is locked, so the Research grid draws no tile for it. It unlocks " +
+                "with " + needs + ".";
+    }
+
+    private static string UnmetNeeds(IReadOnlyList<GameMcpValue> children, string separator)
+    {
+        var parts = new List<string>(children.Count);
+        foreach (var child in children)
+        {
+            if (child is not GameMcpObject node || IsMet(node)) continue;
+            if (node["children"] is GameMcpArray arms)
+            {
+                var joined = UnmetNeeds(
+                    arms.Items, Text(node["operator"]) == "OR" ? " or " : " and ");
+                parts.Add(children.Count > 1 && arms.Items.Count > 1 ? "(" + joined + ")" : joined);
+            }
+            else
+            {
+                parts.Add(Text(node["needs"]) ?? "a condition the suite cannot read");
+            }
+        }
+        return string.Join(separator, parts);
+    }
+
+    private static bool IsMet(GameMcpObject node)
+    {
+        if (node["children"] is not GameMcpArray arms)
+            return node["met"] is GameMcpScalar { Value: true };
+        var any = Text(node["operator"]) == "OR";
+        foreach (var arm in arms.Items)
+        {
+            var met = arm is GameMcpObject armNode && IsMet(armNode);
+            if (any && met) return true;
+            if (!any && !met) return false;
+        }
+        return !any;
     }
 
     private static JObject ProjectRequirementContainer(

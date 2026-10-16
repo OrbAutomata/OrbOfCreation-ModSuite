@@ -986,6 +986,7 @@ internal static class GameMcpActionResultCodeNames
             if (code == ResearchActionResultCodes.RequirementsUnmet) return "requirements_unmet";
             if (code == ResearchActionResultCodes.LeewayExhausted) return "research_leeway_exhausted";
             if (code == ResearchActionResultCodes.AlreadyDeveloping) return "already_developing";
+            if (code == ResearchActionResultCodes.Locked) return "research_locked";
         }
         if (commandKind == GameMcpCommandKind.AlchemyLoadout)
         {

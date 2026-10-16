@@ -114,6 +114,31 @@ public sealed class ResearchGameActionTests : IDisposable
         Assert.False(target.isDeveloping);
     }
 
+    /// <summary>
+    /// <c>CanDevelop()</c> never asks whether the research is shown, so a hidden one the game would
+    /// develop still has no tile on the Research grid. A round queued exactly that; the press now
+    /// refuses what the screen cannot press, before it asks for a permit.
+    /// </summary>
+    [Fact]
+    public void A_research_the_grid_draws_no_tile_for_refuses_develop_and_bonus()
+    {
+        var target = Research();
+        target.available = false;
+        Register(target);
+        var permits = 0;
+        using var boundary = Boundary(permit: () => { permits++; return true; });
+
+        var develop = Submit(boundary, target, ResearchActionKind.Develop);
+        var bonus = Submit(boundary, target, ResearchActionKind.Bonus);
+
+        Assert.True(target.CanDevelop());
+        Assert.Equal(ResearchPreflight.Locked, develop.Preflight);
+        Assert.Equal(ResearchPreflight.Locked, bonus.Preflight);
+        Assert.Equal(ResearchActionResultCodes.Locked, ResearchActionResultMapper.Map(in develop).Code);
+        Assert.Equal(0, permits);
+        Assert.False(target.isDeveloping);
+    }
+
     [Fact]
     public void Exhausted_leeway_refuses_only_once_a_cap_is_also_reached()
     {
