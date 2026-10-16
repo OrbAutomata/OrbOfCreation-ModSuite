@@ -265,7 +265,7 @@ Every outcome waits for a new world publication; Auto Scribe has no cadence or r
 
 ## Auto Cast
 
-Auto Cast follows equipped spell slot order and fires at most one new spell per evaluation. Empty slots are skipped, active auras are treated as already satisfied, channels pause the rotation, and persistent spells are never turned off automatically. The published world carries both the manager-wide `SpellManager.CanCastASpell()` answer and each slot's `Spell.CanCast()` answer, so busy and unready periods are quiet planning backpressure rather than repeated boundary submissions.
+Auto Cast follows equipped spell slot order and fires at most one new spell per evaluation. Empty slots are skipped, active auras are treated as already satisfied, channels pause the rotation, and persistent spells are never turned off automatically. While Magic > Spellbook > Loadout is on screen the rotation stands aside: the game removes a spell only at full charges and idle, and a refused removal switches that spell to a time-based cooldown. The published world carries both the manager-wide `SpellManager.CanCastASpell()` answer and each slot's `Spell.CanCast()` answer, so busy and unready periods are quiet planning backpressure rather than repeated boundary submissions.
 
 The player-driven `game_cast(mode="toggle_off")` command is separate from rotation policy. It
 reproduces the visible spell button's cancel path for one exact active toggle, including the native

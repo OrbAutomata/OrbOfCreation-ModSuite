@@ -41,7 +41,8 @@ given game action.
   protect chosen resources, and `LeaveQueueSlots` keeps room for manual actions. Spell Leveling is
   enabled by default while Auto Buy is active and can be turned off separately.
 - **Auto Cast** starts Disabled, uses `F8` by default, and fully charges charge-capable spells by
-  default. Turn off **Full charge** to cast them immediately.
+  default. Turn off **Full charge** to cast them immediately. It pauses while Magic > Spellbook >
+  Loadout is open, so spells can recharge fully and be removed.
 - **Auto Concept** starts Disabled. Its default Timed Cycle rotates acquired concepts after 30
   seconds of settled training. Rotate All may replace a lower-mastery active concept, while
   Preserve Manual keeps concepts that were active when automation began. Rate, quantity, and drain

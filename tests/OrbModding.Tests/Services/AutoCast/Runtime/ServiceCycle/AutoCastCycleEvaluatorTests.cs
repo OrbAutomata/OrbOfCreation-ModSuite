@@ -231,6 +231,37 @@ public sealed class AutoCastCycleEvaluatorTests
     }
 
     [Fact]
+    public void TheRotationStandsAsideWhileThePlayerHasTheLoadoutOnScreen()
+    {
+        // The game refuses to remove a spell that is not at full charges and idle, so a rotation
+        // that kept casting would make every loadout edit fail.
+        var world = OnScreen(
+            World(Slot(0, Ember, castReady: true)),
+            KnownEntities.ScreenMagic.Uuid,
+            KnownEntities.MagicSpellbook.Uuid,
+            KnownEntities.MagicSpellbookLoadout.Uuid);
+
+        var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
+        Assert.Empty(Plan(world, Config(), ref state, out var wake, out var metrics));
+        Assert.True(metrics.LoadoutOpen);
+        Assert.Equal(WakePolicyKind.OnPublication, wake.Kind);
+    }
+
+    [Fact]
+    public void ALoadoutTabRememberedBehindAnotherScreenDoesNotStopTheRotation()
+    {
+        var world = OnScreen(
+            World(Slot(0, Ember, castReady: true)),
+            KnownEntities.MagicSpellbook.Uuid,
+            KnownEntities.MagicSpellbookLoadout.Uuid);
+
+        var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
+        var action = Assert.Single(Plan(world, Config(), ref state, out _, out var metrics));
+        Assert.Equal(0, action.SlotIndex);
+        Assert.False(metrics.LoadoutOpen);
+    }
+
+    [Fact]
     public void ThePlanCarriesTheEpochTheWorldItCameFromWasCollectedUnder()
     {
         var world = World(
@@ -456,6 +487,26 @@ public sealed class AutoCastCycleEvaluatorTests
             Resources = WorldTable.Create(rows),
             CollectedAtEpoch = collectedAtEpoch,
         };
+    }
+
+    private static GameWorldState OnScreen(GameWorldState world, params Guid[] activeViews)
+    {
+        Guid[] route =
+        {
+            KnownEntities.ScreenMagic.Uuid,
+            KnownEntities.MagicSpellbook.Uuid,
+            KnownEntities.MagicSpellbookLoadout.Uuid,
+        };
+        var views = new WorldView[route.Length];
+        for (var index = 0; index < route.Length; index++)
+        {
+            views[index] = new WorldView(
+                route[index],
+                Array.IndexOf(activeViews, route[index]) >= 0,
+                alwaysActive: false,
+                available: true);
+        }
+        return world with { Views = WorldTable.Create(views) };
     }
 
     private static SuiteRuntimeConfiguration Config(

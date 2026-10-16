@@ -63,6 +63,17 @@ internal static class AutoCastCycleEvaluator
         if (state.HeldChargeSlot != AutoCastCycleState.NoHeldSlot)
             return EvaluateHeldCharge(world, in config, ref state, actions, rows, ref metrics);
 
+        // The game removes an equipped spell only at full charges and idle, and a refused removal
+        // also switches that spell to a time-based cooldown. A rotation that kept casting would make
+        // every loadout edit fail, so while the player has the loadout on screen it waits.
+        if (LoadoutOnScreen(world))
+        {
+            metrics = new AutoCastDecisionMetrics(
+                slots.Count, 0, 0, holdingCharge: false, channelBlocked: false, default,
+                loadoutOpen: true);
+            return wake;
+        }
+
         // A channel in progress pauses the rotation wholesale rather than skipping its slot: the
         // caster is occupied, so nothing else can go either.
         for (var index = 0; index < rows.Length; index++)
@@ -364,4 +375,14 @@ internal static class AutoCastCycleEvaluator
 
         return default;
     }
+
+    // View activity latches per sibling list, so a page is on screen only when every view on its
+    // route is the active one.
+    private static bool LoadoutOnScreen(GameWorldState world) =>
+        ViewActive(world, KnownEntities.ScreenMagic.Uuid) &&
+        ViewActive(world, KnownEntities.MagicSpellbook.Uuid) &&
+        ViewActive(world, KnownEntities.MagicSpellbookLoadout.Uuid);
+
+    private static bool ViewActive(GameWorldState world, Guid viewId) =>
+        WorldLookup.TryFind(world.Views, viewId, out var view) && view.Active;
 }
