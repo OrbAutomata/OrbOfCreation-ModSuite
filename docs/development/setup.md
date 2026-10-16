@@ -54,12 +54,11 @@ dotnet test tests/OrbModding.GameContractTests/OrbModding.GameContractTests.cspr
 ```
 
 On Linux or macOS, `OOC_GAME_DIR` may point to a staged ignored copy with game
-assemblies under `Orb Of Creation_Data/Managed` and BepInEx under `BepInEx/core`.
+assemblies under `Orb Of Creation_Data/Managed` and BepInEx under `BepInEx/core`,
+which the installed-game contracts of [the gate](../testing/README.md#the-gate) then read:
 
 ```bash
 export OOC_GAME_DIR="$PWD/lib"
-dotnet test tests/OrbModding.GameContractTests/OrbModding.GameContractTests.csproj \
-  --configuration Release
 ```
 
 Keep absolute local paths out of tracked files. Building does not authorize an
@@ -78,21 +77,7 @@ the site configuration changes.
 
 ## Development gate
 
-Run the portable/profile and installed-contract lanes one after the other:
-
-```bash
-ORB_TEST_ATTEMPTS=1 ./script/test
-OOC_GAME_DIR="$PWD/lib" dotnet test \
-  tests/OrbModding.GameContractTests/OrbModding.GameContractTests.csproj \
-  --configuration Release
-```
-
-The first command has a 60-second wall-clock limit and runs the ordinary suite,
-the compile-time profile suite, and the profiled trace-tool build. The second
-reads PE metadata from the audited game copy without launching Unity. Record and
-reconcile all test and manifest counts; when compiler-warning counts matter,
-use `tools/build-release-assets.sh` or the serial, non-incremental command in
-[the release procedure](../releasing.md) so caching cannot hide a delta.
+Run [the gate](../testing/README.md#the-gate).
 
 Stub-linked outputs live under `bin-stubs/` and `obj-stubs/`; metadata-true
 reference builds use the normal `bin/` tree. The canonical publication build

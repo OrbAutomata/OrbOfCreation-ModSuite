@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing;
 using OrbModding.TestSupport;
 using Xunit;
+using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 
 namespace OrbModding.Tests.Runtime.ServiceCycle.Tracing;
 
@@ -82,7 +83,7 @@ public sealed class ServiceCycleEventRingTests
         });
         thread.Start();
         Assert.True(
-            thread.Join(TimeSpan.FromSeconds(2)),
+            thread.Join(ServiceCycleTestDeadline.Value),
             "The foreign-thread drain probe did not complete.");
         Assert.IsType<InvalidOperationException>(observed);
     }
@@ -100,7 +101,7 @@ public sealed class ServiceCycleEventRingTests
         });
         thread.Start();
         Assert.True(
-            thread.Join(TimeSpan.FromSeconds(2)),
+            thread.Join(ServiceCycleTestDeadline.Value),
             "The foreign-thread view probe did not complete.");
         Assert.Equal(6, observed.Count);
         Assert.All(observed, exception => Assert.IsType<InvalidOperationException>(exception));

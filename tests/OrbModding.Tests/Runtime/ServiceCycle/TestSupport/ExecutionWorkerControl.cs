@@ -91,10 +91,10 @@ internal sealed class ExecutionWorkerControl
             var action = new ExecutionAction(index, payload);
             actions.Add(in action);
         }
-        signals.ActionsAppended?.Set();
-        signals.ActionsRelease?.Wait();
         if (MeasureAppendAllocations)
             LastAppendAllocatedBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+        signals.ActionsAppended?.Set();
+        signals.ActionsRelease?.Wait();
         if (shouldFault) throw new InvalidOperationException("synthetic evaluation fault");
         return EvaluationWake;
     }

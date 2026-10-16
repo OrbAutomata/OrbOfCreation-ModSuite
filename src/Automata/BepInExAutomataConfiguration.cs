@@ -590,13 +590,6 @@ internal enum AutoHarvestOperationMode
     Active,
 }
 
-internal enum LegacyResearchAutomationMode
-{
-    Disabled,
-    DryRun,
-    Active,
-}
-
 internal enum AutoBuyAffordabilityMode
 {
     BuyAll,

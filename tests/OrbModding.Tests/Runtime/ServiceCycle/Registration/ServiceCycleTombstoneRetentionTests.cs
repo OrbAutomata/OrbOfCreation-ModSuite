@@ -194,7 +194,7 @@ public sealed class ServiceCycleTombstoneRetentionTests
             MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1)));
         public IServiceCycleWorkerDefinition<RetainedState, RetainedAction>
             CreateWorkerDefinition() => new WorkerDefinition(_worker);
-        internal bool WaitForRelease() => _released.Wait(TimeSpan.FromSeconds(2));
+        internal bool WaitForRelease() => _released.Wait(ServiceCycleTestDeadline.Value);
         public ServiceStartDecision ShouldStart(
             in SuiteRuntimeConfiguration config,
             in ServiceCycleStartContext context) =>

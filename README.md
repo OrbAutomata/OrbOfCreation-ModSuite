@@ -33,14 +33,10 @@ $env:OOC_GAME_DIR='C:\Program Files (x86)\Steam\steamapps\common\Orb of Creation
 dotnet build src/OrbModSuite.csproj -c Release
 ```
 
-Run the complete portable development suite with:
-
-```sh
-./script/test
-```
-
-The portable gate runs on Windows, Linux, and macOS with .NET SDK 10. See the
-[development setup](https://orbautomata.github.io/OrbOfCreation-ModSuite/development/setup/) for
+The portable gate, `./script/test`, runs on Windows, Linux, and macOS with .NET SDK 10. The
+[testing guide](https://orbautomata.github.io/OrbOfCreation-ModSuite/testing/#the-gate) holds the
+gate commands, and the
+[development setup](https://orbautomata.github.io/OrbOfCreation-ModSuite/development/setup/) holds
 real-reference and packaging workflows.
 
 ## Contributing, security, and licensing

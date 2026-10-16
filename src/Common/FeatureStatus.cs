@@ -87,8 +87,7 @@ public readonly struct FeatureStatusReason : IEquatable<FeatureStatusReason>
 {
     public FeatureStatusReason(
         FeatureStatusReasonCode code,
-        string summary,
-        AutomationEntityIdentity relatedEntity = default)
+        string summary)
     {
         if (!Enum.IsDefined(typeof(FeatureStatusReasonCode), code))
             throw new ArgumentOutOfRangeException(nameof(code));
@@ -99,22 +98,18 @@ public readonly struct FeatureStatusReason : IEquatable<FeatureStatusReason>
             throw new ArgumentException("A non-empty reason summary is required.", nameof(summary));
         Code = code;
         Summary = normalizedSummary;
-        RelatedEntity = relatedEntity;
     }
 
     public FeatureStatusReasonCode Code { get; }
     public string Summary { get; }
-    public AutomationEntityIdentity RelatedEntity { get; }
     public bool IsEmpty => Code == FeatureStatusReasonCode.None;
 
     public bool Equals(FeatureStatusReason other) =>
         Code == other.Code &&
-        string.Equals(Summary, other.Summary, StringComparison.Ordinal) &&
-        RelatedEntity.Equals(other.RelatedEntity);
+        string.Equals(Summary, other.Summary, StringComparison.Ordinal);
     public override bool Equals(object? obj) => obj is FeatureStatusReason other && Equals(other);
     public override int GetHashCode() => unchecked(
-        (((int)Code * 397) ^ StringComparer.Ordinal.GetHashCode(Summary ?? string.Empty)) * 397 ^
-        RelatedEntity.GetHashCode());
+        ((int)Code * 397) ^ StringComparer.Ordinal.GetHashCode(Summary ?? string.Empty));
 }
 
 public readonly struct FeatureStatusSnapshot : IEquatable<FeatureStatusSnapshot>
@@ -189,13 +184,12 @@ public readonly struct FeatureStatusConditionKey : IEquatable<FeatureStatusCondi
         _status.ConfiguredEnabled == other._status.ConfiguredEnabled &&
         _status.State == other._status.State &&
         _status.Reason.Code == other._status.Reason.Code &&
-        _status.Reason.RelatedEntity.Equals(other._status.Reason.RelatedEntity) &&
         _status.LifecycleGeneration == other._status.LifecycleGeneration;
     public override bool Equals(object? obj) => obj is FeatureStatusConditionKey other && Equals(other);
     public override int GetHashCode() => unchecked(
-        (((((_status.Key.GetHashCode() * 397) ^ _status.ConfiguredEnabled.GetHashCode()) * 397 ^
+        ((((_status.Key.GetHashCode() * 397) ^ _status.ConfiguredEnabled.GetHashCode()) * 397 ^
             (int)_status.State) * 397 ^ (int)_status.Reason.Code) * 397 ^
-          _status.Reason.RelatedEntity.GetHashCode()) * 397 ^ _status.LifecycleGeneration.GetHashCode());
+        _status.LifecycleGeneration.GetHashCode());
 }
 
 public readonly struct FeatureStatusTransition

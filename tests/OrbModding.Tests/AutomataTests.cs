@@ -241,22 +241,6 @@ public sealed class AutomataTests
     }
 
     [Fact]
-    public void AutoConceptOwnershipNeverClaimsUnexpectedManualQuantity()
-    {
-        var ledger = new ConceptOwnershipLedger();
-        ledger.ObserveBaseline("concept", 3);
-        ledger.RecordAutomatedDelta("concept", 5, 2);
-
-        Assert.True(ledger.TryGet("concept", out var owned));
-        Assert.Equal(3, owned.ManualBaseline);
-        Assert.Equal(2, owned.AutomatedDelta);
-        Assert.True(ledger.RebaselineIfUnexpected("concept", 7));
-        Assert.True(ledger.TryGet("concept", out owned));
-        Assert.Equal(7, owned.ManualBaseline);
-        Assert.Equal(0, owned.AutomatedDelta);
-    }
-
-    [Fact]
     public void ReservePolicy_RequiresCostPlusTheLargestReserveFloor()
     {
         var config = BepInExAutomataConfiguration.Bind(new ConfigFile());

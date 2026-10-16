@@ -42,18 +42,9 @@ Fill in the pull request template:
 
 ## Verification
 
-Run the portable suite before opening a pull request:
-
-```bash
-./script/test
-```
-
-Changes that touch native game boundaries also need the installed-game contract
-tests against your own game copy:
-
-```bash
-OOC_GAME_DIR=/path/to/game dotnet test tests/OrbModding.GameContractTests
-```
+Run [the gate](docs/testing/README.md#the-gate) before opening a pull request;
+changes that touch native game boundaries also run its installed-game contracts
+against your own game copy.
 
 Portable success proves behavior against the source-only stubs, not Unity or the
 installed game. Follow the [runtime validation protocol](docs/testing/runtime-validation.md)

@@ -66,7 +66,7 @@ public sealed class AutomataServiceCycleEmergencyStopTests
                     runtime.Tick(0);
                     return definition.ActionExecutionCount > priorActionCount;
                 },
-                TimeSpan.FromSeconds(2)),
+                ServiceCycleTestDeadline.Value),
             "The service did not dispatch an action before the test deadline.");
     }
 

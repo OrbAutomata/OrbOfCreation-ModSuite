@@ -31,10 +31,9 @@ saves, and player control; fail closed when a game contract is unknown.
 
 ## Verification
 
-- `./script/test` is the complete portable and profile gate, with a hard
-  60-second limit per attempt.
-- Native-boundary changes also run installed-game contracts against the audited
-  game copy, after the portable gate and never in parallel with it.
+- Run [the gate](docs/testing/README.md#the-gate): `./script/test`, then, for
+  native-boundary changes, installed-game contracts against the audited game
+  copy, never in parallel.
 - Reconcile test, contract, exemption, entity, and compiler-warning counts; an
   unexplained delta is a failure, not a new baseline.
 - Report a gate as passing only when it ran against the current working tree.

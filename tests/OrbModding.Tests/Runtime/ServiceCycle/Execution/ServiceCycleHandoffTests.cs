@@ -25,9 +25,9 @@ public sealed class ServiceCycleHandoffTests
             handoff.PrepareWorkerExit();
         });
 
-        Assert.True(handoff.WaitForWorkerReady(TimeSpan.FromSeconds(5)));
+        Assert.True(handoff.WaitForWorkerReady(ServiceCycleTestDeadline.Value));
         handoff.SignalStop();
-        await worker.WaitAsync(TimeSpan.FromSeconds(5));
+        await worker.WaitAsync(ServiceCycleTestDeadline.Value);
         Assert.True(handoff.TryAcknowledgeWorkerExited());
     }
 
@@ -115,15 +115,15 @@ public sealed class ServiceCycleHandoffTests
                 default);
             Assert.True(handoff.TryPublishResponse(sequence, in response));
             responsePublished.Set();
-            Assert.True(allowWorkerToSettle.Wait(TimeSpan.FromSeconds(2)));
+            Assert.True(allowWorkerToSettle.Wait(ServiceCycleTestDeadline.Value));
             Assert.Equal(ServiceWorkerWorkKind.Stop, handoff.WaitForWorkerWork(out _, out _, out _));
             handoff.PrepareWorkerExit();
         });
 
-        Assert.True(responsePublished.Wait(TimeSpan.FromSeconds(2)));
+        Assert.True(responsePublished.Wait(ServiceCycleTestDeadline.Value));
         Assert.False(handoff.WaitForResponseReadyAndWorkerSettled(identity, TimeSpan.Zero));
         var wait = Task.Run(() =>
-            handoff.WaitForResponseReadyAndWorkerSettled(identity, TimeSpan.FromSeconds(2)));
+            handoff.WaitForResponseReadyAndWorkerSettled(identity, ServiceCycleTestDeadline.Value));
         Assert.True(SpinWait.SpinUntil(() => handoff.OfflineResponseWaiterCount == 1, ServiceCycleTestDeadline.Value));
         allowWorkerToSettle.Set();
 
@@ -132,7 +132,7 @@ public sealed class ServiceCycleHandoffTests
         Assert.True(handoff.TryAcquireResponse(out _));
         handoff.CompleteMainOwnership();
         handoff.SignalStop();
-        await worker.WaitAsync(TimeSpan.FromSeconds(2));
+        await worker.WaitAsync(ServiceCycleTestDeadline.Value);
         Assert.True(handoff.TryAcknowledgeWorkerExited());
     }
 

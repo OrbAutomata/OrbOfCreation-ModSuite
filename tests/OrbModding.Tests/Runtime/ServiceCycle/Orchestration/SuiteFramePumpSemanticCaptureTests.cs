@@ -40,7 +40,7 @@ public sealed class SuiteFramePumpSemanticCaptureTests
         var source = Assert.IsType<ServiceCycleSemanticTraceSource>(pump.SemanticTrace);
 
         Assert.Equal(1, pump.PumpFrame(1).CyclesStarted);
-        Assert.True(evaluationEntered.Wait(TimeSpan.FromSeconds(2)));
+        Assert.True(evaluationEntered.Wait(ServiceCycleTestDeadline.Value));
         Assert.Equal(
             ServiceCycleSemanticTraceCloseResult.Pending,
             pump.TryCloseSemanticTraceAtSettledBoundary());
@@ -206,7 +206,7 @@ public sealed class SuiteFramePumpSemanticCaptureTests
         try
         {
             pump.PumpFrame(1);
-            Assert.True(evaluationEntered.Wait(TimeSpan.FromSeconds(2)));
+            Assert.True(evaluationEntered.Wait(ServiceCycleTestDeadline.Value));
             registration.Dispose();
 
             Assert.Equal(
@@ -235,7 +235,7 @@ public sealed class SuiteFramePumpSemanticCaptureTests
             }
             foreach (var thread in _threads)
             {
-                if (!thread.Join(TimeSpan.FromSeconds(2)))
+                if (!thread.Join(ServiceCycleTestDeadline.Value))
                     throw new TimeoutException("A deferred test worker did not exit after shutdown.");
             }
         }

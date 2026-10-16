@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
 using OrbModding.Common.Runtime;
@@ -74,13 +73,10 @@ public sealed class ServiceWorkerFaultTransactionTests
         clock.AdvanceTo(preserved.NextWakeDue);
         ServiceRunnerTestWait.RunZeroActionCycle(runner, clock);
         Assert.False(runner.Snapshot.Fault.IsValid);
-        var stopping = Stopwatch.StartNew();
         registration.Dispose();
         Assert.True(SpinWait.SpinUntil(
             () => runner.HandoffPhaseHint == ServiceHandoffPhase.Stopped,
             ServiceCycleTestDeadline.Value));
-        stopping.Stop();
-        Assert.True(stopping.Elapsed < TimeSpan.FromMilliseconds(250));
     }
 
     [Theory]

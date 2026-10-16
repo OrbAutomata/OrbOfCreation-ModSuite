@@ -70,7 +70,7 @@ public sealed class ServiceRunnerConstructionSafetyTests
         firstGate.Release.Set();
         Assert.True(SpinWait.SpinUntil(
             () => first.HandoffPhaseHint == ServiceHandoffPhase.Stopped,
-            TimeSpan.FromSeconds(2)));
+            ServiceCycleTestDeadline.Value));
         var advanced = false;
         definition.WorkerDefinitionFactoryCallback = () =>
         {
@@ -249,7 +249,7 @@ public sealed class ServiceRunnerConstructionSafetyTests
                 completed.Set();
             }) { IsBackground = true };
             claimant.Start();
-            Assert.True(completed.Wait(TimeSpan.FromSeconds(2)));
+            Assert.True(completed.Wait(ServiceCycleTestDeadline.Value));
         };
 
         using var runner = ServiceRunnerFactory<

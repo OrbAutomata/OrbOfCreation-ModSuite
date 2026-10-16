@@ -65,6 +65,9 @@ jobs:
       - name: Restore locked contract-test dependencies
         run: dotnet restore tests/OrbModding.GameContractTests/OrbModding.GameContractTests.csproj --locked-mode -p:UseGameStubs=true
 
+      - name: Restore locked IL inspector dependencies
+        run: dotnet restore tools/OrbModding.IlInspect/Tests/OrbModding.IlInspect.Tests.csproj --locked-mode
+
       - name: Run fast game-independent tests
         shell: pwsh
         run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/test-portable.ps1 -Lane Fast -NoRestore
@@ -86,6 +89,13 @@ jobs:
           --configuration Release --no-restore -p:UseGameStubs=true
           --results-directory artifacts/test-results/contracts
           --logger "trx;LogFileName=portable-contracts.trx"
+
+      - name: Run IL inspector tests
+        run: >-
+          dotnet test tools/OrbModding.IlInspect/Tests/OrbModding.IlInspect.Tests.csproj
+          --configuration Release --no-restore
+          --results-directory artifacts/test-results/il-inspect
+          --logger "trx;LogFileName=il-inspect.trx"
 
       - name: Retain portable test results
         if: always()
@@ -275,7 +285,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Build both publication flavors from committed refs
+      - name: Build both publication flavors against the committed real game references, warnings as errors
         run: tools/build-release-assets.sh artifacts/publish-preview
 
       - name: Package and verify the install ZIP

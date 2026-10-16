@@ -4577,22 +4577,6 @@ public sealed class Plugin : BaseUnityPlugin
         }
     }
 
-    internal static void ShowNotice(string message, RectTransform? anchor)
-    {
-        try
-        {
-            var nodeType = Type.GetType("TooltipNode, Assembly-CSharp", false);
-            var popupType = Type.GetType("UIPopupText, Assembly-CSharp", false);
-            if (nodeType is null || popupType is null || anchor is null) return;
-            var node = Activator.CreateInstance(nodeType, message, Color.white);
-            var listType = typeof(System.Collections.Generic.List<>).MakeGenericType(nodeType);
-            var list = (IList)Activator.CreateInstance(listType)!; list.Add(node);
-            var method = popupType.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).FirstOrDefault(m => m.Name == "CreateOn" && m.GetParameters().Length == 3);
-            method?.Invoke(null, new object[] { list, anchor, new Vector2(0, 32) });
-        }
-        catch { }
-    }
-
     private void RunUiMaintenance()
     {
         _uiMaintenanceDue = false;

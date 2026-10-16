@@ -303,7 +303,7 @@ public sealed class SuiteFramePumpSchedulingTests
         });
         thread.Start();
         Assert.True(
-            thread.Join(TimeSpan.FromSeconds(2)),
+            thread.Join(ServiceCycleTestDeadline.Value),
             "The foreign-thread pump probe did not complete.");
         Assert.IsType<InvalidOperationException>(observed);
     }

@@ -94,17 +94,10 @@ release.
 
 ## Private pre-release gates
 
-Before approving a release PR, run the complete local gate serially:
+Before approving a release PR, run [the gate](testing/README.md#the-gate) against the audited
+game copy, then build the shipped flavor from the committed references:
 
 ```bash
-PATH=/usr/local/share/dotnet:$PATH \
-  ORB_TEST_TIMEOUT_SECONDS=600 ORB_TEST_ATTEMPTS=1 ./script/test
-
-PATH=/usr/local/share/dotnet:$PATH \
-  OOC_GAME_DIR=/absolute/path/to/audited/game-v105 \
-  dotnet test tests/OrbModding.GameContractTests/OrbModding.GameContractTests.csproj \
-  --configuration Release
-
 PATH=/usr/local/share/dotnet:$PATH \
   env -u OOC_GAME_DIR dotnet build src/OrbModSuite.csproj \
   --configuration Release --disable-build-servers -m:1 --no-incremental \

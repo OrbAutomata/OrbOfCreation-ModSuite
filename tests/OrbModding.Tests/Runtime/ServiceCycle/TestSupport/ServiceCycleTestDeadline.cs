@@ -15,7 +15,7 @@ namespace OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 /// worker was merely waiting for a core.
 /// </para>
 /// <para>
-/// Generous, but still inside the gate's own per-attempt deadline, so a genuinely stuck runtime
+/// Generous, but still inside the gate's own deadline, so a genuinely stuck runtime
 /// reports the named expectation it never reached rather than an anonymous gate timeout.
 /// </para>
 /// </remarks>
