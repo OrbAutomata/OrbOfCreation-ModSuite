@@ -256,6 +256,24 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
+    public void ALevelTheGameAppliedBeforeThrowingCommitsAndKeepsLeveling()
+    {
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        spell.ThrowAfterLevelMutation = true;
+        var levels = new SpellLevelNativeAdapter();
+
+        var first = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+        Assert.Equal(ServiceActionDisposition.Committed, first.Disposition);
+        Assert.Equal(2, spell.masteryLevel);
+
+        spell.ThrowAfterLevelMutation = false;
+        spell.readyToLevel = true;
+        var second = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+        Assert.Equal(ServiceActionDisposition.Committed, second.Disposition);
+        Assert.Equal(3, spell.masteryLevel);
+    }
+
+    [Fact]
     public void AnAttemptedAllNoOpFaultsAndBlocksTheBatchUntilLifecycleReplacement()
     {
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);

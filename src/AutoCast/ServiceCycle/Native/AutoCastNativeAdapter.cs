@@ -482,9 +482,9 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     /// delta on the hook every cast in the game passes through.
     /// </summary>
     /// <remarks>
-    /// The postcondition is the <c>Spell.Fire</c> patch's own epoch advancing by exactly one. Two is
-    /// as wrong as none: it would mean the submission cast twice, and a cast that spent twice what
-    /// was planned is precisely what verification exists to catch.
+    /// The postcondition is the <c>Spell.Fire</c> patch's own epoch advancing by exactly one with no
+    /// target prompt left open. Two is as wrong as none: it would mean the submission cast twice, and
+    /// a cast that spent twice what was planned is precisely what verification exists to catch.
     /// </remarks>
     private AutoCastSubmission Submit(int slotIndex, Guid spellRecipeId)
     {
@@ -493,14 +493,14 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         var evidence = NativeMutationVerifier.Execute(
             "Auto Cast fire",
             EntityIdentityFormatter.Format(spellRecipeId),
-            "Spell.Fire hook epoch exact delta +1",
+            "Spell.Fire hook epoch exact delta +1 and no target prompt left open",
             () => AutoCastManualSignal.FireEpoch,
             () =>
             {
                 if (!FireAndResolveTargets(slotIndex, ref nativeCalls, out failure))
                     throw new InvalidOperationException(failure);
             },
-            (before, after) => after == before + 1);
+            (before, after) => after == before + 1 && !IsTargeting());
 
         var submission = AutoCastSubmission.Attempted(evidence, nativeCalls);
         if (!evidence.IsVerified && evidence.MutationWasAttempted)
