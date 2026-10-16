@@ -65,6 +65,8 @@ internal static class GameMcpScreenshotBudget
         {
             var count = 0;
             long bytes = 0;
+            if (File.Exists(directory))
+                throw new IOException($"'{directory}' is a file, not the screenshot run folder");
             if (Directory.Exists(directory))
             {
                 foreach (var path in Directory.EnumerateFiles(directory, "mcp-*.png"))
