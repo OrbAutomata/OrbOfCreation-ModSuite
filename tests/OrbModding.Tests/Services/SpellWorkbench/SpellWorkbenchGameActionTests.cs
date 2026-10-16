@@ -222,7 +222,8 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.Equal(
             "Loading " + Name(recipe) + " would push " + Name(capacity) + " past its allocation. " +
             "It weighs 12 " + Name(capacity) + " and 7 is free. Remove loaded spells weighing 5 " +
-            "more, or raise that allocation.",
+            "more, or raise that allocation. → Loaded spells and their weights: world_list " +
+            "category=spell-slots",
             refused.Reason);
         Assert.Empty(SpellManager.instance!.activeSpells.value);
     }

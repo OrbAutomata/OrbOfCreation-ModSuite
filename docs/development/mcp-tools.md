@@ -2088,7 +2088,10 @@ authored upkeep, plus the penalty while the spell's "use effectively" requiremen
 Knowledge, including 6 more until its "use effectively" requirements are met`), less what its spell
 types take off. `loadoutAdd` weighs that against the allocation's free room, so a spell that does
 not fit reads `available: no` with the sentence the press refuses with: `It weighs 12 Knowledge and
-7 is free. Remove loaded spells weighing 5 more, or raise that allocation.`
+7 is free. Remove loaded spells weighing 5 more, or raise that allocation. → Loaded spells and
+their weights: world_list category=spell-slots`. A `preview` that names a usage allocation, and the
+`staged` read, carry the same pointer under `loaded`, because the bar a layout is weighed against is
+a different category.
 Each loaded spell, as a `spell-slots` row and under `equipped`, carries its own `weight`: the number
 its slot's badge shows, augments and loadout free uses counted as the game counts them, which is what
 removing it frees.

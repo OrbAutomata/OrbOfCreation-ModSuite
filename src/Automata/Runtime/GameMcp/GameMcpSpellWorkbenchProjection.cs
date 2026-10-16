@@ -25,6 +25,7 @@ internal static class GameMcpSpellWorkbenchProjection
             ["status"] = "available",
             ["core"] = ProjectGlyphs(layout.Core),
             ["augments"] = ProjectGlyphs(layout.Augments),
+            ["loaded"] = SpellWorkbenchGameAction.LoadedSpellsPointer,
         }.Freeze();
     }
 
@@ -61,7 +62,11 @@ internal static class GameMcpSpellWorkbenchProjection
             });
         }
         var result = new JObject { ["status"] = "available" };
-        if (usage.Count > 0) result["usageAllocation"] = usage;
+        if (usage.Count > 0)
+        {
+            result["usageAllocation"] = usage;
+            result["loaded"] = SpellWorkbenchGameAction.LoadedSpellsPointer;
+        }
         return result.Freeze();
     }
 

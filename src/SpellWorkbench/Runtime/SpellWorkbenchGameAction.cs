@@ -816,8 +816,12 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         return "It weighs " + weight.ToString(CultureInfo.InvariantCulture) + " " + resourceName +
             " and " + left.ToString(CultureInfo.InvariantCulture) + " is free. Remove loaded " +
             "spells weighing " + (weight - left).ToString(CultureInfo.InvariantCulture) +
-            " more, or raise that allocation.";
+            " more, or raise that allocation. " + LoadedSpellsPointer;
     }
+
+    /// <summary>Where the loaded spells and the weight each one frees are read.</summary>
+    internal const string LoadedSpellsPointer =
+        "→ Loaded spells and their weights: world_list category=spell-slots";
 
     private static List<(Guid Id, object Resource, BigDouble Cost)> ReadUsageTotals(
         SpellWorkbenchNativeBindings native,

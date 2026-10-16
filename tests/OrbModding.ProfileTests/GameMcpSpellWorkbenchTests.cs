@@ -310,7 +310,8 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.False((bool)unmet["loadoutAdd"]!["available"]!);
         Assert.Equal(
             "It weighs 12 Knowledge and 7 is free. Remove loaded spells weighing 5 more, or " +
-            "raise that allocation.",
+            "raise that allocation. → Loaded spells and their weights: world_list " +
+            "category=spell-slots",
             (string?)unmet["loadoutAdd"]!["reason"]);
 
         var met = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
@@ -471,9 +472,12 @@ public sealed class GameMcpSpellWorkbenchTests
             GameMcpSpellWorkbenchProjection.ProjectLoadPreview(in preview));
 
         Assert.Equal(
-            new[] { "status", "usageAllocation" },
+            new[] { "status", "usageAllocation", "loaded" },
             response.Properties().Select(property => property.Name));
         Assert.Equal("available", (string?)response["status"]);
+        Assert.Equal(
+            "→ Loaded spells and their weights: world_list category=spell-slots",
+            (string?)response["loaded"]);
         var row = Assert.Single(response["usageAllocation"]!.Values<JObject>());
         Assert.Equal(
             new[] { "amount", "resource" },

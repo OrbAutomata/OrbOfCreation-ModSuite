@@ -187,6 +187,9 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Equal(2, (int)core["count"]!);
         Assert.Equal("Bright", (string?)augment["glyph"]!["name"]);
         Assert.Equal(1, (int)augment["count"]!);
+        Assert.Equal(
+            "→ Loaded spells and their weights: world_list category=spell-slots",
+            (string?)response["loaded"]);
     }
 
     [Fact]
