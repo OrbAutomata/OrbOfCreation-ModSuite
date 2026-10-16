@@ -117,8 +117,7 @@ fi
 
 # Stage 3. Native contracts and every other portable check.
 echo -n "Stage 3 contracts + tests : "
-if ORB_TEST_TIMEOUT_SECONDS="${ORB_TEST_TIMEOUT_SECONDS:-240}" "${repository_root}/script/test" \
-        >/tmp/orb-re-audit-test.log 2>&1; then
+if "${repository_root}/script/test" >/tmp/orb-re-audit-test.log 2>&1; then
     echo "ok"
 else
     echo "FAIL"
