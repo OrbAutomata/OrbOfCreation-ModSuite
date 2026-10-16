@@ -45,6 +45,11 @@ tick (`GameTickFaultObserver`, on that method and on `ViewManager.CheckViews`). 
 
 - observes only: an exception filter that answers false records the element and the exception, so
   the same exception unwinds with the thrower's stack — never caught, wrapped, or swallowed;
+- records inside the filter, which runs during the first unwinding pass, before any of the game's
+  finally blocks have run: the record calls no Unity or game API and never throws;
+- requires that no game-side catch sits between the patched call site and `FixedUpdate` or
+  `ViewManager.Update`, so every recorded exception is one the game does not handle; the audited
+  build pin guards this, because a game update that adds a handler is an unaudited build;
 - costs one static call and no allocation on the no-throw path, proved by the allocation probe;
 - names, logs, and reacts on the suite's own update, never inside the tick, logging each element and
   exception type once per lifecycle and counting repeats;
