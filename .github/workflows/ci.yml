@@ -261,6 +261,38 @@ jobs:
             }
           }
 
+  release-assets:
+    name: Release assets and install ZIP
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pinned .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Build both publication flavors from committed refs
+        run: tools/build-release-assets.sh artifacts/publish-preview
+
+      - name: Package and verify the install ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          source tools/release-common.sh
+          tools/package-install-zip.sh artifacts/publish-preview "$(read_released_version VERSION)"
+
+      - name: Retain release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-assets-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/publish-preview
+          if-no-files-found: error
+          retention-days: 7
+
   release-policy:
     name: Release promotion policy
     runs-on: ubuntu-latest

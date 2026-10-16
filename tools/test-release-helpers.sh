@@ -227,4 +227,25 @@ if ORB_RELEASE_POLICY_ROOT="${policy_root}" \
     fail "VERSION promotion without changelog section was accepted"
 fi
 
-echo "release-helpers=pass title-policy-red-green=pass state-classifier=pass version-ordering=pass beta-fallback=pass"
+zip_assets="${temporary_root}/zip-assets"
+mkdir -p "${zip_assets}"
+printf 'release bytes\n' >"${zip_assets}/OrbModSuite-release.dll"
+printf '%s  OrbModSuite-release.dll\n' "$(sha256_file "${zip_assets}/OrbModSuite-release.dll")" \
+    >"${zip_assets}/OrbModSuite-SHA256SUMS.txt"
+"${repository_root}/tools/package-install-zip.sh" "${zip_assets}" "0.6.0.main.2" >/dev/null ||
+    fail "install ZIP packaging failed"
+[[ "$(unzip -Z1 "${zip_assets}/OrbOfCreation-ModSuite-0.6.0.main.2.zip")" == \
+    "BepInEx/plugins/OrbModSuite/OrbModSuite.dll" ]] || fail "install ZIP layout"
+[[ "$(unzip -p "${zip_assets}/OrbOfCreation-ModSuite-0.6.0.main.2.zip")" == "release bytes" ]] ||
+    fail "install ZIP DLL differs from the release asset"
+[[ "$(sed -n '2p' "${zip_assets}/OrbModSuite-SHA256SUMS.txt")" == \
+    "$(sha256_file "${zip_assets}/OrbOfCreation-ModSuite-0.6.0.main.2.zip")  OrbOfCreation-ModSuite-0.6.0.main.2.zip" ]] ||
+    fail "install ZIP checksum line"
+if "${repository_root}/tools/package-install-zip.sh" "${zip_assets}" "0.6.0.main.2" >/dev/null 2>&1; then
+    fail "install ZIP overwrote an existing asset"
+fi
+if "${repository_root}/tools/package-install-zip.sh" "${zip_assets}" "0.6.0+main.2" >/dev/null 2>&1; then
+    fail "install ZIP accepted a filename-unsafe version"
+fi
+
+echo "release-helpers=pass title-policy-red-green=pass state-classifier=pass version-ordering=pass beta-fallback=pass install-zip=pass"
