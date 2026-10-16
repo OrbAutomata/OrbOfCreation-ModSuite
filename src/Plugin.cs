@@ -404,7 +404,14 @@ public sealed class Plugin : BaseUnityPlugin
             Log.LogAutomataWarning("Game tick fault observation is unavailable for " + failure);
         _stuckGame = new StuckGameMonitor(
             GameTickFaultSubject.Describe,
-            message => Log.LogAutomataError(message));
+            message => Log.LogAutomataError(message),
+            (faults, written, failed) =>
+            {
+                if (_diagnosticsBundleController is null)
+                    failed("bug reports are unavailable in this run");
+                else
+                    _diagnosticsBundleController.RequestAutomatic(faults, written, failed);
+            });
     }
 
     private void ComposeAutomata()

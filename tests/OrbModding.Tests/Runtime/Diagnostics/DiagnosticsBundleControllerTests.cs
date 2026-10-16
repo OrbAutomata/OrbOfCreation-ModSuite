@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Threading;
 using BepInEx.Logging;
 using OrbAutomata;
@@ -66,6 +68,59 @@ public sealed class DiagnosticsBundleControllerTests : IDisposable
         Assert.NotEmpty(registry.Status.FailureReason);
     }
 
+    [Fact]
+    public void AnAutomaticReportCarriesTheTickFaultsInsteadOfSavesAndNeverRevealsOrPublishes()
+    {
+        var paths = Fixture();
+        var registry = new DiagnosticsBundleRegistry();
+        var revealer = new CountingRevealer();
+        using var controller = Assert.IsType<DiagnosticsBundleController>(
+            DiagnosticsBundleController.TryCreate(registry, Options(paths.Output, paths), new ManualLogSource(), revealer));
+        string? written = null;
+        string? failed = null;
+
+        controller.RequestAutomatic("The game's own tick threw X from Y (50x this lifecycle).\ntrace", path => written = path, reason => failed = reason);
+        Assert.True(SpinWait.SpinUntil(() =>
+        {
+            controller.Tick();
+            return written is not null || failed is not null;
+        }, TimeSpan.FromSeconds(10)));
+
+        Assert.Null(failed);
+        Assert.Equal(0, revealer.Calls);
+        Assert.Equal(DiagnosticsBundleState.Ready, registry.Status.State);
+        using var archive = ZipFile.OpenRead(written!);
+        var faults = archive.Entries.Single(entry => entry.FullName == DiagnosticsBundleBuilder.GameTickFaultMemberName);
+        using (var reader = new StreamReader(faults.Open()))
+            Assert.Contains("(50x this lifecycle)", reader.ReadToEnd());
+        Assert.DoesNotContain(archive.Entries, entry => entry.FullName.StartsWith("savegame/", StringComparison.Ordinal));
+        Assert.Contains(archive.Entries, entry => entry.FullName == "BepInEx/LogOutput.log");
+        using var manifest = new StreamReader(archive.Entries[0].Open());
+        Assert.Contains(DiagnosticsBundleBuilder.AutomaticBundleSaveIdentity, manifest.ReadToEnd());
+    }
+
+    [Fact]
+    public void AnAutomaticReportThatCannotBeWrittenSaysWhyToItsRequesterOnly()
+    {
+        var paths = Fixture();
+        var outputCollision = Path.Combine(_root, "not-a-directory");
+        File.WriteAllText(outputCollision, "collision");
+        var registry = new DiagnosticsBundleRegistry();
+        using var controller = Assert.IsType<DiagnosticsBundleController>(
+            DiagnosticsBundleController.TryCreate(registry, Options(outputCollision, paths), new ManualLogSource(), new CountingRevealer()));
+        string? failed = null;
+
+        controller.RequestAutomatic("fault", _ => { }, reason => failed = reason);
+        Assert.True(SpinWait.SpinUntil(() =>
+        {
+            controller.Tick();
+            return failed is not null;
+        }, TimeSpan.FromSeconds(10)));
+
+        Assert.NotEmpty(failed!);
+        Assert.Equal(DiagnosticsBundleState.Ready, registry.Status.State);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
@@ -106,6 +161,17 @@ public sealed class DiagnosticsBundleControllerTests : IDisposable
     private sealed class RejectingRevealer : IDiagnosticsBundleRevealer
     {
         public bool TryReveal(string path) => false;
+    }
+
+    private sealed class CountingRevealer : IDiagnosticsBundleRevealer
+    {
+        internal int Calls { get; private set; }
+
+        public bool TryReveal(string path)
+        {
+            Calls++;
+            return true;
+        }
     }
 
     private readonly record struct FixturePaths(

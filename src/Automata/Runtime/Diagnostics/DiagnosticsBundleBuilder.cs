@@ -27,7 +27,8 @@ internal sealed class DiagnosticsBundleBuildRequest
         IReadOnlyList<RuntimeServiceDiagnosticsSnapshot> health,
         AutomataDiagnosticsRuntimeEvidence runtimeEvidence,
         DiagnosticsTextRedactor redactor,
-        long maximumBytes = DiagnosticsBundleBuilder.MaximumBundleBytes)
+        long maximumBytes = DiagnosticsBundleBuilder.MaximumBundleBytes,
+        string gameTickFaults = "")
     {
         UtcNow = utcNow.Kind == DateTimeKind.Utc ? utcNow : utcNow.ToUniversalTime();
         OutputDirectory = Require(outputDirectory, nameof(outputDirectory));
@@ -43,6 +44,7 @@ internal sealed class DiagnosticsBundleBuildRequest
         if (maximumBytes <= 0 || maximumBytes > DiagnosticsBundleBuilder.MaximumBundleBytes)
             throw new ArgumentOutOfRangeException(nameof(maximumBytes));
         MaximumBytes = maximumBytes;
+        GameTickFaults = gameTickFaults ?? string.Empty;
     }
 
     internal DateTime UtcNow { get; }
@@ -57,6 +59,14 @@ internal sealed class DiagnosticsBundleBuildRequest
     internal AutomataDiagnosticsRuntimeEvidence RuntimeEvidence { get; }
     internal DiagnosticsTextRedactor Redactor { get; }
     internal long MaximumBytes { get; }
+
+    /// <summary>
+    /// The stuck-game report an automatic bundle carries in place of the save files. Empty for a
+    /// player-requested bundle, which includes the saves.
+    /// </summary>
+    internal string GameTickFaults { get; }
+
+    internal bool IncludesSaves => GameTickFaults.Length == 0;
 
     private static string Require(string value, string parameterName) =>
         string.IsNullOrWhiteSpace(value)
@@ -90,6 +100,10 @@ internal static class DiagnosticsBundleBuilder
     internal const int MaximumLogInputBytes = 2 * 1024 * 1024;
     internal static readonly TimeSpan MaximumJournalCoverage = TimeSpan.FromHours(4);
 
+    internal const string GameTickFaultMemberName = "game-tick-faults.txt";
+    internal const string AutomaticBundleSaveIdentity =
+        "Save files are not included: this bundle was written automatically when the game stopped advancing.";
+
     private const long ManifestReserveBytes = 64 * 1024;
     private const long EndOfCentralDirectoryBytes = 22;
     private static readonly UTF8Encoding Utf8 = new(false);
@@ -102,7 +116,13 @@ internal static class DiagnosticsBundleBuilder
             notices.Add(request.RuntimeEvidence.UnavailableReason);
 
         var configuration = CaptureConfiguration(request, notices);
-        var saves = CaptureSaves(request, notices, out var saveIdentity);
+        var saveIdentity = AutomaticBundleSaveIdentity;
+        var saves = request.IncludesSaves
+            ? CaptureSaves(request, notices, out saveIdentity)
+            : new List<BundleMember>
+            {
+                BundleMember.Text(GameTickFaultMemberName, request.GameTickFaults, request.Redactor),
+            };
         var log = CaptureLog(request, notices, out var logDroppedBytes);
         var mandatory = new List<BundleMember>(2 + saves.Count) { configuration };
         mandatory.AddRange(saves);

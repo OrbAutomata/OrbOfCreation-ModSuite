@@ -67,9 +67,13 @@ autoqueue and NG+ tabs were unlocked and which features were active.
 
 The game itself threw an error on every tick, so development, managers, and menus that depend on its
 tick are frozen. The suite only observes this; the error comes from the game. Return to the main menu
-and reload your save, which usually clears it. Then send `BepInEx/LogOutput.log`, which names the game
-element that failed, to the mod authors through an
-[issue](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/issues).
+and reload your save, which usually clears it.
+
+The suite saves a bug report automatically when this happens, and the banner names its path under
+`BepInEx/config/OrbOfCreation-ModSuite/diagnostics/`. That report names the game element that failed
+and contains no save files. Send it to the mod authors through an
+[issue](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/issues). If the banner says the report
+could not be saved, send `BepInEx/LogOutput.log` instead.
 
 ## Auto Concept repeatedly changes the same concept
 
@@ -101,8 +105,8 @@ compared at all, which is not a pass. Include anything but `AGREE` in a problem 
 
 The zip is created under `BepInEx/config/OrbOfCreation-ModSuite/diagnostics/` and is capped at
 10 MiB. It can contain recent activity, settings, a BepInEx log tail, and identifiable top-level
-save files. Text is redacted for known usernames and absolute paths, but save files remain exact
-private game data. Inspect the archive and share it only with a recipient you trust.
+save files; a report saved automatically for a stopped game has none. Text is redacted for known
+usernames and absolute paths, but save files remain exact private game data. Inspect the archive and share it only with a recipient you trust.
 
 If the action fails, the Runtime page explains why and no partial report is presented as ready.
 Attach `BepInEx/LogOutput.log` instead when it is available.
