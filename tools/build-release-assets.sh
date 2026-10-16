@@ -55,7 +55,9 @@ build_flavor() {
         --disable-build-servers \
         -p:Configuration="${configuration}" \
         -p:EnableServiceCycleProfiler="${profile_enabled}" \
-        -p:ContinuousIntegrationBuild=true
+        -p:ContinuousIntegrationBuild=true \
+        -p:TreatWarningsAsErrors=true \
+        -p:WarningsNotAsErrors=NU1900
 
     echo "Building ${label} from the committed reference closure..."
     env -u OOC_GAME_DIR dotnet build \
@@ -66,7 +68,9 @@ build_flavor() {
         -m:1 \
         --no-incremental \
         -p:EnableServiceCycleProfiler="${profile_enabled}" \
-        -p:ContinuousIntegrationBuild=true
+        -p:ContinuousIntegrationBuild=true \
+        -p:TreatWarningsAsErrors=true \
+        -p:WarningsNotAsErrors=NU1900
 
     if [[ ! -f "${built_dll}" ]]; then
         echo "${label} output is missing: ${built_dll}" >&2
