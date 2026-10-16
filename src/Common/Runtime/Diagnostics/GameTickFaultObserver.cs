@@ -78,6 +78,10 @@ internal static class GameTickFaultObserver
     private static readonly Dictionary<FaultKey, Fault> Faults = new(FaultKeyComparer.Instance);
     private static readonly Dictionary<object, List<Fault>> FaultsBySubject = new(ReferenceComparer.Instance);
     private static readonly List<Fault> Pending = new();
+    private static readonly NullSubject NullElement =
+        new("a null entry in a GameManager element list [IIncrement]");
+    private static readonly NullSubject NullView =
+        new("a null entry in ViewManager's view list [ManagedView]");
     private static Fault? _repeating;
     private static volatile bool _armed;
 
@@ -149,7 +153,8 @@ internal static class GameTickFaultObserver
         foreach (var fault in fresh)
         {
             string subject;
-            try { subject = describe(fault.Subject); }
+            if (fault.Subject is NullSubject nullSubject) subject = nullSubject.Description;
+            else try { subject = describe(fault.Subject); }
             catch (Exception exception)
             {
                 subject = fault.Subject.GetType().FullName + " (name unavailable: " +
@@ -178,10 +183,16 @@ internal static class GameTickFaultObserver
         }
     }
 
-    private static bool Record(GameTickFaultSite site, object subject, Exception exception)
+    /// <remarks>
+    /// Runs as an exception filter, during the first unwinding pass and before any of the game's
+    /// finally blocks: it touches no Unity or game API and never lets an exception out. A null
+    /// element is keyed by a per-site placeholder, since the element itself cannot be touched.
+    /// </remarks>
+    private static bool Record(GameTickFaultSite site, object? element, Exception exception)
     {
         try
         {
+            object subject = element ?? (site == GameTickFaultSite.Element ? NullElement : NullView);
             lock (Sync)
             {
                 var key = new FaultKey(subject, exception.GetType());
@@ -236,7 +247,9 @@ internal static class GameTickFaultObserver
             Subject = subject;
             _exceptionType = exception.GetType().FullName ?? exception.GetType().Name;
             _firstTrace = exception.ToString();
-            _subjectDescription = subject.GetType().FullName ?? subject.GetType().Name;
+            _subjectDescription = subject is NullSubject nullSubject
+                ? nullSubject.Description
+                : subject.GetType().FullName ?? subject.GetType().Name;
             _count = 1;
             BurstCount = 1;
         }
@@ -274,6 +287,13 @@ internal static class GameTickFaultObserver
 
         internal object Subject { get; }
         internal Type ExceptionType { get; }
+    }
+
+    private sealed class NullSubject
+    {
+        internal NullSubject(string description) => Description = description;
+
+        internal string Description { get; }
     }
 
     private sealed class ReferenceComparer : IEqualityComparer<object>

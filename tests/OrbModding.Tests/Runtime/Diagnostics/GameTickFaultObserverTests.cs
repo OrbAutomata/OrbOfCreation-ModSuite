@@ -136,6 +136,30 @@ public sealed class GameTickFaultObserverTests : IDisposable
     }
 
     [Fact]
+    public void ANullElementIsRecordedAsANullEntryAndCanMakeTheGameStuck()
+    {
+        var logged = new List<GameTickFaultReport>();
+
+        for (var index = 0; index < GameTickFaultObserver.RepeatThreshold; index++)
+            Assert.Throws<NullReferenceException>(() => GameTickFaultObserver.IncrementElement(null!, 0.02f));
+        GameTickFaultObserver.Drain(_ => throw new InvalidOperationException("never asked"), logged.Add);
+
+        Assert.Equal("a null entry in a GameManager element list [IIncrement]", Assert.Single(logged).Subject);
+        Assert.Equal(GameTickFaultObserver.RepeatThreshold, GameTickFaultObserver.Repeating!.Count);
+    }
+
+    [Fact]
+    public void ANullViewIsRecordedAsANullEntry()
+    {
+        var logged = new List<GameTickFaultReport>();
+
+        Assert.Throws<NullReferenceException>(() => GameTickFaultObserver.CheckView(null!));
+        GameTickFaultObserver.Drain(_ => "unused", logged.Add);
+
+        Assert.Equal("a null entry in ViewManager's view list [ManagedView]", Assert.Single(logged).Subject);
+    }
+
+    [Fact]
     public void ResetForgetsEveryFaultAndTheRepeatingOne()
     {
         var element = new ThrowingElement();
