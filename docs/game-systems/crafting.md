@@ -8,7 +8,14 @@ The page carries a **Manual | Automate** split at the top. The game itself draws
 one-off crafting you drive by hand and standing production, and the Manual side works on its own
 regardless of what the Automate side is set to.
 
-Scribing is its own surface with its own page; see [scribing.md](scribing.md).
+Each side is a strip of slots, and the two strips are counted separately. Observed on Workshop:
+**three Manual slots and a single Automate slot**, so exactly one recipe can be standing production
+here at a time and automating a second is refused until the first is cleared. An Automate slot
+carries a **number badge**, which is the amount queued on that entry rather than a count of slots;
+cancelling steps that badge down and only removes the card when it reaches zero.
+
+Scribing is its own surface with its own page, and its own separate pair of strips with different
+slot counts; see [scribing.md](scribing.md).
 
 ## Crafts pay at submission
 

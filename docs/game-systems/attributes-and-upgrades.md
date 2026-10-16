@@ -62,7 +62,8 @@ Three consequences worth stating plainly:
   effect, `MaxAlchemyLevel +1`, and no effect on the dial. Whether the dial follows its ceiling is
   therefore not an authored fact but a per-dial behaviour: **Alchemy Lv follows on its own** —
   buying Raise Alchemy Level at upgrade Lv 263 took the bar from `264 / 264` to `265 / 265` in one
-  press — while the Casting dials have to be set by hand.
+  press — and Output Lv has been seen doing the same (see
+  [output-and-reserve.md](output-and-reserve.md)).
 - **The two numbers are never the same number.** The upgrade's own level counts purchases made; the
   cap starts at 1 and the dial starts wherever it was left. Reading one as the other is the mistake
   the shape invites.
@@ -77,6 +78,11 @@ Three consequences worth stating plainly:
 
 An attribute flagged as disabled has its **effect** killed, not its purchasability: it can still be
 bought while contributing nothing.
+
+Disabling is a **player control on the card**, not only an authored state — a purchased attribute
+can be switched off and back on at will, and the switch is free in both directions. A disabled card
+**drops its level badge** while every neighbouring card keeps its number, which is the quickest way
+to read at a glance which attributes on a page are currently contributing.
 
 ## The frontier is small
 

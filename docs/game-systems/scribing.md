@@ -4,6 +4,15 @@
 and scribe onto it. Like the Workshop page it carries a **Manual | Automate** split, and the Manual
 side works regardless of the Automate setting.
 
+Its strips are counted independently of the Workshop's, and are more generous on the standing side:
+observed **three Manual slots and three Automate slots**, against the Workshop's three and one. So
+a full Workshop automation queue does not stop you automating a scroll, and vice versa.
+
+On this page an Automate entry's badge reads `Lv N`, and it **adds to the scroll's level** rather
+than just queueing repeats: the recipe card shows starting level plus the queued amount, so an
+entry badged `Lv 2` renders a `Lv 1` scroll as `Lv 3`. Cancelling the entry walks both numbers back
+down, so the level it granted is not kept.
+
 Scribing is largely unmapped — this page is filled in as it is played, not inferred. What is
 established:
 

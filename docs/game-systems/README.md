@@ -75,8 +75,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 
 - [attributes-and-upgrades.md](attributes-and-upgrades.md) — the two purchase families, their
   asymmetries, and category migration.
-- [development-queue.md](development-queue.md) — buying queues; the queue, not the resource, is the
-  early binder.
+- [development-queue.md](development-queue.md) — buying queues into Active Attributes; that queue,
+  not the resource, is the early binder.
 - [cost-scaling.md](cost-scaling.md) — ≈×1.25 per level, two-currency prices, and retroactive cost
   scaling.
 - [auto-buy.md](auto-buy.md) — the native sweeper fires only on empty queue, 5 s idle, and <0.1 % of
@@ -96,7 +96,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 
 - [concepts.md](concepts.md) — passive scalers; only a concept in a development slot levels or
   drains.
-- [agromancy.md](agromancy.md) — plots, nodes and growth phases; growth runs with the screen closed.
+- [agromancy.md](agromancy.md) — plots, nodes and growth phases in their own action queue; growth
+  runs with the screen closed.
 - [aspects.md](aspects.md) — three pedestals through which Workshop, Alchemy and Rituals arrive.
 - [disciplines.md](disciplines.md) — four disciplines change name between purchase page and
   advancement tab; several are unplayed.
@@ -129,7 +130,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 
 ## Interface
 
-- [screens.md](screens.md) — seven screens, their subtabs, and which page holds what.
+- [screens.md](screens.md) — seven screens, what unlocks each, their subtabs, and which page holds
+  what.
 - [ui-behaviours.md](ui-behaviours.md) — wheel ownership, nested tooltips, red vs grey.
 - [vocabulary.md](vocabulary.md) — attribute/statistic, glyph/recipe book/augment, concepts/alchemy.
 
