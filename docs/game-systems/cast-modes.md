@@ -21,6 +21,11 @@ run at effectively full uptime.
 Charms are also the usual target of per-spell upgrade lines, which append rows to the charm's effect
 list; see [spells.md](spells.md).
 
+**A toggle is one-way unless you turn a setting on.** With **Cancellable Spells** off in the game
+settings, an active charm or toggle spell cannot be switched back off; it runs until its window
+expires. Turning that setting on is what makes the toggle work in both directions, and it is worth
+doing before committing to a long-running toggle.
+
 ## Channels
 
 A channeled spell holds the caster for its duration and behaves unlike anything else in the loadout:

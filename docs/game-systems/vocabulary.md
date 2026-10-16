@@ -21,15 +21,14 @@ Three names, two systems:
 | Name you will see | What it is | Where it appears |
 |---|---|---|
 | **Glyph** | A pool unlocker: a rollable enters the pool only once all of its glyphs are unlocked | Upgrade tooltips, the Glyph Discoveries tree |
-| **Recipe Book** | The same thing | Item tooltips |
+| **Recipe Book** | The unlocker's other face, drawn as a tile on Magic > Spellbook > Unlock; the tiles are not pressable, they show which books fill the roll pool; some books have no glyph behind them | Item tooltips |
 | **Spell Augment** / **Augment Glyph** | The socketable modifier you attach to a spell | Magic > Augments, the Augment Glyphs panel |
 
 The reliable test is the **keyword on the glyph's own type line**: a keyword beginning `Spell `
 (`Spell Augment`, `Spell Elemental`) marks a socketable augment; `Elemental`, `Forging`,
 `Alchemical` and `Manifestation` mark a pool unlocker. Behaviour agrees — unlockers expand what you
-can later roll, augments change a spell you already own — but the keyword decides it at a glance.
-Observed split on one endgame save: 47 glyphs, 22 augments and 25 unlockers. See
-[pool-unlockers.md](pool-unlockers.md) and [augments.md](augments.md).
+can later roll, augments change a spell you already own — but the keyword decides it at a glance. For
+how the two sets divide, see [pool-unlockers.md](pool-unlockers.md) and [augments.md](augments.md).
 
 ## Concepts versus Alchemy
 

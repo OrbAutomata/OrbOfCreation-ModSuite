@@ -52,6 +52,13 @@ carried cross-run bonuses (authored constants do not).
   running both for a measured window and comparing output.
 - **Spell levelling prerequisites** — spell recipes carry levelling prerequisites that the levelling
   button does not consult. Whether they are enforced anywhere a player can hit is unknown.
+- **Whether a running toggle spell holds augment copies** — with one toggle spell active, an
+  augment's usable-copy reading fell from 9/9 to 3/9 and stayed there. Whether that is the running
+  spell reserving copies, or an unrelated drain, is unestablished. Settle by reading the count
+  before a toggle, during it, and after it lapses.
+- **What an included Equipment or Alchemy loadout section does** — a switch with a section included
+  has never been tried. Settle by including a section and switching loadouts with a
+  distinguishable setup on each side.
 
 ## Discovery
 
@@ -91,7 +98,6 @@ carried cross-run bonuses (authored constants do not).
   [vocabulary.md](vocabulary.md) is derived from the game's serialized data, so a label composed at
   runtime rather than stored with the screen would be absent from it entirely. Settle by opening the
   Statistics panel and one attribute purchase list side by side.
-- **Pages nobody has opened** — Spellbook > Spell Types, Concepts' Discover and Loadout, both
-  Automate pages, Alchemy's Learn and Manage, Artifact Create, the Time Rune Archive, World >
-  Dimensional, and the Statistics, Achievements and Tips panels. The cheapest item here, and it
-  blocks several others.
+- **Pages nobody has opened** — both Automate pages, Alchemy's Manage,
+  Artifact Create, the Time Rune Archive, and the Statistics, Achievements and Tips panels. The
+  cheapest item here, and it blocks several others.

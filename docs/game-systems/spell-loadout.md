@@ -20,8 +20,16 @@ research adds one, for a maximum of **five** in the authored data. The weight bu
 `Improved Spell Weight`. The same budget appears under three different names; see
 [vocabulary.md](vocabulary.md).
 
+A spell whose tooltip says **"Insufficient req. to use effectively."** (its `Req.` lines name
+Expert research levels it has not reached) weighs **twice** its normal weight. The Loadout grid
+prints the doubled number in red. E.g., Sanctify (base weight 6) showed `12` while Expert Storm
+sat at 17/21, so the game refused to load it with 7 weight free.
+
 ## Rules that follow from the two binders
 
+- **A newly discovered spell is loaded for you when a spot is free.** The first spell of a run
+  arrives already sitting in slot 1; adding it again makes a second copy rather than moving it, so
+  check the bar before paying to load something you already have.
 - **Duplicate slotting is legal, and cooldowns are per copy.** Two copies of one spell run two
   independent cooldowns and roughly double both the casts per charm window and the XP accrual. Four
   copies of one spell is a legal loadout.
@@ -30,13 +38,30 @@ research adds one, for a maximum of **five** in the authored data. The weight bu
 - **Fitting a new spell may require evicting one** — the game refuses with "No available spell spot".
 - **Glyphs are baked in when a spell is added**, raising its load cost; there is no in-place edit.
   See [augments.md](augments.md).
+- **Loading a discovered spell is a pick from a list.** Magic > Spellbook > Loadout shows the spell bar above
+  and every spell you have discovered below; choosing one from that list drops it into a free spot.
+  Acquiring a spell in the first place is the discovery press, not a separate composing step; see
+  [discovery.md](discovery.md).
 
 Owning a spell and loading it are separate decisions against separate budgets: the library holds
 spells you are paying neither weight nor a spot for.
 
-## The second loadout
+## Saved loadouts and the Loadouts panel
 
 The **Duplicate Spellbook** upgrade gives a second saved loadout to switch between. It does **not**
 enable dual-casting — only one loadout is live at a time — you cannot switch while effects are
 ongoing, and **cooldowns freeze in place while a loadout is unloaded**, so switching away and back
 does not launder a cooldown.
+
+Saved loadouts are managed in a **Loadouts panel opened by the book button at the top right of the
+window**. It belongs to no screen and is not reachable from any tab or subtab strip. The panel
+holds:
+
+- the active loadout's **colour, icon and editable name**, all three cosmetic;
+- **eight loadout rows**, each with its own icon and a row of eight spell slots;
+- two section rows, **Equipment** and **Alchemy**, each with an include/exclude toggle.
+
+Those two toggles are the part that matters: a saved loadout can reach beyond spells into your
+artifacts (see [artifacts.md](artifacts.md)) and your alchemy grid (see [alchemy.md](alchemy.md)),
+and each section is opted in or out per loadout. What an included section does across a switch is
+untested; see [open-questions.md](open-questions.md).

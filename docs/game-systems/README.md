@@ -58,8 +58,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 
 ## Augments
 
-- [pool-unlockers.md](pool-unlockers.md) — glyphs, a.k.a. recipe books, expand what future rolls can
-  contain.
+- [pool-unlockers.md](pool-unlockers.md) — recipe books and the glyphs behind them expand what future
+  rolls can contain; nine books have no glyph.
 - [augments.md](augments.md) — per-spell-slot sockets and usable copies, weight per copy, and
   global per-level passives.
 
