@@ -63,6 +63,14 @@ Press **STOP ALL** first. If the problem clears, resume and enable features one 
 the trigger. Create a bug report after reproducing the problem, then include whether the native
 autoqueue and NG+ tabs were unlocked and which features were active.
 
+## A red banner says the game stopped advancing
+
+The game itself threw an error on every tick, so development, managers, and menus that depend on its
+tick are frozen. The suite only observes this; the error comes from the game. Return to the main menu
+and reload your save, which usually clears it. Then send `BepInEx/LogOutput.log`, which names the game
+element that failed, to the mod authors through an
+[issue](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/issues).
+
 ## Auto Concept repeatedly changes the same concept
 
 Press **STOP ALL**, then create a bug report immediately. Include the affected concept and resource

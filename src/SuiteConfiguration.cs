@@ -69,7 +69,7 @@ internal sealed class SuiteConfiguration
                 "ObserveGameTickFaults",
                 true,
                 new ConfigDescription(
-                    "Name the game element that throws from the game's own tick. Observes only; takes effect on the next game start.",
+                    "Name the game element that throws from the game's own tick, and tell the player when the game stops advancing. Observes only; takes effect on the next game start.",
                     null,
                     new ModConfigMetadata(50, 20, hidden: true))));
         return configuration;

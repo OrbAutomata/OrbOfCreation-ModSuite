@@ -20,6 +20,7 @@ internal sealed class ModConfigUiShell : IDisposable
     private readonly ModConfigNativeNavigationHost _navigation;
     private readonly ModConfigPanel _panel;
     private readonly Action _maintenanceRequested;
+    private readonly StuckGameBanner _stuckGameBanner;
     private bool _disposed;
     private bool _open;
     private bool _repairRequired;
@@ -36,6 +37,7 @@ internal sealed class ModConfigUiShell : IDisposable
         _navigation = navigation;
         _panel = panel;
         _maintenanceRequested = maintenanceRequested;
+        _stuckGameBanner = new StuckGameBanner(navigation.PanelParent, navigation.LabelTemplate);
     }
 
     public bool IsAlive => ModConfigNativeNavigationPolicy.HostsAlive(
@@ -116,6 +118,17 @@ internal sealed class ModConfigUiShell : IDisposable
         TrySetOpen(requestedOpen, restorePreviousNativeView: !requestedOpen);
     }
 
+    /// <summary>Shows the stuck-game notice, or removes it when <paramref name="notice"/> is null.</summary>
+    public void ShowStuckGameNotice(string? notice)
+    {
+        if (_disposed || !IsAlive) return;
+        try { _stuckGameBanner.Show(notice); }
+        catch (Exception ex)
+        {
+            _log.LogWarning($"Stuck-game notice could not be shown: {ex.GetBaseException().Message}");
+        }
+    }
+
     public ModConfigNavigationBookmark CaptureNavigation() => _panel.CaptureNavigation();
 
     public void RefreshNavigation() => _navigation.RefreshNavigation();
@@ -174,6 +187,7 @@ internal sealed class ModConfigUiShell : IDisposable
         if (_disposed) return;
         if (_open) TrySetOpen(false, restorePreviousNativeView: true);
         _disposed = true;
+        try { _stuckGameBanner.Dispose(); } catch { }
         try { _panel.Dispose(); } catch { }
         _navigation.Dispose();
     }
