@@ -22,6 +22,7 @@ jobs:
       tag: ${{ steps.publication.outputs.tag }}
       title: ${{ steps.publication.outputs.title }}
       version: ${{ steps.publication.outputs.version }}
+      asset_version: ${{ steps.publication.outputs.asset_version }}
 
     steps:
       - name: Check out main with release history
@@ -65,6 +66,8 @@ jobs:
           echo "tag=${tag}" >>"${GITHUB_OUTPUT}"
           echo "title=${title}" >>"${GITHUB_OUTPUT}"
           echo "version=${version}" >>"${GITHUB_OUTPUT}"
+          asset_version="${tag#suite-v}"
+          echo "asset_version=${asset_version//+/.}" >>"${GITHUB_OUTPUT}"
           echo "Publication: kind=${kind} tag=${tag} version=${version}"
 
   portable-tests:
@@ -230,6 +233,11 @@ jobs:
       - name: Build both publication flavors from committed refs
         run: tools/build-release-assets.sh artifacts/publish-primary
 
+      - name: Package and verify the install ZIP
+        env:
+          ASSET_VERSION: ${{ needs.classify.outputs.asset_version }}
+        run: tools/package-install-zip.sh artifacts/publish-primary "${ASSET_VERSION}"
+
       - name: Upload primary publication assets
         uses: actions/upload-artifact@v7
         with:
@@ -263,6 +271,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PUBLICATION_KIND: ${{ needs.classify.outputs.kind }}
           PUBLICATION_VERSION: ${{ needs.classify.outputs.version }}
+          ASSET_VERSION: ${{ needs.classify.outputs.asset_version }}
         run: |
           set -euo pipefail
           source tools/release-common.sh
@@ -295,10 +304,13 @@ jobs:
 
           release_sha="$(sha256sum artifacts/download/primary/OrbModSuite-release.dll | awk '{print $1}')"
           profile_sha="$(sha256sum artifacts/download/primary/OrbModSuite-perf-debug.dll | awk '{print $1}')"
+          zip_name="OrbOfCreation-ModSuite-${ASSET_VERSION}.zip"
+          zip_sha="$(sha256sum "artifacts/download/primary/${zip_name}" | awk '{print $1}')"
           printf '\n### Published assets\n\n' >>"${notes_path}"
+          printf -- '- `%s` SHA-256: `%s` (extract into the game folder)\n' "${zip_name}" "${zip_sha}" >>"${notes_path}"
           printf -- '- `OrbModSuite-release.dll` SHA-256: `%s`\n' "${release_sha}" >>"${notes_path}"
           printf -- '- `OrbModSuite-perf-debug.dll` SHA-256: `%s`\n' "${profile_sha}" >>"${notes_path}"
-          printf '\nBoth assets were built from the SHA-locked committed game references and pinned SDK.\n' >>"${notes_path}"
+          printf '\nBoth DLLs were built from the SHA-locked committed game references and pinned SDK; the ZIP holds the same Release DLL at `BepInEx/plugins/OrbModSuite/OrbModSuite.dll`.\n' >>"${notes_path}"
           echo "notes_path=${notes_path}" >>"${GITHUB_OUTPUT}"
           echo "release_sha=${release_sha}" >>"${GITHUB_OUTPUT}"
           echo "profile_sha=${profile_sha}" >>"${GITHUB_OUTPUT}"
@@ -306,8 +318,10 @@ jobs:
           printf '### Publication assets\n\n' >>"${GITHUB_STEP_SUMMARY}"
           printf -- '- Release SHA-256: `%s`\n' "${release_sha}" >>"${GITHUB_STEP_SUMMARY}"
           printf -- '- Perf-debug SHA-256: `%s`\n' "${profile_sha}" >>"${GITHUB_STEP_SUMMARY}"
+          printf -- '- Install ZIP SHA-256: `%s`\n' "${zip_sha}" >>"${GITHUB_STEP_SUMMARY}"
           echo "OrbModSuite-release.dll SHA-256: ${release_sha}"
           echo "OrbModSuite-perf-debug.dll SHA-256: ${profile_sha}"
+          echo "${zip_name} SHA-256: ${zip_sha}"
 
       - name: Fail if the tag or release already exists
         shell: bash
@@ -352,6 +366,7 @@ jobs:
           PUBLICATION_KIND: ${{ needs.classify.outputs.kind }}
           PUBLICATION_TAG: ${{ needs.classify.outputs.tag }}
           PUBLICATION_TITLE: ${{ needs.classify.outputs.title }}
+          ASSET_VERSION: ${{ needs.classify.outputs.asset_version }}
           NOTES_PATH: ${{ steps.notes.outputs.notes_path }}
         run: |
           set -euo pipefail
@@ -365,6 +380,7 @@ jobs:
             "artifacts/download/primary/OrbModSuite-release.dll"
             "artifacts/download/primary/OrbModSuite-perf-debug.dll"
             "artifacts/download/primary/OrbModSuite-SHA256SUMS.txt"
+            "artifacts/download/primary/OrbOfCreation-ModSuite-${ASSET_VERSION}.zip"
             --verify-tag
             --title "${PUBLICATION_TITLE}"
             --notes-file "${NOTES_PATH}"

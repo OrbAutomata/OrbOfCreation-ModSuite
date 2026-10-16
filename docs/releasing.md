@@ -31,7 +31,8 @@ When it exists, the push is a beta. The workflow:
    `*+main.*` beta tags, to count commits;
 4. creates annotated tag `suite-v<VERSION>+main.<N>`; and
 5. creates a GitHub prerelease with `OrbModSuite-release.dll`,
-   `OrbModSuite-perf-debug.dll`, and their checksum file.
+   `OrbModSuite-perf-debug.dll`, the install ZIP
+   `OrbOfCreation-ModSuite-<VERSION>.main.<N>.zip`, and their checksum file.
 
 The prerelease notes are the associated merged PR body. An empty body, no
 associated PR, an API error, or invalid API response falls back to the merge
@@ -79,6 +80,11 @@ Both publication flavors compile from `lib/game-refs/v1.0.5` with
 - `OrbModSuite-release.dll` is the normal Release build and must contain no
   ServiceCycle profiling components.
 - `OrbModSuite-perf-debug.dll` is the Debug profiling build.
+- `OrbOfCreation-ModSuite-<version>.zip` is the player install: exactly
+  `BepInEx/plugins/OrbModSuite/OrbModSuite.dll`, byte-identical to that run's
+  `OrbModSuite-release.dll`. `tools/package-install-zip.sh` zips the CI-built
+  DLL, verifies layout and bytes, and appends the ZIP to the checksum file. The
+  CI `release-assets` job runs the same build and ZIP step on every PR.
 
 The committed refs are full-surface metadata derivations of audited assemblies,
 not the hand-written test stubs. Test stubs are never installed or published.
@@ -160,5 +166,6 @@ Local, publication-free helper checks are:
 bash -n tools/release-common.sh
 bash -n tools/check-release-policy.sh
 bash -n tools/build-release-assets.sh
+bash -n tools/package-install-zip.sh
 tools/test-release-helpers.sh
 ```

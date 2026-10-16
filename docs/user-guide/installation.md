@@ -40,20 +40,19 @@ On Proton, add this Steam launch option:
 WINEDLLOVERRIDES="winhttp=n,b" %command%
 ```
 
-## 3. Install the current release
+## 3. Install the suite
 
 Install the
 [latest release](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/releases/latest).
 Pre-releases are test builds; use one only if a maintainer asks.
 
-1. Under **Assets**, download `OrbModSuite-release.dll`. Do not use `OrbModSuite-perf-debug.dll`;
-   it is a developer build. If your browser warns about the file, choose **Keep**.
-2. In `BepInEx/plugins`, create a folder named `OrbModSuite`.
-3. Move the downloaded file into that folder and rename it to `OrbModSuite.dll`. Turn on
-   [file name extensions](troubleshooting.md#bepinexlogoutputlog-does-not-exist) first so the name
-   does not become `OrbModSuite.dll.dll`. BepInEx loads any file name, but one fixed name means
-   the next update replaces the file instead of adding a second copy.
-4. Confirm the following layout:
+1. Under **Assets**, download `OrbOfCreation-ModSuite-<version>.zip`. If your browser warns about
+   the file, choose **Keep**.
+2. Extract it into the game folder, the one with `Orb Of Creation.exe`. Windows **Extract All**
+   suggests a new folder named after the zip; change the destination to the game folder so the
+   zip's `BepInEx` folder merges into the game's. Updates work the same way: extract the new zip
+   there and let it replace `OrbModSuite.dll`.
+3. Confirm the following layout:
 
 ```text
 Orb of Creation/
@@ -64,6 +63,11 @@ Orb of Creation/
         `-- OrbModSuite/
             `-- OrbModSuite.dll
 ```
+
+To install the bare DLL instead, download `OrbModSuite-release.dll` and save it as
+`BepInEx/plugins/OrbModSuite/OrbModSuite.dll` with
+[file name extensions](troubleshooting.md#bepinexlogoutputlog-does-not-exist) visible.
+`OrbModSuite-perf-debug.dll` is a developer build; do not use it.
 
 Keep exactly one suite DLL anywhere under `BepInEx/plugins`. Remove separate
 `OrbAutomata.dll`, `OrbMentor.dll`, `OrbModConfig.dll`, and `OrbModding.Common.dll` files; they are

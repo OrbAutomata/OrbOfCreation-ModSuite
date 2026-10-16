@@ -10,8 +10,9 @@ promotion. GitHub Actions alone creates tags and releases.
 
 ## Release PR
 
-The maintainer writes the release PR by hand. It changes only the two tracked
-version authorities:
+The maintainer writes the release PR by hand. It changes the two tracked
+version authorities and may also change the release shape itself (published
+assets, publication workflows, install docs):
 
 - `VERSION`: one stable SemVer greater than the newest stable `suite-v` tag;
 - `CHANGELOG.md`: one matching, dated, player-facing release section.
@@ -30,7 +31,7 @@ Before approval, record:
 - audited game, BepInEx, and source-assembly hashes;
 - portable, profile, refs-contract, installed-contract, and interactive evidence;
 - Release zero-profile-string evidence;
-- Release and perf-debug asset names and SHA-256 values;
+- Release, perf-debug, and install-ZIP asset names and SHA-256 values;
 - configuration schema and reconciled test, contract, exemption, entity, and
   compiler-warning counts; and
 - known limitations and validation scope.
@@ -51,6 +52,9 @@ For every main push, confirm the workflow:
 - passed portable, profile, refs-contract, required promotion-policy, and
   manifest-based hygiene gates without a game installation;
 - built `OrbModSuite-release.dll` and `OrbModSuite-perf-debug.dll` from refs;
+- attached `OrbOfCreation-ModSuite-<version>.zip`, holding exactly that
+  Release DLL as `BepInEx/plugins/OrbModSuite/OrbModSuite.dll`, and listed it
+  in `OrbModSuite-SHA256SUMS.txt`;
 - proved the Release flavor contains zero profiling components; and
 - refused any pre-existing target tag or release.
 
