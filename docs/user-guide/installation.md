@@ -69,7 +69,7 @@ Keep exactly one suite DLL anywhere under `BepInEx/plugins`. Remove separate
 `OrbAutomata.dll`, `OrbMentor.dll`, `OrbModConfig.dll`, and `OrbModding.Common.dll` files; they are
 not part of the one-plugin installation.
 
-To check that it worked, start the game: `BepInEx/LogOutput.log` should list
+To check that it worked, start the game: `BepInEx/LogOutput.log` lists
 **Orb Of Creation ModSuite** once without dependency errors, and the game shows a **Mods** tab.
 
 The suite reads settings from
