@@ -101,6 +101,14 @@ internal static class DiagnosticsBundleBuilder
     internal static readonly TimeSpan MaximumJournalCoverage = TimeSpan.FromHours(4);
 
     internal const string GameTickFaultMemberName = "game-tick-faults.txt";
+    internal const string PlayerBundlePrefix = "orb-modsuite-diagnostics-";
+    internal const string AutomaticBundlePrefix = "orb-modsuite-automatic-report-";
+
+    /// <summary>
+    /// How many automatic bundles the diagnostics folder keeps; older automatic ones are deleted
+    /// after a new one is written. Player-made bundles are never deleted.
+    /// </summary>
+    internal const int AutomaticBundlesKept = 5;
     internal const string AutomaticBundleSaveIdentity =
         "Save files are not included: this bundle was written automatically when the game stopped advancing.";
 
@@ -193,7 +201,10 @@ internal static class DiagnosticsBundleBuilder
             throw new IOException("The diagnostics manifest cannot fit inside the 10 MB sharing limit.");
 
         Directory.CreateDirectory(request.OutputDirectory);
-        var finalPath = ResolveOutputPath(request.OutputDirectory, request.UtcNow);
+        var finalPath = ResolveOutputPath(
+            request.OutputDirectory,
+            request.UtcNow,
+            request.IncludesSaves ? PlayerBundlePrefix : AutomaticBundlePrefix);
         var temporaryPath = finalPath + ".tmp-" + Guid.NewGuid().ToString("N");
         try
         {
@@ -216,6 +227,7 @@ internal static class DiagnosticsBundleBuilder
             if (actualBytes > request.MaximumBytes)
                 throw new IOException("The completed diagnostics file exceeded the 10 MB sharing limit.");
             File.Move(temporaryPath, finalPath);
+            if (!request.IncludesSaves) PruneAutomaticBundles(request.OutputDirectory, finalPath);
             return new DiagnosticsBundleBuildResult(
                 finalPath,
                 actualBytes,
@@ -675,9 +687,27 @@ internal static class DiagnosticsBundleBuilder
             : -1;
     }
 
-    private static string ResolveOutputPath(string directory, DateTime utcNow)
+    /// <remarks>
+    /// A bundle that cannot be deleted stays; the new report was written either way.
+    /// </remarks>
+    private static void PruneAutomaticBundles(string directory, string written)
     {
-        var stem = "orb-modsuite-diagnostics-" +
+        var older = Directory.GetFiles(directory, AutomaticBundlePrefix + "*.zip")
+            .Where(path => !string.Equals(path, written, StringComparison.Ordinal))
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .ThenByDescending(path => path, StringComparer.Ordinal)
+            .Skip(AutomaticBundlesKept - 1);
+        foreach (var path in older)
+        {
+            try { File.Delete(path); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private static string ResolveOutputPath(string directory, DateTime utcNow, string prefix)
+    {
+        var stem = prefix +
             utcNow.ToString("yyyyMMdd-HHmmss'Z'", CultureInfo.InvariantCulture);
         for (var suffix = 0; suffix < 1000; suffix++)
         {

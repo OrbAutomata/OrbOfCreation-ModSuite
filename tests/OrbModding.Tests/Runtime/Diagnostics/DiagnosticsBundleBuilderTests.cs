@@ -178,6 +178,60 @@ public sealed class DiagnosticsBundleBuilderTests : IDisposable
         AssertValueOnly(typeof(DecisionJournalRecord), new HashSet<Type>());
     }
 
+    [Fact]
+    public void AnAutomaticBundleKeepsTheNewestFewAutomaticOnesAndNeverTouchesAPlayersBundle()
+    {
+        var paths = FixturePaths();
+        WriteMinimumFixedInputs(paths);
+        Directory.CreateDirectory(paths.Output);
+        var player = Path.Combine(paths.Output, DiagnosticsBundleBuilder.PlayerBundlePrefix + "20200101-000000Z.zip");
+        File.WriteAllText(player, "player");
+        File.SetLastWriteTimeUtc(player, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var older = new List<string>();
+        for (var index = 0; index < DiagnosticsBundleBuilder.AutomaticBundlesKept + 2; index++)
+        {
+            var path = Path.Combine(
+                paths.Output,
+                DiagnosticsBundleBuilder.AutomaticBundlePrefix + "2026080" + index + "-000000Z.zip");
+            File.WriteAllText(path, "automatic");
+            File.SetLastWriteTimeUtc(path, new DateTime(2026, 8, 1 + index, 0, 0, 0, DateTimeKind.Utc));
+            older.Add(path);
+        }
+
+        var result = DiagnosticsBundleBuilder.Build(Request(
+            paths, new DecisionJournalRunId(1), journalSegments: 0, gameTickFaults: "fault"));
+
+        Assert.StartsWith(DiagnosticsBundleBuilder.AutomaticBundlePrefix, Path.GetFileName(result.Path));
+        Assert.True(File.Exists(player));
+        var kept = Directory.GetFiles(paths.Output, DiagnosticsBundleBuilder.AutomaticBundlePrefix + "*.zip");
+        Assert.Equal(DiagnosticsBundleBuilder.AutomaticBundlesKept, kept.Length);
+        Assert.Contains(result.Path, kept);
+        Assert.Equal(
+            older.Skip(older.Count - (DiagnosticsBundleBuilder.AutomaticBundlesKept - 1)).OrderBy(path => path, StringComparer.Ordinal),
+            kept.Where(path => path != result.Path).OrderBy(path => path, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void APlayerBundleNeverPrunesAutomaticOnes()
+    {
+        var paths = FixturePaths();
+        WriteMinimumFixedInputs(paths);
+        Directory.CreateDirectory(paths.Output);
+        for (var index = 0; index < DiagnosticsBundleBuilder.AutomaticBundlesKept + 2; index++)
+        {
+            File.WriteAllText(
+                Path.Combine(paths.Output, DiagnosticsBundleBuilder.AutomaticBundlePrefix + index + ".zip"),
+                "automatic");
+        }
+
+        var result = DiagnosticsBundleBuilder.Build(Request(paths, new DecisionJournalRunId(1), journalSegments: 0));
+
+        Assert.StartsWith(DiagnosticsBundleBuilder.PlayerBundlePrefix, Path.GetFileName(result.Path));
+        Assert.Equal(
+            DiagnosticsBundleBuilder.AutomaticBundlesKept + 2,
+            Directory.GetFiles(paths.Output, DiagnosticsBundleBuilder.AutomaticBundlePrefix + "*.zip").Length);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
@@ -209,7 +263,8 @@ public sealed class DiagnosticsBundleBuilderTests : IDisposable
         int journalSegments,
         IReadOnlyList<FeatureStatusSnapshot>? features = null,
         DiagnosticsTextRedactor? redactor = null,
-        long maximumBytes = DiagnosticsBundleBuilder.MaximumBundleBytes)
+        long maximumBytes = DiagnosticsBundleBuilder.MaximumBundleBytes,
+        string gameTickFaults = "")
     {
         var status = new DecisionJournalStatus(
             DecisionJournalStatusState.Recording,
@@ -240,7 +295,8 @@ public sealed class DiagnosticsBundleBuilderTests : IDisposable
             Array.Empty<RuntimeServiceDiagnosticsSnapshot>(),
             new AutomataDiagnosticsRuntimeEvidence(null, status, paths.Journal, string.Empty),
             redactor ?? new DiagnosticsTextRedactor(),
-            maximumBytes);
+            maximumBytes,
+            gameTickFaults);
     }
 
     private static void WriteJournal(

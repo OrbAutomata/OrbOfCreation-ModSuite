@@ -74,7 +74,8 @@ screens after it no longer open or close, and the same steps apply.
 
 The suite saves a bug report automatically when this happens, and the banner names its path under
 `BepInEx/config/OrbOfCreation-ModSuite/diagnostics/`. That report names the game element that failed
-and contains no save files. Send it to the mod authors through an
+and contains no save files. The folder keeps the five newest automatic reports
+(`orb-modsuite-automatic-report-<timestamp>.zip`); reports you create yourself are never deleted. Send it to the mod authors through an
 [issue](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/issues). If the banner says the report
 could not be saved, send `BepInEx/LogOutput.log` instead.
 

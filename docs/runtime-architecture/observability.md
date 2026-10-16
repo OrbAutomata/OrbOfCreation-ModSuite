@@ -80,7 +80,9 @@ open its containing folder. A reveal failure leaves the zip intact and shows its
 failure says that no shareable file exists and does not affect gameplay. A stuck game requests the same bundle
 automatically, ahead of any player request: it carries `game-tick-faults.txt` (each faulting element's
 headline with its repeat count and first trace) in place of the save files, is never revealed, and hands
-its path or failure reason to the stuck-game banner instead of the Runtime page.
+its path or failure reason to the stuck-game banner instead of the Runtime page. It is named
+`orb-modsuite-automatic-report-<timestamp>.zip`, and writing one deletes all but the five newest
+automatic bundles; player bundles are never pruned.
 
 `manifest.txt` is first and states suite/game identity, enabled features, runtime health, included
 members, actual journal window, and every dropped or unavailable fact. The configuration, every
