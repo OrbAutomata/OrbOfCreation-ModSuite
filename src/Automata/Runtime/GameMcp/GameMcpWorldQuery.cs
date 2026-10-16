@@ -6917,8 +6917,10 @@ internal static class GameMcpWorldQuery
     /// <remarks>
     /// <c>Spell.GetUsageCost()</c>: the recipe's <c>baseUsageCost</c>, plus
     /// <c>penaltyUsageCost</c> on every row while <c>HasMetUsageRequirements()</c> is false, minus
-    /// the <c>usageCostReduction</c> of each type in <c>GetAllSpellTypes()</c> (the recipe's
-    /// <c>notSpellTypes</c> when nothing is augmented), floored at zero. The Loadout tile prints
+    /// the <c>usageCostReduction</c> of each type in <c>GetAllSpellTypes()</c>, floored at zero. With
+    /// no glyph staged that set is the recipe's <c>notSpellTypes</c> plus its authored
+    /// <c>spellTypes</c>, which <c>SetupLimitedElementalType()</c> copies into
+    /// <c>augmentedSpellTypes</c>; the Cantrip type's live reduction arrives through the second. The Loadout tile prints
     /// this number, and <c>GetUsageCostOfSpell</c> is what the add gate weighs.
     /// </remarks>
     private static List<(Guid ResourceId, BigDouble Weight)> SpellWeight(
@@ -6952,7 +6954,8 @@ internal static class GameMcpWorldQuery
         for (var index = start; index < start + count; index++)
         {
             var relation = world.SpellRelations[index];
-            if (relation.Kind == WorldSpellRelationKind.NotSpellType &&
+            if (relation.Kind is WorldSpellRelationKind.NotSpellType
+                    or WorldSpellRelationKind.SpellType &&
                 WorldLookup.TryFind(world.SpellTypes, relation.TargetId, out var type))
                 reduction += type.UsageCostReduction;
         }

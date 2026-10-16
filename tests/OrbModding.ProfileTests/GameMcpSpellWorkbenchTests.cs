@@ -323,6 +323,73 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.True((bool)met["loadoutAdd"]!["available"]!);
     }
 
+    /// <summary>
+    /// A Cantrip weighs what its tile prints: the type's live weight reduction comes off it.
+    /// </summary>
+    /// <remarks>
+    /// With no glyph staged, <c>Spell.GetAllSpellTypes()</c> holds the recipe's authored types,
+    /// because <c>SetupLimitedElementalType()</c> copies them into <c>augmentedSpellTypes</c>. A
+    /// round read Channel Blaze at 3 and Channel Spark at 1 while the tile, the preview and the add
+    /// all charged 2 and 0.
+    /// </remarks>
+    [Theory]
+    [InlineData(3, "2 Knowledge")]
+    [InlineData(1, "0 Knowledge")]
+    public void A_cantrip_reads_the_weight_its_type_takes_off(int authored, string charged)
+    {
+        var cantripId = Guid.Parse("5d2c0d36-0d1c-4c84-9df2-55b0fd4a3a10");
+        var world = World(
+            discovered: true, discoveryAffordable: true, hasEmptySlot: true,
+            usageBudget: true, held: 24, spendable: 7, authoredWeight: authored) with
+        {
+            SpellTypes = PublicationTable<WorldSpellType>.Create(new[] { CantripType(cantripId) }),
+            SpellRelations = PublicationTable<WorldSpellRelation>.Create(new[]
+            {
+                new WorldSpellRelation(RecipeId, WorldSpellRelationKind.SpellType, 0, cantripId),
+            }),
+        };
+
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world), "spell-recipes", RecipeId.ToString("D")))["row"]!;
+
+        Assert.Equal(charged, (string?)row["weight"]);
+    }
+
+    private static WorldSpellType CantripType(Guid id) => new(
+        id,
+        typeLevel: 0,
+        typeXp: BigDouble.Zero,
+        typeXpRequiredBase: 1d,
+        augmentPowerMod: 1d,
+        hasNoLevels: false,
+        isElemental: false,
+        isLoadoutUnique: false,
+        hasNotTypeSignificance: false,
+        isVisible: true,
+        debugMode: false,
+        typeXpMod: BigDouble.One,
+        power: BigDouble.One,
+        cooldownSpeed: BigDouble.One,
+        cooldownTime: BigDouble.One,
+        costMod: BigDouble.One,
+        drainCostMod: BigDouble.One,
+        durationMod: BigDouble.One,
+        elementalResonance: BigDouble.One,
+        augmentResonance: BigDouble.One,
+        maxStacksMod: BigDouble.One,
+        scalingMod: BigDouble.One,
+        usageCostReduction: BigDouble.One,
+        bonusCritRate: BigDouble.Zero,
+        critEffectMod: BigDouble.One,
+        critDurationMod: BigDouble.One,
+        bonusDoubleCastRate: BigDouble.Zero,
+        doubleCastEffectMod: BigDouble.One,
+        chargeTimeMod: BigDouble.One,
+        chargeEffectMod: BigDouble.One,
+        chargeSpecialMod: BigDouble.One,
+        bonusFlashRate: BigDouble.Zero,
+        flashEffectMod: BigDouble.One);
+
     [Fact]
     public void StructurallyUnavailableLoadoutAddWithholdsPriceClaimsButNotTheVocabulary()
     {
