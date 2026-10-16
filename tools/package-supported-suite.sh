@@ -71,7 +71,7 @@ done
 
 suite_version="$(read_released_version "${repository_root}/VERSION")"
 
-package_name="OrbOfCreation-ModSuite-${suite_version}"
+package_name="OrbOfCreation-ModSuite-${suite_version}-rehearsal"
 zip_path="${output_directory}/${package_name}.zip"
 checksums_path="${output_directory}/${package_name}-SHA256SUMS.txt"
 if [[ -e "${zip_path}" || -e "${checksums_path}" ]]; then
