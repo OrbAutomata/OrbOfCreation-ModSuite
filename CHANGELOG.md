@@ -14,7 +14,7 @@
 ### New
 
 - **Mods > Runtime > Create bug report** packs the recent history of what happened, your
-  settings, and the log into one shareable zip and opens its folder.
+  settings, your save files, and the log into one shareable zip and opens its folder.
 - When something in the game keeps failing and the game stops advancing, the suite shows a
   banner telling you to return to the main menu and reload, and writes a bug report for you.
 - The documentation is a searchable website, and its game guide covers rituals and alchemy.
@@ -28,7 +28,7 @@
 
 ### Improved
 
-- The suite's history of recent decisions stays under 64 MiB while covering about 13 hours,
+- The suite's history of recent decisions stays under 64 MiB while covering up to about 13 hours,
   and the BepInEx log no longer lists every successful action. Old history files are cleaned
   up once, after the save backup.
 - Automation planning asks the game far fewer questions each tick.
