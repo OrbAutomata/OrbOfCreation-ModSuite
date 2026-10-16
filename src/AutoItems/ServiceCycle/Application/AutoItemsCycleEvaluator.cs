@@ -1,3 +1,4 @@
+using System;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
@@ -30,14 +31,9 @@ internal static class AutoItemsCycleEvaluator
         }
 
         var activation = AutoItemsTemporaryActivationPolicy.Observe(world, ref state);
-        if (activation.State is AutoItemsTemporaryActivationState.AwaitingActivation or
-            AutoItemsTemporaryActivationState.Active)
+        if (activation.State == AutoItemsTemporaryActivationState.AwaitingActivation)
         {
-            metrics = EmptyMetrics(
-                world,
-                activation.State == AutoItemsTemporaryActivationState.Active
-                    ? AutoItemsDecisionKind.TemporaryEffectActive
-                    : AutoItemsDecisionKind.AwaitingTemporaryActivation);
+            metrics = EmptyMetrics(world, AutoItemsDecisionKind.AwaitingTemporaryActivation);
             return WakePolicy.OnPublication;
         }
         if (activation.State == AutoItemsTemporaryActivationState.Quarantined)
@@ -56,10 +52,11 @@ internal static class AutoItemsCycleEvaluator
             world,
             in configuration,
             state.QuarantinedTemporaryItems,
-            state.TemporaryAllowlist);
-        if (scan.TemporaryUsagePresent)
+            state.TemporaryAllowlist,
+            state.TargetlessScrolls);
+        if (scan.TemporaryUsagePending)
         {
-            metrics = scan.ToMetrics(AutoItemsDecisionKind.TemporaryEffectActive);
+            metrics = scan.ToMetrics(AutoItemsDecisionKind.AwaitingTemporaryActivation);
             return WakePolicy.OnPublication;
         }
         if (scan.EligibleRelics > 0)
@@ -73,6 +70,32 @@ internal static class AutoItemsCycleEvaluator
                 ref state,
                 out metrics);
         }
+        if (scan.EligibleScrolls > 0)
+        {
+            var action = scan.FirstScroll;
+            if (action.ItemId == Guid.Empty)
+            {
+                // Every eligible Scroll last found no target; structures may have changed since,
+                // so the rotation starts over.
+                state.ForgetTargetlessScrolls();
+                action = scan.FirstTargetlessScroll;
+            }
+            return Plan(
+                in action,
+                in scan,
+                AutoItemsDecisionKind.Scroll,
+                actions,
+                ref state,
+                out metrics);
+        }
+        var temporaryEffectActive =
+            activation.State == AutoItemsTemporaryActivationState.Active ||
+            scan.TemporaryUsagePresent;
+        if (temporaryEffectActive)
+        {
+            metrics = scan.ToMetrics(AutoItemsDecisionKind.TemporaryEffectActive);
+            return WakePolicy.OnPublication;
+        }
         if (scan.EligibleTemporaryItems > 0)
         {
             var action = scan.FirstTemporary;
@@ -80,17 +103,6 @@ internal static class AutoItemsCycleEvaluator
                 in action,
                 in scan,
                 AutoItemsDecisionKind.TemporaryItem,
-                actions,
-                ref state,
-                out metrics);
-        }
-        if (scan.EligibleScrolls > 0)
-        {
-            var action = scan.FirstScroll;
-            return Plan(
-                in action,
-                in scan,
-                AutoItemsDecisionKind.Scroll,
                 actions,
                 ref state,
                 out metrics);
@@ -114,8 +126,7 @@ internal static class AutoItemsCycleEvaluator
         out AutoItemsDecisionMetrics metrics)
     {
         actions.Add(action);
-        if (AutoItemsConsumableFamilies.IsTemporary(action.Family))
-            state.RecordPlannedTemporary(in action);
+        state.RecordPlanned(in action);
         metrics = scan.ToMetrics(kind, plannedActions: 1);
         return WakePolicy.OnPublication;
     }

@@ -7,9 +7,11 @@ feature-wide quick control is owned by the shared automation control registry.
 The worker consumes immutable shared-world consumable facts and preserves native family membership
 as a set. A sole supported membership selects its operation; the game's authored `Fruit + Relic`
 topology selects the permanent Relic operation, while every other cross-operation combination
-fails closed. Eligible Relics have priority over exact-UUID-approved temporary items and Scrolls,
-and the worker plans at most one action per publication. All evaluator paths wait for another world
-or configuration publication; the engine prevents a second attempt against the same world reading.
+fails closed. Eligible Relics come first, then Scrolls, then exact-UUID-approved temporary items,
+and the worker plans at most one action per publication. A Scroll whose last attempt found no
+target is passed over for the next eligible Scroll; once every eligible Scroll has found none, the
+rotation starts over. All evaluator paths wait for another world or configuration publication;
+the engine prevents a second attempt against the same world reading.
 
 `AutoItemsConsumableUseGameAction` owns the native boundary. It validates its complete reflection
 schema at lifecycle scope, re-resolves stable UUID plus exact type, rechecks family, visibility,
@@ -23,8 +25,9 @@ temporary-item transition quarantines only that exact UUID.
 
 One lifecycle-scoped follow-up observes the committed temporary item through later publications.
 Exactly one usage must engage before disappearing. Multiple usages, premature expiry, or missing
-engagement evidence quarantines the exact item loudly. Any temporary usage excludes Scroll/Relic
-and other temporary uses; native Scroll/Relic preparation excludes a temporary use.
+engagement evidence quarantines the exact item loudly. A temporary item still preparing holds every
+use back; once its effect is active, only another temporary use waits, and Relics and Scrolls keep
+firing. Native Scroll/Relic preparation excludes a temporary use.
 
 Configuration is additive and uses the suite's committed publication:
 

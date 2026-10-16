@@ -20,9 +20,11 @@ internal readonly struct AutoItemsCandidateScan
         int eligibleRelics,
         int eligibleScrolls,
         bool temporaryUsagePresent,
+        bool temporaryUsagePending,
         in AutoItemsCycleAction firstTemporary,
         in AutoItemsCycleAction firstRelic,
-        in AutoItemsCycleAction firstScroll)
+        in AutoItemsCycleAction firstScroll,
+        in AutoItemsCycleAction firstTargetlessScroll)
     {
         Captured = captured;
         RejectedProfiles = rejectedProfiles;
@@ -31,9 +33,11 @@ internal readonly struct AutoItemsCandidateScan
         EligibleRelics = eligibleRelics;
         EligibleScrolls = eligibleScrolls;
         TemporaryUsagePresent = temporaryUsagePresent;
+        TemporaryUsagePending = temporaryUsagePending;
         FirstTemporary = firstTemporary;
         FirstRelic = firstRelic;
         FirstScroll = firstScroll;
+        FirstTargetlessScroll = firstTargetlessScroll;
     }
 
     internal int Captured { get; }
@@ -43,9 +47,13 @@ internal readonly struct AutoItemsCandidateScan
     internal int EligibleRelics { get; }
     internal int EligibleScrolls { get; }
     internal bool TemporaryUsagePresent { get; }
+    /// <summary>A temporary use is still preparing, so the game takes no other use yet.</summary>
+    internal bool TemporaryUsagePending { get; }
     internal AutoItemsCycleAction FirstTemporary { get; }
     internal AutoItemsCycleAction FirstRelic { get; }
     internal AutoItemsCycleAction FirstScroll { get; }
+    /// <summary>The first eligible Scroll whose last attempt found no target.</summary>
+    internal AutoItemsCycleAction FirstTargetlessScroll { get; }
 
     internal AutoItemsDecisionMetrics ToMetrics(
         AutoItemsDecisionKind kind,
@@ -67,7 +75,8 @@ internal static class AutoItemsCandidateScanner
         GameWorldState world,
         in SuiteRuntimeConfiguration configuration,
         PublicationTable<Guid> quarantinedTemporaryItems,
-        PublicationTable<Guid>? temporaryAllowlist)
+        PublicationTable<Guid>? temporaryAllowlist,
+        PublicationTable<Guid> targetlessScrolls)
     {
         if (world is null) throw new ArgumentNullException(nameof(world));
         if (quarantinedTemporaryItems is null)
@@ -80,9 +89,11 @@ internal static class AutoItemsCandidateScanner
         var eligibleRelics = 0;
         var eligibleScrolls = 0;
         var temporaryUsagePresent = false;
+        var temporaryUsagePending = false;
         AutoItemsCycleAction firstTemporary = default;
         AutoItemsCycleAction firstRelic = default;
         AutoItemsCycleAction firstScroll = default;
+        AutoItemsCycleAction firstTargetlessScroll = default;
 
         for (var index = 0; index < rows.Length; index++)
         {
@@ -91,7 +102,7 @@ internal static class AutoItemsCandidateScanner
             if (AutoItemsConsumableFamilies.IsTemporary(profile.Family))
             {
                 temporary++;
-                temporaryUsagePresent |= HasPendingOrActiveUsage(world, itemId);
+                ReadUsage(world, itemId, ref temporaryUsagePresent, ref temporaryUsagePending);
             }
 
             if (!profile.IsReady)
@@ -160,7 +171,9 @@ internal static class AutoItemsCandidateScanner
 
             eligibleScrolls++;
             CaptureFirst(
-                ref firstScroll,
+                ref AutoItemsTemporaryItemAllowlist.Contains(targetlessScrolls, itemId)
+                    ? ref firstTargetlessScroll
+                    : ref firstScroll,
                 in profile,
                 world.CollectedAtFrame,
                 world.CollectedAtEpoch,
@@ -175,12 +188,18 @@ internal static class AutoItemsCandidateScanner
             eligibleRelics,
             eligibleScrolls,
             temporaryUsagePresent,
+            temporaryUsagePending,
             in firstTemporary,
             in firstRelic,
-            in firstScroll);
+            in firstScroll,
+            in firstTargetlessScroll);
     }
 
-    private static bool HasPendingOrActiveUsage(GameWorldState world, Guid itemId)
+    private static void ReadUsage(
+        GameWorldState world,
+        Guid itemId,
+        ref bool present,
+        ref bool pending)
     {
         if (!WorldConsumableUsageLookup.TryFindRange(
                 world.ConsumableUsages,
@@ -188,14 +207,15 @@ internal static class AutoItemsCandidateScanner
                 out var start,
                 out var count))
         {
-            return false;
+            return;
         }
 
         for (var index = 0; index < count; index++)
         {
-            if (!world.ConsumableUsages[start + index].Expired) return true;
+            var usage = world.ConsumableUsages[start + index];
+            present |= !usage.Expired;
+            pending |= usage.Pending;
         }
-        return false;
     }
 
     private static bool IsBaseEligible(in AutoItemsConsumableProfile profile) =>

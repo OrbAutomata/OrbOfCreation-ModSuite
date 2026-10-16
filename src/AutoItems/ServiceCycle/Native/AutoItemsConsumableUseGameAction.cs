@@ -118,14 +118,17 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                 AutoItemsPreflight.TemporaryCostChanged,
                 reason);
         }
-        if (!TryAnyTemporaryUsage(native, out var temporaryUsagePresent, out reason))
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.ContractUnavailable,
-                reason);
-        if (temporaryUsagePresent)
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.TemporaryEffectPresent,
-                reason);
+        if (temporary)
+        {
+            if (!TryAnyTemporaryUsage(native, out var temporaryUsagePresent, out reason))
+                return AutoItemsSubmission.Reject(
+                    AutoItemsPreflight.ContractUnavailable,
+                    reason);
+            if (temporaryUsagePresent)
+                return AutoItemsSubmission.Reject(
+                    AutoItemsPreflight.TemporaryEffectPresent,
+                    reason);
+        }
         if (!InvokeBool(native.CanUseConsumable, null))
             return AutoItemsSubmission.Reject(
                 AutoItemsPreflight.NativeBusy,

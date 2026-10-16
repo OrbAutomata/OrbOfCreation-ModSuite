@@ -313,7 +313,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests
             plannedLevel: 0,
             collectedAtFrame: 41);
         var state = AutoItemsCycleState.Create(new LifecycleGeneration(1));
-        state.RecordPlannedTemporary(in action);
+        state.RecordPlanned(in action);
         var identity = Identity();
         var receipt = BatchReceipt.Completed(
             identity,

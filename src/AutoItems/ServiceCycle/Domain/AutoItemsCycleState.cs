@@ -57,6 +57,7 @@ internal struct AutoItemsCycleState
         _allowlistConfiguration = default;
         _temporaryAllowlist = null;
         _quarantinedTemporaryItems = PublicationTable<Guid>.Empty;
+        _targetlessScrolls = PublicationTable<Guid>.Empty;
         PendingReceiptAction = default;
         HasPendingReceipt = false;
         PendingTemporaryItem = Guid.Empty;
@@ -69,11 +70,13 @@ internal struct AutoItemsCycleState
     private ConfigGeneration _allowlistConfiguration;
     private PublicationTable<Guid>? _temporaryAllowlist;
     private PublicationTable<Guid> _quarantinedTemporaryItems;
+    private PublicationTable<Guid> _targetlessScrolls;
 
     internal LifecycleGeneration Lifecycle { get; }
     internal AutoItemsDecisionMetrics Decision { get; private set; }
     internal PublicationTable<Guid>? TemporaryAllowlist => _temporaryAllowlist;
     internal PublicationTable<Guid> QuarantinedTemporaryItems => _quarantinedTemporaryItems;
+    internal PublicationTable<Guid> TargetlessScrolls => _targetlessScrolls;
     internal AutoItemsCycleAction PendingReceiptAction { get; private set; }
     internal bool HasPendingReceipt { get; private set; }
     internal Guid PendingTemporaryItem { get; private set; }
@@ -95,7 +98,7 @@ internal struct AutoItemsCycleState
         _allowlistConfiguration = generation;
     }
 
-    internal void RecordPlannedTemporary(in AutoItemsCycleAction action)
+    internal void RecordPlanned(in AutoItemsCycleAction action)
     {
         PendingReceiptAction = action;
         HasPendingReceipt = true;
@@ -114,6 +117,12 @@ internal struct AutoItemsCycleState
         TemporarySubmittedFromFrame = action.CollectedAtFrame;
         TemporaryActivationSeen = false;
     }
+
+    internal void RememberTargetlessScroll(Guid itemId) =>
+        _targetlessScrolls = With(_targetlessScrolls, itemId);
+
+    internal void ForgetTargetlessScrolls() =>
+        _targetlessScrolls = PublicationTable<Guid>.Empty;
 
     internal void MarkTemporaryActivationSeen() => TemporaryActivationSeen = true;
 
@@ -136,17 +145,20 @@ internal struct AutoItemsCycleState
             throw new InvalidOperationException(
                 "A temporary-item quarantine requires a pending exact item.");
 
-        if (!IsTemporaryQuarantined(itemId))
-        {
-            var previous = _quarantinedTemporaryItems.AsSpan();
-            var rows = new Guid[previous.Length + 1];
-            previous.CopyTo(rows);
-            rows[previous.Length] = itemId;
-            Array.Sort(rows);
-            _quarantinedTemporaryItems = PublicationTable<Guid>.Create(rows, rows.Length);
-        }
+        _quarantinedTemporaryItems = With(_quarantinedTemporaryItems, itemId);
         LastQuarantinedTemporaryItem = itemId;
         LastTemporaryQuarantineCause = cause;
         ClearPendingTemporary();
+    }
+
+    private static PublicationTable<Guid> With(PublicationTable<Guid> values, Guid itemId)
+    {
+        if (AutoItemsTemporaryItemAllowlist.Contains(values, itemId)) return values;
+        var previous = values.AsSpan();
+        var rows = new Guid[previous.Length + 1];
+        previous.CopyTo(rows);
+        rows[previous.Length] = itemId;
+        Array.Sort(rows);
+        return PublicationTable<Guid>.Create(rows, rows.Length);
     }
 }
