@@ -87,6 +87,11 @@ internal enum AutoBuyExclusion
 
     /// <summary>The route contradicted exact candidate, category, list, or view identity.</summary>
     OwningViewRelationContradictory = 10,
+
+    /// <summary>
+    /// The list its reward is added to has no empty spot: every World > Aspects pedestal is taken.
+    /// </summary>
+    DestinationFull = 11,
 }
 
 /// <summary>How many candidates each exclusion term accounted for in one cycle.</summary>
@@ -106,7 +111,8 @@ internal readonly struct AutoBuyExclusionHistogram
         int owningViewUnavailable,
         int owningViewRelationMissing,
         int owningViewRelationUnreadable,
-        int owningViewRelationContradictory)
+        int owningViewRelationContradictory,
+        int destinationFull)
     {
         KindNotSelected = kindNotSelected;
         Unavailable = unavailable;
@@ -118,6 +124,7 @@ internal readonly struct AutoBuyExclusionHistogram
         OwningViewRelationMissing = owningViewRelationMissing;
         OwningViewRelationUnreadable = owningViewRelationUnreadable;
         OwningViewRelationContradictory = owningViewRelationContradictory;
+        DestinationFull = destinationFull;
     }
 
     public int KindNotSelected { get; }
@@ -130,12 +137,13 @@ internal readonly struct AutoBuyExclusionHistogram
     public int OwningViewRelationMissing { get; }
     public int OwningViewRelationUnreadable { get; }
     public int OwningViewRelationContradictory { get; }
+    public int DestinationFull { get; }
 
     public int Total => KindNotSelected + Unavailable +
         RequirementsUnmet + Terminal + Unaffordable + Unpriceable +
         OwningViewUnavailable + OwningViewRelationMissing +
         OwningViewRelationUnreadable +
-        OwningViewRelationContradictory;
+        OwningViewRelationContradictory + DestinationFull;
 
     public int For(AutoBuyExclusion exclusion) => exclusion switch
     {
@@ -149,6 +157,7 @@ internal readonly struct AutoBuyExclusionHistogram
         AutoBuyExclusion.OwningViewRelationMissing => OwningViewRelationMissing,
         AutoBuyExclusion.OwningViewRelationUnreadable => OwningViewRelationUnreadable,
         AutoBuyExclusion.OwningViewRelationContradictory => OwningViewRelationContradictory,
+        AutoBuyExclusion.DestinationFull => DestinationFull,
         _ => 0,
     };
 }

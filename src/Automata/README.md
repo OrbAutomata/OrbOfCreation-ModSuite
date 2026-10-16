@@ -150,6 +150,10 @@ remains an interactive profiling gate.
 
 Auto Buy asks the game nothing while it decides. Its candidates *are* the shared world snapshot's structures and upgrades, and identity, availability, current and queued levels, prices, resource quantities and the economic priority a candidate's authored effects earn it all arrive as published rows. Each cycle projects that snapshot into a flat frame on the worker — no candidate index, no incremental reconcile, no dirty tracking — ranks the eligible ones by priority, then by cost ratio, then by uuid, and plans one purchase per eligible candidate in that order. The game is touched only where the purchase is made: `CanPurchase()` and the queue's remaining room are read there, and the boundary re-validates every level immediately before it mutates. Because the native Structure `CanPurchase()` omits affordability, that path also asks its exact live `GetPurchaseCost().HasEnough()` term before `Purchase(true)`; an unread term fails closed.
 
+An upgrade whose reward is added to a list with no empty spot — an aspect while every World > Aspects
+pedestal is taken — is left out of the plan. The boundary would refuse it, and that refusal ends the
+batch before the purchase that frees a pedestal could run.
+
 Owning-view reachability follows the game's authored list topology. Every view that carries the same
 list is part of that list route and must be available; this preserves parent-screen gates when a child
 view has already unlocked. Distinct lists are alternate routes, so a proven available global list can

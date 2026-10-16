@@ -150,7 +150,8 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
             owningViewUnavailable: unavailable,
             owningViewRelationMissing: missing,
             owningViewRelationUnreadable: unreadable,
-            owningViewRelationContradictory: contradictory);
+            owningViewRelationContradictory: contradictory,
+            destinationFull: 0);
         var state = AutoBuyCycleState.Create(new LifecycleGeneration(1));
         state.RecordDecision(new AutoBuyDecisionMetrics(2, 0, 0, 0, 0, in exclusions));
 
@@ -172,7 +173,8 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
             owningViewUnavailable: 1,
             owningViewRelationMissing: 1,
             owningViewRelationUnreadable: 0,
-            owningViewRelationContradictory: 0);
+            owningViewRelationContradictory: 0,
+            destinationFull: 0);
         var state = AutoBuyCycleState.Create(new LifecycleGeneration(1));
         state.RecordDecision(new AutoBuyDecisionMetrics(2, 0, 0, 0, 0, in exclusions));
 

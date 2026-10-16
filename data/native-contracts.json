@@ -18278,6 +18278,44 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
+      "id": "upgrade.view-list-additions-capture",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "viewListAdditions",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<ViewListVariable+ListTuple>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ViewListVariable+ListTuple>"}
+    },
+    {
+      "id": "upgrade.view-list-addition-list-capture",
+      "assembly": "assembly-csharp",
+      "type": "GenericListVariable`1+AdditionTuple`1",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "list",
+      "visibility": "public",
+      "static": false,
+      "valueType": "!1",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field !1"}
+    },
+    {
       "id": "upgrade.can-purchase",
       "assembly": "assembly-csharp",
       "type": "UpgradeSO",
@@ -25206,7 +25244,7 @@
       "static": false,
       "returnType": "System.Boolean",
       "parameters": [],
-      "owners": ["Common crafting decision world collection"],
+      "owners": ["Common crafting decision world collection", "Automata world collection"],
       "usages": ["reflection"],
       "place": "capture",
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}

@@ -44,6 +44,7 @@ internal static class AutoBuyServiceProjection
     // so old decision journals remain unambiguous when decoded beside new ones.
     internal const int RetiredOwningViewRelationAmbiguousKey = 31;
     internal const int ExcludedOwningViewRelationContradictoryKey = 32;
+    internal const int ExcludedDestinationFullKey = 33;
 
     public static void Write(
         in AutoBuyCycleState state,
@@ -66,6 +67,7 @@ internal static class AutoBuyServiceProjection
         output.Add(Key(ExcludedOwningViewRelationMissingKey), Integer(exclusions.OwningViewRelationMissing));
         output.Add(Key(ExcludedOwningViewRelationUnreadableKey), Integer(exclusions.OwningViewRelationUnreadable));
         output.Add(Key(ExcludedOwningViewRelationContradictoryKey), Integer(exclusions.OwningViewRelationContradictory));
+        output.Add(Key(ExcludedDestinationFullKey), Integer(exclusions.DestinationFull));
 
     }
 

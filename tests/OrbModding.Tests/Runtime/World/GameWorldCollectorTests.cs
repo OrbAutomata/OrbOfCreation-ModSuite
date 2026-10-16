@@ -2192,6 +2192,32 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     [Fact]
+    public void AnUpgradeWhoseRewardHasNoFreePedestalPublishesItsDestinationAsFull()
+    {
+        var pedestals = new FakeViewList { room = false };
+        var aspect = new FakeUpgrade { Identity = Guid.NewGuid() };
+        aspect.viewListAdditions.Add(new FakeViewListTuple { list = pedestals });
+        var space = new FakeUpgrade { Identity = Guid.NewGuid() };
+        FakeUpgrade.All.Add(aspect);
+        FakeUpgrade.All.Add(space);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var full = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLookup.TryFind(full.Upgrades, aspect.Identity, out var aspectRow));
+        Assert.True(aspectRow.Reading.RewardDestinationFull);
+        Assert.True(WorldLookup.TryFind(full.Upgrades, space.Identity, out var spaceRow));
+        Assert.False(spaceRow.Reading.RewardDestinationFull);
+
+        pedestals.room = true;
+        collector.Collect();
+        Assert.True(WorldLookup.TryFind(collector.Build().Upgrades, aspect.Identity, out aspectRow));
+        Assert.False(aspectRow.Reading.RewardDestinationFull);
+    }
+
+    [Fact]
     public void AMissingCategoryDegradesOnlyItself()
     {
         FakeResource.All.Add(new FakeResource { Identity = Guid.NewGuid() });
@@ -2645,9 +2671,24 @@ public sealed class GameWorldCollectorTests : IDisposable
         /// <summary>What one level of this upgrade permanently applies.</summary>
         public FakePermanentEffects permanentEffects = new();
 
+        /// <summary>Where a purchase places what it grants: the World > Aspects pedestals.</summary>
+        public List<FakeViewListTuple> viewListAdditions = new();
+
         public int GetPurchaseLevel() => Level;
 
         public bool IsAvailable() => Available;
+    }
+
+    private sealed class FakeViewListTuple
+    {
+        public FakeViewList list = new();
+    }
+
+    private sealed class FakeViewList
+    {
+        public bool room = true;
+
+        public bool HasEmptySpot() => room;
     }
 
     private sealed class FakePrerequisiteLink

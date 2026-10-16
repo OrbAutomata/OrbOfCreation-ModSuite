@@ -91,7 +91,8 @@ internal readonly struct AutoBuyCandidateRow
         int costRowStart,
         int costRowCount,
         Guid owningListId = default,
-        Guid owningViewId = default)
+        Guid owningViewId = default,
+        bool rewardDestinationFull = false)
         : this(
             kind,
             uuid,
@@ -106,7 +107,8 @@ internal readonly struct AutoBuyCandidateRow
             costRowStart,
             costRowCount,
             owningListId,
-            owningViewId)
+            owningViewId,
+            rewardDestinationFull)
     {
     }
 
@@ -124,7 +126,8 @@ internal readonly struct AutoBuyCandidateRow
         int costRowStart,
         int costRowCount,
         Guid owningListId = default,
-        Guid owningViewId = default)
+        Guid owningViewId = default,
+        bool rewardDestinationFull = false)
     {
         Kind = kind;
         Uuid = uuid;
@@ -140,6 +143,7 @@ internal readonly struct AutoBuyCandidateRow
         MeetsNextLevelRequirements = meetsNextLevelRequirements;
         CostRowStart = costRowStart;
         CostRowCount = costRowCount;
+        RewardDestinationFull = rewardDestinationFull;
     }
 
     public AutoBuyCandidateKind Kind { get; }
@@ -158,6 +162,9 @@ internal readonly struct AutoBuyCandidateRow
     public bool HasFiniteLevels { get; }
     public bool IsMaxLevel { get; }
     public bool IsMaxQueuedLevel { get; }
+
+    /// <summary>The list this upgrade's reward is added to has no empty spot.</summary>
+    public bool RewardDestinationFull { get; }
 
     /// <summary>
     /// Whether every condition gating the level this candidate would buy next holds, evaluated from

@@ -230,7 +230,7 @@ internal static class AutoBuyCycleEvaluator
     }
 
     /// <summary>One more than the highest <see cref="AutoBuyExclusion"/> member.</summary>
-    private const int ExclusionTermCount = (int)AutoBuyExclusion.OwningViewRelationContradictory + 1;
+    private const int ExclusionTermCount = (int)AutoBuyExclusion.DestinationFull + 1;
 
     private static AutoBuyExclusionHistogram Histogram(int[] excluded) =>
         new(
@@ -243,7 +243,8 @@ internal static class AutoBuyCycleEvaluator
             excluded[(int)AutoBuyExclusion.OwningViewUnavailable],
             excluded[(int)AutoBuyExclusion.OwningViewRelationMissing],
             excluded[(int)AutoBuyExclusion.OwningViewRelationUnreadable],
-            excluded[(int)AutoBuyExclusion.OwningViewRelationContradictory]);
+            excluded[(int)AutoBuyExclusion.OwningViewRelationContradictory],
+            excluded[(int)AutoBuyExclusion.DestinationFull]);
 
     /// <summary>
     /// Which admission term excluded this candidate, or <see cref="AutoBuyExclusion.None"/> when
@@ -295,6 +296,11 @@ internal static class AutoBuyCycleEvaluator
             return AutoBuyExclusion.Terminal;
         if (candidate.HasFiniteLevels && candidate.IsMaxQueuedLevel && candidate.QueuedLevels > 0)
             return AutoBuyExclusion.Terminal;
+
+        // The boundary refuses this purchase and the refusal ends the batch, so planning it would
+        // starve whatever ranks after it — including the purchase that frees a pedestal.
+        if (candidate.RewardDestinationFull)
+            return AutoBuyExclusion.DestinationFull;
 
         return AutoBuyExclusion.None;
     }
