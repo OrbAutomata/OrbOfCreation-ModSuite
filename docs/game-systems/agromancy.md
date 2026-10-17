@@ -116,7 +116,8 @@ allows. Shaped Ground offers **Create Spring** (Water Spring), **Create Elementi
 locked until the Elementia Spring research, which itself waits for Elementia in the resource list)
 and **Create Craggy Spire**. A **Water Spring** passively generates Water and enhances every plant
 (+20% growing speed, ×1.10 yield); observed: one spring at Druidry Lv 7 took Water from −1.4e4/s to
-+4.9e5/s. These weaves drain as they grow, and not only common resources:
++4.9e5/s. Springs stack: with two, an Ironwood Tree grew in 6:45 against 9:44 with none and 7:58
+with one (observed). Each Shaped Ground takes a **Shape Land** on 5 Empty Plots. These weaves drain as they grow, and not only common resources:
 Create Spring drained **Alchemic Scroll** at ~94/s at Druidry Lv 7 (observed), enough to empty a
 stock of several hundred before the spring finished. Void Moss offers its own weaves — **Create Magebloom**, **Create Dark
 Thistle** and **Create Dreamberry** — each locked until something else is learned; Create Magebloom
