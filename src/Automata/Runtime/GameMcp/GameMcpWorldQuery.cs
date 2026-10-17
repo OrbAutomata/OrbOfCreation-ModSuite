@@ -5467,7 +5467,7 @@ internal static class GameMcpWorldQuery
         state.World.Generation.Value > 1 &&
         state.World.Snapshot.CollectedAtUtcTicks > 0;
 
-    private static bool TryWorld(
+    internal static bool TryWorld(
         GameMcpFrameContext state,
         out WorldPublication<GameWorldState> publication,
         out JObject unavailable)

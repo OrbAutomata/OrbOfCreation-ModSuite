@@ -29,7 +29,8 @@ internal sealed class ServiceCycleOrdinaryStartCoordinator<TState, TAction> :
         IMonotonicClock clock,
         ServiceRunnerLifetime lifetime,
         ServiceStrategyPublisher strategy,
-        ServiceWorldPublisher<GameWorldState> world)
+        ServiceWorldPublisher<GameWorldState> world,
+        bool wakeOnWorldPublication)
         : base(
             definition,
             configuration,
@@ -42,7 +43,7 @@ internal sealed class ServiceCycleOrdinaryStartCoordinator<TState, TAction> :
             lifetime,
             strategy,
             world,
-            wakeOnWorldPublication: true)
+            wakeOnWorldPublication)
     {
     }
 

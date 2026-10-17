@@ -73,15 +73,15 @@ emergency-stop control and native lifecycle replacement, composes the three obse
 around each accepted pump, owns an optional exclusive pump-shutdown lease, and contains no feature,
 native adapter, or configuration type.
 
-Nine services are composed: world collection as the source, and Auto Items, Auto Scribe, Auto Harvest,
-Auto Buy, Spell Leveling, Auto Cast, Auto Concept and Mentor as ordinary services. Each is an explicit
+Ten services are composed: world collection as the source, and Auto Items, Auto Scribe, Auto Harvest,
+Auto Buy, Spell Leveling, Auto Cast, Auto Concept, Mentor and the Strategist as ordinary services. Each is an explicit
 typed registration; none introduces another registry abstraction, pump, or service locator.
 
 Feature runtimes publish only health facts — operational, waiting, blocked, faulted — carrying no
 configured mode, emergency flag, or second configuration generation. `AutomataFeatureStatuses` joins
 the latest committed configuration intent with the latest health for the eight player-facing feature
 rows (Auto Buy, Auto Cast, Auto Concept, Spell Level, Auto Harvest, Auto Items, Auto Scribe, Mentor);
-world collection has no row, so a delayed cycle can update health but cannot repaint configured intent.
+world collection and the Strategist have no row, so a delayed cycle can update health but cannot repaint configured intent.
 
 Profile builds carry the pump's exact service ordinal and frame identity through `ServiceActionContext`
 so feature adapters may report native substages; ordinary builds compile that path out. Stage results
@@ -115,8 +115,9 @@ handed configuration and its own buffer.
 - Once a service is idle, a newer configuration generation invalidates a wake deadline calculated from
   an older one and the next admission re-runs `ShouldStart` against the latest committed snapshot, so
   unrelated changes may cost one extra evaluation but cannot leave newly enabled work behind an
-  obsolete delay. A newer world generation likewise invalidates an ordinary service's normal wait. The
-  source does not wake on its own publication. Fault-recovery deadlines keep their bounded backoff.
+  obsolete delay. A newer world generation likewise invalidates an ordinary service's normal wait,
+  unless its definition opts out (`WakesOnWorldPublication`, only the Strategist's once-a-minute wake).
+  The source does not wake on its own publication. Fault-recovery deadlines keep their bounded backoff.
 - The next cycle consumes the latest publications; intermediate ones may coalesce. The state projection
   exposes both pinned and latest generations so the UI can explain that a saved change applies next
   cycle.
@@ -128,8 +129,10 @@ failures, failed persistence, and pending watcher notifications are invisible to
 
 The world publication becomes live on the main thread during the action pass rather than on the worker
 that derived it, and publishing services dispatch before mutating ones, so a snapshot acquired this
-frame is visible to every consumer in that same frame. The strategy bulletin is the neutral one until a
-strategist exists.
+frame is visible to every consumer in that same frame. The strategy bulletin is the neutral one, and a
+lifecycle replacement publishes the neutral one again with the world. The Strategist's own bulletin sits
+beside it in a latest-value slot: replacing it moves no strategy generation, so it wakes no service and
+writes no journal transition, and a lifecycle replacement empties it.
 
 ## The source's world buffer
 

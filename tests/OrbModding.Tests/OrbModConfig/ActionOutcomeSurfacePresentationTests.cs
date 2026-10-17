@@ -57,6 +57,9 @@ public sealed class ActionOutcomeSurfacePresentationTests
         Assert.False(ActionOutcomeTimelineServicePolicy.Includes(
             new ServiceId("orbmentor.mastery-sharing"),
             ServiceShape.Ordinary));
+        Assert.False(ActionOutcomeTimelineServicePolicy.Includes(
+            new ServiceId("orbautomata.strategist"),
+            ServiceShape.Ordinary));
     }
 
     [Fact]

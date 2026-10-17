@@ -34,6 +34,7 @@ internal static class AutomataServiceCycleTraceRoster
     private const string AutoItemsId = "orbautomata.auto-items";
     private const string AutoScribeId = "orbautomata.auto-scribe";
     private const string MentorId = "orbmentor.mastery-sharing";
+    private const string StrategistId = "orbautomata.strategist";
 
     /// <summary>
     /// The roster for a registry whose registrations are complete. Trace identity is the registration
@@ -91,6 +92,7 @@ internal static class AutomataServiceCycleTraceRoster
         AutoItemsId => "Auto Items",
         AutoScribeId => "Auto Scribe",
         MentorId => "Mentor",
+        StrategistId => "Strategist",
         _ => string.Empty,
     };
 }

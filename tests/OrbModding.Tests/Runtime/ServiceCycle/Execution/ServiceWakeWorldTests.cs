@@ -37,6 +37,28 @@ public sealed class ServiceWakeWorldTests
     }
 
     [Fact]
+    public void AServiceThatOptsOutKeepsItsTimedWakeAcrossWorldPublications()
+    {
+        var clock = new ThreadSafeTestClock(100);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var definition = new ExecutionServiceDefinition("test.execution.world-keeps-timed-wake")
+        {
+            EvaluationWake = WakePolicy.AfterDecision(new MonotonicDuration(1000)),
+            WakesOnWorldPublication = false,
+        };
+        using var registration = registry.Register(definition, new LifecycleGeneration(1));
+        var runner = registration.Runner;
+
+        RunOneCycle(runner, clock);
+        registry.WorldPublication.Publish(new GameWorldState(), new WorldGeneration(2));
+
+        Assert.False(runner.TryStartCycle(clock.Now).Queued);
+        Assert.Equal(1100, runner.Snapshot.NextWakeDue.Ticks);
+        clock.AdvanceTo(new MonotonicTimestamp(1100));
+        Assert.True(runner.TryStartCycle(clock.Now).Queued);
+    }
+
+    [Fact]
     public void WorldPublishedDuringEvaluationInvalidatesItsResultingWait()
     {
         var clock = new ThreadSafeTestClock(100);

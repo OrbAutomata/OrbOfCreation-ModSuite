@@ -127,6 +127,43 @@ public sealed class ServiceWorldFreshnessGateTests
     }
 
     /// <summary>
+    /// A service that ignores world publications still meets a new lifecycle promptly: the replacement
+    /// runner has no wait, so the first world collected under it starts a cycle.
+    /// </summary>
+    [Fact]
+    public void AServiceThatIgnoresWorldsStartsOnTheFirstWorldOfANewLifecycle()
+    {
+        var clock = new ThreadSafeTestClock(100);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var service = new ExecutionServiceDefinition("gate.timed")
+        {
+            ActionCount = 0,
+            EvaluationWake = WakePolicy.AfterDecision(new MonotonicDuration(1_000_000)),
+            WakesOnWorldPublication = false,
+        };
+        using var registration = registry.Register(service, new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+
+        TestWorldCollector.CollectedAtActivation(registry);
+        var frame = PumpUntil(pump, registration, () => service.StartCount > 0);
+        frame = SettleZeroActionCycle(pump, registration, frame + 1);
+        var startsBefore = service.StartCount;
+        TestWorldCollector.CollectedAt(registry, frame + 1);
+        for (var i = 0; i < 5; i++) pump.PumpFrame(frame + i + 1);
+        Assert.Equal(startsBefore, service.StartCount);
+
+        pump.RequestLifecycleReplacement(new LifecycleGeneration(2));
+        frame = PumpUntil(
+            pump,
+            registration,
+            () => registration.LifecycleSnapshot.ActiveLifecycle.Value == 2,
+            frame + 6);
+        TestWorldCollector.CollectedAt(registry, frame + 1);
+        PumpUntil(pump, registration, () => service.StartCount > startsBefore, frame + 2);
+    }
+
+    /// <summary>
     /// The race in one test: the action lands on a later frame than the snapshot that arrives after
     /// it, so that snapshot cannot contain the action and must not be acted on.
     /// </summary>

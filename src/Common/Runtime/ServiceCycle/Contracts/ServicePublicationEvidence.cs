@@ -35,14 +35,15 @@ public enum ServiceActionEffect
 /// <summary>Which publication a publishing action advanced.</summary>
 /// <remarks>
 /// Enumerated rather than inferred from the generation's type so the evidence stays one value-typed
-/// struct. The three channels are the three things a worker can hand the main thread; a service that
-/// publishes to none of them has no business reporting a publication effect.
+/// struct. The channels are the things a worker can hand the main thread; a service that publishes to
+/// none of them has no business reporting a publication effect.
 /// </remarks>
 public enum ServicePublicationChannel
 {
     World = 1,
     Strategy = 2,
     Configuration = 3,
+    StrategistBulletin = 4,
 }
 
 /// <summary>
@@ -74,7 +75,8 @@ public readonly struct ServicePublicationEvidence : IEquatable<ServicePublicatio
     public bool IsValid =>
         Channel is ServicePublicationChannel.World or
             ServicePublicationChannel.Strategy or
-            ServicePublicationChannel.Configuration &&
+            ServicePublicationChannel.Configuration or
+            ServicePublicationChannel.StrategistBulletin &&
         Generation != 0;
 
     public static ServicePublicationEvidence World(WorldGeneration generation)
@@ -96,6 +98,13 @@ public readonly struct ServicePublicationEvidence : IEquatable<ServicePublicatio
         if (!generation.IsValid)
             throw new ArgumentException("A valid configuration generation is required.", nameof(generation));
         return new ServicePublicationEvidence(ServicePublicationChannel.Configuration, generation.Value);
+    }
+
+    public static ServicePublicationEvidence StrategistBulletin(ulong sequence)
+    {
+        if (sequence == 0)
+            throw new ArgumentException("A published bulletin's sequence is required.", nameof(sequence));
+        return new ServicePublicationEvidence(ServicePublicationChannel.StrategistBulletin, sequence);
     }
 
     public bool Equals(ServicePublicationEvidence other) =>

@@ -104,7 +104,7 @@ C# 10 cannot enforce deep immutability; structural tests and narrow ownership AP
 
 ## Registration and composition
 
-Composition is explicit and ordered. Nine services are registered:
+Composition is explicit and ordered. Ten services are registered:
 
 ```text
 SuiteFramePump
@@ -117,11 +117,12 @@ SuiteFramePump
   -> orbautomata.auto-cast           (ordinary)
   -> orbautomata.auto-concept        (ordinary)
   -> orbmentor.mastery-sharing       (ordinary)
+  -> orbautomata.strategist          (ordinary)
 ```
 
 World collection registers first so the world is published before the services that read it evaluate.
 That ordering is a convenience, not a guarantee: nothing enforces order between services, and a consumer
-whose first cycle beat the first collection would simply wait a frame. These nine registrations are the
+whose first cycle beat the first collection would simply wait a frame. These ten registrations are the
 complete production runtime roster.
 
 Registration rejects duplicate service IDs and capacity overflow; records stable immutable ordinals and

@@ -71,7 +71,8 @@ internal sealed class ServiceOrdinaryRunnerFactory<TState, TAction> :
                 Clock,
                 lifetime,
                 Strategy,
-                World),
+                World,
+                _definition.WakesOnWorldPublication),
             new ServiceCycleOrdinaryWorker<TState, TAction>(
                 // The narrowing is of this factory's own product: CreateWorkerDefinition above
                 // returned an ordinary worker contract and the runtime only widened it to hand it

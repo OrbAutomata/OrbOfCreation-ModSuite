@@ -565,6 +565,7 @@ public sealed class Plugin : BaseUnityPlugin
                                             _ => MentorDomain.Alchemy,
                                         }) == true,
                                 featureStatus: featureStatuses.Mentor)),
+                        new StrategistServiceCycleFeature(),
                     },
                     Log
 #if SERVICE_CYCLE_PROFILE
@@ -1680,6 +1681,9 @@ public sealed class Plugin : BaseUnityPlugin
                 return true;
             case "suite_health":
                 execution = GameMcpToolExecution.Text(ProjectGameMcpHealthText(context));
+                return true;
+            case "strategist":
+                execution = GameMcpStrategistQuery.Read(context, request.Section);
                 return true;
             case "suite_check_game_math":
                 execution = RunGameMcpGameMathCheck();

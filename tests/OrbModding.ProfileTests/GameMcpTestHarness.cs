@@ -185,6 +185,7 @@ internal static class GameMcpTestHarness
                     request.RunFilter,
                     request.KeywordFilter,
                     request.LimitFromCaller).Freeze()),
+            "strategist" => GameMcpStrategistQuery.Read(context, request.Section),
             _ => GameMcpToolExecution.Error(new GameMcpObjectBuilder
             {
                 ["status"] = "not_available",

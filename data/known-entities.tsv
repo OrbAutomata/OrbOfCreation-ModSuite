@@ -54,6 +54,7 @@ Refinement	32b6b099-19f2-4470-b47b-6c2a8b0388e1	Refinement	AlchemyTypeSO
 Reflective	8f258dcc-c39a-4d64-b915-4239e746c49d	Reflective	AlchemyTypeSO
 ResourceBarCore	0ed546af-dec8-42ff-8e89-e53a5f86e1de	NonManaCoreResources	ResourceListVariable
 ResourceBarMaterials	b6079b18-b962-4cc1-a3e5-62eafaacf4b8	MaterialResources	ResourceListVariable
+Restoration	14b35ebc-f284-4d53-bd3f-f57a885cf2b1	Restoration	UpgradeSO
 RitualsDiscover	443bc384-3df6-49ac-aa52-28abe080595c	RitualsDiscover	ViewSO
 ScholarConceptDiscover	f0e4b59a-b510-4de3-ae3e-dfca0fd76239	ScholarConceptDiscover	ViewSO
 ScreenMagic	9746b42e-1b57-4f98-8ba4-f64b4c34d8c1	ScreenMagic	ViewSO

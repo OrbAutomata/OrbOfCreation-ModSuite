@@ -34,6 +34,7 @@ internal sealed class SyntheticServiceDefinition :
 
     public ServiceId ServiceId { get; }
     public WakePolicy DefaultWakePolicy { get; set; } = WakePolicy.Immediate;
+    public bool WakesOnWorldPublication => true;
     public ServiceFaultRecoveryPolicy FaultRecoveryPolicy { get; set; } = new(
         MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(10)),
         MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1)));

@@ -161,6 +161,7 @@ public sealed class TraceRosterTests
         Assert.Equal("Auto Items", AutomataServiceCycleTraceRoster.DisplayName(new ServiceId("orbautomata.auto-items")));
         Assert.Equal("Auto Scribe", AutomataServiceCycleTraceRoster.DisplayName(new ServiceId("orbautomata.auto-scribe")));
         Assert.Equal("Mentor", AutomataServiceCycleTraceRoster.DisplayName(new ServiceId("orbmentor.mastery-sharing")));
+        Assert.Equal("Strategist", AutomataServiceCycleTraceRoster.DisplayName(new ServiceId("orbautomata.strategist")));
         Assert.Equal(string.Empty, AutomataServiceCycleTraceRoster.DisplayName(new ServiceId("orbautomata.unregistered")));
     }
 }

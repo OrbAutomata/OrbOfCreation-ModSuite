@@ -31862,7 +31862,8 @@
       "src/SpellLoadout",
       "src/Targeting",
       "src/SpellWorkbench",
-      "src/SpellLeveling"
+      "src/SpellLeveling",
+      "src/Strategist"
     ],
     "exemptions": [
       {

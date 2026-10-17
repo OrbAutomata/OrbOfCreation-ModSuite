@@ -176,11 +176,13 @@ public sealed partial class ServiceCycleRegistry : IDisposable
     internal ServiceStrategyPublisher Strategy => _strategy;
 
     /// <summary>
-    /// The write half, for the strategist that does not exist yet. It is the only part of the
-    /// strategy publication anything outside the runtime can reach: reading is the runtime's job,
-    /// once per cycle.
+    /// The write half, for whatever publishes stances. It is the only part of the strategy publication
+    /// anything outside the runtime can reach: reading is the runtime's job, once per cycle.
     /// </summary>
     public IServiceStrategyPublicationSink StrategyPublication => _strategy;
+
+    /// <summary>The write half of the strategist's latest bulletin, for the strategist.</summary>
+    internal IStrategistBulletinSink StrategistBulletinPublication => _strategy;
 
     internal long LifecyclePositionTransitionCount
     {
