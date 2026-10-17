@@ -30,6 +30,18 @@ internal enum AutoCastActionKind
 /// the plan believed ready that the game says is not — is a capture bug, and the two are only
 /// separable if the belief travels with the action.
 /// </remarks>
+/// <summary>Whether a ritual battle has to be running, or not running, for a planned cast to still be wanted.</summary>
+internal enum AutoCastRitualCondition
+{
+    None = 0,
+
+    /// <summary>An attack spell: outside a ritual its combat effects fizzle.</summary>
+    InRitual = 1,
+
+    /// <summary>A channel planned while an attack spell is equipped: during a ritual it would block that attack.</summary>
+    OutsideRitual = 2,
+}
+
 internal readonly struct AutoCastPlanBelief
 {
     public AutoCastPlanBelief(
@@ -87,7 +99,8 @@ internal readonly struct AutoCastCycleAction
         Guid spellRecipeId,
         long collectedAtEpoch,
         AutoCastPlanBelief belief,
-        bool chargeHold = false)
+        bool chargeHold = false,
+        AutoCastRitualCondition ritual = AutoCastRitualCondition.None)
     {
         if (kind is not (AutoCastActionKind.Fire or AutoCastActionKind.ReleaseCharge or
             AutoCastActionKind.ToggleOff))
@@ -101,6 +114,7 @@ internal readonly struct AutoCastCycleAction
         CollectedAtEpoch = collectedAtEpoch;
         Belief = belief;
         ChargeHold = chargeHold;
+        Ritual = ritual;
     }
 
     public AutoCastActionKind Kind { get; }
@@ -127,6 +141,8 @@ internal readonly struct AutoCastCycleAction
     /// travels with the action instead of being inferred from a setting the caller never set.
     /// </remarks>
     public bool ChargeHold { get; }
+
+    public AutoCastRitualCondition Ritual { get; }
 
     /// <summary>
     /// The lifecycle epoch the world this cast was planned from was collected under.

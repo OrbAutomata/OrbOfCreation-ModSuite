@@ -446,15 +446,77 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         Assert.Equal(1, frost.FireCalls);
     }
 
+    [Fact]
+    public void AnAttackPlannedForARitualThatHasSinceEndedSkipsWithoutFiring()
+    {
+        var spell = Equip(Ember);
+        global::BattleManager.instance = new global::BattleManager();
+
+        var result = Execute(Fire(0, Ember, ritual: AutoCastRitualCondition.InRitual));
+
+        Assert.Equal(ServiceActionDisposition.Skipped, result.Disposition);
+        Assert.Equal(AutoCastActionResultCodes.RitualChanged, result.Code);
+        Assert.Equal(0, spell.FireCalls);
+    }
+
+    [Fact]
+    public void AnAttackPlannedForARunningRitualFires()
+    {
+        var spell = Equip(Ember);
+        StartRitual();
+
+        var result = Execute(Fire(0, Ember, ritual: AutoCastRitualCondition.InRitual));
+
+        Assert.Equal(ServiceActionDisposition.Committed, result.Disposition);
+        Assert.Equal(1, spell.FireCalls);
+    }
+
+    [Fact]
+    public void AChannelPlannedBeforeARitualStartedSkipsWithoutFiring()
+    {
+        var spell = Equip(Frost);
+        StartRitual();
+
+        var result = Execute(Fire(0, Frost, ritual: AutoCastRitualCondition.OutsideRitual));
+
+        Assert.Equal(ServiceActionDisposition.Skipped, result.Disposition);
+        Assert.Equal(AutoCastActionResultCodes.RitualChanged, result.Code);
+        Assert.Equal(0, spell.FireCalls);
+    }
+
+    [Fact]
+    public void AnUnreadableBattleStateFailsClosedForARitualConditionedCast()
+    {
+        var spell = Equip(Ember);
+
+        var result = Execute(Fire(0, Ember, ritual: AutoCastRitualCondition.InRitual));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+        Assert.Equal(0, spell.FireCalls);
+    }
+
     // ---- Helpers -----------------------------------------------------------------------------
 
-    private static AutoCastCycleAction Fire(int slotIndex, Guid spellId, bool chargeable = false) =>
+    private static AutoCastCycleAction Fire(
+        int slotIndex,
+        Guid spellId,
+        bool chargeable = false,
+        AutoCastRitualCondition ritual = AutoCastRitualCondition.None) =>
         new(
             AutoCastActionKind.Fire,
             slotIndex,
             spellId,
             PlannedEpoch,
-            new AutoCastPlanBelief(true, chargeable, 1, 1, 1));
+            new AutoCastPlanBelief(true, chargeable, 1, 1, 1),
+            ritual: ritual);
+
+    private static void StartRitual()
+    {
+        var ritual = new global::RitualSO { inBattle = true };
+        global::BattleManager.instance = new global::BattleManager();
+        global::BattleManager.instance.activeRitual.ToggleValue(ritual);
+    }
 
     private static AutoCastCycleAction Release(int slotIndex, Guid spellId) =>
         new(AutoCastActionKind.ReleaseCharge, slotIndex, spellId, PlannedEpoch);
@@ -516,5 +578,6 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         global::SettingsManager.CancellableSpells = true;
         global::TargetingManager.Reset();
         global::Spell.FireSignal = AutoCastManualSignal.NotifySpellFire;
+        global::BattleManager.instance = null;
     }
 }

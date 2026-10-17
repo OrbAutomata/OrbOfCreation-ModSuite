@@ -213,11 +213,14 @@ internal static class GameMcpAutomationPolicy
         var charge = settings.FullCharge
             ? ", holding chargeable ones to full charge"
             : ", releasing chargeable ones at once without charging";
+        var ritual = settings.RitualAware
+            ? ", casting attack spells only in a ritual battle and starting no channel there while one is equipped"
+            : "";
         var pause = settings.ManualPauseSeconds <= 0f
             ? "."
             : ", and it stays quiet for " + Number(settings.ManualPauseSeconds) +
                 "s after you cast one by hand.";
-        return start + charge + pause;
+        return start + charge + ritual + pause;
     }
 
     internal static string AutoConcept(SuiteRuntimeConfiguration configuration)

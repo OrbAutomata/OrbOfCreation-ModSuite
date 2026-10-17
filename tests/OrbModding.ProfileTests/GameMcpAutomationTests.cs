@@ -248,13 +248,15 @@ public sealed class GameMcpAutomationTests
                     StartResourcePercent = 25f,
                     ManualPauseSeconds = 2f,
                     FullCharge = true,
+                    RitualAware = true,
                 },
             }));
 
         Assert.Equal(
             "Fires equipped spells once every capped resource they draw on is at least 25% full, " +
-            "holding chargeable ones to full charge, and it stays quiet for 2s after you cast one " +
-            "by hand.",
+            "holding chargeable ones to full charge, casting attack spells only in a ritual battle " +
+            "and starting no channel there while one is equipped, and it stays quiet for 2s after " +
+            "you cast one by hand.",
             (string?)casting["policy"]);
     }
 

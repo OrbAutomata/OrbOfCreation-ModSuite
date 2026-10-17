@@ -1,3 +1,4 @@
+using System;
 using OrbModding.Common;
 
 namespace OrbAutomata;
@@ -39,7 +40,9 @@ internal static class AutoCastFeatureStatusProjector
         bool emergencyDisabled,
         bool owned,
         bool manualPaused,
-        bool cycleObserved)
+        bool cycleObserved,
+        AutoCastExclusion heldFor = AutoCastExclusion.None,
+        Guid heldSpellId = default)
     {
         if (emergencyDisabled)
         {
@@ -73,6 +76,18 @@ internal static class AutoCastFeatureStatusProjector
                 FeatureStatusState.NotReady,
                 FeatureStatusReasonCode.GameplayNotReady,
                 "Auto Cast is waiting for its first evaluation.");
+        }
+
+        if (heldFor is AutoCastExclusion.OutsideRitual or AutoCastExclusion.RitualChannel)
+        {
+            return new AutoCastFeatureStatus(
+                FeatureStatusState.TemporarilyBlocked,
+                FeatureStatusReasonCode.TemporarySafetyBlock,
+                "Auto Cast holds " + EntityIdentityFormatter.PlayerName(heldSpellId) +
+                (heldFor == AutoCastExclusion.OutsideRitual
+                    ? ": no ritual is running."
+                    : ": a channel would block attack spells during the ritual.") +
+                " AutoCast/RitualAware turns this off.");
         }
 
         return new AutoCastFeatureStatus(

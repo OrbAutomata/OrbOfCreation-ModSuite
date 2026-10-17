@@ -1506,6 +1506,7 @@ public sealed class GameMcpConfigurationTests
                 "AutoCast/StartResourcePercent: float",
                 "AutoCast/ManualPauseSeconds: float",
                 "AutoCast/FullCharge: bool",
+                "AutoCast/RitualAware: bool",
                 "AutoConcept/Mode: AutoConceptOperationMode",
                 "AutoConcept/SlotManagementMode: AutoConceptSlotManagementMode",
                 "AutoConcept/TrainingPeriodSeconds: int",

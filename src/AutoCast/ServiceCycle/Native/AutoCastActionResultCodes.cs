@@ -62,4 +62,7 @@ internal static class AutoCastActionResultCodes
     /// instead, because a caller told a spell cannot be charged believes that durably.
     /// </remarks>
     public static ServiceActionResultCode SpellNotChargeable => new(3084);
+
+    /// <summary>A ritual battle started or ended after the cast was planned for the other case.</summary>
+    public static ServiceActionResultCode RitualChanged => new(3085);
 }

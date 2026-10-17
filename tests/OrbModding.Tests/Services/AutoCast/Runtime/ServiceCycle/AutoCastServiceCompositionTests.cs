@@ -23,9 +23,13 @@ namespace OrbModding.Tests.Services.AutoCast.Runtime.ServiceCycle;
 /// when it is compiled, so without a test that registers one they would first be checked inside the
 /// game.
 /// </remarks>
-public sealed class AutoCastServiceCompositionTests
+public sealed class AutoCastServiceCompositionTests : IDisposable
 {
     private static readonly Guid Ember = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid Firebolt = Guid.Parse("db0694f1-82bf-4ecf-a139-1341efee2bb8");
+
+    public void Dispose() =>
+        EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(1));
 
     [Fact]
     public void CommonPumpExecutesThePlainServiceThroughMainThreadPorts()
@@ -81,6 +85,90 @@ public sealed class AutoCastServiceCompositionTests
         Assert.Equal(Ember, actions.LastSpellRecipeId);
     }
 
+    /// <summary>
+    /// A ritual hold travels from the worker's plan to the feature-status line the toggle tooltip and
+    /// <c>suite_health</c> read, naming the spell and the reason in player words.
+    /// </summary>
+    [Fact]
+    public void AnAttackSpellHeldOutsideARitualIsNamedOnTheStatusLine()
+    {
+        EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Bound(1, new[]
+        {
+            new EntityIdentityName(Firebolt, "SpellRecipeSO", "Firebolt", "Firebolt"),
+        }));
+        var actions = new ActionPort(Thread.CurrentThread.ManagedThreadId);
+        var manualPause = new AutoCastManualPauseState();
+        var definition = AutoCastService.Define(actions, manualPause);
+        using var registry = new ServiceCycleRegistry(1, new LifecycleGeneration(7));
+        registry.ConfigurationPublication.Publish(Configuration(ritualAware: true));
+        using var registration = registry.Register(definition);
+        registry.WorldPublication.Publish(FireboltOutsideARitualWorld(), new WorldGeneration(2));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        using var status = new AutomataFeatureStatusReporter(
+            new FeatureStatusRegistry(),
+            new FeatureStatusSnapshot(
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoCastFeatureId),
+                "Auto Cast",
+                true,
+                FeatureStatusState.NotReady,
+                new FeatureStatusReason(
+                    FeatureStatusReasonCode.GameplayNotReady,
+                    "Gameplay lifecycle is not ready."),
+                lifecycleGeneration: 7));
+        var bridge = new AutoCastServiceCycleDiagnosticsBridge(
+            lifecycle: 7,
+            configurationGeneration: new ConfigGeneration(1),
+            owned: true,
+            manualPause,
+            status);
+
+        ServiceRunnerTestWait.ForWorkerReady(registration);
+        Assert.Equal(1, pump.PumpFrame(1).CyclesStarted);
+        ServiceRunnerTestWait.ForResponse(registration);
+        var report = pump.PumpFrame(2);
+        bridge.Observe(pump, in report, owned: true);
+
+        Assert.Equal(0, actions.ExecutionCount);
+        Assert.Equal(FeatureStatusState.TemporarilyBlocked, status.Current.State);
+        Assert.Equal(FeatureStatusReasonCode.TemporarySafetyBlock, status.Current.Reason.Code);
+        Assert.Equal(
+            "Auto Cast holds Firebolt: no ritual is running. AutoCast/RitualAware turns this off.",
+            status.Current.Reason.Summary);
+    }
+
+    /// <summary>Firebolt equipped and ready, authored as one combat effect, with no ritual battle running.</summary>
+    private static GameWorldState FireboltOutsideARitualWorld()
+    {
+        var slots = new WorldSpellSlotBuffer();
+        var slot = new WorldSpellSlot(
+            0, Firebolt,
+            occupied: true,
+            casting: false,
+            readyingCast: false,
+            attuning: false,
+            channeled: false,
+            toggled: false,
+            chargeable: false,
+            castReady: true,
+            chargeAvailable: true,
+            resourcesCovered: true,
+            currentCharges: 1,
+            maximumCharges: 1,
+            cooldownRemaining: default);
+        slots.Append(in slot);
+
+        return new GameWorldState
+        {
+            SpellSlots = WorldSpellSlotDeriver.Build(slots),
+            SpellCosts = PublicationTable<WorldSpellCost>.Empty,
+            SpellRecipeAuthoring = PublicationTable<WorldSpellRecipeAuthoring>.Create(new[]
+            {
+                new WorldSpellRecipeAuthoring(Firebolt, 0, 0d, 1d, 0, 0d, 0d, combatOnly: true),
+            }),
+        };
+    }
+
     /// <summary>One equipped slot the game calls ready, costing nothing.</summary>
     private static GameWorldState ReadyLoadoutWorld()
     {
@@ -109,13 +197,14 @@ public sealed class AutoCastServiceCompositionTests
         };
     }
 
-    private static SuiteRuntimeConfiguration Configuration() =>
+    private static SuiteRuntimeConfiguration Configuration(bool ritualAware = false) =>
         new SuiteRuntimeConfiguration
         {
             General = new SuiteGeneralConfiguration { Enabled = true },
             AutoCast = new AutoCastConfiguration
             {
                 Mode = AutoCastOperationMode.Active,
+                RitualAware = ritualAware,
             },
         };
 

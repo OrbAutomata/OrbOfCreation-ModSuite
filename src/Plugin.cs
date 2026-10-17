@@ -743,6 +743,7 @@ public sealed class Plugin : BaseUnityPlugin
             $"UpgradeAffordability={runtimeConfig.AutoBuy.UpgradeAffordability}, " +
             $"AutoCastMode={runtimeConfig.AutoCast.Mode}, " +
             $"AutoCastFullCharge={runtimeConfig.AutoCast.FullCharge}, " +
+            $"AutoCastRitualAware={runtimeConfig.AutoCast.RitualAware}, " +
             $"AutoCastStartResourcePercent={runtimeConfig.AutoCast.StartResourcePercent}, " +
             $"AutoConceptMode={runtimeConfig.AutoConcept.Mode}, " +
             $"AutoConceptSlotManagement={runtimeConfig.AutoConcept.SlotManagement}, " +

@@ -118,6 +118,12 @@ internal enum AutoCastExclusion
 
     /// <summary>Eligible, but another eligible slot had this cycle's turn.</summary>
     Outranked = 6,
+
+    /// <summary>An attack spell while no ritual battle runs, so its combat effects would fizzle.</summary>
+    OutsideRitual = 7,
+
+    /// <summary>A channel during a ritual battle, which would keep an equipped attack spell from going.</summary>
+    RitualChannel = 8,
 }
 
 /// <summary>How many slots each exclusion term accounted for in one cycle.</summary>
@@ -133,7 +139,9 @@ internal readonly struct AutoCastExclusionHistogram
         int notReady,
         int reserveFloor,
         int belowStartThreshold,
-        int outranked)
+        int outranked,
+        int outsideRitual = 0,
+        int ritualChannel = 0)
     {
         Empty = empty;
         Busy = busy;
@@ -141,6 +149,8 @@ internal readonly struct AutoCastExclusionHistogram
         ReserveFloor = reserveFloor;
         BelowStartThreshold = belowStartThreshold;
         Outranked = outranked;
+        OutsideRitual = outsideRitual;
+        RitualChannel = ritualChannel;
     }
 
     public int Empty { get; }
@@ -149,9 +159,12 @@ internal readonly struct AutoCastExclusionHistogram
     public int ReserveFloor { get; }
     public int BelowStartThreshold { get; }
     public int Outranked { get; }
+    public int OutsideRitual { get; }
+    public int RitualChannel { get; }
 
     public int Total =>
-        Empty + Busy + NotReady + ReserveFloor + BelowStartThreshold + Outranked;
+        Empty + Busy + NotReady + ReserveFloor + BelowStartThreshold + Outranked +
+        OutsideRitual + RitualChannel;
 
     public int For(AutoCastExclusion exclusion) => exclusion switch
     {
@@ -161,6 +174,8 @@ internal readonly struct AutoCastExclusionHistogram
         AutoCastExclusion.ReserveFloor => ReserveFloor,
         AutoCastExclusion.BelowStartThreshold => BelowStartThreshold,
         AutoCastExclusion.Outranked => Outranked,
+        AutoCastExclusion.OutsideRitual => OutsideRitual,
+        AutoCastExclusion.RitualChannel => RitualChannel,
         _ => 0,
     };
 }
@@ -184,7 +199,8 @@ internal readonly struct AutoCastDecisionMetrics
         bool holdingCharge,
         bool channelBlocked,
         in AutoCastExclusionHistogram exclusions,
-        bool loadoutOpen = false)
+        bool loadoutOpen = false,
+        Guid heldSpellId = default)
     {
         if (capturedSlots < 0) throw new ArgumentOutOfRangeException(nameof(capturedSlots));
         if (eligibleSlots < 0) throw new ArgumentOutOfRangeException(nameof(eligibleSlots));
@@ -196,6 +212,7 @@ internal readonly struct AutoCastDecisionMetrics
         ChannelBlocked = channelBlocked;
         Exclusions = exclusions;
         LoadoutOpen = loadoutOpen;
+        HeldSpellId = heldSpellId;
     }
 
     public int CapturedSlots { get; }
@@ -210,6 +227,20 @@ internal readonly struct AutoCastDecisionMetrics
 
     /// <summary>Whether the player had the spell loadout on screen, so the rotation stood aside.</summary>
     public bool LoadoutOpen { get; }
+
+    /// <summary>The first spell a ritual rule held back in a cycle that cast nothing, or empty.</summary>
+    public Guid HeldSpellId { get; }
+
+    /// <summary>
+    /// The ritual rule behind <see cref="HeldSpellId"/>. One cycle can only hit one of the two: one needs
+    /// no ritual running, the other needs one running.
+    /// </summary>
+    public AutoCastExclusion HeldFor => HeldReason(HeldSpellId, Exclusions.OutsideRitual);
+
+    internal static AutoCastExclusion HeldReason(Guid heldSpellId, long outsideRitual) =>
+        heldSpellId == Guid.Empty ? AutoCastExclusion.None
+        : outsideRitual > 0 ? AutoCastExclusion.OutsideRitual
+        : AutoCastExclusion.RitualChannel;
 
     /// <summary>Why the equipped slots that did not reach the plan did not reach it.</summary>
     public AutoCastExclusionHistogram Exclusions { get; }

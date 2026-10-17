@@ -68,6 +68,7 @@ internal sealed class BepInExAutomataConfiguration
         ConfigEntry<float> autoCastStartResourcePercent,
         ConfigEntry<float> autoCastManualPauseSeconds,
         ConfigEntry<bool> autoCastFullCharge,
+        ConfigEntry<bool> autoCastRitualAware,
         ConfigEntry<AutoConceptOperationMode> autoConceptMode,
         ConfigEntry<AutoConceptSlotManagementMode> autoConceptSlotManagementMode,
         ConfigEntry<bool> autoConceptShowToggleButton,
@@ -103,6 +104,7 @@ internal sealed class BepInExAutomataConfiguration
         AutoCastStartResourcePercent = autoCastStartResourcePercent;
         AutoCastManualPauseSeconds = autoCastManualPauseSeconds;
         AutoCastFullCharge = autoCastFullCharge;
+        AutoCastRitualAware = autoCastRitualAware;
         AutoConceptMode = autoConceptMode;
         AutoConceptSlotManagement = autoConceptSlotManagementMode;
         AutoConceptShowToggleButton = autoConceptShowToggleButton;
@@ -161,6 +163,8 @@ internal sealed class BepInExAutomataConfiguration
     public ConfigEntry<float> AutoCastManualPauseSeconds { get; }
 
     public ConfigEntry<bool> AutoCastFullCharge { get; }
+
+    public ConfigEntry<bool> AutoCastRitualAware { get; }
 
     public ConfigEntry<AutoConceptOperationMode> AutoConceptMode { get; }
     public ConfigEntry<AutoConceptSlotManagementMode> AutoConceptSlotManagement { get; }
@@ -324,6 +328,7 @@ internal sealed class BepInExAutomataConfiguration
             AutoCastStartResourcePercent,
             AutoCastManualPauseSeconds,
             AutoCastFullCharge,
+            AutoCastRitualAware,
             AutoConceptMode,
             AutoConceptSlotManagement,
             AutoConceptTrainingPeriodSeconds,
@@ -468,6 +473,7 @@ internal sealed class BepInExAutomataConfiguration
                 Bind(config, "AutoCast", "StartResourcePercent", 0.0f, "Minimum fullness for every finite-cap resource used by a spell's immediate or drain cost. Fresh installs default to 0%.", 15, 20, new AcceptableValueRange<float>(0.0f, 100.0f), AutoCastActiveDependencies),
                 Bind(config, "AutoCast", "ManualPauseSeconds", 2.0f, "Unscaled pause after a manual spell fire before Auto Cast resumes.", 15, 30, new AcceptableValueRange<float>(0.0f, 60.0f), AutoCastActiveDependencies),
                 Bind(config, "AutoCast", "FullCharge", true, "When enabled, Auto Cast holds charge-capable spells until the native full-charge point. When disabled, it fires them immediately without charging.", 15, 1, dependencies: AutoCastActiveDependencies),
+                Bind(config, "AutoCast", "RitualAware", true, "When enabled, Auto Cast casts attack spells only while a ritual battle is running, and during one it does not start a channel spell while an attack spell is equipped. When disabled, it casts every ready spell in turn. Manual casts are never held back.", 15, 2, dependencies: AutoCastActiveDependencies),
                 autoConceptMode,
                 Bind(config, "AutoConcept", "SlotManagementMode", AutoConceptSlotManagementMode.TimedCycle, "RotateAll replaces active concepts when a compatible discovered concept has strictly lower mastery. PreserveManual fills empty slots and rotates only quantities added by Automata. TimedCycle rotates compatible concepts only after their full settled training period, even if they already caught up.", 17, 5, dependencies: AutoConceptActiveDependencies),
                 Bind(
