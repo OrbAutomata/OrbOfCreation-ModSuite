@@ -50,6 +50,7 @@ develop speed) — so the oak loop's Wood is what Paper is made of.
 Construction upgrades open structures in new materials. **Refined Construction** ("build with
 Ironwood"; observed 2.55e5 Ironwood + 1e12 Knowledge) opens **Amplifier** (+36% power to every
 Generator per level, paid in Ironwood) and **Printing Station** (a Paper generator; Force Bark +
-Ironwood). Observed: three Amplifier levels took Mana income ×2.8, Control ×3.9 and Wood ×2.9 at once.
+Ironwood). Observed: three Amplifier levels took Mana income ×2.8, Control ×3.9 and Wood ×2.9 at once;
+one Printing Station level at Amplifier 24 made +7.9e7 Paper/s.
 **Learn Reinforcement** opens **Craft Wooden Supports** (Force Bark + Skill + Wood) and the
 Reinforced attributes, each +2.5% power to two older structures and priced in Wooden Supports.
