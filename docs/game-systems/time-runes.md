@@ -12,14 +12,14 @@ Each rune carries **three separate level numbers**, and they mean different thin
 |---|---|---|---|
 | **Rune level** | Time Advancements, this run only | `0, 1, 2, 3, 4, …` | Grants persist XP and raises what future picks of that rune give (`+25 %` per level) |
 | **Persist level** | Persist XP, across runs | Escalating thresholds: `100`, `250`, `400`, … | Where the permanent effects actually live |
-| **Mastery level** | Mastery XP, roughly `1` per rune level bought | Escalating | Each mastery level grants `+1` starting Time Advancement next run |
+| **Mastery level** | Mastery XP, about `1.08` per rune level bought | Escalating | Each mastery level grants `+1` starting Time Advancement next run |
 
 A rune level costs nothing while your free usages exceed the rune's level — the zero-start rule of
 [cost-pipeline.md](cost-pipeline.md), reached here by free usages. Past that the curve is evaluated
 at `level + 1 − free usages`, which is what produces the `0, 1, 2, 3, 4` sequence.
 
 - A rune left at **level 0 is inert** — it grants no persist XP at all. The free first level is what
-  switches a rune on.
+  switches a rune on. A **Superior** rune gets a second free level.
 - Persist XP **rolls over**: overshooting a threshold is not wasted.
 - E.g., picking an Investment rune grants `100` persist XP by default, and levelling the rune raises
   the XP granted per pick for the rest of that run.
@@ -49,4 +49,11 @@ applying to a rune of that class picked earlier in the run).
 Investment Power stacks additively: `+12 %` per persist level, so three levels turn a base `225` pick
 into exactly `306`, not `316` (see [modifiers.md](modifiers.md)). A rune's XP per pick is the base
 pick XP times its `+25 %`-per-rune-level bonus times its Investment Power. Rune mastery XP accrues in
-fractions, with a level-1 threshold of `6`.
+fractions. Every rune's bar follows one curve by its own mastery level: `4` XP for the first level
+(reached at rune Lv 4), then `+2` per level (Discovery Rarity's bars for mastery 4 and 5 read `10`
+and `12`).
+
+## Discovery Rarity
+
+The first rune's level `L` adds `2 + 0.5 (L − 1)` **Discovery Rarity Rating**, the rating behind
+Superior discoveries (see [discovery.md](discovery.md#choices-and-rerolls-are-statistics)).

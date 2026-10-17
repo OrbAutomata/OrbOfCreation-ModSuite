@@ -25,6 +25,14 @@ modifiers on the requirement graph — one observed challenge applied `-5` to a 
 requirements, showing in-game as `leeway 5`. An active challenge can therefore put content within
 reach that would otherwise be gated: the requirement itself moved, not just its cost.
 
+A challenge card reads **Reach** (the goal), **While** (what holds until the goal is met) and
+**Reward**. E.g., *Specialization: Augments* reads Reach Expert Augments Lv 20; While +5 Expert Max
+Level, +10 Expert Max Investment and +20 Expert Augments Leeway; Reward +2 Starting Time
+Advancements and +1 Expert Augments Base Level. Until Expert Augments reaches 20, every other Expert
+node stops at Max Level 5 and the other Expert nodes share 10 levels of investment between them, so
+the Expert levels are rationed until the goal is met. Free research bonus levels cost no points but
+do not lift those caps.
+
 ## The offer list and its reroll budget
 
 The Active view shows a handful of offers at once (five observed) under the fetch button. A fetch

@@ -40,8 +40,10 @@ opening — do not spend time surveying the list, go to step 1.
     Scholarism itself wants exactly two things: **mastery level 2 on your first spell** and
     **Output Lv 2**. The second is the slow half — Output Lv is capped by Max Output Lv, which
     starts at 1 and is raised only after the `Spell Output Level` upgrade is bought, and that
-    upgrade is priced in **Thaumaturgy**, the resource step 9's second producer makes. So the
-    Scholarism clock is really a race to a second production spell, not to a pile of Knowledge.
+    upgrade is priced in **Thaumaturgy**, the resource step 9's second producer makes, and locked
+    until Casting Level 2. So the Scholarism clock is really a race to a second production spell,
+    not to a pile of Knowledge. Raise Output before grinding mastery 2, not after: at Output 2 one
+    Gather Knowledge cast paid ~560 mastery XP, so the 7.12e3 bar took a dozen casts.
     Once bought, Scholarism opens the Scholar screen, and the trickle economy is one short chain:
     **Novice Study** (a timed Scholar upgrade) → **Focus Aura** levels for Psi → **Learn Psionic**
     at a handful of Psi widens the spell pool to Psychic Blast, the Mental-income charm →
@@ -63,3 +65,11 @@ times in the first hour:
 **When a goal is cap-gated, make "raise the cap" the goal** and price it in whatever currency the
 capacity attribute wants. The detour is not a distraction from the plan; it *is* the plan.
 Requirement chains behave the same way — plan through the gate rather than saving into it.
+
+## A new currency's source is the next marked roll
+
+When a gate asks for a resource you have never produced, don't hunt the attribute lists for it.
+Look for the exclamation marks on the screen strip. The tree that owes a required component has
+usually just moved its roll price into the newest currency, and its one card is the producer. E.g.,
+the World Pillar opened Agromancy, whose chop wants Skill. The spell roll then cost Verdant Energy,
+the currency Conjure Life had just started making, and dealt Construct, the Skill spell.

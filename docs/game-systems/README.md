@@ -28,7 +28,7 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
   cross-currency detour.
 - [overcap.md](overcap.md) — a one-shot 3 s timer, then a rubber band pulling the excess back to cap.
 - [resource-behaviours.md](resource-behaviours.md) — resources with attached effects of their own:
-  Spark drains to zero, Arcanum fills on missing %.
+  Spark decays a percentage per second toward an equilibrium, Arcanum fills on missing %.
 - [splash.md](splash.md) — type-targeted gain split by lifetime production rate; it feeds the rich and
   does not conserve.
 - [resource-types.md](resource-types.md) — every resource carries type keywords, and effects target
@@ -96,6 +96,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 
 - [concepts.md](concepts.md) — passive scalers; only a concept in a development slot levels or
   drains.
+- [dimensional.md](dimensional.md) — Conjure Space pays Space, the Shaper upgrades open
+  capacity attributes, and Tech Advancements opens Technology research.
 - [agromancy.md](agromancy.md) — plots, nodes and growth phases in their own action queue; growth
   runs with the screen closed.
 - [aspects.md](aspects.md) — three pedestals through which Workshop, Alchemy and Rituals arrive.

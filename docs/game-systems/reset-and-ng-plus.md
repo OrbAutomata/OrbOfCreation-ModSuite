@@ -7,9 +7,11 @@ made before pressing reset: the selected challenge carries, and every challenge 
 reset starts the new run active (see [challenges.md](challenges.md)).
 
 The reset control is gated on two conditions rather than on any price: the world cycle must be
-complete and challenges must have been fetched. Until both hold, the button is inert; the page body
-does not say so, but the button's own tooltip names the fetch half ("Fetch new challenges before
-starting anew"). What completes the world cycle is unrecorded.
+complete and challenges must have been fetched. Until both hold, the button is inert. The page body
+doesn't say so, but the button's own tooltip names whichever half is missing: "Restoration must
+be completed", then "Fetch new challenges before starting anew". **Winning Restoration, the final
+ritual, completes the world cycle** (see [rituals.md](rituals.md#restoration-the-final-ritual)),
+so every run's prestige waits on the Rituals screen.
 
 Everything not on that survival list is lost: resources, attributes, upgrades, spells, glyphs,
 concepts, research, and the runes themselves — though the persistent advancement levels runes granted

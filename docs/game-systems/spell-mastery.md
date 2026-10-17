@@ -34,8 +34,9 @@ cheap spam is a poor mastery engine.
 ## Confirm Mastery and the spell-type tracks
 
 A full mastery bar does not level the spell by itself: the spell's card on the Spells page shows a
-**Confirm Mastery** button, priced in resources (red when unaffordable), and pressing it buys the
-level. The button is ready when that spell's own mastery bar is full; nothing else feeds readiness.
+**Confirm Mastery** button, priced in resources (red when unaffordable; e.g., 33 Knowledge for
+Gather Knowledge mastery 2), and pressing it buys the level. XP past the threshold carries into the
+next level. The button is ready when that spell's own mastery bar is full; nothing else feeds readiness.
 The spell's leveling requirements are checked on the press.
 
 The card also shows one XP track per spell type the spell carries — e.g., for a

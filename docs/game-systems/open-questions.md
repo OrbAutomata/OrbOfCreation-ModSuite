@@ -30,9 +30,8 @@ carried cross-run bonuses (authored constants do not).
   resources, and whether ordinary resources share them is unestablished. So is whether a purely
   rate-fed resource can overcap at all: none has been observed doing so, but no rule forbidding it
   has been found. Settle with one observed overcap decay on a normal resource.
-- **Per-resource behaviour formulas** — Spark's drain toward zero (no coefficients, no equilibrium
-  function, no confirmation of the channel exemption) and Arcanum's missing-% fill (no numbers at
-  all); see [resource-behaviours.md](resource-behaviours.md).
+- **Arcanum's missing-% fill** — no numbers at all; see
+  [resource-behaviours.md](resource-behaviours.md).
 - **Aura effect-level magnitudes** — the rough ≈×1.7–1.8 estimate for a stack of +12 aura effect
   levels was never confirmed. Settle by capturing an affected rate before and after a single
   effect-level purchase with nothing else changing.
@@ -62,8 +61,8 @@ carried cross-run bonuses (authored constants do not).
 
 ## Discovery
 
-- **Offer tables and rarities** — what each tree can actually produce, the rarity levels attached to
-  offers, and how multi-resource roll prices are composed.
+- **Offer tables and roll prices** — what each tree can actually produce, and how multi-resource
+  roll prices are composed.
 - **The deep-ladder scaling law** — the per-step factor grows with the count, and the formula has not
   been extracted.
 

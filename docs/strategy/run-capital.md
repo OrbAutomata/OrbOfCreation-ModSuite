@@ -8,10 +8,15 @@ the runes the run gives you** — roughly seven to ten. Breadth beats depth.
 - **The first level of every rune is free, and an unlevelled rune is inert.** Take the free level on
   every rune you pick, without exception.
 - **Rune mastery is the compounding part**: each mastery point is +1 starting Time Advancement next
-  run. Levelling a rune you do not otherwise want can still be correct purely for mastery.
+  run. Take every rune to at least its first mastery level (about rune Lv 4: 6 TA, 3 on a Superior
+  rune), and stop deeper levels at a mastery boundary, not a round number.
 - **Only Persistent-tagged runes are cross-run capital.** Their granted levels keep applying even
   though the rune itself is cleared at reset, and repicking is only needed to buy *more* levels.
-  Non-persistent runes are run-local power — value them against this run alone.
+  Non-persistent runes are run-local power, but a run lasts many hours and late costs grow fastest:
+  value a run-local rune at the end of the run, where scaling effects beat upfront ones.
+- **Runes are few, so set up each roll before paying it.** Rarity, the number of options and the
+  reroll budget are all fixed or spent at roll time. Level Discovery Rarity first, and hold an
+  optional roll while a near unlock would add an option.
 - **Time Advancements are refunded at every reset**, so there is no spend-timing risk at all. The
   only thing to get right is the split.
 

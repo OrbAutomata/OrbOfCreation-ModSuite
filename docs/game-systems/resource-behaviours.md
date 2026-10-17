@@ -5,12 +5,17 @@ that belongs to that resource specifically and shows up in its tooltip. Observed
 natural drain, a missing-percent-driven fill, and effects on another statistic such as maximum mana.
 Which resource carries what is recorded here as it is established, not inferred.
 
-## Spark — drains toward zero
+## Spark — decays toward an equilibrium
 
-Spark is the only observed resource that decays toward **zero** rather than toward its cap, and it
-does so even while below capacity. Its gain scales inversely with how much you are holding — more
-when low, less when high — so its equilibrium sits at zero. It does not decay while its channel is
-active. No formula has been extracted; see [open-questions.md](open-questions.md).
+Spark loses **4 % of what you hold** every second (`lossPercent` 4), on top of its ordinary gain.
+Its tooltip prints the balance point as **Equilibrium At** (e.g., `109` on one observed run with a
+3.30/s raw rate and 147 % Gain). Above that point Spark falls back; below it, it
+refills fastest when empty. With no passive Spark income the equilibrium is zero. Channel Spark
+pours in far above it (observed +470/s), and the channel ends with Spark falling back toward the
+equilibrium.
+
+Held Spark also has its own effect: **+0.2 % Cantrip Cooldown Speed per Spark, soft-capped at
+100 Spark**.
 
 ## Arcanum — fills on missing percent
 

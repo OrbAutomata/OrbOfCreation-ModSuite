@@ -18,8 +18,9 @@ its stack count — and lists every discovered concept below under a row of **re
 `Adv <n>` beside the time its next advance will take.
 
 **Discover** is the concept discovery tree's offer surface: a **Contemplate** button, a type-filter
-row, and a panel dealing **three face-up concept cards** with a rerolls counter and a Confirm
-button. Confirming is the commitment; see [discovery.md](discovery.md).
+row, and a panel dealing face-up concept cards with a rerolls counter and a Confirm button (a
+required concept comes as its one card; see [discovery.md](discovery.md)). Confirming is the
+commitment.
 
 ## Discovering a concept
 
@@ -29,7 +30,7 @@ your Psi capacity, so a roll can be capacity-gated. Concepts have their own
 discovery tree, so their ladder does not interact with spell or glyph rolls. The game contains `46`
 authored concept recipes.
 
-## Only a slotted concept does anything
+## Only a slotted concept grows
 
 A discovered concept exists permanently but is inert until placed in one of your **development
 slots**. You start with one slot; more are unlocked by upgrades. While a concept is slotted, two
@@ -39,7 +40,9 @@ things happen continuously:
   resource, paid whether or not you are looking at the screen.
 - It **levels**: every advance interval it gains a level, and each level applies its effect again.
 
-An unslotted concept neither levels nor drains.
+An unslotted concept neither levels nor drains, but **what it already earned stays**:
+Restorative Learning's mana-per-attribute passive kept paying after the concept left its slot.
+Study Mind at Mastery Lv 4 still sat in the Scholar type's cost sources at `-99.3 %` once unslotted. Rotating the slot to a new concept gives up only the old one's further growth.
 
 Every concept does one of exactly two things:
 

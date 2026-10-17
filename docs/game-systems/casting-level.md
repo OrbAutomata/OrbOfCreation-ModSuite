@@ -10,8 +10,9 @@ Casting Level is a global proficiency track, fed by **all** casts.
 - Higher-level spells generate significantly more Casting XP per cast.
 - A purchasable upgrade raises the maximum Casting Level, and the level can be tuned down again.
 
-Casting Level appears in the requirement graph in its own right: e.g., `Raise Output Lv` requires
-Casting Level 2/2, and Casting Level bumps are what make the next `Raise Output Lv` purchasable.
+Casting Level appears in the requirement graph in its own right: the `Spell Output Level` upgrade
+stays locked until Casting Level 2, and each further `Raise Output Lv` waits on the next Casting
+Level (e.g., the second purchase needs Casting Level 3).
 
 Requirement rows naming "Output Lv" read the **dial's raised maximum**, not its current setting —
 tuning the dial up does not satisfy a gate; buying `Raise Output Lv` does. Casting Level and Output
