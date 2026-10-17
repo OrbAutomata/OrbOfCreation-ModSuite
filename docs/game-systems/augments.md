@@ -31,6 +31,10 @@ Augments are deliberately double-edged. Two worked examples; the remaining effec
 (**Special** multiplies the non-scaling multiplicative components of an effect, such as a charm's
 ×1.12 Magic Resources Gained row.)
 
+A socket's power multiplier does not carry one-for-one into every spell's gain: Heavy socketed into
+Conjure Life raised it only from +790 to +816 Verdant Energy/s while doubling its cooldown
+(observed).
+
 ## Slots belong to the spell
 
 Augment slots belong to the **spell**, not to a shared board. What you configure is a per-spell
