@@ -2597,6 +2597,7 @@ internal sealed class FakeView : FakeIdRegistry
     public bool active;
     public bool alwaysActive;
     public FakeDiscoveryTree? discoveryTree;
+    public FakeAbstractListVariable<FakeView>? subViews;
     public List<FakeAbstractListVariable> relevantLists = new();
     public List<FakeAbstractListVariable> availableLists = new();
 

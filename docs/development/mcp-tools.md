@@ -474,8 +474,10 @@ clock and the reset's, and the level dials — `castingDials.outputLevel`, `cast
 
 **`requiredRolls` is the game's new-content mark on a discovery page**, one row per tree that owes a
 required discovery: the `tree`, the `screen` it is drawn on (`Magic > Spellbook > Unlock`), and the
-`costs` of that roll. The game marks a page's tab exactly while its view is unlocked and
-`ViewSO.discoveryTree` answers `HasImmediateRequiredDiscover()`, and the rows follow that rule.
+`costs` of that roll. The game marks a page's tab exactly while `ViewSO.discoveryTree` answers
+`HasImmediateRequiredDiscover()` and the tab is drawn, and it draws a tab only while that tab's view
+is unlocked, so the page and every screen above it in `ViewSO.subViews` must be unlocked. The rows
+follow that rule: a tree that owes a roll on a page under a locked screen has no row.
 While a tree owes one, its roll is priced in the required item's own resources rather than on the
 pool ladder, so the price can name a resource the tree never charged before. A tree whose roll is
 already pressed owes no price and its row carries none. The key is absent while no page is marked.
@@ -2766,11 +2768,11 @@ a double rather than a long. While the class was unmodelled every entity holding
 was unplannable, `world_overview` carried a `collection.gap` about it on every call, and three of the
 math check's passes declined those entities rather than comparing them.
 
-The collector also captures the safe parameterized
-`Prerequisites.Container.Check(Requirements.ConditionInfo)` answer at the exact next-purchase level.
-The worker compares its graph verdict with that same-publication native answer. Missing inputs,
-unevaluable suite math, a different owner/level, or a disagreement makes that id's whole block
-`unavailable`; a disagreement returns both verdicts and `native_verdict_mismatch`.
+`world_get` does not ask the game for its own verdict: every line of a world read comes from one
+published world, and a live answer beside it asked about a different level whenever a queued level
+completed in between, which printed a block-level `unavailable` over a read that was fine.
+`suite_check_game_math` compares the suite's verdict with the game's parameterized
+`Prerequisites.Container.Check(Requirements.ConditionInfo)` for every owner instead.
 
 **A locked entity never reads `Met`.** Each owner family authors *two* prerequisite containers and
 the requirement rows are read from one of them. `UpgradeSO.IsVisible()` and `IsAvailable()` are
@@ -2802,9 +2804,9 @@ ANDs, so the second's groups continue after the first's and the ordinary all-of 
 that AND. The suite never calls the no-argument `Check()` from a read — that overload latches
 `available` on the game's own object — so capture reads fields, a source sweep pins that no
 read-side binding names it, and the differential hands the parameterized overload the exact
-`ConditionInfo` the latching one would have built. `nativeParity` covers the new program as three
-more passes — upgrade unlock, structure unlock, research visibility — so a suite verdict that
-disagrees with the game's own is `native_verdict_mismatch` here as anywhere else.
+`ConditionInfo` the latching one would have built. `suite_check_game_math` covers the new program
+as three more passes — upgrade unlock, structure unlock, research visibility — so a suite verdict
+that disagrees with the game's own fails that check here as anywhere else.
 
 Research blocks print the effective requirement threshold and retain every direct adjustment's
 UUID, source handle, modifier type, amount, order, and passive state, including challenge sources.
@@ -4529,7 +4531,7 @@ chrome with no entity at all, including the suite's own controls, and `path` is 
 those will ever have. A uuid resolves through the same per-element entity binding the panel rows
 publish as `id`. One element showing it answers with what that element draws; none showing it
 answers with the entity's own tooltip, read from the game exactly as hovering a link line would put
-it up, so every `→ … game_tooltip uuid=…` line any answer prints is a call that answers:
+it up, so a `→ … game_tooltip uuid=…` line is a call that answers:
 
 - **Several elements show it** — `ambiguous_element` (`ERR_INPUT`), which lists their addresses
   under `paths` rather than picking one. This is the common case rather than the corner: the Magic
@@ -4541,6 +4543,11 @@ it up, so every `→ … game_tooltip uuid=…` line any answer prints is a call
   below every tooltip builder the reader calls and pins that none reaches a sound, a popup, an
   event-log entry, a modal, a spawned or destroyed object, or a modifier write. A uuid read with no
   save loaded is `entity_catalog_unavailable`.
+- **Nothing on this screen shows it, and the game hides it** — `not_on_screen` (`ERR_NOT_FOUND`):
+  "No element on this screen shows it; world_get reads its facts." Hidden is world_get's own
+  `visible` predicate answering no — an undiscovered recipe, rune or ritual, invisible research.
+  Reading such an entity's tooltip printed words the player has never been shown as if a screen
+  drew them; world_get still answers for it, with `visible` saying no.
 - **An id nothing in this build carries** — the existing `unknown_uuid`.
 - **An element or entity with no tooltip** — the existing `tooltip_content_unavailable`.
 - **A tooltip the suite will not finish reading** — `tooltip_depth_exceeded` (`ERR_UNAVAILABLE`).
@@ -4555,8 +4562,8 @@ it up, so every `→ … game_tooltip uuid=…` line any answer prints is a call
   case: there the walk finished, the body is the tooltip's own first two hundred lines, and its last
   line says `Tooltip truncated after 200 lines.`
 
-A uuid read takes the entity catalog only when no element shows the id; a path read reads no world
-at all, because what the player can hover is a screen fact rather than a save one.
+A uuid read takes the world, for the catalog and the hidden check when no element shows the id; a
+path read reads no world at all, because what the player can hover is a screen fact rather than a save one.
 
 **Every panel says `[id | name | path]`, and a casting-bar row says its slot.** A row's `id` is the
 entity the element is about. Most panels are assigned the asset itself, which carries its own id;

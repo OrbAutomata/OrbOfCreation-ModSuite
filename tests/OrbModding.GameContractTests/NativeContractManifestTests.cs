@@ -53,8 +53,8 @@ public sealed class NativeContractManifestTests
     /// holds this list to the binder's own API, so a selector added there cannot arrive unaudited.
     /// </remarks>
     private const string BinderSelectorNames =
-        "BoxedField|CallList|CallObject|CallReferenceGuid|CallWithConstructedLongArgument"
-            + "|CallWithObjectArgument|Call|CollectionCount|CollectionElementType|CollectionField"
+        "BoxedField|CallList|CallObject|CallReferenceGuid|CallWithObjectArgument|Call|"
+            + "CollectionCount|CollectionElementType|CollectionField"
             + "|EnumField|Field|ModifierRecord|NestedCollectionCount|NestedEnumField|NestedField"
             + "|ReferenceGuid|Reference|StaticDictionary|StaticField|StaticListAccessor|StaticList"
             + "|StaticReference|Through";
@@ -988,7 +988,7 @@ public sealed class NativeContractManifestTests
     private static readonly string[] CaptureRootActionSelectors =
     {
         "AllResourcesVisible", "CanAddInstance", "CanApplyBonusLevels", "CanCastASpell",
-        "CanLevel", "Check", "GetActionInstances", "GetActivationCost", "GetAll",
+        "CanLevel", "GetActionInstances", "GetActivationCost", "GetAll",
         "GetDevelopmentCost", "GetFreeBonusLevelsLeft", "GetFreeLevelCost",
         "GetFreeLevels", "GetFreeUsageSlots", "GetIngredient", "GetLevelCost", "GetMaxLevel",
         "GetMaxSelectedLevel", "GetMaxTypeSlots", "GetMaximumInstances", "GetMinSelectedLevel",
@@ -1360,7 +1360,6 @@ public sealed class NativeContractManifestTests
         ("static", "CallObject", "_cost = NativeAccessorBinder.CallObject(recipeType, \"ZzProbeCall\", costType);", new[] { "ZzProbeCall" }),
         ("static", "CallObject", "_slot = NativeAccessorBinder.CallObject<int>(stationType, \"ZzProbeCall\", elementType);", new[] { "ZzProbeCall" }),
         ("static", "CallReferenceGuid", "_coreId = NativeAccessorBinder.CallReferenceGuid(recipeType, \"ZzProbeCall\");", new[] { "ZzProbeCall" }),
-        ("static", "CallWithConstructedLongArgument", "_check = NativeAccessorBinder.CallWithConstructedLongArgument<bool>(containerType, \"ZzProbeCall\", \"ZzProbeArgument\");", new[] { "ZzProbeArgument", "ZzProbeCall" }),
         ("static", "CallWithObjectArgument", "_restricted = NativeAccessorBinder.CallWithObjectArgument<bool>(listType, \"ZzProbeCall\", challengeType);", new[] { "ZzProbeCall" }),
         ("static", "CollectionCount", "_count = NativeAccessorBinder.CollectionCount(recordType, \"zzProbeField\");", new[] { "zzProbeField" }),
         ("static", "CollectionElementType", "_element = NativeAccessorBinder.CollectionElementType(tooltipType, \"zzProbeField\");", new[] { "zzProbeField" }),

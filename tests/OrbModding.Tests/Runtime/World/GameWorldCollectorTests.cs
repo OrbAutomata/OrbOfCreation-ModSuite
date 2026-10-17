@@ -1360,23 +1360,27 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     [Fact]
-    public void AViewsComposedAvailabilityAndDiscoveryTreeArePublished()
+    public void AViewsComposedAvailabilityDiscoveryTreeAndTabsArePublished()
     {
         var unlocked = Guid.NewGuid();
         var locked = Guid.NewGuid();
         var tree = new FakeDiscoveryTree();
+        var lockedView = new FakeView
+        {
+            Identity = locked,
+            active = false,
+            alwaysActive = false,
+        };
+        var tabs = new FakeAbstractListVariable<FakeView>();
+        tabs.value.Add(lockedView);
         FakeView.All.Add(new FakeView
         {
             Identity = unlocked,
             active = true,
             discoveryTree = tree,
+            subViews = tabs,
         });
-        FakeView.All.Add(new FakeView
-        {
-            Identity = locked,
-            active = false,
-            alwaysActive = false,
-        });
+        FakeView.All.Add(lockedView);
 
         var collector = Collector();
         collector.Collect();
@@ -1385,9 +1389,11 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(WorldLookup.TryFind(world.Views, unlocked, out var unlockedView));
         Assert.True(unlockedView.Available);
         Assert.Equal(tree.Identity, unlockedView.DiscoveryTreeId);
-        Assert.True(WorldLookup.TryFind(world.Views, locked, out var lockedView));
-        Assert.False(lockedView.Available);
-        Assert.Equal(Guid.Empty, lockedView.DiscoveryTreeId);
+        Assert.Equal(locked, Assert.Single(unlockedView.SubViewIds.AsSpan().ToArray()));
+        Assert.True(WorldLookup.TryFind(world.Views, locked, out var lockedRow));
+        Assert.False(lockedRow.Available);
+        Assert.Equal(Guid.Empty, lockedRow.DiscoveryTreeId);
+        Assert.Equal(0, lockedRow.SubViewIds.Count);
     }
 
     [Fact]

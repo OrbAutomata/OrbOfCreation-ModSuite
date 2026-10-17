@@ -53,7 +53,8 @@ describe that data model, not anything the player does.
 
 Required rolls are the critical path: the game is not gambling with your progression, and you receive
 the one thing it intends you to have next. While a tree owes one, its page's tab carries the
-new-content mark. Optional picks draw several candidates from that tree's pool and make you choose
+new-content mark, as long as that page and every screen above it are unlocked: a locked screen draws
+no tabs, so the mark waits until it opens. Optional picks draw several candidates from that tree's pool and make you choose
 one.
 
 ## Choices and rerolls are statistics

@@ -1,10 +1,12 @@
 using System;
+using System.Collections;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
 
 /// <summary>
-/// One view as published: whether it is active, whether it is always active, and the discovery tree
-/// whose roll it draws.
+/// One view as published: whether it is active, whether it is always active, the discovery tree
+/// whose roll it draws, and the views drawn as its tabs.
 /// </summary>
 internal readonly struct WorldView : IWorldEntity
 {
@@ -13,13 +15,17 @@ internal readonly struct WorldView : IWorldEntity
         bool active,
         bool alwaysActive,
         bool available,
-        Guid discoveryTreeId = default)
+        Guid discoveryTreeId = default,
+        Guid[]? subViewIds = null)
     {
         ViewId = viewId;
         Active = active;
         AlwaysActive = alwaysActive;
         Available = available;
         DiscoveryTreeId = discoveryTreeId;
+        SubViewIds = subViewIds is null || subViewIds.Length == 0
+            ? PublicationTable<Guid>.Empty
+            : PublicationTable<Guid>.Create(subViewIds);
     }
 
     internal Guid ViewId { get; }
@@ -39,6 +45,13 @@ internal readonly struct WorldView : IWorldEntity
     /// off this edge while the tree owes a required discovery.
     /// </summary>
     internal Guid DiscoveryTreeId { get; }
+
+    /// <summary>
+    /// <c>ViewSO.subViews</c>: the views this one draws as its tabs. A tab's button, and the
+    /// new-content mark on it, is drawn only while its own view is available, so a view is on screen
+    /// only while it and every view above it are available.
+    /// </summary>
+    internal PublicationTable<Guid> SubViewIds { get; }
 }
 
 internal sealed class WorldViewBinder : WorldPlainBinder<WorldView>
@@ -48,6 +61,7 @@ internal sealed class WorldViewBinder : WorldPlainBinder<WorldView>
     private Func<object, bool>? _alwaysActive;
     private Func<object, bool>? _available;
     private Func<object, Guid>? _discoveryTree;
+    private Func<object, IList?>? _subViews;
 
     internal override string Category => "views";
 
@@ -61,6 +75,7 @@ internal sealed class WorldViewBinder : WorldPlainBinder<WorldView>
         _alwaysActive = bind.Field<bool>("alwaysActive");
         _available = bind.Call<bool>("IsAvailable");
         _discoveryTree = bind.ReferenceGuid("discoveryTree");
+        _subViews = bind.Through("subViews").CollectionField("value");
         return bind.Failure;
     }
 
@@ -70,5 +85,20 @@ internal sealed class WorldViewBinder : WorldPlainBinder<WorldView>
             _active!(entity),
             _alwaysActive!(entity),
             _available!(entity),
-            _discoveryTree!(entity));
+            _discoveryTree!(entity),
+            ReadSubViews(entity));
+
+    private Guid[] ReadSubViews(object entity)
+    {
+        var members = _subViews!(entity);
+        if (members is null || members.Count == 0) return Array.Empty<Guid>();
+        var result = new Guid[members.Count];
+        for (var index = 0; index < members.Count; index++)
+        {
+            var member = members[index] ??
+                throw new InvalidOperationException("ViewSO.subViews contained a null view");
+            result[index] = _id!(member);
+        }
+        return result;
+    }
 }

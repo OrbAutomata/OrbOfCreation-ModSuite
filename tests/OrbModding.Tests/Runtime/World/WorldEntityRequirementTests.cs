@@ -147,84 +147,6 @@ public sealed class WorldEntityRequirementTests : IDisposable
     }
 
     /// <summary>
-    /// The game's own verdict is asked for one entity, at that owner's own check level, when asked.
-    /// </summary>
-    /// <remarks>
-    /// It used to be a table the capture pass filled for every upgrade, structure, and research four
-    /// times a second, of which one row was ever read. The level expressions the probe reproduces are
-    /// the game's own and are not the same shape, which is the half most worth pinning.
-    /// </remarks>
-    [Fact]
-    public void TheNativeVerdictProbeAsksAtTheOwnersOwnCheckLevel()
-    {
-        var emptyUpgrade = Author(new global::UpgradeSO
-        {
-            level = 2,
-            queuedLevels = 1,
-            maxLevel = -1,
-        });
-        var gatedUpgrade = Author(new global::UpgradeSO
-        {
-            level = 4,
-            queuedLevels = 2,
-            maxLevel = -1,
-        });
-        gatedUpgrade.prerequisitesPerLevel.prerequisites.Add(
-            new Requirements.UnsupportedRequirement());
-        var structure = new global::StructureSO { quantity = 7, queuedQuantity = 3 };
-        global::StructureSO.All.Add(structure);
-
-        var probe = new WorldRequirementNativeVerdictProbe();
-        Assert.True(probe.IsAvailable);
-
-        Assert.True(probe.TryRead(emptyUpgrade.GetGuid(), out var empty, out _));
-        Assert.Equal(WorldRequirementOwnerKind.Upgrade, empty.OwnerKind);
-        Assert.Equal(4L, empty.CheckLevel);
-        Assert.True(empty.Met);
-
-        Assert.True(probe.TryRead(gatedUpgrade.GetGuid(), out var gated, out _));
-        Assert.Equal(7L, gated.CheckLevel);
-        Assert.False(gated.Met);
-
-        Assert.True(probe.TryRead(structure.GetGuid(), out var structureVerdict, out _));
-        Assert.Equal(WorldRequirementOwnerKind.Structure, structureVerdict.OwnerKind);
-        Assert.Equal(7L, structureVerdict.CheckLevel);
-        Assert.True(structureVerdict.Met);
-    }
-
-    /// <summary>
-    /// An identity no owner registry carries is named as unreadable rather than answered.
-    /// </summary>
-    [Fact]
-    public void TheNativeVerdictProbeRefusesAnIdentityNoOwnerCarries()
-    {
-        var probe = new WorldRequirementNativeVerdictProbe();
-
-        Assert.False(probe.TryRead(Guid.NewGuid(), out _, out var failure));
-        Assert.NotEmpty(failure);
-    }
-
-    /// <summary>
-    /// An owner the game holds no container for is named as unreadable, not answered "met".
-    /// </summary>
-    /// <remarks>
-    /// The probe is the suite's one native oracle for these verdicts. Reading a missing container as
-    /// a passing check would make it agree with the suite on an entity neither of them evaluated,
-    /// which is the shape of agreement a differential pass exists to rule out.
-    /// </remarks>
-    [Fact]
-    public void TheNativeVerdictProbeRefusesAnOwnerWithNoContainer()
-    {
-        var upgrade = Author(new global::UpgradeSO { level = 4, maxLevel = -1 });
-        upgrade.prerequisitesPerLevel = null!;
-
-        var probe = new WorldRequirementNativeVerdictProbe();
-
-        Assert.False(probe.TryRead(upgrade.GetGuid(), out _, out var failure));
-        Assert.NotEmpty(failure);
-    }
-
-    /// <summary>
     /// Collecting the authored graph calls no container predicate at all.
     /// </summary>
     /// <remarks>
@@ -242,33 +164,6 @@ public sealed class WorldEntityRequirementTests : IDisposable
 
         Assert.Equal(0, gated.prerequisitesPerLevel.ParameterizedCheckCalls);
         Assert.Equal(0, gated.prerequisitesPerLevel.CheckCalls);
-    }
-
-    /// <summary>
-    /// A build without the parameterised <c>Check</c> leaves the probe unavailable, and the
-    /// parameterless overload is never reached for.
-    /// </summary>
-    /// <remarks>
-    /// Picking <c>Check</c> by name alone would bind the overload that latches <c>available</c> and
-    /// stamps a game id, turning a diagnostic into a mutation of the state it reports on.
-    /// </remarks>
-    [Fact]
-    public void MissingParameterizedCheckMakesTheProbeUnavailableRatherThanLatching()
-    {
-        MissingCheckContainer.ParameterlessCalls = 0;
-        var probe = new WorldRequirementNativeVerdictProbe(name => name switch
-        {
-            "UpgradeSO" => typeof(MissingCheckUpgrade),
-            "StructureSO" => typeof(MissingCheckStructure),
-            "ResearchSO" => typeof(global::ResearchSO),
-            _ => null,
-        });
-
-        Assert.False(probe.IsAvailable);
-        Assert.False(probe.TryRead(Guid.NewGuid(), out _, out var failure));
-
-        Assert.Contains("UpgradeSO", failure);
-        Assert.Equal(0, MissingCheckContainer.ParameterlessCalls);
     }
 
     /// <summary>
@@ -685,32 +580,6 @@ public sealed class WorldEntityRequirementTests : IDisposable
         global::GlyphSO.All.Clear();
         global::RecipeBookSO.All.Clear();
         global::GameManager.currentFrame = 0;
-    }
-
-    private sealed class MissingCheckUpgrade
-    {
-        public MissingCheckUpgrade()
-        {
-            level = 0;
-            queuedLevels = 0;
-        }
-
-        public static List<MissingCheckUpgrade> All { get; } = new();
-        public MissingCheckContainer prerequisitesPerLevel = new();
-        public int level;
-        public int queuedLevels;
-        public Guid GetGuid() => Guid.NewGuid();
-        public int GetPurchaseLevel() => level;
-    }
-
-    private sealed class MissingCheckStructure
-    {
-        public MissingCheckStructure() => quantity = 0;
-
-        public static List<MissingCheckStructure> All { get; } = new();
-        public MissingCheckContainer prerequisitesPerLevel = new();
-        public int quantity;
-        public Guid GetGuid() => Guid.NewGuid();
     }
 
     private sealed class MissingCheckLink
