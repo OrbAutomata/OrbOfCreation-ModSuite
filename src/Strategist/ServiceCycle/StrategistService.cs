@@ -48,7 +48,7 @@ internal struct StrategistCycleState
 }
 
 /// <summary>
-/// The strategist: an ordinary service that wakes once a minute rather than on each world publication.
+/// The strategist: an ordinary service that wakes once a minute.
 /// The worker reads the pinned world into facts and the window, derives the bulletin, and the one
 /// main-thread step publishes it.
 /// </summary>
@@ -66,8 +66,7 @@ internal static class StrategistService
         var metadata = new AutomataServiceMetadata(
             StrategistServicePolicies.ServiceId,
             StrategistServicePolicies.DefaultWakePolicy,
-            StrategistServicePolicies.FaultRecoveryPolicy,
-            wakesOnWorldPublication: false);
+            StrategistServicePolicies.FaultRecoveryPolicy);
         return AutomataService.Define<StrategistCycleState, StrategistCycleAction>(
             in metadata,
             static () => new StrategistWorkerDefinition(),

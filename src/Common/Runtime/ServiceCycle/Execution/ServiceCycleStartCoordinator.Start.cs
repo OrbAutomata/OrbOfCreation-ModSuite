@@ -107,7 +107,7 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
                     startObservedAt),
                 configuration.Generation,
                 world.Generation,
-                invalidatedByWorld: WakeOnWorldPublication);
+                invalidatedByWorld: WorldEndsWait(start.WakePolicy));
             var recoveredFault = RecoverStartFault(startObservedAt);
             return new ServiceCycleStartAttempt(
                 false, startFact, default, default, default, default,

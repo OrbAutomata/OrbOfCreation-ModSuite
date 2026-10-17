@@ -13,19 +13,18 @@ namespace OrbModding.Tests.Runtime.ServiceCycle.Execution;
 public sealed class ServiceWakeWorldTests
 {
     [Fact]
-    public void PublishingWorldInvalidatesAnOrdinaryServicesEvaluationWait()
+    public void PublishingWorldWakesAServiceWaitingForTheNextWorld()
     {
         var clock = new ThreadSafeTestClock(100);
         using var registry = new ServiceCycleRegistry(1, clock);
         var definition = new ExecutionServiceDefinition("test.execution.world-wakes-result")
         {
-            EvaluationWake = WakePolicy.AfterDecision(new MonotonicDuration(1000)),
+            EvaluationWake = WakePolicy.OnPublication,
         };
         using var registration = registry.Register(definition, new LifecycleGeneration(1));
         var runner = registration.Runner;
 
         RunOneCycle(runner, clock);
-        Assert.Equal(1100, runner.Snapshot.NextWakeDue.Ticks);
         Assert.False(runner.TryStartCycle(clock.Now).Queued);
 
         registry.WorldPublication.Publish(new GameWorldState(), new WorldGeneration(2));
@@ -37,14 +36,13 @@ public sealed class ServiceWakeWorldTests
     }
 
     [Fact]
-    public void AServiceThatOptsOutKeepsItsTimedWakeAcrossWorldPublications()
+    public void PublishingWorldDoesNotCutATimedWaitShort()
     {
         var clock = new ThreadSafeTestClock(100);
         using var registry = new ServiceCycleRegistry(1, clock);
-        var definition = new ExecutionServiceDefinition("test.execution.world-keeps-timed-wake")
+        var definition = new ExecutionServiceDefinition("test.execution.world-keeps-timed-wait")
         {
             EvaluationWake = WakePolicy.AfterDecision(new MonotonicDuration(1000)),
-            WakesOnWorldPublication = false,
         };
         using var registration = registry.Register(definition, new LifecycleGeneration(1));
         var runner = registration.Runner;
@@ -54,7 +52,9 @@ public sealed class ServiceWakeWorldTests
 
         Assert.False(runner.TryStartCycle(clock.Now).Queued);
         Assert.Equal(1100, runner.Snapshot.NextWakeDue.Ticks);
+
         clock.AdvanceTo(new MonotonicTimestamp(1100));
+
         Assert.True(runner.TryStartCycle(clock.Now).Queued);
     }
 
@@ -69,7 +69,7 @@ public sealed class ServiceWakeWorldTests
         {
             EvaluationEntered = entered,
             EvaluationRelease = release,
-            EvaluationWake = WakePolicy.AfterDecision(new MonotonicDuration(1000)),
+            EvaluationWake = WakePolicy.OnPublication,
         };
         using var registration = registry.Register(definition, new LifecycleGeneration(1));
         var runner = registration.Runner;

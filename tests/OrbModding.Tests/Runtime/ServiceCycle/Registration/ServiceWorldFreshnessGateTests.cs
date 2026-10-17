@@ -127,11 +127,11 @@ public sealed class ServiceWorldFreshnessGateTests
     }
 
     /// <summary>
-    /// A service that ignores world publications still meets a new lifecycle promptly: the replacement
-    /// runner has no wait, so the first world collected under it starts a cycle.
+    /// A service on a long timed wait still meets a new lifecycle promptly: the replacement runner has
+    /// no wait, so the first world collected under it starts a cycle.
     /// </summary>
     [Fact]
-    public void AServiceThatIgnoresWorldsStartsOnTheFirstWorldOfANewLifecycle()
+    public void AServiceOnATimedWaitStartsOnTheFirstWorldOfANewLifecycle()
     {
         var clock = new ThreadSafeTestClock(100);
         using var registry = new ServiceCycleRegistry(1, clock);
@@ -139,7 +139,6 @@ public sealed class ServiceWorldFreshnessGateTests
         {
             ActionCount = 0,
             EvaluationWake = WakePolicy.AfterDecision(new MonotonicDuration(1_000_000)),
-            WakesOnWorldPublication = false,
         };
         using var registration = registry.Register(service, new LifecycleGeneration(1));
         registry.Seal();

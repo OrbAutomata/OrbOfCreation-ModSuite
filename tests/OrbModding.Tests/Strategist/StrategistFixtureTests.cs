@@ -119,8 +119,7 @@ public sealed class StrategistFixtureTests
     }
 
     /// <summary>
-    /// The strategist judges once a minute and ignores the worlds in between, so a fresh game waits
-    /// a minute for its income to be measured.
+    /// The strategist judges once a minute, so a fresh game waits a minute for its income to be measured.
     /// </summary>
     [Fact]
     public void TheStrategistWakesOnceAMinuteNotOnEachWorld()
@@ -128,7 +127,6 @@ public sealed class StrategistFixtureTests
         using var registry = new ServiceCycleRegistry(1);
         var definition = StrategistService.Define(registry.StrategistBulletinPublication);
 
-        Assert.False(definition.WakesOnWorldPublication);
         Assert.Equal(
             WakePolicy.AfterDecision(MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1))),
             definition.DefaultWakePolicy);

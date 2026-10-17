@@ -121,7 +121,6 @@ public sealed class ServiceReferenceResourceValidationTests
     {
         public ServiceId ServiceId { get; } = new("test.value-defaults");
         public WakePolicy DefaultWakePolicy => WakePolicy.Immediate;
-        public bool WakesOnWorldPublication => true;
         public ServiceFaultRecoveryPolicy FaultRecoveryPolicy { get; } = new(
             new MonotonicDuration(10),
             new MonotonicDuration(80));
