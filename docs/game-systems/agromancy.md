@@ -38,6 +38,7 @@ A harvested plot **regrows on its own**. A short action such as collecting fruit
 2 to 1, resolves without further input, and the plot is back at 2 a minute later — so a plot count
 seen mid-action is not the plot's settled size.
 
+A phase's tooltip timer counts **down**: `15.5s/09:44` is time left over the phase's full length.
 Growth continues while the screen is closed. The one screen-bound detail: **whether an action can be
 taken is only re-evaluated while the Agromancy screen is open**. A plot can therefore look stale —
 an action that has actually become available does not show until you open the screen — and once an
@@ -94,10 +95,13 @@ and yields 1 Force Tree unit, which Grows for 2:35 before it can be used (observ
 Ironwood Trees upgrade a Force Tree gains **Imbue** (badge 2, a 17–24 s weave draining Organic and
 Occult Essence, ~100–140 of each), which turns it into an **Ironwood Tree**: 8 Plot Capacity, Grows
 9:44, and **Chop Down Ironwood** (30 s) pays the **Ironwood** resource. So one Ironwood Tree costs
-four oaks. Observed harvests: 9.5e3, 1.7e4, 2.1e4, 2.6e4 Ironwood as the plot's mastery rose from 0
-to 12. Ironwood in the resource list unlocks **Ironwood Druidry** (observed 7.3e4–8.4e4 Ironwood +
+four oaks. Observed harvests: 9.5e3, 1.7e4, 2.1e4, 2.6e4, 4.7e4 Ironwood as the plot's mastery rose from 0
+to 13. Ironwood in the resource list unlocks **Ironwood Druidry** (observed 7.3e4–8.4e4 Ironwood +
 5.45e10 Verdant Energy), which opens the Druidry attributes Wellspring (spring yield) and
-Florescence (blooming resources), both paid partly in Ironwood.
+Florescence (blooming resources), both paid partly in Ironwood. **Herbalism** (Organic Essence +
+Verdant Energy) opens two more, **Irrigation** (+8% Natural resource rate, −1% weave cost; Organic
+Essence + Water) and **Fertilizer** (+5% herb size; Organic Essence + Verdant Energy), and the
+**Improved Herbalism** upgrade (observed 4e4 Magebloom + 5e7 Water).
 
 **Empty Plots are the unused Plot Capacity.** Every grown thing weighs Plot Capacity (an Oak Tree
 2, Void Moss 1), and the Empty Plot count is whatever is left over: raising the capacity or using
@@ -110,7 +114,9 @@ Empty Plots at once (observed 2 → 14 after +10 capacity and four Void Moss des
 runs and turns the plot into **Shaped Ground**; with Space at zero it crawls at whatever Space income
 allows. Shaped Ground offers **Create Spring** (Water Spring), **Create Elementia Spring** (Elementia;
 locked until the Elementia Spring research, which itself waits for Elementia in the resource list)
-and **Create Craggy Spire**. These weaves drain as they grow, and not only common resources:
+and **Create Craggy Spire**. A **Water Spring** passively generates Water and enhances every plant
+(+20% growing speed, ×1.10 yield); observed: one spring at Druidry Lv 7 took Water from −1.4e4/s to
++4.9e5/s. These weaves drain as they grow, and not only common resources:
 Create Spring drained **Alchemic Scroll** at ~94/s at Druidry Lv 7 (observed), enough to empty a
 stock of several hundred before the spring finished. Void Moss offers its own weaves — **Create Magebloom**, **Create Dark
 Thistle** and **Create Dreamberry** — each locked until something else is learned; Create Magebloom
