@@ -33,7 +33,6 @@ internal sealed class EmergencyStopServiceDefinition :
 
     public ServiceId ServiceId { get; }
     public WakePolicy DefaultWakePolicy => WakePolicy.Immediate;
-    public bool WakesOnWorldPublication => true;
     public ServiceFaultRecoveryPolicy FaultRecoveryPolicy => new(
         MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(10)),
         MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1)));

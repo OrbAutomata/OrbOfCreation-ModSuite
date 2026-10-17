@@ -160,7 +160,7 @@ internal sealed class ServiceBatchCompletion<TState, TAction>
                 terminalAt),
             _runtime.State.ActiveCycle.Config,
             _runtime.State.ActiveCycle.World,
-            invalidatedByWorld: _runtime.Starts.WakeOnWorldPublication);
+            invalidatedByWorld: _runtime.Starts.WorldEndsWait(_runtime.State.ActiveWake));
         _runtime.State.CycleConfiguration = null;
         _runtime.State.HasActiveBatch = false;
         _runtime.State.HasInFlightCycle = false;

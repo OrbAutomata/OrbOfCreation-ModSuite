@@ -115,9 +115,9 @@ handed configuration and its own buffer.
 - Once a service is idle, a newer configuration generation invalidates a wake deadline calculated from
   an older one and the next admission re-runs `ShouldStart` against the latest committed snapshot, so
   unrelated changes may cost one extra evaluation but cannot leave newly enabled work behind an
-  obsolete delay. A newer world generation likewise invalidates an ordinary service's normal wait,
-  unless its definition opts out (`WakesOnWorldPublication`, only the Strategist's once-a-minute wake).
-  The source does not wake on its own publication. Fault-recovery deadlines keep their bounded backoff.
+  obsolete delay. A newer world generation ends only an ordinary service's `OnPublication` wait; a
+  timed wait runs out on its clock, and the source does not wake on its own publication.
+  Fault-recovery deadlines keep their bounded backoff.
 - The next cycle consumes the latest publications; intermediate ones may coalesce. The state projection
   exposes both pinned and latest generations so the UI can explain that a saved change applies next
   cycle.

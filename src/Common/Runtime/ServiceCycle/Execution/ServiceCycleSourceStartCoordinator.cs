@@ -130,7 +130,7 @@ internal sealed class ServiceCycleSourceStartCoordinator<TState, TAction> :
                         captureObservedAt),
                     configuration.Generation,
                     opening.World.Generation,
-                    invalidatedByWorld: WakeOnWorldPublication);
+                    invalidatedByWorld: WorldEndsWait(result.WakePolicy));
             }
             return new ServiceCycleStartAttempt(
                 false, startFact, committedCapture, default, opening.Batch, default,
