@@ -913,6 +913,8 @@ internal static class GameMcpEntityExplainer
 
             var groupChildren = new JArray();
             JObject? singleton = null;
+            var branch = new List<JObject>();
+            var priorBranch = -1;
             for (var candidateOffset = 0; candidateOffset < count; candidateOffset++)
             {
                 ref readonly var candidate = ref rows[start + candidateOffset];
@@ -921,11 +923,16 @@ internal static class GameMcpEntityExplainer
                 {
                     continue;
                 }
-                var projected = ProjectRequirementNode(
-                    world, rows, start, count, in candidate, checkLevel, trail, depth + 1, unmet);
-                singleton = projected;
-                groupChildren.Add(projected);
+                if (candidate.BranchOrdinal != priorBranch)
+                {
+                    AddBranch(groupChildren, branch, first.GroupKind, ref singleton);
+                    branch.Clear();
+                    priorBranch = candidate.BranchOrdinal;
+                }
+                branch.Add(ProjectRequirementNode(
+                    world, rows, start, count, in candidate, checkLevel, trail, depth + 1, unmet));
             }
+            AddBranch(groupChildren, branch, first.GroupKind, ref singleton);
 
             if (groupChildren.Count == 1)
             {
@@ -938,6 +945,32 @@ internal static class GameMcpEntityExplainer
                 ["children"] = groupChildren,
             });
         }
+    }
+
+    /// <summary>
+    /// One arm of a flat group: its leaf, or the nested composite its leaves fold by, which is the
+    /// operator opposite to the group's.
+    /// </summary>
+    private static void AddBranch(
+        JArray groupChildren,
+        List<JObject> branch,
+        WorldRequirementGroupKind groupKind,
+        ref JObject? singleton)
+    {
+        if (branch.Count == 0) return;
+        var arm = branch[0];
+        if (branch.Count > 1)
+        {
+            var children = new JArray();
+            foreach (var leaf in branch) children.Add(leaf);
+            arm = new JObject
+            {
+                ["operator"] = groupKind == WorldRequirementGroupKind.Any ? "AND" : "OR",
+                ["children"] = children,
+            };
+        }
+        singleton = arm;
+        groupChildren.Add(arm);
     }
 
     private static JObject ProjectRequirementNode(

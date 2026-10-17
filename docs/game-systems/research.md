@@ -7,8 +7,9 @@ Research is unlocked by the *Innovation* upgrade and gets its own tab.
 - A node **takes time** to develop, and the selected node's panel prints that duration (observed
   from 4 seconds on a deep node to roughly 15–20 seconds on shallow ones).
 - A node also **drains a resource** for the duration of its development, listed under the duration
-  as a total and a per-second rate. These drains are usually negligible relative to production and
-  only occasionally bind.
+  as a total and a per-second rate. The drain is not the price: Develop pays the points up front and
+  the drain follows (e.g., Greater Spell Capacity costs 1 Magical Advancement and drains 20
+  Knowledge). These drains are usually negligible relative to production and only occasionally bind.
 - **A node's cap is authored per node**, and its card reads `Lv <level>/<cap>`. A node with no cap
   prints `–` in place of the number. Shallow nodes commonly cap at 1; whole schools are uncapped and
   climb into the tens of levels (observed: every Expert node reads `/–`).

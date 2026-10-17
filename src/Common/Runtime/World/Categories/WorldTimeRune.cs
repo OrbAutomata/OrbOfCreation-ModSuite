@@ -19,13 +19,15 @@ internal readonly struct WorldTimeRune : IWorldEntity
         BigDouble powerScalingMod,
         BigDouble masteryXpMod,
         WorldDiscoverableDecision discovery = default,
-        WorldLevelableDecision levelDecision = default)
+        WorldLevelableDecision levelDecision = default,
+        BigDouble requiredMasteryXp = default)
     {
         TimeRuneId = timeRuneId;
         Discovered = discovered;
         Level = level;
         DiscRarityLevel = discRarityLevel;
         MasteryXp = masteryXp;
+        RequiredMasteryXp = requiredMasteryXp;
         MasteryLevel = masteryLevel;
         IsDiscoverRequired = isDiscoverRequired;
         Seen = seen;
@@ -48,6 +50,9 @@ internal readonly struct WorldTimeRune : IWorldEntity
     internal int DiscRarityLevel { get; }
 
     internal BigDouble MasteryXp { get; }
+
+    /// <summary>The threshold the rune's mastery bar fills toward, as the game caches it.</summary>
+    internal BigDouble RequiredMasteryXp { get; }
 
     internal int MasteryLevel { get; }
 
@@ -76,6 +81,7 @@ internal sealed class WorldTimeRuneBinder : WorldPlainBinder<WorldTimeRune>
     private Func<object, int>? _level;
     private Func<object, int>? _discRarityLevel;
     private Func<object, BigDouble>? _masteryXp;
+    private Func<object, BigDouble>? _requiredMasteryXp;
     private Func<object, int>? _masteryLevel;
     private Func<object, bool>? _isDiscoverRequired;
     private Func<object, bool>? _seen;
@@ -101,6 +107,7 @@ internal sealed class WorldTimeRuneBinder : WorldPlainBinder<WorldTimeRune>
         _level = bind.Field<int>("level");
         _discRarityLevel = bind.Field<int>("discRarityLevel");
         _masteryXp = bind.Field<BigDouble>("masteryXp");
+        _requiredMasteryXp = bind.NestedField<BigDouble>("xpContainer", "cachedRequiredXp");
         _masteryLevel = bind.Field<int>("masteryLevel");
         _isDiscoverRequired = bind.Field<bool>("isDiscoverRequired");
         _seen = bind.Field<bool>("seen");
@@ -128,7 +135,8 @@ internal sealed class WorldTimeRuneBinder : WorldPlainBinder<WorldTimeRune>
             _powerScalingMod!(entity),
             _masteryXpMod!(entity),
             _discovery!.Read(entity),
-            _levelDecision!.Read(entity));
+            _levelDecision!.Read(entity),
+            _requiredMasteryXp!(entity));
 
     private static string Join(params string[] values)
     {

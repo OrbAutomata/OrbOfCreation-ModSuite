@@ -99,7 +99,10 @@ screen's. Reporting one as the other is how "requirements met" gets printed besi
 
 An authored `Prerequisites.Container` combines its top-level conditions with **AND**. Nested
 `OrRequirement` and `AndRequirement` records introduce explicit grouping; flattening the container
-into an ungrouped edge list changes its meaning.
+into an ungrouped edge list changes its meaning. One entity container nests a composite inside a
+composite — `SerializedAssetVerified`: Scholarism's unlock (`UpgradeSO` `e5e5598d`,
+`prerequisites`) is `Or(PointsMagic capacity ≥ 1, And(WorldResets ≥ 1, NoviceSpells maxed))`.
+Nothing nests a third level.
 
 `PrerequisiteLinkSO` reuses one gate across several consumers. Each link contains ordered tiers.
 A tier becomes active only when every owner bound to that link and tier has at least one purchased

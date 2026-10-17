@@ -126,7 +126,7 @@ out of, and a second formatter for those builds would be a second notation.
 
 **A price beside a holding short of it never reads as met.** Wherever the two are printed together —
 the shortfall sentence, an unmet requirement's `(have …)`, and the `cost` and `spendableAmount` of a
-price row — a pair whose screen spellings say the same number is widened, one decimal at a time and
+price row, and a research `drain`'s `remaining` and `spendableAmount` — a pair whose screen spellings say the same number is widened, one decimal at a time and
 both in the same form, until the gap shows: `Needs 119.2 Knowledge (have 118.7)`, `41.00` against
 `40.96`, `4.401e3` against `4.398e3`. Every other pair keeps the screen's characters.
 
@@ -338,9 +338,8 @@ than printing itself into a cell.
   to a sibling key left a three-column price beside four-column prices in the same session. The
   sibling key is a different fact and stays — it answers whether the whole purchase is payable,
   where the column answers it per resource and so names the one that is short. A table with more to
-  say keeps its extra columns and still spells the price `cost`: research's `investment` carries the
-  native fill bar (`invested`, `required`) beside the same words, which is a richer table rather
-  than a fourth dialect.
+  say keeps its extra columns and still spells the price `cost`. A drain is not a price and never
+  says `cost`: research's `drain` says `remaining`.
 - **Constants live here, not in answers.** A number that is the same in every save on every call is
   documentation. The casting dials publish `current` and `maximum` and not the floor, which is 1 for
   both; `suite_configuration` publishes values and not the sentence describing each setting.
@@ -1298,19 +1297,20 @@ members of the research row.
 The same detailed row is the complete pre-decision surface for `game_research`. Uncapped research
 omits `maximumLevel` rather than serializing the game's zero sentinel. It names the immediate or
 queue route, live multi-buy maximum, exact number of levels the native cumulative loop will accept,
-and ordered named costs paired with each resource's canonical `spendableAmount`. `develop.affordable`
-and `develop.costs` appear exactly where the price is what decides: an available decision, or a
-refusal whose `reasonCode` is `unaffordable` — a row refused for its price publishes the price that
-refused it, rather than naming the blocking resource only inside the sentence. The `canDevelop`
+and ordered named costs paired with each resource's canonical `spendableAmount`. `develop.costs` is
+the next level's price — e.g. Greater Spell Capacity's 1 Magical Advancement — on every node that is
+not complete, whatever gate is shut. `develop.affordable` appears where the price is what decides: an
+available decision, or a refusal whose `reasonCode` is `unaffordable`, which also names the blocking
+resource in its sentence. The `canDevelop`
 predicate asks the same gates in the same order, price included: `ResearchSO.IsWithinDevelopRange`
 asks the cost before the level requirements, so an unaffordable node answers `unaffordable` with the
 row's own shortfall sentence on both, and the per-field collapse then folds the predicate away. Only
 a range the four named gates do not account for answers `develop_range_refused`.
-While development is active it includes elapsed/required/remaining progress and,
-per resource, the drain that pays for the research already in flight: `invested` and `required` are
-the native fill bar, `cost` is what that bar still owes in the units the player spends — the same
-word and the same reading every other price on this surface uses — and `spendableAmount` is what the
-player actually holds. Associated
+While development is active it includes elapsed/required/remaining progress. `drain` is, per
+resource, what the level takes over its research time once Develop has paid the price — Greater
+Spell Capacity's 20 Knowledge: `invested` and `required` are the native fill bar, `remaining` is
+what it still takes in the units the player spends, and `spendableAmount` is what the player holds.
+Associated
 research types carry their remaining free bonus levels and investment caps. Only currently
 UI-reachable next verbs appear: `develop`, `pause`, `resume`, `cancel`, and `bonus`. A committed
 `develop` answers `queued` and stops — it buys research time, not a finished level, and the queue
@@ -1761,7 +1761,9 @@ and never a resource ledger.
 The `equipment-types`, `augment-glyphs`, `resource-types`, and `time-runes` detail rows are the
 complete pre-decision surface for their ordinary level-list buttons. Each row distinguishes paid,
 bonus, and total levels and carries a `purchase` decision. Equipment types, augment glyphs, and
-resource types also carry `bonus`; time runes do not implement that native control. An augment glyph
+resource types also carry `bonus`; time runes do not implement that native control. A time rune
+also carries its mastery bar: `masteryLevel`, and `masteryXp` of `masteryXpNeeded` in the screen's
+figures, so `Mastery Lv 3 · 1.96/10` reads as `3`, `1.96` and `10`. An augment glyph
 carries neither while Magic > Augments > Upgrade is locked, because until the Upgrade Glyphs upgrade
 is bought the game draws no level button at all — `GlyphSO.CanLevel()` being the constant `true` is a
 fact about the interface, not about a button. **A glyph's levels go with the button.** While that
@@ -2588,7 +2590,9 @@ does not carry what the pointer promised.
 Per-level structure, upgrade, and Research requirements preserve the implicit container `AND`,
 explicit native `AND`/`OR` nodes, authored order, and recursively expanded prerequisite-link tiers.
 Every operator node carries its `children` list, so an entity with no requirements reads as an
-empty list rather than as an operator over an unstated set.
+empty list rather than as an operator over an unstated set. A native group nested inside a group
+is an operator node of its own: Scholarism's unlock reads as `OR` over Magic Points capacity and an
+`AND` of World Resets and maxed Novice Spells. No authored container nests a third level.
 
 **A gate reads as what its tier needs.** A prerequisite link is machinery no screen draws, so a
 gate row words its `needs` from the conditions of the one tier it asks about — the tier its own

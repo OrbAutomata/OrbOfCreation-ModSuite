@@ -596,8 +596,10 @@ public sealed class TimeRuneSO : UpgradeableObject, IDiscoverable, ILevelable
     public int discRarityLevel;
     public BigDouble masteryXp;
     public int masteryLevel;
+    private ExperienceContainer xpContainer = new ExperienceContainer();
     public bool isDiscoverRequired;
     public bool seen;
+    public ExperienceContainer MasteryBar => xpContainer;
     public ResourceCostList discoveryCost = new ResourceCostList();
     public List<GlyphSO> glyphRecipe = new List<GlyphSO>();
     public List<ResourceSO> resourceRecipe = new List<ResourceSO>();

@@ -104,7 +104,7 @@ public sealed class GameMcpResearchTests
         Assert.Equal("Arcana", (string?)cost["resource"]!["name"]);
         Assert.Equal("20", (string?)cost["cost"]);
         Assert.Equal("80", (string?)cost["spendableAmount"]);
-        Assert.Equal("40", (string?)row["investment"]![0]!["invested"]);
+        Assert.Equal("40", (string?)row["drain"]![0]!["invested"]);
         Assert.Equal("Insight", (string?)row["researchTypes"]![0]!["researchType"]!["name"]);
         Assert.Equal(2, (int)row["researchTypes"]![0]!["remainingBonusLevels"]!);
     }
@@ -127,42 +127,76 @@ public sealed class GameMcpResearchTests
         Assert.Null(cost["lifetimeAmount"]);
     }
 
+    /// <remarks>
+    /// Greater Spell Capacity costs 1 Magical Advancement and then drains 20 Knowledge while it
+    /// develops. The drain was printed as <c>cost=20</c> beside no price at all, and a live round
+    /// read it as the node's price.
+    /// </remarks>
     [Fact]
-    public void Investment_names_the_remaining_price_beside_what_the_player_actually_holds()
+    public void The_drain_says_what_the_development_still_takes_and_is_not_a_price()
     {
         var world = World(investmentRemaining: 60, heldAmount: 90);
         var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2804),
             "research", ResearchId.ToString("D")).Freeze(), world);
-        var investment = Assert.Single(response["row"]!["investment"]!).Value<JObject>()!;
+        var drain = Assert.Single(response["row"]!["drain"]!).Value<JObject>()!;
 
-        Assert.Equal("40", (string?)investment["invested"]);
-        Assert.Equal("100", (string?)investment["required"]);
-        Assert.Equal("90", (string?)investment["spendableAmount"]);
-        Assert.Null(investment["availableToInvest"]);
-
-        // A price is spelled `cost` wherever the surface prints one. This table is richer than the
-        // four-column form beside it, and the extra columns are what make it richer — but the
-        // column that says what to pay reads the same word here as on a glyph or a develop.
-        Assert.Equal("60", (string?)investment["cost"]);
-        Assert.Null(investment["remainingCost"]);
+        Assert.Equal("60", (string?)drain["remaining"]);
+        Assert.Equal("40", (string?)drain["invested"]);
+        Assert.Equal("100", (string?)drain["required"]);
+        Assert.Equal("90", (string?)drain["spendableAmount"]);
+        Assert.Null(drain["cost"]);
+        Assert.Null(response["row"]!["investment"]);
     }
 
     [Fact]
-    public void An_unpublished_investment_resource_omits_holdings_instead_of_reporting_none()
+    public void An_unpublished_drain_resource_omits_holdings_instead_of_reporting_none()
     {
         var world = World(investmentRemaining: 60);
         var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2805),
             "research", ResearchId.ToString("D")).Freeze(), world);
-        var investment = Assert.Single(response["row"]!["investment"]!).Value<JObject>()!;
+        var drain = Assert.Single(response["row"]!["drain"]!).Value<JObject>()!;
 
-        Assert.Equal("60", (string?)investment["cost"]);
-        Assert.Null(investment["spendableAmount"]);
+        Assert.Equal("60", (string?)drain["remaining"]);
+        Assert.Null(drain["spendableAmount"]);
+    }
+
+    /// <remarks>
+    /// <c>StillHasLeeway()</c> is <c>leewayPoints &gt; queued base level</c>, so it is false on every
+    /// node with no leeway, and the game develops below both caps instead. The row withheld the
+    /// price unless leeway and both caps held together, which hid it on nearly every node.
+    /// </remarks>
+    [Fact]
+    public void A_short_holding_never_reads_as_the_price_or_the_drain_it_falls_short_of()
+    {
+        var world = World(price: 119.2, spendableAmount: 118.7, investmentRemaining: 119.2,
+            heldAmount: 118.7);
+        var row = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2809),
+            "research", ResearchId.ToString("D")).Freeze(), world)["row"]!;
+        var cost = Assert.Single(row["develop"]!["costs"]!).Value<JObject>()!;
+        var drain = Assert.Single(row["drain"]!).Value<JObject>()!;
+
+        Assert.Equal("119.2", (string?)cost["cost"]);
+        Assert.Equal("118.7", (string?)cost["spendableAmount"]);
+        Assert.Equal("119.2", (string?)drain["remaining"]);
+        Assert.Equal("118.7", (string?)drain["spendableAmount"]);
+    }
+
+    [Fact]
+    public void A_node_with_no_leeway_still_publishes_its_price()
+    {
+        var world = World(isDeveloping: false, queueMode: false, stillHasLeeway: false);
+        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2808),
+            "research", ResearchId.ToString("D")).Freeze(), world);
+        var cost = Assert.Single(response["row"]!["develop"]!["costs"]!).Value<JObject>()!;
+
+        Assert.Equal("Arcana", (string?)cost["resource"]!["name"]);
+        Assert.Equal("20", (string?)cost["cost"]);
     }
 
     /// <remarks>
     /// The game shuts its own develop gate once the price is out of reach, and that gate was what
     /// published <c>costs</c>. A row observed in play said "Needs 4 Orb Advancement (have 0)" while
-    /// publishing no cost row at all, and <c>investment</c> — the native fill bar — named only
+    /// publishing no cost row at all, and the drain — the native fill bar — named only
     /// resources that were not short. The sentence was the only place the blocking resource
     /// appeared, so the numbers behind it could not be read.
     /// </remarks>
@@ -437,7 +471,9 @@ public sealed class GameMcpResearchTests
         int queuedLevels = 3,
         int totalLevel = 1,
         bool withinDevelopRange = true,
-        bool canDevelop = true)
+        bool canDevelop = true,
+        bool stillHasLeeway = true,
+        double price = 20)
     {
         var decision = new WorldResearchDecision(
             queueMode,
@@ -451,7 +487,7 @@ public sealed class GameMcpResearchTests
             {
                 new WorldResearchCost(
                     ResourceId,
-                    new BigDouble(20),
+                    new BigDouble(price),
                     new BigDouble(spendableAmount)),
             }),
             PublicationTable<WorldResearchInvestment>.Create(new[]
@@ -467,7 +503,7 @@ public sealed class GameMcpResearchTests
             new BigDouble(100), BigDouble.Zero, BigDouble.Zero);
         var research = new WorldResearch(ResearchId, 1, 2, 0, 0, 10, 60,
             isDeveloping, isActive, false, true, true, complete, canDevelop, withinDevelopRange,
-            true, true, true, true,
+            true, stillHasLeeway, true, true,
             1, 1, 0, totalLevel, 10, false, 2, 1, new BigDouble(60), 1, 1,
             PublicationTable<WorldResearchRequirementAdjustment>.Empty, in modifiers, in decision);
         var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]

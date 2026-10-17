@@ -2172,6 +2172,7 @@ internal sealed class FakeTimeRune : global::IDiscoverable
     public int level;
     public int discRarityLevel;
     public BigDouble masteryXp;
+    public FakeExperienceContainer xpContainer = new();
     public int masteryLevel;
     public bool isDiscoverRequired;
     public bool seen;

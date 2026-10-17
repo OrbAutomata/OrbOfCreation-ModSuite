@@ -17677,6 +17677,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
+      "id": "time-rune.xp-container",
+      "assembly": "assembly-csharp",
+      "type": "TimeRuneSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "xpContainer",
+      "visibility": "private",
+      "static": false,
+      "valueType": "ExperienceContainer",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ExperienceContainer"}
+    },
+    {
       "id": "time-rune.mastery-xp",
       "assembly": "assembly-csharp",
       "type": "TimeRuneSO",

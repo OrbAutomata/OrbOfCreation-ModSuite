@@ -296,8 +296,10 @@ public sealed class GameWorldCollectorTests : IDisposable
         var timeRune = new FakeTimeRune
         {
             level = 6,
+            masteryXp = new BigDouble(1.96),
             LevelCost = Cost(11),
         };
+        timeRune.xpContainer.cachedRequiredXp = new BigDouble(10);
         FakeEquipmentType.All.Add(equipment);
         FakeGlyph.All.Add(glyph);
         FakeResourceType.All.Add(resourceType);
@@ -318,6 +320,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         AssertLevelDecision(resourceTypeRow.LevelDecision, 8, 3, 9, 10);
         Assert.True(WorldLookup.TryFind(world.TimeRunes, timeRune.Identity, out var timeRuneRow));
         AssertLevelDecision(timeRuneRow.LevelDecision, 6, 0, 11, null);
+        Assert.Equal(1.96, timeRuneRow.MasteryXp.ToDouble(), 6);
+        Assert.Equal(10d, timeRuneRow.RequiredMasteryXp.ToDouble());
     }
 
     [Fact]
