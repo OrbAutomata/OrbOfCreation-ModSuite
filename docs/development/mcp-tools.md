@@ -2239,7 +2239,12 @@ The MCP-only base-recipe sequence is:
    is a layout `add` will not refuse on the same arguments. Loading has no price, so the answer
    carries no cost or `affordable`: it is `status: available` with the `usageAllocation` the loaded
    spell would hold and the `loaded` pointer to `spell-slots`, or `status: refused` with the
-   refusal's code and sentence.
+   refusal's code and sentence. Augments are baked in, so on a full bar a recipe that is already
+   loaded is priced as a replacement of its lowest-slot copy: the free-slot and unique-copy checks
+   are skipped, that copy's weight counts as free, and the answer adds
+   `replaces: Channel Spark in slot 2 — remove it, then add`. With `replaces`, `add` holds after
+   that removal. Augments' loadout-wide free uses are counted as they stand, so when the replaced
+   copy holds some, the preview reads heavier than the swap will.
 4. Call `game_spell_loadout(mode="add", uuid=..., glyphs=[...])` with that same layout. Adding is
    the only mutation where the layout is chosen; it is baked into the created runtime spell.
 

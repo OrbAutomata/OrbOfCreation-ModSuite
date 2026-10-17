@@ -741,6 +741,8 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
     }
     public bool IsSpellAugment() => augmentsSpells;
     public int GetMaxUsages() => (int)maxUsages.GetValue().ToDouble();
+    public ResourceCostList usageCost = new ResourceCostList();
+    public ResourceCostList GetUsageCost() => usageCost;
     public int GetFreeUsages() => (int)freeUsages.GetValue().ToDouble();
     public static ResourceCostList GetCreationCostOfList(
         ResourceCostList startingCost,

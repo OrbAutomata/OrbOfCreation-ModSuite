@@ -62,6 +62,7 @@ internal static class GameMcpSpellWorkbenchProjection
             });
         }
         var result = new JObject { ["status"] = "available" };
+        if (preview.Replaces.Length > 0) result["replaces"] = preview.Replaces;
         if (usage.Count > 0)
         {
             result["usageAllocation"] = usage;

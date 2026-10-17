@@ -589,6 +589,26 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal("4.40e3", (string?)row["amount"]);
     }
 
+    /// <summary>A preview that prices a replacement names the copy and the removal it holds after.</summary>
+    [Fact]
+    public void LoadPreviewThatReplacesALoadedCopySaysWhichAndWhatToDoFirst()
+    {
+        var preview = SpellWorkbenchLoadPreview.Admitted(
+            RecipeId,
+            new[] { new SpellWorkbenchUsageAllocation(ResourceId, new BigDouble(3)) },
+            "Channel Spark in slot 2 — remove it, then add");
+
+        var response = GameMcpTestHarness.Json(
+            GameMcpSpellWorkbenchProjection.ProjectLoadPreview(in preview));
+
+        Assert.Equal(
+            new[] { "status", "replaces", "usageAllocation", "loaded" },
+            response.Properties().Select(property => property.Name));
+        Assert.Equal(
+            "Channel Spark in slot 2 — remove it, then add",
+            (string?)response["replaces"]);
+    }
+
     /// <summary>An admitted load with no allocation says so by carrying no allocation block.</summary>
     [Fact]
     public void LoadPreviewWithoutAnAllocationCarriesNothingBesideItsStatus()

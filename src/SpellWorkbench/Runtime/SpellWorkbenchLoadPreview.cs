@@ -46,7 +46,8 @@ internal readonly struct SpellWorkbenchUsageAllocation
 /// There is no price for putting a spell in a slot. The only budget the game weighs a load against
 /// is the usage allocation the loaded spell holds — so an available preview means the row's own
 /// button is pressable and these are the resources it will draw against, and every refusal here is
-/// a refusal the add on identical arguments makes too.
+/// a refusal the add on identical arguments makes too. A preview that replaces a loaded copy holds
+/// once that copy is removed.
 /// </remarks>
 internal readonly struct SpellWorkbenchLoadPreview
 {
@@ -54,27 +55,36 @@ internal readonly struct SpellWorkbenchLoadPreview
         SpellWorkbenchPreflight preflight,
         Guid recipeId,
         SpellWorkbenchUsageAllocation[] usage,
+        string replaces,
         string reason)
     {
         Preflight = preflight;
         RecipeId = recipeId;
         Usage = usage ?? throw new ArgumentNullException(nameof(usage));
+        Replaces = replaces ?? string.Empty;
         Reason = reason ?? string.Empty;
     }
 
     internal SpellWorkbenchPreflight Preflight { get; }
     internal Guid RecipeId { get; }
     internal SpellWorkbenchUsageAllocation[] Usage { get; }
+
+    /// <summary>
+    /// The loaded copy this preview replaces and the removal it holds after, or empty when it
+    /// prices another copy.
+    /// </summary>
+    internal string Replaces { get; }
     internal string Reason { get; }
     internal bool Available => Preflight == SpellWorkbenchPreflight.Proceeded;
 
     internal static SpellWorkbenchLoadPreview Admitted(
         Guid recipeId,
-        SpellWorkbenchUsageAllocation[] usage) =>
-        new(SpellWorkbenchPreflight.Proceeded, recipeId, usage, string.Empty);
+        SpellWorkbenchUsageAllocation[] usage,
+        string replaces = "") =>
+        new(SpellWorkbenchPreflight.Proceeded, recipeId, usage, replaces, string.Empty);
 
     internal static SpellWorkbenchLoadPreview Refused(
         SpellWorkbenchPreflight preflight,
         string reason) =>
-        new(preflight, Guid.Empty, Array.Empty<SpellWorkbenchUsageAllocation>(), reason);
+        new(preflight, Guid.Empty, Array.Empty<SpellWorkbenchUsageAllocation>(), string.Empty, reason);
 }
