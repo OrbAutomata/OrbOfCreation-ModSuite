@@ -23,9 +23,10 @@ quantity/cap shape as every other allocation; see [allocations.md](allocations.m
   the grid.
 - **Slots are typed.** A full grid refuses a recipe for having "no compatible open slot" — so
   whether the loadout is full is a question per recipe, not per grid.
-- **Recipe slots bind separately from capacity.** Early in a run the grid holds three different
-  recipes (observed), and a fourth is refused with every slot in use even while Alchemical Capacity
-  has room — swapping is then the only move.
+- **Recipe slots bind separately from capacity.** The grid holds three different recipes
+  (observed, early and late in a run), with all copies of one recipe in its one slot; a fourth
+  recipe is refused with every slot in use even while Alchemical Capacity has room — swapping is
+  then the only move.
 
 Two recipe types seen early, observed per equipped copy:
 
@@ -35,18 +36,25 @@ Two recipe types seen early, observed per equipped copy:
 | Dismantle | Channel Control | consumes Control for +4 Alchemical Capacity; 1 Mechanical Capacity |
 | Dismantle | Extract Wood | −4.9e3 Wood/s for +5.38 Biotic Capacity (superior roll); 1 Mechanical Capacity |
 | Refinement | Refine Organic | −325 Water/s for +0.379 Organic Essence/s; 3 Alchemical + 4 Biotic Capacity |
+| Dismantle | Extract Magebloom | −0.076 Magebloom/s for +8 Occultic and +1.6 Biotic Capacity; 1 Mechanical Capacity |
+| Refinement | Refine Occultic | −4.88e4 Thaumaturgy/s for +0.124 Occult Essence/s; 4 Alchemical + 4 Occultic Capacity |
 
 Copies of one recipe scale faster than linearly: Refine Organic ×1, ×2, ×3 made 0.38, 0.85 and
-1.59 Organic Essence/s (observed). Learn Biology (1e3 Alchemic Scroll + 5e8 Knowledge) opens Learn
-Refinement (5e4 Control), and the two together put Extract Wood and Refine Organic in the roll pool.
-Organic Essence in turn opens Grow Magic Herbs (the Magebloom unlock) and Imbue Organic.
+1.59 Organic Essence/s, and Refine Occultic ×1, ×2 made 0.124 and 0.281 Occult Essence/s
+(observed). Refine Occultic also eats Magebloom at about one per Occult Essence made, which its
+tooltip does not list (observed from rates), so Magebloom supply caps Occult Essence.
+
+Learn Biology (1e3 Alchemic Scroll + 5e8 Knowledge) opens Learn Refinement (5e4 Control), and the
+two together put Extract Wood and Refine Organic in the roll pool. Organic Essence in turn opens
+Grow Magic Herbs (the Magebloom unlock) and Imbue Organic. **Learn Occultic** (1e3 Magebloom + 1e4
+Alchemic Scroll) makes Extract Magebloom and then Refine Occultic the next required rolls, and the
+roll price switches to Magebloom (observed 300, then 100, beside a Skill cost).
 
 A recipe whose `Req.` lines (Expert research levels) are unmet carries a **requirement penalty**:
 observed ×2 capacity, ×0.25 speed and ×16 cost (Transmute Control, Brew Experience Elixir), which
 can make a superior roll unequippable — Transmute Control asked 20 Alchemical Capacity. Brewing
 recipes produce potions on a timer rather than a rate: Brew Mana Potion made one potion every 173 s
 (+1.68e6 Mana/s for 4 s) for −20.8 Water/s, and reaching its mastery 1 opens Improved Brewing.
-Raise Alchemy Level 1 → 2 took Water income from +595/s to +4.1e3/s (observed).
 
 A Transmute is the first Water source that needs no spell. Alchemy rolls offer one more option than
 the other trees (observed: three against two, then four against three after Greater Discovery).
@@ -64,8 +72,10 @@ recipes whose names start with "Brew" are ordinary alchemy recipes.
 
 ## Alchemy Level
 
-An `Alchemy Lv` row with −/+ and a **Raise Alchemy Level** purchase sits with the loadout; the −/+
-adjuster is drawn only once **Level Alchemy** is bought. The dial and its ceiling are described in
-[attributes-and-upgrades.md](attributes-and-upgrades.md).
+An `Alchemy Lv` row with −/+ and a **Raise Alchemy Level** purchase sits with the loadout; the
+dial and its ceiling are described in [attributes-and-upgrades.md](attributes-and-upgrades.md).
+Each level multiplies every equipped recipe's output and its drain together (observed: Lv 1 → 2
+took Water +595/s to +4.1e3/s; Lv 2 → 3 and 3 → 4 each doubled both essences). Its price is
+paid in Alchemic Scroll and climbs steeply: 100, 330, 1.1e3, 3.9e3 for Lv 2 to 5 (observed).
 How the level interacts with the six capacities is unrecorded; see
 [open-questions.md](open-questions.md).
