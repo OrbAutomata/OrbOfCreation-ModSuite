@@ -6,8 +6,8 @@ using RuntimeStrategyGeneration = OrbModding.Common.Runtime.StrategyGeneration;
 namespace OrbModding.Common.Runtime.ServiceCycle.Configuration;
 
 /// <summary>
-/// The write half of the shared strategy publication, for whichever service decides what the suite
-/// wants. Nothing publishes through it yet; the strategist is post-campaign work.
+/// The write half of the shared strategy publication, for the strategist, the one service that
+/// decides what the suite wants.
 /// </summary>
 /// <remarks>
 /// Separate from the publisher for the same reason the world's and the configuration's sinks are:

@@ -26,7 +26,8 @@ internal static class ActionOutcomeTimelineServicePolicy
 
     internal static bool Includes(ServiceId service, ServiceShape shape) =>
         shape == ServiceShape.Ordinary &&
-        !string.Equals(service.Value, MentorServiceId, StringComparison.Ordinal);
+        !string.Equals(service.Value, MentorServiceId, StringComparison.Ordinal) &&
+        service != StrategistServicePolicies.ServiceId;
 }
 
 internal readonly struct ActionOutcomeStackPresentation

@@ -565,6 +565,7 @@ public sealed class Plugin : BaseUnityPlugin
                                             _ => MentorDomain.Alchemy,
                                         }) == true,
                                 featureStatus: featureStatuses.Mentor)),
+                        new StrategistServiceCycleFeature(),
                     },
                     Log
 #if SERVICE_CYCLE_PROFILE
