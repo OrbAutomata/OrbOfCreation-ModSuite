@@ -110,7 +110,8 @@ augment is socketed anywhere. Observed per-level passives (partial):
 | Quick | ×1.04 Cantrip cooldown speed, ×0.94 Cantrip cost |
 | Efficient | +10% Mana Affinity max stacks, +8% Mana Affinity duration |
 
-Paid levels escalate: observed 2 Glyph Upgrades for the first level and 3 for the second.
+Paid levels escalate per augment, not globally: observed 2, 3 and 4 Glyph Upgrades for an augment's
+first, second and third paid levels, while a fresh augment's first level still costs 2.
 
 That splits an augment into two value streams: the socket effect (large, targeted, weighted,
 double-edged) and the level passive (small, global, weightless, permanent for the run).
