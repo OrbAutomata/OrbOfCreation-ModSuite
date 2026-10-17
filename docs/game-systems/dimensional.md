@@ -21,8 +21,31 @@ Dimensional is the World screen's attribute list, priced in **Space**, a Spacial
 | Urn of Expansion | +0.626 base Space per second, ×1.04 per level | Space + Spark |
 
 **Urn of Holding grows the cap over time** rather than adding a fixed amount: its capacity keeps
-rising while you wait. That makes Space a time-gated currency. A price far above the cap, such
-as Tech Advancements' 800, is reached by waiting on Urn of Holding, not by casting harder.
+rising while you wait. That makes Space a time-gated currency.
 
-The other fourteen Dimensional attributes (Containment, Memory, Sorcery, the Cores, the other
-Urns …) stay locked at this point.
+## The Shaper upgrades
+
+Each Shaper upgrade is a one-off World-screen purchase that opens two more attributes:
+
+| Upgrade | Price | Opens | What they do (observed, cumulative at the level shown) |
+|---|---|---|---|
+| Improved Shaping | 200 Space + 400 Knowledge | Containment (Space + mana) | Lv 5: +3.49% Spacial resources gained, +2.68% **all** resource capacities |
+| | | Urn of Urns (Space + Thaumaturgy) | Lv 5: +3.98% Urn of Holding effect, +13.3% Urn of Expansion effect |
+| Cognitive Shaping | 600 Space + 200 Psi | Memory (Space + Psi) | Lv 3: +5.24% base Mental and Energetic capacity |
+| | | Sorcery (Space + Knowledge) | Lv 2: +5.14% base Magic and Elemental capacity |
+
+These are the cap levers for every price above the Space cap. **An overflow can't pay such a
+price:** cast overcap falls back within seconds (see [overcap.md](overcap.md)), so Tech
+Advancements' 800 is reached by raising the cap through Containment, Urn of Urns and Urn of
+Holding.
+
+## Tech Advancements
+
+Tech Advancements opens the Technology research tab. Its first two nodes are **Improved Auras**
+(every Aura attribute: +2 bonus levels, +12 effect levels, −4% cost scaling) and **Improved
+Charms** (+2 Spell Capacity, ×1.20 Charm Spell Power, +1 Free Glyph Upgrade, −1.5% Infusion cost
+scaling). The first level of each costs 2 Technology Advancements, 1 Magical Advancement and
+resources, so the Magical points ration them. Improved Auras' second level asks 2 Technology,
+2 Magical and Expert Expansion 4.
+
+The remaining Dimensional attributes (the Cores, the other Urns …) stay locked at this point.
