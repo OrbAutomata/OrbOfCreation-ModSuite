@@ -43,7 +43,9 @@ Two recipe types seen early, observed per equipped copy:
 
 Copies of one recipe scale faster than linearly: Refine Organic ×1, ×2, ×3 made 0.38, 0.85 and
 1.59 Organic Essence/s, and Refine Occultic ×1, ×2 made 0.124 and 0.281 Occult Essence/s
-(observed). A Dismantle recipe's capacity is functional: it holds only while the recipe is fed.
+(observed). A second Extract Magebloom copy adds its Occultic Capacity again, which is room for more
+Refine Occultic copies: going from ×2 to ×4 at Lv 5 took Occult Essence from 7.1 to 21.6/s
+(observed, while Refinemenship also rose from 15 to 20). A Dismantle recipe's capacity is functional: it holds only while the recipe is fed.
 With Magebloom at zero, Extract Magebloom's Occultic Capacity lapses and Refine Occultic stops with
 it, so Magebloom supply caps Occult Essence even though Refine Occultic itself drains only
 Thaumaturgy. Alchemy Lv raises a Dismantle's drain but not its capacity (observed: Extract Magebloom
