@@ -338,8 +338,9 @@ than printing itself into a cell.
   to a sibling key left a three-column price beside four-column prices in the same session. The
   sibling key is a different fact and stays — it answers whether the whole purchase is payable,
   where the column answers it per resource and so names the one that is short. A table with more to
-  say keeps its extra columns and still spells the price `cost`. A drain is not a price and never
-  says `cost`: research's `drain` says `remaining`.
+  say keeps its extra columns and still spells the price `cost`. A per-second drain is charged like
+  a price and uses the same shape (`drainCostsPerSecond`, a harvest's `nextDrain`). Research's
+  `drain` is what is left to pay, not a rate, and says `remaining`.
 - **Constants live here, not in answers.** A number that is the same in every save on every call is
   documentation. The casting dials publish `current` and `maximum` and not the floor, which is 1 for
   both; `suite_configuration` publishes values and not the sentence describing each setting.
