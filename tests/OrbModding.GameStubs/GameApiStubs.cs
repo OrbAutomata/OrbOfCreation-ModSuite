@@ -431,6 +431,7 @@ public class ViewSO : IdScriptableObject
     public bool IsAvailable() => available;
     public bool alwaysActive;
     public DiscoveryTreeSO? discoveryTree;
+    public ViewListVariable? subViews;
     public List<AbstractListVariable> relevantLists = new List<AbstractListVariable>();
     public List<AbstractListVariable> availableLists = new List<AbstractListVariable>();
 }

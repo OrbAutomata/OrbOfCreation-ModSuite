@@ -264,11 +264,14 @@ internal static class GameMcpWorldQuery
     /// <c>discoveryTree</c> answers <c>HasImmediateRequiredDiscover()</c>, and while it does
     /// <c>GetNextItemCost()</c> prices the required item rather than the pool ladder, so the price
     /// can move to a resource the tree never charged before. A tree whose roll is already pressed
-    /// owes no price, so its row carries none.
+    /// owes no price, so its row carries none. <c>UIViewRadioButton.IsVisible()</c> draws a tab, and
+    /// so its mark, only while its view is available, so a page under a locked screen carries no
+    /// mark and has no row.
     /// </remarks>
     private static JArray RequiredRolls(GameWorldState world)
     {
         var rows = new JArray();
+        Dictionary<Guid, Guid>? parents = null;
         for (var index = 0; index < world.Views.Count; index++)
         {
             var view = world.Views[index];
@@ -278,6 +281,8 @@ internal static class GameMcpWorldQuery
             {
                 continue;
             }
+            parents ??= ParentViews(world);
+            if (!IsDrawn(world, parents, view.ViewId)) continue;
             var row = new JObject
             {
                 ["tree"] = tree.EntityId.ToString("D"),
@@ -288,6 +293,29 @@ internal static class GameMcpWorldQuery
             rows.Add(row);
         }
         return rows;
+    }
+
+    private static Dictionary<Guid, Guid> ParentViews(GameWorldState world)
+    {
+        var parents = new Dictionary<Guid, Guid>();
+        for (var index = 0; index < world.Views.Count; index++)
+        {
+            var view = world.Views[index];
+            for (var sub = 0; sub < view.SubViewIds.Count; sub++)
+                parents[view.SubViewIds[sub]] = view.ViewId;
+        }
+        return parents;
+    }
+
+    private static bool IsDrawn(GameWorldState world, Dictionary<Guid, Guid> parents, Guid viewId)
+    {
+        for (var depth = 0; depth <= world.Views.Count; depth++)
+        {
+            if (!WorldLookup.TryFind(world.Views, viewId, out var view) || !view.Available)
+                return false;
+            if (!parents.TryGetValue(viewId, out viewId)) return true;
+        }
+        return false;
     }
 
     /// <summary>

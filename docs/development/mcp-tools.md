@@ -474,8 +474,10 @@ clock and the reset's, and the level dials — `castingDials.outputLevel`, `cast
 
 **`requiredRolls` is the game's new-content mark on a discovery page**, one row per tree that owes a
 required discovery: the `tree`, the `screen` it is drawn on (`Magic > Spellbook > Unlock`), and the
-`costs` of that roll. The game marks a page's tab exactly while its view is unlocked and
-`ViewSO.discoveryTree` answers `HasImmediateRequiredDiscover()`, and the rows follow that rule.
+`costs` of that roll. The game marks a page's tab exactly while `ViewSO.discoveryTree` answers
+`HasImmediateRequiredDiscover()` and the tab is drawn, and it draws a tab only while that tab's view
+is unlocked, so the page and every screen above it in `ViewSO.subViews` must be unlocked. The rows
+follow that rule: a tree that owes a roll on a page under a locked screen has no row.
 While a tree owes one, its roll is priced in the required item's own resources rather than on the
 pool ladder, so the price can name a resource the tree never charged before. A tree whose roll is
 already pressed owes no price and its row carries none. The key is absent while no page is marked.

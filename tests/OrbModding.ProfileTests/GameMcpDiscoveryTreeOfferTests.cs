@@ -1591,7 +1591,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 Idle(glyphTree, required: false),
                 Idle(conceptTree, required: true),
             }),
-            Views = PublicationTable<WorldView>.Create(new[]
+            Views = WorldTable.Create(new[]
             {
                 new WorldView(KnownEntities.MagicSpellbookLearn.Uuid, false, false, true, spellTree),
                 new WorldView(KnownEntities.MagicGlyphsDiscover.Uuid, false, false, true, glyphTree),
@@ -1630,6 +1630,49 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             },
             generation: 91)));
         Assert.Null(quiet["requiredRolls"]);
+    }
+
+    /// <summary>
+    /// The game draws a tab, and the mark on it, only while that tab's view is available, so a
+    /// discovery page under a locked screen carries no mark. A live round read a required roll on
+    /// Alchemy &gt; Alchemy &gt; Learn while Alchemy itself answered that it is not unlocked yet.
+    /// </summary>
+    [Fact]
+    public void ARequiredRollUnderALockedScreenIsNotListed()
+    {
+        var alchemyTree = Guid.NewGuid();
+        var alchemyTab = Guid.NewGuid();
+        var control = Guid.NewGuid();
+        var tree = new WorldDiscoveryTree(
+            alchemyTree, true, 0, BigDouble.Zero, 1, false, Guid.Empty, Array.Empty<Guid>(),
+            true, true,
+            new[] { new WorldDiscoveryTreeCost(control, new BigDouble(1, 2), new BigDouble(5, 2)) },
+            Guid.Empty, Guid.Empty, 0, 0, false, 2, 8, 5, 9, true, true, false);
+        JObject Overview(bool screenAvailable) => GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+            GameMcpTestHarness.Context(
+                new GameWorldState
+                {
+                    DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new[] { tree }),
+                    Views = WorldTable.Create(new[]
+                    {
+                        new WorldView(
+                            KnownEntities.AlchemyScreen.Uuid, false, false, screenAvailable,
+                            subViewIds: new[] { alchemyTab }),
+                        new WorldView(
+                            alchemyTab, false, false, true,
+                            subViewIds: new[] { KnownEntities.AlchAlchemyDiscover.Uuid }),
+                        new WorldView(
+                            KnownEntities.AlchAlchemyDiscover.Uuid, false, false, true, alchemyTree),
+                    }),
+                    EntityIdentities = EntityIdentityCatalogSnapshot.Unbound(1),
+                    CollectedAtEpoch = 7,
+                    CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+                },
+                generation: screenAvailable ? 93UL : 92UL)));
+
+        Assert.Null(Overview(screenAvailable: false)["requiredRolls"]);
+        var roll = Assert.Single(Overview(screenAvailable: true)["requiredRolls"]!.Values<JObject>())!;
+        Assert.Equal("Alchemy > Alchemy > Learn", (string?)roll["screen"]);
     }
 
     private static GameWorldState DiscoveryWorld(
