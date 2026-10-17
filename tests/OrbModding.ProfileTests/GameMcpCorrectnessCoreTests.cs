@@ -376,6 +376,46 @@ public sealed class GameMcpCorrectnessCoreTests
             1));
     }
 
+    /// <summary>
+    /// A live round pressed Wisdom (41 Knowledge) right after a Resilience press spent Knowledge.
+    /// The published world still showed the price met, the game's live price check said no, and
+    /// the answer was "nothing left for it to do". The live cost list read at that refusal names
+    /// the shortfall.
+    /// </summary>
+    [Fact]
+    public void A_price_the_game_finds_unmet_at_the_press_names_the_live_shortfall()
+    {
+        var target = Guid.Parse("34444444-4444-4444-8444-444444444446");
+        var knowledge = Guid.Parse("32222222-2222-4222-8222-222222222224");
+        var world = new GameWorldState
+        {
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(1, new[]
+            {
+                new EntityIdentityName(knowledge, "ResourceSO", "Knowledge", "knowledge"),
+            }),
+        };
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Purchase, 1, 1, "structure", target, Guid.Empty,
+            "StructureSO", 1, string.Empty, string.Empty, false);
+        var live = new AutoBuyAdmissionDiagnosis(
+            AutoBuyAdmissionTerm.Passed,
+            AutoBuyAdmissionTerm.Passed,
+            AutoBuyAdmissionTerm.Passed,
+            AutoBuyAdmissionTerm.Refused,
+            AutoBuyLiveCostSnapshot.Complete(new[]
+            {
+                new AutoBuyLiveCostRow(knowledge, false, new BigDouble(41), new BigDouble(39.6)),
+            }));
+
+        var result = AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
+            command, world, ServiceActionResult.Skipped(CommonActionResultCodes.Skipped),
+            1, 1, live);
+
+        Assert.NotNull(result);
+        Assert.Equal("unaffordable", result!.Code);
+        Assert.Equal("Needs 41 Knowledge (have 39.6).", result.Reason);
+    }
+
     [Fact]
     public void Maxed_purchase_refusal_uses_the_same_semantic_reason_as_the_read()
     {

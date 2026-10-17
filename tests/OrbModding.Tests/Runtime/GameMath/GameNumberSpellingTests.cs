@@ -111,4 +111,40 @@ public sealed class GameNumberSpellingTests
         Assert.Equal("infinity", GameScientificNumber.Beautify(double.PositiveInfinity));
         Assert.Equal("-infinity", GameScientificNumber.Beautify(double.NegativeInfinity));
     }
+
+    /// <summary>
+    /// A holding short of a price whose screen spellings say the same number is widened one decimal
+    /// at a time until the gap shows, in whichever form the screen used.
+    /// </summary>
+    [Theory]
+    [InlineData(119.2d, 118.7d, "119.2", "118.7")]
+    [InlineData(41d, 40.96d, "41.00", "40.96")]
+    [InlineData(100.2d, 99.97d, "100.20", "99.97")]
+    [InlineData(4401d, 4398d, "4.401e3", "4.398e3")]
+    [InlineData(1000.4d, 999.8d, "1.000e3", "9.998e2")]
+    public void AShortfallTheScreenRoundsTogetherIsWidenedApart(
+        double needed, double held, string neededText, string heldText)
+    {
+        Assert.True(GameScientificNumber.TryBeautifyApart(
+            new BigDouble(needed), new BigDouble(held), out var widenedNeeded, out var widenedHeld));
+        Assert.Equal(neededText, widenedNeeded);
+        Assert.Equal(heldText, widenedHeld);
+    }
+
+    /// <summary>
+    /// Where the screen already shows two numbers, or the holding covers the price, the screen's
+    /// spellings stand.
+    /// </summary>
+    [Theory]
+    [InlineData(50d, 2d, "50", "2")]
+    [InlineData(119.2d, 119.4d, "119", "119")]
+    [InlineData(41d, 41d, "41", "41")]
+    public void TheScreensSpellingsStandWhereNothingIsHidden(
+        double needed, double held, string neededText, string heldText)
+    {
+        Assert.False(GameScientificNumber.TryBeautifyApart(
+            new BigDouble(needed), new BigDouble(held), out var screenNeeded, out var screenHeld));
+        Assert.Equal(neededText, screenNeeded);
+        Assert.Equal(heldText, screenHeld);
+    }
 }

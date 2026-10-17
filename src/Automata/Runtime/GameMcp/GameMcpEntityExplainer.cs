@@ -1727,8 +1727,9 @@ internal static class GameMcpEntityExplainer
         }
 
         var name = RequirementTargetName(world, row.TargetId);
-        var required = GameMcpNumberFormatter.Format(evaluated.Required);
-        var current = GameMcpNumberFormatter.Format(evaluated.Current);
+        var (required, current) = evaluated.Met
+            ? (GameMcpNumberFormatter.Format(evaluated.Required), string.Empty)
+            : GameMcpNumberFormatter.FormatApart(evaluated.Required, evaluated.Current);
         var at = evaluated.Met ? string.Empty : " (at " + current + ")";
         var have = evaluated.Met ? string.Empty : " (have " + current + ")";
         var check = GameMcpNativeVocabulary.RequirementCheck(row.Kind, row.ReqType);

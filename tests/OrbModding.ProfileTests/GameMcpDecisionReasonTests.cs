@@ -412,6 +412,21 @@ public sealed class GameMcpDecisionReasonTests
     }
 
     /// <summary>
+    /// A live round was refused with <c>Needs 119 Knowledge (have 119).</c>: both figures rounded to
+    /// the screen's spelling and the price read as met.
+    /// </summary>
+    [Fact]
+    public void A_shortfall_the_screen_rounds_together_shows_enough_digits_to_see_the_gap()
+    {
+        var sentence = GameMcpDecisionReason.Shortfall(new[]
+        {
+            ("Knowledge", new BigDouble(119.2), new BigDouble(118.7)),
+        });
+
+        Assert.Equal("Needs 119.2 Knowledge (have 118.7).", sentence);
+    }
+
+    /// <summary>
     /// The four tables that make up the wire's vocabulary agree about every code in them.
     /// </summary>
     /// <remarks>

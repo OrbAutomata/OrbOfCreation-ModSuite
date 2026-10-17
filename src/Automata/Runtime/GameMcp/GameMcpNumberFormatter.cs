@@ -21,5 +21,21 @@ internal static class GameMcpNumberFormatter
     }
 
     internal static string Format(double value) => GameScientificNumber.Beautify(value);
+
+    /// <summary>A price and the holding beside it, spelled so a shortfall never reads as met.</summary>
+    internal static (string Needed, string Held) FormatApart(BigDouble needed, BigDouble held)
+    {
+        GameScientificNumber.TryBeautifyApart(needed, held, out var neededText, out var heldText);
+        return (neededText, heldText);
+    }
+
+    /// <summary>
+    /// The same pair as two cells of a price row: domain values while the screen's spellings already
+    /// read apart, the widened text where they do not.
+    /// </summary>
+    internal static (object Needed, object Held) CellsApart(BigDouble needed, BigDouble held) =>
+        GameScientificNumber.TryBeautifyApart(needed, held, out var neededText, out var heldText)
+            ? (neededText, heldText)
+            : (new GameMcpDomainValue(needed), new GameMcpDomainValue(held));
 }
 #endif

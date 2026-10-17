@@ -124,6 +124,12 @@ There is one formatter and no precision or verbosity option, and it is not the w
 differential check prints magnitudes from the Runtime page in builds this whole surface is compiled
 out of, and a second formatter for those builds would be a second notation.
 
+**A price beside a holding short of it never reads as met.** Wherever the two are printed together —
+the shortfall sentence, an unmet requirement's `(have …)`, and the `cost` and `spendableAmount` of a
+price row — a pair whose screen spellings say the same number is widened, one decimal at a time and
+both in the same form, until the gap shows: `Needs 119.2 Knowledge (have 118.7)`, `41.00` against
+`40.96`, `4.401e3` against `4.398e3`. Every other pair keeps the screen's characters.
+
 The game aggressively caches some derived values until their screen has been viewed. That upstream
 behavior is not silently worked around here. If a stale cache prevents a native action, the
 terminal rejection must name the stale cached fact and the screen-view condition; the MCP server
@@ -2955,7 +2961,10 @@ a code that arrives without prose leaves with it. A producer holding the numbers
 sentence itself and keeps it: a shortfall names the resource, the price, and the holding, where the
 code alone can only say that something was short. A read block and the refusal of the mutation it
 guards therefore answer one gate in one sentence — `game_research develop` says
-`Needs 4 Orb Advancement (have 0).` whether it is asked or attempted. `game_spell_mastery
+`Needs 4 Orb Advancement (have 0).` whether it is asked or attempted. A purchase the game finds
+short when the press arrives — another press spent the resource moments earlier, before the
+published world caught up — answers the same sentence from the live price the game just refused.
+`game_spell_mastery
 single` answers the same way, and its two gates stay apart: a spell with no level waiting says
 its mastery bar fills by casting it, and a spell with one waiting names the price and the
 holding.
