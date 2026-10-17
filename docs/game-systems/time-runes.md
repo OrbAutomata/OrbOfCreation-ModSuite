@@ -43,7 +43,9 @@ you ever pick that rune again. Repicking is therefore only needed to buy *more* 
 
 Some runes buff whole *classes* of runes rather than a game system. E.g., "Persist Persist" grants
 `+12 %` Investment Power, which multiplies its own XP gain because it is itself an Investment rune.
-Rune effects can be **reflexive** (a rune affecting itself) and **retroactive** (a class multiplier
+**Persist Boost** (Meta) gives `+1` Free Usage per level to every Investment rune, so each of its
+levels makes one more level of every Investment rune free; its tooltip says buying it refunds Time
+Advancements already invested in Investment runes. Rune effects can be **reflexive** (a rune affecting itself) and **retroactive** (a class multiplier
 applying to a rune of that class picked earlier in the run).
 
 Investment Power stacks additively: `+12 %` per persist level, so three levels turn a base `225` pick
