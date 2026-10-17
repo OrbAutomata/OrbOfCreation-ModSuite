@@ -8007,6 +8007,37 @@ internal static class GameMcpWorldQuery
         return GameMcpDecisionReason.Shortfall(rows);
     }
 
+    internal static string LevelAllLockedReason(GameWorldState world)
+    {
+        var unlock = KnownEntities.UnlockLevelAllSpells.Uuid;
+        var name = EntityIdentityFormatter.PlayerName(unlock, world.EntityIdentities);
+        if (WorldLookup.TryFind(world.Upgrades, unlock, out var upgrade) &&
+            upgrade.Reading.QueuedLevels > 0)
+        {
+            return "Level All Spells is locked until " + name +
+                " finishes developing in the action queue.";
+        }
+        var text = new StringBuilder("Level All Spells is locked until ")
+            .Append(name)
+            .Append(" is bought");
+        if (WorldPurchaseCostLookup.TryFindRange(
+                world.PurchaseCosts, unlock, out var start, out var count) && count > 0)
+        {
+            text.Append(" (");
+            for (var index = start; index < start + count; index++)
+            {
+                var cost = world.PurchaseCosts[index];
+                if (index > start) text.Append(", ");
+                text.Append(GameMcpNumberFormatter.Format(AdmittedCost(world, in cost)))
+                    .Append(' ')
+                    .Append(EntityIdentityFormatter.PlayerName(
+                        cost.ResourceId, world.EntityIdentities));
+            }
+            text.Append(')');
+        }
+        return text.Append('.').ToString();
+    }
+
     internal static string ShortfallReason(
         GameWorldState world,
         PublicationTable<WorldResearchCost> costs)

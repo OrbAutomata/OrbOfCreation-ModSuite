@@ -580,6 +580,11 @@ internal static class GameMcpActionResultCodeNames
             // the level-all press, where the answer really is the union over every ready spell.
             return "No spell has a mastery level ready whose cost you can afford.";
         }
+        if (commandKind == GameMcpCommandKind.SpellLevel &&
+            code == SpellLevelActionResultCodes.LevelAllLocked)
+        {
+            return "Level All Spells is locked until Unlock Level All Spells is bought.";
+        }
         if (code == AutoHarvestActionResultCodes.PairContractUnavailable)
             return "The current plot and harvest action cannot be matched safely.";
         if (code == AutoHarvestActionResultCodes.FeatureContractUnavailable)
@@ -769,6 +774,8 @@ internal static class GameMcpActionResultCodeNames
                 return "progression_locked";
             if (code == SpellLevelActionResultCodes.LevelNotAffordable)
                 return "level_not_affordable";
+            if (code == SpellLevelActionResultCodes.LevelAllLocked)
+                return "level_all_locked";
         }
         if (code == AutoCastActionResultCodes.ActionFamilyUnavailable)
             return "action_family_unavailable";

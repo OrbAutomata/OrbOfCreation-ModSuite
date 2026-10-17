@@ -377,6 +377,61 @@ public sealed class GameMcpCorrectnessCoreTests
     }
 
     /// <summary>
+    /// A live round pressed Level All Spells with four ready, affordable spells and was told none
+    /// was affordable. The button is gated on the Unlock Level All Spells upgrade, which had not
+    /// been bought, so the refusal names that upgrade and its price.
+    /// </summary>
+    [Fact]
+    public void Level_all_without_its_unlock_names_the_upgrade_and_its_price()
+    {
+        var unlock = KnownEntities.UnlockLevelAllSpells.Uuid;
+        var skill = Guid.Parse("32222222-2222-4222-8222-222222222225");
+        GameWorldState Build(int queuedLevels)
+        {
+            var reading = new RawUpgradeSample(
+                unlock, level: 0, maxLevel: 1, available: true, queuedLevels: queuedLevels,
+                buildTime: BigDouble.Zero, developmentTime: 5, cachedCostLevel: 0);
+            return new GameWorldState
+            {
+                EntityIdentities = EntityIdentityCatalogSnapshot.Bound(1, new[]
+                {
+                    new EntityIdentityName(skill, "ResourceSO", "Skill", "Skill"),
+                    new EntityIdentityName(
+                        unlock, "UpgradeSO", "Unlock Level All Spells", "UnlockLevelAllSpells"),
+                }),
+                Upgrades = PublicationTable<WorldUpgrade>.Create(new[]
+                {
+                    new WorldUpgrade(in reading, true, false, 1, 0, queuedLevels > 0, 0d),
+                }),
+                PurchaseCosts = PublicationTable<WorldPurchaseCost>.Create(new[]
+                {
+                    new WorldPurchaseCost(
+                        unlock, skill, new BigDouble(5), new BigDouble(5), 1, new BigDouble(5),
+                        PublicationTable<WorldPurchaseCostModifierSource>.Empty,
+                        affordabilityEvaluated: true,
+                        availableAmount: new BigDouble(7),
+                        combinedEffectiveAmount: new BigDouble(5),
+                        resourceAffordable: true,
+                        resourceAffordabilityReasonCode: string.Empty,
+                        affordable: true,
+                        affordabilityReasonCode: string.Empty),
+                }),
+            };
+        }
+
+        Assert.Equal(
+            "Level All Spells is locked until Unlock Level All Spells is bought (5 Skill).",
+            GameMcpWorldQuery.LevelAllLockedReason(Build(queuedLevels: 0)));
+        Assert.Equal(
+            "Level All Spells is locked until Unlock Level All Spells finishes developing in " +
+            "the action queue.",
+            GameMcpWorldQuery.LevelAllLockedReason(Build(queuedLevels: 1)));
+        Assert.Equal("ERR_LOCKED", GameMcpDecisionReason.Class(
+            GameMcpActionResultCodeNames.Name(
+                SpellLevelActionResultCodes.LevelAllLocked, GameMcpCommandKind.SpellLevel)));
+    }
+
+    /// <summary>
     /// A live round pressed Wisdom (41 Knowledge) right after a Resilience press spent Knowledge.
     /// The published world still showed the price met, the game's live price check said no, and
     /// the answer was "nothing left for it to do". The live cost list read at that refusal names

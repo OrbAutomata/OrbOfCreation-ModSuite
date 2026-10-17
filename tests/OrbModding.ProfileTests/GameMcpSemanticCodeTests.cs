@@ -38,6 +38,7 @@ public sealed class GameMcpSemanticCodeTests
             (GameMcpCommandKind.Loadout, LoadoutActionResultCodes.EntryUnavailable, "saved_entry_unavailable"),
             (GameMcpCommandKind.SpellLevel, SpellLevelActionResultCodes.LevelNotAffordable, "level_not_affordable"),
             (GameMcpCommandKind.SpellLevel, SpellLevelActionResultCodes.ProgressionLocked, "progression_locked"),
+            (GameMcpCommandKind.SpellLevel, SpellLevelActionResultCodes.LevelAllLocked, "level_all_locked"),
 
             // The research action answers with the same words the research row publishes.
             (GameMcpCommandKind.Research, ResearchActionResultCodes.AlreadyMaxed, "already_maxed"),

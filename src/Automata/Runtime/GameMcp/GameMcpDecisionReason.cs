@@ -287,6 +287,7 @@ internal static class GameMcpDecisionReason
         // Progression, visibility, or authored requirements are not reached yet.
         "not_available" or "action_not_available" or "not_visible" or "hidden" or
         "hidden_or_undiscovered" or "undiscovered" or "not_discovered" or "progression_locked" or
+        "level_all_locked" or
         "requirements_unmet" or "usage_requirements_unmet" or
         "native_prerequisites_currently_unmet" or "develop_range_refused" or
         "native_not_discoverable" or "discovery_unavailable" or
