@@ -89,6 +89,11 @@ A Force Tree offers **Peel Bark** (Force Bark, tree kept) and **Chop Down Force 
 and Wood, tree destroyed). An Empty Plot's other action, **Plant Seedling**, paid in Thaumaturgy,
 grows **Void Moss**.
 
+**Empty Plots are the unused Plot Capacity.** Every grown thing weighs Plot Capacity (an Oak Tree
+2, Void Moss 1), and the Empty Plot count is whatever is left over: raising the capacity or using
+**Destroy** (a 5 s utility action that removes a plant, recovering and growing ones first) adds
+Empty Plots at once (observed 2 → 14 after +10 capacity and four Void Moss destroyed).
+
 ## Shaped Ground and weaves
 
 **Shape Land** (the World upgrade unlocks it) is an Empty Plot weave that drains **Space** while it

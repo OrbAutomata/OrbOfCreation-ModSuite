@@ -11,7 +11,8 @@ level raises all spell power at a greater spell cost and a longer cooldown, so a
 went ×2.80 against a yield of ×2.28 and a cooldown of ×1.25.
 
 The ceiling is raised by `Raise Output Lv`, and buying it moves a dial that sat at the old ceiling
-up to the new one by itself (see [attributes-and-upgrades.md](attributes-and-upgrades.md)). The
+up to the new one by itself (see [attributes-and-upgrades.md](attributes-and-upgrades.md); observed
+at 1 → 2 and at 12 → 13, where Conjure Life's cost went ×2.8 for ×1.9 VE). The
 per-level curve has not been extracted, and the dial runs past 50; see
 [open-questions.md](open-questions.md).
 
