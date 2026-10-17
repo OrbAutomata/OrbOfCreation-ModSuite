@@ -34,8 +34,15 @@ Two recipe types seen early, observed per equipped copy:
 | Transmute | Transmute Knowledge / Water / Space | +1.5e4 Knowledge/s, +50 Water/s or +2.5e4 Space/s, each with ×1.30 gain on that resource; 3 Alchemical Capacity |
 | Dismantle | Channel Control | consumes Control for +4 Alchemical Capacity; 1 Mechanical Capacity |
 
-A Transmute is the first Water source that needs no spell. Optional Alchemy rolls offered three
-options where the other trees offered two (observed).
+A recipe whose `Req.` lines (Expert research levels) are unmet carries a **requirement penalty**:
+observed ×2 capacity, ×0.25 speed and ×16 cost (Transmute Control, Brew Experience Elixir), which
+can make a superior roll unequippable — Transmute Control asked 20 Alchemical Capacity. Brewing
+recipes produce potions on a timer rather than a rate: Brew Mana Potion made one potion every 173 s
+(+1.68e6 Mana/s for 4 s) for −20.8 Water/s, and reaching its mastery 1 opens Improved Brewing.
+Raise Alchemy Level 1 → 2 took Water income from +595/s to +4.1e3/s (observed).
+
+A Transmute is the first Water source that needs no spell. Alchemy rolls offer one more option than
+the other trees (observed: three against two, then four against three after Greater Discovery).
 
 ## Types, and the filter above the pool
 

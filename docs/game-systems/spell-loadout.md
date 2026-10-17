@@ -21,9 +21,10 @@ research adds one, for a maximum of **five** in the authored data. The weight bu
 [vocabulary.md](vocabulary.md).
 
 A spell whose tooltip says **"Insufficient req. to use effectively."** (its `Req.` lines name
-Expert research levels it has not reached) weighs **twice** its normal weight. The Loadout grid
+Expert research levels it has not reached) carries a **requirement penalty** on its weight. The Loadout grid
 prints the doubled number in red. E.g., Sanctify (base weight 6) showed `12` while Expert Storm
-sat at 17/21, so the game refused to load it with 7 weight free.
+sat at 17/21, so the game refused to load it with 7 weight free. The tooltip prints the penalty as its own lines, and it is not always that
+doubling: Ralochs's Cube and Power Strike each showed `+3` Spell Capacity, ×2 cost and ×2 cooldown.
 
 ## Rules that follow from the two binders
 

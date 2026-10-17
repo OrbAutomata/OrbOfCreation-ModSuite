@@ -30,8 +30,9 @@ Harvesting has a setup layer and an action layer, and they are paid for out of d
 
 Plot actions run in their **own queue**, separate from the one attributes and upgrades develop in
 (see [development-queue.md](development-queue.md)). Its size is **Parallel Agromancy Slots** — the
-most agromancy actions you can have going at once, starting at one and raised by upgrades (observed
-at 2). Filling one queue leaves the other untouched.
+most agromancy actions you can have going at once, starting at one; the **Parallel Agromancy**
+research (2 Ability per level) adds one per level. A chop, a planting, a peel or a weave each hold a
+slot for as long as they run. Filling one queue leaves the other untouched.
 
 A harvested plot **regrows on its own**. A short action such as collecting fruit takes the plot from
 2 to 1, resolves without further input, and the plot is back at 2 a minute later — so a plot count
@@ -71,7 +72,7 @@ Wood comes only from oaks:
 harvests) and Clearcutting (harvest speed) are the Workshop levers on the same loop; see
 [workshop.md](workshop.md). Observed yield: ~130 Wood per oak at the start, ~1.1e3 after eight Wood
 Axe levels at Druidry Lv 3, ~5.7e3 at Wood Axe 10 with Improved Tools (×1.40 Agromancy Power and
-Speed).
+Speed), ~1.3e7 at Oak Mastery Lv 10 late in a run.
 
 ## Oaks are the stock for other trees
 
@@ -86,3 +87,13 @@ turning that oak into a new kind of tree:
 A Force Tree offers **Peel Bark** (Force Bark, tree kept) and **Chop Down Force Tree** (Force Bark
 and Wood, tree destroyed). An Empty Plot's other action, **Plant Seedling**, paid in Thaumaturgy,
 grows **Void Moss**.
+
+## Shaped Ground and weaves
+
+**Shape Land** (the World upgrade unlocks it) is an Empty Plot weave that drains **Space** while it
+runs and turns the plot into **Shaped Ground**; with Space at zero it crawls at whatever Space income
+allows. Shaped Ground offers **Create Spring** (Water Spring), **Create Elementia Spring** (Elementia;
+locked until the Elementia Spring research, which itself waits for Elementia in the resource list)
+and **Create Craggy Spire**. Void Moss offers its own weaves — **Create Magebloom**, **Create Dark
+Thistle** and **Create Dreamberry** — each locked until something else is learned (observed:
+Create Magebloom refused as locked; what unlocks it is unrecorded).
