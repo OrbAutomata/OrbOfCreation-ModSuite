@@ -137,5 +137,7 @@ internal sealed class SpellLevelFeatureRuntime : IAutomataServiceCycleFeatureRun
         in SuiteRuntimeConfiguration config,
         in ServiceActionContext context) =>
         _actions.TryExecuteGameMcp(in action, in config, in context);
+
+    internal SpellLevelSubmission LastGameMcpSubmission => _actions.LastSubmission;
 #endif
 }

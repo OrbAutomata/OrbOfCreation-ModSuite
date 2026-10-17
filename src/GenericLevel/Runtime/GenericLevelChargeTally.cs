@@ -44,12 +44,12 @@ internal struct GenericLevelChargeTally
         }
     }
 
-    internal GenericLevelCharge[]? Rows()
+    internal ResourceCharge[]? Rows()
     {
         if (_order is null || _amounts is null || _order.Count == 0) return null;
-        var rows = new GenericLevelCharge[_order.Count];
+        var rows = new ResourceCharge[_order.Count];
         for (var index = 0; index < _order.Count; index++)
-            rows[index] = new GenericLevelCharge(_order[index], _amounts[_order[index]]);
+            rows[index] = new ResourceCharge(_order[index], _amounts[_order[index]]);
         return rows;
     }
 }

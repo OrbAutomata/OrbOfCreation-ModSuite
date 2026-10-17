@@ -3490,59 +3490,14 @@ internal static class GameMcpWorldQuery
             oldWorld.SpellRecipes, command.TargetId, out var previous)
             ? previous.MasteryLevel
             : (int?)null;
-        var result = new JObject
+        // What the level cost is the press's to say, from the price it paid: two balance readings
+        // around a press also move with every other spend and income in the window.
+        return new JObject
         {
             ["uuid"] = command.TargetId.ToString("D"),
             ["mastery"] = new JObject { ["before"] = before, ["after"] = current.MasteryLevel },
-        };
-
-        // A mastery level is bought, and the answer used to say only that the level moved. The
-        // caller is presumed to have paid — nothing here verifies a payment — but the resources
-        // the price names are published, and where they stand now against where they stood is the
-        // post-state a caller would otherwise spend a read on.
-        AddPriceResources(result, oldWorld, state.World.Snapshot, command.TargetId);
-        return result.Freeze();
+        }.Freeze();
     }
-
-    /// <summary>
-    /// Where the resources this entity's price names stand now, and where they stood before.
-    /// </summary>
-    /// <remarks>
-    /// These are two readings of a published resource, not an arithmetic of what was charged: a
-    /// spell casting while the answer settles moves the same number. That is why the block says
-    /// only which resources the price names and what each reads — the claim it makes is one a
-    /// later read would agree with.
-    /// </remarks>
-    private static void AddPriceResources(
-        JObject target,
-        GameWorldState? before,
-        GameWorldState after,
-        Guid ownerId)
-    {
-        if (!OwnedMasteryCostMath.TryFindRange(
-                after.MasteryCosts, ownerId, out var start, out var count) || count <= 0)
-        {
-            return;
-        }
-        var rows = new JArray();
-        for (var index = start; index < start + count; index++)
-        {
-            var resourceId = after.MasteryCosts[index].ResourceId;
-            if (!WorldLookup.TryFind(after.Resources, resourceId, out var now)) continue;
-            var row = new JObject { ["resourceId"] = resourceId.ToString("D") };
-            if (before is not null &&
-                WorldLookup.TryFind(before.Resources, resourceId, out var then))
-            {
-                row["before"] = new GameMcpDomainValue(
-                    SpendableAmount(before, resourceId, then.Reading.Quantity));
-            }
-            row["after"] = new GameMcpDomainValue(
-                SpendableAmount(after, resourceId, now.Reading.Quantity));
-            rows.Add(row);
-        }
-        if (rows.Count > 0) target["resources"] = rows;
-    }
-
 
     private static GameMcpValue ProjectEquipmentDelta(
         GameMcpFrameContext state,

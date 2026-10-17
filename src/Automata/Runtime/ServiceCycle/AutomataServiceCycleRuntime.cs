@@ -259,7 +259,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             if (command.Kind == GameMcpCommandKind.RitualLifecycle)
                 return ExecuteRitualLifecycle(command, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.GenericLevel)
-                return ExecuteGenericLevel(command, lifecycle, configuration.Generation.Value);
+                return ExecuteGenericLevel(
+                    command, world.Snapshot, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.CraftingStation)
                 return ExecuteCraftingStation(command, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.Loadout)
@@ -373,6 +374,12 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             {
                 exactReason = GameMcpWorldQuery.MasteryRefusalReason(
                     world.Snapshot, command.TargetId);
+            }
+            if (command.Kind == GameMcpCommandKind.SpellLevel &&
+                FindFeature(command.Kind) is SpellLevelFeatureRuntime levels)
+            {
+                details = GameMcpSpellLevelProjection.Project(
+                    levels.LastGameMcpSubmission, world.Snapshot);
             }
 
             if (command.Kind == GameMcpCommandKind.Cast &&
@@ -883,6 +890,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
 
     private GameMcpCommandResult ExecuteGenericLevel(
         GameMcpCommand command,
+        GameWorldState world,
         long lifecycle,
         ulong configurationGeneration)
     {
@@ -903,7 +911,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var result = GenericLevelActionResultMapper.Map(in submission);
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
             configurationGeneration, submission.Reason,
-            GameMcpGenericLevelProjection.Project(in submission));
+            GameMcpGenericLevelProjection.Project(in submission, world));
     }
 
     private GameMcpCommandResult ExecuteCraftingStation(

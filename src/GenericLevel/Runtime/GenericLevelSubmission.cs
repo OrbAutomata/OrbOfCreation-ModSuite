@@ -30,22 +30,9 @@ internal enum GenericLevelNativeStage
     Verification = 2,
 }
 
-/// <summary>One resource line of what a level press actually asked for.</summary>
-internal readonly struct GenericLevelCharge
-{
-    internal GenericLevelCharge(Guid resourceId, BigDouble amount)
-    {
-        ResourceId = resourceId;
-        Amount = amount;
-    }
-
-    internal Guid ResourceId { get; }
-    internal BigDouble Amount { get; }
-}
-
 internal readonly struct GenericLevelSubmission
 {
-    private readonly GenericLevelCharge[]? _charges;
+    private readonly ResourceCharge[]? _charges;
 
     internal GenericLevelSubmission(
         GenericLevelPreflight preflight,
@@ -54,7 +41,7 @@ internal readonly struct GenericLevelSubmission
         NativeMutationCallOutcome callOutcome,
         string reason,
         int levelsCharged = 0,
-        GenericLevelCharge[]? charges = null)
+        ResourceCharge[]? charges = null)
     {
         Preflight = preflight;
         Stage = stage;
@@ -82,20 +69,11 @@ internal readonly struct GenericLevelSubmission
     /// balance comparison, and not evidence: the postcondition is still the one level sentinel.
     /// </remarks>
     internal int LevelsCharged { get; }
-    internal ReadOnlySpan<GenericLevelCharge> Charges =>
+    internal ReadOnlySpan<ResourceCharge> Charges =>
         _charges is null ? default : _charges.AsSpan(0, _charges.Length);
 
     /// <summary>Whether every level this press bought asked for nothing.</summary>
-    internal bool ChargedNothing
-    {
-        get
-        {
-            var charges = Charges;
-            for (var index = 0; index < charges.Length; index++)
-                if (charges[index].Amount > BigDouble.Zero) return false;
-            return true;
-        }
-    }
+    internal bool ChargedNothing => ResourceCharges.Nothing(Charges);
 
     internal bool Verified => Preflight == GenericLevelPreflight.Proceeded &&
         Outcome == NativeMutationOutcome.Verified;

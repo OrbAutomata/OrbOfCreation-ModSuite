@@ -55,6 +55,8 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         => TryExecuteCore(in action, in config, in context, requireAutomationPolicy: true);
 
 #if SERVICE_CYCLE_PROFILE
+    internal SpellLevelSubmission LastSubmission { get; private set; }
+
     internal ServiceActionResult TryExecuteGameMcp(
         in SpellLevelCycleAction action,
         in SuiteRuntimeConfiguration config,
@@ -68,6 +70,9 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         in ServiceActionContext context,
         bool requireAutomationPolicy)
     {
+#if SERVICE_CYCLE_PROFILE
+        LastSubmission = default;
+#endif
         if (requireAutomationPolicy && !SpellLevelConfigurationPolicy.IsOperational(config))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
 
@@ -91,6 +96,9 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
 
+#if SERVICE_CYCLE_PROFILE
+        LastSubmission = submission;
+#endif
         Narrate(in action, in submission);
         ObserveCapability(in action, in submission);
         _observeBoundaryStatus?.Invoke(submission);
