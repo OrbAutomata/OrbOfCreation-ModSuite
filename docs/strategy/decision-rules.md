@@ -9,6 +9,8 @@ them.
 Never score off the visible fraction** — the visible part is not a sample of the whole, it is the
 part the game chose to show you.
 
+Advancement points, Time Advancements included, are the one-way doors of a run: nearly every other
+budget comes back ([resource-lifecycle.md](resource-lifecycle.md)), these stay spent until reset.
 Orb allocations are the canonical case: each level advertises a small buff while the dominant value
 is the gates it opens later, and those thresholds are not displayed. A confident +8 read off the
 visible buffs is really a +0.8 against what you cannot see. Hold the orbs, read the gates out of the
