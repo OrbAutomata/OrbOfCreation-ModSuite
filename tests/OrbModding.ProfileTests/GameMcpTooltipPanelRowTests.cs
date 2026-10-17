@@ -408,11 +408,10 @@ public sealed class GameMcpTooltipPanelRowTests
                 "Canvas[0]/ContentArea[2]/CastingBar[3]/SmallSpellList[0]/" +
                 "SpellButtonBottomBar(Clone)[0]",
             },
-            Cube,
-            loaded: true,
-            publishedScreen: string.Empty);
+            Cube);
 
         Assert.False(address.Resolved);
+        Assert.False(address.Undrawn);
         Assert.Equal("ambiguous_element", address.Code);
         Assert.Equal(
             "2 elements on this screen show this entity, and two elements about one thing may " +
@@ -433,9 +432,7 @@ public sealed class GameMcpTooltipPanelRowTests
         var address = GameMcpTooltipPanelRow.AddressEntity(
             new[] { Guid.Empty, BeamBurst, Cube },
             new[] { "Canvas[0]/Chrome[0]", "Canvas[0]/List[1]/Row[0]", "Canvas[0]/List[1]/Row[1]" },
-            BeamBurst,
-            loaded: true,
-            publishedScreen: string.Empty);
+            BeamBurst);
 
         Assert.True(address.Resolved);
         Assert.Equal(1, address.Element);
@@ -444,154 +441,37 @@ public sealed class GameMcpTooltipPanelRowTests
         var chrome = GameMcpTooltipPanelRow.AddressEntity(
             new[] { Guid.Empty, BeamBurst, Cube },
             new[] { "Canvas[0]/Chrome[0]", "Canvas[0]/List[1]/Row[0]", "Canvas[0]/List[1]/Row[1]" },
-            Guid.Empty,
-            loaded: true,
-            publishedScreen: string.Empty);
+            Guid.Empty);
         Assert.False(chrome.Resolved);
-        Assert.Equal("not_on_screen", chrome.Code);
+        Assert.True(chrome.Undrawn);
     }
 
     /// <summary>
-    /// A real entity this screen does not draw is a different answer from an id nothing in the
-    /// build carries, and the first one names where to go: the published <c>screen</c> column when
-    /// the world has one for this id, and the screen catalog when it does not.
+    /// An entity no element on the screen draws is not a refusal: it is what a tooltip's link line
+    /// names, and the caller is answered with that entity's own tooltip instead.
     /// </summary>
     [Fact]
-    public void An_entity_this_screen_does_not_draw_is_told_where_it_is_drawn()
-    {
-        var elsewhere = GameMcpTooltipPanelRow.AddressEntity(
-            new[] { Cube },
-            new[] { "Canvas[0]/List[1]/Row[0]" },
-            BeamBurst,
-            loaded: true,
-            publishedScreen: "Magic/Augments");
-
-        Assert.False(elsewhere.Resolved);
-        Assert.Equal("not_on_screen", elsewhere.Code);
-        Assert.Equal(
-            "Nothing this screen draws is about this entity; the world publishes it on " +
-            "Magic/Augments, so navigate there and read it again.",
-            elsewhere.Reason);
-        Assert.Empty(elsewhere.Paths);
-
-        var unpublished = GameMcpTooltipPanelRow.AddressEntity(
-            new[] { Cube },
-            new[] { "Canvas[0]/List[1]/Row[0]" },
-            BeamBurst,
-            loaded: true,
-            publishedScreen: string.Empty);
-        Assert.Equal(
-            "Nothing this screen draws is about this entity; page game_screen_catalog for the " +
-            "screens this build offers and navigate to the one that draws it.",
-            unpublished.Reason);
-    }
-
-    /// <summary>
-    /// A caller standing on the very screen the row names is never told to navigate to it. Both
-    /// facts are true at once — the screen does draw the thing, and nothing it is drawing right now
-    /// is about it — so the refusal says both, and names the reasons a screen draws something it is
-    /// not drawing at this moment. The old sentence stated only the first half and read as a flat
-    /// contradiction of the `screen:` field the caller had just read.
-    /// </summary>
-    [Fact]
-    public void The_screen_the_caller_is_already_on_is_never_offered_as_the_destination()
-    {
-        var here = GameMcpTooltipPanelRow.AddressEntity(
-            new[] { Cube },
-            new[] { "Canvas[0]/List[1]/Row[0]" },
-            BeamBurst,
-            loaded: true,
-            publishedScreen: "Workshop",
-            activeScreen: "Workshop");
-
-        Assert.False(here.Resolved);
-        Assert.Equal("not_on_screen", here.Code);
-        Assert.Equal(
-            "This is the screen the world publishes it on, and nothing it is drawing right now is " +
-            "about this entity: the panel holding it is closed, on another subtab, or scrolled out " +
-            "of view. Open it and read again, or address the element by path.",
-            here.Reason);
-    }
-
-    /// <summary>
-    /// The subtab of the screen the caller is on is still somewhere to go, so that refusal still
-    /// names the move — while saying which screen the caller is already standing on, so the two
-    /// sentences cannot be read as the same answer.
-    /// </summary>
-    [Fact]
-    public void A_subtab_of_the_current_screen_is_named_as_the_move_it_is()
-    {
-        var subtab = GameMcpTooltipPanelRow.AddressEntity(
-            new[] { Cube },
-            new[] { "Canvas[0]/List[1]/Row[0]" },
-            BeamBurst,
-            loaded: true,
-            publishedScreen: "World/Aspects",
-            activeScreen: "World");
-
-        Assert.Equal(
-            "Nothing this screen draws is about this entity. The world publishes it on " +
-            "World/Aspects, which is a subtab of the World screen you are already on, so navigate " +
-            "there and read it again.",
-            subtab.Reason);
-    }
-
-    /// <summary>
-    /// A different screen is still a destination, and a screen the suite could not read is still
-    /// the ordinary "navigate there" sentence rather than a claim about where the caller stands.
-    /// </summary>
-    [Theory]
-    [InlineData("Magic", "Workshop")]
-    [InlineData("Magic", "")]
-    public void A_screen_the_caller_is_not_on_is_still_the_destination(
-        string publishedScreen,
-        string activeScreen)
+    public void An_entity_this_screen_does_not_draw_is_left_to_its_own_tooltip()
     {
         var address = GameMcpTooltipPanelRow.AddressEntity(
             new[] { Cube },
             new[] { "Canvas[0]/List[1]/Row[0]" },
-            BeamBurst,
-            loaded: true,
-            publishedScreen,
-            activeScreen);
-
-        Assert.Equal(
-            "Nothing this screen draws is about this entity; the world publishes it on " +
-            publishedScreen + ", so navigate there and read it again.",
-            address.Reason);
-    }
-
-    /// <summary>
-    /// An id no loaded entity carries names nothing anywhere, which is not the same no as an id
-    /// this screen happens not to draw — and the sentence has to send the caller somewhere else.
-    /// </summary>
-    [Fact]
-    public void An_id_nothing_in_this_build_carries_says_so_rather_than_blaming_the_screen()
-    {
-        var address = GameMcpTooltipPanelRow.AddressEntity(
-            new[] { Cube },
-            new[] { "Canvas[0]/List[1]/Row[0]" },
-            BeamBurst,
-            loaded: false,
-            publishedScreen: string.Empty);
+            BeamBurst);
 
         Assert.False(address.Resolved);
-        Assert.Equal("unknown_uuid", address.Code);
-        Assert.Equal(
-            "No entity in this build carries this id, so no element on any screen is about it; " +
-            "check the id you sent, or find the thing with world_search.",
-            address.Reason);
+        Assert.True(address.Undrawn);
+        Assert.Equal(string.Empty, address.Code);
+        Assert.Empty(address.Paths);
     }
 
     /// <summary>
-    /// Both new codes are classified. An unclassified code falls to <c>ERR_REFUSED</c>, which means
-    /// "the game refused and said nothing else" and is false about either of these.
+    /// An unclassified code falls to <c>ERR_REFUSED</c>, which means "the game refused and said
+    /// nothing else" and is false about an ambiguous address.
     /// </summary>
     [Fact]
-    public void Both_uuid_addressing_refusals_are_classified()
+    public void The_uuid_addressing_refusal_is_classified()
     {
         Assert.Equal("ERR_INPUT", GameMcpDecisionReason.Class("ambiguous_element"));
-        Assert.Equal("ERR_NOT_FOUND", GameMcpDecisionReason.Class("not_on_screen"));
     }
 
     private static readonly EntityIdentityCatalogSnapshot Catalog =

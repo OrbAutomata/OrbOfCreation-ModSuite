@@ -18,12 +18,13 @@ namespace OrbAutomata.GameMcp;
 /// <c>UITooltipNode.Render</c> reads nothing else.
 /// </para>
 /// <para>
-/// <c>TooltipNode.tooltipable</c> is not text at all: <c>UITooltipNode.Setup</c> hands it to
-/// <c>HoverTooltip.Setup</c> as the target of the player's <em>next</em> hover. Following it was how
-/// this reader turned one screen panel into the transitive closure of the entity graph behind it —
-/// a cantrip that fits one panel printed ninety lines of glossary, and three round-15 reads refused
-/// outright. A link is published as the one line the screen offers: its name, and the call that
-/// reads it.
+/// <c>TooltipNode.tooltipable</c> and <c>TooltipNode.subTooltips</c> are not text at all:
+/// <c>UITooltipNode.Setup</c> hands them to <c>HoverTooltip.Setup</c> as the core panel and the
+/// sub-panel row of the player's <em>next</em> hover. Following them was how this reader turned one
+/// screen panel into the transitive closure of the entity graph behind it — a cantrip that fits one
+/// panel printed ninety lines of glossary, and three round-15 reads refused outright. A link is
+/// published as the one line the screen offers: its name, and the call that reads it. The one
+/// exception is a glossary word the row filled with its own numbers, which no call can read back.
 /// </para>
 /// </remarks>
 internal static class GameMcpTooltipProjector
@@ -96,12 +97,12 @@ internal static class GameMcpTooltipProjector
         out JObject details)
     {
         if (primary is null) throw new ArgumentNullException(nameof(primary));
-        var body = new Body(identify);
-        AppendPanel(primary, usingAlt, layout.Core, layout, body);
+        var body = new Body(identify, usingAlt, layout);
+        AppendPanel(primary, layout.Core, body);
         if (subTooltips is not null)
         {
             foreach (var panel in subTooltips)
-                if (panel is not null) AppendPanel(panel, usingAlt, layout.Sub, layout, body);
+                if (panel is not null) AppendPanel(panel, layout.Sub, body);
         }
         details = new JObject();
         if (body.Bounds.Exceeded) return false;
@@ -119,12 +120,7 @@ internal static class GameMcpTooltipProjector
     /// Loadout is the panel that showed why: those four are what a player acts on, and a read that
     /// skipped them printed a cooldown where the screen printed "Not enough Spell Capacity".
     /// </remarks>
-    private static void AppendPanel(
-        ITooltipable panel,
-        bool usingAlt,
-        GameMcpTooltipLayout.Panel sections,
-        GameMcpTooltipLayout layout,
-        Body body)
+    private static void AppendPanel(ITooltipable panel, GameMcpTooltipLayout.Panel sections, Body body)
     {
         if (!body.Bounds.Spend()) return;
         if (!body.Bounds.Remember(panel)) return;
@@ -141,12 +137,12 @@ internal static class GameMcpTooltipProjector
             experienced.GetExperienceElement() is { } mastery &&
             (sections.MasteryUnlocked || mastery.IsForceVisible()))
         {
-            body.Add(layout.MasteryLabel + " " + mastery.GetExperienceLevel().ToString(CultureInfo.InvariantCulture));
+            body.Add(body.Layout.MasteryLabel + " " + mastery.GetExperienceLevel().ToString(CultureInfo.InvariantCulture));
         }
         if (sections.Requirements && panel is IHasRequirements gated)
             AppendNodes(gated.GetRequirements(), body);
         AppendNodes(
-            usingAlt && panel.HasAltTooltips()
+            body.UsingAlt && panel.HasAltTooltips()
                 ? panel.GetAltTooltipNodes()
                 : panel.GetTooltipNodes(),
             body);
@@ -193,11 +189,50 @@ internal static class GameMcpTooltipProjector
                     "Tooltip text unavailable." +
                         GameActionFaultLog.Record(exception, "tooltip text"));
             }
-            AppendPointer(node.tooltipable, body);
+            AppendHover(node, body);
             AppendNodes(node.children, body);
         }
         body.Bounds.Ascend();
     }
+
+    /// <summary>
+    /// What hovering this row puts up: <c>UITooltipNode.Setup</c> hands the hover the node's
+    /// <c>tooltipable</c> as the core panel and its <c>subTooltips</c> as the row beside it, so
+    /// both are the row's link and either may be the only one.
+    /// </summary>
+    /// <remarks>
+    /// A glossary word the row filled with its own numbers is drawn here rather than pointed at.
+    /// The word's own tooltip is the generic definition, so a pointer to it would read as the
+    /// panel and say none of what the panel says — a Time Rune's Discovery Rarity Rating row hangs
+    /// the next level's rating and chance, and the rating the next chance tier unlocks at, on the
+    /// "Rating Change" word, and nothing else in the game carries those three numbers. Such a
+    /// panel is the row's own and exists nowhere to address, so the walk draws it once, one hover
+    /// deep, and a filled word inside it is named like any other link.
+    /// </remarks>
+    private static void AppendHover(TooltipNode node, Body body)
+    {
+        AppendLink(node.tooltipable, body.Layout.Core, body);
+        if (node.subTooltips is null) return;
+        for (var index = 0; index < node.subTooltips.Count; index++)
+            AppendLink(node.subTooltips[index], body.Layout.Sub, body);
+    }
+
+    private static void AppendLink(ITooltipable? link, GameMcpTooltipLayout.Panel sections, Body body)
+    {
+        if (link is null) return;
+        if (!body.Inlining && IsFilledGlossaryWord(link))
+        {
+            body.Inlining = true;
+            AppendPanel(link, sections, body);
+            body.Inlining = false;
+            return;
+        }
+        AppendPointer(link, body);
+    }
+
+    private static bool IsFilledGlossaryWord(ITooltipable link) =>
+        link is OverwriteTooltip { tooltipable: AttributeSO } filled &&
+        (filled.tooltipNodes is not null || filled.overwriteTooltipNodes is not null);
 
     /// <summary>
     /// The next hover, named rather than followed.
@@ -257,7 +292,19 @@ internal static class GameMcpTooltipProjector
         private readonly Func<ITooltipable, Guid>? _identify;
         private readonly HashSet<string> _pointers = new(StringComparer.Ordinal);
 
-        internal Body(Func<ITooltipable, Guid>? identify) => _identify = identify;
+        internal Body(Func<ITooltipable, Guid>? identify, bool usingAlt, GameMcpTooltipLayout layout)
+        {
+            _identify = identify;
+            UsingAlt = usingAlt;
+            Layout = layout;
+        }
+
+        internal bool UsingAlt { get; }
+
+        internal GameMcpTooltipLayout Layout { get; }
+
+        /// <summary>Whether the walk is inside a row's own panel, which draws no further panel.</summary>
+        internal bool Inlining { get; set; }
 
         internal List<string> Lines { get; } = new();
 

@@ -216,10 +216,6 @@ internal static class GameMcpDecisionReason
         "no_cancellable_usage" or "nothing_to_discard" or "no_pending_request" or
         "no_pending_target" or "no_valid_target" or "no_open_modal" or "no_other_slot" or
         "single_slot" or "no_discoveries" or "no_ritual_battle_active" or "slot_empty" or
-        // A real entity that this screen simply does not draw. The named thing is not there is
-        // exactly what it means, and the sentence beside it names the screen that does draw it
-        // wherever the world publishes one.
-        "not_on_screen" or
         "not_offered" or "offer_unavailable" or "item_unavailable" or "instance_unavailable" or
         "target_unavailable" or "recipe_unavailable" or "element_unavailable" or
         "source_unavailable" or

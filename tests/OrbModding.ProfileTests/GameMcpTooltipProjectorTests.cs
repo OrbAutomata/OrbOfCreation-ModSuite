@@ -134,6 +134,70 @@ public sealed class GameMcpTooltipProjectorTests
     }
 
     /// <summary>
+    /// A Time Rune's chance-statistic row carries no <c>tooltipable</c> at all: hovering it puts up
+    /// the statistic and a "Rating Change" panel beside it, both from <c>subTooltips</c>. The
+    /// statistic is an entity and is pointed at; the Rating Change panel is the glossary word
+    /// filled with this row's numbers, which exist nowhere else, so it is drawn under the row.
+    /// </summary>
+    [Fact]
+    public void A_rows_hover_points_at_its_entities_and_draws_the_glossary_word_it_filled()
+    {
+        var statistic = new CountingTooltip("Discovery Rarity Rating", new TooltipNode("Chance: 1.01% (/ 30%)"));
+        var id = Guid.Parse("c553bf74-8d7a-4868-b538-be99b99e0302");
+        var ratingChange = new OverwriteTooltip(new AttributeSO
+        {
+            displayName = "Rating Change",
+            description = "How the next level moves the rating.",
+        }).SetTooltipNodes(new List<TooltipNode>
+        {
+            new("Rating: 2.04 -> 4.59"),
+            new("(x1) Chance: 1.01% -> 2.51%"),
+            new("(x2) unlocked at 36.2 rating"),
+        });
+        var row = new TooltipNode("+2.55 Discovery Rarity Rating");
+        row.subTooltips.Add(statistic);
+        row.subTooltips.Add(ratingChange);
+
+        var text = (string?)Projected(
+            new FakeTooltip("Discovery Rarity", row),
+            identity: Identity(statistic, id))["text"];
+
+        Assert.Equal(
+            "Discovery Rarity\nFixture\nDiscovery Rarity description\n+2.55 Discovery Rarity Rating\n" +
+            "→ Discovery Rarity Rating: game_tooltip uuid=c553bf74-8d7a-4868-b538-be99b99e0302\n" +
+            "Rating Change\nAttributeSO\nHow the next level moves the rating.\n" +
+            "Rating: 2.04 -> 4.59\n(x1) Chance: 1.01% -> 2.51%\n(x2) unlocked at 36.2 rating",
+            text);
+        Assert.Equal(0, statistic.NodeReads);
+    }
+
+    /// <summary>
+    /// A glossary word the row did not fill is the word's own definition, which its pointer reads;
+    /// and a filled word inside a drawn panel is named rather than drawn, so a row's hover costs
+    /// one panel and never the panels behind it.
+    /// </summary>
+    [Fact]
+    public void Only_a_filled_glossary_word_one_hover_deep_is_drawn()
+    {
+        var plain = new OverwriteTooltip(new AttributeSO { displayName = "Power Scaling" });
+        var deeper = new OverwriteTooltip(new AttributeSO { displayName = "Rating Examples" })
+            .SetTooltipNodes(() => new List<TooltipNode> { new("(4.59): 2.51% -> x1") });
+        var outer = new OverwriteTooltip(new AttributeSO { displayName = "Enhancement" })
+            .SetTooltipNodes(() => new List<TooltipNode> { new("x2 Free Usage") { tooltipable = deeper } });
+        var primary = new FakeTooltip(
+            "Rune",
+            new TooltipNode("1/level") { tooltipable = plain },
+            new TooltipNode("Enhanced") { tooltipable = outer });
+
+        var text = (string?)Projected(primary)["text"];
+
+        Assert.Equal(
+            "Rune\nFixture\nRune description\n1/level\n→ Power Scaling\nEnhanced\n" +
+            "Enhancement\nAttributeSO\nx2 Free Usage\n→ Rating Examples",
+            text);
+    }
+
+    /// <summary>
     /// <c>UITooltip.Render</c> sets <c>renderedAlt</c> and then renders one list or the other. The
     /// two were appended together here, which put the alt block's values on the page beside the
     /// same values threaded through the body.

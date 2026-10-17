@@ -236,17 +236,30 @@ internal static class GameMcpEntityExplainer
     {
         try
         {
-            var type = Type.GetType(nativeType + ", Assembly-CSharp", throwOnError: false);
-            if (type is null) return string.Empty;
-            var resolved = TypedRegistryResolver.Shared.Resolve(uuid, type);
-            if (!resolved.IsResolved || resolved.Value is not ITooltipable tooltip)
-                return string.Empty;
-            return tooltip.GetDescription()?.Trim() ?? string.Empty;
+            return TryResolveTooltip(uuid, nativeType, out var tooltip)
+                ? tooltip.GetDescription()?.Trim() ?? string.Empty
+                : string.Empty;
         }
         catch (Exception)
         {
             return string.Empty;
         }
+    }
+
+    /// <summary>
+    /// The live native entity one id names, through the type its catalog row declares, when that
+    /// entity is something the game draws a tooltip for.
+    /// </summary>
+    internal static bool TryResolveTooltip(Guid uuid, string nativeType, out ITooltipable tooltip)
+    {
+        tooltip = null!;
+        if (string.IsNullOrEmpty(nativeType)) return false;
+        var type = Type.GetType(nativeType + ", Assembly-CSharp", throwOnError: false);
+        if (type is null) return false;
+        var resolved = TypedRegistryResolver.Shared.Resolve(uuid, type);
+        if (!resolved.IsResolved || resolved.Value is not ITooltipable found) return false;
+        tooltip = found;
+        return true;
     }
 
     private static JObject Predicates(

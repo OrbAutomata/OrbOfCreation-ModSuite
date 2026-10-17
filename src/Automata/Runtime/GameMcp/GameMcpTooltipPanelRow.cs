@@ -92,15 +92,15 @@ internal static class GameMcpTooltipPanelRow
     }
 
     /// <summary>
-    /// Which live element one entity id addresses, or the refusal that answers instead.
+    /// Which live element one entity id addresses: one, several, or none.
     /// </summary>
     /// <remarks>
     /// <para>
     /// A uuid is an address alongside a path, never a replacement for one. Roughly nine in ten
-    /// hoverable elements are bound to an entity, so a caller holding an id from a search, a list
-    /// or an action response can read the screen's words about it with no catalog detour — but the
-    /// remaining tenth is chrome with no id at all, including the suite's own controls, and a path
-    /// is the only address those will ever have.
+    /// hoverable elements are bound to an entity, so a caller holding an id from a search, a list,
+    /// an action response or a tooltip's link line can read the screen's words about it with no
+    /// catalog detour — but the remaining tenth is chrome with no id at all, including the suite's
+    /// own controls, and a path is the only address those will ever have.
     /// </para>
     /// <para>
     /// One entity shown by several elements is the common case rather than the corner: the Magic
@@ -109,17 +109,18 @@ internal static class GameMcpTooltipPanelRow
     /// legitimately print different text. Nothing on the wire says which the caller meant, so this
     /// hands back the addresses and refuses — the same answer, inverted, that an ambiguous path
     /// already gets, and the same rule as <see cref="TrySoleSpellSlot"/>: two answers mean no
-    /// answer. Each address is the shortest form that resolves, by <see cref="Address"/>, so the
-    /// duplicate pair comes back as two short segments rather than two full ancestries.
+    /// answer. Each address is the shortest form that resolves, by <see cref="ShortestUnique"/>, so
+    /// the duplicate pair comes back as two short segments rather than two full ancestries.
+    /// </para>
+    /// <para>
+    /// None is not a refusal here. A thing the screen is not drawing is still a thing with a
+    /// tooltip of its own, and that is what the caller is answered with.
     /// </para>
     /// </remarks>
     internal static EntityAddress AddressEntity(
         IReadOnlyList<Guid> entities,
         IReadOnlyList<string> paths,
-        Guid requested,
-        bool loaded,
-        string publishedScreen,
-        string activeScreen = "")
+        Guid requested)
     {
         if (entities is null) throw new ArgumentNullException(nameof(entities));
         if (paths is null) throw new ArgumentNullException(nameof(paths));
@@ -133,16 +134,7 @@ internal static class GameMcpTooltipPanelRow
             if (entities[index] != Guid.Empty && entities[index] == requested) matches.Add(index);
 
         if (matches.Count == 1) return EntityAddress.Found(matches[0]);
-        if (matches.Count == 0)
-        {
-            return loaded
-                ? EntityAddress.Refused(
-                    "not_on_screen", NotOnScreen(publishedScreen, activeScreen))
-                : EntityAddress.Refused(
-                    "unknown_uuid",
-                    "No entity in this build carries this id, so no element on any screen is " +
-                    "about it; check the id you sent, or find the thing with world_search.");
-        }
+        if (matches.Count == 0) return EntityAddress.NotDrawn;
 
         var addresses = new string[matches.Count];
         for (var index = 0; index < addresses.Length; index++)
@@ -155,48 +147,13 @@ internal static class GameMcpTooltipPanelRow
             addresses);
     }
 
-    /// <summary>
-    /// Why no element answered, told apart by where the caller already is.
-    /// </summary>
-    /// <remarks>
-    /// Sending a caller to the screen it is standing on is the defect this exists to stop: a live
-    /// round read "the world publishes it on Workshop, so navigate there" while standing on
-    /// Workshop. Both facts were true — the screen does draw the thing, and nothing drawn *right
-    /// now* is about it — and the sentence stated only the first, so it read as a contradiction of
-    /// the row the caller had just read. Where they agree the answer says both, and where the
-    /// destination is a subtab of the screen the caller is on it says that instead of "navigate to
-    /// where you are". The comparison is the navigation vocabulary's own: a screen word is the
-    /// game's tab label spelled exactly, matched the way <c>game_navigate</c> matches it.
-    /// </remarks>
-    private static string NotOnScreen(string publishedScreen, string activeScreen)
-    {
-        if (string.IsNullOrEmpty(publishedScreen))
-        {
-            return "Nothing this screen draws is about this entity; page game_screen_catalog for " +
-                "the screens this build offers and navigate to the one that draws it.";
-        }
-        var separator = publishedScreen.IndexOf('/');
-        var screen = separator < 0 ? publishedScreen : publishedScreen.Substring(0, separator);
-        if (string.IsNullOrEmpty(activeScreen) ||
-            !string.Equals(screen, activeScreen, StringComparison.Ordinal))
-        {
-            return "Nothing this screen draws is about this entity; the world publishes it on " +
-                publishedScreen + ", so navigate there and read it again.";
-        }
-        if (separator >= 0)
-        {
-            return "Nothing this screen draws is about this entity. The world publishes it on " +
-                publishedScreen + ", which is a subtab of the " + screen +
-                " screen you are already on, so navigate there and read it again.";
-        }
-        return "This is the screen the world publishes it on, and nothing it is drawing right now " +
-            "is about this entity: the panel holding it is closed, on another subtab, or scrolled " +
-            "out of view. Open it and read again, or address the element by path.";
-    }
+    internal const string UnknownEntity =
+        "No entity in this build carries this id, so there is no tooltip to read; check the id " +
+        "you sent, or find the thing with world_search.";
 
     /// <summary>
-    /// The one live element an entity id names, or the code, sentence and addresses that answer
-    /// instead. Kept as one value because the three refusals and the hit are one decision.
+    /// The one live element an entity id names, that no element does, or the code, sentence and
+    /// addresses of the ambiguity that answers instead.
     /// </summary>
     internal readonly struct EntityAddress
     {
@@ -213,8 +170,7 @@ internal static class GameMcpTooltipPanelRow
         internal static EntityAddress Found(int index) =>
             new(index, string.Empty, string.Empty, null);
 
-        internal static EntityAddress Refused(string code, string reason) =>
-            new(-1, code, reason, null);
+        internal static EntityAddress NotDrawn => new(-1, string.Empty, string.Empty, null);
 
         internal static EntityAddress Ambiguous(string code, string reason, string[] paths) =>
             new(-1, code, reason, paths);
@@ -223,6 +179,9 @@ internal static class GameMcpTooltipPanelRow
         internal int Element { get; }
 
         internal bool Resolved => Element >= 0;
+
+        /// <summary>Whether no element on the screen is about the entity at all.</summary>
+        internal bool Undrawn => Element < 0 && Code.Length == 0;
 
         internal string Code { get; }
 

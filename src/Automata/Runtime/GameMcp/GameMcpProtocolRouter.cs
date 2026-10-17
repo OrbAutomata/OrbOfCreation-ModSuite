@@ -1230,7 +1230,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_tooltip",
                 "Read one element's tooltip text",
-                "Read the tooltip text the game prints for one element of the current screen, as compact plain screen text. Address the element by path or by uuid, exactly one of the two. A uuid needs no catalog call first: an id from a search, a list or an action response reads the screen's words about that thing directly, and it answers only where exactly one element on this screen is about that entity — several is refused naming their paths, because two buttons for one thing are separate objects and may print different text. An entity no element on this screen shows is refused too, naming the screen the world publishes for it where it publishes one. A path is the only address for the elements bound to no entity — the badges, the multiplier control, the help elements and the suite's own controls — and the only way to pick between duplicates. Paths are volatile screen-state handles, so refresh game_screen_elements after navigation or mutation; a uuid is not, and stays good across screens.",
+                "Read the tooltip text the game prints for one element of the current screen, or for one entity, as compact plain screen text. Address it by path or by uuid, exactly one of the two. A uuid needs no catalog call first: an id from a search, a list, an action response or a tooltip's link line reads the screen's words about that thing where one element on this screen is about it, and that entity's own tooltip where none is — several elements are refused naming their paths, because two buttons for one thing are separate objects and may print different text. A path is the only address for the elements bound to no entity — the badges, the multiplier control, the help elements and the suite's own controls — and the only way to pick between duplicates. Paths are volatile screen-state handles, so refresh game_screen_elements after navigation or mutation; a uuid is not, and stays good across screens.",
                 ObjectSchema(
                     new JObject
                     {
@@ -1241,9 +1241,10 @@ internal sealed class GameMcpProtocolRouter
                             "Any longer tail of the same path is accepted, including the whole " +
                             "path."),
                         ["uuid"] = StringSchema(
-                            "A published entity id, as any row of this surface prints it. The " +
-                            "one element on this screen about that entity answers; none or " +
-                            "several refuse and say which."),
+                            "A published entity id, as any row or link line of this surface " +
+                            "prints it. The one element on this screen about that entity " +
+                            "answers, the entity's own tooltip answers where none is, and " +
+                            "several refuse naming their paths."),
                     }),
                 readOnly: false,
                 idempotent: false),

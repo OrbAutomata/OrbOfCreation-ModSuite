@@ -577,6 +577,18 @@ internal sealed class GameAssemblyMetadata : IDisposable
             _ => "private",
         };
 
+    public byte[]? GetIlBytes(MethodDefinitionHandle handle)
+    {
+        var method = Reader.GetMethodDefinition(handle);
+        return method.RelativeVirtualAddress == 0
+            ? null
+            : _peReader.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
+    }
+
+    public string FullTypeName(TypeDefinitionHandle handle) => GetFullTypeName(handle);
+
+    public string TypeName(EntityHandle handle) => DecodeTypeHandle(handle);
+
     public void Dispose()
     {
         _peReader.Dispose();

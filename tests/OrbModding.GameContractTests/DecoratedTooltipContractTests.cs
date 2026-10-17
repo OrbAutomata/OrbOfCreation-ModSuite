@@ -51,6 +51,86 @@ public sealed class DecoratedTooltipContractTests
             reference.DeclaringType == "HoverTooltip" && reference.MemberName == "Setup");
     }
 
+    /// <summary>
+    /// A decorator's own node list is either a list it was handed or a function it was handed, and
+    /// the panel draws whichever was set ahead of the entity's own list. That is what makes a
+    /// wrapper around a glossary word a panel of its own rather than the word's definition.
+    /// </summary>
+    [GameAssemblyFact]
+    public void TheDecoratorDrawsTheNodeListItWasHandedAheadOfTheEntitys()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        var draw = assembly.GetMethodBodyDefinitionReferences("OverwriteTooltip", "GetTooltipNodes")
+            .Concat(assembly.GetMethodBodyMemberReferences("OverwriteTooltip", "GetTooltipNodes"))
+            .ToArray();
+        var handed = Assert.Single(draw, reference =>
+            reference.DeclaringType == "OverwriteTooltip" && reference.MemberName == "tooltipNodes");
+        var computed = Assert.Single(draw, reference =>
+            reference.DeclaringType == "OverwriteTooltip" &&
+            reference.MemberName == "overwriteTooltipNodes");
+        var own = Assert.Single(draw, reference =>
+            reference.DeclaringType == "ITooltipable" && reference.MemberName == "GetTooltipNodes");
+        Assert.True(handed.Offset < computed.Offset && computed.Offset < own.Offset);
+
+        Assert.Contains(
+            assembly.GetMethodBodyDefinitionReferences(
+                "OverwriteTooltip", "SetTooltipNodes", "System.Collections.Generic.List`1<TooltipNode>"),
+            reference => reference.MemberName == "tooltipNodes");
+        Assert.Contains(
+            assembly.GetMethodBodyDefinitionReferences(
+                "OverwriteTooltip",
+                "SetTooltipNodes",
+                "System.Func`1<System.Collections.Generic.List`1<TooltipNode>>"),
+            reference => reference.MemberName == "overwriteTooltipNodes");
+    }
+
+    /// <summary>
+    /// The row a live round could not read past: a chance statistic's effect row hangs the
+    /// statistic and the "Rating Change" glossary word, filled with the next level's numbers, on
+    /// the row's sub-tooltips. Those numbers are built here and nowhere else.
+    /// </summary>
+    [GameAssemblyFact]
+    public void AChanceRowHangsTheRatingChangeWordFilledWithItsNumbersBesideTheStatistic()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        var preview = assembly
+            .GetMethodBodyDefinitionReferences("RatingReport", "CreateRatingUpgradeTooltip")
+            .Concat(assembly.GetMethodBodyMemberReferences("RatingReport", "CreateRatingUpgradeTooltip"))
+            .ToArray();
+        Assert.Contains(preview, reference =>
+            reference.DeclaringType == "GlobalVariables" && reference.MemberName == "GetAttribute");
+        Assert.Contains(preview, reference =>
+            reference.DeclaringType == "OverwriteTooltip" && reference.MemberName == ".ctor");
+        Assert.Contains(preview, reference =>
+            reference.DeclaringType == "OverwriteTooltip" && reference.MemberName == "SetTooltipNodes");
+        Assert.Equal("AttributeSO", Assert.Single(assembly.GetMethods("GlobalVariables", "GetAttribute")).ReturnType);
+
+        var row = assembly
+            .GetMethodBodyDefinitionReferences("NumberVariable+PersistentEffect", "GetTooltipNodes")
+            .Concat(assembly.GetMethodBodyMemberReferences("NumberVariable+PersistentEffect", "GetTooltipNodes"))
+            .ToArray();
+        Assert.Contains(row, reference =>
+            reference.DeclaringType == "RatingReport" &&
+            reference.MemberName == "CreateRatingUpgradeTooltip");
+        Assert.Contains(row, reference =>
+            reference.DeclaringType == "TooltipNode" && reference.MemberName == "AddSubTooltipable");
+    }
+
+    [Fact]
+    public void ManifestNamesTheDecoratorsOwnNodeLists()
+    {
+        var manifest = NativeContractManifest.Load();
+
+        Assert.Single(
+            manifest.Contracts,
+            contract => contract.Id == "game-mcp-tooltip-panel.overwrite-tooltip-nodes-action");
+        Assert.Single(
+            manifest.Contracts,
+            contract => contract.Id == "game-mcp-tooltip-panel.overwrite-tooltip-node-source-action");
+    }
+
     [Fact]
     public void ManifestNamesTheDecoratorsEntity()
     {
