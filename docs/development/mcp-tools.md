@@ -4530,7 +4530,7 @@ chrome with no entity at all, including the suite's own controls, and `path` is 
 those will ever have. A uuid resolves through the same per-element entity binding the panel rows
 publish as `id`. One element showing it answers with what that element draws; none showing it
 answers with the entity's own tooltip, read from the game exactly as hovering a link line would put
-it up, so every `→ … game_tooltip uuid=…` line any answer prints is a call that answers:
+it up, so a `→ … game_tooltip uuid=…` line is a call that answers:
 
 - **Several elements show it** — `ambiguous_element` (`ERR_INPUT`), which lists their addresses
   under `paths` rather than picking one. This is the common case rather than the corner: the Magic
@@ -4542,6 +4542,11 @@ it up, so every `→ … game_tooltip uuid=…` line any answer prints is a call
   below every tooltip builder the reader calls and pins that none reaches a sound, a popup, an
   event-log entry, a modal, a spawned or destroyed object, or a modifier write. A uuid read with no
   save loaded is `entity_catalog_unavailable`.
+- **Nothing on this screen shows it, and the game hides it** — `not_on_screen` (`ERR_NOT_FOUND`):
+  "No element on this screen shows it; world_get reads its facts." Hidden is world_get's own
+  `visible` predicate answering no — an undiscovered recipe, rune or ritual, invisible research.
+  Reading such an entity's tooltip printed words the player has never been shown as if a screen
+  drew them; world_get still answers for it, with `visible` saying no.
 - **An id nothing in this build carries** — the existing `unknown_uuid`.
 - **An element or entity with no tooltip** — the existing `tooltip_content_unavailable`.
 - **A tooltip the suite will not finish reading** — `tooltip_depth_exceeded` (`ERR_UNAVAILABLE`).
@@ -4556,8 +4561,8 @@ it up, so every `→ … game_tooltip uuid=…` line any answer prints is a call
   case: there the walk finished, the body is the tooltip's own first two hundred lines, and its last
   line says `Tooltip truncated after 200 lines.`
 
-A uuid read takes the entity catalog only when no element shows the id; a path read reads no world
-at all, because what the player can hover is a screen fact rather than a save one.
+A uuid read takes the world, for the catalog and the hidden check when no element shows the id; a
+path read reads no world at all, because what the player can hover is a screen fact rather than a save one.
 
 **Every panel says `[id | name | path]`, and a casting-bar row says its slot.** A row's `id` is the
 entity the element is about. Most panels are assigned the asset itself, which carries its own id;

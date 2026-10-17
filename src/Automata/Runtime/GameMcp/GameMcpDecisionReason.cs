@@ -216,6 +216,7 @@ internal static class GameMcpDecisionReason
         "no_cancellable_usage" or "nothing_to_discard" or "no_pending_request" or
         "no_pending_target" or "no_valid_target" or "no_open_modal" or "no_other_slot" or
         "single_slot" or "no_discoveries" or "no_ritual_battle_active" or "slot_empty" or
+        "not_on_screen" or
         "not_offered" or "offer_unavailable" or "item_unavailable" or "instance_unavailable" or
         "target_unavailable" or "recipe_unavailable" or "element_unavailable" or
         "source_unavailable" or

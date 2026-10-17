@@ -653,10 +653,9 @@ internal sealed class GameMcpProtocolRouter
         // player can hover is a screen fact rather than a save one.
         "game_screen_elements" => GameMcpFrameData.World,
 
-        // A uuid-addressed tooltip read takes the world for one sentence: an entity no element on
-        // this screen shows is refused, and for a glyph or an upgrade the world publishes the
-        // screen that does draw it, which turns "not here" into where to go. A path read reads no
-        // world at all and keeps taking none — what the player can hover is a screen fact.
+        // A uuid no element on this screen shows answers with the entity's own tooltip unless the
+        // world marks the entity hidden, so a uuid read takes the world. A path read reads no world
+        // at all and keeps taking none — what the player can hover is a screen fact.
         "game_tooltip" when request?.Uuid != Guid.Empty => GameMcpFrameData.World,
         "game_probe" or
             "game_screen_catalog" or "game_tooltip" or
@@ -1264,7 +1263,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_tooltip",
                 "Read one element's tooltip text",
-                "Read the tooltip text the game prints for one element of the current screen, or for one entity, as compact plain screen text. Address it by path or by uuid, exactly one of the two. A uuid needs no catalog call first: an id from a search, a list, an action response or a tooltip's link line reads the screen's words about that thing where one element on this screen is about it, and that entity's own tooltip where none is — several elements are refused naming their paths, because two buttons for one thing are separate objects and may print different text. A path is the only address for the elements bound to no entity — the badges, the multiplier control, the help elements and the suite's own controls — and the only way to pick between duplicates. Paths are volatile screen-state handles, so refresh game_screen_elements after navigation or mutation; a uuid is not, and stays good across screens.",
+                "Read the tooltip text the game prints for one element of the current screen, or for one entity, as compact plain screen text. Address it by path or by uuid, exactly one of the two. A uuid needs no catalog call first: an id from a search, a list, an action response or a tooltip's link line reads the screen's words about that thing where one element on this screen is about it, and that entity's own tooltip where none is, unless the game hides that entity from the player — several elements are refused naming their paths, because two buttons for one thing are separate objects and may print different text. A path is the only address for the elements bound to no entity — the badges, the multiplier control, the help elements and the suite's own controls — and the only way to pick between duplicates. Paths are volatile screen-state handles, so refresh game_screen_elements after navigation or mutation; a uuid is not, and stays good across screens.",
                 ObjectSchema(
                     new JObject
                     {

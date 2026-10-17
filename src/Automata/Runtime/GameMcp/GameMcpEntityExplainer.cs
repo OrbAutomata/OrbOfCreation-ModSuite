@@ -103,6 +103,18 @@ internal static class GameMcpEntityExplainer
     }
 
     /// <summary>
+    /// Whether the published world marks this entity as one the game is not drawing for the
+    /// player: the detail read's own <c>visible</c> predicate, read where that predicate exists.
+    /// </summary>
+    internal static bool IsHidden(GameWorldState world, Guid uuid)
+    {
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        if (!TryResolve(world, uuid, out var kind, out _, out _)) return false;
+        var visible = Predicates(world, uuid, kind, unlockConditionsPublished: false)["visible"];
+        return visible is JObject verdict && verdict["available"] is false;
+    }
+
+    /// <summary>
     /// The refusal for an id no published category is addressed by, naming which kind of miss it is
     /// and the read that does carry the id.
     /// </summary>

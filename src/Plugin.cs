@@ -4281,8 +4281,9 @@ public sealed class Plugin : BaseUnityPlugin
         GameMcpCommand command,
         GameMcpTooltipNativeAccess nativeAccess)
     {
+        var world = command.FrameContext!.World?.Snapshot;
         var catalog = EntityIdentities(command.FrameContext!);
-        if (!catalog.IsBound)
+        if (world is null || !catalog.IsBound)
         {
             return GadgetRejected(
                 "entity_catalog_unavailable",
@@ -4292,6 +4293,10 @@ public sealed class Plugin : BaseUnityPlugin
         if (!catalog.TryGet(command.TargetId, out var identity))
         {
             return GadgetRejected("unknown_uuid", GameMcpTooltipPanelRow.UnknownEntity);
+        }
+        if (GameMcpEntityExplainer.IsHidden(world, command.TargetId))
+        {
+            return GadgetRejected("not_on_screen", GameMcpTooltipPanelRow.HiddenEntity);
         }
         if (!GameMcpEntityExplainer.TryResolveTooltip(
                 command.TargetId, identity.RuntimeType, out var tooltip))

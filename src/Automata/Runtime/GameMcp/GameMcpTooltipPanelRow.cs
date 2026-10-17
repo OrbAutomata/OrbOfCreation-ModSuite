@@ -151,6 +151,9 @@ internal static class GameMcpTooltipPanelRow
         "No entity in this build carries this id, so there is no tooltip to read; check the id " +
         "you sent, or find the thing with world_search.";
 
+    internal const string HiddenEntity =
+        "No element on this screen shows it; world_get reads its facts.";
+
     /// <summary>
     /// The one live element an entity id names, that no element does, or the code, sentence and
     /// addresses of the ambiguity that answers instead.
