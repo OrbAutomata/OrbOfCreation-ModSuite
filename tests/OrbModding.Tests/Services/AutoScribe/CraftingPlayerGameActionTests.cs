@@ -140,6 +140,24 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
     }
 
     [Fact]
+    public void AScrollNothingCanBeAffordedOfRefusesAsUnaffordable()
+    {
+        var recipe = Register(Recipe());
+        recipe.useQuantityAsLevel = true;
+        recipe.MainType.isLevelType = true;
+        recipe.MostAffordable = BigDouble.Zero;
+        var page = Page(recipe, mode: 0, maximum: 2);
+        page.craftingQueueInstances.value.Add(new CraftingInstance(recipe, new BigDouble(4, 0)));
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, recipe, amount: 1);
+
+        Assert.Equal(CraftingPlayerPreflight.Unaffordable, result.Preflight);
+        Assert.Equal("The cost of another of this craft is not met.", result.Reason);
+        Assert.Equal(0, recipe.PurchaseCalls);
+    }
+
+    [Fact]
     public void MaxQueuesWhatTheMxPressWould()
     {
         var recipe = Register(Recipe());
@@ -160,6 +178,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
     {
         var recipe = Register(Recipe());
         recipe.useQuantityAsLevel = true;
+        recipe.MainType.isLevelType = true;
         recipe.StartingQuantity = new BigDouble(4, 0);
         var page = Page(recipe, mode: 1, maximum: 2);
         using var boundary = Boundary();

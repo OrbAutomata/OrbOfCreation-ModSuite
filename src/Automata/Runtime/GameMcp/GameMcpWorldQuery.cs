@@ -8344,6 +8344,26 @@ internal static class GameMcpWorldQuery
             : sentence;
     }
 
+    internal static string CraftShortfallReason(GameWorldState world, Guid recipeId)
+    {
+        if (!WorldCraftingDecisionLookup.TryFindCostRange(
+                world.CraftingDecisionCosts, recipeId, out var start, out var count))
+            return string.Empty;
+        var rows = new List<(string, BigDouble, BigDouble)>();
+        for (var index = start; index < start + count; index++)
+        {
+            var value = world.CraftingDecisionCosts[index];
+            if (CanAfford(world, value.ResourceId, value.Cost, value.Amount)) continue;
+            var identity = EntityIdentityFormatter.Describe(
+                value.ResourceId, world.EntityIdentities);
+            rows.Add((
+                identity.HasName ? identity.Name : value.ResourceId.ToString("D"),
+                PlayerFacingCost(world, value.ResourceId, value.Cost),
+                SpendableAmount(world, value.ResourceId, value.Amount)));
+        }
+        return GameMcpDecisionReason.Shortfall(rows);
+    }
+
     internal static bool CanAfford(
         GameWorldState world,
         Guid resourceId,

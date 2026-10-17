@@ -91,9 +91,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         if (purchase <= BigDouble.Zero)
             return CraftingPlayerSubmission.Reject(
                 in action,
-                CraftingPlayerPreflight.InvalidPurchaseAmount,
-                "The game published no amount for one press of this recipe, so nothing was " +
-                "bought.");
+                CraftingPlayerPreflight.Unaffordable,
+                "The cost of this craft is not met.");
         if (!native.RecipeCanBuy(recipe))
             return CraftingPlayerSubmission.Reject(
                 in action,
@@ -186,16 +185,10 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         if (!levelled && !action.Max && purchase > new BigDouble(action.Amount, 0))
             purchase = new BigDouble(action.Amount, 0);
         if (purchase <= BigDouble.Zero)
-            return levelled
-                ? CraftingPlayerSubmission.Reject(
-                    in action,
-                    CraftingPlayerPreflight.InvalidPurchaseAmount,
-                    "The game published no amount for the next press of this recipe, so " +
-                    "nothing was bought.")
-                : CraftingPlayerSubmission.Reject(
-                    in action,
-                    CraftingPlayerPreflight.Unaffordable,
-                    "The cost of another of this craft is not met.");
+            return CraftingPlayerSubmission.Reject(
+                in action,
+                CraftingPlayerPreflight.Unaffordable,
+                "The cost of another of this craft is not met.");
         var crafted = levelled ? BigDouble.One : purchase;
         var requestedTotal = previous + (purchase < BigDouble.One ? BigDouble.One : purchase);
         if (!native.RecipeCanBuyAt(recipe, requestedTotal))

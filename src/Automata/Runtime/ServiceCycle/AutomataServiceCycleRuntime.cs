@@ -251,7 +251,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             if (command.Kind == GameMcpCommandKind.Consumable)
                 return ExecuteConsumable(command, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.Crafting)
-                return ExecuteCrafting(command, lifecycle, configuration.Generation.Value);
+                return ExecuteCrafting(
+                    command, world.Snapshot, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.EquipmentLoadout)
                 return ExecuteEquipmentLoadout(command, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.AlchemyLoadout)
@@ -620,6 +621,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
 
     private GameMcpCommandResult ExecuteCrafting(
         GameMcpCommand command,
+        GameWorldState world,
         long lifecycle,
         ulong configurationGeneration)
     {
@@ -659,6 +661,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             lifecycle,
             configurationGeneration,
             max,
+            () => GameMcpWorldQuery.CraftShortfallReason(world, command.TargetId),
             remaining =>
             {
                 var action = new CraftingPlayerAction(

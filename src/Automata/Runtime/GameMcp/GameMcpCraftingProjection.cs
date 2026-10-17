@@ -18,6 +18,7 @@ internal static class GameMcpCraftingProjection
         long lifecycle,
         ulong configurationGeneration,
         bool max,
+        Func<string> shortfall,
         Func<int, CraftingPlayerSubmission> press)
     {
         var asked = new BigDouble(command.Amount, 0);
@@ -39,7 +40,7 @@ internal static class GameMcpCraftingProjection
                         lifecycle,
                         configurationGeneration,
                         landed <= BigDouble.Zero
-                            ? submission.Reason
+                            ? FirstRefusal(in submission, shortfall)
                             : GameMcpNumberFormatter.Format(landed) + " of " +
                               GameMcpNumberFormatter.Format(asked) + " asked went through " +
                               "before this craft. " + submission.Reason,
@@ -68,6 +69,15 @@ internal static class GameMcpCraftingProjection
                       GameMcpNumberFormatter.Format(asked) + " asked; the rest stopped: " +
                       remainder,
             }.Freeze());
+    }
+
+    private static string FirstRefusal(
+        in CraftingPlayerSubmission submission,
+        Func<string> shortfall)
+    {
+        if (submission.Preflight != CraftingPlayerPreflight.Unaffordable) return submission.Reason;
+        var named = shortfall();
+        return named.Length == 0 ? submission.Reason : named;
     }
 
     internal static GameMcpValue Project(in CraftingPlayerSubmission submission)

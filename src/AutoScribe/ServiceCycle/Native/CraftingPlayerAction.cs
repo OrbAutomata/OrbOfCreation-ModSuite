@@ -33,7 +33,6 @@ internal enum CraftingPlayerPreflight
     RecipeUnavailable = 5,
     NotVisible = 6,
     PageRelationAmbiguous = 7,
-    InvalidPurchaseAmount = 8,
     QueueFull = 9,
     Unaffordable = 10,
     MutationPermitUnavailable = 11,
@@ -115,7 +114,6 @@ internal static class CraftingPlayerActionResultCodes
     internal static readonly ServiceActionResultCode RecipeUnavailable = new(7704);
     internal static readonly ServiceActionResultCode NotVisible = new(7705);
     internal static readonly ServiceActionResultCode PageRelationAmbiguous = new(7706);
-    internal static readonly ServiceActionResultCode InvalidPurchaseAmount = new(7707);
     internal static readonly ServiceActionResultCode QueueFull = new(7708);
     internal static readonly ServiceActionResultCode Unaffordable = new(7709);
     internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7710);

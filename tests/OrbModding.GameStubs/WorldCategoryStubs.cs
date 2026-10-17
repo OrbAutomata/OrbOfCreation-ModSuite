@@ -255,7 +255,8 @@ public sealed class CraftingRecipeSO : IdScriptableObject
     public BigDouble GetPurchaseQuantity(BigDouble previousQuantity)
     {
         var multiBuy = GlobalVariables.GetMultiBuy().AsInt();
-        if (multiBuy <= 1) return useQuantityAsLevel ? GetStartingQuantity() : BigDouble.One;
+        if (multiBuy <= 1 && UseStartingLevel(previousQuantity)) return GetStartingQuantity();
+        if (multiBuy <= 1) return MostAffordable > BigDouble.Zero ? BigDouble.One : BigDouble.Zero;
         return multiBuy > 99
             ? MostAffordable
             : new BigDouble(Math.Ceiling(MostAffordable.ToDouble() * multiBuy / 100));

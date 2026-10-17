@@ -320,7 +320,7 @@ public sealed class GameMcpCraftingTests
     {
         var asks = new System.Collections.Generic.List<int>();
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(3), 15, 8, false,
+            CraftCommand(3), 15, 8, false, NoShortfall,
             remaining =>
             {
                 asks.Add(remaining);
@@ -342,7 +342,7 @@ public sealed class GameMcpCraftingTests
     {
         var asks = new System.Collections.Generic.List<int>();
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(3), 15, 8, false,
+            CraftCommand(3), 15, 8, false, NoShortfall,
             remaining =>
             {
                 asks.Add(remaining);
@@ -358,7 +358,7 @@ public sealed class GameMcpCraftingTests
     {
         var submissions = 0;
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(1), 15, 8, true,
+            CraftCommand(1), 15, 8, true, NoShortfall,
             _ =>
             {
                 submissions++;
@@ -375,7 +375,7 @@ public sealed class GameMcpCraftingTests
     {
         var submissions = 0;
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(45), 15, 8, false,
+            CraftCommand(45), 15, 8, false, NoShortfall,
             _ => ++submissions == 1
                 ? Landed(CraftingPlayerPostcondition.InstanceQuantityIncreased, 3)
                 : Refused(
@@ -392,10 +392,41 @@ public sealed class GameMcpCraftingTests
     }
 
     [Fact]
+    public void An_unaffordable_craft_names_the_unmet_price()
+    {
+        var world = World(heldDust: 40);
+        var result = GameMcpCraftingProjection.Press(
+            CraftCommand(5), 15, 8, true,
+            () => GameMcpWorldQuery.CraftShortfallReason(world, RecipeId),
+            _ => Refused(
+                CraftingPlayerPreflight.Unaffordable,
+                "The cost of another of this craft is not met."));
+
+        Assert.Equal("refused", result.Status);
+        Assert.Equal("unaffordable", result.Code);
+        Assert.Equal("Needs 75 Arcane Dust (have 40).", result.Reason);
+    }
+
+    [Fact]
+    public void An_unaffordable_craft_the_world_still_prices_as_met_keeps_the_games_sentence()
+    {
+        var world = World();
+        var result = GameMcpCraftingProjection.Press(
+            CraftCommand(5), 15, 8, false,
+            () => GameMcpWorldQuery.CraftShortfallReason(world, RecipeId),
+            _ => Refused(
+                CraftingPlayerPreflight.Unaffordable,
+                "The cost of another of this craft is not met."));
+
+        Assert.Equal("unaffordable", result.Code);
+        Assert.Equal("The cost of another of this craft is not met.", result.Reason);
+    }
+
+    [Fact]
     public void A_refused_first_press_answers_as_that_refusal()
     {
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(5), 15, 8, false,
+            CraftCommand(5), 15, 8, false, NoShortfall,
             _ => Refused(
                 CraftingPlayerPreflight.QueueFull, "The Manual crafting queue has no empty slot."));
 
@@ -409,7 +440,7 @@ public sealed class GameMcpCraftingTests
     {
         var submissions = 0;
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(5), 15, 8, false,
+            CraftCommand(5), 15, 8, false, NoShortfall,
             _ => ++submissions <= 2
                 ? Landed(CraftingPlayerPostcondition.QueueAdmitted, 1)
                 : new CraftingPlayerSubmission(
@@ -430,7 +461,7 @@ public sealed class GameMcpCraftingTests
     public void Instant_crafts_report_how_many_completed()
     {
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(2), 15, 8, false,
+            CraftCommand(2), 15, 8, false, NoShortfall,
             remaining => Landed(CraftingPlayerPostcondition.InstantCompleted, remaining));
         var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
             Context(queuedAmount: 0), CraftCommand(2), result));
@@ -568,7 +599,8 @@ public sealed class GameMcpCraftingTests
         int automationRepetitions = 3,
         bool canAutomate = true,
         string automationReasonCode = "automation_full",
-        bool withQueueEntries = true)
+        bool withQueueEntries = true,
+        double heldDust = 900)
     {
         var reading = new RawCraftingRecipeSample(
             RecipeId,
@@ -631,7 +663,7 @@ public sealed class GameMcpCraftingTests
             CraftingDecisionCosts = PublicationTable<WorldCraftingDecisionCost>.Create(new[]
             {
                 new WorldCraftingDecisionCost(
-                    RecipeId, ResourceId, new BigDouble(75), new BigDouble(900)),
+                    RecipeId, ResourceId, new BigDouble(75), new BigDouble(heldDust)),
             }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
@@ -642,6 +674,8 @@ public sealed class GameMcpCraftingTests
             }),
         };
     }
+
+    private static string NoShortfall() => string.Empty;
 
     private static int AutomationBadgeAmount(int repetitions) =>
         repetitions <= 0 ? 0 : 1 << (repetitions - 1);

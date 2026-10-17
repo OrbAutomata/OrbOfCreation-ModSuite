@@ -3838,7 +3838,9 @@ the screen's Mx press would, through the game's own most-affordable rule. A comm
 answers with the crafts its own sentinel verified: `queued: N` for a queued craft, `completed: N`
 for a direct or instant one. Like `game_purchase`, the ask is taken as far as the stock goes, and a
 shortfall says both numbers and why on one line: `queued: 3 of 45 asked; the rest stopped: The
-cost of another of this craft is not met.` A refused first submission answers as that refusal. One
+cost of another of this craft is not met.` A refused first submission answers as that refusal; a
+craft the stock cannot afford refuses `unaffordable` with the unmet price from the recipe row's
+`nextCosts`, in the purchase shortfall's words: `Needs 75 Wood (have 0).` One
 that faults after earlier crafts landed answers as the fault, and its sentence opens with how many
 of the ask went through before it.
 
