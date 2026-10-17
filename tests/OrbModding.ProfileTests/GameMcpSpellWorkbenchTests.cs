@@ -195,6 +195,65 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal("Needs 12 Knowledge (have 3).", shortfall);
     }
 
+    /// <summary>
+    /// A learned spell's page carries what its card on Magic > Spellbook > Spells shows: the
+    /// mastery bar as the screen prints it, and the Confirm Mastery button's price and readiness.
+    /// </summary>
+    [Fact]
+    public void A_learned_spells_page_carries_its_cards_mastery_bar_and_confirm_mastery_button()
+    {
+        var ready = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(Named(World(
+                discovered: true,
+                discoveryAffordable: true,
+                hasEmptySlot: true,
+                masteryReady: true,
+                masteryAffordable: true,
+                masteryXp: 640,
+                requiredMasteryXp: 600,
+                held: 20,
+                spendable: 20))),
+            "spell-recipes",
+            RecipeId.ToString("D")))["row"]!;
+        var filling = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(Named(World(
+                discovered: true,
+                discoveryAffordable: true,
+                hasEmptySlot: true,
+                masteryXp: 122,
+                requiredMasteryXp: 600))),
+            "spell-recipes",
+            RecipeId.ToString("D")))["row"]!;
+        var unlearned = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(
+                Named(World(discovered: false, discoveryAffordable: true, hasEmptySlot: true))),
+            "spell-recipes",
+            RecipeId.ToString("D")))["row"]!;
+
+        Assert.Equal("640", (string?)ready["masteryXp"]);
+        Assert.Equal("600", (string?)ready["masteryXpNeeded"]);
+        var confirm = (JObject)ready["confirmMastery"]!;
+        Assert.True((bool)confirm["available"]!);
+        Assert.Equal(
+            "Its leveling requirements, which the press settles.",
+            (string?)confirm["notYetChecked"]);
+        var cost = Assert.Single(confirm["costs"]!.Values<JObject>())!;
+        Assert.Equal("12", (string?)cost["cost"]);
+        Assert.Equal("20", (string?)cost["spendableAmount"]);
+        Assert.True((bool)cost["affordable"]!);
+
+        Assert.Equal("122", (string?)filling["masteryXp"]);
+        Assert.Equal("600", (string?)filling["masteryXpNeeded"]);
+        Assert.False((bool)filling["confirmMastery"]!["available"]!);
+        Assert.Equal(
+            "Gather Knowledge has no mastery level ready to buy: its mastery bar fills by " +
+            "casting it.",
+            (string?)filling["confirmMastery"]!["reason"]);
+
+        Assert.Null(unlearned["masteryXp"]);
+        Assert.Null(unlearned["confirmMastery"]);
+    }
+
     [Fact]
     public void DiscoveredRecipePublishesTheExactLoadoutAddDecisionAndCurrentHoldings()
     {
@@ -777,6 +836,9 @@ public sealed class GameMcpSpellWorkbenchTests
         bool usageBudget = false,
         bool loadoutScreenUnlocked = true,
         bool masteryReady = false,
+        bool masteryAffordable = false,
+        double masteryXp = 0d,
+        double requiredMasteryXp = 0d,
         int held = 5,
         int spendable = 3,
         int authoredWeight = 0,
@@ -819,9 +881,10 @@ public sealed class GameMcpSpellWorkbenchTests
                     RecipeId,
                     discovered,
                     0,
-                    BigDouble.Zero,
+                    new BigDouble(masteryXp),
                     0,
                     masteryReady,
+                    masteryAffordable,
                     false,
                     false,
                     penaltyWeight,
@@ -835,6 +898,7 @@ public sealed class GameMcpSpellWorkbenchTests
                     BigDouble.One,
                     BigDouble.One,
                     false,
+                    new BigDouble(requiredMasteryXp),
                     glyphs,
                     discoveryCosts,
                     discoveryAffordable,
@@ -878,7 +942,8 @@ public sealed class GameMcpSpellWorkbenchTests
             MasteryCosts = masteryReady
                 ? PublicationTable<WorldMasteryCost>.Create(new[]
                 {
-                    new WorldMasteryCost(RecipeId, 0, ResourceId, new BigDouble(12), false),
+                    new WorldMasteryCost(
+                        RecipeId, 0, ResourceId, new BigDouble(12), masteryAffordable),
                 })
                 : PublicationTable<WorldMasteryCost>.Empty,
             SpellWorkbench = new WorldSpellWorkbench(

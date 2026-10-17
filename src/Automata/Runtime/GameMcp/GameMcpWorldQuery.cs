@@ -6822,6 +6822,12 @@ internal static class GameMcpWorldQuery
             ["discovered"] = recipe.Discovered,
             ["masteryLevel"] = recipe.MasteryLevel,
         };
+        if (recipe.Discovered)
+        {
+            result["masteryXp"] = new GameMcpDomainValue(recipe.MasteryXp);
+            result["masteryXpNeeded"] = new GameMcpDomainValue(recipe.RequiredMasteryXp);
+            result["confirmMastery"] = ProjectConfirmMastery(world, in recipe);
+        }
 
         var holdings = new JArray();
         for (var index = 0; index < world.SpellSlots.Count; index++)
@@ -6909,6 +6915,45 @@ internal static class GameMcpWorldQuery
         result[recipe.Discovered ? "loadoutAdd" : "discover"] = next;
         AddAuthoredSpellGraph(world, recipe.EntityId, result);
         return result.Freeze();
+    }
+
+    /// <summary>
+    /// The Confirm Mastery button on the spell's card: its price, and whether a press lands.
+    /// </summary>
+    /// <remarks>
+    /// The button reads <c>IsReadyToLevelMastery()</c>, which is the mastery bar alone, and is
+    /// priced by <c>GetLevelCost()</c>. The spell's leveling requirements are the one gate no
+    /// publication carries, so a yes says the press settles them.
+    /// </remarks>
+    private static JObject ProjectConfirmMastery(GameWorldState world, in WorldSpellRecipe recipe)
+    {
+        var available = recipe.MasteryLevelReady && recipe.MasteryLevelAffordable;
+        var result = new JObject { ["available"] = available };
+        if (available)
+            result["notYetChecked"] = "Its leveling requirements, which the press settles.";
+        else
+            result["reason"] = MasteryRefusalReason(world, recipe.EntityId);
+        if (!OwnedMasteryCostMath.TryFindRange(
+                world.MasteryCosts, recipe.EntityId, out var start, out var count) || count <= 0)
+            return result;
+        var costs = new JArray();
+        for (var index = start; index < start + count; index++)
+        {
+            var cost = world.MasteryCosts[index];
+            var row = new JObject
+            {
+                ["resourceId"] = cost.ResourceId.ToString("D"),
+                ["cost"] = new GameMcpDomainValue(
+                    PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
+            };
+            if (TryFindResource(world, cost.ResourceId, out var pool))
+                row["amount"] = new GameMcpDomainValue(
+                    WorldResourceCoordinate.SpendableAmount(in pool));
+            row["affordable"] = cost.Affordable;
+            costs.Add(row);
+        }
+        result["costs"] = costs;
+        return result;
     }
 
     /// <summary>
