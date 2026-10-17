@@ -81,8 +81,6 @@ internal static class AutoConceptFeatureStatusProjector
         AutoConceptIdleReason.RateReserve =>
             "its drain would leave " + Name(idle.Resource) +
             " less than AutoConcept/RateReservePercent of its income",
-        AutoConceptIdleReason.ResourceFloor =>
-            Name(idle.Resource) + " is under AutoConcept/MinimumResourcePercent of its cap",
         _ => idle.Resource == Guid.Empty
             ? "its drain cannot be projected from the published world"
             : "its " + Name(idle.Resource) + " drain cannot be projected from the published world",

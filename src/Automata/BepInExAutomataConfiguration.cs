@@ -73,7 +73,6 @@ internal sealed class BepInExAutomataConfiguration
         ConfigEntry<bool> autoConceptShowToggleButton,
         ConfigEntry<int> autoConceptTrainingPeriodSeconds,
         ConfigEntry<float> autoConceptRateReservePercent,
-        ConfigEntry<float> autoConceptMinimumResourcePercent,
         ConfigEntry<float> autoConceptMinimumDrainRatio,
         ConfigEntry<AutoHarvestOperationMode> autoHarvestMode,
         ConfigEntry<bool> autoHarvestFruitTrees,
@@ -109,7 +108,6 @@ internal sealed class BepInExAutomataConfiguration
         AutoConceptShowToggleButton = autoConceptShowToggleButton;
         AutoConceptTrainingPeriodSeconds = autoConceptTrainingPeriodSeconds;
         AutoConceptRateReservePercent = autoConceptRateReservePercent;
-        AutoConceptMinimumResourcePercent = autoConceptMinimumResourcePercent;
         AutoConceptMinimumDrainRatio = autoConceptMinimumDrainRatio;
         AutoHarvestMode = autoHarvestMode;
         AutoHarvestFruitTrees = autoHarvestFruitTrees;
@@ -170,7 +168,6 @@ internal sealed class BepInExAutomataConfiguration
     public ConfigEntry<bool> AutoLevelSpells { get; }
     public ConfigEntry<int> AutoConceptTrainingPeriodSeconds { get; }
     public ConfigEntry<float> AutoConceptRateReservePercent { get; }
-    public ConfigEntry<float> AutoConceptMinimumResourcePercent { get; }
     public ConfigEntry<float> AutoConceptMinimumDrainRatio { get; }
 
     public ConfigEntry<AutoHarvestOperationMode> AutoHarvestMode { get; }
@@ -331,7 +328,6 @@ internal sealed class BepInExAutomataConfiguration
             AutoConceptSlotManagement,
             AutoConceptTrainingPeriodSeconds,
             AutoConceptRateReservePercent,
-            AutoConceptMinimumResourcePercent,
             AutoConceptMinimumDrainRatio,
             AutoHarvestMode,
             AutoHarvestFruitTrees,
@@ -485,7 +481,6 @@ internal sealed class BepInExAutomataConfiguration
                     hidden: true),
                 Bind(config, "AutoConcept", "TrainingPeriodSeconds", 30, "RotateAll and PreserveManual protect a newly assigned concept until it catches the captured highest mastery or this settled time elapses. TimedCycle always uses the full settled period.", 17, 7, new AcceptableValueRange<int>(10, 3600), AutoConceptActiveDependencies),
                 Bind(config, "AutoConcept", "RateReservePercent", 10.0f, "Minimum percentage of each drained resource's current gross positive rate to preserve after an automated quantity change.", 17, 30, new AcceptableValueRange<float>(0.0f, 100.0f), AutoConceptActiveDependencies),
-                Bind(config, "AutoConcept", "MinimumResourcePercent", 10.0f, "Finite-cap drained resources must be at least this full before Auto Concept adds quantity.", 17, 40, new AcceptableValueRange<float>(0.0f, 100.0f), AutoConceptActiveDependencies),
                 Bind(config, "AutoConcept", "MinimumDrainRatio", 0.95f, "Native post-settlement drain ratio floor. Falling below it rolls back only Automata-owned quantity.", 17, 50, new AcceptableValueRange<float>(0.0f, 1.0f), AutoConceptActiveDependencies),
                 Bind(config, "AutoHarvest", "Mode", AutoHarvestOperationMode.Disabled, "Disabled performs no harvest work. Active queues one audited native fruit-tree or treasure-tree collect action at a time.", 18, 0),
                 Bind(config, "AutoHarvest", "CollectFruitTrees", true, "Collect ready fruit trees through their native plot action.", 18, 10, dependencies: AutoHarvestActiveDependencies),

@@ -40,7 +40,6 @@ internal static class BepInExAutomataConfigurationReader
                 SlotManagement = source.AutoConceptSlotManagement.Value,
                 TrainingPeriodSeconds = source.AutoConceptTrainingPeriodSeconds.Value,
                 RateReservePercent = source.AutoConceptRateReservePercent.Value,
-                MinimumResourcePercent = source.AutoConceptMinimumResourcePercent.Value,
                 MinimumDrainRatio = source.AutoConceptMinimumDrainRatio.Value,
             },
             AutoHarvest = new AutoHarvestConfiguration

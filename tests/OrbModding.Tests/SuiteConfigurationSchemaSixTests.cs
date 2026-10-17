@@ -36,7 +36,7 @@ public sealed class SuiteConfigurationSchemaSixTests
         Assert.True(result.Success, result.Status.Reason);
         Assert.Equal(ConfigurationSchemaState.Migrated, result.Status.State);
         Assert.Equal(5, result.Status.FromVersion);
-        Assert.Equal(6, result.Status.ToVersion);
+        Assert.Equal(7, result.Status.ToVersion);
         Assert.Equal(30, result.Config!.Automata.AutoConceptTrainingPeriodSeconds.Value);
         Assert.Equal(15, result.Diagnostics.Count);
         foreach (var (section, key) in Retired)

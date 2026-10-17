@@ -680,7 +680,7 @@ public sealed class GameMcpProtocolSurfaceTests
             FeatureStatusState.TemporarilyBlocked,
             new FeatureStatusReason(
                 FeatureStatusReasonCode.TemporarySafetyBlock,
-                "Auto Concept would rotate Analyze Space out for Analyze Essence, but Psi is under AutoConcept/MinimumResourcePercent of its cap."),
+                "Auto Concept would rotate Analyze Space out for Analyze Essence, but Psi is at zero."),
             lifecycleGeneration: 9);
         var stopped = new FeatureStatusSnapshot(
             new FeatureStatusKey(PluginIds.SuiteGuid, "AutoBuy"),
@@ -696,7 +696,7 @@ public sealed class GameMcpProtocolSurfaceTests
             GameMcpTestHarness.Context(features: new[] { concept, stopped }));
 
         Assert.Contains(
-            "\nauto_concept reason: Auto Concept would rotate Analyze Space out for Analyze Essence, but Psi is under AutoConcept/MinimumResourcePercent of its cap.",
+            "\nauto_concept reason: Auto Concept would rotate Analyze Space out for Analyze Essence, but Psi is at zero.",
             compact,
             StringComparison.Ordinal);
         Assert.DoesNotContain("auto_buy reason: ", compact, StringComparison.Ordinal);
@@ -942,8 +942,8 @@ public sealed class GameMcpConfigurationTests
             .ToDictionary(
                 entry => (entry.Definition.Section, entry.Definition.Key));
 
-        Assert.Equal(29, schema.Length);
-        Assert.Equal(29, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
+        Assert.Equal(28, schema.Length);
+        Assert.Equal(28, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
         foreach (var descriptor in schema)
         {
             var entry = entries[(descriptor.Section, descriptor.Key)];
@@ -1510,7 +1510,6 @@ public sealed class GameMcpConfigurationTests
                 "AutoConcept/SlotManagementMode: AutoConceptSlotManagementMode",
                 "AutoConcept/TrainingPeriodSeconds: int",
                 "AutoConcept/RateReservePercent: float",
-                "AutoConcept/MinimumResourcePercent: float",
                 "AutoConcept/MinimumDrainRatio: float",
                 "AutoHarvest/Mode: AutoHarvestOperationMode",
                 "AutoHarvest/CollectFruitTrees: bool",

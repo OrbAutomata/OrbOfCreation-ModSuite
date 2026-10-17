@@ -66,7 +66,7 @@ Scribe, Mentor, Safety, and Reserves sections. Engines and controls consume that
 BepInEx entries or feature-specific configuration mirrors. A ServiceCycle cycle pins the complete
 record it began with; later changes apply to a later cycle.
 
-The former runtime-probe, per-session purchase-limit, DryRun, expert-override, Auto Research, and Auto Harvest runtime-selector settings are not part of the release configuration or the configuration UI. Automation has no configuration schema of its own: it binds into the suite's single configuration file, which the shared pre-bind transaction marks at `ConfigurationSchemaVersion` 6. Migrations remove retired controls, preserve reviewed current values, and move the former default Auto Concept training period from 300 to 30 seconds. Malformed, negative, or future schema data fails closed without starting the suite.
+The former runtime-probe, per-session purchase-limit, DryRun, expert-override, Auto Research, and Auto Harvest runtime-selector settings are not part of the release configuration or the configuration UI. Automation has no configuration schema of its own: it binds into the suite's single configuration file, which the shared pre-bind transaction marks at `ConfigurationSchemaVersion` 7. Migrations remove retired controls (schema 7 deletes the Auto Concept fill floor `MinimumResourcePercent`), preserve reviewed current values, and move the former default Auto Concept training period from 300 to 30 seconds. Malformed, negative, or future schema data fails closed without starting the suite.
 
 ## Auto Harvest
 
@@ -294,7 +294,7 @@ that the game resolves to a mastery-derived or unlimited maximum.
 
 The same publication captures native prospective drain vectors for the exact quantity targets the
 boundary's halving ladder can choose. Planning compares each positive incremental drain through the
-published resource quality, true rate, current drain, capacity, and configured rate/quantity floors.
+published resource quality, true rate, current drain, and configured rate reserve.
 A target the publication already says would violate a reserve is quiet backpressure and is not
 scheduled; a lower safe target may still be selected. The GameAction independently reconstructs the
 prospective vector and repeats every check against live native state before mutation. Boundary-time
@@ -312,9 +312,9 @@ tooltip. The legacy `ShowToggleButton` config-file key is retained hidden and ig
 registered automation feature always owns one quick control. Spell-leveling state remains on the
 suite's Auto Buy tooltip rather than becoming a separate control.
 
-Before every add or rotation, Auto Concept reconstructs that exact prospective native drain vector, rejects every positive drain whose authoritative resource state is zero, converts the remainder through each resource's live quality with `ResourceSO.GetTrueSpend`, and compares the projected rate with `RateReservePercent`. Finite resources must also meet `MinimumResourcePercent`. A replacement whose resource is at zero is skipped without blocking other resource-safe concepts or acquired slots in the timed order. Unknown vectors, identity mismatches, incompatible slots, and changed mastery limits fail closed. Each world publication checks cached active assignments; if the native drain ratio falls below `MinimumDrainRatio`, a drained resource reaches zero, or its live net rate becomes negative, it schedules removal of only the quantity recorded as suite-owned.
+Before every add or rotation, Auto Concept reconstructs that exact prospective native drain vector, rejects every positive drain whose authoritative resource state is zero, converts the remainder through each resource's live quality with `ResourceSO.GetTrueSpend`, and compares the projected rate with `RateReservePercent`. How full a resource is against its cap does not gate an add: a late-game Psi pool can sit far below a cap that grows faster than it fills while its income dwarfs every drain. A replacement whose resource is at zero is skipped without blocking other resource-safe concepts or acquired slots in the timed order. Unknown vectors, identity mismatches, incompatible slots, and changed mastery limits fail closed. Each world publication checks cached active assignments; if the native drain ratio falls below `MinimumDrainRatio`, a drained resource reaches zero, or its live net rate becomes negative, it schedules removal of only the quantity recorded as suite-owned.
 
-The prospective multiplier is not a published fact. The native answer for quantity N exists only after constructing a throwaway `AlchemyInstance`, setting its quantity, and calling `GetDrainCostMod()`, and a published recipe's drain-cost scalar is not evidence that it reproduces that instance method. The halving search, reserve test, quantity floor, and subtraction of the live current drain therefore stay together in the action adapter's preflight, immediately before any add or rotation removal.
+The prospective multiplier is not a published fact. The native answer for quantity N exists only after constructing a throwaway `AlchemyInstance`, setting its quantity, and calling `GetDrainCostMod()`, and a published recipe's drain-cost scalar is not evidence that it reproduces that instance method. The halving search, reserve test, and subtraction of the live current drain therefore stay together in the action adapter's preflight, immediately before any add or rotation removal.
 
 A live slot or prospective-drain refusal ends Auto Concept's work on the current world reading. The
 engine waits for a strictly newer world before the action result settles and the candidate re-enters

@@ -34,7 +34,7 @@ public sealed class SuiteConfigurationSchemaFiveTests
         Assert.True(result.Success, result.Status.Reason);
         Assert.Equal(ConfigurationSchemaState.Migrated, result.Status.State);
         Assert.Equal(4, result.Status.FromVersion);
-        Assert.Equal(6, result.Status.ToVersion);
+        Assert.Equal(7, result.Status.ToVersion);
         Assert.Equal(7, result.Diagnostics.Count);
         Assert.All(
             result.Diagnostics,
@@ -82,7 +82,7 @@ public sealed class SuiteConfigurationSchemaFiveTests
         Assert.Equal(original, files.ReadAllBytes(path));
         Assert.Equal(
             original,
-            files.ReadAllBytes(ConfigurationSchemaTransaction.GetBackupPath(path, 6)));
+            files.ReadAllBytes(ConfigurationSchemaTransaction.GetBackupPath(path, 7)));
         Assert.Empty(file);
     }
 

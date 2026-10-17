@@ -795,7 +795,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_concept",
                 "Assign or remove a concept",
-                "Apply one exact concept assignment change and return its terminal native result inline. The game's own gates decide it: a free Concept slot, a discovered recipe, and the drain the assignment costs. The read side is the concepts category: world_list category=concepts pages the forty-six the Scholar screen draws, and world_get on one carries the slot budget and this verb's own add decision. Auto Concept's own settings, the rate reserve and the quantity floor it holds its own assignments back for included, do not apply to this call.",
+                "Apply one exact concept assignment change and return its terminal native result inline. The game's own gates decide it: a free Concept slot, a discovered recipe, and the drain the assignment costs. The read side is the concepts category: world_list category=concepts pages the forty-six the Scholar screen draws, and world_get on one carries the slot budget and this verb's own add decision. Auto Concept's own settings, the rate reserve it holds its own assignments back for included, do not apply to this call.",
                 ObjectSchema(
                     new JObject
                     {

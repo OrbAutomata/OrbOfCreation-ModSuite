@@ -45,7 +45,7 @@ given game action.
   Loadout is open, so spells can recharge fully and be removed.
 - **Auto Concept** starts Disabled. Its default Timed Cycle rotates acquired concepts after 30
   seconds of settled training. Rotate All may replace a lower-mastery active concept, while
-  Preserve Manual keeps concepts that were active when automation began. Rate, quantity, and drain
+  Preserve Manual keeps concepts that were active when automation began. Rate and drain
   protections remain configurable.
 - **Auto Harvest** starts Disabled. Fruit-tree and treasure-tree collection are both selected by
   default behind the feature switch.

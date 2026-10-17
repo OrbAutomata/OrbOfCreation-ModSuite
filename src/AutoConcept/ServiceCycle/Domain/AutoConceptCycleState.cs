@@ -262,8 +262,7 @@ internal enum AutoConceptIdleReason
     NoUnlockedAssignableReplacement = 2,
     ResourceAtZero = 3,
     RateReserve = 4,
-    ResourceFloor = 5,
-    DrainUnknown = 6,
+    DrainUnknown = 5,
 }
 
 internal enum AutoConceptIdleMove

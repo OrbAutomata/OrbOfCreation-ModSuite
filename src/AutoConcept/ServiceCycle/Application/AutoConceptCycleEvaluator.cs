@@ -457,7 +457,7 @@ internal static class AutoConceptCycleEvaluator
 
     /// <summary>
     /// Chooses the same halving ladder as the native boundary, but from the immutable publication.
-    /// A configured reserve or quantity floor is ordinary backpressure and therefore prevents the
+    /// A configured reserve is ordinary backpressure and therefore prevents the
     /// action from being scheduled; the boundary repeats this check against live native state (M3).
     /// </summary>
     private static bool TryFindSafeTarget(
@@ -550,10 +550,6 @@ internal static class AutoConceptCycleEvaluator
                 : grossRate * (Math.Clamp(config.AutoConcept.RateReservePercent, 0f, 100f) / 100d);
             if ((resource.TrueRate - trueIncrement).CompareTo(reserve) < 0)
                 return AutoConceptIdleReason.RateReserve;
-
-            if (resource.IsCapped && resource.Reading.Capacity.CompareTo(default) != 0 &&
-                resource.FillFraction * 100d < config.AutoConcept.MinimumResourcePercent)
-                return AutoConceptIdleReason.ResourceFloor;
         }
         resourceId = Guid.Empty;
         return AutoConceptIdleReason.None;

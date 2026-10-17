@@ -3236,7 +3236,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen by the route a player walks to it — *Rituals > Discover is not unlocked yet, so the game draws no row for this.* One table maps a view to its breadcrumb, so a row and the press it predicts cannot spell one screen two ways; a view that table does not pin keeps the unnamed sentence rather than pointing at the wrong page | `spell-recipes` loadout-add decisions, `augment-glyphs` `purchase` decisions, `spell-slots` remove decisions, `upgrades` `available` and `canPurchase`, `game_spell_loadout add`/`remove`/`move`, `game_purchase` on an aspect upgrade with no World > Aspects pedestal unlocked, `game_agromancy set_druidry_level` before Unlock Druidry Levels, `game_alchemy set_alchemy_level` before Level Alchemy |
 | `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `canDiscover` predicates on an entity no discovery tree's pool can hold |
-| `projection_refused` | The drain this assignment would add could not be read, so the call fails closed; the game refused nothing. Auto Concept's rate reserve, quantity floor, and its rule against draining a resource that sits at zero never produce it, because all three are read on the service's own call and nowhere else | `game_concept` |
+| `projection_refused` | The drain this assignment would add could not be read, so the call fails closed; the game refused nothing. Auto Concept's rate reserve and its rule against draining a resource that sits at zero never produce it, because both are read on the service's own call and nowhere else | `game_concept` |
 | `owning_screen_unknown` / `owning_screen_unreadable` / `owning_screen_contradictory` / `owning_screen_status_unmodelled` / `owning_screen_availability_unreadable` / `topology_not_captured` | The five distinct ways the purchase-screen admission chain says no, which used to share one number. Only `topology_not_captured` is fixed by waiting for the next lifecycle; its sentence names the epoch the topology is stamped at, the epoch the call asked for, and how many rows it holds. `owning_screen_unknown` has a second producer: an alchemy recipe whose own alchemy type is in neither audited set, so neither alchemy discovery screen claims it | `game_purchase`, `alchemy-recipes` `discover` decisions |
 | `destination_full` | Every slot this upgrade would fill is already occupied | `game_purchase` on a slot-filling upgrade |
 | `single_buy_unavailable` | The suite could not hold the game's multi-buy multiplier at one for the press, so nothing was pressed and nothing was spent. It answered `native_rejected` — the game refusing — for a call the game never saw | the single-buy purchase path |
@@ -3337,11 +3337,10 @@ slots *for* manual actions and then refusing one is the contradiction that reser
 The reverse holds too: a game refusal of a `game_purchase` press answers the caller and never reaches
 Auto Buy's planner breaker, because a press has no plan to be wrong about.
 The same rule reaches every other verb. `game_concept` takes the game's gates — a free Concept
-slot, a discovered recipe, and the drain the assignment costs — and reads neither
-`AutoConcept/RateReservePercent` nor `AutoConcept/MinimumResourcePercent`, which are the
-backpressure Auto Concept's own cycle keeps; a live round had those two refuse an `add` with
-`ERR_LIMIT` while Auto Concept's mode was Disabled. Auto Concept's third caution belongs to the
-same set: it holds its own cycle back from a drain that would run a resource at zero, and the game
+slot, a discovered recipe, and the drain the assignment costs — and does not read
+`AutoConcept/RateReservePercent`, the backpressure Auto Concept's own cycle keeps; a live round had
+it refuse an `add` with `ERR_LIMIT` while Auto Concept's mode was Disabled. Auto Concept's other
+caution belongs to the same set: it holds its own cycle back from a drain that would run a resource at zero, and the game
 does not. `AlchemyInstanceListVariable.EngageAlchemy` gates on an empty spot or an existing
 instance, the recipe's free and maximum usage slots, its usage cost and the multi-buy count, and
 `CanAddInstance` is that slot test alone — the zero state reaches nothing on either path. `game_cast` is never held back by

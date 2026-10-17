@@ -186,7 +186,7 @@ public sealed class ModConfigTests
             new[] { "Mode", "FullCharge", "ToggleShortcut", "StartResourcePercent", "ManualPauseSeconds" },
             mod.Sections.Single(section => section.Name == "Auto Cast").Settings.Select(setting => setting.Key));
         Assert.Equal(
-            new[] { "Mode", "SlotManagementMode", "TrainingPeriodSeconds", "RateReservePercent", "MinimumResourcePercent", "MinimumDrainRatio" },
+            new[] { "Mode", "SlotManagementMode", "TrainingPeriodSeconds", "RateReservePercent", "MinimumDrainRatio" },
             mod.Sections.Single(section => section.Name == "Auto Concept").Settings.Select(setting => setting.Key));
         Assert.Equal(
             new[] { "Mode", "CollectFruitTrees", "CollectTreasureTrees" },

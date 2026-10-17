@@ -232,8 +232,7 @@ internal static class GameMcpAutomationPolicy
             _ => "Rotates a concept only after its full " + Count(settings.TrainingPeriodSeconds) +
                 "s training period",
         };
-        return rotation + "; it adds quantity only while each drained resource is at least " +
-            Number(settings.MinimumResourcePercent) + "% full, keeps " +
+        return rotation + "; it keeps " +
             Number(settings.RateReservePercent) +
             "% of that resource's rate in reserve, and takes its own quantity back off if the " +
             "drain ratio falls under " + Number(settings.MinimumDrainRatio) + ".";

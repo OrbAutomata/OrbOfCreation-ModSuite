@@ -38,7 +38,6 @@ internal sealed class AutoConceptTooltip : ITooltipable
             new($"Slot management: {Config.AutoConcept.SlotManagement}"),
             new($"Training period: {Config.AutoConcept.TrainingPeriodSeconds} seconds"),
             new($"Rate reserve: {Config.AutoConcept.RateReservePercent:0.##}%"),
-            new($"Minimum resource fullness: {Config.AutoConcept.MinimumResourcePercent:0.##}%"),
             new("Click to toggle Auto Concept."),
         });
         return nodes;
