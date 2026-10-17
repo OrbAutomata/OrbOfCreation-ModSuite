@@ -298,6 +298,14 @@ internal static class GameMcpEntityExplainer
                 // a finished upgrade fell to the locked sentence — "the game keeps this locked, and
                 // says nothing about what would unlock it" — for a thing that is done rather than
                 // shut. `canPurchase` already knew the difference; both words read it now.
+                if (upgrade.Reading.Available &&
+                    GameMcpWorldQuery.IsUpgradeScreenLocked(world, id, out var screenView))
+                {
+                    var sentence = GameMcpDecisionReason.ScreenLocked(screenView);
+                    result["available"] = Verdict(false, "screen_locked", sentence);
+                    result["canPurchase"] = Verdict(false, "screen_locked", sentence);
+                    break;
+                }
                 result["available"] = Verdict(
                     upgrade.Reading.Available,
                     upgrade.IsExhausted ? "already_maxed" : lockedReason);
@@ -1231,7 +1239,7 @@ internal static class GameMcpEntityExplainer
             return null;
         if (kind == EntityKind.Upgrade &&
             (!WorldLookup.TryFind(world.Upgrades, id, out var upgrade) ||
-             !upgrade.Reading.Available || upgrade.IsExhausted))
+             !GameMcpWorldQuery.IsUpgradeOffered(world, in upgrade) || upgrade.IsExhausted))
             return null;
         if (!WorldPurchaseCostLookup.TryFindRange(
                 world.PurchaseCosts, id, out var start, out var count))

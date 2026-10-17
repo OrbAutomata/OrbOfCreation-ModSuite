@@ -569,6 +569,8 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
                 return ServiceActionResult.Rejected(AutoBuyActionResultCodes.StructureUnavailable);
             case AutoBuyPurchasePreflight.DestinationCapacityFull:
                 return ServiceActionResult.Rejected(AutoBuyActionResultCodes.DestinationCapacityFull);
+            case AutoBuyPurchasePreflight.DestinationCapacityLocked:
+                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.DestinationCapacityLocked);
             case AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable:
                 return ServiceActionResult.Rejected(
                     AutoBuyActionResultCodes.DestinationCapacityContractUnavailable);

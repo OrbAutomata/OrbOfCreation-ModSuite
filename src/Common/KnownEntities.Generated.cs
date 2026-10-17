@@ -105,6 +105,11 @@ internal static class KnownEntities
     public static readonly KnownEntity<ViewSOContract> RitualsDiscover = new(new Guid("443bc384-3df6-49ac-aa52-28abe080595c"), "ViewSO", "RitualsDiscover");
     public static readonly KnownEntity<ViewSOContract> ScholarConceptDiscover = new(new Guid("f0e4b59a-b510-4de3-ae3e-dfca0fd76239"), "ViewSO", "ScholarConceptDiscover");
     public static readonly KnownEntity<ViewSOContract> ScreenMagic = new(new Guid("9746b42e-1b57-4f98-8ba4-f64b4c34d8c1"), "ViewSO", "ScreenMagic");
+    public static readonly KnownEntity<ViewSOContract> ScreenRitual = new(new Guid("9cfb2e96-ee2f-4001-8397-7c1680ab9573"), "ViewSO", "ScreenRitual");
+    public static readonly KnownEntity<ViewSOContract> ScreenScholar = new(new Guid("9ea5d6e1-739b-4dec-832b-f5f3ba3ad2ca"), "ViewSO", "ScreenScholar");
+    public static readonly KnownEntity<ViewSOContract> ScreenTime = new(new Guid("ce6044da-15dd-408e-9524-14e163314f19"), "ViewSO", "ScreenTime");
+    public static readonly KnownEntity<ViewSOContract> ScreenWorkshop = new(new Guid("c662d72a-2211-4cd6-b9d2-104071a5e6e9"), "ViewSO", "ScreenWorkshop");
+    public static readonly KnownEntity<ViewSOContract> ScreenWorld = new(new Guid("efd92b91-780a-4e47-b65b-4056a9d81af5"), "ViewSO", "ScreenWorld");
     public static readonly KnownEntity<CraftingRecipeTypeSOContract> ScribeCrafting = new(new Guid("ee001474-8209-4238-9566-84899a877226"), "CraftingRecipeTypeSO", "ScribeCrafting");
     public static readonly KnownEntity<CraftingRecipeListVariableContract> ScribeCraftingRecipes = new(new Guid("2917516f-34a5-47b7-85b2-0b2f9ab3a29f"), "CraftingRecipeListVariable", "ScribeCraftingRecipes");
     public static readonly KnownEntity<ConsumableSOContract> ScrollAdvancement = new(new Guid("5f6aa08d-7da6-4c7a-89c9-aabcfe48e886"), "ConsumableSO", "ScrollAdvancement");
@@ -135,5 +140,6 @@ internal static class KnownEntities
     public static readonly KnownEntity<ViewSOContract> WorkshopArtifact = new(new Guid("668a2a7a-468f-4e0e-b182-979b12a4b0ad"), "ViewSO", "WorkshopArtifact");
     public static readonly KnownEntity<ViewSOContract> WorkshopArtifactCreate = new(new Guid("05e1f545-5daa-4bd0-9cbb-8770f4cf6a13"), "ViewSO", "WorkshopArtifactCreate");
     public static readonly KnownEntity<IntVariableContract> WorldAspectSlots = new(new Guid("4b1bb2de-723a-4360-827c-8e4483f3ff8d"), "IntVariable", "WorldAspectSlots");
+    public static readonly KnownEntity<ViewSOContract> WorldAspects = new(new Guid("ce207aba-b835-4455-a1b7-e10e18db9ce2"), "ViewSO", "WorldAspects");
     public static readonly KnownEntity<IntVariableContract> WorldResets = new(new Guid("56039067-0092-49c0-a7bd-3c43eb119d37"), "IntVariable", "WorldResets");
 }

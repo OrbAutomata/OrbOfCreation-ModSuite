@@ -214,7 +214,10 @@ capacity-bound one must match an audited exact list/max identity pair and answer
 `HasEmptySpot()`. The audited pair is the world-aspect destination `CreatedWorldAspects`
 (`74ec1f90-e94c-4cd7-a1d0-7b35016b57ff`), whose `AbstractListVariable<ViewSO>.maxSizeVariable` is
 the `WorldAspectSlots` `IntVariable` (`4b1bb2de-723a-4360-827c-8e4483f3ff8d`). An unknown pair, a
-malformed tuple, an identity contradiction, or a full destination refuses before payment. The rule
+malformed tuple, an identity contradiction, or a full destination refuses before payment. A full
+destination whose `IntVariable.AsInt()` maximum is zero has no slot unlocked at all and refuses as
+`screen_locked`, since `WorldAspects` is gated on that same variable; otherwise it is
+`destination_full`. The rule
 has an origin: an aspect bought against zero free pedestals without this gate made the game
 manifest an extra slot, and a later slot grant left one permanently empty.
 

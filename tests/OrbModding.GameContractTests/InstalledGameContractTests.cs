@@ -164,6 +164,7 @@ public sealed class InstalledGameContractTests
         Assert.Equal("!1", assembly.GetFieldType("GenericListVariable`1+AdditionTuple`1", "list"));
         Assert.Equal("!0", assembly.GetFieldType("GenericListVariable`1+AdditionTuple`1", "element"));
         Assert.Equal("IntVariable", assembly.GetFieldType("AbstractListVariable`1", "maxSizeVariable"));
+        AssertMethod(assembly, "IntVariable", "AsInt", false, "System.Int32");
         AssertMethod(assembly, "GenericListVariable`1", "HasEmptySpot", false, "System.Boolean");
         AssertMethod(assembly, "IdScriptableObject", "GetGuid", false, "System.Guid");
     }

@@ -90,6 +90,8 @@ internal static class AutoBuyPurchaseNarration
                 Refusal(candidate, "structure unavailable"),
             AutoBuyPurchasePreflight.DestinationCapacityFull =>
                 Refusal(candidate, "destination capacity full"),
+            AutoBuyPurchasePreflight.DestinationCapacityLocked =>
+                Refusal(candidate, "no destination slot unlocked"),
             AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable =>
                 Refusal(candidate, "destination capacity contract unavailable"),
             AutoBuyPurchasePreflight.DestinationCapacityIdentityMismatch =>

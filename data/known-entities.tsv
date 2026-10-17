@@ -56,6 +56,11 @@ ResourceBarMaterials	b6079b18-b962-4cc1-a3e5-62eafaacf4b8	MaterialResources	Reso
 RitualsDiscover	443bc384-3df6-49ac-aa52-28abe080595c	RitualsDiscover	ViewSO
 ScholarConceptDiscover	f0e4b59a-b510-4de3-ae3e-dfca0fd76239	ScholarConceptDiscover	ViewSO
 ScreenMagic	9746b42e-1b57-4f98-8ba4-f64b4c34d8c1	ScreenMagic	ViewSO
+ScreenRitual	9cfb2e96-ee2f-4001-8397-7c1680ab9573	ScreenRitual	ViewSO
+ScreenScholar	9ea5d6e1-739b-4dec-832b-f5f3ba3ad2ca	ScreenScholar	ViewSO
+ScreenTime	ce6044da-15dd-408e-9524-14e163314f19	ScreenTime	ViewSO
+ScreenWorkshop	c662d72a-2211-4cd6-b9d2-104071a5e6e9	ScreenWorkshop	ViewSO
+ScreenWorld	efd92b91-780a-4e47-b65b-4056a9d81af5	ScreenWorld	ViewSO
 ScribeCrafting	ee001474-8209-4238-9566-84899a877226	ScribeCrafting	CraftingRecipeTypeSO
 ScribeCraftingRecipes	2917516f-34a5-47b7-85b2-0b2f9ab3a29f	ScribeCraftingRecipes	CraftingRecipeListVariable
 ScrollAdvancement	5f6aa08d-7da6-4c7a-89c9-aabcfe48e886	ScrollAdvancement	ConsumableSO
@@ -86,4 +91,5 @@ UpgradesWorldScreen	d9cbbc6b-b8c6-4fa6-9bea-3551a2107eae	WorldScreenUpgrades	Upg
 WorkshopArtifact	668a2a7a-468f-4e0e-b182-979b12a4b0ad	WorkshopArtifact	ViewSO
 WorkshopArtifactCreate	05e1f545-5daa-4bd0-9cbb-8770f4cf6a13	WorkshopArtifactCreate	ViewSO
 WorldAspectSlots	4b1bb2de-723a-4360-827c-8e4483f3ff8d	WorldAspectSlots	IntVariable
+WorldAspects	ce207aba-b835-4455-a1b7-e10e18db9ce2	WorldAspects	ViewSO
 WorldResets	56039067-0092-49c0-a7bd-3c43eb119d37	WorldResets	IntVariable

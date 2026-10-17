@@ -970,11 +970,25 @@ public sealed class GameMcpListColumnsTests
     private static GameWorldState UpgradesWorld(params WorldUpgrade[] upgrades) =>
         UpgradesWorld(OneScreen(), upgrades);
 
+    /// <summary>
+    /// The view behind every screen word, unlocked unless named. A live world publishes every
+    /// <c>ViewSO</c>, so a fixture that put upgrades on a screen and published no view for it was a
+    /// world the game cannot be in.
+    /// </summary>
+    private static PublicationTable<WorldView> ScreenViews(params Guid[] locked) =>
+        PublicationTable<WorldView>.Create(GameMcpListColumns.Screens
+            .Select(screen => screen.ViewId)
+            .OrderBy(view => view)
+            .Select(view => new WorldView(view, false, false, !locked.Contains(view)))
+            .ToArray());
+
     private static GameWorldState UpgradesWorld(
         WorldUpgradeListMembership[] memberships,
-        WorldUpgrade[] upgrades) =>
+        WorldUpgrade[] upgrades,
+        params Guid[] lockedScreens) =>
         new()
         {
+            Views = ScreenViews(lockedScreens),
             EntityIdentities = EntityIdentityCatalogSnapshot.Bound(1, new[]
             {
                 new EntityIdentityName(Capped, "UpgradeSO", "Capped Rite", "cappedRite"),
@@ -1270,6 +1284,49 @@ public sealed class GameMcpListColumnsTests
     private static string Bracket(string page) => page
         .Split('\n')
         .Single(line => line.StartsWith("[", StringComparison.Ordinal));
+
+    /// <summary>
+    /// An upgrade whose own prerequisites hold is still not offered while the screen it is drawn on
+    /// is locked. Aspect: Workshop has no prerequisites at all, and a live run with no World >
+    /// Aspects pedestal read it as available and buyable on the page and in the available search,
+    /// then had the purchase refused.
+    /// </summary>
+    [Fact]
+    public void An_upgrade_on_a_locked_screen_is_locked_on_the_page_the_search_and_its_verdicts()
+    {
+        var memberships = new[]
+        {
+            new WorldUpgradeListMembership(Capped, KnownEntities.UpgradesMagicScreen.Uuid),
+            new WorldUpgradeListMembership(Aspect, KnownEntities.UpgradesAspectsScreen.Uuid),
+        };
+        var upgrades = new[] { Upgrade(Capped, bounded: true), Upgrade(Aspect, bounded: true) };
+        var context = GameMcpTestHarness.Context(UpgradesWorld(
+            memberships, upgrades, KnownEntities.WorldAspects.Uuid));
+
+        Assert.Equal(
+            new[] { "available", "locked" },
+            Rows(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "upgrades", 0, 50)))
+                .Select(row => (string?)row["state"]).ToArray());
+        Assert.Equal(
+            new[] { GameMcpTestHarness.Handle(Capped) },
+            GameMcpTestHarness
+                .Json(GameMcpWorldQuery.Search(
+                    context, string.Empty, 0, 50, "upgrades", stateFilter: "available"))["rows"]!
+                .Values<JObject>().Select(row => (string?)row!["uuid"]).ToArray());
+
+        var predicates = GameMcpTestHarness.Detail(context, Aspect)["predicates"]!;
+        Assert.All(new[] { "available", "canPurchase" }, name =>
+        {
+            Assert.False((bool)predicates[name]!["available"]!);
+            Assert.Equal(
+                "World > Aspects is not unlocked yet, so the game draws no row for this.",
+                (string?)predicates[name]!["reason"]);
+        });
+
+        var opened = GameMcpTestHarness.Context(UpgradesWorld(memberships, upgrades));
+        Assert.True(
+            (bool)GameMcpTestHarness.Detail(opened, Aspect)["predicates"]!["available"]!["available"]!);
+    }
 
     /// <summary>
     /// A finished upgrade is finished, not shut. <c>UpgradeSO.IsAvailable()</c> is the game's own

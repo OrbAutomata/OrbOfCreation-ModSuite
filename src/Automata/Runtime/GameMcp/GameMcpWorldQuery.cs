@@ -1107,7 +1107,7 @@ internal static class GameMcpWorldQuery
                 ["level"] = upgrade.Reading.Level,
                 ["queuedLevels"] = upgrade.Reading.QueuedLevels,
                 ["screen"] = UpgradeScreen(world, upgrade.EntityId),
-                ["state"] = UpgradeState(in upgrade),
+                ["state"] = UpgradeState(world, in upgrade),
                 ["maximum"] = UpgradeCeiling(in upgrade),
                 // Which list this verdict is about. `state` reads the entity's unlock gate and
                 // this reads the next level's own container — two authored lists, and a page of
@@ -1591,7 +1591,7 @@ internal static class GameMcpWorldQuery
         }
         if (row is WorldUpgrade upgrade)
         {
-            return !upgrade.IsExhausted && upgrade.Reading.Available &&
+            return !upgrade.IsExhausted && IsUpgradeOffered(world, in upgrade) &&
                 TryPurchaseAffordability(world, upgrade.EntityId, out var affordable) &&
                 affordable;
         }
@@ -1716,18 +1716,52 @@ internal static class GameMcpWorldQuery
     /// <remarks>
     /// The game's own members answer this and the suite already captures both of them.
     /// <c>UpgradeSO.IsAvailable()</c> — which the binder reads, and which is exactly
-    /// <c>!IsMaxLevel() &amp;&amp; prerequisites.Check()</c> — is the middle state, and it is also
-    /// what <c>UIUpgradeButton</c> renders its row on, so a row the player can see and a row that
-    /// is <see cref="GameMcpListColumns.Available"/> are the same set. Exhaustion is asked first
+    /// <c>!IsMaxLevel() &amp;&amp; prerequisites.Check()</c> — is the middle state together with
+    /// the screen gate <see cref="IsUpgradeOffered"/> adds, and it is also what
+    /// <c>UIUpgradeButton</c> renders its row on, so a row the player can see and a row that is
+    /// <see cref="GameMcpListColumns.Available"/> are the same set. Exhaustion is asked first
     /// because a finished upgrade is finished whatever its prerequisites went on to do, and
     /// because that is the order the game's own predicate uses. Nothing here reads
     /// <c>UpgradeSO.IsVisible()</c>: despite the name it is the prerequisite gate alone and stays
     /// true for a maxed upgrade, so it would call a completed row locked.
     /// </remarks>
-    private static string UpgradeState(in WorldUpgrade upgrade) =>
+    private static string UpgradeState(GameWorldState world, in WorldUpgrade upgrade) =>
         upgrade.IsExhausted ? GameMcpListColumns.Completed :
-        upgrade.Reading.Available ? GameMcpListColumns.Available :
+        IsUpgradeOffered(world, in upgrade) ? GameMcpListColumns.Available :
         GameMcpListColumns.Locked;
+
+    /// <summary>
+    /// Whether the game draws this upgrade's row: its own prerequisites hold and the screen its
+    /// list is swapped into is unlocked.
+    /// </summary>
+    /// <remarks>
+    /// <c>UpgradeSO.IsAvailable()</c> alone is not the row. A row on a screen the game has not
+    /// unlocked is drawn nowhere, so Aspect: Workshop, which has no prerequisites, read as available
+    /// in a run with no World > Aspects pedestal and was refused by the purchase it invited. Every
+    /// read that offers an upgrade asks this, so the list, the search, the page and its purchase
+    /// verdict cannot disagree about one row.
+    /// </remarks>
+    internal static bool IsUpgradeOffered(GameWorldState world, in WorldUpgrade upgrade) =>
+        upgrade.Reading.Available && !IsUpgradeScreenLocked(world, upgrade.EntityId, out _);
+
+    /// <summary>
+    /// Whether the screen this upgrade is drawn on is still locked, and which view gates it. A row
+    /// on no screen panel, or one whose membership could not be read, has no screen gate to ask:
+    /// its <c>screen</c> cell already says which of the two it is.
+    /// </summary>
+    internal static bool IsUpgradeScreenLocked(GameWorldState world, Guid upgradeId, out Guid viewId)
+    {
+        var screen = UpgradeScreen(world, upgradeId);
+        for (var index = 0; index < GameMcpListColumns.Screens.Length; index++)
+        {
+            if (!string.Equals(GameMcpListColumns.Screens[index].Word, screen, StringComparison.Ordinal))
+                continue;
+            viewId = GameMcpListColumns.Screens[index].ViewId;
+            return !IsScreenUnlocked(world, viewId);
+        }
+        viewId = Guid.Empty;
+        return false;
+    }
 
     /// <summary>
     /// The same lifecycle for research, off the same kind of captured members:
@@ -5045,7 +5079,7 @@ internal static class GameMcpWorldQuery
                 if (worn is not null && !worn.Contains(identity)) continue;
                 if (sources is not null && !sources.ContainsKey(identity)) continue;
                 if (wanted.Length > 0 &&
-                    !string.Equals(SearchLifecycle(row), wanted, StringComparison.Ordinal))
+                    !string.Equals(SearchLifecycle(world, row), wanted, StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -5203,9 +5237,9 @@ internal static class GameMcpWorldQuery
     /// it now has a lifecycle to read: its run words moved to <c>run</c>, which this never consults.
     /// </para>
     /// </remarks>
-    private static string SearchLifecycle(object row) => row switch
+    private static string SearchLifecycle(GameWorldState world, object row) => row switch
     {
-        WorldUpgrade upgrade => UpgradeState(in upgrade),
+        WorldUpgrade upgrade => UpgradeState(world, in upgrade),
         WorldResearch research => ResearchLifecycle(in research),
         WorldStructure structure => StructureState(in structure),
         WorldAlchemyRecipe recipe => AlchemyRecipeState(in recipe),
@@ -5507,7 +5541,7 @@ internal static class GameMcpWorldQuery
         for (var index = 0; index < world.Upgrades.Count; index++)
         {
             var upgrade = world.Upgrades[index];
-            if (upgrade.Reading.Available && !upgrade.IsExhausted &&
+            if (IsUpgradeOffered(world, in upgrade) && !upgrade.IsExhausted &&
                 TryPurchaseAffordability(world, upgrade.EntityId, out var affordable) &&
                 affordable)
                 count++;
@@ -5892,7 +5926,7 @@ internal static class GameMcpWorldQuery
             ["entityId"] = upgrade.EntityId.ToString("D"),
             ["category"] = "upgrades",
             ["screen"] = UpgradeScreen(world, upgrade.EntityId),
-            ["state"] = UpgradeState(in upgrade),
+            ["state"] = UpgradeState(world, in upgrade),
             ["level"] = upgrade.Reading.Level,
 
             // Nothing developing is a fact about the upgrade, not a missing reading, so zero ships.

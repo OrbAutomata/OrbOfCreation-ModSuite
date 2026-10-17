@@ -627,6 +627,9 @@ internal static class GameMcpActionResultCodeNames
                 return "The game has not unlocked this structure yet.";
             if (code == AutoBuyActionResultCodes.DestinationCapacityFull)
                 return "Every slot this upgrade would fill is already occupied.";
+            if (code == AutoBuyActionResultCodes.DestinationCapacityLocked)
+                return "No World > Aspects pedestal is unlocked yet, so there is no slot for " +
+                    "this upgrade to fill.";
             if (code == AutoBuyActionResultCodes.DestinationCapacityContractUnavailable)
                 return "The upgrade's destination-capacity contract was unreadable, so no " +
                     "purchase was attempted.";
@@ -749,6 +752,7 @@ internal static class GameMcpActionResultCodeNames
                 return "owning_screen_availability_unreadable";
             if (code == AutoBuyActionResultCodes.StructureUnavailable) return "not_available";
             if (code == AutoBuyActionResultCodes.DestinationCapacityFull) return "destination_full";
+            if (code == AutoBuyActionResultCodes.DestinationCapacityLocked) return "screen_locked";
             if (code == AutoBuyActionResultCodes.DestinationCapacityContractUnavailable)
                 return "contract_unavailable";
             if (code == AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch)
