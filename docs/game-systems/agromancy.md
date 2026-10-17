@@ -135,7 +135,7 @@ plant each, at the single-gather rate (observed ~4.1/s for one, two or three pla
 on Magebloom is one gather running all the time. Improved Herbalism opens the two gathering
 attributes, **Rapid Gathering** (+18% gathering speed) and **Magic Botany** (+10% gathering power);
 after ten and two levels a gather ran 35 s at +500/s, ~1.75e4 Magebloom against ~6.3e3 over 11:11
-before (observed). Each
+before, and ~1.1e6 per gather at Magic Botany 41 (observed). Each
 Magebloom plant weighs 1 Plot Capacity. The **Magebloom harvest element** (2 Gathering Capacity) holds
 its own pool of 10 Magebloom: active, it pays that pool out in under a minute; idle, the pool refills
 at ~0.003/s (observed).

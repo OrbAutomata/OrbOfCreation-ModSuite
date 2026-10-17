@@ -37,6 +37,7 @@ Two recipe types seen early, observed per equipped copy:
 | Dismantle | Extract Wood | −4.9e3 Wood/s for +5.38 Biotic Capacity (superior roll); 1 Mechanical Capacity |
 | Refinement | Refine Organic | −325 Water/s for +0.379 Organic Essence/s; 3 Alchemical + 4 Biotic Capacity |
 | Dismantle | Extract Magebloom | −0.076 Magebloom/s for +8 Occultic and +1.6 Biotic Capacity; 1 Mechanical Capacity |
+| Dismantle | Extract Thaumic Scrolls | −1.3e7 Thaumic Scroll/s per copy at Lv 10 for +1.6 Alchemical and +2.6 Occultic Capacity (its card reads +8 and +13) |
 | Refinement | Refine Occultic | −4.88e4 Thaumaturgy/s for +0.124 Occult Essence/s; 4 Alchemical + 4 Occultic Capacity |
 | Transmute | Transmute Amber | −14.8 Control/s for +12 Amber/s (×1.30 Amber gain); 4 Biotic + 8 Occultic Capacity |
 | Transmute | Transmute Ironwood | −4.37e4 Force Bark/s for +431 Ironwood/s (×1.30 Ironwood gain) at Alchemy Lv 5 under the requirement penalty; 10 Biotic + 10 Occultic Capacity (×2 penalized) |
@@ -86,7 +87,7 @@ dial and its ceiling are described in [attributes-and-upgrades.md](attributes-an
 Each level is ×2 Alchemy Speed and ×2 Alchemy Drain Cost (its tooltip), so a recipe's output
 doubles while its inputs go ×4: every level halves the yield per input (observed Lv 4 → 5:
 Occult Essence 1.18 → 2.37/s, Magebloom drain 1.16 → 4.63/s; Lv 5 → 6 with four Refine Occultic
-copies: 21.6 → 43.9/s). Its price is paid in Alchemic
+copies: 21.6 → 43.9/s; Lv 10 → 11 with five: 2.0e3 → 4.0e3/s, while Thaumaturgy went from +4e9 to −1.5e10/s). Its price is paid in Alchemic
 Scroll and climbs steeply: 100, 330, 1.1e3, 3.9e3, 1.4e4 for Lv 2 to 6 (observed).
 How the level interacts with the six capacities is unrecorded; see
 [open-questions.md](open-questions.md).
