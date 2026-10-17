@@ -38,6 +38,7 @@ Two recipe types seen early, observed per equipped copy:
 | Refinement | Refine Organic | −325 Water/s for +0.379 Organic Essence/s; 3 Alchemical + 4 Biotic Capacity |
 | Dismantle | Extract Magebloom | −0.076 Magebloom/s for +8 Occultic and +1.6 Biotic Capacity; 1 Mechanical Capacity |
 | Refinement | Refine Occultic | −4.88e4 Thaumaturgy/s for +0.124 Occult Essence/s; 4 Alchemical + 4 Occultic Capacity |
+| Transmute | Transmute Amber | −14.8 Control/s for +12 Amber/s (×1.30 Amber gain); 4 Biotic + 8 Occultic Capacity |
 
 Copies of one recipe scale faster than linearly: Refine Organic ×1, ×2, ×3 made 0.38, 0.85 and
 1.59 Organic Essence/s, and Refine Occultic ×1, ×2 made 0.124 and 0.281 Occult Essence/s
@@ -51,7 +52,9 @@ Learn Biology (1e3 Alchemic Scroll + 5e8 Knowledge) opens Learn Refinement (5e4 
 two together put Extract Wood and Refine Organic in the roll pool. Organic Essence in turn opens
 Grow Magic Herbs (the Magebloom unlock) and Imbue Organic. **Learn Occultic** (1e3 Magebloom + 1e4
 Alchemic Scroll) makes Extract Magebloom and then Refine Occultic the next required rolls, and the
-roll price switches to Magebloom (observed 300, then 100, beside a Skill cost).
+roll price switches to Magebloom (observed 300, then 100, beside a Skill cost). **Discover Amber**
+(1e4 Occult + 9.09e3 Organic Essence) makes Transmute Amber the next required roll (observed at
+2e4 Control).
 
 A recipe whose `Req.` lines (Expert research levels) are unmet carries a **requirement penalty**:
 observed ×2 capacity, ×0.25 speed and ×16 cost (Transmute Control, Brew Experience Elixir), which
