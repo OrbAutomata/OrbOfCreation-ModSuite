@@ -4145,8 +4145,8 @@ internal static class GameMcpWorldQuery
         }
         return Change(
             command.TargetId,
-            hasBefore ? previous.QueuedAmount.ToInt() : null,
-            current.QueuedAmount.ToInt(),
+            hasBefore ? new GameMcpDomainValue(previous.QueuedAmount) : null,
+            new GameMcpDomainValue(current.QueuedAmount),
             "queued");
     }
 
@@ -9699,7 +9699,7 @@ internal static class GameMcpWorldQuery
             if (decision.Pipeline is WorldCraftingPipeline.QueueStack or
                 WorldCraftingPipeline.QueueNew)
             {
-                result["queuedAmount"] = decision.QueuedAmount.ToInt();
+                result["queuedAmount"] = new GameMcpDomainValue(decision.QueuedAmount);
                 result["queue"] = new JObject
                 {
                     ["queueId"] = decision.QueueId.ToString("D"),

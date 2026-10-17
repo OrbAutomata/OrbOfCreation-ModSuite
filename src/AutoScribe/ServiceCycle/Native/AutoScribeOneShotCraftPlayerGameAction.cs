@@ -6,6 +6,8 @@ namespace OrbAutomata;
 
 internal sealed partial class AutoScribeOneShotCraftGameAction
 {
+    private const int MxMultiBuy = 1000;
+
     internal CraftingPlayerSubmission Submit(in CraftingPlayerAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
@@ -56,9 +58,15 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                     in action,
                     CraftingPlayerPreflight.PageRelationAmbiguous,
                     pageReason);
-            return page is null
-                ? SubmitDirect(in action, native, recipe)
-                : SubmitQueued(in action, native, recipe, page);
+            if (page is not null) return SubmitQueued(in action, native, recipe, page);
+            if (!NativeMultiBuyScope.TryEnter(
+                    action.Max ? MxMultiBuy : 1, out var scope, out var scopeReason))
+                return CraftingPlayerSubmission.Reject(
+                    in action,
+                    CraftingPlayerPreflight.ContractUnavailable,
+                    "The game's multi-buy could not be held for this craft: " + scopeReason);
+            using (scope)
+                return SubmitDirect(in action, native, recipe);
         }
         catch (Exception ex) when (IsExpected(ex))
         {
@@ -91,6 +99,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 in action,
                 CraftingPlayerPreflight.Unaffordable,
                 "The cost of this craft is not met.");
+        var crafted = native.RecipeLevelled(recipe) ? BigDouble.One : purchase;
         var revisionBefore = native.RecipeEffectRevision(recipe);
         if (!TryPlayerCraftingPermit(in action, out var permitFailure)) return permitFailure;
 
@@ -105,7 +114,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                     in action,
                     1,
                     "The exact recipe advanced its native craft-effect publication before Execute threw.",
-                    CraftingPlayerPostcondition.DirectEffectAdvanced);
+                    CraftingPlayerPostcondition.DirectEffectAdvanced,
+                    crafted);
             return PlayerCraftingFault(
                 in action,
                 CraftingPlayerPreflight.PostCommitFault,
@@ -141,7 +151,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             in action,
             1,
             "The exact recipe advanced its native craft-effect publication.",
-            CraftingPlayerPostcondition.DirectEffectAdvanced);
+            CraftingPlayerPostcondition.DirectEffectAdvanced,
+            crafted);
     }
 
     private CraftingPlayerSubmission SubmitQueued(
@@ -164,13 +175,28 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 CraftingPlayerPreflight.PageRelationAmbiguous,
                 "UICraftingPage craftMode was neither native stack mode 0 nor new-instance mode 1.");
         var previous = native.QueueQuantity(queue, recipe);
-        var purchase = native.RecipePurchaseAmount(recipe, previous);
-        if (purchase <= BigDouble.Zero)
+        var levelled = native.RecipeLevelled(recipe);
+        if (!TryPressQuantity(
+                native, recipe, previous, levelled && !action.Max ? 1 : MxMultiBuy,
+                out var purchase, out var pressFailure))
             return CraftingPlayerSubmission.Reject(
                 in action,
-                CraftingPlayerPreflight.InvalidPurchaseAmount,
-                "The game published no amount for the next press of this recipe, so nothing " +
-                "was bought.");
+                CraftingPlayerPreflight.ContractUnavailable,
+                pressFailure);
+        if (!levelled && !action.Max && purchase > new BigDouble(action.Amount, 0))
+            purchase = new BigDouble(action.Amount, 0);
+        if (purchase <= BigDouble.Zero)
+            return levelled
+                ? CraftingPlayerSubmission.Reject(
+                    in action,
+                    CraftingPlayerPreflight.InvalidPurchaseAmount,
+                    "The game published no amount for the next press of this recipe, so " +
+                    "nothing was bought.")
+                : CraftingPlayerSubmission.Reject(
+                    in action,
+                    CraftingPlayerPreflight.Unaffordable,
+                    "The cost of another of this craft is not met.");
+        var crafted = levelled ? BigDouble.One : purchase;
         var requestedTotal = previous + (purchase < BigDouble.One ? BigDouble.One : purchase);
         if (!native.RecipeCanBuyAt(recipe, requestedTotal))
             return CraftingPlayerSubmission.Reject(
@@ -213,7 +239,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                     native,
                     existing,
                     previousInstanceQuantity,
-                    calls);
+                    calls,
+                    crafted);
             }
 
             stage = CraftingPlayerNativeStage.Construction;
@@ -227,7 +254,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 stage = CraftingPlayerNativeStage.Admission;
                 calls = 4;
                 native.InstanceInstant(created);
-                return VerifyInstant(in action, native, created, calls);
+                return VerifyInstant(in action, native, created, calls, crafted);
             }
 
             stage = CraftingPlayerNativeStage.Initiation;
@@ -241,7 +268,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 native,
                 queue,
                 created,
-                calls);
+                calls,
+                crafted);
         }
         catch (Exception ex) when (IsExpected(ex))
         {
@@ -264,7 +292,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                         ? CraftingPlayerPostcondition.InstanceQuantityIncreased
                         : instant
                             ? CraftingPlayerPostcondition.InstantCompleted
-                            : CraftingPlayerPostcondition.QueueAdmitted);
+                            : CraftingPlayerPostcondition.QueueAdmitted,
+                    crafted);
             }
             return PlayerCraftingFault(
                 in action,
@@ -281,7 +310,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         CraftingPlayerNativeBindings native,
         object instance,
         BigDouble previous,
-        int calls)
+        int calls,
+        BigDouble crafted)
     {
         if (native.InstanceQuantity(instance) <= previous)
             return PlayerCraftingFault(
@@ -293,14 +323,16 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 "The exact crafting instance quantity did not increase.");
         return Verified(in action, calls,
             "The exact crafting instance quantity increased.",
-            CraftingPlayerPostcondition.InstanceQuantityIncreased);
+            CraftingPlayerPostcondition.InstanceQuantityIncreased,
+            crafted);
     }
 
     private CraftingPlayerSubmission VerifyInstant(
         in CraftingPlayerAction action,
         CraftingPlayerNativeBindings native,
         object instance,
-        int calls)
+        int calls,
+        BigDouble crafted)
     {
         if (!native.InstanceExpired(instance))
             return PlayerCraftingFault(
@@ -312,7 +344,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 "The exact instant crafting instance did not reach native completion.");
         return Verified(in action, calls,
             "The exact instant crafting instance reached native completion.",
-            CraftingPlayerPostcondition.InstantCompleted);
+            CraftingPlayerPostcondition.InstantCompleted,
+            crafted);
     }
 
     private CraftingPlayerSubmission VerifyQueued(
@@ -320,7 +353,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         CraftingPlayerNativeBindings native,
         object queue,
         object instance,
-        int calls)
+        int calls,
+        BigDouble crafted)
     {
         if (!ContainsExactInstance(native, queue, instance))
             return PlayerCraftingFault(
@@ -332,14 +366,16 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 "The exact crafting instance was not admitted to the authored queue.");
         return Verified(in action, calls,
             "The exact crafting instance was admitted to the authored queue.",
-            CraftingPlayerPostcondition.QueueAdmitted);
+            CraftingPlayerPostcondition.QueueAdmitted,
+            crafted);
     }
 
     private static CraftingPlayerSubmission Verified(
         in CraftingPlayerAction action,
         int calls,
         string reason,
-        CraftingPlayerPostcondition postcondition) =>
+        CraftingPlayerPostcondition postcondition,
+        BigDouble crafted) =>
         new CraftingPlayerSubmission(
             action.RecipeId,
             CraftingPlayerPreflight.Proceeded,
@@ -347,7 +383,28 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             NativeMutationOutcome.Verified,
             new NativeMutationCallOutcome(calls, 1, 1),
             reason,
-            postcondition);
+            postcondition,
+            crafted);
+
+    private static bool TryPressQuantity(
+        CraftingPlayerNativeBindings native,
+        object recipe,
+        BigDouble previous,
+        int multiBuy,
+        out BigDouble quantity,
+        out string reason)
+    {
+        quantity = BigDouble.Zero;
+        if (!NativeMultiBuyScope.TryEnter(multiBuy, out var scope, out var scopeReason))
+        {
+            reason = "The game's multi-buy could not be held for this craft: " + scopeReason;
+            return false;
+        }
+        using (scope)
+            quantity = native.RecipePurchaseAmount(recipe, previous);
+        reason = string.Empty;
+        return true;
+    }
 
     private static bool TryFindPage(
         CraftingPlayerNativeBindings native,

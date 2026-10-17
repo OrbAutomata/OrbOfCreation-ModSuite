@@ -21697,7 +21697,8 @@
       "returnType": "BigDouble",
       "parameters": [],
       "owners": [
-        "Common crafting recipe world collection"
+        "Common crafting recipe world collection",
+        "Common crafting decision world collection"
       ],
       "usages": [
         "reflection"
@@ -25741,6 +25742,35 @@
       "place": "action"
     },
     {
+      "id": "crafting-player.recipe-multi-buy-quantity-mirrored",
+      "assembly": "assembly-csharp",
+      "type": "CraftingRecipeSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetMultiBuyQuantity",
+      "visibility": "public",
+      "static": false,
+      "returnType": "BigDouble",
+      "parameters": ["BigDouble"],
+      "owners": ["Automata one-shot crafting action boundary"],
+      "usages": ["mirrored"],
+      "place": "mirrored"
+    },
+    {
+      "id": "crafting-player.recipe-levelled-action",
+      "assembly": "assembly-csharp",
+      "type": "CraftingRecipeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "useQuantityAsLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "owners": ["Automata one-shot crafting action boundary"],
+      "usages": ["reflection"],
+      "place": "action"
+    },
+    {
       "id": "crafting-player.queue-get-quantity-action",
       "assembly": "assembly-csharp",
       "type": "CraftingInstanceListVariable",
@@ -25908,20 +25938,20 @@
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
     },
     {
-      "id": "crafting-decision.recipe-purchase-amount-capture",
+      "id": "crafting-decision.recipe-use-starting-level-capture",
       "assembly": "assembly-csharp",
       "type": "CraftingRecipeSO",
       "typeVisibility": "public",
       "kind": "method",
-      "member": "GetPurchaseQuantity",
-      "visibility": "public",
+      "member": "UseStartingLevel",
+      "visibility": "private",
       "static": false,
-      "returnType": "BigDouble",
+      "returnType": "System.Boolean",
       "parameters": ["BigDouble"],
       "owners": ["Common crafting decision world collection"],
       "usages": ["reflection"],
       "place": "capture",
-      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning BigDouble; classified from its signature, no IL body audit"}
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game decides whether a press on this queue starts at the selected level; the reading is taken rather than derived.", "evidence": "IL: previousQuantity <= 0 && GetMainType().isLevelType; no writes"}
     },
     {
       "id": "crafting-decision.recipe-total-cost-capture",
@@ -28364,36 +28394,6 @@
       "id": "crafting-instance.queue-remove-action", "assembly": "assembly-csharp",
       "type": "AbstractListVariable`1", "typeVisibility": "public", "kind": "method", "member": "Remove",
       "visibility": "public", "static": false, "returnType": "System.Void", "parameters": ["!0"],
-      "owners": ["Automata crafting-instance GameAction"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "crafting-instance.recipe-multi-buy-quantity-action", "assembly": "assembly-csharp",
-      "type": "CraftingRecipeSO", "typeVisibility": "public", "kind": "method", "member": "GetMultiBuyQuantity",
-      "visibility": "public", "static": false, "returnType": "BigDouble", "parameters": ["BigDouble"],
-      "owners": ["Automata crafting-instance GameAction"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "crafting-instance.recipe-calc-automated-action", "assembly": "assembly-csharp",
-      "type": "CraftingRecipeSO", "typeVisibility": "public", "kind": "method", "member": "CalcAutomatedQuantity",
-      "visibility": "public", "static": true, "returnType": "System.Int32", "parameters": ["BigDouble"],
-      "owners": ["Automata crafting-instance GameAction"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "crafting-instance.page-current-automation-action", "assembly": "assembly-csharp",
-      "type": "UICraftingPage", "typeVisibility": "public", "kind": "method", "member": "GetAutoCraftingQuantity",
-      "visibility": "private", "static": false, "returnType": "System.Int32", "parameters": ["CraftingRecipeSO"],
-      "owners": ["Automata crafting-instance GameAction"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "crafting-instance.global-multi-buy-action", "assembly": "assembly-csharp",
-      "type": "GlobalVariables", "typeVisibility": "public", "kind": "method", "member": "GetMultiBuy",
-      "visibility": "public", "static": true, "returnType": "IntVariable", "parameters": [],
-      "owners": ["Automata crafting-instance GameAction"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "crafting-instance.int-as-int-action", "assembly": "assembly-csharp",
-      "type": "IntVariable", "typeVisibility": "public", "kind": "method", "member": "AsInt",
-      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [],
       "owners": ["Automata crafting-instance GameAction"], "usages": ["reflection"], "place": "action"
     },
     {

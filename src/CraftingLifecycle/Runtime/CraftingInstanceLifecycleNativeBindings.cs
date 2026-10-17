@@ -33,13 +33,7 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
         "crafting-instance.instance-cancel-action",
         "crafting-instance.queue-remove-action",
         "auto-scribe.recipe.visible",
-        "crafting-instance.recipe-multi-buy-quantity-action",
-        "crafting-instance.recipe-calc-automated-action",
-        "crafting-instance.page-current-automation-action",
-        "crafting-instance.global-multi-buy-action",
-        "crafting-instance.int-as-int-action",
         "auto-scribe.list.has-empty-spot",
-        "crafting-player.queue-get-quantity-action",
     };
 
     private readonly MethodInfo _findPages;
@@ -60,13 +54,7 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
     private readonly MethodInfo _cancel;
     private readonly MethodInfo _remove;
     private readonly MethodInfo _visible;
-    private readonly MethodInfo _multiBuyQuantity;
-    private readonly MethodInfo _calcAutomated;
-    private readonly MethodInfo _currentAutomation;
-    private readonly MethodInfo _multiBuy;
-    private readonly MethodInfo _asInt;
     private readonly MethodInfo _hasRoom;
-    private readonly MethodInfo _queueQuantity;
 
     private CraftingInstanceLifecycleNativeBindings(
         Type pageType,
@@ -91,13 +79,7 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
         MethodInfo cancel,
         MethodInfo remove,
         MethodInfo visible,
-        MethodInfo multiBuyQuantity,
-        MethodInfo calcAutomated,
-        MethodInfo currentAutomation,
-        MethodInfo multiBuy,
-        MethodInfo asInt,
-        MethodInfo hasRoom,
-        MethodInfo queueQuantity)
+        MethodInfo hasRoom)
     {
         PageType = pageType;
         RecipeType = recipeType;
@@ -121,13 +103,7 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
         _cancel = cancel;
         _remove = remove;
         _visible = visible;
-        _multiBuyQuantity = multiBuyQuantity;
-        _calcAutomated = calcAutomated;
-        _currentAutomation = currentAutomation;
-        _multiBuy = multiBuy;
-        _asInt = asInt;
         _hasRoom = hasRoom;
-        _queueQuantity = queueQuantity;
     }
 
     internal Type PageType { get; }
@@ -151,8 +127,6 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
     internal object? QueueInstance(object queue, object recipe) =>
         _getInstance.Invoke(queue, new[] { recipe });
     internal bool QueueHasRoom(object queue) => Invoke<bool>(_hasRoom, queue);
-    internal BigDouble QueueQuantity(object queue, object recipe) =>
-        Invoke<BigDouble>(_queueQuantity, queue, recipe);
     internal object Automate(object queue, object recipe, int amount) =>
         Exact(_automate.Invoke(queue, new object[] { recipe, amount }), InstanceType);
     internal void RemoveAutomation(object queue, object instance, int amount) =>
@@ -163,18 +137,6 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
     internal void Cancel(object instance) => _cancel.Invoke(instance, Array.Empty<object>());
     internal void QueueRemove(object queue, object instance) =>
         _remove.Invoke(queue, new[] { instance });
-    internal BigDouble RecipeMultiBuyQuantity(object recipe, BigDouble current) =>
-        Invoke<BigDouble>(_multiBuyQuantity, recipe, current);
-    internal int CalcAutomated(BigDouble quantity) =>
-        InvokeStatic<int>(_calcAutomated, quantity);
-    internal int CurrentAutomation(object page, object recipe) =>
-        Invoke<int>(_currentAutomation, page, recipe);
-    internal int MultiBuy()
-    {
-        var value = _multiBuy.Invoke(null, Array.Empty<object>()) ??
-            throw new InvalidOperationException("The multi-buy value was null.");
-        return Invoke<int>(_asInt, value);
-    }
 
     internal static bool TryCreate(
         out CraftingInstanceLifecycleNativeBindings? bindings,
@@ -201,12 +163,10 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
             var recipeList = T("CraftingRecipeListVariable");
             var queue = T("CraftingInstanceListVariable");
             var instance = T("CraftingInstance");
-            var integer = T("IntVariable");
             // UnityEngine.CoreModule is not the game's Assembly-CSharp module. Resolve the
             // framework-owned types from the loaded Unity reference, just like player crafting.
             var resources = typeof(Resources);
             var unityObject = typeof(UnityEngine.Object);
-            var global = T("GlobalVariables");
 
             for (var index = 0; index < ContractIds.Length; index++) Require(index);
             var abstractInstanceList = FindGenericBase(queue, "AbstractListVariable`1");
@@ -233,13 +193,7 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
                 Method(instance, "CancelCraft", typeof(void)),
                 Method(abstractInstanceList, "Remove", typeof(void), instance),
                 Method(recipe, "IsVisible", typeof(bool)),
-                Method(recipe, "GetMultiBuyQuantity", typeof(BigDouble), typeof(BigDouble)),
-                StaticMethod(recipe, "CalcAutomatedQuantity", typeof(int), typeof(BigDouble)),
-                Method(page, "GetAutoCraftingQuantity", typeof(int), recipe),
-                StaticMethod(global, "GetMultiBuy", integer),
-                Method(integer, "AsInt", typeof(int)),
-                MethodFromHierarchy(queue, "HasEmptySpot", typeof(bool)),
-                Method(queue, "GetQuantity", typeof(BigDouble), recipe));
+                MethodFromHierarchy(queue, "HasEmptySpot", typeof(bool)));
             reason = string.Empty;
             return true;
         }
@@ -267,14 +221,6 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
     private static T Invoke<T>(MethodInfo method, object target, params object[] arguments)
     {
         var value = method.Invoke(target, arguments);
-        return value is T typed
-            ? typed
-            : throw new InvalidOperationException(method.Name + " returned the wrong type.");
-    }
-
-    private static T InvokeStatic<T>(MethodInfo method, params object[] arguments)
-    {
-        var value = method.Invoke(null, arguments);
         return value is T typed
             ? typed
             : throw new InvalidOperationException(method.Name + " returned the wrong type.");

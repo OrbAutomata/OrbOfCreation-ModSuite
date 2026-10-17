@@ -209,7 +209,8 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
     private readonly Func<object, bool>? _visible;
     private readonly Func<object, bool>? _canBuy;
     private readonly Func<object, BigDouble, bool>? _canBuyAt;
-    private readonly Func<object, BigDouble, BigDouble>? _purchaseAmount;
+    private readonly Func<object, BigDouble, bool>? _useStartingLevel;
+    private readonly Func<object, BigDouble>? _startingQuantity;
     private readonly Func<object, object?>? _recipeCost;
     private readonly Func<object, BigDouble, BigDouble, object?>? _totalCost;
     private readonly Func<object, object?>? _mainType;
@@ -265,7 +266,8 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
         _visible = recipe.Call<bool>("IsVisible");
         _canBuy = recipe.Call<bool>("CanBuy");
         _canBuyAt = recipe.Call<BigDouble, bool>("CanBuyAt");
-        _purchaseAmount = recipe.Call<BigDouble, BigDouble>("GetPurchaseQuantity");
+        _useStartingLevel = recipe.Call<BigDouble, bool>("UseStartingLevel");
+        _startingQuantity = recipe.Call<BigDouble>("GetStartingQuantity");
         var totalCostMethod = recipeType.GetMethod("GetTotalCost");
         var costType = totalCostMethod?.ReturnType;
         _recipeCost = recipe.Reference("recipeCost", costType);
@@ -403,7 +405,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
         var visible = _visible!(recipe);
         if (matchedPage is null)
         {
-            var amount = _purchaseAmount!(recipe, BigDouble.One);
+            var amount = OneCraft(recipe, BigDouble.Zero);
             var timeToComplete = _timeToComplete!(recipe);
             var canStart = visible && amount > BigDouble.Zero &&
                 timeToComplete <= 0d && _canBuy!(recipe);
@@ -448,7 +450,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
         if (mode is not 0 and not 1)
             throw new InvalidOperationException("page craft mode was outside 0..1");
         var previous = _queueQuantity!(queue, recipe);
-        var amountToBuy = _purchaseAmount!(recipe, previous);
+        var amountToBuy = OneCraft(recipe, previous);
         var valuesInQueue = _queueValues!(queue) ??
             throw new InvalidOperationException("page queue value was null");
         var automation = _pageAutomation!(matchedPage) ??
@@ -506,6 +508,9 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
             automationReasonCode,
             _queueIdentity!(automation)));
     }
+
+    private BigDouble OneCraft(object recipe, BigDouble previous) =>
+        _useStartingLevel!(recipe, previous) ? _startingQuantity!(recipe) : BigDouble.One;
 
     private void AppendQueueEntries(GameWorldCycleFrame frame)
     {

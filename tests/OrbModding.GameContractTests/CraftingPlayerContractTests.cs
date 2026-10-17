@@ -5,6 +5,8 @@ namespace OrbModding.GameContractTests;
 
 public sealed class CraftingPlayerContractTests
 {
+    private const int MxMultiBuy = 1000;
+
     [GameAssemblyFact]
     public void CraftingPlayerBinding_PinsEveryNewNativeMemberToken()
     {
@@ -167,32 +169,30 @@ public sealed class CraftingPlayerContractTests
             assembly.GetMethodToken("CraftingInstance", "CancelCraft"));
         Assert.Equal(0x06000DF3,
             assembly.GetMethodToken("CraftingInstance", "IsAuto"));
-        Assert.Equal(0x06000A2E,
-            assembly.GetMethodToken("CraftingRecipeSO", "GetMultiBuyQuantity"));
-        Assert.Equal(0x06000A53,
-            assembly.GetMethodToken("CraftingRecipeSO", "CalcAutomatedQuantity"));
-        Assert.Equal(0x060022F1,
-            assembly.GetMethodToken("UICraftingPage", "GetAutoCraftingQuantity"));
     }
 
+    /// <summary>
+    /// The craft action holds the multi-buy at 1000, the Mx press, to read the most the stock
+    /// affords. That is only the Mx answer while the game treats any multi-buy above 99 as "craft
+    /// everything affordable".
+    /// </summary>
     [GameAssemblyFact]
-    public void AutomationClick_ComputesTheUiIncrementBeforeTheNativeQueueMutation()
+    public void AMultiBuyAbove99IsTheMxPressThatQueuesEverythingAffordable()
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+        var body = assembly.GetMethodBodyBytes("CraftingRecipeSO", "GetMultiBuyQuantity");
 
-        var multiQuantity = assembly.MethodReferenceOffset(
-            "UICraftingPage", "ContextRecipeClick", "CraftingRecipeSO", "GetMultiBuyQuantity");
-        var automated = assembly.MethodReferenceOffset(
-            "UICraftingPage", "ContextRecipeClick", "CraftingRecipeSO", "CalcAutomatedQuantity");
-        var current = assembly.MethodReferenceOffset(
-            "UICraftingPage", "ContextRecipeClick", "UICraftingPage", "GetAutoCraftingQuantity");
-        var multiBuy = assembly.MethodReferenceOffset(
-            "UICraftingPage", "ContextRecipeClick", "GlobalVariables", "GetMultiBuy");
-        var mutate = assembly.MethodReferenceOffset(
-            "UICraftingPage", "ContextRecipeClick", "CraftingInstanceListVariable", "AutomateCraft");
-
-        Assert.True(multiQuantity >= 0 && automated > multiQuantity && current > automated);
-        Assert.True(multiBuy > current && mutate > multiBuy);
+        var compare = -1;
+        for (var index = 0; index + 4 < body.Length; index++)
+            if (body[index] == 0x06 && body[index + 1] == 0x1F && body[index + 2] == 99 &&
+                body[index + 3] == 0x30)
+                compare = index;
+        Assert.True(
+            compare >= 0,
+            "CraftingRecipeSO.GetMultiBuyQuantity no longer compares the multi-buy against 99.");
+        var target = compare + 5 + (sbyte)body[compare + 4];
+        Assert.Equal(new byte[] { 0x07, 0x2A }, body[target..(target + 2)]);
+        Assert.True(MxMultiBuy > 99);
     }
 
     [GameAssemblyFact]

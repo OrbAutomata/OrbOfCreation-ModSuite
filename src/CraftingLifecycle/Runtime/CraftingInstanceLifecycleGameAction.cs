@@ -75,13 +75,13 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                 return Reject(CraftingInstanceLifecyclePreflight.PageRelationAmbiguous, pageReason);
             var queue = native.PageQueue(page!);
             var automation = native.PageAutomation(page!);
-            var admission = Admit(in action, native, page!, recipe, queue, automation);
+            var admission = Admit(in action, native, recipe, queue, automation);
             if (admission.Preflight != CraftingInstanceLifecyclePreflight.Proceeded)
                 return admission;
             if (!_tryCaptureMutationPermit())
                 return Reject(CraftingInstanceLifecyclePreflight.MutationPermitUnavailable,
                     _readOwnershipFailure());
-            return Execute(in action, native, page!, recipe, queue, automation);
+            return Execute(in action, native, recipe, queue, automation);
         }
         catch (Exception exception) when (IsExpected(exception))
         {
@@ -106,7 +106,6 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
     private static CraftingInstanceLifecycleSubmission Admit(
         in CraftingInstanceLifecycleAction action,
         CraftingInstanceLifecycleNativeBindings native,
-        object page,
         object recipe,
         object queue,
         object automation)
@@ -120,9 +119,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
             if (existing is null && !native.QueueHasRoom(automation))
                 return Reject(CraftingInstanceLifecyclePreflight.AutomationFull,
                     "The automated crafting list has no empty slot.");
-            return AutomationAmount(native, page, recipe, automation, out _, out var reason)
-                ? Proceed()
-                : Reject(CraftingInstanceLifecyclePreflight.MultiBuyUnavailable, reason);
+            return Proceed();
         }
         var source = action.Kind == CraftingInstanceLifecycleActionKind.CancelManual
             ? queue
@@ -134,17 +131,12 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                 action.Kind == CraftingInstanceLifecycleActionKind.CancelManual
                     ? "This recipe is not in the manual crafting queue."
                     : "This recipe is not in the automated crafting list.");
-        if (action.Kind == CraftingInstanceLifecycleActionKind.CancelAutomation &&
-            native.MultiBuy() <= 0)
-            return Reject(CraftingInstanceLifecyclePreflight.MultiBuyUnavailable,
-                "The game's multi-buy amount must be positive.");
         return Proceed();
     }
 
     private static CraftingInstanceLifecycleSubmission Execute(
         in CraftingInstanceLifecycleAction action,
         CraftingInstanceLifecycleNativeBindings native,
-        object page,
         object recipe,
         object queue,
         object automation)
@@ -163,24 +155,14 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                 if (instance is null && !native.QueueHasRoom(automation))
                     return Reject(CraftingInstanceLifecyclePreflight.AutomationFull,
                         "The automated crafting list filled before the action ran.");
-                if (!AutomationAmount(native, page, recipe, automation, out var amount,
-                        out var amountReason))
-                    return Reject(CraftingInstanceLifecyclePreflight.MultiBuyUnavailable,
-                        amountReason);
-                instance = native.Automate(automation, recipe, amount);
+                instance = native.Automate(automation, recipe, 1);
             }
             else if (action.Kind == CraftingInstanceLifecycleActionKind.CancelAutomation)
             {
                 if (!ValidInstance(native, instance, action.RecipeId, expectedAuto: true))
                     return Reject(CraftingInstanceLifecyclePreflight.InstanceUnavailable,
                         "This recipe left the automated crafting list before cancellation.");
-                var amount = native.MultiBuy();
-                if (amount <= 0)
-                    return Reject(CraftingInstanceLifecyclePreflight.MultiBuyUnavailable,
-                        "The game's multi-buy amount must be positive.");
-                // RemoveAutomation adds its amount; the game's own automation strip negates
-                // the multi-buy before calling it (UICraftingInstanceList.OnClickInstance).
-                native.RemoveAutomation(automation, instance!, -amount);
+                native.RemoveAutomation(automation, instance!, -1);
             }
             else if (action.Kind == CraftingInstanceLifecycleActionKind.CancelManual)
             {
@@ -259,29 +241,6 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
         // absence is the same observation as a smaller quantity.
         return !ContainsReference(native.QueueValues(automation), instance) ||
             native.AutomationQuantity(instance) < before;
-    }
-
-    private static bool AutomationAmount(
-        CraftingInstanceLifecycleNativeBindings native,
-        object page,
-        object recipe,
-        object automation,
-        out int amount,
-        out string reason)
-    {
-        var multiBuy = native.MultiBuy();
-        if (multiBuy <= 0)
-        {
-            amount = 0;
-            reason = "The game's multi-buy amount must be positive.";
-            return false;
-        }
-        var desired = native.CalcAutomated(
-            native.RecipeMultiBuyQuantity(recipe, native.QueueQuantity(automation, recipe)));
-        var remaining = Math.Max(desired - native.CurrentAutomation(page, recipe), 1);
-        amount = Math.Min(multiBuy, remaining);
-        reason = string.Empty;
-        return amount > 0;
     }
 
     private static bool TryResolvePage(

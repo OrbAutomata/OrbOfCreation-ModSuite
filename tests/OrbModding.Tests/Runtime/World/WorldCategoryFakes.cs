@@ -444,8 +444,8 @@ internal sealed class FakeScribeRecipe
     public bool CanBuy() => visible && canBuy;
     public bool CanBuyAt(BigDouble quantity) =>
         canBuy && quantity.CompareTo(BigDouble.Zero) > 0;
-    public BigDouble GetPurchaseQuantity(BigDouble previousQuantity) =>
-        useQuantityAsLevel ? startingQuantity : BigDouble.One;
+    private bool UseStartingLevel(BigDouble previousQuantity) =>
+        previousQuantity.CompareTo(BigDouble.Zero) <= 0 && MainType.isLevelType;
     public FakeCraftingResourceCostList GetTotalCost(
         BigDouble previousQuantity,
         BigDouble purchasedQuantity) => recipeCost;

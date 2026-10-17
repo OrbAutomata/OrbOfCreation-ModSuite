@@ -2523,7 +2523,10 @@ public sealed class Plugin : BaseUnityPlugin
             if (request.Mode == "move") amount = request.SlotIndex;
         }
         else if (kind == GameMcpCommandKind.Crafting)
+        {
             nativeType = "CraftingRecipeSO";
+            payloadValue = request.SerializedValue;
+        }
         else if (kind == GameMcpCommandKind.EquipmentLoadout)
             nativeType = "EquipmentSO";
         else if (kind == GameMcpCommandKind.AlchemyLoadout)

@@ -12,7 +12,6 @@ internal static class CraftingInstanceLifecycleActionResultCodes
     internal static readonly ServiceActionResultCode PageRelationAmbiguous = new(2024);
     internal static readonly ServiceActionResultCode InstanceUnavailable = new(2025);
     internal static readonly ServiceActionResultCode AutomationFull = new(2026);
-    internal static readonly ServiceActionResultCode MultiBuyUnavailable = new(2027);
     internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(2028);
     internal static readonly ServiceActionResultCode PostCommitFault = new(2029);
     internal static readonly ServiceActionResultCode VerificationFailed = new(2030);
@@ -53,8 +52,6 @@ internal static class CraftingInstanceLifecycleActionResultMapper
                 CraftingInstanceLifecycleActionResultCodes.InstanceUnavailable,
             CraftingInstanceLifecyclePreflight.AutomationFull =>
                 CraftingInstanceLifecycleActionResultCodes.AutomationFull,
-            CraftingInstanceLifecyclePreflight.MultiBuyUnavailable =>
-                CraftingInstanceLifecycleActionResultCodes.MultiBuyUnavailable,
             CraftingInstanceLifecyclePreflight.MutationPermitUnavailable =>
                 CraftingInstanceLifecycleActionResultCodes.MutationPermitUnavailable,
             CraftingInstanceLifecyclePreflight.PostCommitFault =>

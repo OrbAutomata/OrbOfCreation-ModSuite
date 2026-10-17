@@ -40,8 +40,10 @@ public sealed class GameMcpCraftingTests
             schema["properties"]!["mode"]!["enum"]!.Values<string>());
         Assert.Null(schema["properties"]!["expectedNativeType"]);
         Assert.Null(schema["properties"]!["worldGeneration"]);
-        Assert.Equal(1, (int)schema["properties"]!["amount"]!["minimum"]!);
-        Assert.Equal(1000, (int)schema["properties"]!["amount"]!["maximum"]!);
+        var amount = schema["properties"]!["amount"]!["anyOf"]!;
+        Assert.Equal(1, (int)amount[0]!["minimum"]!);
+        Assert.Null(amount[0]!["maximum"]);
+        Assert.Equal(new[] { "max" }, amount[1]!["enum"]!.Values<string>());
         var operation = GameMcpProtocolRouter.BuildOperation(
             "game_craft",
             new JObject
@@ -89,6 +91,17 @@ public sealed class GameMcpCraftingTests
     }
 
     [Fact]
+    public void AQueueBeyondTheIntegerRangeReadsAsTheScreenShowsIt()
+    {
+        var row = Json(GameMcpWorldQuery.GetRow(
+            Context(queuedAmount: 3.96e9),
+            "crafting-recipes",
+            RecipeId.ToString("D")))["row"]!;
+
+        Assert.Equal("3.96e9", (string?)row["queuedAmount"]);
+    }
+
+    [Fact]
     public void PreDecisionRowCarriesNamedExactCostsHoldingsAffordabilityAndQueueState()
     {
         var result = Json(GameMcpWorldQuery.GetRow(
@@ -103,7 +116,7 @@ public sealed class GameMcpCraftingTests
         Assert.Equal(GameMcpTestHarness.Handle(RecipeId), (string?)result["uuid"]);
         Assert.Equal("queue_stack", (string?)row["execution"]);
         Assert.Equal(2, (int)row["purchaseAmount"]!);
-        Assert.Equal(4, (int)row["queuedAmount"]!);
+        Assert.Equal("4", (string?)row["queuedAmount"]);
         Assert.True((bool)row["canStart"]!);
         Assert.Equal("Sigil Queue", (string?)row["queue"]!["queue"]!["name"]);
         Assert.Equal(1, (int)row["queue"]!["used"]!);
@@ -262,12 +275,13 @@ public sealed class GameMcpCraftingTests
     }
 
     [Fact]
-    public void Amount_defaults_to_one_press_and_only_craft_reads_it()
+    public void Amount_defaults_to_one_craft_and_only_craft_reads_it()
     {
         var plain = GameMcpProtocolRouter.BuildOperation(
             "game_craft", new JObject { ["uuid"] = RecipeId.ToString("D") });
         var batch = GameMcpProtocolRouter.BuildOperation(
-            "game_craft", new JObject { ["uuid"] = RecipeId.ToString("D"), ["amount"] = 45 });
+            "game_craft",
+            new JObject { ["uuid"] = RecipeId.ToString("D"), ["amount"] = 1_000_000 });
         var automate = GameMcpProtocolRouter.BuildOperation(
             "game_craft",
             new JObject
@@ -278,51 +292,99 @@ public sealed class GameMcpCraftingTests
             });
 
         Assert.Equal(1, plain.Amount);
-        Assert.Equal(45, batch.Amount);
+        Assert.Equal(1_000_000, batch.Amount);
         Assert.Equal(1, automate.Amount);
     }
 
+    [Fact]
+    public void Max_is_the_only_word_amount_takes()
+    {
+        var max = GameMcpProtocolRouter.BuildOperation(
+            "game_craft", new JObject { ["uuid"] = RecipeId.ToString("D"), ["amount"] = "max" });
+
+        Assert.Equal("max", max.SerializedValue);
+        Assert.Equal(1, max.Amount);
+        var refused = Assert.Throws<GameMcpInvalidParamsException>(() =>
+            GameMcpProtocolRouter.BuildOperation(
+                "game_craft",
+                new JObject { ["uuid"] = RecipeId.ToString("D"), ["amount"] = "all" }));
+        Assert.Equal("amount must be a whole number of crafts or \"max\"", refused.Message);
+    }
+
     /// <summary>
-    /// Every press goes through the one craft GameAction, and the answer is the count of presses
-    /// whose own sentinel verified — never a queue count that drains while the answer is written.
+    /// A count recipe queues the whole ask in one submission of the one craft GameAction, and the
+    /// answer is the count its own sentinel verified.
     /// </summary>
     [Fact]
-    public void Each_press_of_an_amount_goes_through_the_one_action_and_answers_the_count()
+    public void A_count_craft_queues_the_whole_ask_in_one_submission()
     {
-        var presses = 0;
+        var asks = new System.Collections.Generic.List<int>();
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(3), 15, 8,
-            () =>
+            CraftCommand(3), 15, 8, false,
+            remaining =>
             {
-                presses++;
-                return Landed(CraftingPlayerPostcondition.QueueAdmitted);
+                asks.Add(remaining);
+                return Landed(CraftingPlayerPostcondition.QueueAdmitted, remaining);
             });
         var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
             Context(queuedAmount: 0), CraftCommand(3), result));
 
-        Assert.Equal(3, presses);
+        Assert.Equal(new[] { 3 }, asks);
         Assert.Equal("committed", result.Status);
         Assert.Equal("Craft Sigils", (string?)postState["name"]);
-        Assert.Equal(3, (int)postState["queued"]!);
+        Assert.Equal("3", (string?)postState["queued"]);
         Assert.Null(postState["nextCosts"]);
         Assert.Null(postState["receipt"]);
     }
 
     [Fact]
+    public void A_scroll_craft_is_one_submission_per_scroll()
+    {
+        var asks = new System.Collections.Generic.List<int>();
+        var result = GameMcpCraftingProjection.Press(
+            CraftCommand(3), 15, 8, false,
+            remaining =>
+            {
+                asks.Add(remaining);
+                return Landed(CraftingPlayerPostcondition.QueueAdmitted, 1);
+            });
+
+        Assert.Equal(new[] { 3, 2, 1 }, asks);
+        Assert.Equal("3", (string?)Json(result.Details!)["queued"]);
+    }
+
+    [Fact]
+    public void Max_submits_once_and_answers_the_crafts_on_the_screen()
+    {
+        var submissions = 0;
+        var result = GameMcpCraftingProjection.Press(
+            CraftCommand(1), 15, 8, true,
+            _ =>
+            {
+                submissions++;
+                return Landed(
+                    CraftingPlayerPostcondition.InstanceQuantityIncreased, new BigDouble(3.96, 9));
+            });
+
+        Assert.Equal(1, submissions);
+        Assert.Equal("3.96e9", (string?)Json(result.Details!)["queued"]);
+    }
+
+    [Fact]
     public void A_shortfall_keeps_what_landed_and_says_why_the_rest_stopped()
     {
-        var presses = 0;
+        var submissions = 0;
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(45), 15, 8,
-            () => ++presses <= 3
-                ? Landed(CraftingPlayerPostcondition.InstanceQuantityIncreased)
+            CraftCommand(45), 15, 8, false,
+            _ => ++submissions == 1
+                ? Landed(CraftingPlayerPostcondition.InstanceQuantityIncreased, 3)
                 : Refused(
                     CraftingPlayerPreflight.Unaffordable,
                     "The cost of another of this craft is not met."));
         var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
             Context(), CraftCommand(45), result));
 
-        Assert.Equal(4, presses);
+        Assert.Equal(2, submissions);
         Assert.Equal("committed", result.Status);
         Assert.Equal(
             "3 of 45 asked; the rest stopped: The cost of another of this craft is not met.",
@@ -333,8 +395,8 @@ public sealed class GameMcpCraftingTests
     public void A_refused_first_press_answers_as_that_refusal()
     {
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(5), 15, 8,
-            () => Refused(
+            CraftCommand(5), 15, 8, false,
+            _ => Refused(
                 CraftingPlayerPreflight.QueueFull, "The Manual crafting queue has no empty slot."));
 
         Assert.Equal("refused", result.Status);
@@ -343,13 +405,13 @@ public sealed class GameMcpCraftingTests
     }
 
     [Fact]
-    public void A_fault_after_landed_presses_answers_as_the_fault_and_names_what_landed()
+    public void A_fault_after_landed_crafts_answers_as_the_fault_and_names_what_landed()
     {
-        var presses = 0;
+        var submissions = 0;
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(5), 15, 8,
-            () => ++presses <= 2
-                ? Landed(CraftingPlayerPostcondition.QueueAdmitted)
+            CraftCommand(5), 15, 8, false,
+            _ => ++submissions <= 2
+                ? Landed(CraftingPlayerPostcondition.QueueAdmitted, 1)
                 : new CraftingPlayerSubmission(
                     RecipeId,
                     CraftingPlayerPreflight.VerificationFailed,
@@ -359,7 +421,7 @@ public sealed class GameMcpCraftingTests
                     "The exact crafting instance was not admitted to the authored queue."));
 
         Assert.Equal("faulted", result.Status);
-        Assert.StartsWith("2 of 5 asked went through before this press. ", result.Reason);
+        Assert.StartsWith("2 of 5 asked went through before this craft. ", result.Reason);
         Assert.Equal(
             "requested craft completion", (string?)Json(result.Details!)["missingOutcome"]);
     }
@@ -368,11 +430,12 @@ public sealed class GameMcpCraftingTests
     public void Instant_crafts_report_how_many_completed()
     {
         var result = GameMcpCraftingProjection.Press(
-            CraftCommand(2), 15, 8, () => Landed(CraftingPlayerPostcondition.InstantCompleted));
+            CraftCommand(2), 15, 8, false,
+            remaining => Landed(CraftingPlayerPostcondition.InstantCompleted, remaining));
         var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
             Context(queuedAmount: 0), CraftCommand(2), result));
 
-        Assert.Equal(2, (int)postState["completed"]!);
+        Assert.Equal("2", (string?)postState["completed"]);
         Assert.Null(postState["queued"]);
     }
 
@@ -461,7 +524,9 @@ public sealed class GameMcpCraftingTests
         "CraftingRecipeSO", amount, string.Empty, string.Empty, false,
         frameContext: Context());
 
-    private static CraftingPlayerSubmission Landed(CraftingPlayerPostcondition postcondition) =>
+    private static CraftingPlayerSubmission Landed(
+        CraftingPlayerPostcondition postcondition,
+        BigDouble crafted) =>
         new(
             RecipeId,
             CraftingPlayerPreflight.Proceeded,
@@ -469,18 +534,19 @@ public sealed class GameMcpCraftingTests
             NativeMutationOutcome.Verified,
             new NativeMutationCallOutcome(5, 1, 1),
             "verified",
-            postcondition);
+            postcondition,
+            crafted);
 
     private static CraftingPlayerSubmission Refused(
         CraftingPlayerPreflight preflight,
         string reason)
     {
-        var action = new CraftingPlayerAction(RecipeId, 15);
+        var action = new CraftingPlayerAction(RecipeId, 15, 1, false);
         return CraftingPlayerSubmission.Reject(in action, preflight, reason);
     }
 
     private static GameMcpFrameContext Context(
-        int queuedAmount = 4,
+        double queuedAmount = 4,
         int automationRepetitions = 3,
         bool canAutomate = true,
         string automationReasonCode = "automation_full",
@@ -498,7 +564,7 @@ public sealed class GameMcpCraftingTests
     }
 
     private static GameWorldState World(
-        int queuedAmount = 4,
+        double queuedAmount = 4,
         int automationRepetitions = 3,
         bool canAutomate = true,
         string automationReasonCode = "automation_full",

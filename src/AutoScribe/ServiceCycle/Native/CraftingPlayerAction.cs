@@ -6,16 +6,22 @@ namespace OrbAutomata;
 
 internal readonly struct CraftingPlayerAction
 {
-    internal CraftingPlayerAction(Guid recipeId, long lifecycleEpoch)
+    internal CraftingPlayerAction(Guid recipeId, long lifecycleEpoch, int amount, bool max)
     {
         if (recipeId == Guid.Empty)
             throw new ArgumentException("A crafting recipe UUID is required.", nameof(recipeId));
+        if (amount < 1)
+            throw new ArgumentOutOfRangeException(nameof(amount), "A craft amount is at least 1.");
         RecipeId = recipeId;
         LifecycleEpoch = lifecycleEpoch;
+        Amount = amount;
+        Max = max;
     }
 
     internal Guid RecipeId { get; }
     internal long LifecycleEpoch { get; }
+    internal int Amount { get; }
+    internal bool Max { get; }
 }
 
 internal enum CraftingPlayerPreflight
@@ -64,7 +70,8 @@ internal readonly struct CraftingPlayerSubmission
         NativeMutationOutcome outcome,
         NativeMutationCallOutcome callOutcome,
         string reason,
-        CraftingPlayerPostcondition postcondition = CraftingPlayerPostcondition.None)
+        CraftingPlayerPostcondition postcondition = CraftingPlayerPostcondition.None,
+        BigDouble crafted = default)
     {
         RecipeId = recipeId;
         Preflight = preflight;
@@ -73,6 +80,7 @@ internal readonly struct CraftingPlayerSubmission
         CallOutcome = callOutcome;
         Reason = reason ?? string.Empty;
         Postcondition = postcondition;
+        Crafted = crafted;
     }
 
     internal Guid RecipeId { get; }
@@ -82,6 +90,7 @@ internal readonly struct CraftingPlayerSubmission
     internal NativeMutationCallOutcome CallOutcome { get; }
     internal string Reason { get; }
     internal CraftingPlayerPostcondition Postcondition { get; }
+    internal BigDouble Crafted { get; }
     internal bool Verified =>
         Preflight == CraftingPlayerPreflight.Proceeded &&
         Outcome == NativeMutationOutcome.Verified;

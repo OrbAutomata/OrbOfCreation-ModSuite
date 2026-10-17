@@ -26,6 +26,7 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
         var resource = Resource(amount: 19);
         var recipe = Recipe();
         recipe.useQuantityAsLevel = true;
+        recipe.MainType.isLevelType = true;
         recipe.StartingQuantity = new BigDouble(2, 0);
         recipe.recipeCost.costs.Add(new ResourceTuple(resource, new BigDouble(4, 0)));
         CraftingRecipeSO.All.Add(recipe);

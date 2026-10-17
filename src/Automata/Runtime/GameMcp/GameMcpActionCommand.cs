@@ -922,7 +922,6 @@ internal static class GameMcpActionResultCodeNames
             if (code == CraftingInstanceLifecycleActionResultCodes.PageRelationAmbiguous) return "page_relation_ambiguous";
             if (code == CraftingInstanceLifecycleActionResultCodes.InstanceUnavailable) return "instance_unavailable";
             if (code == CraftingInstanceLifecycleActionResultCodes.AutomationFull) return "automation_full";
-            if (code == CraftingInstanceLifecycleActionResultCodes.MultiBuyUnavailable) return "multi_buy_unavailable";
             if (code == CraftingInstanceLifecycleActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";
             if (code == CraftingInstanceLifecycleActionResultCodes.PostCommitFault) return "post_commit_fault";
             if (code == CraftingInstanceLifecycleActionResultCodes.VerificationFailed) return "verification_failed";

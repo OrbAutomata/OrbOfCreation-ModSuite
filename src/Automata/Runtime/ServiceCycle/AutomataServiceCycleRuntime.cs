@@ -653,14 +653,21 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 GameMcpCraftingProjection.Project(in instanceSubmission));
         }
         var feature = (AutoScribeServiceCycleFeature.Runtime)FindFeature(command.Kind);
-        var action = new CraftingPlayerAction(
-            command.TargetId,
-            command.ExpectedLifecycleGeneration);
+        var max = command.PayloadValue == "max";
         return GameMcpCraftingProjection.Press(
             command,
             lifecycle,
             configurationGeneration,
-            () => feature.TryExecuteGameMcp(in action));
+            max,
+            remaining =>
+            {
+                var action = new CraftingPlayerAction(
+                    command.TargetId,
+                    command.ExpectedLifecycleGeneration,
+                    remaining,
+                    max);
+                return feature.TryExecuteGameMcp(in action);
+            });
     }
 
     private GameMcpCommandResult ExecuteEquipmentLoadout(
