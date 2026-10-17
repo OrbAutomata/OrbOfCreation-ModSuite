@@ -1681,6 +1681,9 @@ public sealed class Plugin : BaseUnityPlugin
             case "suite_health":
                 execution = GameMcpToolExecution.Text(ProjectGameMcpHealthText(context));
                 return true;
+            case "strategist":
+                execution = GameMcpStrategistQuery.Read(context, request.Section);
+                return true;
             case "suite_check_game_math":
                 execution = RunGameMcpGameMathCheck();
                 return true;

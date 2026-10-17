@@ -335,6 +335,11 @@ internal sealed class GameMcpProtocolRouter
             case "suite_health":
             case "suite_check_game_math":
                 break;
+            case "strategist":
+                if (arguments.ContainsKey("section"))
+                    builder.Section = RequireOneOf(
+                        arguments, "section", "goals", "position", "demand", "facts");
+                break;
             case "game_purchase":
                 builder.Uuid = RequireUuid(arguments, "uuid");
                 builder.Amount = RequiredInt(arguments, "amount", 1, 1000);
@@ -633,7 +638,7 @@ internal sealed class GameMcpProtocolRouter
         GameMcpOperationRequestBuilder? request = null) => name switch
     {
         "world_overview" or "world_categories" or "world_list" or "world_get" or
-            "world_search" => GameMcpFrameData.World,
+            "world_search" or "strategist" => GameMcpFrameData.World,
         "suite_health" => GameMcpFrameData.World | GameMcpFrameData.Configuration |
             GameMcpFrameData.FeatureHealth | GameMcpFrameData.ServiceHealth |
             GameMcpFrameData.Scene | GameMcpFrameData.NativeContractHealth,
@@ -746,6 +751,15 @@ internal sealed class GameMcpProtocolRouter
                             "counts."),
                         ["offset"] = IntegerSchema(0, int.MaxValue),
                         ["limit"] = IntegerSchema(1, 200),
+                    })),
+            Tool(
+                "strategist",
+                "Read the strategist's bulletin",
+                "Read the strategist's latest judgement of the published world: what it would work toward and what that costs. The summary names the long-term goals (finishing the world through Restoration, and cross-run capital), the top short-term goals — every gate the player can buy now, Restoration's chain first — where the run stands, and which resources the goals are waiting on. Every cost is a time measured on sustained income: trivial under 10 s, cheap under a minute, notable under an hour, expensive beyond, or out of reach with the reason; while income is still being measured a cost says so instead. section names one part in full: goals, position, demand, or facts — the exact inputs the bulletin was derived from, one record per line.",
+                ObjectSchema(
+                    new JObject
+                    {
+                        ["section"] = EnumSchema("goals", "position", "demand", "facts"),
                     })),
             Tool(
                 "suite_health",

@@ -2,6 +2,7 @@
 using System;
 using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
+using OrbModding.Common.Runtime.Strategy;
 using OrbModding.Common.Runtime.World;
 
 namespace OrbAutomata;
@@ -15,6 +16,7 @@ internal sealed class AutomataRuntimeFrameFacts
 {
     private AutomataRuntimeFrameFacts(
         WorldPublication<GameWorldState> world,
+        SuiteStrategy strategy,
         ConfigurationPublication configuration,
         bool emergencyStopEngaged,
         long acceptedFrameCount,
@@ -26,6 +28,7 @@ internal sealed class AutomataRuntimeFrameFacts
         string craftingInstancesUnavailableReason)
     {
         World = world;
+        Strategy = strategy;
         Configuration = configuration;
         EmergencyStopEngaged = emergencyStopEngaged;
         AcceptedFrameCount = acceptedFrameCount;
@@ -38,6 +41,7 @@ internal sealed class AutomataRuntimeFrameFacts
     }
 
     internal WorldPublication<GameWorldState> World { get; }
+    internal SuiteStrategy Strategy { get; }
     internal ConfigurationPublication Configuration { get; }
     internal bool EmergencyStopEngaged { get; }
     internal long AcceptedFrameCount { get; }
@@ -67,6 +71,7 @@ internal sealed class AutomataRuntimeFrameFacts
         var diagnostics = pump.DiagnosticsSnapshot;
         return new AutomataRuntimeFrameFacts(
             registry.World.ReadLatest(),
+            registry.Strategy.ReadLatest().Bulletin,
             configuration.ReadLatest(),
             host.EmergencyStopEngaged,
             diagnostics.AcceptedFrameCount,

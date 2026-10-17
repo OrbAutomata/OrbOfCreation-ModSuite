@@ -12,7 +12,7 @@ public sealed class GameMcpFrameRoutingContractTests
     public void EveryAdvertisedToolBuildsOneImmutableOperationForTheSoleInbox()
     {
         var tools = GameMcpAcceptanceFixture.Tools();
-        Assert.Equal(41, tools.Count);
+        Assert.Equal(42, tools.Count);
         var inbox = new GameMcpFrameInbox();
         var operations = tools
             .Select(tool => GameMcpProtocolRouter.BuildOperation(
@@ -192,7 +192,7 @@ public sealed class GameMcpFrameRoutingContractTests
             ["uuids"] = new JArray(Guid.NewGuid().ToString("D")),
         },
         "world_search" => new JObject { ["query"] = "mana" },
-        "suite_health" or "suite_check_game_math" => new JObject(),
+        "suite_health" or "suite_check_game_math" or "strategist" => new JObject(),
         "game_purchase" => new JObject
         {
             ["uuid"] = Guid.NewGuid().ToString("D"),
