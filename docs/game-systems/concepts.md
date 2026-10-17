@@ -30,7 +30,7 @@ your Psi capacity, so a roll can be capacity-gated. Concepts have their own
 discovery tree, so their ladder does not interact with spell or glyph rolls. The game contains `46`
 authored concept recipes.
 
-## Only a slotted concept does anything
+## Only a slotted concept grows
 
 A discovered concept exists permanently but is inert until placed in one of your **development
 slots**. You start with one slot; more are unlocked by upgrades. While a concept is slotted, two
@@ -40,9 +40,10 @@ things happen continuously:
   resource, paid whether or not you are looking at the screen.
 - It **levels**: every advance interval it gains a level, and each level applies its effect again.
 
-An unslotted concept neither levels nor drains. A **Permanent** passive a concept has already
-granted is the exception: Restorative Learning's mana-per-attribute passive kept paying, and kept
-growing, after the concept left its slot.
+An unslotted concept neither levels nor drains, but **what it already earned stays**:
+Restorative Learning's mana-per-attribute passive kept paying, and kept growing, after the concept
+left its slot. Study Mind at Mastery Lv 4 still sat in the Scholar type's cost sources at `-99.3 %`
+once unslotted. Rotating the slot to a new concept gives up only the old one's further growth.
 
 Every concept does one of exactly two things:
 
