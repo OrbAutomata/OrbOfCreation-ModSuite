@@ -49,6 +49,22 @@ running instances of an action that has been removed from its list.
 
 Once **Unlock Druidry Levels** is bought, the screen draws a **Druidry Lv** −/+ adjuster. It sets
 the level in effect between 1 and **Max Druidry Lv**, which **Raise Druidry Lv** raises by one per
-purchase. A higher level runs agromancy faster at a higher cost (observed: ×2.25 speed at ×2 cost
-per level), so turning it down is how a player buys cheaper, slower actions. The dial and its cap
-share the shape described in [attributes-and-upgrades.md](attributes-and-upgrades.md).
+purchase (each purchase also adds ×1.02 plot yield). A higher level runs agromancy faster at a
+higher cost (observed: ×2.25 speed at ×2 cost per level), so turning it down is how a player buys
+cheaper, slower actions. The dial and its cap share the shape described in
+[attributes-and-upgrades.md](attributes-and-upgrades.md).
+
+## The oak loop
+
+Wood comes only from oaks:
+
+1. **Plant Sapling** on an Empty Plot (costs Verdant Energy while it plants). The Oak Tree takes
+   2 Plot Capacity and grows for 2:00.
+2. **Chop Down Oak Tree** drains **Skill** per second while it runs and pays Wood; with no Skill the
+   chop stalls rather than failing. The tree is destroyed.
+3. The chopped plot is **Recovering** — 40 s per plot, one plot at a time — before it is an Empty
+   Plot again. Only recovered plots take a sapling, so a planting order is clamped to them.
+
+Wood Axe (Agromancy Power for harvests) and Clearcutting (harvest speed) are the Workshop levers on
+the same loop; see [workshop.md](workshop.md). Observed yield: ~130 Wood per oak at the start,
+~1.1e3 after eight Wood Axe levels at Druidry Lv 3.
