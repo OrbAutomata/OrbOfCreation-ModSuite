@@ -1625,8 +1625,11 @@ one publishes it rather than silently losing it.
 `HarvestElementSO.availableActions`), which apply for a moment rather than while owned;
 `GlobalValues.challengeBaseRewards`, printed on every challenge and owned by no entity; and a tuple
 whose target is resolved at run time (`useTargetRef`), which names no target to publish. `amount` is
-the authored magnitude: a `ScalingWeightEffectMod` on the block (research level, challenge level)
-scales it in play, and the scaled number is not published.
+the authored magnitude: a `ScalingWeightEffectMod` on the block (research level, challenge level,
+alchemy power and speed) scales it in play, and the scaled number is not published. An alchemy
+recipe's row says so beside the block in `levelEffectsAt`: amounts are authored at Lv 1, 100 power
+and 100% speed, and `game_tooltip` shows the card's scaled number; see
+[alchemy.md](../game-systems/alchemy.md#what-an-equipped-recipes-effect-is-worth).
 
 #### What moves a thing: `modifiedBy`
 
@@ -1738,6 +1741,10 @@ remove decisions. An available add includes the live click-sized maximum and nam
 costs with current spendable holdings; an unavailable add carries only its binding reason. Concept
 recipes remain on `game_concept`, Alchemy discovery is the Learn tree's roll on `game_discover`, and recipe
 leveling belongs to the unified level surface rather than this list lifecycle.
+A recipe whose usage requirement is unmet while its core type authors a requirement penalty carries
+`usageRequirement`, the first unmet condition in its tooltip's words and the speed and drain-cost
+penalties in the modifier spelling: `Expert Alchemy at level 7 (at 3) not met: speed x0.250, drain
+cost x16 until it is`.
 
 The screen's Alchemy Lv adjuster is `game_alchemy(mode="set_alchemy_level", level=N)`; see the
 *Level dial loop*.

@@ -1311,6 +1311,27 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     [Fact]
+    public void AlchemyTypePublishesTheSpeedAndCostItsRecipesRunAtWhileTheirUsageRequirementIsUnmet()
+    {
+        var type = new FakeAlchemyType
+        {
+            Identity = Guid.NewGuid(),
+            reqSpeedPenalty = new FakeValueModifier(FakeModifierKind.MultiStacking, 0.25d, 0),
+            reqCostPenalty = new FakeValueModifier(FakeModifierKind.MultiStacking, 16d, 0),
+        };
+        FakeAlchemyType.All.Add(type);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLookup.TryFind(world.AlchemyTypes, type.Identity, out var row));
+        Assert.Equal("x0.250", row.RequirementSpeedPenalty.ToStringValue());
+        Assert.Equal("x16", row.RequirementCostPenalty.ToStringValue());
+    }
+
+    [Fact]
     public void OrdinaryAlchemyPublishesTheOrderedClickDecisionAndUsageHoldings()
     {
         var resource = new FakeResource

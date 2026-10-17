@@ -90,6 +90,10 @@ carried cross-run bonuses (authored constants do not).
 - **The six Alchemy pools** — one is Alchemical Capacity and is spent by equipping recipes (see
   [alchemy.md](alchemy.md)); what the other five allocate, and whether Alchemy Level moves any
   capacity, is unknown.
+- **The missing ×0.8 on a penalised alchemy recipe** — Extract Thaumic Scrolls under its unmet
+  usage requirement measured ≈×0.2 of its authored effect where the speed penalty predicts ×0.25
+  (see [alchemy.md](alchemy.md#what-an-equipped-recipes-effect-is-worth)). Settle with one read of
+  the instance's live power and speed beside its card.
 
 ## Interface
 

@@ -62,7 +62,10 @@ roll price switches to Magebloom (observed 300, then 100, beside a Skill cost). 
 
 A recipe whose `Req.` lines (Expert research levels) are unmet carries a **requirement penalty**:
 observed ×2 capacity, ×0.25 speed and ×16 cost (Transmute Control, Brew Experience Elixir), which
-can make a superior roll unequippable — Transmute Control asked 20 Alchemical Capacity. Brewing
+can make a superior roll unequippable — Transmute Control asked 20 Alchemical Capacity. The penalty
+is authored on the recipe's core type, the last alchemy type it lists: the Alchemy type authors the
+×0.25 speed and ×16 drain cost and drops the effect exponent to 0.97, Conceptualization authors the
+same speed penalty, and no other type authors one. It slows the recipe rather than blocking it. Brewing
 recipes produce potions on a timer rather than a rate: Brew Mana Potion made one potion every 173 s
 (+1.68e6 Mana/s for 4 s) for −20.8 Water/s, and reaching its mastery 1 opens Improved Brewing.
 
@@ -70,6 +73,23 @@ A Transmute is the first Water source that needs no spell. Alchemy rolls offer o
 the other trees (observed: three against two, then four against three after Greater Discovery).
 The roll price climbs ×10 per roll, and a glyph purchase that widens the pool drops it back
 (observed: 1e6 Control → 1e4 after Learn Refinement); the next rolls were required ones.
+
+## What an equipped recipe's effect is worth
+
+A recipe's persistent effect (the capacity or rate it grants while equipped) is authored once and
+scaled in play. Every such block carries a scaling weight (`AlchemyScaling`, which also doubles per
+Alchemy Lv, `AlchemyScalingAug`, or `AlchemyDismantleScaling`), and the game applies it at the
+instance's power × speed: ×(1 + 0.01·(power×speed% − 100)), with the weight's exponent applied
+only above 100. The authored number is the card's number only at Lv 1, 100 power and 100 % speed;
+the recipe card prints the scaled one.
+
+Speed is where the requirement penalty above reaches the effect, and extra copies of a recipe add
++100 % speed each through its instance scaling while costing ×1.25 each.
+
+Worked example: **Extract Thaumic Scrolls** authors +8 Alchemical Capacity and +13 Occultic
+Capacity per copy, and its usage requirement is Expert Alchemy 7. Below that, the speed penalty
+predicts ×0.25: +2 / +3.25 per copy. A run with four copies measured +1.6 / +2.6 per copy, ≈×0.2;
+the remaining ×0.8 is an [open question](open-questions.md).
 
 ## Types, and the filter above the pool
 
