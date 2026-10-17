@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using OrbAutomata;
 using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
@@ -115,6 +116,22 @@ public sealed class StrategistFixtureTests
         Assert.True(registry.RequestLifecycle(new LifecycleGeneration(12)));
         scanner.ObservePublications(null, observer, new MonotonicTimestamp(300), includeJournal: true);
         Assert.Single(sink.Records, record => record.Kind == DecisionJournalRecordKind.StrategyChanged);
+    }
+
+    /// <summary>
+    /// The strategist judges once a minute and ignores the worlds in between, so a fresh game waits
+    /// a minute for its income to be measured.
+    /// </summary>
+    [Fact]
+    public void TheStrategistWakesOnceAMinuteNotOnEachWorld()
+    {
+        using var registry = new ServiceCycleRegistry(1);
+        var definition = StrategistService.Define(registry.StrategistBulletinPublication);
+
+        Assert.False(definition.WakesOnWorldPublication);
+        Assert.Equal(
+            WakePolicy.AfterDecision(MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1))),
+            definition.DefaultWakePolicy);
     }
 
     [Fact]

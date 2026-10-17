@@ -12,7 +12,19 @@ namespace OrbAutomata;
 internal static class StrategistServicePolicies
 {
     internal static ServiceId ServiceId => new("orbautomata.strategist");
-    internal static WakePolicy DefaultWakePolicy => WakePolicy.OnPublication;
+
+    /// <summary>
+    /// One bulletin a minute: the derivation is too heavy to repeat for every world, and lifetime
+    /// gain read a minute apart is still a sustained rate. A new lifecycle starts a new runner, so a
+    /// new game is judged on its first world.
+    /// </summary>
+    internal static MonotonicDuration Cadence => MonotonicDuration.FromTimeSpan(
+        TimeSpan.FromSeconds(StrategistIncomeWindow.MinimumSeconds));
+
+    /// <summary>How soon to look again while the world is the empty one a lifecycle leaves behind.</summary>
+    internal static MonotonicDuration EmptyWorldRetry => MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1));
+
+    internal static WakePolicy DefaultWakePolicy => WakePolicy.AfterDecision(Cadence);
 
     internal static ServiceFaultRecoveryPolicy FaultRecoveryPolicy => new(
         MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(250)),
@@ -36,8 +48,9 @@ internal struct StrategistCycleState
 }
 
 /// <summary>
-/// The strategist: an ordinary service woken by each world publication. The worker reads the pinned
-/// world into facts and the window, derives the bulletin, and the one main-thread step publishes it.
+/// The strategist: an ordinary service that wakes once a minute rather than on each world publication.
+/// The worker reads the pinned world into facts and the window, derives the bulletin, and the one
+/// main-thread step publishes it.
 /// </summary>
 /// <remarks>
 /// It has no configuration and no switch. The bulletin goes to its own latest-value slot, not into the
@@ -53,7 +66,8 @@ internal static class StrategistService
         var metadata = new AutomataServiceMetadata(
             StrategistServicePolicies.ServiceId,
             StrategistServicePolicies.DefaultWakePolicy,
-            StrategistServicePolicies.FaultRecoveryPolicy);
+            StrategistServicePolicies.FaultRecoveryPolicy,
+            wakesOnWorldPublication: false);
         return AutomataService.Define<StrategistCycleState, StrategistCycleAction>(
             in metadata,
             static () => new StrategistWorkerDefinition(),
@@ -114,9 +128,10 @@ internal sealed class StrategistWorkerDefinition :
     {
         if (state.Lifecycle != context.Identity.Lifecycle)
             throw new InvalidOperationException("Strategist state belongs to a different lifecycle.");
-        if (StrategistService.TryDerive(world, context.Identity.World.Value, state.Window, out var bulletin))
-            actions.Add(new StrategistCycleAction(bulletin));
-        return WakePolicy.OnPublication;
+        if (!StrategistService.TryDerive(world, context.Identity.World.Value, state.Window, out var bulletin))
+            return WakePolicy.AfterDecision(StrategistServicePolicies.EmptyWorldRetry);
+        actions.Add(new StrategistCycleAction(bulletin));
+        return StrategistServicePolicies.DefaultWakePolicy;
     }
 
     public void ProjectState(
