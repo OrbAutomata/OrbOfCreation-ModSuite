@@ -55,6 +55,7 @@ internal sealed class BepInExAutomataConfiguration
     private BepInExAutomataConfiguration(
         ConfigFile config,
         ConfigEntry<bool> enabled,
+        ConfigEntry<AutomationPace> pace,
         ConfigEntry<AutoBuyOperationMode> autoBuyMode,
         ConfigEntry<AutoBuyAffordabilityMode> autoBuyAffordabilityMode,
         ConfigEntry<AutoBuyAffordabilityMode> upgradeAffordabilityMode,
@@ -91,6 +92,7 @@ internal sealed class BepInExAutomataConfiguration
         ConfigEntry<float> relativeReserveMultiplier)
     {
         Enabled = enabled;
+        Pace = pace;
         AutoBuyMode = autoBuyMode;
         AutoBuyAffordability = autoBuyAffordabilityMode;
         UpgradeAffordability = upgradeAffordabilityMode;
@@ -139,6 +141,8 @@ internal sealed class BepInExAutomataConfiguration
     }
 
     public ConfigEntry<bool> Enabled { get; }
+
+    public ConfigEntry<AutomationPace> Pace { get; }
 
     public ConfigEntry<AutoBuyOperationMode> AutoBuyMode { get; }
 
@@ -317,6 +321,7 @@ internal sealed class BepInExAutomataConfiguration
         new ConfigEntryBase[]
         {
             Enabled,
+            Pace,
             AutoBuyMode,
             AutoBuyAffordability,
             UpgradeAffordability,
@@ -452,6 +457,7 @@ internal sealed class BepInExAutomataConfiguration
             var result = new BepInExAutomataConfiguration(
                 config,
                 Bind(config, "General", "Enabled", true, "Master switch for automation and mastery catch-up. The in-game configuration and safety controls remain available while this is off.", 0, 0),
+                Bind(config, "General", "Pace", AutomationPace.Fastest, "How often the suite re-reads the game, and so how often automation can act. Fastest reads 4 times a second, Fast 2, Balanced once a second, Relaxed every 5 seconds, CpuSaver every 30 seconds. Slower paces cost the game less time. Applies immediately.", 0, 5),
                 autoBuyMode,
                 Bind(config, "AutoBuy", "AffordabilityMode", AutoBuyAffordabilityMode.Excess100, "Affordability policy for structures. BuyAll accepts any affordable purchase; excess modes require current resources to be at least 10x, 100x, or 1000x the true cost.", 10, 30, dependencies: AutoBuyStructuresActiveDependencies),
                 Bind(config, "AutoBuy", "UpgradeAffordabilityMode", AutoBuyAffordabilityMode.Excess100, "Independent affordability policy for upgrades. BuyAll accepts any affordable upgrade; excess modes require current resources to be at least 10x, 100x, or 1000x the true cost.", 10, 31, dependencies: AutoBuyUpgradesActiveDependencies),
@@ -521,7 +527,7 @@ internal sealed class BepInExAutomataConfiguration
     {
         var displaySection = section switch
         {
-            "General" when key == "Enabled" => "General",
+            "General" when key is "Enabled" or "Pace" => "General",
             "Safety" when key == "EmergencyDisable" => "General",
             "AutoBuy" => "Auto Buy",
             "AutoCast" => "Auto Cast",
@@ -534,6 +540,7 @@ internal sealed class BepInExAutomataConfiguration
         var displayName = key switch
         {
             "Enabled" when section == "General" => "Automation enabled",
+            "Pace" when section == "General" => "Automation pace",
             "Mode" when section == "AutoBuy" => "Auto Buy",
             "Mode" when section == "AutoCast" => "Auto Cast",
             "Mode" when section == "AutoConcept" => "Auto Concept",
@@ -571,6 +578,15 @@ internal sealed class BepInExAutomataConfiguration
                 metadata));
     }
 
+}
+
+internal enum AutomationPace
+{
+    Fastest,
+    Fast,
+    Balanced,
+    Relaxed,
+    CpuSaver,
 }
 
 internal enum AutoBuyOperationMode

@@ -67,10 +67,11 @@ internal static class SuiteRuntimeConfigurationDefaults
     internal static readonly SuiteRuntimeConfiguration Empty = new();
 }
 
-/// <summary>Whether the suite runs at all.</summary>
+/// <summary>Whether the suite runs at all, and how often it reads the game.</summary>
 internal sealed record SuiteGeneralConfiguration
 {
     internal bool Enabled { get; init; }
+    internal AutomationPace Pace { get; init; }
 }
 
 /// <summary>The stop the operator reaches for when the suite is doing something they did not want.</summary>

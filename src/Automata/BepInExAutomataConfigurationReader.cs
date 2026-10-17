@@ -15,6 +15,7 @@ internal static class BepInExAutomataConfigurationReader
             General = new SuiteGeneralConfiguration
             {
                 Enabled = source.Enabled.Value,
+                Pace = source.Pace.Value,
             },
             AutoBuy = new AutoBuyConfiguration
             {

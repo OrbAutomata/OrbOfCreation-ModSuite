@@ -30,7 +30,9 @@ features one at a time.
 The top-left **STOP ALL** control is always available during gameplay. It immediately stops new
 suite actions and discards prepared automation work. Press it again to resume. The **General** page
 offers the same **Stop all** or **Resume all** command, plus **Automation enabled** for turning the
-whole suite off without editing the configuration file.
+whole suite off without editing the configuration file. **Automation pace** sets how often the suite
+re-reads the game, from Fastest (4 times a second) to CpuSaver (every 30 seconds); slower paces cost
+the game less time and make automation act less often.
 
 Back up saves before risky changes and use only one automatic buyer or other mod responsible for a
 given game action.
