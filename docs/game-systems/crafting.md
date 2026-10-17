@@ -23,7 +23,14 @@ slot counts; see [scribing.md](scribing.md).
 
 The shared action multiplier at the top right (`×1`, `5`, `25`, `Mx`) sizes a craft press: at `Mx`
 one press queues as many crafts as the stock pays for (observed: 133 Paper in one press). The batch
-is a single entry that finishes in **one** craft time, not one craft time per item.
+is a single entry that finishes in **one** craft time, not one craft time per item, and its output
+arrives as a rate across that craft time. One craft can also yield several items: a single Craft
+Alchemic Scroll gave 6.1 Alchemic Scrolls (observed).
+
+**Craft Alchemic Scroll** (Force Bark + Thaumic Scrolls + Control) appears in the list later than its
+inputs do; observed appearing right after Alchemical Bookcases and the first Alchemic Command levels.
+Holding an Alchemic Scroll is the unlock for Greater Discovery, Level Alchemy, Planning Alchemic,
+Scholarism Alchemy and Shape Land.
 
 ## Crafts pay at submission
 

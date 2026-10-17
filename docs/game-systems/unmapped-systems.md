@@ -10,6 +10,6 @@ exists", only play answers "what it is for".
 | Dimensional | How it opens, the Urns, the Shaper attributes and Tech Advancements are in [dimensional.md](dimensional.md); the Cores and the other Urns have never been played. |
 | Artificer, Construction | How they open and their first attributes are in [workshop.md](workshop.md); later attributes unplayed. |
 | Mystic, Shaper | Named disciplines with their own progression tracks and advancement grants. Never played. |
-| Artifact effects | The loadout binds weight and slots, and upgrading costs two gear currencies. What artifacts do is unknown. |
+| Artifact effects | The loadout binds weight and slots, and upgrading costs two gear currencies. Four artifacts are recorded in [artifacts.md](artifacts.md); the rest are unknown. |
 | Emblems | 24 emblem passives exist; one is worked out (see [emblems.md](emblems.md)). |
 | Plots | Node-level harvest rates and prerequisites underlie Agromancy; only the surface behaviour is known. |

@@ -40,4 +40,14 @@ level adds effect levels to a whole attribute family — observed at Lv 1 for 3 
 Conductor +5 Infusion, Amulet +5 Aura, Thaumuic +3 Wizardry, Shaper +3 Dimensional. A total
 **artifact mastery** figure sits on the Loadout tab.
 
-What artifacts actually do is unrecorded; see [unmapped-systems.md](unmapped-systems.md).
+## What some artifacts do (partial, observed)
+
+| Artifact | Type, weight | Effect |
+|---|---|---|
+| Blast Staff | Conductor, 4 | every 15 s, the next cast gets ×1.88 Cantrip and ×1.23 Charm power |
+| Scholar's Wand | Conductor, 4 | after every cast, a splash of Mental resources divided by rarity — one cast added 6.5e6 Skill, 4e7 Psi and Control past its cap |
+| Fundamental Wand | Conductor, 8 | +4.32 Infusion effect levels; weighs double until Expert Artificer 9 |
+| Cloak of Casting | Cloak, 1 | ×1.10 Elemental gain, ×1.05 Elemental quality, ×1.10 Cantrip power |
+
+The splash scales with the casting dials (×3.20 per Output Lv, ×1.25 per Reserve Lv on its tooltip),
+which is why a conductor that is small early becomes a main income source late in a run.

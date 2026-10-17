@@ -23,6 +23,19 @@ quantity/cap shape as every other allocation; see [allocations.md](allocations.m
   the grid.
 - **Slots are typed.** A full grid refuses a recipe for having "no compatible open slot" — so
   whether the loadout is full is a question per recipe, not per grid.
+- **Recipe slots bind separately from capacity.** Early in a run the grid holds three different
+  recipes (observed), and a fourth is refused with every slot in use even while Alchemical Capacity
+  has room — swapping is then the only move.
+
+Two recipe types seen early, observed per equipped copy:
+
+| Type | Example | Effect |
+|---|---|---|
+| Transmute | Transmute Knowledge / Water / Space | +1.5e4 Knowledge/s, +50 Water/s or +2.5e4 Space/s, each with ×1.30 gain on that resource; 3 Alchemical Capacity |
+| Dismantle | Channel Control | consumes Control for +4 Alchemical Capacity; 1 Mechanical Capacity |
+
+A Transmute is the first Water source that needs no spell. Optional Alchemy rolls offered three
+options where the other trees offered two (observed).
 
 ## Types, and the filter above the pool
 
