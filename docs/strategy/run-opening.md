@@ -40,8 +40,10 @@ opening — do not spend time surveying the list, go to step 1.
     Scholarism itself wants exactly two things: **mastery level 2 on your first spell** and
     **Output Lv 2**. The second is the slow half — Output Lv is capped by Max Output Lv, which
     starts at 1 and is raised only after the `Spell Output Level` upgrade is bought, and that
-    upgrade is priced in **Thaumaturgy**, the resource step 9's second producer makes. So the
-    Scholarism clock is really a race to a second production spell, not to a pile of Knowledge.
+    upgrade is priced in **Thaumaturgy**, the resource step 9's second producer makes, and locked
+    until Casting Level 2. So the Scholarism clock is really a race to a second production spell,
+    not to a pile of Knowledge. Raise Output before grinding mastery 2, not after: at Output 2 one
+    Gather Knowledge cast paid ~560 mastery XP, so the 7.12e3 bar took a dozen casts.
     Once bought, Scholarism opens the Scholar screen, and the trickle economy is one short chain:
     **Novice Study** (a timed Scholar upgrade) → **Focus Aura** levels for Psi → **Learn Psionic**
     at a handful of Psi widens the spell pool to Psychic Blast, the Mental-income charm →
