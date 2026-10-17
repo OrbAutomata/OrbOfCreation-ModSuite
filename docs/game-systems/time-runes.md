@@ -12,14 +12,14 @@ Each rune carries **three separate level numbers**, and they mean different thin
 |---|---|---|---|
 | **Rune level** | Time Advancements, this run only | `0, 1, 2, 3, 4, …` | Grants persist XP and raises what future picks of that rune give (`+25 %` per level) |
 | **Persist level** | Persist XP, across runs | Escalating thresholds: `100`, `250`, `400`, … | Where the permanent effects actually live |
-| **Mastery level** | Mastery XP, roughly `1` per rune level bought | Escalating | Each mastery level grants `+1` starting Time Advancement next run |
+| **Mastery level** | Mastery XP, about `1.08` per rune level bought | Escalating | Each mastery level grants `+1` starting Time Advancement next run |
 
 A rune level costs nothing while your free usages exceed the rune's level — the zero-start rule of
 [cost-pipeline.md](cost-pipeline.md), reached here by free usages. Past that the curve is evaluated
 at `level + 1 − free usages`, which is what produces the `0, 1, 2, 3, 4` sequence.
 
 - A rune left at **level 0 is inert** — it grants no persist XP at all. The free first level is what
-  switches a rune on.
+  switches a rune on. A **Superior** rune gets a second free level.
 - Persist XP **rolls over**: overshooting a threshold is not wasted.
 - E.g., picking an Investment rune grants `100` persist XP by default, and levelling the rune raises
   the XP granted per pick for the rest of that run.
@@ -49,4 +49,13 @@ applying to a rune of that class picked earlier in the run).
 Investment Power stacks additively: `+12 %` per persist level, so three levels turn a base `225` pick
 into exactly `306`, not `316` (see [modifiers.md](modifiers.md)). A rune's XP per pick is the base
 pick XP times its `+25 %`-per-rune-level bonus times its Investment Power. Rune mastery XP accrues in
-fractions, with a level-1 threshold of `6`.
+fractions and the bar is per rune. E.g., a first mastery level needed `4` XP (reached at rune
+Lv 4), and Discovery Rarity's bars for mastery 4 and 5 read `10` and `12`.
+
+## Discovery Rarity
+
+The first rune's levels raise **Discovery Rarity Rating**, the chance for *any* discovery roll to
+come out **Superior**, with stronger properties than the plain version. Level `L` adds
+`2 + 0.5 (L − 1)` base rating, times a small multiplier (×1.02 observed). The chance bends below
+linear and caps at `30 %` (e.g., rating `36.7` → `17.0 %`). Higher tiers open at fixed ratings:
+**x2 at `36.2`, x3 at `84.5`**. Rarity is fixed when the roll is paid, and a reroll keeps it.
