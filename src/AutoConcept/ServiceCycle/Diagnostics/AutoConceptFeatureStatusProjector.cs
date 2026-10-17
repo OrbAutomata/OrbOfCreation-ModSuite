@@ -1,3 +1,4 @@
+using System;
 using OrbModding.Common;
 
 namespace OrbAutomata;
@@ -25,8 +26,9 @@ internal static class AutoConceptFeatureStatusProjector
         bool emergencyDisabled,
         bool owned,
         bool cycleObserved,
-        AutoConceptIdleReason idleReason = AutoConceptIdleReason.None)
+        AutoConceptIdle idle = default)
     {
+        var idleReason = idle.Reason;
         if (emergencyDisabled)
             return new AutoConceptFeatureStatus(
                 FeatureStatusState.TemporarilyBlocked,
@@ -52,9 +54,39 @@ internal static class AutoConceptFeatureStatusProjector
                 FeatureStatusState.Locked,
                 FeatureStatusReasonCode.ProgressionLocked,
                 "No other unlocked concept can be assigned.");
+        if (idle.Move != AutoConceptIdleMove.None)
+            return new AutoConceptFeatureStatus(
+                FeatureStatusState.TemporarilyBlocked,
+                idleReason == AutoConceptIdleReason.DrainUnknown
+                    ? FeatureStatusReasonCode.EvidenceUnavailable
+                    : FeatureStatusReasonCode.TemporarySafetyBlock,
+                Move(in idle) + ", but " + Refusal(in idle) + ".");
         return new AutoConceptFeatureStatus(
             FeatureStatusState.Operational,
             FeatureStatusReasonCode.None,
             string.Empty);
     }
+
+    private static string Move(in AutoConceptIdle idle) => idle.Move switch
+    {
+        AutoConceptIdleMove.Slot => "Auto Concept would slot " + Name(idle.Recipe),
+        AutoConceptIdleMove.Rotate =>
+            "Auto Concept would rotate " + Name(idle.Displaced) + " out for " + Name(idle.Recipe),
+        _ => "Auto Concept would add stacks to " + Name(idle.Recipe),
+    };
+
+    private static string Refusal(in AutoConceptIdle idle) => idle.Reason switch
+    {
+        AutoConceptIdleReason.ResourceAtZero => Name(idle.Resource) + " is at zero",
+        AutoConceptIdleReason.RateReserve =>
+            "its drain would leave " + Name(idle.Resource) +
+            " less than AutoConcept/RateReservePercent of its income",
+        AutoConceptIdleReason.ResourceFloor =>
+            Name(idle.Resource) + " is under AutoConcept/MinimumResourcePercent of its cap",
+        _ => idle.Resource == Guid.Empty
+            ? "its drain cannot be projected from the published world"
+            : "its " + Name(idle.Resource) + " drain cannot be projected from the published world",
+    };
+
+    private static string Name(Guid id) => EntityIdentityFormatter.PlayerName(id);
 }

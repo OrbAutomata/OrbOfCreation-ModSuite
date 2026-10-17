@@ -260,6 +260,54 @@ internal enum AutoConceptIdleReason
     None = 0,
     WaitingForTraining = 1,
     NoUnlockedAssignableReplacement = 2,
+    ResourceAtZero = 3,
+    RateReserve = 4,
+    ResourceFloor = 5,
+    DrainUnknown = 6,
+}
+
+internal enum AutoConceptIdleMove
+{
+    None = 0,
+    Slot = 1,
+    Rotate = 2,
+    Deepen = 3,
+}
+
+internal readonly struct AutoConceptIdle : IEquatable<AutoConceptIdle>
+{
+    internal AutoConceptIdle(AutoConceptIdleReason reason)
+        : this(reason, AutoConceptIdleMove.None, Guid.Empty, Guid.Empty, Guid.Empty)
+    {
+    }
+
+    internal AutoConceptIdle(
+        AutoConceptIdleReason reason,
+        AutoConceptIdleMove move,
+        Guid recipe,
+        Guid displaced,
+        Guid resource)
+    {
+        Reason = reason;
+        Move = move;
+        Recipe = recipe;
+        Displaced = displaced;
+        Resource = resource;
+    }
+
+    public AutoConceptIdleReason Reason { get; }
+    public AutoConceptIdleMove Move { get; }
+    public Guid Recipe { get; }
+    public Guid Displaced { get; }
+    public Guid Resource { get; }
+
+    public bool Equals(AutoConceptIdle other) =>
+        Reason == other.Reason && Move == other.Move && Recipe == other.Recipe &&
+        Displaced == other.Displaced && Resource == other.Resource;
+
+    public override bool Equals(object? obj) => obj is AutoConceptIdle other && Equals(other);
+
+    public override int GetHashCode() => HashCode.Combine(Reason, Move, Recipe, Displaced, Resource);
 }
 
 internal readonly struct AutoConceptDecisionMetrics
@@ -271,7 +319,7 @@ internal readonly struct AutoConceptDecisionMetrics
         int ownedRecipes,
         int plannedActions,
         AutoConceptDecisionKind kind,
-        AutoConceptIdleReason idleReason = AutoConceptIdleReason.None)
+        AutoConceptIdle idle = default)
     {
         CapturedRecipes = capturedRecipes;
         EligibleRecipes = eligibleRecipes;
@@ -279,7 +327,7 @@ internal readonly struct AutoConceptDecisionMetrics
         OwnedRecipes = ownedRecipes;
         PlannedActions = plannedActions;
         Kind = kind;
-        IdleReason = idleReason;
+        Idle = idle;
     }
 
     public int CapturedRecipes { get; }
@@ -288,5 +336,6 @@ internal readonly struct AutoConceptDecisionMetrics
     public int OwnedRecipes { get; }
     public int PlannedActions { get; }
     public AutoConceptDecisionKind Kind { get; }
-    public AutoConceptIdleReason IdleReason { get; }
+    public AutoConceptIdle Idle { get; }
+    public AutoConceptIdleReason IdleReason => Idle.Reason;
 }

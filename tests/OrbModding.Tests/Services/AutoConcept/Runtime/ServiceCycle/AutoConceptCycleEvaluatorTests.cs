@@ -519,6 +519,27 @@ public sealed class AutoConceptCycleEvaluatorTests
             idle.IdleReason);
     }
 
+    [Fact]
+    public void AnIdleCycleNamesTheMoveItWouldMakeAndTheResourceThatHeldItBack()
+    {
+        var world = World(
+            new[] { Recipe(Alpha, masteryLevel: 29, maximum: 18), Recipe(Beta, masteryLevel: 0, maximum: 1) },
+            new[] { Instance(Alpha, quantity: 18, queued: 18) },
+            resources: new[] { DrainingResource(Resource, 0, 100, trueRate: 100, currentDrain: 0) },
+            costs: new[]
+            {
+                new WorldAlchemyCost(Beta, WorldAlchemyCostKind.RecipeDrain, Resource, new BigDouble(1)),
+            });
+        var state = AutoConceptCycleState.Create(new LifecycleGeneration(1));
+
+        Assert.Empty(PlanAt(world, Config(), ref state, 0, out _, out var metrics));
+
+        Assert.Equal(
+            new AutoConceptIdle(
+                AutoConceptIdleReason.ResourceAtZero, AutoConceptIdleMove.Rotate, Beta, Alpha, Resource),
+            metrics.Idle);
+    }
+
     private static WorldAlchemyRecipe Recipe(
         Guid id,
         int masteryLevel = 0,

@@ -2059,7 +2059,10 @@ public sealed class Plugin : BaseUnityPlugin
             result.Append("features ").Append(string.Join("; ", featureGroups)).Append('\n');
         foreach (var feature in context.FeatureStatuses)
         {
-            if (feature.Reason.Code != FeatureStatusReasonCode.InvariantViolation) continue;
+            var held = feature.State is (FeatureStatusState.TemporarilyBlocked or FeatureStatusState.Locked) &&
+                feature.Reason.Code != FeatureStatusReasonCode.EmergencyDisabled &&
+                feature.Reason.Summary.Length > 0;
+            if (!held && feature.Reason.Code != FeatureStatusReasonCode.InvariantViolation) continue;
             result.Append(CanonicalGameMcpFeatureName(feature.DisplayName)).Append(" reason: ")
                 .Append(GameMcpTextFormatter.Plain(feature.Reason.Summary)).Append('\n');
         }
