@@ -310,7 +310,8 @@ internal sealed class GameWorldCollector
         _alchemyTypes = Reader(new WorldAlchemyTypeBinder(), resolveType, static frame => frame.AlchemyTypes);
         _spellRecipes = Reader(new WorldSpellRecipeBinder(), resolveType, static frame => frame.SpellRecipes);
         _spellLevelCosts = new WorldMasteryCostReader(resolveType);
-        _spellGraph = new WorldSpellGraphReader(resolveType("SpellRecipeSO"));
+        _spellGraph = new WorldSpellGraphReader(
+            resolveType("SpellRecipeSO"), resolveType("Combat.CombatEffect"));
         _entityKeywords = new WorldEntityKeywordReader(resolveType);
         var typeModifierBindings = new WorldTypeModifierBindings(resolveType);
         _typeModifiers = new WorldTypeModifierReader(typeModifierBindings);

@@ -38,7 +38,8 @@ internal readonly struct WorldSpellRecipeAuthoring : IWorldEntity
         double rechargeMultiplier,
         int rechargeProcessorType,
         double maximumChannelBase,
-        double repeatInstantEffectRateBase)
+        double repeatInstantEffectRateBase,
+        bool combatOnly = false)
     {
         RecipeId = recipeId;
         CastType = castType;
@@ -47,6 +48,7 @@ internal readonly struct WorldSpellRecipeAuthoring : IWorldEntity
         RechargeProcessorType = rechargeProcessorType;
         MaximumChannelBase = maximumChannelBase;
         RepeatInstantEffectRateBase = repeatInstantEffectRateBase;
+        CombatOnly = combatOnly;
     }
 
     internal Guid RecipeId { get; }
@@ -57,6 +59,14 @@ internal readonly struct WorldSpellRecipeAuthoring : IWorldEntity
     internal int RechargeProcessorType { get; }
     internal double MaximumChannelBase { get; }
     internal double RepeatInstantEffectRateBase { get; }
+
+    /// <summary>
+    /// Every script the cast runs is a <c>Combat.CombatEffect</c>, so outside a ritual the whole cast
+    /// fizzles: <c>BattleManager.RegisterCombatEffects</c> drops combat effects unless
+    /// <c>IsInCombat()</c>, and the game's tooltip reads "Fizzled. Not in Combat.". The suite calls
+    /// such a spell an attack spell.
+    /// </summary>
+    internal bool CombatOnly { get; }
 }
 
 internal readonly struct WorldSpellAuthoredCost
@@ -106,6 +116,11 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
     private readonly Func<object, int>? _rechargeType;
     private readonly Func<object, double>? _maximumChannel;
     private readonly Func<object, double>? _repeatRate;
+    private readonly Type? _combatEffectType;
+    private readonly Func<object, IList?>? _onCastBlocks;
+    private readonly Func<object, IList?>? _onCastScripts;
+    private readonly Func<object, IList?>? _toggledBlocks;
+    private readonly Func<object, int>? _toggledScriptCount;
     private readonly Func<object, object?>[] _costLists = new Func<object, object?>[3];
     private readonly Func<object, IList?>? _costEntries;
     private readonly Func<object, Guid>? _costResource;
@@ -114,9 +129,10 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
     private readonly Func<object, Guid>?[] _relationIdentities = new Func<object, Guid>?[4];
     private readonly string _unavailable;
 
-    internal WorldSpellGraphReader(Type? spellType)
+    internal WorldSpellGraphReader(Type? spellType, Type? combatEffectType)
     {
         _spellType = spellType;
+        _combatEffectType = combatEffectType;
         if (spellType is null)
         {
             _unavailable = "the SpellRecipeSO type was not found on this build";
@@ -130,6 +146,12 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
         _maximumChannel = NativeAccessorBinder.NestedField<double>(spellType, "maxChannel", "baseValue");
         _repeatRate = NativeAccessorBinder.NestedField<double>(
             spellType, "repeatInstantEffectRate", "baseValue");
+        _onCastBlocks = NativeAccessorBinder.CollectionField(spellType, "onCastEffects");
+        _onCastScripts = NativeAccessorBinder.CollectionField(
+            NativeAccessorBinder.CollectionElementType(spellType, "onCastEffects"), "effectScripts");
+        _toggledBlocks = NativeAccessorBinder.CollectionField(spellType, "toggledEffects");
+        _toggledScriptCount = NativeAccessorBinder.CollectionCount(
+            NativeAccessorBinder.CollectionElementType(spellType, "toggledEffects"), "effectScripts");
 
         _costLists[0] = NativeAccessorBinder.Reference(spellType, "baseResourceCost")!;
         _costLists[1] = NativeAccessorBinder.Reference(spellType, "baseUsageCost")!;
@@ -202,7 +224,7 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
                 frame.SpellRecipeAuthoring.Append(new WorldSpellRecipeAuthoring(
                     recipeId, _castType!(spell), _rechargeDuration!(spell),
                     _rechargeMultiplier!(spell), _rechargeType!(spell), _maximumChannel!(spell),
-                    _repeatRate!(spell)));
+                    _repeatRate!(spell), CombatOnly(spell)));
 
                 for (var kind = 0; kind < _costLists.Length; kind++)
                 {
@@ -245,7 +267,34 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
             Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
     }
 
+    private bool CombatOnly(object spell)
+    {
+        var toggled = _toggledBlocks!(spell);
+        for (var block = 0; block < (toggled?.Count ?? 0); block++)
+        {
+            if (toggled![block] is { } owner && _toggledScriptCount!(owner) > 0) return false;
+        }
+
+        var combat = 0;
+        var blocks = _onCastBlocks!(spell);
+        for (var block = 0; block < (blocks?.Count ?? 0); block++)
+        {
+            var scripts = blocks![block] is { } owner ? _onCastScripts!(owner) : null;
+            for (var index = 0; index < (scripts?.Count ?? 0); index++)
+            {
+                var script = scripts![index];
+                if (script is null) continue;
+                if (!_combatEffectType!.IsInstanceOfType(script)) return false;
+                combat++;
+            }
+        }
+
+        return combat > 0;
+    }
+
     private bool IsBound() =>
+        _combatEffectType is not null && _onCastBlocks is not null && _onCastScripts is not null &&
+        _toggledBlocks is not null && _toggledScriptCount is not null &&
         _castType is not null && _rechargeDuration is not null && _rechargeMultiplier is not null &&
         _rechargeType is not null && _maximumChannel is not null && _repeatRate is not null &&
         Array.TrueForAll(_costLists, static one => one is not null) &&

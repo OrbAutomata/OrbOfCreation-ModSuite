@@ -27813,7 +27813,7 @@
     {
       "id": "ritual-lifecycle.battle-manager.type-action", "assembly": "assembly-csharp",
       "type": "BattleManager", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata Ritual lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata Ritual lifecycle GameAction", "Automata Auto Cast"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "ritual-lifecycle.manager-instance-action", "assembly": "assembly-csharp",
@@ -27963,13 +27963,13 @@
       "id": "ritual-lifecycle.battle-manager-instance-action", "assembly": "assembly-csharp",
       "type": "BattleManager", "typeVisibility": "public", "kind": "field", "member": "instance",
       "visibility": "public", "static": true, "valueType": "BattleManager",
-      "owners": ["Automata Ritual lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata Ritual lifecycle GameAction", "Automata Auto Cast"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "ritual-lifecycle.battle-active-action", "assembly": "assembly-csharp",
       "type": "BattleManager", "typeVisibility": "public", "kind": "method", "member": "IsInCombat",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
-      "owners": ["Automata Ritual lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata Ritual lifecycle GameAction", "Automata Auto Cast"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "ritual-lifecycle.battle-active-ritual-action", "assembly": "assembly-csharp",
@@ -31661,6 +31661,40 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<SpellTypeSO>"}
+    },
+    {
+      "id": "spell-recipe.on-cast-effects",
+      "assembly": "assembly-csharp",
+      "type": "SpellRecipeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "onCastEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<InstantEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<InstantEffectBlock>"}
+    },
+    {
+      "id": "combat-effect.type",
+      "assembly": "assembly-csharp",
+      "type": "Combat.CombatEffect",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
     },
     {
       "id": "spell-recipe.toggled-effects",
