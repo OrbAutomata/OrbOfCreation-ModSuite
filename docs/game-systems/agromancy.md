@@ -94,6 +94,8 @@ grows **Void Moss**.
 runs and turns the plot into **Shaped Ground**; with Space at zero it crawls at whatever Space income
 allows. Shaped Ground offers **Create Spring** (Water Spring), **Create Elementia Spring** (Elementia;
 locked until the Elementia Spring research, which itself waits for Elementia in the resource list)
-and **Create Craggy Spire**. Void Moss offers its own weaves — **Create Magebloom**, **Create Dark
+and **Create Craggy Spire**. These weaves drain as they grow, and not only common resources:
+Create Spring drained **Alchemic Scroll** at ~94/s at Druidry Lv 7 (observed), enough to empty a
+stock of several hundred before the spring finished. Void Moss offers its own weaves — **Create Magebloom**, **Create Dark
 Thistle** and **Create Dreamberry** — each locked until something else is learned (observed:
 Create Magebloom refused as locked; what unlocks it is unrecorded).
