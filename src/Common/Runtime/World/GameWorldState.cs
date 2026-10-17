@@ -493,6 +493,13 @@ public sealed record GameWorldState
         PublicationTable<WorldDiscoveryTreeBook>.Empty;
 
     /// <summary>
+    /// The resources the game's left resource panel can draw, in the panel's order. Empty means the
+    /// read did not land: membership is published whole or withheld whole.
+    /// </summary>
+    internal PublicationTable<WorldResourceBarEntry> ResourceBar { get; init; } =
+        PublicationTable<WorldResourceBarEntry>.Empty;
+
+    /// <summary>
     /// What each glyph does, as the authored factors it applies. Sorted by glyph and then by the
     /// slot order the game declares them in, so one glyph's factors are a contiguous range.
     /// </summary>

@@ -10738,6 +10738,109 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
     },
     {
+      "id": "resource-bar.identity.type-capture",
+      "assembly": "assembly-csharp",
+      "type": "IdScriptableObject",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Common resource bar world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "resource-bar.resource.type-capture",
+      "assembly": "assembly-csharp",
+      "type": "ResourceSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Common resource bar world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "resource-bar.list.type-capture",
+      "assembly": "assembly-csharp",
+      "type": "ResourceListVariable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Common resource bar world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "resource-bar.runtime-lookup",
+      "assembly": "assembly-csharp",
+      "type": "IdScriptableObject",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "RuntimeLookup",
+      "visibility": "public",
+      "static": true,
+      "valueType": "System.Collections.Generic.Dictionary`2<System.Guid,IdScriptableObject>",
+      "owners": [
+        "Common resource bar world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.Dictionary`2<System.Guid,IdScriptableObject>"}
+    },
+    {
+      "id": "resource-bar.get-guid",
+      "assembly": "assembly-csharp",
+      "type": "IdScriptableObject",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetGuid",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Guid",
+      "parameters": [],
+      "owners": [
+        "Common resource bar world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Guid; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "resource-bar.list.membership",
+      "assembly": "assembly-csharp",
+      "type": "AbstractListVariable`1",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "value",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<!0>",
+      "owners": [
+        "Common resource bar world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<!0>"}
+    },
+    {
       "id": "requirement-condition.list.membership",
       "assembly": "assembly-csharp",
       "type": "AbstractListVariable`1",
@@ -31476,6 +31579,7 @@
     "_purchaseCosts",
     "_purchaseViewRelations",
     "_recipeBookGlyphs",
+    "_resourceBar",
     "_spellGraph",
     "_upgradeCosts"
   ],

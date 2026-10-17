@@ -44,12 +44,15 @@ MagicGlyphsUpgrade	2754f10f-d88c-4b15-946b-e9a97c731300	MagicGlyphsUpgrade	ViewS
 MagicSpellbook	ca934900-0253-4f71-93e9-733fb91132b7	MagicSpellbook	ViewSO
 MagicSpellbookLearn	cdfbbee5-7fa2-41fe-a6aa-903beb692fb2	MagicSpellbookLearn	ViewSO
 MagicSpellbookLoadout	accf9abb-d916-4fdf-96d7-1b1d5fdd548c	MagicSpellbookLoadout	ViewSO
+Mana	b11072bf-7980-4e23-bc6c-8034ba09b925	Mana	ResourceSO
 MasteriesEnabled	07dfae7e-76b9-4b38-bf81-38abc40b9ed7	MasteriesEnabled	ViewSO
 MultiBuy	37a84399-98b5-463c-b858-c1ecf2f9bf34	MultiBuy	IntVariable
 PotionToxicity	4dd4e062-2015-4809-a50f-f37647bda339	PotionToxicity	ResourceSO
 Reductive	47b787b9-d4cd-43c8-a7e3-63a1e4e0ae94	Reductive	AlchemyTypeSO
 Refinement	32b6b099-19f2-4470-b47b-6c2a8b0388e1	Refinement	AlchemyTypeSO
 Reflective	8f258dcc-c39a-4d64-b915-4239e746c49d	Reflective	AlchemyTypeSO
+ResourceBarCore	0ed546af-dec8-42ff-8e89-e53a5f86e1de	NonManaCoreResources	ResourceListVariable
+ResourceBarMaterials	b6079b18-b962-4cc1-a3e5-62eafaacf4b8	MaterialResources	ResourceListVariable
 RitualsDiscover	443bc384-3df6-49ac-aa52-28abe080595c	RitualsDiscover	ViewSO
 ScholarConceptDiscover	f0e4b59a-b510-4de3-ae3e-dfca0fd76239	ScholarConceptDiscover	ViewSO
 ScreenMagic	9746b42e-1b57-4f98-8ba4-f64b4c34d8c1	ScreenMagic	ViewSO

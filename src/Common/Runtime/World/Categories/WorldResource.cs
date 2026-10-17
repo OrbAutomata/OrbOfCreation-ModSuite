@@ -350,6 +350,7 @@ internal readonly struct RawResourceRateInputs
         int rateInterestPercentModifiers,
         int rateMissingPercentModifiers,
         int rateLifetimePercentModifiers,
+        int ratePassiveModifiers,
         BigDouble lossPercent,
         BigDouble displayRate,
         BigDouble calcRarityValue,
@@ -367,6 +368,7 @@ internal readonly struct RawResourceRateInputs
         RateInterestPercentModifiers = rateInterestPercentModifiers;
         RateMissingPercentModifiers = rateMissingPercentModifiers;
         RateLifetimePercentModifiers = rateLifetimePercentModifiers;
+        RatePassiveModifiers = ratePassiveModifiers;
         LossPercent = lossPercent;
         DisplayRate = displayRate;
         CalcRarityValue = calcRarityValue;
@@ -404,6 +406,13 @@ internal readonly struct RawResourceRateInputs
     internal int RateMissingPercentModifiers { get; }
 
     internal int RateLifetimePercentModifiers { get; }
+
+    /// <summary>
+    /// The flat rate's passive-modifier count, which is <c>ModifierRecord.HasPassiveElements()</c>
+    /// before the comparison. The resource tooltip prints its Equilibrium line only when it is
+    /// non-zero.
+    /// </summary>
+    internal int RatePassiveModifiers { get; }
 
     /// <summary>The percentage bled off per loss tick while the resource is in loss mode.</summary>
     internal BigDouble LossPercent { get; }
@@ -460,6 +469,7 @@ internal readonly struct WorldResource : IWorldEntity
         IsAtCapacity = isAtCapacity;
         TrueQuantity = trueQuantity;
         TrueRate = trueRate;
+        Equilibrium = BigDouble.Zero;
     }
 
     /// <summary>Exactly what the game held when the main thread looked.</summary>
@@ -513,6 +523,12 @@ internal readonly struct WorldResource : IWorldEntity
     /// computation per resource per cycle, off the Unity thread, and no write at all.
     /// </remarks>
     internal BigDouble TrueRate { get; }
+
+    /// <summary>
+    /// The stock this resource settles at, matching the game's <c>GetEquilibrium()</c> — the number
+    /// its tooltip prints as Equilibrium.
+    /// </summary>
+    internal BigDouble Equilibrium { get; init; }
 }
 
 /// <summary>
@@ -640,6 +656,7 @@ internal sealed class WorldResourceMembers
     private Func<object, int>? _rateInterestPercentModifiers;
     private Func<object, int>? _rateMissingPercentModifiers;
     private Func<object, int>? _rateLifetimePercentModifiers;
+    private Func<object, int>? _ratePassiveModifiers;
     private Func<object, BigDouble>? _lossPercent;
     private Func<object, BigDouble>? _displayRate;
     private Func<object, BigDouble>? _calcRarityValue;
@@ -711,6 +728,7 @@ internal sealed class WorldResourceMembers
         _rateInterestPercentModifiers = bind.NestedCollectionCount("rateInterestPercent", "activeModifiers");
         _rateMissingPercentModifiers = bind.NestedCollectionCount("rateMissingPercent", "activeModifiers");
         _rateLifetimePercentModifiers = bind.NestedCollectionCount("rateLifetimePercent", "activeModifiers");
+        _ratePassiveModifiers = bind.NestedCollectionCount("rate", "passiveModifiers");
         _lossPercent = bind.ModifierRecord("lossPercent");
         _displayRate = bind.ModifierRecord("displayRate");
         _calcRarityValue = bind.Field<BigDouble>("calcRarityValue");
@@ -786,6 +804,7 @@ internal sealed class WorldResourceMembers
                 _rateInterestPercentModifiers!(entity),
                 _rateMissingPercentModifiers!(entity),
                 _rateLifetimePercentModifiers!(entity),
+                _ratePassiveModifiers!(entity),
                 _lossPercent!(entity),
                 _displayRate!(entity),
                 _calcRarityValue!(entity),

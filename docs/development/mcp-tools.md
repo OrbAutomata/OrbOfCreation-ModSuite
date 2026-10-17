@@ -422,7 +422,7 @@ rather than from the screen it is drawn on.
 
 | Tool | Purpose |
 |---|---|
-| `world_overview` | Compact collection, economy, progression, and running-state summary |
+| `world_overview` | Compact collection, resource panel, economy, progression, and running-state summary |
 | `world_categories` | Discover every category the world collects, which of them list, and exact collection availability |
 | `world_list` | Page compact identity-plus-scan rows in one category |
 | `world_get` | Read everything one id says — row, description, gates, requirement graph, exact costs, blockers — for one id or a batch |
@@ -466,7 +466,7 @@ rather than from the screen it is drawn on.
 
 `world_overview` deliberately contains only facts a strategist normally wants before choosing a
 detailed read: collection completeness with total successfully read and skipped row counts,
-unavailable categories, resource-row count, unlocked
+unavailable categories, the resource panel line by line, resource-row count, unlocked
 structure count, affordable-structure and affordable-upgrade counts, discovered/mastery-ready recipe
 counts, available views, visible plots, current action/spell/concept/plot occupancy, the run's own
 clock and the reset's, and the two global casting dials — `castingDials.outputLevel` and `castingDials.reserveLevel`
@@ -489,6 +489,29 @@ starts again at every world reset while `Time Played` keeps counting — after a
 different answers to "how long has this taken me", and only one of them measures the run in front of
 you. It is visible behind `TimeResetUnlocked`, so a save that has never reset publishes no such
 variable and the key is simply absent; a zero there would claim a reset that never happened.
+
+**`resources` is the left resource panel, one line per resource it is drawing**, in the panel's
+own order: the Mana orb, then the game's authored `NonManaCoreResources` and `MaterialResources`
+lists — together exactly its `SelectableResources` — each line printed only while the resource's
+`visible` flag is set, which is what the panel's own `IsVisible()` reads, so never-revealed
+resources stay out. A line is held, `/capacity` when capped, and the net `GetTrueRate()` per second
+when it is not zero, then the clock the resource's tooltip prints, under the condition it prints it:
+
+```text
+Mana: 133/133 +2.50/s, full
+Knowledge: 114/192 +0.400/s, maxed in 03:15/08:00
+Psi: 33.7/161 +0.633/s, maxed in 03:21/04:14, equilibrium 150
+Spark: 12/79.9 -1.20/s, empty in 10s
+Wood: 2.01e268 +6.86e255/s
+```
+
+`maxed in A/B` is the tooltip's Maxed in — the time to fill from here, then from empty — and
+`empty in` its Empty in, both on `Utils.BeautifyTimeUltraPreciseWithYears` (days join the clock,
+years only past a century) and both only while no percentage loss runs, exactly as the tooltip
+hides them; a capped resource at its ceiling says `full` instead of a zero clock. `equilibrium` is
+`GetEquilibrium()`, printed only while the flat rate carries a passive modifier, as the tooltip
+does. The Raw Rate, Gain and Loss lines behind the net rate stay on `game_tooltip`. A world whose
+panel membership was withheld carries no such key.
 
 **`running.actionQueues` is one row per queue, not a count**, each carrying that queue's `uuid` and
 `name`, its `usedSlots`, and the `capacity` it is measured against. The game authors a display name

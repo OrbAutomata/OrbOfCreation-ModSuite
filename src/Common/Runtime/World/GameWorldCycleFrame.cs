@@ -181,6 +181,9 @@ internal sealed class GameWorldCycleFrame
     /// </summary>
     internal WorldRelationBuffer<WorldDiscoveryTreeBook> DiscoveryTreeBooks { get; } = new();
 
+    /// <summary>The resources the game's left panel draws, in its order.</summary>
+    internal WorldRelationBuffer<WorldResourceBarEntry> ResourceBar { get; } = new();
+
     /// <summary>
     /// The authored factors each glyph applies, one row per slot the game would print. Sparse by
     /// construction: fifteen slots exist and a glyph fills between one and five of them.
@@ -677,6 +680,7 @@ internal static class GameWorldFrameDeriver
                 WorldRecipeBookGlyphDeriver.Build(frame.RecipeBookGlyphs),
             DiscoveryTreeBooks =
                 WorldDiscoveryTreeBookDeriver.Build(frame.DiscoveryTreeBooks),
+            ResourceBar = WorldResourceBarDeriver.Build(frame.ResourceBar),
             GlyphEffects = WorldGlyphFactorDeriver.Build(frame.GlyphEffects, statistics),
             LevelEffects = WorldLevelEffectDeriver.Build(frame.LevelEffects),
             PlotNodeActions = plotNodeActions,

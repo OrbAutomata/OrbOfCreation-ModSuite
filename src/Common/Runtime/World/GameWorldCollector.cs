@@ -101,6 +101,7 @@ internal sealed class GameWorldCollector
     private readonly WorldEntityRequirementReader _entityRequirements;
     private readonly WorldRecipeBookGlyphReader _recipeBookGlyphs;
     private readonly WorldDiscoveryTreeBookReader _discoveryTreeBooks;
+    private readonly WorldResourceBarReader _resourceBar;
     private readonly WorldEffectFactorReader _effectFactors;
     private readonly WorldPurchaseViewRelationReader _purchaseViewRelations;
     private readonly WorldPrerequisiteLinkTierReader _prerequisiteLinkTiers;
@@ -390,6 +391,7 @@ internal sealed class GameWorldCollector
             resolveType("ResourceSO"));
         _recipeBookGlyphs = new WorldRecipeBookGlyphReader(resolveType);
         _discoveryTreeBooks = new WorldDiscoveryTreeBookReader(resolveType);
+        _resourceBar = new WorldResourceBarReader(resolveType);
         _effectFactors = new WorldEffectFactorReader(resolveType);
         _purchaseViewRelations = new WorldPurchaseViewRelationReader(
             resolveType,
@@ -427,7 +429,7 @@ internal sealed class GameWorldCollector
             _actionQueues, _spellSlots, _alchemyInstances, _alchemyLoadout,
             _plotAuthoring, _effectBlocks,
             _entityRequirements, _purchaseViewRelations, _recipeBookGlyphs,
-            _discoveryTreeBooks, _effectFactors,
+            _discoveryTreeBooks, _resourceBar, _effectFactors,
             _prerequisiteLinkTiers,
             _entityKeywords,
             _typeModifiers, _typeModifierContributions,
@@ -447,6 +449,7 @@ internal sealed class GameWorldCollector
                 ReferenceEquals(_readers[index], _recipeBookGlyphs) ||
                 ReferenceEquals(_readers[index], _discoveryTreeBooks) ||
                 ReferenceEquals(_readers[index], _effectFactors) ||
+                ReferenceEquals(_readers[index], _resourceBar) ||
                 ReferenceEquals(_readers[index], _craftingRecipeTypes) ||
                 ReferenceEquals(_readers[index], _craftingRecipeAuthoring) ||
                 ReferenceEquals(_readers[index], _purchaseCosts) ||
