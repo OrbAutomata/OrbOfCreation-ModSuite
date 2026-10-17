@@ -27,6 +27,13 @@ public sealed class ServiceCycleAuditedValueTypeTests
         AssertFrameRejected(new ResourceTupleFrame(default));
     }
 
+    [Fact]
+    public void AnArrayIsJudgedByItsElement()
+    {
+        AssertFrameAccepted(new BigDoubleArrayFrame(new BigDouble[1]));
+        AssertFrameRejected(new ResourceTupleArrayFrame(new global::ResourceTuple[1]));
+    }
+
     private readonly struct BigDoubleFrame
     {
         private readonly BigDouble _magnitude;
@@ -37,5 +44,17 @@ public sealed class ServiceCycleAuditedValueTypeTests
     {
         private readonly global::ResourceTuple _tuple;
         internal ResourceTupleFrame(global::ResourceTuple tuple) => _tuple = tuple;
+    }
+
+    private readonly struct BigDoubleArrayFrame
+    {
+        private readonly BigDouble[] _magnitudes;
+        internal BigDoubleArrayFrame(BigDouble[] magnitudes) => _magnitudes = magnitudes;
+    }
+
+    private readonly struct ResourceTupleArrayFrame
+    {
+        private readonly global::ResourceTuple[] _tuples;
+        internal ResourceTupleArrayFrame(global::ResourceTuple[] tuples) => _tuples = tuples;
     }
 }
