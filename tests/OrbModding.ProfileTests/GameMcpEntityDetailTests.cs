@@ -680,7 +680,6 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Null(leaves[0]["required"]);
         Assert.Null(leaves[1]["current"]);
         Assert.Null(leaves[1]["required"]);
-        Assert.Null(requirements["nativeParity"]);
 
         // Neither leaf carries a class or a sentence. A met row never did; an unmet one used to read
         // `ERR_LOCKED` beside a paragraph restating that a requirement is unmet, which is the one
@@ -835,7 +834,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
 
         var result = Explain(world, id, 947);
 
-        Assert.Equal("unavailable", (string?)result["status"]);
+        Assert.Null(result["status"]);
 
         // An artificial cap refuses the next develop without finishing anything, so the lifecycle
         // is untouched by it: the row is still available, and the refusal lives on the can-develop
@@ -850,36 +849,6 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Equal(1, (int)cap["artificialCap"]!);
         Assert.Null(cap["effectiveCap"]);
         Assert.False((bool)cap["nativeComplete"]!);
-    }
-
-    [Fact]
-    public void NativeRequirementDisagreementFailsLoudWithBothVerdicts()
-    {
-        var owner = Upgrade();
-        var research = ResearchStub(level: 6);
-        owner.prerequisitesPerLevel.prerequisites.Add(Require(research, 6));
-
-        var collected = Collect();
-        var result = Explain(collected, owner.GetGuid(), 921);
-
-        Assert.Equal("unavailable", (string?)result["status"]);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)result["reasonCode"]);
-        var parity = result["requirements"]!["nativeParity"]!;
-        Assert.Equal("Met", (string?)parity["suiteVerdict"]);
-        Assert.Equal("Unmet", (string?)parity["nativeVerdict"]);
-
-        // One condition, one name: the parity block and the envelope answered the same failure
-        // with two different codes, and the sentence was computed for the envelope only.
-        Assert.Equal("ERR_UNAVAILABLE", (string?)parity["reasonCode"]);
-        Assert.Equal(
-            "The suite reads this requirement as Met where the game reads it as Unmet.",
-            (string?)parity["reason"]);
-        Assert.Equal((string?)result["reason"], (string?)parity["reason"]);
-
-        // Requirements and availability are different questions, and this fixture answers them
-        // differently: the game sells the upgrade while its prerequisite verdict reads Unmet. No
-        // judgement is being overruled, so nothing names one.
-        Assert.Null(result["requirements"]!["authority"]);
     }
 
     /// <summary>
@@ -939,9 +908,8 @@ public sealed class GameMcpEntityDetailTests : IDisposable
     /// <summary>
     /// The shape the game actually has, and the one three live rounds hit: an authored per-level
     /// requirement that is genuinely satisfied on an upgrade the game's own
-    /// <c>prerequisites</c> container holds shut. Both sides of <c>nativeParity</c> read
-    /// <c>prerequisitesPerLevel</c>, so the guard agrees with itself and sees nothing; the lock is
-    /// in a container neither of them looks at.
+    /// <c>prerequisites</c> container holds shut. The rows read <c>prerequisitesPerLevel</c>, and
+    /// the lock is in a container they do not look at.
     /// </summary>
     [Fact]
     public void AnUpgradeWhoseNextLevelRowsAreMetStillReadsUnmetWhileItsOwnGateIsShut()
@@ -950,7 +918,6 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         owner.available = false;
         var research = ResearchStub(level: 6);
         owner.prerequisitesPerLevel.prerequisites.Add(Require(research, 5));
-        owner.prerequisitesPerLevel.ParameterizedCheckResult = true;
 
         var requirements = Explain(Collect(), owner.GetGuid(), 949)["requirements"]!;
 
@@ -965,9 +932,6 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // Nothing is unmet among the rows, so the array that answers "what is stopping this" is
         // still absent — the sentence is what points at the lock.
         Assert.Null(requirements["unmet"]);
-
-        // The differential agreed, which is exactly why this survived: it is not a parity failure.
-        Assert.Null(requirements["nativeParity"]);
 
         // Nothing was captured for the lock here, so the block says nothing about it rather than
         // publishing an empty node that would read as a lock with no conditions.
@@ -1394,9 +1358,6 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         var researchResult = GameMcpTestHarness.Detail(state, ReadyResearchId);
         var craftingResult = GameMcpTestHarness.Detail(state, ReadyCraftingId);
 
-        // This world is assembled by hand, so no live entity carries the identity and the game has
-        // no answer to compare against. The parity block says which, rather than going missing.
-        Assert.Equal("ERR_UNAVAILABLE", (string?)upgradeResult["requirements"]!["nativeParity"]!["reasonCode"]);
         Assert.False((bool)upgradeResult["predicates"]!["canPurchase"]!["available"]!);
         Assert.Null(upgradeResult["predicates"]!["canPurchase"]!["reasonCode"]);
         Assert.Null(upgradeResult["purchase"]);

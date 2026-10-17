@@ -1516,10 +1516,8 @@ public sealed class GameMcpWorldEnvelopeTests
             "upgrades",
             unaffectedId.ToString("D")));
         // The singular read is the live read, so it says exactly what the batch block below says:
-        // the row is there and nothing is implicated, and the one miss it reports is its own —
-        // this world is assembled by hand, so the game has no prerequisite verdict to compare the
-        // suite's against.
-        Assert.Equal("unavailable", (string?)unaffectedGet["status"]);
+        // the row is there and nothing is implicated.
+        Assert.Equal("available", (string?)unaffectedGet["status"]);
         Assert.NotNull(unaffectedGet["row"]);
         Assert.Null(unaffectedGet["implicatedSkippedRows"]);
 
@@ -1554,14 +1552,10 @@ public sealed class GameMcpWorldEnvelopeTests
         var batchRows = batch["results"]!.OfType<JObject>().ToArray();
 
         // The unaffected owner is not poisoned by its neighbour's unmodelled leaf: it keeps its own
-        // row and names nothing implicated. What its block does say is its own miss — this world is
-        // assembled by hand, so no live upgrade carries the identity and the game has no
-        // prerequisite verdict of its own to compare the suite's against.
+        // row and names nothing implicated.
         Assert.NotNull(batchRows[0]["row"]);
         Assert.Null(batchRows[0]["implicatedSkippedRows"]);
-        Assert.Equal(
-            "ERR_UNAVAILABLE",
-            (string?)batchRows[0]["requirements"]!["nativeParity"]!["reasonCode"]);
+        Assert.Null(batchRows[0]["status"]);
         Assert.Equal("unavailable", (string?)batchRows[1]["status"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)batchRows[1]["reasonCode"]);
         Assert.Single(batchRows[1]["implicatedSkippedRows"]!.Values<JObject>());
@@ -2043,18 +2037,13 @@ public sealed class GameMcpWorldEnvelopeTests
             result.ToString(Newtonsoft.Json.Formatting.None));
         // The budget is on the answer a caller really receives. It used to be measured against a
         // singular read that carried the row and nothing else, while every caller of world_get was
-        // also sent the block's identity, its predicates, its requirement tree with the game's own
-        // parity verdict, its research thresholds and its blockers. Those are 1,764 bytes here, and
-        // the number a guard watches has to be the one that was always being paid.
+        // also sent the block's identity, its predicates, its requirement tree, its research
+        // thresholds and its blockers. Those are 1,327 bytes here, and the number a guard watches
+        // has to be the one that was always being paid.
         Assert.True(
-            responseBytes < 1_765, "research world_get was " + responseBytes + " bytes");
+            responseBytes < 1_328, "research world_get was " + responseBytes + " bytes");
 
-        // The row is here and complete; the block's own miss is the game's prerequisite verdict,
-        // which a hand-assembled world carries no research to answer for.
-        Assert.Equal("unavailable", (string?)result["status"]);
-        Assert.Equal(
-            "ERR_UNAVAILABLE",
-            (string?)result["requirements"]!["nativeParity"]!["reasonCode"]);
+        Assert.Equal("available", (string?)result["status"]);
         var row = (JObject)result["row"]!;
         Assert.Equal(10, (int)row["baseRequirementLevel"]!);
         Assert.Equal(5, (int)row["effectiveRequirementLevel"]!);

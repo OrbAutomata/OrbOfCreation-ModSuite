@@ -197,7 +197,7 @@ Use it as a differential oracle beside your own expanded verdict, in the same ge
 an admission result. A boolean cannot name which leaf failed, cannot preserve the authored AND/OR
 structure, and cannot expose a chain-planning dependency, which is the entire reason to walk the
 graph. Disagreement between the two verdicts, or missing native evidence, is a loud failure of the
-explanation rather than a tiebreak in favour of either side.
+differential check rather than a tiebreak in favour of either side.
 
 Bind it exactly or not at all: the exact container field, the exact one-parameter overload, and the
 exact public `ConditionInfo(long)` constructor. An ambiguously resolved member is a reason to

@@ -177,7 +177,7 @@ public sealed class ProductionSourceAuditTests
 
         // Without this the sweep would also pass if the oracle were deleted outright.
         Assert.True(
-            parameterisedBindings >= 2,
+            parameterisedBindings >= 1,
             "the parameterised Check must still be how the requirement path asks the game.");
     }
 

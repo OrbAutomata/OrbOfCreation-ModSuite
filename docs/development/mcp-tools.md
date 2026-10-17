@@ -2768,11 +2768,11 @@ a double rather than a long. While the class was unmodelled every entity holding
 was unplannable, `world_overview` carried a `collection.gap` about it on every call, and three of the
 math check's passes declined those entities rather than comparing them.
 
-The collector also captures the safe parameterized
-`Prerequisites.Container.Check(Requirements.ConditionInfo)` answer at the exact next-purchase level.
-The worker compares its graph verdict with that same-publication native answer. Missing inputs,
-unevaluable suite math, a different owner/level, or a disagreement makes that id's whole block
-`unavailable`; a disagreement returns both verdicts and `native_verdict_mismatch`.
+`world_get` does not ask the game for its own verdict: every line of a world read comes from one
+published world, and a live answer beside it asked about a different level whenever a queued level
+completed in between, which printed a block-level `unavailable` over a read that was fine.
+`suite_check_game_math` compares the suite's verdict with the game's parameterized
+`Prerequisites.Container.Check(Requirements.ConditionInfo)` for every owner instead.
 
 **A locked entity never reads `Met`.** Each owner family authors *two* prerequisite containers and
 the requirement rows are read from one of them. `UpgradeSO.IsVisible()` and `IsAvailable()` are
@@ -2804,9 +2804,9 @@ ANDs, so the second's groups continue after the first's and the ordinary all-of 
 that AND. The suite never calls the no-argument `Check()` from a read — that overload latches
 `available` on the game's own object — so capture reads fields, a source sweep pins that no
 read-side binding names it, and the differential hands the parameterized overload the exact
-`ConditionInfo` the latching one would have built. `nativeParity` covers the new program as three
-more passes — upgrade unlock, structure unlock, research visibility — so a suite verdict that
-disagrees with the game's own is `native_verdict_mismatch` here as anywhere else.
+`ConditionInfo` the latching one would have built. `suite_check_game_math` covers the new program
+as three more passes — upgrade unlock, structure unlock, research visibility — so a suite verdict
+that disagrees with the game's own fails that check here as anywhere else.
 
 Research blocks print the effective requirement threshold and retain every direct adjustment's
 UUID, source handle, modifier type, amount, order, and passive state, including challenge sources.

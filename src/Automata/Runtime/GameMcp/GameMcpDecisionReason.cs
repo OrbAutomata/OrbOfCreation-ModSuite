@@ -106,7 +106,7 @@ internal static class GameMcpDecisionReason
     /// </remarks>
     internal static bool IsPassing(string reasonCode) => reasonCode switch
     {
-        "passed" or "native_verdict_matched" or "committed" or
+        "passed" or "committed" or
         "queue_room_available" or "below_level_cap" or
         "requirement_met" or "recipe_discovered" or "native_leeway_available" or
         "native_develops_below_caps" or
@@ -327,10 +327,7 @@ internal static class GameMcpDecisionReason
         "post_state_timeout" or "post_state_not_published" or
         "entity_data_incomplete" or "discovery_offer_read_incomplete" or
         "unmodeled_requirement_leaf" or "unsupported_requirement_value" or
-        "requirement_class_unread" or
-        "suite_verdict_unevaluable" or
-        "native_verdict_unavailable" or "native_verdict_mismatch" or
-        "native_verdict_input_mismatch" or "navigation_unavailable" or
+        "requirement_class_unread" or "navigation_unavailable" or
         "equipment_loadout_unavailable" or "equipment_manager_unavailable" or
         "equipment_type_unavailable" or "equipment_stack_identity_inconsistent" or
         "research_decision_unavailable" or "challenge_state_unavailable" or

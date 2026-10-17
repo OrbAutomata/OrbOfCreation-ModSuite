@@ -581,10 +581,9 @@ worth knowing:
   and a class that does not bind yields a row of kind `Unknown` rather than none — an unmodelled
   condition must be visible as a requirement nobody can evaluate rather than as an entity with no
   requirements ([W58](world-collection-decisions.md)). The native parameterized `Check(ConditionInfo)`
-  verdict is not published: it is asked at request time by `WorldRequirementNativeVerdictProbe` for the
-  one entity being explained, and by the requirement passes for the registry they walk. It is a
-  differential oracle, never a replacement for the graph and never an admission result; the explainer
-  fails loud if its graph verdict disagrees. How that overload differs from the parameterless latch is
+  verdict is not published: the differential checker's requirement passes ask it for the registry
+  they walk. It is a differential oracle, never a replacement for the graph and never an admission
+  result. How that overload differs from the parameterless latch is
   recorded in [requirements](../reverse-engineering/requirements.md).
 - **Recipe book glyphs.** `WorldRecipeBookGlyph.cs` publishes, once per lifecycle, which Recipe Book
   each of the 25 non-augment `GlyphSO` is the internal half of, read off `GlyphSO.associatedRecipeBook`.

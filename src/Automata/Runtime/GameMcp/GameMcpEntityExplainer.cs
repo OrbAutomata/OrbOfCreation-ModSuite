@@ -18,15 +18,6 @@ internal static class GameMcpEntityExplainer
 {
     private const int MaximumRequirementExpansionDepth = 32;
 
-    /// <summary>
-    /// Bound on first use and kept, because binding is the expensive half and every request that
-    /// reaches it runs on the same Unity thread inside a frame operation.
-    /// </summary>
-    private static WorldRequirementNativeVerdictProbe? _nativeVerdicts;
-
-    private static WorldRequirementNativeVerdictProbe NativeVerdicts =>
-        _nativeVerdicts ??= new WorldRequirementNativeVerdictProbe();
-
     /// <summary>Whether this build evaluates decisions, requirements and blockers for this id.</summary>
     internal static bool HasDetail(GameWorldState world, Guid uuid) =>
         TryResolve(
@@ -96,8 +87,7 @@ internal static class GameMcpEntityExplainer
         }
         // Both blocks are always present. An entity with no applicable predicate and one whose
         // predicates were never evaluated are different answers, and an omitted key said both.
-        var requirements = Requirements(
-            world, uuid, kind, out var parityFailure, out var parityFailureCode);
+        var requirements = Requirements(world, uuid, kind);
 
         // The requirement block is built first so the predicates beside it can read it. A predicate
         // that answered "the game says nothing about what would unlock this" while the block under
@@ -110,10 +100,6 @@ internal static class GameMcpEntityExplainer
         var purchase = Purchase(world, uuid, kind);
         if (purchase is not null) result["purchase"] = purchase;
         result["blockers"] = Blockers(world, uuid, kind);
-        if (parityFailure is null) return;
-        result["status"] = "not_available";
-        result["code"] = parityFailureCode;
-        result["reason"] = parityFailure;
     }
 
     /// <summary>
@@ -564,16 +550,8 @@ internal static class GameMcpEntityExplainer
         return result;
     }
 
-    private static JObject? Requirements(
-        GameWorldState world,
-        Guid id,
-        EntityKind kind,
-        out string? parityFailure,
-        out string parityFailureCode)
+    private static JObject? Requirements(GameWorldState world, Guid id, EntityKind kind)
     {
-        parityFailure = null;
-        parityFailureCode = string.Empty;
-
         // A resource's only authored gate is the container CheckVisibility() consults, so the block
         // it publishes is that container and nothing else: there is no per-level program to state a
         // suite verdict about, and no native parity probe answers for a ResourceSO. While the game
@@ -591,12 +569,6 @@ internal static class GameMcpEntityExplainer
         if (kind is not EntityKind.Structure and not EntityKind.Upgrade and not EntityKind.Research)
             return null;
 
-        var ownerKind = kind switch
-        {
-            EntityKind.Upgrade => WorldRequirementOwnerKind.Upgrade,
-            EntityKind.Research => WorldRequirementOwnerKind.Research,
-            _ => WorldRequirementOwnerKind.Structure,
-        };
         var checkLevel = kind switch
         {
             EntityKind.Upgrade => UpgradeCheckLevel(world, id),
@@ -615,70 +587,11 @@ internal static class GameMcpEntityExplainer
             new HashSet<RequirementKey>(),
             depth: 0,
             unmet);
-        var parity = new JObject
-        {
-            ["suiteVerdict"] = suite.ToString(),
-        };
-        // Asked here, on the Unity thread, for this one entity. It used to be a table the world
-        // capture filled for every upgrade, structure, and research four times a second, of which
-        // one row was ever read.
-        if (!NativeVerdicts.TryRead(id, out var native, out var probeFailure))
-        {
-            parityFailureCode = "native_verdict_unavailable";
-            parityFailure =
-                "The game's own prerequisite verdict could not be read for this entity: " +
-                probeFailure + ".";
-            parity["status"] = "not_available";
-            parity["reasonCode"] = parityFailureCode;
-            parity["reason"] = parityFailure;
-        }
-        else if (native.OwnerKind != ownerKind || native.CheckLevel != checkLevel)
-        {
-            parityFailureCode = "native_verdict_input_mismatch";
-            parityFailure =
-                "The game's prerequisite verdict answers about a different owner or level, " +
-                "so it does not answer the same question.";
-            parity["status"] = "not_available";
-            parity["reasonCode"] = parityFailureCode;
-            parity["reason"] = parityFailure;
-            parity["nativeOwnerKind"] = native.OwnerKind.ToString();
-            parity["nativeCheckLevel"] = native.CheckLevel;
-        }
-        else
-        {
-            parity["nativeVerdict"] = native.Met ? "Met" : "Unmet";
-            if (suite == WorldRequirementVerdict.Unevaluable)
-            {
-                parityFailureCode = "suite_verdict_unevaluable";
-                parityFailure =
-                    "The suite could not evaluate a requirement the game answered, " +
-                    "so the two verdicts cannot be compared.";
-                parity["status"] = "not_available";
-                parity["reasonCode"] = parityFailureCode;
-                parity["reason"] = parityFailure;
-            }
-            else if ((suite == WorldRequirementVerdict.Met) != native.Met)
-            {
-                parityFailureCode = "native_verdict_mismatch";
-                parityFailure = "The suite reads this requirement as " + suite +
-                    " where the game reads it as " + (native.Met ? "Met" : "Unmet") + ".";
-                parity["status"] = "mismatch";
-                parity["reasonCode"] = parityFailureCode;
-                parity["reason"] = parityFailure;
-            }
-            else
-            {
-                parity["status"] = "matched";
-                parity["reasonCode"] = "native_verdict_matched";
-            }
-        }
-
         // The verdict is the screen's, not one container's. The rows below are the *next level's*
         // container; the game's own lock is `UpgradeSO.prerequisites` / `StructureSO.prerequisites`
         // / `ResearchSO.visibilityPrerequisites`, a different authored list the reader never walks.
         // While the block published the per-level answer alone it said `Met` beside `state: locked`
-        // on the same response, three rounds running, and the native-parity guard could not catch
-        // it because both sides of that differential read the same per-level container.
+        // on the same response, three rounds running.
         var verdict = suite == WorldRequirementVerdict.Unevaluable || !lockedByUnlockGate
             ? suite
             : WorldRequirementVerdict.Unmet;
@@ -715,7 +628,6 @@ internal static class GameMcpEntityExplainer
         // `predicates.available` says with its own reason code. A live round emitted it nine times,
         // byte-identical, and in eight of those it sat under `root: no conditions`: it declared a
         // set of rows met for entities that have no rows at all.
-        if (parityFailure is not null) requirements["nativeParity"] = parity;
         return requirements;
     }
 
