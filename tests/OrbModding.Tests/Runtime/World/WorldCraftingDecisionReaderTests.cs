@@ -52,6 +52,31 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
     }
 
     [Fact]
+    public void An_unaffordable_craft_publishes_what_one_craft_costs()
+    {
+        var wood = Resource(amount: 0);
+        var recipe = Recipe();
+        recipe.MostAffordable = BigDouble.Zero;
+        recipe.TotalCost.affordable = false;
+        recipe.TotalCost.costs.Add(new ResourceTuple(wood, new BigDouble(4, 0)));
+        CraftingRecipeSO.All.Add(recipe);
+        Page(recipe, mode: 0, maximum: 1);
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 7 };
+
+        Reader().Collect(new HashSet<Guid>(), frame);
+
+        ref readonly var decision = ref frame.CraftingDecisions[0];
+        Assert.Equal(BigDouble.One, decision.PurchaseAmount);
+        Assert.False(decision.CanStart);
+        Assert.Equal("native_purchase_refused", decision.ReasonCode);
+        ref readonly var cost = ref frame.CraftingDecisionCosts[0];
+        Assert.Equal(wood.GetGuid(), cost.ResourceId);
+        Assert.Equal(new BigDouble(4, 0), cost.Cost);
+        Assert.Equal(BigDouble.Zero, cost.Amount);
+        Assert.False(cost.Affordable);
+    }
+
+    [Fact]
     public void StackModePublishesQueueIdentityOccupancyAndExistingQuantity()
     {
         var recipe = Recipe();
