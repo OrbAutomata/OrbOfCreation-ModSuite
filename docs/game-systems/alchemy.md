@@ -85,7 +85,8 @@ An `Alchemy Lv` row with −/+ and a **Raise Alchemy Level** purchase sits with 
 dial and its ceiling are described in [attributes-and-upgrades.md](attributes-and-upgrades.md).
 Each level is ×2 Alchemy Speed and ×2 Alchemy Drain Cost (its tooltip), so a recipe's output
 doubles while its inputs go ×4: every level halves the yield per input (observed Lv 4 → 5:
-Occult Essence 1.18 → 2.37/s, Magebloom drain 1.16 → 4.63/s). Its price is paid in Alchemic
+Occult Essence 1.18 → 2.37/s, Magebloom drain 1.16 → 4.63/s; Lv 5 → 6 with four Refine Occultic
+copies: 21.6 → 43.9/s). Its price is paid in Alchemic
 Scroll and climbs steeply: 100, 330, 1.1e3, 3.9e3, 1.4e4 for Lv 2 to 6 (observed).
 How the level interacts with the six capacities is unrecorded; see
 [open-questions.md](open-questions.md).
