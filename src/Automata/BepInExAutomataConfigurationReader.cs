@@ -33,6 +33,7 @@ internal static class BepInExAutomataConfigurationReader
                 StartResourcePercent = source.AutoCastStartResourcePercent.Value,
                 ManualPauseSeconds = source.AutoCastManualPauseSeconds.Value,
                 FullCharge = source.AutoCastFullCharge.Value,
+                RitualAware = source.AutoCastRitualAware.Value,
             },
             AutoConcept = new AutoConceptConfiguration
             {

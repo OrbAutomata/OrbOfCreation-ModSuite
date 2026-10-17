@@ -31,6 +31,15 @@ public sealed class AutoCastTests
     }
 
     [Fact]
+    public void FreshConfigKeepsAttackSpellsForRitualBattlesByDefault()
+    {
+        var config = BepInExAutomataConfiguration.Bind(new ConfigFile());
+
+        Assert.True(config.AutoCastRitualAware.Value);
+        Assert.True(BepInExAutomataConfigurationReader.Read(config).AutoCast.RitualAware);
+    }
+
+    [Fact]
     public void ExistingResourceThresholdIsPreserved()
     {
         var file = new ConfigFile();

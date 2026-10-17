@@ -36,4 +36,7 @@ internal static class AutoCastConfigurationPolicy
 
     internal static bool HoldsFullCharge(SuiteRuntimeConfiguration configuration) =>
         configuration.AutoCast.FullCharge;
+
+    internal static bool IsRitualAware(SuiteRuntimeConfiguration configuration) =>
+        configuration.AutoCast.RitualAware;
 }

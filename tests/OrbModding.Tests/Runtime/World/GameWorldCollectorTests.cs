@@ -972,6 +972,47 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     [Fact]
+    public void ASpellIsAnAttackOnlyWhenEveryScriptItCastsIsACombatEffect()
+    {
+        static FakeEffectBlock Block(params object[] scripts)
+        {
+            var block = new FakeEffectBlock();
+            block.effectScripts.AddRange(scripts);
+            return block;
+        }
+
+        var firebolt = new FakeSpellRecipe { Identity = Guid.NewGuid(), onCastEffects = { Block(new FakeCombatEffect()) } };
+        var mixed = new FakeSpellRecipe
+        {
+            Identity = Guid.NewGuid(),
+            onCastEffects = { Block(new FakeCombatEffect()), Block(new FakeScribeRequestTargetEffect()) },
+        };
+        var toggled = new FakeSpellRecipe
+        {
+            Identity = Guid.NewGuid(),
+            onCastEffects = { Block(new FakeCombatEffect()) },
+            toggledEffects = { Block(new object()) },
+        };
+        var silent = new FakeSpellRecipe { Identity = Guid.NewGuid() };
+        FakeSpellRecipe.All.AddRange(new[] { firebolt, mixed, toggled, silent });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        bool CombatOnly(FakeSpellRecipe recipe)
+        {
+            Assert.True(WorldSpellGraphLookup.TryFindAuthoring(world.SpellRecipeAuthoring, recipe.Identity, out var row));
+            return row.CombatOnly;
+        }
+        Assert.True(CombatOnly(firebolt));
+        Assert.False(CombatOnly(mixed));
+        Assert.False(CombatOnly(toggled));
+        Assert.False(CombatOnly(silent));
+    }
+
+    [Fact]
     public void GenericDiscoveryPublishesTheAuthoredGlyphAndResourceRecipeOnceWithItsDecision()
     {
         var glyphComponent = new global::GlyphSO();

@@ -27,6 +27,98 @@ public sealed class AutoCastCycleEvaluatorTests
     private static readonly Guid Gale = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid Mana = Guid.Parse("44444444-4444-4444-4444-444444444444");
     private static readonly Guid Blood = Guid.Parse("55555555-5555-5555-5555-555555555555");
+    private static readonly Guid Firebolt = Guid.Parse("db0694f1-82bf-4ecf-a139-1341efee2bb8");
+    private static readonly Guid ChannelSpark = Guid.Parse("47e1359f-ce70-45b9-b438-59a0af696abd");
+    private static readonly Guid Courage = Guid.Parse("72d8b70b-c086-4ab4-85fb-b06baaac4b6e");
+
+    [Fact]
+    public void AnAttackSpellWaitsWhileNoRitualIsRunning()
+    {
+        var world = Ritual(World(Slot(0, Firebolt, castReady: true)), inBattle: false);
+
+        var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
+        Assert.Empty(Plan(world, Config(ritualAware: true), ref state, out _, out var metrics));
+        Assert.Equal(1, metrics.Exclusions.OutsideRitual);
+        Assert.Equal(AutoCastExclusion.OutsideRitual, metrics.HeldFor);
+        Assert.Equal(Firebolt, metrics.HeldSpellId);
+    }
+
+    [Fact]
+    public void AnAttackSpellCastsDuringARitualAndCarriesThatCondition()
+    {
+        var world = Ritual(World(Slot(0, Firebolt, castReady: true)), inBattle: true);
+
+        var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
+        var action = Assert.Single(Plan(world, Config(ritualAware: true), ref state, out _, out var metrics));
+        Assert.Equal(Firebolt, action.SpellRecipeId);
+        Assert.Equal(AutoCastRitualCondition.InRitual, action.Ritual);
+        Assert.Equal(AutoCastExclusion.None, metrics.HeldFor);
+    }
+
+    [Fact]
+    public void AChannelWaitsDuringARitualWhileAnAttackSpellIsEquipped()
+    {
+        var world = Ritual(
+            World(
+                Slot(0, Firebolt, castReady: false, cooldownRemaining: 3d),
+                Slot(1, ChannelSpark, channeled: true, castReady: true)),
+            inBattle: true);
+
+        var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
+        Assert.Empty(Plan(world, Config(ritualAware: true), ref state, out _, out var metrics));
+        Assert.Equal(1, metrics.Exclusions.NotReady);
+        Assert.Equal(1, metrics.Exclusions.RitualChannel);
+        Assert.Equal(AutoCastExclusion.RitualChannel, metrics.HeldFor);
+        Assert.Equal(ChannelSpark, metrics.HeldSpellId);
+    }
+
+    [Fact]
+    public void AChannelCastsOutsideARitualAndCarriesThatCondition()
+    {
+        var world = Ritual(
+            World(
+                Slot(0, Firebolt, castReady: true),
+                Slot(1, ChannelSpark, channeled: true, castReady: true)),
+            inBattle: false);
+
+        var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
+        var action = Assert.Single(Plan(world, Config(ritualAware: true), ref state, out _, out var metrics));
+        Assert.Equal(ChannelSpark, action.SpellRecipeId);
+        Assert.Equal(AutoCastRitualCondition.OutsideRitual, action.Ritual);
+        Assert.Equal(1, metrics.Exclusions.OutsideRitual);
+        Assert.Equal(AutoCastExclusion.None, metrics.HeldFor);
+    }
+
+    [Fact]
+    public void AChannelCastsDuringARitualWhenNoAttackSpellIsEquipped()
+    {
+        var world = Ritual(World(Slot(0, ChannelSpark, channeled: true, castReady: true)), inBattle: true);
+
+        var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
+        var action = Assert.Single(Plan(world, Config(ritualAware: true), ref state, out _));
+        Assert.Equal(AutoCastRitualCondition.None, action.Ritual);
+    }
+
+    [Fact]
+    public void WithTheSettingOffEveryReadySpellTakesItsTurnUnconditionally()
+    {
+        var outside = Ritual(World(Slot(0, Firebolt, castReady: true)), inBattle: false);
+        var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
+        var attack = Assert.Single(Plan(outside, Config(ritualAware: false), ref state, out _));
+        Assert.Equal(Firebolt, attack.SpellRecipeId);
+        Assert.Equal(AutoCastRitualCondition.None, attack.Ritual);
+
+        var inside = Ritual(
+            World(
+                Slot(0, Firebolt, castReady: false, cooldownRemaining: 3d),
+                Slot(1, ChannelSpark, channeled: true, castReady: true)),
+            inBattle: true);
+        state = AutoCastCycleState.Create(new LifecycleGeneration(1));
+        var channel = Assert.Single(Plan(inside, Config(ritualAware: false), ref state, out _));
+        Assert.Equal(ChannelSpark, channel.SpellRecipeId);
+        Assert.Equal(AutoCastRitualCondition.None, channel.Ritual);
+    }
+
 
     [Fact]
     public void WaitsForTheNextPublicationWhenThereIsNoWork()
@@ -489,6 +581,30 @@ public sealed class AutoCastCycleEvaluatorTests
         };
     }
 
+    /// <summary>
+    /// The world with Firebolt authored as the game authors it — one Combat.CombatEffect and nothing
+    /// else — Channel Spark as a channel, and the Courage ritual in or out of battle.
+    /// </summary>
+    private static GameWorldState Ritual(GameWorldState world, bool inBattle)
+    {
+        var modifiers = default(RawRitualModifiers);
+        var ritual = new WorldRitual(
+            Courage, true, inBattle, inBattle ? 1 : 0,
+            1, 1, 1, 0, 0, 0, 0, 0, 1, BigDouble.Zero, in modifiers,
+            false, false, false, 0, 1, 20, 4, 1d, 0, false);
+        WorldSpellRecipeAuthoring[] authoring =
+        {
+            new(Firebolt, castType: 0, 0d, 1d, 0, 0d, 0d, combatOnly: true),
+            new(ChannelSpark, castType: 1, 0d, 1d, 0, 0d, 0d),
+        };
+        Array.Sort(authoring, static (left, right) => left.RecipeId.CompareTo(right.RecipeId));
+        return world with
+        {
+            Rituals = PublicationTable<WorldRitual>.Create(new[] { ritual }),
+            SpellRecipeAuthoring = PublicationTable<WorldSpellRecipeAuthoring>.Create(authoring),
+        };
+    }
+
     private static GameWorldState OnScreen(GameWorldState world, params Guid[] activeViews)
     {
         Guid[] route =
@@ -514,6 +630,7 @@ public sealed class AutoCastCycleEvaluatorTests
         bool emergencyDisabled = false,
         AutoCastOperationMode mode = AutoCastOperationMode.Active,
         bool fullCharge = false,
+        bool ritualAware = false,
         float startResourcePercent = 0f,
         string absoluteReserve = "0") =>
         new()
@@ -525,6 +642,7 @@ public sealed class AutoCastCycleEvaluatorTests
             {
                 Mode = mode,
                 FullCharge = fullCharge,
+                RitualAware = ritualAware,
                 StartResourcePercent = startResourcePercent,
             },
         };

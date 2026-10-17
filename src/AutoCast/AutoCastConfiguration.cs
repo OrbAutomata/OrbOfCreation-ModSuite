@@ -7,4 +7,5 @@ internal sealed record AutoCastConfiguration
     internal float StartResourcePercent { get; init; }
     internal float ManualPauseSeconds { get; init; }
     internal bool FullCharge { get; init; }
+    internal bool RitualAware { get; init; }
 }

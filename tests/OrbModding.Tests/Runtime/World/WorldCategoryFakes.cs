@@ -37,6 +37,7 @@ internal static class WorldCategoryFakes
         ["ValueModifierRecord"] = typeof(FakeModifierRecord),
         ["GlobalValues"] = typeof(FakeGlobalValues),
         ["SpellRecipeSO"] = typeof(FakeSpellRecipe),
+        ["Combat.CombatEffect"] = typeof(FakeCombatEffect),
         ["Spell"] = typeof(FakeSpell),
         ["SpellManager"] = typeof(FakeSpellManager),
         ["ResourceListVariable"] = typeof(FakeSpellWeightList),
@@ -1573,6 +1574,7 @@ internal struct FakeSpellCostEntry
 
 internal sealed class FakeSpellRecipe : FakeIdRegistry, global::IDiscoverable
 {
+    public List<FakeEffectBlock> onCastEffects = new();
     public List<FakeEffectBlock> toggledEffects = new();
     private List<FakeSpellType> notSpellTypes = new();
     public static readonly List<FakeSpellRecipe> All = new();
@@ -2643,6 +2645,11 @@ internal enum FakeCostType
 {
     OnStart,
     OnExitPhase,
+}
+
+/// <summary>The game's Combat.CombatEffect: a script that lands only while a ritual battle runs.</summary>
+internal sealed class FakeCombatEffect
+{
 }
 
 /// <summary>An authored effect block, read for its shape rather than its contents.</summary>

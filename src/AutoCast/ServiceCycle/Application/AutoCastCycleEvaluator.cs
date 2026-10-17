@@ -27,6 +27,12 @@ namespace OrbAutomata;
 /// starts where the last cast left off.
 /// </para>
 /// <para>
+/// The two ritual terms run last, so a slot is held for a ritual reason only when it would otherwise
+/// have gone. While no ritual battle runs, an attack spell waits: the game drops combat effects outside
+/// one. While one runs, a channel waits if an attack spell is equipped: a running channel pauses this
+/// rotation, attacks included.
+/// </para>
+/// <para>
 /// The reserve floor is read from configuration, not from the strategy bulletin. That is the standing
 /// interim rule for every migration before the strategist exists, and it is the same arithmetic Auto
 /// Buy already applies to the same two settings.
@@ -88,14 +94,18 @@ internal static class AutoCastCycleEvaluator
         var absoluteReserve = ResolveAbsoluteReserve(config.Reserves.AbsoluteReserve);
         var relativeMultiplier = Math.Max(0.0, config.Reserves.RelativeReserveMultiplier);
         var startFraction = AutoCastConfigurationPolicy.StartResourceFraction(config);
+        var ritual = RitualPolicy.From(world, rows, AutoCastConfigurationPolicy.IsRitualAware(config));
 
         var empty = 0;
         var busy = 0;
         var notReady = 0;
         var reserveFloor = 0;
         var belowThreshold = 0;
+        var outsideRitual = 0;
+        var ritualChannel = 0;
         var eligible = 0;
         var chosen = -1;
+        var heldSpellId = Guid.Empty;
 
         var start = NormalizeCursor(state.NextSlotIndex, rows);
         for (var offset = 0; offset < rows.Length; offset++)
@@ -108,7 +118,8 @@ internal static class AutoCastCycleEvaluator
                 world,
                 in absoluteReserve,
                 relativeMultiplier,
-                startFraction);
+                startFraction,
+                in ritual);
 
             switch (exclusion)
             {
@@ -117,6 +128,8 @@ internal static class AutoCastCycleEvaluator
                 case AutoCastExclusion.NotReady: notReady++; continue;
                 case AutoCastExclusion.ReserveFloor: reserveFloor++; continue;
                 case AutoCastExclusion.BelowStartThreshold: belowThreshold++; continue;
+                case AutoCastExclusion.OutsideRitual: outsideRitual++; Hold(in row); continue;
+                case AutoCastExclusion.RitualChannel: ritualChannel++; Hold(in row); continue;
             }
 
             eligible++;
@@ -128,12 +141,15 @@ internal static class AutoCastCycleEvaluator
 
         var histogram = new AutoCastExclusionHistogram(
             empty, busy, notReady, reserveFloor, belowThreshold,
-            outranked: eligible == 0 ? 0 : eligible - 1);
+            outranked: eligible == 0 ? 0 : eligible - 1,
+            outsideRitual,
+            ritualChannel);
 
         if (chosen < 0)
         {
             metrics = new AutoCastDecisionMetrics(
-                slots.Count, eligible, 0, holdingCharge: false, channelBlocked: false, in histogram);
+                slots.Count, eligible, 0, holdingCharge: false, channelBlocked: false, in histogram,
+                heldSpellId: heldSpellId);
             return wake;
         }
 
@@ -150,7 +166,8 @@ internal static class AutoCastCycleEvaluator
                 pick.Chargeable,
                 pick.CurrentCharges,
                 pick.MaximumCharges,
-                eligible)));
+                eligible),
+            ritual: ritual.ConditionFor(in pick, world)));
 
         state.RecordPlannedCast(pick.SlotIndex, pick.SpellRecipeId, holdsCharge);
 
@@ -160,6 +177,11 @@ internal static class AutoCastCycleEvaluator
         // A cast that took a hold wakes on the next world rather than on the interval, so the release
         // lands as close to the charge finishing as a generation-gated service can put it.
         return wake;
+
+        void Hold(in WorldSpellSlot row)
+        {
+            if (heldSpellId == Guid.Empty) heldSpellId = row.SpellRecipeId;
+        }
     }
 
     /// <summary>
@@ -219,7 +241,8 @@ internal static class AutoCastCycleEvaluator
         GameWorldState world,
         in BigDouble absoluteReserve,
         double relativeMultiplier,
-        double startFraction)
+        double startFraction,
+        in RitualPolicy ritual)
     {
         if (!row.Occupied) return AutoCastExclusion.Empty;
 
@@ -240,9 +263,61 @@ internal static class AutoCastCycleEvaluator
         if (!ClearsReserveFloor(in row, world, in absoluteReserve, relativeMultiplier))
             return AutoCastExclusion.ReserveFloor;
 
-        return ClearsStartThreshold(in row, world, startFraction)
-            ? AutoCastExclusion.None
-            : AutoCastExclusion.BelowStartThreshold;
+        if (!ClearsStartThreshold(in row, world, startFraction))
+            return AutoCastExclusion.BelowStartThreshold;
+
+        return ritual.ConditionFor(in row, world) switch
+        {
+            AutoCastRitualCondition.InRitual when !ritual.Running => AutoCastExclusion.OutsideRitual,
+            AutoCastRitualCondition.OutsideRitual when ritual.Running => AutoCastExclusion.RitualChannel,
+            _ => AutoCastExclusion.None,
+        };
+    }
+
+    /// <summary>The ritual rules for one cycle: off, or on with the world's answer to whether a ritual battle runs.</summary>
+    private readonly struct RitualPolicy
+    {
+        private readonly bool _aware;
+        private readonly bool _attackEquipped;
+
+        private RitualPolicy(bool aware, bool running, bool attackEquipped)
+        {
+            _aware = aware;
+            Running = running;
+            _attackEquipped = attackEquipped;
+        }
+
+        internal bool Running { get; }
+
+        internal static RitualPolicy From(GameWorldState world, ReadOnlySpan<WorldSpellSlot> rows, bool aware)
+        {
+            if (!aware) return default;
+
+            var running = false;
+            var rituals = world.Rituals.AsSpan();
+            for (var index = 0; index < rituals.Length && !running; index++)
+                running = rituals[index].InBattle;
+
+            var attackEquipped = false;
+            for (var index = 0; index < rows.Length && !attackEquipped; index++)
+                attackEquipped = rows[index].Occupied && IsAttack(world, rows[index].SpellRecipeId);
+
+            return new RitualPolicy(aware: true, running, attackEquipped);
+        }
+
+        /// <summary>What a cast of this slot needs to stay wanted, given which slots are equipped.</summary>
+        internal AutoCastRitualCondition ConditionFor(in WorldSpellSlot row, GameWorldState world)
+        {
+            if (!_aware) return AutoCastRitualCondition.None;
+            if (IsAttack(world, row.SpellRecipeId)) return AutoCastRitualCondition.InRitual;
+            return row.Channeled && _attackEquipped
+                ? AutoCastRitualCondition.OutsideRitual
+                : AutoCastRitualCondition.None;
+        }
+
+        private static bool IsAttack(GameWorldState world, Guid recipeId) =>
+            WorldSpellGraphLookup.TryFindAuthoring(world.SpellRecipeAuthoring, recipeId, out var authoring) &&
+            authoring.CombatOnly;
     }
 
     /// <summary>

@@ -98,6 +98,16 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
             _manualPause.IsPaused(context.AttemptedAt))
             return ServiceActionResult.Rejected(AutoCastActionResultCodes.ManualPause);
 
+        if (requireAutomationPolicy &&
+            action.Kind == AutoCastActionKind.Fire &&
+            action.Ritual != AutoCastRitualCondition.None)
+        {
+            if (_casts.IsRitualRunning() is not { } running)
+                return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            if (running != (action.Ritual == AutoCastRitualCondition.InRitual))
+                return ServiceActionResult.Skipped(AutoCastActionResultCodes.RitualChanged);
+        }
+
         AutoCastSubmission submission;
         try
         {

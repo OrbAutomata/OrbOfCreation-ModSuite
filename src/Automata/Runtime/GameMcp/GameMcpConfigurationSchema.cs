@@ -46,6 +46,7 @@ internal static class GameMcpConfigurationSchema
             ("AutoCast", "StartResourcePercent") => configuration.AutoCast.StartResourcePercent,
             ("AutoCast", "ManualPauseSeconds") => configuration.AutoCast.ManualPauseSeconds,
             ("AutoCast", "FullCharge") => configuration.AutoCast.FullCharge,
+            ("AutoCast", "RitualAware") => configuration.AutoCast.RitualAware,
             ("AutoConcept", "Mode") => configuration.AutoConcept.Mode,
             ("AutoConcept", "SlotManagementMode") => configuration.AutoConcept.SlotManagement,
             ("AutoConcept", "TrainingPeriodSeconds") => configuration.AutoConcept.TrainingPeriodSeconds,

@@ -178,6 +178,9 @@ internal interface IAutoCastNativePort
 
     /// <summary>Whether the game says a spell can be cast at all right now.</summary>
     bool IsCasterBusy();
+
+    /// <summary>Whether the game says a ritual battle is running, or null when that cannot be read.</summary>
+    bool? IsRitualRunning();
 }
 
 internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
@@ -217,6 +220,8 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     private MethodInfo? _setChargeInput;
     private MethodInfo? _getScalingInfo;
     private string? _blockedReason;
+    private Type? _battleManagerType;
+    private MethodInfo? _isInCombat;
 
     private bool IsBound =>
         _manager is not null && _activeSpells is not null && _blockedReason is null;
@@ -440,6 +445,23 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         }
     }
 
+    public bool? IsRitualRunning()
+    {
+        try
+        {
+            _battleManagerType ??= ReflectionUtil.FindLoadedType("BattleManager");
+            if (_battleManagerType is null) return null;
+            _isInCombat ??= FindMethod(_battleManagerType, "IsInCombat");
+            var battle = _battleManagerType.GetField("instance", StaticFlags)?.GetValue(null);
+            if (_isInCombat is null || battle is null || battle.GetType() != _battleManagerType) return null;
+            return _isInCombat.Invoke(battle, Array.Empty<object>()) as bool?;
+        }
+        catch (Exception ex) when (IsReflectionFailure(ex))
+        {
+            return null;
+        }
+    }
+
     public void Dispose() => InvalidateLifecycle();
 
     /// <summary>
@@ -475,6 +497,8 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         _setChargeInput = null;
         _getScalingInfo = null;
         _blockedReason = null;
+        _battleManagerType = null;
+        _isInCombat = null;
     }
 
     /// <summary>

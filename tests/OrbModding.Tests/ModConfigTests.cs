@@ -183,7 +183,7 @@ public sealed class ModConfigTests
             new[] { "Mode", "IncludeStructures", "IncludeUpgrades", "AutoLevelSpells", "AffordabilityMode", "UpgradeAffordabilityMode", "LeaveQueueSlots" },
             mod.Sections.Single(section => section.Name == "Auto Buy").Settings.Take(7).Select(setting => setting.Key));
         Assert.Equal(
-            new[] { "Mode", "FullCharge", "ToggleShortcut", "StartResourcePercent", "ManualPauseSeconds" },
+            new[] { "Mode", "FullCharge", "RitualAware", "ToggleShortcut", "StartResourcePercent", "ManualPauseSeconds" },
             mod.Sections.Single(section => section.Name == "Auto Cast").Settings.Select(setting => setting.Key));
         Assert.Equal(
             new[] { "Mode", "SlotManagementMode", "TrainingPeriodSeconds", "RateReservePercent", "MinimumDrainRatio" },

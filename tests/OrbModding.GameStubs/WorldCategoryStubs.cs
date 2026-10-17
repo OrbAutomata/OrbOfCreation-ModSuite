@@ -968,6 +968,13 @@ public sealed class RequestTargetEffectScript : IInstantEffectScript
     public Targeting.TargetSelectOptions targetOptions = new Targeting.TargetSelectOptions();
 }
 
+namespace Combat
+{
+    public class CombatEffect : IInstantEffectScript
+    {
+    }
+}
+
 namespace Targeting
 {
     public enum TargetReferenceTypes

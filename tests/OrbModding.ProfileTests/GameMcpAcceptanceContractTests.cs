@@ -942,8 +942,8 @@ public sealed class GameMcpConfigurationTests
             .ToDictionary(
                 entry => (entry.Definition.Section, entry.Definition.Key));
 
-        Assert.Equal(28, schema.Length);
-        Assert.Equal(28, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
+        Assert.Equal(29, schema.Length);
+        Assert.Equal(29, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
         foreach (var descriptor in schema)
         {
             var entry = entries[(descriptor.Section, descriptor.Key)];
@@ -1506,6 +1506,7 @@ public sealed class GameMcpConfigurationTests
                 "AutoCast/StartResourcePercent: float",
                 "AutoCast/ManualPauseSeconds: float",
                 "AutoCast/FullCharge: bool",
+                "AutoCast/RitualAware: bool",
                 "AutoConcept/Mode: AutoConceptOperationMode",
                 "AutoConcept/SlotManagementMode: AutoConceptSlotManagementMode",
                 "AutoConcept/TrainingPeriodSeconds: int",

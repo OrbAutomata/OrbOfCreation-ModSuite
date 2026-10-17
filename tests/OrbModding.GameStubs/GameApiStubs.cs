@@ -186,6 +186,7 @@ public static class AutoBuyManager
 
 public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
 {
+    public List<InstantEffectBlock> onCastEffects = new List<InstantEffectBlock>();
     public List<PersistentEffectBlock> toggledEffects = new List<PersistentEffectBlock>();
 #pragma warning disable CS0414 // Native private field read by the collector through a bound accessor.
     private List<SpellTypeSO> notSpellTypes = new List<SpellTypeSO>();
