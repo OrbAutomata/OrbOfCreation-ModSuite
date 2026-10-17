@@ -41,8 +41,10 @@ given game action.
   protect chosen resources, and `LeaveQueueSlots` keeps room for manual actions. Spell Leveling is
   enabled by default while Auto Buy is active and can be turned off separately.
 - **Auto Cast** starts Disabled, uses `F8` by default, and fully charges charge-capable spells by
-  default. Turn off **Full charge** to cast them immediately. It pauses while Magic > Spellbook >
-  Loadout is open, so spells can recharge fully and be removed.
+  default. Turn off **Full charge** to cast them immediately. **Ritual aware** is on by default:
+  attack spells wait for a ritual battle, and during one no channel starts while an attack spell is
+  equipped. Turn it off to cast every ready spell in turn; your own casts are never held back. It
+  pauses while Magic > Spellbook > Loadout is open, so spells can recharge fully and be removed.
 - **Auto Concept** starts Disabled. Its default Timed Cycle rotates acquired concepts after 30
   seconds of settled training. Rotate All may replace a lower-mastery active concept, while
   Preserve Manual keeps concepts that were active when automation began. Rate and drain

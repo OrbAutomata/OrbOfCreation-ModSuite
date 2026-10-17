@@ -61,6 +61,12 @@ rather than its cast cost; see [cast-modes.md](cast-modes.md).
   where auto-attack alone takes minutes. At high starting levels auto-attack also stops doing
   damage that matters — it can land thirty orders of magnitude short of an enemy's health — while
   an instant multi-target spell clears the same run in a handful of presses.
+- **Attack spells only land in a battle.** Beam Burst, Firebolt, Lightning Spear, Shock Storm,
+  Solar Flare and Supernova carry nothing but combat effects, and the game drops combat effects
+  while no ritual battle runs: the cast fizzles ("Fizzled. Not in Combat."). It is still paid for,
+  and still earns casting experience, spell mastery and any socketed augment's tokens.
+- A channel holds the caster (see [cast-modes.md](cast-modes.md)), so during a battle it keeps
+  attack spells from going until it ends or is interrupted.
 - An **End Ritual** button quits a running battle. While a battle is live, every ritual control is
   unavailable — one ritual at a time, and the others grey out.
 
