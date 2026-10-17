@@ -101,7 +101,10 @@ to 13. Ironwood in the resource list unlocks **Ironwood Druidry** (observed 7.3e
 Florescence (blooming resources), both paid partly in Ironwood. **Herbalism** (Organic Essence +
 Verdant Energy) opens two more, **Irrigation** (+8% Natural resource rate, −1% weave cost; Organic
 Essence + Water) and **Fertilizer** (+5% herb size; Organic Essence + Verdant Energy), and the
-**Improved Herbalism** upgrade (observed 4e4 Magebloom + 5e7 Water).
+**Improved Herbalism** upgrade (observed 4e4 Magebloom + 5e7 Water). Improved Herbalism names
+**Enrich Herbs**, a Void Moss action (badge 3) whose advancement gives every herb ×1.06 yield and +3%
+growing speed per level, but the diamond stays off the panel until the **Enrichment** upgrade, which
+unlocks with Druidic Ore, which in turn needs Ore in the resource list.
 
 **Empty Plots are the unused Plot Capacity.** Every grown thing weighs Plot Capacity (an Oak Tree
 2, Void Moss 1), and the Empty Plot count is whatever is left over: raising the capacity or using
@@ -128,4 +131,7 @@ A Magebloom plant offers **Gather Magebloom**: a Control price up front, then Ma
 for the action's duration (observed +4.1/s for 78 s at Mastery Lv 11–12), after which the plant
 is Recovering for ~53 s and then Growing again for ~15 min; the plant itself stays. A gather of
 several plants is one action card with a count badge, and the rate stays the same (observed ~4.1/s
-for one, two or three plants), so the ceiling on Magebloom is one gather running all the time.
+for one, two or three plants), so the ceiling on Magebloom is one gather running all the time. Each
+Magebloom plant weighs 1 Plot Capacity. The **Magebloom harvest element** (2 Gathering Capacity) holds
+its own pool of 10 Magebloom: active, it pays that pool out in under a minute; idle, the pool refills
+at ~0.003/s (observed).
