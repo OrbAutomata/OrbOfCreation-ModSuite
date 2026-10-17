@@ -643,20 +643,15 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 instanceSubmission.Reason,
                 GameMcpCraftingProjection.Project(in instanceSubmission));
         }
-        var feature = FindFeature(command.Kind);
+        var feature = (AutoScribeServiceCycleFeature.Runtime)FindFeature(command.Kind);
         var action = new CraftingPlayerAction(
             command.TargetId,
             command.ExpectedLifecycleGeneration);
-        var submission = ((AutoScribeServiceCycleFeature.Runtime)feature)
-            .TryExecuteGameMcp(in action);
-        var result = CraftingPlayerActionResultMapper.Map(in submission);
-        return GameMcpCommandResult.FromAction(
-            in result,
-            command.Kind,
+        return GameMcpCraftingProjection.Press(
+            command,
             lifecycle,
             configurationGeneration,
-            submission.Reason,
-            GameMcpCraftingProjection.Project(in submission));
+            () => feature.TryExecuteGameMcp(in action));
     }
 
     private GameMcpCommandResult ExecuteEquipmentLoadout(

@@ -433,6 +433,9 @@ internal sealed class GameMcpProtocolRouter
                         "cancel_manual", "cancel_automation")
                     : "craft";
                 builder.Uuid = RequireUuid(arguments, "uuid");
+                builder.Amount = builder.Mode == "craft"
+                    ? OptionalIntInRange(arguments, "amount", 1, 1, 1000)
+                    : 1;
                 break;
             case "game_discover":
                 builder.Mode = RequireOneOf(arguments, "mode",
@@ -949,19 +952,20 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_craft",
                 "Craft or control one recipe",
-                "Craft one exact recipe, add its UI-sized automation increment, or cancel its manual or automated instance. Success returns only the settled quantity change.",
+                "Craft one exact recipe, add its UI-sized automation increment, or cancel its manual or automated instance. amount is how many times craft presses the recipe's Craft button and defaults to 1; it is taken as far as it goes, exactly as repeated presses on the screen would: a craft that delivers less than the ask says delivered against asked on one line and, on that same line, why the rest stopped. Success returns only the settled quantity change.",
                 ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema(
                             "craft", "automate", "cancel_manual", "cancel_automation"),
                         ["uuid"] = StringSchema("Published crafting recipe id."),
+                        ["amount"] = IntegerSchema(1, 1000),
                     },
                     "uuid"),
                     ModeRule("craft"),
-                    ModeRule("automate"),
-                    ModeRule("cancel_manual"),
-                    ModeRule("cancel_automation")),
+                    ModeRule("automate", forbidden: new[] { "amount" }),
+                    ModeRule("cancel_manual", forbidden: new[] { "amount" }),
+                    ModeRule("cancel_automation", forbidden: new[] { "amount" })),
                 readOnly: false,
                 idempotent: false),
             Tool(

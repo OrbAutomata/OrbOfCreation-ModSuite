@@ -1,46 +1,76 @@
 #if SERVICE_CYCLE_PROFILE
+using System;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using JObject = OrbAutomata.GameMcp.GameMcpObjectBuilder;
 
 namespace OrbAutomata.GameMcp;
 
 internal static class GameMcpCraftingProjection
 {
+    /// <summary>
+    /// Presses the recipe's Craft button <c>amount</c> times through the one craft GameAction and
+    /// answers with how many presses its own sentinel verified. A refusal after the first press
+    /// keeps what landed and names why the rest stopped; a press that faulted answers as the fault.
+    /// </summary>
+    internal static GameMcpCommandResult Press(
+        GameMcpCommand command,
+        long lifecycle,
+        ulong configurationGeneration,
+        Func<CraftingPlayerSubmission> press)
+    {
+        var landed = 0;
+        var completed = false;
+        ServiceActionResult verified = default;
+        string? remainder = null;
+        while (landed < command.Amount)
+        {
+            var submission = press();
+            if (!submission.Verified)
+            {
+                if (landed == 0 || submission.CallOutcome.MutationAttempts > 0)
+                {
+                    var stopped = CraftingPlayerActionResultMapper.Map(in submission);
+                    return GameMcpCommandResult.FromAction(
+                        in stopped,
+                        command.Kind,
+                        lifecycle,
+                        configurationGeneration,
+                        landed == 0
+                            ? submission.Reason
+                            : landed + " of " + command.Amount + " asked went through before " +
+                              "this press. " + submission.Reason,
+                        Project(in submission));
+                }
+                remainder = "the rest stopped: " + submission.Reason;
+                break;
+            }
+            verified = CraftingPlayerActionResultMapper.Map(in submission);
+            completed = submission.Postcondition is
+                CraftingPlayerPostcondition.DirectEffectAdvanced or
+                CraftingPlayerPostcondition.InstantCompleted;
+            landed++;
+        }
+        return GameMcpCommandResult.FromAction(
+            in verified,
+            command.Kind,
+            lifecycle,
+            configurationGeneration,
+            details: new JObject
+            {
+                ["uuid"] = command.TargetId.ToString("D"),
+                [completed ? "completed" : "queued"] =
+                    GameMcpWorldQuery.QueuedValue(command.Amount, landed, remainder),
+            }.Freeze());
+    }
+
     internal static GameMcpValue Project(in CraftingPlayerSubmission submission)
     {
-        if (submission.Verified)
-        {
-            var result = new JObject();
-            if (submission.Postcondition is CraftingPlayerPostcondition.DirectEffectAdvanced or
-                CraftingPlayerPostcondition.InstantCompleted)
-                result["completed"] = true;
-            else if (submission.Postcondition is CraftingPlayerPostcondition.QueueAdmitted or
-                     CraftingPlayerPostcondition.InstanceQuantityIncreased)
-                result["started"] = true;
-            return result.Freeze();
-        }
-        if (submission.CallOutcome.MutationAttempts == 0) return new JObject().Freeze();
+        if (submission.Verified || submission.CallOutcome.MutationAttempts == 0)
+            return new JObject().Freeze();
         return new JObject
         {
             ["missingOutcome"] = "requested craft completion",
         }.Freeze();
-    }
-
-    internal static bool ProvedCompletion(GameMcpValue? details) => Observed(details, "completed");
-
-    /// <summary>Whether the action itself saw the craft enter the game's crafting queue.</summary>
-    internal static bool ProvedQueueEntry(GameMcpValue? details) => Observed(details, "started");
-
-    private static bool Observed(GameMcpValue? details, string name)
-    {
-        if (details is not GameMcpObject result) return false;
-        for (var index = 0; index < result.Properties.Count; index++)
-        {
-            var property = result.Properties[index];
-            if (property.Name == name && property.Value is GameMcpScalar scalar &&
-                scalar.Value is bool observed)
-                return observed;
-        }
-        return false;
     }
 
     internal static GameMcpValue Project(
