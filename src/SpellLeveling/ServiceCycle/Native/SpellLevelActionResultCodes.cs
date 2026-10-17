@@ -30,4 +30,7 @@ internal static class SpellLevelActionResultCodes
     /// dispatch, so a live disagreement is ordinary staleness rather than a broken action contract.
     /// </remarks>
     public static ServiceActionResultCode LevelNotAffordable => new(2050);
+
+    /// <summary>Level All Spells was asked for while Unlock Level All Spells has no committed level.</summary>
+    public static ServiceActionResultCode LevelAllLocked => new(2051);
 }

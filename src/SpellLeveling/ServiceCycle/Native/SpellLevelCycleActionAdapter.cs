@@ -182,8 +182,9 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
             case SpellLevelPreflight.ProgressionLocked:
                 return ServiceActionResult.Rejected(SpellLevelActionResultCodes.ProgressionLocked);
             case SpellLevelPreflight.NotAffordable:
-            case SpellLevelPreflight.BatchUnavailable:
                 return ServiceActionResult.Rejected(SpellLevelActionResultCodes.LevelNotAffordable);
+            case SpellLevelPreflight.BatchUnavailable:
+                return ServiceActionResult.Rejected(SpellLevelActionResultCodes.LevelAllLocked);
         }
 
         var evidence = ServiceNativeMutationEvidence.Observed(submission.Outcome, submission.CallOutcome);

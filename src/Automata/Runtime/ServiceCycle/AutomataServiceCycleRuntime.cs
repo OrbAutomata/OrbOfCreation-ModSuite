@@ -376,6 +376,11 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                     world.Snapshot, command.TargetId);
             }
             if (command.Kind == GameMcpCommandKind.SpellLevel &&
+                result.Code == SpellLevelActionResultCodes.LevelAllLocked)
+            {
+                exactReason = GameMcpWorldQuery.LevelAllLockedReason(world.Snapshot);
+            }
+            if (command.Kind == GameMcpCommandKind.SpellLevel &&
                 FindFeature(command.Kind) is SpellLevelFeatureRuntime levels)
             {
                 details = GameMcpSpellLevelProjection.Project(

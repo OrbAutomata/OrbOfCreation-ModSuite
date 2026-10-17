@@ -156,7 +156,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
             observeCapability: capability.Observe);
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
-        Assert.Equal(SpellLevelActionResultCodes.LevelNotAffordable, result.Code);
+        Assert.Equal(SpellLevelActionResultCodes.LevelAllLocked, result.Code);
         Assert.Equal(1, spell.masteryLevel);
         Assert.Equal(0, global::SpellManager.instance!.TryLevelAllCalls);
         Assert.Equal(AutoSpellLevelCapability.Single, capability.Current);
