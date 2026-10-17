@@ -103,6 +103,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<AlchemyTypeSOContract> Reflective = new(new Guid("8f258dcc-c39a-4d64-b915-4239e746c49d"), "AlchemyTypeSO", "Reflective");
     public static readonly KnownEntity<ResourceListVariableContract> ResourceBarCore = new(new Guid("0ed546af-dec8-42ff-8e89-e53a5f86e1de"), "ResourceListVariable", "NonManaCoreResources");
     public static readonly KnownEntity<ResourceListVariableContract> ResourceBarMaterials = new(new Guid("b6079b18-b962-4cc1-a3e5-62eafaacf4b8"), "ResourceListVariable", "MaterialResources");
+    public static readonly KnownEntity<UpgradeSOContract> Restoration = new(new Guid("14b35ebc-f284-4d53-bd3f-f57a885cf2b1"), "UpgradeSO", "Restoration");
     public static readonly KnownEntity<ViewSOContract> RitualsDiscover = new(new Guid("443bc384-3df6-49ac-aa52-28abe080595c"), "ViewSO", "RitualsDiscover");
     public static readonly KnownEntity<ViewSOContract> ScholarConceptDiscover = new(new Guid("f0e4b59a-b510-4de3-ae3e-dfca0fd76239"), "ViewSO", "ScholarConceptDiscover");
     public static readonly KnownEntity<ViewSOContract> ScreenMagic = new(new Guid("9746b42e-1b57-4f98-8ba4-f64b4c34d8c1"), "ViewSO", "ScreenMagic");

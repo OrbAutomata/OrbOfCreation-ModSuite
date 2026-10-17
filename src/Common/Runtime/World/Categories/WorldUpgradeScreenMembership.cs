@@ -59,6 +59,49 @@ internal static class WorldUpgradeScreenLists
         KnownEntities.UpgradesWorkshopScreen.Uuid,
         KnownEntities.UpgradesWorldScreen.Uuid,
     };
+
+    /// <summary>Each screen list and the view whose availability is that screen's unlock gate.</summary>
+    private static readonly (Guid ListId, Guid ViewId)[] ScreenGates =
+    {
+        (KnownEntities.UpgradesMagicScreen.Uuid, KnownEntities.ScreenMagic.Uuid),
+        (KnownEntities.UpgradesWorkshopScreen.Uuid, KnownEntities.ScreenWorkshop.Uuid),
+        (KnownEntities.UpgradesWorldScreen.Uuid, KnownEntities.ScreenWorld.Uuid),
+        (KnownEntities.UpgradesAlchemyScreen.Uuid, KnownEntities.AlchemyScreen.Uuid),
+        (KnownEntities.UpgradesRitualScreen.Uuid, KnownEntities.ScreenRitual.Uuid),
+        (KnownEntities.UpgradesScholarScreen.Uuid, KnownEntities.ScreenScholar.Uuid),
+        (KnownEntities.UpgradesAspectsScreen.Uuid, KnownEntities.WorldAspects.Uuid),
+        (KnownEntities.UpgradesTimeScreen.Uuid, KnownEntities.ScreenTime.Uuid),
+    };
+
+    /// <summary>
+    /// Whether the screen this upgrade is drawn on is still locked. While its view is unavailable the
+    /// game draws neither the screen nor the panel, so an upgrade whose own prerequisites hold is
+    /// still not offered.
+    /// </summary>
+    internal static bool IsOnLockedScreen(GameWorldState world, Guid upgradeId)
+    {
+        if (!WorldUpgradeListMembershipLookup.TryFindRange(
+                world.UpgradeListMemberships, upgradeId, out var start, out var count))
+        {
+            return false;
+        }
+
+        for (var index = 0; index < count; index++)
+        {
+            var listId = world.UpgradeListMemberships[start + index].ListId;
+            for (var gate = 0; gate < ScreenGates.Length; gate++)
+            {
+                if (ScreenGates[gate].ListId != listId) continue;
+                if (!WorldLookup.TryFind(world.Views, ScreenGates[gate].ViewId, out var view) ||
+                    !view.Available)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }
 
 internal static class WorldUpgradeListMembershipDeriver
