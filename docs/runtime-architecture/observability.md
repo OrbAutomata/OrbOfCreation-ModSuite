@@ -350,7 +350,7 @@ three are never read as the whole pass. A category read once per lifecycle epoch
 pass that read it and to no pass that skipped it, so a collection's cost is the sum of its
 categories. The per-category figure travels on the published world too, beside the availability
 evidence for the same category, because what a category cost is a fact about the collection that
-produced the world. Cost stays out of the announce key: collection runs four times a second and no
+produced the world. Cost stays out of the announce key: collection runs up to four times a second and no
 two passes cost the same, so a key carrying it would announce every pass. The profile artifact still
 times the pass as a single span — attribution within it belongs to the collector, because nothing
 outside the reader loop can say which category the time went on.
@@ -436,7 +436,10 @@ reachable from a full-trace session.
   final view folds the collection spans into one row per category — passes, total, average, median,
   worst, and the sampled counts that explain a change in cost — sorted by total so the first row read
   is the one worth attacking. The spans stay out of the event timeline they would otherwise be, since
-  the aggregate is the form they answer in.
+  the aggregate is the form they answer in. A pace view gives one row per stretch at one
+  [automation pace](world-collection.md#pace), read from the configuration store and started at the
+  save that changed it: collections per second, average collection cost, pumps per second, and
+  average pump cost.
 - **`--journal <journal-directory> [report.md]`** selects an explicit third decoder route and never
   sniffs or falls through to the OSCS parser. Persistent ordinals must be contiguous; record sequences
   must be contiguous within a run; every adjacent later run begins at sequence one; and a run identity

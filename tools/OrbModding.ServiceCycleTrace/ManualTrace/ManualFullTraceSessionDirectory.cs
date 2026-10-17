@@ -115,6 +115,23 @@ internal sealed class ManualFullTraceSessionDirectory : IFullTracePriorEventRead
         return entries;
     }
 
+    /// <summary>
+    /// One value from the store behind a generation, or null when the session kept no store for it or
+    /// the store does not name the key — a capture from a build that predates the setting.
+    /// </summary>
+    internal string? ReadPublicationValue(string store, ulong generation, string key)
+    {
+        var path = Path.Combine(
+            _path,
+            store + "-" + generation.ToString("x16", CultureInfo.InvariantCulture) + StoreExtension);
+        if (!File.Exists(path)) return null;
+        var prefix = key + " = ";
+        foreach (var line in File.ReadLines(path))
+            if (line.StartsWith(prefix, StringComparison.Ordinal))
+                return line.Substring(prefix.Length);
+        return null;
+    }
+
     private static int CountValues(string text, int headerBreakIndex)
     {
         if (headerBreakIndex < 0) return 0;

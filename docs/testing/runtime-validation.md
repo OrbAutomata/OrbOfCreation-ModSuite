@@ -126,3 +126,11 @@ it does not begin a session. Profiling builds still produce correlated full-trac
 and profile sessions for `./script/trace`. Missing manifests, invalid checksums,
 writer faults, dropped inputs, reveal failures, or gameplay changes are explicit
 diagnostic-product outcomes and must not be inferred away.
+
+### Pace capture
+
+To compare automation paces, install the perf-debug build, load the save, and play
+a few minutes at each pace, switching it in Mods > General > **Automation pace**
+and pressing Apply. Quit the game normally so the session writes its manifest,
+then run `./script/trace --full "<game>/BepInEx/config/OrbOfCreation-ModSuite/trace" report.md`. Its Pace view gives one row per
+stretch with the collection rate, collection cost, frame rate, and pump cost.
