@@ -18,8 +18,9 @@ its stack count — and lists every discovered concept below under a row of **re
 `Adv <n>` beside the time its next advance will take.
 
 **Discover** is the concept discovery tree's offer surface: a **Contemplate** button, a type-filter
-row, and a panel dealing **three face-up concept cards** with a rerolls counter and a Confirm
-button. Confirming is the commitment; see [discovery.md](discovery.md).
+row, and a panel dealing face-up concept cards with a rerolls counter and a Confirm button. A
+roll the tree owes a required concept deals that one card alone, and a reroll only deals it again.
+Confirming is the commitment; see [discovery.md](discovery.md).
 
 ## Discovering a concept
 
@@ -39,7 +40,9 @@ things happen continuously:
   resource, paid whether or not you are looking at the screen.
 - It **levels**: every advance interval it gains a level, and each level applies its effect again.
 
-An unslotted concept neither levels nor drains.
+An unslotted concept neither levels nor drains. A **Permanent** passive a concept has already
+granted is the exception: Restorative Learning's mana-per-attribute passive kept paying, and kept
+growing, after the concept left its slot.
 
 Every concept does one of exactly two things:
 
