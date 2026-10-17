@@ -324,7 +324,7 @@ internal static class GameMcpDecisionReason
         "world_not_published" or "lifecycle_no_game" or "lifecycle_initializing" or
         "lifecycle_resetting" or "lifecycle_scene_exit" or "lifecycle_not_available" or
         "lifecycle_replaced" or "stale_configuration_generation" or
-        "post_state_timeout" or "post_state_not_observed" or "post_state_not_published" or
+        "post_state_timeout" or "post_state_not_published" or
         "entity_data_incomplete" or "discovery_offer_read_incomplete" or
         "unmodeled_requirement_leaf" or "unsupported_requirement_value" or
         "requirement_class_unread" or

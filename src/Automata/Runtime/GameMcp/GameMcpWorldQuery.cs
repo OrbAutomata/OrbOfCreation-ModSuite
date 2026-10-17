@@ -4043,6 +4043,9 @@ internal static class GameMcpWorldQuery
         GameMcpCommand command,
         GameMcpCommandResult committed)
     {
+        if (command.Mode == "craft")
+            return committed.Details ?? throw new InvalidOperationException(
+                "A committed craft carries the count its presses verified.");
         if (state.World is null)
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         var oldWorld = Before(command);
@@ -4080,46 +4083,11 @@ internal static class GameMcpWorldQuery
                 result["amountUnavailable"] = AutomationAmountUnavailable();
             return result.Freeze();
         }
-        if (command.Mode == "cancel_manual")
-        {
-            return Change(
-                command.TargetId,
-                hasBefore ? previous.QueuedAmount.ToInt() : null,
-                current.QueuedAmount.ToInt(),
-                "queued");
-        }
-        if (GameMcpCraftingProjection.ProvedCompletion(committed.Details))
-        {
-            return new JObject
-            {
-                ["uuid"] = command.TargetId.ToString("D"),
-                ["completed"] = true,
-            }.Freeze();
-        }
-        var settled = current.QueuedAmount.ToInt();
-
-        // A craft is taken into the game's crafting queue and finishes later, so the answer is the
-        // press: crafts are queued. Without a before world the count cannot be told apart from what
-        // was already waiting, and inventing one would be worse than saying only what is known.
-        if (!hasBefore) return QueuedMutation(command.TargetId, command.Amount, null);
-        var started = previous.QueuedAmount.ToInt();
-        if (settled > started)
-            return QueuedMutation(command.TargetId, command.Amount, settled - started);
-        // An unmoved queue count is the same number before and after the craft, which proves
-        // nothing about it. Say what the settled world shows instead of publishing the pre-state.
-        return PostStateUnavailable(
+        return Change(
             command.TargetId,
-            command.Amount,
-            "post_state_not_observed",
-            GameMcpCraftingProjection.ProvedQueueEntry(committed.Details)
-                ? "the game took the craft into its Crafting queue, but that queue still shows " +
-                  settled + " waiting for this recipe — the count it showed before the press — so " +
-                  "this answer cannot say what became of the entry; read the queue itself with " +
-                  "world_list(category=\"crafting-queue-entries\")"
-                : "the Crafting queue still shows " + settled + " waiting for this recipe — the " +
-                  "count it showed before the press — and nothing proved the craft made an entry " +
-                  "of its own, so this answer cannot say whether it is waiting; read the queue " +
-                  "itself with world_list(category=\"crafting-queue-entries\")");
+            hasBefore ? previous.QueuedAmount.ToInt() : null,
+            current.QueuedAmount.ToInt(),
+            "queued");
     }
 
     private static GameMcpValue Change(
@@ -4169,7 +4137,7 @@ internal static class GameMcpWorldQuery
         ["queued"] = QueuedValue(asked, queued, remainder),
     }.Freeze();
 
-    private static object QueuedValue(int asked, int? queued, string? remainder = null) =>
+    internal static object QueuedValue(int asked, int? queued, string? remainder = null) =>
         queued is null or < 1
             ? true
             : queued < asked

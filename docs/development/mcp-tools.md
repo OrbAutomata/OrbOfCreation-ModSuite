@@ -441,7 +441,7 @@ rather than from the screen it is drawn on.
 | `game_spell_loadout` | Read staged Spellcraft glyphs; preview/add an explicit layout; or remove/move one equipped runtime spell |
 | `game_targeting` | Submit one exact eligible target or let the native request choose one |
 | `game_consumable` | Use, cancel, discard, randomize, or reorder one published consumable |
-| `game_craft` | Craft a recipe or control its manual/automated instance |
+| `game_craft` | Craft a recipe an explicit number of times (`amount` defaults to 1) or control its manual/automated instance |
 | `game_discover` | Drive a Discovery Tree's roll: initiate, select, confirm, or reroll its offers |
 | `game_equipment` | Equip/increase or unequip/decrease an explicit amount of one created artifact |
 | `game_alchemy` | Add or remove uses of one ordinary Alchemy recipe through its visible list, or set the Alchemy Lv |
@@ -2462,9 +2462,9 @@ identity/room/current quantity, outputs, and blockers. The MCP-only sequence is:
 
 1. Read `world_list(category="crafting-recipes")` or batch exact recipes through `world_get`.
 2. Choose a row whose `canStart` is true after comparing `nextCosts`, outputs, and queue state.
-3. Call `game_craft(uuid=...)`.
+3. Call `game_craft(uuid=..., amount=...)`.
 
-Success returns the changed recipe quantity or queue fact.
+Success returns how many presses queued or completed.
 It has no receipt, payment stanza, world-generation argument, or read-back requirement. A timed
 recipe without one stable loaded authored page refuses rather than guessing a queue; failure after
 native work names the one missing direct, instant-stock, or queued-recipe outcome. Auto Scribe calls the same GameAction with
@@ -3305,7 +3305,7 @@ A slot refusal states both sides — the slot asked for and the slots that exist
 so the retry needs no second read.
 
 A **schema bound** is the range the JSON input schema declares, and it is the suite's own policy on
-what is worth sending in one call — not a native fact. `game_purchase` and `game_level_up` cap `amount`
+what is worth sending in one call — not a native fact. `game_purchase`, `game_craft` and `game_level_up` cap `amount`
 at 1,000, `game_concept` at 1,000,000, and `game_agromancy` at 10,000; the paging tools cap `limit`
 at 200; every other `amount`,
 `slot`, `offset`, and dial `value` or `level` — `game_alchemy` and `game_equipment` among them — declares no
@@ -3803,15 +3803,16 @@ recipe, authored page/queue route, native purchase amount, affordability, and ro
 thread, then captures the shared crafting permit last. Direct recipes invoke native
 `CraftingRecipeSO.Execute`; page recipes re-drive the audited stack/new/instant
 `UICraftingPage.QueueCraft` sequence.
-A committed `craft` reports only what the settled world shows: a completed direct or instant craft
-returns `completed: true`, and a queued craft returns the queue growth the settled world confirms.
-When the settled queue count is unchanged, the response stays committed and returns
-`postStateUnavailable` with reason code `post_state_not_observed` — an unmoved count is the same
-number before and after the craft and is never published as its delta. The sentence is about the
-craft rather than about the projection: it says the game took the craft, that the Crafting queue
-still shows the same count it showed before the press, and that the caller reads the queue itself
-with `world_list(category="crafting-queue-entries")`. Where nothing proved the craft made an entry
-of its own, the sentence says that instead of claiming one was made.
+`amount` (1 to 1,000, default 1, `craft` only) is how many times the call presses the recipe's
+Craft button. Each press is one submission of the same craft GameAction, with its own revalidation
+and postcondition, and takes what the screen's press takes: one item at multi-buy 1, the starting
+level for a Scroll recipe. A committed `craft` answers with the presses its own sentinel verified:
+`queued: N` for a queued craft, `completed: N` for a direct or instant one. Like `game_purchase`,
+the ask is taken as far as it goes. A press the game refuses after the first stops the batch, and
+the answer stays committed and says both numbers and why on one line: `queued: 3 of 45 asked; the
+rest stopped: The cost of another of this craft is not met.` A refused first press answers as that
+refusal. A press that faults after earlier ones landed answers as the fault, and its sentence opens
+with how many of the ask went through before it.
 
 The other modes use the same authored page relation and exact recipe identity.
 `automate` repeats the UI's native multi-buy and automation-quantity calculation before calling

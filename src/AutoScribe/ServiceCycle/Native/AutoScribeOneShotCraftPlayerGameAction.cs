@@ -90,7 +90,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.Unaffordable,
-                "The game refuses this craft right now.");
+                "The cost of this craft is not met.");
         var revisionBefore = native.RecipeEffectRevision(recipe);
         if (!TryPlayerCraftingPermit(in action, out var permitFailure)) return permitFailure;
 
@@ -176,20 +176,20 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.Unaffordable,
-                "The game refuses to queue another of this craft right now.");
+                "The cost of another of this craft is not met.");
         var totalCost = native.RecipeTotalCost(recipe, previous, purchase);
         if (!native.CostHasEnough(totalCost))
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.Unaffordable,
-                "GetTotalCost(previous,purchase).HasEnough() refused the exact queued recipe.");
+                "The cost of another of this craft is not met.");
 
         var existing = mode == 0 ? FindInstance(native, queue, action.RecipeId) : null;
         if (existing is null && !native.QueueHasRoom(queue))
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.QueueFull,
-                "The authored manual crafting queue has no empty spot for a new instance.");
+                "The Manual crafting queue has no empty slot.");
         var previousInstanceQuantity = existing is null
             ? BigDouble.Zero
             : native.InstanceQuantity(existing);
