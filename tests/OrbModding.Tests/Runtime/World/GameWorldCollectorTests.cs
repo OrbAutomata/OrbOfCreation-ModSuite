@@ -1360,14 +1360,16 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     [Fact]
-    public void AViewsComposedAvailabilityIsPublished()
+    public void AViewsComposedAvailabilityAndDiscoveryTreeArePublished()
     {
         var unlocked = Guid.NewGuid();
         var locked = Guid.NewGuid();
+        var tree = new FakeDiscoveryTree();
         FakeView.All.Add(new FakeView
         {
             Identity = unlocked,
             active = true,
+            discoveryTree = tree,
         });
         FakeView.All.Add(new FakeView
         {
@@ -1382,8 +1384,10 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         Assert.True(WorldLookup.TryFind(world.Views, unlocked, out var unlockedView));
         Assert.True(unlockedView.Available);
+        Assert.Equal(tree.Identity, unlockedView.DiscoveryTreeId);
         Assert.True(WorldLookup.TryFind(world.Views, locked, out var lockedView));
         Assert.False(lockedView.Available);
+        Assert.Equal(Guid.Empty, lockedView.DiscoveryTreeId);
     }
 
     [Fact]

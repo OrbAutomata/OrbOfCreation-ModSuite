@@ -48,12 +48,13 @@ describe that data model, not anything the player does.
 |---|---|---|
 | Marker | exclamation mark | none |
 | Options offered | effectively one | Discovery Options (+1 on Alchemy) |
-| Cost | the tree's thematic resources | the tree's pool ladder |
+| Cost | the required item's own price, in any resource | the tree's pool ladder |
 | Advances the price ladder | no | yes |
 
 Required rolls are the critical path: the game is not gambling with your progression, and you receive
-the one thing it intends you to have next. Optional picks draw several candidates from that tree's
-pool and make you choose one.
+the one thing it intends you to have next. While a tree owes one, its page's tab carries the
+new-content mark. Optional picks draw several candidates from that tree's pool and make you choose
+one.
 
 ## Choices and rerolls are statistics
 

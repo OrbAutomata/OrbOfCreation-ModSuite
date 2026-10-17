@@ -19843,6 +19843,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
     },
     {
+      "id": "view.discovery-tree",
+      "assembly": "assembly-csharp",
+      "type": "ViewSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "discoveryTree",
+      "visibility": "public",
+      "static": false,
+      "valueType": "DiscoveryTreeSO",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field DiscoveryTreeSO"}
+    },
+    {
       "id": "view.is-available",
       "assembly": "assembly-csharp",
       "type": "ViewSO",
