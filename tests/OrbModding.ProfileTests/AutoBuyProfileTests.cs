@@ -175,6 +175,73 @@ public sealed class AutoBuyProfileTests : IDisposable
         Assert.Equal(4, structure.queuedQuantity);
     }
 
+    /// <summary>
+    /// The press that switched Auto Buy off in a live run: <c>game_purchase</c> asked for Improved
+    /// Brewing after it was already bought. The game refused it on its level cap, and the suite filed
+    /// that refusal as a planner error and disabled Auto Buy. A manual press has no plan to be wrong
+    /// about, so the game's no answers the caller alone; the same refusal of a planned purchase still
+    /// reaches the breaker.
+    /// </summary>
+    [Fact]
+    public void TheGameRefusingAManualPressNeverReachesThePlannerBreaker()
+    {
+        var operations = new AutomataProfileOperations(new ServiceCycleProfileProbe());
+        global::ActionManager.RemainingRoom = 64;
+        var skill = new global::ResourceSO
+        {
+            uuid = Guid.NewGuid().ToString(),
+            quantity = new BigDouble(2.04, 8),
+        };
+        var control = new global::ResourceSO
+        {
+            uuid = Guid.NewGuid().ToString(),
+            quantity = new BigDouble(1.35, 6),
+        };
+        var improvedBrewing = new global::UpgradeSO
+        {
+            uuid = Guid.NewGuid().ToString(),
+            level = 1,
+            maxLevel = 1,
+            available = false,
+        };
+        improvedBrewing.purchaseCost.costs.Add(
+            new global::ResourceTuple(skill, new BigDouble(2, 6)));
+        improvedBrewing.purchaseCost.costs.Add(
+            new global::ResourceTuple(control, new BigDouble(1, 4)));
+        global::UpgradeSO.All.Add(improvedBrewing);
+        var uuid = Guid.Parse(improvedBrewing.uuid);
+        var topology = CaptureTopology(out _, out _);
+        var refusals = new RecordingRefusals();
+        var adapter = new AutoBuyCycleActionAdapter(
+            new AutoBuyNativePurchaseAdapter(operations, topology),
+            new AutoBuyNativeQueueRoomAdapter(),
+            () => PlannedEpoch,
+            () => AutoBuyCandidateKinds.All,
+            operations,
+            refusals,
+            null,
+            _ => true);
+
+        var manual = adapter.TryExecuteGameMcp(
+            new AutoBuyCycleAction(AutoBuyCandidateKind.Upgrade, uuid, PlannedEpoch),
+            Configuration(),
+            ActionContext());
+
+        Assert.Equal(ServiceActionDisposition.Rejected, manual.Disposition);
+        Assert.Equal(
+            AutoBuyRefusalClassification.StructuralMismatch,
+            adapter.LastSubmission.Diagnosis.Classification);
+        Assert.Empty(refusals.Reports);
+
+        adapter.TryExecute(
+            new AutoBuyCycleAction(AutoBuyCandidateKind.Upgrade, uuid, PlannedEpoch),
+            Configuration(),
+            ActionContext());
+
+        Assert.Equal(uuid, Assert.Single(refusals.Reports).Uuid);
+        Assert.Equal(0, improvedBrewing.queuedLevels);
+    }
+
     private static ServiceActionResult Execute(
         AutomataProfileOperations operations,
         AutoBuyCandidateKind kind,
@@ -406,6 +473,13 @@ public sealed class AutoBuyProfileTests : IDisposable
             return AutoBuyPurchaseSubmission.Rejected(
                 AutoBuyPurchasePreflight.CandidateUnavailable);
         }
+    }
+
+    private sealed class RecordingRefusals : IAutoBuyRefusalResponsePort
+    {
+        internal System.Collections.Generic.List<AutoBuyRefusalReport> Reports { get; } = new();
+
+        public void ObserveRefusal(in AutoBuyRefusalReport report) => Reports.Add(report);
     }
 
     private sealed class IgnoreRefusals : IAutoBuyRefusalResponsePort

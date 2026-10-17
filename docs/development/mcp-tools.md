@@ -3329,6 +3329,8 @@ that service holds *itself* back with. A press a caller asked for is the player 
 game's own gates are the only ones it answers to. No AutoBuy setting applies to `game_purchase`,
 the queue slots Auto Buy reserves for manual play (`AutoBuy/LeaveQueueSlots`) included: reserving
 slots *for* manual actions and then refusing one is the contradiction that reserve exists to avoid.
+The reverse holds too: a game refusal of a `game_purchase` press answers the caller and never reaches
+Auto Buy's planner breaker, because a press has no plan to be wrong about.
 The same rule reaches every other verb. `game_concept` takes the game's gates — a free Concept
 slot, a discovered recipe, and the drain the assignment costs — and reads neither
 `AutoConcept/RateReservePercent` nor `AutoConcept/MinimumResourcePercent`, which are the

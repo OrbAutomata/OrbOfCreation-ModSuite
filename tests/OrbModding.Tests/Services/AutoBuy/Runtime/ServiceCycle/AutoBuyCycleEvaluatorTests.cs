@@ -549,6 +549,25 @@ public sealed class AutoBuyCycleEvaluatorTests
         Assert.Empty(Plan(frame, Config(), out _));
     }
 
+    /// <summary>
+    /// A refusal bundle that reads "IsAvailable: false", no cost rows and a collection stamp of nought
+    /// describes an action nobody planned: the planner stamps every action with the world it was made
+    /// from and the availability it was admitted on.
+    /// </summary>
+    [Fact]
+    public void APlannedActionCarriesItsWorldStampAndTheAvailabilityItWasAdmittedOn()
+    {
+        var builder = new FrameBuilder().CollectedAt(new MonotonicTimestamp(49_078_000_000));
+        var resource = builder.Resource(1_000);
+        builder.Upgrade(UpgradeA, new[] { (resource, 10.0) });
+
+        var action = Assert.Single(Plan(builder.Build(), Config(), out _));
+
+        Assert.Equal(new MonotonicTimestamp(49_078_000_000), action.WorldCollectedAt);
+        Assert.True(action.Belief.IsAvailable);
+        Assert.Equal(1, action.Belief.PricedResourceCount);
+    }
+
     [Fact]
     public void TerminalFiniteLevelCandidatesAreSkipped()
     {
@@ -1155,10 +1174,17 @@ public sealed class AutoBuyCycleEvaluatorTests
         private readonly List<AutoBuyCostRow> _costs = new();
         private int _bulk = 1;
         private long _collectedAtEpoch = 1;
+        private MonotonicTimestamp _collectedAt;
 
         public FrameBuilder CollectedAtEpoch(long epoch)
         {
             _collectedAtEpoch = epoch;
+            return this;
+        }
+
+        public FrameBuilder CollectedAt(MonotonicTimestamp collectedAt)
+        {
+            _collectedAt = collectedAt;
             return this;
         }
 
@@ -1288,7 +1314,7 @@ public sealed class AutoBuyCycleEvaluatorTests
 
         public AutoBuyCycleFrame Build()
         {
-            var global = new AutoBuyGlobalRow(_bulk, _collectedAtEpoch);
+            var global = new AutoBuyGlobalRow(_bulk, _collectedAtEpoch, _collectedAt);
 
             return new AutoBuyCycleFrame(
                 global,
