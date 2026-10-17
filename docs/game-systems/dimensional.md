@@ -40,7 +40,7 @@ Physicality and Spirality read "Insufficient req. to use effectively" below Expe
 6 respectively. Physicality still took the Space cap from 7.99e3 to 1.33e4 within a minute
 (observed, four levels at Expert Expansion 1).
 
-**Gather Space** (1e4 Space) grants the first World Aspect Slot; see [aspects.md](aspects.md).
+**Gather Space** grants the first World Aspect Slot; see [aspects.md](aspects.md).
 
 These are the cap levers for every price above the Space cap ([capacity.md](capacity.md)).
 Conjure Space casts come further apart than the 3 s overcap timer ([overcap.md](overcap.md)), so

@@ -20,12 +20,13 @@ Capability raises it.
 ## Two progression tracks
 
 Each attribute tab fills its own experience bar, one point per developed level (see
-[tab-and-orb-xp.md](tab-and-orb-xp.md)):
+[tab-and-orb-xp.md](tab-and-orb-xp.md)), and each bar level pays that discipline's advancement
+grants ([advancement-currencies.md](advancement-currencies.md)):
 
-| Tab | Attributes (first ones) | Bar | Lv 1 at 40 XP grants |
-|---|---|---|---|
-| Workshop | Wood Axe (Wood: +Agromancy Power for harvests), Charger (Wood + Spark: +base Energetic rate) | Construction Xp | +1 Technology Advancement, +1 Artifact Upgrades |
-| Artificer | Construction Aura (Mana + Wood: passive base Skill), Capability (Skill + Knowledge: +30.8 base Skill capacity) | Artificer Xp | +1 Ability Advancement, +1 Artifact Upgrades |
+| Tab | Attributes (first ones) | Bar |
+|---|---|---|
+| Workshop | Wood Axe (Wood: +Agromancy Power for harvests), Charger (Wood + Spark: +base Energetic rate) | Construction Xp |
+| Artificer | Construction Aura (Mana + Wood: passive base Skill), Capability (Skill + Knowledge: +30.8 base Skill capacity) | Artificer Xp |
 
 The Workshop tab's structures are priced in Wood, so Construction Xp is a Wood-to-Technology
 route. Ability Advancement is what Improved Tools and the artifact research nodes ask for.
@@ -33,9 +34,8 @@ route. Ability Advancement is what Improved Tools and the artifact research node
 ## The first artifact
 
 Artifacts > Create is the artifact discovery tree's surface: **Construct Artifact** (10 Skill). Its
-first roll is a required one and deals a single card, observed **Blast Staff**: a Conductor with
-4 Artifact Capacity that, every 15 s, gives the next spell cast ×1.75 Cantrip and ×1.20 Charm
-Spell Power. The Loadout tab starts at 0/6 weight with two slots; see [artifacts.md](artifacts.md).
+first roll is a required one and deals a single card, observed **Blast Staff** (its effect is in
+[artifacts.md](artifacts.md)). The Loadout tab starts at 0/6 weight with two slots.
 
 ## Paper
 
@@ -50,7 +50,6 @@ develop speed) — so the oak loop's Wood is what Paper is made of.
 Construction upgrades open structures in new materials. **Refined Construction** ("build with
 Ironwood"; observed 2.55e5 Ironwood + 1e12 Knowledge) opens **Amplifier** (+36% power to every
 Generator per level, paid in Ironwood) and **Printing Station** (a Paper generator; Force Bark +
-Ironwood). Observed: three Amplifier levels took Mana income ×2.8, Control ×3.9 and Wood ×2.9 at once;
-one Printing Station level at Amplifier 24 made +7.9e7 Paper/s.
-**Learn Reinforcement** opens **Craft Wooden Supports** (Force Bark + Skill + Wood) and the
+Ironwood). Observed: three Amplifier levels took Mana income ×2.8, Control ×3.9 and Wood ×2.9 at
+once; one Printing Station level at Amplifier 24 made +7.9e7 Paper/s. **Learn Reinforcement** opens **Craft Wooden Supports** (Force Bark + Skill + Wood) and the
 Reinforced attributes, each +2.5% power to two older structures and priced in Wooden Supports.

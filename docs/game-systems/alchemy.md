@@ -46,10 +46,10 @@ Copies of one recipe scale faster than linearly: Refine Organic ×1, ×2, ×3 ma
 1.59 Organic Essence/s, and Refine Occultic ×1, ×2 made 0.124 and 0.281 Occult Essence/s
 (observed). A second Extract Magebloom copy adds its Occultic Capacity again, which is room for more
 Refine Occultic copies: going from ×2 to ×4 at Lv 5 took Occult Essence from 7.1 to 21.6/s
-(observed, while Refinemenship also rose from 15 to 20). A Dismantle recipe's capacity is functional: it holds only while the recipe is fed.
-With Magebloom at zero, Extract Magebloom's Occultic Capacity lapses and Refine Occultic stops with
-it, so Magebloom supply caps Occult Essence even though Refine Occultic itself drains only
-Thaumaturgy. Alchemy Lv raises a Dismantle's drain but not its capacity (observed: Extract Magebloom
+(observed, while Refinemenship also rose from 15 to 20). A Dismantle recipe's capacity is
+functional: it holds only while the recipe is fed. With Magebloom at zero, Extract Magebloom's
+Occultic Capacity lapses and Refine Occultic stops with it, so Magebloom supply caps Occult Essence
+even though Refine Occultic itself drains only Thaumaturgy. Alchemy Lv raises a Dismantle's drain but not its capacity (observed: Extract Magebloom
 +8 Occultic for −0.076 Magebloom/s at Lv 1, −4.59/s for the same capacity at Lv 5).
 
 Learn Biology (1e3 Alchemic Scroll + 5e8 Knowledge) opens Learn Refinement (5e4 Control), and the
@@ -57,7 +57,7 @@ two together put Extract Wood and Refine Organic in the roll pool. Organic Essen
 Grow Magic Herbs (the Magebloom unlock) and Imbue Organic. **Learn Occultic** (1e3 Magebloom + 1e4
 Alchemic Scroll) makes Extract Magebloom and then Refine Occultic the next required rolls, and the
 roll price switches to Magebloom (observed 300, then 100, beside a Skill cost). **Discover Amber**
-(1e4 Occult + 9.09e3 Organic Essence) makes Transmute Amber the next required roll (observed at
+(1e4 Occult + 1e4 Organic Essence) makes Transmute Amber the next required roll (observed at
 2e4 Control).
 
 A recipe whose `Req.` lines (Expert research levels) are unmet carries a **requirement penalty**:
@@ -82,12 +82,13 @@ recipes whose names start with "Brew" are ordinary alchemy recipes.
 
 ## Alchemy Level
 
-An `Alchemy Lv` row with −/+ and a **Raise Alchemy Level** purchase sits with the loadout; the
-dial and its ceiling are described in [attributes-and-upgrades.md](attributes-and-upgrades.md).
-Each level is ×2 Alchemy Speed and ×2 Alchemy Drain Cost (its tooltip), so a recipe's output
+An `Alchemy Lv` row with −/+ and a **Raise Alchemy Level** purchase sits with the loadout; the −/+
+adjuster is drawn only once **Level Alchemy** is bought. The dial and its ceiling are described in
+[attributes-and-upgrades.md](attributes-and-upgrades.md). Each level is ×2 Alchemy Speed and ×2 Alchemy Drain Cost (its tooltip), so a recipe's output
 doubles while its inputs go ×4: every level halves the yield per input (observed Lv 4 → 5:
 Occult Essence 1.18 → 2.37/s, Magebloom drain 1.16 → 4.63/s; Lv 5 → 6 with four Refine Occultic
-copies: 21.6 → 43.9/s; Lv 10 → 11 with five: 2.0e3 → 4.0e3/s, while Thaumaturgy went from +4e9 to −1.5e10/s). Its price is paid in Alchemic
-Scroll and climbs steeply: 100, 330, 1.1e3, 3.9e3, 1.4e4 for Lv 2 to 6 (observed).
-How the level interacts with the six capacities is unrecorded; see
+copies: 21.6 → 43.9/s; Lv 10 → 11 with five: 2.0e3 → 4.0e3/s, while Thaumaturgy went from +4e9
+to −1.5e10/s). Its price is paid in Alchemic Scroll and climbs steeply: 100, 330, 1.1e3, 3.9e3,
+1.4e4 for Lv 2 to 6 (observed). The level leaves a Dismantle's capacity grant unchanged (above);
+whether it moves the six capacities any other way is unrecorded; see
 [open-questions.md](open-questions.md).

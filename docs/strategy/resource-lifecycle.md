@@ -26,14 +26,14 @@ behaviour, and the difference decides whether a decision can be taken back.
 **Most of them come back.** Spell capacity and spots free up when you evict a spell, alchemy and
 artifact loadout capacity returns in full when you unequip, plot quantity regrows on its own, a
 development slot clears when its purchase lands, and cancelling a running development releases the
-cancelled level's points. These are **portfolio
-problems** (how do I split what I hold), not spend-timing problems: nothing is wasted at cap,
-deferring is free, and a bad split is re-split rather than paid for twice.
+cancelled level's points. These are **portfolio problems** (how do I split what I hold), not
+spend-timing problems: nothing is wasted at cap, deferring is free, and a bad split is re-split
+rather than paid for twice.
 
 **Advancement points do not — they are the game's one-way doors.** Glyph, Artifact, Materials, the
 five school points and Time Advancements are committed for the rest of the run the moment a level
-lands (Time Advancements return only at the next reset) — no refund, no respec, no moving a point from one
-node to another ([allocations.md](../game-systems/allocations.md)). The supply is run-finite:
+lands (Time Advancements return only at the next reset) — no refund, no respec, no moving a point
+from one node to another ([allocations.md](../game-systems/allocations.md)). The supply is run-finite:
 attributes go unaffordable, the tabs stop levelling, and the points stop arriving
 ([advancement-currencies.md](../game-systems/advancement-currencies.md)). So these are spend
 decisions after all — you *will* run out, and every level you take is one some other node never

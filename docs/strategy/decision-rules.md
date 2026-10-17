@@ -22,8 +22,8 @@ gate you can actually see, remembering that gates read purchased levels, so a vi
 satisfy one.
 
 **A cap-raiser is one purchase, not a line.** The four `Raise <thing> Level` rows re-price
-themselves steeply — ×3–4 per level early in a run (Raise Alchemy Level 100 → 1.4e4 over four
-levels), roughly ×267 per level late — so buy the level in reach and re-plan from the new price
+themselves steeply — ×3–4 per level early in a run (Raise Alchemy Level,
+[alchemy.md](../game-systems/alchemy.md)), roughly ×267 per level late — so buy the level in reach and re-plan from the new price
 rather than budgeting a run of them.
 
 ## The watermark problem
@@ -47,7 +47,8 @@ cooldowns bind. **The answer flips as rates grow**, so re-check it inside an era
 milestones.
 
 Alchemy Lv is throughput bought with efficiency: each level doubles a recipe's output for four
-times its inputs, and a Dismantle gets no more capacity for its bigger drain. While an input is the
+times its inputs, and a Dismantle gets no more capacity for its bigger drain
+([alchemy.md](../game-systems/alchemy.md)). While an input is the
 binder (Magebloom feeding Extract Magebloom), a level beyond what its supply sustains makes half as
 much per input once the stock runs dry.
 

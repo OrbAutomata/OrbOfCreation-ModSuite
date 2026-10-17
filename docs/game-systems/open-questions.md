@@ -88,7 +88,8 @@ carried cross-run bonuses (authored constants do not).
 - **Agromancy remaining-instance counts** — the count is computed against idle nodes and is allowed
   to go negative; the player-visible consequence is unrecorded.
 - **The six Alchemy pools** — one is Alchemical Capacity and is spent by equipping recipes (see
-  [alchemy.md](alchemy.md)); what the other five allocate, and whether Alchemy Level changes any capacity, is unknown.
+  [alchemy.md](alchemy.md)); what the other five allocate, and whether Alchemy Level moves any
+  capacity, is unknown.
 
 ## Interface
 

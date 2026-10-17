@@ -52,8 +52,9 @@ running instances of an action that has been removed from its list.
 Once **Unlock Druidry Levels** is bought, the screen draws a **Druidry Lv** −/+ adjuster. It sets
 the level in effect between 1 and **Max Druidry Lv**, which **Raise Druidry Lv** raises by one per
 purchase (each purchase also adds ×1.02 plot yield and ×1.75 plot recovery size). A higher level
-runs agromancy faster at a higher cost (observed: ×2.25 speed at ×2 cost per level), so turning it
-down is how a player buys cheaper, slower actions. The dial and its cap share the shape described in
+runs agromancy faster at a higher cost (observed per level: ×2.25 speed at ×2 cost for active
+actions, ×1.75 growth size at ×5 cost for weaves), so turning it down is how a player buys cheaper,
+slower actions. The dial and its cap share the shape described in
 [attributes-and-upgrades.md](attributes-and-upgrades.md).
 
 ## The oak loop
@@ -68,13 +69,10 @@ Wood comes only from oaks:
 3. The chopped plot is **Recovering** — 40 s per plot, one plot at a time — before it is an Empty
    Plot again. Only recovered plots take a sapling, so a planting order is clamped to them.
 
-**Druidry Lv** is a dial beside the plots: each level multiplies active agromancy speed ×2.25 and
-cost ×2, and weave growth size ×1.75 and weave cost ×5.
-**Raise Druidry Lv** raises its maximum (and adds ×1.02 plot yield and ×1.75 plot recovery size). Wood Axe (Agromancy Power for
-harvests) and Clearcutting (harvest speed) are the Workshop levers on the same loop; see
-[workshop.md](workshop.md). Observed yield: ~130 Wood per oak at the start, ~1.1e3 after eight Wood
-Axe levels at Druidry Lv 3, ~5.7e3 at Wood Axe 10 with Improved Tools (×1.40 Agromancy Power and
-Speed), ~1.3e7 at Oak Mastery Lv 10 late in a run.
+Wood Axe (Agromancy Power for harvests) and Clearcutting (harvest speed) are the Workshop levers on
+the same loop; see [workshop.md](workshop.md). Observed yield: ~130 Wood per oak at the start,
+~1.1e3 after eight Wood Axe levels at Druidry Lv 3, ~5.7e3 at Wood Axe 10 with Improved Tools
+(×1.40 Agromancy Power and Speed), ~1.3e7 at Oak Mastery Lv 10 late in a run.
 
 ## Oaks are the stock for other trees
 
@@ -95,8 +93,8 @@ and yields 1 Force Tree unit, which Grows for 2:35 before it can be used (observ
 Ironwood Trees upgrade a Force Tree gains **Imbue** (badge 2, a 17–24 s weave draining Organic and
 Occult Essence, ~100–140 of each), which turns it into an **Ironwood Tree**: 8 Plot Capacity, Grows
 9:44, and **Chop Down Ironwood** (30 s) pays the **Ironwood** resource. So one Ironwood Tree costs
-four oaks. Observed harvests: 9.5e3, 1.7e4, 2.1e4, 2.6e4, 4.7e4 Ironwood as the plot's mastery rose from 0
-to 13. Ironwood in the resource list unlocks **Ironwood Druidry** (observed 7.3e4–8.4e4 Ironwood +
+four oaks. Observed harvests: 9.5e3, 1.7e4, 2.1e4, 2.6e4, 4.7e4 Ironwood as the plot's mastery
+rose from 0 to 13. Ironwood in the resource list unlocks **Ironwood Druidry** (observed 7.3e4–8.4e4 Ironwood +
 5.45e10 Verdant Energy), which opens the Druidry attributes Wellspring (spring yield) and
 Florescence (blooming resources), both paid partly in Ironwood. **Herbalism** (Organic Essence +
 Verdant Energy) opens two more, **Irrigation** (+8% Natural resource rate, −1% weave cost; Organic
@@ -120,10 +118,11 @@ locked until the Elementia Spring research, which itself waits for Elementia in 
 and **Create Craggy Spire**. A **Water Spring** passively generates Water and enhances every plant
 (+20% growing speed, ×1.10 yield); observed: one spring at Druidry Lv 7 took Water from −1.4e4/s to
 +4.9e5/s. Springs stack: with two, an Ironwood Tree grew in 6:45 against 9:44 with none and 7:58
-with one (observed). Each Shaped Ground takes a **Shape Land** on 5 Empty Plots. These weaves drain as they grow, and not only common resources:
-Create Spring drained **Alchemic Scroll** at ~94/s at Druidry Lv 7 (observed), enough to empty a
-stock of several hundred before the spring finished. Void Moss offers its own weaves — **Create Magebloom**, **Create Dark
-Thistle** and **Create Dreamberry** — each locked until something else is learned; Create Magebloom
+with one (observed). Each Shaped Ground takes a **Shape Land** on 5 Empty Plots. These weaves
+drain as they grow, and not only common resources: Create Spring drained **Alchemic Scroll** at
+~94/s at Druidry Lv 7 (observed), enough to empty a stock of several hundred before the spring
+finished. Void Moss offers its own weaves — **Create Magebloom**, **Create Dark Thistle** and
+**Create Dreamberry** — each locked until something else is learned; Create Magebloom
 opens with the Grow Magic Herbs upgrade and drains Verdant Energy and Organic Essence while it runs
 (observed ~2.3e7 VE per plant at Druidry Lv 7).
 
@@ -135,7 +134,7 @@ plant each, at the single-gather rate (observed ~4.1/s for one, two or three pla
 on Magebloom is one gather running all the time. Improved Herbalism opens the two gathering
 attributes, **Rapid Gathering** (+18% gathering speed) and **Magic Botany** (+10% gathering power);
 after ten and two levels a gather ran 35 s at +500/s, ~1.75e4 Magebloom against ~6.3e3 over 11:11
-before, and ~1.1e6 per gather at Magic Botany 41 (observed). Each
-Magebloom plant weighs 1 Plot Capacity. The **Magebloom harvest element** (2 Gathering Capacity) holds
-its own pool of 10 Magebloom: active, it pays that pool out in under a minute; idle, the pool refills
-at ~0.003/s (observed).
+before, and ~1.1e6 per gather at Magic Botany 41 (observed). Each Magebloom plant weighs 1 Plot
+Capacity. The **Magebloom harvest element** (2 Gathering Capacity) holds its own pool of 10
+Magebloom: active, it pays that pool out in under a minute; idle, the pool refills at ~0.003/s
+(observed).

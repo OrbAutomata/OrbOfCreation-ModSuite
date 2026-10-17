@@ -123,8 +123,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 
 - [time-runes.md](time-runes.md) — rune level, persist level and mastery level are three different
   tracks.
-- [time-advancements.md](time-advancements.md) — refunded every reset, so the only question is the
-  split.
+- [time-advancements.md](time-advancements.md) — refunded at every reset and held by rune levels
+  until then.
 - [achievement-strength.md](achievement-strength.md) — +1 % all resource gain and +1 starting Time
   Advancement per point.
 - [challenges.md](challenges.md) — picked at NG+ start, cleared by resets; they modify
