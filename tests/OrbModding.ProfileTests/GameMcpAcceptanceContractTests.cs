@@ -795,6 +795,45 @@ public sealed class GameMcpProtocolSurfaceTests
             "'detail' is not accepted by suite_health", GameMcpTestHarness.Page(rejected));
     }
 
+    /// <summary>
+    /// Auto Buy switching itself off read only "configuration_disabled (invariant_violation):
+    /// auto_buy", and the overnight purchases it stopped were noticed by accident. The sentence the
+    /// stand-down logged names the candidate, the refusal and the bundle, so health carries it.
+    /// </summary>
+    [Fact]
+    public void HealthSaysWhyAFeatureSwitchedItselfOff()
+    {
+        const string summary =
+            "Auto Buy planned a purchase the game would not take (Upgrade Improved Brewing " +
+            "[ImprovedBrewing] (3357c64a-f19b-4a03-8819-c1622081dd7b)): refused by IsAvailable(). " +
+            "Diagnostic bundle: trace/diagnostics/autobuy-refusal-20261017-063254172.txt. " +
+            "Auto Buy disabled itself; re-enable in Mod Config after reviewing.";
+        var autoBuy = new FeatureStatusSnapshot(
+            new FeatureStatusKey(PluginIds.SuiteGuid, "AutoBuy"),
+            "Auto Buy",
+            configuredEnabled: false,
+            FeatureStatusState.ConfigurationDisabled,
+            new FeatureStatusReason(FeatureStatusReasonCode.InvariantViolation, summary),
+            lifecycleGeneration: 9);
+        var autoHarvest = new FeatureStatusSnapshot(
+            new FeatureStatusKey(PluginIds.SuiteGuid, "AutoHarvest"),
+            "Auto Harvest",
+            configuredEnabled: false,
+            FeatureStatusState.ConfigurationDisabled,
+            new FeatureStatusReason(FeatureStatusReasonCode.ConfigurationDisabled, "disabled"),
+            lifecycleGeneration: 9);
+
+        var health = Plugin.ProjectGameMcpHealthText(
+            GameMcpTestHarness.Context(features: new[] { autoBuy, autoHarvest }));
+
+        Assert.Matches(
+            @"(?m)^features configuration_disabled: auto_harvest; " +
+            @"configuration_disabled \(invariant_violation\): auto_buy$",
+            health);
+        Assert.Contains("\nauto_buy reason: " + summary, health, StringComparison.Ordinal);
+        Assert.DoesNotContain("auto_harvest reason", health, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void TextToolsReturnOnlyTheAgentReadableTextContent()
     {

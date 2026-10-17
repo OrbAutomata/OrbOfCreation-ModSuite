@@ -2858,7 +2858,9 @@ appears only when it is a problem: `runtime:`, `native contracts:`, `game_craft:
 each cost a line exactly when they read `unavailable`, followed by the reason that names why —
 `game_modal:` answers for both halves of the verb, and its reason names whichever failed to bind —
 `agent settings:` costs a line exactly while the last load could not normalize the settings every
-documented verb assumes, and feature and service names are grouped by state and reason code. Seven identical NotReady features
+documented verb assumes, `<feature> reason:` costs a line for each feature the suite switched off itself
+(`invariant_violation`) and carries the sentence that stand-down logged — for Auto Buy, the
+candidate, the game's refusal, and the diagnostic bundle — and feature and service names are grouped by state and reason code. Seven identical NotReady features
 therefore occupy one line, not seven objects. The whole roster is one `features ` line and the whole
 service list is one `services ` line, their groups separated by `; ` — `features
 configuration_disabled: auto_buy, auto_harvest; operational: mentor` — because the leading word was
