@@ -64,6 +64,29 @@ public sealed class LoadoutContractTests
         Assert.Equal(0x06000f95, assembly.GetMethodToken("SnapshotLoadout`1", "Clear"));
     }
 
+    /// <summary>
+    /// The suite answers the swap gate from the spells' own states because the game's predicate
+    /// is not a read: refusing plays the error sound and raises a popup.
+    /// </summary>
+    [GameAssemblyFact]
+    public void CanSwapLoadoutsAsksOnlyCastingStatesAndSoundsItsRefusal()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.True(assembly.MethodReferencesField(
+            "LoadoutManager", "CanSwapLoadouts", "LoadoutManager", "activeSpells"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "LoadoutManager+<>c", "<CanSwapLoadouts>b__19_0", "Spell", "IsCasting"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "LoadoutManager+<>c", "<CanSwapLoadouts>b__19_0", "Spell", "IsReadyingCast"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "LoadoutManager", "CanSwapLoadouts", "GlobalVariables", "GetErrorSfx"));
+        Assert.Contains(assembly.GetMethodBodyDefinitionReferences("LoadoutManager", "CanSwapLoadouts"),
+            reference => reference.DeclaringType == "UIPopupText" && reference.MemberName == "Create");
+        Assert.True(assembly.MethodReferencesMethod(
+            "LoadoutManager", "SetLoadoutIndex", "LoadoutManager", "CanSwapLoadouts"));
+    }
+
     [Fact]
     public void ManifestNamesTheCompleteLoadoutBindingSet()
     {
@@ -71,7 +94,8 @@ public sealed class LoadoutContractTests
         {
             "loadout.manager.type-action", "loadout.player-list.type-action",
             "loadout.player.type-action", "loadout.label.type-action",
-            "loadout.spell.type-action", "loadout.spell-recipe.type-action",
+            "loadout.spell.type-action", "loadout.spell-list.type-action",
+            "loadout.spell-recipe.type-action",
             "loadout.equipment.type-action", "loadout.alchemy-recipe.type-action",
             "loadout.alchemy-snapshot-list.type-action", "loadout.equipment-snapshot-list.type-action",
             "loadout.alchemy-snapshot.type-action", "loadout.equipment-snapshot.type-action",
@@ -82,7 +106,8 @@ public sealed class LoadoutContractTests
             "loadout.manager-player-list-action", "loadout.manager-alchemy-snapshots-action",
             "loadout.manager-equipment-snapshots-action", "loadout.manager-active-alchemy-action",
             "loadout.manager-active-equipment-action",
-            "loadout.manager-can-swap-action", "loadout.manager-set-loadout-action",
+            "loadout.manager-can-swap-action", "loadout.manager-active-spells-action",
+            "loadout.manager-set-loadout-action",
             "loadout.manager-save-active-action", "loadout.list-values-action",
             "loadout.player-guid-action", "loadout.player-name-action",
             "loadout.player-selected-action", "loadout.player-equipment-enabled-action",
@@ -95,7 +120,8 @@ public sealed class LoadoutContractTests
             "loadout.label-set-color-action", "loadout.global-custom-icons-action",
             "loadout.global-custom-colors-action", "loadout.identity-guid-action",
             "loadout.spell-guid-action", "loadout.spell-reference-action",
-            "loadout.spell-empty-action", "loadout.alchemy-list-maximum-action",
+            "loadout.spell-empty-action", "loadout.spell-casting-action",
+            "loadout.spell-readying-cast-action", "loadout.alchemy-list-maximum-action",
             "loadout.equipment-list-maximum-action", "loadout.alchemy-snapshot-empty-action",
             "loadout.equipment-snapshot-empty-action", "loadout.alchemy-snapshot-clear-action",
             "loadout.equipment-snapshot-clear-action", "loadout.alchemy-snapshot-record-action",

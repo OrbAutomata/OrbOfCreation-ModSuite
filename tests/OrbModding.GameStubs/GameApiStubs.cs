@@ -2895,9 +2895,16 @@ public sealed class LoadoutManager
     public int SetLoadoutCalls { get; private set; }
     public int SaveActiveCalls { get; private set; }
 
-    private bool CanSwapLoadouts() =>
-        activeSpells.value.All(spell => spell is null ||
-            !spell.IsCasting() && !spell.IsReadyingCast());
+    public int RefusalFeedbacks { get; private set; }
+
+    /// <summary>The game's refusal plays the error sound and raises a popup, counted here.</summary>
+    private bool CanSwapLoadouts()
+    {
+        if (activeSpells.value.All(spell => !spell.IsCasting() && !spell.IsReadyingCast()))
+            return true;
+        RefusalFeedbacks++;
+        return false;
+    }
 
     public void SetLoadout(PlayerLoadout target)
     {

@@ -716,6 +716,29 @@ public sealed class GameWorldCollectorTests : IDisposable
             row => row.EntryId == equipment.Identity && row.Quantity == 2);
     }
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void A_cast_in_progress_blocks_switching_without_sounding_the_games_refusal(
+        bool casting, bool readyingCast)
+    {
+        FakeLoadoutManager.instance.playerLoadouts.value.Add(new FakePlayerLoadout { isSelected = true });
+        var other = new FakePlayerLoadout();
+        FakeLoadoutManager.instance.playerLoadouts.value.Add(other);
+        FakeLoadoutManager.instance.activeSpells.value.Add(new FakeSpell { empty = true });
+        FakeLoadoutManager.instance.activeSpells.value.Add(
+            new FakeSpell { casting = casting, readyingCast = readyingCast });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        Assert.True(WorldLoadoutLookup.TryFindPlayer(world.PlayerLoadouts, other.Identity, out var published));
+        Assert.False(published.CanSwitchNow);
+        Assert.Equal(0, FakeLoadoutManager.instance.RefusalFeedbacks);
+    }
+
     [Fact]
     public void ACategoryWithNothingToShowIsStillWalked()
     {
