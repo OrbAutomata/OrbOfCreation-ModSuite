@@ -59,13 +59,30 @@ down is how a player buys cheaper, slower actions. The dial and its cap share th
 Wood comes only from oaks:
 
 1. **Plant Sapling** on an Empty Plot (costs Verdant Energy while it plants). The Oak Tree takes
-   2 Plot Capacity and grows for 2:00.
+   2 Plot Capacity and grows for 2:00. At most 5 saplings plant at once, however many plots are
+   free.
 2. **Chop Down Oak Tree** drains **Skill** per second while it runs and pays Wood; with no Skill the
    chop stalls rather than failing. The tree is destroyed.
 3. The chopped plot is **Recovering** — 40 s per plot, one plot at a time — before it is an Empty
    Plot again. Only recovered plots take a sapling, so a planting order is clamped to them.
 
-Wood Axe (Agromancy Power for harvests) and Clearcutting (harvest speed) are the Workshop levers on
-the same loop; see [workshop.md](workshop.md). Observed yield: ~130 Wood per oak at the start,
-~1.1e3 after eight Wood Axe levels at Druidry Lv 3, ~5.7e3 at Wood Axe 10 with Improved Tools
-(×1.40 Agromancy Power and Speed).
+**Druidry Lv** is a dial beside the plots: each level multiplies agromancy speed ×2.25 and cost ×2.
+**Raise Druidry Lv** raises its maximum (and adds ×1.02 plot yield and ×1.75 plot recovery size). Wood Axe (Agromancy Power for
+harvests) and Clearcutting (harvest speed) are the Workshop levers on the same loop; see
+[workshop.md](workshop.md). Observed yield: ~130 Wood per oak at the start, ~1.1e3 after eight Wood
+Axe levels at Druidry Lv 3, ~5.7e3 at Wood Axe 10 with Improved Tools (×1.40 Agromancy Power and
+Speed).
+
+## Oaks are the stock for other trees
+
+A grown oak carries conversion actions besides Chop, each paid as a drain while it runs and
+turning that oak into a new kind of tree:
+
+| Oak action | Unlocked by | Drain (observed, Mastery Lv 2) | Becomes |
+|---|---|---|---|
+| **Grow Fruit** | Create Fruit Trees (World) | 1.51e5 Verdant Energy over 28.8 s | Fruit Tree |
+| **Energize** | Energy Trees (World) | 7.91e4 Spark + 5.93e4 Verdant Energy over 14.4 s | Force Tree |
+
+A Force Tree offers **Peel Bark** (Force Bark, tree kept) and **Chop Down Force Tree** (Force Bark
+and Wood, tree destroyed). An Empty Plot's other action, **Plant Seedling**, paid in Thaumaturgy,
+grows **Void Moss**.
