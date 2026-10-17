@@ -544,7 +544,7 @@ holds two rows under one identity and that no row went out unidentified. Sharing
 tables is not what it checks: the per-owner detail tables key their rows by the entity they describe
 on purpose, so that reaches the answer as a named, non-scoring line. Which tables the walk skips is
 stated in exactly one place — `NotIdentityTables` in
-`tests/OrbModding.Tests/Runtime/Verification/WorldIdentityWalkTests.cs`, currently 51 names — because
+`tests/OrbModding.Tests/Runtime/Verification/WorldIdentityWalkTests.cs`, currently 55 names — because
 every second reading of an entity another table already claims lands there. Five exclusions have reasons
 worth knowing:
 

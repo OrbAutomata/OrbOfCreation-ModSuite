@@ -93,15 +93,9 @@ public sealed class CraftingStationContractTests
             "crafting-station.station-set-level-action",
             "crafting-station.station-set-active-action",
             "crafting-station.guid-container.type-capture",
-            "crafting-station.cost.type-capture",
-            "crafting-station.cost-entry.type-capture",
             "crafting-station.structure-guid-capture",
             "crafting-station.station-recipe-id-capture",
             "crafting-station.guid-container-value-capture",
-            "crafting-station.station-current-drain-capture",
-            "crafting-station.cost-entries-capture",
-            "crafting-station.cost-entry-resource-capture",
-            "crafting-station.cost-entry-value-capture",
         };
 
         Assert.All(expected, id => Assert.Single(

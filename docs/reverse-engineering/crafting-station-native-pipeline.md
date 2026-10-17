@@ -57,10 +57,10 @@ single sentinel is `IsActive()` reaching the requested boolean.
 
 ## Read surface and risk
 
-The immutable station row contains current ingredients, output, loaded/active state, level range,
-available selector options, and `GetCurrentDrain()` resource rows. Drain amounts are planning data;
-they are not payment deltas and never verify a mutation. Each option and resource is rendered from
-the same world generation's identity catalog.
+The immutable station row contains current ingredients, output, loaded/active state, and level
+range: the target and sentinels the action resolves. Selector options and `GetCurrentDrain()` are
+not captured, because no read publishes a station; the action asks the selector strips itself on
+the main thread.
 
 Selector and level changes are reversible staging actions but stop an active brew. Stop interrupts
 production. Start commits an ongoing resource drain and output loop. Every mutation resolves UUID
@@ -71,16 +71,15 @@ absent.
 ## Disposable-save live checklist
 
 1. On a copied save, compare one Brewing Station row with both ingredient selectors, output,
-   loaded state, level range, Brew/Stop label, and displayed drain.
+   loaded state, level range, and Brew/Stop label.
 2. Select each ingredient direction and verify the screen and settled row agree, including any
    recipe/output invalidation performed by native recomputation.
 3. Select an output and verify the native callback restores its matching ingredient pair and the
    settled row returns all three values.
 4. Attempt an unavailable ingredient and hidden output; verify refusal occurs before mutation.
-5. Change level at both native bounds; verify the screen dial, settled level, stopped state, and
-   recalculated drain.
+5. Change level at both native bounds; verify the screen dial, settled level, and stopped state.
 6. Attempt an out-of-range level and verify an ordinary refusal.
 7. Attempt Start with an incomplete recipe and verify no active transition.
-8. Start a loaded recipe, verify Brew becomes Stop and the current drain matches the screen.
+8. Start a loaded recipe and verify Brew becomes Stop.
 9. Stop it, verify production becomes inactive without inferring refund or resource deltas.
 10. Cross a lifecycle boundary and verify a stale request refuses without a native call.

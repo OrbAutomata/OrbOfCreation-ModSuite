@@ -27789,7 +27789,7 @@
     {
       "id": "crafting-station.list-element.type-action", "assembly": "assembly-csharp",
       "type": "CraftingStructureSO+TypeListElement", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata Brewing Station GameAction", "Common Brewing Station world collection"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata Brewing Station GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "crafting-station.element.type-action", "assembly": "assembly-csharp",
@@ -27834,13 +27834,13 @@
       "id": "crafting-station.structure-ingredient-lists-action", "assembly": "assembly-csharp",
       "type": "CraftingStructureSO", "typeVisibility": "public", "kind": "field", "member": "ingredientLists",
       "visibility": "public", "static": false, "valueType": "System.Collections.Generic.List`1<CraftingStructureSO+TypeListElement>",
-      "owners": ["Automata Brewing Station GameAction", "Common Brewing Station world collection"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata Brewing Station GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "crafting-station.list-element-elements-action", "assembly": "assembly-csharp",
       "type": "CraftingStructureSO+TypeListElement", "typeVisibility": "public", "kind": "method", "member": "GetElements",
       "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<CraftingStructureSO+TypeElement>", "parameters": [],
-      "owners": ["Automata Brewing Station GameAction", "Common Brewing Station world collection"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata Brewing Station GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "crafting-station.element-tooltipable-action", "assembly": "assembly-csharp",
@@ -27852,7 +27852,7 @@
       "id": "crafting-station.element-available-action", "assembly": "assembly-csharp",
       "type": "CraftingStructureSO+TypeElement", "typeVisibility": "public", "kind": "method", "member": "IsAvailable",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
-      "owners": ["Automata Brewing Station GameAction", "Common Brewing Station world collection"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata Brewing Station GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "crafting-station.station-reference-action", "assembly": "assembly-csharp",
@@ -27882,13 +27882,13 @@
       "id": "crafting-station.station-output-list-action", "assembly": "assembly-csharp",
       "type": "CraftingStructure", "typeVisibility": "public", "kind": "method", "member": "GetOutputList",
       "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<CraftingStructureSO+TypeElement>", "parameters": [],
-      "owners": ["Automata Brewing Station GameAction", "Common Brewing Station world collection"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata Brewing Station GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "crafting-station.station-output-visible-action", "assembly": "assembly-csharp",
       "type": "CraftingStructure", "typeVisibility": "public", "kind": "method", "member": "IsOutputVisible",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": ["CraftingStructureSO+TypeElement"],
-      "owners": ["Automata Brewing Station GameAction", "Common Brewing Station world collection"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata Brewing Station GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "crafting-station.station-loaded-action", "assembly": "assembly-csharp",
@@ -27951,18 +27951,6 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
     },
     {
-      "id": "crafting-station.cost.type-capture", "assembly": "assembly-csharp",
-      "type": "ResourceCostList", "typeVisibility": "public", "kind": "type",
-      "owners": ["Common Brewing Station world collection"], "usages": ["reflection"], "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
-    },
-    {
-      "id": "crafting-station.cost-entry.type-capture", "assembly": "assembly-csharp",
-      "type": "ResourceTuple", "typeVisibility": "public", "kind": "type",
-      "owners": ["Common Brewing Station world collection"], "usages": ["reflection"], "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
-    },
-    {
       "id": "crafting-station.structure-guid-capture", "assembly": "assembly-csharp",
       "type": "IdScriptableObject", "typeVisibility": "public", "kind": "method", "member": "GetGuid",
       "visibility": "public", "static": false, "returnType": "System.Guid", "parameters": [],
@@ -27982,34 +27970,6 @@
       "visibility": "private", "static": false, "valueType": "System.Guid",
       "owners": ["Common Brewing Station world collection"], "usages": ["reflection"], "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Guid"}
-    },
-    {
-      "id": "crafting-station.station-current-drain-capture", "assembly": "assembly-csharp",
-      "type": "CraftingStructure", "typeVisibility": "public", "kind": "method", "member": "GetCurrentDrain",
-      "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": [],
-      "owners": ["Common Brewing Station world collection"], "usages": ["reflection"], "place": "capture",
-      "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game builds an aggregate the reader then walks; the walk is what the suite wants, and the aggregate is how the game hands it over.", "evidence": "kind:method returning ResourceCostList; classified from its signature, no IL body audit"}
-    },
-    {
-      "id": "crafting-station.cost-entries-capture", "assembly": "assembly-csharp",
-      "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "GetEntries",
-      "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<ResourceTuple>", "parameters": [],
-      "owners": ["Common Brewing Station world collection"], "usages": ["reflection"], "place": "capture",
-      "capture": {"class": "enumerating", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game walks a collection and hands back its members.", "evidence": "kind:method returning System.Collections.Generic.List`1<ResourceTuple>; classified from its signature, no IL body audit"}
-    },
-    {
-      "id": "crafting-station.cost-entry-resource-capture", "assembly": "assembly-csharp",
-      "type": "ResourceTuple", "typeVisibility": "public", "kind": "field", "member": "resource",
-      "visibility": "public", "static": false, "valueType": "ResourceSO",
-      "owners": ["Common Brewing Station world collection"], "usages": ["reflection"], "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ResourceSO"}
-    },
-    {
-      "id": "crafting-station.cost-entry-value-capture", "assembly": "assembly-csharp",
-      "type": "ResourceTuple", "typeVisibility": "public", "kind": "method", "member": "GetValue",
-      "visibility": "public", "static": false, "returnType": "BigDouble", "parameters": [],
-      "owners": ["Common Brewing Station world collection"], "usages": ["reflection"], "place": "capture",
-      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning BigDouble; classified from its signature, no IL body audit"}
     },
     {
       "id": "loadout.manager.type-action", "assembly": "assembly-csharp", "type": "LoadoutManager",
