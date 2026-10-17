@@ -130,11 +130,12 @@ opens with the Grow Magic Herbs upgrade and drains Verdant Energy and Organic Es
 A Magebloom plant offers **Gather Magebloom**: a Control price up front, then Magebloom per second
 for the action's duration (observed +4.1/s for 78 s at Mastery Lv 11–12), after which the plant
 is Recovering for ~53 s and then Growing again for ~15 min; the plant itself stays. A gather of
-several plants is one action card with a count badge, and the rate stays the same (observed ~4.1/s
-for one, two or three plants), so the ceiling on Magebloom is one gather running all the time. A gather does not repeat by itself:
-each one is a fresh press. Improved Herbalism opens the two gathering attributes, **Rapid Gathering**
-(+18% gathering speed) and **Magic Botany** (+10% gathering power); after ten and two levels a gather
-ran 35 s at +500/s, ~1.75e4 Magebloom per press against ~6.3e3 over 11:11 before (observed). Each
+several plants is one action card with a count badge that runs its gathers one after another, one
+plant each, at the single-gather rate (observed ~4.1/s for one, two or three plants), so the ceiling
+on Magebloom is one gather running all the time. Improved Herbalism opens the two gathering
+attributes, **Rapid Gathering** (+18% gathering speed) and **Magic Botany** (+10% gathering power);
+after ten and two levels a gather ran 35 s at +500/s, ~1.75e4 Magebloom against ~6.3e3 over 11:11
+before (observed). Each
 Magebloom plant weighs 1 Plot Capacity. The **Magebloom harvest element** (2 Gathering Capacity) holds
 its own pool of 10 Magebloom: active, it pays that pool out in under a minute; idle, the pool refills
 at ~0.003/s (observed).
