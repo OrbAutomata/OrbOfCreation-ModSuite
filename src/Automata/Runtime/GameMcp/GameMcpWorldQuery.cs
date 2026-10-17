@@ -175,6 +175,8 @@ internal static class GameMcpWorldQuery
             };
             break;
         }
+        var requiredRolls = RequiredRolls(world);
+        if (requiredRolls.Count > 0) result["requiredRolls"] = requiredRolls;
         result["collection"] = CompactCollectionStatus(world);
         return result;
     }
@@ -239,6 +241,41 @@ internal static class GameMcpWorldQuery
         if (resource.Reading.RateInputs.RatePassiveModifiers > 0)
             text.Append(", equilibrium ").Append(GameScientificNumber.Beautify(resource.Equilibrium));
         return text.ToString();
+    }
+
+    /// <summary>
+    /// Every discovery page whose tab carries the game's new-content mark for a required
+    /// discovery: the tree, the screen it is drawn on, and the price of the roll it owes.
+    /// </summary>
+    /// <remarks>
+    /// <c>ViewSO.InternalHasActiveTutorial()</c> raises the mark on a page whose
+    /// <c>discoveryTree</c> answers <c>HasImmediateRequiredDiscover()</c>, and while it does
+    /// <c>GetNextItemCost()</c> prices the required item rather than the pool ladder, so the price
+    /// can move to a resource the tree never charged before. A tree whose roll is already pressed
+    /// owes no price, so its row carries none.
+    /// </remarks>
+    private static JArray RequiredRolls(GameWorldState world)
+    {
+        var rows = new JArray();
+        for (var index = 0; index < world.Views.Count; index++)
+        {
+            var view = world.Views[index];
+            if (view.DiscoveryTreeId == Guid.Empty || !view.Available) continue;
+            if (!WorldLookup.TryFind(world.DiscoveryTrees, view.DiscoveryTreeId, out var tree) ||
+                !tree.HasImmediateRequiredDiscovery)
+            {
+                continue;
+            }
+            var row = new JObject
+            {
+                ["tree"] = tree.EntityId.ToString("D"),
+                ["screen"] = GameScreenPath.For(view.ViewId),
+            };
+            if (tree.NextItemCosts.Count > 0)
+                row["costs"] = DiscoveryTreeCosts(world, in tree, shortfalls: null);
+            rows.Add(row);
+        }
+        return rows;
     }
 
     /// <summary>
@@ -6320,6 +6357,40 @@ internal static class GameMcpWorldQuery
             "is offered only once the game shows it.";
     }
 
+    /// <summary>
+    /// The price of a tree's next roll, one row per resource, with every unmet one added to
+    /// <paramref name="shortfalls"/> when a caller words them.
+    /// </summary>
+    private static JArray DiscoveryTreeCosts(
+        GameWorldState world,
+        in WorldDiscoveryTree tree,
+        List<(string, BigDouble, BigDouble)>? shortfalls)
+    {
+        var costs = new JArray();
+        for (var index = 0; index < tree.NextItemCosts.Count; index++)
+        {
+            var cost = tree.NextItemCosts[index];
+            var amount = SpendableAmount(world, cost.ResourceId, cost.AvailableAmount);
+            var affordable = CanAfford(world, cost.ResourceId, cost.Amount, cost.AvailableAmount);
+            var price = PlayerFacingCost(world, cost.ResourceId, cost.Amount);
+            var (priceCell, amountCell) = GameMcpNumberFormatter.CellsApart(price, amount);
+            costs.Add(new JObject
+            {
+                ["resourceId"] = cost.ResourceId.ToString("D"),
+                ["cost"] = priceCell,
+                ["amount"] = amountCell,
+                ["affordable"] = affordable,
+            });
+            if (affordable || shortfalls is null) continue;
+            var identity = EntityIdentityFormatter.Describe(cost.ResourceId, world.EntityIdentities);
+            shortfalls.Add((
+                identity.HasName ? identity.Name : cost.ResourceId.ToString("D"),
+                price,
+                amount));
+        }
+        return costs;
+    }
+
     private static GameMcpValue ProjectDiscoveryTree(
         GameWorldState world,
         in WorldDiscoveryTree tree)
@@ -6380,33 +6451,8 @@ internal static class GameMcpWorldQuery
             // would still not exist.
             if (tree.Visible && hasNext && tree.NextItemCosts.Count > 0)
             {
-                var costs = new JArray();
                 var shortfalls = new List<(string, BigDouble, BigDouble)>();
-                for (var index = 0; index < tree.NextItemCosts.Count; index++)
-                {
-                    var cost = tree.NextItemCosts[index];
-                    var amount = SpendableAmount(
-                        world, cost.ResourceId, cost.AvailableAmount);
-                    var affordable = CanAfford(
-                        world, cost.ResourceId, cost.Amount, cost.AvailableAmount);
-                    var price = PlayerFacingCost(world, cost.ResourceId, cost.Amount);
-                    var (priceCell, amountCell) = GameMcpNumberFormatter.CellsApart(price, amount);
-                    costs.Add(new JObject
-                    {
-                        ["resourceId"] = cost.ResourceId.ToString("D"),
-                        ["cost"] = priceCell,
-                        ["amount"] = amountCell,
-                        ["affordable"] = affordable,
-                    });
-                    if (affordable) continue;
-                    var identity = EntityIdentityFormatter.Describe(
-                        cost.ResourceId, world.EntityIdentities);
-                    shortfalls.Add((
-                        identity.HasName ? identity.Name : cost.ResourceId.ToString("D"),
-                        price,
-                        amount));
-                }
-                initiate["costs"] = costs;
+                initiate["costs"] = DiscoveryTreeCosts(world, in tree, shortfalls);
 
                 // The price row reads in the screen's rounding, and a round read `cost: 5 of 5
                 // Knowledge affordable=no` off 4.6 Knowledge and went looking for a bug. The

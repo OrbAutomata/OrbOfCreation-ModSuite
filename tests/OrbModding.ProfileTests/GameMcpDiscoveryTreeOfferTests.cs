@@ -1565,6 +1565,73 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             "discovery-trees",
             treeId.ToString("D")))["row"]!["initiate"]!;
 
+    /// <summary>
+    /// The game marks a discovery page's tab while its tree owes a required discovery, and that
+    /// roll is priced in the required item's own resources. A live round hunted a Skill source for
+    /// several reads while the mark on Magic &gt; Spellbook &gt; Unlock held the answer, because no
+    /// world read carried the mark.
+    /// </summary>
+    [Fact]
+    public void TheOverviewNamesEveryMarkedRequiredRollWithItsScreenAndPrice()
+    {
+        var spellTree = Guid.Parse("5ba0b305-21bd-4b43-af88-cc763ac04df8");
+        var glyphTree = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
+        var conceptTree = Guid.Parse("3444dae4-9323-4e4e-8a0a-ae800da15ab8");
+        var verdantEnergy = Guid.Parse("fca918e7-ba2a-4659-a2fb-d5f9371ee37f");
+        WorldDiscoveryTree Idle(Guid id, bool required) => new(
+            id, true, 0, BigDouble.Zero, 1, false, Guid.Empty, Array.Empty<Guid>(),
+            required, false,
+            new[] { new WorldDiscoveryTreeCost(verdantEnergy, new BigDouble(12, 2), new BigDouble(5, 2)) },
+            Guid.Empty, Guid.Empty, 0, 0, false, 2, 8, 5, 9, required, true, false);
+        var world = new GameWorldState
+        {
+            DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new[]
+            {
+                Idle(spellTree, required: true),
+                Idle(glyphTree, required: false),
+                Idle(conceptTree, required: true),
+            }),
+            Views = PublicationTable<WorldView>.Create(new[]
+            {
+                new WorldView(KnownEntities.MagicSpellbookLearn.Uuid, false, false, true, spellTree),
+                new WorldView(KnownEntities.MagicGlyphsDiscover.Uuid, false, false, true, glyphTree),
+                new WorldView(
+                    KnownEntities.ScholarConceptDiscover.Uuid, false, false, false, conceptTree),
+            }),
+            EntityIdentities = EntityIdentityCatalogSnapshot.Unbound(1),
+            CollectedAtEpoch = 7,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+
+        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+            GameMcpTestHarness.Context(world, generation: 90)));
+
+        var roll = Assert.Single(overview["requiredRolls"]!.Values<JObject>())!;
+        Assert.Equal(GameMcpTestHarness.Handle(spellTree), (string?)roll["tree"]!["uuid"]);
+        Assert.Equal("Magic > Spellbook > Unlock", (string?)roll["screen"]);
+        var cost = Assert.Single(roll["costs"]!.Values<JObject>())!;
+        Assert.Equal("Verdant Energy", (string?)cost["resource"]!["name"]);
+        Assert.Equal("1.20e3", (string?)cost["cost"]);
+        Assert.False((bool)cost["affordable"]!);
+        Assert.Contains(
+            "cost: 1.20e3 of 500 Verdant Energy",
+            GameMcpTextPage.Render(overview),
+            StringComparison.Ordinal);
+
+        var quiet = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(GameMcpTestHarness.Context(
+            new GameWorldState
+            {
+                DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new[]
+                    { Idle(glyphTree, required: false) }),
+                Views = world.Views,
+                EntityIdentities = EntityIdentityCatalogSnapshot.Unbound(1),
+                CollectedAtEpoch = 7,
+                CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+            },
+            generation: 91)));
+        Assert.Null(quiet["requiredRolls"]);
+    }
+
     private static GameWorldState DiscoveryWorld(
         WorldDiscoveryTree tree,
         WorldTimeRune[]? timeRunes = null,

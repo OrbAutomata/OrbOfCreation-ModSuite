@@ -2,19 +2,24 @@ using System;
 
 namespace OrbModding.Common.Runtime.World;
 
-/// <summary>One view as published: whether it is active, and whether it is always active.</summary>
+/// <summary>
+/// One view as published: whether it is active, whether it is always active, and the discovery tree
+/// whose roll it draws.
+/// </summary>
 internal readonly struct WorldView : IWorldEntity
 {
     internal WorldView(
         Guid viewId,
         bool active,
         bool alwaysActive,
-        bool available)
+        bool available,
+        Guid discoveryTreeId = default)
     {
         ViewId = viewId;
         Active = active;
         AlwaysActive = alwaysActive;
         Available = available;
+        DiscoveryTreeId = discoveryTreeId;
     }
 
     internal Guid ViewId { get; }
@@ -27,6 +32,13 @@ internal readonly struct WorldView : IWorldEntity
 
     /// <summary>The game's composed progression answer for this view.</summary>
     internal bool Available { get; }
+
+    /// <summary>
+    /// <c>ViewSO.discoveryTree</c>: the tree this page rolls, or <see cref="Guid.Empty"/> on a page
+    /// that rolls none. <c>ViewSO.InternalHasActiveTutorial()</c> raises the tab's new-content mark
+    /// off this edge while the tree owes a required discovery.
+    /// </summary>
+    internal Guid DiscoveryTreeId { get; }
 }
 
 internal sealed class WorldViewBinder : WorldPlainBinder<WorldView>
@@ -35,6 +47,7 @@ internal sealed class WorldViewBinder : WorldPlainBinder<WorldView>
     private Func<object, bool>? _active;
     private Func<object, bool>? _alwaysActive;
     private Func<object, bool>? _available;
+    private Func<object, Guid>? _discoveryTree;
 
     internal override string Category => "views";
 
@@ -47,6 +60,7 @@ internal sealed class WorldViewBinder : WorldPlainBinder<WorldView>
         _active = bind.Field<bool>("active");
         _alwaysActive = bind.Field<bool>("alwaysActive");
         _available = bind.Call<bool>("IsAvailable");
+        _discoveryTree = bind.ReferenceGuid("discoveryTree");
         return bind.Failure;
     }
 
@@ -55,5 +69,6 @@ internal sealed class WorldViewBinder : WorldPlainBinder<WorldView>
             _id!(entity),
             _active!(entity),
             _alwaysActive!(entity),
-            _available!(entity));
+            _available!(entity),
+            _discoveryTree!(entity));
 }
