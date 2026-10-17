@@ -387,7 +387,7 @@ internal sealed class GameMcpProtocolRouter
                 if (builder.Mode is "preview" or "add")
                 {
                     builder.Uuid = RequireUuid(arguments, "uuid");
-                    builder.UuidCounts = RequireUuidCountArray(arguments, "glyphs", 64);
+                    builder.UuidCounts = RequireGlyphLayout(arguments);
                 }
                 else if (builder.Mode is "remove" or "move")
                     builder.Amount = RequiredInt(arguments, "slot", 1, 256);
@@ -860,18 +860,18 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_spell_loadout",
                 "Read staging; preview, add, remove, or move a spell",
-                "Read the exact staged Spellcraft core and augment layout; preview an explicit layout's native price without changing staging; add that layout baked into a new spell; or remove or move an equipped spell. remove and move name the slot on the loadout bar, counted from 1 as the screen shows it. Success returns the settled slot change.",
+                "Read the exact staged Spellcraft core and augment layout; preview an explicit layout's native price without changing staging; add that layout baked into a new spell; or remove or move an equipped spell. preview and add take the augments as glyphs=[{\"uuid\": \"<augment glyph id>\", \"count\": 1}], or glyphs=[] for none. remove and move name the slot on the loadout bar, counted from 1 as the screen shows it. Success returns the settled slot change.",
                 ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema("staged", "preview", "add", "remove", "move"),
                         ["uuid"] = StringSchema("A discovered recipe id, for preview and add."),
-                        ["glyphs"] = ArraySchema(
+                        ["glyphs"] = DescribedSchema(ArraySchema(
                             ObjectSchema(new JObject
                             {
                                 ["uuid"] = StringSchema("Published augment glyph id."),
                                 ["count"] = IntegerSchema(1, int.MaxValue),
-                            }, "uuid", "count"), 0, 64),
+                            }, "uuid", "count"), 0, 64), GlyphLayoutShape),
                         ["slot"] = IntegerSchema(1, 256),
                         ["destination"] = IntegerSchema(1, 256),
                     },
@@ -1523,7 +1523,8 @@ internal sealed class GameMcpProtocolRouter
                 if (!subject) errors.Add(ValidationError("missing_required", "uuid",
                     "required field 'uuid' is missing for mode '" + mode + "'"));
                 if (!glyphs) errors.Add(ValidationError("missing_required", "glyphs",
-                    "required field 'glyphs' is missing for mode '" + mode + "'"));
+                    "required field 'glyphs' is missing for mode '" + mode + "'; " +
+                    GlyphLayoutShape));
             }
             else
             {
@@ -1753,6 +1754,12 @@ internal sealed class GameMcpProtocolRouter
     /// A declared ceiling is published; an int.MaxValue placeholder is not. Publishing the
     /// placeholder put a number in the shape of a bound that no part of the game ever chose.
     /// </summary>
+    private static JObject DescribedSchema(JObject schema, string description)
+    {
+        schema["description"] = description;
+        return schema;
+    }
+
     private static JObject IntegerSchema(int minimum, int maximum)
     {
         var schema = new JObject
@@ -1831,6 +1838,20 @@ internal sealed class GameMcpProtocolRouter
                 .ToString("D");
         }
         return result;
+    }
+
+    private const string GlyphLayoutShape =
+        "glyphs takes a list of {uuid, count} objects, e.g. " +
+        "[{\"uuid\": \"<augment glyph id>\", \"count\": 1}], or [] for no augments";
+
+    private static GameMcpUuidCount[] RequireGlyphLayout(JObject source)
+    {
+        try { return RequireUuidCountArray(source, "glyphs", 64); }
+        catch (GameMcpInvalidParamsException exception)
+        {
+            throw new GameMcpInvalidParamsException(
+                exception.Message + "; " + GlyphLayoutShape, exception.Code);
+        }
     }
 
     private static GameMcpUuidCount[] RequireUuidCountArray(

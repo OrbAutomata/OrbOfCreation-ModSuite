@@ -2231,7 +2231,8 @@ The MCP-only base-recipe sequence is:
    spell, the `loadout` block naming the bar slot it went into and the instance uuid of the copy
    that landed there.
 3. If an equipped instance is wanted, call
-   `game_spell_loadout(mode="preview", uuid=..., glyphs=[...])`. This read runs every admission
+   `game_spell_loadout(mode="preview", uuid=..., glyphs=[{"uuid": "<augment glyph id>", "count": 1}])`,
+   or `glyphs=[]` for no augments; a wrong `glyphs` shape is refused with that shape. This read runs every admission
    `add` runs before `add` stages anything — the screen being unlocked, the glyph ceilings, glyph
    duration/toggle requirements, usage requirements, the weight fitting, a free loadout slot, and
    loadout uniqueness — without touching the player's staged UI selection, so an available preview

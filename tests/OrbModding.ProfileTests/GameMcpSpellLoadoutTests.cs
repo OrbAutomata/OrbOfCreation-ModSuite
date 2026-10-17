@@ -119,6 +119,48 @@ public sealed class GameMcpSpellLoadoutTests
     }
 
     [Fact]
+    public void GlyphsSchemaAndDescriptionShowTheUuidCountShape()
+    {
+        var tool = Assert.Single(
+            GameMcpAcceptanceFixture.Tools(),
+            candidate => (string?)candidate["name"] == "game_spell_loadout");
+        const string example = "[{\"uuid\": \"<augment glyph id>\", \"count\": 1}]";
+
+        Assert.Contains(example, (string?)tool["description"], StringComparison.Ordinal);
+        Assert.Contains(
+            example,
+            (string?)tool["inputSchema"]!["properties"]!["glyphs"]!["description"],
+            StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("[\"f3000000-0000-0000-0000-000000000002\"]", "glyphs[0] must be an object")]
+    [InlineData("\"f3000000-0000-0000-0000-000000000002\"", "glyphs must be an array")]
+    [InlineData("[{\"uuid\": \"f3000000-0000-0000-0000-000000000002\"}]", "count must be an integer")]
+    public void WrongGlyphsShapeIsRefusedWithTheExpectedShape(string glyphs, string cause)
+    {
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var response = router.Handle(GameMcpAcceptanceFixture.Request(
+            1,
+            "tools/call",
+            new JObject
+            {
+                ["name"] = "game_spell_loadout",
+                ["arguments"] = new JObject
+                {
+                    ["mode"] = "preview",
+                    ["uuid"] = FirstRecipeId.ToString("D"),
+                    ["glyphs"] = JToken.Parse(glyphs),
+                },
+            }));
+
+        Assert.Equal(
+            "refused (ERR_INPUT): " + cause + "; glyphs takes a list of {uuid, count} objects, " +
+            "e.g. [{\"uuid\": \"<augment glyph id>\", \"count\": 1}], or [] for no augments",
+            GameMcpTestHarness.Page(response));
+    }
+
+    [Fact]
     public void PreviewRequiresTheExplicitLayoutAndIsClassifiedAsReadOnly()
     {
         var operation = GameMcpProtocolRouter.BuildOperation(
