@@ -13,7 +13,6 @@ internal enum CraftingInstanceLifecyclePreflight
     PageRelationAmbiguous,
     InstanceUnavailable,
     AutomationFull,
-    MultiBuyUnavailable,
     MutationPermitUnavailable,
     PostCommitFault,
     VerificationFailed,

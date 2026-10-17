@@ -213,7 +213,7 @@ public sealed class CraftingRecipeSO : IdScriptableObject
     public double timeToComplete;
     public bool visible;
     public bool BuyAllowed = true;
-    public int MaximumAffordableLevel = int.MaxValue;
+    public double MaximumAffordableLevel = double.MaxValue;
     public BigDouble StartingQuantity = BigDouble.One;
     public ResourceCostList TotalCost = new ResourceCostList();
     public CraftingRecipeTypeSO MainType = new CraftingRecipeTypeSO
@@ -235,7 +235,7 @@ public sealed class CraftingRecipeSO : IdScriptableObject
     public int StartingQuantityCalls;
     public int CanBuyCalls;
     public int ExecuteCalls;
-    public BigDouble? MultiBuyQuantityOverride;
+    public BigDouble MostAffordable = new BigDouble(1000000, 0);
     private readonly PassiveObservable.Channel effectChannel = new("craft");
 
     public bool IsVisible()
@@ -252,11 +252,17 @@ public sealed class CraftingRecipeSO : IdScriptableObject
             TotalCost.HasEnough();
     }
     public bool CanBuy() => IsVisible() && CanBuyAt(GetPurchaseQuantity(BigDouble.One));
-    public BigDouble GetPurchaseQuantity(BigDouble previousQuantity) =>
-        useQuantityAsLevel ? GetStartingQuantity() : BigDouble.One;
-    public BigDouble GetMultiBuyQuantity(BigDouble previousQuantity) =>
-        MultiBuyQuantityOverride ?? previousQuantity + GlobalVariables.GetMultiBuy().AsInt();
-    public static int CalcAutomatedQuantity(BigDouble quantity) => quantity.ToInt();
+    public BigDouble GetPurchaseQuantity(BigDouble previousQuantity)
+    {
+        var multiBuy = GlobalVariables.GetMultiBuy().AsInt();
+        if (multiBuy <= 1 && UseStartingLevel(previousQuantity)) return GetStartingQuantity();
+        if (multiBuy <= 1) return MostAffordable > BigDouble.Zero ? BigDouble.One : BigDouble.Zero;
+        return multiBuy > 99
+            ? MostAffordable
+            : new BigDouble(Math.Ceiling(MostAffordable.ToDouble() * multiBuy / 100));
+    }
+    private bool UseStartingLevel(BigDouble previousQuantity) =>
+        previousQuantity <= BigDouble.Zero && MainType.isLevelType;
     public BigDouble GetStartingQuantity()
     {
         StartingQuantityCalls++;
@@ -344,9 +350,6 @@ public sealed class UICraftingPage : UnityEngine.Object
         new CraftingInstanceListVariable { isAutoList = true };
     public IntVariable craftMode = new IntVariable();
     public CraftingRecipeTypeSO mainCraftType = new CraftingRecipeTypeSO();
-
-    private int GetAutoCraftingQuantity(CraftingRecipeSO recipe) =>
-        craftingAutomationInstances.GetInstance(recipe)?.GetAutomationQuantity() ?? 0;
 }
 
 public sealed class CraftingInstance : AbstractRefInstance<CraftingRecipeSO>

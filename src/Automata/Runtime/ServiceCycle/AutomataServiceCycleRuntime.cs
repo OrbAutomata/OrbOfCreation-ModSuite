@@ -251,7 +251,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             if (command.Kind == GameMcpCommandKind.Consumable)
                 return ExecuteConsumable(command, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.Crafting)
-                return ExecuteCrafting(command, lifecycle, configuration.Generation.Value);
+                return ExecuteCrafting(
+                    command, world.Snapshot, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.EquipmentLoadout)
                 return ExecuteEquipmentLoadout(command, lifecycle, configuration.Generation.Value);
             if (command.Kind == GameMcpCommandKind.AlchemyLoadout)
@@ -620,6 +621,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
 
     private GameMcpCommandResult ExecuteCrafting(
         GameMcpCommand command,
+        GameWorldState world,
         long lifecycle,
         ulong configurationGeneration)
     {
@@ -653,14 +655,22 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 GameMcpCraftingProjection.Project(in instanceSubmission));
         }
         var feature = (AutoScribeServiceCycleFeature.Runtime)FindFeature(command.Kind);
-        var action = new CraftingPlayerAction(
-            command.TargetId,
-            command.ExpectedLifecycleGeneration);
+        var max = command.PayloadValue == "max";
         return GameMcpCraftingProjection.Press(
             command,
             lifecycle,
             configurationGeneration,
-            () => feature.TryExecuteGameMcp(in action));
+            max,
+            () => GameMcpWorldQuery.CraftShortfallReason(world, command.TargetId),
+            remaining =>
+            {
+                var action = new CraftingPlayerAction(
+                    command.TargetId,
+                    command.ExpectedLifecycleGeneration,
+                    remaining,
+                    max);
+                return feature.TryExecuteGameMcp(in action);
+            });
     }
 
     private GameMcpCommandResult ExecuteEquipmentLoadout(

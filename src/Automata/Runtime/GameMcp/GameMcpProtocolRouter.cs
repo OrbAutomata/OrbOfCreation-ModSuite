@@ -433,9 +433,22 @@ internal sealed class GameMcpProtocolRouter
                         "cancel_manual", "cancel_automation")
                     : "craft";
                 builder.Uuid = RequireUuid(arguments, "uuid");
-                builder.Amount = builder.Mode == "craft"
-                    ? OptionalIntInRange(arguments, "amount", 1, 1, 1000)
-                    : 1;
+                if (builder.Mode == "craft" &&
+                    arguments.TryGetValue("amount", out var craftAmount) &&
+                    craftAmount.Type == JTokenType.String)
+                {
+                    if (craftAmount.Value<string>() != "max")
+                        throw new GameMcpInvalidParamsException(
+                            "amount must be a whole number of crafts or \"max\"");
+                    builder.SerializedValue = "max";
+                    builder.Amount = 1;
+                }
+                else
+                {
+                    builder.Amount = builder.Mode == "craft"
+                        ? OptionalIntInRange(arguments, "amount", 1, 1, int.MaxValue)
+                        : 1;
+                }
                 break;
             case "game_discover":
                 builder.Mode = RequireOneOf(arguments, "mode",
@@ -951,14 +964,19 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_craft",
                 "Craft or control one recipe",
-                "Craft one exact recipe, add its UI-sized automation increment, or cancel its manual or automated instance. amount is how many times craft presses the recipe's Craft button and defaults to 1; it is taken as far as it goes, exactly as repeated presses on the screen would: a craft that delivers less than the ask says delivered against asked on one line and, on that same line, why the rest stopped. Success returns only the settled quantity change.",
+                "Craft one exact recipe, add one automation repetition, or cancel its manual or automated instance. amount is how many crafts craft queues and defaults to 1; \"max\" queues what the screen's Mx press would. The ask is taken as far as the stock goes: a craft that queues less than the ask says queued against asked on one line and, on that same line, why the rest stopped. Success returns only the settled quantity change.",
                 ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema(
                             "craft", "automate", "cancel_manual", "cancel_automation"),
                         ["uuid"] = StringSchema("Published crafting recipe id."),
-                        ["amount"] = IntegerSchema(1, 1000),
+                        ["amount"] = new JObject
+                        {
+                            ["anyOf"] = new JArray(
+                                IntegerSchema(1, int.MaxValue),
+                                EnumSchema("max")),
+                        },
                     },
                     "uuid"),
                     ModeRule("craft"),

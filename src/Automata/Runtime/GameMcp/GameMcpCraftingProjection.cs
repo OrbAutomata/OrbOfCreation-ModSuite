@@ -8,26 +8,30 @@ namespace OrbAutomata.GameMcp;
 internal static class GameMcpCraftingProjection
 {
     /// <summary>
-    /// Presses the recipe's Craft button <c>amount</c> times through the one craft GameAction and
-    /// answers with how many presses its own sentinel verified. A refusal after the first press
-    /// keeps what landed and names why the rest stopped; a press that faulted answers as the fault.
+    /// Queues <c>amount</c> crafts of the recipe, or with <c>max</c> what the screen's Mx press
+    /// would, through the one craft GameAction and answers with how many crafts its own sentinel
+    /// verified. A refusal after crafts landed keeps them and names why the rest stopped; a
+    /// submission that faulted answers as the fault.
     /// </summary>
     internal static GameMcpCommandResult Press(
         GameMcpCommand command,
         long lifecycle,
         ulong configurationGeneration,
-        Func<CraftingPlayerSubmission> press)
+        bool max,
+        Func<string> shortfall,
+        Func<int, CraftingPlayerSubmission> press)
     {
-        var landed = 0;
+        var asked = new BigDouble(command.Amount, 0);
+        var landed = BigDouble.Zero;
         var completed = false;
         ServiceActionResult verified = default;
         string? remainder = null;
-        while (landed < command.Amount)
+        while (max ? landed <= BigDouble.Zero : landed < asked)
         {
-            var submission = press();
+            var submission = press(command.Amount - (int)landed.ToDouble());
             if (!submission.Verified)
             {
-                if (landed == 0 || submission.CallOutcome.MutationAttempts > 0)
+                if (landed <= BigDouble.Zero || submission.CallOutcome.MutationAttempts > 0)
                 {
                     var stopped = CraftingPlayerActionResultMapper.Map(in submission);
                     return GameMcpCommandResult.FromAction(
@@ -35,20 +39,21 @@ internal static class GameMcpCraftingProjection
                         command.Kind,
                         lifecycle,
                         configurationGeneration,
-                        landed == 0
-                            ? submission.Reason
-                            : landed + " of " + command.Amount + " asked went through before " +
-                              "this press. " + submission.Reason,
+                        landed <= BigDouble.Zero
+                            ? FirstRefusal(in submission, shortfall)
+                            : GameMcpNumberFormatter.Format(landed) + " of " +
+                              GameMcpNumberFormatter.Format(asked) + " asked went through " +
+                              "before this craft. " + submission.Reason,
                         Project(in submission));
                 }
-                remainder = "the rest stopped: " + submission.Reason;
+                remainder = submission.Reason;
                 break;
             }
             verified = CraftingPlayerActionResultMapper.Map(in submission);
             completed = submission.Postcondition is
                 CraftingPlayerPostcondition.DirectEffectAdvanced or
                 CraftingPlayerPostcondition.InstantCompleted;
-            landed++;
+            landed += submission.Crafted;
         }
         return GameMcpCommandResult.FromAction(
             in verified,
@@ -58,9 +63,21 @@ internal static class GameMcpCraftingProjection
             details: new JObject
             {
                 ["uuid"] = command.TargetId.ToString("D"),
-                [completed ? "completed" : "queued"] =
-                    GameMcpWorldQuery.QueuedValue(command.Amount, landed, remainder),
+                [completed ? "completed" : "queued"] = remainder is null
+                    ? (object)new GameMcpDomainValue(landed)
+                    : GameMcpNumberFormatter.Format(landed) + " of " +
+                      GameMcpNumberFormatter.Format(asked) + " asked; the rest stopped: " +
+                      remainder,
             }.Freeze());
+    }
+
+    private static string FirstRefusal(
+        in CraftingPlayerSubmission submission,
+        Func<string> shortfall)
+    {
+        if (submission.Preflight != CraftingPlayerPreflight.Unaffordable) return submission.Reason;
+        var named = shortfall();
+        return named.Length == 0 ? submission.Reason : named;
     }
 
     internal static GameMcpValue Project(in CraftingPlayerSubmission submission)

@@ -31,6 +31,7 @@ internal sealed class CraftingPlayerNativeBindings
         "crafting-player.effect-channel-observe-action",
         "crafting-player.passive-observable-id-action",
         "crafting-player.recipe-time-action",
+        "crafting-player.recipe-levelled-action",
         "crafting-player.queue-get-quantity-action",
         "crafting-player.instance-add-quantity-action",
         "crafting-player.instance-quantity-action",
@@ -59,6 +60,7 @@ internal sealed class CraftingPlayerNativeBindings
     private readonly FieldInfo _pageCraftMode;
     private readonly FieldInfo _pageMainType;
     private readonly FieldInfo _recipeTime;
+    private readonly FieldInfo _recipeLevelled;
     private readonly FieldInfo _recipeListValue;
     private readonly FieldInfo _instanceListValue;
     private readonly MethodInfo _identity;
@@ -105,6 +107,7 @@ internal sealed class CraftingPlayerNativeBindings
         FieldInfo pageCraftMode,
         FieldInfo pageMainType,
         FieldInfo recipeTime,
+        FieldInfo recipeLevelled,
         FieldInfo recipeListValue,
         FieldInfo instanceListValue,
         MethodInfo identity,
@@ -150,6 +153,7 @@ internal sealed class CraftingPlayerNativeBindings
         _pageCraftMode = pageCraftMode;
         _pageMainType = pageMainType;
         _recipeTime = recipeTime;
+        _recipeLevelled = recipeLevelled;
         _recipeListValue = recipeListValue;
         _instanceListValue = instanceListValue;
         _identity = identity;
@@ -209,6 +213,10 @@ internal sealed class CraftingPlayerNativeBindings
         _recipeTime.GetValue(recipe) is double value
             ? value
             : throw new InvalidOperationException("CraftingRecipeSO.timeToComplete changed type.");
+    internal bool RecipeLevelled(object recipe) =>
+        _recipeLevelled.GetValue(recipe) is bool value
+            ? value
+            : throw new InvalidOperationException("CraftingRecipeSO.useQuantityAsLevel changed type.");
     internal bool RecipeCanBuyAt(object recipe, BigDouble amount) =>
         Invoke<bool>(_recipeCanBuyAt, recipe, amount);
     internal BigDouble RecipePurchaseAmount(object recipe, BigDouble previous) =>
@@ -290,6 +298,7 @@ internal sealed class CraftingPlayerNativeBindings
                 Field(page, "craftMode", intVariable),
                 Field(page, "mainCraftType", recipeType),
                 Field(recipe, "timeToComplete", typeof(double)),
+                Field(recipe, "useQuantityAsLevel", typeof(bool)),
                 GenericListValue(recipeList, recipe),
                 GenericListValue(instanceList, instance),
                 MethodFromHierarchy(recipe, "GetGuid", typeof(Guid)),

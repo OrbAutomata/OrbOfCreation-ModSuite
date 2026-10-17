@@ -18,6 +18,8 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
     {
         IdScriptableObject.RuntimeLookup.Clear();
         UnityEngine.Resources.Objects.Clear();
+        NativeMultiBuyScope.ResetQuarantineForTests();
+        GlobalVariables.MultiBuy = new IntVariable { Value = 25 };
     }
 
     public void Dispose()
@@ -38,6 +40,8 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         Assert.Equal(1, recipe.ExecuteCalls);
         Assert.Equal(0, recipe.PurchaseCalls);
         Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.CallOutcome);
+        Assert.Equal(BigDouble.One, result.Crafted);
+        Assert.Equal(25, GlobalVariables.MultiBuy.Value);
     }
 
     [Fact]
@@ -85,6 +89,106 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         Assert.Single(page.craftingQueueInstances.value);
         Assert.Equal(1, recipe.PurchaseCalls);
         Assert.Equal(new NativeMutationCallOutcome(2, 1, 1), result.CallOutcome);
+    }
+
+    [Fact]
+    public void ACountRecipeQueuesTheWholeAskAsOneInstanceWhateverTheScreenMultiplierReads()
+    {
+        var recipe = Register(Recipe());
+        var page = Page(recipe, mode: 1, maximum: 2);
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, recipe, amount: 1_000_000);
+
+        Assert.True(result.Verified, result.Reason);
+        var instance = Assert.Single(page.craftingQueueInstances.value);
+        Assert.Equal(new BigDouble(1_000_000, 0), instance.Quantity);
+        Assert.Equal(new BigDouble(1_000_000, 0), result.Crafted);
+        Assert.Equal(1, recipe.PurchaseCalls);
+        Assert.Equal(25, GlobalVariables.MultiBuy.Value);
+    }
+
+    [Fact]
+    public void ACountAskAboveWhatTheStockAffordsQueuesTheAffordablePart()
+    {
+        var recipe = Register(Recipe());
+        recipe.MostAffordable = new BigDouble(40, 0);
+        var page = Page(recipe, mode: 1, maximum: 2);
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, recipe, amount: 45);
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(new BigDouble(40, 0), result.Crafted);
+        Assert.Equal(new BigDouble(40, 0), Assert.Single(page.craftingQueueInstances.value).Quantity);
+    }
+
+    [Fact]
+    public void ACountRecipeNothingCanBeAffordedOfRefusesAsUnaffordable()
+    {
+        var recipe = Register(Recipe());
+        recipe.MostAffordable = BigDouble.Zero;
+        Page(recipe, mode: 1, maximum: 2);
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, recipe, amount: 3);
+
+        Assert.Equal(CraftingPlayerPreflight.Unaffordable, result.Preflight);
+        Assert.Equal("The cost of another of this craft is not met.", result.Reason);
+        Assert.Equal(0, recipe.PurchaseCalls);
+        Assert.Equal(25, GlobalVariables.MultiBuy.Value);
+    }
+
+    [Fact]
+    public void AScrollNothingCanBeAffordedOfRefusesAsUnaffordable()
+    {
+        var recipe = Register(Recipe());
+        recipe.useQuantityAsLevel = true;
+        recipe.MainType.isLevelType = true;
+        recipe.MostAffordable = BigDouble.Zero;
+        var page = Page(recipe, mode: 0, maximum: 2);
+        page.craftingQueueInstances.value.Add(new CraftingInstance(recipe, new BigDouble(4, 0)));
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, recipe, amount: 1);
+
+        Assert.Equal(CraftingPlayerPreflight.Unaffordable, result.Preflight);
+        Assert.Equal("The cost of another of this craft is not met.", result.Reason);
+        Assert.Equal(0, recipe.PurchaseCalls);
+    }
+
+    [Fact]
+    public void MaxQueuesWhatTheMxPressWould()
+    {
+        var recipe = Register(Recipe());
+        recipe.MostAffordable = new BigDouble(3.96, 9);
+        var page = Page(recipe, mode: 1, maximum: 2);
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, recipe, max: true);
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(new BigDouble(3.96, 9), result.Crafted);
+        Assert.Equal(new BigDouble(3.96, 9), Assert.Single(page.craftingQueueInstances.value).Quantity);
+        Assert.Equal(25, GlobalVariables.MultiBuy.Value);
+    }
+
+    [Fact]
+    public void AScrollIsOneCraftAtTheScreensX1LevelWhateverTheScreenMultiplierReads()
+    {
+        var recipe = Register(Recipe());
+        recipe.useQuantityAsLevel = true;
+        recipe.MainType.isLevelType = true;
+        recipe.StartingQuantity = new BigDouble(4, 0);
+        var page = Page(recipe, mode: 1, maximum: 2);
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, recipe, amount: 3);
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(BigDouble.One, result.Crafted);
+        Assert.Equal(new BigDouble(4, 0), Assert.Single(page.craftingQueueInstances.value).Quantity);
+        Assert.Equal(25, GlobalVariables.MultiBuy.Value);
     }
 
     [Fact]
@@ -252,9 +356,12 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
     private CraftingPlayerSubmission Submit(
         AutoScribeOneShotCraftGameAction boundary,
         CraftingRecipeSO recipe,
-        long? lifecycle = null)
+        long? lifecycle = null,
+        int amount = 1,
+        bool max = false)
     {
-        var action = new CraftingPlayerAction(recipe.GetGuid(), lifecycle ?? _lifecycle);
+        var action = new CraftingPlayerAction(
+            recipe.GetGuid(), lifecycle ?? _lifecycle, amount, max);
         return boundary.Submit(in action);
     }
 

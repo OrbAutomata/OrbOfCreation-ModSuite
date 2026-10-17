@@ -4145,8 +4145,8 @@ internal static class GameMcpWorldQuery
         }
         return Change(
             command.TargetId,
-            hasBefore ? previous.QueuedAmount.ToInt() : null,
-            current.QueuedAmount.ToInt(),
+            hasBefore ? new GameMcpDomainValue(previous.QueuedAmount) : null,
+            new GameMcpDomainValue(current.QueuedAmount),
             "queued");
     }
 
@@ -8344,6 +8344,26 @@ internal static class GameMcpWorldQuery
             : sentence;
     }
 
+    internal static string CraftShortfallReason(GameWorldState world, Guid recipeId)
+    {
+        if (!WorldCraftingDecisionLookup.TryFindCostRange(
+                world.CraftingDecisionCosts, recipeId, out var start, out var count))
+            return string.Empty;
+        var rows = new List<(string, BigDouble, BigDouble)>();
+        for (var index = start; index < start + count; index++)
+        {
+            var value = world.CraftingDecisionCosts[index];
+            if (CanAfford(world, value.ResourceId, value.Cost, value.Amount)) continue;
+            var identity = EntityIdentityFormatter.Describe(
+                value.ResourceId, world.EntityIdentities);
+            rows.Add((
+                identity.HasName ? identity.Name : value.ResourceId.ToString("D"),
+                PlayerFacingCost(world, value.ResourceId, value.Cost),
+                SpendableAmount(world, value.ResourceId, value.Amount)));
+        }
+        return GameMcpDecisionReason.Shortfall(rows);
+    }
+
     internal static bool CanAfford(
         GameWorldState world,
         Guid resourceId,
@@ -9699,7 +9719,7 @@ internal static class GameMcpWorldQuery
             if (decision.Pipeline is WorldCraftingPipeline.QueueStack or
                 WorldCraftingPipeline.QueueNew)
             {
-                result["queuedAmount"] = decision.QueuedAmount.ToInt();
+                result["queuedAmount"] = new GameMcpDomainValue(decision.QueuedAmount);
                 result["queue"] = new JObject
                 {
                     ["queueId"] = decision.QueueId.ToString("D"),

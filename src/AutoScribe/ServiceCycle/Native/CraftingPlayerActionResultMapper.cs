@@ -32,7 +32,6 @@ internal static class CraftingPlayerActionResultMapper
             CraftingPlayerPreflight.RecipeUnavailable => CraftingPlayerActionResultCodes.RecipeUnavailable,
             CraftingPlayerPreflight.NotVisible => CraftingPlayerActionResultCodes.NotVisible,
             CraftingPlayerPreflight.PageRelationAmbiguous => CraftingPlayerActionResultCodes.PageRelationAmbiguous,
-            CraftingPlayerPreflight.InvalidPurchaseAmount => CraftingPlayerActionResultCodes.InvalidPurchaseAmount,
             CraftingPlayerPreflight.QueueFull => CraftingPlayerActionResultCodes.QueueFull,
             CraftingPlayerPreflight.Unaffordable => CraftingPlayerActionResultCodes.Unaffordable,
             CraftingPlayerPreflight.MutationPermitUnavailable => CraftingPlayerActionResultCodes.MutationPermitUnavailable,

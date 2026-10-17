@@ -21,10 +21,9 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
     public void Dispose() => UnityEngine.Resources.Objects.Clear();
 
     [Fact]
-    public void Automate_uses_the_ui_increment_and_requires_a_larger_native_quantity()
+    public void Automate_adds_one_repetition_whatever_the_screen_multiplier_reads()
     {
         var (recipe, page) = Surface();
-        recipe.MultiBuyQuantityOverride = new BigDouble(7);
         var existing = new CraftingInstance(recipe, new BigDouble(2)).SetAuto(true);
         existing.SetAutomationQuantity(2);
         page.craftingAutomationInstances.value.Add(existing);
@@ -34,11 +33,12 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
 
         Assert.True(result.Verified, result.Reason);
         Assert.Same(existing, page.craftingAutomationInstances.GetInstance(recipe));
-        Assert.Equal(5, existing.GetAutomationQuantity());
+        Assert.Equal(3, existing.GetAutomationQuantity());
+        Assert.Equal(3, GlobalVariables.MultiBuy.Value);
     }
 
     [Fact]
-    public void Automated_cancel_uses_multi_buy_and_observes_the_game_written_decrease()
+    public void Automated_cancel_removes_one_repetition_and_observes_the_game_written_decrease()
     {
         var (recipe, page) = Surface();
         var existing = new CraftingInstance(recipe, new BigDouble(5)).SetAuto(true);
@@ -50,7 +50,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
             boundary, recipe, CraftingInstanceLifecycleActionKind.CancelAutomation);
 
         Assert.True(result.Verified, result.Reason);
-        Assert.Equal(2, existing.GetAutomationQuantity());
+        Assert.Equal(4, existing.GetAutomationQuantity());
         Assert.Single(page.craftingAutomationInstances.value);
     }
 
@@ -70,15 +70,15 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
 
         Assert.True(first.Verified, first.Reason);
         Assert.True(second.Verified, second.Reason);
-        Assert.Equal(3, existing.GetAutomationQuantity());
+        Assert.Equal(7, existing.GetAutomationQuantity());
     }
 
     [Fact]
     public void Automated_cancel_that_empties_the_entry_observes_its_removal()
     {
         var (recipe, page) = Surface();
-        var existing = new CraftingInstance(recipe, new BigDouble(3)).SetAuto(true);
-        existing.SetAutomationQuantity(3);
+        var existing = new CraftingInstance(recipe, new BigDouble(1)).SetAuto(true);
+        existing.SetAutomationQuantity(1);
         page.craftingAutomationInstances.value.Add(existing);
         using var boundary = Boundary(recipe);
 
@@ -94,7 +94,6 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
     public void A_failed_transition_reports_the_automation_quantity_it_already_moved()
     {
         var (recipe, page) = Surface();
-        recipe.MultiBuyQuantityOverride = new BigDouble(7);
         var existing = new CraftingInstance(recipe, new BigDouble(2)).SetAuto(false);
         existing.SetAutomationQuantity(2);
         page.craftingAutomationInstances.value.Add(existing);
@@ -105,7 +104,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
         Assert.Equal(CraftingInstanceLifecyclePreflight.VerificationFailed, result.Preflight);
         Assert.True(result.SideEffect.Observed);
         Assert.Equal(2, result.SideEffect.AutomationBefore);
-        Assert.Equal(5, result.SideEffect.AutomationAfter);
+        Assert.Equal(3, result.SideEffect.AutomationAfter);
     }
 
     [Fact]

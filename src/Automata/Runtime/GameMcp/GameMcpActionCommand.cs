@@ -922,7 +922,6 @@ internal static class GameMcpActionResultCodeNames
             if (code == CraftingInstanceLifecycleActionResultCodes.PageRelationAmbiguous) return "page_relation_ambiguous";
             if (code == CraftingInstanceLifecycleActionResultCodes.InstanceUnavailable) return "instance_unavailable";
             if (code == CraftingInstanceLifecycleActionResultCodes.AutomationFull) return "automation_full";
-            if (code == CraftingInstanceLifecycleActionResultCodes.MultiBuyUnavailable) return "multi_buy_unavailable";
             if (code == CraftingInstanceLifecycleActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";
             if (code == CraftingInstanceLifecycleActionResultCodes.PostCommitFault) return "post_commit_fault";
             if (code == CraftingInstanceLifecycleActionResultCodes.VerificationFailed) return "verification_failed";
@@ -931,7 +930,6 @@ internal static class GameMcpActionResultCodeNames
             if (code == CraftingPlayerActionResultCodes.RecipeUnavailable) return "recipe_unavailable";
             if (code == CraftingPlayerActionResultCodes.NotVisible) return "not_visible";
             if (code == CraftingPlayerActionResultCodes.PageRelationAmbiguous) return "page_relation_ambiguous";
-            if (code == CraftingPlayerActionResultCodes.InvalidPurchaseAmount) return "invalid_purchase_amount";
             if (code == CraftingPlayerActionResultCodes.QueueFull) return "queue_full";
             if (code == CraftingPlayerActionResultCodes.Unaffordable) return "unaffordable";
             if (code == CraftingPlayerActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";
