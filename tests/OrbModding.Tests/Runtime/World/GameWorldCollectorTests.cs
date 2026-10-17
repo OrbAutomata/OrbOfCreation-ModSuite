@@ -590,12 +590,12 @@ public sealed class GameWorldCollectorTests : IDisposable
         // prints above its numbers, which were readable only by hovering something that showed one,
         // and finally the ritual layer's own glossary — the ten authored vocabularies the combat,
         // enchanting and rune screens are written in — plus the Statistics tab's headings and the
-        // authored distribution each heading carries.
+        // authored distribution each heading carries, and the resource panel's draw order.
         // A pass that quietly stopped covering one would show
         // up only as a consumer finding nothing where there was something.
         var report = Collector().Collect();
 
-        Assert.Equal(89, report.Categories.Length);
+        Assert.Equal(90, report.Categories.Length);
         Assert.True(report.IsComplete, report.Describe());
 
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a

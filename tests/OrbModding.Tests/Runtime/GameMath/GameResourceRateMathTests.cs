@@ -307,4 +307,42 @@ public sealed class GameResourceRateMathTests
 
         Assert.Equal(33.48d, GameResourceRateMath.GetOverflowGain(in r, 100d).ToDouble(), 2);
     }
+
+    [Fact]
+    public void EquilibriumIsWhereLossNetOfInterestCancelsTheFlatGain()
+    {
+        // 10/s against 5% loss balances at 200; a 100 ceiling holds it at 100.
+        var r = Neutral();
+        r.Rate = 10d;
+        r.LossPercent = 5d;
+        Assert.Equal(200d, GameResourceRateMath.GetEquilibrium(in r).ToDouble(), 10);
+
+        r.MaxQuantity = 100d;
+        Assert.Equal(100d, GameResourceRateMath.GetEquilibrium(in r).ToDouble(), 10);
+    }
+
+    [Fact]
+    public void WithNoNetLossEquilibriumIsTheCeilingOrUnbounded()
+    {
+        var r = Neutral();
+        r.Rate = 10d;
+        r.LossPercent = 5d;
+        r.RateInterestPercent = 5d;
+        Assert.True(BigDouble.IsPositiveInfinity(GameResourceRateMath.GetEquilibrium(in r)));
+
+        r.MaxQuantity = 300d;
+        Assert.Equal(300d, GameResourceRateMath.GetEquilibrium(in r).ToDouble());
+    }
+
+    [Fact]
+    public void ADrainThatOutrunsTheGainBalancesAtNothing()
+    {
+        var r = Neutral();
+        r.Rate = 10d;
+        r.Drain = 20d;
+        r.LossPercent = 5d;
+        r.MaxQuantity = 300d;
+
+        Assert.Equal(0d, GameResourceRateMath.GetEquilibrium(in r).ToDouble());
+    }
 }

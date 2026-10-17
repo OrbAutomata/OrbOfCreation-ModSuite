@@ -107,6 +107,8 @@ internal static class GameMcpWorldQuery
         if (WorldLookup.TryFind(
                 world.DoubleVariables, KnownEntities.TimePlayedThisReset.Uuid, out var thisReset))
             result["timePlayedThisReset"] = Clock(thisReset.Value, thisReset.IsTimeAccurate);
+        var resources = ResourceBarLines(world);
+        if (resources.Count > 0) result["resources"] = resources;
         result["economy"] = new JObject
         {
             ["resourceRows"] = world.Resources.Count,
@@ -175,6 +177,68 @@ internal static class GameMcpWorldQuery
         }
         result["collection"] = CompactCollectionStatus(world);
         return result;
+    }
+
+    /// <summary>
+    /// The left resource panel in one line per resource it is drawing: held, the ceiling, the net
+    /// rate and the clock its tooltip prints.
+    /// </summary>
+    /// <remarks>
+    /// Every number is the game's own: the panel's quantity, capacity and <c>GetTrueRate()</c>, and
+    /// from <c>ResourceSO.GetBaseTooltipNodes</c> the Maxed in pair (time to fill from here, then
+    /// from empty), Empty in, and Equilibrium, each under the condition the tooltip draws it — the
+    /// two clocks only while no percentage loss runs, Equilibrium only while the flat rate carries a
+    /// passive modifier. A resource at its ceiling says full instead of a zero clock.
+    /// </remarks>
+    internal static JArray ResourceBarLines(GameWorldState world)
+    {
+        var lines = new JArray();
+        for (var index = 0; index < world.ResourceBar.Count; index++)
+        {
+            var resourceId = world.ResourceBar[index].ResourceId;
+            if (!WorldLookup.TryFind(world.Resources, resourceId, out var resource) ||
+                !resource.Reading.Visible)
+                continue;
+            lines.Add(
+                EntityIdentityFormatter.PlayerName(resourceId, world.EntityIdentities) + ": " +
+                ResourceBarLine(in resource));
+        }
+        return lines;
+    }
+
+    private static string ResourceBarLine(in WorldResource resource)
+    {
+        var held = WorldResourceCoordinate.DisplayAmount(in resource);
+        var rate = resource.TrueRate;
+        var text = new StringBuilder(GameScientificNumber.Beautify(held));
+        if (resource.IsCapped)
+            text.Append('/').Append(GameScientificNumber.Beautify(resource.Reading.Capacity));
+        if (rate != BigDouble.Zero)
+        {
+            text.Append(' ').Append(rate > BigDouble.Zero ? "+" : string.Empty)
+                .Append(GameScientificNumber.Beautify(rate)).Append("/s");
+        }
+
+        var lossless = resource.Reading.RateInputs.LossPercent == BigDouble.Zero;
+        if (resource.IsCapped && resource.IsAtCapacity)
+            text.Append(", full");
+        else if (resource.IsCapped && rate > BigDouble.Zero && lossless)
+        {
+            text.Append(", maxed in ")
+                .Append(GameDurationText.UltraPreciseWithYears(resource.Headroom / rate))
+                .Append('/')
+                .Append(GameDurationText.UltraPreciseWithYears(resource.Reading.Capacity / rate));
+        }
+        else if (rate < BigDouble.Zero && lossless)
+        {
+            var stored = resource.Reading.Quantity;
+            text.Append(stored == BigDouble.Zero ? ", empty" : ", empty in " +
+                GameDurationText.UltraPreciseWithYears(stored / -rate));
+        }
+
+        if (resource.Reading.RateInputs.RatePassiveModifiers > 0)
+            text.Append(", equilibrium ").Append(GameScientificNumber.Beautify(resource.Equilibrium));
+        return text.ToString();
     }
 
     /// <summary>

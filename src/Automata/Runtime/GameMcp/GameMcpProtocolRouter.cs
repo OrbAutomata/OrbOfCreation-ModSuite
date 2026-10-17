@@ -656,7 +656,7 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "world_overview",
                 "Published world overview",
-                "Read the compact facts a strategist normally needs before choosing a detailed query.",
+                "Read the compact facts a strategist normally needs before choosing a detailed query, the resource panel among them: every resource it shows with held, cap, net rate per second and the time to fill or empty its tooltip prints.",
                 ObjectSchema()),
             Tool(
                 "world_categories",

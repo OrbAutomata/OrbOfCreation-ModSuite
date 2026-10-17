@@ -173,6 +173,21 @@ internal static class GameResourceRateMath
     internal static BigDouble GetModdedDrain(in GameResourceRateInputs r) =>
         r.Drain / OrbGameMath.AsPercent(r.Quality);
 
+    /// <summary>
+    /// Ported from <c>ResourceSO.GetEquilibrium()</c>: the stock at which percentage loss, net of
+    /// interest, cancels the flat gain. The ceiling bounds it, and with no net loss to balance
+    /// against it is the ceiling itself, or unbounded on an uncapped resource.
+    /// </summary>
+    internal static BigDouble GetEquilibrium(in GameResourceRateInputs r)
+    {
+        var net = GetBaseModdedRate(in r) - GetModdedDrain(in r);
+        if (net < r.BaseLoss) return 0;
+        var loss = OrbGameMath.AsPercent(r.LossPercent - r.RateInterestPercent);
+        if (loss <= 0) return HasMaxQuantity(in r) ? r.MaxQuantity : BigDouble.PositiveInfinity;
+        var balance = (net - r.BaseLoss) / loss;
+        return HasMaxQuantity(in r) ? BigDouble.Min(r.MaxQuantity, balance) : balance;
+    }
+
     /// <summary>Ported from <c>ResourceSO.GetLossRate(bool)</c>.</summary>
     /// <remarks>
     /// The literal <c>0.85</c> is the original's, and matches the <c>OverflowLossPercent = 85.0</c>

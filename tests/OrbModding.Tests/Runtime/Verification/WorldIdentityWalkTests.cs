@@ -137,6 +137,8 @@ public sealed class WorldIdentityWalkTests
     /// <c>DiscoveryTreeBooks</c> is the authored edge between a Recipe Book and each discovery tree
     /// it widens the pool of: both ends are entities their own tables claim, and the row is only the
     /// membership between them.
+    /// <c>ResourceBar</c> is the resource panel's draw order: every row names a resource the resources
+    /// table claims, and the row is only its place on the panel.
     /// <c>EntityKeywords</c> is the same shape again: the entity and
     /// the type asset whose display name is the keyword are both claimed elsewhere — the entity by its
     /// own category and the type by the lifecycle identity catalog — and the row is only the authored
@@ -213,6 +215,7 @@ public sealed class WorldIdentityWalkTests
         "KeywordModifiers",
         "SpellTypeResonance",
         "AttributeGroupMembers",
+        "ResourceBar",
     };
 
     /// <summary>

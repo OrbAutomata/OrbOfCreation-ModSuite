@@ -152,6 +152,7 @@ internal static class WorldSamples
             rateInterestPercentModifiers: 0,
             rateMissingPercentModifiers: 0,
             rateLifetimePercentModifiers: 0,
+            ratePassiveModifiers: 0,
             default,
             default,
             default,

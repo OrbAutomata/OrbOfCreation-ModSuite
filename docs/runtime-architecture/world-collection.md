@@ -599,6 +599,11 @@ worth knowing:
   reader of that field, which is why the book tile appears on the discovery page whose pool it widens
   rather than on a single authored screen of its own. Published whole or withheld whole: a partial
   table is indistinguishable from a book that genuinely widens nothing.
+- **Resource panel.** `WorldResourceBar.cs` publishes which resources the left resource panel draws,
+  in its order: the pinned Mana orb, then the pinned `NonManaCoreResources` and `MaterialResources`
+  lists' authored members, read once per lifecycle from the identity registry. Every other resource
+  is drawn by the page that owns it. Published whole or withheld whole: a partial panel reads like a
+  run that has fewer resources.
 - **Spell slots and costs.** `WorldSpellSlot.cs` publishes the equipped loadout and `WorldSpellCost.cs`
   what casting out of it costs, both from one reader, because a slot's price is only answerable from the
   same equipped instance the slot was read from. Neither is identity-keyed: a position may be unfilled

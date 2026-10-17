@@ -220,6 +220,7 @@ public sealed class GameWorldCycleFrameTests
             rateInterestPercentModifiers: 0,
             rateMissingPercentModifiers: 0,
             rateLifetimePercentModifiers: 0,
+            ratePassiveModifiers: 0,
             lossPercent: default,
             displayRate: default,
             calcRarityValue: new BigDouble(1d),

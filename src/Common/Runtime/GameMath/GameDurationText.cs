@@ -16,6 +16,7 @@ internal static class GameDurationText
 {
     private static readonly BigDouble Minute = new BigDouble(60d);
     private static readonly BigDouble Year = new BigDouble(31557600d);
+    private static readonly BigDouble Century = new BigDouble(3155760000d);
 
     /// <summary>
     /// <c>Utils.BeautifyTimeAccurate</c>: one unit, and nothing under it. Its second branches lose
@@ -59,6 +60,43 @@ internal static class GameDurationText
         }
         return text.ToString();
     }
+
+    /// <summary>
+    /// <c>Utils.BeautifyTimeUltraPreciseWithYears</c>, the resource tooltip's Maxed in and Empty in
+    /// clock: the same seconds branch, years as a number only past a century, and between the two
+    /// years, days, hours, minutes and seconds, each padded to two digits, with leading empty units
+    /// dropped — so eight days and three hours reads <c>08:03:00:00</c>. The units are cut in the
+    /// game's own <c>BigDouble</c> arithmetic, so a reading on a unit boundary floors where the
+    /// game's does.
+    /// </summary>
+    internal static string UltraPreciseWithYears(BigDouble seconds)
+    {
+        if (seconds < BigDouble.Zero) return "-" + UltraPreciseWithYears(BigDouble.Abs(seconds));
+        if (seconds < Minute) return Beautified(seconds) + "s";
+        if (seconds > Century) return Beautified(seconds / Year) + "y";
+
+        var units = new[]
+        {
+            Whole(seconds / Year),
+            Whole(Mod(seconds / new BigDouble(86400d), new BigDouble(365.25d))),
+            Whole(Mod(seconds / new BigDouble(3600d), new BigDouble(24))),
+            Whole(Mod(seconds / Minute, new BigDouble(60))),
+            Whole(Mod(seconds, new BigDouble(60))),
+        };
+        var text = new StringBuilder();
+        for (var index = 0; index < units.Length; index++)
+        {
+            if (text.Length == 0 && units[index] < 1) continue;
+            if (text.Length > 0) text.Append(':');
+            text.Append(units[index].ToString(CultureInfo.InvariantCulture).PadLeft(2, '0'));
+        }
+        return text.ToString();
+    }
+
+    private static int Whole(BigDouble value) => BigDouble.Floor(value).ToInt();
+
+    private static BigDouble Mod(BigDouble value, BigDouble divisor) =>
+        value - (BigDouble.Floor(value / divisor) * divisor);
 
     private static string Beautified(BigDouble value) =>
         GameScientificNumber.Beautify(value);

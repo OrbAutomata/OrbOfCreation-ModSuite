@@ -172,6 +172,32 @@ public sealed class NumberSpellingContractTests
     }
 
     /// <summary>
+    /// The resource tooltip clocks Maxed in and Empty in with the years clock and prints
+    /// Equilibrium as <c>GetEquilibrium</c>: the overview's resource lines spell the same three
+    /// through the suite's mirrors of them.
+    /// </summary>
+    [GameAssemblyFact]
+    public void TheResourceTooltipClocksItsCountdownsWithTheYearsClock()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        var clock = assembly.GetMethodToken("Utils", "BeautifyTimeUltraPreciseWithYears", "BigDouble");
+        foreach (var countdown in new[] { "<GetBaseTooltipNodes>b__252_2", "<GetBaseTooltipNodes>b__252_3" })
+        {
+            Assert.Contains(
+                clock,
+                assembly.GetMethodBodyDefinitionReferences("ResourceSO", countdown)
+                    .Select(reference => reference.Token));
+        }
+        Assert.True(assembly.MethodReferencesMethod(
+            "ResourceSO", "GetBaseTooltipNodes", "ResourceSO", "GetEquilibrium"));
+        Assert.Contains(
+            assembly.GetMethodToken("Utils", "BeautifyNumber", "BigDouble"),
+            assembly.GetMethodBodyDefinitionReferences("Utils", "BeautifyTimeUltraPreciseWithYears")
+                .Select(reference => reference.Token));
+    }
+
+    /// <summary>
     /// The notation the screen draws is a setting the game owns, and the getter behind it is
     /// unreadable anywhere but the player loop — which is why the suite writes the option rather
     /// than capturing it, and why the mirror implements one of the switch's five arms.

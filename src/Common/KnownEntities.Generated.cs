@@ -22,6 +22,7 @@ internal readonly struct IntVariableContract { }
 internal readonly struct PlotNodeActionInstanceListVariableContract { }
 internal readonly struct PlotNodeActionSOContract { }
 internal readonly struct PlotNodeSOContract { }
+internal readonly struct ResourceListVariableContract { }
 internal readonly struct ResourceSOContract { }
 internal readonly struct ScalingWeightSOContract { }
 internal readonly struct SpellListVariableContract { }
@@ -92,12 +93,15 @@ internal static class KnownEntities
     public static readonly KnownEntity<ViewSOContract> MagicSpellbook = new(new Guid("ca934900-0253-4f71-93e9-733fb91132b7"), "ViewSO", "MagicSpellbook");
     public static readonly KnownEntity<ViewSOContract> MagicSpellbookLearn = new(new Guid("cdfbbee5-7fa2-41fe-a6aa-903beb692fb2"), "ViewSO", "MagicSpellbookLearn");
     public static readonly KnownEntity<ViewSOContract> MagicSpellbookLoadout = new(new Guid("accf9abb-d916-4fdf-96d7-1b1d5fdd548c"), "ViewSO", "MagicSpellbookLoadout");
+    public static readonly KnownEntity<ResourceSOContract> Mana = new(new Guid("b11072bf-7980-4e23-bc6c-8034ba09b925"), "ResourceSO", "Mana");
     public static readonly KnownEntity<ViewSOContract> MasteriesEnabled = new(new Guid("07dfae7e-76b9-4b38-bf81-38abc40b9ed7"), "ViewSO", "MasteriesEnabled");
     public static readonly KnownEntity<IntVariableContract> MultiBuy = new(new Guid("37a84399-98b5-463c-b858-c1ecf2f9bf34"), "IntVariable", "MultiBuy");
     public static readonly KnownEntity<ResourceSOContract> PotionToxicity = new(new Guid("4dd4e062-2015-4809-a50f-f37647bda339"), "ResourceSO", "PotionToxicity");
     public static readonly KnownEntity<AlchemyTypeSOContract> Reductive = new(new Guid("47b787b9-d4cd-43c8-a7e3-63a1e4e0ae94"), "AlchemyTypeSO", "Reductive");
     public static readonly KnownEntity<AlchemyTypeSOContract> Refinement = new(new Guid("32b6b099-19f2-4470-b47b-6c2a8b0388e1"), "AlchemyTypeSO", "Refinement");
     public static readonly KnownEntity<AlchemyTypeSOContract> Reflective = new(new Guid("8f258dcc-c39a-4d64-b915-4239e746c49d"), "AlchemyTypeSO", "Reflective");
+    public static readonly KnownEntity<ResourceListVariableContract> ResourceBarCore = new(new Guid("0ed546af-dec8-42ff-8e89-e53a5f86e1de"), "ResourceListVariable", "NonManaCoreResources");
+    public static readonly KnownEntity<ResourceListVariableContract> ResourceBarMaterials = new(new Guid("b6079b18-b962-4cc1-a3e5-62eafaacf4b8"), "ResourceListVariable", "MaterialResources");
     public static readonly KnownEntity<ViewSOContract> RitualsDiscover = new(new Guid("443bc384-3df6-49ac-aa52-28abe080595c"), "ViewSO", "RitualsDiscover");
     public static readonly KnownEntity<ViewSOContract> ScholarConceptDiscover = new(new Guid("f0e4b59a-b510-4de3-ae3e-dfca0fd76239"), "ViewSO", "ScholarConceptDiscover");
     public static readonly KnownEntity<ViewSOContract> ScreenMagic = new(new Guid("9746b42e-1b57-4f98-8ba4-f64b4c34d8c1"), "ViewSO", "ScreenMagic");
