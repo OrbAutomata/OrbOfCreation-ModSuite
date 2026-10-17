@@ -108,9 +108,9 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
             idle = new AutoConceptIdle(
                 (AutoConceptIdleReason)reason.Value,
                 (AutoConceptIdleMove)move.Value,
-                ReadGuid(in projection, AutoConceptServiceProjection.IdleRecipeKey),
-                ReadGuid(in projection, AutoConceptServiceProjection.IdleDisplacedKey),
-                ReadGuid(in projection, AutoConceptServiceProjection.IdleResourceKey));
+                ServiceProjectionGuid.Read(in projection, AutoConceptServiceProjection.IdleRecipeKey),
+                ServiceProjectionGuid.Read(in projection, AutoConceptServiceProjection.IdleDisplacedKey),
+                ServiceProjectionGuid.Read(in projection, AutoConceptServiceProjection.IdleResourceKey));
             return true;
         }
 
@@ -128,10 +128,5 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
         }
         return null;
     }
-
-    private static Guid ReadGuid(in ServiceStateProjectionSnapshot projection, int key) =>
-        AutoConceptServiceProjection.ReadGuid(
-            ReadInteger(in projection, key) ?? 0,
-            ReadInteger(in projection, key + 1) ?? 0);
 
 }
