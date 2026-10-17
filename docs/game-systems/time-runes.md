@@ -45,7 +45,8 @@ Some runes buff whole *classes* of runes rather than a game system. E.g., "Persi
 `+12 %` Investment Power, which multiplies its own XP gain because it is itself an Investment rune.
 **Persist Boost** (Meta) gives `+1` Free Usage per level to every Investment rune, so each of its
 levels makes one more level of every Investment rune free; its tooltip says buying it refunds Time
-Advancements already invested in Investment runes. Rune effects can be **reflexive** (a rune affecting itself) and **retroactive** (a class multiplier
+Advancements already invested in Investment runes (observed: its free first level refunded 3 TA from
+Studious Persist Lv 4, whose next level dropped from 4 to 3 TA; Persist Boost Lv 2 was quoted at 5 TA). Rune effects can be **reflexive** (a rune affecting itself) and **retroactive** (a class multiplier
 applying to a rune of that class picked earlier in the run).
 
 Investment Power stacks additively: `+12 %` per persist level, so three levels turn a base `225` pick
