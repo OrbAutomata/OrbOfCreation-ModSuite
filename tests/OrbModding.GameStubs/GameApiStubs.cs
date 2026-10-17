@@ -1593,6 +1593,22 @@ public class Spell : ITooltipable
     public int GetNonFreeUsesOfGlyph(GlyphSO glyph) =>
         Math.Max(GetQuantityOfGlyph(glyph) - (int)glyph.freeUsages.GetValue().ToDouble(), 0);
     public int GetTotalAugGlyphs() => augmentGlyphRefs.GetTotalStacks();
+
+    /// <summary>
+    /// The game's shape: the recipe's usage plus each augment's usage once per copy it carries.
+    /// </summary>
+    public ResourceCostList GetUsageCost()
+    {
+        var recipeCost = reference?.GetUsageCost() ?? new ResourceCostList();
+        var cost = new ResourceCostList();
+        cost.costs.AddRange(recipeCost.costs);
+        foreach (var glyph in augmentGlyphs)
+            foreach (var row in glyph.usageCost.costs)
+                cost.costs.Add(new ResourceTuple(
+                    row.resource, row.GetValue() * new BigDouble(GetQuantityOfGlyph(glyph))));
+        return cost;
+    }
+
     public void SetLevel(int _) => ComputeCost();
     public void SetAugmentGlyphs(Stacked.StackedIdRecord<GlyphSO> value)
     {
@@ -2643,8 +2659,7 @@ public class SpellManager
     public Func<IReadOnlyList<GlyphSO>, ResourceCostList>? CreateCostResolver { get; set; }
 
     public static bool CanCastASpell() => NativeCanCast;
-    public static ResourceCostList GetUsageCostOfSpell(Spell spell) =>
-        spell.get_reference()?.GetUsageCost() ?? new ResourceCostList();
+    public static ResourceCostList GetUsageCostOfSpell(Spell spell) => spell.GetUsageCost();
 
     /// <summary>
     /// The game's own matcher: an empty list resolves to nothing, augments are stripped, candidates

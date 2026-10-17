@@ -314,6 +314,105 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.Equal(new BigDouble(3), row.Amount);
     }
 
+    /// <summary>
+    /// Augments are baked in, so pricing a new layout for a loaded spell on a full bar is pricing
+    /// its replacement: the bar-full refusal answered a question the player was not asking.
+    /// </summary>
+    [Fact]
+    public void LoadPreviewOnAFullBarPricesAReplacementOfTheLowestSlotCopy()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var capacity = Capacity(maximum: 12, used: 9);
+        recipe.baseUsageCost.costs.Add(new ResourceTuple(capacity, new BigDouble(3)));
+        var active = SpellManager.instance!.activeSpells;
+        active.maxSizeVariable = new IntVariable { Value = 3 };
+        active.value.Add(new Spell(new SpellRecipeSO()));
+        active.value.Add(recipe.CreateEmpty(0));
+        active.value.Add(recipe.CreateEmpty(0));
+        var augment = Augment();
+        var layout = new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 1) };
+        using var action = Action();
+
+        var preview = action.Preview(new SpellWorkbenchLoadPreviewRequest(
+            recipe.GetGuid(), Epoch, layout));
+        var add = action.Submit(new SpellWorkbenchAction(recipe.GetGuid(), Epoch, layout));
+
+        Assert.True(preview.Available, preview.Reason);
+        Assert.Equal(Name(recipe) + " in slot 2 — remove it, then add", preview.Replaces);
+        Assert.Equal(new BigDouble(3), Assert.Single(preview.Usage).Amount);
+        Assert.Equal(SpellWorkbenchPreflight.LoadoutFull, add.Preflight);
+        Assert.Equal(3, active.value.Count);
+        Assert.Empty(SpellManager.instance.selectedAugmentGlyphs.value);
+    }
+
+    /// <summary>
+    /// The replaced copy's weight is free once it is removed, and nothing beyond it is.
+    /// </summary>
+    [Fact]
+    public void LoadPreviewReplacementCountsTheCopysWeightAsFreeAndNoMore()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var capacity = Capacity(maximum: 6, used: 6);
+        recipe.baseUsageCost.costs.Add(new ResourceTuple(capacity, new BigDouble(3)));
+        var augment = Augment();
+        augment.usageCost.costs.Add(new ResourceTuple(capacity, new BigDouble(2)));
+        var active = SpellManager.instance!.activeSpells;
+        active.maxSizeVariable = new IntVariable { Value = 1 };
+        active.value.Add(recipe.CreateEmpty(0));
+        using var action = Action();
+
+        var same = action.Preview(new SpellWorkbenchLoadPreviewRequest(
+            recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
+        var heavier = action.Preview(new SpellWorkbenchLoadPreviewRequest(
+            recipe.GetGuid(), Epoch,
+            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 1) }));
+
+        Assert.True(same.Available, same.Reason);
+        Assert.Equal(Name(recipe) + " in slot 1 — remove it, then add", same.Replaces);
+        Assert.Equal(SpellWorkbenchPreflight.UsageUnaffordable, heavier.Preflight);
+        Assert.Equal(
+            Name(recipe) + " in place of its copy in slot 1 would push " + Name(capacity) +
+            " past its allocation, counting that copy's weight as free. It weighs 5 " +
+            Name(capacity) + " and 3 is free. Remove loaded spells weighing 2 more, or raise " +
+            "that allocation. → Loaded spells and their weights: world_list category=spell-slots",
+            heavier.Reason);
+    }
+
+    /// <summary>
+    /// The unique-copy gate is answered by the removal a replacement holds after; with a free slot
+    /// the preview is another copy, which the game refuses for a unique spell.
+    /// </summary>
+    [Fact]
+    public void LoadPreviewSkipsTheUniqueCopyGateOnlyWhenItPricesAReplacement()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        recipe.NativeUniqueSpell = true;
+        var active = SpellManager.instance!.activeSpells;
+        active.maxSizeVariable = new IntVariable { Value = 2 };
+        active.value.Add(recipe.CreateEmpty(0));
+        using var action = Action();
+        var request = new SpellWorkbenchLoadPreviewRequest(
+            recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>());
+
+        var freeSlot = action.Preview(request);
+        active.value.Add(new Spell(new SpellRecipeSO()));
+        var fullBar = action.Preview(request);
+        var add = action.Submit(new SpellWorkbenchAction(
+            recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
+
+        Assert.Equal(SpellWorkbenchPreflight.UniqueSpellConflict, freeSlot.Preflight);
+        Assert.True(fullBar.Available, fullBar.Reason);
+        Assert.Equal(Name(recipe) + " in slot 1 — remove it, then add", fullBar.Replaces);
+        Assert.Equal(SpellWorkbenchPreflight.LoadoutFull, add.Preflight);
+    }
+
+    private static ResourceSO Capacity(int maximum, int used) => new()
+    {
+        bandwidthResource = true,
+        quantity = new BigDouble(used),
+        maxQuantity = new ValueModifierRecord(new BigDouble(maximum)),
+    };
+
     [Fact]
     public void LoadoutAddFaultsWhenTheGameReturnsWithoutTheRequestedSpell()
     {

@@ -314,12 +314,20 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                     out var augmentRefusal,
                     out var augmentReason))
                 return SpellWorkbenchLoadPreview.Refused(augmentRefusal, augmentReason);
-            if (!TryAdmitLoad(native, manager, recipe, augments, out preflight, out var admitReason))
+            var replaced = native.HasEmpty(native.ReadActive(manager))
+                ? null
+                : FindLoadedCopy(native, manager, recipe);
+            if (!TryAdmitLoad(native, manager, recipe, augments, replaced,
+                    out preflight, out var admitReason))
                 return SpellWorkbenchLoadPreview.Refused(preflight, admitReason);
             var candidate = BuildCandidate(native, recipe, augments);
             return SpellWorkbenchLoadPreview.Admitted(
                 request.SpellRecipeId,
-                ReadUsageAllocation(native, native.GetUsageCost(candidate)));
+                ReadUsageAllocation(native, native.GetUsageCost(candidate)),
+                replaced is { } copy
+                    ? EntityIdentityFormatter.PlayerName(request.SpellRecipeId) + " in slot " +
+                      (copy.Slot + 1) + " — remove it, then add"
+                    : string.Empty);
         }
         catch (Exception ex) when (IsExpected(ex))
         {
@@ -367,7 +375,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 action.AugmentGlyphs, expectAugment: true, native,
                 out var augments, out var augmentRefusal, out var augmentReason))
             return SpellWorkbenchSubmission.Reject(augmentRefusal, augmentReason);
-        if (!TryAdmitLoad(native, manager, recipe, augments, out var refusal, out var refusalReason))
+        if (!TryAdmitLoad(native, manager, recipe, augments, null, out var refusal, out var refusalReason))
             return SpellWorkbenchSubmission.Reject(refusal, refusalReason);
 
         var expectedLayout = ReadIds(native, augments);
@@ -409,7 +417,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                         readBackReason +
                         " The player's own augment selection could not be restored either.");
             }
-            if (!TryAdmitLoad(native, manager, recipe, selected, out refusal, out refusalReason))
+            if (!TryAdmitLoad(native, manager, recipe, selected, null, out refusal, out refusalReason))
             {
                 if (RestoreAugments(native, manager, previous, ref nativeCalls))
                     return SpellWorkbenchSubmission.Reject(refusal, refusalReason);
@@ -477,7 +485,11 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
     /// </para>
     /// <para>
     /// Preview and add share this, so a preview cannot answer available for a layout the add on
-    /// identical arguments refuses.
+    /// identical arguments refuses. The one exception is a preview on a full bar of a recipe that
+    /// is already loaded: augments are baked in, so changing a loaded spell is a removal and an
+    /// add, and the preview prices that replacement of the lowest-slot copy. It skips the empty
+    /// spot and the unique-copy gates, which that removal answers, and counts the copy's usage as
+    /// free.
     /// </para>
     /// </remarks>
     /// <summary>
@@ -513,6 +525,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         object manager,
         object recipe,
         IList<object> augments,
+        LoadedCopy? replaced,
         out SpellWorkbenchPreflight refusal,
         out string reason)
     {
@@ -551,11 +564,25 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 "requirement first.",
                 out refusal, out reason);
         var usageCost = native.GetUsageCost(candidate);
-        if (!native.HasEnough(usageCost))
+        if (replaced is { } copy)
+        {
+            var released = ReadUsageTotals(native, native.GetUsageCost(copy.Spell));
+            if (TryReadShortUsage(native, usageCost, released, out var shortId, out var shortNeeded,
+                    out var shortFree))
+                return Refuse(
+                    SpellWorkbenchPreflight.UsageUnaffordable,
+                    recipeName + " in place of its copy in slot " + (copy.Slot + 1) +
+                        " would push " + EntityIdentityFormatter.PlayerName(shortId) +
+                        " past its allocation, counting that copy's weight as free. " +
+                        WeightShortfall(EntityIdentityFormatter.PlayerName(shortId),
+                            shortNeeded, shortFree),
+                    out refusal, out reason);
+        }
+        else if (!native.HasEnough(usageCost))
         {
             return Refuse(
                 SpellWorkbenchPreflight.UsageUnaffordable,
-                TryReadShortUsage(native, usageCost, out var shortResourceId, out var needed,
+                TryReadShortUsage(native, usageCost, null, out var shortResourceId, out var needed,
                         out var free)
                     ? "Loading " + recipeName + " would push " +
                         EntityIdentityFormatter.PlayerName(shortResourceId) +
@@ -567,13 +594,14 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 out refusal, out reason);
         }
         var activeList = native.ReadActive(manager);
-        if (!native.HasEmpty(activeList))
+        if (replaced is null && !native.HasEmpty(activeList))
             return Refuse(SpellWorkbenchPreflight.LoadoutFull,
                 "All " + native.ReadActiveValues(activeList).Count +
                 " loadout slots hold a spell, so there is nowhere to put " + recipeName +
                 ". Remove a loaded spell first; nothing was staged and nothing was spent.",
                 out refusal, out reason);
-        if (native.IsUniqueSpell(candidate) && HasActiveRecipe(native, manager, recipe))
+        if (replaced is null && native.IsUniqueSpell(candidate) &&
+            HasActiveRecipe(native, manager, recipe))
             return Refuse(SpellWorkbenchPreflight.UniqueSpellConflict,
                 recipeName + " is loadout-unique and one copy is already loaded. " +
                 "Remove that copy first.",
@@ -626,6 +654,13 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
     private static bool HasActiveRecipe(
         SpellWorkbenchNativeBindings native,
         object manager,
+        object recipe) =>
+        FindLoadedCopy(native, manager, recipe) is not null;
+
+    /// <summary>The lowest-slot loaded copy of this recipe, which a preview on a full bar prices a replacement for.</summary>
+    private static LoadedCopy? FindLoadedCopy(
+        SpellWorkbenchNativeBindings native,
+        object manager,
         object recipe)
     {
         var recipeId = native.ReadIdentity(recipe);
@@ -636,10 +671,12 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             if (spell is null) continue;
             var reference = native.ReadSpellReference(spell);
             if (reference is not null && reference.GetType() == native.RecipeType &&
-                native.ReadIdentity(reference) == recipeId) return true;
+                native.ReadIdentity(reference) == recipeId) return new LoadedCopy(spell, index);
         }
-        return false;
+        return null;
     }
+
+    private sealed record LoadedCopy(object Spell, int Slot);
 
     private static void SetStackedLayout(
         SpellWorkbenchNativeBindings native,
@@ -778,9 +815,15 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         return result;
     }
 
+    /// <remarks>
+    /// <paramref name="released"/> is the usage a replaced copy gives back. Spell weight is a
+    /// bandwidth allocation, and <c>ResourceSO.HasUsageMissing</c> compares the snapped room left
+    /// against the snapped weight, so the room after that removal is compared the same way.
+    /// </remarks>
     private static bool TryReadShortUsage(
         SpellWorkbenchNativeBindings native,
         object usageCost,
+        List<(Guid Id, object Resource, BigDouble Cost)>? released,
         out Guid resourceId,
         out BigDouble needed,
         out BigDouble free)
@@ -789,16 +832,31 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         for (var index = 0; index < totals.Count; index++)
         {
             var value = totals[index];
-            if (native.HasResourceAmount(value.Resource, value.Cost)) continue;
+            var credit = ReleasedUsage(released, value.Id);
+            var room = native.ReadResourceMissing(value.Resource) + credit;
+            var fits = credit > BigDouble.Zero
+                ? OrbGameMath.SnapFloorToInt(room) >= OrbGameMath.SnapFloorToInt(value.Cost)
+                : native.HasResourceAmount(value.Resource, value.Cost);
+            if (fits) continue;
             resourceId = value.Id;
             needed = value.Cost;
-            free = native.ReadResourceMissing(value.Resource);
+            free = room;
             return true;
         }
         resourceId = Guid.Empty;
         needed = BigDouble.Zero;
         free = BigDouble.Zero;
         return false;
+    }
+
+    private static BigDouble ReleasedUsage(
+        List<(Guid Id, object Resource, BigDouble Cost)>? released,
+        Guid resourceId)
+    {
+        if (released is null) return BigDouble.Zero;
+        for (var index = 0; index < released.Count; index++)
+            if (released[index].Id == resourceId) return released[index].Cost;
+        return BigDouble.Zero;
     }
 
     /// <summary>
