@@ -103,5 +103,7 @@ opens with the Grow Magic Herbs upgrade and drains Verdant Energy and Organic Es
 (observed ~2.3e7 VE per plant at Druidry Lv 7).
 
 A Magebloom plant offers **Gather Magebloom**: a Control price up front, then Magebloom per second
-for the action's duration (observed +4.09/s for 78 s at Mastery Lv 11), after which the plant is
-Recovering; the plant itself stays.
+for the action's duration (observed +4.1/s for 78 s at Mastery Lv 11–12), after which the plant
+is Recovering for ~53 s and then Growing again for ~15 min; the plant itself stays. A gather of
+several plants is one action card with a count badge, and the rate stays the same (observed ~4.1/s
+for one, two or three plants), so the ceiling on Magebloom is one gather running all the time.
