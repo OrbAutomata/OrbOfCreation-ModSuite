@@ -115,6 +115,7 @@ public sealed class AutoConceptServiceCompositionTests
 
         pump.PumpFrame(3);
         clock.Advance(MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(61)));
+        registry.WorldPublication.Publish(IdleWorld(), new WorldGeneration(3));
         ServiceRunnerTestWait.ForWorkerReady(registration);
         Assert.Equal(1, pump.PumpFrame(4).CyclesStarted);
         ServiceRunnerTestWait.ForResponse(registration);
