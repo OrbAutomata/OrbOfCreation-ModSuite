@@ -1803,11 +1803,17 @@ this press already did — and the curve is still read from `world_get`, where e
 lives. The paid route checks the game's persistent usage cost but
 does not perform a one-time payment; the concrete native level callback applies its own
 usage/effects. Research development and spell mastery stay on `game_research` and
-`game_spell_mastery`, respectively. A landed mastery press answers its `mastery` pair and, under
-`resources`, where each resource the mastery price names stood before and after. The block is
-`resources` and not `spent` on purpose: those are two published readings a later read would agree
-with, not an arithmetic of what was charged — a spell casting while the answer settles moves the
-same number.
+`game_spell_mastery`, respectively. A landed single mastery press answers its `mastery` pair and
+`charged` in the same shape, with no `chargedLevels` because a press buys one level.
+
+**A charge is the price the press paid, never a balance difference.** Every `cost` under `charged`
+is the price the game named on the frame that paid it, converted once into the figure the screen
+draws (nominal cost over the resource's quality). Two balance readings around a press move with
+everything else in the window: a mastery level bought during a Spark channel read
+`before=101 after=125` for a 9 Spark price, and one bought beside a purchase read 499 Spark gone
+for a 100 Spark price. What a resource holds now is a `world_get` read. A `game_spell_mastery all`
+press is the game's own Level All sweep, which names no price to the suite, so it answers
+`changedSpells` and no charge.
 
 ### Agromancy
 

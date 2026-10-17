@@ -283,6 +283,11 @@ public sealed class InstalledGameContractTests
         AssertMethod(assembly, "SpellRecipeSO", "PurchaseLevel", false, "System.Void");
         AssertMethod(assembly, "ResourceCostList", "HasEnough", false, "System.Boolean");
         AssertMethod(assembly, "ResourceCostList", "PerformCost", false, "System.Void");
+        AssertMethod(assembly, "ResourceCostList", "GetEntries", false,
+            "System.Collections.Generic.List`1<ResourceTuple>");
+        Assert.Equal("ResourceSO", assembly.GetFieldType("ResourceTuple", "resource"));
+        AssertMethod(assembly, "ResourceTuple", "GetValue", false, "BigDouble");
+        AssertMethod(assembly, "IdScriptableObject", "GetGuid", false, "System.Guid");
         AssertMethod(assembly, "UpgradeSO", "GetPurchaseLevel", false, "System.Int32");
     }
 

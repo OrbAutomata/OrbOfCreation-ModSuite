@@ -837,37 +837,74 @@ public sealed class GameMcpSpellWorkbenchTests
         frameContext: before is null ? null : GameMcpTestHarness.Context(before));
 
     /// <summary>
-    /// A bought mastery level says where the resources its price names now stand.
+    /// A bought mastery level says what its own press was charged, whatever else moved the balance.
     /// </summary>
     /// <remarks>
-    /// The post-state said only <c>mastery: 1 -&gt; 2</c>, and a round bought two of them without
-    /// ever being told what they drew on. Nothing here verifies a payment — the caller is presumed
-    /// to have paid — but the resources the price names are published on both sides of the press,
-    /// and a later read would agree with both readings.
+    /// A level bought during a Spark channel answered <c>resources: before=101, after=125</c>:
+    /// the channel paid in more than the 9 Spark price took out, so the answer read as a gain and
+    /// the price could not be read off it at all. The charge is the price the press paid, in the
+    /// figure the screen draws it in — the nominal 4.5 divided by the resource's 50% quality.
     /// </remarks>
     [Fact]
-    public void A_mastery_purchase_says_where_the_resources_its_price_names_now_stand()
+    public void A_mastery_press_says_what_it_was_charged_not_how_the_balance_moved()
     {
         var before = World(
             discovered: true, discoveryAffordable: true, hasEmptySlot: true,
-            masteryReady: true, held: 12, spendable: 12);
-        var after = World(
-            discovered: true, discoveryAffordable: true, hasEmptySlot: true,
-            masteryReady: true, held: 0, spendable: 0);
+            masteryReady: true) with
+        {
+            Resources = PublicationTable<WorldResource>.Create(new[] { SparkResource(101) }),
+        };
+        var after = before with
+        {
+            Resources = PublicationTable<WorldResource>.Create(new[] { SparkResource(125) }),
+        };
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.SpellLevel, 9, 3, "single", RecipeId, Guid.Empty,
             "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 71));
+        var level = 1;
+        var submission = SpellLevelSubmission.Attempted(
+            NativeMutationVerifier.Execute(
+                "Spell level single", RecipeId.ToString("D"), "mastery level exact delta +1",
+                () => level, () => level++, (previous, current) => current == previous + 1),
+            new[] { new ResourceCharge(SparkId, new BigDouble(4.5)) });
+        var committed = GameMcpCommandResult.Committed(
+            "committed", 9, 3, GameMcpSpellLevelProjection.Project(in submission, before));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            GameMcpTestHarness.Context(after, generation: 72),
-            command,
-            GameMcpCommandResult.Committed("committed", 9, 3)));
+        var wire = GameMcpTestHarness.Json(committed.WithSettledPostState(
+                GameMcpWorldQuery.ProjectGameplayPostState(
+                    GameMcpTestHarness.Context(after, generation: 72), command, committed))
+            .Project(command));
 
-        Assert.NotNull(delta["mastery"]);
-        var row = Assert.Single(delta["resources"]!.Values<JObject>())!;
-        Assert.Equal("12", (string?)row["before"]);
-        Assert.Equal("0", (string?)row["after"]);
+        Assert.NotNull(wire["mastery"]);
+        Assert.Null(wire["resources"]);
+        var charge = Assert.Single(wire["charged"]!.Values<JObject>())!;
+        Assert.Equal("9", (string?)charge["cost"]);
+    }
+
+    private static readonly Guid SparkId =
+        Guid.Parse("5a9c0e1d-2b3f-4c6d-8e7f-90a1b2c3d4e5");
+
+    private static WorldResource SparkResource(int held)
+    {
+        var rateInputs = default(RawResourceRateInputs);
+        var traits = new RawResourceTraits(
+            0d, 0d, 0d, false, false, false,
+            bandwidthResource: false,
+            invertedResource: false,
+            excludeFromGlobals: false,
+            startVisible: true,
+            BigDouble.Zero, 0, 0, 0d, false, 0d,
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, false);
+        var modifiers = default(RawResourceModifiers);
+        var reading = new RawResourceSample(
+            SparkId, new BigDouble(held), new BigDouble(500),
+            true, BigDouble.Zero, BigDouble.Zero, new BigDouble(50),
+            BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, false, false,
+            false, 0, Guid.Empty, in rateInputs, in traits, in modifiers);
+        return new WorldResource(
+            in reading, true, new BigDouble(held), 0d, false,
+            new BigDouble(held), BigDouble.Zero);
     }
 
     private static GameWorldState World(

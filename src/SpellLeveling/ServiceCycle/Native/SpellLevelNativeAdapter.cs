@@ -39,14 +39,18 @@ internal readonly struct SpellLevelSubmission
         bool hasEvidence,
         NativeMutationOutcome outcome,
         NativeMutationCallOutcome callOutcome,
-        string reason)
+        string reason,
+        ResourceCharge[]? charges = null)
     {
         Preflight = preflight;
         HasEvidence = hasEvidence;
         Outcome = outcome;
         CallOutcome = callOutcome;
         Reason = reason;
+        _charges = charges;
     }
+
+    private readonly ResourceCharge[]? _charges;
 
     public SpellLevelPreflight Preflight { get; }
     public bool HasEvidence { get; }
@@ -57,6 +61,13 @@ internal readonly struct SpellLevelSubmission
     /// <summary>What the boundary would tell an operator, whichever way it went.</summary>
     public string Reason { get; }
 
+    /// <summary>
+    /// The price the game named for a single level on the frame that paid it. A level-all press
+    /// is the game's own batch, which names no price to the suite, so it carries none.
+    /// </summary>
+    public ReadOnlySpan<ResourceCharge> Charges =>
+        _charges is null ? default : _charges.AsSpan();
+
     public static SpellLevelSubmission Rejected(SpellLevelPreflight preflight, string reason)
     {
         if (preflight == SpellLevelPreflight.Proceeded)
@@ -64,13 +75,16 @@ internal readonly struct SpellLevelSubmission
         return new SpellLevelSubmission(preflight, hasEvidence: false, default, default, reason);
     }
 
-    public static SpellLevelSubmission Attempted<TState>(NativeMutationEvidence<TState> evidence) =>
+    public static SpellLevelSubmission Attempted<TState>(
+        NativeMutationEvidence<TState> evidence,
+        ResourceCharge[]? charges = null) =>
         new(
             SpellLevelPreflight.Proceeded,
             hasEvidence: true,
             evidence.Outcome,
             NativeMutationCallOutcome.FromEvidence(evidence),
-            evidence.IsVerified ? string.Empty : evidence.Format());
+            evidence.IsVerified ? string.Empty : evidence.Format(),
+            charges);
 }
 
 /// <summary>
@@ -112,6 +126,10 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     private MethodInfo? _getLevelCost;
     private MethodInfo? _costHasEnough;
     private MethodInfo? _costPerform;
+    private MethodInfo? _costEntries;
+    private FieldInfo? _entryResource;
+    private MethodInfo? _entryValue;
+    private MethodInfo? _resourceGuid;
     private MethodInfo? _purchaseLevel;
     private MethodInfo? _getUpgradePurchaseLevel;
     private MethodInfo? _tryLevelAll;
@@ -241,6 +259,10 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         _getLevelCost = null;
         _costHasEnough = null;
         _costPerform = null;
+        _costEntries = null;
+        _entryResource = null;
+        _entryValue = null;
+        _resourceGuid = null;
         _purchaseLevel = null;
         _getUpgradePurchaseLevel = null;
         _tryLevelAll = null;
@@ -249,6 +271,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
     private SpellLevelSubmission SubmitSingle(Guid uuid, object recipe, object cost)
     {
+        var charges = ReadCharges(cost);
         var evidence = NativeMutationVerifier.Execute(
             "Spell level single",
             uuid.ToString("D"),
@@ -260,7 +283,27 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
                 _purchaseLevel!.Invoke(recipe, Array.Empty<object>());
             },
             (before, after) => after == before + 1);
-        return Complete(evidence);
+        return Complete(evidence, charges);
+    }
+
+    private ResourceCharge[]? ReadCharges(object cost)
+    {
+        if (_costEntries!.Invoke(cost, Array.Empty<object>()) is not IList entries || entries.Count == 0)
+            return null;
+        var charges = new ResourceCharge[entries.Count];
+        var count = 0;
+        for (var index = 0; index < entries.Count; index++)
+        {
+            var entry = entries[index];
+            var resource = entry is null ? null : _entryResource!.GetValue(entry);
+            if (resource is null) continue;
+            charges[count++] = new ResourceCharge(
+                (Guid)_resourceGuid!.Invoke(resource, Array.Empty<object>())!,
+                (BigDouble)_entryValue!.Invoke(entry, Array.Empty<object>())!);
+        }
+        if (count == 0) return null;
+        Array.Resize(ref charges, count);
+        return charges;
     }
 
     private SpellLevelSubmission SubmitAll(Guid uuid)
@@ -324,9 +367,11 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     /// this contract, and the only safe thing to do with a mutation you cannot verify is stop making
     /// it. A rejected preflight is not that — nothing was called — and does not block.
     /// </remarks>
-    private SpellLevelSubmission Complete<TState>(NativeMutationEvidence<TState> evidence)
+    private SpellLevelSubmission Complete<TState>(
+        NativeMutationEvidence<TState> evidence,
+        ResourceCharge[]? charges = null)
     {
-        var submission = SpellLevelSubmission.Attempted(evidence);
+        var submission = SpellLevelSubmission.Attempted(evidence, charges);
         if (!evidence.IsVerified && evidence.MutationWasAttempted)
             Block($"native spell-level mutation blocked until the next lifecycle: {evidence.Format()}");
         return submission;
@@ -414,7 +459,15 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
             _prerequisitesCheck = FindMethod(_levelingPrerequisitesField.FieldType, "Check");
             _costHasEnough = FindMethod(_getLevelCost.ReturnType, "HasEnough");
             _costPerform = FindMethod(_getLevelCost.ReturnType, "PerformCost");
-            if (_prerequisitesCheck is null || _costHasEnough is null || _costPerform is null)
+            _costEntries = FindMethod(_getLevelCost.ReturnType, "GetEntries");
+            var entryType = _costEntries?.ReturnType.IsGenericType == true
+                ? _costEntries.ReturnType.GetGenericArguments()[0]
+                : null;
+            _entryResource = entryType is null ? null : FindField(entryType, "resource", false);
+            _entryValue = entryType is null ? null : FindMethod(entryType, "GetValue");
+            _resourceGuid = _entryResource is null ? null : FindMethod(_entryResource.FieldType, "GetGuid");
+            if (_prerequisitesCheck is null || _costHasEnough is null || _costPerform is null ||
+                _entryResource is null || _entryValue is null || _resourceGuid is null)
                 return Block("native spell prerequisite or cost accessors are unavailable", out reason);
 
             _ = ReadRecipes();

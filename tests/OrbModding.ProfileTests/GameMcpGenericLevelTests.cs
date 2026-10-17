@@ -214,14 +214,15 @@ public sealed class GameMcpGenericLevelTests
     public void Only_a_press_charged_nothing_for_every_level_is_free()
     {
         var resource = Guid.Parse("1f2e3d4c-5b6a-4798-8899-aabbccddeeff");
+        var world = World(5, 0, purchaseAffordable: true);
 
         var freePress = GameMcpGenericLevelProjection.Project(
-            Bought(levels: 5, charges: Array.Empty<GenericLevelCharge>()));
+            Bought(levels: 5, charges: Array.Empty<ResourceCharge>()), world);
         var chargedPress = GameMcpGenericLevelProjection.Project(
             Bought(levels: 5, charges: new[]
             {
-                new GenericLevelCharge(resource, new BigDouble(10)),
-            }));
+                new ResourceCharge(resource, new BigDouble(10)),
+            }), world);
 
         var free = GameMcpTestHarness.Json(freePress);
         var charged = GameMcpTestHarness.Json(chargedPress);
@@ -290,12 +291,12 @@ public sealed class GameMcpGenericLevelTests
 
         var submission = Bought(levels: 1, charges: new[]
         {
-            new GenericLevelCharge(CostResourceId, new BigDouble(1)),
+            new ResourceCharge(CostResourceId, new BigDouble(1)),
         });
         var committed = GameMcpCommandResult.FromAction(
             GenericLevelActionResultMapper.Map(in submission),
             GameMcpCommandKind.GenericLevel, 9, 3, submission.Reason,
-            GameMcpGenericLevelProjection.Project(in submission));
+            GameMcpGenericLevelProjection.Project(in submission, before));
 
         var wire = Json(
             committed.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
@@ -313,7 +314,7 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal("Knowledge", (string?)charge["resource"]!["name"]);
     }
 
-    private static GenericLevelSubmission Bought(int levels, GenericLevelCharge[] charges) =>
+    private static GenericLevelSubmission Bought(int levels, ResourceCharge[] charges) =>
         new(GenericLevelPreflight.Proceeded,
             GenericLevelNativeStage.Verification,
             NativeMutationOutcome.Verified,
