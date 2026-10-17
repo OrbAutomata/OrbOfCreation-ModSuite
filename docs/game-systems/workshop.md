@@ -44,3 +44,12 @@ stack in the queue. A craft pays 1 Paper before bonuses (observed ~2.6 per craft
 the price of the next Workshop and World upgrades — observed **Create Fruit Trees** (200 Paper +
 500 Verdant Energy) and **Planning, Paper** (1e3 Paper: +4 Develop Attribute Queue, +12% attribute
 develop speed) — so the oak loop's Wood is what Paper is made of.
+
+## Later construction tiers
+
+Construction upgrades open structures in new materials. **Refined Construction** ("build with
+Ironwood"; observed 2.55e5 Ironwood + 1e12 Knowledge) opens **Amplifier** (+36% power to every
+Generator per level, paid in Ironwood) and **Printing Station** (a Paper generator; Force Bark +
+Ironwood). Observed: three Amplifier levels took Mana income ×2.8, Control ×3.9 and Wood ×2.9 at once.
+**Learn Reinforcement** opens **Craft Wooden Supports** (Force Bark + Skill + Wood) and the
+Reinforced attributes, each +2.5% power to two older structures and priced in Wooden Supports.
